@@ -46,6 +46,8 @@ internal inline fun <T> withMountedRoot(
     try {
         return block(root) { document.getElementById(id) as HTMLElement }
     } finally {
+        // V1.9.173: a test's switch to the text fallback ([useTextTemporalInputs]) ends with its mount.
+        forceTextTemporalInputsForTest = false
         // BEFORE `dispose()`: disposing the root tears an open modal out of the document while Bootstrap still holds its
         // focus trap, which then pulls `document.activeElement` onto a modal button in whichever test class runs next.
         // See [hardResetModalState] for the full mechanism ("Cluster A").

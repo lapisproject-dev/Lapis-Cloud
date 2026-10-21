@@ -54,50 +54,14 @@ fun renderPaymentGatewaySettingsScreen(container: SimplePanel) {
 private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
     root.h2(tr("Status")) { addCssClass("h5") }
     val settingsPanel = root.vPanel(spacing = 4)
-    settingsPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-
-    fun loadSettings() {
-        settingsPanel.removeAll()
-        settingsPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val settings = guarded { rpcService<IPaymentGatewayService>().getPaymentGatewaySettings() } ?: return@launch
-            settingsPanel.removeAll()
-            renderPaymentGatewaySettingsSummary(settingsPanel, settings)
-        }
-    }
-
-    val actionsRow = root.lapisToolbar { addCssClasses("mt-2") }
-    // Fix (Review round 1, CRITICAL): Welle V1.2.8b added PAYPAL as a fully first-class provider
-    // server-side (`enablePaymentGateway` accepts both STRIPE and PAYPAL), but this screen never
-    // gained a picker -- `enablePaymentGateway` was called with the STRIPE literal unconditionally,
-    // making PayPal unreachable end-to-end despite ~1,900 lines of correct server-side plumbing.
-    // Order (PAYPAL, STRIPE) matches PaymentProvider's own declared order (see that enum's own
-    // "Literal order load-bearing" KDoc); MANUAL is deliberately excluded -- `enablePaymentGateway`
-    // rejects it server-side (see IPaymentGatewayService KDoc "Role: ADMIN. provider must be PAYPAL
-    // or STRIPE").
-    val providerSelect =
-        actionsRow.select(
-            options =
-                listOf(
-                    PaymentProvider.PAYPAL.name to paymentProviderLabel(PaymentProvider.PAYPAL),
-                    PaymentProvider.STRIPE.name to paymentProviderLabel(PaymentProvider.STRIPE),
-                ),
-            value = PaymentProvider.STRIPE.name,
-            label = tr("Anbieter"),
-        )
-    val enableButton = actionsRow.button(tr("Online-Zahlung aktivieren …"), style = ButtonStyle.PRIMARY)
-    val disableButton = actionsRow.actionButton(ActionIcon.REVOKE, tr("Online-Zahlung deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
-    // Fix (Review round 2, MINOR): plan §C5 called for greying out/warning against a provider whose
-    // transport is not configured -- previously both options stayed selectable regardless of
-    // getPspConfigStatus(), so nothing warned an ADMIN at selection time that PayPal/Stripe had no
-    // env vars set (enablePaymentGateway would then fail server-side, or -- worse, if only the
-    // shared LAPIS_PSP_* knobs were set -- silently select a provider whose real credentials are
-    // missing). KVision's select() has no per-option disabled state, so this warns inline and
-    // disables the Enable button instead, achieving the same "cannot enable an unconfigured
-    // provider from this screen" outcome.
-    val unconfiguredWarning =
-        actionsRow.div { addCssClasses("text-danger small") }.apply { visible = false }
+    val actionsHost = root.toggleActionsHost()
+    lateinit var toggle: ToggleSettingsPanel<PaymentGatewaySettingsDto>
     var configStatus: PspConfigStatusDto? = null
+
+    // The provider picker, the "not configured" warning and the Enable button exist only while the gateway is DISABLED (V1.9.180):
+    // they are built by the `enable` lambda below. The function of the CURRENT row is kept here so that the late answer of
+    // getPspConfigStatus() refreshes the widgets that are on screen, never a row that was replaced meanwhile.
+    var refreshProviderWarning: () -> Unit = {}
 
     fun providerIsConfigured(provider: PaymentProvider): Boolean {
         val status = configStatus ?: return true // unknown yet -- never block before the status has loaded
@@ -109,27 +73,10 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
         }
     }
 
-    fun refreshProviderWarning() {
-        val selectedProvider = PaymentProvider.entries.firstOrNull { it.name == providerSelect.value } ?: PaymentProvider.STRIPE
-        val configured = providerIsConfigured(selectedProvider)
-        enableButton.disabled = !configured
-        unconfiguredWarning.visible = !configured
-        if (!configured) {
-            unconfiguredWarning.content =
-                gettext(
-                    "%1 ist serverseitig noch nicht vollständig konfiguriert -- siehe Diagnose-Abschnitt unten.",
-                    paymentProviderLabel(selectedProvider),
-                )
-        }
-    }
-    providerSelect.subscribe { refreshProviderWarning() }
-    AppScope.launch {
-        configStatus = guarded { rpcService<IPaymentGatewayService>().getPspConfigStatus() }
-        refreshProviderWarning()
-    }
-
-    fun acknowledgeAndEnable() {
-        val selectedProvider = PaymentProvider.entries.firstOrNull { it.name == providerSelect.value } ?: PaymentProvider.STRIPE
+    fun acknowledgeAndEnable(
+        enableButton: Button,
+        selectedProvider: PaymentProvider,
+    ) {
         if (!providerIsConfigured(selectedProvider)) return
         enableButton.disabled = true
         AppScope.launch {
@@ -151,30 +98,90 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
                             }
                         if (result != null) {
                             notifySuccess(tr("Online-Zahlung aktiviert."))
-                            loadSettings()
+                            toggle.load(focusStatus = true)
                         }
                     }
                 }
             }
         }
     }
-    enableButton.onClick { acknowledgeAndEnable() }
 
-    disableButton.onClick {
-        paymentGatewayDisableConfirmDialog {
-            disableButton.disabled = true
-            AppScope.launch {
-                val result = guarded { rpcService<IPaymentGatewayService>().disablePaymentGateway() }
-                disableButton.disabled = false
-                if (result != null) {
-                    notifySuccess(tr("Online-Zahlung deaktiviert."))
-                    loadSettings()
+    toggle =
+        ToggleSettingsPanel(
+            settingsPanel = settingsPanel,
+            actionsHost = actionsHost,
+            fetch = {
+                refreshProviderWarning = {}
+                guarded { rpcService<IPaymentGatewayService>().getPaymentGatewaySettings() }
+            },
+            isEnabled = { it.paymentGatewayEnabled },
+            renderSummary = ::renderPaymentGatewaySettingsSummary,
+            enable = { row ->
+                // Fix (Review round 1, CRITICAL): Welle V1.2.8b added PAYPAL as a fully first-class provider server-side
+                // (`enablePaymentGateway` accepts both STRIPE and PAYPAL); the picker makes it reachable. Order (PAYPAL, STRIPE)
+                // matches PaymentProvider's own declared order; MANUAL is deliberately excluded -- `enablePaymentGateway` rejects
+                // it server-side (see IPaymentGatewayService KDoc "Role: ADMIN. provider must be PAYPAL or STRIPE").
+                val providerSelect =
+                    row.select(
+                        options =
+                            listOf(
+                                PaymentProvider.PAYPAL.name to paymentProviderLabel(PaymentProvider.PAYPAL),
+                                PaymentProvider.STRIPE.name to paymentProviderLabel(PaymentProvider.STRIPE),
+                            ),
+                        value = PaymentProvider.STRIPE.name,
+                        label = tr("Anbieter"),
+                    )
+                val enableButton = row.button(tr("Online-Zahlung aktivieren …"), style = ButtonStyle.PRIMARY)
+                // Fix (Review round 2, MINOR): KVision's select() has no per-option disabled state, so a provider whose transport is
+                // not configured is warned about inline and the Enable button is disabled instead.
+                val unconfiguredWarning = row.div { addCssClasses("text-danger small") }.apply { visible = false }
+
+                fun selectedProvider(): PaymentProvider =
+                    PaymentProvider.entries.firstOrNull { it.name == providerSelect.value } ?: PaymentProvider.STRIPE
+
+                val refresh = {
+                    val provider = selectedProvider()
+                    val configured = providerIsConfigured(provider)
+                    enableButton.disabled = !configured
+                    unconfiguredWarning.visible = !configured
+                    if (!configured) {
+                        unconfiguredWarning.content =
+                            gettext(
+                                "%1 ist serverseitig noch nicht vollständig konfiguriert -- siehe Diagnose-Abschnitt unten.",
+                                paymentProviderLabel(provider),
+                            )
+                    }
                 }
-            }
-        }
+                providerSelect.subscribe { refresh() }
+                refreshProviderWarning = refresh
+                refresh()
+                enableButton.onClick { acknowledgeAndEnable(enableButton, selectedProvider()) }
+                enableButton
+            },
+            disable = { row ->
+                refreshProviderWarning = {}
+                row.actionButton(ActionIcon.REVOKE, tr("Online-Zahlung deaktivieren"), style = ButtonStyle.OUTLINEDANGER).also { button ->
+                    button.onClick {
+                        paymentGatewayDisableConfirmDialog {
+                            button.disabled = true
+                            AppScope.launch {
+                                val result = guarded { rpcService<IPaymentGatewayService>().disablePaymentGateway() }
+                                button.disabled = false
+                                if (result != null) {
+                                    notifySuccess(tr("Online-Zahlung deaktiviert."))
+                                    toggle.load(focusStatus = true)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        )
+    AppScope.launch {
+        configStatus = guarded { rpcService<IPaymentGatewayService>().getPspConfigStatus() }
+        refreshProviderWarning()
     }
-
-    loadSettings()
+    toggle.load()
 }
 
 private fun renderPaymentGatewaySettingsSummary(

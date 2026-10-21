@@ -9115,6 +9115,14 @@ msgstr "Estado"
 msgid "Status:"
 msgstr "Estado:"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:50
+msgid "Status: Aktiviert"
+msgstr "Estado: Activado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:51
+msgid "Status: Deaktiviert"
+msgstr "Estado: Desactivado"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:271
 msgid "Status: %1"
 msgstr "Estado: %1"
@@ -23066,6 +23074,10 @@ msgstr "Enviar antes del %1"
 msgid "Einstellungen gespeichert."
 msgstr "Ajustes guardados."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:52
+msgid "Einstellungen konnten nicht geladen werden."
+msgstr "No se pudieron cargar los ajustes."
+
 msgid "Erste Nacht (JJJJ-MM-TT)"
 msgstr "Primera noche (AAAA-MM-DD)"
 
@@ -24124,6 +24136,9 @@ msgstr "Indique una fecha de vencimiento válida en el futuro (%1)."
 
 msgid "Bitte eine Uhrzeit im Format %1 eingeben."
 msgstr "Introduzca una hora en el formato %1."
+
+msgid "Bitte eine Uhrzeit in %1-Minuten-Schritten wählen."
+msgstr "Elija una hora en intervalos de %1 minutos."
 
 msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
 msgstr "Indique un momento de descubrimiento válido, una descripción, las categorías de datos afectadas y un estado."
@@ -25202,3 +25217,24 @@ msgstr "No se encontró ningún micrófono ni ninguna cámara."
 
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr "No se pudo abrir un dispositivo. Puede que otra aplicación lo esté usando."
+
+msgid "Rückkehr (optional)"
+msgstr "Regreso (opcional)"
+
+msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
+msgstr "Sin hora de salida ni de regreso no se puede calcular la dieta diaria de este día."
+
+msgid "Frühstück"
+msgstr "Desayuno"
+
+msgid "Mittag"
+msgstr "Almuerzo"
+
+msgid "Abend"
+msgstr "Cena"
+
+msgid "%1 % · −%2"
+msgstr "%1 % · −%2"
+
+msgid "Die Reisetage werden nach dem Speichern aktualisiert."
+msgstr "Los días de viaje se actualizan después de guardar."

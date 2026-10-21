@@ -8396,6 +8396,14 @@ msgstr ""
 msgid "Status:"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:50
+msgid "Status: Aktiviert"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:51
+msgid "Status: Deaktiviert"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:206
 msgid "Status: %1"
 msgstr ""
@@ -22251,6 +22259,10 @@ msgstr ""
 msgid "Einstellungen gespeichert."
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:52
+msgid "Einstellungen konnten nicht geladen werden."
+msgstr ""
+
 msgid "Erste Nacht (JJJJ-MM-TT)"
 msgstr ""
 
@@ -23308,6 +23320,9 @@ msgid "Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (
 msgstr ""
 
 msgid "Bitte eine Uhrzeit im Format %1 eingeben."
+msgstr ""
+
+msgid "Bitte eine Uhrzeit in %1-Minuten-Schritten wählen."
 msgstr ""
 
 msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
@@ -24386,4 +24401,25 @@ msgid "Es wurde weder ein Mikrofon noch eine Kamera gefunden."
 msgstr ""
 
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
+msgstr ""
+
+msgid "Rückkehr (optional)"
+msgstr ""
+
+msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
+msgstr ""
+
+msgid "Frühstück"
+msgstr ""
+
+msgid "Mittag"
+msgstr ""
+
+msgid "Abend"
+msgstr ""
+
+msgid "%1 % · −%2"
+msgstr ""
+
+msgid "Die Reisetage werden nach dem Speichern aktualisiert."
 msgstr ""

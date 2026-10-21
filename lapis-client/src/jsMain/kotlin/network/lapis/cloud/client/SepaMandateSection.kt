@@ -270,7 +270,7 @@ internal fun renderSepaMandateForm(
                 ibanEcho.content = ""
                 bicField.reset()
                 signatureDateField.reset()
-                signatureDateField.setValue(todayLocaleText())
+                signatureDateField.setDate(organizationToday())
                 acknowledgedField.reset()
                 onGranted()
                 collapse?.invoke(true)

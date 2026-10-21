@@ -16,6 +16,7 @@ internal fun renderReportHeaderForm(
     panel: SimplePanel,
     existing: TravelExpenseReportDto?,
     collapse: ((Boolean) -> Unit)? = null,
+    onRangeDirtyChanged: (Boolean) -> Unit = {},
     onSave: suspend (purpose: String, travelFrom: LocalDate, travelTo: LocalDate) -> Unit,
 ): FormSnapshot {
     val form = panel.lapisForm()
@@ -29,6 +30,21 @@ internal fun renderReportHeaderForm(
     // V1.9.132: Von/Bis in der Reihenfolge des Browser-Locales (LocaleDate.kt); gespeichert wird weiterhin ein ISO-LocalDate.
     val fromField = form.localDateField(label = tr("Von"), value = existing?.travelFrom, required = true)
     val toField = form.localDateField(label = tr("Bis"), value = existing?.travelTo, required = true)
+    linkDateRange(fromField, toField)
+    // V1.9.181: tells the day grid when Von/Bis differ from the saved range (editing only; a half-typed date counts as different). Only
+    // notifies -- it never writes to a field, so it cannot feed back into linkDateRange.
+    var rangeDirty = false
+    val emitRangeDirty = {
+        val dirty =
+            existing != null &&
+                (fromField.localDateOrNull() != existing.travelFrom || toField.localDateOrNull() != existing.travelTo)
+        if (dirty != rangeDirty) {
+            rangeDirty = dirty
+            onRangeDirtyChanged(dirty)
+        }
+    }
+    fromField.subscribe { emitRangeDirty() }
+    toField.subscribe { emitRangeDirty() }
     // Das Bis-Datum darf nicht vor dem Von-Datum liegen -- am Bis-Feld gezeigt, geprüft sobald beide echte Daten sind.
     // V1.9.122: höchstens 31 Reisetage, und kein bereits ausgefüllter Reisetag darf aus dem Zeitraum fallen.
     form.crossFieldRule(field = toField) {

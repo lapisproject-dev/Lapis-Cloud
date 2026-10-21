@@ -1943,7 +1943,7 @@ internal fun renderNewEntryForm(
 
     fun resetForm() {
         dateField.reset()
-        dateField.setValue(todayLocaleText())
+        dateField.setDate(organizationToday())
         descriptionField.reset()
         voucherField.reset()
         clearRows()
@@ -2005,7 +2005,7 @@ internal fun renderNewEntryForm(
 
     fun prefill(entry: JournalEntryDto) {
         form.clearFormError()
-        dateField.setValue(entry.entryDate.toString())
+        dateField.setDate(entry.entryDate)
         descriptionField.setValue(entry.description)
         voucherField.setValue(entry.voucherReference)
         clearRows()

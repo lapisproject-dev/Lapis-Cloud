@@ -215,7 +215,13 @@ private fun renderDraftEditor(
             className = "text-muted small",
         )
     }
-    renderReportHeaderForm(card, draft) { purpose, from, to ->
+    // V1.9.181: the day grid is built further down; until then the header form's "dates changed" state waits here.
+    var dayHandle: TravelExpenseDayGrid? = null
+    var rangeStale = false
+    renderReportHeaderForm(card, draft, onRangeDirtyChanged = { dirty ->
+        rangeStale = dirty
+        dayHandle?.setRangeStale(dirty)
+    }) { purpose, from, to ->
         val result =
             guarded {
                 rpcService<ITravelExpenseService>().updateDraft(
@@ -236,7 +242,6 @@ private fun renderDraftEditor(
     // V1.9.132: the live breakdown follows the totals bar in the DOM (and in the focus order); `theme.css` puts it under the form on a desktop.
     val breakdown = TravelExpenseBreakdownView(layout)
     var settlementAdvanceCents = draft.advanceCents
-    var dayHandle: TravelExpenseDayGrid? = null
 
     fun refreshTotals() {
         val entries = dayHandle?.entries() ?: emptyList()
@@ -268,6 +273,7 @@ private fun renderDraftEditor(
                 onPreviewChanged = { refreshTotals() },
                 onSaved = onChanged,
             )
+        dayHandle?.setRangeStale(rangeStale)
     }
 
     // Weitere Kosten

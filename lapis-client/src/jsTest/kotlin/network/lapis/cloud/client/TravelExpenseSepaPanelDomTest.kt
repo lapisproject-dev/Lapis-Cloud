@@ -210,6 +210,7 @@ class TravelExpenseSepaPanelDomTest {
     @Test
     fun theConfirmDialog_namesTheSum_andOffersAnAccountChoiceOnlyWithSeveralAccounts(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             withPanel(accounts = 2) { element ->
                 element()
                     .allOf(

@@ -331,6 +331,7 @@ private fun renderOwnReliefRequests(
     val exemptionFieldsPanel = formPanel.vPanel(spacing = 4)
     val exemptionFromInput = exemptionFieldsPanel.localDateInput(label = tr("Befreiung ab"))
     val exemptionUntilInput = exemptionFieldsPanel.localDateInput(label = tr("bis (optional, leer = unbefristet)"))
+    linkDateRange(exemptionFromInput, exemptionUntilInput)
 
     val reductionFieldsPanel = formPanel.vPanel(spacing = 4)
     val tierSelect = reductionFieldsPanel.select(options = emptyList(), label = tr("Ziel-Beitragsstufe"))

@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.core.Container
 import io.kvision.form.text.Text
 import io.kvision.form.text.text
+import io.kvision.html.InputType
 import io.kvision.i18n.tr
 import kotlinx.datetime.LocalDate
 
@@ -23,21 +24,22 @@ import kotlinx.datetime.LocalDate
  * `to: LocalDate?` (Journal/Hauptbuch/Kassenbuch), others require `to: LocalDate` (GuV/four-sphere/
  * cost-center report) -- this control does not know which shape a given caller needs.
  */
-class DateRangeFilterControls(
-    val fromInput: Text,
-    val toInput: Text,
+internal class DateRangeFilterControls(
+    private val from: DateEndpoint,
+    private val to: DateEndpoint,
 ) {
-    fun parseFrom(): LocalDate? =
-        fromInput.value
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { parseLocalDateOrNull(it) }
+    fun parseFrom(): LocalDate? = from.dateOrNull()
 
-    fun parseTo(): LocalDate? =
-        toInput.value
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { parseLocalDateOrNull(it) }
+    fun parseTo(): LocalDate? = to.dateOrNull()
+
+    /** The raw entry of the start field (ISO in picker mode, the locale text otherwise; a half-typed picker entry is a non-blank marker). */
+    val fromText: String get() = from.text
+
+    val toText: String get() = to.text
+
+    fun setFrom(date: LocalDate?) = from.setDate(date)
+
+    fun setTo(date: LocalDate?) = to.setDate(date)
 
     /**
      * Welle V1.4.26 (W2): „hat der Leser überhaupt einen Zeitraum eingegrenzt?" -- die Frage, die ein
@@ -46,18 +48,46 @@ class DateRangeFilterControls(
      * unvollständig getipptes Datum ist serverseitig kein Filter, für den Leser aber sehr wohl eine
      * Eingrenzungsabsicht -- der Satz „nichts in diesem Zeitraum" ist dann der hilfreichere.
      */
-    fun hasRange(): Boolean = !fromInput.value.isNullOrBlank() || !toInput.value.isNullOrBlank()
+    fun hasRange(): Boolean = from.text.isNotBlank() || to.text.isNotBlank()
 }
 
-fun Container.dateRangeFilter(
+/** V1.9.173: one end of a date range, whichever widget holds it (a raw [LocalDateInput] or a [LapisField]). */
+internal interface DateEndpoint {
+    fun dateOrNull(): LocalDate?
+
+    val text: String
+
+    fun setDate(date: LocalDate?)
+}
+
+internal fun LocalDateInput.asEndpoint(): DateEndpoint =
+    object : DateEndpoint {
+        override fun dateOrNull() = this@asEndpoint.dateOrNull()
+
+        override val text get() = this@asEndpoint.text.trim()
+
+        override fun setDate(date: LocalDate?) = this@asEndpoint.setDate(date)
+    }
+
+internal fun LapisField.asEndpoint(): DateEndpoint =
+    object : DateEndpoint {
+        override fun dateOrNull() = this@asEndpoint.localDateOrNull()
+
+        override val text get() = this@asEndpoint.rawTemporalText().trim()
+
+        override fun setDate(date: LocalDate?) = this@asEndpoint.setDate(date)
+    }
+
+internal fun Container.dateRangeFilter(
     fromLabel: String = tr("Von (optional)"),
     toLabel: String = tr("Bis"),
 ): DateRangeFilterControls {
     val row = lapisToolbar()
-    // V1.9.137: the two fields read and show the date in the locale (`15.10.2026`); the pattern is their placeholder, no hint line in a toolbar.
-    val fromInput = row.localDateInput(label = fromLabel, hintLine = false).input
-    val toInput = row.localDateInput(label = toLabel, hintLine = false).input
-    return DateRangeFilterControls(fromInput, toInput)
+    // V1.9.137: the two fields read and show the date in the locale (`15.10.2026`); V1.9.173: native pickers, no hint line in a toolbar.
+    val fromInput = row.localDateInput(label = fromLabel, hintLine = false)
+    val toInput = row.localDateInput(label = toLabel, hintLine = false)
+    linkDateRange(fromInput, toInput)
+    return DateRangeFilterControls(fromInput.asEndpoint(), toInput.asEndpoint())
 }
 
 /**
@@ -75,6 +105,9 @@ fun Container.fiscalYearFilter(
     currentYear: Int,
     label: String = tr("Geschäftsjahr (JJJJ)"),
 ): FiscalYearFilterControls {
-    val yearInput = text(value = currentYear.toString(), label = label)
+    // V1.9.173: a year is a number, never a `type=month` picker (it would show a month nobody chooses).
+    val yearInput = text(type = InputType.NUMBER, value = currentYear.toString(), label = label)
+    yearInput.input.setAttribute("min", LOCALE_DATE_MIN_YEAR.toString())
+    yearInput.input.setAttribute("max", LOCALE_DATE_MAX_YEAR.toString())
     return FiscalYearFilterControls(yearInput)
 }

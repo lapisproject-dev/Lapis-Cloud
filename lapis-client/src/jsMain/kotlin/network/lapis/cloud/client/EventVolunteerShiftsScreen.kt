@@ -32,10 +32,8 @@ import network.lapis.cloud.shared.rpc.IEventVolunteerService
  * member-public (same tier as `EventRoomsScreen`/`CateringScreen`). Die Selbstbedienungs-Ansicht
  * für Mitglieder (Anmelden/Abmelden) lebt in `MyVolunteerShiftsScreen.kt`, nicht hier.
  *
- * Start/Ende werden als einfache ISO-Text-Eingabe (`YYYY-MM-DDTHH:MM`) erfasst -- dieser Client
- * besitzt bislang keinen etablierten Datum/Zeit-Picker-Widget-Präzedenzfall (verifiziert: keine
- * andere Screen-Datei nutzt `io.kvision.form.time.*`), ein neues Picker-Widget einzuführen wäre für
- * diese Welle unverhältnismäßig.
+ * Start/Ende sind je ein Datums- und ein Uhrzeitfeld ([localDateTimeInput]; seit V1.9.173 mit dem
+ * nativen Browser-Picker und 5-Minuten-Raster), gespeichert wird ein ISO-`LocalDateTime`.
  */
 fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
     val root =
@@ -213,8 +211,9 @@ private fun renderEventVolunteerShiftEditForm(
     onCancel: () -> Unit,
 ) {
     val descriptionInput = panel.text(label = tr("Beschreibung")).apply { value = shift.description }
-    val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"), value = shift.startsAt)
-    val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"), value = shift.endsAt)
+    val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"), value = shift.startsAt, stepMinutes = 5)
+    val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"), value = shift.endsAt, stepMinutes = 5)
+    linkDateRange(startsAtInput.date, endsAtInput.date)
     val neededCountInput = panel.text(label = tr("Benötigte Anzahl")).apply { value = shift.neededCount.toString() }
     val errorBox =
         panel.div().apply {
@@ -256,8 +255,9 @@ private fun renderEventVolunteerShiftCreationForm(
     targetRow.span(tr("Für Veranstaltung:")) { addCssClass("text-muted") }
     targetRow.untrustedSpan(targetEventTitle, className = "fw-bold")
     val descriptionInput = panel.text(label = tr("Beschreibung"))
-    val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"))
-    val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"))
+    val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"), stepMinutes = 5)
+    val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"), stepMinutes = 5)
+    linkDateRange(startsAtInput.date, endsAtInput.date)
     val neededCountInput = panel.text(label = tr("Benötigte Anzahl"))
     val errorBox =
         panel.div().apply {

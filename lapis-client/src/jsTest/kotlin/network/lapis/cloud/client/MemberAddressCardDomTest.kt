@@ -137,7 +137,7 @@ class MemberAddressCardDomTest {
     fun fieldsArePrefilled_andBothButtonsStartDisabled(): Promise<Unit> =
         withCard(FakeAddressRpc(addressMember()), "addr-prefill") { el ->
             assertEquals("Hauptstrasse 1", el().input("Straße und Hausnummer").value)
-            assertEquals("03.02.1980", el().input("Geburtsdatum").value)
+            assertEquals("1980-02-03", el().input("Geburtsdatum").value, "a native date picker holds ISO")
             assertEquals("Deutschland", el().input("Land").value, "the country is a list entry, shown by its name")
             assertEquals(listOf("Deutschland"), el().allOf(".lapis-nationality-chips .lapis-chip").map { it.textContent.orEmpty().trim() })
             assertTrue(el().disabledButton("Anschrift speichern"))

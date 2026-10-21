@@ -47,23 +47,10 @@ fun renderSepaSettingsScreen(container: SimplePanel) {
 private fun renderSepaAdminSection(root: SimplePanel) {
     root.h2(tr("Status")) { addCssClass("h5") }
     val settingsPanel = root.vPanel(spacing = 4)
-    settingsPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+    val actionsHost = root.toggleActionsHost()
+    lateinit var toggle: ToggleSettingsPanel<SepaSettingsDto>
 
-    fun loadSettings() {
-        settingsPanel.removeAll()
-        settingsPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val settings = guarded { rpcService<ISepaService>().getSepaSettings() } ?: return@launch
-            settingsPanel.removeAll()
-            renderSepaSettingsSummary(settingsPanel, settings)
-        }
-    }
-
-    val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2") }
-    val enableButton = actionsRow.button(tr("SEPA-Lastschrift aktivieren …"), style = ButtonStyle.PRIMARY)
-    val disableButton = actionsRow.actionButton(ActionIcon.REVOKE, tr("SEPA-Lastschrift deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
-
-    fun acknowledgeAndEnable() {
+    fun acknowledgeAndEnable(enableButton: Button) {
         enableButton.disabled = true
         AppScope.launch {
             val disclaimer = guarded { rpcService<ISepaService>().getSepaComplianceDisclaimer() }
@@ -82,30 +69,45 @@ private fun renderSepaAdminSection(root: SimplePanel) {
                             }
                         if (result != null) {
                             notifySuccess(tr("SEPA-Lastschrift aktiviert."))
-                            loadSettings()
+                            toggle.load(focusStatus = true)
                         }
                     }
                 }
             }
         }
     }
-    enableButton.onClick { acknowledgeAndEnable() }
 
-    disableButton.onClick {
-        sepaDisableConfirmDialog {
-            disableButton.disabled = true
-            AppScope.launch {
-                val result = guarded { rpcService<ISepaService>().disableSepaDebit() }
-                disableButton.disabled = false
-                if (result != null) {
-                    notifySuccess(tr("SEPA-Lastschrift deaktiviert."))
-                    loadSettings()
+    toggle =
+        ToggleSettingsPanel(
+            settingsPanel = settingsPanel,
+            actionsHost = actionsHost,
+            fetch = { guarded { rpcService<ISepaService>().getSepaSettings() } },
+            isEnabled = { it.sepaDebitEnabled },
+            renderSummary = ::renderSepaSettingsSummary,
+            enable = { row ->
+                row.button(tr("SEPA-Lastschrift aktivieren …"), style = ButtonStyle.PRIMARY).also { button ->
+                    button.onClick { acknowledgeAndEnable(button) }
                 }
-            }
-        }
-    }
-
-    loadSettings()
+            },
+            disable = { row ->
+                row.actionButton(ActionIcon.REVOKE, tr("SEPA-Lastschrift deaktivieren"), style = ButtonStyle.OUTLINEDANGER).also { button ->
+                    button.onClick {
+                        sepaDisableConfirmDialog {
+                            button.disabled = true
+                            AppScope.launch {
+                                val result = guarded { rpcService<ISepaService>().disableSepaDebit() }
+                                button.disabled = false
+                                if (result != null) {
+                                    notifySuccess(tr("SEPA-Lastschrift deaktiviert."))
+                                    toggle.load(focusStatus = true)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        )
+    toggle.load()
 }
 
 private fun renderSepaSettingsSummary(

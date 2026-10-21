@@ -11,6 +11,7 @@ import kotlinx.coroutines.promise
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
+import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLSelectElement
@@ -57,11 +58,56 @@ internal fun formTest(block: suspend () -> Unit): Promise<Unit> =
                 fail(text)
             }
         } finally {
+            forceTextTemporalInputsForTest = false
             currentAwait = null
             closeOpenModals(timeoutMs = 400)
             AppState.setSession(null)
         }
     }
+
+/**
+ * V1.9.173: the native date/time pickers are the default, a `type=date` input silently ignores a locale text ("05.03.2026" becomes ""). A test
+ * of the text FALLBACK (or one that still types the locale text) calls this first; [formTest] and [withMountedRoot] switch it off again when they
+ * end, so it never reaches the next test.
+ */
+internal fun useTextTemporalInputs() {
+    forceTextTemporalInputsForTest = true
+}
+
+/** Runs [block] with the text fallback of the date/time fields, restoring the previous setting. */
+internal inline fun <T> withTextTemporalInputs(block: () -> T): T {
+    val before = forceTextTemporalInputsForTest
+    forceTextTemporalInputsForTest = true
+    try {
+        return block()
+    } finally {
+        forceTextTemporalInputsForTest = before
+    }
+}
+
+/** Picks [date] in a native `type=date` input the way a person does: sets the ISO value, fires `input` and `change`. */
+internal fun fillDate(
+    input: HTMLInputElement,
+    date: kotlinx.datetime.LocalDate,
+) {
+    assertEquals("date", input.type, "fillDate needs a native date input")
+    input.value = date.toString()
+    input.dispatchEvent(Event("input", EventInit(bubbles = true)))
+    input.dispatchEvent(Event("change", EventInit(bubbles = true)))
+    input.dispatchEvent(Event("blur"))
+}
+
+/** Picks [time] in a native `type=time` input; see [fillDate]. */
+internal fun fillTime(
+    input: HTMLInputElement,
+    time: kotlinx.datetime.LocalTime,
+) {
+    assertEquals("time", input.type, "fillTime needs a native time input")
+    input.value = "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}"
+    input.dispatchEvent(Event("input", EventInit(bubbles = true)))
+    input.dispatchEvent(Event("change", EventInit(bubbles = true)))
+    input.dispatchEvent(Event("blur"))
+}
 
 /** See [formTest]; must stay below the Mocha timeout in `karma.config.d/mocha-timeout.js`. */
 internal const val FORM_TEST_DEADLINE_MS = 100_000

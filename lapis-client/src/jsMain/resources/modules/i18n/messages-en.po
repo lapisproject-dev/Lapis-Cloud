@@ -9143,6 +9143,14 @@ msgstr "Status"
 msgid "Status:"
 msgstr "Status:"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:50
+msgid "Status: Aktiviert"
+msgstr "Status: Activated"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:51
+msgid "Status: Deaktiviert"
+msgstr "Status: Deactivated"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:206
 msgid "Status: %1"
 msgstr "Status: %1"
@@ -23127,6 +23135,10 @@ msgstr "Submit by %1"
 msgid "Einstellungen gespeichert."
 msgstr "Settings saved."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:52
+msgid "Einstellungen konnten nicht geladen werden."
+msgstr "Settings could not be loaded."
+
 msgid "Erste Nacht (JJJJ-MM-TT)"
 msgstr "First night (YYYY-MM-DD)"
 
@@ -24185,6 +24197,9 @@ msgstr "Please enter a valid due date in the future (%1)."
 
 msgid "Bitte eine Uhrzeit im Format %1 eingeben."
 msgstr "Please enter a time in the format %1."
+
+msgid "Bitte eine Uhrzeit in %1-Minuten-Schritten wählen."
+msgstr "Please choose a time in steps of %1 minutes."
 
 msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
 msgstr "Please enter a valid discovery time, a description, the affected data categories and a status."
@@ -25263,3 +25278,24 @@ msgstr "Neither a microphone nor a camera was found."
 
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr "A device could not be opened. It may be in use by another application."
+
+msgid "Rückkehr (optional)"
+msgstr "Return (optional)"
+
+msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
+msgstr "Without a departure and a return time, no daily allowance can be calculated for this day."
+
+msgid "Frühstück"
+msgstr "Breakfast"
+
+msgid "Mittag"
+msgstr "Lunch"
+
+msgid "Abend"
+msgstr "Dinner"
+
+msgid "%1 % · −%2"
+msgstr "%1 % · −%2"
+
+msgid "Die Reisetage werden nach dem Speichern aktualisiert."
+msgstr "The travel days are updated after saving."

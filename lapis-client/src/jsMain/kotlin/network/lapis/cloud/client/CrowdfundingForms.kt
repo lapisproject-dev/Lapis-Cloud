@@ -159,5 +159,5 @@ internal fun renderDistributionComputeForm(
             }
         }
     }
-    return FormSnapshot { listOf(range.fromInput.value.orEmpty(), range.toInput.value.orEmpty()) }
+    return FormSnapshot { listOf(range.fromText, range.toText) }
 }

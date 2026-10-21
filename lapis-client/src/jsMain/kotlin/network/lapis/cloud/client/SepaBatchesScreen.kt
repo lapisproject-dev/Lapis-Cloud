@@ -750,17 +750,23 @@ internal fun renderSepaReturnsSection(
 ): () -> Unit {
     root.h2(tr("Rücklastschriften")) { addCssClass("h5") }
     val filterRow = root.lapisToolbar()
-    val fromInput = filterRow.localDateInput(label = tr("Von"), hintLine = false).input
-    val toInput = filterRow.localDateInput(label = tr("Bis"), hintLine = false).input
+    val fromDate = filterRow.localDateInput(label = tr("Von"), hintLine = false)
+    val toDate = filterRow.localDateInput(label = tr("Bis"), hintLine = false)
+    linkDateRange(fromDate, toDate)
+    val fromInput = fromDate.input
+    val toInput = toDate.input
     val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
     // Das Datumsformat steht im Hinweis, nie im Label (W4c). Hinweis und Fehler hängen per `aria-describedby` an beiden Feldern; ein
     // nicht lesbares Datum ("13.03.2026") ist ein Feldfehler -- vorher lief der Abruf still OHNE Filter, die volle Liste stand da und
     // bei einer leeren Antwort behauptete die Leermeldung "Keine Rücklastschrift im gewählten Zeitraum".
     val filterHintId = "sepa-returns-filter-hint"
     val filterErrorId = "sepa-returns-filter-error"
-    root.div(gettext("Format: %1", localeDatePattern())) {
-        addCssClasses("text-muted small")
-        id = filterHintId
+    // V1.9.173: a native picker shows its own format, so the hint line exists only in the text fallback.
+    if (!fromDate.nativePicker) {
+        root.div(gettext("Format: %1", localeDatePattern())) {
+            addCssClasses("text-muted small")
+            id = filterHintId
+        }
     }
     val filterError =
         root.div {
@@ -769,7 +775,7 @@ internal fun renderSepaReturnsSection(
         }
     listOf(fromInput, toInput).forEach { input ->
         (input.input as? Widget)?.let {
-            it.setAttribute("aria-describedby", "$filterHintId $filterErrorId")
+            it.setAttribute("aria-describedby", if (fromDate.nativePicker) filterErrorId else "$filterHintId $filterErrorId")
             it.setAttribute("aria-invalid", "false")
         }
     }
@@ -784,10 +790,10 @@ internal fun renderSepaReturnsSection(
     var returnsGeneration = 0
 
     fun loadReturns() {
-        val fromRaw = fromInput.value.orEmpty().trim()
-        val toRaw = toInput.value.orEmpty().trim()
-        val from = parseLocalDateOrNull(fromRaw)
-        val to = parseLocalDateOrNull(toRaw)
+        val fromRaw = fromDate.text.trim()
+        val toRaw = toDate.text.trim()
+        val from = fromDate.dateOrNull()
+        val to = toDate.dateOrNull()
         val badInputs =
             listOfNotNull(
                 fromInput.takeIf { fromRaw.isNotEmpty() && from == null },
@@ -1024,7 +1030,7 @@ internal fun renderRecordReturnForm(
                 // Freitext und Gebühr leer. Nichts davon darf für die NÄCHSTE Rücklastschrift stehen bleiben.
                 itemField.reset()
                 returnedAtField.reset()
-                returnedAtField.setValue(todayLocaleText())
+                returnedAtField.setDate(organizationToday())
                 reasonField.reset()
                 reasonField.setValue(reasonOptions.first().first)
                 reasonTextField.reset()

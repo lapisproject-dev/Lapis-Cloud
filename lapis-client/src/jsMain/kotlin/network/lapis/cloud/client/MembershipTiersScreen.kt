@@ -358,6 +358,7 @@ internal fun openGenerateContributionsDialog(
     ) { addCssClass("text-muted") }
     val startField = form.localDateField(label = tr("Beginn"), value = null, required = true)
     val endField = form.localDateField(label = tr("Ende"), value = null, required = true)
+    linkDateRange(startField, endField)
     form.crossFieldRule(field = endField) { periodOrderCheck(startField.value, endField.value) }
     form.finish()
 

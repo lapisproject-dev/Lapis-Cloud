@@ -62,26 +62,10 @@ fun renderDunningSettingsScreen(container: SimplePanel) {
 private fun renderDunningAdminSection(root: SimplePanel) {
     root.h2(tr("Status")) { addCssClass("h5") }
     val settingsPanel = root.vPanel(spacing = 4)
-    settingsPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+    val actionsHost = root.toggleActionsHost()
+    lateinit var toggle: ToggleSettingsPanel<DunningSettingsDto>
 
-    fun loadSettings() {
-        settingsPanel.removeAll()
-        settingsPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val settings =
-                dunningGuarded(tr(DUNNING_READ_CONFLICT_MESSAGE)) {
-                    rpcService<IDunningService>().getDunningSettings()
-                } ?: return@launch
-            settingsPanel.removeAll()
-            renderDunningSettingsSummary(settingsPanel, settings)
-        }
-    }
-
-    val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2") }
-    val enableButton = actionsRow.button(tr("Mahnwesen aktivieren …"), style = ButtonStyle.PRIMARY)
-    val disableButton = actionsRow.actionButton(ActionIcon.REVOKE, tr("Mahnwesen deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
-
-    fun acknowledgeAndEnable() {
+    fun acknowledgeAndEnable(enableButton: Button) {
         enableButton.disabled = true
         AppScope.launch {
             val disclaimer =
@@ -101,30 +85,48 @@ private fun renderDunningAdminSection(root: SimplePanel) {
                             }
                         if (result != null) {
                             notifySuccess(tr("Mahnwesen aktiviert."))
-                            loadSettings()
+                            toggle.load(focusStatus = true)
                         }
                     }
                 }
             }
         }
     }
-    enableButton.onClick { acknowledgeAndEnable() }
 
-    disableButton.onClick {
-        dunningDisableConfirmDialog {
-            disableButton.disabled = true
-            AppScope.launch {
-                val result = dunningGuarded(tr(DUNNING_WRITE_CONFLICT_MESSAGE)) { rpcService<IDunningService>().disableDunning() }
-                disableButton.disabled = false
-                if (result != null) {
-                    notifySuccess(tr("Mahnwesen deaktiviert."))
-                    loadSettings()
+    toggle =
+        ToggleSettingsPanel(
+            settingsPanel = settingsPanel,
+            actionsHost = actionsHost,
+            fetch = {
+                dunningGuarded(tr(DUNNING_READ_CONFLICT_MESSAGE)) { rpcService<IDunningService>().getDunningSettings() }
+            },
+            isEnabled = { it.dunningEnabled },
+            renderSummary = ::renderDunningSettingsSummary,
+            enable = { row ->
+                row.button(tr("Mahnwesen aktivieren …"), style = ButtonStyle.PRIMARY).also { button ->
+                    button.onClick { acknowledgeAndEnable(button) }
                 }
-            }
-        }
-    }
-
-    loadSettings()
+            },
+            disable = { row ->
+                row.actionButton(ActionIcon.REVOKE, tr("Mahnwesen deaktivieren"), style = ButtonStyle.OUTLINEDANGER).also { button ->
+                    button.onClick {
+                        dunningDisableConfirmDialog {
+                            button.disabled = true
+                            AppScope.launch {
+                                val result =
+                                    dunningGuarded(tr(DUNNING_WRITE_CONFLICT_MESSAGE)) { rpcService<IDunningService>().disableDunning() }
+                                button.disabled = false
+                                if (result != null) {
+                                    notifySuccess(tr("Mahnwesen deaktiviert."))
+                                    toggle.load(focusStatus = true)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        )
+    toggle.load()
 }
 
 private fun renderDunningSettingsSummary(

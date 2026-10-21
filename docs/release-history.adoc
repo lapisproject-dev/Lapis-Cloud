@@ -537,6 +537,8 @@ tried with real participants or on a real device, and the Keycloak provisioning 
 
 **`v0.37.6`** (waves V1.9.164 to V1.9.170, schema `V111`) is a feature release on `v0.37.5`. **Behaviour changes first:** reactions, sticky control bar and theatre hall of the encounter room, an optional grid map of the present members, assembly rooms only (off by default, members only, never guests or friends), a device picker that stays visible without browser permission, and the event online window opening 30 minutes before the start instead of 15 on every instance. One additive migration (`V111`). Not looked at on real phones, in Safari or by a screen reader. Details: `CHANGELOG.md` `[0.37.6]`.
 
+**`v0.37.7`** (waves V1.9.171, V1.9.173, V1.9.180 and V1.9.181, schema `V111`) is a client-only release on `v0.37.6`. **Behaviour changes first:** every date and time field uses the browser's native picker, the activate/deactivate settings pairs show only the applicable action, and the travel expense draft shows its days as one row per day. No migration. Checked in headless Chrome tests only; nobody clicked the native pickers, and Safari, Firefox, real phones and screen readers were not tried. Details: `CHANGELOG.md` `[0.37.7]`.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,

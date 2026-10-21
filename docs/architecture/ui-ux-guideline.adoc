@@ -555,8 +555,8 @@ exempted). The same applies to an area or action selector (which mailing list, w
 
 === Two more factories and one parameter
 
-`selectField` and `checkField` are members of `LapisForm` (they need its private wiring) -- **and nothing else is added: no
-date or time factory** (K1). `selectField` puts hint and error slot BESIDE the `<select>`, never inside it (`Select.add()`
+`selectField` and `checkField` are members of `LapisForm` (they need its private wiring) -- **and nothing else was added at
+W4b: no date or time factory** (K1; superseded by V1.9.137 and V1.9.173, see R61). `selectField` puts hint and error slot BESIDE the `<select>`, never inside it (`Select.add()`
 delegates to the `<select>`). `checkField` treats "required" as "ticked": KVision's `CheckBox.getValueAsString()` is the
 string `"false"`, never empty, so the empty-value path of `LapisField` would make `required` silently useless. Three
 corrections to existing behaviour came with them, each pinned by a DOM test: `LapisField.setValue` takes a `Select` (the
@@ -572,7 +572,7 @@ the door's code row, the attendance status beside the name) -- `host` must be a 
 | Question | Decision
 
 | K1 -- a date factory?
-| No. `textField` with a hint ("Beispiel: 2026-03-14." / "Beispiel: 2026-08-15T18:00."), and the rule in `FormRules`
+| *Superseded (V1.9.173, R61): yes -- `localDateField`, `localTimeField`, `localDateTimeFields` and the raw `localDateInput` family, with native pickers by default.* The W4b decision was: no. `textField` with a hint ("Beispiel: 2026-03-14." / "Beispiel: 2026-08-15T18:00."), and the rule in `FormRules`
   (`isoDate`, `localDateTime`). The format is never in a `msgid` and never in a message: "JJJJ-MM-TT" is wrong in every other
   language, the example is right in all of them (`FormGrammarPart2I18nCatalogTest` pins both).
 
@@ -811,7 +811,7 @@ the second row of the table above.
   empty option) is NOT `required`: it would only distort which fields get the star.
 
 | Dates
-| Text fields with the example in the hint ("Beispiel: 2026-03-14."); no native date input (K1 of W4b stands).
+| Native date and time pickers (`localDateField`, `localTimeField`, `localDateTimeFields`; R61). The W4b rule "text field with an example in the hint" is history.
 
 | Defaults
 | Unchanged: `todayIso()` for the booking date, debit then credit, the empty placeholder of every select, no preselected direction
@@ -1797,7 +1797,7 @@ See `elections-ui.adoc` for the worked example.
   `EventsScreen`, `EventRoomsScreen`, `EventVolunteerShiftsScreen`, `DsgvoRightsScreen` and `DashboardScreen` (the password
   change) are W4b2 -- a half migrated screen is worse than an unmigrated one (two grammars in one file), so the wave was cut
   by whole files, decided at the start (about 118 more catalog entries in eight files, the bottleneck of this wave, not the code).
-* W4b: **a native date input type is a named wave of its own.** The death date, the meeting time and the like are still text
+* W4b (done in V1.9.137 and V1.9.173, see R61): **a native date input type is a named wave of its own.** The death date, the meeting time and the like are still text
   fields with the example in the hint ("Beispiel: 2026-03-14."), because a `type="date"` field renders in the browser's
   locale and needs a date/time factory the grammar deliberately does not have (K1).
 * W4b: pressing Enter does not submit anywhere except the door check-in (its `keydown` listener is the barcode-scanner
@@ -2284,6 +2284,7 @@ test and the CSS review).
 Client only; no server, RPC or database change. Architecture, the video loan ledger and the keyboard model are in `conference-dock.adoc`; this section is the interface
 rule that came out of it.
 
+* **R61 -- dates and times use native pickers (V1.9.173).** Every date, time and date-plus-time input is built by `localDateField`/`localTimeField`/`localDateTimeFields` (a `LapisForm`) or `localDateInput`/`localTimeInput`/`localDateTimeInput` (a raw screen); `LocalInputs.kt`, `LocalDateField.kt` and `LocalTimeField.kt` are the only files that may name `type=date`/`type=time` (`ClientTemporalFormatTripwireTest` T7). `picker = true` is the DEFAULT; the locale text field is the fallback for a browser without the input types and the test lever, and no screen passes `picker = false` (`ClientTemporalPickerTripwireTest` P2). In picker mode `LapisField.value` is ISO -- read with `localDateOrNull()`/`localTimeOrNull()`, write with `setDate`/`setTime`, never with locale text; a raw input is never unwrapped to its `Text` (P1). There is no placeholder and no "Format:" hint in picker mode (only `extraHint`). `stepMinutes` is a PER-FIELD property: 1 by default, 5 only on planning screens (events, shifts, carpool departure); an off-grid entry is an error only where `stepMinutes > 1`. `linkDateRange` sets `min`/`max` on a Von/Bis pair as a popup hint only -- the cross-field rule stays the check, because a typed date bypasses the attribute. A half-typed picker entry (empty value, `badInput`) is the German format error, never a silent blank. A month or a year is never `type=month`: a year is `type=number` with `min`/`max`, a month a `select`. No own icons on the pickers. A plain text box whose label or hint speaks of a date or time fails T9 unless it is listed there with a reason. Follow-up: a `fieldset` group around the date and time labels, and copying the start date into an empty end date.
 * **R60 -- a non-modal floating overlay.** A surface that floats over the page without blocking it (today only `.lapis-conference-float`) obeys five rules:
   (1) its `z-index` is a named token below every dialog, the offcanvas and the update pill (`--lapis-z-conference-float: 1034`; the whole order is tabulated in
   `theme.css` and `conference-dock.adoc`); (2) no backdrop and no focus trap, the page stays operable; (3) every pointer gesture (moving, resizing) has a keyboard alternative

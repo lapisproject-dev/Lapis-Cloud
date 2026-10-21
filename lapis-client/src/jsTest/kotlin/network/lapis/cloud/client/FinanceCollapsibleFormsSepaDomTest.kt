@@ -111,6 +111,7 @@ class FinanceCollapsibleFormsSepaDomTest {
     @Test
     fun sepa_theBatchFormClosesUnchanged_butAskAfterTyping(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(session(AccountRole.TREASURER))
             withFetchStub(
                 respond = { request -> if (request.isRpc) request.answerWith("[]") else StubResponse() },

@@ -63,6 +63,7 @@ class PoliticianScreenFormDomTest {
     @Test
     fun snapshotForm_sendsTheTypedMonth_forAValidDate(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(boardSession)
             val listPoliticiansRoute = routeOf { rpcService<IPoliticianService>().listPoliticians(false) }
             val getTopPoliticiansRoute = routeOf { rpcService<IPoliticianService>().getTopPoliticians(6) }

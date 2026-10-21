@@ -225,6 +225,7 @@ class FormGrammarPart3AuditDomTest {
     @Test
     fun afterARecordedReturn_thePositionIsEmpty_theDefaultsAreBack_andASecondClickWithoutAChoiceSendsNothing(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             withReturnForm { record, calls, element ->
                 element().typeInto("Rücklastschrift-Datum", "2026-02-11")
                 element().chooseIn("Grund", SepaReturnReason.MD01.name)
@@ -506,6 +507,7 @@ class FormGrammarPart3AuditDomTest {
     @Test
     fun returnsFilter_anUnreadableDateIsAFieldError_theFullListIsNotShownAsAFilteredOne(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             val listReturns = routeOf { rpcService<ISepaService>().listReturns(null, null) }
             withFetchStub(respond = { r -> if (r.isRpc && r.rpcRoute == listReturns) r.answerWith("[]") else StubResponse() }) { calls ->
                 mountedForm("p3a-returns-filter") { root, element ->
@@ -568,6 +570,7 @@ class FormGrammarPart3AuditDomTest {
     @Test
     fun costCenterReport_startsUntouched_loadsOnceWithTheDefaults_andAnUnreadableDateIsAFieldError(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             val report = routeOf { rpcService<IAccountingService>().getCostCenterReport(null, LocalDate(2026, 1, 1)) }
             withFetchStub { calls ->
                 mountedForm("p3a-cc-report") { root, element ->

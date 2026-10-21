@@ -9225,6 +9225,14 @@ msgstr "Stato"
 msgid "Status:"
 msgstr "Stato:"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:50
+msgid "Status: Aktiviert"
+msgstr "Stato: Attivato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:51
+msgid "Status: Deaktiviert"
+msgstr "Stato: Disattivato"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:206
 msgid "Status: %1"
 msgstr "Stato: %1"
@@ -23219,6 +23227,10 @@ msgstr "Da inviare entro il %1"
 msgid "Einstellungen gespeichert."
 msgstr "Impostazioni salvate."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:52
+msgid "Einstellungen konnten nicht geladen werden."
+msgstr "Impossibile caricare le impostazioni."
+
 msgid "Erste Nacht (JJJJ-MM-TT)"
 msgstr "Prima notte (AAAA-MM-GG)"
 
@@ -24277,6 +24289,9 @@ msgstr "Indicare una data di scadenza valida nel futuro (%1)."
 
 msgid "Bitte eine Uhrzeit im Format %1 eingeben."
 msgstr "Inserire un'ora nel formato %1."
+
+msgid "Bitte eine Uhrzeit in %1-Minuten-Schritten wählen."
+msgstr "Scegliere un orario a intervalli di %1 minuti."
 
 msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
 msgstr "Indicare un momento di scoperta valido, una descrizione, le categorie di dati interessate e uno stato."
@@ -25355,3 +25370,24 @@ msgstr "Non è stato trovato né un microfono né una fotocamera."
 
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr "Impossibile aprire un dispositivo. Potrebbe essere in uso da un'altra applicazione."
+
+msgid "Rückkehr (optional)"
+msgstr "Rientro (facoltativo)"
+
+msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
+msgstr "Senza orario di partenza e di rientro non è possibile calcolare l'indennità giornaliera per questo giorno."
+
+msgid "Frühstück"
+msgstr "Colazione"
+
+msgid "Mittag"
+msgstr "Pranzo"
+
+msgid "Abend"
+msgstr "Cena"
+
+msgid "%1 % · −%2"
+msgstr "%1 % · −%2"
+
+msgid "Die Reisetage werden nach dem Speichern aktualisiert."
+msgstr "I giorni di viaggio vengono aggiornati dopo il salvataggio."

@@ -162,7 +162,7 @@ private fun renderFourSphereIncomeStatementView(panel: SimplePanel) {
     val filterControls = panel.dateRangeFilter()
     // `to` is a required LocalDate server-side (matches the GuV's own filter shape) -- pre-filled
     // to today so the first render already shows a meaningful report.
-    filterControls.toInput.value = todayLocaleText()
+    filterControls.setTo(organizationToday())
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
@@ -391,8 +391,8 @@ private fun renderVatReturnPreviewView(panel: SimplePanel) {
     // Both bounds required -- see load()'s own comment. fromLabel overridden to drop the shared
     // helper's default "(optional)" suffix, which would be misleading here.
     val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"))
-    filterControls.fromInput.value = formatLocalDate(LocalDate(currentYear(), 1, 1), currentTemporalLocale())
-    filterControls.toInput.value = todayLocaleText()
+    filterControls.setFrom(LocalDate(currentYear(), 1, 1))
+    filterControls.setTo(organizationToday())
     val loadButton = panel.button(tr("Berechnen"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {

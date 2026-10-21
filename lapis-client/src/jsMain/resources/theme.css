@@ -5237,6 +5237,13 @@ button.lapis-conference-timer:focus-visible {
   font-size: 1.25rem;
 }
 
+/* V1.9.173: date and time inputs everywhere -- narrow fields, date and time side by side */
+.lapis-date-input { width: 100%; max-width: 11rem; }
+.lapis-time-input { width: 100%; max-width: 7.5rem; }
+.lapis-datetime-row { display: flex; flex-wrap: wrap; gap: .5rem; }
+.lapis-datetime-row > :first-child { flex: 0 1 11rem; }
+.lapis-datetime-row > :last-child { flex: 0 1 7.5rem; }
+
 /* Bewegung nur, wenn die Person sie nicht abgeschaltet hat; sonst steht die Reaktion einfach drei Sekunden da (ein-/ausgeblendet durch das Entfernen). */
 @media (prefers-reduced-motion: no-preference) {
   .lapis-conference-reaction {
@@ -5674,34 +5681,104 @@ div:hover > .lapis-conference-pin,
 }
 
 
-/* Reisekosten nach PdV-Formular (V1.9.122): Tagesraster, haftende Summenleiste, Hinweistext des Ansprechpartners.
-   Nur Layout -- keine Farbe (Bootstrap-Klassen am Element), keine Transition. */
+/* Reisekosten nach PdV-Formular (V1.9.122): Tageszeilen, Summenleiste, Hinweistext des Ansprechpartners.
+   V1.9.181: eine ZEILE je Tag statt einer Karte. Nur Layout -- keine Farbe (Bootstrap-Klassen am Element), keine Transition.
+   Das Raster ist ein Container (`container-type: inline-size`), die Zeile reagiert auf die Breite des Rasters und nicht auf den
+   Viewport: der Editor sitzt je nach Breite neben einer Spalte, die Viewport-Breite sagt deshalb nichts ueber den Platz. */
 .lapis-te-day-grid {
+  container-type: inline-size;
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
+/* `min-width: 0`: ein fieldset hat im Browser `min-width: min-content`, ein langes Zielfeld wuerde die Spalte aufweiten. */
 .lapis-te-day {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 4px 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .5rem;
+  min-width: 0;
+  margin: 0;
 }
 
+.lapis-te-day:first-child {
+  border-top: 0 !important;
+}
+
+/* Bootstrap 5 macht aus `legend` ein `float: left; width: 100%` -- als Rasterelement muss das weg. */
 .lapis-te-day > legend {
-  grid-column: 1 / -1;
+  float: none;
+  width: auto;
 }
 
-@media (min-width: 768px) {
+.lapis-te-day-dest,
+.lapis-te-day-times,
+.lapis-te-day-meals,
+.lapis-te-day-notes { min-width: 0; }
+
+.lapis-te-day-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.lapis-te-day-slot { min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; }
+.lapis-te-day-slot--span { grid-column: 1 / -1; }
+.lapis-te-day-slot-text { align-self: end; }
+
+.lapis-te-day-meals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.lapis-te-day-meal { min-width: 0; }
+
+/* Schmal: Dauer links, Betrag rechts in einer Zeile unter den Eingaben. */
+.lapis-te-day-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+}
+
+/* Die EINE Container-Query: ab 50rem Rasterbreite steht der Tag in einer Zeile (Ziel | Zeiten | Ergebnis, darunter Mahlzeiten und Hinweise).
+   Die `grid-area`-Namen stehen NUR hier: ausserhalb gibt es kein `grid-template-areas`, und ein Name ohne Bereich legt die Elemente
+   in zusaetzliche implizite Spalten statt untereinander. */
+@container (min-width: 50rem) {
+  .lapis-te-day > legend { grid-area: date; }
+  .lapis-te-day-dest { grid-area: dest; }
+  .lapis-te-day-times { grid-area: times; }
+  .lapis-te-day-meals { grid-area: meals; }
+  .lapis-te-day-notes { grid-area: notes; }
+  .lapis-te-day-result { grid-area: result; }
+
   .lapis-te-day {
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-    align-items: start;
+    grid-template-columns: minmax(12rem, 1fr) 22rem 10rem;
+    grid-template-areas:
+      "date date result"
+      "dest times result"
+      "meals meals result"
+      "notes notes notes";
+    column-gap: 1.5rem;
   }
+
+  .lapis-te-day-result {
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+    align-self: start;
+  }
+}
+
+/* Sehr schmaler Container: die beiden Zeitfelder untereinander. */
+@container (max-width: 20rem) {
+  .lapis-te-day-times { grid-template-columns: minmax(0, 1fr); }
 }
 
 .lapis-te-editor {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -5712,22 +5789,49 @@ div:hover > .lapis-conference-pin,
   z-index: 2;
 }
 
-/* Desktop: Leiste rechts, klebt unter dem Seitenkopf. */
+/* 992-1399 px: die Leiste steht OBEN ueber dem Formular und klebt unter dem Seitenkopf. Im DOM folgt sie dem Formular, die sichtbare
+   Reihenfolge weicht von der Tab-Reihenfolge ab (Leiste hat keine Eingabefelder; Formular -> Aufschluesselung bleibt in DOM-Reihenfolge).
+   Formular und Aufschluesselung bekommen explizit Zeile 2 und 3, sonst belegte das Formular implizit Zeile 1. */
 @media (min-width: 992px) {
+  .lapis-te-editor > *:not(.lapis-te-totals):not(.lapis-te-breakdown) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .lapis-te-totals {
+    grid-column: 1;
+    grid-row: 1;
+    position: sticky;
+    top: 16px;
+    bottom: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem 1.5rem;
+  }
+
+  .lapis-te-breakdown {
+    grid-column: 1;
+    grid-row: 3;
+  }
+}
+
+/* Ab 1400 px: Leiste rechts ueber beide Zeilen, Aufschluesselung unter dem Formular (V1.9.132). */
+@media (min-width: 1400px) {
   .lapis-te-editor {
-    grid-template-columns: minmax(0, 1fr) 16rem;
+    grid-template-columns: minmax(0, 1fr) 18rem;
     align-items: start;
   }
 
   .lapis-te-totals {
     grid-column: 2;
     grid-row: 1 / span 2;
-    position: sticky;
-    top: 16px;
-    bottom: auto;
+    display: block;
   }
 
-  /* V1.9.132: die Aufschluesselung steht unter dem Formular, die Leiste laeuft daneben ueber beide Zeilen. */
+  .lapis-te-editor > *:not(.lapis-te-totals):not(.lapis-te-breakdown) {
+    grid-row: 1;
+  }
+
   .lapis-te-breakdown {
     grid-column: 1;
     grid-row: 2;

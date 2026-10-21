@@ -126,8 +126,8 @@ private fun renderDatevExportView(panel: SimplePanel) {
     panel.h2(tr("DATEV-Buchungsstapel-Export")) { addCssClass("h5") }
     val role = AppState.session?.role
     val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
-    filterControls.fromInput.value = formatLocalDate(LocalDate(currentYear(), 1, 1), currentTemporalLocale())
-    filterControls.toInput.value = todayLocaleText()
+    filterControls.setFrom(LocalDate(currentYear(), 1, 1))
+    filterControls.setTo(organizationToday())
     val checkButton = panel.button(tr("Prüfen"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
@@ -227,7 +227,7 @@ private fun renderIncomeStatementView(panel: SimplePanel) {
     // `to` is a required LocalDate server-side (unlike the Journal/Hauptbuch/Kassenbuch filters'
     // optional `to`) -- pre-filled to today so the first render shows a meaningful report instead
     // of an immediate validation error before the treasurer has touched anything.
-    filterControls.toInput.value = todayLocaleText()
+    filterControls.setTo(organizationToday())
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
@@ -290,7 +290,7 @@ internal fun renderIncomeStatementBody(
 private fun renderBalanceSheetView(panel: SimplePanel) {
     panel.h2(tr("Bilanz")) { addCssClass("h5") }
     val filterRow = panel.lapisToolbar()
-    val asOfInput = filterRow.localDateInput(label = tr("Stichtag"), value = organizationToday(), hintLine = false).input
+    val asOfInput = filterRow.localDateInput(label = tr("Stichtag"), value = organizationToday(), hintLine = false)
     val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
@@ -298,7 +298,7 @@ private fun renderBalanceSheetView(panel: SimplePanel) {
             hide()
         }
 
-    fun parseAsOf(): LocalDate? = parseLocalDateOrNull(asOfInput.value.orEmpty())
+    fun parseAsOf(): LocalDate? = asOfInput.dateOrNull()
     val section =
         panel.dataSection<BalanceSheetDto>(
             isEmpty = { false },

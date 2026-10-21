@@ -9176,6 +9176,14 @@ msgstr "Статус"
 msgid "Status:"
 msgstr "Статус:"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:50
+msgid "Status: Aktiviert"
+msgstr "Статус: Активировано"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:51
+msgid "Status: Deaktiviert"
+msgstr "Статус: Деактивировано"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:206
 msgid "Status: %1"
 msgstr "Статус: %1"
@@ -23170,6 +23178,10 @@ msgstr "Подать до %1"
 msgid "Einstellungen gespeichert."
 msgstr "Настройки сохранены."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:52
+msgid "Einstellungen konnten nicht geladen werden."
+msgstr "Не удалось загрузить настройки."
+
 msgid "Erste Nacht (JJJJ-MM-TT)"
 msgstr "Первая ночь (ГГГГ-ММ-ДД)"
 
@@ -24230,6 +24242,9 @@ msgstr "Укажите действительный срок платежа в �
 
 msgid "Bitte eine Uhrzeit im Format %1 eingeben."
 msgstr "Введите время в формате %1."
+
+msgid "Bitte eine Uhrzeit in %1-Minuten-Schritten wählen."
+msgstr "Выберите время с шагом в %1 минут."
 
 msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
 msgstr "Укажите действительный момент обнаружения, описание, затронутые категории данных и статус."
@@ -25308,3 +25323,24 @@ msgstr "Не найдено ни микрофона, ни камеры."
 
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr "Не удалось открыть устройство. Возможно, его использует другое приложение."
+
+msgid "Rückkehr (optional)"
+msgstr "Возвращение (необязательно)"
+
+msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
+msgstr "Без времени отправления и возвращения суточные за этот день рассчитать нельзя."
+
+msgid "Frühstück"
+msgstr "Завтрак"
+
+msgid "Mittag"
+msgstr "Обед"
+
+msgid "Abend"
+msgstr "Ужин"
+
+msgid "%1 % · −%2"
+msgstr "%1 % · −%2"
+
+msgid "Die Reisetage werden nach dem Speichern aktualisiert."
+msgstr "Дни поездки обновятся после сохранения."

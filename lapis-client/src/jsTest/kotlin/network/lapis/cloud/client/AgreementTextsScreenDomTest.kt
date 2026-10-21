@@ -290,6 +290,7 @@ class AgreementTextsScreenDomTest {
     @Test
     fun noTab_showsAnI18nMarker_andTheDateHintReadsAsOneSentence(): Promise<Unit> =
         test {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             val world = World()
             withWorld(world) { _, _ ->
                 mountedForm("agreement-texts-marker") { root, element ->

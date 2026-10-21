@@ -6,6 +6,122 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.37.7] — 2026-10-22
+
+Client-only release on top of `[0.37.6]` (V1.9.171, V1.9.173, V1.9.180 and V1.9.181; the travel expense wave was numbered V1.9.181 because V1.9.180 was taken). No migration (the schema stays **`V111`**), no server change, no new environment variable. **Behaviour changes first:** every date and time field of the application uses the browser's native picker; the activate/deactivate settings pairs show only the applicable action; the travel expense draft shows its days as one row per day. Operators: take a backup as always. Checked in automated browser tests (headless Chrome) only; nobody clicked the native pickers, and Safari, Firefox, real phones and screen readers were not tried. The picker display follows the browser or operating-system locale, not the language of the application.
+
+### V1.9.181 -- Travel expense day rows
+
+No migration (the schema stays `V111`), no RPC, DTO or server main-code change: client only (Kotlin/JS, `theme.css` and the seven gettext catalogs plus `messages.pot`). The number follows V1.9.180 on `master`; the planned number V1.9.174 sits between V1.9.173 and V1.9.180 and was not used.
+
+- **Changed:** the day grid of the travel expense editor is one ROW per day instead of one bordered card. The six parts of a day (date, destination, times, meals, notes, result) are named wrappers inside the day's `fieldset`, in that DOM order. From 50 rem of grid width (a single CSS container query, so it follows the room the editor really has, not the viewport) a day is one line: destination | times | result, meals and notes below; below that everything stacks.
+- **Changed:** the three meals sit on one line. Their labels are short ("Frühstück", "Mittag", "Abend"); the percentage and the amount they take off ("20 % · −5,60 €") are shown under each box and are the checkbox's accessible DESCRIPTION, not its name. `mealLabel()` stays for its existing tests.
+- **Changed:** the return time is "Rückkehr (optional)" on a single-day trip and on the last day. On a single-day trip a note says that without departure and return no daily allowance can be calculated; it is attached to both time fields via `aria-describedby`. The fixed texts ("bis 24:00", "ab 00:00", "ganztägig (24 Std.)") occupy a time slot of their own.
+- **Changed:** the totals bar sits ABOVE the form (sticky) from 992 to 1399 px and to the right from 1400 px; below 992 px it still sticks to the bottom edge. In 992-1399 px the visual order differs from the DOM/tab order (the bar holds no input).
+- **New:** a notice above the day rows ("Die Reisetage werden nach dem Speichern aktualisiert.", `role="status"`, present but empty from the start) appears while Von/Bis in the header form differ from the saved range; the grid carries `data-stale="true"` meanwhile. It is a notice only: the day rows are created by the server on "Entwurf speichern", so there is deliberately no live rebuild and nothing is locked.
+- **Unchanged:** server, RPC, calculation, the date and time pickers, the create form.
+- **Honest limits:** checked in ChromeHeadless only (screenshots at 375, 768, 1024, 1280 and 1440 px), not on real phones. The notice uses `role="status"` without an explicit `aria-live` attribute (implicit polite) so the totals bar stays the only `[aria-live]` element of the editor (existing test).
+- Tests: `TravelExpenseDayGridDomTest` (aligned rows, child order, one-line meals at 1280 and 375 px, unique ids, optional return and hint wiring, slot texts, short meal labels with amount description, one-line labels, wide vs. narrow row, permanent empty status region) and `TravelExpensePolishDomTest` (notice on changed dates, removed when restored, cleared by saving, typed rows untouched, create form never reports changed dates).
+
+### V1.9.180 -- Enable/disable action pairs show only the applicable action
+
+No migration (the schema stays `V111`), no RPC, DTO or server main-code change: client only (Kotlin/JS and the seven gettext catalogs plus `messages.pot`).
+
+- **Fixed:** the auction, dunning (member dues), receivable dunning, online payment and SEPA direct debit settings screens always rendered both "... aktivieren" and "... deaktivieren" side by side, whatever the current state. Now there is exactly one action, the one that applies; the other button is not in the DOM (no `hide()`, no `disabled`). The design decision named five screens; the analysis that opened the wave had counted four and missed the receivable dunning screen, which is fixed as well.
+- **Behaviour:** while the settings load there is no button, only "Wird geladen ...". If the load fails (`guarded` returned `null`) the row says "Einstellungen konnten nicht geladen werden." instead of leaving "Wird geladen ..." forever (the receivable dunning screen used to show nothing at all); this is a new visible line next to the toast `guarded` already shows. After a successful switch the row is rendered again at once and the focus moves to the status text (`role="status"`, `tabindex="-1"`), so a keyboard or screen reader user lands where the change is announced; the first load of a page does not take the focus. An answer of a stale load (a click during a reload) is dropped by a run number.
+- **Online payment:** the provider picker, the "provider not configured" warning and the greyed-out enable button now exist only while the gateway is disabled (the summary already names the provider while it is enabled).
+- **New:** `ToggleActionRow.kt` (`renderToggleActionRow`, `focusToggleStatus`, `ToggleSettingsPanel`). The signature takes a four-valued `ToggleLoadState` (LOADING, ENABLED, DISABLED, FAILED) instead of a plain `enabled: Boolean`, because loading and failure need their own states. Pure UI: it knows no RPC and checks no role (the screens stay ADMIN-only through their route guard).
+- **Unchanged:** server, RPC, confirmation dialogs, disclaimer flows, notifications, audit.
+- Tests: `ToggleActionRowDomTest` (helper: one or no button per state, the other button absent from the DOM, status role and tabindex, focus move) and `ToggleActionPairsDomTest` (all five screens: ENABLED, DISABLED, LOADING, FAILED, switch both ways without reload with focus on the status text and one RPC, dialog cancel, failed switch, online payment warning only while disabled). `RestGroupActionIconsDomTest` no longer asserts the two toggle buttons at once; `ToggleActionPairsDomTest` asserts their icons per state. A throwaway mutation (rendering both buttons) turned 8 of the 17 new tests red.
+
+Inventory (grep of `aktivieren`, `deaktivieren`, `einschalten`, `ausschalten`, `sperren`, `entsperren`, `freigeben`, `widerrufen`, `ActionIcon.REVOKE`):
+
+| Screen | Pair? | Reason |
+|---|---|---|
+| Auction (`AuctionScreen`) | yes, fixed | both buttons always |
+| Dunning (`DunningSettingsScreen`) | yes, fixed | both buttons always |
+| Receivable dunning (`ReceivableDunningSettingsScreen`) | yes, fixed | both buttons always; missed by the first analysis |
+| Online payment (`PaymentGatewaySettingsScreen`) | yes, fixed | both buttons always, plus picker and warning |
+| SEPA direct debit (`SepaSettingsScreen`) | yes, fixed | both buttons always |
+| VAT module (`NonprofitComplianceReportsScreen`) | no | already `if (vatEnabled) disable else enable` |
+| FinTS (`BankAccountsScreen`) | no | one button per FinTS status |
+| Politician status (`PoliticianScreen`) | no | one toggle button, label per state |
+| Stream destinations (`ConferenceStreamDestinationsScreen`) | no | `if (enabled) Deaktivieren else Aktivieren` |
+| Webhook endpoint (`ApiKeysScreen`) | no | "Wieder aktivieren" only when `!active` |
+| Event rooms, ledger accounts, donors, cost centers (row buttons) | no | "Deaktivieren" only for active rows |
+| Dunning levels, receivable dunning levels (row buttons) | no | single action per data row |
+| Member card, API keys, MCP access, CRM consent, SEPA mandates, regional chapters, articles (revoke) | no | single action per record, no counterpart button |
+| Microphone/camera (conference, event guest call) | no | label switches with the state |
+
+Honest limits:
+
+- The status now stands next to the button and once more as a badge in the settings summary above it (the summary was left alone; dropping the badge belongs to the page restructuring V1.9.178).
+- No date or acknowledging member in the status line, no page restructuring (V1.9.178).
+- The behaviour is covered by DOM tests in headless Chrome only; no screen reader test and no run against a real instance took place.
+- No tripwire was added for a future unconditional pair: a regex over `button(tr("... aktivieren` would flag the legitimate row buttons above, so the heuristic was judged too noisy for this wave.
+
+### V1.9.173 -- Date and time pickers everywhere
+
+No migration (the schema stays `V111`), no RPC, DTO or server main-code change: client only (Kotlin/JS, `theme.css`, the seven gettext catalogs plus `messages.pot`); the only server-side file is the test directory of the tripwires.
+
+- **One mechanism, picker by default.** `localDateField`, `localTimeField`, `localDateTimeFields` (LapisForm) and `localDateInput`, `localTimeInput`, `localDateTimeInput` (raw screens) use the browser's native `type=date`/`type=time` unless the browser lacks them. The opt-in `picker = true` of V1.9.171 is gone (it is the default). The text field with the locale pattern, placeholder and "Format:" hint stays as the fallback and the test lever.
+- **`stepMinutes` per field**, not global: 1 minute by default (a time can be exact), 5 minutes on the planning screens (event start, end and registration deadline, the event series, volunteer shifts, carpool departure). The fixed `step=300` of V1.9.171 is removed. On a 5-minute field an off-grid entry gets the German message "Bitte eine Uhrzeit in 5-Minuten-Schritten wählen." (LapisForm layer only; the raw layer still accepts an off-step minute as V1.9.171 did).
+- **`LapisField` in picker mode:** `value` is ISO. New `setDate`/`setTime` write it (`dirty` untouched), `localDateOrNull`/`localTimeOrNull` read it. A half-typed entry (empty `value` plus `badInput`) is the existing German format error, also for a required field; an empty optional field stays valid.
+- **Ranges:** `linkDateRange` keeps `min`/`max` of a Von/Bis pair in step (accounting filters, SEPA returns filter, audit log, cost center report, accounting export, membership tier period, travel expense header, contribution exemption, events, volunteer shifts). The popup greys out days only; the existing cross-field rules stay the check.
+- **Readers moved:** `DateRangeFilterControls` now holds two date endpoints (`parseFrom`/`parseTo`/`hasRange`/`setFrom`/`setTo`) instead of two `Text`s; the SEPA returns filter, balance sheet "Stichtag", the travel expense day grid times and the journal date field read through the typed accessors or ISO. `todayLocaleText()` is no longer written into a field.
+- **Month and year:** never `type=month`. The fiscal-year filter and the donor "Kalenderjahr" are now `type=number` with `min`/`max`.
+- **Layout:** `.lapis-date-input` (max 11 rem) and `.lapis-time-input` (max 7.5 rem) in both modes; date and time of one point in time sit side by side.
+- **Tripwires:** T7 now sanctions the three `Local*.kt` files; P1 (no `localDateInput(...).input` unwrapping), P2 (no `picker = false` outside those files) and T9 (no hand-built date/time text box; allowlist of three with reasons, ratchet) are new, each with positive, negative and red-proof examples. Guideline rule R61.
+- Tests: `LocalPickerFieldsDomTest` and `LocalPickerReadersDomTest` (picker mode of every component, `badInput`, `stepMismatch`, ranges, readers), a picker test of the travel expense header; `fillDate`/`fillTime`/`useTextTemporalInputs` helpers; 44 existing DOM tests that type locale text now call `useTextTemporalInputs()` and keep covering the fallback.
+
+Inventory (grep of `text(`/`textField(` and every `local*Field`/`local*Input` call):
+
+| Screen | Field | Layer | Converted? |
+|---|---|---|---|
+| Events | Beginn, Ende, Anmeldeschluss | raw | yes (5 min) |
+| Event series | Enddatum | raw | yes |
+| Volunteer shifts (create, edit) | Beginn, Ende | raw | yes (5 min) |
+| Carpool | Abfahrtsdatum, Abfahrtszeit | LapisForm | yes (time 5 min) |
+| Accounting filters (9 callers) | Von, Bis | raw | yes |
+| SEPA returns filter | Von, Bis | raw | yes |
+| SEPA batches, mandate, returns | Einzugsdatum, Unterschrift, Rücklauf | LapisForm | yes |
+| Balance sheet | Stichtag | raw | yes |
+| Audit log | Von, Bis | raw | yes |
+| DSGVO forms | Unterzeichnet, Prüftermin, Entdeckt, Benachrichtigt | raw | yes |
+| Contributions | Fälligkeit, Befreiung, Wiedervorlage | raw | yes |
+| Member honors, CRM forms | Verliehen am, Zeitpunkt | raw | yes |
+| Ledger, open items, cost centers, export | Buchungsdatum, Fälligkeit, Von, Bis | LapisForm | yes |
+| Membership tiers, board, committees | Beginn, Ende, Seit, Enddatum | LapisForm | yes |
+| Travel expense (header, first night, day grid) | Von, Bis, Erste Nacht, Abfahrt, Rückkehr | LapisForm | yes (layout and wording untouched, V1.9.174) |
+| Member admin, address card, politician, agreement texts, volunteer allowance, poll | Sterbedatum, Geburtsdatum, Gültig ab, Frist | LapisForm | yes |
+| Meetings | Termin | LapisForm | yes (stays at 1 minute, see open question) |
+| Fiscal year filter, donors | Geschäftsjahr, Kalenderjahr | text | `type=number` |
+| Dunning, SEPA settings, check-in, tiers | "... in Tagen", "Zahlungsziel (Tage)" | text | no: a number of days |
+| Carpool participation | Treffpunkt und Uhrzeit | textarea | no: free text |
+| Agreement texts | Version | text | no: a free label |
+
+Honest limits: ChromeHeadless only. Nobody clicked the pickers; Safari, iOS and Firefox are unverified. `badInput` is simulated by overriding `validity`, `stepMismatch` is real in Chrome but not exercised by a keyboard. The picker display follows the browser or OS locale, not the UI language, so the pattern named in the `badInput` message can differ from what the picker shows. Browsers without `type=date` are tested only through the `forceTextTemporalInputsForTest` hook. `min`/`max` only grey out days in the popup; a typed date can bypass them, so the cross-field rule stays authoritative.
+
+Follow-up (not in this wave): a `fieldset` group around the date and time labels; copying the start date into an empty end date.
+
+### V1.9.171 follow-up note
+
+The "Not changed in this wave" list of V1.9.171 below is closed in V1.9.173.
+
+### V1.9.171 -- Date and time pickers in the event form
+
+No migration (the schema stays `V111`), no RPC, DTO or server change: client only.
+
+- The event form (start, end, registration deadline) and the series end date now use the browser's native `type=date` and `type=time` pickers instead of free text fields. The time field steps in 5 minutes for the arrow keys and the minute list; typing any minute is still possible and an off-step value is not an error.
+- Browsers without those input types fall back to the previous text fields with the format hint.
+- A half-typed native date is not silently treated as blank: it keeps the existing German error message.
+- Date and time of one point in time sit side by side (only in picker mode; other screens keep their layout).
+- Opt-in per call site (`picker = true`); all other raw date and time fields are unchanged. (V1.9.173: now the default everywhere.)
+
+Limits: checked in ChromeHeadless only. Nobody clicked the pickers; Safari, iOS and Firefox are unverified. `badInput` is simulated in tests by overriding `validity`, not by real keyboard input. The picker format follows the browser or OS locale, not the UI language (a German user with an en-US browser sees `10/21/2026`).
+
+Not changed in this wave (closed in V1.9.173): the raw fields of AccountingFilters, SepaBatchesScreen, ContributionsScreen, MemberHonorsScreen, EventVolunteerShiftsScreen (candidate for the next wave), CrmContactsScreen, CrmCollapsibleForms, AuditLogScreen, DsgvoComplianceForms, and every `LapisForm` date and time field (`localDateField`, `localTimeField`). Follow-up idea: copy the start date into an empty end date.
+
 ## [0.37.6] — 2026-10-21
 
 Feature release on top of `[0.37.5]` (V1.9.164 to V1.9.170). One additive migration (**`V111`**, encounter map option; `:lapis-server:postgresTest` ran green on 2026-10-21, 760 tests against PostgreSQL 17, and the migration also ran on the operator's staging instance), no new server environment variable. **Behaviour changes first:** reactions (video conference and encounter room), the sticky control bar and the theatre hall of the encounter room, an optional grid map for assembly rooms (**off by default**), a device picker that stays visible without browser permission, and the **online window of an event opening 30 minutes before the start** instead of 15 on every instance. Operators: take a backup as always; people of an event that starts within 30 minutes of the rollout get access at once. Since the wave entries below were written, the owner looked at the hall layout, the map layer, the anchor buttons and the keyboard control of the map on a staging instance (no real phones, no Safari, no screen reader); the "not looked at" limits in V1.9.166 and V1.9.167 apply to everything else. Known and not part of this release: a gap between speaking and hearing in a large room (about five seconds at the 95th percentile without relay in the stage-3 load test).

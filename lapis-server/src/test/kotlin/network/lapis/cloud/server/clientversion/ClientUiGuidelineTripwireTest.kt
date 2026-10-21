@@ -842,7 +842,7 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         "CommunicationScreen.kt" to listOf("val listSelect = row.select(options = emptyList(), label = tr(\"Mailingliste\"))"),
         "MyVolunteerShiftsScreen.kt" to
             listOf("val eventSelect = eventSelectRow.select(options = emptyList(), label = tr(\"Veranstaltung\"))"),
-        "PaymentGatewaySettingsScreen.kt" to listOf("actionsRow.select( [label \"Anbieter\"]"),
+        "PaymentGatewaySettingsScreen.kt" to listOf("row.select( [label \"Anbieter\"]"),
         // W4d (this batch): the "Nur aktive Profile" / "Inklusive ehemaliger Profile" toggle picks what the
         // list below shows -- never submitted, same reason as CommunicationScreen.kt's listSelect above.
         "PoliticianScreen.kt" to listOf("listControlsRow.select( [label \"Anzeige\"]"),

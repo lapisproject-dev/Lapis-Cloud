@@ -93,6 +93,7 @@ fun renderAuditLogScreen(container: SimplePanel) {
     val filterRow2 = root.lapisToolbar()
     val fromInput = filterRow2.localDateTimeInput(label = gettext("Von (optional)"), hintLine = false)
     val toInput = filterRow2.localDateTimeInput(label = gettext("Bis (optional)"), hintLine = false)
+    linkDateRange(fromInput.date, toInput.date)
     val filterButton = filterRow2.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val statusRegion = root.dataStatusRegion()

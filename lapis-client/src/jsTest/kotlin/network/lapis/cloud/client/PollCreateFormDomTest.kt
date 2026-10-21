@@ -135,6 +135,7 @@ class PollCreateFormDomTest {
     @Test
     fun theDeadline_noneShowsTheHint_customShowsADateField(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             withForm(PollWorld(), "poll-form-deadline") { el, _, _ ->
                 el.chooseIn("Frist", "none")
                 assertTrue(

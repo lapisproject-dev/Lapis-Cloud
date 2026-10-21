@@ -70,9 +70,9 @@ class RestGroupActionIconsDomTest {
                 mountedForm("r49-icons-auction") { root, element ->
                     renderAuctionScreen(root)
                     awaitUntil("the admin section") { element().textContent.orEmpty().contains("Wertobergrenze") }
-                    element().assertIcon("Auktion deaktivieren", "fa-ban")
+                    // V1.9.180: "Auktion deaktivieren" / "Auktion aktivieren …" exist one at a time (ToggleActionPairsDomTest asserts
+                    // their icons per state).
                     element().assertIcon("Obergrenze speichern", "fa-floppy-disk")
-                    element().assertNoIcon("Auktion aktivieren …")
                     element().assertIcon("Neues Angebot", "fa-plus")
                 }
             }
@@ -160,30 +160,6 @@ class RestGroupActionIconsDomTest {
                     awaitUntil("the document row") { accessButtons().size == 2 }
                     assertTrue(accessButtons().all { it.querySelector("i.fa-user-lock") != null }, "both rows use the access icon")
                     element().assertIcon("Neuer Ordner", "fa-plus")
-                }
-            }
-        }
-
-    @Test
-    fun dunning_deactivateButtonsHaveTheIcon_activateDoesNot(): Promise<Unit> =
-        formTest {
-            AppState.setSession(session(AccountRole.ADMIN))
-            withFetchStub(respond = { request -> if (request.isRpc) request.answerWith("[]") else StubResponse() }) {
-                mountedForm("r49-icons-dunning") { root, element ->
-                    renderDunningSettingsScreen(root)
-                    awaitUntil(
-                        "the status section",
-                    ) { element().allOf("button").any { it.textContent?.trim() == "Mahnwesen deaktivieren" } }
-                    element().assertIcon("Mahnwesen deaktivieren", "fa-ban")
-                    element().assertNoIcon("Mahnwesen aktivieren …")
-                }
-                mountedForm("r49-icons-receivables") { root, element ->
-                    renderReceivableDunningSettingsScreen(root)
-                    awaitUntil("the status section") {
-                        element().allOf("button").any { it.textContent?.trim() == "Forderungs-Mahnwesen deaktivieren" }
-                    }
-                    element().assertIcon("Forderungs-Mahnwesen deaktivieren", "fa-ban")
-                    element().assertNoIcon("Forderungs-Mahnwesen aktivieren")
                 }
             }
         }

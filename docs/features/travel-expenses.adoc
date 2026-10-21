@@ -37,9 +37,9 @@ model.
 
 === The day grid
 
-`createDraft`/`updateDraft` keep **exactly one `DAY_ALLOWANCE` line per travel day** (at most 31 days). The member fills one fieldset per
-day: departure and/or arrival time (which fields appear depends on the day's *position* in the trip, see below), the three meals that were
-provided, and an optional destination. "Tage speichern" calls `saveDays`; the server recomputes **every** amount with the shared
+`createDraft`/`updateDraft` keep **exactly one `DAY_ALLOWANCE` line per travel day** (at most 31 days). The member fills one row per
+day (V1.9.181; a `fieldset` per day, one line from 50 rem of grid width, stacked below): an optional destination, departure and/or arrival time (which fields appear depends on the day's *position* in the trip, see below), and the three meals that were
+provided -- each with a short label and the percentage and amount it takes off shown under the box. The return time is optional on a single-day trip (a note says that without departure and return no daily allowance is calculated) and on the last day. While Von/Bis in the header form differ from the saved range, a notice above the rows says the travel days are updated after saving; the rows themselves are created by the server and are not rebuilt live. "Tage speichern" calls `saveDays`; the server recomputes **every** amount with the shared
 calculator -- the client shows the same numbers live, as a clearly marked preview ("Vorschau -- nicht gespeichert"), but never supplies one.
 
 [cols="1,3"]

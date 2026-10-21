@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.select.select
-import io.kvision.form.text.Text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -332,7 +331,8 @@ private fun renderExportSection(
             required = true,
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
         )
-    val filterControls = DateRangeFilterControls(fromField.control as Text, toField.control as Text)
+    linkDateRange(fromField, toField)
+    val filterControls = DateRangeFilterControls(fromField.asEndpoint(), toField.asEndpoint())
     val checkButton = Button(tr("Prüfen"), style = ButtonStyle.OUTLINESECONDARY)
     form.buttons(primary = checkButton)
     val resultPanel = panel.vPanel(spacing = 8)

@@ -256,6 +256,8 @@ private val NATIVE_DATE_INPUT =
             """(?:\btype\s*=\s*|setAttribute\(\s*"type"\s*,\s*)"(?:date|datetime-local|time|month|week)"""",
     )
 
+private val T7_SANCTIONED_FILES = setOf("LocalInputs.kt", "LocalDateField.kt", "LocalTimeField.kt")
+
 // ---- T8: fixed format literals, ISO-only UI rules -----------------------------------------------------------------------
 
 /** T8: a fixed date/time pattern as a literal (`dd.MM.yyyy`, `HH:mm`, `TT.MM`), or the ISO-only field rules in UI code. `TemporalLocale.kt`
@@ -423,7 +425,10 @@ class ClientTemporalFormatTripwireTest :
             } finally {
                 copy.delete()
             }
+            // V1.9.171/V1.9.173: the three Local*.kt files are the ONLY sanctioned places of a native date/time input (the picker is the default
+            // there); no screen may build one by hand.
             files
+                .filter { it.name !in T7_SANCTIONED_FILES }
                 .flatMap { f -> codeLines(f).filter { NATIVE_DATE_INPUT.containsMatchIn(it) }.map { "${f.name}: ${it.trim()}" } } shouldBe
                 emptyList()
         }

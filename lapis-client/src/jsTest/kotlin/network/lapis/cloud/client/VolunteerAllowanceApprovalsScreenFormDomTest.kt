@@ -196,6 +196,7 @@ class VolunteerAllowanceApprovalsScreenFormDomTest {
     @Test
     fun paperDeclarationForm_recordsTheTypedSignedOnDate(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(boardSession)
             val listRoute =
                 routeOf { rpcService<IVolunteerAllowanceService>().listPayments(status = null, afterSubmittedAt = null, afterId = null) }

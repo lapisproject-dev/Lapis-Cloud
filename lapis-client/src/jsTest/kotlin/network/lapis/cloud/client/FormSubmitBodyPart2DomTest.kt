@@ -230,6 +230,7 @@ class FormSubmitBodyPart2DomTest {
     @Test
     fun memberEditor_everySectionSendsItsOwnFields_inTheRightSlots_trimmed(): Promise<Unit> =
         test {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(adminSession())
             val r = routes()
             withFetchStub { calls ->
@@ -486,6 +487,7 @@ class FormSubmitBodyPart2DomTest {
     @Test
     fun meetingCreation_titleLocationAndTimeEachInTheirSlot(): Promise<Unit> =
         test {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             val r = routes()
             withFetchStub { calls ->
                 mounted("body2-meeting") { root, element ->

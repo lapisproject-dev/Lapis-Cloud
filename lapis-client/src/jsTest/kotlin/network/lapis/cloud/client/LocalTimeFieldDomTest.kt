@@ -43,6 +43,7 @@ class LocalTimeFieldDomTest {
 
     @Test
     fun timeField_isAPlainTextFieldWithPatternPlaceholderHintAndDescribedBy() {
+        useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
         withMountedRoot("local-time-field") { root, element ->
             val form = root.lapisForm()
             val field = form.localTimeField(label = "Abfahrt", value = LocalTime(8, 5))
@@ -62,6 +63,7 @@ class LocalTimeFieldDomTest {
 
     @Test
     fun timeField_normalisesAValidEntryWhenLeft_andLeavesAnInvalidOneAsTyped() {
+        useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
         withMountedRoot("local-time-field-blur") { root, element ->
             val form = root.lapisForm()
             val field = form.localTimeField(label = "Abfahrt", value = null)
@@ -81,6 +83,7 @@ class LocalTimeFieldDomTest {
 
     @Test
     fun timeField_inAnEnUsBrowser_readsAmPm_andShowsTheFixedTwelveHourHint() {
+        useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
         browserLanguageProvider = { "en-US" }
         val previous = io.kvision.i18n.I18n.language
         try {
@@ -104,6 +107,7 @@ class LocalTimeFieldDomTest {
 
     @Test
     fun dateTimeFields_areTwoLabelledFields_andCombineToOneLocalDateTime() {
+        useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
         withMountedRoot("local-datetime-fields") { root, element ->
             val form = root.lapisForm()
             val pair = form.localDateTimeFields(label = "Termin", value = LocalDateTime(2026, 10, 15, 18, 0), required = true)
@@ -128,6 +132,7 @@ class LocalTimeFieldDomTest {
 
     @Test
     fun rawDateTimeInput_valueIsIsoWhenValid_andNeverIsoWhenHalfTyped() {
+        useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
         withMountedRoot("local-raw-datetime") { root, element ->
             val input = root.localDateTimeInput(label = "Beginn")
             assertEquals("", input.value)
@@ -149,6 +154,7 @@ class LocalTimeFieldDomTest {
 
     @Test
     fun rawDateInput_withoutAHintLine_hasOnlyAPlaceholder_andNormalisesOnBlur() {
+        useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
         withMountedRoot("local-raw-date") { root, element ->
             val input = root.localDateInput(label = "Von", value = LocalDate(2026, 3, 5), hintLine = false)
             val control = element().inputOf(0)

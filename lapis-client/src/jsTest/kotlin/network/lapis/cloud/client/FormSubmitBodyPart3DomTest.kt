@@ -194,6 +194,7 @@ class FormSubmitBodyPart3DomTest {
     @Test
     fun boardAppointment_sendsTheChosenMemberRoleAndDate_eachInItsSlot(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             val appoint =
                 routeOf {
                     rpcService<IBoardMembershipService>().appointBoardMember(
@@ -930,6 +931,7 @@ class FormSubmitBodyPart3DomTest {
     @Test
     fun deathDateCorrection_sendsTheDateAndItsOwnReason_andAnEmptyDateIsNull(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(adminSession())
             val correct = routeOf { rpcService<IMemberService>().correctDateOfDeath("m", null, "r") }
             withFetchStub(respond = answering()) { calls ->
@@ -1007,6 +1009,7 @@ class FormSubmitBodyPart3DomTest {
     @Test
     fun committeeMember_sendsTheChosenMemberRoleAndDate_eachInItsSlot(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             val add =
                 routeOf {
                     rpcService<IGovernanceService>().addCommitteeMember(

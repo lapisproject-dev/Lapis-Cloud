@@ -460,6 +460,7 @@ class FormGrammarDomTest {
 
     @Test
     fun aHiddenLocalDateField_withInvalidText_doesNotBlockValidation() {
+        useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
         withMountedRoot("form-grammar-hidden-date") { root, element ->
             val form = root.lapisForm()
             val date = form.localDateField(label = tr("Sterbedatum"))
@@ -479,6 +480,7 @@ class FormGrammarDomTest {
 
     @Test
     fun aHiddenLocalDateTimeFields_withInvalidText_doesNotBlockValidation() {
+        useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
         withMountedRoot("form-grammar-hidden-datetime") { root, element ->
             val form = root.lapisForm()
             val fields = form.localDateTimeFields(label = tr("Frist"))

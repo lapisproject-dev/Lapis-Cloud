@@ -941,6 +941,33 @@ class LapisField internal constructor(
     /** V1.9.132: gesetzt von [localDateField]/[localTimeField] -- das Locale, in dem dieses Feld sein Datum bzw. seine Uhrzeit liest und zeigt. */
     internal var dateSpec: TemporalLocale? = null
 
+    /**
+     * V1.9.173: `true` for a native `type=date`/`type=time` field. Then [value] is ISO (`2026-03-05`, `09:05`), not the locale text, and a half-typed
+     * entry (empty value, `badInput`) is an error, not a blank. Read with [localDateOrNull]/[localTimeOrNull], write with [setDate]/[setTime].
+     */
+    internal var temporalPicker: Boolean = false
+
+    /** Minute grid of a native time field; an off-grid entry is an error only where this is above 1 (the raw layer accepts it). */
+    internal var stepMinutes: Int = 1
+
+    /** The raw entry: [value], or [INVALID_MARKER] for a half-typed picker entry (empty value, `badInput`), so it is never mistaken for blank. */
+    internal fun rawTemporalText(): String {
+        val v = value
+        if (v.isEmpty() && temporalPicker && nativeElement()?.nativeRead() is NativeRead.BadInput) return INVALID_MARKER
+        return v
+    }
+
+    internal fun nativeElement(): org.w3c.dom.HTMLInputElement? = inputWidget?.getElement() as? org.w3c.dom.HTMLInputElement
+
+    /** `min`/`max` of the picker popup (an ISO date) or `null` to drop it; a no-op when this is not a native field. */
+    internal fun setNativeBound(
+        name: String,
+        iso: String?,
+    ) {
+        if (!temporalPicker) return
+        if (iso == null) inputWidget?.removeAttribute(name) else inputWidget?.setAttribute(name, iso)
+    }
+
     /** V1.9.78: die Aufdecken-Gruppe dieses Passwortfelds (eigene oder die des Hauptfelds). */
     internal var revealGroup: RevealGroup? = null
 
@@ -1129,8 +1156,17 @@ class LapisField internal constructor(
             return extraChecks.map { it() }.firstOrNull { it is FieldCheck.Invalid } ?: FieldCheck.Ok
         }
         val current = value
+        val native = if (temporalPicker) nativeElement()?.nativeRead() else null
         if (current.isBlank()) {
+            // A half-typed native entry has an empty value: it is a format error, even for a required field, and never a silent blank.
+            if (native is NativeRead.BadInput) {
+                val bad = rule(INVALID_MARKER)
+                if (bad is FieldCheck.Invalid) return bad
+            }
             return if (required) FieldCheck.Invalid(requiredMessage ?: gettext("Dieses Feld muss ausgefüllt werden.")) else FieldCheck.Ok
+        }
+        if (native is NativeRead.StepMismatch && stepMinutes > 1) {
+            return FieldCheck.Invalid(gettext("Bitte eine Uhrzeit in %1-Minuten-Schritten wählen.", stepMinutes))
         }
         val own = rule(current)
         if (own is FieldCheck.Invalid) return own

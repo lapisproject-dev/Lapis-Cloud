@@ -9241,6 +9241,14 @@ msgstr "Statut"
 msgid "Status:"
 msgstr "Statut :"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:50
+msgid "Status: Aktiviert"
+msgstr "Statut : Activé"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:51
+msgid "Status: Deaktiviert"
+msgstr "Statut : Désactivé"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:206
 msgid "Status: %1"
 msgstr "Statut : %1"
@@ -23238,6 +23246,10 @@ msgstr "À soumettre avant le %1"
 msgid "Einstellungen gespeichert."
 msgstr "Paramètres enregistrés."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:52
+msgid "Einstellungen konnten nicht geladen werden."
+msgstr "Impossible de charger les paramètres."
+
 msgid "Erste Nacht (JJJJ-MM-TT)"
 msgstr "Première nuit (AAAA-MM-JJ)"
 
@@ -24296,6 +24308,9 @@ msgstr "Veuillez indiquer une date d'échéance valide dans le futur (%1)."
 
 msgid "Bitte eine Uhrzeit im Format %1 eingeben."
 msgstr "Veuillez saisir une heure au format %1."
+
+msgid "Bitte eine Uhrzeit in %1-Minuten-Schritten wählen."
+msgstr "Veuillez choisir une heure par pas de %1 minutes."
 
 msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
 msgstr "Veuillez indiquer un moment de découverte valide, une description, les catégories de données concernées et un statut."
@@ -25374,3 +25389,24 @@ msgstr "Aucun microphone ni aucune caméra n'a été trouvé."
 
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr "Un appareil n'a pas pu être ouvert. Il est peut-être utilisé par une autre application."
+
+msgid "Rückkehr (optional)"
+msgstr "Retour (facultatif)"
+
+msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
+msgstr "Sans heure de départ ni de retour, aucune indemnité journalière ne peut être calculée pour ce jour."
+
+msgid "Frühstück"
+msgstr "Petit-déjeuner"
+
+msgid "Mittag"
+msgstr "Déjeuner"
+
+msgid "Abend"
+msgstr "Dîner"
+
+msgid "%1 % · −%2"
+msgstr "%1 % · −%2"
+
+msgid "Die Reisetage werden nach dem Speichern aktualisiert."
+msgstr "Les jours de voyage sont mis à jour après l'enregistrement."

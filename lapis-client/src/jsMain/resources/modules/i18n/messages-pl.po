@@ -9180,6 +9180,14 @@ msgstr "Status"
 msgid "Status:"
 msgstr "Status:"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:50
+msgid "Status: Aktiviert"
+msgstr "Status: Aktywowano"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:51
+msgid "Status: Deaktiviert"
+msgstr "Status: Dezaktywowane"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:206
 msgid "Status: %1"
 msgstr "Status: %1"
@@ -23179,6 +23187,10 @@ msgstr "Termin złożenia: %1"
 msgid "Einstellungen gespeichert."
 msgstr "Ustawienia zapisane."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:52
+msgid "Einstellungen konnten nicht geladen werden."
+msgstr "Nie udało się załadować ustawień."
+
 msgid "Erste Nacht (JJJJ-MM-TT)"
 msgstr "Pierwsza noc (RRRR-MM-DD)"
 
@@ -24239,6 +24251,9 @@ msgstr "Proszę podać prawidłowy termin płatności w przyszłości (%1)."
 
 msgid "Bitte eine Uhrzeit im Format %1 eingeben."
 msgstr "Proszę wpisać godzinę w formacie %1."
+
+msgid "Bitte eine Uhrzeit in %1-Minuten-Schritten wählen."
+msgstr "Proszę wybrać godzinę w odstępach co %1 minut."
 
 msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
 msgstr "Proszę podać prawidłowy moment wykrycia, opis, kategorie danych, których dotyczy naruszenie, oraz status."
@@ -25317,3 +25332,24 @@ msgstr "Nie znaleziono ani mikrofonu, ani kamery."
 
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr "Nie udało się otworzyć urządzenia. Może być używane przez inną aplikację."
+
+msgid "Rückkehr (optional)"
+msgstr "Powrót (opcjonalnie)"
+
+msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
+msgstr "Bez godziny wyjazdu i powrotu nie można obliczyć diety za ten dzień."
+
+msgid "Frühstück"
+msgstr "Śniadanie"
+
+msgid "Mittag"
+msgstr "Obiad"
+
+msgid "Abend"
+msgstr "Kolacja"
+
+msgid "%1 % · −%2"
+msgstr "%1 % · −%2"
+
+msgid "Die Reisetage werden nach dem Speichern aktualisiert."
+msgstr "Dni podróży zostaną zaktualizowane po zapisaniu."

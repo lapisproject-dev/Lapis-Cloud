@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.form.check.checkBox
-import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -363,7 +362,8 @@ internal fun renderCostCenterReportView(panel: SimplePanel) {
             required = true,
             requiredMessage = tr("Bitte ein gültiges \"Bis\"-Datum angeben."),
         )
-    val filterControls = DateRangeFilterControls(fromField.control as Text, toField.control as Text)
+    linkDateRange(fromField, toField)
+    val filterControls = DateRangeFilterControls(fromField.asEndpoint(), toField.asEndpoint())
     val loadButton = Button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     form.buttons(primary = loadButton)
     // Welle V1.4.27 (W3): dataSection instead of a stuck "Wird geladen ..." on a failed load; the date validation

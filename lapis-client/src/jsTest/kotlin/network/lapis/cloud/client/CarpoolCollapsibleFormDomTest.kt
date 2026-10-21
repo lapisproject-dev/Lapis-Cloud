@@ -240,6 +240,7 @@ class CarpoolCollapsibleFormDomTest {
     @Test
     fun editAndDuplicate_openTheSameHostPrefilled(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             withCarpoolStub(mine = listOf(posting("p1", own = true))) { _, _ ->
                 mountedForm("r50-carpool-prefill") { root, element ->
                     renderCarpoolScreen(root)

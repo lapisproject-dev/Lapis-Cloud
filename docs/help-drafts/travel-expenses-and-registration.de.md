@@ -38,9 +38,9 @@ Mit dem Link aus der E-Mail vergeben Sie ein neues Passwort und melden sich dana
 Öffnen Sie im Menü **Reisekosten**. Oben sehen Sie Ihren Ansprechpartner für Rückfragen.
 
 1. **Neuen Antrag anlegen.** Tragen Sie Zweck, Beginn und Ende der Reise ein (höchstens 31 Tage). Ihre Mitgliedsnummer wird automatisch angezeigt.
-2. **Reisetage ausfüllen.** Für jeden Tag der Reise gibt es einen Block. Tragen Sie ein, wann Sie abgefahren sind bzw. zurückgekehrt sind (am ersten Tag nur die Abfahrt,
-   am letzten Tag nur die Rückkehr, an Tagen dazwischen gar nichts -- sie zählen 24 Stunden). Kreuzen Sie an, welche Mahlzeiten Ihnen gestellt wurden; das mindert das
-   Tagegeld. Wenn Ihr Hotel das Frühstück enthält, ist es am Folgetag bereits angekreuzt und gesperrt. Mit **Tage speichern** übernehmen Sie die Angaben.
+2. **Reisetage ausfüllen.** Für jeden Tag der Reise gibt es eine Zeile. Tragen Sie ein, wann Sie abgefahren sind bzw. zurückgekehrt sind (am ersten Tag nur die Abfahrt,
+   am letzten Tag nur die Rückkehr -- sie ist optional --, an Tagen dazwischen gar nichts -- sie zählen 24 Stunden; bei einer eintägigen Reise gehören Abfahrt und Rückkehr zusammen, sonst lässt sich kein Tagegeld berechnen). Kreuzen Sie an, welche Mahlzeiten Ihnen gestellt wurden (Frühstück, Mittag, Abend; darunter steht, wie viel das mindert); das mindert das
+   Tagegeld. Ändern Sie Beginn oder Ende der Reise, weist ein Hinweis darauf hin, dass die Reisetage erst nach dem Speichern des Entwurfs aktualisiert werden. Wenn Ihr Hotel das Frühstück enthält, ist es am Folgetag bereits angekreuzt und gesperrt. Mit **Tage speichern** übernehmen Sie die Angaben.
    Die Summen, die Sie dabei sehen, sind eine **Vorschau** -- verbindlich ist, was nach dem Speichern dasteht.
 3. **Weitere Kosten.** Fahrten mit dem eigenen Auto (ganze Kilometer, Mitfahrer erhöhen den Satz), öffentliche Verkehrsmittel, Übernachtung (mit Hotel, erster Nacht, Anzahl der
    Nächte, ggf. „mit Frühstück"), Bewirtung und Sonstiges. Für alle diese Kosten außer der eigenen Autofahrt laden Sie einen **Beleg** hoch (PDF, JPG oder PNG, bis 10 MB). Bei einer Autofahrt

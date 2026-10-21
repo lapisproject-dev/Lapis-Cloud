@@ -344,64 +344,66 @@ private fun renderAdminSection(
     onSettingsChanged: () -> Unit,
 ) {
     val settingsPanel = root.vPanel(spacing = 4)
-    settingsPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+    val actionsHost = root.toggleActionsHost()
+    lateinit var toggle: ToggleSettingsPanel<AuctionSettingsDto>
 
-    fun loadSettings() {
-        settingsPanel.removeAll()
-        settingsPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val settings = guarded { rpcService<IAuctionService>().getAuctionSettings() } ?: return@launch
-            settingsPanel.removeAll()
-            renderAuctionSettingsSummary(settingsPanel, settings)
-        }
-    }
-
-    val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2") }
-    val enableButton = actionsRow.button(tr("Auktion aktivieren …"), style = ButtonStyle.PRIMARY)
-    val disableButton = actionsRow.actionButton(ActionIcon.REVOKE, tr("Auktion deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
-
-    enableButton.onClick {
-        enableButton.disabled = true
-        AppScope.launch {
-            val disclaimer = guarded { rpcService<IAuctionService>().getAuctionComplianceDisclaimer() }
-            enableButton.disabled = false
-            if (disclaimer != null) {
-                auctionEnableDisclaimerModal(disclaimer) {
-                    AppScope.launch {
-                        val result =
-                            guarded {
-                                rpcService<IAuctionService>().enableAuction(
-                                    AuctionComplianceAcknowledgmentInput(
-                                        disclaimerVersion = disclaimer.version,
-                                        disclaimerSha256 = disclaimer.sha256,
-                                    ),
-                                )
+    toggle =
+        ToggleSettingsPanel(
+            settingsPanel = settingsPanel,
+            actionsHost = actionsHost,
+            fetch = { guarded { rpcService<IAuctionService>().getAuctionSettings() } },
+            isEnabled = { it.auctionEnabled },
+            renderSummary = ::renderAuctionSettingsSummary,
+            enable = { row ->
+                row.button(tr("Auktion aktivieren …"), style = ButtonStyle.PRIMARY).also { button ->
+                    button.onClick {
+                        button.disabled = true
+                        AppScope.launch {
+                            val disclaimer = guarded { rpcService<IAuctionService>().getAuctionComplianceDisclaimer() }
+                            button.disabled = false
+                            if (disclaimer != null) {
+                                auctionEnableDisclaimerModal(disclaimer) {
+                                    AppScope.launch {
+                                        val result =
+                                            guarded {
+                                                rpcService<IAuctionService>().enableAuction(
+                                                    AuctionComplianceAcknowledgmentInput(
+                                                        disclaimerVersion = disclaimer.version,
+                                                        disclaimerSha256 = disclaimer.sha256,
+                                                    ),
+                                                )
+                                            }
+                                        if (result != null) {
+                                            notifySuccess(tr("Auktion aktiviert."))
+                                            toggle.load(focusStatus = true)
+                                            onSettingsChanged()
+                                        }
+                                    }
+                                }
                             }
-                        if (result != null) {
-                            notifySuccess(tr("Auktion aktiviert."))
-                            loadSettings()
-                            onSettingsChanged()
                         }
                     }
                 }
-            }
-        }
-    }
-
-    disableButton.onClick {
-        auctionDisableConfirmDialog {
-            disableButton.disabled = true
-            AppScope.launch {
-                val result = guarded { rpcService<IAuctionService>().disableAuction() }
-                disableButton.disabled = false
-                if (result != null) {
-                    notifySuccess(tr("Auktion deaktiviert."))
-                    loadSettings()
-                    onSettingsChanged()
+            },
+            disable = { row ->
+                row.actionButton(ActionIcon.REVOKE, tr("Auktion deaktivieren"), style = ButtonStyle.OUTLINEDANGER).also { button ->
+                    button.onClick {
+                        auctionDisableConfirmDialog {
+                            button.disabled = true
+                            AppScope.launch {
+                                val result = guarded { rpcService<IAuctionService>().disableAuction() }
+                                button.disabled = false
+                                if (result != null) {
+                                    notifySuccess(tr("Auktion deaktiviert."))
+                                    toggle.load(focusStatus = true)
+                                    onSettingsChanged()
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-        }
-    }
+            },
+        )
 
     root.h2(tr("Wertobergrenze (LTR)")) { addCssClass("h6") }
     val maxValuePanel = root.vPanel(spacing = 6)
@@ -446,13 +448,13 @@ private fun renderAdminSection(
                 if (result != null) {
                     notifySuccess(tr("Wertobergrenze aktualisiert."))
                     maxValueInput.value = null
-                    loadSettings()
+                    toggle.load()
                 }
             }
         }
     }
 
-    loadSettings()
+    toggle.load()
 }
 
 private fun renderAuctionSettingsSummary(

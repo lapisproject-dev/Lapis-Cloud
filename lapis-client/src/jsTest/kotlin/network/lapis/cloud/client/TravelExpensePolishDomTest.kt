@@ -164,6 +164,7 @@ class TravelExpensePolishDomTest {
     @Test
     fun headerForm_showsTheDatesInTheLocaleOrder_withThePatternAsPlaceholderAndHint(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-header-prefill") { element, _, _ ->
                 val from = element().input("Von")
@@ -181,6 +182,7 @@ class TravelExpensePolishDomTest {
     @Test
     fun headerForm_normalisesAValidEntryWhenTheFieldIsLeft_andLeavesAnInvalidOneAsTyped(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-header-normalise") { element, _, _ ->
                 element().typeInto("Von", "5.3.2026")
@@ -193,9 +195,113 @@ class TravelExpensePolishDomTest {
             }
         }
 
+    // ---- V1.9.181: changed trip dates -> notice above the day rows ------------------------------------------------------------------
+
+    private fun HTMLElement.staleRegion() = assertNotNull(querySelector(".lapis-te-day-stale") as? HTMLElement, "no stale region")
+
+    private fun HTMLElement.dayGrid() = assertNotNull(querySelector(".lapis-te-day-grid") as? HTMLElement, "no day grid")
+
+    @Test
+    fun changingTheTripEnd_showsTheNotice_andMarksTheGrid(): Promise<Unit> =
+        formTest {
+            useTextTemporalInputs()
+            AppState.setSession(memberSession)
+            withEditor("te-stale-show") { element, _, _ ->
+                element().typeInto("Bis", "13.03.2026")
+                delay(60)
+                assertEquals(
+                    "Die Reisetage werden nach dem Speichern aktualisiert.",
+                    element()
+                        .staleRegion()
+                        .textContent
+                        .orEmpty()
+                        .trim(),
+                )
+                assertEquals("status", element().staleRegion().getAttribute("role"))
+                assertEquals("true", element().dayGrid().getAttribute("data-stale"))
+            }
+        }
+
+    @Test
+    fun restoringTheSavedDates_removesTheNotice(): Promise<Unit> =
+        formTest {
+            useTextTemporalInputs()
+            AppState.setSession(memberSession)
+            withEditor("te-stale-restore") { element, _, _ ->
+                element().typeInto("Bis", "13.03.2026")
+                delay(60)
+                element().typeInto("Bis", "12.03.2026")
+                delay(60)
+                assertEquals(
+                    "",
+                    element()
+                        .staleRegion()
+                        .textContent
+                        .orEmpty()
+                        .trim(),
+                )
+                assertEquals(null, element().dayGrid().getAttribute("data-stale"))
+            }
+        }
+
+    @Test
+    fun savingTheDraft_clearsTheNotice(): Promise<Unit> =
+        formTest {
+            useTextTemporalInputs()
+            AppState.setSession(memberSession)
+            withEditor("te-stale-save") { element, calls, routes ->
+                element().typeInto("Bis", "13.03.2026")
+                delay(60)
+                assertEquals("true", element().dayGrid().getAttribute("data-stale"))
+                element().buttonNamed("Entwurf speichern").click()
+                awaitUntil("updateDraft", timeoutMs = 1000) { calls.toRoute(routes.updateDraft).size == 1 }
+                awaitUntil("editor rebuilt", timeoutMs = 1500) { element().input("Bis").value == "12.03.2026" }
+                assertEquals(
+                    "",
+                    element()
+                        .staleRegion()
+                        .textContent
+                        .orEmpty()
+                        .trim(),
+                )
+                assertEquals(null, element().dayGrid().getAttribute("data-stale"))
+            }
+        }
+
+    @Test
+    fun changingTheDates_leavesWhatWasTypedInTheDayRowsAlone(): Promise<Unit> =
+        formTest {
+            useTextTemporalInputs()
+            AppState.setSession(memberSession)
+            withEditor("te-stale-keeps-rows") { element, _, _ ->
+                val row = element().allOf("fieldset.lapis-te-day")[0]
+                row.typeInto("Ziel / Zweck", "Berlin")
+                element().typeInto("Bis", "13.03.2026")
+                delay(60)
+                assertEquals(3, element().allOf("fieldset.lapis-te-day").size, "no row is invented on the client")
+                assertEquals("Berlin", (element().allOf("fieldset.lapis-te-day")[0].controlOf("Ziel / Zweck") as HTMLInputElement).value)
+            }
+        }
+
+    @Test
+    fun theCreateForm_neverReportsChangedDates(): Promise<Unit> =
+        formTest {
+            useTextTemporalInputs()
+            AppState.setSession(memberSession)
+            mountedForm("te-stale-create") { root, element ->
+                val seen = mutableListOf<Boolean>()
+                renderReportHeaderForm(root, null, onRangeDirtyChanged = { seen += it }) { _, _, _ -> }
+                element().typeInto("Von", "10.03.2026")
+                element().typeInto("Bis", "12.03.2026")
+                delay(60)
+                assertTrue(seen.isEmpty(), "create mode has no saved range to differ from: $seen")
+            }
+        }
+
     @Test
     fun headerForm_namesThePattern_orTheProblem_inTheErrorOfEachKind(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-header-errors") { element, _, _ ->
                 element().typeInto("Von", "abc")
@@ -212,6 +318,7 @@ class TravelExpensePolishDomTest {
     @Test
     fun headerForm_save_sendsIsoDates_andTheCrossFieldRuleStillHolds(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-header-save") { element, calls, routes ->
                 element().typeInto("Bis", "08.03.2026")
@@ -230,8 +337,32 @@ class TravelExpensePolishDomTest {
         }
 
     @Test
+    fun headerForm_picker_sendsIsoDates_theCrossFieldRuleHolds_andTheRangeIsLinked(): Promise<Unit> =
+        formTest {
+            AppState.setSession(memberSession)
+            withEditor("te-polish-header-picker") { element, calls, routes ->
+                assertEquals("date", element().input("Bis").type)
+                fillDate(element().input("Bis"), LocalDate(2026, 3, 8))
+                assertTrue(
+                    element().shownErrors().contains("Das Bis-Datum darf nicht vor dem Von-Datum liegen."),
+                    "Bis before Von is still refused in picker mode: ${element().shownErrors()}",
+                )
+                fillDate(element().input("Bis"), LocalDate(2026, 3, 13))
+                fillDate(element().input("Von"), LocalDate(2026, 3, 9))
+                assertEquals("2026-03-09", element().input("Bis").getAttribute("min"))
+                assertEquals("2026-03-13", element().input("Von").getAttribute("max"))
+                element().buttonNamed("Entwurf speichern").click()
+                awaitUntil("updateDraft", timeoutMs = 1000) { calls.toRoute(routes.updateDraft).size == 1 }
+                val input = calls.singleCall(routes.updateDraft).rpcParam(1)
+                assertEquals("2026-03-09", input.travelFrom as String)
+                assertEquals("2026-03-13", input.travelTo as String)
+            }
+        }
+
+    @Test
     fun firstNight_isALocaleDateField_withTheRangeRuleAndSendsAnIsoDate(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-first-night") { element, calls, routes ->
                 element().buttonNamed("Übernachtung hinzufügen").click()
@@ -262,16 +393,22 @@ class TravelExpensePolishDomTest {
         formTest {
             AppState.setSession(memberSession)
             withEditor("te-polish-meal-labels") { element, _, _ ->
-                val labels = element().allOf("fieldset.lapis-te-day")[0].labelTexts()
-                assertTrue(labels.any { it.startsWith("Frühstück gestellt (20 % = −5,60") }, "breakfast: $labels")
-                assertTrue(labels.any { it.startsWith("Mittagessen gestellt (40 % = −11,20") }, "lunch: $labels")
-                assertTrue(labels.any { it.startsWith("Abendessen gestellt (40 % = −11,20") }, "dinner: $labels")
+                // V1.9.181: the label is the short meal name, the percentage and the amount are the description next to it.
+                val row = element().allOf("fieldset.lapis-te-day")[0]
+                assertEquals(
+                    listOf("Frühstück", "Mittag", "Abend"),
+                    row.labelTexts().filter { it in listOf("Frühstück", "Mittag", "Abend") },
+                )
+                val text = row.textContent.orEmpty()
+                assertTrue(text.contains("20 % · −5,60"), "breakfast: $text")
+                assertTrue(text.contains("40 % · −11,20"), "lunch/dinner: $text")
             }
         }
 
     @Test
     fun aDayWithoutAllowance_saysWhyACheckedMealTakesNothingOff(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-note-no-allowance") { element, _, _ ->
                 val first = element().allOf("fieldset.lapis-te-day")[0]
@@ -290,6 +427,7 @@ class TravelExpensePolishDomTest {
     @Test
     fun aDayWhoseMealsExceedTheAllowance_saysTheDeductionIsCapped(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-note-capped") { element, _, _ ->
                 val first = element().allOf("fieldset.lapis-te-day")[0]
@@ -321,6 +459,7 @@ class TravelExpensePolishDomTest {
     @Test
     fun theBreakdown_isARealTableWithCaptionAndRowHeaders_andAddsUpToTheTotalsBar(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-breakdown-table") { element, _, _ ->
                 val first = element().allOf("fieldset.lapis-te-day")[0]
@@ -354,6 +493,7 @@ class TravelExpensePolishDomTest {
     @Test
     fun theDayDetails_areCollapsedByDefault_andAnOpenDayStaysOpenWhileTyping(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-breakdown-details") { element, _, _ ->
                 val details = element().allOf(".lapis-te-breakdown details")

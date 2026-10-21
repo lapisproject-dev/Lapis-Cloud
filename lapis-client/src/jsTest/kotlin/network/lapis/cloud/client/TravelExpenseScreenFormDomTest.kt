@@ -85,6 +85,7 @@ class TravelExpenseScreenFormDomTest {
     @Test
     fun headerForm_createDraft_sendsTheTypedPurposeAndDatesTrimmed(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             val ratesRoute = routeOf { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
             val listRoute = routeOf { rpcService<ITravelExpenseService>().listMyReports() }

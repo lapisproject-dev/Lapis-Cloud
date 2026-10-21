@@ -5,6 +5,7 @@ import io.kvision.form.check.checkBox
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.InputType
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
@@ -395,10 +396,15 @@ internal fun renderDonationDutyReportView(panel: SimplePanel) {
     val yearField =
         form.textField(
             label = tr("Kalenderjahr"),
+            type = InputType.NUMBER,
             value = currentYear().toString(),
             required = true,
             hint = gettext("Beispiel: %1.", currentYear()),
             requiredMessage = tr("Bitte ein gültiges Kalenderjahr angeben."),
+            init = {
+                it.input.setAttribute("min", LOCALE_DATE_MIN_YEAR.toString())
+                it.input.setAttribute("max", LOCALE_DATE_MAX_YEAR.toString())
+            },
             rule = { value ->
                 if (value.trim().toIntOrNull() ==
                     null

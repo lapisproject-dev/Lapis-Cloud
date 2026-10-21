@@ -64,65 +64,69 @@ fun renderReceivableDunningSettingsScreen(container: SimplePanel) {
 private fun renderReceivableStatusSection(root: SimplePanel) {
     root.h2(tr("Status")) { addCssClass("h5") }
     val settingsPanel = root.vPanel(spacing = 4)
-    val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2") }
-    val enableButton = actionsRow.button(tr("Forderungs-Mahnwesen aktivieren"), style = ButtonStyle.PRIMARY)
-    val disableButton =
-        actionsRow.actionButton(
-            ActionIcon.REVOKE,
-            tr("Forderungs-Mahnwesen deaktivieren"),
-            style = ButtonStyle.OUTLINEDANGER,
+    val actionsHost = root.toggleActionsHost()
+    lateinit var toggle: ToggleSettingsPanel<ReceivableDunningSettingsDto>
+
+    toggle =
+        ToggleSettingsPanel(
+            settingsPanel = settingsPanel,
+            actionsHost = actionsHost,
+            fetch = { guarded { rpcService<IReceivableDunningService>().getReceivableDunningSettings() } },
+            isEnabled = { it.receivableDunningEnabled },
+            renderSummary = ::renderReceivableSettingsSummary,
+            enable = { row ->
+                row.button(tr("Forderungs-Mahnwesen aktivieren"), style = ButtonStyle.PRIMARY).also { button ->
+                    button.onClick {
+                        confirmDialog(
+                            title = tr("Forderungs-Mahnwesen aktivieren"),
+                            message =
+                                tr(
+                                    "Ab jetzt kann der Mahnlauf für überfällige Debitor-Posten Mahnhinweise ausstellen. Es wird kein " +
+                                        "PDF erzeugt und kein Brief versendet.",
+                                ),
+                            confirmLabel = tr("Aktivieren"),
+                        ) {
+                            runGuardedAction(button) {
+                                val result = guarded { rpcService<IReceivableDunningService>().enableReceivableDunning() }
+                                if (result != null) {
+                                    notifySuccess(tr("Forderungs-Mahnwesen aktiviert."))
+                                    toggle.load(focusStatus = true)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            disable = { row ->
+                row
+                    .actionButton(
+                        ActionIcon.REVOKE,
+                        tr("Forderungs-Mahnwesen deaktivieren"),
+                        style = ButtonStyle.OUTLINEDANGER,
+                    ).also { button ->
+                        button.onClick {
+                            confirmDialog(
+                                title = tr("Forderungs-Mahnwesen deaktivieren"),
+                                message =
+                                    tr(
+                                        "Der automatische Mahnlauf stellt keine Mahnhinweise mehr aus. Bereits ausgestellte " +
+                                            "Mahnhinweise bleiben in der Historie erhalten.",
+                                    ),
+                                confirmLabel = tr("Deaktivieren"),
+                            ) {
+                                runGuardedAction(button) {
+                                    val result = guarded { rpcService<IReceivableDunningService>().disableReceivableDunning() }
+                                    if (result != null) {
+                                        notifySuccess(tr("Forderungs-Mahnwesen deaktiviert."))
+                                        toggle.load(focusStatus = true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+            },
         )
-
-    fun loadSettings() {
-        settingsPanel.removeAll()
-        settingsPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val settings = guarded { rpcService<IReceivableDunningService>().getReceivableDunningSettings() }
-            settingsPanel.removeAll()
-            // S3: guarded() hat den Toast schon ausgelöst -- nur den Platzhalter entfernen.
-            if (settings != null) renderReceivableSettingsSummary(settingsPanel, settings)
-        }
-    }
-
-    enableButton.onClick {
-        confirmDialog(
-            title = tr("Forderungs-Mahnwesen aktivieren"),
-            message =
-                tr(
-                    "Ab jetzt kann der Mahnlauf für überfällige Debitor-Posten Mahnhinweise ausstellen. Es wird kein " +
-                        "PDF erzeugt und kein Brief versendet.",
-                ),
-            confirmLabel = tr("Aktivieren"),
-        ) {
-            runGuardedAction(enableButton) {
-                val result = guarded { rpcService<IReceivableDunningService>().enableReceivableDunning() }
-                if (result != null) {
-                    notifySuccess(tr("Forderungs-Mahnwesen aktiviert."))
-                    loadSettings()
-                }
-            }
-        }
-    }
-    disableButton.onClick {
-        confirmDialog(
-            title = tr("Forderungs-Mahnwesen deaktivieren"),
-            message =
-                tr(
-                    "Der automatische Mahnlauf stellt keine Mahnhinweise mehr aus. Bereits ausgestellte Mahnhinweise " +
-                        "bleiben in der Historie erhalten.",
-                ),
-            confirmLabel = tr("Deaktivieren"),
-        ) {
-            runGuardedAction(disableButton) {
-                val result = guarded { rpcService<IReceivableDunningService>().disableReceivableDunning() }
-                if (result != null) {
-                    notifySuccess(tr("Forderungs-Mahnwesen deaktiviert."))
-                    loadSettings()
-                }
-            }
-        }
-    }
-    loadSettings()
+    toggle.load()
 }
 
 private fun renderReceivableSettingsSummary(

@@ -395,6 +395,7 @@ private fun buildCarpoolForm(
         form.localTimeField(
             label = tr("Abfahrtszeit (optional)"),
             value = if (duplicateFrom != null) null else base?.departureTime,
+            stepMinutes = 5,
         )
     val seatsField =
         form.textField(

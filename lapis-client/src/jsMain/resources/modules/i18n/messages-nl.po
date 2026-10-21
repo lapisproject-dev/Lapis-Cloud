@@ -9182,6 +9182,14 @@ msgstr "Status"
 msgid "Status:"
 msgstr "Status:"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:50
+msgid "Status: Aktiviert"
+msgstr "Status: Geactiveerd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:51
+msgid "Status: Deaktiviert"
+msgstr "Status: Gedeactiveerd"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:206
 msgid "Status: %1"
 msgstr "Status: %1"
@@ -23175,6 +23183,10 @@ msgstr "Indienen vóór %1"
 msgid "Einstellungen gespeichert."
 msgstr "Instellingen opgeslagen."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ToggleActionRow.kt:52
+msgid "Einstellungen konnten nicht geladen werden."
+msgstr "De instellingen konden niet worden geladen."
+
 msgid "Erste Nacht (JJJJ-MM-TT)"
 msgstr "Eerste nacht (JJJJ-MM-DD)"
 
@@ -24233,6 +24245,9 @@ msgstr "Geef een geldige vervaldatum in de toekomst op (%1)."
 
 msgid "Bitte eine Uhrzeit im Format %1 eingeben."
 msgstr "Voer een tijd in met het formaat %1."
+
+msgid "Bitte eine Uhrzeit in %1-Minuten-Schritten wählen."
+msgstr "Kies een tijdstip in stappen van %1 minuten."
 
 msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
 msgstr "Geef een geldig ontdekkingstijdstip, een beschrijving, de betrokken gegevenscategorieën en een status op."
@@ -25311,3 +25326,24 @@ msgstr "Er is geen microfoon en geen camera gevonden."
 
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr "Een apparaat kon niet worden geopend. Mogelijk wordt het door een andere toepassing gebruikt."
+
+msgid "Rückkehr (optional)"
+msgstr "Terugkeer (optioneel)"
+
+msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
+msgstr "Zonder vertrek- en terugkeertijd kan voor deze dag geen dagvergoeding worden berekend."
+
+msgid "Frühstück"
+msgstr "Ontbijt"
+
+msgid "Mittag"
+msgstr "Lunch"
+
+msgid "Abend"
+msgstr "Diner"
+
+msgid "%1 % · −%2"
+msgstr "%1 % · −%2"
+
+msgid "Die Reisetage werden nach dem Speichern aktualisiert."
+msgstr "De reisdagen worden bijgewerkt na het opslaan."

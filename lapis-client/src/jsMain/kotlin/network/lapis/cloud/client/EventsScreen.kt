@@ -474,10 +474,11 @@ private fun buildEventFormFields(
                 ),
         )
     val capture = buildEventCaptureSection(panel = panel, prefill = prefill, online = online)
-    val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"), value = prefill?.startsAt)
-    val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"), value = prefill?.endsAt)
+    val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"), value = prefill?.startsAt, stepMinutes = 5)
+    val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"), value = prefill?.endsAt, stepMinutes = 5)
+    linkDateRange(startsAtInput.date, endsAtInput.date)
     val registrationClosesAtInput =
-        panel.localDateTimeInput(label = gettext("Anmeldeschluss (optional)"), value = prefill?.registrationClosesAt)
+        panel.localDateTimeInput(label = gettext("Anmeldeschluss (optional)"), value = prefill?.registrationClosesAt, stepMinutes = 5)
     val capacityInput = panel.text(label = tr("Kapazität (optional)")).apply { value = prefill?.capacity?.toString() }
     capacityHolder = capacityInput
     registrationClosesHolder = registrationClosesAtInput

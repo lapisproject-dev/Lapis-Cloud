@@ -88,6 +88,7 @@ class FormGrammarPart3FlowsDomTest {
     @Test
     fun newEntryForm_keepsItsDefaults_todayAsDate_debitThenCredit_noPreselectedAccountSphereOrDonor(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             withFetchStub { _ ->
                 mountedForm("p3f-defaults") { root, element ->
                     renderNewEntryForm(root, accounts, emptyList(), emptyList(), emptyList(), false, false, false) {}
@@ -113,6 +114,7 @@ class FormGrammarPart3FlowsDomTest {
     @Test
     fun openItemCreation_hasNoPreselectedDirection_and_sendsEveryFieldInItsOwnSlot(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             val create =
                 routeOf {
                     rpcService<IOpenItemService>().createOpenItem(
@@ -187,6 +189,7 @@ class FormGrammarPart3FlowsDomTest {
     @Test
     fun newBatch_theCollectionDateMustLieInTheFuture_atTheField_andThePreviewBodyKeepsBothDatesApart(): Promise<Unit> =
         formTest {
+            useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             val preview =
                 routeOf { rpcService<ISepaService>().previewDebitBatch(SepaDebitBatchInput(LocalDate(2026, 1, 1), LocalDate(2026, 1, 1))) }
             withFetchStub { calls ->
