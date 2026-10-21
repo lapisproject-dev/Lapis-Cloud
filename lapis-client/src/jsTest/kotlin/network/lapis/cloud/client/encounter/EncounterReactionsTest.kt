@@ -218,6 +218,24 @@ class EncounterReactionsTest {
     }
 
     @Test
+    fun theNewReactions_roundTripOnTheWire_andAreFilteredByTheRoomsSet() {
+        listOf("FLOWER", "LAUGH", "ASTONISHED", "QUESTION", "CRY").forEach {
+            assertEquals(EncounterReaction.valueOf(it), EncounterReactionWire.decodeText("{\"r\":\"$it\"}"), it)
+        }
+        val defaults = setOf(EncounterReactionOption.HAND, EncounterReactionOption.AMEN)
+        assertFalse(admitReaction(EncounterReaction.CRY, defaults))
+        assertTrue(admitReaction(EncounterReaction.CRY, defaults + EncounterReactionOption.CRY))
+        assertTrue(admitReaction(EncounterReaction.HAND_LOWERED, setOf(EncounterReactionOption.HAND)))
+    }
+
+    @Test
+    fun everyNonHandOption_hasExactlyOneWireReaction() {
+        EncounterReactionOption.entries.filter { it != EncounterReactionOption.HAND }.forEach { option ->
+            assertEquals(1, EncounterReaction.entries.count { it.option() == option && it != EncounterReaction.HAND_LOWERED }, option.name)
+        }
+    }
+
+    @Test
     fun everyOption_hasItsWireReaction_andBack() {
         EncounterReactionOption.entries.forEach { assertEquals(it, it.toWire().option()) }
         assertEquals(EncounterReactionOption.HAND, EncounterReaction.HAND_LOWERED.option())

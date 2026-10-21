@@ -22680,11 +22680,11 @@ msgstr "Wydarzenie odbywa się wyłącznie na miejscu."
 msgid "Sie geben einen eigenen Link an, zum Beispiel zu einer anderen Videokonferenz."
 msgstr "Podają Państwo własny link, na przykład do innej wideokonferencji."
 
-msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Lapis tworzy wideokonferencję, gdy dołączy pierwsza osoba. Dostęp otwiera się 15 minut przed rozpoczęciem."
+msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Lapis tworzy wideokonferencję, gdy dołączy pierwsza osoba. Dostęp otwiera się 30 minut przed rozpoczęciem."
 
-msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Uczestnicy wchodzą do stałej przestrzeni wspólnoty. Dostęp otwiera się 15 minut przed rozpoczęciem."
+msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Uczestnicy wchodzą do stałej przestrzeni wspólnoty. Dostęp otwiera się 30 minut przed rozpoczęciem."
 
 msgid "Vor Ort"
 msgstr "Na miejscu"
@@ -25167,3 +25167,153 @@ msgstr "Gości i zaproszenia do wydarzeń zarządza się na stronie wydarzenia."
 
 msgid "Zu viele Anfragen – bitte kurz warten."
 msgstr "Zbyt wiele żądań – proszę chwilę poczekać."
+
+msgid "Lachen"
+msgstr "Śmiech"
+
+msgid "Staunen"
+msgstr "Zdumienie"
+
+msgid "Weinen"
+msgstr "Płacz"
+
+msgid "Blume aus der Gemeinde"
+msgstr "Kwiat od zboru"
+
+msgid "Blume von den Teilnehmenden"
+msgstr "Kwiat od uczestników"
+
+msgid "Lachen aus der Gemeinde"
+msgstr "Śmiech od zboru"
+
+msgid "Lachen von den Teilnehmenden"
+msgstr "Śmiech od uczestników"
+
+msgid "Staunen aus der Gemeinde"
+msgstr "Zdumienie od zboru"
+
+msgid "Staunen von den Teilnehmenden"
+msgstr "Zdumienie od uczestników"
+
+msgid "Frage aus der Gemeinde"
+msgstr "Pytanie od zboru"
+
+msgid "Frage von den Teilnehmenden"
+msgstr "Pytanie od uczestników"
+
+msgid "Weinen aus der Gemeinde"
+msgstr "Płacz od zboru"
+
+msgid "Weinen von den Teilnehmenden"
+msgstr "Płacz od uczestników"
+
+msgid "Karte"
+msgstr "Mapa"
+
+msgid "Auf die Karte"
+msgstr "Na mapę"
+
+msgid "Karte verlassen"
+msgstr "Opuść mapę"
+
+msgid "Zum Eingang"
+msgstr "Do wejścia"
+
+msgid "Zur Mitte"
+msgstr "Do środka"
+
+msgid "Zum Podium"
+msgstr "Do podium"
+
+msgid "Zur Kanzel"
+msgstr "Do ambony"
+
+msgid "Reihe %1, Spalte %2"
+msgstr "Rząd %1, kolumna %2"
+
+msgid "Eine Person in Ihrer Nähe"
+msgstr "Jedna osoba w pobliżu"
+
+msgid "%1 Personen in Ihrer Nähe"
+msgstr "%1 osób w pobliżu"
+
+msgid "In Ihrer Nähe"
+msgstr "W pobliżu"
+
+msgid "und %1 weitere"
+msgstr "i %1 więcej"
+
+msgid "Weg blockiert"
+msgstr "Droga zablokowana"
+
+msgid "Die Karte ist voll oder Sie waren zu schnell."
+msgstr "Mapa jest pełna lub działanie było zbyt szybkie."
+
+msgid "Einen Moment bitte, gleich können Sie wieder springen."
+msgstr "Chwileczkę, za moment będzie można znowu skoczyć."
+
+msgid "Nur bei geschlossenem Raum einschaltbar"
+msgstr "Można włączyć tylko przy zamkniętym pokoju"
+
+msgid "Karte (Positionen der Mitglieder)"
+msgstr "Mapa (pozycje członków)"
+
+msgid "Sie stehen nicht auf der Karte."
+msgstr "Nie ma Pana/Pani na mapie."
+
+msgid "Richtungstasten"
+msgstr "Klawisze kierunkowe"
+
+msgid "Nach links"
+msgstr "W lewo"
+
+msgid "Nach rechts"
+msgstr "W prawo"
+
+msgid "Nur in der Raumart Versammlung. Mitglieder bewegen sich auf einer Karte; Gäste erscheinen nicht darauf."
+msgstr "Tylko dla rodzaju pokoju Zgromadzenie. Członkowie poruszają się po mapie; goście się na niej nie pojawiają."
+
+msgid "Karte öffnen"
+msgstr "Otwórz mapę"
+
+msgid "Karte öffnen, Sie sind auf der Karte"
+msgstr "Otwórz mapę, znajduje się Pan/Pani na mapie"
+
+msgid "Karte schließen"
+msgstr "Zamknij mapę"
+
+msgid "Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert."
+msgstr "Pozycję widzą tylko obecni członkowie. Nic nie jest zapisywane."
+
+msgid "Linke Loge"
+msgstr "Loża lewa"
+
+msgid "Rechte Loge"
+msgstr "Loża prawa"
+
+msgid "Ihr Browser zeigt die Geräte erst, wenn Sie den Zugriff erlauben. Mikrofon und Kamera bleiben dabei ausgeschaltet."
+msgstr "Przeglądarka pokaże urządzenia dopiero po zezwoleniu na dostęp. Mikrofon i kamera pozostają wyłączone."
+
+msgid "Zugriff auf Mikrofon und Kamera erlauben"
+msgstr "Zezwól na dostęp do mikrofonu i kamery"
+
+msgid "Erst nach Freigabe verfügbar"
+msgstr "Dostępne po udzieleniu zgody"
+
+msgid "Zugriff erlaubt. Sie können Ihre Geräte jetzt auswählen."
+msgstr "Dostęp dozwolony. Można teraz wybrać urządzenia."
+
+msgid "Nur das Mikrofon ist freigegeben."
+msgstr "Dozwolony jest tylko mikrofon."
+
+msgid "Nur die Kamera ist freigegeben."
+msgstr "Dozwolona jest tylko kamera."
+
+msgid "Der Browser hat den Zugriff blockiert. Erlauben Sie Mikrofon und Kamera über das Schloss-Symbol in der Adressleiste oder in den Website-Einstellungen Ihres Browsers und versuchen Sie es erneut."
+msgstr "Przeglądarka zablokowała dostęp. Zezwól na mikrofon i kamerę za pomocą ikony kłódki w pasku adresu lub w ustawieniach witryny w przeglądarce i spróbuj ponownie."
+
+msgid "Es wurde weder ein Mikrofon noch eine Kamera gefunden."
+msgstr "Nie znaleziono ani mikrofonu, ani kamery."
+
+msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
+msgstr "Nie udało się otworzyć urządzenia. Może być używane przez inną aplikację."

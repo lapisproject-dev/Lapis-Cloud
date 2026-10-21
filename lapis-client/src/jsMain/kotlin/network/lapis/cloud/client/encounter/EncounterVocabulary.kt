@@ -3,6 +3,7 @@ package network.lapis.cloud.client.encounter
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import network.lapis.cloud.client.ActionIcon
+import network.lapis.cloud.shared.domain.EncounterMapAnchor
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
@@ -221,12 +222,32 @@ internal class EncounterTerms(
                     gettext("Applaus von den Teilnehmenden")
                 }
             EncounterReactionOption.HEART -> if (church) gettext("Herz aus der Gemeinde") else gettext("Herz von den Teilnehmenden")
+            EncounterReactionOption.FLOWER -> if (church) gettext("Blume aus der Gemeinde") else gettext("Blume von den Teilnehmenden")
+            EncounterReactionOption.LAUGH -> if (church) gettext("Lachen aus der Gemeinde") else gettext("Lachen von den Teilnehmenden")
+            EncounterReactionOption.ASTONISHED ->
+                if (church) {
+                    gettext(
+                        "Staunen aus der Gemeinde",
+                    )
+                } else {
+                    gettext("Staunen von den Teilnehmenden")
+                }
+            EncounterReactionOption.QUESTION -> if (church) gettext("Frage aus der Gemeinde") else gettext("Frage von den Teilnehmenden")
+            EncounterReactionOption.CRY -> if (church) gettext("Weinen aus der Gemeinde") else gettext("Weinen von den Teilnehmenden")
         }
 
     // ── V1.9.79 Stufe 2a: Sitzplatzwahl ────────────────────────────────────────────────────────────────
 
     /** Accessible name of the whole seat plan (a group of buttons). */
     fun seatPlanLabel(): String = gettext("Sitzplan")
+
+    /** V1.9.166 -- the teleport buttons of the grid map. The pulpit anchor is the ONLY profile word of the map; it lives here and nowhere else. */
+    fun mapAnchorLabel(anchor: EncounterMapAnchor): String =
+        when (anchor) {
+            EncounterMapAnchor.ENTRANCE -> gettext("Zum Eingang")
+            EncounterMapAnchor.PULPIT -> if (church) gettext("Zur Kanzel") else gettext("Zum Podium")
+            EncounterMapAnchor.CENTER -> gettext("Zur Mitte")
+        }
 
     /** Described-by sentence of the seat plan: the audience never has a microphone (listen-only). */
     fun audienceMutedNote(): String =
@@ -475,6 +496,11 @@ internal fun reactionLabel(option: EncounterReactionOption): String =
         EncounterReactionOption.AMEN -> gettext("Amen")
         EncounterReactionOption.APPLAUSE -> gettext("Applaus")
         EncounterReactionOption.HEART -> gettext("Herz")
+        EncounterReactionOption.FLOWER -> gettext("Blume")
+        EncounterReactionOption.LAUGH -> gettext("Lachen")
+        EncounterReactionOption.ASTONISHED -> gettext("Staunen")
+        EncounterReactionOption.QUESTION -> gettext("Frage")
+        EncounterReactionOption.CRY -> gettext("Weinen")
     }
 
 /** The same label as widget content (`tr`). */
@@ -484,6 +510,11 @@ internal fun reactionLabelContent(option: EncounterReactionOption): String =
         EncounterReactionOption.AMEN -> tr("Amen")
         EncounterReactionOption.APPLAUSE -> tr("Applaus")
         EncounterReactionOption.HEART -> tr("Herz")
+        EncounterReactionOption.FLOWER -> tr("Blume")
+        EncounterReactionOption.LAUGH -> tr("Lachen")
+        EncounterReactionOption.ASTONISHED -> tr("Staunen")
+        EncounterReactionOption.QUESTION -> tr("Frage")
+        EncounterReactionOption.CRY -> tr("Weinen")
     }
 
 /** Icon class (decorative, `aria-hidden`) of a reaction at a seat and on its button. */
@@ -493,6 +524,11 @@ internal fun reactionGlyph(option: EncounterReactionOption): String =
         EncounterReactionOption.AMEN -> ActionIcon.AMEN.css
         EncounterReactionOption.APPLAUSE -> ActionIcon.APPLAUSE.css
         EncounterReactionOption.HEART -> ActionIcon.HEART.css
+        EncounterReactionOption.FLOWER -> ActionIcon.FLOWER.css
+        EncounterReactionOption.LAUGH -> ActionIcon.LAUGH.css
+        EncounterReactionOption.ASTONISHED -> ActionIcon.ASTONISHED.css
+        EncounterReactionOption.QUESTION -> ActionIcon.QUESTION.css
+        EncounterReactionOption.CRY -> ActionIcon.CRY.css
     }
 
 /** The [ActionIcon] of a reaction button. */
@@ -502,4 +538,9 @@ internal fun reactionActionIcon(option: EncounterReactionOption): ActionIcon =
         EncounterReactionOption.AMEN -> ActionIcon.AMEN
         EncounterReactionOption.APPLAUSE -> ActionIcon.APPLAUSE
         EncounterReactionOption.HEART -> ActionIcon.HEART
+        EncounterReactionOption.FLOWER -> ActionIcon.FLOWER
+        EncounterReactionOption.LAUGH -> ActionIcon.LAUGH
+        EncounterReactionOption.ASTONISHED -> ActionIcon.ASTONISHED
+        EncounterReactionOption.QUESTION -> ActionIcon.QUESTION
+        EncounterReactionOption.CRY -> ActionIcon.CRY
     }

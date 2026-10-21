@@ -38,10 +38,13 @@ import network.lapis.cloud.client.untrustedContent
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterFloorDto
+import network.lapis.cloud.shared.domain.EncounterMapAnchor
+import network.lapis.cloud.shared.domain.EncounterMapFacing
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.EncounterRoomLayout
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.encounterSeatPosition
 import network.lapis.cloud.shared.domain.encounterSeatRow
@@ -73,7 +76,7 @@ import kotlin.random.Random
  *   participant that is not listed -- an egress bot, a stranger -- never gets a seat). Nobody is seated automatically: a seat exists
  *   because its occupant CHOSE it ([chooseSeat] -> `selectSeat`, the server decides who wins a contested seat), and everybody else is in
  *   the row "Noch ohne Platz". A content-free data-channel nudge only makes the others reload the list sooner. A seat never moves.
- * - Reactions: a hand is a state (renewed every 30 s by its owner, lapses after 90 s without a renewal); amen, applause and heart are
+ * - Reactions: a hand is a state (renewed every 30 s by its owner, lapses after 90 s without a renewal); amen, applause, heart and the further V1.9.164 symbols are
  *   events shown for 3 s at the seat and announced at most every 10 s as a fixed sentence, never as a count. The sender is always the SDK
  *   identity. Only the reactions the room allows ([EncounterSpaceDto.reactions], V1.9.67) get a button and are admitted when they arrive.
  * - A reaction of any CONGREGATION person in the list is admitted (V1.9.79: sitting is no longer a precondition) and is shown at the
@@ -117,6 +120,8 @@ internal class EncounterRoom(
     private val monotonicNow: () -> Double = ::browserMonotonicNow,
     /** V1.9.143: the operator's notice of a room whose pulpit may be recorded (the `REC_ROOM` text of the entry info); `null` = none. Untrusted text. */
     recordingRoomNotice: String? = null,
+    /** V1.9.166: the notice to the room that it has a map (`EncounterEntryInfoDto.mapRoomNotice`); `null` = none. Untrusted text. */
+    private val mapRoomNotice: String? = null,
 ) {
     private val terms: EncounterTerms = termsFor(space.profile)
     private val allowedReactions: Set<EncounterReactionOption> = EncounterReactionOption.normalize(space.reactions).toSet()
@@ -132,6 +137,18 @@ internal class EncounterRoom(
 
     /** V1.9.80: the outcome of the viewer's OWN table events (sat down, got up, quieted, back in the plenum) -- fixed sentences, polite. */
     private val tableLive: Div = root.div(className = "visually-hidden")
+
+    /** V1.9.166: the fixed sentences of the grid map (own place, "Weg blockiert", the vicinity on request) -- polite, never a name unless the person asks with "L". */
+    private val mapLive: Div = root.div(className = "visually-hidden")
+    private var mapController: EncounterMapController? = null
+    private var mapView: EncounterMapView? = null
+
+    /** V1.9.167: the layer that carries the map (a child of the room, like the dock); built together with the controller, never for a guest. */
+    private var mapOverlay: EncounterMapOverlay? = null
+
+    /** V1.9.167: the dock button that opens the map layer (created in [ensureMap] only, after the guest guard). */
+    private var mapButton: Button? = null
+    private var mapButtonDot: Span? = null
 
     /** V1.9.91: "the speaker/microphone/camera is no longer available" -- a fixed sentence naming the KIND of device, never its name; polite. */
     private val deviceLive: Div = root.div(className = "visually-hidden")
@@ -149,7 +166,14 @@ internal class EncounterRoom(
     private val recordingLive: Div = root.div(className = "visually-hidden")
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
-    private val layout = EncounterSceneLayout(main, terms, space.roomLayout)
+    private val layout =
+        EncounterSceneLayout(
+            main,
+            terms,
+            space.roomLayout,
+            // V1.9.167: the theatre hall -- decided once (`space.tables.enabled` is constant for the life of the room), so the seat plan is never rebuilt.
+            theatre = space.roomLayout == EncounterRoomLayout.HALL && space.tables.enabled,
+        )
 
     // ── the temporary floor (V1.9.138) ──
     private val floorModel: EncounterFloorModel =
@@ -345,8 +369,15 @@ internal class EncounterRoom(
             if (viewer.canModerate) add(EncounterSideTab.STREAM)
         }
     private val side = EncounterSidePanel(main, tabs) { tab -> onTabShown(tab) }
+
+    /**
+     * V1.9.165 -- the dock: ONE `position: sticky; bottom: 0` wrapper around the bar, the "Mehr" sheet and the device panel. The bar is
+     * therefore always visible (window, fullscreen, pseudo fullscreen), and the two sheets are anchored to the dock (`bottom: 100%`), not
+     * to the room. Sticky is no scroll surface (R59 ledger unchanged).
+     */
+    private val dock: Div = root.div(className = "lapis-encounter-dock")
     private val controlBar =
-        EncounterControlBar(root, liturgy = blessingLabel != null || bellLabel != null, recording = recordingOfficer)
+        EncounterControlBar(dock, liturgy = blessingLabel != null || bellLabel != null, recording = recordingOfficer)
     private val controls: Div get() = controlBar.root
 
     /**
@@ -354,7 +385,7 @@ internal class EncounterRoom(
      * trap): Escape or a click outside closes it and the focus returns to "Mehr". It holds the labelled twins of what did not fit.
      */
     private val moreSheet: Div =
-        root.div(className = "lapis-encounter-more-sheet").also {
+        dock.div(className = "lapis-encounter-more-sheet").also {
             it.setAttribute("id", ENCOUNTER_MORE_SHEET_ID)
             it.setAttribute("role", "dialog")
             it.setAttribute("aria-label", gettext("Weitere Bedienelemente"))
@@ -451,6 +482,7 @@ internal class EncounterRoom(
             onRemoteTrackGone = { identity, track, _ -> onRemoteTrackGone(identity, track) },
             onParticipantJoined = { _, _ -> requestPresentRefresh() },
             onSeatNudge = { identity -> onSeatNudge(identity) },
+            onMap = { packet -> mapController?.onPacket(packet) },
             onBlessing = { blessingDisplay.onBlessing() },
             onBell = { bellDisplay?.onBell() },
             onFloor = { signal ->
@@ -485,6 +517,8 @@ internal class EncounterRoom(
         seatLive.setAttribute("role", "status")
         seatLive.setAttribute("aria-live", "polite")
         layout.seats.onChoose = { seat -> chooseSeat(seat) }
+        mapLive.setAttribute("role", "status")
+        mapLive.setAttribute("aria-live", "polite")
         tableLive.setAttribute("role", "status")
         tableLive.setAttribute("aria-live", "polite")
         deviceLive.setAttribute("role", "status")
@@ -689,6 +723,7 @@ internal class EncounterRoom(
                         blessing = blessingLabel != null,
                         bell = bellLabel != null,
                         recording = recordingOfficer,
+                        map = space.mapEnabled,
                     ),
                 exitGroup = EncounterControlGroup.EXIT.ordinal,
                 overflowedClass = OVERFLOWED_CLASS,
@@ -746,8 +781,9 @@ internal class EncounterRoom(
 
     private fun openSheet() {
         if (sheetOpen || disposed) return
-        // the two panels never stand open together
+        // the panels never stand open together (V1.9.167: the map layer is one of them)
         devicePicker?.close(returnFocus = false)
+        mapOverlay?.close(returnFocus = false)
         // The twins mirror the state of their primaries only when the overflow is recomputed: do it before the sheet is shown.
         overflow.recompute()
         sheetOpen = true
@@ -817,7 +853,7 @@ internal class EncounterRoom(
         val picker =
             EncounterDevicePicker(
                 devicesGroup = controlBar.group(EncounterControlGroup.DEVICES),
-                panelParent = root,
+                panelParent = dock,
                 role = {
                     when {
                         speakerSession != null -> EncounterDeviceRole.OFFICE_HOLDER
@@ -831,7 +867,10 @@ internal class EncounterRoom(
                 output = audioOutput,
                 env = deviceEnv,
                 announce = { sentence -> deviceLive.content = sentence },
-                onBeforeOpen = { closeSheet(returnFocus = false) },
+                onBeforeOpen = {
+                    closeSheet(returnFocus = false)
+                    mapOverlay?.close(returnFocus = false)
+                },
                 onVisibilityChanged = { if (::overflow.isInitialized) overflow.recompute() },
                 bellSwitch = bellSwitchModel,
                 noiseSuppression = pulpitControls?.noiseSuppression,
@@ -886,6 +925,149 @@ internal class EncounterRoom(
         renderTables()
         syncTiles()
         presentPanel.rerender()
+        ensureMap()
+        mapController?.refreshNames()
+    }
+
+    /**
+     * V1.9.166: builds the grid map the first time the presence list shows that the viewer is a MEMBER (a guest never gets a map, never calls a
+     * map method). The server decides again on every call.
+     */
+    private fun ensureMap() {
+        if (disposed || mapController != null || !space.mapEnabled) return
+        val me = present[viewer.selfIdentity] ?: return
+        if (me.isGuest) return
+        val canWalk = viewer.presenceRole == EncounterPresenceRole.CONGREGATION
+        val handler =
+            object : EncounterMapHandler {
+                override fun step(dir: EncounterMapFacing) {
+                    mapController?.step(dir)
+                }
+
+                override fun walkTo(index: Int) {
+                    mapController?.walkTo(index)
+                }
+
+                override fun teleport(anchor: EncounterMapAnchor) {
+                    mapController?.teleport(anchor)
+                }
+
+                override fun enterMap() {
+                    mapController?.enterMap()
+                    mapView?.focusBoard()
+                }
+
+                override fun leaveMap() {
+                    mapController?.leaveMap()
+                }
+
+                override fun describeAloud() {
+                    mapController?.describeWithNames()?.let { mapLive.content = it }
+                }
+            }
+        val controller =
+            EncounterMapController(
+                spaceId = space.id,
+                roomLayout = space.roomLayout,
+                selfId = viewer.selfIdentity,
+                canWalk = canWalk,
+                rpc = rpcService<IEncounterSpaceService>(),
+                scope = AppScope,
+                onRender = { model ->
+                    mapView?.render(model)
+                    updateMapButton(onMap = model.canWalk && model.selfOnMap)
+                },
+                announce = { sentence -> mapLive.content = sentence },
+                nameOf = { identity -> present[identity]?.displayName },
+                onEnteredMap = {
+                    // entering the map gave up a bench or table seat on the server: reload the list and tell the others
+                    requestPresentRefresh()
+                    AppScope.launch { session?.sendSeatNudge() }
+                },
+            )
+        val overlay =
+            EncounterMapOverlay(
+                parent = root,
+                notice = mapRoomNotice,
+                canWalk = canWalk,
+                focusInitial = { if (mapView?.focusEnter() != true) mapView?.focusBoard() },
+                onOpened = { mapButton?.setAttrIfChanged("aria-expanded", "true") },
+                onClosed = { returnFocus ->
+                    mapButton?.setAttrIfChanged("aria-expanded", "false")
+                    if (returnFocus) returnFocusToMapOpener()
+                },
+                escapeBlocked = { sheetOpen },
+            )
+        mapOverlay = overlay
+        mapView =
+            EncounterMapView(
+                host = overlay.host,
+                terms = terms,
+                template = controller.template,
+                handler = handler,
+                canWalk = canWalk,
+            )
+        mapController = controller
+        buildMapButton()
+        controller.start()
+    }
+
+    /**
+     * V1.9.167: the dock button that opens the map layer, plus its twin in the "Mehr" sheet. Built ONLY here (after the guest guard of [ensureMap]), so a guest
+     * has neither the button nor the twin. It stands in the panels group directly after the chat; when the bar is narrow it moves into the sheet before the chat.
+     */
+    private fun buildMapButton() {
+        val panels = controlBar.group(EncounterControlGroup.PANELS)
+        // The one icon-only factory of the room (R58 exception c) puts the button at the end of the group; it is then moved to its place after the chat.
+        val button = panels.encounterControlButton(ActionIcon.MAP_OPEN, gettext("Karte öffnen"))
+        panels.remove(button)
+        button.setAttribute("aria-haspopup", "dialog")
+        button.setAttribute("aria-controls", EncounterMapOverlay.OVERLAY_ID)
+        button.setAttribute("aria-expanded", "false")
+        button.addCssClass("lapis-encounter-map-open")
+        val dot = Span(className = "lapis-encounter-map-open__dot")
+        dot.setAttribute("aria-hidden", "true")
+        button.add(dot)
+        button.onClick { toggleMapOverlay() }
+        // The chat button is the first child of the group (the unread dot is placed against it): the map button comes right after it, before the dot and "Mehr".
+        panels.add(panels.getChildren().indexOf(chatButton) + 1, button)
+        mapButton = button
+        mapButtonDot = dot
+        val twin = sheetTwin(ActionIcon.MAP_OPEN, tr("Karte öffnen")) { openMapOverlay() }
+        registerBarSlot(ControlBarSlot(EncounterControlSlot.Map, button, twin))
+        overflow.recompute()
+    }
+
+    private fun toggleMapOverlay() {
+        val overlay = mapOverlay ?: return
+        if (overlay.isOpen) overlay.close() else openMapOverlay()
+    }
+
+    private fun openMapOverlay() {
+        val overlay = mapOverlay ?: return
+        if (disposed || overlay.isOpen) return
+        // the panels never stand open together
+        devicePicker?.close(returnFocus = false)
+        closeSheet(returnFocus = false)
+        overlay.open()
+    }
+
+    /** Name and state mark of the map button: "Karte öffnen", plus ", Sie sind auf der Karte" and a dot while the viewer stands on the map (never colour alone). */
+    private fun updateMapButton(onMap: Boolean) {
+        val button = mapButton ?: return
+        val label = if (onMap) gettext("Karte öffnen, Sie sind auf der Karte") else gettext("Karte öffnen")
+        button.setAttrIfChanged("aria-label", label)
+        button.setAttrIfChanged("data-label", label)
+        if (button.title != label) button.title = label
+        mapButtonDot?.let { if (onMap) it.addCssClass("is-on") else it.removeCssClass("is-on") }
+    }
+
+    /** After the layer closed: the focus goes back to the dock button, or to "Mehr" when the button sits in the sheet. */
+    private fun returnFocusToMapOpener() {
+        val button = mapButton
+        val target =
+            if (button != null && button.visible && !button.hasCssClass(OVERFLOWED_CLASS)) button else moreButton
+        (target.getElement() as? HTMLElement)?.focus()
     }
 
     /** A person who is new in the list after the first load: one anonymous, throttled sentence (no name, no number). */
@@ -1154,7 +1336,15 @@ internal class EncounterRoom(
                 if (!wasUp) announceHand(identity)
             }
             EncounterReaction.HAND_LOWERED -> hands.lower(identity)
-            EncounterReaction.AMEN, EncounterReaction.APPLAUSE, EncounterReaction.HEART -> showEvent(identity, reaction.option())
+            EncounterReaction.AMEN,
+            EncounterReaction.APPLAUSE,
+            EncounterReaction.HEART,
+            EncounterReaction.FLOWER,
+            EncounterReaction.LAUGH,
+            EncounterReaction.ASTONISHED,
+            EncounterReaction.QUESTION,
+            EncounterReaction.CRY,
+            -> showEvent(identity, reaction.option())
         }
         renderSeats()
         presentPanel.rerender()
@@ -1583,6 +1773,8 @@ internal class EncounterRoom(
     // ── side panel, scene, doors ────────────────────────────────────────────
 
     private fun toggleSide(tab: EncounterSideTab) {
+        // V1.9.167: the side panel and the map layer never stand open together
+        mapOverlay?.close(returnFocus = false)
         side.toggle(tab)
         chatButton.setAttrIfChanged("aria-expanded", (side.isOpen && side.activeTab == EncounterSideTab.CHAT).toString())
         if (viewer.canModerate) {
@@ -1821,6 +2013,12 @@ internal class EncounterRoom(
         tiles.values.forEach { it.dispose() }
         tiles.clear()
         tables.dispose()
+        mapController?.dispose()
+        mapController = null
+        mapView?.dispose()
+        mapView = null
+        mapOverlay?.dispose()
+        mapOverlay = null
         devicePicker?.dispose()
         pulpitControls?.noiseSuppression?.dispose()
         tableAudioSink.clear()
@@ -1842,6 +2040,10 @@ internal class EncounterRoom(
     internal val controlBarView: EncounterControlBar get() = controlBar
     internal val fullscreenControl: EncounterFullscreen get() = fullscreen
     internal val tablesView: EncounterTablesView? get() = tableView
+    internal val mapControllerView: EncounterMapController? get() = mapController
+    internal val mapBoard: EncounterMapView? get() = mapView
+    internal val mapOverlayView: EncounterMapOverlay? get() = mapOverlay
+    internal val mapOpenButton: Button? get() = mapButton
     internal val tableController: EncounterTableController get() = tables
     internal val floorBannerView: EncounterFloorBanner get() = floorBanner
     internal val floorView: EncounterFloorView get() = floorModel.view

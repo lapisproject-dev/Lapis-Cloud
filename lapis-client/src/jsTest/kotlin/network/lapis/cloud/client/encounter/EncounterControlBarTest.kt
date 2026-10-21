@@ -50,6 +50,16 @@ class EncounterControlBarTest {
     }
 
     @Test
+    fun withAllNineOptions_thereAreEightReactionSlotsPlusTheHand_andTheyOverflowInto_Mehr() {
+        val all = EncounterReactionOption.entries
+        val order = encounterOverflowOrder(all)
+        assertEquals(8, order.filterIsInstance<EncounterControlSlot.Reaction>().size)
+        val shown = listOf(hand) + all.filter { it != EncounterReactionOption.HAND }.map { EncounterControlSlot.Reaction(it) } + leave
+        val moved = overflowAt(360.0, shown, order)
+        assertTrue(moved.isNotEmpty() && moved.all { it != hand && it != leave })
+    }
+
+    @Test
     fun theOverflowOrder_followsTheRoomsReactionSet() {
         val order = encounterOverflowOrder(EncounterReactionOption.defaultsFor(EncounterProfile.CHURCH_SERVICE))
         assertEquals(
@@ -211,6 +221,31 @@ class EncounterControlBarTest {
         assertFalse(blessing in withoutBlessing)
         assertEquals(withoutBlessing, withBlessing.filterNot { it == blessing })
         assertFalse(blessing in encounterOverflowOrder(emptySet()), "the default is no blessing")
+    }
+
+    @Test
+    fun theMapButton_isInThePanelsGroup_andMovesIntoTheSheetJustBeforeTheChat_onlyForARoomWithAMap() {
+        val map = EncounterControlSlot.Map
+        assertEquals(EncounterControlGroup.PANELS, encounterControlGroup(map))
+        val withMap = encounterOverflowOrder(EncounterReactionOption.entries.toSet(), blessing = true, recording = true, map = true)
+        val withoutMap = encounterOverflowOrder(EncounterReactionOption.entries.toSet(), blessing = true, recording = true)
+        assertEquals(listOf(map, EncounterControlSlot.Chat), withMap.takeLast(2), "the map goes before the chat, the chat stays last")
+        assertFalse(map in withoutMap, "the default is no map")
+        assertEquals(withoutMap, withMap.filterNot { it == map })
+        // the map button is not a device: the devices still come first with it in the list
+        assertTrue(
+            devicesAreFirst(
+                listOf(
+                    EncounterControlSlot.Mic,
+                    EncounterControlSlot.Camera,
+                    hand,
+                    EncounterControlSlot.Chat,
+                    map,
+                    EncounterControlSlot.More,
+                    leave,
+                ),
+            ),
+        )
     }
 
     @Test

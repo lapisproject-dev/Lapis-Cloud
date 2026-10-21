@@ -21,7 +21,7 @@ import kotlin.time.Instant
  */
 internal object EventOnlineWindow {
     /** How long before the event starts people may already come in. */
-    val LEAD: Duration = 15.minutes
+    val LEAD: Duration = 30.minutes
 
     /** How long after the event ends the room stays open. */
     val TRAIL: Duration = 60.minutes

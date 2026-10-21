@@ -152,7 +152,9 @@ private val CSS_LEDGER: Map<String, String> =
         ".lapis-conference-fullscreen .lapis-conference-voting" to "E1",
         ".lapis-conference-voting, .lapis-conference-fullscreen .lapis-conference-voting" to "E1",
         ".lapis-conference-more-sheet" to "E1",
+        ".lapis-conference-reaction-popover" to "E1",
         ".lapis-encounter-more-sheet" to "E1",
+        ".lapis-encounter-map-overlay__panel" to "E1",
         ".lapis-encounter-side" to "E1",
         ".lapis-encounter-side.is-sheet" to "E1",
         ".lapis-member-map-search-results" to "E2",
@@ -292,13 +294,20 @@ class ScrollSurfaceTripwireTest :
         }
 
         test(
-            "R59: the only sticky elements are the transparency banner, (with room for it) the member map and the travel expense totals bar",
+            "R59: the only sticky elements are the transparency banner, (with room for it) the member map, the travel expense totals bar and the encounter dock",
         ) {
             val sticky = scrollCssRules(THEME_CSS.readText()).filter { Regex("""position\s*:\s*sticky""").containsMatchIn(it.body) }
             // V1.9.122: `.lapis-te-totals` -- the totals bar of the travel expense editor (right column from 992px, bottom edge below). It is a
             // small, non-scrolling summary (no overflow, no max-height), so it adds no scroll surface; the page's own scroll-padding is unaffected.
+            // V1.9.165: `.lapis-encounter-dock` -- the bar of the encounter room (bar + "Mehr" sheet + device panel) rests at the bottom edge of the
+            // scroll root. Sticky is no scroller: the dock has no overflow and no max-height, so the ledger of scrollers is unchanged.
             sticky.map { it.selector }.toSet() shouldBe
-                setOf(".lapis-conference-transparency-banner", ".lapis-member-map-panel", ".lapis-te-totals")
+                setOf(".lapis-conference-transparency-banner", ".lapis-member-map-panel", ".lapis-te-totals", ".lapis-encounter-dock")
+            val dock = sticky.single { it.selector == ".lapis-encounter-dock" }
+            withClue("the sticky dock is no scroller: ${dock.body}") {
+                SCROLLER_DECLARATION.containsMatchIn(dock.body) shouldBe false
+                Regex("""max-height""").containsMatchIn(dock.body) shouldBe false
+            }
             val map = sticky.single { it.selector == ".lapis-member-map-panel" }
             withClue("the sticky map needs a viewport at least 760px high: ${map.atRules}") {
                 map.atRules.any { it.contains("min-height: 760px") } shouldBe true

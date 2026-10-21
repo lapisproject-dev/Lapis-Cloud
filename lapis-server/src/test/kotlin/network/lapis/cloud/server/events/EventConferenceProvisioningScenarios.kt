@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +52,7 @@ abstract class EventConferenceProvisioningScenarios(
         val fx = EventOnlineFixtures()
         lateinit var organizer: Uuid
 
-        // 2030-06-15 18:00-20:00 in New York = 22:00Z-00:00Z; window 21:45Z-01:00Z.
+        // 2030-06-15 18:00-20:00 in New York = 22:00Z-00:00Z; window 21:30Z-01:00Z.
         val open = Instant.parse("2030-06-15T22:30:00Z")
 
         beforeSpec {
@@ -177,6 +178,40 @@ abstract class EventConferenceProvisioningScenarios(
             conferenceRow(event)!![EventConferenceTable.status] shouldBe EventConferenceStatus.ACTIVE
             roomRows(event) shouldBe 1
             live.createCalls.get() shouldBe 2
+        }
+
+        test(
+            "a PENDING row written under the old 15-minute lead is deleted by the next save of the event (self-healing, no migration)",
+        ) {
+            val event = fx.event(createdBy = organizer)
+            val oldWindow =
+                EventOnlineWindow.Window(
+                    opensAt = Instant.parse("2030-06-15T21:45:00Z"),
+                    closesAt = Instant.parse("2030-06-16T01:00:00Z"),
+                )
+            transaction {
+                EventConferenceStore.insertPending(
+                    eventId = event,
+                    claimToken = Uuid.random(),
+                    livekitRoomName = "lc-stale-${Uuid.random()}",
+                    now = EventOnlineWindow.toUtc(open),
+                    window = oldWindow,
+                )
+            }
+            conferenceRow(event) shouldNotBe null
+            transaction {
+                EventOnlineLifecycle.onEventSaved(
+                    eventId = event,
+                    kind = network.lapis.cloud.shared.domain.EventOnlineKind.LAPIS_CONFERENCE,
+                    startsAt = kotlinx.datetime.LocalDateTime(2030, 6, 15, 18, 0),
+                    endsAt = kotlinx.datetime.LocalDateTime(2030, 6, 15, 20, 0),
+                    previousVisibility = network.lapis.cloud.shared.domain.EventVisibility.PUBLIC,
+                    newVisibility = network.lapis.cloud.shared.domain.EventVisibility.PUBLIC,
+                    previousRegistrationClosesAt = null,
+                    newRegistrationClosesAt = null,
+                )
+            }
+            conferenceRow(event) shouldBe null
         }
 
         test("a PENDING claim of a crashed request is taken over once it is old enough, a fresh one is waited for") {

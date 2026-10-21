@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.encounter
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -596,6 +597,148 @@ class EncounterPrivacyTripwireTest :
             val generated = File(SourceScan.mainRoot(), "network/lapis/cloud/server/db/generated")
             generated.walkTopDown().filter { it.isFile && it.extension == "kt" && it.name.startsWith("Encounter") }.none {
                 Regex("""\bfloor\b""", RegexOption.IGNORE_CASE).containsMatchIn(it.readText())
+            } shouldBe true
+        }
+
+        // ── Welle V1.9.166: the grid map ──────────────────────────────────
+
+        val mapStateFile = EncounterSourceScan.mainFile("encounter/EncounterMapState.kt")
+        val mapBroadcasterFile = EncounterSourceScan.mainFile("encounter/EncounterMapBroadcaster.kt")
+        val mapMethods = listOf("mapEnter", "mapStep", "mapTeleport", "mapLeave", "mapSnapshot", "mapGateInTx", "mapMemberStatus")
+
+        test("V1.9.166: the map state is memory only -- no transaction, no table, no logger, no audit, no write, no suspend") {
+            val code = SourceScan.blank(mapStateFile.readText())
+            listOf(
+                "transaction",
+                "Table",
+                "logger",
+                "KotlinLogging",
+                "AuditLogRecorder",
+                "println",
+                "suspend",
+                "insert",
+                "update",
+                "delete",
+            ).forEach { forbidden ->
+                withClue("EncounterMapState.kt must not contain '$forbidden'") {
+                    code.contains(forbidden) shouldBe
+                        false
+                }
+            }
+        }
+
+        test("V1.9.166: the map methods of the service never write the audit log and never log") {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            mapMethods.forEach { name ->
+                val fn = fns[name] ?: error("function $name not found -- the tripwire must not run empty")
+                withClue(name) {
+                    fn.body.contains("AuditLogRecorder") shouldBe false
+                    fn.body.contains("logger") shouldBe false
+                }
+            }
+        }
+
+        test(
+            "V1.9.166: the steps and teleports touch the database NEVER (memory only), the throttle comes first with its own exception type",
+        ) {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf("mapStep", "mapTeleport").forEach { name ->
+                val body = fns.getValue(name).body
+                body.contains("transaction") shouldBe false
+                body.contains("requireSeatRate") shouldBe true
+                body.contains("requireWithinRate") shouldBe false
+                // there is no coordinate and no member id parameter: nothing to forge
+                fns.getValue(name).params.contains("memberId") shouldBe false
+                fns.getValue(name).params.contains("Int") shouldBe false
+            }
+            listOf("mapEnter", "mapSnapshot").forEach { name ->
+                val body = fns.getValue(name).body
+                (body.indexOf("requireSeatRate") in 0 until body.indexOf("transaction")) shouldBe true
+            }
+        }
+
+        test(
+            "V1.9.166: the gate refuses a non-member before the space is even looked up, and every refusal is the bare ForbiddenException",
+        ) {
+            val gate = EncounterSourceScan.functions(serviceFile).single { it.name == "mapGateInTx" }.body
+            (gate.indexOf("mapMemberStatus") in 0 until gate.indexOf("loadVisibleSpace")) shouldBe true
+            gate.contains("ForbiddenException(\"") shouldBe false
+            gate.contains("NotFoundException(") shouldBe false
+            gate.contains("ConflictException") shouldBe false
+        }
+
+        test("V1.9.166: every hook that must drop a position calls the map state") {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf(
+                "selectSeat",
+                "joinTable",
+                "enterSpace",
+                "leaveSpace",
+                "moderate",
+                "setSpaceRoles",
+                "closeSpace",
+                "updateSpace",
+            ).forEach { name ->
+                withClue(name) { fns.getValue(name).body.contains("mapState.") shouldBe true }
+            }
+            EncounterSourceScan
+                .functions(EncounterSourceScan.mainFile("encounter/EncounterSpacePoller.kt"))
+                .single { it.name == "closeSession" }
+                .body shouldContain "mapState.clear"
+        }
+
+        test("V1.9.166: the map topic is sent through sendDataTo only (to members), never through sendData to everybody") {
+            val offenders = mutableListOf<String>()
+            SourceScan.mainFiles().forEach { f ->
+                SourceScan.blank(f.readText()).lines().forEachIndexed { index, line ->
+                    if (line.contains("ENCOUNTER_MAP_TOPIC") && Regex("""\.sendData\(""").containsMatchIn(line)) {
+                        offenders += "${f.name}:${index + 1}"
+                    }
+                }
+            }
+            offenders.shouldBeEmpty()
+            // the one sender is the broadcaster, and its tick makes no LiveKit call inside a transaction
+            val sendingFiles =
+                SourceScan
+                    .mainFiles()
+                    .filter { f ->
+                        SourceScan.blank(f.readText()).contains("ENCOUNTER_MAP_TOPIC")
+                    }.map { it.name }
+            sendingFiles.filter { it != "LiveKitAdminClient.kt" && it != "EncounterMapBroadcaster.kt" }.shouldBeEmpty()
+            val fns = EncounterSourceScan.functions(mapBroadcasterFile).associateBy { it.name }
+            fns.getValue("tick").body.let { body ->
+                body.contains("transaction") shouldBe false
+                body.contains("sendDataTo") shouldBe true
+            }
+            val verdict = fns.getValue("reconcileFromDbInto").body + fns.getValue("verdictOf").body
+            listOf("liveKit", "sendDataTo", "sendData").forEach { verdict.contains(it) shouldBe false }
+        }
+
+        test("V1.9.166: the broadcaster logs counts and the class of an exception only") {
+            val lines = mapBroadcasterFile.readLines().filter { it.contains("logger.") }
+            (lines.size >= 2) shouldBe true
+            lines.forEach { line ->
+                Regex(
+                    """memberId|identity|displayName|roomId|spaceId|livekitRoom|recipients|initials|\bx\b|\by\b""",
+                ).containsMatchIn(line) shouldBe
+                    false
+            }
+        }
+
+        test(
+            "V1.9.166: no migration and no generated schema file knows a position, a coordinate, a facing or a path; V111 only adds the room switch",
+        ) {
+            val migrations = File(SourceScan.mainRoot().parentFile, "resources/db/migration").listFiles()!!.filter { it.extension == "sql" }
+            (migrations.size > 100) shouldBe true
+            val code = { f: File -> f.readLines().filterNot { it.trim().startsWith("--") }.joinToString("\n") }
+            val position = Regex("""\b(position|map_x|map_y|coord\w*|facing|path|walker)\b""", RegexOption.IGNORE_CASE)
+            migrations.filter { it.name.contains("encounter", ignoreCase = true) }.none { position.containsMatchIn(code(it)) } shouldBe true
+            val v111 = migrations.single { it.name.startsWith("V111__") }
+            Regex("""ADD COLUMN IF NOT EXISTS (\w+)""").findAll(code(v111)).map { it.groupValues[1] }.toList() shouldBe
+                listOf("map_enabled")
+            val generated = File(SourceScan.mainRoot(), "network/lapis/cloud/server/db/generated")
+            generated.walkTopDown().filter { it.isFile && it.extension == "kt" && it.name.startsWith("Encounter") }.none {
+                position.containsMatchIn(it.readText())
             } shouldBe true
         }
     })

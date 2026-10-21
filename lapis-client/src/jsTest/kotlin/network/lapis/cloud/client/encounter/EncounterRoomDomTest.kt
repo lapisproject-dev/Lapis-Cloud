@@ -389,6 +389,21 @@ class EncounterRoomDomTest {
         }
 
     @Test
+    fun aQuestion_showsASymbolAtTheSeat_butNeverRaisesAHand(): Promise<Unit> =
+        formTest {
+            val space = testSpace(reactions = network.lapis.cloud.shared.domain.EncounterReactionOption.entries)
+            withRoom(testEntry(), sixPeople, space = space) { rig, element ->
+                awaitUntil("six seats occupied") { element.occupied() == 6 }
+                rig.room.callbacks.onReaction("c1", EncounterReaction.QUESTION)
+                awaitUntil("the question is shown") { element.querySelectorAll(".lapis-encounter-seat-event.is-on").length == 1 }
+                assertTrue(rig.room.raisedHandIds.isEmpty(), "a question is no raised hand")
+                assertEquals(0, element.querySelectorAll(".lapis-encounter-seat-hand.is-on").length)
+                val live = element.allOf("[aria-live=polite]").first { it.classList.contains("visually-hidden") }
+                awaitUntil("the polite announcement") { live.textContent.orEmpty().contains("Frage aus der Gemeinde") }
+            }
+        }
+
+    @Test
     fun theHandButton_togglesAriaPressed_sendsTheState_andAFastSecondClickIsIgnored(): Promise<Unit> =
         formTest {
             withRoom(testEntry(), sixPeople + testPerson("me", name = "Ich Selbst")) { rig, element ->

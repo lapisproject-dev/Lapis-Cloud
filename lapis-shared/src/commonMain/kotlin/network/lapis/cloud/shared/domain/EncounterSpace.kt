@@ -51,6 +51,9 @@ fun defaultRoomLayout(profile: EncounterProfile): EncounterRoomLayout =
  * The reactions a room can be configured with (V1.9.67). Canonical order = declaration order. [HAND] is always on and
  * [HAND_LOWERED] (the wire counterpart of [HAND]) is never selectable. There is deliberately no thumbs-up: in an assembly it reads as
  * a vote.
+ * V1.9.164 appended [FLOWER], [LAUGH], [ASTONISHED], [QUESTION] and [CRY] (append only: the stored CSV uses names, but the order of
+ * [normalize] is the ordinal). Crying is room-only and never a profile default; the new options are opt-in, never part of [defaultsFor].
+ * The longest canonical CSV (all nine) is 61 characters; `encounter_space.reaction_set` is `varchar(64)` -- a tenth option needs a new migration.
  */
 @Serializable
 enum class EncounterReactionOption {
@@ -58,6 +61,11 @@ enum class EncounterReactionOption {
     AMEN,
     APPLAUSE,
     HEART,
+    FLOWER,
+    LAUGH,
+    ASTONISHED,
+    QUESTION,
+    CRY,
     ;
 
     companion object {
@@ -98,10 +106,11 @@ enum class EncounterPresenceRole { PULPIT, STEWARD, CONGREGATION }
  * The reactions a congregation member may send (B2 data-channel topic, no server path). [HAND] is a STATE ("my hand is up"): the
  * sender renews it every 30 s while it stays up and the receivers let it lapse after 90 s; [HAND_LOWERED] ends it at once. [AMEN] is an
  * EVENT (a short symbol at the sender's seat), never counted; so are [APPLAUSE] and [HEART] (V1.9.67, appended
- * only: old clients decode an unknown name to `null` and drop it).
+ * only: old clients decode an unknown name to `null` and drop it). V1.9.164 added [FLOWER], [LAUGH], [ASTONISHED], [QUESTION] and [CRY],
+ * likewise events only: no state, no count, no coupling to [HAND] (a question is a mood symbol, not a place in the queue).
  */
 @Serializable
-enum class EncounterReaction { HAND, HAND_LOWERED, AMEN, APPLAUSE, HEART }
+enum class EncounterReaction { HAND, HAND_LOWERED, AMEN, APPLAUSE, HEART, FLOWER, LAUGH, ASTONISHED, QUESTION, CRY }
 
 /** Maps a wire reaction to its configuration option ([EncounterReaction.HAND_LOWERED] belongs to [EncounterReactionOption.HAND]). */
 fun EncounterReaction.option(): EncounterReactionOption =
@@ -110,6 +119,11 @@ fun EncounterReaction.option(): EncounterReactionOption =
         EncounterReaction.AMEN -> EncounterReactionOption.AMEN
         EncounterReaction.APPLAUSE -> EncounterReactionOption.APPLAUSE
         EncounterReaction.HEART -> EncounterReactionOption.HEART
+        EncounterReaction.FLOWER -> EncounterReactionOption.FLOWER
+        EncounterReaction.LAUGH -> EncounterReactionOption.LAUGH
+        EncounterReaction.ASTONISHED -> EncounterReactionOption.ASTONISHED
+        EncounterReaction.QUESTION -> EncounterReactionOption.QUESTION
+        EncounterReaction.CRY -> EncounterReactionOption.CRY
     }
 
 /** LiveKit data-channel topic of [EncounterReaction] messages (B2, informational only: the server has no path that reads it). */
@@ -176,6 +190,11 @@ data class EncounterSpaceInput(
     val pulpitRecordingAllowed: Boolean? = null,
     /** V1.9.152: the room template. Create: `null` = [defaultRoomLayout] of the profile. Update: `null` = unchanged. Must fit the profile ([allowedFor]). */
     val roomLayout: EncounterRoomLayout? = null,
+    /**
+     * V1.9.166: whether the room has a grid map (stage 3). Create: `null` = off. Update: `null` = unchanged (an old cached admin client sends
+     * none). Only the assembly profile; switching it ON needs a CLOSED room (it changes the entry notice), switching it OFF is always allowed.
+     */
+    val mapEnabled: Boolean? = null,
 )
 
 /**
@@ -234,6 +253,8 @@ data class EncounterSpaceDto(
     val pulpitRecordingStartable: Boolean = false,
     /** V1.9.152: the room template. Last + default = wire compatible (an old server sends none: the nave, as before). */
     val roomLayout: EncounterRoomLayout = EncounterRoomLayout.NAVE,
+    /** V1.9.166: the room option "grid map". Last + default = wire compatible. Describes the ROOM, never a person. */
+    val mapEnabled: Boolean = false,
 )
 
 /** One office assignment of [network.lapis.cloud.shared.rpc.IEncounterSpaceService.setSpaceRoles] (replace-all, at most 20). */
@@ -276,6 +297,8 @@ data class EncounterEntryInfoDto(
     val pulpitRecordingRoomNotice: String? = null,
     /** V1.9.148: `true` iff the caller already acknowledged an OLDER version of this room's entry notice (same kind): shows "the notice has changed". Last + default = wire compatible. */
     val consentChanged: Boolean = false,
+    /** V1.9.166: the notice to everybody present that this room has a map (members read it, they acknowledge nothing); `null` when the map is off. */
+    val mapRoomNotice: String? = null,
 )
 
 /**

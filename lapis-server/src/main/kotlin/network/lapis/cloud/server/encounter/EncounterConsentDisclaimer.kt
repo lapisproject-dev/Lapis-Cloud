@@ -52,16 +52,20 @@ internal data class ResolvedEncounterConsent(
  *
  * For a room whose option "the pulpit may be recorded" is ON ([pulpitRecordingAllowed]) the code, never the admin, appends the recording paragraph as
  * the last key point and as the end of the full text, adds the system suffix `+rec` to the label and hashes the result. The choice follows the ROOM
- * option, not the instance switch: better to inform too much than too little. A guest who acknowledged the variant without recording must acknowledge
+ * option, not the instance switch: better to inform too much than too little. V1.9.166: a room with a map ([mapEnabled], assembly profile only) gets
+ * a second code-owned paragraph and the suffix `+map` (`+rec+map` for both); without both options the result is byte-identical to before. A guest who acknowledged the variant without recording must acknowledge
  * again for the other one (another label and hash), and so must a guest after the admin published a new version.
  */
 internal fun encounterConsentFor(
     profile: EncounterProfile,
     pulpitRecordingAllowed: Boolean = false,
+    mapEnabled: Boolean = false,
 ): EncounterConsentText {
     val kind = EncounterConsentLabels.kindOf(profile)
+    // V1.9.166: the map exists in the assembly profile only. Fail closed (the CHECK constraint makes this unreachable).
+    if (mapEnabled && profile != EncounterProfile.ASSEMBLY) throw ServiceBusyException()
     val current = AgreementTextResolver.current(kind = kind, profile = profile)
-    if (!pulpitRecordingAllowed) {
+    if (!pulpitRecordingAllowed && !mapEnabled) {
         // A published body that breaks the paragraph rule (an old row, a manual edit) is never served half-way.
         val split = EncounterConsentLayout.splitOrNull(body = current.body) ?: throw ServiceBusyException()
         return ResolvedEncounterConsent(
@@ -74,12 +78,27 @@ internal fun encounterConsentFor(
             placeholder = current.placeholder,
         )
     }
-    val paragraph = EncounterConsentLayout.recordingParagraph(kind)
-    // Only the placeholder carries the sentence "Es wird nichts aufgezeichnet."; the leading space belongs to the pattern.
-    val base = if (current.placeholder) current.body.replaceFirst(" " + EncounterConsentLayout.NO_RECORDING_SENTENCE, "") else current.body
-    val split = EncounterConsentLayout.splitOrNull(body = base, extraKeyPoint = paragraph) ?: throw ServiceBusyException()
-    val label = current.versionLabel + EncounterConsentLayout.RECORDING_SUFFIX
-    val text = base + "\n\n" + paragraph
+    // The code, never the admin, appends its paragraphs (recording first, then map) as the last key points and as the end of the full text, adds
+    // the system suffixes "+rec" and "+map" to the label (in that order) and hashes the result.
+    val paragraphs =
+        listOfNotNull(
+            if (pulpitRecordingAllowed) EncounterConsentLayout.recordingParagraph(kind) else null,
+            if (mapEnabled) EncounterConsentLayout.mapParagraph(kind) else null,
+        )
+    // Only the placeholder carries the sentence "Es wird nichts aufgezeichnet."; the leading space belongs to the pattern. It is false only
+    // where the pulpit may be recorded.
+    val base =
+        if (pulpitRecordingAllowed && current.placeholder) {
+            current.body.replaceFirst(" " + EncounterConsentLayout.NO_RECORDING_SENTENCE, "")
+        } else {
+            current.body
+        }
+    val split = EncounterConsentLayout.splitOrNull(body = base, extraKeyPoints = paragraphs) ?: throw ServiceBusyException()
+    val label =
+        current.versionLabel +
+            (if (pulpitRecordingAllowed) EncounterConsentLayout.RECORDING_SUFFIX else "") +
+            (if (mapEnabled) EncounterConsentLayout.MAP_SUFFIX else "")
+    val text = base + "\n\n" + paragraphs.joinToString("\n\n")
     return ResolvedEncounterConsent(
         version = label,
         headline = split.headline,

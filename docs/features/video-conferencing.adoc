@@ -182,6 +182,16 @@ Since V1.9.116 a recording captures every person as ONE file in which picture an
 The mode applies to recordings started afterwards; a recording that is already running keeps the mode it started with. Screen shares are still recorded separately and can be slightly offset against the voice.
 The default mode needs noticeably more server CPU (every person is re-encoded). On staging (2026-10-12, one person, a real browser) the picture was about 0.1 to 0.2 seconds earlier than the sound; not yet tried: a camera switched on late, several people, CPU under load (see link:../architecture/conference-recording.adoc[conference-recording.adoc]). Recordings that were made earlier cannot be repaired.
 
+== Device picker without browser permission (V1.9.169)
+
+Until a person allows camera and microphone access in the browser, the browser lists devices without usable ids. The device block of the "Mehr" sheet then shows, above the microphone row, an explanation, the button "Zugriff auf Mikrofon und Kamera erlauben" and the three selects as a disabled placeholder ("Erst nach Freigabe verfügbar"). The block depends on the browser's permission state only, never on the role (member, friend, guest).
+
+* **Access only on a click.** The button asks the browser once (`getUserMedia`), stops all tracks at once and never switches the microphone or camera on in the call. If only one kind exists, each is asked on its own. Outcomes are spoken in a polite status line: all allowed, microphone only, camera only, blocked (with the hint to use the lock icon or the site settings), nothing found.
+* **State.** `permissions.query` decides where it exists; otherwise (older Firefox/Safari) blank ids or an empty list mean "needs access". A change of the permission refreshes the list (never requests access) and is unregistered when the call is left. The speaker row follows the microphone.
+* **Focus.** The button keeps focus unless everything was allowed; then focus moves to the microphone select. The button never uses the native `disabled`; during the request it carries `aria-busy`.
+* **Privacy.** Only `deviceId`s are stored in the browser as before; no label is stored, logged or sent, and only the browser's error name is read.
+* **Honest limits.** Not verified in a real browser (dialogs in Chrome, Firefox, Safari/iOS, the `change` event, USB devices). The device panel of the encounter room (`EncounterDevicePicker`) has the same symptom and is not changed by this wave.
+
 == Optional noise suppression (V1.9.114)
 
 A person can switch on a stronger noise filter for their OWN microphone: the row "Rauschunterdrückung" in the device block of the "Mehr" sheet, directly under the microphone selection, and in the device panel of the encounter room for an office holder (pulpit and steward; the congregation has no switch). It is a switch, not a regulator: no slider, no icon, no listening test.
@@ -274,11 +284,11 @@ Things to know:
 
 == Reactions and raised hands (V1.9.127)
 
-Two small things that make a large call feel like a room: a *reaction* (applause, heart, amen, thumbs up, flower) is a mood that appears on a person's tile for three seconds, and the *raised hand* ("Wortmeldung") puts a person into a list that everybody can see and the moderation can work through.
+Two small things that make a large call feel like a room: a *reaction* (applause, heart, amen, thumbs up, flower, laughter, amazement, question) is a mood that appears on a person's tile for three seconds, and the *raised hand* ("Wortmeldung") puts a person into a list that everybody can see and the moderation can work through.
 
 === Reactions
 
-* **Five reactions, a menu, no shortcut.** The bar has a "Reaktion" button (`aria-haspopup="menu"`, `aria-expanded`) that opens a menu with five items (`role="menuitem"`, the emoji in an `aria-hidden` span plus the word: Applaus, Herz, Amen, Daumen hoch, Blume). Arrow keys, Home and End move, Enter and Space choose, Escape closes and gives the focus back to the button. There is deliberately no global keyboard shortcut. The button moves into the "Mehr" sheet early on a narrow bar (right after "Ansicht"); the raised hand never moves.
+* **Eight reactions, a menu, no shortcut.** The bar has a "Reaktion" button (`aria-haspopup="menu"`, `aria-expanded`) that opens a single-column menu with eight items in enum order (`role="menuitem"`, the emoji in an `aria-hidden` span plus the word: Applaus, Herz, Amen, Daumen hoch, Blume, Lachen, Staunen, Frage; the last three since V1.9.164). The menu is height-limited and scrolls on a low screen, and the keyboard focus scrolls along. "Frage" is a mood symbol only: it raises no hand and enters no queue. Older clients drop the three new names silently. Arrow keys, Home and End move, Enter and Space choose, Escape closes and gives the focus back to the button. There is deliberately no global keyboard shortcut. The button moves into the "Mehr" sheet early on a narrow bar (right after "Ansicht"); the raised hand never moves.
 * **Peer to peer, nothing stored.** A reaction is a LiveKit data packet on the topic `lapis-conference-reaction`, reliable, exactly `{"r":"APPLAUSE"}` (at most 32 bytes). The server never sees, counts, stores or audits it. The receiver reads only the key `r` (any other key makes the packet invalid, so a forged sender is never looked at), attributes the packet to the SDK-verified identity of the sender and never throws. `HAND` is *not* a reaction.
 * **Flood guards.** Sending: one reaction per second per client. Receiving: at most five per sender per five seconds, at most 64 senders tracked; more are dropped without a trace.
 * **On the tile.** The overlay is a child of the tile element's reaction layer, which is built once with the tile (the tile itself is never recreated, `ConferenceViewStage` only re-parents it). At most three reactions are shown at the same time, each for three seconds. The word sits in a visually hidden span, there is *no* live region: a reaction is never announced. The rise animation exists only under `prefers-reduced-motion: no-preference`; otherwise a reaction simply stands there and is removed.

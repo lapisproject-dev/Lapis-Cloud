@@ -21730,10 +21730,10 @@ msgstr ""
 msgid "Sie geben einen eigenen Link an, zum Beispiel zu einer anderen Videokonferenz."
 msgstr ""
 
-msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 15 Minuten vor Beginn."
+msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 30 Minuten vor Beginn."
 msgstr ""
 
-msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 15 Minuten vor Beginn."
+msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 30 Minuten vor Beginn."
 msgstr ""
 
 msgid "Vor Ort"
@@ -24236,4 +24236,154 @@ msgid "Gäste und Einladungen verwalten Sie bei Veranstaltungen auf der Veransta
 msgstr ""
 
 msgid "Zu viele Anfragen – bitte kurz warten."
+msgstr ""
+
+msgid "Blume aus der Gemeinde"
+msgstr ""
+
+msgid "Blume von den Teilnehmenden"
+msgstr ""
+
+msgid "Lachen"
+msgstr ""
+
+msgid "Lachen aus der Gemeinde"
+msgstr ""
+
+msgid "Lachen von den Teilnehmenden"
+msgstr ""
+
+msgid "Staunen"
+msgstr ""
+
+msgid "Staunen aus der Gemeinde"
+msgstr ""
+
+msgid "Staunen von den Teilnehmenden"
+msgstr ""
+
+msgid "Frage aus der Gemeinde"
+msgstr ""
+
+msgid "Frage von den Teilnehmenden"
+msgstr ""
+
+msgid "Weinen"
+msgstr ""
+
+msgid "Weinen aus der Gemeinde"
+msgstr ""
+
+msgid "Weinen von den Teilnehmenden"
+msgstr ""
+
+msgid "Karte"
+msgstr ""
+
+msgid "Auf die Karte"
+msgstr ""
+
+msgid "Karte verlassen"
+msgstr ""
+
+msgid "Zum Eingang"
+msgstr ""
+
+msgid "Zur Mitte"
+msgstr ""
+
+msgid "Zum Podium"
+msgstr ""
+
+msgid "Zur Kanzel"
+msgstr ""
+
+msgid "Reihe %1, Spalte %2"
+msgstr ""
+
+msgid "Eine Person in Ihrer Nähe"
+msgstr ""
+
+msgid "%1 Personen in Ihrer Nähe"
+msgstr ""
+
+msgid "In Ihrer Nähe"
+msgstr ""
+
+msgid "und %1 weitere"
+msgstr ""
+
+msgid "Weg blockiert"
+msgstr ""
+
+msgid "Die Karte ist voll oder Sie waren zu schnell."
+msgstr ""
+
+msgid "Einen Moment bitte, gleich können Sie wieder springen."
+msgstr ""
+
+msgid "Nur bei geschlossenem Raum einschaltbar"
+msgstr ""
+
+msgid "Karte (Positionen der Mitglieder)"
+msgstr ""
+
+msgid "Sie stehen nicht auf der Karte."
+msgstr ""
+
+msgid "Richtungstasten"
+msgstr ""
+
+msgid "Nach links"
+msgstr ""
+
+msgid "Nach rechts"
+msgstr ""
+
+msgid "Nur in der Raumart Versammlung. Mitglieder bewegen sich auf einer Karte; Gäste erscheinen nicht darauf."
+msgstr ""
+
+msgid "Karte öffnen"
+msgstr ""
+
+msgid "Karte öffnen, Sie sind auf der Karte"
+msgstr ""
+
+msgid "Karte schließen"
+msgstr ""
+
+msgid "Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert."
+msgstr ""
+
+msgid "Linke Loge"
+msgstr ""
+
+msgid "Rechte Loge"
+msgstr ""
+
+msgid "Ihr Browser zeigt die Geräte erst, wenn Sie den Zugriff erlauben. Mikrofon und Kamera bleiben dabei ausgeschaltet."
+msgstr ""
+
+msgid "Zugriff auf Mikrofon und Kamera erlauben"
+msgstr ""
+
+msgid "Erst nach Freigabe verfügbar"
+msgstr ""
+
+msgid "Zugriff erlaubt. Sie können Ihre Geräte jetzt auswählen."
+msgstr ""
+
+msgid "Nur das Mikrofon ist freigegeben."
+msgstr ""
+
+msgid "Nur die Kamera ist freigegeben."
+msgstr ""
+
+msgid "Der Browser hat den Zugriff blockiert. Erlauben Sie Mikrofon und Kamera über das Schloss-Symbol in der Adressleiste oder in den Website-Einstellungen Ihres Browsers und versuchen Sie es erneut."
+msgstr ""
+
+msgid "Es wurde weder ein Mikrofon noch eine Kamera gefunden."
+msgstr ""
+
+msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr ""

@@ -110,8 +110,11 @@ class ToolbarGeometryDomTest {
     fun toolbar_wrappedRow_keepsBottomAlignmentPerRowAndButtonWidth() {
         assertTrue(stylesLoaded)
         withMountedRoot("toolbar-geometry-narrow") { root, element ->
-            // A 340 px host (phone content width) cannot hold three fields and a button on one line: the toolbar wraps.
-            val host = root.vPanel { width = 340.px }
+            // A 440 px host cannot hold two text fields on one line (2 x 274 + 12 = 560 px), so the toolbar wraps into one field per row.
+            // V1.9.165: the width must not depend on the installed font. A text field measures 274 px, the button up to ~98 px where `Inter`
+            // is missing (a plain Linux Chrome): 274 + 12 + 98 = 384 px. 440 px therefore lets the button share the last field's row for every
+            // font the stack can fall back to, while two fields still never fit one row.
+            val host = root.vPanel { width = 440.px }
             val bar = host.lapisToolbar()
             bar.text(label = "Von")
             bar.text(label = "Bis")
@@ -119,7 +122,7 @@ class ToolbarGeometryDomTest {
             bar.actionButton(ActionIcon.FILTER, "Filtern")
             val inputs = element().qa("input.form-control").map { it.getBoundingClientRect() }
             val button = element().q(".btn").getBoundingClientRect()
-            assertTrue(inputs.any { it.top > inputs.first().top + TOLERANCE }, "the toolbar did not wrap in 340 px")
+            assertTrue(inputs.any { it.top > inputs.first().top + TOLERANCE }, "the toolbar did not wrap in 440 px")
             val sameRow = inputs.filter { button.top < it.bottom && button.bottom > it.top }
             assertTrue(sameRow.isNotEmpty(), "the button shares a row with at least one field")
             sameRow.forEach {

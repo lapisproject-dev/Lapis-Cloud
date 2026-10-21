@@ -42,6 +42,7 @@ import network.lapis.cloud.client.livekit.ConferenceDeviceKind
 import network.lapis.cloud.client.livekit.ConferenceModerationSignal
 import network.lapis.cloud.client.livekit.ConferenceReactionReceiveGuard
 import network.lapis.cloud.client.livekit.ConferenceReactionSendThrottle
+import network.lapis.cloud.client.livekit.DeviceEnumeration
 import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.livekit.HandAnnouncementThrottle
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
@@ -1624,7 +1625,7 @@ private fun enterCall(
     // V1.9.115 -- "Ansicht": gallery / speaker large / pin a person / screen share large; opens a radio group above the bar. Symbol-only like
     // its neighbours (the accessible name carries the current view, see `viewControlsSink`).
     val viewButton = controlsRow.conferenceViewButton()
-    // V1.9.127 -- "Reaktion" (the menu of five reactions) and the raised hand ("Hand heben", with the own place as a badge). The raised hand is
+    // V1.9.127 -- "Reaktion" (the menu of eight reactions) and the raised hand ("Hand heben", with the own place as a badge). The raised hand is
     // the server-ordered queue of the MAIN room only: a breakout call has no such button (its LiveKit room is another one than the queue's).
     val reactButton = controlsRow.conferenceReactButton()
     val handControl = if (isBreakout) null else controlsRow.conferenceHandControl()
@@ -2006,6 +2007,19 @@ private fun enterCall(
     val loadingPlaceholder = listOf("" to tr("Wird geladen …"))
     val deviceGroup = moreSheet.vPanel(spacing = 6) { addCssClasses("lapis-conference-device-group") }
     deviceGroup.div(tr("Geräte:")) { addCssClasses("text-muted small") }
+    // V1.9.169 -- without browser permission the selects used to vanish; this block (explanation + one button) sits ABOVE them. It
+    // depends on the browser's state only, never on the role. `refreshDeviceOptions` (below) renders it; `refreshForPermission` bridges
+    // the forward reference (the row is built before `refreshDeviceOptions` is declared).
+    val devicePermissionProvider: DevicePermissionProvider = BrowserDevicePermissionProvider()
+    var refreshForPermission: suspend () -> Unit = {}
+    var focusMicSelectForPermission: () -> Unit = {}
+    val devicePermissionRow =
+        ConferenceDevicePermissionRow(
+            deviceGroup,
+            devicePermissionProvider,
+            onAccessChanged = { refreshForPermission() },
+            focusMicSelect = { focusMicSelectForPermission() },
+        )
     val micDeviceSelect = deviceGroup.select(options = loadingPlaceholder, value = "", label = tr("Mikrofon"))
 
     // V1.9.114 -- optionale Rauschunterdrückung des eigenen Mikrofons (RNNoise, nur in diesem Browser): EINE Zeile direkt unter der Mikrofonauswahl,
@@ -2049,7 +2063,8 @@ private fun enterCall(
     // bereits laufenden anstößt, UND (kombiniert mit dem Fokus-Check in `refreshDeviceOptions`)
     // verschiebt einen Hotplug-getriebenen Refresh, solange der Nutzer gerade eines der drei Dropdowns
     // offen/fokussiert hat (Tesler: ein sich unter der Maus verändendes Dropdown ist ein Slip).
-    var pendingDeviceRefresh = false
+    // V1.9.169 -- a refresh requested (by the access button) while another one runs is not dropped but repeated once afterwards
+    val deviceRefreshGate = DeviceRefreshGate()
     // Reentrancy-Guard: verhindert, dass eine PROGRAMMATISCHE `select.value = x`-Zuweisung (initiale
     // Vorauswahl in `refreshDeviceOptions`, Revert nach einem fehlgeschlagenen Wechsel, oder das
     // Nachziehen der Auswahl aus `onActiveDeviceChanged`) denselben `select.subscribe {}`-Handler
@@ -4543,6 +4558,7 @@ private fun enterCall(
         // V1.9.25: the ballot poll, the receipt hook and the viewport listener end with the call, on every way out of it
         ConferenceVoteRuntime.disposeActive()
         noiseSuppressionController.dispose()
+        devicePermissionRow.dispose()
         overflow.dispose()
         disposeTileGrid()
         viewPopover.dispose()
@@ -5167,7 +5183,7 @@ private fun enterCall(
         // Review-Empfehlung, nicht als Pflicht-Scope eingestuft): ein während einer Fokussierung
         // verpasster Hotplug-Event wird beim NÄCHSTEN `MediaDevicesChanged` nachgeholt, statt einen
         // zusätzlichen Listener-Lebenszyklus verwalten zu müssen.
-        if (pendingDeviceRefresh) return
+        if (deviceRefreshGate.shouldDefer(preserveFocusedSelect)) return
         val kindsAndSelects =
             buildList {
                 add(ConferenceDeviceKind.MICROPHONE to micDeviceSelect)
@@ -5182,11 +5198,35 @@ private fun enterCall(
             val hasFocus = kindsAndSelects.any { (_, select) -> select.input.getElement() == focusedEl }
             if (hasFocus) return
         }
-        pendingDeviceRefresh = true
+        deviceRefreshGate.start()
         try {
             var anyVisible = false
+            var micPermissionState = DevicePermissionState.GRANTED
+            var cameraPermissionState = DevicePermissionState.GRANTED
             kindsAndSelects.forEach { (kind, select) ->
-                val options = guarded { session.listDevices(kind) }.orEmpty()
+                val enumeration = guarded { session.listDevicesWithRawCount(kind) } ?: DeviceEnumeration(emptyList(), 0)
+                val options = enumeration.usable
+                // V1.9.169 -- permission state of this kind (the speaker follows the microphone). A session that publishes nothing never
+                // shows the block; there the group stays hidden as before.
+                val permissionState =
+                    when {
+                        !session.publishesMedia -> DevicePermissionState.GRANTED
+                        kind == ConferenceDeviceKind.SPEAKER -> micPermissionState
+                        else ->
+                            conferenceDevicePermissionState(
+                                devicePermissionProvider.query(kind),
+                                RawEnumeration(enumeration.rawCount, options.size),
+                            )
+                    }
+                if (kind == ConferenceDeviceKind.MICROPHONE) micPermissionState = permissionState
+                if (kind == ConferenceDeviceKind.CAMERA) cameraPermissionState = permissionState
+                if (conferenceDeviceRowMode(permissionState, options.size) == DeviceRowMode.PLACEHOLDER) {
+                    // Nothing is read, written or removed in the persisted preference here: the stored id is still valid, only not listed yet.
+                    applyDevicePlaceholder(select, tr("Erst nach Freigabe verfügbar")) { applyingProgrammaticDeviceValue = it }
+                    anyVisible = true
+                    return@forEach
+                }
+                clearDevicePlaceholder(select)
                 val storageKey = conferenceDeviceStorageKey(kind)
                 val rawStored = localStorage[storageKey]
                 val stored = conferenceStoredDeviceId(rawStored)
@@ -5252,14 +5292,22 @@ private fun enterCall(
                     anyVisible = true
                 }
             }
-            deviceGroupHasVisibleRows = anyVisible
+            devicePermissionRow.render(micPermissionState, cameraPermissionState)
+            deviceGroupHasVisibleRows = anyVisible || devicePermissionRow.visible
             // Die Fullscreen-"Mehr"-Knopf-Sichtbarkeit hängt von `deviceGroupHasVisibleRows` ab
             // (siehe `applyPanelVisibility()` oben) -- muss bei jeder Änderung neu angewendet werden,
             // nicht nur beim initialen Aufruf.
             applyPanelVisibility()
         } finally {
-            pendingDeviceRefresh = false
+            if (deviceRefreshGate.finish()) AppScope.launch { refreshDeviceOptions() }
         }
+    }
+    refreshForPermission = { refreshDeviceOptions() }
+    focusMicSelectForPermission = {
+        micDeviceSelect.input
+            .getElement()
+            ?.unsafeCast<HTMLElement>()
+            ?.focus()
     }
 
     /** Reiner UI-Sync, ausgelöst von [LiveKitRoomSession]'s `onActiveDeviceChanged` -- NIEMALS
@@ -5856,7 +5904,7 @@ private fun enterCall(
             // `select.subscribe {}`-Handler nach einem NUTZERGETRIEBENEN, erfolgreichen Wechsel.
             onActiveDeviceChanged = { kind, deviceId -> applyActiveDeviceToSelect(kind, deviceId) },
             // Hotplug-Signal -- re-enumeriert alle Geräte-Dropdowns, respektiert dabei einen gerade
-            // fokussierten Select (siehe `pendingDeviceRefresh` Deklaration oben).
+            // fokussierten Select (siehe `deviceRefreshGate` Deklaration oben).
             onMediaDevicesChanged = { AppScope.launch { refreshDeviceOptions(preserveFocusedSelect = true) } },
             // Review fix (GitHub Issue #2 review, "dupliziertes + falsch formuliertes Fehler-Toast")
             // -- deliberately NO toast here any more, for `kind != null` as much as for `kind ==
@@ -6235,7 +6283,7 @@ private fun enterCall(
                 setTileMic(tiles.getValue(joinToken.identity), micEnabled)
                 updateMicButtonState()
                 // V1.4.19 -- nach erteilter Freigabe liefert `enumerateDevices()` erst jetzt echte
-                // Geräte-IDs/Labels: Geräteliste neu aufbauen (Mutex-Flag `pendingDeviceRefresh`
+                // Geräte-IDs/Labels: Geräteliste neu aufbauen (Mutex `deviceRefreshGate`
                 // schützt vor Überlappung).
                 if (desired) AppScope.launch { refreshDeviceOptions() }
             } else {
@@ -6309,6 +6357,8 @@ private fun enterCall(
         kind: ConferenceDeviceKind,
     ) {
         select.subscribe { selected ->
+            // V1.9.169 -- the "Erst nach Freigabe verfügbar" placeholder is not a choice
+            if (isDevicePlaceholder(select)) return@subscribe
             // V1.4.19 -- zusätzlich zum synchronen Programmatik-Guard: leere/blanke Werte (der
             // "Wird geladen …"-Platzhalter `"" to …` bzw. `enumerateDevices()` ohne Freigabe) sind nie
             // eine Nutzerauswahl und greifen auch bei asynchronem Feuern des KVision-Subscribers nicht.

@@ -22567,11 +22567,11 @@ msgstr "El evento se celebra solo de forma presencial."
 msgid "Sie geben einen eigenen Link an, zum Beispiel zu einer anderen Videokonferenz."
 msgstr "Usted indica su propio enlace, por ejemplo a otra videoconferencia."
 
-msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Lapis crea la videoconferencia en cuanto se une la primera persona. El acceso se abre 15 minutos antes del inicio."
+msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Lapis crea la videoconferencia en cuanto se une la primera persona. El acceso se abre 30 minutos antes del inicio."
 
-msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Los participantes entran en una sala de encuentro permanente. El acceso se abre 15 minutos antes del inicio."
+msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Los participantes entran en una sala de encuentro permanente. El acceso se abre 30 minutos antes del inicio."
 
 msgid "Vor Ort"
 msgstr "Presencial"
@@ -25052,3 +25052,153 @@ msgstr "En los eventos, los invitados y las invitaciones se gestionan en la pág
 
 msgid "Zu viele Anfragen – bitte kurz warten."
 msgstr "Demasiadas solicitudes – espere un momento."
+
+msgid "Lachen"
+msgstr "Risa"
+
+msgid "Staunen"
+msgstr "Asombro"
+
+msgid "Weinen"
+msgstr "Llanto"
+
+msgid "Blume aus der Gemeinde"
+msgstr "Flor de la congregación"
+
+msgid "Blume von den Teilnehmenden"
+msgstr "Flor de los participantes"
+
+msgid "Lachen aus der Gemeinde"
+msgstr "Risa de la congregación"
+
+msgid "Lachen von den Teilnehmenden"
+msgstr "Risa de los participantes"
+
+msgid "Staunen aus der Gemeinde"
+msgstr "Asombro de la congregación"
+
+msgid "Staunen von den Teilnehmenden"
+msgstr "Asombro de los participantes"
+
+msgid "Frage aus der Gemeinde"
+msgstr "Pregunta de la congregación"
+
+msgid "Frage von den Teilnehmenden"
+msgstr "Pregunta de los participantes"
+
+msgid "Weinen aus der Gemeinde"
+msgstr "Llanto de la congregación"
+
+msgid "Weinen von den Teilnehmenden"
+msgstr "Llanto de los participantes"
+
+msgid "Karte"
+msgstr "Mapa"
+
+msgid "Auf die Karte"
+msgstr "Al mapa"
+
+msgid "Karte verlassen"
+msgstr "Salir del mapa"
+
+msgid "Zum Eingang"
+msgstr "A la entrada"
+
+msgid "Zur Mitte"
+msgstr "Al centro"
+
+msgid "Zum Podium"
+msgstr "Al podio"
+
+msgid "Zur Kanzel"
+msgstr "Al púlpito"
+
+msgid "Reihe %1, Spalte %2"
+msgstr "Fila %1, columna %2"
+
+msgid "Eine Person in Ihrer Nähe"
+msgstr "Una persona cerca de usted"
+
+msgid "%1 Personen in Ihrer Nähe"
+msgstr "%1 personas cerca de usted"
+
+msgid "In Ihrer Nähe"
+msgstr "Cerca de usted"
+
+msgid "und %1 weitere"
+msgstr "y %1 más"
+
+msgid "Weg blockiert"
+msgstr "Camino bloqueado"
+
+msgid "Die Karte ist voll oder Sie waren zu schnell."
+msgstr "El mapa está lleno o fue demasiado rápido."
+
+msgid "Einen Moment bitte, gleich können Sie wieder springen."
+msgstr "Un momento, enseguida podrá volver a saltar."
+
+msgid "Nur bei geschlossenem Raum einschaltbar"
+msgstr "Solo se puede activar con la sala cerrada"
+
+msgid "Karte (Positionen der Mitglieder)"
+msgstr "Mapa (posiciones de los miembros)"
+
+msgid "Sie stehen nicht auf der Karte."
+msgstr "No está en el mapa."
+
+msgid "Richtungstasten"
+msgstr "Teclas de dirección"
+
+msgid "Nach links"
+msgstr "Mover hacia la izquierda"
+
+msgid "Nach rechts"
+msgstr "Mover hacia la derecha"
+
+msgid "Nur in der Raumart Versammlung. Mitglieder bewegen sich auf einer Karte; Gäste erscheinen nicht darauf."
+msgstr "Solo para el tipo de sala Asamblea. Los miembros se mueven por un mapa; los invitados no aparecen en él."
+
+msgid "Karte öffnen"
+msgstr "Abrir el mapa"
+
+msgid "Karte öffnen, Sie sind auf der Karte"
+msgstr "Abrir el mapa, usted está en el mapa"
+
+msgid "Karte schließen"
+msgstr "Cerrar el mapa"
+
+msgid "Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert."
+msgstr "Su posición solo la ven los miembros presentes. No se guarda nada."
+
+msgid "Linke Loge"
+msgstr "Palco izquierdo"
+
+msgid "Rechte Loge"
+msgstr "Palco derecho"
+
+msgid "Ihr Browser zeigt die Geräte erst, wenn Sie den Zugriff erlauben. Mikrofon und Kamera bleiben dabei ausgeschaltet."
+msgstr "Su navegador solo muestra los dispositivos cuando usted permite el acceso. El micrófono y la cámara permanecen apagados."
+
+msgid "Zugriff auf Mikrofon und Kamera erlauben"
+msgstr "Permitir el acceso al micrófono y a la cámara"
+
+msgid "Erst nach Freigabe verfügbar"
+msgstr "Disponible tras permitir el acceso"
+
+msgid "Zugriff erlaubt. Sie können Ihre Geräte jetzt auswählen."
+msgstr "Acceso permitido. Ya puede elegir sus dispositivos."
+
+msgid "Nur das Mikrofon ist freigegeben."
+msgstr "Solo el micrófono está permitido."
+
+msgid "Nur die Kamera ist freigegeben."
+msgstr "Solo la cámara está permitida."
+
+msgid "Der Browser hat den Zugriff blockiert. Erlauben Sie Mikrofon und Kamera über das Schloss-Symbol in der Adressleiste oder in den Website-Einstellungen Ihres Browsers und versuchen Sie es erneut."
+msgstr "El navegador ha bloqueado el acceso. Permita el micrófono y la cámara mediante el icono del candado en la barra de direcciones o en los ajustes del sitio de su navegador e inténtelo de nuevo."
+
+msgid "Es wurde weder ein Mikrofon noch eine Kamera gefunden."
+msgstr "No se encontró ningún micrófono ni ninguna cámara."
+
+msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
+msgstr "No se pudo abrir un dispositivo. Puede que otra aplicación lo esté usando."

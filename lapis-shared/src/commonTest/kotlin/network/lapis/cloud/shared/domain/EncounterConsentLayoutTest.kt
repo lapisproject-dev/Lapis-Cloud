@@ -102,4 +102,46 @@ class EncounterConsentLayoutTest {
             AgreementTextKind.entries.filter { it.isEncounterConsent() }.toSet(),
         )
     }
+
+    @Test
+    fun mapParagraph_isFixedAssemblyCodeText_andChurchFailsClosed() {
+        val paragraph = EncounterConsentLayout.mapParagraph(AgreementTextKind.ENC_ASSEM)
+        assertTrue(paragraph.startsWith("Karte und Position. In diesem Raum gibt es eine Karte."))
+        assertTrue(paragraph.contains("nur im Arbeitsspeicher des Servers"))
+        assertTrue(paragraph.contains("nicht in der Datenbank, nicht in Protokollen und nicht in Exporten"))
+        assertTrue(paragraph.contains("keine Liste, wer wann wo war"))
+        assertTrue(paragraph.length <= EncounterConsentLayout.KEY_POINT_MAX, "the paragraph is a key point of the notice")
+        assertFailsWith<IllegalArgumentException> { EncounterConsentLayout.mapParagraph(AgreementTextKind.ENC_CHURCH) }
+        assertFailsWith<IllegalArgumentException> { EncounterConsentLayout.mapParagraph(AgreementTextKind.REC_ROOM) }
+    }
+
+    @Test
+    fun splitOrNull_withSeveralExtraKeyPoints_appendsThemInOrder_andTheOldSignatureDelegates() {
+        val both = EncounterConsentLayout.splitOrNull(body = valid, extraKeyPoints = listOf("Aufzeichnung", "Karte"))
+        assertEquals(listOf("Punkt eins", "Punkt zwei", "Punkt drei", "Aufzeichnung", "Karte"), both?.keyPoints)
+        assertEquals(valid, both?.text)
+        assertEquals(
+            EncounterConsentLayout.splitOrNull(body = valid, extraKeyPoint = "Aufzeichnung"),
+            EncounterConsentLayout.splitOrNull(body = valid, extraKeyPoints = listOf("Aufzeichnung")),
+        )
+        assertEquals(
+            EncounterConsentLayout.splitOrNull(body = valid),
+            EncounterConsentLayout.splitOrNull(body = valid, extraKeyPoints = emptyList()),
+        )
+        assertNull(EncounterConsentLayout.splitOrNull(body = "zu\n\nkurz", extraKeyPoints = listOf("x")))
+    }
+
+    @Test
+    fun systemSuffixes_fitTheAcknowledgmentColumn() {
+        assertEquals("+map", EncounterConsentLayout.MAP_SUFFIX)
+        assertEquals(8, EncounterConsentLayout.ENC_SYSTEM_SUFFIX_MAX)
+        assertEquals(
+            (EncounterConsentLayout.RECORDING_SUFFIX + EncounterConsentLayout.MAP_SUFFIX).length,
+            EncounterConsentLayout.ENC_SYSTEM_SUFFIX_MAX,
+        )
+        assertEquals(54, EncounterConsentLayout.ENC_ACK_LABEL_MAX)
+        assertTrue(EncounterConsentLayout.ENC_ACK_LABEL_MAX <= 58, "consent_version is VARCHAR(58) since V111")
+        assertEquals(46, EncounterConsentLayout.ENC_LABEL_MAX, "published labels stay valid")
+        assertFalse(AgreementTextRules.isValidLabel("2026-10-17.v2+map"))
+    }
 }

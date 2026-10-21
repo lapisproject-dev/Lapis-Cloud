@@ -113,13 +113,53 @@ class EncounterSpaceProfileTest :
             }
         }
 
-        test("createSpace: more than 8 reaction entries are a BadRequest (DoS guard)") {
+        test("createSpace: a room with all nine reaction options is accepted, stored canonical and reloaded complete") {
+            val rig = EncounterRig()
+            val boardId = board()
+            encounterApp {
+                val dto =
+                    rig
+                        .asMember(client = client, member = boardId) {
+                            it.createSpace(EncounterSpaceInput(title = "Alles", reactions = EncounterReactionOption.entries.reversed()))
+                        }.getOrThrow()
+                fx.spaceIds += Uuid.parse(dto.id)
+                dto.reactions shouldContainExactly EncounterReactionOption.entries
+                storedReactionSet(Uuid.parse(dto.id)) shouldBe "HAND,AMEN,APPLAUSE,HEART,FLOWER,LAUGH,ASTONISHED,QUESTION,CRY"
+            }
+        }
+
+        test("the longest canonical reaction set fits the varchar(64) column (a tenth option needs a new migration)") {
+            (reactionSetCsv(EncounterReactionOption.entries).length <= 64) shouldBe true
+        }
+
+        test("parseReactionSet drops unknown tokens, keeps old subsets unchanged and forces HAND") {
+            parseReactionSet("HAND,AMEN,UNKNOWN,CRY") shouldContainExactly
+                listOf(EncounterReactionOption.HAND, EncounterReactionOption.AMEN, EncounterReactionOption.CRY)
+            parseReactionSet("HAND,AMEN") shouldContainExactly listOf(EncounterReactionOption.HAND, EncounterReactionOption.AMEN)
+            parseReactionSet("CRY") shouldContainExactly listOf(EncounterReactionOption.HAND, EncounterReactionOption.CRY)
+        }
+
+        test("no profile default contains a new option, and there is no thumbs-up") {
+            val defaults = EncounterProfile.entries.flatMap { EncounterReactionOption.defaultsFor(it) }.toSet()
+            defaults shouldBe setOf(EncounterReactionOption.HAND, EncounterReactionOption.AMEN, EncounterReactionOption.APPLAUSE)
+            EncounterReactionOption.entries.none { it.name == "THUMBS_UP" } shouldBe true
+        }
+
+        test("createSpace: more reaction entries than there are options are a BadRequest (DoS guard)") {
             val rig = EncounterRig()
             val boardId = board()
             encounterApp {
                 rig
                     .asMember(client = client, member = boardId) {
-                        it.createSpace(EncounterSpaceInput(title = "x", reactions = List(9) { EncounterReactionOption.HAND }))
+                        it.createSpace(
+                            EncounterSpaceInput(
+                                title = "x",
+                                reactions =
+                                    List(EncounterReactionOption.entries.size + 1) {
+                                        EncounterReactionOption.HAND
+                                    },
+                            ),
+                        )
                     }.failure<BadRequestException>()
             }
         }

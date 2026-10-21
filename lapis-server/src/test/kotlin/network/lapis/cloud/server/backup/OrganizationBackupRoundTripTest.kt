@@ -273,6 +273,8 @@ class OrganizationBackupRoundTripTest :
                     it[roomLayout] = "FOYER"
                     it[guestPolicy] = "MEMBERS_ONLY"
                     it[pulpitRecordingAllowed] = true
+                    // V1.9.166: the map switch (assembly profile) must survive a restore as well.
+                    it[mapEnabled] = true
                     it[createdAt] = LocalDateTime(2027, 1, 3, 8, 0)
                     it[createdByMemberId] = adminId
                 }
@@ -403,6 +405,7 @@ class OrganizationBackupRoundTripTest :
                     restoredSpace[EncounterSpaceTable.pulpitRecordingAllowed] shouldBe true
                     // V1.9.152: the room template came back (not silently reset to the default).
                     restoredSpace[EncounterSpaceTable.roomLayout] shouldBe "FOYER"
+                    restoredSpace[EncounterSpaceTable.mapEnabled] shouldBe true
                     restoredSpace[EncounterSpaceTable.profile] shouldBe "ASSEMBLY"
                 }
 

@@ -12,7 +12,7 @@ import org.jetbrains.exposed.v1.datetime.date
 
 public object EncounterConsentAcknowledgmentTable : Table("encounter_consent_acknowledgment") {
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
-    public val consentVersion: Column<String> = varchar("consent_version", 50)
+    public val consentVersion: Column<String> = varchar("consent_version", 58)
     public val consentSha256: Column<String> = varchar("consent_sha256", 64)
     public val acknowledgedOn: Column<LocalDate> = date("acknowledged_on")
 

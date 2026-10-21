@@ -51,7 +51,14 @@ class ClientEncounterTableCssTripwireTest :
             // = (168 - 44) / 2 = 62 px; the chord between two neighbours of eight seats is 2 x 62 x sin(22.5 degrees) = 47.4 px >= 44 px.
             val radius = (172 - 2 * 2 - 44) / 2.0
             (2 * radius * kotlin.math.sin(Math.PI / 8) >= 44.0) shouldBe true
-            rule(css = css, selector = ".lapis-encounter-tables-grid").contains("minmax(172px, 1fr)") shouldBe true
+            // V1.9.167: the cards stand in a centred flex row of 172 px cards (before: a grid of equal columns, which left a short last row at the left edge)
+            val grid = rule(css = css, selector = ".lapis-encounter-tables-grid")
+            grid.contains("minmax(172px, 1fr)") shouldBe false
+            grid.contains("display: flex") shouldBe true
+            grid.contains("justify-content: center") shouldBe true
+            val card = rule(css = css, selector = ".lapis-encounter-tables-grid > .lapis-encounter-table")
+            card.contains("flex: 0 1 172px") shouldBe true
+            card.contains("min-width: 172px") shouldBe true
             rule(css = css, selector = ".lapis-encounter-table-seats").contains("margin: 0.5rem -0.4rem") shouldBe true
             Regex("""@media \(max-width: 767\.98px\) \{\s*\.lapis-encounter-tables-host \{""").containsMatchIn(css) shouldBe false
         }

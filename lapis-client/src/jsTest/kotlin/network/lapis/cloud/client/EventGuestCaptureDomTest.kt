@@ -62,7 +62,7 @@ class EventGuestCaptureDomTest {
         EventOnlineStateDto(
             outcome = EventOnlineOutcome.JOINED,
             title = "Offene Runde",
-            opensAt = "2030-06-15T17:45",
+            opensAt = "2030-06-15T17:30",
             closesAt = "2030-06-15T21:00",
             noticeVersion = if (capture) EventGuestNoticeCapture.VERSION else EventGuestNotice.VERSION,
             noticeSha256 = if (capture) EventGuestNoticeCapture.SHA256 else EventGuestNotice.SHA256,

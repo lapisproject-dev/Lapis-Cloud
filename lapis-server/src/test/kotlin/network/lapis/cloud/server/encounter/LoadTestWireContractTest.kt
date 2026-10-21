@@ -31,6 +31,10 @@ import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
 import network.lapis.cloud.shared.domain.EncounterFloorDto
+import network.lapis.cloud.shared.domain.EncounterMapAnchor
+import network.lapis.cloud.shared.domain.EncounterMapFacing
+import network.lapis.cloud.shared.domain.EncounterMapSelfDto
+import network.lapis.cloud.shared.domain.EncounterMapSnapshotDto
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
@@ -309,4 +313,21 @@ private class RecordingEncounterStub : IEncounterSpaceService {
     override suspend fun endFloor(spaceId: String): Unit = unused()
 
     override suspend fun floorState(spaceId: String): EncounterFloorDto = unused()
+
+    // V1.9.166: the grid map is not part of the load-test contract (yet).
+    override suspend fun mapEnter(spaceId: String): EncounterMapSelfDto = unused()
+
+    override suspend fun mapStep(
+        spaceId: String,
+        direction: EncounterMapFacing,
+    ): EncounterMapSelfDto = unused()
+
+    override suspend fun mapTeleport(
+        spaceId: String,
+        anchor: EncounterMapAnchor,
+    ): EncounterMapSelfDto = unused()
+
+    override suspend fun mapLeave(spaceId: String): Unit = unused()
+
+    override suspend fun mapSnapshot(spaceId: String): EncounterMapSnapshotDto = unused()
 }

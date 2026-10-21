@@ -713,7 +713,8 @@ class ClientToolbarIconTripwireTest :
                         // V1.9.95: + the blessing (liturgy group, pulpit of a church-service room only)
                         // V1.9.96: + the bell (the same group, before the blessing)
                         // V1.9.143: + the recording toggle (its own group, PULPIT/STEWARD of a room whose recording option is on)
-                        "EncounterRoom.kt" to 14,
+                        // V1.9.167: + the map button (panels group, members only, built in buildMapButton)
+                        "EncounterRoom.kt" to 15,
                         // V1.9.90: the named R58 group "encounter devices (microphone and camera)"
                         "EncounterPulpitControls.kt" to 2,
                         // V1.9.91: the named R58 group "encounter device picker (gear)": exactly one icon-only button

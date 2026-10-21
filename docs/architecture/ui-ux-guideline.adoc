@@ -2405,3 +2405,16 @@ Four rules for an option that cannot work in the current state:
 . *A refusal that still happens is typed.* Kilua RPC transmits only the exception type, so every refusal the person can cause has its own `@RpcServiceException` and its own German text in `AppState` (or a local catch). `ClientServiceExceptionMappingTripwireTest` fails the build for a service exception that is neither mapped, caught by the client nor listed as a known gap with its reason.
 
 A checkbox of a form (the release of an event for capture) keeps `disabled` with a visible, linked reason: unlike a toolbar control it is not part of a focus path that has to explain itself.
+
+== A layer above the room ends above the dock (V1.9.167)
+
+Client only. The map layer of the encounter room (`EncounterMapOverlay`) is the first surface that floats over the room *and* has to leave the sticky control bar usable. Rules that came out of it:
+
+. *A layer above a room with a dock ends above the dock.* It is `position: fixed` with `bottom` built from `--lapis-encounter-bar-h` (plus `--lapis-dock-h` while the conference bar is shown, except in full screen), on a layer below the dock and its "Mehr" sheet (5 against 6). The bar and the sheet stay operable and lie above the layer.
+. *Modal for the keyboard, not for the mouse.* The layer is `role="dialog"` with `aria-modal="true"`: Tab wraps inside it (a focus trap) and Escape closes it, but the background is *not* inert, so the dock stays reachable. Escape does not close the layer while the "Mehr" sheet is open (the sheet closes first), and a control inside may use Escape for its own step first (the map moves to "Karte verlassen").
+. *Closing is never an action on the content.* Escape, the close button and a click on the scrim only hide the layer; they never undo a state the person set inside it (a position on the map). The state is shown on the opener (a dot AND the accessible name, never colour alone).
+. *The opener says what it does and where it is.* `aria-haspopup="dialog"`, `aria-controls`, `aria-expanded`; on a narrow bar it moves into the "Mehr" sheet before the chat and its twin opens the same layer; after closing, the focus goes back to the opener, or to "Mehr" when the opener sits in the sheet.
+. *Scroll surface (R59, class E1).* The layer's panel is bounded by the viewport and scrolls itself with `overscroll-behavior: contain`; it is a new entry in the ledger. No `transform`, `filter`, `backdrop-filter` or `container-type` on the layer or an ancestor of the dock.
+. *Breakpoint.* The bottom-sheet variant on a phone uses the guideline's one breakpoint (768 px); the theatre hall of the room has two more (768 and 420 px) because its columns, not a control, change.
+
+*Not verified:* a real device, Safari/iOS, a screen reader; the layer order against the app header and sidebar.

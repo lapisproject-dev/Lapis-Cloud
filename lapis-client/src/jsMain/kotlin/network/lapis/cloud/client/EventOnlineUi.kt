@@ -97,9 +97,9 @@ internal fun eventOnlineKindSentence(kind: EventOnlineKind): String =
         EventOnlineKind.NONE -> gettext("Die Veranstaltung findet nur vor Ort statt.")
         EventOnlineKind.EXTERNAL_LINK -> gettext("Sie geben einen eigenen Link an, zum Beispiel zu einer anderen Videokonferenz.")
         EventOnlineKind.LAPIS_CONFERENCE ->
-            gettext("Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 15 Minuten vor Beginn.")
+            gettext("Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 30 Minuten vor Beginn.")
         EventOnlineKind.LAPIS_ENCOUNTER ->
-            gettext("Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 15 Minuten vor Beginn.")
+            gettext("Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 30 Minuten vor Beginn.")
     }
 
 /** The short word of each kind (radio label and list badge). */

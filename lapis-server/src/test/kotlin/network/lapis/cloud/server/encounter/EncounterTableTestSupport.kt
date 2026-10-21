@@ -2,6 +2,7 @@ package network.lapis.cloud.server.encounter
 
 import io.ktor.server.testing.ApplicationTestBuilder
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.EncounterGuestPolicy
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import kotlin.uuid.Uuid
@@ -24,6 +25,8 @@ internal fun EncounterFixtures.tableWorld(
     rig: EncounterRig = EncounterRig(),
     tablesEnabled: Boolean = true,
     profile: EncounterProfile = EncounterProfile.ASSEMBLY,
+    mapEnabled: Boolean = false,
+    guestPolicy: EncounterGuestPolicy = EncounterGuestPolicy.MEMBERS_ONLY,
 ): TableWorld {
     val board = createMember(role = AccountRole.BOARD, name = "Vorstand")
     val steward = createMember(name = "Steward")
@@ -35,6 +38,8 @@ internal fun EncounterFixtures.tableWorld(
             tablesEnabled = tablesEnabled,
             tableCount = 3,
             tableSeats = 2,
+            mapEnabled = mapEnabled,
+            guestPolicy = guestPolicy,
         )
     setRole(spaceId = space, memberId = steward, role = EncounterSpaceRole.STEWARD)
     setRole(spaceId = space, memberId = pulpit, role = EncounterSpaceRole.PULPIT)

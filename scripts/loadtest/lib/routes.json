@@ -29,6 +29,11 @@
     "grantFloor": 24,
     "extendFloor": 25,
     "endFloor": 26,
-    "floorState": 27
+    "floorState": 27,
+    "mapEnter": 28,
+    "mapStep": 29,
+    "mapTeleport": 30,
+    "mapLeave": 31,
+    "mapSnapshot": 32
   }
 }

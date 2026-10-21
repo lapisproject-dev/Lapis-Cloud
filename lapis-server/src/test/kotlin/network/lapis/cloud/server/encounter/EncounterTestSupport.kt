@@ -303,6 +303,8 @@ internal class EncounterRig(
     val bellState: EncounterBellState = EncounterBellState(),
     /** V1.9.79: the in-memory seat plan -- ONE per test, like the moderation state. */
     val seatState: EncounterSeatState = EncounterSeatState(),
+    /** V1.9.166: the in-memory grid map -- ONE per test; the clock is injectable so that tests need no sleeping. */
+    val mapClock: kotlin.time.TestTimeSource = kotlin.time.TestTimeSource(),
     /** V1.9.79: `null` = as permissive as every other throttle; a test of the 1-per-second throttle passes its own. */
     seatLimiterOverride: FederationInboxRateLimiter? = null,
     /** V1.9.80: the in-memory table plan -- ONE per test. */
@@ -339,6 +341,13 @@ internal class EncounterRig(
     private val floorLimiter = floorLimiterOverride ?: limiter()
     private val floorBurstLimiter = floorBurstLimiterOverride ?: limiter()
     private val floorStateLimiter = limiter()
+    private val mapEnterLimiter = limiter()
+    private val mapMoveLimiter = limiter()
+    private val mapSnapshotLimiter = limiter()
+
+    /** V1.9.166: ONE map state per test; its token-bucket clock is [mapClock]. */
+    private val mapClockOrigin = mapClock.markNow()
+    val mapState = EncounterMapState(monoMs = { mapClockOrigin.elapsedNow().inWholeMilliseconds })
 
     /** V1.9.143: what the service asked the pulpit-recording engine to do (it stops nothing here). */
     val pulpitRecording = RecordingControlSpy()
@@ -370,6 +379,10 @@ internal class EncounterRig(
         floorRateLimiter = floorLimiter,
         floorBurstRateLimiter = floorBurstLimiter,
         floorStateRateLimiter = floorStateLimiter,
+        mapState = mapState,
+        mapEnterRateLimiter = mapEnterLimiter,
+        mapMoveRateLimiter = mapMoveLimiter,
+        mapSnapshotRateLimiter = mapSnapshotLimiter,
         config = config,
     )
 
@@ -468,6 +481,7 @@ internal class EncounterFixtures {
         tableSeats: Int = 6,
         pulpitRecordingAllowed: Boolean = false,
         roomLayout: EncounterRoomLayout = defaultRoomLayout(profile),
+        mapEnabled: Boolean = false,
     ): Uuid {
         val id = Uuid.random()
         val now = DbClock.nowLocalDateTime()
@@ -487,6 +501,7 @@ internal class EncounterFixtures {
                 it[mode] = "SERVICE"
                 it[EncounterSpaceTable.guestPolicy] = guestPolicy.name
                 it[EncounterSpaceTable.pulpitRecordingAllowed] = pulpitRecordingAllowed
+                it[EncounterSpaceTable.mapEnabled] = mapEnabled
                 it[EncounterSpaceTable.maxParticipants] = maxParticipants
                 it[closedNotice] = null
                 it[createdAt] = now
@@ -674,3 +689,19 @@ internal fun auditEntriesOf(spaceId: Uuid): List<Triple<String, String?, Uuid?>>
             }.orderBy(AuditLogEntryTable.sequenceNumber)
             .map { Triple(it[AuditLogEntryTable.action].name, it[AuditLogEntryTable.afterSnapshot], it[AuditLogEntryTable.actorMemberId]) }
     }
+
+/** Runs [block] with a logback appender on the root logger and returns every formatted message logged meanwhile (V1.9.166 privacy tests). */
+internal suspend fun captureLogs(block: suspend () -> Unit): List<String> {
+    val root = org.slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as ch.qos.logback.classic.Logger
+    val appender =
+        ch.qos.logback.core.read
+            .ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
+    appender.start()
+    root.addAppender(appender)
+    try {
+        block()
+    } finally {
+        root.detachAppender(appender)
+    }
+    return appender.list.map { it.formattedMessage }
+}

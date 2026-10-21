@@ -162,6 +162,7 @@ internal object EncounterSpaceViews {
                 pulpitRecordingStartable =
                     myRole != null && recordingStartAllowed && row[EncounterSpaceTable.pulpitRecordingAllowed],
                 roomLayout = roomLayoutOf(row),
+                mapEnabled = row[EncounterSpaceTable.mapEnabled],
             )
         }
     }
@@ -181,6 +182,8 @@ internal object EncounterSpaceViews {
             put("tableSeats", row[EncounterSpaceTable.tableSeats].toInt())
             put("guestPolicy", row[EncounterSpaceTable.guestPolicy])
             put("pulpitRecordingAllowed", row[EncounterSpaceTable.pulpitRecordingAllowed])
+            // V1.9.166: only the room switch -- never a position (positions exist in memory only).
+            put("mapEnabled", row[EncounterSpaceTable.mapEnabled])
             put("maxParticipants", row[EncounterSpaceTable.maxParticipants])
             put("closedNotice", row[EncounterSpaceTable.closedNotice])
             put("archived", row[EncounterSpaceTable.archivedAt] != null)

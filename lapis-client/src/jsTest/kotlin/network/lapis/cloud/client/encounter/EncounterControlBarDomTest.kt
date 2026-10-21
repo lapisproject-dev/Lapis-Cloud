@@ -108,12 +108,22 @@ class EncounterControlBarDomTest {
                     assertNotNull(button.querySelector("i"), "$name has a symbol")
                 }
                 val reactions = element.allOf(".lapis-encounter-control-group--reactions button")
-                assertEquals(listOf("Hand heben", "Amen", "Applaus", "Herz"), reactions.map { it.getAttribute("aria-label") })
+                assertEquals(
+                    listOf("Hand heben", "Amen", "Applaus", "Herz", "Blume", "Lachen", "Staunen", "Frage", "Weinen"),
+                    reactions.map { it.getAttribute("aria-label") },
+                )
                 reactions.forEach { button ->
                     assertEquals(button.getAttribute("aria-label"), button.getAttribute("data-label"))
                     val box = button.getBoundingClientRect()
-                    assertTrue(box.width >= 44.0 && box.height >= 44.0, "${button.barName()} >= 44 px: ${box.width} x ${box.height}")
+                    // With nine options some twins sit in the "Mehr" sheet (hidden, 0 x 0); every one that is shown is at least 44 px.
+                    val moved = box.width == 0.0 && box.height == 0.0
+                    assertTrue(
+                        moved || (box.width >= 44.0 && box.height >= 44.0),
+                        "${button.barName()} >= 44 px: ${box.width} x ${box.height}",
+                    )
                 }
+                val hand = reactions.first()
+                assertTrue(hand.getBoundingClientRect().width >= 44.0, "the hand never moves into the sheet")
             }
         }
 

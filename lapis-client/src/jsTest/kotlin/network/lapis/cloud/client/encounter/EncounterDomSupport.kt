@@ -55,6 +55,7 @@ internal fun testSpace(
     notifyMode: network.lapis.cloud.shared.domain.EncounterNotifyMode = network.lapis.cloud.shared.domain.EncounterNotifyMode.NONE,
     tables: EncounterTablesConfig = EncounterTablesConfig(),
     roomLayout: EncounterRoomLayout = defaultRoomLayout(profile),
+    mapEnabled: Boolean = false,
 ) = EncounterSpaceDto(
     id = id,
     title = title,
@@ -76,6 +77,7 @@ internal fun testSpace(
     notifyMode = notifyMode,
     tables = tables,
     roomLayout = roomLayout,
+    mapEnabled = mapEnabled,
 )
 
 /** V1.9.80: an assembly room with 3 tables of 6 seats. */
@@ -441,6 +443,8 @@ internal suspend fun withEncounterRoom(
     bellReducedMotion: () -> Boolean = { false },
     /** V1.9.138: the monotonic clock of the floor countdown (a test moves it by hand). */
     monotonicNow: () -> Double = { 0.0 },
+    /** V1.9.166: the notice to the room that it has a map (`null` = none). */
+    mapRoomNotice: String? = null,
     block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
 ) {
     val presentRoute = routeOf { rpcService<IEncounterSpaceService>().listPresent("space-1") }
@@ -482,6 +486,7 @@ internal suspend fun withEncounterRoom(
                     bellPageVisible = bellPageVisible,
                     bellReducedMotion = bellReducedMotion,
                     monotonicNow = monotonicNow,
+                    mapRoomNotice = mapRoomNotice,
                 )
             room.bind(session)
             room.afterConnected()

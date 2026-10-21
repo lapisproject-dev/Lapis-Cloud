@@ -28,7 +28,7 @@ operator has published its own consent text**.
 
 `EventCaptureLock` freezes the release of an event -- and the instance switch ON -- from the moment people may be inside, in both directions:
 
-* the online window is open (from 15 minutes before the start; tokens are handed out from then on, also to people without an account, who leave no participation row);
+* the online window is open (from 30 minutes before the start; tokens are handed out from then on, also to people without an account, who leave no participation row);
 * the room has not ended;
 * a recording or a stream of the room is not over (PAUSED counts as alive);
 * somebody has an open participation.

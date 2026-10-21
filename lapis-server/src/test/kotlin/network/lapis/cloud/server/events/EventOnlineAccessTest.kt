@@ -46,9 +46,9 @@ class EventOnlineAccessTest :
             TimeTestSupport.resetOrganizationZone()
         }
 
-        // The event runs 2030-06-15 18:00-20:00 New York = 22:00Z-00:00Z; the window is 21:45Z-01:00Z.
+        // The event runs 2030-06-15 18:00-20:00 New York = 22:00Z-00:00Z; the window is 21:30Z-01:00Z.
         val open = Instant.parse("2030-06-15T22:30:00Z")
-        val tooEarly = Instant.parse("2030-06-15T21:30:00Z")
+        val tooEarly = Instant.parse("2030-06-15T21:15:00Z")
         val over = Instant.parse("2030-06-16T01:30:00Z")
 
         fun decide(
@@ -178,7 +178,7 @@ class EventOnlineAccessTest :
             val event = fx.event(createdBy = organizer)
             val member = session(fx.member())
             decide(event, member, now = tooEarly).outcome shouldBe EventOnlineOutcome.NOT_YET
-            decide(event, member, now = Instant.parse("2030-06-15T21:45:00Z")).outcome shouldBe EventOnlineOutcome.JOINED
+            decide(event, member, now = Instant.parse("2030-06-15T21:30:00Z")).outcome shouldBe EventOnlineOutcome.JOINED
             decide(event, member, now = Instant.parse("2030-06-16T01:00:00Z")).outcome shouldBe EventOnlineOutcome.JOINED
             decide(event, member, now = over).outcome shouldBe EventOnlineOutcome.ENDED
         }
@@ -191,7 +191,7 @@ class EventOnlineAccessTest :
         }
 
         test("the window is computed from the organization zone (New York), not the process zone") {
-            // 18:00 read as UTC would put the window at 17:45Z-.. and make 17:50Z "open".
+            // 18:00 read as UTC would put the window at 17:30Z-.. and make 17:50Z "open".
             val event = fx.event(createdBy = organizer)
             decide(event, session(fx.member()), now = Instant.parse("2030-06-15T17:50:00Z")).outcome shouldBe EventOnlineOutcome.NOT_YET
         }

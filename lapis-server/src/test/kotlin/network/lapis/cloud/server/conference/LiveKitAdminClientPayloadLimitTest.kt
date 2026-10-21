@@ -22,11 +22,18 @@ import network.lapis.cloud.shared.domain.ConferenceTimerStatus
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_MAX_WALKERS
+import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
 import network.lapis.cloud.shared.domain.EncounterFloorSignal
+import network.lapis.cloud.shared.domain.EncounterMapFacing
+import network.lapis.cloud.shared.domain.EncounterMapPacket
+import network.lapis.cloud.shared.domain.EncounterMapPositionDto
 import network.lapis.cloud.shared.domain.EncounterRecordingSignal
 import network.lapis.cloud.shared.domain.encounterFloorPayload
+import network.lapis.cloud.shared.domain.encounterMapPayload
 import network.lapis.cloud.shared.domain.encounterRecordingPayload
 import java.util.UUID
 
@@ -152,5 +159,45 @@ class LiveKitAdminClientPayloadLimitTest :
                 client.sendDataTo(room = ROOM, topic = ENCOUNTER_RECORDING_TOPIC, payload = payload, destinationIdentities = listOf("a"))
             }
             requests.size shouldBe 8
+        }
+
+        test(
+            "V1.9.166: the map topic has its own 4096-byte limit; the real client sends a worst-case delta point to point and refuses one byte more",
+        ) {
+            sendDataPayloadLimit(ENCOUNTER_MAP_TOPIC) shouldBe ENCOUNTER_MAP_MAX_PAYLOAD_BYTES
+            sendDataPayloadLimit(ENCOUNTER_MAP_TOPIC) shouldBe 4096
+            val requests = mutableListOf<HttpRequestData>()
+            val client = admin(requests)
+            val worst =
+                encounterMapPayload(
+                    EncounterMapPacket.Delta(
+                        epoch = "0123456789abcdef",
+                        seq = Long.MAX_VALUE,
+                        changed =
+                            (0 until ENCOUNTER_MAP_MAX_WALKERS).map {
+                                EncounterMapPositionDto(
+                                    memberId = UUID.randomUUID().toString(),
+                                    x = 11,
+                                    y = 7,
+                                    facing = EncounterMapFacing.WEST,
+                                    initials = "ÄÖÜ",
+                                )
+                            },
+                        removed = (0 until ENCOUNTER_MAP_MAX_WALKERS).map { UUID.randomUUID().toString() },
+                    ),
+                ).encodeToByteArray()
+            (worst.size > 16) shouldBe true
+            client.sendDataTo(room = ROOM, topic = ENCOUNTER_MAP_TOPIC, payload = worst, destinationIdentities = listOf("a"))
+            requests.size shouldBe 1
+            (requests[0].body as TextContent).text shouldContain "\"topic\":\"$ENCOUNTER_MAP_TOPIC\""
+            shouldThrow<IllegalArgumentException> {
+                client.sendDataTo(
+                    room = ROOM,
+                    topic = ENCOUNTER_MAP_TOPIC,
+                    payload = ByteArray(ENCOUNTER_MAP_MAX_PAYLOAD_BYTES + 1),
+                    destinationIdentities = listOf("a"),
+                )
+            }
+            requests.size shouldBe 1
         }
     })

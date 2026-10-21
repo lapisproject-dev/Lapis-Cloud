@@ -35,6 +35,8 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
@@ -43,12 +45,14 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_TOPIC
 import network.lapis.cloud.shared.domain.EncounterFloorSignal
+import network.lapis.cloud.shared.domain.EncounterMapPacket
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.EncounterRecordingSignal
 import network.lapis.cloud.shared.domain.EventCaptureLiveDto
 import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.encounterFloorPacket
+import network.lapis.cloud.shared.domain.encounterMapPacket
 import network.lapis.cloud.shared.domain.encounterRecordingPacket
 import network.lapis.cloud.shared.domain.eventCapturePacket
 import network.lapis.cloud.shared.domain.isStructurallyValid
@@ -99,6 +103,16 @@ data class ConferenceDeviceOption(
  */
 internal fun conferenceUsableDeviceOptions(raw: List<ConferenceDeviceOption>): List<ConferenceDeviceOption> =
     raw.filter { it.deviceId.isNotBlank() }
+
+/** V1.9.169 -- [ofKind] (all entries of one kind the browser returned) split into the usable options and the raw count. */
+internal fun conferenceDeviceEnumeration(ofKind: List<ConferenceDeviceOption>): DeviceEnumeration =
+    DeviceEnumeration(conferenceUsableDeviceOptions(ofKind), ofKind.size)
+
+/** V1.9.169 -- the usable device options of one kind plus the total number of entries the browser returned (see `listDevicesWithRawCount`). */
+data class DeviceEnumeration(
+    val usable: List<ConferenceDeviceOption>,
+    val rawCount: Int,
+)
 
 /**
  * Connection-level failure kinds `ConferenceScreen.kt` needs to distinguish, mirroring the
@@ -437,6 +451,12 @@ class LiveKitRoomSession(
      */
     private val onEncounterFloor: (EncounterFloorSignal) -> Unit = {},
     /**
+     * V1.9.166 -- the grid map packets ([EncounterMapPacket]). Same rule as the floor and for a stronger reason: members may publish data
+     * (reactions), so a peer could forge a position. Only the server's `SendData` is accepted (a packet that carries a sending participant is
+     * dropped), 1..[ENCOUNTER_MAP_MAX_PAYLOAD_BYTES] bytes, strictly validated by [encounterMapPacket]. The branch sits BEFORE the participant check.
+     */
+    private val onEncounterMap: (EncounterMapPacket) -> Unit = {},
+    /**
      * V1.9.143 -- the server's recording signal ([EncounterRecordingSignal]): "the pulpit is being recorded" and, point to point, "the pulpit is asked
      * to agree". Same rule as the floor: never from a participant (a forged "recording off" would hide a running recording), 1..[ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES]
      * bytes, strictly validated by [encounterRecordingPacket]. The branch sits BEFORE the participant check.
@@ -478,7 +498,7 @@ class LiveKitRoomSession(
     private val onTimer: (ConferenceTimerDto) -> Unit = {},
     /**
      * V1.9.127 -- a reaction of another participant. The sender is ONLY the SDK-verified `participant.identity` of the packet, never a
-     * field of the payload (see [ConferenceReactionWire]); `decode` never throws and drops everything that is not one of the five reactions.
+     * field of the payload (see [ConferenceReactionWire]); `decode` never throws and drops everything that is not one of the eight reactions.
      */
     private val onConferenceReaction: (senderIdentity: String, reaction: ConferenceReaction) -> Unit = { _, _ -> },
 ) {
@@ -940,6 +960,14 @@ class LiveKitRoomSession(
                 if (fromParticipant || payload.length !in 1..ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES) return@onOwned
                 val bytes = ByteArray(payload.length) { index -> payload[index] }
                 encounterFloorPacket(fromParticipant = false, payload = bytes)?.let(onEncounterFloor)
+                return@onOwned
+            }
+            // V1.9.166 -- the grid map: the same rule (server only, a branch of its own BEFORE the participant check).
+            if (p3 == ENCOUNTER_MAP_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                if (fromParticipant || payload.length !in 1..ENCOUNTER_MAP_MAX_PAYLOAD_BYTES) return@onOwned
+                val bytes = ByteArray(payload.length) { index -> payload[index] }
+                encounterMapPacket(fromParticipant = false, payload = bytes)?.let(onEncounterMap)
                 return@onOwned
             }
             // V1.9.143 -- the pulpit recording: the same rule (server only, a branch of its own BEFORE the participant check).
@@ -1423,19 +1451,30 @@ class LiveKitRoomSession(
      * exactly [kind]'s own [ConferenceDeviceKind.jsKind] literal), sidestepping that question
      * entirely.
      */
-    suspend fun listDevices(kind: ConferenceDeviceKind): List<ConferenceDeviceOption> {
-        if (!publishEnabled) return emptyList()
+    suspend fun listDevices(kind: ConferenceDeviceKind): List<ConferenceDeviceOption> = listDevicesWithRawCount(kind).usable
+
+    /** V1.9.169 -- whether this session publishes media at all (false for an encounter listener: no device block is ever shown). */
+    val publishesMedia: Boolean get() = publishEnabled
+
+    /**
+     * V1.9.169 -- like [listDevices], but also reports how many entries of [kind] the browser returned in total. Without camera/microphone
+     * permission those entries carry blank `deviceId`s (dropped by [conferenceUsableDeviceOptions]); the difference is how the screen tells
+     * "no access yet" from "no such device". Only `deviceId` and label of usable entries leave this function.
+     */
+    suspend fun listDevicesWithRawCount(kind: ConferenceDeviceKind): DeviceEnumeration {
+        if (!publishEnabled) return DeviceEnumeration(emptyList(), 0)
         val currentRoom = room ?: throw IllegalStateException("listDevices called with no active room")
         // Room.getLocalDevices is a static (companion object) member -- independent of currentRoom --
         // but the guard above stays: enumerating devices outside an active call serves no purpose for
         // this class, and mirrors setCamera/setMicrophone/setScreenShare's own discipline.
         val raw = Room.getLocalDevices(kind.jsKind, false).await()
-        return raw
-            .filter { it.kind.unsafeCast<String>() == kind.jsKind }
-            .map { ConferenceDeviceOption(it.deviceId, it.label) }
-            // V1.4.19 -- ohne erteilte Kamera-/Mikrofonfreigabe liefert `enumerateDevices()` leere
-            // `deviceId`s; solche Einträge sind keine wählbaren Geräte (siehe `conferenceUsableDeviceOptions`).
-            .let(::conferenceUsableDeviceOptions)
+        val ofKind =
+            raw
+                .filter { it.kind.unsafeCast<String>() == kind.jsKind }
+                .map { ConferenceDeviceOption(it.deviceId, it.label) }
+        // V1.4.19 -- ohne erteilte Kamera-/Mikrofonfreigabe liefert `enumerateDevices()` leere
+        // `deviceId`s; solche Einträge sind keine wählbaren Geräte (siehe `conferenceUsableDeviceOptions`).
+        return conferenceDeviceEnumeration(ofKind)
     }
 
     /** V1.3.x Geräteauswahl -- pure synchronous read, `null` if [room] is absent or LiveKit does not

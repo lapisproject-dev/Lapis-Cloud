@@ -107,6 +107,8 @@ import network.lapis.cloud.server.encounter.EncounterEntryNoticeState
 import network.lapis.cloud.server.encounter.EncounterEntryNotifier
 import network.lapis.cloud.server.encounter.EncounterFloorEnforcer
 import network.lapis.cloud.server.encounter.EncounterFloorState
+import network.lapis.cloud.server.encounter.EncounterMapBroadcaster
+import network.lapis.cloud.server.encounter.EncounterMapState
 import network.lapis.cloud.server.encounter.EncounterModerationState
 import network.lapis.cloud.server.encounter.EncounterSeatState
 import network.lapis.cloud.server.encounter.EncounterSpacePoller
@@ -1143,6 +1145,8 @@ internal fun Application.module(
     val encounterFloorState = EncounterFloorState()
     // V1.9.79: the in-memory seat plan of the running sessions (never persisted, see EncounterSeatState); shared with the poller.
     val encounterSeatState = EncounterSeatState()
+    // V1.9.166: the in-memory grid map positions (never persisted, see EncounterMapState); shared with the poller and the broadcaster.
+    val encounterMapState = EncounterMapState()
     // V1.9.80: the in-memory table plan (who sits at which table, which LiveKit room carries which table); shared with the poller and the reconciler.
     val encounterTableState = EncounterTableState()
 
@@ -1188,6 +1192,10 @@ internal fun Application.module(
     val encounterFloorRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val encounterFloorBurstRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.seconds)
     val encounterFloorStateRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    // V1.9.166: grid map -- entering / reading the snapshot: 1 per 2 s; steps: an outer flood brake of 600 per minute (the pace limit itself is the token bucket in the state).
+    val encounterMapEnterRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
+    val encounterMapMoveRateLimiter = FederationInboxRateLimiter(maxRequests = 600, window = 1.minutes)
+    val encounterMapSnapshotRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
 
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
     // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
@@ -1452,6 +1460,7 @@ internal fun Application.module(
             blessingState = encounterBlessingState,
             bellState = encounterBellState,
             seatState = encounterSeatState,
+            mapState = encounterMapState,
             tableState = encounterTableState,
             floorState = encounterFloorState,
             entryNotifier = encounterEntryNotifier,
@@ -1459,6 +1468,15 @@ internal fun Application.module(
         )
     encounterSpacePoller.start()
     monitor.subscribe(ApplicationStopping) { encounterSpacePoller.stop() }
+    // V1.9.166 -- delivers the grid map packets (members only, through sendDataTo) and re-checks who may still stand on the map.
+    val encounterMapBroadcaster =
+        EncounterMapBroadcaster(
+            liveKit = liveKitAdminClient,
+            state = encounterMapState,
+            liveKitEnabled = conferenceConfig.enabled,
+        )
+    encounterMapBroadcaster.start()
+    monitor.subscribe(ApplicationStopping) { encounterMapBroadcaster.stop() }
     // V1.9.138 -- the clock of the temporary floor: lets it lapse, retries a failed revoke, re-applies it after a LiveKit reconnect.
     val encounterFloorEnforcer =
         EncounterFloorEnforcer(
@@ -2477,6 +2495,10 @@ internal fun Application.module(
                 floorRateLimiter = encounterFloorRateLimiter,
                 floorBurstRateLimiter = encounterFloorBurstRateLimiter,
                 floorStateRateLimiter = encounterFloorStateRateLimiter,
+                mapState = encounterMapState,
+                mapEnterRateLimiter = encounterMapEnterRateLimiter,
+                mapMoveRateLimiter = encounterMapMoveRateLimiter,
+                mapSnapshotRateLimiter = encounterMapSnapshotRateLimiter,
                 config = conferenceConfig,
             )
         }

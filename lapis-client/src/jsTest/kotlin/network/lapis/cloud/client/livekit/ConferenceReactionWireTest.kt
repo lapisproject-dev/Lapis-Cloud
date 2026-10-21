@@ -13,11 +13,17 @@ class ConferenceReactionWireTest {
     private fun bytes(text: String): Uint8Array = TextEncoder().encode(text)
 
     @Test
-    fun allFiveReactionsRoundTrip() {
+    fun allEightReactionsRoundTrip() {
         ConferenceReaction.entries.forEach { reaction ->
             assertEquals(reaction, ConferenceReactionWire.decode(ConferenceReactionWire.encode(reaction)))
         }
-        assertEquals(5, ConferenceReaction.entries.size)
+        assertEquals(8, ConferenceReaction.entries.size)
+        listOf("LAUGH", "ASTONISHED", "QUESTION").forEach { name ->
+            assertEquals(ConferenceReaction.valueOf(name), ConferenceReactionWire.decodeText("""{"r":"$name"}"""))
+        }
+        // the longest payload stays under the 32-byte cap
+        val longest = ConferenceReaction.entries.maxOf { ConferenceReactionWire.encode(it).length }
+        assertTrue(longest <= 32)
     }
 
     @Test
@@ -31,6 +37,8 @@ class ConferenceReactionWireTest {
         assertNull(ConferenceReactionWire.decodeText("""{"r":"HAND_LOWERED"}"""))
         assertNull(ConferenceReactionWire.decodeText("""{"r":"applause"}"""))
         assertNull(ConferenceReactionWire.decodeText("""{"r":"BOMB"}"""))
+        // encounter-only names are no conference reactions
+        assertNull(ConferenceReactionWire.decodeText("""{"r":"CRY"}"""))
     }
 
     @Test

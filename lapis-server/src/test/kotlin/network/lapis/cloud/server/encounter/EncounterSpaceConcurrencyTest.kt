@@ -194,6 +194,7 @@ abstract class EncounterSpaceConcurrencyScenarios(
                         blessingState = rig.blessingState,
                         bellState = rig.bellState,
                         seatState = rig.seatState,
+                        mapState = rig.mapState,
                         tableState = rig.tableState,
                         floorState = rig.floorState,
                         entryNotifier = rig.entryNotifier,

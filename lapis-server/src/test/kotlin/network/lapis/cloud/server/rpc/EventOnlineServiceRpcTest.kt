@@ -351,7 +351,7 @@ class EventOnlineServiceRpcTest :
                 val event = fx.event(createdBy = board)
                 val member = fx.member()
                 TimeTestSupport.withServerClock(instant = "2030-06-15T20:00:00Z") {
-                    client.asMember(member, "POST", "/ev/$event/join").bodyAsText() shouldBe "NOT_YET|null|null|null|null|2030-06-15T17:45"
+                    client.asMember(member, "POST", "/ev/$event/join").bodyAsText() shouldBe "NOT_YET|null|null|null|null|2030-06-15T17:30"
                 }
             }
             TimeTestSupport.withServerClock(instant = inside) {
@@ -464,7 +464,7 @@ class EventOnlineServiceRpcTest :
                 application { setUp() }
                 val created = client.asMember(board, "POST", "/ev/create?kind=LAPIS_CONFERENCE").bodyAsText()
                 created shouldStartWith "OK|"
-                created shouldContain "|LAPIS_CONFERENCE|null|null|2030-06-15T17:45|2030-06-15T21:00"
+                created shouldContain "|LAPIS_CONFERENCE|null|null|2030-06-15T17:30|2030-06-15T21:00"
                 client.asMember(board, "POST", "/ev/create?kind=LAPIS_CONFERENCE&url=https://meet.example/x").status shouldBe
                     HttpStatusCode.BadRequest
                 client.asMember(board, "POST", "/ev/create?kind=LAPIS_ENCOUNTER").status shouldBe HttpStatusCode.BadRequest

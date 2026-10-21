@@ -22739,11 +22739,11 @@ msgstr "L'événement a lieu uniquement sur place."
 msgid "Sie geben einen eigenen Link an, zum Beispiel zu einer anderen Videokonferenz."
 msgstr "Vous indiquez votre propre lien, par exemple vers une autre visioconférence."
 
-msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Lapis crée la visioconférence dès que la première personne la rejoint. L'accès ouvre 15 minutes avant le début."
+msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Lapis crée la visioconférence dès que la première personne la rejoint. L'accès ouvre 30 minutes avant le début."
 
-msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Les participants entrent dans un espace de rencontre permanent. L'accès ouvre 15 minutes avant le début."
+msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Les participants entrent dans un espace de rencontre permanent. L'accès ouvre 30 minutes avant le début."
 
 msgid "Vor Ort"
 msgstr "Sur place"
@@ -25224,3 +25224,153 @@ msgstr "Pour les événements, vous gérez les invités et les invitations sur l
 
 msgid "Zu viele Anfragen – bitte kurz warten."
 msgstr "Trop de requêtes – veuillez patienter un instant."
+
+msgid "Lachen"
+msgstr "Rire"
+
+msgid "Staunen"
+msgstr "Étonnement"
+
+msgid "Weinen"
+msgstr "Pleurs"
+
+msgid "Blume aus der Gemeinde"
+msgstr "Fleur des fidèles"
+
+msgid "Blume von den Teilnehmenden"
+msgstr "Fleur de la part des participants"
+
+msgid "Lachen aus der Gemeinde"
+msgstr "Rire des fidèles"
+
+msgid "Lachen von den Teilnehmenden"
+msgstr "Rire de la part des participants"
+
+msgid "Staunen aus der Gemeinde"
+msgstr "Étonnement des fidèles"
+
+msgid "Staunen von den Teilnehmenden"
+msgstr "Étonnement de la part des participants"
+
+msgid "Frage aus der Gemeinde"
+msgstr "Question des fidèles"
+
+msgid "Frage von den Teilnehmenden"
+msgstr "Question de la part des participants"
+
+msgid "Weinen aus der Gemeinde"
+msgstr "Pleurs des fidèles"
+
+msgid "Weinen von den Teilnehmenden"
+msgstr "Pleurs de la part des participants"
+
+msgid "Karte"
+msgstr "Carte"
+
+msgid "Auf die Karte"
+msgstr "Sur la carte"
+
+msgid "Karte verlassen"
+msgstr "Quitter la carte"
+
+msgid "Zum Eingang"
+msgstr "Vers l'entrée"
+
+msgid "Zur Mitte"
+msgstr "Vers le centre"
+
+msgid "Zum Podium"
+msgstr "Vers le podium"
+
+msgid "Zur Kanzel"
+msgstr "Vers la chaire"
+
+msgid "Reihe %1, Spalte %2"
+msgstr "Rangée %1, colonne %2"
+
+msgid "Eine Person in Ihrer Nähe"
+msgstr "Une personne près de vous"
+
+msgid "%1 Personen in Ihrer Nähe"
+msgstr "%1 personnes près de vous"
+
+msgid "In Ihrer Nähe"
+msgstr "Près de vous"
+
+msgid "und %1 weitere"
+msgstr "et %1 autres"
+
+msgid "Weg blockiert"
+msgstr "Chemin bloqué"
+
+msgid "Die Karte ist voll oder Sie waren zu schnell."
+msgstr "La carte est pleine ou vous avez été trop rapide."
+
+msgid "Einen Moment bitte, gleich können Sie wieder springen."
+msgstr "Un instant, vous pourrez bientôt sauter à nouveau."
+
+msgid "Nur bei geschlossenem Raum einschaltbar"
+msgstr "Ne peut être activé que lorsque la salle est fermée"
+
+msgid "Karte (Positionen der Mitglieder)"
+msgstr "Carte (positions des membres)"
+
+msgid "Sie stehen nicht auf der Karte."
+msgstr "Vous n'êtes pas sur la carte."
+
+msgid "Richtungstasten"
+msgstr "Touches directionnelles"
+
+msgid "Nach links"
+msgstr "Aller à gauche"
+
+msgid "Nach rechts"
+msgstr "Aller à droite"
+
+msgid "Nur in der Raumart Versammlung. Mitglieder bewegen sich auf einer Karte; Gäste erscheinen nicht darauf."
+msgstr "Uniquement pour le type de salle Assemblée. Les membres se déplacent sur une carte ; les invités n'y apparaissent pas."
+
+msgid "Karte öffnen"
+msgstr "Ouvrir la carte"
+
+msgid "Karte öffnen, Sie sind auf der Karte"
+msgstr "Ouvrir la carte, vous êtes sur la carte"
+
+msgid "Karte schließen"
+msgstr "Fermer la carte"
+
+msgid "Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert."
+msgstr "Seuls les membres présents voient votre position. Rien n’est enregistré."
+
+msgid "Linke Loge"
+msgstr "Loge de gauche"
+
+msgid "Rechte Loge"
+msgstr "Loge de droite"
+
+msgid "Ihr Browser zeigt die Geräte erst, wenn Sie den Zugriff erlauben. Mikrofon und Kamera bleiben dabei ausgeschaltet."
+msgstr "Votre navigateur n'affiche les appareils qu'après votre autorisation d'accès. Le microphone et la caméra restent désactivés."
+
+msgid "Zugriff auf Mikrofon und Kamera erlauben"
+msgstr "Autoriser l'accès au microphone et à la caméra"
+
+msgid "Erst nach Freigabe verfügbar"
+msgstr "Disponible après autorisation"
+
+msgid "Zugriff erlaubt. Sie können Ihre Geräte jetzt auswählen."
+msgstr "Accès autorisé. Vous pouvez maintenant choisir vos appareils."
+
+msgid "Nur das Mikrofon ist freigegeben."
+msgstr "Seul le microphone est autorisé."
+
+msgid "Nur die Kamera ist freigegeben."
+msgstr "Seule la caméra est autorisée."
+
+msgid "Der Browser hat den Zugriff blockiert. Erlauben Sie Mikrofon und Kamera über das Schloss-Symbol in der Adressleiste oder in den Website-Einstellungen Ihres Browsers und versuchen Sie es erneut."
+msgstr "Le navigateur a bloqué l'accès. Autorisez le microphone et la caméra via l'icône de cadenas dans la barre d'adresse ou dans les paramètres du site de votre navigateur, puis réessayez."
+
+msgid "Es wurde weder ein Mikrofon noch eine Kamera gefunden."
+msgstr "Aucun microphone ni aucune caméra n'a été trouvé."
+
+msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
+msgstr "Un appareil n'a pas pu être ouvert. Il est peut-être utilisé par une autre application."

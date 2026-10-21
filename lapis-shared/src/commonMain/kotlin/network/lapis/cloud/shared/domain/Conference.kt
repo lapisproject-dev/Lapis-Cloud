@@ -462,9 +462,13 @@ const val CONFERENCE_REACTION_TOPIC = "lapis-conference-reaction"
 /** Hard cap of a reaction payload (`{"r":"APPLAUSE"}` is 16 bytes). */
 const val CONFERENCE_REACTION_MAX_PAYLOAD_BYTES = 32
 
-/** The closed set of reactions. There is deliberately no `HAND`: the raised hand is the server-ordered queue, never a peer packet. */
+/**
+ * The closed set of eight reactions (V1.9.164 appended [LAUGH], [ASTONISHED], [QUESTION]; order = menu order, append only: old clients
+ * decode an unknown name to `null` and drop it). There is deliberately no `HAND`: the raised hand is the server-ordered queue, never a
+ * peer packet. [QUESTION] is a mood symbol only -- no hand, no queue.
+ */
 @Serializable
-enum class ConferenceReaction { APPLAUSE, HEART, AMEN, THUMBS_UP, FLOWER }
+enum class ConferenceReaction { APPLAUSE, HEART, AMEN, THUMBS_UP, FLOWER, LAUGH, ASTONISHED, QUESTION }
 
 /**
  * V1.9.127 -- LiveKit data-packet topic of the raised-hand queue (server -> client only, like [CONFERENCE_MODERATION_TOPIC]): a packet is

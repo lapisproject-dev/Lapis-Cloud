@@ -14,6 +14,7 @@ import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterFloorSignal
+import network.lapis.cloud.shared.domain.EncounterMapPacket
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.EncounterRecordingSignal
 import network.lapis.cloud.shared.domain.EncounterTableTokenDto
@@ -137,6 +138,8 @@ internal class EncounterSessionCallbacks(
     val onMicTrackPublished: () -> Unit = {},
     /** V1.9.138: the server's floor signal (a packet without a participant, strictly parsed). It carries no name. */
     val onFloor: (EncounterFloorSignal) -> Unit = {},
+    /** V1.9.166: a grid map packet (never from a participant, strictly parsed). It carries ids and coordinates, no name. */
+    val onMap: (EncounterMapPacket) -> Unit = {},
     /** V1.9.143: the server's recording signal (a packet without a participant, strictly parsed): "the pulpit is recorded", "the pulpit is asked". No name. */
     val onRecording: (EncounterRecordingSignal) -> Unit = {},
     /** V1.9.138: whether the OWN permission lets this connection publish a microphone (fires after connect and on every change). */
@@ -177,6 +180,7 @@ private fun defaultLiveKitFactory(
         onEncounterBell = callbacks.onBell,
         onLocalMicrophoneTrackPublished = callbacks.onMicTrackPublished,
         onEncounterFloor = callbacks.onFloor,
+        onEncounterMap = callbacks.onMap,
         onEncounterRecording = callbacks.onRecording,
         onLocalMicrophonePermission = callbacks.onMicrophonePermission,
     )

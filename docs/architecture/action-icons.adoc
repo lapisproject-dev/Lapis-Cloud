@@ -41,6 +41,8 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `MORE` | `fa-ellipsis` | V1.9.74: open the "Mehr" sheet of the encounter-room bar (the controls that did not fit). The conference bar's own "Mehr" still uses the raw string.
 | `RELEASE_SEAT` | `fa-chair` | V1.9.79: give up one's own seat in the encounter room ("Platz freigeben"); in the seat area and in the seat list alternative, never in a table row.
 | `LEAVE_TABLE` | `fa-users-slash` | V1.9.80: get up from a table of the encounter room ("Tisch verlassen"); the person stays in the room, in the plenum
+| `MAP_ENTER`, `MAP_LEAVE` | `fa-person-walking`, `fa-map` | V1.9.166: step onto / off the grid map of the encounter room ("Auf die Karte", "Karte verlassen"); in the map area only. `MAP_LEAVE` is NOT `LEAVE` (the person stays in the room)
+| `MAP_OPEN` | `fa-map-location-dot` | V1.9.167: opens the map overlay of the encounter room (the dock button "Karte öffnen" and its twin in the "Mehr" sheet). It is NOT `MAP_ENTER` (stepping onto the map) and closing the overlay is never an action on the map
 | `LIFT_QUIET` | `fa-volume-high` | V1.9.80: a moderator lifts the quiet of a table ("Beruhigung aufheben"); the opposite of `SILENCE` at table level
 | `PULPIT_LOUDER` | `fa-bullhorn` | V1.9.80: a person at a table turns the pulpit's sound up ("Kanzel lauter", icon-only bar control with a sheet twin of the same name)
 | `SEND_TO_PLENUM` | `fa-people-roof` | V1.9.80: a moderator sends a person from a table back to the plenum ("Ins Plenum setzen"); NOT `REMOVE` (the person stays in the room)

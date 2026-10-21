@@ -5,6 +5,10 @@ import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
 import network.lapis.cloud.shared.domain.EncounterFloorDto
+import network.lapis.cloud.shared.domain.EncounterMapAnchor
+import network.lapis.cloud.shared.domain.EncounterMapFacing
+import network.lapis.cloud.shared.domain.EncounterMapSelfDto
+import network.lapis.cloud.shared.domain.EncounterMapSnapshotDto
 import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
@@ -193,4 +197,30 @@ interface IEncounterSpaceService {
 
     /** V1.9.138 -- the floor as the caller may see it; only for somebody present ([ForbiddenException] otherwise). */
     suspend fun floorState(spaceId: String): EncounterFloorDto
+
+    // ── Grid map (V1.9.166, stage 3 wave 1) ────────────────────────────────
+    // Access matrix: only an ACTIVE member who is present (guests and friends get the same bare ForbiddenException as everybody else who
+    // fails the gate, before the space is even looked up). The positions live in server memory only; there is no coordinate and no member id
+    // parameter, so "next to" is guaranteed by the API itself and there is nothing to forge. [ServiceBusyException] = throttled / map full.
+
+    /** Puts the caller on the map at the nearest free tile to the entrance (idempotent). Only CONGREGATION people; releases a bench or table seat. */
+    suspend fun mapEnter(spaceId: String): EncounterMapSelfDto
+
+    /** One step in [direction]. The facing always changes; a wall or another person yields [EncounterMapMove.BLOCKED], a fast caller [EncounterMapMove.THROTTLED]. */
+    suspend fun mapStep(
+        spaceId: String,
+        direction: EncounterMapFacing,
+    ): EncounterMapSelfDto
+
+    /** Jumps to the nearest free tile of [anchor] (at most once every three seconds). */
+    suspend fun mapTeleport(
+        spaceId: String,
+        anchor: EncounterMapAnchor,
+    ): EncounterMapSelfDto
+
+    /** Takes the caller off the map. Idempotent. */
+    suspend fun mapLeave(spaceId: String)
+
+    /** The positions of everybody on the map plus the caller's own; also for office holders (read only). Registers the caller for the packets. */
+    suspend fun mapSnapshot(spaceId: String): EncounterMapSnapshotDto
 }

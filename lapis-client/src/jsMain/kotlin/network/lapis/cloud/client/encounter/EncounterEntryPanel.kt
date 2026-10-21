@@ -64,6 +64,11 @@ internal fun SimplePanel.encounterEntryPanel(
         notes.add(Tag(TAG.LI, content = terms.recordingEntryNoteContent()))
     }
     if (roomNotice != null) box.untrustedDiv(roomNotice, className = "small fw-semibold")
+    // V1.9.166: a room with a map says so too (members read it; the notice for non-members is part of the consent text above).
+    info.mapRoomNotice
+        ?.takeIf {
+            !info.consentRequired
+        }?.let { box.untrustedDiv(it, className = "small fw-semibold lapis-encounter-map-notice") }
     box.div(terms.article9NoteContent(), className = "text-muted small")
 
     val disclaimer = if (info.consentRequired) info.disclaimer else null

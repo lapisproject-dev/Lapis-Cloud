@@ -3248,7 +3248,7 @@ html .form-select.is-invalid:focus {
 }
 
 .lapis-encounter-room {
-  /* V1.9.74: anchor of the "Mehr" sheet (the pseudo-fullscreen rule below turns the room `fixed`, which anchors it just as well). */
+  /* V1.9.74: positioned room (pseudo fullscreen turns it `fixed`). Since V1.9.165 the sheets hang from `.lapis-encounter-dock`, not from the room. */
   position: relative;
   --lapis-encounter-bar-h: 56px;
   --lapis-encounter-room-h: calc(100vh - var(--lapis-header-h) - var(--lapis-encounter-bar-h));
@@ -3405,6 +3405,98 @@ html .form-select.is-invalid:focus {
 .lapis-encounter-benches--stretch .lapis-encounter-block::before {
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
+}
+
+/* V1.9.167 -- das Theater (Raumvorlage Saal MIT Tischen): im Parterre stehen die Tische, links und rechts je eine Loge mit einer Haelfte jeder Sitzreihe.
+   Die Halle ist ein Grid (drei Spalten, die Logen gleich breit, also liegt das Parterre mittig in der Buehne). Kein `transform`, kein `filter`, kein
+   `container-type` (das klebende Dock darf keinen neuen Containing-Block bekommen); die Halle traegt die Block-Zeichnung und die Rolle "Sitzplan". */
+.lapis-encounter--theatre .lapis-encounter-hall {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "loge-left parterre loge-right";
+  align-items: start;
+  gap: var(--lapis-enc-aisle);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.lapis-encounter-parterre {
+  grid-area: parterre;
+  min-width: 0;
+}
+
+.lapis-encounter--theatre .lapis-encounter-parterre .lapis-encounter-tables-host {
+  margin: 0;
+}
+
+/* Die Ueberschrift der Tische bleibt im DOM (sie benennt die Gruppe), im Theater ist sie nur fuer Screenreader da. */
+.lapis-encounter--theatre .lapis-encounter-tables-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.lapis-encounter-loge {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lapis-enc-seat-gap);
+  padding: 0.5rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 0.5rem;
+  background: var(--lapis-encounter-surface);
+}
+
+.lapis-encounter-loge--left {
+  grid-area: loge-left;
+}
+
+.lapis-encounter-loge--right {
+  grid-area: loge-right;
+}
+
+/* Unter 768 px stehen die Logen nebeneinander UNTER dem Parterre, unter 420 px untereinander. */
+@media (max-width: 767.98px) {
+  .lapis-encounter--theatre .lapis-encounter-hall {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "parterre parterre"
+      "loge-left loge-right";
+    justify-items: center;
+  }
+
+  .lapis-encounter-parterre {
+    justify-self: stretch;
+  }
+
+  .lapis-encounter-loge {
+    padding: 0.25rem;
+  }
+}
+
+@media (max-width: 419.98px) {
+  .lapis-encounter--theatre .lapis-encounter-hall {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "parterre"
+      "loge-left"
+      "loge-right";
+  }
+}
+
+/* Erzwungene Farben: die Loge zeichnet nur noch ihre Kontur. */
+@media (forced-colors: active) {
+  .lapis-encounter-loge {
+    border-color: CanvasText;
+  }
 }
 
 /* Die Vorschau der Raumvorlagen-Kachel im Raumformular: zwei Reihen derselben Bloecke, mit Attrappen statt Knoepfen (reine Dekoration). */
@@ -3902,13 +3994,21 @@ html .form-select.is-invalid:focus {
 }
 
 .lapis-encounter-tables-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+  /* V1.9.167: a centred row of cards that wraps (before: a grid of equal columns, which left a short last row stuck to the left edge). */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.5rem;
   /* V1.9.152: `isolate` keeps the table drawing (z-index -1) inside the grid; Foyer and Kleingruppenraum cap the columns (`--lapis-enc-table-cols`). */
   isolation: isolate;
   max-width: calc(var(--lapis-enc-table-cols, 12) * 172px + (var(--lapis-enc-table-cols, 12) - 1) * 0.5rem);
   margin-inline: auto;
+}
+
+/* A card is 172 px wide (the ring of up to eight seats needs it); two cards need 352 px, so a 320-px phone shows one table per row. */
+.lapis-encounter-tables-grid > .lapis-encounter-table {
+  flex: 0 1 172px;
+  min-width: 172px;
 }
 
 .lapis-encounter-table {
@@ -4217,7 +4317,8 @@ html .form-select.is-invalid:focus {
   gap: 0.5rem;
   min-height: var(--lapis-encounter-bar-h);
   padding: 0.25rem 0.5rem;
-  border-top: 1px solid var(--lapis-border);
+  /* V1.9.165: the rule above the bar belongs to the dock now. */
+  border-top: 0;
 }
 
 .lapis-encounter-control-group {
@@ -4286,17 +4387,66 @@ html .form-select.is-invalid:focus {
   min-width: 44px;
 }
 
-/* The "Mehr" sheet: a sibling of the bar, anchored above it; it scrolls itself (R59 ledger E1). */
+/* V1.9.165 -- the dock: bar, "Mehr" sheet and device panel in ONE sticky wrapper, so the bar is always on screen (window, fullscreen,
+   pseudo fullscreen) and the sheets hang from it (`bottom: calc(100% + 4px)`: a sticky box is the containing block of its absolute
+   children). z-index 6 (see the stacking table further down). NEVER put `backdrop-filter`, `filter` or `transform` on the dock or an
+   ancestor, and no `overflow` other than visible/clip on an ancestor: that would silently turn sticky off. Sticky is NOT a scroll
+   surface (R59 ledger unchanged). */
+.lapis-encounter-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  flex: 0 0 auto;
+  min-width: 0;
+  background: var(--lapis-surface);
+  border-top: 1px solid var(--lapis-border);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* The room's vPanel puts 10 px under every child: none under the dock, or it could not rest on the room's bottom edge. */
+  margin-bottom: 0 !important;
+}
+
+/* The two (empty) audio sinks follow the dock in the DOM; they take no room, otherwise the dock could not reach the bottom edge. */
+.lapis-encounter-room > .lapis-encounter-audio-sink,
+.lapis-encounter-room > .lapis-encounter-table-audio-sink,
+.lapis-encounter-room > .lapis-encounter-map-overlay {
+  margin: 0 !important;
+}
+
+/* Fullscreen: the room is the scroll root and has no bottom padding, so the dock sits flush with the screen edge. */
+.lapis-encounter-room.is-pseudo-fullscreen,
+.lapis-encounter-room:fullscreen {
+  padding-bottom: 0;
+  scroll-padding-bottom: calc(var(--lapis-encounter-bar-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Focus never lands under the dock (keyboard navigation through the benches). */
+html:has(.lapis-encounter-room) {
+  scroll-padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+/* With the conference bar at the bottom of the viewport the dock rests on top of it (not in fullscreen: there the room, layer 1060,
+   covers the conference bar anyway). */
+html.lapis-has-dock .lapis-encounter-dock {
+  bottom: var(--lapis-dock-h);
+}
+
+html.lapis-has-dock .lapis-encounter-room.is-pseudo-fullscreen .lapis-encounter-dock,
+html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-dock {
+  bottom: 0;
+}
+
+/* The "Mehr" sheet: a child of the dock, anchored above the bar; it scrolls itself (R59 ledger E1). */
 .lapis-encounter-more-sheet {
   position: absolute;
-  bottom: var(--lapis-encounter-bar-h);
+  bottom: calc(100% + 4px);
   inset-inline-end: 0;
   z-index: 6;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   width: min(420px, 100%);
-  max-height: 60vh;
+  max-height: min(60vh, calc(100vh - var(--lapis-encounter-bar-h) - 2rem));
   overflow: auto;
   overscroll-behavior: contain;
   padding: 12px;
@@ -4304,6 +4454,12 @@ html .form-select.is-invalid:focus {
   border: 1px solid var(--lapis-border-strong);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+@supports (height: 100dvh) {
+  .lapis-encounter-more-sheet {
+    max-height: min(60dvh, calc(100dvh - var(--lapis-encounter-bar-h) - 2rem));
+  }
 }
 
 .lapis-encounter-more-sheet .btn {
@@ -4332,7 +4488,7 @@ html .form-select.is-invalid:focus {
    devices group sits. Narrow screens (the guideline's one breakpoint, 768 px): a sheet from below across the full width. */
 .lapis-encounter-device-panel {
   position: absolute;
-  bottom: var(--lapis-encounter-bar-h);
+  bottom: calc(100% + 4px);
   inset-inline-start: 0;
   z-index: 6;
   display: flex;
@@ -4596,7 +4752,7 @@ html.lapis-has-dock {
    themselves): that would silently break `fixed` and add a clip to the ledger of ScrollSurfaceTripwireTest.
 
    Stacking order (low to high), one table for the whole file:
-     chrome (sidebar, banners) <= 6, conference dock bar 5, FLOATING WINDOW 1034 (--lapis-z-conference-float),
+     chrome (sidebar, banners) <= 6, conference dock bar 5, encounter dock 6, FLOATING WINDOW 1034 (--lapis-z-conference-float),
      update pill 1035, offcanvas backdrop 1040, offcanvas 1045, modal and `.lapis-encounter-side.is-sheet` 1055,
      1060 layer (popovers, tooltips), toast and skip link 2000.
    The window sits below every dialog (a dialog must cover it) but above the page. */
@@ -5127,7 +5283,7 @@ button.lapis-conference-timer:focus-visible {
   }
 }
 
-/* Das Menue "Reaktion": ein kleines Blatt ueber der Leiste (wie die Ansichtswahl) mit fuenf Eintraegen von mindestens 44 px. */
+/* Das Menue "Reaktion": ein kleines Blatt ueber der Leiste (wie die Ansichtswahl) mit acht Eintraegen von mindestens 44 px, hoehenbegrenzt und scrollbar (V1.9.164). */
 .lapis-conference-reaction-popover {
   position: fixed;
   left: 50%;
@@ -5142,6 +5298,10 @@ button.lapis-conference-timer:focus-visible {
   border: 1px solid var(--lapis-border-strong);
   border-radius: 8px;
   padding: 8px;
+  max-height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px) - 24px);
+  max-height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .lapis-conference-reaction-menuitem {
@@ -5776,6 +5936,353 @@ div:hover > .lapis-conference-pin,
   background-color: var(--lapis-surface);
 }
 
+/* V1.9.166 Begegnungsraum Stufe 3: die Rasterkarte. 12 x 8 Kacheln aus der Raumvorlage; die Figuren (Initialen) liegen in einer eigenen Schicht und
+   bewegen sich per `transform` auf der FIGUR SELBST (Eigenschaften --x/--y), nie per `transform`/`filter`/`overflow` auf einem Vorfahren: das
+   klebende Dock der Steuerleiste darf keinen neuen Containing-Block bekommen. Kein `container-type` (Layout-Containment erzeugt Containing-Blocks).
+   Farben nur ueber die Begegnungsraum-Tokens. Die Kachel ergibt sich aus der Breite (24 bis 48 px). */
+.lapis-encounter-map {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* V1.9.167: die Karte steht in einer Ebene ueber dem Raum (`.lapis-encounter-map-overlay`), nicht mehr als Block der Buehne. Die Ebene ist `position: fixed`
+   und endet ueber dem Dock (`bottom` aus `--lapis-encounter-bar-h`), die Leiste bleibt bedienbar. Wie beim Dock: NIE `transform`, `filter` oder
+   `backdrop-filter` auf die Ebene oder ihr Gehaeuse (sonst veraendert sie den Containing-Block von `fixed`). Ebene 5 (Dock und "Mehr"-Blatt: 6, also
+   liegt das Blatt ueber der Karte). Das Gehaeuse scrollt selbst (R59, Klasse E1), die Seite dahinter nicht. */
+.lapis-encounter-map-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--lapis-encounter-bar-h) + 1px + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  /* The room's vPanel puts 10 px on every child (as for the dock and the audio sinks). */
+  margin: 0 !important;
+}
+
+.lapis-encounter-map-overlay[hidden] {
+  display: none;
+}
+
+/* With the conference bar at the bottom of the viewport the dock rests on top of it, so the layer ends above both (not in fullscreen: the room covers it). */
+html.lapis-has-dock .lapis-encounter-map-overlay {
+  bottom: calc(var(--lapis-dock-h) + var(--lapis-encounter-bar-h) + 1px + env(safe-area-inset-bottom, 0px));
+}
+
+html.lapis-has-dock .lapis-encounter-room.is-pseudo-fullscreen .lapis-encounter-map-overlay,
+html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overlay {
+  bottom: calc(var(--lapis-encounter-bar-h) + 1px + env(safe-area-inset-bottom, 0px));
+}
+
+.lapis-encounter-map-overlay__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  background: color-mix(in srgb, var(--lapis-encounter-seat-text) 40%, transparent);
+}
+
+.lapis-encounter-map-overlay__panel {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(100%, 640px);
+  max-height: 100%;
+  padding: 1rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--lapis-surface);
+  color: var(--lapis-text);
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.lapis-encounter-map-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lapis-encounter-map-overlay__title {
+  margin: 0;
+}
+
+.lapis-encounter-map-overlay__close {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.lapis-encounter-map__privacy-line {
+  margin: 0;
+}
+
+.lapis-encounter-map__privacy-more > summary {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+  cursor: pointer;
+}
+
+.lapis-encounter-map__notice {
+  overflow-wrap: anywhere;
+}
+
+/* Auf schmalen Schirmen (der eine Haltepunkt der Richtlinie, 768 px, wie beim Geraete-Panel) ein Blatt am unteren Rand (ueber dem Dock), volle Breite. */
+@media (max-width: 767.98px) {
+  .lapis-encounter-map-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .lapis-encounter-map-overlay__panel {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 0.75rem 0.75rem 0 0;
+    border-bottom: 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .lapis-encounter-map-overlay__panel {
+    border: 2px solid CanvasText;
+  }
+
+  .lapis-encounter-map-overlay__scrim {
+    background: transparent;
+  }
+}
+
+/* The dock button that opens the layer: a small dot on its corner while the viewer stands on the map (the accessible name says it too: never colour alone). */
+.lapis-encounter-map-open {
+  position: relative;
+}
+
+.lapis-encounter-map-open__dot {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  pointer-events: none;
+}
+
+.lapis-encounter-map-open__dot.is-on {
+  display: block;
+}
+
+.lapis-encounter-map__status {
+  min-height: 1.5rem;
+  color: var(--lapis-text);
+}
+
+.lapis-encounter-map__board {
+  position: relative;
+  width: 100%;
+  min-width: 290px;
+  max-width: calc(12 * 48px + 2px);
+}
+
+.lapis-encounter-map__grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  width: 100%;
+  aspect-ratio: 12 / 8;
+  border: 1px solid var(--lapis-encounter-scene-ink);
+  background: var(--lapis-encounter-surface);
+}
+
+.lapis-encounter-map__grid:focus-visible {
+  outline: 3px solid var(--lapis-encounter-seat-text);
+  outline-offset: 3px;
+}
+
+.lapis-encounter-map__tile--floor {
+  background: var(--lapis-encounter-scene-tint);
+  cursor: pointer;
+}
+
+.lapis-encounter-map__tile--wall {
+  background: var(--lapis-encounter-scene-ink);
+}
+
+.lapis-encounter-map__tile--object {
+  background: var(--lapis-encounter-seat);
+  border: 1px solid var(--lapis-encounter-scene-ink);
+  box-sizing: border-box;
+}
+
+.lapis-encounter-map__figures {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.lapis-encounter-map__figure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: calc(100% / 12);
+  height: calc(100% / 8);
+  transform: translate(calc(var(--x, 0) * 100%), calc(var(--y, 0) * 100%));
+}
+
+.lapis-encounter-map__initials {
+  position: absolute;
+  inset: 12%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--lapis-encounter-seat);
+  color: var(--lapis-encounter-seat-text);
+  border: 1px solid var(--lapis-encounter-seat-text);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.lapis-encounter-map__figure.is-self .lapis-encounter-map__initials {
+  background: var(--lapis-encounter-seat-text);
+  color: var(--lapis-encounter-surface);
+}
+
+/* Blickrichtung: eine Kerbe von 4 px am Rand der Figur. */
+.lapis-encounter-map__figure::after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--lapis-encounter-seat-text);
+}
+
+.lapis-encounter-map__figure.is-n::after {
+  top: 2%;
+  left: calc(50% - 2px);
+}
+
+.lapis-encounter-map__figure.is-s::after {
+  bottom: 2%;
+  left: calc(50% - 2px);
+}
+
+.lapis-encounter-map__figure.is-e::after {
+  right: 2%;
+  top: calc(50% - 2px);
+}
+
+.lapis-encounter-map__figure.is-w::after {
+  left: 2%;
+  top: calc(50% - 2px);
+}
+
+.lapis-encounter-map__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Waehrend eines Sprungs/seiner Sperre: gedimmt, aber nie natives disabled (der Fokus bliebe sonst nicht erhalten). */
+.lapis-encounter-map__actions .btn.is-cooling {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.lapis-encounter-map__near {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+/* Das Steuerkreuz fuer Beruehrung: nur auf schmalen Schirmen (der eine Haltepunkt der Richtlinie, 768 px), Knoepfe von mindestens 44 px. */
+.lapis-encounter-map__pad {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .lapis-encounter-map__pad {
+    display: grid;
+    grid-template-columns: repeat(3, 44px);
+    grid-template-areas:
+      ". up ."
+      "left . right"
+      ". down .";
+    gap: 4px;
+    justify-content: center;
+  }
+
+  .lapis-encounter-map__pad-button {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .lapis-encounter-map__pad-button--up {
+    grid-area: up;
+  }
+
+  .lapis-encounter-map__pad-button--left {
+    grid-area: left;
+  }
+
+  .lapis-encounter-map__pad-button--right {
+    grid-area: right;
+  }
+
+  .lapis-encounter-map__pad-button--down {
+    grid-area: down;
+  }
+}
+
+/* Erzwungene Farben: nur Rahmen, die eigene Figur in `Highlight`. */
+@media (forced-colors: active) {
+  .lapis-encounter-map__grid,
+  .lapis-encounter-map__tile--object,
+  .lapis-encounter-map__initials {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  .lapis-encounter-map__tile--wall {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+
+  .lapis-encounter-map__figure.is-self .lapis-encounter-map__initials {
+    border: 3px solid Highlight;
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  .lapis-encounter-map__figure::after {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+}
+
+/* Bewegung der Figuren nur, wenn die Person sie nicht abgeschaltet hat (R54: dieselbe Auswahl steht im Reduktionsblock am Dateiende). */
+@media (prefers-reduced-motion: no-preference) {
+  .lapis-encounter-map__figure {
+    transition: transform 100ms linear;
+  }
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste, schwebendes Konferenzfenster).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */
@@ -5789,6 +6296,7 @@ div:hover > .lapis-conference-pin,
   .lapis-encounter-seat-event,
   .lapis-encounter-blessing,
   .lapis-encounter-bell,
+  .lapis-encounter-map__figure,
   .lapis-conference-float {
     transition: none;
   }

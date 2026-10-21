@@ -16,7 +16,7 @@ import org.khronos.webgl.Uint8Array
  * here is DOM-free and takes its clock as a parameter (`now` in milliseconds), so a test can drive minutes of behaviour without waiting.
  *
  * ## Trust boundary
- * A reaction packet is peer-to-peer and unauthenticated beyond LiveKit's own transport. The payload is `{"r":"AMEN"}` (or APPLAUSE, HEART, HAND, HAND_LOWERED) and nothing
+ * A reaction packet is peer-to-peer and unauthenticated beyond LiveKit's own transport. The payload is `{"r":"AMEN"}` (or APPLAUSE, HEART, FLOWER, LAUGH, ASTONISHED, QUESTION, CRY, HAND, HAND_LOWERED) and nothing
  * else: [EncounterReactionWire.decode] reads ONLY the key `r`, ignores every other field (a forged `sender`/`name` is never looked
  * at), refuses anything longer than [ENCOUNTER_REACTION_MAX_PAYLOAD_BYTES] unread and never throws. The sender of a reaction is the
  * SDK-verified participant identity the caller passes next to the payload ([network.lapis.cloud.client.livekit.LiveKitRoomSession]).
@@ -56,6 +56,11 @@ internal fun EncounterReactionOption.toWire(): EncounterReaction =
         EncounterReactionOption.AMEN -> EncounterReaction.AMEN
         EncounterReactionOption.APPLAUSE -> EncounterReaction.APPLAUSE
         EncounterReactionOption.HEART -> EncounterReaction.HEART
+        EncounterReactionOption.FLOWER -> EncounterReaction.FLOWER
+        EncounterReactionOption.LAUGH -> EncounterReaction.LAUGH
+        EncounterReactionOption.ASTONISHED -> EncounterReaction.ASTONISHED
+        EncounterReactionOption.QUESTION -> EncounterReaction.QUESTION
+        EncounterReactionOption.CRY -> EncounterReaction.CRY
     }
 
 /**
@@ -70,7 +75,7 @@ internal fun admitReaction(
 ): Boolean = reaction.option() in allowed
 
 /**
- * Sender-side rate limits: one EVENT reaction (amen, applause, heart share one budget) per 5 s, one hand toggle per 2 s. The hand is never
+ * Sender-side rate limits: one EVENT reaction (amen, applause, heart and the other event reactions share one budget) per 5 s, one hand toggle per 2 s. The hand is never
  * blocked by an event: a person who wants the floor can always ask for it. A refused call has no effect (the UI shows the button as waiting).
  */
 internal class EncounterReactionSendThrottle(

@@ -17,7 +17,7 @@ A place and a Lapis conference can be combined: that is a hybrid event, there is
 
 == The window
 
-Access opens *15 minutes before* the start and closes *60 minutes after* the end (`EventOnlineWindow`, the only place
+Access opens *30 minutes before* the start and closes *60 minutes after* the end (`EventOnlineWindow`, the only place
 that computes it). Both bounds are inclusive and are wall clocks of the organization zone (time class B); the stored
 `event_conference.window_*` columns are UTC (class A). A conference event may last at most 12 hours. Rescheduling an event moves the
 window; a conference that is already running vetoes a change that would remove its basis.

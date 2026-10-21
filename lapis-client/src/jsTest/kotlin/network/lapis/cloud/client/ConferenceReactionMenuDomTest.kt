@@ -41,12 +41,14 @@ class ConferenceReactionMenuDomTest {
         assertEquals(4, conferenceReactionMenuTarget(1, "End", 5))
         assertNull(conferenceReactionMenuTarget(1, "a", 5))
         assertNull(conferenceReactionMenuTarget(9, "ArrowDown", 5))
+        assertEquals(0, conferenceReactionMenuTarget(7, "ArrowDown", 8))
+        assertEquals(7, conferenceReactionMenuTarget(0, "ArrowUp", 8))
     }
 
     @Test
     fun everyReactionHasAnEmojiAndAWord_andNoHand() {
         assertEquals(
-            listOf("Applaus", "Herz", "Amen", "Daumen hoch", "Blume"),
+            listOf("Applaus", "Herz", "Amen", "Daumen hoch", "Blume", "Lachen", "Staunen", "Frage"),
             ConferenceReaction.entries.map { conferenceReactionLabel(it) },
         )
         assertTrue(ConferenceReaction.entries.all { conferenceReactionEmoji(it).isNotEmpty() })
@@ -55,7 +57,7 @@ class ConferenceReactionMenuDomTest {
     // -- the menu ----------------------------------------------------------------------------------------------------------------------
 
     @Test
-    fun theMenuIsARealMenu_withFiveNamedItems_andTheEmojiIsDecoration() =
+    fun theMenuIsARealMenu_withEightNamedItems_andTheEmojiIsDecoration() =
         test {
             withMountedRoot("reaction-menu-roles") { root, element ->
                 val panel = root.vPanel()
@@ -65,9 +67,15 @@ class ConferenceReactionMenuDomTest {
                 val menu = assertNotNull(element().querySelector("[role=menu]") as? HTMLElement)
                 assertEquals("Reaktion", menu.getAttribute("aria-label"))
                 val items = element().all("[role=menuitem]")
-                assertEquals(5, items.size)
+                assertEquals(8, items.size)
                 assertEquals(
-                    listOf("Applaus", "Herz", "Amen", "Daumen hoch", "Blume"),
+                    ConferenceReaction.entries.map {
+                        conferenceReactionEmoji(it)
+                    },
+                    items.map { (it.querySelector(".lapis-conference-reaction-emoji") as HTMLElement).textContent },
+                )
+                assertEquals(
+                    listOf("Applaus", "Herz", "Amen", "Daumen hoch", "Blume", "Lachen", "Staunen", "Frage"),
                     items.map { (it.querySelector(".lapis-conference-reaction-word") as HTMLElement).textContent },
                 )
                 items.forEach {
@@ -78,6 +86,24 @@ class ConferenceReactionMenuDomTest {
                 }
                 assertEquals("menu", trigger.getAttribute("aria-haspopup"))
                 assertEquals("true", trigger.getAttribute("aria-expanded"))
+                popover.dispose()
+            }
+        }
+
+    @Test
+    fun focusFollowsByScrolling() =
+        test {
+            withMountedRoot("reaction-menu-scroll") { root, element ->
+                val panel = root.vPanel()
+                val trigger = panel.button("Reaktion")
+                val popover = ConferenceReactionPopover(panel, trigger, onChoose = {})
+                popover.open()
+                delay(20)
+                val items = element().all("[role=menuitem]")
+                var scrolled = 0
+                items[7].asDynamic().scrollIntoView = { _: dynamic -> scrolled++ }
+                key(items[0], "End")
+                assertEquals(1, scrolled)
                 popover.dispose()
             }
         }
@@ -125,10 +151,10 @@ class ConferenceReactionMenuDomTest {
                 val items = element().all("[role=menuitem]")
                 key(items[0], "ArrowDown")
                 assertEquals(items[1], kotlinx.browser.document.activeElement)
-                assertEquals(listOf("-1", "0", "-1", "-1", "-1"), items.map { it.getAttribute("tabindex") })
+                assertEquals(listOf("-1", "0", "-1", "-1", "-1", "-1", "-1", "-1"), items.map { it.getAttribute("tabindex") })
                 key(items[1], "End")
-                assertEquals(items[4], kotlinx.browser.document.activeElement)
-                key(items[4], "ArrowDown")
+                assertEquals(items[7], kotlinx.browser.document.activeElement)
+                key(items[7], "ArrowDown")
                 assertEquals(items[0], kotlinx.browser.document.activeElement)
                 popover.dispose()
             }

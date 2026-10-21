@@ -214,7 +214,7 @@ class EventConferenceGuardTripwireTest :
             writers shouldBe listOf("EventConferenceStore.kt")
         }
 
-        test("the window is computed by EventOnlineWindow only (nobody else adds the 15-minute lead or the 60-minute trail)") {
+        test("the window is computed by EventOnlineWindow only (nobody else adds the 30-minute lead or the 60-minute trail)") {
             val offenders =
                 SourceScan
                     .mainFiles()

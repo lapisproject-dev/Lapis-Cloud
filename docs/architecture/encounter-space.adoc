@@ -369,7 +369,7 @@ The pure invariant `devicesAreFirst` pins the order in tests.
   front, name order for the people already present, nothing synchronised) and a seat was a non-interactive `listitem`. Since V1.9.79 the seat plan is the server's picture, a seat is a button, and nobody is seated
   automatically. Unchanged: only people `listPresent` names are shown -- a LiveKit participant that is not listed (an egress bot, a stranger) never gets a seat or a symbol.
 * *Reactions* (data-channel topic `lapis-encounter-reaction`, payload `{"r":"<NAME>"}` only, at most 32 bytes (the longest, `HAND_LOWERED`, is 20)): `HAND` is a *state* (renewed every 30 s by its owner, lapses after 90 s,
-  `HAND_LOWERED` ends it), `AMEN` an *event* (a symbol at the seat for 3 s, announced as the fixed sentence "Amen aus der Gemeinde" at most every 10 s, never a number). Limits: sender
+  `HAND_LOWERED` ends it), `AMEN` an *event* (likewise `APPLAUSE`, `HEART`, `FLOWER`, `LAUGH`, `ASTONISHED`, `QUESTION`, `CRY`; a symbol at the seat for 3 s, announced as the fixed sentence "Amen aus der Gemeinde" at most every 10 s, never a number). Limits: sender
   amen 5 s / hand 2 s, receiver 2 per second and sender, the sender table bounded to 64. **Trust boundary**: the receiver reads only the key `r`; the sender is the SDK-verified identity of the packet,
   never a payload field; oversize and malformed payloads are dropped unread; since V1.9.79 every person of the congregation in `listPresent` can react (see <<stage-2a>>: sitting is no precondition any more).
 * *Raised hands* are listed (in the order they went up) only for office holders and BOARD/ADMIN; the congregation sees seats, not a queue.
@@ -447,12 +447,12 @@ the profile is the truth. Existing rooms get `CHURCH_SERVICE` and `HAND,AMEN` fr
 
 === Reaction set
 
-`HAND`, `AMEN`, `APPLAUSE`, `HEART`. There is deliberately no thumbs-up: in an assembly it reads as a vote. `HAND` is always on (a person must always be able to ask for the floor);
+`HAND`, `AMEN`, `APPLAUSE`, `HEART` and, since V1.9.164, `FLOWER`, `LAUGH`, `ASTONISHED`, `QUESTION`, `CRY` (nine options; append only, the canonical order is the declaration order). The new options are opt-in and never part of a profile default (`CRY` exists only here, never in the video conference); `QUESTION` is an event like `AMEN` and is not coupled to `HAND`. There is deliberately no thumbs-up: in an assembly it reads as a vote. `HAND` is always on (a person must always be able to ask for the floor);
 `HAND_LOWERED` is the wire counterpart of `HAND` and is never selectable. The server stores the canonical list (`EncounterReactionOption.normalize`: deduplicated, fixed order, `HAND` first)
-as a CSV and rejects a list of more than 8 entries (DoS guard). The order of the buttons is fixed. The set is enforced *on the client only*: the server never reads a reaction (data channel,
+as a CSV and rejects a list of more entries than there are options (DoS guard, `EncounterReactionOption.entries.size`, nine). The order of the buttons is fixed. The set is enforced *on the client only*: the server never reads a reaction (data channel,
 no server path), so the client builds a button per allowed option and drops a received reaction the room does not allow (`admitReaction`; silent, no log, no counter). A manipulated client can
 still send anything; the 32-byte limit and the per-sender receive limit stay in force (and, in stage 2a, "only people in the congregation list react"). The three event reactions share one 5 s send budget; the hand has its own 2 s budget and
-is never blocked by an event. A seat has one event slot (a newer event replaces the older), announced as one fixed sentence at most every 10 s, never as a count.
+is never blocked by an event. The longest canonical CSV (all nine) is 61 characters and the column `encounter_space.reaction_set` is `varchar(64)`; a test fails as soon as a tenth option exceeds that, and the fix is a new migration (never a change to the released `V76`). Old subsets load unchanged (unknown tokens are dropped by `parseReactionSet`); clients older than V1.9.164 drop the new wire names silently. A seat has one event slot (a newer event replaces the older), announced as one fixed sentence at most every 10 s, never as a count.
 
 === Changing the profile
 
@@ -473,6 +473,13 @@ The church text and its hash are unchanged, so existing consents stay valid. *Th
   56 % of that height (62 % until V1.9.152; the front strip of the scene stands above it since V1.9.153); the old 720 px cap is gone (`ClientEncounterVocabularyTripwireTest` pins that). The benches sit below. Since V1.9.68 (R59, one scroll surface) the height is a minimum, not
   a fixed size: the room grows with its benches and the page scrolls; there is no inner scrolling area for the benches any more. In full screen the room itself is the scroll container
   (ledger entry E0 of `ScrollSurfaceTripwireTest`, see `ui-ux-guideline.adoc` R59).
+* The dock (V1.9.165): the bar, the "Mehr" sheet and the device panel are children of ONE wrapper, `.lapis-encounter-dock`, which is `position: sticky; bottom: 0` on layer 6 (see the stacking table in `theme.css`). The bar is therefore on
+  screen in every mode: window (the page scrolls), full screen and fallback full screen (the room is the scroll root). Sticky is *not* a scroll surface: the ledger of `ScrollSurfaceTripwireTest` is unchanged, there is still exactly one scroll
+  surface per mode. The two sheets are anchored to the dock with `bottom: calc(100% + 4px)` (a sticky box is the containing block of its absolute children), no longer to the room. No `backdrop-filter`, `filter` or `transform` on the dock or an
+  ancestor (a stacking and containing-block trap), and no `overflow` other than `visible` or `clip` on an ancestor up to the scroll root (sticky would silently stop working; `EncounterControlBarStickyDomTest` walks the chain). The shadow is static, no
+  JavaScript. While the conference bar is shown (`html.lapis-has-dock`) the dock rests on top of it (`bottom: var(--lapis-dock-h)`), except in full screen, where the room (layer 1060) covers it. `scroll-padding-bottom` keeps a focused seat out from
+  under the dock. The room's `vPanel` puts 10 px under every child: the dock, the two empty audio sinks that follow it and (V1.9.167) the map layer have no margin, otherwise the dock could not reach the bottom edge.
+* The map layer (V1.9.167): the grid map is no longer a block of the stage. `EncounterMapOverlay` is a `position: fixed` child of the room (a sibling of the dock) on layer 5 that ends above the dock (`bottom` is built from `--lapis-encounter-bar-h`; with the conference bar shown it also leaves room for `--lapis-dock-h`), so the bar stays operable. The "Mehr" sheet (layer 6) therefore lies above the layer. See <<stage-3-map-layer>>.
 * The side panel: from 1200 px a 340 px column (closable), from 768 to 1199 px an *overlay* over the right edge (closed by default, Escape closes it, focus returns to the opener), below 768 px the full-screen sheet.
   The toggle carries `aria-expanded` and `aria-controls`; the state lives in memory only.
 * Full screen (`EncounterFullscreen`): the Fullscreen API on the room element; without it (or when `requestFullscreen()` is rejected) the room gets `is-pseudo-fullscreen` (`position: fixed; inset: 0`) and Escape leaves it.
@@ -508,7 +515,7 @@ The order is: full screen, scene, transmission, the event reactions (the last of
 camera, "Mehr" and "Verlassen". "Mehr" is there exactly while something sits in the sheet. At 360 px a person at the pulpit keeps hand, devices, chat and "Verlassen"; at 320 px the chat
 moves into the sheet and nothing else can move (the last step). A group whose controls all moved is hidden, so it takes no gap.
 
-*The sheet* (`.lapis-encounter-more-sheet`) is a sibling of the bar, anchored above it, *not modal* (`role="dialog"`, no focus trap, name "Weitere Bedienelemente"). It holds labelled twins in the bar's
+*The sheet* (`.lapis-encounter-more-sheet`) is a sibling of the bar inside the dock, anchored above it, *not modal* (`role="dialog"`, no focus trap, name "Weitere Bedienelemente"). It holds labelled twins in the bar's
 order; the twins of scene and full screen mirror `aria-pressed`; the twin of "Türen schließen" stands last, set apart by a rule. "Verlassen" is never in the sheet. On opening, the focus goes
 to the first twin; Escape or a click outside closes it, and Escape returns the focus to "Mehr". A twin closes the sheet and then runs the action. The two document listeners (Escape, click)
 exist only while the sheet is open and are removed on close and in `dispose()`. The sheet scrolls itself (ledger class E1 of the scroll rule, R59).
@@ -1119,6 +1126,11 @@ classDiagram(name = "Encounter room templates") {
         attribute(name = "tables", type = "round")
     }
 
+    val theatre = classOf(name = "Theatre hall (HALL with tables)") {
+        attribute(name = "parterre", type = "the tables, centred")
+        attribute(name = "loges", type = "left and right, one block of every row each")
+    }
+
     val small = classOf(name = "SMALL_GROUP (small-group room)") {
         attribute(name = "front", type = "board")
         attribute(name = "rows", type = "chairs")
@@ -1136,6 +1148,10 @@ classDiagram(name = "Encounter room templates") {
     association(source = space, target = hall) {
         source { multiplicity(spec = "1"); role = "room" }
         target { multiplicity(spec = "0..1"); role = "both profiles" }
+    }
+    association(source = hall, target = theatre) {
+        source { multiplicity(spec = "1"); role = "template" }
+        target { multiplicity(spec = "0..1"); role = "only while tables are on" }
     }
     association(source = space, target = small) {
         source { multiplicity(spec = "1"); role = "room" }
@@ -1161,6 +1177,7 @@ Ten files in `lapis-client/src/jsMain/webAssets/encounter-objects-v1` (own drawi
 
 * `EncounterRoomLayouts` holds the template data (which drawing stands where, at most 12 per template) and the pure renderer `renderLayoutScene` (preview tiles of the form, with dummy seats in the block structure of the room) and `renderSceneZone` (the room's two strips). The room and the preview tiles of the form call the same function (one source, no second preview images). It knows no member, seat occupancy or identity (`ClientEncounterPrivacyTripwireTest`).
 * In the room, `EncounterSceneLayout` draws two strips of the template IN THE FLOW of the stage (V1.9.153: the front strip of 72/56/48 px above the pulpit card, the rear strip of 48/40 px below the seats and their hint lines) and, per block of three seats, the tile of the template as the block's own `::before` (`BLOCK_PEW` stretched over the block; the drawing can therefore not drift against the seats; `EncounterLayoutGeometryTest` measures it in iframes of 360 to 1170 px); the table drawing is a `::before` behind the opaque table card (8 px taller above and below, never under text); Foyer and small-group room cap the table columns at 3 and 2. The visually hidden sentence "Raumvorlage: ..." is the first element of the stage and **no** live region; the drawings are `aria-hidden`.
+* *The theatre hall (V1.9.167).* The `HALL` template of a room WITH tables is built as a theatre: `EncounterSceneLayout(theatre = true)` adds `lapis-encounter--theatre` to its root and puts `.lapis-encounter-hall` after the stewards' strip. The hall is a CSS grid of three columns (the two loges equally wide, so the parterre in the middle is centred in the stage): the *parterre* holds the tables host, the *left* and *right loge* (`role="group"`, "Linke Loge" / "Rechte Loge") hold block 0 and block 1 of every row of seats. The hall itself is the group "Sitzplan" (it takes over the role, name and description of the former benches column), so seat indices, `data-seat`, the roving tab stop and the arrow keys are unchanged: ArrowRight from seat 2 goes to seat 3 across the parterre. The decision is made once at construction (`HALL && space.tables.enabled`; the flag is constant for the life of the room), so the seat plan is never rebuilt. The tables heading stays in the DOM (it names the table group) and is visually hidden. Under 768 px the loges stand side by side below the parterre, under 420 px one below the other. No `transform`, `filter` or `container-type` anywhere in it. The table cards of every template now stand in a centred flex row (before: equal grid columns that left a short last row at the left edge).
 * "Szene aus" removes all drawing layers, the table drawing and the sentence. `forced-colors: active` and `prefers-contrast: more` hide the drawings (not the sentence); below 480 px the plants are dropped. Nothing animates.
 * The room form has a `<fieldset>` "Raumvorlage" with four *native* radios (arrow keys come from the browser) in tiles of at least 140 x 112 px with a focus ring. A template that does not fit the chosen room kind is `disabled` with the reason as text. A change of the room kind resets a template that no longer fits and says so in a `role="status"` line; choosing the foyer or the small-group room switches the tables on and pre-fills them (foyer 6 x 4, small-group room 3 x 8) with a status line. The choice is frozen while a session is open.
 
@@ -1169,6 +1186,90 @@ Ten files in `lapis-client/src/jsMain/webAssets/encounter-objects-v1` (own drawi
 * *The drawings were never looked at in a real browser by the author.* They are checked by DOM tests (structure, attributes, hiding rules) and by the asset test; whether they look good is open until somebody opens a room.
 * The old `encounter-themes/*` files are no longer used by the current client and could be removed in a later wave.
 * The rows behind the seats do not change their count with the template; only the tile (pews, chairs, stools).
+
+== Stage 3 wave 1 (V1.9.166): grid map
+
+A room of the *assembly* profile can have a *grid map*: a small floor plan of 12 x 8 tiles on which the **members** who are present stand and walk. This is wave 1 of stage 3 (map and positions only; no proximity audio yet). The map is configuration of the room (`encounter_space.map_enabled`, migration V111, default off); a position is **never stored anywhere but in the memory of the server and of the tab**.
+
+[source,kuml,name="encounter-map-states"]
+----
+stateDiagram(name = "Place of a congregation person in the room") {
+    val start = initialState()
+    val none = state(name = "NEITHER (entered, nothing chosen)")
+    val seated = state(name = "SEATED (bench or table)")
+    val onMap = state(name = "ON THE MAP")
+
+    transition(source = start, target = none) { trigger = "enterSpace (a reload starts here, too)" }
+    transition(source = none, target = seated) { trigger = "selectSeat / joinTable" }
+    transition(source = none, target = onMap) { trigger = "mapEnter" }
+    transition(source = seated, target = onMap) { trigger = "mapEnter: the seat is released, the table rotates" }
+    transition(source = onMap, target = seated) { trigger = "selectSeat / joinTable: the position is dropped" }
+    transition(source = onMap, target = none) { trigger = "mapLeave, moderation, an office, status change (reconcile), room closed, map switched off" }
+}
+----
+
+=== Data and rules
+
+* *Migration V111* (`V111__encounter_map_option.sql`, additive; V1 to V110 untouched): `encounter_space.map_enabled BOOLEAN NOT NULL DEFAULT FALSE` with the CHECK `chk_encounter_space_map_profile` (`map_enabled = FALSE OR profile = 'ASSEMBLY'`), and `encounter_consent_acknowledgment.consent_version` widened from `VARCHAR(50)` to `VARCHAR(58)` (the entry-notice label gets the code-owned suffix `+map`, so `<label>+rec+map` is up to 46 + 8 = 54 characters; `ENC_LABEL_MAX` stays 46 so that every published label stays valid). No time field, no table, no column for a position, a facing or a path (`EncounterPrivacyTripwireTest` scans the migrations and the generated schema).
+* *Shared* (`lapis-shared`, `EncounterMap.kt`): the dimensions, the three templates `HALL`, `FOYER`, `SMALL_GROUP` (walls and objects only; the nave has none), the breadth-first searches `encounterMapNearestFree` and `encounterMapPath`, the DTOs, and the strict parser `encounterMapPacket`. Enums are append only.
+* *Server* (`EncounterMapState`): ONE monitor, no `suspend`, no logger, no transaction, no audit (`EncounterPrivacyTripwireTest`). At most 25 walkers, 64 sessions and 500 registered viewers. A person who leaves is gone at once; there is no history and no per-person counter. The state has an `epoch` (random per process): a restart is visible to every client, and all positions are empty.
+* *Authority*: the API has no coordinate and no member id parameter (`mapEnter(spaceId)`, `mapStep(spaceId, direction)`, `mapTeleport(spaceId, anchor)`, `mapLeave(spaceId)`, `mapSnapshot(spaceId)`), so "next to" is guaranteed by the API itself and there is nothing to forge. `mapEnter` and `mapSnapshot` pass `mapGateInTx` (database). `mapStep` and `mapTeleport` touch **only memory** (25 people x 8 steps a second would otherwise be a DoS surface); their authority is the entry `mapEnter` created after the full check, removed at once by the hooks below and re-checked every 5 s by the reconciler.
+* *Gate*: every refusal is the same bare `ForbiddenException`. Order: (1) status ACTIVE -- a guest or friend is refused **before the space is looked up**, so for them every id gives the same answer and there is no existence oracle; (2) the space is visible; (3) assembly profile with the map on; (4) the session is open; (5) the caller is present; (6) for walking: no office; (7) for walking: not removed or silenced. An office holder may call `mapSnapshot` (read only).
+* *Pace*: token bucket per walker, capacity 3, one token per 120 ms (monotonic clock); without a token the step is `THROTTLED`, silently and without a change. A wall, the edge, an object or another person is `BLOCKED` (the facing still changes). Teleport at most once per 1 s (a jump onto the own tile sets no cooldown). On the client every anchor click is answered: inside the cooldown no request is sent but one spoken notice is given per cooldown phase; a running step is waited out instead of swallowing the click; the anchor buttons show `aria-disabled` and `is-cooling` and NEVER the native `disabled` (it would drop the focus). Outer flood brake 600 requests a minute; `mapEnter` and `mapSnapshot` one per 2 s. Throttles are `ServiceBusyException` (own type: `ConflictException` means "seat taken" in this service).
+* *One place per person*: `mapEnter` releases a bench seat and leaves a table (a throttled departure from a shared table changes **nothing**, the new entry is taken back). `selectSeat`, `joinTable`, `enterSpace` (a reload), `leaveSpace`, moderation (removing also drops the registration for the packets), `setSpaceRoles` (a new office), `closeSpace`, the poller and switching the option off all drop the position.
+* *Delivery* (`EncounterMapBroadcaster`): every 200 ms the state is drained into deltas (`changed` and `removed` only) and sent with `LiveKitAdminClient.sendDataTo` (never `sendData`) on the topic `lapis-encounter-map` to the **registered viewers only** (chunks of at most 50). A viewer is registered only by `mapEnter`/`mapSnapshot` after the gate, i.e. an ACTIVE member who is present -- a guest can never be a recipient. A delta over 4096 bytes or over 64 entries becomes a `reset`. A packet is `{"v":1,"t":"d","e":epoch,"s":seq,"c":[[id,x,y,"N","AB"]],"r":[id]}`; it carries **no name** (the client resolves names through `listPresent`, which already shows them to everybody present). `sendDataPayloadLimit` has the entry for the topic (without it the 16-byte fallback applies and every real send fails).
+* *Reconcile* (every 5 s, from the database): a session that is closed, a map that is switched off, a person who is no longer present, no longer ACTIVE (a status change during the session) or who got an office leaves the map. The window for a status change is therefore **at most 5 seconds**, not "at once".
+* *Room option* (`createSpace`/`updateSpace`, BOARD/ADMIN): off by default; a flag **sent** for a profile without a map is `BadRequestException`; a stored `true` that no longer fits (an old cached admin client switches the profile without a flag) is reset like the room template. Switching it ON needs a closed room (`ConflictException` otherwise: the entry notice people acknowledged depends on it), switching it OFF is always allowed and drops every position at once (viewers get a `reset`). The audit snapshot carries the switch `mapEnabled` and nothing else.
+
+=== Entry notice
+
+For a room with a map the code appends a second code-owned paragraph (`EncounterConsentLayout.mapParagraph`) as the last key point and the end of the full text, adds the label suffix `+map` (`+rec+map` with the recording option) and hashes the result. Without both options the notice is byte-identical to before (the old pins stay green). Non-members acknowledge it as before (`consentChanged` is true for a guest who acknowledged an older version); members see the paragraph as `EncounterEntryInfoDto.mapRoomNotice` and above the button "Auf die Karte" -- they have no proof row, the free click is their act. **The wording is a DRAFT without legal review** (`ASSEMBLY_MAP_PARAGRAPH_DRAFT`, pinned word for word and by hash in `EncounterMapConsentTextTest`).
+
+=== The client
+
+* `EncounterMapController` (DOM free) and `EncounterMapView` (DOM, built once, then only filled). The board is a `role="group"` named "Karte" with ONE tab stop, described by the status line. Arrow keys and W/A/S/D step (a key with Ctrl, Alt or Meta is left to the browser), "L" speaks the own place and the names nearby, Escape focuses "Karte verlassen" while the viewer is on the map (a further Escape, or Escape off the map, is the layer's: it closes), a click walks along the shortest path (at most 20 single steps, 150 ms apart, any refusal ends the walk). Below the guideline breakpoint (768 px) a pad of four buttons of 44 px appears. Initials on the figures are `aria-hidden`; no name is in a `title`, an `aria-label` or a `data-*` (the only one is `data-cell`); names appear only in the list "In Ihrer Nähe", through the sanitising helper.
+* Figures move by the custom properties `--x`/`--y` and a `transform` **on the figure itself** (never on an ancestor: the sticky dock must not get a new containing block); the 100 ms transition exists only under `prefers-reduced-motion: no-preference` and is listed in the single reduced-motion block (rule R54).
+* A guest never gets a controller: the room builds the map only when the presence list shows the viewer is no guest, and the server refuses them anyway.
+* The room form has the checkbox "Karte (Positionen der Mitglieder)": assembly only, off by default; while the room is open it can be switched off but not on.
+
+=== Threat model
+
+* A member can pass on what they see (a screenshot, or the reaction channel to a guest). That cannot be prevented; the notice says who sees positions.
+* A forged packet from a peer is dropped (the client accepts the topic only without a sending participant, strictly parsed).
+* Positions are in the memory of the server process: a **heap dump** contains them, and an operator who raises the LiveKit log level may log the **contents** of data packets (the topic is the same for every room). Both are operations checks (Lapis-Cloud-Ops), not something this code can promise away; "not in logs" is true for Lapis itself.
+* The map is **per server instance**, like the seat plan: several instances behind a balancer do not work.
+
+=== Known limitations of stage 3 wave 1
+
+* The map was checked in ChromeHeadless DOM tests only; nobody has looked at it in a real browser window or on a real phone.
+* Guests and friends do not appear on the map and see no positions (wave 1). The notice paragraph text still says that "others see where you are", which is untrue for the one audience that acknowledges a notice (non-members); see the open questions.
+* No audio, no canvas, no proximity. The pad and the keys are the whole operation; there is no free movement, no animation of walking beyond the 100 ms slide.
+* An office holder only looks.
+
+[[stage-3-map-layer]]
+== Stage 3 wave 2 (V1.9.167): theatre hall and map layer
+
+Client only: no migration, no DTO, no RPC and nothing in `EncounterMapBroadcaster` changes. What changed is where the map and the tables stand.
+
+[source,kuml,name="encounter-map-overlay-states"]
+----
+stateDiagram(name = "Map layer (independent of being on the map)") {
+    val start = initialState()
+    val closed = state(name = "CLOSED (hidden attribute)")
+    val open = state(name = "OPEN (dialog, focus trapped)")
+
+    transition(source = start, target = closed) { trigger = "ensureMap: the viewer is a member" }
+    transition(source = closed, target = open) { trigger = "dock button or its twin in Mehr" }
+    transition(source = open, target = closed) { trigger = "Escape, close button, scrim, chat or Mehr opens" }
+}
+----
+
+* *Layer.* `EncounterMapOverlay` is `role="dialog"` with `aria-modal="true"`, named by its heading "Karte"; it is *hidden* (the `hidden` attribute plus a CSS guard) until it is asked for. The dock button "Karte öffnen" (`aria-haspopup="dialog"`, `aria-controls`, `aria-expanded`) opens it; when the bar is narrow the button moves into the "Mehr" sheet just before the chat and its twin does the same. The focus lands on the board, or on "Auf die Karte" when the viewer is not on the map.
+* *Keyboard.* Tab and Shift+Tab wrap inside the panel (a focus trap); the background is deliberately *not* inert, so the dock stays operable. Escape closes the layer wherever the focus is, unless the "Mehr" sheet is open (it closes first). On the map the first Escape inside the board moves to "Karte verlassen" and the layer stays; the next one closes it. The focus returns to the dock button, or to "Mehr" when the button sits in the sheet. Opening the chat, the side panel, the device picker or "Mehr" closes the layer (the panels never stand open together).
+* *Closing is never an action on the map.* Escape, the close button and the scrim only hide the layer; nobody leaves the map by closing it. The dot on the dock button (and the name "Karte öffnen, Sie sind auf der Karte") says that the viewer still stands there.
+* *Privacy.* A short line is always shown in the layer: "Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert." The longer notice of the room (untrusted operator text, rendered as text) sits behind a native `<details>` "Mehr" and only for somebody who can walk. A guest has neither the layer, nor the dock button, nor the twin: they are created in `buildMapButton`, which `ensureMap` calls after the guest guard (`ClientEncounterPrivacyTripwireTest` pins this; the layer file is part of the map files that may not touch storage, console, `innerHTML` or a name).
+* *Scrolling.* The layer's panel scrolls itself (ledger class E1 of `ScrollSurfaceTripwireTest`); the page behind does not.
+* *Known limitations.* Not looked at in a real browser or on a phone, as in wave 1: the geometry is checked in ChromeHeadless only, and the narrow-screen rules of the hall (media queries) are pinned by a stylesheet scan because a test cannot resize the window. The layer ends above the dock by a CSS formula; where the page scrolled so far that the dock rests above the window's bottom edge (page padding under the room), the last pixels of the dock can lie under the layer. The layer sits on layer 5, below the sticky dock and the sheet, but whether the app's own header and sidebar lie under the scrim (layer order) was not checked in a real browser.
 
 == Open questions (for the product owner and legal)
 
@@ -1190,3 +1291,5 @@ Ten files in `lapis-client/src/jsMain/webAssets/encounter-objects-v1` (own drawi
 . (V1.9.143) Whether members should also confirm the recording notice actively when they enter (as now: they are told, only non-members consent).
 . (V1.9.143) A retention period for recordings (as now: unlimited, nothing is deleted automatically).
 . (V1.9.143) Whether the physical presence of other people next to the pulpit should be named in the `REC_PULPIT` placeholder (as now: in the operator notice and the documentation only).
+. (V1.9.166) The map paragraph of the entry notice is true for members, but members acknowledge nothing; the people who do acknowledge a notice (guests and friends) never stand on the map in wave 1. Which text a guest should get ("As a guest you do not appear on the map and see no positions of others") and whether members need a stored acknowledgment of their own are open.
+. (V1.9.166) Whether the map should be switchable per person (hiding the own position) or whether switching it off per room is enough, and whether the statement "only in memory" suffices or a statement on retention in operations (logs, heap dumps) is needed.

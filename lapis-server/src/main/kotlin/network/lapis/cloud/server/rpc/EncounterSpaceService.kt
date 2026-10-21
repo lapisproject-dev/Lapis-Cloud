@@ -29,6 +29,7 @@ import network.lapis.cloud.server.encounter.EncounterConsentText
 import network.lapis.cloud.server.encounter.EncounterEntryNotifier
 import network.lapis.cloud.server.encounter.EncounterFloorEnforcer
 import network.lapis.cloud.server.encounter.EncounterFloorState
+import network.lapis.cloud.server.encounter.EncounterMapState
 import network.lapis.cloud.server.encounter.EncounterModerationState
 import network.lapis.cloud.server.encounter.EncounterRoles
 import network.lapis.cloud.server.encounter.EncounterSeatState
@@ -76,10 +77,15 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_MIN_SEATS
 import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_QUIET_MINUTES
 import network.lapis.cloud.shared.domain.EncounterConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.EncounterConsentInput
+import network.lapis.cloud.shared.domain.EncounterConsentLayout
 import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
 import network.lapis.cloud.shared.domain.EncounterFloorDto
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterMapAnchor
+import network.lapis.cloud.shared.domain.EncounterMapFacing
+import network.lapis.cloud.shared.domain.EncounterMapSelfDto
+import network.lapis.cloud.shared.domain.EncounterMapSnapshotDto
 import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
@@ -101,6 +107,8 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.allowedFor
 import network.lapis.cloud.shared.domain.defaultRoomLayout
+import network.lapis.cloud.shared.domain.encounterMapInitials
+import network.lapis.cloud.shared.domain.encounterMapWireInitials
 import network.lapis.cloud.shared.domain.encounterSeatCapacity
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -148,7 +156,7 @@ private const val ENCOUNTER_TABLE_PLENUM_BAN_SECONDS = 120
 private const val MAX_DESCRIPTION_LENGTH = 1000
 private const val MAX_NOTICE_LENGTH = 200
 private const val MAX_ROLE_ASSIGNMENTS = 20
-private const val MAX_REACTION_OPTIONS = 8
+private val MAX_REACTION_OPTIONS = EncounterReactionOption.entries.size
 private const val MAX_LIST_RESULTS = 200
 private const val MIN_SPACE_PARTICIPANTS = 2
 
@@ -209,6 +217,12 @@ class EncounterSpaceService(
     private val floorRateLimiter: FederationInboxRateLimiter,
     private val floorBurstRateLimiter: FederationInboxRateLimiter,
     private val floorStateRateLimiter: FederationInboxRateLimiter,
+    /** V1.9.166: the in-memory grid map -- positions exist nowhere else. */
+    private val mapState: EncounterMapState,
+    private val mapEnterRateLimiter: FederationInboxRateLimiter,
+    /** Outer flood brake of the steps (the real pace limit is the token bucket inside [EncounterMapState]). */
+    private val mapMoveRateLimiter: FederationInboxRateLimiter,
+    private val mapSnapshotRateLimiter: FederationInboxRateLimiter,
     private val config: ConferenceConfig = ConferenceConfig.load(),
 ) : IEncounterSpaceService {
     // ── Reads ─────────────────────────────────────────────────────────────
@@ -247,7 +261,8 @@ class EncounterSpaceService(
             val status = requireConferenceEligibleMembership(memberId = current.memberId)
             val row = loadVisibleSpace(spaceId = id, current = current, status = status)
             val recordingAllowed = row[EncounterSpaceTable.pulpitRecordingAllowed]
-            val consentText = encounterConsentFor(profile = profileOf(row), pulpitRecordingAllowed = recordingAllowed)
+            val mapOn = row[EncounterSpaceTable.mapEnabled]
+            val consentText = encounterConsentFor(profile = profileOf(row), pulpitRecordingAllowed = recordingAllowed, mapEnabled = mapOn)
             val consentRequired =
                 status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId, text = consentText)
             EncounterEntryInfoDto(
@@ -262,6 +277,8 @@ class EncounterSpaceService(
                     } else {
                         null
                     },
+                // V1.9.166: ... and when the room has a map (members read it, they acknowledge nothing: they have no proof row).
+                mapRoomNotice = if (mapOn) EncounterConsentLayout.mapParagraph(EncounterConsentLabels.kindOf(profileOf(row))) else null,
             )
         }
     }
@@ -306,6 +323,8 @@ class EncounterSpaceService(
             if (newRecordingAllowed && !PulpitRecordingSettingsStore.load().enabled) {
                 throw ConflictException("The pulpit recording is not enabled for this instance")
             }
+            val newMapEnabled = input.mapEnabled == true
+            requireMapFitsProfile(mapEnabled = newMapEnabled, profile = newProfile)
             EncounterSpaceTable.insert {
                 it[EncounterSpaceTable.id] = newId
                 it[EncounterSpaceTable.title] = valid.title
@@ -322,6 +341,7 @@ class EncounterSpaceService(
                 it[EncounterSpaceTable.mode] = EncounterSpaceMode.SERVICE.name
                 it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
                 it[EncounterSpaceTable.pulpitRecordingAllowed] = newRecordingAllowed
+                it[EncounterSpaceTable.mapEnabled] = newMapEnabled
                 it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
                 it[EncounterSpaceTable.closedNotice] = valid.closedNotice
                 it[EncounterSpaceTable.createdAt] = now
@@ -353,6 +373,7 @@ class EncounterSpaceService(
         val now = nowLocalDateTime()
         var notifyModeChanged = false
         var recordingSwitchedOff = false
+        var mapSwitchedOffRoomId: Uuid? = null
         val updated =
             transaction {
                 requireConfigAuthority(current)
@@ -404,6 +425,21 @@ class EncounterSpaceService(
                     }
                 }
                 recordingSwitchedOff = oldRecordingAllowed && !newRecordingAllowed
+                // V1.9.166: the map option, same pattern. ON only while the room is closed (it changes the entry notice people acknowledged); OFF is always
+                // allowed. A stored ON that no longer fits a new profile (an old cached admin client switches the profile and sends no flag) is reset,
+                // a flag that was SENT for a profile without a map is a BadRequest -- like the room template.
+                val oldMapEnabled = before[EncounterSpaceTable.mapEnabled]
+                var newMapEnabled = input.mapEnabled ?: oldMapEnabled
+                if (newMapEnabled && newProfile != EncounterProfile.ASSEMBLY) {
+                    requireMapFitsProfile(mapEnabled = input.mapEnabled == true, profile = newProfile)
+                    newMapEnabled = false
+                }
+                if (newMapEnabled && !oldMapEnabled && EncounterSessions.openSession(spaceId = id) != null) {
+                    throw ConflictException("The map option can only be switched on while the encounter space is closed")
+                }
+                if (oldMapEnabled && !newMapEnabled) {
+                    mapSwitchedOffRoomId = EncounterSessions.openSession(spaceId = id)?.get(ConferenceRoomTable.id)
+                }
                 // The notify mode may change while the room is open (it only affects who is told about FUTURE entries).
                 val oldNotifyMode = notifyModeOf(before)
                 val newNotifyMode = valid.notifyMode ?: oldNotifyMode
@@ -420,6 +456,7 @@ class EncounterSpaceService(
                     it[EncounterSpaceTable.tableSeats] = newTables.seats.toShort()
                     it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
                     it[EncounterSpaceTable.pulpitRecordingAllowed] = newRecordingAllowed
+                    it[EncounterSpaceTable.mapEnabled] = newMapEnabled
                     it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
                     it[EncounterSpaceTable.closedNotice] = valid.closedNotice
                     it[EncounterSpaceTable.updatedAt] = now
@@ -440,6 +477,8 @@ class EncounterSpaceService(
         if (notifyModeChanged) entryNotifier.clearSpace(id)
         // V1.9.143: switching the option off ends a recording that runs right now (after the commit, LiveKit is called outside a transaction).
         if (recordingSwitchedOff) pulpitRecording.stopSpace(spaceId = id, reason = PulpitStopReason.ROOM_OPTION_OFF)
+        // V1.9.166: switching the map off drops every position at once (after the commit; the viewers get a reset from the broadcaster).
+        mapSwitchedOffRoomId?.let { mapState.clear(it) }
         return updated
     }
 
@@ -548,6 +587,8 @@ class EncounterSpaceService(
         disconnectWithdrawnOfficeHolders(roomName = openRoomName, memberIds = withdrawn)
         // V1.9.80: an office holder never listens in at a table -- whoever was just given an office leaves theirs (the table rotates).
         openRoomId?.let { roomId -> applyRotations(tableState.leaveAll(sessionRoomId = roomId, memberIds = parsed.map { it.first })) }
+        // V1.9.166: ... and does not walk on the map of the congregation either (an office holder keeps watching it).
+        openRoomId?.let { roomId -> mapState.leaveAll(sessionRoomId = roomId, memberIds = parsed.map { it.first }) }
         // V1.9.138: ... and an office holder does not hold the temporary floor of the congregation either.
         openRoomId?.let { roomId ->
             parsed.forEach { (memberId, _) ->
@@ -716,6 +757,7 @@ class EncounterSpaceService(
             blessingState.clear(roomId)
             bellState.clear(roomId)
             seatState.clear(roomId)
+            mapState.clear(roomId)
             floorState.clear(roomId)
             EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = tableState.clear(roomId))
             entryNotifier.clearSession(roomId)
@@ -852,6 +894,8 @@ class EncounterSpaceService(
             }
         // V1.9.79: every entry starts without a seat (a reload / re-entry must not resurrect a seat of an earlier connection).
         seatState.release(sessionRoomId = prep.roomId, memberId = current.memberId)
+        // V1.9.166: ... and without a position on the map.
+        mapState.leave(sessionRoomId = prep.roomId, memberId = current.memberId, dropViewer = true)
         applyRotations(listOfNotNull(tableState.leave(sessionRoomId = prep.roomId, memberId = current.memberId)))
         // After the commit (Exposed may re-run the block on an SQLException, so the hook must not sit inside it). Only a NEW presence row
         // of a person without an office counts: a reconnect reuses its row, BOARD/ADMIN without an office are not "guests".
@@ -906,6 +950,8 @@ class EncounterSpaceService(
             }
         // V1.9.79: the seat goes with the person (in memory only, after the commit).
         sessionRooms.forEach { seatState.release(sessionRoomId = it, memberId = current.memberId) }
+        // V1.9.166: the position goes with the person as well (in memory only), and so does the registration for the map packets.
+        sessionRooms.forEach { mapState.leave(sessionRoomId = it, memberId = current.memberId, dropViewer = true) }
         // V1.9.80: so does the table seat (the table rotates, nobody keeps listening with an old token).
         applyRotations(sessionRooms.mapNotNull { tableState.leave(sessionRoomId = it, memberId = current.memberId) })
         // V1.9.138: a person who leaves does not keep the floor (the grant is in memory, the revoke is a LiveKit call outside any transaction).
@@ -960,6 +1006,8 @@ class EncounterSpaceService(
                     EncounterSeatState.Outcome.Taken -> throw ConflictException("Seat taken")
                     EncounterSeatState.Outcome.Full -> throw ServiceBusyException("Seat table full")
                 }
+                // V1.9.166: one place per person -- sitting down takes the person off the map (the state is "seated", "on the map" or neither).
+                if (seat != null) mapState.leave(sessionRoomId = roomId, memberId = current.memberId)
                 // V1.9.80: one place per person -- a bench seat frees a table seat.
                 val leftTable = if (seat != null) tableState.leave(sessionRoomId = roomId, memberId = current.memberId) else null
                 presentDtos(roomId = roomId, view = view, extraRotations = listOfNotNull(leftTable))
@@ -1352,6 +1400,7 @@ class EncounterSpaceService(
                     is EncounterTableState.JoinOutcome.Ok -> {
                         // One place per person: a table seat frees the bench seat.
                         seatState.release(sessionRoomId = roomId, memberId = current.memberId)
+                        mapState.leave(sessionRoomId = roomId, memberId = current.memberId)
                         TableJoin(
                             roomId = roomId,
                             status = status,
@@ -1623,7 +1672,7 @@ class EncounterSpaceService(
                 apiSecret = config.apiSecret,
                 roomName = assignment.room,
                 identity = memberId.toString(),
-                displayName = initialsOf(displayName),
+                displayName = encounterMapInitials(displayName),
                 ttl = TABLE_TOKEN_TTL_SECONDS.seconds,
                 canPublish = canPublish,
             )
@@ -1650,7 +1699,7 @@ class EncounterSpaceService(
                     serverUrl = config.livekitUrl,
                     token = minted.jwt,
                     identity = memberId.toString(),
-                    displayName = initialsOf(displayName),
+                    displayName = encounterMapInitials(displayName),
                     role = ConferenceRole.PARTICIPANT,
                     expiresAt = minted.expiresAt.toLocalDateTime(ServerClock.zone),
                     turnServers = minted.turnServers,
@@ -1683,16 +1732,160 @@ class EncounterSpaceService(
         }
     }
 
-    /** Initials of a display name ("Anna Maria Beispiel" becomes "AB"): the only name a table ever shows. */
-    private fun initialsOf(displayName: String): String {
-        val parts = displayName.split(' ', '-', '\t').filter { it.isNotBlank() }
-        val letters =
-            when {
-                parts.isEmpty() -> ""
-                parts.size == 1 -> parts.first().take(1)
-                else -> parts.first().take(1) + parts.last().take(1)
+    private fun requireMapFitsProfile(
+        mapEnabled: Boolean,
+        profile: EncounterProfile,
+    ) {
+        if (mapEnabled && profile != EncounterProfile.ASSEMBLY) {
+            throw BadRequestException("The map is only available in the assembly profile")
+        }
+    }
+
+    // ── Grid map (V1.9.166) ───────────────────────────────────────────────
+
+    override suspend fun mapEnter(spaceId: String): EncounterMapSelfDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        // Throttle FIRST, own exception type (see selectSeat).
+        requireSeatRate(limiter = mapEnterRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val gate = transaction { mapGateInTx(spaceId = id, current = current, walking = true) }
+        val outcome =
+            mapState.enter(
+                spaceId = id,
+                sessionRoomId = gate.roomId,
+                livekitRoom = gate.livekitRoomName,
+                layout = gate.layout,
+                memberId = current.memberId,
+                initials = encounterMapWireInitials(gate.displayName),
+            )
+        val entered = (outcome as? EncounterMapState.EnterOutcome.Ok) ?: throw ServiceBusyException("Map full")
+        // One place per person: a bench seat and a table seat make way. A throttled departure from a shared table changes NOTHING (the map entry
+        // is taken back), exactly like leaveTable.
+        val left = tableState.leaveSelf(sessionRoomId = gate.roomId, memberId = current.memberId, now = Clock.System.now())
+        if (left.throttled) {
+            mapState.leave(sessionRoomId = gate.roomId, memberId = current.memberId)
+            throw ServiceBusyException("Too many table changes -- please wait a moment")
+        }
+        seatState.release(sessionRoomId = gate.roomId, memberId = current.memberId)
+        applyRotations(listOfNotNull(left.rotation))
+        return entered.self
+    }
+
+    override suspend fun mapStep(
+        spaceId: String,
+        direction: EncounterMapFacing,
+    ): EncounterMapSelfDto {
+        val current = resolveCurrentMember(call)
+        requireSeatRate(limiter = mapMoveRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        // Memory only, deliberately no database access per step (25 people x 8 steps a second would be a DoS surface). The authority is the entry
+        // that mapEnter created after the full database check; it is removed by the hooks at once and re-checked by the reconciler.
+        return when (val moved = mapState.step(spaceId = id, memberId = current.memberId, dir = direction)) {
+            is EncounterMapState.MoveOutcome.Done -> moved.self
+            EncounterMapState.MoveOutcome.NotOnMap -> throw ForbiddenException()
+        }
+    }
+
+    override suspend fun mapTeleport(
+        spaceId: String,
+        anchor: EncounterMapAnchor,
+    ): EncounterMapSelfDto {
+        val current = resolveCurrentMember(call)
+        requireSeatRate(limiter = mapMoveRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        return when (val moved = mapState.teleport(spaceId = id, memberId = current.memberId, anchor = anchor)) {
+            is EncounterMapState.MoveOutcome.Done -> moved.self
+            EncounterMapState.MoveOutcome.NotOnMap -> throw ForbiddenException()
+        }
+    }
+
+    override suspend fun mapLeave(spaceId: String) {
+        val current = resolveCurrentMember(call)
+        requireSeatRate(limiter = leaveRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val rooms =
+            transaction {
+                if (mapMemberStatus(current) != MemberStatus.ACTIVE) throw ForbiddenException()
+                ConferenceRoomTable
+                    .selectAll()
+                    .where { ConferenceRoomTable.encounterSpaceId eq id }
+                    .map { it[ConferenceRoomTable.id] }
             }
-        return letters.uppercase().ifBlank { "?" }
+        rooms.forEach { mapState.leave(sessionRoomId = it, memberId = current.memberId) }
+    }
+
+    override suspend fun mapSnapshot(spaceId: String): EncounterMapSnapshotDto {
+        val current = resolveCurrentMember(call)
+        requireSeatRate(limiter = mapSnapshotRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        // Office holders may look (read only); they never walk.
+        val gate = transaction { mapGateInTx(spaceId = id, current = current, walking = false) }
+        val registered =
+            mapState.addViewer(
+                spaceId = id,
+                sessionRoomId = gate.roomId,
+                livekitRoom = gate.livekitRoomName,
+                layout = gate.layout,
+                memberId = current.memberId,
+            )
+        if (!registered) throw ServiceBusyException("Map viewers full")
+        return mapState.snapshot(sessionRoomId = gate.roomId, memberId = current.memberId)
+    }
+
+    /** What [mapGateInTx] derives: the open session the caller is present in. */
+    private class MapGate(
+        val roomId: Uuid,
+        val livekitRoomName: String,
+        val layout: EncounterRoomLayout,
+        val displayName: String,
+    )
+
+    /** The status of an ACTIVE-or-not caller; EVERY refusal (also an unverified friend) is the same bare [ForbiddenException]. */
+    private fun mapMemberStatus(current: CurrentMember): MemberStatus =
+        try {
+            requireConferenceEligibleMembership(memberId = current.memberId)
+        } catch (e: ForbiddenException) {
+            throw ForbiddenException()
+        }
+
+    /**
+     * The gate of the map RPCs that need the database ([mapEnter], [mapSnapshot]). **Every** refusal is the same bare [ForbiddenException]; the
+     * order is deliberate: (1) the caller's status -- a guest or friend is refused BEFORE the space is even looked up, so there is no
+     * existence oracle for them; (2) the space is visible; (3) assembly profile with the map on; (4) the session is open; (5) the caller is
+     * present; (6) for [walking]: no office; (7) for [walking]: not removed or silenced.
+     */
+    private fun mapGateInTx(
+        spaceId: Uuid,
+        current: CurrentMember,
+        walking: Boolean,
+    ): MapGate {
+        val status = mapMemberStatus(current)
+        if (status != MemberStatus.ACTIVE) throw ForbiddenException()
+        val space =
+            try {
+                loadVisibleSpace(spaceId = spaceId, current = current, status = status)
+            } catch (e: NotFoundException) {
+                throw ForbiddenException()
+            }
+        if (profileOf(space) != EncounterProfile.ASSEMBLY || !space[EncounterSpaceTable.mapEnabled]) throw ForbiddenException()
+        val session = EncounterSessions.openSession(spaceId = spaceId) ?: throw ForbiddenException()
+        val roomId = session[ConferenceRoomTable.id]
+        val view = presentViewInTx(roomId = roomId, spaceId = spaceId, currentId = current.memberId)
+        if (walking) {
+            if (view.roleOf(current.memberId) != EncounterPresenceRole.CONGREGATION) throw ForbiddenException()
+            if (moderationState.isBlocked(sessionRoomId = roomId, memberId = current.memberId) ||
+                moderationState.isSilenced(sessionRoomId = roomId, memberId = current.memberId)
+            ) {
+                throw ForbiddenException()
+            }
+        }
+        return MapGate(
+            roomId = roomId,
+            livekitRoomName = session[ConferenceRoomTable.livekitRoomName],
+            layout = roomLayoutOf(space),
+            displayName = view.displayNameOf(current.memberId),
+        )
     }
 
     // ── Internals ─────────────────────────────────────────────────────────
@@ -1790,7 +1983,11 @@ class EncounterSpaceService(
         // A non-member needs the current Art. 9 consent: either already on file, or submitted now (verbatim, never altered).
         var needsConsentRow = false
         val consentText =
-            encounterConsentFor(profile = profileOf(space), pulpitRecordingAllowed = space[EncounterSpaceTable.pulpitRecordingAllowed])
+            encounterConsentFor(
+                profile = profileOf(space),
+                pulpitRecordingAllowed = space[EncounterSpaceTable.pulpitRecordingAllowed],
+                mapEnabled = space[EncounterSpaceTable.mapEnabled],
+            )
         if (status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId, text = consentText)) {
             val submitted =
                 consent
@@ -1948,6 +2145,8 @@ class EncounterSpaceService(
         if (!silenceOnly) {
             seatState.release(sessionRoomId = roomId, memberId = targetId)
         }
+        // V1.9.166: both a removed and a silenced person leave the map; the removed one also stops receiving the map packets.
+        mapState.leave(sessionRoomId = roomId, memberId = targetId, dropViewer = !silenceOnly)
         // V1.9.80: the table seat goes in BOTH cases: a table is a live microphone channel, which silencing must close. The table
         // rotates so the person cannot keep talking/listening with a refreshed token.
         applyRotations(listOfNotNull(tableState.leave(sessionRoomId = roomId, memberId = targetId)))

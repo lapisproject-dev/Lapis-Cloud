@@ -22671,11 +22671,11 @@ msgstr "Мероприятие проходит только на месте."
 msgid "Sie geben einen eigenen Link an, zum Beispiel zu einer anderen Videokonferenz."
 msgstr "Вы указываете собственную ссылку, например на другую видеоконференцию."
 
-msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Lapis создаёт видеоконференцию, как только присоединяется первый человек. Доступ открывается за 15 минут до начала."
+msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Lapis создаёт видеоконференцию, как только присоединяется первый человек. Доступ открывается за 30 минут до начала."
 
-msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Участники входят в постоянную гостиную общины. Доступ открывается за 15 минут до начала."
+msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Участники входят в постоянную гостиную общины. Доступ открывается за 30 минут до начала."
 
 msgid "Vor Ort"
 msgstr "На месте"
@@ -25158,3 +25158,153 @@ msgstr "Гостями и приглашениями для мероприяти
 
 msgid "Zu viele Anfragen – bitte kurz warten."
 msgstr "Слишком много запросов – подождите немного."
+
+msgid "Lachen"
+msgstr "Смех"
+
+msgid "Staunen"
+msgstr "Удивление"
+
+msgid "Weinen"
+msgstr "Плач"
+
+msgid "Blume aus der Gemeinde"
+msgstr "Цветок от прихожан"
+
+msgid "Blume von den Teilnehmenden"
+msgstr "Цветок от участников"
+
+msgid "Lachen aus der Gemeinde"
+msgstr "Смех от прихожан"
+
+msgid "Lachen von den Teilnehmenden"
+msgstr "Смех от участников"
+
+msgid "Staunen aus der Gemeinde"
+msgstr "Удивление от прихожан"
+
+msgid "Staunen von den Teilnehmenden"
+msgstr "Удивление от участников"
+
+msgid "Frage aus der Gemeinde"
+msgstr "Вопрос от прихожан"
+
+msgid "Frage von den Teilnehmenden"
+msgstr "Вопрос от участников"
+
+msgid "Weinen aus der Gemeinde"
+msgstr "Плач от прихожан"
+
+msgid "Weinen von den Teilnehmenden"
+msgstr "Плач от участников"
+
+msgid "Karte"
+msgstr "Карта"
+
+msgid "Auf die Karte"
+msgstr "На карту"
+
+msgid "Karte verlassen"
+msgstr "Покинуть карту"
+
+msgid "Zum Eingang"
+msgstr "К входу"
+
+msgid "Zur Mitte"
+msgstr "К центру"
+
+msgid "Zum Podium"
+msgstr "К подиуму"
+
+msgid "Zur Kanzel"
+msgstr "К кафедре"
+
+msgid "Reihe %1, Spalte %2"
+msgstr "Ряд %1, столбец %2"
+
+msgid "Eine Person in Ihrer Nähe"
+msgstr "Один человек рядом с вами"
+
+msgid "%1 Personen in Ihrer Nähe"
+msgstr "Человек рядом с вами: %1"
+
+msgid "In Ihrer Nähe"
+msgstr "Рядом с вами"
+
+msgid "und %1 weitere"
+msgstr "и ещё %1"
+
+msgid "Weg blockiert"
+msgstr "Путь заблокирован"
+
+msgid "Die Karte ist voll oder Sie waren zu schnell."
+msgstr "Карта заполнена, или вы действовали слишком быстро."
+
+msgid "Einen Moment bitte, gleich können Sie wieder springen."
+msgstr "Минутку, скоро вы снова сможете перейти."
+
+msgid "Nur bei geschlossenem Raum einschaltbar"
+msgstr "Включается только при закрытой комнате"
+
+msgid "Karte (Positionen der Mitglieder)"
+msgstr "Карта (позиции участников)"
+
+msgid "Sie stehen nicht auf der Karte."
+msgstr "Вас нет на карте."
+
+msgid "Richtungstasten"
+msgstr "Клавиши направления"
+
+msgid "Nach links"
+msgstr "Влево"
+
+msgid "Nach rechts"
+msgstr "Вправо"
+
+msgid "Nur in der Raumart Versammlung. Mitglieder bewegen sich auf einer Karte; Gäste erscheinen nicht darauf."
+msgstr "Только для типа комнаты «Собрание». Участники перемещаются по карте; гости на ней не отображаются."
+
+msgid "Karte öffnen"
+msgstr "Открыть карту"
+
+msgid "Karte öffnen, Sie sind auf der Karte"
+msgstr "Открыть карту, вы находитесь на карте"
+
+msgid "Karte schließen"
+msgstr "Закрыть карту"
+
+msgid "Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert."
+msgstr "Вашу позицию видят только присутствующие участники. Ничего не сохраняется."
+
+msgid "Linke Loge"
+msgstr "Левая ложа"
+
+msgid "Rechte Loge"
+msgstr "Правая ложа"
+
+msgid "Ihr Browser zeigt die Geräte erst, wenn Sie den Zugriff erlauben. Mikrofon und Kamera bleiben dabei ausgeschaltet."
+msgstr "Браузер покажет устройства только после того, как вы разрешите доступ. Микрофон и камера при этом остаются выключенными."
+
+msgid "Zugriff auf Mikrofon und Kamera erlauben"
+msgstr "Разрешить доступ к микрофону и камере"
+
+msgid "Erst nach Freigabe verfügbar"
+msgstr "Доступно после разрешения"
+
+msgid "Zugriff erlaubt. Sie können Ihre Geräte jetzt auswählen."
+msgstr "Доступ разрешён. Теперь вы можете выбрать устройства."
+
+msgid "Nur das Mikrofon ist freigegeben."
+msgstr "Разрешён только микрофон."
+
+msgid "Nur die Kamera ist freigegeben."
+msgstr "Разрешена только камера."
+
+msgid "Der Browser hat den Zugriff blockiert. Erlauben Sie Mikrofon und Kamera über das Schloss-Symbol in der Adressleiste oder in den Website-Einstellungen Ihres Browsers und versuchen Sie es erneut."
+msgstr "Браузер заблокировал доступ. Разрешите микрофон и камеру через значок замка в адресной строке или в настройках сайта в браузере и повторите попытку."
+
+msgid "Es wurde weder ein Mikrofon noch eine Kamera gefunden."
+msgstr "Не найдено ни микрофона, ни камеры."
+
+msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
+msgstr "Не удалось открыть устройство. Возможно, его использует другое приложение."

@@ -146,7 +146,10 @@ private class EncounterVisit(
         when {
             info.space.archived -> panel.div(tr("Dieser Raum wurde archiviert."), className = "text-muted")
             !info.space.open -> renderClosed(panel, info.space)
-            else -> panel.encounterEntryPanel(info) { consent -> enter(info.space, consent, info.pulpitRecordingRoomNotice) }
+            else ->
+                panel.encounterEntryPanel(
+                    info,
+                ) { consent -> enter(info.space, consent, info.pulpitRecordingRoomNotice, info.mapRoomNotice) }
         }
     }
 
@@ -214,6 +217,7 @@ private class EncounterVisit(
         space: EncounterSpaceDto,
         consent: EncounterConsentInput?,
         recordingRoomNotice: String? = null,
+        mapRoomNotice: String? = null,
     ) {
         if (tornDown || entered) return
         // V1.9.70: one conference per tab -- a running video conference (or its end state) in the dock holds the seat; the encounter room
@@ -264,6 +268,7 @@ private class EncounterVisit(
                 onDoorsClosed = { exitRoom(message = termsFor(space.profile).eventEndedContent()) },
                 onConnectionLost = { cause -> onConnectionLost(space, cause) },
                 recordingRoomNotice = recordingRoomNotice,
+                mapRoomNotice = mapRoomNotice,
             )
         val newSession = opener(entry, newRoom.callbacks)
         newRoom.bind(newSession)
@@ -373,9 +378,12 @@ private class EncounterVisit(
 
     private suspend fun reenter(space: EncounterSpaceDto) {
         var notice: String? = null
+        var mapNotice: String? = null
         val refused =
             try {
-                notice = rpcService<IEncounterSpaceService>().getEntryInfo(space.id).pulpitRecordingRoomNotice
+                val info = rpcService<IEncounterSpaceService>().getEntryInfo(space.id)
+                notice = info.pulpitRecordingRoomNotice
+                mapNotice = info.mapRoomNotice
                 false
             } catch (e: CancellationException) {
                 throw e
@@ -390,7 +398,7 @@ private class EncounterVisit(
         }
         // No consent is sent: a guest who consented before is still on record; a missing consent comes back as a conflict and lands on
         // the entry panel (which asks again).
-        enter(space, consent = null, recordingRoomNotice = notice)
+        enter(space, consent = null, recordingRoomNotice = notice, mapRoomNotice = mapNotice)
         if (!entered && !tornDown) showEntryAgain(tr("Die Verbindung wurde unterbrochen."))
     }
 

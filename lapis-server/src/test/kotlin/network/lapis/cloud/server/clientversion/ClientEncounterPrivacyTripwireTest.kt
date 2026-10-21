@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import java.io.File
 
 /**
@@ -849,5 +850,150 @@ class ClientEncounterPrivacyTripwireTest :
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .toSet() shouldBe setOf("NAVE", "FOYER", "HALL", "SMALL_GROUP")
+        }
+
+        // ── Welle V1.9.166: the grid map in the browser ───────────────────
+
+        val mapFiles = {
+            encounterFiles().filter {
+                it.name == "EncounterMap.kt" || it.name == "EncounterMapView.kt" || it.name == "EncounterMapOverlay.kt"
+            }
+        }
+
+        test("V1.9.166: the map files exist, and they use no canvas, no storage, no console, no title and no innerHTML") {
+            mapFiles().map { it.name }.toSet() shouldBe setOf("EncounterMap.kt", "EncounterMapView.kt", "EncounterMapOverlay.kt")
+            val forbidden =
+                Regex(
+                    """\bcanvas\b|\bgetContext\b|\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b|\bcookie\b|\bconsole\s*\.|\.message\b|\binnerHTML\b|\btitle\s*=|\bsendBeacon\b|\bfetch\b""",
+                )
+            mapFiles().forEach { file ->
+                val code = codeLines(file).filterNot { it.trimStart().startsWith("import ") }
+                withClue(
+                    "${file.name}: ${code.filter { forbidden.containsMatchIn(it) }}",
+                ) { code.filter { forbidden.containsMatchIn(it) }.shouldBeEmpty() }
+            }
+        }
+
+        test("V1.9.166: the only data attribute of the map is the tile index; no name reaches an aria-label, a title or an attribute") {
+            val dataAttributes = Regex("""["']data-[a-z-]+["']""")
+            mapFiles().forEach { file ->
+                val used =
+                    codeLines(file)
+                        .flatMap { line ->
+                            dataAttributes.findAll(line).map { it.value.trim('"', '\'') }.toList()
+                        }.toSet()
+                withClue("${file.name} data attributes: $used") { (used - "data-cell").shouldBeEmpty() }
+            }
+            // V1.9.167: the layer's own close button is checked like the view's controls
+            val view =
+                codeLines(mapFiles().first { it.name == "EncounterMapView.kt" }) +
+                    codeLines(mapFiles().first { it.name == "EncounterMapOverlay.kt" })
+            // every setAttribute that takes a value names no person: its value is a fixed literal, a gettext sentence, an id constant or the tile index
+            view
+                .filter {
+                    it.contains("setAttribute(") &&
+                        Regex("""setAttribute\("(?:aria-label|title|aria-description|alt)",""").containsMatchIn(it)
+                }.forEach { line ->
+                    withClue(line) { Regex("""gettext\(|\blabel\b|"true"|"[A-Za-z -]+"\)""").containsMatchIn(line) shouldBe true }
+                    line.contains("name") shouldBe false
+                    line.contains("initials") shouldBe false
+                }
+        }
+
+        test("V1.9.166: names appear only through the sanitising helper (the vicinity list), the figures through untrustedContent") {
+            val view = codeLines(mapFiles().first { it.name == "EncounterMapView.kt" })
+            view.count { it.contains("untrustedContent(") } shouldBe 3
+            view.none { Regex("""\.content\s*=\s*(?:person|name|model\.near)""").containsMatchIn(it) } shouldBe true
+        }
+
+        test("V1.9.166: the map code names no pulpit word and does not branch on the profile (only the vocabulary does)") {
+            mapFiles().forEach { file ->
+                val code = codeLines(file)
+                code.none { Regex("""\bEncounterProfile\b|\.profile\b""").containsMatchIn(it) } shouldBe true
+            }
+        }
+
+        test("V1.9.166: the map packet branch of the live session accepts only a server packet and the topic is its own") {
+            val code = LIVEKIT_SESSION.readText()
+            val branch =
+                code.substring(
+                    code.indexOf("if (p3 == ENCOUNTER_MAP_TOPIC)"),
+                    code.indexOf("if (p3 == ENCOUNTER_RECORDING_TOPIC)"),
+                )
+            branch shouldContain "fromParticipant || payload.length !in 1..ENCOUNTER_MAP_MAX_PAYLOAD_BYTES"
+            branch shouldContain "encounterMapPacket(fromParticipant = false"
+            // the branch sits BEFORE the participant check
+            (
+                code.indexOf("if (p3 == ENCOUNTER_MAP_TOPIC)") <
+                    code.indexOf("val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned")
+            ) shouldBe
+                true
+        }
+
+        test(
+            "V1.9.166: a guest never gets a map controller and the map is built only after the presence list says the viewer is no guest",
+        ) {
+            val room = codeLines(encounterFiles().first { it.name == "EncounterRoom.kt" })
+            val text = room.joinToString("\n")
+            val ensure = text.substring(text.indexOf("private fun ensureMap()"), text.indexOf("private fun ensureMap()") + 900)
+            ensure shouldContain "if (me.isGuest) return"
+            ensure shouldContain "!space.mapEnabled"
+        }
+
+        // ── Welle V1.9.167: the map layer and the dock button ─────────────
+
+        val roomText = { codeLines(encounterFiles().first { it.name == "EncounterRoom.kt" }).joinToString("\n") }
+        val bodyOf = { text: String, header: String ->
+            val start = text.indexOf(header)
+            check(start >= 0) { "no $header" }
+            text.substring(start, text.indexOf("\n    }\n", start))
+        }
+
+        test(
+            "V1.9.167: the map button and its twin exist only inside buildMapButton, which is called once, from ensureMap, after the guest guard",
+        ) {
+            val text = roomText()
+            val build = bodyOf(text, "private fun buildMapButton()")
+            val ensure = bodyOf(text, "private fun ensureMap()")
+            listOf("ActionIcon.MAP_OPEN", "EncounterControlSlot.Map").forEach { token ->
+                val everywhere = Regex(Regex.escape(token)).findAll(text).count()
+                withClue(token) { everywhere shouldBe Regex(Regex.escape(token)).findAll(build).count() }
+                (build.contains(token)) shouldBe true
+            }
+            Regex("""\bbuildMapButton\(\)""").findAll(text).count() shouldBe 2 // the declaration and one call
+            val guard = ensure.indexOf("if (me.isGuest) return")
+            val call = ensure.indexOf("buildMapButton()")
+            (guard in 0 until call) shouldBe true
+            (guard < ensure.indexOf("EncounterMapOverlay(")) shouldBe true
+        }
+
+        test("V1.9.167: the map layer is built only inside ensureMap and the room's slot order lists the map only for a room with a map") {
+            val text = roomText()
+            val ensure = bodyOf(text, "private fun ensureMap()")
+            Regex("""EncounterMapOverlay\(""").findAll(text).count() shouldBe 1
+            ensure shouldContain "EncounterMapOverlay("
+            text shouldContain "map = space.mapEnabled"
+        }
+
+        test("V1.9.167: the map layer stores nothing in the browser, opens no channel and writes no name") {
+            val file = encounterFiles().first { it.name == "EncounterMapOverlay.kt" }
+            val code = codeLines(file).filterNot { it.trimStart().startsWith("import ") }
+            code
+                .filter {
+                    STORAGE.containsMatchIn(
+                        it,
+                    ) ||
+                        CONSOLE.containsMatchIn(it) ||
+                        NO_LEAK_CHANNELS.containsMatchIn(it)
+                }.shouldBeEmpty()
+            code.filter { EXCEPTION_MESSAGE.containsMatchIn(it) || INNER_HTML.containsMatchIn(it) }.shouldBeEmpty()
+            code
+                .filter {
+                    Regex(
+                        """\b(?:memberId|identity|displayName|initials|EncounterPresentDto|isGuest)\b""",
+                    ).containsMatchIn(it)
+                }.shouldBeEmpty()
+            // the notice of the room stays untrusted text
+            code.count { it.contains("untrustedDiv(") } shouldBe 1
         }
     })

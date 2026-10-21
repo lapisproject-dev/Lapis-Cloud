@@ -107,6 +107,12 @@ classDiagram(name = "EncounterSpace") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "pulpit_recording_allowed" }
         }
+        // Welle V1.9.166 (V111). Whether the room has a grid map (NOT NULL, FALSE = off). Assembly profile only (CHECK in the SQL). Describes the ROOM;
+        // positions are never stored. Switched ON only while the room is closed (the entry notice of non-members differs by this option).
+        attribute(name = "mapEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "map_enabled" }
+        }
         // NULL = use the conference default; the service clamps to ConferenceConfig.maxParticipants.
         attribute(name = "maxParticipants", type = "Int") {
             multiplicity = Multiplicity(0, 1)
@@ -164,7 +170,7 @@ classDiagram(name = "EncounterSpace") {
         }
         attribute(name = "consentVersion", type = "String") {
             stereotype("Id")
-            stereotype("Column") { "columnName" to "consent_version"; "sqlType" to "VARCHAR(50)" }
+            stereotype("Column") { "columnName" to "consent_version"; "sqlType" to "VARCHAR(58)" }
         }
         attribute(name = "consentSha256", type = "String") {
             stereotype("Column") { "columnName" to "consent_sha256"; "sqlType" to "VARCHAR(64)" }

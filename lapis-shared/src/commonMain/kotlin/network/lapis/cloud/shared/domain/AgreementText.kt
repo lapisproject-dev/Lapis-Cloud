@@ -62,6 +62,18 @@ object EncounterConsentLayout {
     const val RECORDING_SUFFIX: String = "+rec"
     const val ENC_LABEL_MAX: Int = AgreementTextRules.VERSION_LABEL_MAX - RECORDING_SUFFIX.length
 
+    /** V1.9.166: "+map" is reserved for the system as well (the label regex forbids "+"); it follows "+rec" if both options are on ("+rec+map"). */
+    const val MAP_SUFFIX: String = "+map"
+
+    /** Longest system suffix: "+rec+map". */
+    const val ENC_SYSTEM_SUFFIX_MAX: Int = 8
+
+    /**
+     * Longest label an acknowledgment can carry: an ENC label plus every system suffix = 54 characters. `encounter_consent_acknowledgment
+     * .consent_version` is `VARCHAR(58)` since V111; [ENC_LABEL_MAX] stays 46 so that every label published earlier stays valid.
+     */
+    const val ENC_ACK_LABEL_MAX: Int = ENC_LABEL_MAX + ENC_SYSTEM_SUFFIX_MAX
+
     /** The sentence the placeholder holds that is false in a room whose pulpit may be recorded; removed (with its leading space) there. */
     const val NO_RECORDING_SENTENCE: String = "Es wird nichts aufgezeichnet."
 
@@ -69,6 +81,20 @@ object EncounterConsentLayout {
         "In diesem Raum kann die Kanzel aufgezeichnet werden. Ihr eigenes Bild und Ihr Ton werden nie aufgezeichnet."
     private const val ASSEMBLY_RECORDING: String =
         "In diesem Raum kann das Podium aufgezeichnet werden. Ihr eigenes Bild und Ihr Ton werden nie aufgezeichnet."
+
+    /**
+     * V1.9.166: the paragraph about the grid map, owned by the code like the recording paragraph (never by an admin). **DRAFT: the wording comes from
+     * the vault draft "Entwurf Eintrittshinweis Stufe 3" and has NOT been reviewed by a lawyer.** Known open point (report Q1): non-members
+     * (the only people who acknowledge a notice) never stand on the map in wave 1, so the second sentence is untrue for the one audience that
+     * confirms it; swapping the wording touches this constant and its pin test only.
+     */
+    private const val ASSEMBLY_MAP_PARAGRAPH_DRAFT: String =
+        "Karte und Position. In diesem Raum gibt es eine Karte. Andere Anwesende sehen darauf, wo Sie " +
+            "sich befinden und in welche Richtung Sie gehen, dazu Ihren Namen und Ihre Initialen. Ihre " +
+            "Position wird nur im Arbeitsspeicher des Servers gehalten, nicht in der Datenbank, nicht in " +
+            "Protokollen und nicht in Exporten. Sie verschwindet, wenn Sie den Raum verlassen, wenn die " +
+            "Veranstaltung endet oder wenn der Server neu startet. Es gibt keinen Verlauf Ihrer Wege und " +
+            "keine Liste, wer wann wo war."
 
     private val PARAGRAPH_SEPARATOR = Regex("\n[ \t]*\n+")
 
@@ -85,6 +111,16 @@ object EncounterConsentLayout {
         when (kind) {
             AgreementTextKind.ENC_ASSEM -> ASSEMBLY_RECORDING
             else -> CHURCH_RECORDING
+        }
+
+    /**
+     * The map paragraph of [kind]. Only the assembly profile has a map; every other kind is an [IllegalArgumentException] (fail closed: a
+     * church service must never be handed a map text by mistake).
+     */
+    fun mapParagraph(kind: AgreementTextKind): String =
+        when (kind) {
+            AgreementTextKind.ENC_ASSEM -> ASSEMBLY_MAP_PARAGRAPH_DRAFT
+            else -> throw IllegalArgumentException("only the assembly profile has a map")
         }
 
     /** Paragraphs = split of the NORMALIZED [body] at blank lines (blank paragraphs dropped, each trimmed). */
@@ -105,10 +141,16 @@ object EncounterConsentLayout {
     fun splitOrNull(
         body: String,
         extraKeyPoint: String? = null,
+    ): Split? = splitOrNull(body = body, extraKeyPoints = listOfNotNull(extraKeyPoint))
+
+    /** V1.9.166: like [splitOrNull] with several code-owned paragraphs appended in the given order (recording, then map). */
+    fun splitOrNull(
+        body: String,
+        extraKeyPoints: List<String>,
     ): Split? {
         if (violation(label = "", body = body) != null) return null
         val paragraphs = paragraphs(body)
-        val keyPoints = paragraphs.subList(1, MIN_PARAGRAPHS) + listOfNotNull(extraKeyPoint)
+        val keyPoints = paragraphs.subList(1, MIN_PARAGRAPHS) + extraKeyPoints
         return Split(headline = paragraphs[0], keyPoints = keyPoints, text = body)
     }
 

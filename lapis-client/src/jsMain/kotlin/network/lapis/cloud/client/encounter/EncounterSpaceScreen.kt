@@ -298,6 +298,23 @@ internal fun renderEncounterSpaceForm(
             className = "text-muted small",
         )
     }
+    // V1.9.166 (stage 3): the grid map -- the assembly profile only, OFF by default. It can only be switched ON while the room is closed (the entry
+    // notice people acknowledged depends on it); switching it OFF is always allowed, so an open room that has it can still switch it off.
+    val mapNow = existing?.mapEnabled == true
+    val mapAllowed = existing?.profile == EncounterProfile.ASSEMBLY
+    val mapCheck =
+        form.checkField(
+            label = tr("Karte (Positionen der Mitglieder)"),
+            value = mapNow && mapAllowed,
+            hint = gettext("Nur in der Raumart Versammlung. Mitglieder bewegen sich auf einer Karte; Gäste erscheinen nicht darauf."),
+            init = { box -> box.disabled = !mapAllowed || (locked && !mapNow) },
+        )
+    if (locked && !mapNow) {
+        form.panel.div(
+            tr("Nur bei geschlossenem Raum einschaltbar"),
+            className = "text-muted small",
+        )
+    }
     // KVision calls the observer at once with the current value: only a real change of the kind may reset the reactions, otherwise opening
     // a closed room with a non-default reaction set would silently replace it by the defaults.
     var lastProfile = existing?.profile?.name
@@ -327,6 +344,14 @@ internal fun renderEncounterSpaceForm(
             (tableSeatsField.control as? Text)?.value = preset.second.toString()
             layoutChoice.say(layoutTablesNotice(count = preset.first, seats = preset.second))
         }
+    }
+    profileRadio.subscribe { chosen ->
+        val box = mapCheck.control as? CheckBox ?: return@subscribe
+        if (locked && !mapNow) return@subscribe
+        val assembly = chosen == EncounterProfile.ASSEMBLY.name
+        // The map belongs to the assembly profile: any other kind switches it off and greys it out.
+        if (!assembly) box.value = false
+        box.disabled = !assembly
     }
     profileRadio.subscribe { chosen ->
         val box = tablesCheck.control as? CheckBox ?: return@subscribe
@@ -448,6 +473,8 @@ internal fun renderEncounterSpaceForm(
                     roomLayout = layoutChoice.selected,
                     // `null` = unchanged: a locked box (setting unknown, not offered, room open) never overwrites the stored option.
                     pulpitRecordingAllowed = if (recordingUnlocked) recordingCheck.value == "true" else null,
+                    // `null` = unchanged: a locked box (profile without a map, room open and the option off) never overwrites the stored option.
+                    mapEnabled = if ((mapCheck.control as? CheckBox)?.disabled == true) null else mapCheck.value == "true",
                     tables =
                         EncounterTablesConfig(
                             enabled = tablesCheck.value == "true" && profileField.value == EncounterProfile.ASSEMBLY.name,

@@ -22676,11 +22676,11 @@ msgstr "Het evenement vindt alleen ter plaatse plaats."
 msgid "Sie geben einen eigenen Link an, zum Beispiel zu einer anderen Videokonferenz."
 msgstr "U geeft een eigen link op, bijvoorbeeld naar een andere videoconferentie."
 
-msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Lapis maakt de videoconferentie aan zodra de eerste persoon deelneemt. De toegang gaat 15 minuten voor het begin open."
+msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Lapis maakt de videoconferentie aan zodra de eerste persoon deelneemt. De toegang gaat 30 minuten voor het begin open."
 
-msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "De deelnemers treden binnen in een permanente ontmoetingsruimte. De toegang gaat 15 minuten voor het begin open."
+msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "De deelnemers treden binnen in een permanente ontmoetingsruimte. De toegang gaat 30 minuten voor het begin open."
 
 msgid "Vor Ort"
 msgstr "Ter plaatse"
@@ -25161,3 +25161,153 @@ msgstr "Gasten en uitnodigingen beheert u bij evenementen op de evenementpagina.
 
 msgid "Zu viele Anfragen – bitte kurz warten."
 msgstr "Te veel verzoeken – wacht even."
+
+msgid "Lachen"
+msgstr "Lach"
+
+msgid "Staunen"
+msgstr "Verbazing"
+
+msgid "Weinen"
+msgstr "Huilen"
+
+msgid "Blume aus der Gemeinde"
+msgstr "Bloem van de gemeente"
+
+msgid "Blume von den Teilnehmenden"
+msgstr "Bloem van de deelnemers"
+
+msgid "Lachen aus der Gemeinde"
+msgstr "Lach van de gemeente"
+
+msgid "Lachen von den Teilnehmenden"
+msgstr "Lach van de deelnemers"
+
+msgid "Staunen aus der Gemeinde"
+msgstr "Verbazing van de gemeente"
+
+msgid "Staunen von den Teilnehmenden"
+msgstr "Verbazing van de deelnemers"
+
+msgid "Frage aus der Gemeinde"
+msgstr "Vraag van de gemeente"
+
+msgid "Frage von den Teilnehmenden"
+msgstr "Vraag van de deelnemers"
+
+msgid "Weinen aus der Gemeinde"
+msgstr "Huilen van de gemeente"
+
+msgid "Weinen von den Teilnehmenden"
+msgstr "Huilen van de deelnemers"
+
+msgid "Karte"
+msgstr "Kaart"
+
+msgid "Auf die Karte"
+msgstr "Naar de kaart"
+
+msgid "Karte verlassen"
+msgstr "Kaart verlaten"
+
+msgid "Zum Eingang"
+msgstr "Naar de ingang"
+
+msgid "Zur Mitte"
+msgstr "Naar het midden"
+
+msgid "Zum Podium"
+msgstr "Naar het podium"
+
+msgid "Zur Kanzel"
+msgstr "Naar de kansel"
+
+msgid "Reihe %1, Spalte %2"
+msgstr "Rij %1, kolom %2"
+
+msgid "Eine Person in Ihrer Nähe"
+msgstr "Eén persoon bij u in de buurt"
+
+msgid "%1 Personen in Ihrer Nähe"
+msgstr "%1 personen bij u in de buurt"
+
+msgid "In Ihrer Nähe"
+msgstr "Bij u in de buurt"
+
+msgid "und %1 weitere"
+msgstr "en %1 meer"
+
+msgid "Weg blockiert"
+msgstr "Weg geblokkeerd"
+
+msgid "Die Karte ist voll oder Sie waren zu schnell."
+msgstr "De kaart is vol of u was te snel."
+
+msgid "Einen Moment bitte, gleich können Sie wieder springen."
+msgstr "Een ogenblik, u kunt zo weer springen."
+
+msgid "Nur bei geschlossenem Raum einschaltbar"
+msgstr "Alleen in te schakelen bij een gesloten ruimte"
+
+msgid "Karte (Positionen der Mitglieder)"
+msgstr "Kaart (posities van de leden)"
+
+msgid "Sie stehen nicht auf der Karte."
+msgstr "U staat niet op de kaart."
+
+msgid "Richtungstasten"
+msgstr "Richtingstoetsen"
+
+msgid "Nach links"
+msgstr "Naar links"
+
+msgid "Nach rechts"
+msgstr "Naar rechts"
+
+msgid "Nur in der Raumart Versammlung. Mitglieder bewegen sich auf einer Karte; Gäste erscheinen nicht darauf."
+msgstr "Alleen voor het soort ruimte Vergadering. Leden bewegen zich over een kaart; gasten verschijnen er niet op."
+
+msgid "Karte öffnen"
+msgstr "Kaart openen"
+
+msgid "Karte öffnen, Sie sind auf der Karte"
+msgstr "Kaart openen, u staat op de kaart"
+
+msgid "Karte schließen"
+msgstr "Kaart sluiten"
+
+msgid "Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert."
+msgstr "Alleen aanwezige leden zien uw positie. Er wordt niets opgeslagen."
+
+msgid "Linke Loge"
+msgstr "Linkerloge"
+
+msgid "Rechte Loge"
+msgstr "Rechterloge"
+
+msgid "Ihr Browser zeigt die Geräte erst, wenn Sie den Zugriff erlauben. Mikrofon und Kamera bleiben dabei ausgeschaltet."
+msgstr "Uw browser toont de apparaten pas nadat u toegang toestaat. Microfoon en camera blijven uitgeschakeld."
+
+msgid "Zugriff auf Mikrofon und Kamera erlauben"
+msgstr "Toegang tot microfoon en camera toestaan"
+
+msgid "Erst nach Freigabe verfügbar"
+msgstr "Beschikbaar na toestemming"
+
+msgid "Zugriff erlaubt. Sie können Ihre Geräte jetzt auswählen."
+msgstr "Toegang toegestaan. U kunt nu uw apparaten kiezen."
+
+msgid "Nur das Mikrofon ist freigegeben."
+msgstr "Alleen de microfoon is toegestaan."
+
+msgid "Nur die Kamera ist freigegeben."
+msgstr "Alleen de camera is toegestaan."
+
+msgid "Der Browser hat den Zugriff blockiert. Erlauben Sie Mikrofon und Kamera über das Schloss-Symbol in der Adressleiste oder in den Website-Einstellungen Ihres Browsers und versuchen Sie es erneut."
+msgstr "De browser heeft de toegang geblokkeerd. Sta microfoon en camera toe via het slotpictogram in de adresbalk of in de site-instellingen van uw browser en probeer het opnieuw."
+
+msgid "Es wurde weder ein Mikrofon noch eine Kamera gefunden."
+msgstr "Er is geen microfoon en geen camera gevonden."
+
+msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
+msgstr "Een apparaat kon niet worden geopend. Mogelijk wordt het door een andere toepassing gebruikt."

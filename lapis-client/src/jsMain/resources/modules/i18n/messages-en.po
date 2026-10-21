@@ -22628,11 +22628,11 @@ msgstr "The event takes place on site only."
 msgid "Sie geben einen eigenen Link an, zum Beispiel zu einer anderen Videokonferenz."
 msgstr "You provide your own link, for example to another video conference."
 
-msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Lapis creates the video conference as soon as the first person joins. Access opens 15 minutes before the start."
+msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Lapis creates the video conference as soon as the first person joins. Access opens 30 minutes before the start."
 
-msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Participants enter a permanent gathering room. Access opens 15 minutes before the start."
+msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Participants enter a permanent gathering room. Access opens 30 minutes before the start."
 
 msgid "Vor Ort"
 msgstr "On site"
@@ -25113,3 +25113,153 @@ msgstr "For events, you manage guests and invitations on the event page."
 
 msgid "Zu viele Anfragen – bitte kurz warten."
 msgstr "Too many requests – please wait a moment."
+
+msgid "Lachen"
+msgstr "Laughter"
+
+msgid "Staunen"
+msgstr "Amazement"
+
+msgid "Weinen"
+msgstr "Crying"
+
+msgid "Blume aus der Gemeinde"
+msgstr "Flower from the congregation"
+
+msgid "Blume von den Teilnehmenden"
+msgstr "Flower from the participants"
+
+msgid "Lachen aus der Gemeinde"
+msgstr "Laughter from the congregation"
+
+msgid "Lachen von den Teilnehmenden"
+msgstr "Laughter from the participants"
+
+msgid "Staunen aus der Gemeinde"
+msgstr "Amazement from the congregation"
+
+msgid "Staunen von den Teilnehmenden"
+msgstr "Amazement from the participants"
+
+msgid "Frage aus der Gemeinde"
+msgstr "Question from the congregation"
+
+msgid "Frage von den Teilnehmenden"
+msgstr "Question from the participants"
+
+msgid "Weinen aus der Gemeinde"
+msgstr "Crying from the congregation"
+
+msgid "Weinen von den Teilnehmenden"
+msgstr "Crying from the participants"
+
+msgid "Karte"
+msgstr "Map"
+
+msgid "Auf die Karte"
+msgstr "Onto the map"
+
+msgid "Karte verlassen"
+msgstr "Leave the map"
+
+msgid "Zum Eingang"
+msgstr "To the entrance"
+
+msgid "Zur Mitte"
+msgstr "To the centre"
+
+msgid "Zum Podium"
+msgstr "To the podium"
+
+msgid "Zur Kanzel"
+msgstr "To the pulpit"
+
+msgid "Reihe %1, Spalte %2"
+msgstr "Row %1, column %2"
+
+msgid "Eine Person in Ihrer Nähe"
+msgstr "One person near you"
+
+msgid "%1 Personen in Ihrer Nähe"
+msgstr "%1 people near you"
+
+msgid "In Ihrer Nähe"
+msgstr "Near you"
+
+msgid "und %1 weitere"
+msgstr "and %1 more"
+
+msgid "Weg blockiert"
+msgstr "Path blocked"
+
+msgid "Die Karte ist voll oder Sie waren zu schnell."
+msgstr "The map is full or you were too fast."
+
+msgid "Einen Moment bitte, gleich können Sie wieder springen."
+msgstr "One moment please, you can jump again shortly."
+
+msgid "Nur bei geschlossenem Raum einschaltbar"
+msgstr "Can only be switched on while the room is closed"
+
+msgid "Karte (Positionen der Mitglieder)"
+msgstr "Map (positions of the members)"
+
+msgid "Sie stehen nicht auf der Karte."
+msgstr "You are not on the map."
+
+msgid "Richtungstasten"
+msgstr "Direction keys"
+
+msgid "Nach links"
+msgstr "Move left"
+
+msgid "Nach rechts"
+msgstr "Move right"
+
+msgid "Nur in der Raumart Versammlung. Mitglieder bewegen sich auf einer Karte; Gäste erscheinen nicht darauf."
+msgstr "Only for the room type Assembly. Members move around on a map; guests do not appear on it."
+
+msgid "Karte öffnen"
+msgstr "Open the map"
+
+msgid "Karte öffnen, Sie sind auf der Karte"
+msgstr "Open the map, you are on the map"
+
+msgid "Karte schließen"
+msgstr "Close the map"
+
+msgid "Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert."
+msgstr "Only members who are present can see your position. Nothing is stored."
+
+msgid "Linke Loge"
+msgstr "Left box"
+
+msgid "Rechte Loge"
+msgstr "Right box"
+
+msgid "Ihr Browser zeigt die Geräte erst, wenn Sie den Zugriff erlauben. Mikrofon und Kamera bleiben dabei ausgeschaltet."
+msgstr "Your browser only lists your devices once you allow access. Microphone and camera stay switched off."
+
+msgid "Zugriff auf Mikrofon und Kamera erlauben"
+msgstr "Allow access to microphone and camera"
+
+msgid "Erst nach Freigabe verfügbar"
+msgstr "Available after access is allowed"
+
+msgid "Zugriff erlaubt. Sie können Ihre Geräte jetzt auswählen."
+msgstr "Access allowed. You can now choose your devices."
+
+msgid "Nur das Mikrofon ist freigegeben."
+msgstr "Only the microphone is allowed."
+
+msgid "Nur die Kamera ist freigegeben."
+msgstr "Only the camera is allowed."
+
+msgid "Der Browser hat den Zugriff blockiert. Erlauben Sie Mikrofon und Kamera über das Schloss-Symbol in der Adressleiste oder in den Website-Einstellungen Ihres Browsers und versuchen Sie es erneut."
+msgstr "The browser has blocked access. Allow microphone and camera via the lock icon in the address bar or in your browser's site settings, then try again."
+
+msgid "Es wurde weder ein Mikrofon noch eine Kamera gefunden."
+msgstr "Neither a microphone nor a camera was found."
+
+msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
+msgstr "A device could not be opened. It may be in use by another application."

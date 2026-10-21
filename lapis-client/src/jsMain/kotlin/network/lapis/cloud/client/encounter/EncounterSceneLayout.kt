@@ -12,6 +12,7 @@ import io.kvision.html.Tag
 import io.kvision.html.div
 import io.kvision.html.icon
 import io.kvision.html.tag
+import io.kvision.i18n.gettext
 import kotlinx.browser.document
 import kotlinx.browser.window
 import network.lapis.cloud.client.ActionIcon
@@ -50,8 +51,19 @@ internal class EncounterSceneLayout(
     parent: Container,
     private val terms: EncounterTerms,
     private val roomLayout: EncounterRoomLayout,
+    /**
+     * V1.9.167: the theatre hall -- `true` only for the HALL template of a room with tables (`space.tables.enabled`, constant for the life of the room, so it is
+     * decided at construction and the seat plan is never rebuilt). The tables then stand in the parterre and the two blocks of every row of seats in
+     * the left and right loge; every other template builds the plain pews as before.
+     */
+    private val theatre: Boolean = false,
 ) {
-    val root: Div = parent.div(className = "lapis-encounter lapis-encounter--layout-${layoutCssKey(roomLayout)}")
+    val root: Div =
+        parent.div(
+            className =
+                "lapis-encounter lapis-encounter--layout-${layoutCssKey(roomLayout)}" +
+                    if (theatre) " lapis-encounter--theatre" else "",
+        )
 
     private val stage: Div = root.div(className = "lapis-encounter-stage")
 
@@ -71,14 +83,27 @@ internal class EncounterSceneLayout(
     private val pulpitEmpty: Div = pulpit.div(terms.emptyStageContent(), className = "lapis-encounter-pulpit-empty")
     private val stewards: Div = stage.div(className = "lapis-encounter-stewards")
 
-    /** V1.9.80: the home of the tables (between the pulpit and the pews); hidden unless the room has tables. */
-    val tablesHost: Div = stage.div(className = "lapis-encounter-tables-host")
+    /** V1.9.167: the theatre hall (HALL with tables only): the parterre with the tables in the middle, a loge with half of every row on each side. */
+    private val hall: Div? = if (theatre) stage.div(className = "lapis-encounter-hall") else null
+    private val parterre: Div? = hall?.div(className = "lapis-encounter-parterre")
+
+    /** V1.9.80: the home of the tables (between the pulpit and the pews; in the theatre hall: the parterre); hidden unless the room has tables. */
+    val tablesHost: Div = (parterre ?: stage).div(className = "lapis-encounter-tables-host")
+    private val logeLeft: Div? = hall?.let { loge(it, left = true) }
+    private val logeRight: Div? = hall?.let { loge(it, left = false) }
 
     /** V1.9.79: "Tippen Sie auf einen freien Platz ..." -- shown only to a congregation person who has not chosen a seat. V1.9.153: a line of the stage, not inside the seat frame. */
     private val seatHint: Tag = stage.tag(TAG.P, content = terms.chooseSeatHint(), className = "lapis-encounter-seat-hint")
-    private val benchesFrame: Div = stage.div(className = "lapis-encounter-benches-frame")
-    private val benches: Div = benchesFrame.div(className = "lapis-encounter-benches")
-    val seats: EncounterSeatGrid = EncounterSeatGrid(benches, terms)
+    private val benchesFrame: Div? = if (theatre) null else stage.div(className = "lapis-encounter-benches-frame")
+
+    // In the theatre the hall IS the group "Sitzplan" (it carries the seat grid's role, name and description); otherwise the pews are a column of rows.
+    private val benches: Div = hall ?: checkNotNull(benchesFrame).div(className = "lapis-encounter-benches")
+    val seats: EncounterSeatGrid =
+        EncounterSeatGrid(
+            benches,
+            terms,
+            blockHosts = if (logeLeft != null && logeRight != null) listOf(logeLeft, logeRight) else null,
+        )
 
     init {
         // V1.9.153: the back-wall strip (plants) stands in the flow BELOW the seats and is followed by the quiet lines, so no hint line lies on a drawing.
@@ -121,6 +146,16 @@ internal class EncounterSceneLayout(
         releaseSeatButton.hide()
         seatNote.setAttribute("id", SEAT_NOTE_ID)
         benches.setAttribute("aria-describedby", SEAT_NOTE_ID)
+    }
+
+    private fun loge(
+        hall: Div,
+        left: Boolean,
+    ): Div {
+        val loge = hall.div(className = "lapis-encounter-loge lapis-encounter-loge--${if (left) "left" else "right"}")
+        loge.setAttribute("role", "group")
+        loge.setAttribute("aria-label", if (left) gettext("Linke Loge") else gettext("Rechte Loge"))
+        return loge
     }
 
     /** Shows the "choose a seat" hint (the viewer is in the congregation and has no seat). */
@@ -240,10 +275,18 @@ internal class EncounterSeatGrid(
     private val terms: EncounterTerms,
     private val blocks: Int = 2,
     private val perBlock: Int = ENCOUNTER_SEATS_PER_ROW / 2,
+    /**
+     * V1.9.167 (theatre hall): one holder per block position (left loge, right loge). A row then builds no row element of its own -- block `b` of every
+     * row is created inside `blockHosts[b]`. `null` = the classic pews (a row element with its blocks). Seat indices, `data-seat`, the roving tab stop and the
+     * arrow keys do not depend on it.
+     */
+    private val blockHosts: List<Div>? = null,
 ) {
     private val perRow = blocks * perBlock
     private val cells = mutableListOf<SeatCell>()
-    private val rows = mutableListOf<Div>()
+
+    /** One entry per row of seats: the row element, or (theatre) its blocks, which are shown and hidden together. */
+    private val rows = mutableListOf<List<Div>>()
     private val timers = mutableSetOf<Int>()
     private val eventTimers = mutableMapOf<Int, Int>()
     private var visibleSeats = 0
@@ -253,6 +296,7 @@ internal class EncounterSeatGrid(
     var onChoose: (Int) -> Unit = {}
 
     init {
+        require(blockHosts == null || blockHosts.size == blocks) { "one block holder per block position" }
         host.setAttribute("role", "group")
         host.setAttribute("aria-label", terms.seatPlanLabel())
         host.onEvent { keydown = { event -> onKey(event) } }
@@ -265,7 +309,10 @@ internal class EncounterSeatGrid(
         val wanted = model.slots.size
         while (cells.size < wanted) buildRow()
         visibleSeats = wanted
-        rows.forEachIndexed { index, row -> if (index * perRow < wanted) row.show() else row.hide() }
+        rows.forEachIndexed { index, row ->
+            val shown = index * perRow < wanted
+            row.forEach { if (shown) it.show() else it.hide() }
+        }
         model.slots.forEachIndexed { seat, slot -> apply(seat, slot, model.choosable) }
         for (seat in wanted until cells.size) cells[seat].eventOption = null
         activeSeat = restingSeat(model)
@@ -307,11 +354,17 @@ internal class EncounterSeatGrid(
     }
 
     private fun buildRow() {
-        val row = host.div(className = "lapis-encounter-row")
-        row.setAttribute("role", "presentation")
-        rows += row
-        repeat(blocks) {
-            val block = row.div(className = "lapis-encounter-block")
+        val blockDivs: List<Div>
+        if (blockHosts == null) {
+            val row = host.div(className = "lapis-encounter-row")
+            row.setAttribute("role", "presentation")
+            blockDivs = List(blocks) { row.div(className = "lapis-encounter-block") }
+            rows += listOf(row)
+        } else {
+            blockDivs = blockHosts.map { it.div(className = "lapis-encounter-block") }
+            rows += blockDivs
+        }
+        blockDivs.forEach { block ->
             block.setAttribute("role", "presentation")
             repeat(perBlock) { cells += buildCell(block, seat = cells.size) }
         }

@@ -147,6 +147,32 @@ class EventOnlineJoinTest :
             (expires.epochSecond - late.epochSeconds) shouldBe 24 * 60L
         }
 
+        test("the lead is 30 minutes: a first join 20 minutes before the start succeeds, 31 minutes before it is NOT_YET") {
+            val event = fx.event(createdBy = organizer)
+            val member = fx.member()
+            // the event starts at 22:00Z
+            val tooEarly =
+                runBlocking {
+                    join.joinMember(
+                        eventId = event,
+                        current = fx.current(memberId = member),
+                        guestConsent = null,
+                        now = Instant.parse("2030-06-15T21:29:00Z"),
+                    )
+                }
+            tooEarly.outcome shouldBe EventOnlineOutcome.NOT_YET
+            val early =
+                runBlocking {
+                    join.joinMember(
+                        eventId = event,
+                        current = fx.current(memberId = member),
+                        guestConsent = null,
+                        now = Instant.parse("2030-06-15T21:40:00Z"),
+                    )
+                }
+            early.outcome shouldBe EventOnlineOutcome.JOINED
+        }
+
         test("not yet / over / not allowed: typed outcomes, the opening time only for NOT_YET, no room is created for them") {
             val event = fx.event(createdBy = organizer, registrationClosesAt = LocalDateTime(2030, 6, 14, 12, 0))
             val registered = fx.member()
@@ -163,7 +189,7 @@ class EventOnlineJoinTest :
                     )
                 }
             early.outcome shouldBe EventOnlineOutcome.NOT_YET
-            early.opensAt shouldBe LocalDateTime(2030, 6, 15, 17, 45)
+            early.opensAt shouldBe LocalDateTime(2030, 6, 15, 17, 30)
             early.token shouldBe null
             runBlocking {
                 join.joinMember(

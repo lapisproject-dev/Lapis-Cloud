@@ -22720,11 +22720,11 @@ msgstr "L'evento si svolge solo in presenza."
 msgid "Sie geben einen eigenen Link an, zum Beispiel zu einer anderen Videokonferenz."
 msgstr "Indica un proprio link, ad esempio a un'altra videoconferenza."
 
-msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "Lapis crea la videoconferenza non appena si unisce la prima persona. L'accesso apre 15 minuti prima dell'inizio."
+msgid "Lapis legt die Videokonferenz an, sobald die erste Person beitritt. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "Lapis crea la videoconferenza non appena si unisce la prima persona. L'accesso apre 30 minuti prima dell'inizio."
 
-msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 15 Minuten vor Beginn."
-msgstr "I partecipanti entrano in una sala d'incontro permanente. L'accesso apre 15 minuti prima dell'inizio."
+msgid "Die Teilnehmenden treten in einen dauerhaften Begegnungsraum ein. Der Zugang öffnet 30 Minuten vor Beginn."
+msgstr "I partecipanti entrano in una sala d'incontro permanente. L'accesso apre 30 minuti prima dell'inizio."
 
 msgid "Vor Ort"
 msgstr "In presenza"
@@ -25205,3 +25205,153 @@ msgstr "Per gli eventi, gli ospiti e gli inviti si gestiscono nella pagina dell'
 
 msgid "Zu viele Anfragen – bitte kurz warten."
 msgstr "Troppe richieste – attenda un momento."
+
+msgid "Lachen"
+msgstr "Risata"
+
+msgid "Staunen"
+msgstr "Stupore"
+
+msgid "Weinen"
+msgstr "Pianto"
+
+msgid "Blume aus der Gemeinde"
+msgstr "Fiore dai fedeli"
+
+msgid "Blume von den Teilnehmenden"
+msgstr "Fiore dai partecipanti"
+
+msgid "Lachen aus der Gemeinde"
+msgstr "Risata dai fedeli"
+
+msgid "Lachen von den Teilnehmenden"
+msgstr "Risata dai partecipanti"
+
+msgid "Staunen aus der Gemeinde"
+msgstr "Stupore dai fedeli"
+
+msgid "Staunen von den Teilnehmenden"
+msgstr "Stupore dai partecipanti"
+
+msgid "Frage aus der Gemeinde"
+msgstr "Domanda dai fedeli"
+
+msgid "Frage von den Teilnehmenden"
+msgstr "Domanda dai partecipanti"
+
+msgid "Weinen aus der Gemeinde"
+msgstr "Pianto dai fedeli"
+
+msgid "Weinen von den Teilnehmenden"
+msgstr "Pianto dai partecipanti"
+
+msgid "Karte"
+msgstr "Mappa"
+
+msgid "Auf die Karte"
+msgstr "Sulla mappa"
+
+msgid "Karte verlassen"
+msgstr "Lascia la mappa"
+
+msgid "Zum Eingang"
+msgstr "All'ingresso"
+
+msgid "Zur Mitte"
+msgstr "Al centro"
+
+msgid "Zum Podium"
+msgstr "Al podio"
+
+msgid "Zur Kanzel"
+msgstr "Al pulpito"
+
+msgid "Reihe %1, Spalte %2"
+msgstr "Fila %1, colonna %2"
+
+msgid "Eine Person in Ihrer Nähe"
+msgstr "Una persona nelle vicinanze"
+
+msgid "%1 Personen in Ihrer Nähe"
+msgstr "%1 persone nelle vicinanze"
+
+msgid "In Ihrer Nähe"
+msgstr "Nelle vicinanze"
+
+msgid "und %1 weitere"
+msgstr "e altre %1"
+
+msgid "Weg blockiert"
+msgstr "Percorso bloccato"
+
+msgid "Die Karte ist voll oder Sie waren zu schnell."
+msgstr "La mappa è piena oppure è stato troppo veloce."
+
+msgid "Einen Moment bitte, gleich können Sie wieder springen."
+msgstr "Un momento, a breve potrà saltare di nuovo."
+
+msgid "Nur bei geschlossenem Raum einschaltbar"
+msgstr "Attivabile solo a sala chiusa"
+
+msgid "Karte (Positionen der Mitglieder)"
+msgstr "Mappa (posizioni dei membri)"
+
+msgid "Sie stehen nicht auf der Karte."
+msgstr "Non si trova sulla mappa."
+
+msgid "Richtungstasten"
+msgstr "Tasti direzionali"
+
+msgid "Nach links"
+msgstr "Sposta a sinistra"
+
+msgid "Nach rechts"
+msgstr "Sposta a destra"
+
+msgid "Nur in der Raumart Versammlung. Mitglieder bewegen sich auf einer Karte; Gäste erscheinen nicht darauf."
+msgstr "Solo per il tipo di sala Assemblea. I membri si spostano su una mappa; gli ospiti non vi compaiono."
+
+msgid "Karte öffnen"
+msgstr "Apri la mappa"
+
+msgid "Karte öffnen, Sie sind auf der Karte"
+msgstr "Apri la mappa, Lei è sulla mappa"
+
+msgid "Karte schließen"
+msgstr "Chiudi la mappa"
+
+msgid "Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert."
+msgstr "Solo i membri presenti vedono la Sua posizione. Non viene salvato nulla."
+
+msgid "Linke Loge"
+msgstr "Palco di sinistra"
+
+msgid "Rechte Loge"
+msgstr "Palco di destra"
+
+msgid "Ihr Browser zeigt die Geräte erst, wenn Sie den Zugriff erlauben. Mikrofon und Kamera bleiben dabei ausgeschaltet."
+msgstr "Il browser mostra i dispositivi solo dopo che ha consentito l'accesso. Microfono e fotocamera restano spenti."
+
+msgid "Zugriff auf Mikrofon und Kamera erlauben"
+msgstr "Consenti l'accesso a microfono e fotocamera"
+
+msgid "Erst nach Freigabe verfügbar"
+msgstr "Disponibile dopo il consenso"
+
+msgid "Zugriff erlaubt. Sie können Ihre Geräte jetzt auswählen."
+msgstr "Accesso consentito. Ora può scegliere i suoi dispositivi."
+
+msgid "Nur das Mikrofon ist freigegeben."
+msgstr "È consentito solo il microfono."
+
+msgid "Nur die Kamera ist freigegeben."
+msgstr "È consentita solo la fotocamera."
+
+msgid "Der Browser hat den Zugriff blockiert. Erlauben Sie Mikrofon und Kamera über das Schloss-Symbol in der Adressleiste oder in den Website-Einstellungen Ihres Browsers und versuchen Sie es erneut."
+msgstr "Il browser ha bloccato l'accesso. Consenta microfono e fotocamera tramite l'icona del lucchetto nella barra degli indirizzi o nelle impostazioni del sito del browser e riprovi."
+
+msgid "Es wurde weder ein Mikrofon noch eine Kamera gefunden."
+msgstr "Non è stato trovato né un microfono né una fotocamera."
+
+msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
+msgstr "Impossibile aprire un dispositivo. Potrebbe essere in uso da un'altra applicazione."

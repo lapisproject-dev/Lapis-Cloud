@@ -82,6 +82,8 @@ class EncounterSpacePoller(
     private val blessingState: EncounterBlessingState,
     private val bellState: EncounterBellState,
     private val seatState: EncounterSeatState,
+    /** V1.9.166: the grid map positions; dropped with the presence row and with the session. */
+    private val mapState: EncounterMapState,
     private val tableState: EncounterTableState,
     private val floorState: EncounterFloorState,
     private val entryNotifier: EncounterEntryNotifier,
@@ -122,6 +124,7 @@ class EncounterSpacePoller(
         try {
             val openRoomIds = transaction { loadOpenSessions() }.map { it.roomId }.toSet()
             seatState.retainOnly(openRoomIds)
+            mapState.retainOnly(openRoomIds)
             floorState.retainOnly(openRoomIds)
             // V1.9.80: table state of a session that is gone -- its LiveKit rooms go too (best effort, the reconciler is the backstop).
             val orphanRooms = tableState.retainOnly(openRoomIds)
@@ -250,6 +253,8 @@ class EncounterSpacePoller(
                 } else {
                     // V1.9.79: seats go with the presence row (in memory, idempotent).
                     seatState.releaseAll(sessionRoomId = session.roomId, memberIds = confirmed)
+                    // V1.9.166: ... and the position on the map, and the registration for the map packets.
+                    mapState.leaveAll(sessionRoomId = session.roomId, memberIds = confirmed, dropViewer = true)
                     confirmedGone += confirmed
                     ConferenceParticipationTable.deleteWhere {
                         (ConferenceParticipationTable.roomId eq session.roomId) and
@@ -328,6 +333,7 @@ class EncounterSpacePoller(
         blessingState.clear(session.roomId)
         bellState.clear(session.roomId)
         seatState.clear(session.roomId)
+        mapState.clear(session.roomId)
         floorState.clear(session.roomId)
         EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = tableState.clear(session.roomId))
         entryNotifier.clearSession(session.roomId)

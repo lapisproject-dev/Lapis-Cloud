@@ -61,6 +61,9 @@ internal sealed interface EncounterControlSlot {
 
     data object Chat : EncounterControlSlot
 
+    /** V1.9.167: opens the map overlay (members only; the slot is created inside `ensureMap`, after the guest guard). Stands in the panels group, before "Mehr". */
+    data object Map : EncounterControlSlot
+
     data object More : EncounterControlSlot
 
     data object Scene : EncounterControlSlot
@@ -83,7 +86,7 @@ internal fun encounterControlGroup(slot: EncounterControlSlot): EncounterControl
             EncounterControlGroup.DEVICES
         EncounterControlSlot.Bell, EncounterControlSlot.Blessing -> EncounterControlGroup.LITURGY
         EncounterControlSlot.Recording -> EncounterControlGroup.RECORDING
-        EncounterControlSlot.Chat, EncounterControlSlot.More -> EncounterControlGroup.PANELS
+        EncounterControlSlot.Chat, EncounterControlSlot.Map, EncounterControlSlot.More -> EncounterControlGroup.PANELS
         EncounterControlSlot.Scene, EncounterControlSlot.Fullscreen -> EncounterControlGroup.VIEW
         EncounterControlSlot.Broadcast -> EncounterControlGroup.MODERATION
         EncounterControlSlot.CloseDoors, EncounterControlSlot.Leave -> EncounterControlGroup.EXIT
@@ -91,7 +94,7 @@ internal fun encounterControlGroup(slot: EncounterControlSlot): EncounterControl
 
 /**
  * The order in which controls move into the "Mehr" sheet, the first one first: full screen, scene, transmission, then the event
- * reactions (the last of the canonical order first), then "Türen schließen", the bell (V1.9.96, [bell] only), the blessing (V1.9.95, [blessing] only: it stays in the bar as long as possible) and last of all the chat. Never moved: hand (the only reaction with a state; a hand-raise must never need a second tap), microphone,
+ * reactions (the last of the canonical order first), then "Türen schließen", the bell (V1.9.96, [bell] only), the blessing (V1.9.95, [blessing] only: it stays in the bar as long as possible), the recording (V1.9.143), the map button (V1.9.167, [map] only) and last of all the chat. Never moved: hand (the only reaction with a state; a hand-raise must never need a second tap), microphone,
  * camera, the device picker (V1.9.91), "Mehr" and "Verlassen". Built at run time because the event reactions differ per room profile.
  */
 internal fun encounterOverflowOrder(
@@ -99,6 +102,8 @@ internal fun encounterOverflowOrder(
     blessing: Boolean = false,
     bell: Boolean = false,
     recording: Boolean = false,
+    /** V1.9.167: `true` for a room with a map; the map button then moves into the sheet directly BEFORE the chat. */
+    map: Boolean = false,
 ): List<EncounterControlSlot> =
     buildList {
         add(EncounterControlSlot.Fullscreen)
@@ -113,6 +118,8 @@ internal fun encounterOverflowOrder(
         if (blessing) add(EncounterControlSlot.Blessing)
         // V1.9.143: the recording control stays in the bar as long as possible (only the chat outlasts it) and so always has the chat or "Mehr" next to it.
         if (recording) add(EncounterControlSlot.Recording)
+        // V1.9.167: the map button moves into the sheet just before the chat (only the chat outlasts it).
+        if (map) add(EncounterControlSlot.Map)
         add(EncounterControlSlot.Chat)
     }
 

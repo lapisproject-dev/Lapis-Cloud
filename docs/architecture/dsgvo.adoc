@@ -490,6 +490,19 @@ NOTE: *Known limitation.* The **ordinary conference** keeps what the encounter s
 with `left_at`, `listParticipants` shows the history, and `conference_guest_consent_acknowledgment` is written per join. That is unchanged: a formal
 meeting needs its attendance record. An encounter session is fenced off from all of it (`EncounterRoomGuard`).
 
+=== Map position in a gathering room (V1.9.166)
+
+[cols="2,3", options="header"]
+|===
+| Aspect | Statement
+| Data | the current tile and facing of a member who stepped onto the grid map of a gathering room of the assembly kind; initials (up to three characters) travel with it
+| Purpose | showing the members who are present where the others stand (the map of the room)
+| Storage | **memory of the server process only**; never the database, the audit log, a log line, an export or a backup. Lost on restart; dropped on leaving, on closing, on switching the option off.
+| Recipients | the members who are present in that session and have registered for the map (not guests, not people outside the room)
+| Retention | none beyond the presence on the map; there is no history and no list of who was where
+| Operations | memory dumps of the server process contain positions; the LiveKit log level decides whether packet contents are logged (check in Lapis-Cloud-Ops)
+|===
+
 == Card revocation without a new card (V1.9.33)
 
 "Mitgliedsausweis" on "Meine Daten" lets a member block a lost card (`IMemberService.reissueMemberCard`, the existing RPC; no server code

@@ -192,7 +192,7 @@ class EventOnlineGuestRoutesTest :
                     openState.requiresTicket shouldBe false
                     openState.noticeVersion shouldBe EventGuestNotice.VERSION
                     openState.noticeSha256 shouldBe EventGuestNotice.SHA256
-                    openState.opensAt shouldBe "2030-06-15T17:45"
+                    openState.opensAt shouldBe "2030-06-15T17:30"
                     openState.closesAt shouldBe "2030-06-15T21:00"
                     json.decodeFromString(EventOnlineStateDto.serializer(), state(slugOf(deadline))).requiresTicket shouldBe true
                     val text = state(slugOf(open))

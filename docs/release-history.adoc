@@ -535,6 +535,8 @@ tried with real participants or on a real device, and the Keycloak provisioning 
 
 **`v0.37.5`** (waves V1.9.162 and V1.9.163, schema `V110`) is a patch release on `v0.37.4`. **Behaviour changes first:** none for the people using the application. For operators: the TURN relay of the deployment example now has 100 relay ports (`51000-51099`) instead of 20, because the load test with eight relay clients and constant table changes made coturn log 758 "no available ports" lines and about a quarter of those clients' connections run into the time limit. A running instance keeps its own files and widens the range itself. Otherwise: the load-test tool got minimum call counts for its abort rules and a stop when nobody could enter the room. Run on a test instance with the tool, not with real browsers; no migration, no new environment variable.
 
+**`v0.37.6`** (waves V1.9.164 to V1.9.170, schema `V111`) is a feature release on `v0.37.5`. **Behaviour changes first:** reactions, sticky control bar and theatre hall of the encounter room, an optional grid map of the present members, assembly rooms only (off by default, members only, never guests or friends), a device picker that stays visible without browser permission, and the event online window opening 30 minutes before the start instead of 15 on every instance. One additive migration (`V111`). Not looked at on real phones, in Safari or by a screen reader. Details: `CHANGELOG.md` `[0.37.6]`.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,

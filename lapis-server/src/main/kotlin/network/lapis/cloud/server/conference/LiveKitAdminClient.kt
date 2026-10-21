@@ -28,6 +28,8 @@ import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_MAX_PAYLOAD_BYTES
@@ -649,5 +651,7 @@ internal fun sendDataPayloadLimit(topic: String): Int =
         ENCOUNTER_RECORDING_TOPIC -> ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
         // V1.9.156: the event-room capture banner (same reason: without this entry the send would fail on the 16-byte fallback).
         EVENT_CAPTURE_TOPIC -> EVENT_CAPTURE_MAX_PAYLOAD_BYTES
+        // V1.9.166: the grid map delta (same reason: without this entry the send would fail on the 16-byte fallback).
+        ENCOUNTER_MAP_TOPIC -> ENCOUNTER_MAP_MAX_PAYLOAD_BYTES
         else -> ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
     }

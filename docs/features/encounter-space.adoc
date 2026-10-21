@@ -8,12 +8,30 @@ link:../architecture/encounter-space.adoc[docs/architecture/encounter-space.adoc
 == What a room offers
 
 * Offices (PULPIT, STEWARD) per room; everybody else listens. Only an office holder's token may publish.
-* Reactions (hand, amen, applause, heart as configured), chat, seats and, in assemblies, tables with their own audio group. A table is shown as its table top with the seats on a ring around it (V1.9.159); the card is at least 172 px wide, so a 320 px phone shows one table per row.
+* Reactions (hand, amen, applause, heart, flower, laughter, amazement, question, crying -- as configured; since V1.9.164 nine options in all; the five new ones are opt-in, crying is in no profile default, a question is only a mood symbol and never a raised hand or a place in the queue; there is still no thumbs-up), chat, seats and, in assemblies, tables with their own audio group. A table is shown as its table top with the seats on a ring around it (V1.9.159); the card is at least 172 px wide, so a 320 px phone shows one table per row.
 * Pulpit extras: blessing and bell (church service), transmission, device choice.
 * Presence is transient: nothing about who attended is stored.
 * Optional, off by default: the pulpit (only the PULPIT office holder, never the congregation) can be recorded into the document store, see
   link:pulpit-recording.adoc[Optional recording of the pulpit (V1.9.143)]. Without that option (the default) nothing is recorded at all, and the entry panel and the consent
   text say so; with it, they say the opposite.
+
+== The control bar stays in view (V1.9.165)
+
+The control bar of the room (reactions, microphone and camera, chat, "Mehr", "Verlassen") is always visible at the bottom edge of the screen, however far a person has scrolled through a large room.
+This holds in the browser window, in full screen and in the fallback full screen (for browsers without the full screen function) alike. The bar never hides itself automatically. The "Mehr" sheet and the device panel open directly above the bar.
+Not covered by this change: limiting the height of the podium and zooming or fitting the room to the screen.
+
+== The map (V1.9.166)
+
+A room of the kind *assembly* can have a *map* (BOARD/ADMIN switch it on in the room form, off by default, only while the room is closed). Members who are present can step onto the map ("Auf die Karte"), walk with the arrow keys or W/A/S/D (on a phone with the four buttons, or by tapping a tile), jump to the entrance, the podium or the middle, and see where the other members stand and which way they face. The list "In Ihrer Nähe" names the members within two tiles; the key L reads out the own place and those names. Escape moves the keyboard focus to "Karte verlassen". Each person is either seated, on the map, or neither: stepping onto the map gives up a bench or table seat, and sitting down takes you off the map.
+
+Since V1.9.167 the map opens as a *layer* above the room: the dock has a button "Karte öffnen" (a dot on it and the name "Karte öffnen, Sie sind auf der Karte" show that you still stand on the map; on a narrow screen it sits in "Mehr"). The layer shows a short privacy line ("Ihre Position sehen nur anwesende Mitglieder. Nichts wird gespeichert."), with the longer notice of the room behind "Mehr". Escape, the close button or a click outside close the layer; on the map the first Escape moves to "Karte verlassen". Closing the layer never takes you off the map. The control bar stays usable while the layer is open. Guests have no such button.
+
+Positions live only in the memory of the server; nobody is recorded, there is no history of walks and no list of who was where. Guests do not appear on the map and do not see it. An office holder (podium, moderation) can look at the map but does not walk on it. The map is checked in tests only; nobody has used it on a real phone yet.
+
+== Theatre hall (V1.9.167)
+
+The *hall* room template, when the room has tables, looks like a theatre: the tables stand in the middle (the *parterre*, always centred), and every row of seats is split into a *left* and a *right loge* beside it. Seat numbers, names and the keyboard operation are the same as before (the right arrow key from the third seat goes to the fourth, across the parterre). On a phone the loges stand below the tables, side by side or, on the narrowest screens, one below the other. The tables of every room template are now centred.
 
 == Room template (V1.9.152)
 

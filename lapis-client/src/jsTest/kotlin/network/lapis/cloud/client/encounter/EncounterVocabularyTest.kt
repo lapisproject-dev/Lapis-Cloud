@@ -52,6 +52,25 @@ class EncounterVocabularyTest {
     }
 
     @Test
+    fun everyReaction_hasALabelAGlyphAndAFixedSentenceWithoutANumber_inBothProfiles() {
+        EncounterReactionOption.entries.forEach { option ->
+            assertTrue(reactionLabel(option).isNotBlank(), option.name)
+            assertTrue(reactionGlyph(option).startsWith("fas fa-"), option.name)
+            if (option != EncounterReactionOption.HAND) {
+                EncounterProfile.entries.forEach { profile ->
+                    val sentence = termsFor(profile).reactionFromAudience(option)
+                    assertTrue(
+                        sentence.isNotBlank() && !Regex("\\d").containsMatchIn(sentence),
+                        "${profile.name} ${option.name}: $sentence",
+                    )
+                }
+            }
+        }
+        // the laughing face of the encounter room is not the reaction-menu face of the video conference
+        assertTrue(network.lapis.cloud.client.ActionIcon.LAUGH.css != network.lapis.cloud.client.ActionIcon.REACT.css)
+    }
+
+    @Test
     fun anAssembly_neverSpeaksOfPulpitStewardsCongregationOrServices() {
         texts(termsFor(EncounterProfile.ASSEMBLY)).forEach { (name, text) ->
             churchWords.forEach { word -> assertTrue(!text.contains(word), "ASSEMBLY $name contains \"$word\": $text") }

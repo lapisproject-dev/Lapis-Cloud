@@ -94,6 +94,18 @@ enum class ActionIcon(
     APPLAUSE("fas fa-hands-clapping"),
     HEART("fas fa-heart"),
 
+    /**
+     * V1.9.164: the further reactions of an encounter room (all opt-in, [CRY] never a profile default). [LAUGH] is deliberately NOT
+     * `fa-face-smile`: that is [REACT], the reaction MENU button of the video conference. LAUGH exists only in the encounter room and
+     * REACT only in the conference; the two never appear in the same bar. [FLOWER] is a lotus blossom here (Font Awesome has no tulip);
+     * the video conference shows a tulip emoji for the same meaning.
+     */
+    FLOWER("fas fa-spa"),
+    LAUGH("fas fa-face-laugh-beam"),
+    ASTONISHED("fas fa-face-surprise"),
+    QUESTION("fas fa-circle-question"),
+    CRY("fas fa-face-sad-tear"),
+
     /** V1.9.67: stage mode of the encounter room, enter and leave the full screen. */
     FULLSCREEN("fas fa-expand"),
     FULLSCREEN_EXIT("fas fa-compress"),
@@ -133,6 +145,15 @@ enum class ActionIcon(
 
     /** V1.9.80: get up from a table of the encounter room ("Tisch verlassen"): back to the plenum. */
     LEAVE_TABLE("fas fa-users-slash"),
+
+    /** V1.9.166: step onto the grid map of the encounter room ("Auf die Karte"). Used once, in the map area. */
+    MAP_ENTER("fas fa-person-walking"),
+
+    /** V1.9.166: take oneself off the grid map of the encounter room ("Karte verlassen"); the person stays in the room. NOT [LEAVE] (the room itself). */
+    MAP_LEAVE("fas fa-map"),
+
+    /** V1.9.167: opens the map overlay of the encounter room (the dock button "Karte öffnen" and its twin in the "Mehr" sheet). NOT [MAP_ENTER] (stepping onto the map). */
+    MAP_OPEN("fas fa-map-location-dot"),
 
     /** V1.9.80: a moderator lifts the quiet of a table ("Beruhigung aufheben"); the opposite of [SILENCE] at table level. */
     LIFT_QUIET("fas fa-volume-high"),

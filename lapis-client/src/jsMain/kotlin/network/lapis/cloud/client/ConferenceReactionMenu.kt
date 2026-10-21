@@ -20,7 +20,7 @@ import org.w3c.dom.events.KeyboardEvent
 /*
  * V1.9.127 -- the reaction menu of the video conference ("Reaktion" button of the bar) and the little DOM pieces of a reaction on a tile.
  *
- * The menu is a popover over the bar like the view switcher, but a real menu: `role="menu"` with five `role="menuitem"` buttons, each
+ * The menu is a popover over the bar like the view switcher, but a real menu: `role="menu"` with eight `role="menuitem"` buttons, each
  * showing the emoji (`aria-hidden`) and the word. Arrow keys / Home / End move, Enter / Space choose (native `<button>`), Escape closes
  * and gives the focus back to the bar button. There is NO global keyboard shortcut. No `addAfterInsertHook`: the widgets are KVision
  * widgets and every attribute goes through the patch cycle.
@@ -44,6 +44,9 @@ internal fun conferenceReactionEmoji(reaction: ConferenceReaction): String =
         ConferenceReaction.AMEN -> "🙏"
         ConferenceReaction.THUMBS_UP -> "👍"
         ConferenceReaction.FLOWER -> "🌷"
+        ConferenceReaction.LAUGH -> "😄"
+        ConferenceReaction.ASTONISHED -> "😮"
+        ConferenceReaction.QUESTION -> "❓"
     }
 
 /** The word of a reaction (the accessible name of the menu item and the hidden text on a tile). */
@@ -54,6 +57,9 @@ internal fun conferenceReactionLabel(reaction: ConferenceReaction): String =
         ConferenceReaction.AMEN -> gettext("Amen")
         ConferenceReaction.THUMBS_UP -> gettext("Daumen hoch")
         ConferenceReaction.FLOWER -> gettext("Blume")
+        ConferenceReaction.LAUGH -> gettext("Lachen")
+        ConferenceReaction.ASTONISHED -> gettext("Staunen")
+        ConferenceReaction.QUESTION -> gettext("Frage")
     }
 
 private fun conferenceReactionMenuText(reaction: ConferenceReaction): String =
@@ -63,6 +69,9 @@ private fun conferenceReactionMenuText(reaction: ConferenceReaction): String =
         ConferenceReaction.AMEN -> tr("Amen")
         ConferenceReaction.THUMBS_UP -> tr("Daumen hoch")
         ConferenceReaction.FLOWER -> tr("Blume")
+        ConferenceReaction.LAUGH -> tr("Lachen")
+        ConferenceReaction.ASTONISHED -> tr("Staunen")
+        ConferenceReaction.QUESTION -> tr("Frage")
     }
 
 /** Pure: the index the arrow key [key] moves to from [from] in a menu of [size] items (wrapping); `null` for any other key. */
@@ -188,7 +197,12 @@ internal class ConferenceReactionPopover(
 
     private fun focusItem(reaction: ConferenceReaction) {
         for ((r, button) in items) button.setAttribute("tabindex", if (r == reaction) "0" else "-1")
-        (items[reaction]?.getElement() as? HTMLElement)?.focus()
+        val element = items[reaction]?.getElement() as? HTMLElement
+        element?.focus()
+        // The menu is height-limited and scrolls (V1.9.164): the focused item follows. Guarded: a headless DOM may lack the method.
+        if (element != null && jsTypeOf(element.asDynamic().scrollIntoView) == "function") {
+            element.asDynamic().scrollIntoView(js("({block: 'nearest'})"))
+        }
     }
 
     private fun cancelListener() {

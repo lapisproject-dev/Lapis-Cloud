@@ -62,7 +62,7 @@ class EventCaptureReleaseTest :
         lateinit var admin: Uuid
         lateinit var services: EventOnlineServices
 
-        // 2030-06-15 18:00-20:00 New York; the window is 17:45 .. 21:00 local = 21:45Z .. 01:00Z.
+        // 2030-06-15 18:00-20:00 New York; the window is 17:30 .. 21:00 local = 21:30Z .. 01:00Z.
         val before = "2030-06-15T10:00:00Z"
         val inside = "2030-06-15T22:30:00Z"
 
@@ -232,6 +232,28 @@ class EventCaptureReleaseTest :
                     val state = client.runAs(member = board) { call -> service(call).getEventCaptureState(free.toString()) }.getOrThrow()
                     state.changeLock shouldBe EventCaptureChangeLock.ROOM_ACTIVE
                     state.mayChange shouldBe false
+                }
+            }
+        }
+
+        test("the freeze starts 30 minutes before the start: frozen 20 minutes before, still changeable 35 minutes before") {
+            EventCaptureTestState.enabledWithText()
+            val free = fx.event(createdBy = organizer)
+            // the event starts at 22:00Z
+            TimeTestSupport.withServerClock(instant = "2030-06-15T21:40:00Z") {
+                encounterApp {
+                    client
+                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = free.toString(), allowed = true) }
+                        .failure<EventCaptureChangeLockedException>()
+                    released(free) shouldBe false
+                }
+            }
+            TimeTestSupport.withServerClock(instant = "2030-06-15T21:25:00Z") {
+                encounterApp {
+                    client
+                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = free.toString(), allowed = true) }
+                        .getOrThrow()
+                    released(free) shouldBe true
                 }
             }
         }

@@ -266,6 +266,24 @@ class EncounterSpaceScreenDomTest {
         }
 
     @Test
+    fun allNineReactionsAreOffered_theNewOnesAreOffByDefault_andAProfileSwitchResetsThem(): Promise<Unit> =
+        formTest {
+            withScreen(AccountRole.BOARD, listOf(openSpace)) { element, _, _ ->
+                element.buttonNamed("Neuer Begegnungsraum").click()
+                awaitUntil("the form is open") { element.querySelector("[id='lapis-create-encounter-space'] .lapis-form") != null }
+                EncounterReactionOption.entries.forEach { element.reactionBox(reactionLabel(it)) }
+                listOf("Blume", "Lachen", "Staunen", "Frage", "Weinen").forEach {
+                    assertFalse(element.reactionBox(it).checked, "$it is opt-in")
+                }
+                element.reactionBox("Weinen").click()
+                assertTrue(element.reactionBox("Weinen").checked)
+                element.profileRadio("ASSEMBLY").click()
+                awaitUntil("the assembly defaults are set") { element.reactionBox("Applaus").checked }
+                assertFalse(element.reactionBox("Weinen").checked, "crying is never part of a profile default")
+            }
+        }
+
+    @Test
     fun editingAnOpenRoom_locksTheRoomTypeAndTheReactions_aClosedOneKeepsThemEditable(): Promise<Unit> =
         formTest {
             val closedManaged = testSpace(id = "closed-1", title = "Abendandacht", open = false, canModerate = true)
