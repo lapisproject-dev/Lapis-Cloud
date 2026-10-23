@@ -201,7 +201,8 @@ abstract class TravelExpenseDocumentRoutesScenarios(
                     .where {
                         (AuditLogEntryTable.entityType eq AuditEntityType.TRAVEL_EXPENSE_DOCUMENT) and
                             (AuditLogEntryTable.entityId eq id)
-                    }.map {
+                    }.orderBy(AuditLogEntryTable.sequenceNumber)
+                    .map {
                         Triple(
                             it[AuditLogEntryTable.action],
                             it[AuditLogEntryTable.beforeSnapshot],
