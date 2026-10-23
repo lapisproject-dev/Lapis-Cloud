@@ -8,7 +8,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventStatus
@@ -26,15 +25,8 @@ import network.lapis.cloud.shared.rpc.IEventService
  */
 fun renderEventCheckInSelectionScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 700.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Veranstaltungs-Check-in"))
-    root.div(
-        tr("Veranstaltung auswählen, um Tickets am Einlass zu prüfen."),
-    ) { addCssClasses("text-muted small") }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Veranstaltungs-Check-in"), intro = PageIntros.forRoute(Routes.EVENT_CHECKIN))
 
     val listPanel = root.vPanel(spacing = 8)
 

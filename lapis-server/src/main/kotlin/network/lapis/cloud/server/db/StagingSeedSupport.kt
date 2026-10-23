@@ -129,4 +129,10 @@ internal object SeedIds {
 
     /** Tiers (n in 1..0x0f) and ledger accounts (n from 0x10). */
     fun base(n: Int): Uuid = Uuid.parse("0000000a-0000-0000-0000-5000000000%02x".format(n))
+
+    /** LTR top-up (V1.9.197): 16-bit index; 0x0000-0x0fff mints, 0x1000+ peer_transfer, 0x2000+ OUT entry, 0x3000+ IN entry. */
+    fun ltr(n: Int): Uuid {
+        require(n in 0..0xffff) { "ltr index out of range: $n" }
+        return Uuid.parse("0000000a-0000-0000-0000-60000000%04x".format(n))
+    }
 }

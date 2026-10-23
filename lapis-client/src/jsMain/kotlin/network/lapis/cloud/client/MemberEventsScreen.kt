@@ -9,7 +9,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.EventDto
@@ -177,12 +176,8 @@ internal fun renderMemberEventsScreenWith(
     openRoute: (String) -> Unit = { navigateTo(it) },
 ) {
     val screen =
-        root.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    screen.pageHeader(tr("Veranstaltungen"))
+        root.pageShell(PageWidth.WIDE, spacing = 14)
+    screen.pageHeader(tr("Veranstaltungen"), intro = PageIntros.forRoute(Routes.MY_EVENTS))
     lateinit var section: DataSection
     section =
         screen.dataSection<List<EventDto>>(

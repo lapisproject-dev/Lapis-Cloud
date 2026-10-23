@@ -73,7 +73,7 @@ fun renderDonorsScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root = container.dataScreenRoot()
-    val header = root.pageHeader(tr("Spender"))
+    val header = root.pageHeader(tr("Spender"), intro = PageIntros.forRoute(Routes.DONORS))
     // V1.9.45 (R36B): the create form is collapsed; host directly under the header, button in the action slot.
     val createHost = if (canManage) root.simplePanel() else null
     root.div(

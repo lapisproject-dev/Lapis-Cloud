@@ -1,8 +1,10 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
+import io.kvision.html.div
 import io.kvision.html.li
 import io.kvision.html.ul
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 
 /** One block of an agreement text: a running paragraph or a bullet list. The parser knows nothing else, so nothing but text can ever be built. */
 internal sealed interface AgreementBlock {
@@ -80,5 +82,34 @@ internal fun Container.renderAgreementText(raw: String) {
                 block.items.forEach { item -> list.li(item) }
             }
         }
+    }
+}
+
+/** CSS class of the server-rendered Markdown body of an agreement text (see `theme.css`). */
+internal const val AGREEMENT_BODY_CLASS = "lapis-agreement-body"
+
+/**
+ * V1.9.196 -- THE ONE rich (`innerHTML`) site for agreement texts. [renderedHtml] comes ONLY from the server (`AgreementMarkdown`: raw HTML
+ * escaped, only `http(s)`/`mailto` links keep an `href`, images become text); the client never renders Markdown itself. KVision resolves a content
+ * string that starts with its i18n marker, so only a string that starts with `<` is accepted (rendered HTML always does) -- anything else is
+ * shown as text by [renderAgreementBody]'s fallback.
+ */
+internal fun Container.agreementHtml(renderedHtml: String) {
+    div(content = renderedHtml, rich = true) { addCssClass(AGREEMENT_BODY_CLASS) }
+}
+
+/**
+ * Shows an agreement text: a MARKDOWN text with its server-rendered HTML through [agreementHtml]; everything else (plain texts, and a MARKDOWN
+ * text without usable HTML, e.g. from an older server) as element text through [renderAgreementText] -- readable, never markup.
+ */
+internal fun Container.renderAgreementBody(
+    text: String,
+    format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    renderedHtml: String? = null,
+) {
+    if (format == AgreementTextFormat.MARKDOWN && renderedHtml != null && renderedHtml.startsWith("<")) {
+        agreementHtml(renderedHtml)
+    } else {
+        renderAgreementText(text)
     }
 }

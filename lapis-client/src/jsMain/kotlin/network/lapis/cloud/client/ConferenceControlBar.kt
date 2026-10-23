@@ -24,46 +24,54 @@ import network.lapis.cloud.shared.domain.ConferenceStreamStatus
  * written through the KVision patch cycle (Widget attributes, child spans, CSS classes).
  */
 
-/** The controls of the bar, in DOM order. */
+/**
+ * The controls of the bar, in DOM order. V1.9.184: the bar has three zones (see [RoomControlBar]) -- [SETTINGS] alone at the start, the
+ * controls of the room in the centre (devices, hand/reaction, panels, view, recording/stream, "Mehr"), the exit group at the end.
+ */
 internal enum class ConferenceControlSlot {
+    SETTINGS,
     MIC,
     CAMERA,
     SCREEN,
-    RECORD,
-    STREAM,
-    VIEW,
-    REACT,
     HAND,
+    REACT,
     ROSTER,
     CHAT,
     VOTE,
+    VIEW,
+    RECORD,
+    STREAM,
     MORE,
     BACK,
     END_FOR_ALL,
     LEAVE,
 }
 
-/** Group index of a slot: 0 devices, 1 moderation, 2 panels, 3 exit. A divider separates two non-empty groups. */
+/**
+ * Group index of a slot (V1.9.184): 0 settings (start zone), 1 devices, 2 hand / reaction, 3 panels, 4 view, 5 moderation (recording,
+ * stream), 6 "Mehr", 7 exit (end zone). A divider separates two non-empty groups of the centre zone; the zones are separated by CSS.
+ */
 internal fun conferenceControlGroup(slot: ConferenceControlSlot): Int =
     when (slot) {
-        ConferenceControlSlot.MIC, ConferenceControlSlot.CAMERA, ConferenceControlSlot.SCREEN -> 0
-        ConferenceControlSlot.RECORD, ConferenceControlSlot.STREAM -> 1
-        ConferenceControlSlot.VIEW,
-        ConferenceControlSlot.REACT,
-        ConferenceControlSlot.HAND,
-        ConferenceControlSlot.ROSTER,
-        ConferenceControlSlot.CHAT,
-        ConferenceControlSlot.VOTE,
-        ConferenceControlSlot.MORE,
-        -> 2
-        ConferenceControlSlot.BACK, ConferenceControlSlot.END_FOR_ALL, ConferenceControlSlot.LEAVE -> 3
+        ConferenceControlSlot.SETTINGS -> 0
+        ConferenceControlSlot.MIC, ConferenceControlSlot.CAMERA, ConferenceControlSlot.SCREEN -> 1
+        ConferenceControlSlot.HAND, ConferenceControlSlot.REACT -> 2
+        ConferenceControlSlot.ROSTER, ConferenceControlSlot.CHAT, ConferenceControlSlot.VOTE -> 3
+        ConferenceControlSlot.VIEW -> 4
+        ConferenceControlSlot.RECORD, ConferenceControlSlot.STREAM -> 5
+        ConferenceControlSlot.MORE -> 6
+        ConferenceControlSlot.BACK, ConferenceControlSlot.END_FOR_ALL, ConferenceControlSlot.LEAVE -> 7
     }
 
+/** The moderation group (recording, stream) of [conferenceControlGroup]. */
+internal const val CONFERENCE_MODERATION_GROUP = 5
+
 /** The exit group: BACK (breakout only), END_FOR_ALL (moderator only), LEAVE. */
-internal const val CONFERENCE_EXIT_GROUP = 3
+internal const val CONFERENCE_EXIT_GROUP = 7
 
 /**
- * Overflow order, the first one is moved first (END_FOR_ALL last, V1.9.72). Never moved: MIC, CAMERA, HAND, CHAT, MORE, BACK, LEAVE.
+ * Overflow order, the first one is moved first (END_FOR_ALL, V1.9.72, then -- V1.9.184 -- the settings gear, the camera and the microphone,
+ * in that order: the devices are the last thing a narrow bar gives up). Never moved: HAND, CHAT, MORE, BACK, LEAVE.
  * V1.9.127: REACT ("Reaktion") moves right after VIEW -- a mood is the first thing that can wait; HAND (the raised hand) never moves, a person who
  * wants the floor must always find the button.
  * V1.9.115: VIEW ("Ansicht") moves FIRST -- before the vote, the roster and the rest -- because its twin in the sheet opens the very same
@@ -79,6 +87,9 @@ internal val CONFERENCE_OVERFLOW_ORDER: List<ConferenceControlSlot> =
         ConferenceControlSlot.STREAM,
         ConferenceControlSlot.RECORD,
         ConferenceControlSlot.END_FOR_ALL,
+        ConferenceControlSlot.SETTINGS,
+        ConferenceControlSlot.CAMERA,
+        ConferenceControlSlot.MIC,
     )
 
 /** V1.9.72: gap between the controls of the exit group (BACK, END_FOR_ALL, LEAVE); theme.css `--exit` uses the same 12 px. */
@@ -271,6 +282,30 @@ internal fun Container.conferenceViewButton(): Button = conferenceControlButton(
 
 /** V1.9.127: the "Reaktion" button of the bar (opens the menu of the five reactions) -- built by the bar's own icon-only factory. */
 internal fun Container.conferenceReactButton(): Button = conferenceControlButton(ActionIcon.REACT, tr("Reaktion"))
+
+/**
+ * V1.9.184: the settings gear -- alone in the start zone of the bar; opens the device panel (microphone, camera, speaker, noise suppression,
+ * tones). Built by the bar's own icon-only factory. `aria-expanded` / `aria-controls` are written by the screen.
+ */
+internal fun Container.conferenceSettingsButton(): Button = conferenceControlButton(ActionIcon.SETTINGS, tr("Einstellungen"))
+
+/** V1.9.184 -- id of the settings panel (the device block) that the gear of the bar opens; `aria-controls` of the gear. */
+internal const val CONFERENCE_SETTINGS_SHEET_ID = "lapis-conference-settings-sheet"
+
+/**
+ * V1.9.184 -- ties the gear to its panel: the panel is a non-modal `role="dialog"` named "Einstellungen" with a stable id, the gear says
+ * whether it is open (`aria-expanded`, written by the screen on every render) and which element it controls.
+ */
+internal fun wireSettingsSheet(
+    gear: Button,
+    sheet: Widget,
+) {
+    sheet.setAttribute("id", CONFERENCE_SETTINGS_SHEET_ID)
+    sheet.setAttribute("role", "dialog")
+    sheet.setAttribute("aria-label", gettext("Einstellungen"))
+    gear.setAttribute("aria-expanded", "false")
+    gear.setAttribute("aria-controls", CONFERENCE_SETTINGS_SHEET_ID)
+}
 
 /** The raised-hand toggle of the bar and its position badge (the number shows the own place in the queue while the hand is up). */
 internal class ConferenceHandControl internal constructor(
@@ -662,6 +697,8 @@ internal class ConferenceControlsOverflow(
     onChanged: (moved: Set<ConferenceControlSlot>) -> Unit,
     /** Groups whose controls sit in a wrapper element that stays rendered (and takes a column gap) even when empty. */
     containerGroups: Set<Int> = emptySet(),
+    /** V1.9.184: width the three-zone bar spends on its zone separators beyond the counted group dividers, see [ControlBarOverflow]. */
+    reservedWidth: Double = 0.0,
 ) {
     private val delegate =
         ControlBarOverflow(
@@ -674,6 +711,7 @@ internal class ConferenceControlsOverflow(
             overflowedClass = OVERFLOWED,
             onChanged = onChanged,
             containerGroups = containerGroups,
+            reservedWidth = reservedWidth,
         )
 
     fun moved(): Set<ConferenceControlSlot> = delegate.moved()

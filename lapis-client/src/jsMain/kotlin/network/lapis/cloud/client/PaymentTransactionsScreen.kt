@@ -33,7 +33,7 @@ private const val PAYMENT_TRANSACTIONS_PAGE_SIZE = 50
  */
 fun renderPaymentTransactionsScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.pageHeader(tr("Zahlungseingänge"))
+    root.pageHeader(tr("Zahlungseingänge"), intro = PageIntros.forRoute(Routes.PAYMENT_TRANSACTIONS))
 
     val filterRow = root.lapisToolbar()
     val searchInput = filterRow.text(label = tr("Suche nach Mitglied oder Hinweis"))

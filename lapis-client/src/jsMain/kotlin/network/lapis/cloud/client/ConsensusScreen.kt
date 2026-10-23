@@ -8,7 +8,6 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import network.lapis.cloud.shared.domain.MotionDto
 import network.lapis.cloud.shared.domain.SystemicConsensusDto
 import network.lapis.cloud.shared.domain.SystemicConsensusParticipationDto
@@ -45,16 +44,12 @@ fun renderConsensusScreen(
     }
     val ctx = ConsensusUiContext(session.memberId)
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Konsensieren"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    // V1.9.192: the back button sits ABOVE the title on a detail page (one pattern, see MasterDetail.kt).
+    val backButton = if (initialConsensusId != null) root.overviewBackButton(Routes.CONSENSUS) else null
+    root.pageHeader(tr("Konsensieren"), intro = if (initialConsensusId == null) PageIntros.forRoute(Routes.CONSENSUS) else null)
 
-    if (initialConsensusId != null) {
-        val backButton = root.button(tr("Zur Übersicht"), style = ButtonStyle.OUTLINESECONDARY)
-        backButton.onClick { navigateTo(Routes.CONSENSUS) }
+    if (initialConsensusId != null && backButton != null) {
         // While a receipt is on screen it cannot be shown again, so the in-app way out is closed until "Fertig".
         consensusReceiptVisibilityHook = { showing -> backButton.visible = !showing }
         val detailPanel = root.vPanel(spacing = 10)

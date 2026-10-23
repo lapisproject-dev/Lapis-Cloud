@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Lapis Cloud</title>
     <!--
+      V1.9.195 favicons: served from the site root by the server's static catch-all (absolute paths on
+      purpose -- the SPA lives under /app). The light/dark SVG pair follows the OS colour scheme via
+      media, NOT the in-app theme switch; browsers that ignore media on icon links (Safari) fall back
+      to the ICO / PNG. No script swaps the icon.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+    <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+    <!--
       V1.2.5 White-Label-Branding: dev-time default payload. `network.lapis.cloud.server.branding
       .BrandingHtml.inject` overwrites BOTH the <title> text above and this element's JSON content
       with the operator's actual LAPIS_BRAND_TITLE/LAPIS_BRAND_LOGO_PATH whenever the server serves

@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.agreementtexts
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.rpc.ServiceBusyException
@@ -15,6 +16,8 @@ internal data class CurrentAgreementText(
     val body: String,
     val sha256: String,
     val placeholder: Boolean,
+    /** V1.9.196 -- how [body] is displayed. The built-in placeholders are always [AgreementTextFormat.PLAIN]. The format is not part of [sha256]. */
+    val format: AgreementTextFormat = AgreementTextFormat.PLAIN,
 )
 
 /**
@@ -44,7 +47,7 @@ internal object AgreementTextResolver {
                     logger.warn { "agreement integrity mismatch (kind=${kind.name}, sequenceNo=${row.sequenceNo})" }
                     throw ServiceBusyException()
                 }
-                CurrentAgreementText(versionLabel = label, body = body, sha256 = stored, placeholder = false)
+                CurrentAgreementText(versionLabel = label, body = body, sha256 = stored, placeholder = false, format = row.format)
             }
         }
 

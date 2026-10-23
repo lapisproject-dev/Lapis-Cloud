@@ -153,6 +153,12 @@ interface ITravelExpenseService {
     suspend fun updateTravelExpenseSettings(input: TravelExpenseSettingsInput): TravelExpenseRatesDto
 
     /**
+     * V1.9.199. Role: ADMIN (same gate as [updateTravelExpenseSettings]). Renders a Markdown contact hint to sanitized HTML for the live
+     * preview (at most `TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH` characters, rate-limited per member). Writes nothing.
+     */
+    suspend fun previewTravelContactHint(markdown: String): String
+
+    /**
      * DRAFT only, subject or requester. Replaces the per-day entries (times, meals, destination)
      * of the travel period. Every amount is recomputed server-side by the shared
      * `TravelExpenseCalculator`; the client never supplies a cent value for a day.

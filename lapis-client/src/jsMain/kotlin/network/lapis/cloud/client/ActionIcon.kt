@@ -23,6 +23,9 @@ enum class ActionIcon(
     CLOSE("fas fa-xmark"),
     CLEAR("fas fa-xmark"),
     ADD("fas fa-plus"),
+
+    /** V1.9.187: the "Hilfe und Feedback" menu of the sidebar. NOT [QUESTION] (the reaction "Frage" of the rooms). Assigned to this purpose only. */
+    HELP("fas fa-life-ring"),
     SEARCH("fas fa-magnifying-glass"),
     FILTER("fas fa-filter"),
     DOWNLOAD("fas fa-download"),
@@ -151,6 +154,21 @@ enum class ActionIcon(
 
     /** V1.9.166: take oneself off the grid map of the encounter room ("Karte verlassen"); the person stays in the room. NOT [LEAVE] (the room itself). */
     MAP_LEAVE("fas fa-map"),
+
+    /** V1.9.182: the visitor (guest/friend) badge glyph -- solid hiker with backpack and stick. Compile-time constant, never request-derived. */
+    VISITOR("fas fa-person-hiking"),
+
+    /** V1.9.183: disclosure arrow of a collapsible group header; rotated 90° by CSS while `aria-expanded="true"`. */
+    CHEVRON("fas fa-chevron-right"),
+
+    /** V1.9.190: the "info" glyph of a collapsed page intro ("Hinweis anzeigen"). */
+    INFO("fas fa-circle-info"),
+
+    /** V1.9.190: points down -- the collapsed page intro that opens on click. */
+    CHEVRON_DOWN("fas fa-chevron-down"),
+
+    /** V1.9.190: points up -- the open page intro that folds on click ("Einklappen"). */
+    CHEVRON_UP("fas fa-chevron-up"),
 
     /** V1.9.167: opens the map overlay of the encounter room (the dock button "Karte öffnen" and its twin in the "Mehr" sheet). NOT [MAP_ENTER] (stepping onto the map). */
     MAP_OPEN("fas fa-map-location-dot"),

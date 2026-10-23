@@ -246,6 +246,43 @@ class RegistrationLayoutDomTest {
         }
 
     @Test
+    fun registration_aMarkdownText_isShownAsTheServersHtml_insideTheSameReadingFrame(): Promise<Unit> =
+        test {
+            val (agreementRoute, chaptersRoute, termsRoute) = routes()
+            val markdownAgreement =
+                """{"version":"m1","text":"# Quelltext","sha256":"sha-m1","format":"MARKDOWN","renderedHtml":"<h2>Beitritt</h2>\n<p>Mit <strong>Wirkung</strong>.</p>\n"}"""
+            val markdownTerms =
+                """{"version":"m2","text":"Quelltext","sha256":"sha-m2","format":"MARKDOWN","renderedHtml":"<p>Freund <em>Bedingungen</em></p>\n"}"""
+            withFetchStub(
+                respond = { request ->
+                    when {
+                        !request.isRpc -> StubResponse()
+                        request.rpcRoute == agreementRoute -> request.answerWith(markdownAgreement)
+                        request.rpcRoute == chaptersRoute -> request.answerWith(oneChapterJson)
+                        request.rpcRoute == termsRoute -> request.answerWith(markdownTerms)
+                        else -> request.answerWith("null")
+                    }
+                },
+            ) {
+                withMountedRoot("body-registration-markdown-member") { root, element ->
+                    renderRegistrationScreen(root)
+                    awaitUntil("the html body") { element().querySelector(".$AGREEMENT_FRAME_CLASS .$AGREEMENT_BODY_CLASS") != null }
+                    val frame = assertNotNull(element().querySelector(".$AGREEMENT_FRAME_CLASS") as? HTMLElement)
+                    assertEquals("region", frame.getAttribute("role"))
+                    assertEquals("0", frame.getAttribute("tabindex"))
+                    assertEquals("Beitritt", frame.querySelector("h2")?.textContent)
+                    assertEquals("Wirkung", frame.querySelector("strong")?.textContent)
+                    assertFalse(frame.textContent.orEmpty().contains("Quelltext"))
+                }
+                withMountedRoot("body-registration-markdown-friend") { root, element ->
+                    renderFriendRegistrationScreen(root)
+                    awaitUntil("the html body") { element().querySelector(".$AGREEMENT_FRAME_CLASS .$AGREEMENT_BODY_CLASS") != null }
+                    assertEquals("Bedingungen", element().querySelector(".$AGREEMENT_FRAME_CLASS em")?.textContent)
+                }
+            }
+        }
+
+    @Test
     fun memberRegistration_textChanged_loadsTheFreshText_withdrawsTheConsent_andKeepsWhatWasTyped(): Promise<Unit> =
         test {
             val (agreementRoute, chaptersRoute, _) = routes()

@@ -305,7 +305,7 @@ private class RatingBooth(
         val finalNote = texts.finalNote
         booth.p(finalNote) { addCssClasses("text-muted mb-0") }
         val row = booth.hPanel(spacing = 8)
-        val back = newActionButton(ActionIcon.BACK, tr("Zurück"), ButtonStyle.OUTLINESECONDARY)
+        val back = newActionButton(ActionIcon.BACK, tr("Bewertung ändern"), ButtonStyle.OUTLINESECONDARY)
         val submit = Button(tr("Endgültig abgeben"), style = ButtonStyle.PRIMARY)
         row.add(back)
         row.add(submit)
@@ -427,7 +427,7 @@ private class RatingBooth(
                 }
             }
         }
-        booth.button(roomHost?.exitLabel ?: texts.exitLabel, style = ButtonStyle.OUTLINESECONDARY).onClick { exit(true) }
+        booth.backButton(roomHost?.exitLabel ?: texts.exitLabel) { exit(true) }
     }
 
     private fun showDone() {

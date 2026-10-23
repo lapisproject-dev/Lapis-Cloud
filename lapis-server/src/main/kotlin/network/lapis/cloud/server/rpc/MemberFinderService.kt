@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.agreementtexts.AgreementMarkdown
 import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
 import network.lapis.cloud.server.agreementtexts.CurrentAgreementText
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -99,7 +100,13 @@ class MemberFinderService(
         return transaction {
             requireSwitchOn()
             val text = AgreementTextResolver.current(kind = AgreementTextKind.FINDER)
-            MemberFinderConsentTextDto(versionLabel = text.versionLabel, body = text.body, sha256 = text.sha256)
+            MemberFinderConsentTextDto(
+                versionLabel = text.versionLabel,
+                body = text.body,
+                sha256 = text.sha256,
+                format = text.format,
+                renderedHtml = AgreementMarkdown.htmlFor(format = text.format, body = text.body),
+            )
         }
     }
 

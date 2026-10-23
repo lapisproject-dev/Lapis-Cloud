@@ -122,7 +122,7 @@ class PollRatingBoothDomTest {
                 assertTrue(text.contains("Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden."))
                 assertEquals(true, reviews.last())
                 assertEquals(0, calls.toRoute(routes.castRatings).size)
-                el.buttonNamed("Zurück").click()
+                el.buttonNamed("Bewertung ändern").click()
                 awaitUntil("back on the scales", 1500) { el.hasButton("Prüfen") }
                 awaitUntil("choice kept", 1500) { !el.isButtonDisabled("Prüfen") }
                 val checked = el.allOf("input[type=radio]").mapIndexedNotNull { i, r -> if ((r as HTMLInputElement).checked) i else null }
@@ -239,7 +239,7 @@ class PollRatingBoothDomTest {
                 }
                 el.buttonNamed("Endgültig abgeben").click()
                 awaitUntil("explained", 2000) { el.flatText().contains("Die Umfrage ist beendet.") }
-                assertTrue(el.hasButton("Zurück zur Umfrage"))
+                assertTrue(el.hasButton("Stimmabgabe verlassen"))
                 assertEquals(0, el.allOf("input[type=radio]").size)
             }
         }
@@ -269,7 +269,7 @@ class PollRatingBoothDomTest {
             withBooth(world, "poll-rating-forbidden") { el, _, _ ->
                 el.submit()
                 awaitUntil("explained", 2000) { el.flatText().contains("Nur aktive Mitglieder können antworten.") }
-                assertTrue(el.hasButton("Zurück zur Umfrage"))
+                assertTrue(el.hasButton("Stimmabgabe verlassen"))
                 assertEquals(0, document.querySelectorAll(".toast").length)
             }
         }

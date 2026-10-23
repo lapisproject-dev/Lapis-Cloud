@@ -1,19 +1,26 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.select.select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.P
+import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
+import io.kvision.table.HeaderCell
+import io.kvision.table.Scope
+import io.kvision.table.cell
+import io.kvision.table.row
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeDto
@@ -100,10 +107,7 @@ import network.lapis.cloud.shared.rpc.IMemberService
  *   list); `closeVote` (a forward/completing transition, mirrors `updateMeetingStatus -> HELD`)
  *   does not.
  */
-fun renderMotionsScreen(
-    container: SimplePanel,
-    initialMotionId: String? = null,
-) {
+fun renderMotionsScreen(container: SimplePanel) {
     val session = AppState.session
     if (session == null) {
         navigateTo(Routes.LOGIN)
@@ -113,12 +117,8 @@ fun renderMotionsScreen(
     val isBoardOrAdmin = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
 
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Anträge"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Anträge"), intro = PageIntros.forRoute(Routes.MOTIONS))
     // V1.9.40 (R36B): the submission form is collapsed; its button sits in the title row and the form opens right under the header.
     val submissionHost = root.vPanel(spacing = 6)
 
@@ -131,12 +131,6 @@ fun renderMotionsScreen(
     val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val motionListPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Details")) { addCssClass("h5") }
-    val detailPanel = root.vPanel(spacing = 10)
-    detailPanel.p(tr("Antrag oben auswählen, um Details zu sehen."))
-
-    var committees: List<CommitteeDto> = emptyList()
-    var currentDetailMotionId: String? = null
     // Known only after the committee rosters are loaded (below), i.e. usually AFTER the first list render: the empty-state text is
     // corrected in place once it is (see [emptyNote]).
     var canSubmit = false
@@ -144,17 +138,6 @@ fun renderMotionsScreen(
 
     fun emptyText(): String =
         if (canSubmit) tr("Noch keine Anträge. Mit \"Neuer Antrag\" reichen Sie einen ein.") else tr("Noch keine Anträge vorhanden.")
-
-    fun selectMotion(motionId: String) {
-        currentDetailMotionId = motionId
-    }
-
-    fun refreshDetail() {
-        val motionId = currentDetailMotionId ?: return
-        renderMotionDetail(detailPanel, motionId, currentMemberId, isBoardOrAdmin, committees, ::selectMotion) {
-            refreshDetail()
-        }
-    }
 
     fun refreshMotions() {
         motionListPanel.removeAll()
@@ -167,25 +150,17 @@ fun renderMotionsScreen(
                 emptyNote = motionListPanel.p(emptyText())
                 return@launch
             }
-            renderMotionList(motionListPanel, motions) { selected ->
-                selectMotion(selected.id)
-                refreshDetail()
-            }
+            renderMotionTable(motionListPanel, motions)
         }
     }
 
     refreshButton.onClick { refreshMotions() }
 
     AppScope.launch {
-        committees = guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = false) } ?: emptyList()
+        val committees = guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = false) } ?: emptyList()
         committeeFilterSelect.options = listOf("" to tr("Alle Gremien")) + untrustedOptions(committees.map { it.id to it.name })
         committeeFilterSelect.value = ""
         refreshMotions()
-        // `/motions/:id` (V1.9.22): arriving from an election's "Zum Antrag" link opens that motion's detail right away.
-        if (initialMotionId != null) {
-            selectMotion(initialMotionId)
-            refreshDetail()
-        }
 
         // Which Committees the current member may plausibly submit a Motion to (plan §4's
         // broadest gate) -- BOARD/ADMIN may submit anywhere active; the General Assembly is a
@@ -242,66 +217,75 @@ fun renderMotionsScreen(
 }
 
 /**
- * Design decision D1: main Motions render first, each immediately followed by its own amendments
- * indented beneath it (`ps-4`, `↳ ` prefix). A filtered/paginated [motions] list may not contain an
- * amendment's own parent (different committee/status filter) -- such an orphaned amendment falls
- * back to rendering unindented at the top level rather than being silently dropped.
+ * Design decision D1: main Motions come first, each immediately followed by its own amendments. A filtered [motions] list may not
+ * contain an amendment's own parent (different committee/status filter) -- such an orphaned amendment goes to the end rather than
+ * being silently dropped.
  */
-private fun renderMotionList(
-    panel: SimplePanel,
-    motions: List<MotionDto>,
-    onSelect: (MotionDto) -> Unit,
-) {
+internal fun orderMotionsForTable(motions: List<MotionDto>): List<MotionDto> {
     val mainMotions = motions.filter { it.amendsMotionId == null }
     val amendmentsByParentId = motions.filter { it.amendsMotionId != null }.groupBy { it.amendsMotionId }
-    val rendered = mutableSetOf<String>()
-
+    val ordered = mutableListOf<MotionDto>()
+    val placed = mutableSetOf<String>()
     mainMotions.forEach { main ->
-        renderMotionRow(panel, main, indented = false, onSelect = onSelect)
-        rendered += main.id
+        ordered += main
+        placed += main.id
         amendmentsByParentId[main.id]?.forEach { amendment ->
-            renderMotionRow(panel, amendment, indented = true, onSelect = onSelect)
-            rendered += amendment.id
+            ordered += amendment
+            placed += amendment.id
         }
     }
-    motions.filter { it.id !in rendered }.forEach { orphan ->
-        renderMotionRow(panel, orphan, indented = false, onSelect = onSelect)
-    }
+    motions.filter { it.id !in placed }.forEach { ordered += it }
+    return ordered
 }
 
-private fun renderMotionRow(
-    panel: SimplePanel,
-    motion: MotionDto,
-    indented: Boolean,
-    onSelect: (MotionDto) -> Unit,
+/**
+ * V1.9.193 -- the motions as a table (Titel | Gremium | Antragsteller | Status | Datum | Aktionen); the title is the real link to
+ * `/motions/:id`. An amendment carries "Änderung zu: <parent title>" below its link (when the parent is in the list; with an active
+ * filter it may not be -- then the plain word "Änderungsantrag").
+ */
+internal fun renderMotionTable(
+    host: Container,
+    motions: List<MotionDto>,
 ) {
-    val isAmendment = motion.amendsMotionId != null
-    val row =
-        panel.vPanel(spacing = 4) {
-            addCssClasses("border rounded p-2")
-            if (indented) addCssClasses("ps-4")
-        }
-    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    // Security audit follow-up (untrusted-text sanitization gaps): motion.title is member-controlled free text
-    // (same field sanitized via amendment.title elsewhere in this file). The non-amendment branch assigns the
-    // RAW field straight to this local `val`, invisible to the widget-text tripwire's regex (a bare identifier,
-    // no dotted field access at the div(...) call site) -- sanitize once here so both branches stay safe.
-    val title = sanitizeUntrustedI18nText(if (isAmendment) gettext("↳ Änderungsantrag: %1", motion.title) else motion.title)
-    headerRow.div(title) { addCssClasses("flex-grow-1 fw-bold") }
-    if (isAmendment) headerRow.typeBadge(tr("Änderungsantrag"), "secondary")
-    headerRow.statusBadge(motionStatusLabel(motion.status), motionStatusColor(motion.status))
-    row.div(
-        gettext(
-            "%1 · eingereicht von %2 am %3",
-            motion.targetCommitteeName,
-            motion.submitterDisplayName,
-            formatSystemDateTime(motion.submittedAt),
-        ),
-    ) { addCssClasses("text-muted small") }
+    val headers =
+        listOf(
+            TableHeader(tr("Titel")),
+            TableHeader(tr("Gremium")),
+            TableHeader(tr("Antragsteller")),
+            TableHeader(tr("Status")),
+            TableHeader(tr("Datum")),
+            TableHeader(tr("Aktionen")),
+        )
+    val table = host.masterTable(tr("Anträge"), headers)
+    val titlesById = motions.associate { motion -> motion.id to motion.title }
 
-    val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.actionButton(ActionIcon.VIEW, tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
-    showButton.onClick { onSelect(motion) }
+    orderMotionsForTable(motions).forEach { motion ->
+        table.row {
+            masterRow()
+            val titleCell = HeaderCell(scope = Scope.ROW) { addCssClass("fw-normal") }
+            add(titleCell)
+            // Motion title is member-controlled free text: sanitized inside [recordLink].
+            titleCell.recordLink(motion.title, Routes.MOTIONS, motion.id)
+            if (motion.amendsMotionId != null) {
+                val parentTitle = titlesById[motion.amendsMotionId]
+                val note = if (parentTitle != null) gettext("Änderung zu: %1", parentTitle) else gettext("Änderungsantrag")
+                titleCell.untrustedDiv(note, className = "small text-muted")
+            }
+            textCell(motion.targetCommitteeName)
+            textCell(motion.submitterDisplayName.ifBlank { "–" })
+            cell { statusBadge(motionStatusLabel(motion.status), motionStatusColor(motion.status)) }
+            textCell(trusted(formatSystemDateTime(motion.submittedAt)))
+            cell {
+                val tooltip = gettext("Details zu %1", sanitizeUntrustedI18nText(motion.title))
+                tableActionGroup()
+                    .tableActionButton(ActionIcon.VIEW, tooltip)
+                    .onClick {
+                        MasterDetailFocus.remember(Routes.MOTIONS, motion.id)
+                        navigateTo(detailRoute(Routes.MOTIONS, motion.id))
+                    }
+            }
+        }
+    }
 }
 
 /**
@@ -408,26 +392,59 @@ internal suspend fun isEligibleToBallot(
     }
 
 /**
- * Loads the Motion itself, its target Committee's roster (for [GovernanceAuthzUi]), its parent (if
- * it is an amendment) or its own amendments (if it is a main Motion), and any Vote opened against
- * it -- then dispatches the status-specific action sections. [onSelectMotion] lets a nested link
- * (the D1 parent callout, an amendment row, a D2 blocking-amendment link) reselect a different
- * Motion within this same screen without a route change.
+ * V1.9.193 -- one motion as its own page (`/motions/:id`, deep link, also the target of an election's "Zum Antrag" link): back button
+ * above the title, then the sections of [buildMotionDetail]. An unknown id leaves a sentence next to the back button, never a blank
+ * page (same as the meeting page; no redirect, so there is no loop to get into).
  */
+fun renderMotionDetailScreen(
+    container: SimplePanel,
+    id: String,
+) {
+    val session = AppState.session
+    if (session == null) {
+        navigateTo(Routes.LOGIN)
+        return
+    }
+    val root = container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.overviewBackButton(Routes.MOTIONS)
+    val loading = root.p(tr("Wird geladen …"))
+    val isBoardOrAdmin = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
+    AppScope.launch {
+        val motion = guarded { rpcService<IGovernanceService>().getMotion(id) }
+        root.remove(loading)
+        if (motion == null) {
+            root.p(tr("Dieser Antrag wurde nicht gefunden."))
+            return@launch
+        }
+        val committees = guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = false) } ?: emptyList()
+        // The title is the motion (member-controlled free text): the whole composed result is sanitized.
+        val title =
+            if (motion.amendsMotionId != null) gettext("Änderungsantrag: %1", motion.title) else gettext("Antrag: %1", motion.title)
+        root.pageHeader(sanitizeUntrustedI18nText(title))
+        val body = root.vPanel(spacing = 10)
+        val reload = {
+            container.removeAll()
+            renderMotionDetailScreen(container, id)
+        }
+        buildMotionDetail(body, motion, session.memberId, isBoardOrAdmin, committees, reload)
+    }
+}
 
-private fun renderMotionDetail(
+/**
+ * Loads the Motion's target Committee roster (for [GovernanceAuthzUi]), its parent (if it is an amendment) or its own amendments (if it
+ * is a main Motion), and any Vote opened against it -- then dispatches the status-specific action sections. A nested link (the D1
+ * parent callout, an amendment row, a D2 blocking-amendment link) navigates to that motion's own page.
+ */
+private fun buildMotionDetail(
     panel: SimplePanel,
-    motionId: String,
+    motion: MotionDto,
     currentMemberId: String,
     isBoardOrAdmin: Boolean,
     committees: List<CommitteeDto>,
-    onSelectMotion: (String) -> Unit,
     onChanged: () -> Unit,
 ) {
-    panel.removeAll()
-    panel.p(tr("Wird geladen …"))
+    val onSelectMotion: (String) -> Unit = { navigateTo(detailRoute(Routes.MOTIONS, it)) }
     AppScope.launch {
-        val motion = guarded { rpcService<IGovernanceService>().getMotion(motionId) } ?: return@launch
         val roster =
             guarded {
                 rpcService<IGovernanceService>().listCommitteeMembers(motion.targetCommitteeId, activeOnly = true)
@@ -453,9 +470,9 @@ private fun renderMotionDetail(
 
         val committee = committees.find { it.id == motion.targetCommitteeId }
         panel.removeAll()
-        renderMotionMeta(panel, motion, canManage, isSubmitter, onChanged)
+        renderMotionMeta(panel, motion)
         if (parent != null) renderAmendmentContext(panel, parent, onSelectMotion)
-        if (motion.amendsMotionId == null) renderAmendmentsSection(panel, amendments, onSelectMotion)
+        if (motion.amendsMotionId == null) renderAmendmentsSection(panel, amendments)
         if (RejectedBidNotice.shownFor(votes)) renderRejectedBidNotice(panel)
 
         when (motion.status) {
@@ -483,23 +500,19 @@ private fun renderMotionDetail(
             val eligible = isEligibleToBallot(committee, roster, currentMemberId)
             renderVoteSection(panel, activeVote, canManage, currentMemberId, eligible, onChanged)
         }
+        // Last on the page, a quiet secondary button (not a red one next to the title).
+        renderWithdrawAction(panel, motion, canManage, isSubmitter, onChanged)
     }
 }
 
+/** The facts of the motion under the page title: badges, committee/submitter/date line, rationale, text and the review note. */
 private fun renderMotionMeta(
     panel: SimplePanel,
     motion: MotionDto,
-    canManage: Boolean,
-    isSubmitter: Boolean,
-    onChanged: () -> Unit,
 ) {
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    // Security audit follow-up (untrusted-text sanitization gaps): same motion.title local-var-indirection gap
-    // as renderMotionRow above in this file -- sanitize once here so both branches stay safe.
-    val title = sanitizeUntrustedI18nText(if (motion.amendsMotionId != null) gettext("Änderungsantrag: %1", motion.title) else motion.title)
-    headerRow.h2(title) { addCssClasses("h5 flex-grow-1") }
-    if (motion.amendsMotionId != null) headerRow.typeBadge(tr("Änderungsantrag"), "secondary")
-    headerRow.statusBadge(motionStatusLabel(motion.status), motionStatusColor(motion.status))
+    val badgeRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    if (motion.amendsMotionId != null) badgeRow.typeBadge(tr("Änderungsantrag"), "secondary")
+    badgeRow.statusBadge(motionStatusLabel(motion.status), motionStatusColor(motion.status))
 
     panel.div(
         gettext(
@@ -523,8 +536,6 @@ private fun renderMotionMeta(
             addCssClasses("text-muted small")
         }
     }
-
-    renderWithdrawAction(panel, motion, canManage, isSubmitter, onChanged)
 }
 
 /**
@@ -550,7 +561,8 @@ private fun renderWithdrawAction(
     val managerMayWithdraw = canManage && motion.status != MotionStatus.WITHDRAWN
     if (!submitterMayWithdraw && !managerMayWithdraw) return
 
-    val withdrawButton = panel.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
+    val actionRow = panel.hPanel(spacing = 8)
+    val withdrawButton = actionRow.actionButton(ActionIcon.UNDO, tr("Antrag zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
     withdrawButton.onClick {
         confirmDialog(
             title = tr("Antrag zurückziehen"),
@@ -585,26 +597,27 @@ private fun renderAmendmentContext(
 }
 
 /** Design decision D1: a main Motion's detail view always shows this section, even when empty,
- * so its presence is predictable rather than conditionally vanishing. */
+ * so its presence is predictable rather than conditionally vanishing. The amendments are a small table with the real link. */
 private fun renderAmendmentsSection(
     panel: SimplePanel,
     amendments: List<MotionDto>,
-    onSelectMotion: (String) -> Unit,
 ) {
     panel.h2(tr("Änderungsanträge zu diesem Antrag")) { addCssClass("h5") }
     if (amendments.isEmpty()) {
         panel.p(tr("Keine Änderungsanträge."))
         return
     }
+    val table = panel.masterTable(tr("Änderungsanträge zu diesem Antrag"), listOf(TableHeader(tr("Titel")), TableHeader(tr("Status"))))
     amendments.forEach { amendment ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        // Security audit W6b follow-up round 3 (major finding A): an amendment title is server-/member-controlled
-        // free text -- widget content, unlike a `gettext(..., %1)` argument, is not sanitized on this path, so a
-        // title carrying a forged marker + money sentinel would render as a fabricated amount.
-        row.div(sanitizeUntrustedI18nText(amendment.title)) { addCssClasses("flex-grow-1") }
-        row.statusBadge(motionStatusLabel(amendment.status), motionStatusColor(amendment.status))
-        val showButton = row.actionButton(ActionIcon.VIEW, tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
-        showButton.onClick { onSelectMotion(amendment.id) }
+        table.row {
+            masterRow()
+            val titleCell = HeaderCell(scope = Scope.ROW) { addCssClass("fw-normal") }
+            add(titleCell)
+            // Security audit W6b follow-up round 3 (major finding A): an amendment title is member-controlled free text,
+            // sanitized inside [recordLink].
+            titleCell.recordLink(amendment.title, Routes.MOTIONS, amendment.id)
+            cell { statusBadge(motionStatusLabel(amendment.status), motionStatusColor(amendment.status)) }
+        }
     }
 }
 
@@ -748,13 +761,146 @@ internal fun renderScheduleForm(
     }
 }
 
+/** The four ways to decide a scheduled motion, in the order the selector shows them. */
+internal enum class DecisionMethod { QUORUM, MERIT, ELECTION, CONSENSUS }
+
+/** One selector segment: whether the way is open and, if not, why (already translated). */
+internal data class DecisionMethodState(
+    val method: DecisionMethod,
+    val enabled: Boolean,
+    val disabledReason: String?,
+)
+
 /**
- * Design decision D2: while [pendingAmendments] is non-empty, both resolution paths render
- * disabled with an explanatory `alert-warning` box (Norman: explain, don't hide, why an action is
- * unavailable) listing every blocking amendment as a link. Once clear, both paths are offered --
- * unless [activeVote] is already OPEN, in which case the Committee-Quorum path and a second
- * `openVote` are both withheld with a plain explanation, to avoid the two parallel resolution paths
- * racing to finalize the same Motion twice.
+ * Pure and testable: which ways are open, in selector order, and why one is closed. Mirrors the server rules (the server stays the
+ * authority; its refusals still end in the conflict dialog): open amendments close all four; an evaluated (advisory) consensus closes
+ * a second one -- one consensus per motion.
+ */
+internal fun decisionMethodStates(
+    pendingAmendments: List<MotionDto>,
+    consensuses: List<SystemicConsensusDto>,
+): List<DecisionMethodState> {
+    val amendmentsOpen = pendingAmendments.isNotEmpty()
+    val amendmentsReason = gettext("Zuerst alle Änderungsanträge entscheiden")
+    val consensusExists = consensuses.any { it.status != SystemicConsensusStatus.ABORTED }
+    return DecisionMethod.entries.map { method ->
+        when {
+            amendmentsOpen -> DecisionMethodState(method, enabled = false, disabledReason = amendmentsReason)
+            method == DecisionMethod.CONSENSUS && consensusExists ->
+                DecisionMethodState(
+                    method,
+                    enabled = false,
+                    disabledReason = gettext("Pro Antrag ist nur ein Konsensieren möglich; die Sondierung ist bereits ausgewertet."),
+                )
+            else -> DecisionMethodState(method, enabled = true, disabledReason = null)
+        }
+    }
+}
+
+/** The default choice of the selector: the first open way, or `null` when all are closed. */
+internal fun firstEnabledMethod(states: List<DecisionMethodState>): DecisionMethod? = states.firstOrNull { it.enabled }?.method
+
+private fun decisionMethodLabel(method: DecisionMethod): String =
+    when (method) {
+        DecisionMethod.QUORUM -> gettext("Quorum-Beschluss des Gremiums")
+        DecisionMethod.MERIT -> gettext("Meritokratische Abstimmung")
+        DecisionMethod.ELECTION -> gettext("Wahl")
+        DecisionMethod.CONSENSUS -> gettext("Konsensieren")
+    }
+
+private fun decisionMethodExplanation(method: DecisionMethod): String =
+    when (method) {
+        DecisionMethod.QUORUM ->
+            gettext(
+                "Das Gremium hat in der Sitzung abgestimmt; Sie halten hier die Ja-, Nein- und Enthaltungsstimmen und das Ergebnis fest.",
+            )
+        DecisionMethod.MERIT ->
+            gettext(
+                "Die Mitglieder stimmen online mit Ja oder Nein ab und gewichten ihre Stimme mit einem LTR-Einsatz; " +
+                    "es gilt die Antwort mit dem höchsten Gewicht.",
+            )
+        DecisionMethod.ELECTION ->
+            gettext(
+                "Eine förmliche Wahl mit eigenem Ablauf (Ja/Nein-Frage oder Kandidaten), die auf einer eigenen Seite durchgeführt " +
+                    "und ausgewertet wird.",
+            )
+        DecisionMethod.CONSENSUS ->
+            gettext(
+                "Die Teilnehmenden bewerten Vorschläge nach ihrem Widerstand; der Vorschlag mit dem geringsten Widerstand gewinnt " +
+                    "– als unverbindliche Sondierung vorab oder als verbindliche Entscheidung.",
+            )
+    }
+
+/** Id of the sentence under the selector; the radio group points to it with `aria-describedby`. */
+internal const val DECISION_HINT_ID = "motion-decision-hint"
+
+/**
+ * V1.9.193 -- "Wie soll entschieden werden?": ONE segmented radio group instead of four forms stacked on top of each other. Only the
+ * form of the chosen way is in the DOM (switching clears the holder, so no stale handler survives). Closed ways stay in the group as
+ * `aria-disabled` and their reason is written out below it, visibly (not only in a tooltip).
+ */
+private fun renderDecisionSelector(
+    panel: SimplePanel,
+    motion: MotionDto,
+    states: List<DecisionMethodState>,
+    committees: List<CommitteeDto>,
+    onChanged: () -> Unit,
+) {
+    val host = panel.vPanel(spacing = 6) { addCssClass("lapis-decision-selector") }
+    val first = firstEnabledMethod(states)
+    val formHolder = SimplePanel()
+    var hint: P? = null
+
+    fun showMethod(method: DecisionMethod) {
+        formHolder.removeAll()
+        hint?.content = decisionMethodExplanation(method)
+        when (method) {
+            DecisionMethod.QUORUM -> renderCommitteeQuorumResolutionForm(formHolder, motion, onChanged)
+            DecisionMethod.MERIT -> renderOpenVoteForm(formHolder, motion, onChanged)
+            DecisionMethod.ELECTION ->
+                renderOpenElectionForm(formHolder, motion, committees, onConflict = onChanged) { opened ->
+                    navigateTo("/elections/${opened.id}")
+                }
+            DecisionMethod.CONSENSUS ->
+                renderOpenConsensusForm(formHolder, motion, onConflict = onChanged) { opened ->
+                    navigateTo("/consensus/${opened.id}")
+                }
+        }
+    }
+
+    val group =
+        host.segmentedRadioGroup(
+            options =
+                states.map { state ->
+                    SegmentOption(
+                        value = state.method,
+                        label = decisionMethodLabel(state.method),
+                        enabled = state.enabled,
+                        disabledHint = state.disabledReason,
+                    )
+                },
+            selected = first ?: DecisionMethod.QUORUM,
+            ariaLabel = tr("Wie soll entschieden werden?"),
+            onSelect = ::showMethod,
+        )
+    states.filter { !it.enabled }.forEach { state ->
+        host.div(gettext("Nicht verfügbar: %1 – %2", decisionMethodLabel(state.method), state.disabledReason.orEmpty())) {
+            addCssClasses("small text-body-secondary")
+        }
+    }
+    if (first != null) {
+        hint = host.p("") { setAttribute("id", DECISION_HINT_ID) }
+        group.setAttribute("aria-describedby", DECISION_HINT_ID)
+        host.add(formHolder)
+        showMethod(first)
+    }
+}
+
+/**
+ * Design decision D2: while [pendingAmendments] is non-empty, all four ways render closed with an explanatory `alert-warning` box
+ * (Norman: explain, don't hide, why an action is unavailable) listing every blocking amendment as a link. Once clear, the ways are
+ * offered in the selector of [renderDecisionSelector] -- unless a vote, election or consensus already runs or exists: then a plain
+ * status sentence replaces the selector, to avoid parallel resolution paths racing to finalize the same Motion twice.
  */
 internal fun renderResolutionSection(
     panel: SimplePanel,
@@ -769,9 +915,9 @@ internal fun renderResolutionSection(
     consensuses: List<SystemicConsensusDto> = emptyList(),
 ) {
     if (!canManage) return
-    panel.h2(tr("Entscheidung")) { addCssClass("h5") }
 
     if (pendingAmendments.isNotEmpty()) {
+        panel.h2(tr("Wie soll entschieden werden?")) { addCssClass("h5") }
         val count = pendingAmendments.size
         val warningBox = panel.vPanel(spacing = 4) { addCssClasses("alert alert-warning") }
         // Audit fix M4: two whole sentences instead of a hand-built German plural noun passed as an argument (a plural cannot be translated).
@@ -791,26 +937,11 @@ internal fun renderResolutionSection(
             val link = row.actionButton(ActionIcon.VIEW, tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
             link.onClick { onSelectMotion(amendment.id) }
         }
-        val disabledRow = panel.hPanel(spacing = 8)
-        disabledRow.button(tr("Committee-Quorum entscheiden"), style = ButtonStyle.PRIMARY).apply {
-            disabled = true
-            title = tr("Zuerst alle Änderungsanträge entscheiden")
-        }
-        disabledRow.button(tr("Meritokratische Vote eröffnen"), style = ButtonStyle.OUTLINEPRIMARY).apply {
-            disabled = true
-            title = tr("Zuerst alle Änderungsanträge entscheiden")
-        }
-        disabledRow.button(tr("Wahl eröffnen"), style = ButtonStyle.OUTLINEPRIMARY).apply {
-            disabled = true
-            title = tr("Zuerst alle Änderungsanträge entscheiden")
-        }
-        disabledRow.button(tr("Konsensieren eröffnen"), style = ButtonStyle.OUTLINEPRIMARY).apply {
-            disabled = true
-            title = tr("Zuerst alle Änderungsanträge entscheiden")
-        }
+        renderDecisionSelector(panel, motion, decisionMethodStates(pendingAmendments, consensuses), committees, onChanged)
         return
     }
 
+    panel.h2(tr("Entscheidung")) { addCssClass("h5") }
     if (activeVote != null && activeVote.status == VoteStatus.OPEN) {
         // V1.9.54: the server refuses resolveMotion while a vote is OPEN, so the form is not offered at all.
         panel
@@ -825,11 +956,11 @@ internal fun renderResolutionSection(
         return
     }
     if (activeVote != null && activeVote.status == VoteStatus.CLOSED) {
-        panel.p(tr("Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten."))
+        panel.p(tr("Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung -- siehe Abschnitt \"Abstimmung\" unten."))
         return
     }
 
-    // V1.9.22: a running or finished election already decides this motion -- the two other ways would race it, so none of the three is
+    // V1.9.22: a running or finished election already decides this motion -- the other ways would race it, so none is
     // offered, only the way back to the election. V1.9.54: the server refuses resolveMotion while one runs; while it is still running
     // the hint says what to do first.
     val runningElection = elections.firstOrNull { it.status != ElectionStatus.ABORTED }
@@ -848,12 +979,7 @@ internal fun renderResolutionSection(
 
     if (renderConsensusDecisionGate(panel, consensuses)) return
 
-    renderCommitteeQuorumResolutionForm(panel, motion, onChanged)
-    renderOpenVoteForm(panel, motion, onChanged)
-    renderOpenElectionForm(panel, motion, committees, onConflict = onChanged) { opened -> navigateTo("/elections/${opened.id}") }
-    if (consensuses.none { it.status != SystemicConsensusStatus.ABORTED }) {
-        renderOpenConsensusForm(panel, motion, onConflict = onChanged) { opened -> navigateTo("/consensus/${opened.id}") }
-    }
+    renderDecisionSelector(panel, motion, decisionMethodStates(pendingAmendments, consensuses), committees, onChanged)
 }
 
 internal fun renderCommitteeQuorumResolutionForm(
@@ -861,10 +987,8 @@ internal fun renderCommitteeQuorumResolutionForm(
     motion: MotionDto,
     onChanged: () -> Unit,
 ) {
-    val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    formPanel.p(tr("Committee-Quorum entscheiden")) { addCssClass("fw-bold") }
     // Formular-Grammatik (V1.4.29): Ja/Nein/Enthaltungen sind drei gleichtypige Zahlenfelder -- der Body-Test pinnt die Zuordnung.
-    val form = formPanel.lapisForm()
+    val form = panel.lapisForm()
     val votesYesField =
         form.textField(label = tr("Ja-Stimmen"), value = "0", required = true, rule = { FormRules.intAtLeast(value = it, min = 0) })
     val votesNoField =
@@ -874,8 +998,11 @@ internal fun renderCommitteeQuorumResolutionForm(
     val statusOptions = ResolutionStatus.entries.map { it.name to resolutionStatusLabel(it) }
     val statusField =
         form.selectField(label = tr("Status"), options = statusOptions, value = ResolutionStatus.ADOPTED.name, required = true)
+    form.panel.div(tr("Nach dem Speichern steht das Ergebnis fest und kann nicht mehr geändert werden.")) {
+        addCssClasses("text-muted small")
+    }
 
-    val resolveButton = newActionButton(ActionIcon.SAVE, tr("Entscheidung speichern"), style = ButtonStyle.PRIMARY)
+    val resolveButton = newActionButton(ActionIcon.SAVE, tr("Ergebnis festhalten"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = resolveButton)
     resolveButton.onClick {
         form.submit(resolveButton) {
@@ -899,18 +1026,29 @@ internal fun renderCommitteeQuorumResolutionForm(
     }
 }
 
-/** Kleinste zulässige Zahl unterschiedlicher Optionen einer Konsensieren-Abstimmung (Serverregel bleibt Autorität). */
+/** Kleinste zulässige Zahl unterschiedlicher Optionen einer Abstimmung (Serverregel bleibt Autorität). */
 private const val MIN_VOTE_OPTIONS = 2
+
+/**
+ * Display only: the wire format stays "YES"/"NO", because `closeVote` treats every winner other than "NO" as ADOPTED. Everything else
+ * is member-controlled free text and sanitized.
+ */
+internal fun voteOptionDisplayLabel(raw: String): String =
+    when (raw.trim().uppercase()) {
+        "YES" -> gettext("Ja")
+        "NO" -> gettext("Nein")
+        else -> sanitizeUntrustedI18nText(raw)
+    }
 
 internal fun renderOpenVoteForm(
     panel: SimplePanel,
     motion: MotionDto,
     onChanged: () -> Unit,
 ) {
-    val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    formPanel.p(tr("Meritokratische Vote eröffnen")) { addCssClass("fw-bold") }
-    // Systemisches Konsensieren: die Optionen sind kommagetrennte Labels (mindestens zwei verschiedene).
-    val form = formPanel.lapisForm()
+    // The standard is Ja/Nein (sent as YES/NO); own answers live under "Erweitert" with a warning.
+    val chips = panel.hPanel(spacing = 6) { addCssClasses("align-items-center") }
+    MERIT_YES_NO_LABELS.forEach { raw -> chips.span(voteOptionDisplayLabel(raw)) { addCssClasses("badge text-bg-light border") } }
+    val form = panel.lapisForm()
 
     fun parsedLabels(raw: String): List<String> =
         raw
@@ -918,10 +1056,24 @@ internal fun renderOpenVoteForm(
             .map { it.trim() }
             .filter { it.isNotBlank() }
             .distinct()
+
+    val details = Tag(TAG.DETAILS, className = "small")
+    details.add(Tag(TAG.SUMMARY, content = gettext("Erweitert: eigene Antwortmöglichkeiten")))
+    details.add(
+        Tag(
+            TAG.P,
+            content = gettext("Achtung: Gewinnt eine andere Antwort als \"NO\", gilt der Antrag als angenommen."),
+            className = "alert alert-warning mt-2 mb-2",
+        ),
+    )
+    val advanced = SimplePanel()
+    details.add(advanced)
+    form.panel.add(details)
     val labelsField =
         form.textField(
-            label = tr("Optionen"),
-            value = "YES,NO",
+            label = tr("Antwortmöglichkeiten, durch Komma getrennt"),
+            host = advanced,
+            value = MERIT_YES_NO_LABELS.joinToString(","),
             required = true,
             // Die Untergrenze steht als Platzhalter im Hinweis, nicht im msgid des Labels (eine Konstante in acht Katalogen).
             hint = gettext("Kommagetrennt, mindestens %1 verschiedene Optionen.", MIN_VOTE_OPTIONS),
@@ -934,15 +1086,16 @@ internal fun renderOpenVoteForm(
             },
         )
 
-    val openButton = Button(tr("Vote eröffnen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val openButton = Button(tr("Abstimmung eröffnen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = openButton)
     openButton.onClick {
         form.submit(openButton) {
+            // Untouched, the field still holds "YES,NO": exactly the wire labels.
             val labels = parsedLabels(labelsField.value)
             val result =
                 guarded { rpcService<IGovernanceService>().openVote(VoteOpenInput(motionId = motion.id, optionLabels = labels)) }
             if (result != null) {
-                notifySuccess(tr("Vote eröffnet."))
+                notifySuccess(tr("Abstimmung eröffnet."))
                 onChanged()
             }
         }
@@ -991,7 +1144,7 @@ internal fun renderVoteSection(
     isEligibleToBallot: Boolean,
     onChanged: () -> Unit,
 ) {
-    panel.h2(tr("Vote")) { addCssClass("h5") }
+    panel.h2(tr("Abstimmung")) { addCssClass("h5") }
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     // Security audit W6b follow-up (major finding 4): vote.title is server-/member-controlled free text, rendered
     // directly as widget content. KVision resolves ANY content starting with KV_I18N_MARKER through I18n.trans, so
@@ -1006,7 +1159,7 @@ internal fun renderVoteSection(
             panel.div(gettext("%1 Stimmen abgegeben.", ballots.size)) { addCssClasses("text-muted small") }
             val myBallot = ballots.find { it.memberId == currentMemberId }
             if (myBallot != null) {
-                val optionLabel = vote.options.find { it.id == myBallot.optionId }?.label ?: myBallot.optionId
+                val optionLabel = voteOptionDisplayLabel(vote.options.find { it.id == myBallot.optionId }?.label ?: myBallot.optionId)
                 panel.div(trFormat(tr("Ihr Gebot: %1, %2"), optionLabel, trusted(ltrToken(myBallot.stakeLtr)))) {
                     addCssClasses("text-muted small")
                 }
@@ -1041,7 +1194,7 @@ internal fun renderVoteSection(
             vote.options.forEach { option ->
                 val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
                 // Security audit W6b follow-up (major finding 4): see the sanitizeUntrustedI18nText note on vote.title above.
-                row.div(sanitizeUntrustedI18nText(option.label)) { addCssClasses("flex-grow-1") }
+                row.div(voteOptionDisplayLabel(option.label)) { addCssClasses("flex-grow-1") }
                 if (option.id == vote.winnerOptionId) row.statusBadge(tr("Gewinner"), "success")
                 row.ltrSpan(option.basketTotalLtr)
             }
@@ -1064,7 +1217,7 @@ internal fun renderVoteSection(
                 panel.p(tr("Keine Gebote abgegeben."))
             } else {
                 ballots.forEach { ballot ->
-                    val optionLabel = vote.options.find { it.id == ballot.optionId }?.label ?: ballot.optionId
+                    val optionLabel = voteOptionDisplayLabel(vote.options.find { it.id == ballot.optionId }?.label ?: ballot.optionId)
                     val settledLtr = ballot.settledLtr
                     panel.div(
                         if (settledLtr != null) {
@@ -1100,27 +1253,27 @@ private fun renderVoteControls(
     onChanged: () -> Unit,
 ) {
     val actionRow = panel.hPanel(spacing = 8)
-    val closeButton = actionRow.actionButton(ActionIcon.CLOSE, tr("Vote schließen"), style = ButtonStyle.SUCCESS)
+    val closeButton = actionRow.actionButton(ActionIcon.CLOSE, tr("Abstimmung schließen"), style = ButtonStyle.SUCCESS)
     closeButton.onClick {
         AppScope.launch {
             val result = guarded { rpcService<IGovernanceService>().closeVote(vote.id) }
             if (result != null) {
-                notifySuccess(tr("Vote geschlossen."))
+                notifySuccess(tr("Abstimmung geschlossen."))
                 onChanged()
             }
         }
     }
-    val abortButton = actionRow.actionButton(ActionIcon.CANCEL, tr("Vote abbrechen"), style = ButtonStyle.OUTLINEDANGER)
+    val abortButton = actionRow.actionButton(ActionIcon.CANCEL, tr("Abstimmung abbrechen"), style = ButtonStyle.OUTLINEDANGER)
     abortButton.onClick {
         confirmDialog(
-            title = tr("Vote abbrechen"),
+            title = tr("Abstimmung abbrechen"),
             message = gettext("\"%1\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt.", vote.title),
             confirmLabel = tr("Abbrechen"),
         ) {
             AppScope.launch {
                 val result = guarded { rpcService<IGovernanceService>().abortVote(vote.id) }
                 if (result != null) {
-                    notifyInfo(tr("Vote abgebrochen."))
+                    notifyInfo(tr("Abstimmung abgebrochen."))
                     onChanged()
                 }
             }

@@ -18,8 +18,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.perc
-import io.kvision.utils.px
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
@@ -146,19 +144,8 @@ fun renderPriceOracleScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.ADMIN)
 
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Price-Oracle"))
-    root.div(
-        tr(
-            "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (konfigurierbar: Bitcoin, Gold " +
-                "oder Fiat/Euro) und bucht eingegangene Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, " +
-                "Konfigurationsänderungen nur für ADMIN.",
-        ),
-    ) { addCssClasses("text-muted small") }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Price-Oracle"), intro = PageIntros.forRoute(Routes.PRICE_ORACLE))
 
     // ---- Konfiguration ------------------------------------------------------------------------
     root.h2(tr("Konfiguration")) { addCssClass("h5") }
@@ -234,12 +221,12 @@ private fun renderConfigSummary(
     config: PriceOracleConfigDto,
 ) {
     val box = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
-    val row1 = box.hPanel(spacing = 16) { addCssClasses("flex-wrap") }
+    val row1 = box.div(className = "lapis-button-row") { addCssClass("gap-4") }
     row1.labeledValue(tr("Anker-Asset")) { it.typeBadge(anchorAssetLabel(config.anchorAsset), "primary") }
     row1.labeledValue(tr("Spendenwährung")) { it.div(config.donationCurrency) }
     row1.labeledValue(tr("Peg (Einheiten je LTR)")) { it.div(formatDonationAmount(config.anchorUnitsPerLtr, "")) }
 
-    val row2 = box.hPanel(spacing = 16) { addCssClasses("flex-wrap") }
+    val row2 = box.div(className = "lapis-button-row") { addCssClass("gap-4") }
     row2.labeledValue(tr("Cache-TTL")) { it.div(gettext("%1 s", config.cacheTtlSeconds)) }
     row2.labeledValue(tr("Mindest-Quorum")) { it.div(gettext("%1 Quellen", config.minQuorum)) }
     row2.labeledValue(tr("Ausreißer-Schwelle")) { it.div(gettext("%1 bps", config.outlierThresholdBps)) }
@@ -577,15 +564,15 @@ internal fun renderPriceHistoryChart(
     var userChangedAnchor = false
     var loadSeq = 0
 
-    val controlsRow = root.hPanel(spacing = 6) { addCssClasses("flex-wrap align-items-center") }
+    // V1.9.189: both groups in one wrapping row, the range group pushed to the right edge (`theme.css` .lapis-oracle-controls).
+    val controlsRow = root.div(className = "lapis-oracle-controls")
+    val anchorGroup = controlsRow.buttonRow()
+    val rangeGroup = controlsRow.buttonRow()
     val anchorButtons = linkedMapOf<AnchorAsset, Button>()
     val rangeButtons = linkedMapOf<PriceHistoryRange, Button>()
 
     val chartArea =
-        root.div {
-            width = 100.perc
-            height = 280.px
-        }
+        root.div(className = "lapis-oracle-chart")
     val footerLine = root.div("") { addCssClasses("text-muted small") }
 
     var chart: Chart? = null
@@ -826,7 +813,7 @@ internal fun renderPriceHistoryChart(
     }
 
     AnchorAsset.entries.forEach { asset ->
-        val btn = controlsRow.button(anchorAssetLabel(asset), style = ButtonStyle.OUTLINESECONDARY)
+        val btn = anchorGroup.button(anchorAssetLabel(asset), style = ButtonStyle.OUTLINESECONDARY)
         btn.addCssClass("btn-sm")
         btn.onClick {
             if (asset != selectedAnchor) {
@@ -839,7 +826,7 @@ internal fun renderPriceHistoryChart(
         anchorButtons[asset] = btn
     }
     HISTORY_RANGE_OPTIONS.forEach { (range, label) ->
-        val btn = controlsRow.button(label, style = ButtonStyle.OUTLINESECONDARY)
+        val btn = rangeGroup.button(label, style = ButtonStyle.OUTLINESECONDARY)
         btn.addCssClass("btn-sm")
         btn.onClick {
             if (range != selectedRange) {

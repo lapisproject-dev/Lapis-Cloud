@@ -165,7 +165,8 @@ class ReportScreensDomTest {
     fun ltrLedger_failedEntriesAndFailedBalanceAreBothAnErrorStateWithRetry(): Promise<Unit> =
         test {
             // Audit F: the balance card is a `dataSection` now -- before it said "Wird geladen ..." and then stayed EMPTY.
-            assertFailedLoadIsAnErrorState("report-screens-ltr", "Aktualisieren", expectedBoxes = 2) { renderLtrLedgerScreen(it) }
+            // V1.9.185: the "Aktualisieren" button is gone (the filter reloads by itself); the anchor is the first retry button.
+            assertFailedLoadIsAnErrorState("report-screens-ltr", "Erneut versuchen", expectedBoxes = 2) { renderLtrLedgerScreen(it) }
         }
 
     // ---- Audit F: the detail panels and the ADMIN gate that were still "Wird geladen ..." forever ----

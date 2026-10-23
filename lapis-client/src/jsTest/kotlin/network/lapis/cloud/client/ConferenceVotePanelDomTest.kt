@@ -319,7 +319,7 @@ class ConferenceVotePanelDomTest {
                 handle.apply(answerOf(roomBallot(electionId)))
                 el.buttonNamed("Zur Wahlkabine").click()
                 awaitUntil("the booth", 2000) { el.querySelector(".lapis-booth") != null }
-                el.buttonNamed("Zurück zur Übersicht").click()
+                el.buttonNamed("Zur Übersicht").click()
                 assertFalse(handle.isBoothOpen())
                 assertTrue(el.byClass("lapis-vote-overview").shown())
                 assertNull(el.querySelector(".lapis-vote-booth-host"), "the booth host is hidden again")
@@ -348,8 +348,8 @@ class ConferenceVotePanelDomTest {
                     assertEquals(ConferenceVotingLock.RECEIPT, probe.locks.last())
                     assertTrue(ConferenceReceiptGate.visible, "the unload guard and the leave buttons read this")
                     assertTrue(el.buttonNamed("Abstimmen schließen").hasAttribute("disabled"))
-                    assertTrue(el.buttonNamed("Zurück zur Übersicht").hasAttribute("disabled"))
-                    assertEquals("true", el.buttonNamed("Zurück zur Übersicht").getAttribute("aria-disabled"))
+                    assertTrue(el.buttonNamed("Zur Übersicht").hasAttribute("disabled"))
+                    assertEquals("true", el.buttonNamed("Zur Übersicht").getAttribute("aria-disabled"))
                     assertTrue(el.flatText().contains("Bitte notieren Sie zuerst Ihre Quittung."))
                     assertEquals(
                         el.buttonNamed("Abstimmen schließen").getAttribute("aria-describedby"),
@@ -357,7 +357,7 @@ class ConferenceVotePanelDomTest {
                     )
                     // a click on a blocked button does nothing
                     el.buttonNamed("Abstimmen schließen").click()
-                    el.buttonNamed("Zurück zur Übersicht").click()
+                    el.buttonNamed("Zur Übersicht").click()
                     assertEquals(0, probe.closeRequests)
                     assertTrue(handle.isBoothOpen())
                     // the code exists in exactly the two nodes of the booth and nowhere else
@@ -396,8 +396,8 @@ class ConferenceVotePanelDomTest {
                 el.buttonNamed("Weiter zur Prüfung").click()
                 awaitUntil("review", 2000) { el.hasButton("Stimme endgültig abgeben") }
                 el.buttonNamed("Stimme endgültig abgeben").click()
-                awaitUntil("busy", 1000) { el.isButtonDisabled("Zurück zur Übersicht") }
-                el.buttonNamed("Zurück zur Übersicht").click()
+                awaitUntil("busy", 1000) { el.isButtonDisabled("Zur Übersicht") }
+                el.buttonNamed("Zur Übersicht").click()
                 assertTrue(handle.isBoothOpen(), "leaving mid-request would leave the receipt without a place to appear")
                 awaitUntil("receipt", 3000) { el.allOf(".lapis-receipt-code").isNotEmpty() }
             }

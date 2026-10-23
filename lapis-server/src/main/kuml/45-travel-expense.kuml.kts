@@ -1,5 +1,5 @@
 // Travel-expense domain — travel_expense_report/travel_expense_line/travel_expense_receipt
-// (V29__travel_expense.sql), plus three new `organization_settings` columns forward-declared here
+// (V29__travel_expense.sql; travel_expense_attachment: V113__travel_expense_attachment.sql), plus three new `organization_settings` columns forward-declared here
 // and carried for real in 11-organization-settings.kuml.kts (OrganizationSettings is that file's
 // owning domain -- see that file's own file header convention for why the real declaration always
 // lives with the owning entity, never here).
@@ -377,6 +377,88 @@ classDiagram(name = "TravelExpense") {
             stereotype("Column") { "columnName" to "sha256"; "sqlType" to "VARCHAR(64)" }
         }
         attribute(name = "uploadedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "uploaded_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "uploadedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "uploaded_at" }
+        }
+    }
+
+    // V1.9.198 (V113): report-level attachments (not tied to a line); files stored like receipts.
+    val travelExpenseAttachment = classOf(name = "TravelExpenseAttachment") {
+        stereotype("Entity") { "tableName" to "travel_expense_attachment"; "kotlinObjectName" to "TravelExpenseAttachmentTable" }
+
+        stereotype("Index") { "columns" to listOf("report_id"); "name" to "idx_tea_report" }
+        stereotype("Index") { "columns" to listOf("storage_key"); "unique" to true; "name" to "uq_tea_storage_key" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "reportId", type = "UUID") {
+            stereotype("Column") { "columnName" to "report_id"; "fkEntity" to "TravelExpenseReport" }
+        }
+        // Server-generated only, never derived from a client-supplied file name -- see
+        // TravelExpenseAttachmentRoutes KDoc.
+        attribute(name = "storageKey", type = "String") {
+            stereotype("Column") { "columnName" to "storage_key"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "originalFilename", type = "String") {
+            stereotype("Column") { "columnName" to "original_filename"; "sqlType" to "VARCHAR(255)" }
+        }
+        // Derived server-side from magic bytes, never the client-declared Content-Type -- see
+        // TravelExpenseAttachmentRoutes KDoc.
+        attribute(name = "mimeType", type = "String") {
+            stereotype("Column") { "columnName" to "mime_type"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "sizeBytes", type = "Long") {
+            stereotype("Column") { "columnName" to "size_bytes" }
+        }
+        attribute(name = "sha256", type = "String") {
+            stereotype("Column") { "columnName" to "sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "uploadedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "uploaded_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "uploadedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "uploaded_at" }
+        }
+    }
+
+    // V1.9.199 (V114): organisation-wide documents (Reisekostenordnung, Beschluesse, Formulare) for ALL
+    // members; uploaded by BOARD/ADMIN. Files stored on disk like receipts (server-generated storage key).
+    val travelExpenseDocument = classOf(name = "TravelExpenseDocument") {
+        stereotype("Entity") { "tableName" to "travel_expense_document"; "kotlinObjectName" to "TravelExpenseDocumentTable" }
+
+        stereotype("Index") { "columns" to listOf("storage_key"); "unique" to true; "name" to "uq_ted_storage_key" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "title", type = "String") {
+            stereotype("Column") { "columnName" to "title"; "sqlType" to "VARCHAR(120)" }
+        }
+        // Server-generated only -- see TravelExpenseDocumentRoutes KDoc.
+        attribute(name = "storageKey", type = "String") {
+            stereotype("Column") { "columnName" to "storage_key"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "originalFilename", type = "String") {
+            stereotype("Column") { "columnName" to "original_filename"; "sqlType" to "VARCHAR(255)" }
+        }
+        // Derived server-side by TravelExpenseDocumentSniffer, never the client-declared Content-Type.
+        attribute(name = "mimeType", type = "String") {
+            stereotype("Column") { "columnName" to "mime_type"; "sqlType" to "VARCHAR(100)" }
+        }
+        attribute(name = "sizeBytes", type = "Long") {
+            stereotype("Column") { "columnName" to "size_bytes" }
+        }
+        attribute(name = "sha256", type = "String") {
+            stereotype("Column") { "columnName" to "sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+        // Nullable: ON DELETE SET NULL (DSGVO erasure of the uploader keeps the organisation document).
+        attribute(name = "uploadedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "uploaded_by"; "fkEntity" to "Member" }
         }
         attribute(name = "uploadedAt", type = "LocalDateTime") {

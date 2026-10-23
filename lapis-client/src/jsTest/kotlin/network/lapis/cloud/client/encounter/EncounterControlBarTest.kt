@@ -4,6 +4,8 @@ import network.lapis.cloud.client.CONTROL_BAR_DIVIDER_FOOTPRINT_PX
 import network.lapis.cloud.client.CONTROL_BAR_EXIT_GAP_PX
 import network.lapis.cloud.client.CONTROL_BAR_FALLBACK_WIDTH_PX
 import network.lapis.cloud.client.ControlMeasure
+import network.lapis.cloud.client.RoomBarZone
+import network.lapis.cloud.client.RoomControlBar
 import network.lapis.cloud.client.controlBarOverflow
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
@@ -25,26 +27,58 @@ class EncounterControlBarTest {
         assertEquals(EncounterControlGroup.REACTIONS, encounterControlGroup(EncounterControlSlot.Reaction(EncounterReactionOption.AMEN)))
         assertEquals(EncounterControlGroup.DEVICES, encounterControlGroup(EncounterControlSlot.Mic))
         assertEquals(EncounterControlGroup.DEVICES, encounterControlGroup(EncounterControlSlot.Camera))
-        assertEquals(EncounterControlGroup.DEVICES, encounterControlGroup(EncounterControlSlot.AudioDevices))
+        assertEquals(EncounterControlGroup.SETTINGS, encounterControlGroup(EncounterControlSlot.AudioDevices))
         assertEquals(EncounterControlGroup.LITURGY, encounterControlGroup(EncounterControlSlot.Blessing))
         assertEquals(EncounterControlGroup.PANELS, encounterControlGroup(EncounterControlSlot.Chat))
-        assertEquals(EncounterControlGroup.PANELS, encounterControlGroup(EncounterControlSlot.More))
+        assertEquals(EncounterControlGroup.MORE, encounterControlGroup(EncounterControlSlot.More))
         assertEquals(EncounterControlGroup.VIEW, encounterControlGroup(EncounterControlSlot.Scene))
         assertEquals(EncounterControlGroup.VIEW, encounterControlGroup(EncounterControlSlot.Fullscreen))
         assertEquals(EncounterControlGroup.MODERATION, encounterControlGroup(broadcast))
         assertEquals(EncounterControlGroup.EXIT, encounterControlGroup(doors))
         assertEquals(EncounterControlGroup.EXIT, encounterControlGroup(leave))
         assertEquals(EncounterControlGroup.EXIT, EncounterControlGroup.entries.last(), "the exit group is the last group of the DOM")
-        assertEquals(EncounterControlGroup.DEVICES, EncounterControlGroup.entries.first(), "the devices are the first group of the DOM")
+        assertEquals(
+            EncounterControlGroup.SETTINGS,
+            EncounterControlGroup.entries.first(),
+            "the settings gear is the first group of the DOM",
+        )
     }
 
     @Test
-    fun theOverflowOrder_isViewThenTransmissionThenEventsBackwards_thenDoors_andChatLast() {
+    fun theZones_gearAtTheStart_exitAtTheEnd_everythingElseInTheCentre() {
+        assertEquals(RoomBarZone.START, encounterControlZone(EncounterControlSlot.AudioDevices))
+        assertEquals(RoomBarZone.END, encounterControlZone(leave))
+        assertEquals(RoomBarZone.END, encounterControlZone(doors))
+        listOf(
+            hand,
+            EncounterControlSlot.Mic,
+            EncounterControlSlot.Camera,
+            EncounterControlSlot.Chat,
+            EncounterControlSlot.Scene,
+            EncounterControlSlot.Recording,
+            broadcast,
+            EncounterControlSlot.More,
+        ).forEach { assertEquals(RoomBarZone.CENTRE, encounterControlZone(it), "$it") }
+        // along the DOM order of the groups the zones never go backwards: START, then CENTRE, then END
+        val zones = EncounterControlGroup.entries.map { encounterControlZone(it).ordinal }
+        assertEquals(zones.sorted(), zones)
+    }
+
+    @Test
+    fun theOverflowOrder_isViewThenTransmissionThenEventsBackwards_thenChat_thenDoorsAndTheDevices() {
         val order = encounterOverflowOrder(EncounterReactionOption.entries.toSet())
         val events = EncounterReactionOption.entries.filter { it != EncounterReactionOption.ALWAYS_ON }.reversed()
         assertEquals(
             listOf(EncounterControlSlot.Fullscreen, EncounterControlSlot.Scene, broadcast) +
-                events.map { EncounterControlSlot.Reaction(it) } + listOf(doors, EncounterControlSlot.Chat),
+                events.map { EncounterControlSlot.Reaction(it) } +
+                listOf(
+                    EncounterControlSlot.Chat,
+                    // V1.9.184: the way out and the devices go last: doors, gear, camera, microphone
+                    doors,
+                    EncounterControlSlot.AudioDevices,
+                    EncounterControlSlot.Camera,
+                    EncounterControlSlot.Mic,
+                ),
             order,
         )
     }
@@ -66,15 +100,29 @@ class EncounterControlBarTest {
             listOf(EncounterControlSlot.Reaction(EncounterReactionOption.AMEN)),
             order.filterIsInstance<EncounterControlSlot.Reaction>(),
         )
-        assertEquals(EncounterControlSlot.Chat, order.last())
+        assertEquals(
+            listOf(
+                EncounterControlSlot.Chat,
+                doors,
+                EncounterControlSlot.AudioDevices,
+                EncounterControlSlot.Camera,
+                EncounterControlSlot.Mic,
+            ),
+            order.takeLast(5),
+        )
     }
 
     @Test
-    fun neverMoved_handDevicesMoreAndLeave() {
+    fun neverMoved_handMoreAndLeave_theDevicesMoveLastOfAll() {
         val order = encounterOverflowOrder(EncounterReactionOption.entries.toSet())
-        listOf(hand, EncounterControlSlot.Mic, EncounterControlSlot.Camera, EncounterControlSlot.More, leave).forEach {
+        listOf(hand, EncounterControlSlot.More, leave).forEach {
             assertFalse(it in order, "$it never moves into the sheet")
         }
+        // V1.9.184: the gear, the camera and, very last, the microphone move -- every one of them has a twin in the sheet
+        assertEquals(
+            listOf(EncounterControlSlot.AudioDevices, EncounterControlSlot.Camera, EncounterControlSlot.Mic),
+            order.takeLast(3),
+        )
     }
 
     @Test
@@ -92,45 +140,80 @@ class EncounterControlBarTest {
     }
 
     @Test
-    fun devicesAreFirst_positiveAndNegative() {
+    fun settingsIsFirst_positiveAndNegative() {
         val reaction = EncounterControlSlot.Reaction(EncounterReactionOption.AMEN)
+        val gear = EncounterControlSlot.AudioDevices
         val mic = EncounterControlSlot.Mic
         val camera = EncounterControlSlot.Camera
-        assertTrue(devicesAreFirst(listOf(mic, camera, hand, reaction, EncounterControlSlot.Chat, leave)))
-        assertTrue(devicesAreFirst(listOf(hand, EncounterControlSlot.Chat, leave)), "no devices at all is fine")
-        assertTrue(devicesAreFirst(listOf(EncounterControlSlot.TableMic, EncounterControlSlot.PulpitLouder, hand, leave)))
-        assertTrue(
-            devicesAreFirst(listOf(mic, camera, EncounterControlSlot.AudioDevices, hand, leave)),
-            "the device picker closes the devices group",
+        assertTrue(settingsIsFirst(listOf(gear, mic, camera, hand, reaction, EncounterControlSlot.Chat, leave)))
+        assertTrue(settingsIsFirst(listOf(hand, EncounterControlSlot.Chat, leave)), "no gear at all (moved into the sheet) is fine")
+        assertFalse(settingsIsFirst(listOf(mic, gear, camera, hand, leave)), "the gear never stands behind another control")
+        assertFalse(settingsIsFirst(listOf(hand, gear, leave)))
+    }
+
+    @Test
+    fun moreImmediatelyBeforeEnd_positiveAndNegative() {
+        val more = EncounterControlSlot.More
+        assertTrue(moreImmediatelyBeforeEnd(listOf(hand, EncounterControlSlot.Chat, broadcast, more, doors, leave)))
+        assertTrue(moreImmediatelyBeforeEnd(listOf(hand, more, leave)))
+        assertTrue(moreImmediatelyBeforeEnd(listOf(hand, EncounterControlSlot.Chat, leave)), "no 'Mehr' shown: nothing to check")
+        assertFalse(moreImmediatelyBeforeEnd(listOf(hand, more, EncounterControlSlot.Chat, leave)))
+        assertFalse(moreImmediatelyBeforeEnd(listOf(more, hand, doors, leave)))
+    }
+
+    @Test
+    fun theRecordingAndTheTransmission_neverStandNextToAReactionOrAnExitControl_inTheirOwnZone() {
+        val reaction = EncounterControlSlot.Reaction(EncounterReactionOption.AMEN)
+        val recording = EncounterControlSlot.Recording
+        val chat = EncounterControlSlot.Chat
+        val more = EncounterControlSlot.More
+        assertTrue(moderationToolsNeverAdjacentToExitOrReactions(listOf(hand, reaction, chat, recording, broadcast, more, doors, leave)))
+        // the end zone is a zone of its own: "transmission, then the doors" is the intended layout while nothing is in the sheet
+        assertTrue(moderationToolsNeverAdjacentToExitOrReactions(listOf(hand, chat, broadcast, doors, leave)))
+        assertFalse(moderationToolsNeverAdjacentToExitOrReactions(listOf(hand, recording, chat)), "the recording right behind a reaction")
+        assertFalse(
+            moderationToolsNeverAdjacentToExitOrReactions(listOf(reaction, broadcast, more)),
+            "the transmission right behind a reaction",
         )
-        assertFalse(devicesAreFirst(listOf(mic, hand, EncounterControlSlot.AudioDevices, leave)), "and never stands behind another group")
-        assertFalse(devicesAreFirst(listOf(hand, mic, camera, leave)))
-        assertFalse(devicesAreFirst(listOf(mic, hand, camera, leave)))
+        assertFalse(moderationToolsNeverAdjacentToExitOrReactions(listOf(chat, broadcast, hand)))
     }
 
     @Test
-    fun theDevicePicker_isNeverMovedIntoTheSheet() {
+    fun theGear_movesIntoTheSheet_afterTheDoors_andBeforeTheCamera() {
         val order = encounterOverflowOrder(EncounterReactionOption.entries.toSet())
-        assertFalse(EncounterControlSlot.AudioDevices in order)
+        assertTrue(order.indexOf(doors) < order.indexOf(EncounterControlSlot.AudioDevices))
+        assertTrue(order.indexOf(EncounterControlSlot.AudioDevices) < order.indexOf(EncounterControlSlot.Camera))
+        assertTrue(order.indexOf(EncounterControlSlot.Camera) < order.indexOf(EncounterControlSlot.Mic))
     }
 
     @Test
-    fun devicesAndLeave_frameTheBar_inAFullPulpitList() {
+    fun aFullPulpitList_isFramedByTheGearAndLeave_andKeepsTheInvariants() {
         val full =
             listOf(
+                EncounterControlSlot.AudioDevices,
                 EncounterControlSlot.Mic,
                 EncounterControlSlot.Camera,
                 hand,
                 EncounterControlSlot.Reaction(EncounterReactionOption.AMEN),
                 EncounterControlSlot.Chat,
-                EncounterControlSlot.More,
                 EncounterControlSlot.Scene,
+                EncounterControlSlot.Recording,
                 broadcast,
+                EncounterControlSlot.More,
                 doors,
                 leave,
             )
-        assertTrue(devicesAreFirst(full) && encounterLeaveIsLast(full) && doorsImmediatelyBeforeLeave(full))
+        assertTrue(
+            settingsIsFirst(full) && encounterLeaveIsLast(full) && doorsImmediatelyBeforeLeave(full) && moreImmediatelyBeforeEnd(full),
+        )
         assertTrue(moderationNeverAdjacentToReactions(full))
+        assertTrue(moderationToolsNeverAdjacentToExitOrReactions(full))
+    }
+
+    @Test
+    fun theRoomBarsZoneSeparators_areReservedInTheWidthModel() {
+        // two separators (gear | centre | exit): 16 + 22 px beyond the 21 px per group boundary the model already counts
+        assertEquals(38.0, RoomControlBar.ZONE_SEPARATORS_RESERVED_PX)
     }
 
     // ── the arithmetic at phone widths: 46 px controls, the bar's gap 4 px below 768 px, 16 px padding ───────────────────────
@@ -141,7 +224,7 @@ class EncounterControlBarTest {
         order: List<EncounterControlSlot>,
     ): Set<EncounterControlSlot> =
         controlBarOverflow(
-            available = barWidth - 16.0,
+            available = barWidth - 16.0 - RESERVED,
             visible = shown.map { ControlMeasure(it, CONTROL_BAR_FALLBACK_WIDTH_PX, encounterControlGroup(it).ordinal) },
             order = order,
             gap = 4.0,
@@ -149,14 +232,20 @@ class EncounterControlBarTest {
             exitGroup = EncounterControlGroup.EXIT.ordinal,
             exitGap = CONTROL_BAR_EXIT_GAP_PX,
             moreWidth = CONTROL_BAR_FALLBACK_WIDTH_PX,
-            moreGroup = EncounterControlGroup.PANELS.ordinal,
+            moreGroup = EncounterControlGroup.MORE.ordinal,
         )
+
+    private companion object {
+        /** The two zone separators beyond the group dividers the model already counts (`ControlBarOverflow.reservedWidth`). */
+        val RESERVED = RoomControlBar.ZONE_SEPARATORS_RESERVED_PX
+    }
 
     private val pulpitPerson =
         listOf(
-            hand,
+            EncounterControlSlot.AudioDevices,
             EncounterControlSlot.Mic,
             EncounterControlSlot.Camera,
+            hand,
             EncounterControlSlot.Chat,
             EncounterControlSlot.Scene,
             EncounterControlSlot.Fullscreen,
@@ -164,28 +253,39 @@ class EncounterControlBarTest {
         )
 
     @Test
-    fun at360px_aPulpitPerson_keepsHandDevicesChatAndLeave_andOnlyViewMovesAway() {
+    fun at360px_aPulpitPerson_keepsHandMicrophoneCameraAndLeave_viewChatAndGearMoveAway() {
+        // V1.9.184: the gear and the two zone separators take room; the order is view, chat, gear -- the devices go last
         val moved = overflowAt(360.0, pulpitPerson, encounterOverflowOrder(emptySet()))
-        assertEquals(setOf<EncounterControlSlot>(EncounterControlSlot.Fullscreen, EncounterControlSlot.Scene), moved)
+        assertEquals(
+            setOf(
+                EncounterControlSlot.Fullscreen,
+                EncounterControlSlot.Scene,
+                EncounterControlSlot.Chat,
+                EncounterControlSlot.AudioDevices,
+            ),
+            moved,
+        )
+        assertFalse(hand in moved || leave in moved || EncounterControlSlot.Mic in moved || EncounterControlSlot.Camera in moved)
     }
 
     @Test
-    fun at320px_theChatMovesIntoTheSheet_butLeaveNeverDoes() {
+    fun at320px_theGearAndTheCameraMoveIntoTheSheet_butMicrophoneHandAndLeaveStay() {
         val moved = overflowAt(320.0, pulpitPerson, encounterOverflowOrder(emptySet()))
-        assertTrue(EncounterControlSlot.Chat in moved)
+        assertTrue(EncounterControlSlot.Chat in moved && EncounterControlSlot.AudioDevices in moved && EncounterControlSlot.Camera in moved)
+        assertFalse(EncounterControlSlot.Mic in moved, "the microphone is the very last to go")
         assertFalse(leave in moved)
         assertFalse(hand in moved)
     }
 
     @Test
-    fun aModerator_losesTheDoorsBeforeTheChat() {
+    fun aModerator_losesTheChatBeforeTheDoors() {
         val shown = pulpitPerson.dropLast(1) + listOf(broadcast, doors, leave)
         val order = encounterOverflowOrder(emptySet())
         var widest = 0.0
-        // sweep the widths: whenever the chat has moved, the doors have moved too (and the other way round never forces the chat)
+        // sweep the widths: whenever the doors have moved, the chat has moved too (V1.9.184: the way out is the last thing to go)
         for (width in 300..900 step 10) {
             val moved = overflowAt(width.toDouble(), shown, order)
-            if (EncounterControlSlot.Chat in moved) assertTrue(doors in moved, "width $width: the doors go before the chat")
+            if (doors in moved) assertTrue(EncounterControlSlot.Chat in moved, "width $width: the chat goes before the doors")
             if (doors !in moved) widest = width.toDouble()
             assertFalse(leave in moved, "width $width: Verlassen stays")
         }
@@ -197,16 +297,18 @@ class EncounterControlBarTest {
     private val blessing = EncounterControlSlot.Blessing
 
     @Test
-    fun theGroupsStandInOrder_theLiturgyGroupBetweenTheReactionsAndThePanels() {
+    fun theGroupsStandInOrder_theGearFirst_theRecordingBehindTheView_moreBeforeTheExit() {
         assertEquals(
             listOf(
+                EncounterControlGroup.SETTINGS,
                 EncounterControlGroup.DEVICES,
                 EncounterControlGroup.REACTIONS,
                 EncounterControlGroup.LITURGY,
-                EncounterControlGroup.RECORDING,
                 EncounterControlGroup.PANELS,
                 EncounterControlGroup.VIEW,
+                EncounterControlGroup.RECORDING,
                 EncounterControlGroup.MODERATION,
+                EncounterControlGroup.MORE,
                 EncounterControlGroup.EXIT,
             ),
             EncounterControlGroup.entries,
@@ -214,10 +316,20 @@ class EncounterControlBarTest {
     }
 
     @Test
-    fun theOverflowOrder_putsTheBlessingAfterTheDoorsAndBeforeTheChat_onlyWhenThereIsOne() {
+    fun theOverflowOrder_putsTheBlessingBeforeTheChat_onlyWhenThereIsOne() {
         val withBlessing = encounterOverflowOrder(EncounterReactionOption.entries.toSet(), blessing = true)
         val withoutBlessing = encounterOverflowOrder(EncounterReactionOption.entries.toSet(), blessing = false)
-        assertEquals(listOf(doors, blessing, EncounterControlSlot.Chat), withBlessing.takeLast(3))
+        assertEquals(
+            listOf(
+                blessing,
+                EncounterControlSlot.Chat,
+                doors,
+                EncounterControlSlot.AudioDevices,
+                EncounterControlSlot.Camera,
+                EncounterControlSlot.Mic,
+            ),
+            withBlessing.takeLast(6),
+        )
         assertFalse(blessing in withoutBlessing)
         assertEquals(withoutBlessing, withBlessing.filterNot { it == blessing })
         assertFalse(blessing in encounterOverflowOrder(emptySet()), "the default is no blessing")
@@ -229,13 +341,22 @@ class EncounterControlBarTest {
         assertEquals(EncounterControlGroup.PANELS, encounterControlGroup(map))
         val withMap = encounterOverflowOrder(EncounterReactionOption.entries.toSet(), blessing = true, recording = true, map = true)
         val withoutMap = encounterOverflowOrder(EncounterReactionOption.entries.toSet(), blessing = true, recording = true)
-        assertEquals(listOf(map, EncounterControlSlot.Chat), withMap.takeLast(2), "the map goes before the chat, the chat stays last")
+        val tail =
+            listOf(
+                EncounterControlSlot.Chat,
+                doors,
+                EncounterControlSlot.AudioDevices,
+                EncounterControlSlot.Camera,
+                EncounterControlSlot.Mic,
+            )
+        assertEquals(listOf(map) + tail, withMap.takeLast(6), "the map goes right before the chat, which leads the tail")
         assertFalse(map in withoutMap, "the default is no map")
         assertEquals(withoutMap, withMap.filterNot { it == map })
-        // the map button is not a device: the devices still come first with it in the list
+        // the map button is not a device: the gear still comes first with it in the list
         assertTrue(
-            devicesAreFirst(
+            settingsIsFirst(
                 listOf(
+                    EncounterControlSlot.AudioDevices,
                     EncounterControlSlot.Mic,
                     EncounterControlSlot.Camera,
                     hand,
@@ -261,20 +382,22 @@ class EncounterControlBarTest {
     fun theOldInvariants_holdOnAPulpitListWithTheBlessing() {
         val full =
             listOf(
+                EncounterControlSlot.AudioDevices,
                 EncounterControlSlot.Mic,
                 EncounterControlSlot.Camera,
-                EncounterControlSlot.AudioDevices,
                 hand,
                 EncounterControlSlot.Reaction(EncounterReactionOption.AMEN),
                 blessing,
                 EncounterControlSlot.Chat,
-                EncounterControlSlot.More,
                 EncounterControlSlot.Scene,
                 broadcast,
+                EncounterControlSlot.More,
                 doors,
                 leave,
             )
-        assertTrue(devicesAreFirst(full) && encounterLeaveIsLast(full) && doorsImmediatelyBeforeLeave(full))
+        assertTrue(
+            settingsIsFirst(full) && encounterLeaveIsLast(full) && doorsImmediatelyBeforeLeave(full) && moreImmediatelyBeforeEnd(full),
+        )
         assertTrue(moderationNeverAdjacentToReactions(full))
         assertTrue(blessingNeverAdjacentToModeration(full))
     }

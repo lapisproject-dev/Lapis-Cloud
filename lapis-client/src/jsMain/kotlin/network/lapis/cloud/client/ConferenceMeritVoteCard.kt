@@ -78,7 +78,7 @@ internal fun renderMeritVoteLiveCard(
             } else {
                 val winner = ballot.options.firstOrNull { it.id == ballot.winnerOptionId }
                 if (winner != null) {
-                    card.div(gettext("Ergebnis: %1", sanitizeUntrustedI18nText(winner.label))) { addCssClasses("small fw-bold") }
+                    card.div(gettext("Ergebnis: %1", voteOptionDisplayLabel(winner.label))) { addCssClasses("small fw-bold") }
                 }
             }
             if (href != null) card.openInNewTab(tr("Ergebnis im Detail"), href)

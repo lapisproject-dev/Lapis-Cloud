@@ -27,7 +27,7 @@ import network.lapis.cloud.shared.rpc.ISepaService
  */
 fun renderSepaMandatesScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    val header = root.pageHeader(tr("SEPA-Mandate"))
+    val header = root.pageHeader(tr("SEPA-Mandate"), intro = PageIntros.forRoute(Routes.SEPA_MANDATES))
 
     val canGrantOnBehalf = SepaAuthzUi.canGrantOnBehalf(AppState.session?.role)
     // V1.9.45 (R36B): the on-behalf form is collapsed; host directly under the header, button in the action slot once the members are loaded.

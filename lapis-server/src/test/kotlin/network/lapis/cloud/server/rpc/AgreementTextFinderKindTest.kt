@@ -80,7 +80,7 @@ class AgreementTextFinderKindTest :
                         }
                     }
                     routing {
-                        fun service(call: ApplicationCall) = AgreementTextAdminService(call)
+                        fun service(call: ApplicationCall) = AgreementTextAdminService(call = call)
                         post(
                             "/t/overview",
                         ) { call.respondText(Json.encodeToString(AgreementTextOverviewDto.serializer(), service(call).getOverview())) }

@@ -294,7 +294,7 @@ class EncounterControlBarDomTest {
                     "order of groups: $groups",
                 )
                 assertEquals(
-                    listOf("devices", "reactions", "panels", "view", "moderation", "exit"),
+                    listOf("settings", "devices", "reactions", "panels", "view", "moderation", "exit"),
                     groups.distinct(),
                     "the groups keep their order",
                 )

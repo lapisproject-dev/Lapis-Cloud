@@ -42,6 +42,26 @@ enum class AgreementTextKind {
     EVENT_REC,
 }
 
+/**
+ * V1.9.196 -- how the body of an agreement text version is displayed. `PLAIN` is every text that existed before V112 (shown as text, exactly as
+ * before); `MARKDOWN` is a version authored from V1.9.196 on (the SERVER renders it to sanitized HTML, the client never renders Markdown itself).
+ * The format is not part of the consent hash and cannot change after publication.
+ */
+@Serializable
+enum class AgreementTextFormat {
+    PLAIN,
+    MARKDOWN,
+    ;
+
+    /** The value of `agreement_text_*.body_format`. */
+    val dbValue: String get() = name.lowercase()
+
+    companion object {
+        /** An unknown value falls back to [PLAIN] -- always safe, because [PLAIN] is displayed as text. */
+        fun fromDb(value: String): AgreementTextFormat = if (value == "markdown") MARKDOWN else PLAIN
+    }
+}
+
 /** V1.9.156 -- `true` for the one event-room capture consent ([AgreementTextKind.EVENT_REC]). */
 fun AgreementTextKind.isEventCapture(): Boolean = this == AgreementTextKind.EVENT_REC
 
@@ -104,7 +124,13 @@ object EncounterConsentLayout {
         val text: String,
     )
 
-    enum class Violation { TOO_FEW_PARAGRAPHS, HEADLINE_TOO_LONG, KEY_POINT_TOO_LONG, LABEL_TOO_LONG }
+    enum class Violation { TOO_FEW_PARAGRAPHS, HEADLINE_TOO_LONG, KEY_POINT_TOO_LONG, LABEL_TOO_LONG, BLOCK_MARKUP_IN_SUMMARY }
+
+    /**
+     * V1.9.196: a MARKDOWN text must not open one of paragraphs 1-4 (headline, key points -- shown as plain text outside the full text) with block
+     * markup: any LINE of those paragraphs that starts with a heading, list, quote or code-fence marker is refused.
+     */
+    private val BLOCK_MARKUP_LINE = Regex("""^\s{0,3}(#{1,6}(\s|$)|[-*+]\s|\d{1,9}[.)]\s|>|```|~~~)""")
 
     /** The sentence code appends to the notice of a room whose pulpit may be recorded. [kind] must be an ENC kind. */
     fun recordingParagraph(kind: AgreementTextKind): String =
@@ -154,14 +180,26 @@ object EncounterConsentLayout {
         return Split(headline = paragraphs[0], keyPoints = keyPoints, text = body)
     }
 
+    /** V1.9.196: `true` if any LINE of [body] starts with block markup (heading, list, quote, code fence) -- used for the short REC texts. */
+    fun hasBlockMarkup(body: String): Boolean = AgreementTextRules.normalizeBody(body).lines().any { BLOCK_MARKUP_LINE.containsMatchIn(it) }
+
     /** The first violated rule, or `null`. */
     fun violation(
         label: String,
         body: String,
+        format: AgreementTextFormat = AgreementTextFormat.PLAIN,
     ): Violation? {
         if (label.length > ENC_LABEL_MAX) return Violation.LABEL_TOO_LONG
         val paragraphs = paragraphs(body)
         if (paragraphs.size < MIN_PARAGRAPHS) return Violation.TOO_FEW_PARAGRAPHS
+        if (format == AgreementTextFormat.MARKDOWN) {
+            if (paragraphs.subList(0, MIN_PARAGRAPHS).any { paragraph ->
+                    paragraph.lines().any { BLOCK_MARKUP_LINE.containsMatchIn(it) }
+                }
+            ) {
+                return Violation.BLOCK_MARKUP_IN_SUMMARY
+            }
+        }
         if (paragraphs[0].length > HEADLINE_MAX) return Violation.HEADLINE_TOO_LONG
         if (paragraphs.subList(1, MIN_PARAGRAPHS).any { it.length > KEY_POINT_MAX }) return Violation.KEY_POINT_TOO_LONG
         return null
@@ -218,6 +256,8 @@ data class AgreementTextVersionSummaryDto(
     val authorDisplayName: String,
     val publishedAt: LocalDateTime,
     val sequenceNo: Int,
+    /** V1.9.196 -- how [AgreementTextVersionDto.body] is displayed; old servers/rows are [AgreementTextFormat.PLAIN]. */
+    val format: AgreementTextFormat = AgreementTextFormat.PLAIN,
 )
 
 /** A published version with its full text. */
@@ -225,6 +265,8 @@ data class AgreementTextVersionSummaryDto(
 data class AgreementTextVersionDto(
     val summary: AgreementTextVersionSummaryDto,
     val body: String,
+    /** V1.9.196 -- sanitized HTML rendered by the server, only for a [AgreementTextFormat.MARKDOWN] version; `null` for plain text. */
+    val renderedHtml: String? = null,
 )
 
 /** The single draft of a [kind] (at most one exists). */
@@ -238,6 +280,8 @@ data class AgreementTextDraftDto(
     val charCount: Int,
     val updatedByDisplayName: String,
     val updatedAt: LocalDateTime,
+    /** V1.9.196 -- a draft saved before V1.9.196 is [AgreementTextFormat.PLAIN] until the next save (which makes it MARKDOWN). */
+    val format: AgreementTextFormat = AgreementTextFormat.PLAIN,
 )
 
 /** The answer of "is there a draft": Kilua RPC does not transmit a nullable return type, so the absence is a field. */

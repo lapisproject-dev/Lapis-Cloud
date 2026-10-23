@@ -42,7 +42,6 @@ fun renderMembershipTiersScreen(container: SimplePanel) {
 
     root.pageHeader(
         tr("Mitgliedschaftsstufen"),
-        subtitle = tr("Beitrag, Intervall und Zahlungsziel je Stufe. Eine Stufe wird nicht gelöscht, sondern geschlossen."),
         primaryAction = {
             actionButton(ActionIcon.ADD, tr("Mitgliedschaftsstufe anlegen"), style = ButtonStyle.PRIMARY).onClick {
                 openMembershipTierForm(
@@ -53,6 +52,7 @@ fun renderMembershipTiersScreen(container: SimplePanel) {
                 )
             }
         },
+        intro = PageIntros.forRoute(Routes.MEMBERSHIP_TIERS),
     )
 
     section =

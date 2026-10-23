@@ -14,7 +14,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
@@ -57,20 +56,9 @@ fun renderCrmContactsScreen(container: SimplePanel) {
     val canErase = AppState.hasRole(AccountRole.ADMIN)
 
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Kontakte & Interessenten"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Kontakte & Interessenten"), intro = PageIntros.forRoute(Routes.CRM))
     val createHost = root.vPanel(spacing = 6) // V1.9.48 (R36B): collapsed create form, directly under the header
-    root.div(
-        tr(
-            "Interessenten, Sympathisanten und sonstige Kontakte, die weder Mitglied noch (notwendigerweise) " +
-                "ein erfasster Spender sind -- eine eigenständige Adressverwaltung, getrennt von der " +
-                "Mitgliederverwaltung und dem Spenderstamm.",
-        ),
-    ) { addCssClasses("text-muted small") }
 
     val filterRow = root.lapisToolbar()
     val typeOptions = listOf("" to tr("-- Alle Typen --")) + CrmContactType.entries.map { it.name to crmContactTypeLabel(it) }
@@ -88,11 +76,17 @@ fun renderCrmContactsScreen(container: SimplePanel) {
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
     var loadedOffset = 0
 
+    // Only the newest load may touch the list. A reset clears the list synchronously and renders after the RPC answers, so
+    // overlapping loads (KVision `subscribe` emits once on registration, plus the explicit first load) each appended a full page:
+    // one contact showed up four times. Same generation counter as [renderEventsScreen]'s list; "Mehr laden" is invalidated by a reset.
+    var loadGeneration = 0
+
     fun loadContactPage(reset: Boolean) {
         if (reset) {
             listPanel.removeAll()
             loadedOffset = 0
         }
+        val generation = if (reset) ++loadGeneration else loadGeneration
         AppScope.launch {
             val filterType = runCatching { CrmContactType.valueOf(typeSelect.value.orEmpty()) }.getOrNull()
             val page =
@@ -105,6 +99,7 @@ fun renderCrmContactsScreen(container: SimplePanel) {
                         offset = loadedOffset,
                     )
                 } ?: return@launch
+            if (generation != loadGeneration) return@launch
             if (page.items.isEmpty()) {
                 if (reset) listPanel.p(tr("Keine Kontakte gefunden."))
                 loadMoreButton.hide()
@@ -118,6 +113,8 @@ fun renderCrmContactsScreen(container: SimplePanel) {
 
     fun refreshList() = loadContactPage(reset = true)
     refreshButton.onClick { refreshList() }
+    // `subscribe` may call the observer once on registration; the explicit first load below stays so the list never depends on
+    // that, and the generation guard above makes the overlap harmless.
     typeSelect.subscribe { refreshList() }
     overdueCheck.subscribe { refreshList() }
     includeArchivedCheck.subscribe { refreshList() }

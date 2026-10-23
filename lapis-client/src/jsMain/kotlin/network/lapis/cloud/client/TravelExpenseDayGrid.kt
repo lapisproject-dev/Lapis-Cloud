@@ -93,6 +93,7 @@ internal fun renderTravelExpenseDayGrid(
     staleNote.setAttribute("role", "status")
     host.add(staleNote)
 
+    host.add(Div(tr("* Ohne diese Angabe wird für den Tag kein Tagegeld berechnet."), className = "small text-muted"))
     val form = host.lapisForm()
     val grid = Div(className = "lapis-te-day-grid")
     form.panel.add(grid)
@@ -185,25 +186,23 @@ internal fun renderTravelExpenseDayGrid(
         var toField: LapisField? = null
         when (position) {
             DayPosition.SINGLE -> {
-                val departure = timeField(form, slot(), tr("Abfahrt (Uhrzeit)"), line.timeFrom)
-                val arrival = timeField(form, slot(), tr("Rückkehr (optional)"), line.timeTo)
+                // V1.9.194: "Beginn/Ende der Reise" -- the same pair of terms on every day; the hint hangs on the END field.
+                val departure = timeField(form, slot(), tr("Beginn der Reise"), line.timeFrom)
+                val arrival = timeField(form, slot(), tr("Ende der Reise"), line.timeTo)
                 fromField = departure
                 toField = arrival
-                val timeHintId = "lapis-te-day-time-hint-${dayGridIdCounter++}"
-                notesDiv.add(
-                    Div(tr("Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."), className = "small text-muted")
-                        .also { it.id = timeHintId },
-                )
-                describeBy(departure, timeHintId)
-                describeBy(arrival, timeHintId)
+                describeEndOfTrip(arrival, notesDiv)
             }
             DayPosition.FIRST -> {
-                fromField = timeField(form, slot(), tr("Abfahrt (Uhrzeit)"), line.timeFrom)
+                fromField = timeField(form, slot(), tr("Beginn der Reise"), line.timeFrom)
                 slotText(slot(), tr("bis 24:00"))
             }
             DayPosition.LAST -> {
+                // V1.9.189: field first, the fixed "ab 00:00" to its right -- the same order as the FIRST day ("bis 24:00").
+                val end = timeField(form, slot(), tr("Ende der Reise"), line.timeTo)
+                toField = end
                 slotText(slot(), tr("ab 00:00"))
-                toField = timeField(form, slot(), tr("Rückkehr (optional)"), line.timeTo)
+                describeEndOfTrip(end, notesDiv)
             }
             DayPosition.MIDDLE -> slotText(slot(span = true), tr("ganztägig (24 Std.)"))
         }
@@ -259,7 +258,7 @@ internal fun renderTravelExpenseDayGrid(
 
         val outputId = "lapis-te-day-out-${dayGridIdCounter++}"
         val hours = Span(className = "lapis-tnum").also { it.id = "$outputId-hours" }
-        val amount = Div(className = "fw-bold lapis-tnum").also { it.id = "$outputId-amount" }
+        val amount = Div(className = "fw-bold lapis-tnum lapis-te-day-amount").also { it.id = "$outputId-amount" }
         val hoursRow =
             Div(className = "small").also { row ->
                 row.add(Span(tr("Dauer: ")))
@@ -312,16 +311,11 @@ internal fun renderTravelExpenseDayGrid(
             val result = day.result
             applyDeductionNote(w.deductionNote, result, w.mealCents(rates))
             w.hours.content = if (result != null) travelExpenseDuration(result.minutes) else "–"
-            w.amount.content =
-                if (result != null) {
-                    gettext(
-                        "Tagesbetrag: %1 (Abzüge: %2)",
-                        formatMoney(centsToDecimal(result.netCents)),
-                        formatMoney(centsToDecimal(result.deductionCents)),
-                    )
-                } else {
-                    gettext("Tagesbetrag: %1", formatMoney(centsToDecimal(0)))
-                }
+            setAmountLines(
+                w.amount,
+                gettext("Tagesbetrag: %1", formatMoney(centsToDecimal(result?.netCents ?: 0L))),
+                result?.let { gettext("(Abzüge: %1)", formatMoney(centsToDecimal(it.deductionCents))) },
+            )
         }
         onPreviewChanged()
     }
@@ -409,12 +403,44 @@ private fun applyDeductionNote(
     }
 }
 
+/**
+ * V1.9.194: both time fields carry the required marker and `aria-required`, but do NOT block saving -- an empty value has always meant
+ * "no allowance that day" (0,00 EUR), the server and the calculator are unchanged. The marker says what the empty field costs.
+ */
 private fun timeField(
     form: LapisForm,
     host: io.kvision.core.Container,
     label: String,
     value: LocalTime?,
-): LapisField = form.localTimeField(label = label, value = value, host = host)
+): LapisField =
+    form.localTimeField(label = label, value = value, host = host).also { field ->
+        field.appendRequiredMark()
+        (field.control.input as? io.kvision.core.Widget)?.setAttribute("aria-required", "true")
+    }
+
+/** The hint of the END field: what "Ende der Reise" means (return or arrival), hung on it with `aria-describedby`. */
+private fun describeEndOfTrip(
+    end: LapisField,
+    notes: Div,
+) {
+    val id = "lapis-te-day-time-hint-${dayGridIdCounter++}"
+    notes.add(
+        Div(tr("Rückkehr oder Ankunft; bei einer einfachen Fahrt die Ankunft am Ziel"), className = "small text-muted")
+            .also { it.id = id },
+    )
+    describeBy(end, id)
+}
+
+/** Two lines in the amount cell: the day amount, and (only with a result) the deductions below it. No `small`, same size. */
+private fun setAmountLines(
+    cell: Div,
+    first: String,
+    second: String?,
+) {
+    cell.removeAll()
+    cell.add(Span(first, className = "lapis-te-day-amount-line"))
+    if (second != null) cell.add(Span(second, className = "lapis-te-day-amount-line"))
+}
 
 /** Appends [id] to the field's `aria-describedby` (the hint/error slots the form grammar already put there stay). */
 private fun describeBy(

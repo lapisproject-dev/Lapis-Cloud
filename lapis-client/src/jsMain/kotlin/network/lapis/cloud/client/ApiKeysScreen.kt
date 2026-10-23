@@ -11,7 +11,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.ApiKeyDto
 import network.lapis.cloud.shared.domain.ApiKeyIssueResultDto
@@ -37,20 +36,8 @@ import network.lapis.cloud.shared.rpc.IWebhookService
  */
 fun renderApiKeysScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("API-Schlüssel"))
-    root.div(
-        tr(
-            "Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte REST-API " +
-                "(/api/v1) -- siehe die API-Dokumentation für Endpunkte und Rate-Limits. Optional kann " +
-                "je Schlüssel ein Webhook konfiguriert werden, der bei bestimmten Ereignissen automatisch " +
-                "einen HTTP-POST an eine von Ihnen angegebene Adresse sendet.",
-        ),
-    ) { addCssClasses("text-muted small") }
+        container.pageShell(PageWidth.FORM, spacing = 14)
+    val header = root.pageHeader(tr("API-Schlüssel"), intro = PageIntros.forRoute(Routes.API_KEYS))
 
     // D3 -- ONE shared reveal-card slot for BOTH the API-key reveal card and the webhook
     // signature-secret reveal card; `slot.removeAll()` (in showApiKeyRevealCard/

@@ -163,9 +163,19 @@ class EncounterBellDomTest {
                         }
                     }
                     assertEquals("Verlassen", shown.last().barName(), "Verlassen stays last")
+                    // V1.9.184: the gear leaves the bar after the chat and "Türen schließen", but before camera and microphone; it is then
+                    // reachable as the labelled twin "Einstellungen" in the sheet
+                    if (shown.none { it.getAttribute("aria-controls") == "lapis-encounter-device-panel" }) {
+                        if (element.allOf(".lapis-encounter-more-sheet").none { it.offsetWidth > 0 }) element.barControl("Mehr").click()
+                        awaitUntil("$width px: the gear's twin is in the open sheet") {
+                            element.allOf(".lapis-encounter-more-sheet button").any {
+                                it.textContent.orEmpty().trim() == "Einstellungen" && it.offsetWidth > 0
+                            }
+                        }
+                    }
                     assertTrue(
-                        shown.any { it.getAttribute("aria-controls") == "lapis-encounter-device-panel" },
-                        "$width px: the gear stays in the bar",
+                        shown.any { it.barName() == "Mikrofon" },
+                        "$width px: the microphone is the last control to leave the bar",
                     )
                     val bar = element.querySelector(".lapis-encounter-controls") as HTMLElement
                     assertTrue(bar.scrollWidth <= bar.clientWidth + 1, "$width px: the bar never scrolls sideways")

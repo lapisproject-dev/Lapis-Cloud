@@ -67,7 +67,8 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val travelContactName: Column<String?> = varchar("travel_contact_name", 120).nullable()
     public val travelContactEmail: Column<String?> = varchar("travel_contact_email", 254).nullable()
     public val travelContactPhone: Column<String?> = varchar("travel_contact_phone", 40).nullable()
-    public val travelContactHint: Column<String?> = varchar("travel_contact_hint", 1000).nullable()
+    public val travelContactHint: Column<String?> = varchar("travel_contact_hint", 2000).nullable()
+    public val travelContactHintFormat: Column<String> = varchar("travel_contact_hint_format", 16)
     public val travelAdvanceAccountId: Column<Uuid?> = optReference("travel_advance_account_id", LedgerAccountTable.id)
     public val travelDonationWaiverAccountId: Column<Uuid?> = optReference("travel_donation_waiver_account_id", LedgerAccountTable.id)
     // Welle V1.4.12 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.

@@ -42,6 +42,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IAuthService
 import org.w3c.dom.HTMLElement
@@ -86,23 +87,66 @@ external val messagesRu: dynamic
 val AppScope: CoroutineScope = CoroutineScope(SupervisorJob() + window.asCoroutineDispatcher())
 
 /**
- * The Lapis family's faceted-stone brand mark, copied verbatim (same `<polygon>`/`<polyline>`
- * point coordinates) from `cloud.lapisproject.dev`'s `Logo.astro` -- see that component's KDoc
- * for the "shared wordmark, per-project suffix" convention this app's plain "Lapis Cloud" label
- * already follows without a `suffix` prop. `stroke="currentColor"` picks up `.lapis-brand-mark`'s
- * `color` from theme.css rather than hardcoding a color here, so a future dark-mode pass only
- * needs to touch the CSS, not this markup.
- *
- * `internal`, not `private` (V1.2.5 White-Label-Branding) -- `LapisAttribution.kt`'s
- * `lapisAttribution()` reuses this exact markup at a smaller size (`.lapis-attribution-mark` CSS
- * override in theme.css), rather than introducing a second, potentially-drifting SVG constant --
- * see that file's own KDoc.
+ * The Lapis Cloud default brand mark: the cloud-and-lapis-stone symbol, geometry copied verbatim from
+ * `cloud.lapisproject.dev`'s `Logo.astro` (22 px variant: strokes 12/5, with the gold sparkle). Two inline SVGs
+ * in one span, a light and a dark one, of which `theme.css` shows exactly one depending on `data-theme` on
+ * `<html>`. No `currentColor`, no `id`, no `<defs>`, and no colour literal here: fills and strokes are the `bm-*`
+ * classes in `theme.css` (palette per variant), so the colours are not Kotlin debt for rule R9. The copies (and any
+ * further copy on the page) can never collide. Purely decorative (`aria-hidden`). The sparkle only exists at this
+ * size; the footer variant [LAPIS_CLOUD_MARK_SMALL_SVG] drops it. An operator-supplied logo always takes
+ * precedence over this mark (see `brandLockup()` and the navbar).
  */
-internal const val LAPIS_GEM_MARK_SVG = """<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <polygon points="12,1 21,8 17,23 7,23 3,8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
-    <polyline points="12,1 12,23" stroke="currentColor" stroke-width="1" opacity="0.55" />
-    <polyline points="3,8 21,8" stroke="currentColor" stroke-width="1" opacity="0.55" />
-    <polyline points="7,23 12,8 17,23" stroke="currentColor" stroke-width="1" opacity="0.55" />
+internal const val LAPIS_CLOUD_MARK_SVG = """<svg class="lapis-brand-mark-svg lapis-brand-mark--light" width="22" height="22" viewBox="128 193 340 340" aria-hidden="true" focusable="false">
+    <path class="bm-cloud" d="M180 410 C154.061 403.107 136.886 378.499 139.36 351.774 C141.835 325.05 163.237 304.013 190 302 C192.78 266.701 218.433 237.428 253.062 230.041 C287.691 222.653 323.057 238.908 340 270 C360.809 256.583 387.433 256.154 408.664 268.893 C429.895 281.631 442.046 305.325 440 330 C452.038 340.208 458.55 355.501 457.565 371.254 C456.581 387.007 448.216 401.37 435 410 Z" stroke-width="12" stroke-linejoin="round" />
+    <g class="bm-edge" stroke-width="5" stroke-linejoin="round">
+        <path class="bm-f1" d="M226 395 L256 350 L281 395 Z" />
+        <path class="bm-f2" d="M256 350 L356 350 L331 395 L281 395 Z" />
+        <path class="bm-f3" d="M356 350 L386 395 L331 395 Z" />
+        <path class="bm-f4" d="M226 395 L281 395 L306 500 Z" />
+        <path class="bm-f5" d="M281 395 L331 395 L306 500 Z" />
+        <path class="bm-f6" d="M331 395 L386 395 L306 500 Z" />
+    </g>
+    <path class="bm-spark" d="M395 331 L397.828 342.172 L409 345 L397.828 347.828 L395 359 L392.172 347.828 L381 345 L392.172 342.172 Z" />
+</svg>
+<svg class="lapis-brand-mark-svg lapis-brand-mark--dark" width="22" height="22" viewBox="128 193 340 340" aria-hidden="true" focusable="false">
+    <path class="bm-cloud" d="M180 410 C154.061 403.107 136.886 378.499 139.36 351.774 C141.835 325.05 163.237 304.013 190 302 C192.78 266.701 218.433 237.428 253.062 230.041 C287.691 222.653 323.057 238.908 340 270 C360.809 256.583 387.433 256.154 408.664 268.893 C429.895 281.631 442.046 305.325 440 330 C452.038 340.208 458.55 355.501 457.565 371.254 C456.581 387.007 448.216 401.37 435 410 Z" stroke-width="12" stroke-linejoin="round" />
+    <g class="bm-edge" stroke-width="5" stroke-linejoin="round">
+        <path class="bm-f1" d="M226 395 L256 350 L281 395 Z" />
+        <path class="bm-f2" d="M256 350 L356 350 L331 395 L281 395 Z" />
+        <path class="bm-f3" d="M356 350 L386 395 L331 395 Z" />
+        <path class="bm-f4" d="M226 395 L281 395 L306 500 Z" />
+        <path class="bm-f5" d="M281 395 L331 395 L306 500 Z" />
+        <path class="bm-f6" d="M331 395 L386 395 L306 500 Z" />
+    </g>
+    <path class="bm-spark" d="M395 331 L397.828 342.172 L409 345 L397.828 347.828 L395 359 L392.172 347.828 L381 345 L392.172 342.172 Z" />
+</svg>"""
+
+/**
+ * Footer variant of [LAPIS_CLOUD_MARK_SVG] for `lapisAttribution()` (12 px): the geometry of
+ * `favicon.svg` / `favicon-dark.svg` -- thicker strokes 16/7 so the facets stay legible, and NO
+ * sparkle (it would be sub-pixel at this size).
+ */
+internal const val LAPIS_CLOUD_MARK_SMALL_SVG = """<svg class="lapis-brand-mark-svg lapis-brand-mark--light" width="12" height="12" viewBox="128 193 340 340" aria-hidden="true" focusable="false">
+    <path class="bm-cloud" d="M180 410 C154.061 403.107 136.886 378.499 139.36 351.774 C141.835 325.05 163.237 304.013 190 302 C192.78 266.701 218.433 237.428 253.062 230.041 C287.691 222.653 323.057 238.908 340 270 C360.809 256.583 387.433 256.154 408.664 268.893 C429.895 281.631 442.046 305.325 440 330 C452.038 340.208 458.55 355.501 457.565 371.254 C456.581 387.007 448.216 401.37 435 410 Z" stroke-width="16" stroke-linejoin="round" />
+    <g class="bm-edge" stroke-width="7" stroke-linejoin="round">
+        <path class="bm-f1" d="M226 395 L256 350 L281 395 Z" />
+        <path class="bm-f2" d="M256 350 L356 350 L331 395 L281 395 Z" />
+        <path class="bm-f3" d="M356 350 L386 395 L331 395 Z" />
+        <path class="bm-f4" d="M226 395 L281 395 L306 500 Z" />
+        <path class="bm-f5" d="M281 395 L331 395 L306 500 Z" />
+        <path class="bm-f6" d="M331 395 L386 395 L306 500 Z" />
+    </g>
+</svg>
+<svg class="lapis-brand-mark-svg lapis-brand-mark--dark" width="12" height="12" viewBox="128 193 340 340" aria-hidden="true" focusable="false">
+    <path class="bm-cloud" d="M180 410 C154.061 403.107 136.886 378.499 139.36 351.774 C141.835 325.05 163.237 304.013 190 302 C192.78 266.701 218.433 237.428 253.062 230.041 C287.691 222.653 323.057 238.908 340 270 C360.809 256.583 387.433 256.154 408.664 268.893 C429.895 281.631 442.046 305.325 440 330 C452.038 340.208 458.55 355.501 457.565 371.254 C456.581 387.007 448.216 401.37 435 410 Z" stroke-width="16" stroke-linejoin="round" />
+    <g class="bm-edge" stroke-width="7" stroke-linejoin="round">
+        <path class="bm-f1" d="M226 395 L256 350 L281 395 Z" />
+        <path class="bm-f2" d="M256 350 L356 350 L331 395 L281 395 Z" />
+        <path class="bm-f3" d="M356 350 L386 395 L331 395 Z" />
+        <path class="bm-f4" d="M226 395 L281 395 L306 500 Z" />
+        <path class="bm-f5" d="M281 395 L331 395 L306 500 Z" />
+        <path class="bm-f6" d="M331 395 L386 395 L306 500 Z" />
+    </g>
 </svg>"""
 
 // brandLogoImgHtml/escapeHtmlAttribute moved to BrandLockup.kt (V1.4.7 "Root-Verlinkung") -- the
@@ -221,7 +265,7 @@ class App : Application() {
                     expand = NavbarExpand.ALWAYS,
                 )
             // UI/UX-Design-Team-Review 2026-08-14 (Forstall): the brand mark reuses the exact
-            // gem-glyph polygon geometry from cloud.lapisproject.dev's Logo.astro, not a
+            // cloud-and-stone symbol geometry from cloud.lapisproject.dev's Logo.astro, not a
             // reinterpretation, so the deployed app and the marketing site read as one product.
             // `labelFirst = false` puts this child (added below) before the brand title text --
             // see `Link.render()`: labelFirst controls whether the label+icon/image render before
@@ -230,7 +274,7 @@ class App : Application() {
             navbar.brandLink.labelFirst = false
             navbar.brandLink.addCssClass("lapis-brand-text")
             // V1.2.5 White-Label-Branding, three-state rule (UI/UX-Design-Team-Review, Jobs' final
-            // review): a custom logo always wins; absent that, the Lapis gem mark shows ONLY next
+            // review): a custom logo always wins; absent that, the Lapis Cloud mark shows ONLY next
             // to the untouched default title (an operator who set a custom title but no logo gets
             // no mark at all, rather than a mark that misleadingly still reads "Lapis" branding
             // next to their own name). Rendered as a real `<img src="...">` element (Ive's
@@ -247,7 +291,7 @@ class App : Application() {
                         className = "lapis-brand-logo",
                     )
                 Branding.title == Branding.DEFAULT_TITLE ->
-                    navbar.brandLink.span(content = LAPIS_GEM_MARK_SVG, rich = true, className = "lapis-brand-mark")
+                    navbar.brandLink.span(content = LAPIS_CLOUD_MARK_SVG, rich = true, className = "lapis-brand-mark")
                 else -> {
                     // Custom title, no custom logo -- no mark, see comment above.
                 }
@@ -601,6 +645,12 @@ internal fun refreshNavbar(
                     span(gettext("Gast von %1", session.homeserverUrl!!))
                 }
                 separator()
+            } else if (isFriendVisitor(session)) {
+                span(className = "dropdown-item-text d-flex align-items-center gap-2") {
+                    friendBadge()
+                    span(gettext("Freund"))
+                }
+                separator()
             }
             // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- a second, small
             // identity marker for a "Landesvorstand" (regional-chapter officer) session, same
@@ -647,6 +697,9 @@ internal fun refreshNavbar(
     account.button.setAttribute("aria-label", fullIdentity)
     account.button.title = fullIdentity
 }
+
+/** V1.9.182: a friend account (status FRIEND, not a federated guest) gets the friend variant of the visitor badge. */
+internal fun isFriendVisitor(session: SessionInfoDto): Boolean = !session.isGuest && session.status == MemberStatus.FRIEND
 
 /** The text of the navbar account trigger: the sanitized display name only (see [refreshNavbar]). */
 internal fun accountTriggerLabel(session: SessionInfoDto): String = sanitizeUntrustedI18nText(session.displayName)

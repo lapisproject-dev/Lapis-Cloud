@@ -11,7 +11,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventVolunteerShiftDto
@@ -35,12 +34,8 @@ import network.lapis.cloud.shared.rpc.IEventVolunteerService
  */
 fun renderMyVolunteerShiftsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Helferschichten"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Helferschichten"), intro = PageIntros.forRoute(Routes.MY_VOLUNTEER_SHIFTS))
 
     root.h2(tr("Veranstaltung")) { addCssClass("h5") }
     val eventSelectRow = root.lapisToolbar()

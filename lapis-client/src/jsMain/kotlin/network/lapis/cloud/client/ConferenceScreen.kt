@@ -435,7 +435,7 @@ fun renderConferenceScreen(
             ConferenceLobbyPort.clear(screenToken)
             ConferenceDock.detachView(screenToken)
         }
-    val header = root.pageHeader(tr("Videokonferenz"))
+    val header = root.pageHeader(tr("Videokonferenz"), intro = PageIntros.forRoute(Routes.CONFERENCE))
     val statusLine = root.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     val lobbyPanel = root.vPanel(spacing = 10)
     val callPanel = ConferenceDock.callPanel
@@ -1592,50 +1592,50 @@ private fun enterCall(
     // V1.9.108: what the person is told when a moderator mutes them / asks them to switch on -- a calm band above the control bar and two
     // live regions; never a focus change, never an error colour.
     val notices = ConferenceModerationNotices(callPanel)
-    val controlsRow =
-        callPanel.hPanel(spacing = 6) { addCssClasses("align-items-center lapis-conference-controls-row") }
-    val micButton = controlsRow.button("", icon = "fas fa-microphone", style = ButtonStyle.OUTLINESECONDARY)
-    val cameraButton = controlsRow.button("", icon = "fas fa-video", style = ButtonStyle.OUTLINESECONDARY)
+    // V1.9.184 -- ONE bar, three zones (see RoomControlBar.kt): the settings gear alone at the start, the controls of the room in the centre,
+    // the way out at the end. The dock around the bar is `position: sticky` (theme.css `.lapis-room-bar-dock`), no longer `fixed`: the bar
+    // lives in the content area, so the sidebar can never cover it. The dock becomes the LAST child of the call panel further down (a
+    // sticky box rests on the bottom edge of its parent only when nothing follows it); the "Mehr" sheet and the settings panel are its
+    // siblings of the bar, anchored to the dock (`bottom: calc(100% + 4px)`).
+    // The compatibility class `lapis-conference-controls-row` stays on the bar, so the many `.btn` rules of the bar (active state, badges,
+    // `aria-busy`, focus ring) keep applying without rewriting twenty selectors.
+    val barDock = callPanel.div(className = "lapis-room-bar-dock lapis-room-bar-dock--conference")
+    val roomBar = RoomControlBar(barDock, "lapis-room-bar--conference lapis-conference-controls-row")
+    val controlsRow: Div = roomBar.root
+    val settingsButton = roomBar.start.conferenceSettingsButton()
+    val centre: Div = roomBar.centre
+    val micButton = centre.button("", icon = "fas fa-microphone", style = ButtonStyle.OUTLINESECONDARY)
+    val cameraButton = centre.button("", icon = "fas fa-video", style = ButtonStyle.OUTLINESECONDARY)
     // V1.2.10 -- verschwindet vollständig auf Geräten ohne `getDisplayMedia` (iOS Safari) statt in
     // einen Fehler-Toast zu laufen, sobald angeklickt (Forstall, Design-Review V1.2.10).
     val screenShareButton =
         if (screenShareAvailable()) {
-            controlsRow.button("", icon = "fas fa-display", style = ButtonStyle.OUTLINESECONDARY)
+            centre.button("", icon = "fas fa-display", style = ButtonStyle.OUTLINESECONDARY)
         } else {
             null
         }
-    // V1.9.66 -- group order: devices | moderation | panels | exit. The click callbacks of the moderation group are assigned once the
-    // handlers exist (a local function cannot be referenced before its declaration).
-    val divider1 = controlsRow.conferenceControlsDivider()
+    // V1.9.184 -- order of the centre zone: devices | hand, reaction | panels | view | recording, stream | "Mehr". The click callbacks of
+    // the moderation group are assigned once the handlers exist (a local function cannot be referenced before its declaration).
     var recordClick: () -> Unit = {}
     // forward reference: `refreshRecordingState` is declared after the click handlers (V1.9.158)
     var refreshRecordingStateRef: suspend () -> Unit = {}
     var streamClick: () -> Unit = {}
     var endForAllClick: () -> Unit = {}
-    val moderation =
-        controlsRow.conferenceModerationGroup(
-            canModerate = canModerate,
-            onRecord = { recordClick() },
-            onStream = { streamClick() },
-        )
-    if (moderation == null) divider1.hide()
-    val divider2 = controlsRow.conferenceControlsDivider()
-    // V1.2.9 Vollbildmodus: neuer Sichtbarkeits-Schalter für die Teilnehmerliste (D7) -- direkt vor
-    // chatToggleButton, damit beide Overlay-Schienen-Schalter im Vollbild nebeneinander sitzen.
-    // V1.9.115 -- "Ansicht": gallery / speaker large / pin a person / screen share large; opens a radio group above the bar. Symbol-only like
-    // its neighbours (the accessible name carries the current view, see `viewControlsSink`).
-    val viewButton = controlsRow.conferenceViewButton()
-    // V1.9.127 -- "Reaktion" (the menu of eight reactions) and the raised hand ("Hand heben", with the own place as a badge). The raised hand is
-    // the server-ordered queue of the MAIN room only: a breakout call has no such button (its LiveKit room is another one than the queue's).
-    val reactButton = controlsRow.conferenceReactButton()
-    val handControl = if (isBreakout) null else controlsRow.conferenceHandControl()
-    val rosterToggleButton = controlsRow.button("", icon = "fas fa-users", style = ButtonStyle.OUTLINESECONDARY)
-    val chatToggleButton = controlsRow.button("", icon = "fas fa-comments", style = ButtonStyle.OUTLINESECONDARY)
+    // V1.9.127 -- "Hand heben" (with the own place as a badge) and "Reaktion" (the menu of eight reactions). The raised hand is the
+    // server-ordered queue of the MAIN room only: a breakout call has no such button (its LiveKit room is another one than the queue's).
+    val divider2 = roomBar.divider(centre)
+    val handControl = if (isBreakout) null else centre.conferenceHandControl()
+    val reactButton = centre.conferenceReactButton()
+    // V1.2.9 Vollbildmodus: Sichtbarkeits-Schalter für die Teilnehmerliste (D7) -- direkt vor chatToggleButton, damit beide
+    // Overlay-Schienen-Schalter im Vollbild nebeneinander sitzen.
+    val divider3 = roomBar.divider(centre)
+    val rosterToggleButton = centre.button("", icon = "fas fa-users", style = ButtonStyle.OUTLINESECONDARY)
+    val chatToggleButton = centre.button("", icon = "fas fa-comments", style = ButtonStyle.OUTLINESECONDARY)
     // V1.9.25 "Abstimmen im Konferenzraum" -- the panel and its toggle exist only for a member of the organization (the server decides
     // again); a guest or friend gets a one-line status instead (see `guestVoteLine`). The toggle is built by `conferenceVotingToggle`
     // (own file, no late hook) and stays hidden until the room is bound to a Sitzung.
     val votingMember = conferenceIsVotingMember(AppState.session)
-    val votingToggle = if (votingMember) controlsRow.conferenceVotingToggle() else null
+    val votingToggle = if (votingMember) centre.conferenceVotingToggle() else null
     var voteController: ConferenceVotePollController? = null
     // V1.2.10 -- Badge-DOM für Teilnehmer-/Ungelesen-Zähler, einmalig erzeugt (theme.css's
     // `.lapis-conference-controls-row .btn` trägt `position: relative`, damit dieses absolut
@@ -1655,14 +1655,26 @@ private fun enterCall(
         el.appendChild(badge)
         chatBadgeEl = badge
     }
+    // V1.9.115 -- "Ansicht": gallery / speaker large / pin a person / screen share large; opens a radio group above the bar. Symbol-only like
+    // its neighbours (the accessible name carries the current view, see `viewControlsSink`).
+    val divider4 = roomBar.divider(centre)
+    val viewButton = centre.conferenceViewButton()
+    val divider5 = roomBar.divider(centre)
+    val moderation =
+        centre.conferenceModerationGroup(
+            canModerate = canModerate,
+            onRecord = { recordClick() },
+            onStream = { streamClick() },
+        )
+    if (moderation == null) divider5.hide()
     // V1.2.10 -- "Mehr"-Offenlegung (kein Popup-Menü, Tesler): Whiteboard/Notizen sowie die
     // Einrichtungs-Zeilen (Gastzugang/Sitzung/Breakout) wandern ins `moreSheet` weiter unten.
-    val moreToggleButton = controlsRow.button("", icon = "fas fa-ellipsis", style = ButtonStyle.OUTLINESECONDARY)
+    val divider6 = roomBar.divider(centre)
+    val moreToggleButton = centre.button("", icon = "fas fa-ellipsis", style = ButtonStyle.OUTLINESECONDARY)
     // V1.9.66 -- state signs on "Mehr" while a recording / stream runs whose control sits inside the sheet (● recording, ◆ stream).
     val moreBadge = moreToggleButton.span(className = "lapis-conference-control-badge")
     moreBadge.setAttribute("aria-hidden", "true")
-    val divider3 = controlsRow.conferenceControlsDivider()
-    // V1.9.72 -- exit group: [Zurück zum Hauptraum] (breakout only) [Für alle beenden] (moderator, main room only) [Verlassen].
+    // V1.9.72 -- exit group (end zone): [Zurück zum Hauptraum] (breakout only) [Für alle beenden] (moderator, main room only) [Verlassen].
     // "Verlassen" is always the last control; 12 px between the controls (theme.css `--exit`), no divider inside the group. The
     // confirmation dialog (`endRoomConfirmDialog`: focus on "Abbrechen", fires once) is the slip protection for "Für alle beenden",
     // not the distance -- on explicit request of the project owner, reversing the V1.9.66 rule (see ui-ux-guideline.adoc, V1.9.72).
@@ -1674,7 +1686,7 @@ private fun enterCall(
     // V1.2.10 -- `DANGER` (gefüllt) for "Verlassen" vs `OUTLINEDANGER` for "Für alle beenden": two near-identical destructive actions
     // must never look the same (Tesler, Design-Review V1.2.10 F3). The click handlers of back / leave are attached further down.
     val exitGroup =
-        controlsRow.conferenceExitGroup(
+        roomBar.end.conferenceExitGroup(
             canEndForAll = canModerate && !isBreakout,
             isBreakout = isBreakout,
             onEndForAll = { endForAllClick() },
@@ -1684,8 +1696,14 @@ private fun enterCall(
 
     // V1.2.10 -- "Mehr"-Blatt, DOM-Position direkt nach controlsRow. Bleibt nach jedem Klick offen
     // (Tesler: Offenlegung, kein Popup, das sich beim Auswählen sofort wieder schließt).
-    val moreSheet = callPanel.vPanel(spacing = 8) { addCssClasses("lapis-conference-more-sheet") }
+    val moreSheet = barDock.vPanel(spacing = 8) { addCssClasses("lapis-conference-more-sheet") }
     moreSheet.hide()
+    // V1.9.184 -- the settings panel: the device block (microphone, camera, speaker, noise suppression, tones) that used to stand in the
+    // "Mehr" sheet now opens from the gear at the start of the bar. Anchored to the left edge of the dock, the "Mehr" sheet hangs on the
+    // right; the two never stand open together (`conferencePanelReduce`).
+    val settingsSheet = barDock.vPanel(spacing = 8) { addCssClasses("lapis-conference-settings-sheet") }
+    wireSettingsSheet(settingsButton, settingsSheet)
+    settingsSheet.hide()
 
     // V1.9.66 -- labelled twins of the bar controls that do not fit (R58: the sheet has room, so the words stand there). A click on a
     // twin clicks the (hidden) primary control, so there is exactly one handler per action. Shown by `ConferenceControlsOverflow`.
@@ -1710,6 +1728,11 @@ private fun enterCall(
         result.onClick { primary.getElement()?.click() }
         return result
     }
+    // V1.9.184 -- the last things a narrow bar gives up (overflow order END_FOR_ALL, gear, camera, microphone): their twins stand in the sheet
+    // too. The gear's twin opens the settings panel through the primary control, like every other twin.
+    val settingsTwin = twin(settingsButton) { it.actionButton(ActionIcon.SETTINGS, tr("Einstellungen")) }
+    val micTwin = twin(micButton) { it.actionButton(ActionIcon.MICROPHONE, tr("Mikrofon")) }
+    val cameraTwin = twin(cameraButton) { it.actionButton(ActionIcon.CAMERA, tr("Kamera")) }
     val screenTwin = twin(screenShareButton) { it.button(tr("Bildschirm teilen"), style = ButtonStyle.OUTLINESECONDARY) }
     val recordTwin = twin(moderation?.recordButton) { it.actionButton(ActionIcon.RECORD, tr("Aufzeichnung starten")) }
     val streamTwin = twin(moderation?.streamButton) { it.actionButton(ActionIcon.BROADCAST, tr("Live-Stream starten …")) }
@@ -2005,7 +2028,7 @@ private fun enterCall(
     // sites were fixed) -- kept anyway as a harmless, arguably better UX than an empty dropdown while
     // `refreshDeviceOptions()` (below) has not yet run its first enumeration.
     val loadingPlaceholder = listOf("" to tr("Wird geladen …"))
-    val deviceGroup = moreSheet.vPanel(spacing = 6) { addCssClasses("lapis-conference-device-group") }
+    val deviceGroup = settingsSheet.vPanel(spacing = 6) { addCssClasses("lapis-conference-device-group") }
     deviceGroup.div(tr("Geräte:")) { addCssClasses("text-muted small") }
     // V1.9.169 -- without browser permission the selects used to vanish; this block (explanation + one button) sits ABOVE them. It
     // depends on the browser's state only, never on the role. `refreshDeviceOptions` (below) renders it; `refreshForPermission` bridges
@@ -2055,10 +2078,6 @@ private fun enterCall(
             null
         }
 
-    // Muss VOR `applyPanelVisibility()` deklariert sein (Kotlin erlaubt in lokalen Funktionen keine
-    // Vorwärtsreferenz auf eine später deklarierte lokale `var`) -- durch die Platzierung hier, weit
-    // vor dieser Funktion, automatisch erfüllt. Aktualisiert bei jedem `refreshDeviceOptions()`-Lauf.
-    var deviceGroupHasVisibleRows = false
     // Verhindert, dass ein `MediaDevicesChanged`-Hotplug-Sturm eine Neuenumeration mitten in einer
     // bereits laufenden anstößt, UND (kombiniert mit dem Fokus-Check in `refreshDeviceOptions`)
     // verschiebt einen Hotplug-getriebenen Refresh, solange der Nutzer gerade eines der drei Dropdowns
@@ -4104,6 +4123,10 @@ private fun enterCall(
     // ConferenceNotesController KDoc "Placement".
     val notesPanel = callPanel.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
     notesPanel.hide()
+    // V1.9.184 -- the dock of the bar is the LAST child of the call panel (it was created above, in the middle, because the controls are
+    // referenced all over this function): a sticky box rests on the bottom edge of the viewport only while nothing follows it in its parent.
+    callPanel.remove(barDock)
+    callPanel.add(barDock)
     var notesOpen = false
     // Constructed once per connect (mirrors whiteboardController's own "seed once per connect"
     // pattern) -- see IConferenceNotesService.getNotesState KDoc "late-joiner seed".
@@ -4150,27 +4173,29 @@ private fun enterCall(
             bar = controlsRow,
             slots =
                 buildList {
-                    add(OverflowSlot(ConferenceControlSlot.MIC, micButton, null))
-                    add(OverflowSlot(ConferenceControlSlot.CAMERA, cameraButton, null))
+                    add(OverflowSlot(ConferenceControlSlot.SETTINGS, settingsButton, settingsTwin))
+                    add(OverflowSlot(ConferenceControlSlot.MIC, micButton, micTwin))
+                    add(OverflowSlot(ConferenceControlSlot.CAMERA, cameraButton, cameraTwin))
                     screenShareButton?.let { add(OverflowSlot(ConferenceControlSlot.SCREEN, it, screenTwin, mirrorPressed = true)) }
+                    handControl?.let { add(OverflowSlot(ConferenceControlSlot.HAND, it.button, null)) }
+                    add(OverflowSlot(ConferenceControlSlot.REACT, reactButton, reactTwin))
+                    add(OverflowSlot(ConferenceControlSlot.ROSTER, rosterToggleButton, rosterTwin, mirrorPressed = true))
+                    add(OverflowSlot(ConferenceControlSlot.CHAT, chatToggleButton, null))
+                    votingToggle?.let { add(OverflowSlot(ConferenceControlSlot.VOTE, it.button, voteTwin, mirrorPressed = true)) }
+                    add(OverflowSlot(ConferenceControlSlot.VIEW, viewButton, viewTwin))
                     moderation?.let {
                         add(OverflowSlot(ConferenceControlSlot.RECORD, it.recordButton, recordTwin))
                         add(OverflowSlot(ConferenceControlSlot.STREAM, it.streamButton, streamTwin))
                     }
-                    add(OverflowSlot(ConferenceControlSlot.VIEW, viewButton, viewTwin))
-                    add(OverflowSlot(ConferenceControlSlot.REACT, reactButton, reactTwin))
-                    handControl?.let { add(OverflowSlot(ConferenceControlSlot.HAND, it.button, null)) }
-                    add(OverflowSlot(ConferenceControlSlot.ROSTER, rosterToggleButton, rosterTwin, mirrorPressed = true))
-                    add(OverflowSlot(ConferenceControlSlot.CHAT, chatToggleButton, null))
-                    votingToggle?.let { add(OverflowSlot(ConferenceControlSlot.VOTE, it.button, voteTwin, mirrorPressed = true)) }
                     add(OverflowSlot(ConferenceControlSlot.MORE, moreToggleButton, null))
                     backToMainButton?.let { add(OverflowSlot(ConferenceControlSlot.BACK, it, null)) }
                     exitGroup.endButton?.let { add(OverflowSlot(ConferenceControlSlot.END_FOR_ALL, it, endTwin)) }
                     add(OverflowSlot(ConferenceControlSlot.LEAVE, leaveButton, null))
                 },
-            dividers = listOf(divider1 to 1, divider2 to 2, divider3 to 3),
+            dividers = listOf(divider2 to 2, divider3 to 3, divider4 to 4, divider5 to 5, divider6 to 6),
             onChanged = { barOverflowSink() },
-            containerGroups = setOfNotNull(if (moderation != null) 1 else null, CONFERENCE_EXIT_GROUP),
+            containerGroups = setOfNotNull(if (moderation != null) CONFERENCE_MODERATION_GROUP else null, CONFERENCE_EXIT_GROUP),
+            reservedWidth = RoomControlBar.ZONE_SEPARATORS_RESERVED_PX,
         )
     moderation?.onStateChanged = {
         updateCaptureReasonLine()
@@ -4331,6 +4356,11 @@ private fun enterCall(
         if (panelState.moreOpen) moreSheet.show() else moreSheet.hide()
         if (panelState.moreOpen) moreToggleButton.addCssClass("active") else moreToggleButton.removeCssClass("active")
         moreToggleButton.setAttribute("aria-pressed", panelState.moreOpen.toString())
+        // V1.9.184 -- the settings panel hangs on the gear; the gear says whether it is open (`aria-expanded`), and the panel is closed
+        // on entering full screen (see `conferencePanelReduce`: the overlay bar fades there and an open panel would hang in the picture).
+        if (panelState.settingsOpen) settingsSheet.show() else settingsSheet.hide()
+        if (panelState.settingsOpen) settingsButton.addCssClass("active") else settingsButton.removeCssClass("active")
+        settingsButton.setAttrIfChanged("aria-expanded", panelState.settingsOpen.toString())
         // Im Vollbild ist das Mehr-Blatt SONST inhaltsleer (alles darin ist bereits
         // `.lapis-conference-config-row`-ausgeblendet, siehe theme.css) -- Knopf entfernen statt ein
         // leeres Blatt anbietbar zu lassen (Jobs' Schlusswort, Design-Review V1.2.10).
@@ -4344,15 +4374,19 @@ private fun enterCall(
         // V1.4.23 -- der Hintergrund-Abschnitt überlebt den Vollbildmodus ebenfalls (siehe
         // `backgroundSection`); im nicht unterstützten Fall zeigt er nur einen Erklärsatz, der den
         // Knopf im Vollbild nicht rechtfertigt.
-        moreHideInFullscreenBase = panelState.fullscreen && !deviceGroupHasVisibleRows && !backgroundSection.supported
+        moreHideInFullscreenBase = panelState.fullscreen && !backgroundSection.supported
         backgroundSection.applyToggleAria()
 
         // V1.2.10 -- Auto-Hide-Sichtbarkeit der gesamten Steuerleiste (generell, nicht nur im
         // Vollbild -- iOS Safari hat keine Fullscreen-API, siehe `fullscreenApiAvailable`).
+        // V1.9.184: the class goes on the bar AND on its dock -- the dock carries the surface, border and shadow, so hiding the bar alone
+        // would leave an empty opaque strip (over the picture in full screen).
         if (panelState.controlsVisible) {
             controlsRow.removeCssClass("lapis-conference-controls-hidden")
+            barDock.removeCssClass("lapis-conference-controls-hidden")
         } else {
             controlsRow.addCssClass("lapis-conference-controls-hidden")
+            barDock.addCssClass("lapis-conference-controls-hidden")
         }
 
         val fullscreenLabel = if (panelState.fullscreen) tr("Vollbild beenden") else tr("Vollbild")
@@ -5165,7 +5199,7 @@ private fun enterCall(
 
     // V1.3.x Geräteauswahl -- `session` muss bereits DEKLARIERT sein (Kotlin erlaubt in lokalen
     // Funktionskörpern keine Vorwärtsreferenz auf eine später deklarierte lokale Variable, exakt
-    // dieselbe Regel wie bei `deviceGroupHasVisibleRows` weiter oben), bevor `refreshDeviceOptions`/
+    // dieselbe Regel wie bei der Geräte-Gruppe weiter oben), bevor `refreshDeviceOptions`/
     // `applyActiveDeviceToSelect` unten sie referenzieren können -- deshalb `lateinit var session`
     // hier VORGEZOGEN, die eigentliche Zuweisung (`session = LiveKitRoomSession(...)`) bleibt weiter
     // unten, NACH beiden Funktionen, deren Konstruktor-Callbacks (`onActiveDeviceChanged`/
@@ -5200,7 +5234,6 @@ private fun enterCall(
         }
         deviceRefreshGate.start()
         try {
-            var anyVisible = false
             var micPermissionState = DevicePermissionState.GRANTED
             var cameraPermissionState = DevicePermissionState.GRANTED
             kindsAndSelects.forEach { (kind, select) ->
@@ -5223,7 +5256,6 @@ private fun enterCall(
                 if (conferenceDeviceRowMode(permissionState, options.size) == DeviceRowMode.PLACEHOLDER) {
                     // Nothing is read, written or removed in the persisted preference here: the stored id is still valid, only not listed yet.
                     applyDevicePlaceholder(select, tr("Erst nach Freigabe verfügbar")) { applyingProgrammaticDeviceValue = it }
-                    anyVisible = true
                     return@forEach
                 }
                 clearDevicePlaceholder(select)
@@ -5289,14 +5321,10 @@ private fun enterCall(
                     select.hide()
                 } else {
                     select.show()
-                    anyVisible = true
                 }
             }
             devicePermissionRow.render(micPermissionState, cameraPermissionState)
-            deviceGroupHasVisibleRows = anyVisible || devicePermissionRow.visible
-            // Die Fullscreen-"Mehr"-Knopf-Sichtbarkeit hängt von `deviceGroupHasVisibleRows` ab
-            // (siehe `applyPanelVisibility()` oben) -- muss bei jeder Änderung neu angewendet werden,
-            // nicht nur beim initialen Aufruf.
+            // V1.9.184: the device block hangs on the gear now, so it no longer decides whether "Mehr" is shown in full screen.
             applyPanelVisibility()
         } finally {
             if (deviceRefreshGate.finish()) AppScope.launch { refreshDeviceOptions() }
@@ -6402,6 +6430,11 @@ private fun enterCall(
     // V1.2.10 -- "Mehr"-Blatt.
     moreToggleButton.onClick {
         panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.MoreToggled)
+        applyPanelVisibility()
+    }
+    // V1.9.184 -- the gear: the settings panel (devices); opens and closes like "Mehr" (a second click, or "Mehr", closes it).
+    settingsButton.onClick {
+        panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.SettingsToggled)
         applyPanelVisibility()
     }
     fullscreenButton?.onClick {
@@ -8531,6 +8564,8 @@ internal data class ConferencePanelState(
     val fullscreenChatOpen: Boolean = false,
     val controlsVisible: Boolean = true, // V1.2.10
     val moreOpen: Boolean = false,
+    /** V1.9.184 -- the settings panel (the device block) that the gear of the bar opens; never open together with the "Mehr" sheet. */
+    val settingsOpen: Boolean = false,
     /** V1.9.25 -- the viewport is below [CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH]: chat and the voting panel are bottom sheets and exclude each other. */
     val narrow: Boolean = false,
     /** V1.9.25 -- the voting panel ("Abstimmen"), per context like roster/chat; unlike them it STAYS open on entering fullscreen (the right to vote must not vanish). */
@@ -8595,6 +8630,9 @@ internal sealed class ConferencePanelEvent {
 
     internal data object MoreToggled : ConferencePanelEvent() // V1.2.10
 
+    /** V1.9.184 -- click on the gear at the start of the bar. */
+    internal data object SettingsToggled : ConferencePanelEvent()
+
     internal data object PointerActivity : ConferencePanelEvent() // V1.2.10
 
     internal data object InactivityElapsed : ConferencePanelEvent() // V1.2.10
@@ -8651,6 +8689,7 @@ internal fun conferencePanelReduce(
                     // V1.9.25: the voting panel is carried into fullscreen (the right to vote must not vanish)
                     fullscreenVotingOpen = current.normalVotingOpen,
                     moreOpen = false,
+                    settingsOpen = false,
                     controlsVisible = true,
                 )
             }
@@ -8675,13 +8714,20 @@ internal fun conferencePanelReduce(
             if (!current.moreOpen && current.narrow && current.votingLock.blocksLeaving()) {
                 current
             } else {
-                current.copy(moreOpen = !current.moreOpen, controlsVisible = true)
+                // V1.9.184: the two sheets never stand open together
+                current.copy(moreOpen = !current.moreOpen, settingsOpen = false, controlsVisible = true)
+            }
+        is ConferencePanelEvent.SettingsToggled ->
+            if (!current.settingsOpen && current.narrow && current.votingLock.blocksLeaving()) {
+                current
+            } else {
+                current.copy(settingsOpen = !current.settingsOpen, moreOpen = false, controlsVisible = true)
             }
         is ConferencePanelEvent.PointerActivity ->
             if (current.controlsVisible) current else current.copy(controlsVisible = true)
         is ConferencePanelEvent.InactivityElapsed ->
             // V1.9.25: with a receipt on screen the bar (with the blocked leave button and its reason) stays
-            if (current.moreOpen || !current.controlsVisible || current.votingLock.blocksLeaving()) {
+            if (current.moreOpen || current.settingsOpen || !current.controlsVisible || current.votingLock.blocksLeaving()) {
                 current
             } else {
                 current.copy(controlsVisible = false)

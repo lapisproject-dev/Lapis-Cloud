@@ -447,7 +447,7 @@ class FormSubmitBodyPart3DomTest {
                 }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-agenda") { root, element ->
-                    renderAddAgendaItemForm(root, "meeting-9", 3, PresenterSource.Options(three), onChanged = {})
+                    renderAddAgendaItemForm(root, "meeting-9", 3, PresenterSource.Options(three), collapse = {}, onChanged = {})
                     element().typeInto("Position", " 7 ")
                     element().typeInto("Titel", "  Haushalt 2027  ")
                     element().typeInto("Beschreibung", "  Entwurf liegt vor  ")
@@ -465,7 +465,7 @@ class FormSubmitBodyPart3DomTest {
             }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-agenda-blank") { root, element ->
-                    renderAddAgendaItemForm(root, "meeting-9", 3, PresenterSource.Options(three), onChanged = {})
+                    renderAddAgendaItemForm(root, "meeting-9", 3, PresenterSource.Options(three), collapse = {}, onChanged = {})
                     element().typeInto("Titel", "Nur ein Titel")
                     element().typeInto("Beschreibung", "   ")
                     element().buttonNamed("Hinzufügen").click()
@@ -537,7 +537,7 @@ class FormSubmitBodyPart3DomTest {
                 }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-attendance") { root, element ->
-                    renderAttendanceRecordingForm(root, "meeting-9", three, emptyList(), onChanged = {})
+                    renderAttendanceRecordingForm(root, "meeting-9", three, emptyList(), collapse = {}, onChanged = {})
                     val forms = element().allOf(".lapis-form")
                     assertEquals(3, forms.size, "one mini form per person")
 
@@ -576,7 +576,7 @@ class FormSubmitBodyPart3DomTest {
         formTest {
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-attendance-rep") { root, element ->
-                    renderAttendanceRecordingForm(root, "meeting-9", three, emptyList(), onChanged = {})
+                    renderAttendanceRecordingForm(root, "meeting-9", three, emptyList(), collapse = {}, onChanged = {})
                     val amara = element().allOf(".lapis-form")[0]
                     amara.chooseIn("Status", "REPRESENTED")
                     amara.buttonNamed("Speichern").click()
@@ -658,6 +658,7 @@ class FormSubmitBodyPart3DomTest {
                         isBoardOrAdminGlobal = true,
                         audience = MeetingAudience.Roster(three),
                     )
+                    element().openInvitation()
                     awaitUntil("the postal button", timeoutMs = 1000) {
                         element().allOf("button").any {
                             it.textContent?.trim() ==

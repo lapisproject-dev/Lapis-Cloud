@@ -35,15 +35,24 @@ internal const val TOGGLE_STATUS_CLASS = "toggle-status"
  *
  * The button that does not apply is never created -- no `hide()`, no `disabled`. The status text is a `role="status"` element with
  * `tabindex="-1"` so a script can move the focus to it after a switch (the activated button is gone by then). Returns the status text.
+ * [rowClass] (V1.9.190, optional): a layout class for the row; the default keeps the compact horizontal panel of the other screens.
  */
 internal fun renderToggleActionRow(
     container: SimplePanel,
     state: ToggleLoadState,
     enable: (Container) -> Button,
     disable: (Container) -> Button,
+    rowClass: String? = null,
 ): Span {
     container.removeAll()
-    val row = container.hPanel(spacing = 8) { addCssClasses("mt-2 align-items-center") }
+    // V1.9.190: a screen with a wider row (provider select next to the button) passes its own CSS class and gets a plain wrapping flex
+    // `div`; every other screen keeps the narrow `hPanel`.
+    val row: SimplePanel =
+        if (rowClass == null) {
+            container.hPanel(spacing = 8) { addCssClasses("mt-2 align-items-center") }
+        } else {
+            container.div(className = rowClass)
+        }
     val text =
         when (state) {
             ToggleLoadState.LOADING -> tr("Wird geladen …")
@@ -102,6 +111,7 @@ internal class ToggleSettingsPanel<T : Any>(
     private val renderSummary: (SimplePanel, T) -> Unit,
     private val enable: (Container) -> Button,
     private val disable: (Container) -> Button,
+    private val rowClass: String? = null,
 ) {
     private var generation = 0
 
@@ -109,18 +119,18 @@ internal class ToggleSettingsPanel<T : Any>(
     fun load(focusStatus: Boolean = false) {
         val mine = ++generation
         settingsPanel.removeAll()
-        renderToggleActionRow(actionsHost, ToggleLoadState.LOADING, enable, disable)
+        renderToggleActionRow(actionsHost, ToggleLoadState.LOADING, enable, disable, rowClass)
         AppScope.launch {
             val settings = fetch()
             if (mine != generation) return@launch
             settingsPanel.removeAll()
             if (settings == null) {
-                renderToggleActionRow(actionsHost, ToggleLoadState.FAILED, enable, disable)
+                renderToggleActionRow(actionsHost, ToggleLoadState.FAILED, enable, disable, rowClass)
                 return@launch
             }
             renderSummary(settingsPanel, settings)
             val state = if (isEnabled(settings)) ToggleLoadState.ENABLED else ToggleLoadState.DISABLED
-            renderToggleActionRow(actionsHost, state, enable, disable)
+            renderToggleActionRow(actionsHost, state, enable, disable, rowClass)
             if (focusStatus) focusToggleStatus(actionsHost)
         }
     }

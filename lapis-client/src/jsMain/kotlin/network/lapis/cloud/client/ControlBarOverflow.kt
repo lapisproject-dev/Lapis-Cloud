@@ -115,6 +115,11 @@ internal class ControlBarOverflow<S>(
     private val moreGroup: Int = -1,
     /** Shown while [moved] is not empty, hidden otherwise. */
     private val moreButton: Button? = null,
+    /**
+     * V1.9.184: width that the bar spends on things the algorithm does not count (the zone separators of the three-zone bar, beyond the
+     * group divider already counted per group boundary). Subtracted from the available width.
+     */
+    private val reservedWidth: Double = 0.0,
 ) {
     private val slots: MutableList<ControlBarSlot<S>> = slots.toMutableList()
     private var observer: ResizeObserver? = null
@@ -166,7 +171,7 @@ internal class ControlBarOverflow<S>(
             }
         val newMoved =
             controlBarOverflow(
-                available = element.clientWidth - padding,
+                available = element.clientWidth - padding - reservedWidth,
                 visible = measures,
                 order = order,
                 gap = gap,

@@ -13,7 +13,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.VolunteerAllowanceCategory
@@ -46,12 +45,8 @@ fun renderVolunteerAllowanceScreen(
 ) {
     val currentMemberId = AppState.session?.memberId
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Ehrenamts- und Übungsleiterpauschalen"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Ehrenamts- und Übungsleiterpauschalen"), intro = PageIntros.forRoute(Routes.VOLUNTEER_ALLOWANCES))
     // The create button gets a slot of its own: it appears only after a successful load without an open draft.
     val draftButtonSlot = header.actionSlot.div().apply { hide() }
 

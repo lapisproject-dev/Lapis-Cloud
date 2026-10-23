@@ -85,7 +85,7 @@ internal fun renderConsensusBooth(
                         } else {
                             tr("Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden.")
                         },
-                    exitLabel = tr("Zurück zum Konsensieren"),
+                    exitLabel = tr("Bewertung verlassen"),
                     doneHeading = tr("Ihre Bewertung wurde gezählt"),
                     doneText = tr("Danke, Ihre Bewertung ist eingegangen."),
                     forbiddenHeading = tr("Keine Stimmberechtigung"),

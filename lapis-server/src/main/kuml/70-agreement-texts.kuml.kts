@@ -15,6 +15,8 @@
 //
 // **time-fields:** `published_at` / `updated_at` are class A (DbClock, UTC), `valid_from` is class D (calendar date) -- see
 // lapis-server/src/test/resources/time-fields.tsv.
+// **V1.9.196 (V112):** `body_format` ('plain' | 'markdown', VARCHAR(16), default 'plain') says how the body is displayed. It is NOT part of the hash
+// (`sha256` stays SHA-256 over `"$version_label\n$body"`) and is immutable after publication.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.dsl.applyProfile
 import dev.kuml.uml.dsl.stereotype
@@ -60,6 +62,9 @@ classDiagram(name = "AgreementTexts") {
         attribute(name = "charCount", type = "Int") {
             stereotype("Column") { "columnName" to "char_count" }
         }
+        attribute(name = "bodyFormat", type = "String") {
+            stereotype("Column") { "columnName" to "body_format"; "sqlType" to "VARCHAR(16)" }
+        }
         attribute(name = "authorMemberId", type = "UUID") {
             stereotype("Column") { "columnName" to "author_member_id"; "fkEntity" to "Member" }
         }
@@ -93,6 +98,9 @@ classDiagram(name = "AgreementTexts") {
         }
         attribute(name = "charCount", type = "Int") {
             stereotype("Column") { "columnName" to "char_count" }
+        }
+        attribute(name = "bodyFormat", type = "String") {
+            stereotype("Column") { "columnName" to "body_format"; "sqlType" to "VARCHAR(16)" }
         }
         attribute(name = "updatedBy", type = "UUID") {
             stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }

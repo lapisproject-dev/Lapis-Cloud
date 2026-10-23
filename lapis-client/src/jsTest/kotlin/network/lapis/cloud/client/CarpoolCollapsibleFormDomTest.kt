@@ -20,8 +20,8 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * V1.9.50 -- rule R36B for the Mitfahrerzentrale: "Eintrag erstellen" is the collapsed create form of the page header (one button in the
- * title row); "Bearbeiten" and "Duplizieren" of a card open the SAME host, pre-filled; a changed form asks before it is dropped; a failed
+ * V1.9.50 -- rule R36B for the Mitfahrzentrale: "Eintrag erstellen" is the collapsed create form of the page header (one button in the
+ * title row); the icon buttons "bearbeiten" and "duplizieren" of a card open the SAME host, pre-filled; a changed form asks before it is dropped; a failed
  * save keeps the form open; a forged i18n marker in a place name never reaches the DOM.
  */
 class CarpoolCollapsibleFormDomTest {
@@ -50,6 +50,10 @@ class CarpoolCollapsibleFormDomTest {
 
     private fun HTMLElement.shows(text: String): Boolean = textContent.orEmpty().contains(text)
 
+    /** An icon-only button is found by its accessible name (`aria-label`), not by visible text. */
+    private fun HTMLElement.iconButton(name: String): HTMLElement =
+        assertNotNull(allOf("button").firstOrNull { it.getAttribute("aria-label") == name }, "no icon button '$name'")
+
     private fun HTMLElement.valueOf(label: String): String =
         when (val control = controlOf(label)) {
             is HTMLInputElement -> control.value
@@ -73,7 +77,8 @@ class CarpoolCollapsibleFormDomTest {
 
     private suspend fun withCarpoolStub(
         mine: List<CarpoolPostingDto>,
-        feed: List<CarpoolPostingDto> = emptyList(),
+        // The server's feed contains the own, not yet expired entries too (flagged `isOwn`); only "Nur meine" adds the expired ones.
+        feed: List<CarpoolPostingDto> = mine.filter { !it.isPast },
         createAnswer: ((RecordedRequest) -> StubResponse)? = null,
         block: suspend (List<RecordedRequest>, Routes) -> Unit,
     ) {
@@ -135,7 +140,8 @@ class CarpoolCollapsibleFormDomTest {
                         screen.allOf("button").count { it.textContent?.trim() == "Eintrag erstellen" },
                         "no second, hand-built create button on the page",
                     )
-                    assertTrue(calls.toRoute(routes.listMine).isNotEmpty())
+                    assertTrue(calls.toRoute(routes.listFeed).isNotEmpty())
+                    assertTrue(calls.toRoute(routes.listMine).isEmpty(), "the own entries are only asked for with \"Nur meine\"")
                 }
             }
         }
@@ -153,12 +159,12 @@ class CarpoolCollapsibleFormDomTest {
         }
 
     @Test
-    fun savingANewEntry_createsOnce_foldsBack_andReloadsBothLists(): Promise<Unit> =
+    fun savingANewEntry_createsOnce_foldsBack_andReloadsTheList(): Promise<Unit> =
         formTest {
             withCarpoolStub(mine = emptyList()) { calls, routes ->
                 mountedForm("r50-carpool-save") { root, element ->
                     renderCarpoolScreen(root)
-                    awaitUntil("the lists were loaded") { calls.toRoute(routes.listMine).isNotEmpty() }
+                    awaitUntil("the list was loaded") { calls.toRoute(routes.listFeed).isNotEmpty() }
                     val screen = element()
                     val host = openCreateForm(screen, formId)
                     host.typeInto("Von (Ort oder PLZ)", "Wolfsburg")
@@ -168,7 +174,6 @@ class CarpoolCollapsibleFormDomTest {
                     // The base counts only after EVERY initial load is through (the feed is requested twice on open): read while
                     // one was still on its way, its late request is counted as the reload (CI 2026-10-03: feed "before 0", after 3).
                     awaitAppScopeIdle("the initial loads finished")
-                    val minesBefore = calls.toRoute(routes.listMine).size
                     val feedBefore = calls.toRoute(routes.listFeed).size
                     host.buttonNamed("Speichern").click()
                     awaitUntil("createPosting") { calls.toRoute(routes.create).size == 1 }
@@ -177,13 +182,10 @@ class CarpoolCollapsibleFormDomTest {
                     assertEquals("Berlin", sent.toPlace as String)
                     awaitUntil("the form folded back") { !screen.hostOpen(formId) }
                     awaitUntil(
-                        "both lists were reloaded exactly once",
-                        detail = {
-                            "listMine ${calls.toRoute(routes.listMine).size} (before $minesBefore), " +
-                                "listFeed ${calls.toRoute(routes.listFeed).size} (before $feedBefore)"
-                        },
+                        "the one list was reloaded exactly once",
+                        detail = { "listFeed ${calls.toRoute(routes.listFeed).size} (before $feedBefore)" },
                     ) {
-                        calls.toRoute(routes.listMine).size == minesBefore + 1 && calls.toRoute(routes.listFeed).size == feedBefore + 1
+                        calls.toRoute(routes.listFeed).size == feedBefore + 1
                     }
                 }
             }
@@ -246,7 +248,7 @@ class CarpoolCollapsibleFormDomTest {
                     renderCarpoolScreen(root)
                     awaitUntil("the own posting is listed") { element().shows("Braunschweig") }
                     val screen = element()
-                    screen.buttonNamed("Bearbeiten").click()
+                    screen.iconButton("Fahrt Braunschweig nach Hannover bearbeiten").click()
                     awaitUntil("the edit form is built") { screen.querySelector("[id='$formId'] .lapis-form") != null }
                     val host = assertNotNull(screen.querySelector("[id='$formId']") as? HTMLElement)
                     assertTrue(host.shows("Eintrag bearbeiten"))
@@ -254,7 +256,7 @@ class CarpoolCollapsibleFormDomTest {
                     assertEquals("01.05.2099", host.valueOf("Abfahrtsdatum"))
                     assertEquals(1, screen.allOf("[id='$formId'] .lapis-form").size, "never two forms at once")
 
-                    screen.buttonNamed("Duplizieren").click()
+                    screen.iconButton("Fahrt Braunschweig nach Hannover duplizieren").click()
                     awaitUntil("the duplicate form replaces the edit form (untouched form: no question)") {
                         screen
                             .querySelector("[id='$formId']")
@@ -280,7 +282,14 @@ class CarpoolCollapsibleFormDomTest {
                     renderCarpoolScreen(root)
                     awaitUntil("the posting is listed") { element().shows("Hannover") }
                     assertFalse(element().shows(KV_MARKER), "the marker must stay inert in the card")
-                    element().buttonNamed("Bearbeiten").click()
+                    assertFalse(
+                        element().allOf("[title], [aria-label]").any {
+                            it.getAttribute("title").orEmpty().contains(KV_MARKER) ||
+                                it.getAttribute("aria-label").orEmpty().contains(KV_MARKER)
+                        },
+                        "and never in a title or aria-label (icon buttons, card title)",
+                    )
+                    element().allOf("button").first { it.getAttribute("aria-label").orEmpty().endsWith("bearbeiten") }.click()
                     awaitUntil("the edit form is built") { element().querySelector("[id='$formId'] .lapis-form") != null }
                     val host = assertNotNull(element().querySelector("[id='$formId']") as? HTMLElement)
                     assertEquals("${KV_MARKER}Notiz", host.valueOf("Notiz"), "the form carries the note as plain DATA (a textarea value)")

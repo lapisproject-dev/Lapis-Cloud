@@ -97,6 +97,11 @@ data class PulpitRecordingTextsDto(
     val pulpitSha256: String,
     val pulpitText: String,
     val roomText: String,
+    /** V1.9.196 -- format and server-rendered sanitized HTML (`null` for plain text) of each of the two texts. */
+    val pulpitFormat: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    val pulpitHtml: String? = null,
+    val roomFormat: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    val roomHtml: String? = null,
 )
 
 /** One stored pulpit recording as BOARD/ADMIN list it. Names no person. */

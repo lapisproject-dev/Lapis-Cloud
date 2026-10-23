@@ -1,6 +1,8 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
+import io.kvision.core.Widget
+import io.kvision.core.onEvent
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
@@ -27,71 +29,53 @@ import io.kvision.table.TableType
 import io.kvision.table.cell
 import io.kvision.table.row
 import io.kvision.table.table
-import io.kvision.utils.px
+import kotlinx.browser.window
+import org.w3c.dom.HTMLElement
 
 /**
- * Gemeinsames Layout-Vokabular fuer **datendichte Tabellen-Screens** -- Ergebnis der
- * Design-Team-Sitzung vom 2026-09-18 (siehe Vault, root `CLAUDE.md` "UI/UX-Design-Team").
+ * Gemeinsames Layout-Vokabular fuer **alle Seiten**: die eine Seitenhuelle ([pageShell]) mit zwei Massen
+ * (V1.9.189, Design-Team-Entscheidung 2026-10-22).
  *
- * ## Warum ueberhaupt
+ * ## Vorgeschichte
  *
- * Jeder Screen hatte seine eigene, hart kodierte Breite auf dem Root-`vPanel`
- * (`width = 720/800/860/900/960.px` + `mx-auto`). Zwei Folgen:
+ * Bis V1.9.188 hatte jeder Screen seine eigene, hart kodierte Breite auf dem Root-`vPanel`
+ * (`maxWidth = 560..900.px` + `mx-auto w-100 px-3`); nur die Tabellen-Screens ([dataScreenRoot], 1440 px) waren breit.
+ * Die Folge: Gremien, Sitzungen, Antraege, Events, Beitraege und Dokumente standen als schmale Spalte in einem breiten
+ * Fenster, waehrend der Kontenplan den Platz nutzte -- die linke Kante und die Breite wechselten von Seite zu Seite.
  *
- * 1. **`width` statt `maxWidth` ist nicht responsiv.** Ein fester `width`-Wert bleibt auch dann
- *    stehen, wenn das Viewport schmaler ist -- auf 375 px erzwingt `width = 960.px` horizontales
- *    Scrollen der gesamten Seite. `maxWidth` deckelt nur nach oben und laesst den Inhalt darunter
- *    frei schrumpfen.
- * 2. **Auf grossen Schirmen blieb rechts toter Raum**, obwohl genau diese Screens (Kontenplan,
- *    Mahnwesen, SEPA-Laeufe) breite Tabellen mit sechs bis acht Spalten tragen.
+ * ## Die Entscheidung
  *
- * ## Warum 1440 px und nicht "unbegrenzt"
+ * Die fruehere Fassung dieses Kommentars hielt die Governance-Screens bewusst schmal. **Diese Entscheidung ist mit V1.9.189
+ * umgekehrt:** Es gibt EINE Huelle, zwei Varianten, beide ueber CSS (`theme.css`, `.lapis-page`), nicht ueber Inline-Stile:
  *
- * Unbegrenzte Breite bricht die Lesbarkeit der Textspalten (Kontoname, Betreff, Grund) auf einem
- * 27"-Schirm -- die Zeilenlaenge wird zur Augenbewegung. 1440 px ist der Kompromiss, den das
- * Design-Team gegen Ives "nimm den ganzen Schirm" gesetzt hat: breit genug, dass auf einem
- * 1440p-/1080p-Laptop kein toter Raum mehr entsteht, schmal genug, dass die Tabelle auf einem
- * Ultrawide nicht zum Horizont laeuft.
+ * - [PageWidth.WIDE]: Tabellen-, Karten- und Uebersichtsseiten, bis 100rem (1600 px); darueber zentriert.
+ * - [PageWidth.FORM]: reine Formularseiten, 60rem (960 px) Zeilenlaenge, links buendig in demselben 100rem-Rahmen -- die linke
+ *   Kante ist auf jeder Seite gleich. Ein Formular auf einer breiten Seite sitzt in [formSection].
  *
- * ## Geltungsbereich -- bewusst NICHT app-weit
- *
- * Diese Helfer gehoeren ausschliesslich auf Screens mit **breiten Datentabellen**. Formular- und
- * Karten-Screens (`LoginScreen`, `RegistrationScreen`, `FriendRegistrationScreen`,
- * `VerifyEmailDeepLinkScreen`, `PasswordResetDeepLinkScreen`, `ConferenceScreen`) sowie die
- * Governance-Karten-Screens (Gremien, Sitzungen, Antraege, Events) behalten ihre schmale,
- * lesefreundliche Spalte -- deren Grosszuegigkeit ist fuer ihre Nutzung richtig und wurde in der
- * Sitzung ausdruecklich bestaetigt.
- *
- * **`CostCentersScreen`/`DonorsScreen`: Nachtrag Design-Team-Sitzung 2026-09-18 (Nachmittag).**
- * Beide standen am Vormittag noch auf der Karten-Ausnahmeliste ("Aktion nicht im dichten Raster").
- * Steve Jobs' abschliessendes Review (Punkt 2) hat diese Entscheidung revidiert: Tesler gewinnt
- * gegen Rams, weil auf dem Kostenstellen-Screen dieselben Objekte oben als Karten und im Bericht
- * darunter bereits als Tabellenzeile erscheinen -- zwei Darstellungsgrammatiken fuer ein Objekt auf
- * einem Screen war der eigentliche Defekt, nicht die Kartenform selbst. Beide Screens nutzen jetzt
- * [dataScreenRoot] + eine echte Tabelle -- analog zu `LedgerScreen.kt`s Kontenplan-Tabelle.
+ * Rand und Abstand (16/24/32 px je nach Viewport, 24 px oben) stehen im CSS. Ein Inline-`maxWidth` auf dem Root wuerde die
+ * Regeln stillschweigend ueberstimmen; der Tripwire `PageShellSourceScanTest` lehnt ihn deshalb ab.
  *
  * ## Gegenstueck auf der Tabelle selbst: `ResponsiveType.RESPONSIVE`
  *
- * Solange das Root-Panel eine feste Breite von 900 px hatte, scrollte auf einem 375-px-Telefon die
- * GANZE Seite horizontal -- Kopfzeile und Navigation inklusive. Mit der jetzt frei schrumpfenden
- * Breite waere eine achtspaltige Tabelle stattdessen aus ihrem Container herausgelaufen. Deshalb
- * gehoert zu jedem Screen, der auf [dataScreenRoot] umgestellt wird, zwingend
- * `responsiveType = ResponsiveType.RESPONSIVE` auf seinen breiten Tabellen: Bootstrap legt die
- * Tabelle dann in einen eigenen, horizontal scrollbaren Rahmen -- gescrollt wird die Tabelle, nicht
- * die Seite. Das ist der eigentliche Grund, warum die Breitenfreigabe bei 375 px nicht bricht.
+ * Eine breite Tabelle gehoert in Bootstraps horizontal scrollbaren Rahmen: gescrollt wird die Tabelle, nicht die Seite.
  */
-internal const val DATA_SCREEN_MAX_WIDTH_PX = 1440
+enum class PageWidth { WIDE, FORM }
+
+/** Documentation constant of the wide frame; the value lives in `theme.css` (`.lapis-page--wide`). */
+internal const val PAGE_MAX_WIDTH_REM = 100
+
+/** Documentation constant of the form measure; the value lives in `theme.css` (`.lapis-page--form`). */
+internal const val FORM_MEASURE_REM = 60
+
+/** CSS classes of the page shell (`theme.css`). */
+internal const val PAGE_SHELL_CLASS = "lapis-page"
+internal const val PAGE_SHELL_WIDE_CLASS = "lapis-page--wide"
+internal const val PAGE_SHELL_FORM_CLASS = "lapis-page--form"
+internal const val PAGE_SECTION_FORM_CLASS = "lapis-page-section--form"
 
 /**
- * The other three screen widths of the UI/UX guideline (Welle V1.4.25, W1). Declared here so the later
- * waves (W2-W5) migrate screens onto named widths instead of new magic numbers; W1 itself applies none
- * of them.
- *
- * - [NARROW_FORM_MAX_WIDTH_PX]: single-purpose forms (login, password reset).
- * - [READING_MAX_WIDTH_PX]: running text / card screens with a comfortable line length.
- * - [DASHBOARD_MAX_WIDTH_PX]: the compact "what needs me" overview.
- * - [CARD_LIST_BREAKPOINT_PX]: below this viewport width a [dataTable] renders as a card list (the one
- *   new breakpoint; `theme.css` and [CARD_LIST_MEDIA_QUERY] use the matching `767.98px`).
+ * Only for the allow-listed pre-login/deep-link screens (own card width, see `PageShellSourceScanTest`):
+ * single-purpose forms (login, password reset) are not part of the page shell.
  */
 internal const val NARROW_FORM_MAX_WIDTH_PX = 480
 
@@ -101,29 +85,58 @@ internal const val AUTH_CARD_MAX_WIDTH_PX = 380
 /**
  * V1.9.134: the wide registration forms (member and FRIEND registration) -- a two-column field grid plus the agreement reading frame. NOT a
  * data-table width and not a replacement of [NARROW_FORM_MAX_WIDTH_PX] (login, password reset stay narrow) or [AUTH_CARD_MAX_WIDTH_PX].
+ * Pre-login screens, allow-listed.
  */
 internal const val WIDE_FORM_MAX_WIDTH_PX = 960
-internal const val READING_MAX_WIDTH_PX = 720
-internal const val DASHBOARD_MAX_WIDTH_PX = 640
+
+/** Below this viewport width a [dataTable] renders as a card list (`theme.css` and [CARD_LIST_MEDIA_QUERY] use the matching `767.98px`). */
 internal const val CARD_LIST_BREAKPOINT_PX = 768
 
 /** Default vertical rhythm between the blocks of a data screen (UI/UX guideline: 16 px, was 14). */
 internal const val DATA_SCREEN_SPACING_PX = 16
 
 /**
- * Root-Panel eines datendichten Tabellen-Screens.
- *
- * `w-100` + `mx-auto` + [DATA_SCREEN_MAX_WIDTH_PX] als `maxWidth`: nimmt bis 1440 px die volle
- * verfuegbare Breite, zentriert darueber. `px-3` gibt die 16-px-Seitenrinne, damit der Inhalt auf
- * einem 375-px-Telefon nicht am Displayrand klebt -- ohne diese Rinne sass die Tabelle vorher
- * buendig auf Kante, sobald die feste Breite unterschritten wurde.
+ * The root panel of every page: the one page shell. [width] picks the measure, margins/padding come from CSS
+ * (`.lapis-page`). Never set `maxWidth`/`width`/`marginTop` inline on it -- inline styles beat the stylesheet.
  */
-fun Container.dataScreenRoot(spacing: Int = DATA_SCREEN_SPACING_PX): VPanel =
+fun Container.pageShell(
+    width: PageWidth,
+    spacing: Int = DATA_SCREEN_SPACING_PX,
+    init: VPanel.() -> Unit = {},
+): VPanel =
     vPanel(spacing = spacing) {
-        addCssClasses("mx-auto w-100 px-3")
-        maxWidth = DATA_SCREEN_MAX_WIDTH_PX.px
-        marginTop = 24.px
+        addCssClasses(
+            "$PAGE_SHELL_CLASS " + if (width == PageWidth.WIDE) PAGE_SHELL_WIDE_CLASS else PAGE_SHELL_FORM_CLASS,
+        )
+        init()
     }
+
+/** A form block inside a [PageWidth.WIDE] page: limited to the form measure, left-aligned. */
+fun Container.formSection(init: VPanel.() -> Unit = {}): VPanel =
+    vPanel(spacing = DATA_SCREEN_SPACING_PX) {
+        addCssClass(PAGE_SECTION_FORM_CLASS)
+        init()
+    }
+
+/** Root panel of a data-dense table screen: the wide page shell. */
+fun Container.dataScreenRoot(
+    spacing: Int = DATA_SCREEN_SPACING_PX,
+    init: VPanel.() -> Unit = {},
+): VPanel = pageShell(PageWidth.WIDE, spacing, init)
+
+/**
+ * A row of buttons/chips that wraps instead of scrolling sideways (`theme.css` `.lapis-button-row`).
+ * A plain `div`, not an `hPanel`: KVision's own gap classes would fight the CSS gap.
+ */
+fun Container.buttonRow(): Div = div(className = "lapis-button-row")
+
+/** A row of labelled filter fields (labels above the fields), aligned at the bottom (`.lapis-filter-row`). */
+fun Container.filterRow(): Div = div(className = "lapis-filter-row")
+
+/** Marks a label-less control (a switch) in a [filterRow] so it lines up with the labelled fields. */
+fun Widget.asFilterToggle() {
+    addCssClass("lapis-filter-toggle")
+}
 
 /**
  * Icon-Knopf fuer die Aktionsspalte einer Datentabelle.
@@ -253,6 +266,127 @@ fun <T> Container.segmentedControl(
     paint()
     return group
 }
+
+/** One segment of a [segmentedRadioGroup]; [label] and [disabledHint] are already translated (`tr(...)`/`gettext(...)`, never server data). */
+data class SegmentOption<T>(
+    val value: T,
+    val label: String,
+    val enabled: Boolean = true,
+    val disabledHint: String? = null,
+)
+
+/**
+ * Segmented radio group (V1.9.191): the single choice of a form that SWITCHES the fields below it (cost kind of an expense line).
+ * Counterpart of [segmentedControl], which is a toggle for filters (`aria-pressed`); this one follows the WAI-ARIA radio pattern:
+ *
+ * - `role="radiogroup"` on the group, `role="radio"` + `aria-checked` on each segment, roving tabindex (only the chosen one is in the tab order).
+ * - Arrow keys move to the next/previous ENABLED segment (with wrap), Home/End to the first/last; the choice follows the focus. Space and
+ *   Enter use the native `click` of the `<button>`, so a choice is never reported twice.
+ * - A disabled segment keeps `aria-disabled` instead of the native `disabled` (it must keep its hint tooltip), is skipped by the keyboard
+ *   and ignores clicks.
+ * - [onSelect] is called only when the choice really changes. [ariaLabel] runs through [resolvedAttributeText] (marker never in the DOM).
+ */
+fun <T> Container.segmentedRadioGroup(
+    options: List<SegmentOption<T>>,
+    selected: T,
+    ariaLabel: String,
+    onSelect: (T) -> Unit,
+): HPanel {
+    val group =
+        hPanel(spacing = 0) {
+            addCssClasses("btn-group btn-group-sm")
+            setAttribute("role", "radiogroup")
+            setAttribute("aria-label", resolvedAttributeText(ariaLabel))
+        }
+    var current = selected
+    val segments = mutableListOf<Pair<SegmentOption<T>, Button>>()
+
+    fun paint() {
+        segments.forEach { (option, segmentButton) ->
+            val active = option.value == current
+            segmentButton.style = if (active) ButtonStyle.PRIMARY else ButtonStyle.OUTLINEPRIMARY
+            segmentButton.setAttribute("aria-checked", active.toString())
+            segmentButton.setAttribute("tabindex", if (active) "0" else "-1")
+        }
+    }
+
+    fun choose(option: SegmentOption<T>) {
+        if (!option.enabled || option.value == current) return
+        current = option.value
+        paint()
+        onSelect(option.value)
+    }
+
+    fun moveFocus(
+        from: Int,
+        step: Int,
+    ) {
+        val enabledIndexes = segments.indices.filter { segments[it].first.enabled }
+        if (enabledIndexes.isEmpty()) return
+        val target =
+            when (step) {
+                Int.MIN_VALUE -> enabledIndexes.first()
+                Int.MAX_VALUE -> enabledIndexes.last()
+                else -> {
+                    var index = from
+                    do {
+                        index = (index + step + segments.size) % segments.size
+                    } while (!segments[index].first.enabled)
+                    index
+                }
+            }
+        val (option, segmentButton) = segments[target]
+        choose(option)
+        segmentButton.focus()
+    }
+    options.forEachIndexed { index, option ->
+        val segmentButton = group.button(option.label, style = ButtonStyle.OUTLINEPRIMARY)
+        segmentButton.setAttribute("type", "button")
+        segmentButton.setAttribute("role", "radio")
+        if (!option.enabled) {
+            segmentButton.setAttribute("aria-disabled", "true")
+            segmentButton.addCssClass("disabled")
+            option.disabledHint?.let { hint ->
+                segmentButton.title = hint
+                segmentButton.setAttribute("aria-label", "${resolvedAttributeText(option.label)}: ${resolvedAttributeText(hint)}")
+            }
+        }
+        segments.add(option to segmentButton)
+        segmentButton.onClick { choose(option) }
+        segmentButton.onEvent {
+            keydown = { event ->
+                val step =
+                    when (event.key) {
+                        "ArrowRight", "ArrowDown" -> 1
+                        "ArrowLeft", "ArrowUp" -> -1
+                        "Home" -> Int.MIN_VALUE
+                        "End" -> Int.MAX_VALUE
+                        else -> 0
+                    }
+                if (step != 0) {
+                    event.preventDefault()
+                    moveFocus(index, step)
+                }
+            }
+        }
+    }
+    paint()
+    return group
+}
+
+/**
+ * Puts the keyboard focus on the chosen segment of a [segmentedRadioGroup] once the group is in the DOM (a short timer: the widget tree
+ * renders on the next patch, and no insert hook is registered late -- see `KvisionLifecycle.kt`).
+ */
+fun HPanel.focusSelectedSegment() {
+    window.setTimeout(
+        { (getElement()?.querySelector("[role=radio][aria-checked=true]") as? HTMLElement)?.focus() },
+        FOCUS_AFTER_PATCH_DELAY_MS,
+    )
+}
+
+/** Delay of a focus move that has to wait for the next render patch (same order of magnitude as `FOCUS_AFTER_PATCH_MS` elsewhere). */
+internal const val FOCUS_AFTER_PATCH_DELAY_MS = 60
 
 /**
  * Container fuer mehrere [tableActionButton]s in derselben Tabellenzelle.

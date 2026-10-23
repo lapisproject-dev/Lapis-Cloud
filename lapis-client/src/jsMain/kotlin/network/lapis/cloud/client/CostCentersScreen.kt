@@ -62,7 +62,7 @@ fun renderCostCentersScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root = container.dataScreenRoot(spacing = 14)
-    val header = root.pageHeader(tr("Kostenstellen"))
+    val header = root.pageHeader(tr("Kostenstellen"), intro = PageIntros.forRoute(Routes.COST_CENTERS))
     // V1.9.45 (R36B): the create form is collapsed; its host sits directly under the header, the button in the header's action slot.
     val createHost = if (canManage) root.simplePanel() else null
 

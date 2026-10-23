@@ -20,6 +20,7 @@ import network.lapis.cloud.client.AppState
 import network.lapis.cloud.client.CONTROL_BAR_FALLBACK_WIDTH_PX
 import network.lapis.cloud.client.ControlBarOverflow
 import network.lapis.cloud.client.ControlBarSlot
+import network.lapis.cloud.client.RoomControlBar
 import network.lapis.cloud.client.actionButton
 import network.lapis.cloud.client.actionIconClasses
 import network.lapis.cloud.client.addCssClasses
@@ -463,6 +464,11 @@ internal class EncounterRoom(
     private lateinit var overflow: ControlBarOverflow<EncounterControlSlot>
     private val barSlots = mutableListOf<ControlBarSlot<EncounterControlSlot>>()
     private val twinsInOrder = mutableListOf<Button>()
+
+    /** V1.9.184: the twins of the gear, the camera and the microphone (the last controls to move into the sheet); built in [buildControls]. */
+    private var gearTwin: Button? = null
+    private var cameraTwin: Button? = null
+    private var micTwin: Button? = null
     private var sheetOpen = false
     private var sheetCleanup: (() -> Unit)? = null
     private val fullscreen =
@@ -659,7 +665,8 @@ internal class EncounterRoom(
         unreadDot = panels.span(className = "lapis-encounter-unread")
         unreadDot.setAttribute("role", "status")
         unreadText = unreadDot.span(className = "visually-hidden")
-        moreButton = panels.encounterControlButton(ActionIcon.MORE, tr("Mehr"))
+        // V1.9.184: "Mehr" stands in its own group, directly in front of the end zone (it is the last control of the centre).
+        moreButton = controlBar.group(EncounterControlGroup.MORE).encounterControlButton(ActionIcon.MORE, tr("Mehr"))
         moreButton.setAttribute("aria-expanded", "false")
         moreButton.setAttribute("aria-controls", ENCOUNTER_MORE_SHEET_ID)
         moreButton.onClick { toggleSheet() }
@@ -692,6 +699,14 @@ internal class EncounterRoom(
                     broadcastButton,
                     sheetTwin(ActionIcon.BROADCAST, tr("Übertragung")) { toggleSide(EncounterSideTab.STREAM) },
                 )
+        }
+        // V1.9.184 -- the labelled twins of the gear, the camera and the microphone: they are the last controls a narrow bar gives up. The
+        // twins are built here (BEFORE "Türen schließen", whose twin ends the sheet); their primaries come into being in [bind]. A click on
+        // a twin clicks the primary, so there is one handler per action.
+        gearTwin = sheetTwin(ActionIcon.SETTINGS, tr("Einstellungen")) { devicePicker?.button?.getElement()?.click() }
+        if (entry.canPublish) {
+            cameraTwin = sheetTwin(ActionIcon.CAMERA, tr("Kamera")) { pulpitControls?.cameraButton?.getElement()?.click() }
+            micTwin = sheetTwin(ActionIcon.MICROPHONE, tr("Mikrofon")) { pulpitControls?.micButton?.getElement()?.click() }
         }
         val exit = controlBar.group(EncounterControlGroup.EXIT)
         if (viewer.canModerate) {
@@ -729,8 +744,9 @@ internal class EncounterRoom(
                 overflowedClass = OVERFLOWED_CLASS,
                 onChanged = { onOverflowChanged() },
                 moreWidth = CONTROL_BAR_FALLBACK_WIDTH_PX,
-                moreGroup = EncounterControlGroup.PANELS.ordinal,
+                moreGroup = EncounterControlGroup.MORE.ordinal,
                 moreButton = moreButton,
+                reservedWidth = RoomControlBar.ZONE_SEPARATORS_RESERVED_PX,
             )
     }
 
@@ -764,7 +780,7 @@ internal class EncounterRoom(
             val members = barSlots.filter { encounterControlGroup(it.slot) == group }
             if (members.isEmpty()) continue
             val shown =
-                members.any { it.primary.visible && it.slot !in moved } || (group == EncounterControlGroup.PANELS && moved.isNotEmpty())
+                members.any { it.primary.visible && it.slot !in moved } || (group == EncounterControlGroup.MORE && moved.isNotEmpty())
             controlBar.setGroupSpent(group, !shown)
         }
         if (moved.isEmpty()) closeSheet(returnFocus = false)
@@ -845,14 +861,14 @@ internal class EncounterRoom(
                 )
             pulpitControls = created
             // The device controls never move into the sheet, but they take room in the bar: they have to be measured.
-            registerBarSlot(ControlBarSlot(EncounterControlSlot.Mic, created.micButton, null))
-            registerBarSlot(ControlBarSlot(EncounterControlSlot.Camera, created.cameraButton, null))
+            registerBarSlot(ControlBarSlot(EncounterControlSlot.Mic, created.micButton, micTwin, mirrorPressed = true))
+            registerBarSlot(ControlBarSlot(EncounterControlSlot.Camera, created.cameraButton, cameraTwin, mirrorPressed = true))
         }
         // V1.9.91: the device picker is the LAST control of the devices group, for every role (the speaker can be chosen by all).
         val speakerSession = (session as? EncounterSpeakerSession)?.takeIf { entry.canPublish }
         val picker =
             EncounterDevicePicker(
-                devicesGroup = controlBar.group(EncounterControlGroup.DEVICES),
+                devicesGroup = controlBar.group(EncounterControlGroup.SETTINGS),
                 panelParent = dock,
                 role = {
                     when {
@@ -876,7 +892,7 @@ internal class EncounterRoom(
                 noiseSuppression = pulpitControls?.noiseSuppression,
             )
         devicePicker = picker
-        registerBarSlot(ControlBarSlot(EncounterControlSlot.AudioDevices, picker.button, null))
+        registerBarSlot(ControlBarSlot(EncounterControlSlot.AudioDevices, picker.button, gearTwin))
         overflow.recompute()
     }
 

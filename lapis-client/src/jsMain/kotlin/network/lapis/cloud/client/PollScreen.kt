@@ -1,11 +1,8 @@
 package network.lapis.cloud.client
 
-import io.kvision.html.ButtonStyle
-import io.kvision.html.button
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollParticipationDto
 import network.lapis.cloud.shared.domain.PollResultDto
@@ -38,14 +35,11 @@ fun renderPollScreen(
     }
     val ctx = PollUiContext(session.memberId)
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Umfragen"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    // V1.9.192: the back button sits ABOVE the title on a detail page (one pattern, see MasterDetail.kt).
+    if (initialPollId != null) root.overviewBackButton(Routes.POLLS)
+    val header = root.pageHeader(tr("Umfragen"), intro = if (initialPollId == null) PageIntros.forRoute(Routes.POLLS) else null)
     if (initialPollId != null) {
-        root.button(tr("Zur Übersicht"), style = ButtonStyle.OUTLINESECONDARY).onClick { navigateTo(Routes.POLLS) }
         renderPollDetail(root.vPanel(spacing = 10), initialPollId, ctx)
         return
     }

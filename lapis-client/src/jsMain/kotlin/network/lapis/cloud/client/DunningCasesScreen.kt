@@ -54,7 +54,7 @@ fun renderDunningCasesScreen(container: SimplePanel) {
     if (DunningAuthzUi.showDunningWarningBands(role)) {
         renderDunningWarningBands(root, role)
     }
-    root.pageHeader(tr("Mahnwesen"))
+    root.pageHeader(tr("Mahnwesen"), intro = PageIntros.forRoute(Routes.DUNNING_CASES))
 
     root.h2(tr("Offene Mahnvorgänge")) { addCssClass("h5") }
     val filterRow = root.lapisToolbar()

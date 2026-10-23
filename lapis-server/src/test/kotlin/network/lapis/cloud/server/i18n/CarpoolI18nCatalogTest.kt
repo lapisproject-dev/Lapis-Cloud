@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 import java.io.File
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- i18n-Wächter. Strukturell identisch zu
+ * Welle V1.9.12 "Mitfahrzentrale" -- i18n-Wächter. Strukturell identisch zu
  * [ConferenceBackgroundI18nCatalogTest] (gleicher Ort, gleiche Extraktion, gleiche vier Prüfungen),
  * nur mit der Dateiliste dieser Welle: prüft AUSSCHLIESSLICH deren Textstrings, gegen alle sieben
  * Sprachkataloge, auf VORHANDENSEIN und NICHT-LEEREN `msgstr`.

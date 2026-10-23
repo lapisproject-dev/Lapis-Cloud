@@ -181,4 +181,4 @@ abstract class AgreementTextPublishConcurrencyScenarios(
         }
     })
 
-private fun service(call: ApplicationCall) = AgreementTextAdminService(call)
+private fun service(call: ApplicationCall) = AgreementTextAdminService(call = call)

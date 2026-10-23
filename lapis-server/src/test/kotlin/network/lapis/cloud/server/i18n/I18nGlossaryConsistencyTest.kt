@@ -101,6 +101,7 @@ private val ACCEPTED_COLLISIONS: Map<Set<String>, String> =
         setOf("Entfernen", "Löschen") to
             "es nl pl ru: 'remove' and 'delete' share one word; the confirm dialogs name the object (member vs. family)",
         setOf("Zurückziehen", "Entfernen") to "fr: 'retirer' -- a withdrawal and a removal of a line item on different screens",
+        setOf("Nein", "keine") to "ru: 'нет' is both 'no' (a vote answer) and 'none' (an empty list of participants)",
         // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- same word,
         // capitalisation: "Nicht zugeordnet" is the roster's chapter-filter select OPTION label,
         // "nicht zugeordnet" is the muted per-row/per-application cell value shown when no chapter

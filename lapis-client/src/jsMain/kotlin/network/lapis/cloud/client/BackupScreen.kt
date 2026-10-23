@@ -14,7 +14,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.BackupOperationLogDto
 import network.lapis.cloud.shared.rpc.IBackupService
@@ -40,18 +39,8 @@ import org.w3c.files.File
  */
 fun renderBackupScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Backup & Wiederherstellung"))
-    root.div(
-        tr(
-            "Vollständiger Export und Wiederherstellung aller Organisationsdaten (Datenbank + Dokumente) -- " +
-                "nur für Administratorinnen und Administratoren.",
-        ),
-    ) { addCssClasses("text-muted small") }
+        container.pageShell(PageWidth.FORM, spacing = 14)
+    root.pageHeader(tr("Backup & Wiederherstellung"), intro = PageIntros.forRoute(Routes.BACKUP))
 
     // ---- Export -------------------------------------------------------------------------------
     root.h2(tr("Export")) { addCssClass("h5") }

@@ -1,0 +1,47 @@
+= Committees, meetings and motions: table plus detail page (V1.9.192, V1.9.193)
+:toc:
+
+"Gremien" (`/committees`) and "Sitzungen" (`/meetings`) are tables; each record has its own page (`/committees/:id`, `/meetings/:id`) that can be
+bookmarked and shared. The pattern is described in `docs/architecture/ui-ux-guideline.adoc` (section "Master-detail").
+
+== Committees
+
+* **List**: Name (link), Art, Mitglieder, "Beschlussfähig ab" (for example "3 von 5 (50 %)"), Status, and for BOARD/ADMIN an edit icon. The two count
+  columns are loaded **lazily, one request per committee, at most four in flight**: a cell shows "..." while it loads and a dash when the count cannot be read.
+  A manual committee counts its active seats (`listCommitteeMembers`); the General Assembly and rule committees ask `countCommitteeEligible`
+  (rate-limited, 120 requests per minute per actor; never called for a manual committee, where it throws).
+* **Quorum** is `ceil(members x percent / 100)` and counts members who are present or represented, as the server does when it checks a meeting. It is
+  attendance, not yes votes. The detail page explains this in plain German; with 50 % and an even number of members it adds one sentence that exactly half
+  is enough and "more than half" would be one more. The text gives no legal advice.
+* **Detail page**: members as a table (Name, Rolle, Zeitraum, end-membership icon for BOARD/ADMIN), "Mitglied hinzufügen" and "Gremium bearbeiten" as
+  collapsed sections. For the General Assembly and rule committees the numbers are the current roster; a vote freezes its electorate when it opens.
+
+== Meetings
+
+* **List**: Termin, Titel (link), Gremium, Art/Ort, Status. Upcoming meetings first (ascending), then a heading row "Vergangene Sitzungen" and the past
+  ones, newest first; "now" is the organization's wall-clock time. A cancelled future meeting stays in the upcoming group with its status badge.
+  The two filters (Gremium, Status) and the collapsed "Neue Sitzung" form are unchanged. There is no actions column.
+* **Detail page**: the unchanged sections (invitation, agenda, attendance, resolutions, protocol) under a "Zur Übersicht" button and the title.
+  Removing an agenda point is an icon button named after the point.
+
+== Motions (V1.9.193)
+
+"Anträge" (`/motions`) is a table too; each motion has its own page (`/motions/:id`, also the target of an election's "Zum Antrag" link).
+
+* **List**: Titel (link), Gremium, Antragsteller, Status, Datum and an icon-only "Details zu ..." button. Amendments follow their main motion and name it.
+  With a committee or status filter the main motion may not be in the list; the amendment then only says "Änderungsantrag".
+* **Detail page**: facts and text, the amendments (a small table) or the link to the main motion, then the section that fits the status: review, scheduling,
+  "Wie soll entschieden werden?" or the result; a running or closed vote below; "Antrag zurückziehen" last.
+* **"Wie soll entschieden werden?"** (scheduled motion, committee leadership/BOARD/ADMIN only) is one selector with four ways: Quorum-Beschluss des
+  Gremiums (the votes are recorded after the fact; the result is final once saved), Meritokratische Abstimmung (always the answers Ja/Nein, sent as `YES`/`NO`),
+  Wahl and Konsensieren (both continue on their own page).
+** While amendments are open, all four are closed with the reason "Zuerst alle Änderungsanträge entscheiden".
+** An evaluated (advisory) consensus closes a second consensus (one per motion); the other three stay open.
+** A running vote, a running or finished election, or a running/binding consensus replaces the selector with a status sentence and the way to it.
+** There is no answer "Enthaltung" in the meritocratic vote: the server counts every winner other than `NO` as adopted, so an abstention that wins would adopt the
+   motion. Own answers are possible under "Erweitert" and carry that warning.
+
+== What is not done
+
+Member counts need one request per committee (a server batch RPC would be the honest fix); the "more than half" quorum option is a later server wave;
+the other "back" buttons of the client are audited in V1.9.193; contract texts are not part of these waves.

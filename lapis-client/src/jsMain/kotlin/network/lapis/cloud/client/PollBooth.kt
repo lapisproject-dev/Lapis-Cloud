@@ -144,7 +144,7 @@ private class PollBooth(
             ),
         ) { addCssClasses("text-muted mb-0") }
         val row = booth.hPanel(spacing = 8)
-        val back = newActionButton(ActionIcon.BACK, tr("Zurück"), ButtonStyle.OUTLINESECONDARY)
+        val back = newActionButton(ActionIcon.BACK, tr("Auswahl ändern"), ButtonStyle.OUTLINESECONDARY)
         val submit = Button(tr("Endgültig abgeben"), style = ButtonStyle.PRIMARY)
         row.add(back)
         row.add(submit)
@@ -218,7 +218,7 @@ private class PollBooth(
         val booth = fresh()
         booth.h2(title) { addCssClass("h5") }
         lines.forEach { booth.p(it) }
-        booth.button(tr("Zurück zur Umfrage"), style = ButtonStyle.OUTLINESECONDARY).onClick { exit(true) }
+        booth.backButton(tr("Stimmabgabe verlassen")) { exit(true) }
     }
 
     private fun showSaved() {

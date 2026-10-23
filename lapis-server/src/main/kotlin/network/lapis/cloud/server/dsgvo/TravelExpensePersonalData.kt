@@ -4,6 +4,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.db.generated.TravelExpenseAttachmentTable
+import network.lapis.cloud.server.db.generated.TravelExpenseDocumentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
@@ -102,12 +104,29 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
             TravelExpenseReportTable,
             TravelExpenseLineTable,
             TravelExpenseReceiptTable,
+            TravelExpenseAttachmentTable,
+            TravelExpenseDocumentTable,
             TravelExpenseSepaBatchTable,
             TravelExpenseSepaBatchItemTable,
         )
 
     override fun exportMember(memberId: Uuid) =
         buildJsonObject {
+            // V1.9.199: organisation-wide documents this member uploaded -- metadata only, never the bytes.
+            putJsonArray("uploadedTravelExpenseDocuments") {
+                TravelExpenseDocumentTable
+                    .selectAll()
+                    .where { TravelExpenseDocumentTable.uploadedBy eq memberId }
+                    .forEach { documentRow ->
+                        add(
+                            buildJsonObject {
+                                put("id", documentRow[TravelExpenseDocumentTable.id].toString())
+                                put("title", documentRow[TravelExpenseDocumentTable.title])
+                                put("uploadedAt", documentRow[TravelExpenseDocumentTable.uploadedAt].toString())
+                            },
+                        )
+                    }
+            }
             putJsonArray("travelExpenseReports") {
                 TravelExpenseReportTable
                     .selectAll()
@@ -181,6 +200,22 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                                             )
                                         }
                                 }
+                                // V1.9.198: report-level attachments -- metadata only, never the bytes.
+                                putJsonArray("attachments") {
+                                    TravelExpenseAttachmentTable
+                                        .selectAll()
+                                        .where { TravelExpenseAttachmentTable.reportId eq row[TravelExpenseReportTable.id] }
+                                        .forEach { attachmentRow ->
+                                            add(
+                                                buildJsonObject {
+                                                    put("originalFilename", attachmentRow[TravelExpenseAttachmentTable.originalFilename])
+                                                    put("mimeType", attachmentRow[TravelExpenseAttachmentTable.mimeType])
+                                                    put("sizeBytes", attachmentRow[TravelExpenseAttachmentTable.sizeBytes])
+                                                    put("uploadedAt", attachmentRow[TravelExpenseAttachmentTable.uploadedAt].toString())
+                                                },
+                                            )
+                                        }
+                                }
                             },
                         )
                     }
@@ -202,10 +237,20 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                 }.toList()
         val total = reportRows.size
 
+        // V1.9.199: an organisation document is not a personal datum of its uploader -- only the link to the uploader is removed.
+        val uploadedDocuments =
+            TravelExpenseDocumentTable
+                .selectAll()
+                .where { TravelExpenseDocumentTable.uploadedBy eq memberId }
+                .count()
+                .toInt()
+        TravelExpenseDocumentTable.update({ TravelExpenseDocumentTable.uploadedBy eq memberId }) { it[uploadedBy] = null }
+
         var reportsDeleted = 0
         var reportsRedacted = 0
         var linesDeleted = 0
         var receiptsDeleted = 0
+        var attachmentsDeleted = 0
 
         // Review MAJOR fix: only the SUBJECT role ever triggers deletion/redaction here -- same
         // discipline [ContributionReliefPersonalData] already establishes ("Only the SUBJECT role
@@ -235,6 +280,14 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                         .where {
                             TravelExpenseLineTable.reportId eq reportId
                         }.map { it[TravelExpenseLineTable.id] }
+                // V1.9.198: attachments hang off the report (FK) and must go BEFORE it.
+                val attachmentStorageKeys =
+                    TravelExpenseAttachmentTable
+                        .selectAll()
+                        .where { TravelExpenseAttachmentTable.reportId eq reportId }
+                        .map { it[TravelExpenseAttachmentTable.storageKey] }
+                attachmentStorageKeys.forEach { storageKey -> deleteReceiptFile(storageKey) }
+                attachmentsDeleted += TravelExpenseAttachmentTable.deleteWhere { TravelExpenseAttachmentTable.reportId eq reportId }
                 if (lineIds.isNotEmpty()) {
                     val receiptStorageKeys =
                         TravelExpenseReceiptTable
@@ -285,6 +338,12 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
             ),
             TableErasureOutcome(table = "travel_expense_line", rowsDeleted = linesDeleted),
             TableErasureOutcome(table = "travel_expense_receipt", rowsDeleted = receiptsDeleted),
+            TableErasureOutcome(table = "travel_expense_attachment", rowsDeleted = attachmentsDeleted),
+            TableErasureOutcome(
+                table = "travel_expense_document",
+                rowsRetained = uploadedDocuments,
+                retentionReason = "Organisationsunterlage für alle Mitglieder, kein Personendatum; Hochlader-Bezug entfernt",
+            ),
             // V1.9.123: file metadata (counts, cents, date, report ids -- never an IBAN or a name) is accountability data.
             TableErasureOutcome(
                 table = "travel_expense_sepa_batch",

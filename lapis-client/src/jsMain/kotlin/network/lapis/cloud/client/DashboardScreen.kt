@@ -13,7 +13,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -38,13 +37,13 @@ fun renderDashboardScreen(container: SimplePanel) {
     }
 
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 640.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
     // W5: constant title as in the sidebar (R35); the greeting is a data value and therefore the subtitle.
-    root.pageHeader(tr("Dashboard"), subtitle = gettext("Willkommen, %1", session.displayName))
+    root.pageHeader(
+        tr("Dashboard"),
+        subtitle = gettext("Willkommen, %1", session.displayName),
+        intro = PageIntros.forRoute(Routes.DASHBOARD),
+    )
     // Zeigt sowohl MemberStatus (Kontotyp -- z.B. "Freund" statt der reinen Berechtigungsstufe) als
     // auch AccountRole (Berechtigungsstufe): ein Freund-Konto hat technisch korrekt AccountRole.MEMBER
     // (dieselbe Basis-Stufe wie jedes einfache Konto), aber "Rolle: MEMBER" allein liest sich fuer ein

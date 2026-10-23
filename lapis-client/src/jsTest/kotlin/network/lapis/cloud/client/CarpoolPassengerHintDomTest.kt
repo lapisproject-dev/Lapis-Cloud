@@ -90,6 +90,7 @@ class CarpoolPassengerHintDomTest {
                     awaitUntil("the form is built") { element().allOf("label").any { it.textContent.orEmpty().contains("Mitfahrer") } }
                     awaitAppScopeIdle("settled")
                     assertFalse(element().textContent.orEmpty().contains("Mitfahrerzentrale"))
+                    assertFalse(element().textContent.orEmpty().contains("Mitfahrzentrale"))
                 }
                 assertEquals(before, calls.count { it.isRpc && it.rpcRoute == hintRoute }, "no question for a foreign report")
             }

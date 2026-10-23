@@ -48,7 +48,7 @@ internal fun renderMemberStatisticsScreen(
     deps: MemberStatisticsDeps,
 ) {
     val root = container.dataScreenRoot()
-    val header = root.pageHeader(tr("Mitgliederentwicklung"))
+    val header = root.pageHeader(tr("Mitgliederentwicklung"), intro = PageIntros.forRoute(Routes.MEMBER_STATISTICS))
     val exportButton = header.actionSlot.actionButton(ActionIcon.EXPORT, tr("CSV exportieren"))
     exportButton.disabled = true
 

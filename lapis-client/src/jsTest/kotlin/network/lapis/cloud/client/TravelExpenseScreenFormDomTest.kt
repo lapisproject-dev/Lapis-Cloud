@@ -184,21 +184,21 @@ class TravelExpenseScreenFormDomTest {
                 mountedForm("travel-expense-add-line-mileage-happy") { root, element ->
                     renderTravelExpenseScreen(root, null)
                     awaitUntil("mileage add button rendered", timeoutMs = 800) {
-                        element().allOf("button").any { it.textContent?.trim() == "Fahrt hinzufügen" }
+                        element().allOf("button").any { it.textContent?.trim() == "Kosten hinzufügen" }
                     }
                     delay(80)
-                    element().buttonNamed("Fahrt hinzufügen").click()
+                    element().buttonNamed("Kosten hinzufügen").click() // the first available kind (Fahrt) is preselected
                     delay(80)
                     element().typeInto("Beschreibung", "  Zugfahrt Hannover  ")
                     // Whole kilometres only: a comma value is refused on the field, nothing is sent.
                     element().typeInto("Kilometer", "123,5")
-                    element().buttonNamed("Zeile hinzufügen").click()
+                    element().buttonNamed("Hinzufügen").click()
                     delay(60)
                     assertEquals(0, calls.toRoute(addLineRoute).size, "no addLine for fractional kilometres")
                     assertTrue(element().shownErrors().isNotEmpty())
                     element().typeInto("Kilometer", "  123  ")
                     element().typeInto("Mitfahrer", "2")
-                    element().buttonNamed("Zeile hinzufügen").click()
+                    element().buttonNamed("Hinzufügen").click()
                     awaitUntil("addLine", timeoutMs = 800) { calls.toRoute(addLineRoute).size == 1 }
                     val call = calls.singleCall(addLineRoute)
                     assertEquals("report-1", call.rpcParam(0) as String)
@@ -234,15 +234,17 @@ class TravelExpenseScreenFormDomTest {
                 mountedForm("travel-expense-add-line-other-invalid") { root, element ->
                     renderTravelExpenseScreen(root, null)
                     awaitUntil("other add button rendered", timeoutMs = 800) {
-                        element().allOf("button").any { it.textContent?.trim() == "Sonstiges hinzufügen" }
+                        element().allOf("button").any { it.textContent?.trim() == "Kosten hinzufügen" }
                     }
                     delay(80)
-                    element().buttonNamed("Sonstiges hinzufügen").click()
+                    element().buttonNamed("Kosten hinzufügen").click()
+                    delay(80)
+                    element().buttonNamed("Sonstiges").click()
                     delay(80)
                     element().typeInto("Beschreibung", "Taxiquittung")
                     // Above TravelExpenseAmountRules.MAX_RECEIPTED_CENTS (10 000,00 EUR) -- the field's own upper bound.
                     element().typeInto("Betrag", "999999999")
-                    element().buttonNamed("Zeile hinzufügen").click()
+                    element().buttonNamed("Hinzufügen").click()
                     delay(80)
                     assertTrue(calls.toRoute(addLineRoute).isEmpty(), "no addLine call for a too-large amount")
                     assertTrue(element().shownErrors().isNotEmpty(), "the too-large amount is reported on the field")

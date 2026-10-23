@@ -1606,6 +1606,8 @@ security model this short summary points at.
 * **`travel_expense_receipt`** -- one uploaded proof file per row, `storage_key` always
   server-generated, `mime_type` always derived from magic bytes rather than the client's declared
   `Content-Type`.
+* **`travel_expense_attachment`** (V113) -- one report-level file per row (FK to the report, not to a line); same file metadata as the receipt, at most 10 per report.
+* **`travel_expense_document`** (V114) -- one organisation-wide file per row (title, sniffed MIME type PDF/XLSX/XLS, storage key on disk, nullable uploader FK with `ON DELETE SET NULL`); at most 10 rows, enforced under a lock on the settings row, not by a constraint. V114 also adds `organization_settings.travel_contact_hint_format`.
 
 `organization_settings` gains three columns: `travel_expense_account_id` (a sixth ledger-account
 mapping, the first EXPENSE-typed one), `travel_mileage_rate_per_km`, `travel_per_diem_rate` (the
@@ -1706,6 +1708,11 @@ Since V1.9.34 the badge is `secondary` when the quorum is reached and `warning` 
 Green means "a resolution was accepted" everywhere else in this screen, and a quorum is only a precondition for a vote, not a result. One
 always-visible sentence under the row says so ("Quorum heißt: ... Diese Anzeige ist keine rechtliche Bewertung."): it makes no legal statement,
 shows no time and has no button. The resolution result stays the only place that says whether a motion was carried.
+
+Since V1.9.182 that sentence is always visible only in the protocol preview. On the meeting page it sits behind the closed disclosure
+"Was bedeutet Quorum?" (`renderQuorumRow(..., explanationCollapsed = true)`, `Disclosure.kt`); the badge and the numbers stay visible. The
+attendance list is behind "Anwesende anzeigen" and the recording form behind "Anwesenheit erfassen" (see `collapsible-forms.adoc`, V1.9.182).
+Display only: the quorum computation is unchanged.
 
 == V1.9.112 -- Rule-based committees and the frozen electorate of a vote
 

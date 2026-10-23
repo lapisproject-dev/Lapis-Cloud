@@ -290,6 +290,7 @@ internal fun renderRuleCommitteeFacts(
     canManage: Boolean,
     committees: List<CommitteeDto>,
     tiers: List<MembershipTierDto>,
+    onCount: (Int?) -> Unit = {},
 ) {
     if (canManage) {
         val rule = committeeRuleOrEmpty(committee)
@@ -303,6 +304,7 @@ internal fun renderRuleCommitteeFacts(
     AppScope.launch {
         val n = runCatching { rpcService<IGovernanceService>().countCommitteeEligible(committee.id) }.getOrNull()
         if (n != null) count.content = ngettext("%1 Mitglied gehört dazu", "%1 Mitglieder gehören dazu", n, n)
+        onCount(n)
     }
     row.div(tr("Mitglieder ergeben sich aus der Regel.")) { addCssClasses("text-muted small") }
     row.div(tr("Bei einer Abstimmung wird der Kreis zum Start festgeschrieben.")) { addCssClasses("text-muted small") }

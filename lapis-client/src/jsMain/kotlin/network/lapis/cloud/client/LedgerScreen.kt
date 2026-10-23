@@ -109,7 +109,7 @@ fun renderLedgerScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root = container.dataScreenRoot()
-    val header = root.pageHeader(tr("Kontenplan & Journal"))
+    val header = root.pageHeader(tr("Kontenplan & Journal"), intro = PageIntros.forRoute(Routes.LEDGER))
     // V1.9.45 (R36B): both create forms are collapsed. The two slot containers are created first so the button order is fixed
     // ("Neue Buchung", then "Neues Konto") no matter when the data for the posting form arrives; hosts sit directly under the header.
     val entrySlot = if (canManage) header.actionSlot.div() else null

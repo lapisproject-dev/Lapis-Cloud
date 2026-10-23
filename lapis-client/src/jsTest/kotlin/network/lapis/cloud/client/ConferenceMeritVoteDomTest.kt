@@ -152,7 +152,7 @@ class ConferenceMeritVoteDomTest {
         formTest {
             mountedForm("merit-result") { root, element ->
                 renderMeritVoteLiveCard(root, vote(RoomBallotStatus.DECIDED, winner = no.id)) {}
-                assertTrue(element().flatText().contains("Ergebnis: NO"), element().flatText())
+                assertTrue(element().flatText().contains("Ergebnis: Nein"), element().flatText())
             }
             mountedForm("merit-tie") { root, element ->
                 renderMeritVoteLiveCard(root, vote(RoomBallotStatus.DECIDED, winner = null)) {}
@@ -263,7 +263,7 @@ class ConferenceMeritVoteDomTest {
                 )
                 assertFalse(text.contains("zurück"), "nothing says the stake comes back: $text")
                 assertTrue(el.buttonNamed("Abstimmen schließen").hasAttribute("disabled"), "the panel cannot be closed from the bid view")
-                el.buttonNamed("Zurück zur Übersicht").click()
+                el.buttonNamed("Zur Übersicht").click()
                 assertFalse(handle.isBoothOpen())
                 assertEquals(ConferenceVotingLock.NONE, probe.locks.last())
             }

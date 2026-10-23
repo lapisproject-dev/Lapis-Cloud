@@ -46,7 +46,7 @@ import network.lapis.cloud.shared.rpc.ITravelExpenseService
 fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
     val root = container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("Reisekosten-Freigaben"))
+    root.pageHeader(tr("Reisekosten-Freigaben"), intro = PageIntros.forRoute(Routes.TRAVEL_EXPENSE_APPROVALS))
 
     root.h2(tr("Sätze")) { addCssClass("h6") }
     val ratesPanel = root.vPanel(spacing = 6)
@@ -195,6 +195,8 @@ private fun renderApprovalCard(
             }
         }
     }
+    // V1.9.198: report-level attachments, download only.
+    renderTravelExpenseAttachments(card, report, editable = false, onChanged = {})
     // V1.9.132: how the amount comes about, from the report's FROZEN rates; the summary line below stays.
     TravelExpenseBreakdownView(card, collapsible = true).update(buildBreakdown(report, report.ratesSnapshot, null, report.advanceCents))
     card.div(

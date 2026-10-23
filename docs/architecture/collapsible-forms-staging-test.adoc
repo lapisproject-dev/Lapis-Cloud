@@ -123,12 +123,12 @@ auction, one stream destination, one travel-expense request, a name with a catal
 . A name with a catalog marker is shown as text, not translated or hidden. At 375 px the title rows and open forms do not scroll horizontally. Switch to English: the
   ten new buttons are translated.
 
-== Mitfahrerzentrale, Artikel and "Meine Daten" (V1.9.50) -- additional steps, not executed
+== Mitfahrzentrale, Artikel and "Meine Daten" (V1.9.50) -- additional steps, not executed
 
 Nothing was deployed by the author of the wave; every result is open. Accounts: a plain MEMBER and BOARD. Data: one own carpool entry, one foreign entry, one draft
 article, a place name with a catalog marker (`###KvI18nS###Test`).
 
-. "Mitfahrerzentrale" as MEMBER: the form is collapsed, "Eintrag erstellen" is the one button in the title row (no second button above the list). Open it, press
+. "Mitfahrzentrale" as MEMBER: the form is collapsed, "Eintrag erstellen" is the one button in the title row (no second button above the list). Open it, press
   Escape: closes at once; type a place and press Escape: the dialog "Eingaben verwerfen?" appears. Save: the form folds back, both lists reload once.
 . On the own entry: "Bearbeiten" opens the same form pre-filled, "Duplizieren" replaces it (no date); with a changed form the dialog asks first. "Kontakt aufnehmen" on
   the foreign entry opens the inline message form inside the card. The place name with the marker is shown as text, not translated.

@@ -47,7 +47,7 @@ import network.lapis.cloud.shared.rpc.UnauthenticatedException
  */
 fun renderRegionalChaptersScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    val header = root.pageHeader(tr("Gliederungsverwaltung"))
+    val header = root.pageHeader(tr("Gliederungsverwaltung"), intro = PageIntros.forRoute(Routes.REGIONAL_CHAPTERS))
     // BOARD reaches this screen for the crest and the public description only (server: create/rename/delete/officers ADMIN-only).
     val structure = NavVisibility.showsRegionalChapterStructure(AppState.session?.role)
     // V1.9.48 (R36B): button and host live OUTSIDE the data section's body, so a reload (delete, rename, failed load) never builds a second

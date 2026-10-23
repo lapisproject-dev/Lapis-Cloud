@@ -168,7 +168,7 @@ no member, region, note or number. There is no e-mail notification (a queued mai
 * **Fixed sentences per exception type** (`memberFinderErrorText`): Kilua RPC transmits only the type. A refusal that means the page is out of date redraws it from the server's state; the global toast chain of
   `AppState.guarded` is not extended.
 * **Same answer for every request:** the client does not branch on anything from the answer of `sendRequest`; it reads the own list again and then announces one fixed sentence (decision E6 carried to the screen).
-* **Tripwires:** `ClientMemberFinderPrivacyTripwireTest` (no console/storage/innerHTML, no member id field, name and note only through the `untrusted*` helpers), `MemberFinderNoticePinTest` (the notice paragraphs stand
+* **Tripwires:** `ClientMemberFinderPrivacyTripwireTest` (no console/storage/innerHTML, no member id field, name and note only through the `untrusted*` helpers; V1.9.196: the consent text may be Markdown, shown through `agreementFrame`/`renderAgreementBody` -- the finder files do not spell `rich = true`, see `ClientAgreementHtmlTripwireTest`), `MemberFinderNoticePinTest` (the notice paragraphs stand
   word for word in the client), `MemberFinderI18nCatalogTest`; DOM tests `MemberFinderScreenDomTest` (including the allowlist of what may be in the DOM), `MemberFinderSettingsDomTest`, `MemberFinderBoardCardDomTest`.
 
 == Tripwires

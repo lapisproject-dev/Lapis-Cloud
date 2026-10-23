@@ -197,7 +197,7 @@ internal fun renderRuleBuilder(
 
     // ---- presets -----------------------------------------------------------------------------------------------------------------
     root.div(tr("Vorlagen")) { addCssClasses("small fw-bold") }
-    val chips = root.div { addCssClasses("d-flex flex-wrap gap-2") }
+    val chips = root.buttonRow()
     chips.setAttribute("role", "group")
     chips.setAttribute("aria-label", gettext("Vorlagen für die Regel"))
 

@@ -3,8 +3,11 @@ package network.lapis.cloud.server.memberfinder
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.server.agreementtexts.AgreementTextTestState
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
@@ -12,6 +15,8 @@ import network.lapis.cloud.server.rpc.MemberFinderService
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.time.TimeTestSupport
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AgreementTextFormat
+import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.MemberFinderInterest
 import network.lapis.cloud.shared.domain.MemberFinderPurpose
 import network.lapis.cloud.shared.domain.MemberFinderStateDto
@@ -113,6 +118,40 @@ class MemberFinderAccessTest :
                         else -> withClue(name) { result.exceptionOrNull().shouldBeInstanceOf<MemberFinderUnavailableException>() }
                     }
                 }
+            }
+        }
+
+        test("V1.9.196: the consent text carries its format and server-rendered HTML for a MARKDOWN version, and none for plain text") {
+            data.enableFinder()
+            try {
+                val plainSha =
+                    AgreementTextTestState.publishDirect(kind = AgreementTextKind.FINDER, label = "f.v1", body = "- Einwilligung *roh*")
+                finderTestApplication {
+                    val plain = call(member = data.member(label = "plain-text")) { getConsentText() }
+                    plain.format shouldBe AgreementTextFormat.PLAIN
+                    plain.renderedHtml shouldBe null
+                    plain.body shouldBe "- Einwilligung *roh*"
+                    plain.sha256 shouldBe plainSha
+                }
+                val markdownSha =
+                    AgreementTextTestState.publishDirect(
+                        kind = AgreementTextKind.FINDER,
+                        label = "f.v2",
+                        body = "## Einwilligung\n\nIch stimme **ausdrücklich** zu.\n\n<script>alert(1)</script>",
+                        format = AgreementTextFormat.MARKDOWN,
+                    )
+                finderTestApplication {
+                    val text = call(member = data.member(label = "markdown-text")) { getConsentText() }
+                    text.format shouldBe AgreementTextFormat.MARKDOWN
+                    text.sha256 shouldBe markdownSha
+                    text.versionLabel shouldBe "f.v2"
+                    text.body shouldBe "## Einwilligung\n\nIch stimme **ausdrücklich** zu.\n\n<script>alert(1)</script>"
+                    text.renderedHtml!! shouldContain "<h3>Einwilligung</h3>"
+                    text.renderedHtml!! shouldContain "<strong>ausdrücklich</strong>"
+                    text.renderedHtml!! shouldNotContain "<script"
+                }
+            } finally {
+                AgreementTextTestState.reset()
             }
         }
 

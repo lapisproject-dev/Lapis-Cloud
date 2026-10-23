@@ -1,9 +1,9 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
@@ -13,7 +13,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventVolunteerShiftDto
@@ -37,12 +36,8 @@ import network.lapis.cloud.shared.rpc.IEventVolunteerService
  */
 fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Helfer-Schichten"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Helfer-Schichten"), intro = PageIntros.forRoute(Routes.EVENT_VOLUNTEERS))
     val createHost = root.vPanel(spacing = 6) // V1.9.47 (R36B): collapsed create form, directly under the header
 
     root.h2(tr("Veranstaltung")) { addCssClass("h5") }
@@ -50,27 +45,34 @@ fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
     val eventSelect = eventSelectRow.select(options = emptyList(), label = tr("Veranstaltung"))
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
+    val editHost = root.vPanel(spacing = 6) // V1.9.194: the edit form of one shift, above the table
+    val rosterHost = root.vPanel(spacing = 6) // V1.9.194: the roster of one shift ("Zusagen anzeigen"), above the table
     val listPanel = root.vPanel(spacing = 6)
 
     var createController: CollapsibleCreateFormController<Unit>? = null
     val titleById = mutableMapOf<String, String>()
 
+    // V1.9.194: picking the first event fires the picker AND the explicit reload; only the newest answer may fill the list (it showed every shift twice).
+    var listGeneration = 0
+
     fun refreshList() {
+        val generation = ++listGeneration
         val eventId = eventSelect.value
         listPanel.removeAll()
+        editHost.removeAll()
+        rosterHost.removeAll()
         if (eventId == null) return
         AppScope.launch {
             val shifts =
                 guarded {
                     rpcService<IEventVolunteerService>().listShifts(eventId)
                 } ?: return@launch
+            if (generation != listGeneration) return@launch
             if (shifts.isEmpty()) {
                 listPanel.p(tr("Noch keine Schichten für diese Veranstaltung."))
                 return@launch
             }
-            shifts.forEach { shift ->
-                renderEventVolunteerShiftRow(listPanel, shift, ::refreshList)
-            }
+            renderEventVolunteerShiftTable(listPanel, shifts, editHost, rosterHost, ::refreshList)
         }
     }
 
@@ -115,93 +117,93 @@ fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
 // List row + roster + creation/edit form
 // ============================================================================================
 
-private fun renderEventVolunteerShiftRow(
+/**
+ * V1.9.194: the shifts as a TABLE (description, period, staffing, status) with the row actions as icons (edit, cancel, show the
+ * roster). Every icon carries the shift's name; "Stornieren" keeps its confirmation dialog; edit form and roster open above the table.
+ */
+internal fun renderEventVolunteerShiftTable(
     panel: SimplePanel,
-    shift: EventVolunteerShiftDto,
+    shifts: List<EventVolunteerShiftDto>,
+    editHost: SimplePanel,
+    rosterHost: SimplePanel,
     onChanged: () -> Unit,
 ) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    val displayHolder = row.vPanel(spacing = 4)
-    val editFormHolder = row.vPanel(spacing = 6) { hide() }
-    val rosterHolder = row.vPanel(spacing = 4) { hide() }
-
-    fun renderDisplay() {
-        displayHolder.removeAll()
-        val headerRow = displayHolder.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        headerRow.untrustedCardTitle(shift.description)
-        headerRow.eventVolunteerShiftStatusBadge(shift.status)
-
-        displayHolder.div(
-            gettext("%1 – %2", formatDateTime(shift.startsAt), formatDateTime(shift.endsAt)),
-        ) { addCssClasses("text-muted small") }
-        displayHolder.div(gettext("Besetzung: %1 von %2", shift.confirmedCount.toString(), shift.neededCount.toString())) {
-            addCssClasses("text-muted small")
-        }
-
-        val actionRow = displayHolder.hPanel(spacing = 8)
-        if (shift.status == EventVolunteerShiftStatus.ACTIVE) {
-            val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
-            editButton.onClick {
-                displayHolder.hide()
-                editFormHolder.removeAll()
-                renderEventVolunteerShiftEditForm(
-                    editFormHolder,
-                    shift,
-                    onSaved = onChanged,
-                    onCancel = {
-                        editFormHolder.removeAll()
-                        editFormHolder.hide()
-                        displayHolder.show()
-                    },
-                )
-                editFormHolder.show()
-            }
-
-            val cancelButton = actionRow.actionButton(ActionIcon.UNDO, tr("Stornieren"), style = ButtonStyle.OUTLINEDANGER)
-            cancelButton.onClick {
-                confirmDialog(
-                    title = tr("Schicht stornieren"),
-                    message =
-                        gettext(
-                            "\"%1\" wirklich stornieren? Bestehende Zusagen bleiben als Historie erhalten.",
-                            shift.description,
-                        ),
-                    confirmLabel = tr("Stornieren"),
-                ) {
-                    AppScope.launch {
-                        val result = guarded { rpcService<IEventVolunteerService>().cancelShift(shift.id) }
-                        if (result != null) {
-                            notifyInfo(tr("Schicht wurde storniert."))
+    var rosterShiftId: String? = null
+    panel.dataTable(
+        columns =
+            listOf(
+                textColumn<EventVolunteerShiftDto>(title = tr("Beschreibung"), primary = true, cssClasses = "fw-bold") { it.description },
+                textColumn<EventVolunteerShiftDto>(title = tr("Zeitraum")) {
+                    gettext("%1 – %2", formatDateTime(it.startsAt), formatDateTime(it.endsAt))
+                },
+                textColumn<EventVolunteerShiftDto>(title = tr("Besetzung"), numeric = true) {
+                    gettext("%1 von %2", it.confirmedCount.toString(), it.neededCount.toString())
+                },
+                DataColumn<EventVolunteerShiftDto>(
+                    title = tr("Status"),
+                ) { cell, shift -> cell.eventVolunteerShiftStatusBadge(shift.status) },
+            ),
+        rows = shifts,
+        actions = { actions, shift ->
+            val name = sanitizeUntrustedI18nText(shift.description)
+            val group = actions.tableActionGroup()
+            if (shift.status == EventVolunteerShiftStatus.ACTIVE) {
+                group.tableActionButton(ActionIcon.EDIT, gettext("Bearbeiten: %1", name), ButtonStyle.OUTLINEPRIMARY).onClick {
+                    editHost.removeAll()
+                    renderEventVolunteerShiftEditForm(
+                        editHost,
+                        shift,
+                        onSaved = {
+                            editHost.removeAll()
                             onChanged()
+                        },
+                        onCancel = { editHost.removeAll() },
+                    )
+                }
+                group.tableActionButton(ActionIcon.UNDO, gettext("Stornieren: %1", name), ButtonStyle.OUTLINEDANGER).onClick {
+                    confirmDialog(
+                        title = tr("Schicht stornieren"),
+                        message =
+                            gettext(
+                                "\"%1\" wirklich stornieren? Bestehende Zusagen bleiben als Historie erhalten.",
+                                shift.description,
+                            ),
+                        confirmLabel = tr("Stornieren"),
+                    ) {
+                        AppScope.launch {
+                            val result = guarded { rpcService<IEventVolunteerService>().cancelShift(shift.id) }
+                            if (result != null) {
+                                notifyInfo(tr("Schicht wurde storniert."))
+                                onChanged()
+                            }
                         }
                     }
                 }
             }
-        }
-
-        val rosterButton = actionRow.button(tr("Zusagen anzeigen"), style = ButtonStyle.OUTLINEPRIMARY)
-        rosterButton.onClick {
-            if (rosterHolder.visible) {
-                rosterHolder.hide()
-                return@onClick
-            }
-            rosterHolder.removeAll()
-            AppScope.launch {
-                val roster = guarded { rpcService<IEventVolunteerService>().getShiftRoster(shift.id) } ?: return@launch
-                if (roster.signups.isEmpty()) {
-                    rosterHolder.p(tr("Noch keine Zusagen für diese Schicht."))
-                } else {
-                    roster.signups.forEach { signup ->
-                        val signupRow = rosterHolder.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-                        signupRow.untrustedDiv(signup.memberDisplayName, className = "flex-grow-1")
-                        signupRow.eventVolunteerSignupStatusBadge(signup.status)
+            group.tableActionButton(ActionIcon.VIEW, gettext("Zusagen anzeigen: %1", name)).onClick {
+                if (rosterShiftId == shift.id) {
+                    rosterShiftId = null
+                    rosterHost.removeAll()
+                    return@onClick
+                }
+                AppScope.launch {
+                    val roster = guarded { rpcService<IEventVolunteerService>().getShiftRoster(shift.id) } ?: return@launch
+                    rosterShiftId = shift.id
+                    rosterHost.removeAll()
+                    rosterHost.h2(gettext("Zusagen: %1", name)) { addCssClass("h5") }
+                    if (roster.signups.isEmpty()) {
+                        rosterHost.p(tr("Noch keine Zusagen für diese Schicht."))
+                    } else {
+                        roster.signups.forEach { signup ->
+                            val signupRow = rosterHost.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+                            signupRow.untrustedDiv(signup.memberDisplayName, className = "flex-grow-1")
+                            signupRow.eventVolunteerSignupStatusBadge(signup.status)
+                        }
                     }
                 }
-                rosterHolder.show()
             }
-        }
-    }
-    renderDisplay()
+        },
+    )
 }
 
 private fun renderEventVolunteerShiftEditForm(
@@ -346,7 +348,7 @@ private fun readAndValidateShiftForm(
     )
 }
 
-private fun SimplePanel.eventVolunteerShiftStatusBadge(status: EventVolunteerShiftStatus) {
+private fun Container.eventVolunteerShiftStatusBadge(status: EventVolunteerShiftStatus) {
     activeStatusBadge(status == EventVolunteerShiftStatus.ACTIVE)
 }
 

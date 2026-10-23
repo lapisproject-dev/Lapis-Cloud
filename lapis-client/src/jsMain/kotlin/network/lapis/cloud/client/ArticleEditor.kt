@@ -86,7 +86,7 @@ fun renderArticleEditor(
     // and returns before this is assigned), so the back button there must NOT reference it.
     lateinit var controller: ArticleAutoSaveController
 
-    val backButton = root.actionButton(ActionIcon.BACK, tr("Zurück zur Liste"), style = ButtonStyle.LINK)
+    val backButton = root.backButton(tr("Zur Liste"))
 
     // V1.9.50: ONE way out of the editor -- the back button, a tab change of the screen and (through [ArticleEditorHandle]) every other
     // exit run through it. Stolperfalle "orphaned debounce timer": flush AND WAIT for any pending edit before leaving, otherwise the

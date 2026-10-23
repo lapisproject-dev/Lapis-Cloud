@@ -1,27 +1,17 @@
 package network.lapis.cloud.server.routes
 
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
 import io.ktor.server.application.call
-import io.ktor.server.http.content.LocalFileContent
-import io.ktor.server.request.receiveMultipart
-import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
-import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.readAvailable
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
-import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
@@ -34,23 +24,19 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
-import java.security.MessageDigest
 import kotlin.uuid.Uuid
 
-/** DoS cap -- deliberately smaller than [network.lapis.cloud.server.routes.DocumentRoutes]'
- *  25 MiB cap: a receipt is a photo or a one-page PDF. */
-private const val MAX_RECEIPT_BYTES = 10L * 1024 * 1024
-private const val SNIFF_BYTES = 8
-private const val STORAGE_PREFIX = "travel-expenses"
-
 /**
+ * V1.9.198: the streaming (size cap, sniffing, hashing, cleanup on failure), the download headers and the download rule moved
+ * unchanged into `TravelExpenseFileSupport.kt`, shared with `TravelExpenseAttachmentRoutes`; the notes below describe that shared behaviour.
+ *
  * Welle V1.4.11 "Reisekostenabrechnung für Vorstand und Funktionsträger" -- file bytes travel
  * over these dedicated routes, not Kilua RPC (same reasoning
  * [network.lapis.cloud.server.routes.registerDocumentRoutes] KDoc gives). Security checklist:
  * - **Path traversal**: `storageKey` is ALWAYS server-generated
  *   (`travel-expenses/{reportId}/{receiptId}.bin`), never derived from the client-supplied file
  *   name -- the file name is stored purely as display metadata for `Content-Disposition`.
- * - **DoS cap**: [MAX_RECEIPT_BYTES] enforced WHILE streaming, before the whole file is buffered.
+ * - **DoS cap**: [TravelExpenseAmountRules.MAX_UPLOAD_BYTES] enforced WHILE streaming, before the whole file is buffered.
  * - **MIME allowlist, derived server-side from magic bytes**: the client-declared `Content-Type`
  *   is DISCARDED entirely, not merely validated -- a PDF-declared SVG is structurally impossible.
  *   `application/pdf`/`image/jpeg`/`image/png` only, deliberately NO `image/svg+xml` (XSS vector).
@@ -175,109 +161,30 @@ fun Route.registerTravelExpenseReceiptRoutes(
         val reportId = gate.reportId
 
         val receiptId = Uuid.random()
-        val storageKey = "$STORAGE_PREFIX/$reportId/$receiptId.bin"
+        val storageKey = "$TRAVEL_EXPENSE_STORAGE_PREFIX/$reportId/$receiptId.bin"
         val targetFile = storageRoot.resolve(storageKey)
-        targetFile.parentFile.mkdirs()
 
-        var uploadedFileName: String? = null
-        var totalBytes = 0L
-        val digest = MessageDigest.getInstance("SHA-256")
-        var tooLarge = false
-        val sniffBuffer = ByteArray(SNIFF_BYTES)
-        var sniffBufferFilled = 0
-        // Review MAJOR fix: only the FIRST file part is ever streamed/hashed/sniffed -- every
-        // subsequent one is drained-and-discarded (same `part.release()` pattern the `else` branch
-        // below already uses for non-file parts) without touching the sniff buffer, digest,
-        // totalBytes or the target file. See class KDoc "Multipart with more than one file part".
-        var fileItemCount = 0
-
-        try {
-            call.receiveMultipart().forEachPart { part ->
-                when (part) {
-                    is PartData.FileItem -> {
-                        fileItemCount++
-                        if (fileItemCount == 1) {
-                            uploadedFileName = part.originalFileName ?: "beleg"
-                            targetFile.outputStream().use { out ->
-                                val channel: ByteReadChannel = part.provider()
-                                val buffer = ByteArray(8192)
-                                while (true) {
-                                    val read = channel.readAvailable(buffer)
-                                    if (read == -1) break
-                                    if (sniffBufferFilled < SNIFF_BYTES) {
-                                        val toCopy = minOf(SNIFF_BYTES - sniffBufferFilled, read)
-                                        System.arraycopy(buffer, 0, sniffBuffer, sniffBufferFilled, toCopy)
-                                        sniffBufferFilled += toCopy
-                                    }
-                                    totalBytes += read
-                                    if (totalBytes > MAX_RECEIPT_BYTES) {
-                                        tooLarge = true
-                                        break
-                                    }
-                                    digest.update(buffer, 0, read)
-                                    out.write(buffer, 0, read)
-                                }
-                            }
-                            part.release()
-                        } else {
-                            // Security-Audit fix (2026-09-12, part of the MAJOR "kein Byte-
-                            // Kontingent" finding): a request with many file parts used to still be
-                            // drained-and-discarded to the END, one `forEachPart` iteration per
-                            // part, before this loop could turn it into a 400 -- binding
-                            // bandwidth/CPU to parse+drain every part first. Aborting the whole
-                            // multipart read the moment the SECOND file part is seen bounds the
-                            // work to (at most) two parts, not however many thousand a malicious
-                            // request contains. `part.release()` first so this part's own
-                            // resources are still freed before the parser is abandoned.
-                            part.release()
-                            throw MultipleFilePartsRejected
-                        }
-                    }
-                    else -> part.release()
+        // Shared streaming/sniffing/hashing (see TravelExpenseFileSupport): deletes targetFile on
+        // every failure outcome and on any exception, the client-declared Content-Type is discarded.
+        val stored =
+            when (
+                val streamed =
+                    call.streamSingleTravelExpenseFile(
+                        targetFile = targetFile,
+                        maxBytes = TravelExpenseAmountRules.MAX_UPLOAD_BYTES,
+                        fallbackName = "beleg",
+                    )
+            ) {
+                is StreamedTravelExpenseFile.Stored -> streamed
+                else -> {
+                    call.respondStreamFailure(outcome = streamed)
+                    return@post
                 }
             }
-        } catch (e: MultipleFilePartsRejected) {
-            fileItemCount = 2 // exact count no longer matters -- the check below only asks ">1".
-        } catch (e: Exception) {
-            // Security-Audit fix (2026-09-12, MAJOR "Orphaned Beleg-Dateien"): ANY failure during
-            // the streaming phase -- an aborted TCP connection, an IOException from the channel,
-            // anything else `forEachPart`/the write loop can throw -- used to leave `targetFile` on
-            // disk forever: there was no `finally`, no orphan sweeper, and a fresh random
-            // `receiptId` every request means a retry never reuses (and so never cleans up) the
-            // previous attempt's path. Mirrors the "generate outside, finalize in a short
-            // transaction, clean up on ANY failure" doctrine `SepaService.generateBatchFile`'s own
-            // KDoc documents for the identical class of bug.
-            targetFile.delete()
-            throw e
-        }
-
-        if (tooLarge) {
-            targetFile.delete()
-            call.respond(HttpStatusCode.PayloadTooLarge, "Max upload size is $MAX_RECEIPT_BYTES bytes")
-            return@post
-        }
-        if (fileItemCount > 1) {
-            targetFile.delete()
-            call.respond(HttpStatusCode.BadRequest, "Request must contain exactly one file part")
-            return@post
-        }
-        val fileName = uploadedFileName
-        if (fileName == null) {
-            targetFile.delete()
-            call.respond(HttpStatusCode.BadRequest, "No file part in request")
-            return@post
-        }
-
-        // The client-declared Content-Type is DISCARDED entirely -- see class KDoc "MIME allowlist".
-        val mimeType = sniffMimeType(buffer = sniffBuffer, filled = sniffBufferFilled)
-        if (mimeType == null) {
-            targetFile.delete()
-            call.respond(HttpStatusCode.UnsupportedMediaType, "Unsupported or unrecognized file type")
-            return@post
-        }
-
-        val sanitizedFileName = sanitizeReceiptFilename(fileName)
-        val checksum = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+        val sanitizedFileName = stored.sanitizedFileName
+        val checksum = stored.sha256
+        val totalBytes = stored.sizeBytes
+        val mimeType = stored.mimeType
         val now = DbClock.nowLocalDateTime()
 
         // Review MAJOR fix: re-verify everything the gate already checked, from scratch, inside
@@ -487,21 +394,17 @@ fun Route.registerTravelExpenseReceiptRoutes(
             return@get
         }
         val (receiptRow, subjectId, requestedById, reportStatus) = row
-        // IDOR-Gate: Subjekt ODER Antragsteller ODER BOARD/ADMIN. Bewusst NICHT TREASURER, siehe
-        // Datei-KDoc.
-        val isSelfService = current.memberId == subjectId || current.memberId == requestedById
-        if (!isSelfService) {
-            // LOW hardening (2026-09-12 security audit): a DRAFT is private -- same hard rule
-            // ITravelExpenseService.listReports enforces (submittedAt.isNotNull() always, status =
-            // DRAFT as an argument even throws BadRequestException). Before this fix, BOARD/ADMIN's
-            // privileged bypass ignored report status entirely, so a still-private, never-submitted
-            // draft's receipt was downloadable by anyone privileged who happened to know/guess its
-            // UUID -- the status check that stops a draft from ever reaching a BOARD-visible surface
-            // is exactly what closes that gap here too.
-            if (!current.isPrivileged || reportStatus == TravelExpenseReportStatus.DRAFT) {
-                call.respond(HttpStatusCode.Forbidden)
-                return@get
-            }
+        // IDOR-Gate (one shared rule, see canDownloadTravelExpenseFile): subject/requester always,
+        // BOARD/ADMIN only once the report left DRAFT, never TREASURER.
+        if (!canDownloadTravelExpenseFile(
+                current = current,
+                subjectId = subjectId,
+                requestedById = requestedById,
+                status = reportStatus,
+            )
+        ) {
+            call.respond(HttpStatusCode.Forbidden)
+            return@get
         }
 
         val file = storageRoot.resolve(receiptRow[TravelExpenseReceiptTable.storageKey])
@@ -510,24 +413,13 @@ fun Route.registerTravelExpenseReceiptRoutes(
             return@get
         }
 
-        call.response.header(
-            HttpHeaders.ContentDisposition,
-            contentDispositionHeader(receiptRow[TravelExpenseReceiptTable.originalFilename]),
+        call.respondTravelExpenseFile(
+            file = file,
+            originalFilename = receiptRow[TravelExpenseReceiptTable.originalFilename],
+            mimeType = receiptRow[TravelExpenseReceiptTable.mimeType],
         )
-        call.response.header("X-Content-Type-Options", "nosniff")
-        call.response.header(HttpHeaders.CacheControl, "private, no-store")
-        call.respond(LocalFileContent(file, ContentType.parse(receiptRow[TravelExpenseReceiptTable.mimeType])))
     }
 }
-
-/**
- * Pure control-flow signal for aborting `forEachPart` the instant a second file part is seen --
- * never surfaced to a caller, always caught within the same route handler. A singleton with
- * stack-trace capture suppressed via the 4-arg [RuntimeException] constructor: this is thrown on
- * the hot path of every multi-file-part rejection and nobody ever reads its stack trace, so
- * capturing one on every throw would be pure waste.
- */
-private object MultipleFilePartsRejected : RuntimeException(null, null, false, false)
 
 private sealed interface ReceiptUploadGate {
     data object NotFound : ReceiptUploadGate
@@ -578,60 +470,4 @@ private sealed interface DeleteOutcome {
     data class Deleted(
         val storageKey: String,
     ) : DeleteOutcome
-}
-
-/**
- * Derives a MIME type from magic bytes ONLY -- the client-declared `Content-Type` never reaches
- * this function. Returns `null` for anything unrecognized (including a truncated/empty upload),
- * which the caller turns into 415. Deliberately no `image/svg+xml` -- an XSS vector, see class
- * KDoc.
- */
-internal fun sniffMimeType(
-    buffer: ByteArray,
-    filled: Int,
-): String? =
-    when {
-        filled >= 4 &&
-            buffer[0] == 0x25.toByte() &&
-            buffer[1] == 0x50.toByte() &&
-            buffer[2] == 0x44.toByte() &&
-            buffer[3] == 0x46.toByte()
-        -> "application/pdf"
-        filled >= 3 && buffer[0] == 0xFF.toByte() && buffer[1] == 0xD8.toByte() && buffer[2] == 0xFF.toByte() -> "image/jpeg"
-        filled >= 8 &&
-            buffer[0] == 0x89.toByte() &&
-            buffer[1] == 0x50.toByte() &&
-            buffer[2] == 0x4E.toByte() &&
-            buffer[3] == 0x47.toByte() &&
-            buffer[4] == 0x0D.toByte() &&
-            buffer[5] == 0x0A.toByte() &&
-            buffer[6] == 0x1A.toByte() &&
-            buffer[7] == 0x0A.toByte() ->
-            "image/png"
-        else -> null
-    }
-
-/**
- * Strips any path separator and control character, keeps at most 255 characters, falls back to
- * "beleg" for an empty result -- pure display metadata, never used to build a filesystem path
- * (the `storageKey` is always server-generated, see this file's own KDoc).
- */
-internal fun sanitizeReceiptFilename(raw: String): String {
-    val base = raw.substringAfterLast('/').substringAfterLast('\\')
-    val cleaned = base.filterNot { it.code in 0x00..0x1F || it.code == 0x7F }
-    val truncated = cleaned.take(255)
-    return truncated.ifBlank { "beleg" }
-}
-
-/** RFC 5987 `filename*=UTF-8''...` plus an ASCII `filename=` fallback -- see class KDoc "Header injection". */
-internal fun contentDispositionHeader(originalFilename: String): String {
-    val asciiFallback =
-        originalFilename
-            .filter { it.code in 0x20..0x7E && it != '"' && it != '\\' }
-            .ifBlank { "beleg" }
-    val encoded =
-        java.net.URLEncoder
-            .encode(originalFilename, "UTF-8")
-            .replace("+", "%20")
-    return "attachment; filename=\"$asciiFallback\"; filename*=UTF-8''$encoded"
 }

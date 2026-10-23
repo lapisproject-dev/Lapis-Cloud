@@ -72,12 +72,26 @@ object Branding {
     internal fun helpUrlFor(
         topic: String,
         languageCode: String,
-    ): String =
-        if (languageCode.substringBefore('-').lowercase() == "de") {
-            "$PLATFORM_URL/de/help/$topic"
-        } else {
-            "$PLATFORM_URL/help/$topic"
-        }
+    ): String = "${localizedBase(languageCode)}/help/$topic"
+
+    /**
+     * V1.9.187 -- the help centre (overview of all help topics) of the platform website, in the UI language. Same language rule as
+     * [helpUrl]. The page exists on the website (`src/pages/help/index.astro` and its `de/` twin); its deployed state is not checked here.
+     */
+    fun helpIndexUrl(): String = helpIndexUrlFor(I18n.language)
+
+    /** Pure counterpart of [helpIndexUrl]. */
+    internal fun helpIndexUrlFor(languageCode: String): String = "${localizedBase(languageCode)}/help"
+
+    /** V1.9.187 -- the "Was ist neu" (release notes) page of the platform website, in the UI language. */
+    fun whatsNewUrl(): String = whatsNewUrlFor(I18n.language)
+
+    /** Pure counterpart of [whatsNewUrl]. */
+    internal fun whatsNewUrlFor(languageCode: String): String = "${localizedBase(languageCode)}/whats-new"
+
+    /** The website base for a UI language: German lives under `/de`, English (and every language without a translation) has no prefix. */
+    private fun localizedBase(languageCode: String): String =
+        if (languageCode.substringBefore('-').lowercase() == "de") "$PLATFORM_URL/de" else PLATFORM_URL
 
     private const val ELEMENT_ID = "lapis-brand"
 

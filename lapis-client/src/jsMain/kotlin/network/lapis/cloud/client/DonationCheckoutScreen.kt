@@ -37,7 +37,7 @@ fun renderDonationCheckoutScreen(container: SimplePanel) {
             maxWidth = 560.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Spenden"))
+    root.pageHeader(tr("Spenden"), intro = PageIntros.forRoute(Routes.DONATE))
 
     val statusHost = root.vPanel(spacing = 8)
     val formHost = root.vPanel(spacing = 8)

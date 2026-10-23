@@ -34,7 +34,7 @@ object Routes {
     const val STATUTE_QA = "/statute-qa"
     const val COMMUNICATION = "/communication"
 
-    // Welle V1.9.12 "Mitfahrerzentrale" -- `requireAuth` wie CONTRIBUTIONS/DOCUMENTS/COMMUNICATION:
+    // Welle V1.9.12 "Mitfahrzentrale" -- `requireAuth` wie CONTRIBUTIONS/DOCUMENTS/COMMUNICATION:
     // CarpoolService gattet serverseitig jede Methode über requireActiveMembership, kein eigenes
     // NavVisibility-Prädikat (siehe Sidebar.kt -- läuft unter showsMembershipSection).
     const val CARPOOL = "/carpool"
@@ -46,6 +46,10 @@ object Routes {
     // instead, mirroring `DocumentsScreen`'s `canManage` posture -- see the approved plan §2/§4.
     const val COMMITTEES = "/committees"
     const val MEETINGS = "/meetings"
+
+    /** V1.9.192 master-detail: one committee / one meeting as its own page (deep link). The id in the path is not a secret. */
+    const val COMMITTEE_DETAIL = "/committees/:id"
+    const val MEETING_DETAIL = "/meetings/:id"
     const val MOTIONS = "/motions"
 
     /**
@@ -115,6 +119,9 @@ object Routes {
     // V1.9.134 "Vertragstexte" -- the administration of the texts shown at registration (membership agreement, FRIEND terms). Role gate verified against
     // `AgreementTextAdminService.kt`: every method `requireRole(ADMIN)`, so this route is ADMIN-only exactly like [BACKUP].
     const val AGREEMENT_TEXTS = "/agreement-texts"
+
+    /** V1.9.196 master-detail: one agreement text as its own page (deep link); the path segment is the lower-case [network.lapis.cloud.shared.domain.AgreementTextKind] name. */
+    const val AGREEMENT_TEXTS_DETAIL = "/agreement-texts/:kind"
 
     // Compliance UI wave, screen 3 of 5 -- AVV-Register/TOMs/DSFA/Datenpannenmeldung. Role gate
     // verified against `DsgvoComplianceService.kt`'s `COMPLIANCE_READ_ROLES` constant: BOARD/ADMIN,
@@ -703,6 +710,40 @@ object Routes {
 
 private var appRouting: Routing? = null
 
+/** V1.9.187: the outlet and the render function of the route shown last, for [rerenderCurrentRoute]. */
+private var lastPageContainer: SimplePanel? = null
+private var lastRender: ((SimplePanel) -> Unit)? = null
+
+/**
+ * V1.9.187 -- draws the CURRENT route again into the same outlet ("Einführungen wieder aufklappen" in the help menu). Navigo does not
+ * resolve an unchanged URL a second time, so this calls the render function of the last `show` directly. It does not touch the focus
+ * request, the live region or the document title (it is a redraw, not a route change). Does nothing before the first route was shown.
+ */
+internal fun rerenderCurrentRoute() {
+    val container = lastPageContainer ?: return
+    val render = lastRender ?: return
+    container.removeAll()
+    try {
+        render(container)
+    } catch (e: Throwable) {
+        kotlin.js.console.error("Screen render failed: ${e.message}", e)
+        notifyError(tr("Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."))
+    }
+}
+
+/** The routes between which the master-detail list focus survives (V1.9.192; Anträge added in V1.9.193). */
+private val MASTER_DETAIL_ROUTES =
+    setOf(
+        Routes.COMMITTEES,
+        Routes.COMMITTEE_DETAIL,
+        Routes.MEETINGS,
+        Routes.MEETING_DETAIL,
+        Routes.MOTIONS,
+        Routes.MOTION_DETAIL,
+        Routes.AGREEMENT_TEXTS,
+        Routes.AGREEMENT_TEXTS_DETAIL,
+    )
+
 /** Programmatic navigation (nav tiles, post-login/-logout redirects, guards) -- see [initRouting]. */
 fun navigateTo(route: String) {
     appRouting?.navigate(route)
@@ -745,10 +786,14 @@ fun initRouting(pageContainer: SimplePanel) {
         render: (SimplePanel) -> Unit,
     ) {
         NavHighlight.setActiveRoute(route)
+        // V1.9.192: the remembered list focus lives only while the person stays inside the Gremien / Sitzungen families.
+        if (route !in MASTER_DETAIL_ROUTES) MasterDetailFocus.clearAll()
         // Welle V1.4.31: a ROUTE CHANGE lets the next page header take the focus -- not the first route shown (M7, see `PageFocus`).
         PageFocus.onRouteShown()
         // Welle V1.9.34: the unread-message pill in the navbar refreshes on each route change (event-driven, no timer).
         UnreadMessages.onRouteShown()
+        lastPageContainer = pageContainer
+        lastRender = render
         pageContainer.removeAll()
         try {
             render(pageContainer)
@@ -831,6 +876,26 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MEETINGS) {
         requireAuth(routing) { show(Routes.MEETINGS, ::renderMeetingsScreen) }
     }
+    routing.kvOn(Routes.COMMITTEE_DETAIL) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(Routes.COMMITTEES)
+            } else {
+                show(Routes.COMMITTEE_DETAIL) { container -> renderCommitteeDetail(container, id) }
+            }
+        }
+    }
+    routing.kvOn(Routes.MEETING_DETAIL) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(Routes.MEETINGS)
+            } else {
+                show(Routes.MEETING_DETAIL) { container -> renderMeetingDetailScreen(container, id) }
+            }
+        }
+    }
     routing.kvOn(Routes.MOTIONS) {
         requireAuth(routing) { show(Routes.MOTIONS) { container -> renderMotionsScreen(container) } }
     }
@@ -840,7 +905,7 @@ fun initRouting(pageContainer: SimplePanel) {
             if (id.isNullOrBlank()) {
                 routing.navigate(Routes.MOTIONS)
             } else {
-                show(Routes.MOTION_DETAIL) { container -> renderMotionsScreen(container, id) }
+                show(Routes.MOTION_DETAIL) { container -> renderMotionDetailScreen(container, id) }
             }
         }
     }
@@ -918,6 +983,16 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.AGREEMENT_TEXTS) {
         requireRole(routing, AccountRole.ADMIN) { show(Routes.AGREEMENT_TEXTS, ::renderAgreementTextsScreen) }
+    }
+    routing.kvOn(Routes.AGREEMENT_TEXTS_DETAIL) { params ->
+        val kindId = params.asDynamic().data.kind as? String
+        requireRole(routing, AccountRole.ADMIN) {
+            if (kindId.isNullOrBlank()) {
+                routing.navigate(Routes.AGREEMENT_TEXTS)
+            } else {
+                show(Routes.AGREEMENT_TEXTS_DETAIL) { container -> renderAgreementTextDetailRoute(container, kindId) }
+            }
+        }
     }
     routing.kvOn(Routes.EMBED_INTEGRATION) {
         requireRole(routing, AccountRole.ADMIN) { show(Routes.EMBED_INTEGRATION, ::renderEmbedIntegrationScreen) }
@@ -1240,7 +1315,8 @@ fun initRouting(pageContainer: SimplePanel) {
         }
     }
     routing.kvOn(Routes.TRAVEL_EXPENSE_SETTINGS) {
-        requireRole(routing, AccountRole.ADMIN) {
+        // V1.9.199: BOARD may manage the organisation documents here; the settings form itself stays ADMIN-only (server-enforced too).
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.TRAVEL_EXPENSE_SETTINGS, ::renderTravelExpenseSettingsScreen)
         }
     }

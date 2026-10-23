@@ -38,4 +38,13 @@ interface IAgreementTextAdminService {
         kind: AgreementTextKind,
         versionLabel: String,
     ): AgreementTextVersionDto
+
+    /**
+     * V1.9.196 -- the sanitized HTML the server renders from a Markdown [body] (live preview of the editor). ADMIN-only, rate limited, stores
+     * and logs nothing. The client never renders Markdown itself.
+     */
+    suspend fun previewAgreementText(
+        kind: AgreementTextKind,
+        body: String,
+    ): String
 }

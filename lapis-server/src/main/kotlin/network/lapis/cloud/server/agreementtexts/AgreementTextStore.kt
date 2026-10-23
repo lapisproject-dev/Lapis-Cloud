@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgreementTextDraftDto
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AgreementTextVersionSummaryDto
 import network.lapis.cloud.shared.domain.AuditAction
@@ -44,6 +45,7 @@ internal data class AgreementTextVersionRecord(
     val charCount: Int,
     val authorMemberId: Uuid,
     val publishedAt: LocalDateTime,
+    val format: AgreementTextFormat,
 )
 
 /** The working copy of one kind. */
@@ -57,6 +59,7 @@ internal data class AgreementTextDraftRecord(
     val charCount: Int,
     val updatedBy: Uuid,
     val updatedAt: LocalDateTime,
+    val format: AgreementTextFormat,
 )
 
 /**
@@ -128,6 +131,7 @@ internal object AgreementTextStore {
         sha256: String,
         updatedBy: Uuid,
         now: LocalDateTime,
+        format: AgreementTextFormat,
     ) {
         val updated =
             AgreementTextDraftTable.update({ AgreementTextDraftTable.kind eq kind.name }) {
@@ -136,6 +140,7 @@ internal object AgreementTextStore {
                 it[AgreementTextDraftTable.body] = body
                 it[AgreementTextDraftTable.sha256] = sha256
                 it[AgreementTextDraftTable.charCount] = body.length
+                it[AgreementTextDraftTable.bodyFormat] = format.dbValue
                 it[AgreementTextDraftTable.updatedBy] = updatedBy
                 it[AgreementTextDraftTable.updatedAt] = now
             }
@@ -148,6 +153,7 @@ internal object AgreementTextStore {
                 it[AgreementTextDraftTable.body] = body
                 it[AgreementTextDraftTable.sha256] = sha256
                 it[AgreementTextDraftTable.charCount] = body.length
+                it[AgreementTextDraftTable.bodyFormat] = format.dbValue
                 it[AgreementTextDraftTable.updatedBy] = updatedBy
                 it[AgreementTextDraftTable.updatedAt] = now
             }
@@ -164,6 +170,7 @@ internal object AgreementTextStore {
         sha256: String,
         authorMemberId: Uuid,
         now: LocalDateTime,
+        format: AgreementTextFormat,
     ): AgreementTextVersionRecord {
         val maxSeq = AgreementTextVersionTable.sequenceNo.max()
         val next =
@@ -183,6 +190,7 @@ internal object AgreementTextStore {
             it[AgreementTextVersionTable.body] = body
             it[AgreementTextVersionTable.sha256] = sha256
             it[AgreementTextVersionTable.charCount] = body.length
+            it[AgreementTextVersionTable.bodyFormat] = format.dbValue
             it[AgreementTextVersionTable.authorMemberId] = authorMemberId
             it[AgreementTextVersionTable.publishedAt] = now
         }
@@ -211,6 +219,7 @@ internal object AgreementTextStore {
             authorDisplayName = authorName(row.authorMemberId),
             publishedAt = row.publishedAt,
             sequenceNo = row.sequenceNo,
+            format = row.format,
         )
 
     fun toDraftDto(row: AgreementTextDraftRecord): AgreementTextDraftDto =
@@ -223,6 +232,7 @@ internal object AgreementTextStore {
             charCount = row.charCount,
             updatedByDisplayName = authorName(row.updatedBy),
             updatedAt = row.updatedAt,
+            format = row.format,
         )
 
     private fun versionRecord(row: ResultRow) =
@@ -237,6 +247,7 @@ internal object AgreementTextStore {
             charCount = row[AgreementTextVersionTable.charCount],
             authorMemberId = row[AgreementTextVersionTable.authorMemberId],
             publishedAt = row[AgreementTextVersionTable.publishedAt],
+            format = AgreementTextFormat.fromDb(row[AgreementTextVersionTable.bodyFormat]),
         )
 
     private fun draftRecord(row: ResultRow) =
@@ -250,6 +261,7 @@ internal object AgreementTextStore {
             charCount = row[AgreementTextDraftTable.charCount],
             updatedBy = row[AgreementTextDraftTable.updatedBy],
             updatedAt = row[AgreementTextDraftTable.updatedAt],
+            format = AgreementTextFormat.fromDb(row[AgreementTextDraftTable.bodyFormat]),
         )
 
     /**
@@ -298,7 +310,7 @@ internal object AgreementTextStore {
             AgreementTextKind.EVENT_REC -> 0L
         }.toInt()
 
-    /** `{"event","kind","versionLabel","sha256","charCount","validFrom"[,"sequenceNo"]}` -- nothing else may ever enter the audit chain. */
+    /** `{"event","kind","versionLabel","sha256","charCount","validFrom"[,"sequenceNo"][,"format"]}` -- nothing else may ever enter the audit chain. */
     fun snapshotJson(
         event: String,
         kind: AgreementTextKind,
@@ -307,6 +319,7 @@ internal object AgreementTextStore {
         charCount: Int,
         validFrom: LocalDate,
         sequenceNo: Int? = null,
+        format: AgreementTextFormat? = null,
     ): String =
         Json.encodeToString(
             JsonObject.serializer(),
@@ -319,6 +332,8 @@ internal object AgreementTextStore {
                     put("charCount", JsonPrimitive(charCount))
                     put("validFrom", JsonPrimitive(validFrom.toString()))
                     if (sequenceNo != null) put("sequenceNo", JsonPrimitive(sequenceNo))
+                    // V1.9.196: the format is metadata (never the text); audit entries written before it simply lack the key.
+                    if (format != null) put("format", JsonPrimitive(format.dbValue))
                 },
             ),
         )

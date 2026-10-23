@@ -149,4 +149,27 @@ class EncounterEntryDomTest {
                 assertTrue(element().allOf("div.small").any { it.textContent.orEmpty() == recording })
             }
         }
+
+    @Test
+    fun aMarkdownNotice_showsThePlainSummary_andTheServersHtmlInsideTheDisclosure(): Promise<Unit> =
+        formTest {
+            mountedForm("encounter-entry-markdown") { root, element ->
+                val markdown =
+                    disclaimer.copy(
+                        headline = "Einwilligung zur Teilnahme",
+                        keyPoints = listOf("Sie nehmen teil."),
+                        text = "Quelltext **roh**",
+                        format = network.lapis.cloud.shared.domain.AgreementTextFormat.MARKDOWN,
+                        renderedHtml = "<h3>Einzelheiten</h3>\n<p>Mit <strong>Gewicht</strong>.</p>\n",
+                    )
+                root.encounterEntryPanel(info(consentRequired = true).copy(disclaimer = markdown)) { }
+                awaitUntil("the notice") { element().textContent.orEmpty().contains("Vollständigen Text anzeigen") }
+                val details = assertNotNull(element().querySelector("details"))
+                assertEquals("Gewicht", details.querySelector(".lapis-agreement-body strong")?.textContent)
+                assertEquals("Einzelheiten", details.querySelector(".lapis-agreement-body h3")?.textContent)
+                assertFalse(details.textContent.orEmpty().contains("Quelltext"))
+                // headline and key points stay plain element text
+                assertTrue(element().allOf("div.small").any { it.textContent.orEmpty() == "Sie nehmen teil." })
+            }
+        }
 }

@@ -394,7 +394,7 @@ class FormGrammarPart2I18nCatalogTest :
                 "Kommagetrennt, mindestens %1 verschiedene Optionen.",
                 "Nur für \"Ablehnen\" erforderlich.",
                 "Höchstens %1 Zeichen.",
-                "Optionen",
+                "Antwortmöglichkeiten, durch Komma getrennt",
             ).forEach { (it in ids) shouldBe true }
         }
     })

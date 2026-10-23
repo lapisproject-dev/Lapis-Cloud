@@ -397,3 +397,14 @@ internal suspend fun openCreateFormHost(
     awaitUntil("the create form '$formId' is built") { root.querySelector("[id='$formId'] label") != null }
     return assertNotNull(root.querySelector("[id='$formId']") as? HTMLElement, "no form host '$formId'")
 }
+
+/** V1.9.182: the button named [text] once it is rendered (KVision patches the DOM asynchronously). */
+internal suspend fun HTMLElement.awaitButton(text: String): HTMLElement {
+    awaitUntil("the button '$text'") { allOf("button").any { it.textContent?.trim() == text } }
+    return buttonNamed(text)
+}
+
+/** V1.9.182: opens the collapsed invitation ("Einladung versenden") of a meeting page. */
+internal suspend fun HTMLElement.openInvitation() {
+    awaitButton("Einladung versenden").click()
+}

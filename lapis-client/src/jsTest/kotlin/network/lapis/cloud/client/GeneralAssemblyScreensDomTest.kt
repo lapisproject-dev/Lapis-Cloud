@@ -262,6 +262,7 @@ class GeneralAssemblyScreensDomTest {
             withFetchStub(respond = answering(settings to orgSettingsJson(postal = true))) { calls ->
                 mountedForm("ga-invite-parts") { root, element ->
                     root.einladung(count = 2500)
+                    element().openInvitation()
                     awaitUntil("the form") { element().querySelector(".lapis-form") != null }
                     val audience = element().controlOf("Empfänger") as HTMLSelectElement
                     assertEquals("ALL_ACTIVE", audience.value, "all active members is preselected")
@@ -320,6 +321,7 @@ class GeneralAssemblyScreensDomTest {
             withFetchStub(respond = answering(settings to orgSettingsJson(postal = true), dispatch to "[]")) { calls ->
                 mountedForm("ga-invite-postal") { root, element ->
                     root.einladung(count = 40)
+                    element().openInvitation()
                     awaitUntil("the postal button") { element().allOf("button").any { it.textContent?.trim() == "Per Post versenden" } }
                     assertTrue(
                         element().allOf("button").any { it.textContent?.trim() == "Als PDF herunterladen" },
@@ -355,6 +357,7 @@ class GeneralAssemblyScreensDomTest {
             withFetchStub(respond = answering(search to page, settings to orgSettingsJson(postal = false))) { calls ->
                 mountedForm("ga-invite-selected") { root, element ->
                     root.einladung(count = 7)
+                    element().openInvitation()
                     awaitUntil("the form") { element().querySelector(".lapis-form") != null }
                     val audience = element().controlOf("Empfänger") as HTMLSelectElement
                     audience.value = "SELECTED"
@@ -390,6 +393,7 @@ class GeneralAssemblyScreensDomTest {
             withFetchStub(respond = answering(settings to orgSettingsJson(postal = true))) { calls ->
                 mountedForm("ga-invite-nocount") { root, element ->
                     root.einladung(count = null)
+                    element().openInvitation()
                     awaitUntil("the form") { element().querySelector(".lapis-form") != null }
                     awaitUntil("the postal gate") { calls.toRoute(settings).isNotEmpty() }
                     delay(150)
@@ -458,7 +462,7 @@ class GeneralAssemblyScreensDomTest {
             val everyone = listMembersRoute()
             withFetchStub(respond = answering(search to searchPage(MemberPickDto("m2", "Kofi Mensah")))) { calls ->
                 mountedForm("ga-agenda") { root, element ->
-                    renderAddAgendaItemForm(root, "meeting-9", 3, PresenterSource.Remote("committee-1"), onChanged = {})
+                    renderAddAgendaItemForm(root, "meeting-9", 3, PresenterSource.Remote("committee-1"), collapse = {}, onChanged = {})
                     element().typeInto("Titel", "Haushalt")
                     element().chooseRemote("Vortragend", query = "ko", id = "m2")
                     element().buttonNamed("Hinzufügen").click()
@@ -507,10 +511,16 @@ class GeneralAssemblyScreensDomTest {
                         audience = MeetingAudience.Derived("committee-1", 100),
                         onChanged = {},
                     )
+                    assertEquals(0, element().allOf(".lapis-form").size, "closed until the person asks for it")
+                    element().awaitButton("Anwesenheit erfassen").click()
+                    awaitUntil("the form") { element().allOf(".lapis-form").size == 1 }
                     assertEquals(1, element().allOf(".lapis-form").size, "ONE form, not one per person")
+                    element().awaitButton("Anwesende anzeigen").click()
+                    awaitUntil("the rows") { element().allOf("button").count { it.textContent?.trim() == "Bearbeiten" } == 3 }
                     val edits = element().allOf("button").filter { it.textContent?.trim() == "Bearbeiten" }
                     assertEquals(3, edits.size, "every recorded row can be edited")
                     edits[1].click()
+                    awaitUntil("the form is filled") { (element().controlOf("Mitglied") as HTMLInputElement).value == "Person 2" }
                     assertEquals("Person 2", (element().controlOf("Mitglied") as HTMLInputElement).value)
                     assertEquals("REPRESENTED", (element().controlOf("Status") as HTMLSelectElement).value)
                     assertEquals("Vertreter 2", (element().controlOf("Vertreten durch") as HTMLInputElement).value)

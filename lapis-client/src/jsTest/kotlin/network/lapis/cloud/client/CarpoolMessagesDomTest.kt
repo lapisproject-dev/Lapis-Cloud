@@ -278,6 +278,9 @@ class CarpoolMessagesDomTest {
             ) { _, _ ->
                 mountedForm("carpool-messages-driver-past") { root, element ->
                     renderCarpoolScreen(root)
+                    // An expired own offer is not in the feed any more: "Nur meine" is the way to it.
+                    awaitUntil("the page is built") { element().allOf("label").any { it.shows("Nur meine") } }
+                    (element().controlOf("Nur meine") as org.w3c.dom.HTMLInputElement).click()
                     awaitUntil("the past offer is shown") { element().shows("Ort-own") }
                     val screen = element()
                     assertFalse(screen.buttonLabels().contains("Mitfahrer verwalten"), "no management after the trip")

@@ -20,6 +20,7 @@ public object AgreementTextDraftTable : Table("agreement_text_draft") {
     public val body: Column<String> = text("body")
     public val sha256: Column<String> = varchar("sha256", 64)
     public val charCount: Column<Int> = integer("char_count")
+    public val bodyFormat: Column<String> = varchar("body_format", 16).default("plain")
     public val updatedBy: Column<Uuid> = reference("updated_by", MemberTable.id)
     public val updatedAt: Column<LocalDateTime> = datetime("updated_at")
 

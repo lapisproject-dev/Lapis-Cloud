@@ -58,7 +58,7 @@ fun renderBankAccountsScreen(container: SimplePanel) {
     // Warnband über dem Titel (Richtlinie 2.8: es betrifft den ganzen Screen) -- unverändert gegenüber
     // V1.4.14, nur die Reihenfolge stimmt jetzt mit der Richtlinie überein.
     val warningBand = root.div().apply { hide() }
-    val header = root.pageHeader(tr("Bankkonten"))
+    val header = root.pageHeader(tr("Bankkonten"), intro = PageIntros.forRoute(Routes.BANK_ACCOUNTS))
 
     // Welle V1.4.26 (W2): der Abruf liegt in einem `dataSection` -- Lade-, Fehler- und Leerzustand statt
     // eines stumm leeren Bereichs, wenn `listBankAccounts` scheitert (`?: return@launch` vorher).

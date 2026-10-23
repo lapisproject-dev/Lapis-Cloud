@@ -12,7 +12,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.PaymentGatewayComplianceAcknowledgmentInput
@@ -34,12 +33,8 @@ import network.lapis.cloud.shared.rpc.IPaymentGatewayService
  */
 fun renderPaymentGatewaySettingsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 700.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Zahlungs-Konfiguration"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Zahlungs-Konfiguration"), intro = PageIntros.forRoute(Routes.PAYMENT_GATEWAY_SETTINGS))
 
     renderPaymentGatewayAdminSection(root)
     renderPspConfigStatusSection(root)
@@ -50,6 +45,8 @@ fun renderPaymentGatewaySettingsScreen(container: SimplePanel) {
 // ================================================================================================
 // Aktivieren/Deaktivieren
 // ================================================================================================
+
+private const val PAYMENT_PROVIDER_WARNING_ID = "payment-provider-warning"
 
 private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
     root.h2(tr("Status")) { addCssClass("h5") }
@@ -131,10 +128,18 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
                         value = PaymentProvider.STRIPE.name,
                         label = tr("Anbieter"),
                     )
+                providerSelect.addCssClass("lapis-setting-row__select")
                 val enableButton = row.button(tr("Online-Zahlung aktivieren …"), style = ButtonStyle.PRIMARY)
+                enableButton.addCssClass("lapis-setting-row__action")
                 // Fix (Review round 2, MINOR): KVision's select() has no per-option disabled state, so a provider whose transport is
                 // not configured is warned about inline and the Enable button is disabled instead.
-                val unconfiguredWarning = row.div { addCssClasses("text-danger small") }.apply { visible = false }
+                // V1.9.190: the warning is NOT a child of the row (it squeezed select and button) but the next sibling below it.
+                val unconfiguredWarning =
+                    actionsHost
+                        .div {
+                            setAttribute("id", PAYMENT_PROVIDER_WARNING_ID)
+                            addCssClasses("lapis-setting-row__warning text-danger small mt-2")
+                        }.apply { visible = false }
 
                 fun selectedProvider(): PaymentProvider =
                     PaymentProvider.entries.firstOrNull { it.name == providerSelect.value } ?: PaymentProvider.STRIPE
@@ -144,7 +149,10 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
                     val configured = providerIsConfigured(provider)
                     enableButton.disabled = !configured
                     unconfiguredWarning.visible = !configured
-                    if (!configured) {
+                    if (configured) {
+                        enableButton.removeAttribute("aria-describedby")
+                    } else {
+                        enableButton.setAttribute("aria-describedby", PAYMENT_PROVIDER_WARNING_ID)
                         unconfiguredWarning.content =
                             gettext(
                                 "%1 ist serverseitig noch nicht vollständig konfiguriert -- siehe Diagnose-Abschnitt unten.",
@@ -176,6 +184,7 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
                     }
                 }
             },
+            rowClass = "lapis-setting-row",
         )
     AppScope.launch {
         configStatus = guarded { rpcService<IPaymentGatewayService>().getPspConfigStatus() }
@@ -188,12 +197,7 @@ private fun renderPaymentGatewaySettingsSummary(
     panel: SimplePanel,
     settings: PaymentGatewaySettingsDto,
 ) {
-    val statusRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    statusRow.div(tr("Status:")) { addCssClasses("text-muted small") }
-    statusRow.statusBadge(
-        if (settings.paymentGatewayEnabled) tr("Aktiviert") else tr("Deaktiviert"),
-        if (settings.paymentGatewayEnabled) "success" else "secondary",
-    )
+    // V1.9.190: the status is shown once, in the toggle row below ("Status: Aktiviert/Deaktiviert"); no second status line here.
     val provider = settings.paymentGatewayProvider
     if (provider != null) {
         panel.div(gettext("Anbieter: %1", paymentProviderLabel(provider))) { addCssClasses("text-muted small") }

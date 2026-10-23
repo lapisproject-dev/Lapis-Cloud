@@ -1,4 +1,4 @@
-= Mitfahrerzentrale (Carpooling)
+= Mitfahrzentrale (Carpooling)
 :description: Offer/request carpool postings among members, contact routed through the existing direct-message system, and the retention policy that expires a posting after its departure date.
 :toc:
 :toc-placement: preamble
@@ -17,10 +17,13 @@ bulletin board: no seat reservation, no confirmation workflow, no notion of who 
 Since V1.9.125 a person can ride along on an offer and the driver confirms (<<participations>>); a `REQUEST`
 posting stays a plain bulletin-board entry (nobody rides along on a search).
 
-The sidebar entry "Mitfahrerzentrale" sits in the existing `MEMBERSHIP` group and carries no
+The sidebar entry "Mitfahrzentrale" sits in the existing `MEMBERSHIP` group and carries no
 dedicated `NavVisibility` predicate of its own -- it falls under that group's existing
 `showsMembershipSection` gate, the same way "Kommunikation" does, per this codebase's convention
 that a route without a DIFFERING visibility rule does not get a bespoke predicate.
+
+NOTE: V1.9.186 renamed the centre in the user interface to "Mitfahrzentrale" (client only). Identifiers, the route and the RPC names keep
+"carpool"; the server-written texts (e-mails, legal text, data export below) still say "Mitfahrerzentrale" until a follow-up wave.
 
 == Data model
 

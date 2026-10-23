@@ -162,7 +162,7 @@ class EncounterRoomDomTest {
         }
 
     @Test
-    fun aPulpitPerson_hasTheDevicesFirstAndLeaveLast_inTheBar(): Promise<Unit> =
+    fun aPulpitPerson_hasTheGearThenTheDevicesFirstAndLeaveLast_inTheBar(): Promise<Unit> =
         formTest {
             withRoom(
                 testEntry(role = EncounterPresenceRole.PULPIT),
@@ -170,12 +170,16 @@ class EncounterRoomDomTest {
                 session = FakeSpeakerSession(),
             ) { _, element ->
                 val groups = element.barGroups()
-                assertTrue(groups.first().classList.contains("lapis-encounter-control-group--devices"), "devices first")
+                // V1.9.184: the gear stands alone in the settings group (start zone) in front of the devices
+                assertTrue(groups.first().classList.contains("lapis-encounter-control-group--settings"), "settings (the gear) first")
+                assertTrue(groups[1].classList.contains("lapis-encounter-control-group--devices"), "devices second")
                 assertTrue(groups.last().classList.contains("lapis-encounter-control-group--exit"), "exit last")
-                assertEquals("Geräte", groups.first().getAttribute("aria-label"))
-                assertEquals("group", groups.first().getAttribute("role"))
+                assertEquals("Geräte", groups[1].getAttribute("aria-label"))
+                assertEquals("group", groups[1].getAttribute("role"))
                 val names = element.shownBarButtons().map { it.barName() }
-                assertEquals(listOf("Mikrofon", "Kamera"), names.take(2), "microphone before camera, both at the left edge: $names")
+                // (a church room without a listed device names the gear after the bell sound switch)
+                assertTrue(names.first() in setOf("Einstellungen", "Glockenton einstellen"), "the gear at the very left edge: $names")
+                assertEquals(listOf("Mikrofon", "Kamera"), names.drop(1).take(2), "microphone before camera, behind the gear: $names")
                 assertEquals("Verlassen", names.last(), "leave at the right edge: $names")
             }
         }
@@ -212,7 +216,8 @@ class EncounterRoomDomTest {
                 assertTrue(mic.classList.contains("btn-outline-danger"))
                 assertFalse(camera.classList.contains("btn-outline-danger"))
                 val groups = element.barGroups()
-                assertTrue(groups.first().classList.contains("lapis-encounter-control-group--devices"))
+                assertTrue(groups.first().classList.contains("lapis-encounter-control-group--settings"))
+                assertTrue(groups[1].classList.contains("lapis-encounter-control-group--devices"))
                 assertTrue(groups.last().classList.contains("lapis-encounter-control-group--exit"))
             }
         }
@@ -228,11 +233,16 @@ class EncounterRoomDomTest {
             ) { _, element ->
                 val devices = element.barGroups().first { it.classList.contains("lapis-encounter-control-group--devices") }
                 assertEquals(0, devices.childElementCount, "no device control for a listener (the empty group is hidden by `:empty`)")
+                val gear = element.barGroups().first { it.classList.contains("lapis-encounter-control-group--settings") }
+                assertEquals(0, gear.childElementCount, "and no gear either (the assembly has no bell)")
                 assertEquals(0, element.micOffAnnouncements())
             }
             withRoom(testEntry(), sixPeople) { _, element ->
                 val devices = element.barGroups().first { it.classList.contains("lapis-encounter-control-group--devices") }
-                assertEquals(1, devices.childElementCount, "a church room: only the gear for the bell sound switch")
+                // V1.9.184: the gear lives in the settings group of the start zone, never in the devices group
+                assertEquals(0, devices.childElementCount, "a church room: no device control for a listener")
+                val gear = element.barGroups().first { it.classList.contains("lapis-encounter-control-group--settings") }
+                assertEquals(1, gear.childElementCount, "a church room: only the gear for the bell sound switch")
                 assertEquals(0, element.micOffAnnouncements())
             }
         }

@@ -9,6 +9,8 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.TravelExpenseAttachmentTable
+import network.lapis.cloud.server.db.generated.TravelExpenseDocumentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.shared.domain.AccountRole
@@ -20,11 +22,13 @@ import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import java.io.File
 import java.math.BigDecimal
 import java.time.LocalTime
 import kotlin.uuid.Uuid
@@ -43,6 +47,8 @@ class TravelExpensePersonalDataTest :
 
         afterSpec {
             transaction {
+                TravelExpenseDocumentTable.deleteAll()
+                TravelExpenseAttachmentTable.deleteWhere { TravelExpenseAttachmentTable.reportId inList createdReportIds }
                 TravelExpenseLineTable.deleteWhere { TravelExpenseLineTable.reportId inList createdReportIds }
                 TravelExpenseReportTable.deleteWhere { TravelExpenseReportTable.id inList createdReportIds }
                 AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
@@ -120,9 +126,119 @@ class TravelExpensePersonalDataTest :
                     "travel_expense_report",
                     "travel_expense_line",
                     "travel_expense_receipt",
+                    "travel_expense_attachment",
+                    "travel_expense_document",
                     "travel_expense_sepa_batch",
                     "travel_expense_sepa_batch_item",
                 )
+        }
+
+        // V1.9.198: a report-level attachment with a real file under the contributor's storage root.
+        fun addAttachment(
+            reportId: Uuid,
+            uploadedBy: Uuid,
+        ): Pair<Uuid, File> {
+            val attachmentId = Uuid.random()
+            val key = "travel-expenses/$reportId/attachments/$attachmentId.bin"
+            val file = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage").resolve(key)
+            file.parentFile.mkdirs()
+            file.writeBytes(byteArrayOf(0x25, 0x50, 0x44, 0x46, 0x2D))
+            transaction {
+                TravelExpenseAttachmentTable.insert {
+                    it[id] = attachmentId
+                    it[TravelExpenseAttachmentTable.reportId] = reportId
+                    it[storageKey] = key
+                    it[originalFilename] = "Einladung.pdf"
+                    it[mimeType] = "application/pdf"
+                    it[sizeBytes] = 5
+                    it[sha256] = "0".repeat(64)
+                    it[TravelExpenseAttachmentTable.uploadedBy] = uploadedBy
+                    it[uploadedAt] = DbClock.nowLocalDateTime()
+                }
+            }
+            return attachmentId to file
+        }
+
+        test("V1.9.198: erasing a DRAFT removes its attachment rows and files before the report") {
+            val subject = newMember()
+            val reportId = newReport(subject, status = TravelExpenseReportStatus.DRAFT)
+            val (_, file) = addAttachment(reportId, subject)
+            file.exists() shouldBe true
+
+            val outcomes = transaction { TravelExpensePersonalData.eraseMember(memberId = subject, mode = ErasureMode.ANONYMIZE) }
+
+            file.exists() shouldBe false
+            transaction {
+                TravelExpenseAttachmentTable.selectAll().where { TravelExpenseAttachmentTable.reportId eq reportId }.count()
+            } shouldBe
+                0L
+            transaction { TravelExpenseReportTable.selectAll().where { TravelExpenseReportTable.id eq reportId }.count() } shouldBe 0L
+            createdReportIds -= reportId
+            outcomes.single { it.table == "travel_expense_attachment" }.rowsDeleted shouldBe 1
+        }
+
+        test("V1.9.198: a submitted (retained) report keeps its attachment row and file on erasure") {
+            val subject = newMember()
+            val reportId =
+                newReport(subject, status = TravelExpenseReportStatus.REQUESTED, submittedAt = DbClock.nowLocalDateTime())
+            val (attachmentId, file) = addAttachment(reportId, subject)
+
+            val outcomes = transaction { TravelExpensePersonalData.eraseMember(memberId = subject, mode = ErasureMode.ANONYMIZE) }
+
+            file.exists() shouldBe true
+            transaction {
+                TravelExpenseAttachmentTable.selectAll().where { TravelExpenseAttachmentTable.id eq attachmentId }.count()
+            } shouldBe
+                1L
+            outcomes.single { it.table == "travel_expense_attachment" }.rowsDeleted shouldBe 0
+            file.delete()
+        }
+
+        test("V1.9.198: the export lists attachment metadata, never the bytes or the storage key") {
+            val subject = newMember()
+            val reportId = newReport(subject, status = TravelExpenseReportStatus.DRAFT)
+            val (_, file) = addAttachment(reportId, subject)
+
+            val json = transaction { TravelExpensePersonalData.exportMember(subject).toString() }
+            json.contains("\"attachments\"") shouldBe true
+            json.contains("Einladung.pdf") shouldBe true
+            json.contains("application/pdf") shouldBe true
+            json.contains("storageKey") shouldBe false
+            json.contains("travel-expenses/") shouldBe false
+            file.delete()
+        }
+
+        test(
+            "V1.9.199: an uploaded organisation document stays on erasure, only the uploader link is removed; the export lists metadata only",
+        ) {
+            val uploader = newMember()
+            val documentId = Uuid.random()
+            transaction {
+                TravelExpenseDocumentTable.insert {
+                    it[id] = documentId
+                    it[title] = "Reisekostenordnung"
+                    it[storageKey] = "travel-expenses/documents/$documentId.bin"
+                    it[originalFilename] = "ordnung.pdf"
+                    it[mimeType] = "application/pdf"
+                    it[sizeBytes] = 10L
+                    it[sha256] = "0".repeat(64)
+                    it[uploadedBy] = uploader
+                    it[uploadedAt] = DbClock.nowLocalDateTime()
+                }
+            }
+            val json = transaction { TravelExpensePersonalData.exportMember(uploader).toString() }
+            json.contains("uploadedTravelExpenseDocuments") shouldBe true
+            json.contains("Reisekostenordnung") shouldBe true
+            json.contains("storage") shouldBe false
+            json.contains("ordnung.pdf") shouldBe false
+
+            val outcomes = transaction { TravelExpensePersonalData.eraseMember(memberId = uploader, mode = ErasureMode.ANONYMIZE) }
+
+            val row = transaction { TravelExpenseDocumentTable.selectAll().where { TravelExpenseDocumentTable.id eq documentId }.single() }
+            row[TravelExpenseDocumentTable.uploadedBy] shouldBe null
+            row[TravelExpenseDocumentTable.title] shouldBe "Reisekostenordnung"
+            outcomes.single { it.table == "travel_expense_document" }.rowsRetained shouldBe 1
+            transaction { TravelExpenseDocumentTable.deleteWhere { TravelExpenseDocumentTable.id eq documentId } }
         }
 
         test("DRAFT report is fully deleted, including its lines") {

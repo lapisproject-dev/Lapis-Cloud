@@ -59,7 +59,7 @@ fun renderSepaBatchesScreen(container: SimplePanel) {
     if (AppState.hasRole(AccountRole.ADMIN)) {
         renderAdminDisclaimerWarningBand(root)
     }
-    val header = root.pageHeader(tr("SEPA-Lastschrift"))
+    val header = root.pageHeader(tr("SEPA-Lastschrift"), intro = PageIntros.forRoute(Routes.SEPA_BATCHES))
     // V1.9.45 (R36B): both create forms are collapsed; the hosts sit directly under the header, the buttons in its action slot
     // (batch first, return second -- two equal-rank outline buttons, see ui-ux-guideline R36).
     val batchHost = if (canTreasuryAct) root.simplePanel() else null

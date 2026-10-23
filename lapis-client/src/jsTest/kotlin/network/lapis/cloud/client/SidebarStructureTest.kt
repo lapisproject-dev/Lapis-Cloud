@@ -28,9 +28,9 @@ import kotlin.test.assertTrue
  * "Dashboard"/"Videokonferenz" nebeneinander, keine der sechs Rollen-Gruppen).
  *
  * Der Fix wickelt ALLE acht Einträge in einen eigenen `nav.lapis-sidebar-nav`-Wrapper
- * (`display:flex; flex-direction:column`) -- dieser Test prüft, dass `body` genau EIN
- * direktes Kind hat, dieses die Klasse `lapis-sidebar-nav` trägt, und DARIN die erwarteten
- * Einträge in der richtigen Reihenfolge auftauchen.
+ * (`display:flex; flex-direction:column`) -- dieser Test prüft, dass dieser Wrapper das ERSTE direkte Kind von
+ * `body` ist, die Klasse `lapis-sidebar-nav` trägt, und DARIN die erwarteten Einträge in der richtigen Reihenfolge auftauchen.
+ * Seit V1.9.187 hat `body` ein ZWEITES direktes Kind: den Hilfe-Fuß "Hilfe und Feedback" (nach dem `nav`, nie darin).
  *
  * Bewusst NICHT auf eine harte Gesamt-Kinderzahl geprüft: `sidebarGroup()` (siehe dortiges
  * KDoc) fügt pro Gruppe ZWEI Geschwister ein (Header-`Button` + Body-`Nav`), nicht eins --
@@ -82,8 +82,14 @@ class SidebarStructureTest {
         buildSidebar(body, adminSession, activeRoute = null) {}
 
         val topLevel = body.getChildren()
-        assertEquals(1, topLevel.size, "body sollte genau EIN direktes Kind haben (den Wrapper)")
-        val nav = topLevel.single() as Nav
+        // V1.9.187 (bewusst geändert, vorher EIN Kind): der Wrapper `nav` plus der Fuß "Hilfe und Feedback" (`div.lapis-sidebar-help`) als
+        // zweites direktes Kind NACH dem `nav` -- nie im `nav` (Linkzählung und NavHighlight bleiben unberührt).
+        assertEquals(2, topLevel.size, "body sollte genau ZWEI direkte Kinder haben (Wrapper + Hilfe-Fuß)")
+        val nav = topLevel.first() as Nav
+        val helpFoot = topLevel[1] as io.kvision.html.Div
+        helpFoot.addCssClass("sidebar-structure-test-probe")
+        helpFoot.removeCssClass("sidebar-structure-test-probe")
+        assertTrue(helpFoot.hasCssClass("lapis-sidebar-help"), "das zweite Kind ist der Hilfe-Fuß")
         // KVision-Stolperfalle (verifiziert gegen den gepinnten kvision-9.6.0-Quellcheckout,
         // `Widget.kt`): `hasCssClass` liest NUR das lazy, imperativ befuellte `classes`-Set, NIE
         // den Konstruktor-`className` direkt -- `classes` bleibt `null`, bis irgendwann
@@ -146,7 +152,7 @@ class SidebarStructureTest {
             AppState.setSession(session)
             val body = SimplePanel()
             buildSidebar(body, session, activeRoute = null) {}
-            val nav = body.getChildren().single() as Nav
+            val nav = body.getChildren().first() as Nav
             return nav
                 .getChildren()
                 .filterIsInstance<Nav>()
@@ -176,7 +182,7 @@ class SidebarStructureTest {
         AppState.setSession(session)
         val body = SimplePanel()
         buildSidebar(body, session, activeRoute = null) {}
-        val nav = body.getChildren().single() as Nav
+        val nav = body.getChildren().first() as Nav
         return nav
             .getChildren()
             .filterIsInstance<Nav>()
@@ -190,7 +196,7 @@ class SidebarStructureTest {
         AppState.setSession(session)
         val body = SimplePanel()
         buildSidebar(body, session, activeRoute = null) {}
-        return (body.getChildren().single() as Nav)
+        return (body.getChildren().first() as Nav)
             .getChildren()
             .filterIsInstance<Nav>()
             .flatMap { it.getChildren() }
@@ -266,7 +272,7 @@ class SidebarStructureTest {
             AppState.setSession(session)
             val body = SimplePanel()
             buildSidebar(body, session, activeRoute = null) {}
-            val nav = body.getChildren().single() as Nav
+            val nav = body.getChildren().first() as Nav
             return nav
                 .getChildren()
                 .filterIsInstance<Nav>()
@@ -315,7 +321,7 @@ class SidebarStructureTest {
         val body = SimplePanel()
         buildSidebar(body, adminSession, activeRoute = null) {}
         val link =
-            (body.getChildren().single() as Nav)
+            (body.getChildren().first() as Nav)
                 .getChildren()
                 .filterIsInstance<Nav>()
                 .flatMap { it.getChildren() }
@@ -352,7 +358,7 @@ class SidebarStructureTest {
         AppState.setSession(adminSession)
         val body = SimplePanel()
         buildSidebar(body, adminSession, activeRoute = null) {}
-        val nav = body.getChildren().single() as Nav
+        val nav = body.getChildren().first() as Nav
         val urls =
             nav
                 .getChildren()
@@ -387,7 +393,7 @@ class SidebarStructureTest {
         AppState.setSession(session)
         val body = SimplePanel()
         buildSidebar(body, session, activeRoute = null) {}
-        return (body.getChildren().single() as Nav)
+        return (body.getChildren().first() as Nav)
             .getChildren()
             .filterIsInstance<Nav>()
             .flatMap { it.getChildren() }
@@ -438,7 +444,7 @@ class SidebarStructureTest {
         val body = SimplePanel()
         buildSidebar(body, adminSession, activeRoute = null) {}
         clearSidebar(body)
-        assertTrue(body.getChildren().isEmpty())
+        assertTrue(body.getChildren().isEmpty(), "auch der Hilfe-Fuß (V1.9.187) verschwindet")
         assertTrue(body.hasCssClass("lapis-sidebar-empty"))
     }
 }

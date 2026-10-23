@@ -22,7 +22,6 @@ import io.kvision.table.TableType
 import io.kvision.table.cell
 import io.kvision.table.row
 import io.kvision.table.table
-import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.BankStatementDonationAssignmentInput
@@ -68,11 +67,7 @@ fun renderBankStatementImportScreen(
     val canWrite = BankStatementAuthzUi.canWrite(AppState.session?.role)
 
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 1100.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
 
     // Zone 1 -- Kopfzeile: Seitenkopf (W5); der Upload-Knopf steht im Aktions-Slot der Titelzeile (V1.9.45, R36B: das Formular ist
     // eingeklappt, sein Host liegt direkt unter dem Kopf). Ohne Schreibrecht steht der Hinweis als Untertitel.
@@ -80,6 +75,7 @@ fun renderBankStatementImportScreen(
         root.pageHeader(
             tr("Kontoauszüge"),
             subtitle = if (canWrite) null else tr("Sie sehen diese Seite mit Leserechten."),
+            intro = PageIntros.forRoute(Routes.BANK_IMPORT),
         )
     val uploadHost = if (canWrite) root.simplePanel() else null
 

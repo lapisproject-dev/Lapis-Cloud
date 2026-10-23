@@ -16,11 +16,14 @@ import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.db.generated.TravelExpenseAttachmentTable
+import network.lapis.cloud.server.db.generated.TravelExpenseDocumentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchItemTable
 import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.payment.sepa.IbanValidator
 import network.lapis.cloud.server.payment.sepa.SepaPain001Writer
 import network.lapis.cloud.server.rpc.TravelExpenseLineRules.orBadRequest
@@ -31,14 +34,18 @@ import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MultiDayRule
 import network.lapis.cloud.shared.domain.RefundAccountPrefillDto
 import network.lapis.cloud.shared.domain.SepaDebtorAccountOptionDto
+import network.lapis.cloud.shared.domain.TravelContactHintFormat
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
+import network.lapis.cloud.shared.domain.TravelExpenseAttachmentDto
 import network.lapis.cloud.shared.domain.TravelExpenseCalculator
 import network.lapis.cloud.shared.domain.TravelExpenseDayInput
 import network.lapis.cloud.shared.domain.TravelExpenseDeadline
+import network.lapis.cloud.shared.domain.TravelExpenseDocumentDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
@@ -61,6 +68,7 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.ITravelExpenseService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RateLimitedException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -80,6 +88,7 @@ import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 private val TRAVEL_EXPENSE_DECISION_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
@@ -122,12 +131,14 @@ class TravelExpenseService(
     private val receiptStorageRoot: File,
     /** `LAPIS_SECRET_ENCRYPTION_KEY`; `null` == refund IBANs cannot be stored and no SEPA file can be generated (never a plaintext fallback). */
     private val secretEncryptionKey: ByteArray? = null,
+    /** V1.9.199: budget of [previewTravelContactHint]; Application passes ONE shared instance (the service itself is created per call). */
+    private val previewRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
 ) : ITravelExpenseService {
     private val sepaExport = TravelExpenseSepaExport(secretEncryptionKey)
 
     override suspend fun getTravelExpenseRates(): TravelExpenseRatesDto {
         val current = resolveCurrentMember(call)
-        return transaction { TravelExpenseSettingsStore.load().toDto(isAdmin = current.role == AccountRole.ADMIN) }
+        return transaction { TravelExpenseSettingsStore.load().toDto(role = current.role, status = current.status) }
     }
 
     override suspend fun updateTravelExpenseRates(
@@ -158,7 +169,7 @@ class TravelExpenseService(
             }
             val after = TravelExpenseSettingsStore.load()
             recordSettingsChange(current = current, before = before, after = after)
-            after.toDto(isAdmin = true)
+            after.toDto(role = AccountRole.ADMIN, status = MemberStatus.ACTIVE)
         }
     }
 
@@ -166,6 +177,13 @@ class TravelExpenseService(
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
         val valid = TravelExpenseLineRules.validateSettings(input)
+        val validHint = valid.contact.hint
+        if (valid.contact.hintFormat == TravelContactHintFormat.MARKDOWN &&
+            validHint != null &&
+            TravelContactHintMarkdown.renderOrNull(validHint) == null
+        ) {
+            throw BadRequestException("contact hint is too deeply nested")
+        }
         val advanceAccountId = valid.advanceAccountId?.toTravelExpenseUuid("advanceAccountId")
         val waiverAccountId = valid.donationWaiverAccountId?.toTravelExpenseUuid("donationWaiverAccountId")
         return transaction {
@@ -193,14 +211,27 @@ class TravelExpenseService(
                 it[travelContactEmail] = valid.contact.email
                 it[travelContactPhone] = valid.contact.phone
                 it[travelContactHint] = valid.contact.hint
+                it[travelContactHintFormat] = valid.contact.hintFormat.name
                 it[travelAdvanceAccountId] = advanceAccountId
                 it[travelDonationWaiverAccountId] = waiverAccountId
             }
             val after = TravelExpenseSettingsStore.load()
             recordSettingsChange(current = current, before = before, after = after)
             logger.info { "travel expense settings updated by ${current.memberId}" }
-            after.toDto(isAdmin = true)
+            after.toDto(role = AccountRole.ADMIN, status = MemberStatus.ACTIVE)
         }
+    }
+
+    override suspend fun previewTravelContactHint(markdown: String): String {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        if (!previewRateLimiter.checkAndRecord("member:${current.memberId}")) throw RateLimitedException()
+        val normalized = markdown.replace("\r\n", "\n")
+        if (normalized.length > TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH) {
+            throw BadRequestException("text exceeds ${TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH} characters")
+        }
+        // Nothing about the text is logged, not even its length.
+        return TravelContactHintMarkdown.renderOrNull(normalized) ?: throw BadRequestException("text is too deeply nested")
     }
 
     /**
@@ -241,22 +272,83 @@ class TravelExpenseService(
             contactEmailSet = contact.email != null,
             contactPhoneSet = contact.phone != null,
             contactHintSet = contact.hint != null,
+            contactHintMarkdown = contact.hint != null && contact.hintFormat == TravelContactHintFormat.MARKDOWN,
             advanceAccountConfigured = advanceAccountId != null,
             donationWaiverAccountConfigured = donationWaiverAccountId != null,
         )
 
-    private fun TravelExpenseSettings.toDto(isAdmin: Boolean): TravelExpenseRatesDto =
-        TravelExpenseRatesDto(
+    /** Must run inside a `transaction {}` (reads the document list). */
+    private fun TravelExpenseSettings.toDto(
+        role: AccountRole,
+        status: MemberStatus,
+    ): TravelExpenseRatesDto {
+        val isAdmin = role == AccountRole.ADMIN
+        val canManage = role == AccountRole.ADMIN || role == AccountRole.BOARD
+        val hintText = contact.hint
+        val hintHtml =
+            if (contact.hintFormat == TravelContactHintFormat.MARKDOWN && hintText != null) {
+                TravelContactHintMarkdown.renderOrNull(hintText)
+            } else {
+                null
+            }
+        return TravelExpenseRatesDto(
             mileageRatePerKm = mileageRate,
             perDiemRate = perDiemRate,
             expenseAccountConfigured = expenseAccountId != null,
             bankAccountConfigured = bankAccountId != null,
             rateSet = rateSet,
-            contact = contact,
+            contact = contact.copy(hintHtml = hintHtml),
             canEditSettings = isAdmin,
             advanceAccountId = if (isAdmin) advanceAccountId?.toString() else null,
             donationWaiverAccountId = if (isAdmin) donationWaiverAccountId?.toString() else null,
+            // Organisation documents are for ACTIVE members and BOARD/ADMIN only (GUEST/FRIEND/APPLICATION/WITHDRAWN get an empty list).
+            documents =
+                if (canManage ||
+                    status in MemberStatusSets.ORGANIZATION_MEMBER
+                ) {
+                    loadDocuments(includeUploader = canManage)
+                } else {
+                    emptyList()
+                },
+            canManageDocuments = canManage,
         )
+    }
+
+    /** Sorted by title (case-insensitive, then id for a stable order). `uploaderName` only when [includeUploader]; `null` == former member. */
+    private fun loadDocuments(includeUploader: Boolean): List<TravelExpenseDocumentDto> {
+        val rows = TravelExpenseDocumentTable.selectAll().toList()
+        val names =
+            if (includeUploader) {
+                val ids = rows.mapNotNull { it[TravelExpenseDocumentTable.uploadedBy] }.distinct()
+                if (ids.isEmpty()) {
+                    emptyMap()
+                } else {
+                    MemberTable
+                        .selectAll()
+                        .where { MemberTable.id inList ids }
+                        .associate { it[MemberTable.id] to it[MemberTable.displayName] }
+                }
+            } else {
+                emptyMap()
+            }
+        return rows
+            .sortedWith(
+                compareBy<ResultRow> { it[TravelExpenseDocumentTable.title].lowercase() }.thenBy {
+                    it[TravelExpenseDocumentTable.id]
+                        .toString()
+                },
+            ).map { row ->
+                TravelExpenseDocumentDto(
+                    id = row[TravelExpenseDocumentTable.id].toString(),
+                    title = row[TravelExpenseDocumentTable.title],
+                    filename = row[TravelExpenseDocumentTable.originalFilename],
+                    mimeType = row[TravelExpenseDocumentTable.mimeType],
+                    sizeBytes = row[TravelExpenseDocumentTable.sizeBytes],
+                    uploadedAt = row[TravelExpenseDocumentTable.uploadedAt],
+                    uploaderName = row[TravelExpenseDocumentTable.uploadedBy]?.let { names[it] },
+                )
+            }
+    }
 
     override suspend fun createDraft(
         subjectMemberId: String,
@@ -658,8 +750,8 @@ class TravelExpenseService(
                 it[decidedBy] = current.memberId
             }
             // Security-Audit fix (2026-09-12, MAJOR "orphaned/unbounded receipt storage") -- see
-            // deleteReceiptFilesForReport KDoc.
-            deleteReceiptFilesForReport(id)
+            // deleteUploadedFilesForReport KDoc.
+            deleteUploadedFilesForReport(id)
             recordTransition(row = row, actor = current, newStatus = TravelExpenseReportStatus.WITHDRAWN)
             logger.info { "travel expense report $id withdrawn by ${current.memberId}" }
             loadDto(id)
@@ -748,8 +840,8 @@ class TravelExpenseService(
                     it[executionError] = null
                 }
                 // Security-Audit fix (2026-09-12, MAJOR "orphaned/unbounded receipt storage") -- see
-                // deleteReceiptFilesForReport KDoc.
-                deleteReceiptFilesForReport(id)
+                // deleteUploadedFilesForReport KDoc.
+                deleteUploadedFilesForReport(id)
                 recordTransition(row = row, actor = current, newStatus = TravelExpenseReportStatus.REJECTED)
                 return@transaction loadDto(id)
             }
@@ -1304,6 +1396,7 @@ class TravelExpenseService(
     private fun ResultRow.toDto(
         namesOverride: Map<Uuid, String>? = null,
         linesOverride: Map<Uuid, List<TravelExpenseLineDto>>? = null,
+        attachmentsOverride: Map<Uuid, List<TravelExpenseAttachmentDto>>? = null,
     ): TravelExpenseReportDto {
         val id = this[TravelExpenseReportTable.id]
         val subjectId = this[TravelExpenseReportTable.subjectMemberId]
@@ -1312,6 +1405,7 @@ class TravelExpenseService(
         val exportedById = this[TravelExpenseReportTable.sepaExportedBy]
         val names = namesOverride ?: displayNamesOf(listOfNotNull(subjectId, requestedById, decidedById, exportedById))
         val lines = linesOverride?.get(id) ?: linesOf(listOf(id))[id].orEmpty()
+        val attachments = attachmentsOverride?.get(id) ?: attachmentsOf(listOf(id))[id].orEmpty()
         val advance = this[TravelExpenseReportTable.advanceAmount]
         val totals =
             TravelExpenseCalculator.totals(
@@ -1366,6 +1460,7 @@ class TravelExpenseService(
             sepaExportedByDisplayName = exportedById?.let { names[it] },
             sepaReexportCount = this[TravelExpenseReportTable.sepaReexportCount],
             sepaReference = TravelExpenseSepaReference.of(id.toString()),
+            attachments = attachments,
         )
     }
 
@@ -1378,8 +1473,9 @@ class TravelExpenseService(
 
     /**
      * Batch mapper for [listReports]/[listMyReports] -- resolves every row's `displayName`/line/
-     * receipt lookups in exactly three queries total (member names, `travel_expense_line inList
-     * reportIds`, `travel_expense_receipt inList lineIds`), never a query per row.
+     * receipt lookups in exactly four queries total (member names, `travel_expense_line inList
+     * reportIds`, `travel_expense_receipt inList lineIds`, `travel_expense_attachment inList
+     * reportIds`), never a query per row.
      */
     private fun List<ResultRow>.toDtos(): List<TravelExpenseReportDto> {
         if (isEmpty()) return emptyList()
@@ -1393,7 +1489,28 @@ class TravelExpenseService(
         val names = displayNamesOf(memberIds)
         val reportIds = map { it[TravelExpenseReportTable.id] }
         val lines = linesOf(reportIds)
-        return map { it.toDto(namesOverride = names, linesOverride = lines) }
+        val attachments = attachmentsOf(reportIds)
+        return map { it.toDto(namesOverride = names, linesOverride = lines, attachmentsOverride = attachments) }
+    }
+
+    /** V1.9.198: one batch query for the report-level attachments of every report in [reportIds]. */
+    private fun attachmentsOf(reportIds: Collection<Uuid>): Map<Uuid, List<TravelExpenseAttachmentDto>> {
+        if (reportIds.isEmpty()) return emptyMap()
+        return TravelExpenseAttachmentTable
+            .selectAll()
+            .where { TravelExpenseAttachmentTable.reportId inList reportIds }
+            .orderBy(TravelExpenseAttachmentTable.uploadedAt to SortOrder.ASC)
+            .groupBy({ it[TravelExpenseAttachmentTable.reportId] }) {
+                TravelExpenseAttachmentDto(
+                    id = it[TravelExpenseAttachmentTable.id].toString(),
+                    reportId = it[TravelExpenseAttachmentTable.reportId].toString(),
+                    originalFilename = it[TravelExpenseAttachmentTable.originalFilename],
+                    mimeType = it[TravelExpenseAttachmentTable.mimeType],
+                    sizeBytes = it[TravelExpenseAttachmentTable.sizeBytes],
+                    sha256 = it[TravelExpenseAttachmentTable.sha256],
+                    uploadedAt = it[TravelExpenseAttachmentTable.uploadedAt],
+                )
+            }
     }
 
     private fun linesOf(reportIds: Collection<Uuid>): Map<Uuid, List<TravelExpenseLineDto>> {
@@ -1515,7 +1632,12 @@ class TravelExpenseService(
      * rows themselves (for an actual Art. 17 DSGVO erasure request) is
      * [network.lapis.cloud.server.dsgvo.TravelExpensePersonalData]'s job, not this one's.
      */
-    private fun deleteReceiptFilesForReport(reportId: Uuid) {
+    private fun deleteUploadedFilesForReport(reportId: Uuid) {
+        // V1.9.198: report-level attachments follow the same rule as receipts (files go, rows stay).
+        TravelExpenseAttachmentTable
+            .selectAll()
+            .where { TravelExpenseAttachmentTable.reportId eq reportId }
+            .forEach { deleteReceiptFile(it[TravelExpenseAttachmentTable.storageKey]) }
         val lineIds =
             TravelExpenseLineTable
                 .selectAll()

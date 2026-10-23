@@ -19,7 +19,11 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
+import io.kvision.table.Cell
+import io.kvision.table.HeaderCell
+import io.kvision.table.Scope
+import io.kvision.table.cell
+import io.kvision.table.row
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
@@ -32,13 +36,13 @@ import network.lapis.cloud.shared.domain.CommitteeMembershipMode
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeSeatChangeKind
 import network.lapis.cloud.shared.domain.CommitteeType
-import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.rank
 import network.lapis.cloud.shared.domain.rules.MemberRule
 import network.lapis.cloud.shared.domain.rules.RuleOp
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IMemberService
+import kotlin.math.ceil
 
 /**
  * Governance UI wave, screen 1 of 3 -- "Gremien" (Committees & Membership), per the approved plan
@@ -64,30 +68,18 @@ import network.lapis.cloud.shared.rpc.IMemberService
  */
 fun renderCommitteesScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 720.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Gremien"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Gremien"), intro = PageIntros.forRoute(Routes.COMMITTEES))
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
     // V1.9.40 (R36B): the create form is collapsed; its button sits in the title row and the form opens right under the header.
     val createHost = if (canManage) root.vPanel(spacing = 6) else null
     // V1.9.102: notice band (automatic ends, vacant chair, legacy open seats) -- BOARD/ADMIN only, reloaded after every seat change.
-    val reloadAutoEndNotice = if (canManage) renderCommitteeAutoEndNotice(root.vPanel(spacing = 4)) else ({})
+    if (canManage) renderCommitteeAutoEndNotice(root.vPanel(spacing = 4))
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.lapisToolbar()
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Gremien anzeigen"))
     val committeePanel = root.vPanel(spacing = 6)
-
-    root.h2(tr("Mitglieder")) { addCssClass("h5") }
-    val rosterPanel = root.vPanel(spacing = 6)
-    rosterPanel.p(tr("Gremium oben auswählen, um die Besetzung zu sehen."))
-
-    fun selectCommittee(committee: CommitteeDto) {
-        renderCommitteeRoster(rosterPanel, committee, canManage, onSeatsChanged = reloadAutoEndNotice)
-    }
 
     fun refreshCommittees() {
         committeePanel.removeAll()
@@ -98,25 +90,14 @@ fun renderCommitteesScreen(container: SimplePanel) {
             if (committees.isEmpty()) {
                 committeePanel.p(
                     if (canManage) {
-                        tr(
-                            "Noch keine Gremien. Mit \"Neues Gremium\" legen Sie eines an.",
-                        )
+                        tr("Noch keine Gremien. Mit \"Neues Gremium\" legen Sie eines an.")
                     } else {
-                        tr("Noch keine Gremien vorhanden.")
+                        tr("Noch keine Gremien angelegt.")
                     },
                 )
                 return@launch
             }
-            // V1.9.112: the names of tiers appear in the sentence of a rule committee (BOARD/ADMIN only, and only if there is one)
-            val tiers =
-                if (canManage && committees.any { it.membershipMode == CommitteeMembershipMode.RULE }) {
-                    guarded { rpcService<IContributionService>().listMembershipTiers() }.orEmpty()
-                } else {
-                    emptyList()
-                }
-            committees.forEach { committee ->
-                renderCommitteeRow(committeePanel, committee, canManage, committees, tiers, ::refreshCommittees, ::selectCommittee)
-            }
+            renderCommitteeTable(committeePanel, committees, canManage)
         }
     }
 
@@ -134,54 +115,240 @@ fun renderCommitteesScreen(container: SimplePanel) {
     }
 }
 
-private fun renderCommitteeRow(
-    panel: SimplePanel,
-    committee: CommitteeDto,
-    canManage: Boolean,
-    committees: List<CommitteeDto>,
-    tiers: List<MembershipTierDto>,
-    onChanged: () -> Unit,
-    onSelect: (CommitteeDto) -> Unit,
-) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    // Security audit W6b follow-up round 3 (major finding A): committee name/description are member-editable
-    // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
-    headerRow.div(sanitizeUntrustedI18nText(committee.name)) { addCssClasses("flex-grow-1 fw-bold") }
-    headerRow.typeBadge(committeeTypeLabel(committee.type), committeeTypeColor(committee.type))
-    if (committee.membershipMode == CommitteeMembershipMode.RULE) headerRow.ruleCommitteeBadge()
-    headerRow.statusBadge(if (committee.active) tr("Aktiv") else tr("Inaktiv"), if (committee.active) "success" else "secondary")
+/** True for a committee whose members are derived (General Assembly: every active member; rule committee: whoever the rule selects). */
+internal fun isDerivedCommittee(committee: CommitteeDto): Boolean =
+    committee.type == CommitteeType.GENERAL_ASSEMBLY || committee.membershipMode == CommitteeMembershipMode.RULE
 
-    if (committee.description.isNotBlank()) row.p(sanitizeUntrustedI18nText(committee.description)) { addCssClass("mb-0") }
-    row.div(gettext("Quorum: %1%", committee.quorumPercent)) { addCssClasses("text-muted small") }
-    if (committee.membershipMode == CommitteeMembershipMode.RULE) {
-        renderRuleCommitteeFacts(row = row, committee = committee, canManage = canManage, committees = committees, tiers = tiers)
+/**
+ * The number of members that count for the quorum right now, or `null` when it cannot be read (quiet: no toast). A manual committee counts
+ * its active seats; the General Assembly and rule committees ask the server ([IGovernanceService.countCommitteeEligible] throws for a manual
+ * committee and is rate limited, so it is never called for one).
+ */
+internal suspend fun loadCommitteeEligibleCount(committee: CommitteeDto): Int? =
+    try {
+        val service = rpcService<IGovernanceService>()
+        if (isDerivedCommittee(committee)) {
+            service.countCommitteeEligible(committee.id)
+        } else {
+            service.listCommitteeMembers(committee.id, activeOnly = true).size
+        }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        null
     }
 
-    val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.actionButton(ActionIcon.VIEW, tr("Mitglieder anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
-    showButton.onClick { onSelect(committee) }
-    if (canManage) {
-        val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
-        val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-        editPanel.hide()
-        var editOpen = false
-        editButton.onClick {
-            editOpen = !editOpen
-            if (editOpen) {
-                editPanel.removeAll()
-                renderCommitteeEditForm(editPanel, committee) {
-                    editPanel.hide()
-                    onChanged()
+/** Loads the counts of [committees] one request each, at most [COUNT_PARALLELISM] in flight; [onCount] runs per committee (also with `null`). */
+internal fun loadCommitteeCountsLazily(
+    committees: List<CommitteeDto>,
+    onCount: (CommitteeDto, Int?) -> Unit,
+) {
+    val queue = ArrayDeque(committees)
+    repeat(minOf(COUNT_PARALLELISM, committees.size)) {
+        AppScope.launch {
+            while (true) {
+                val next = queue.removeFirstOrNull() ?: break
+                onCount(next, loadCommitteeEligibleCount(next))
+            }
+        }
+    }
+}
+
+private const val COUNT_PARALLELISM = 4
+
+/**
+ * Number of members needed for a quorum: `ceil(eligible * percent / 100)`. Mirrors the server (`ResolutionBook.kt`): PRESENT and REPRESENTED
+ * count, it is attendance, not yes votes.
+ */
+internal fun committeeQuorumRequired(
+    eligible: Int,
+    percent: Int,
+): Int = ceil(eligible * percent / 100.0).toInt()
+
+/** Cell text "3 von 5 (50 %)" -- "–" while the count is unknown. */
+internal fun committeeQuorumText(
+    eligible: Int?,
+    percent: Int,
+): String =
+    if (eligible == null) {
+        "–"
+    } else {
+        gettext("%1 von %2 (%3 %)", committeeQuorumRequired(eligible, percent), eligible, percent)
+    }
+
+/**
+ * The plain-German explanation on the detail page. With exactly half (50 % and an even number) it adds one sentence, because there "half" is
+ * enough and "more than half" would be one more. For derived committees the numbers are the current roster. No legal advice.
+ */
+internal fun committeeQuorumHint(
+    eligible: Int?,
+    percent: Int,
+    derived: Boolean,
+): String {
+    if (eligible == null) {
+        return gettext("Eine Sitzung ist beschlussfähig, wenn mindestens %1 % der Mitglieder anwesend oder vertreten sind.", percent)
+    }
+    var text =
+        gettext(
+            "Eine Sitzung ist beschlussfähig, wenn mindestens %1 von %2 Mitgliedern (%3 %) anwesend oder vertreten sind.",
+            committeeQuorumRequired(eligible, percent),
+            eligible,
+            percent,
+        )
+    if (percent == 50 && eligible > 0 && eligible % 2 == 0) {
+        text += " " +
+            gettext(
+                "Genau die Hälfte (%1 von %2) genügt bereits; mehr als die Hälfte wären %3.",
+                eligible / 2,
+                eligible,
+                eligible / 2 + 1,
+            )
+    }
+    if (derived) text += " " + gettext("Die Zahlen zeigen den aktuellen Stand.")
+    return text
+}
+
+/** Hand-over from the list's edit icon to the detail page: that page opens "Gremium bearbeiten" for this id once. */
+internal object PendingCommitteeEdit {
+    private var committeeId: String? = null
+
+    fun request(id: String) {
+        committeeId = id
+    }
+
+    fun consume(id: String): Boolean {
+        val match = committeeId == id
+        committeeId = null
+        return match
+    }
+}
+
+private fun renderCommitteeTable(
+    host: SimplePanel,
+    committees: List<CommitteeDto>,
+    canManage: Boolean,
+) {
+    val headers =
+        listOf(
+            TableHeader(tr("Name")),
+            TableHeader(tr("Art")),
+            TableHeader(tr("Mitglieder"), numeric = true),
+            TableHeader(tr("Beschlussfähig ab")),
+            TableHeader(tr("Status")),
+        ) + if (canManage) listOf(TableHeader(tr("Aktionen"))) else emptyList()
+    val table = host.masterTable(tr("Gremien"), headers)
+    val countCells = mutableMapOf<String, Pair<Cell, Cell>>()
+    committees.forEach { committee ->
+        table.row {
+            masterRow()
+            val nameCell = HeaderCell(scope = Scope.ROW) { addCssClass("fw-normal") }
+            add(nameCell)
+            // Committee name is member-editable free text: sanitized inside [recordLink].
+            nameCell.recordLink(committee.name, Routes.COMMITTEES, committee.id)
+            if (committee.membershipMode == CommitteeMembershipMode.RULE) {
+                nameCell.span(" ")
+                nameCell.ruleCommitteeBadge()
+            }
+            cell { typeBadge(committeeTypeLabel(committee.type), committeeTypeColor(committee.type)) }
+            val memberCount = numCell(trusted("…"))
+            val quorumCell = textCell(trusted("…"))
+            countCells[committee.id] = memberCount to quorumCell
+            cell { statusBadge(if (committee.active) tr("Aktiv") else tr("Inaktiv"), if (committee.active) "success" else "secondary") }
+            if (canManage) {
+                cell {
+                    tableActionGroup()
+                        .tableActionButton(ActionIcon.EDIT, tr("Bearbeiten"))
+                        .onClick {
+                            PendingCommitteeEdit.request(committee.id)
+                            MasterDetailFocus.remember(Routes.COMMITTEES, committee.id)
+                            navigateTo(detailRoute(Routes.COMMITTEES, committee.id))
+                        }
                 }
-                // V1.9.112: how the members are determined (manual / by rule) is its own step with its own confirmation
-                renderCommitteeMembershipSection(editPanel, committee) {
-                    editPanel.hide()
-                    onChanged()
-                }
-                editPanel.show()
-            } else {
-                editPanel.hide()
+            }
+        }
+    }
+    loadCommitteeCountsLazily(committees) { committee, count ->
+        val (memberCount, quorumCell) = countCells[committee.id] ?: return@loadCommitteeCountsLazily
+        memberCount.content = count?.toString() ?: "–"
+        quorumCell.content = committeeQuorumText(count, committee.quorumPercent)
+    }
+}
+
+/**
+ * V1.9.192 -- one committee as its own page (`/committees/:id`, deep link): back button above the title, the facts, the quorum
+ * explanation, the roster (or the derived-membership facts) and, for BOARD/ADMIN, two collapsed sections to add a member and to edit.
+ */
+fun renderCommitteeDetail(
+    container: SimplePanel,
+    id: String,
+) {
+    val root = container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.overviewBackButton(Routes.COMMITTEES)
+    val loading = root.p(tr("Wird geladen …"))
+    val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
+    AppScope.launch {
+        val committees = guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = false) }
+        root.remove(loading)
+        if (committees == null) {
+            root.p(tr("Das Gremium konnte nicht geladen werden."))
+            return@launch
+        }
+        val committee = committees.find { it.id == id }
+        if (committee == null) {
+            root.p(tr("Dieses Gremium wurde nicht gefunden."))
+            return@launch
+        }
+        // The title is the committee (member-editable free text): the whole composed result is sanitized.
+        root.pageHeader(sanitizeUntrustedI18nText(gettext("Gremium: %1", committee.name)))
+        val reload = {
+            container.removeAll()
+            renderCommitteeDetail(container, id)
+        }
+        val facts = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+        facts.typeBadge(committeeTypeLabel(committee.type), committeeTypeColor(committee.type))
+        if (committee.membershipMode == CommitteeMembershipMode.RULE) facts.ruleCommitteeBadge()
+        facts.statusBadge(if (committee.active) tr("Aktiv") else tr("Inaktiv"), if (committee.active) "success" else "secondary")
+        if (committee.description.isNotBlank()) root.untrustedP(committee.description, className = "mb-0")
+
+        val hint = root.div(className = "alert alert-light border mb-0")
+        hint.setAttribute("role", "note")
+        hint.content = committeeQuorumHint(null, committee.quorumPercent, isDerivedCommittee(committee))
+
+        fun refreshHint() {
+            AppScope.launch {
+                val count = loadCommitteeEligibleCount(committee)
+                hint.content = committeeQuorumHint(count, committee.quorumPercent, isDerivedCommittee(committee))
+            }
+        }
+        // A rule committee's facts already ask the count (rate limited): the hint takes it from there instead of asking twice.
+        if (committee.membershipMode != CommitteeMembershipMode.RULE) refreshHint()
+
+        if (committee.membershipMode == CommitteeMembershipMode.RULE) {
+            val tiers =
+                if (canManage) guarded { rpcService<IContributionService>().listMembershipTiers() }.orEmpty() else emptyList()
+            renderRuleCommitteeFacts(
+                row = root.vPanel(spacing = 4),
+                committee = committee,
+                canManage = canManage,
+                committees = committees,
+                tiers = tiers,
+                onCount = { count -> hint.content = committeeQuorumHint(count, committee.quorumPercent, derived = true) },
+            )
+        } else {
+            renderCommitteeRoster(
+                root.vPanel(spacing = 6),
+                committee,
+                canManage,
+                onSeatsChanged = { refreshHint() },
+                addMemberCollapsed = true,
+            )
+        }
+        if (canManage) {
+            val editRequested = PendingCommitteeEdit.consume(id)
+            val editHost = root.vPanel(spacing = 6)
+            editHost.disclosure(tr("Gremium bearbeiten"), "lapis-edit-committee", initiallyOpen = editRequested) {
+                renderCommitteeEditForm(this, committee, reload)
+                renderCommitteeMembershipSection(this, committee, reload)
             }
         }
     }
@@ -308,6 +475,7 @@ internal fun renderCommitteeRoster(
     committee: CommitteeDto,
     canManage: Boolean,
     onSeatsChanged: () -> Unit = {},
+    addMemberCollapsed: Boolean = false,
 ) {
     rosterPanel.removeAll()
     if (committee.type == CommitteeType.GENERAL_ASSEMBLY) {
@@ -329,7 +497,12 @@ internal fun renderCommitteeRoster(
     val rosterFilter = rosterPanel.listFilterField()
     rosterFilter.setVisible(false)
     val rosterListPanel = rosterPanel.vPanel(spacing = 4)
-    val addMemberPanel = if (canManage) rosterPanel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") } else null
+    val addMemberPanel =
+        if (canManage) {
+            rosterPanel.vPanel(spacing = 6) { if (!addMemberCollapsed) addCssClasses("border-top pt-2 mt-2") }
+        } else {
+            null
+        }
 
     var loadedMemberships: List<CommitteeMembershipDto> = emptyList()
     lateinit var seatsChanged: () -> Unit
@@ -342,7 +515,7 @@ internal fun renderCommitteeRoster(
                     rpcService<IGovernanceService>().listCommitteeMembers(committee.id, activeOnly = !includeEndedCheck.value)
                 } ?: return@launch
             loadedMemberships = memberships
-            renderRosterRows(rosterListPanel, rosterFilter, loadedMemberships, canManage, seatsChanged)
+            renderRosterRows(rosterListPanel, rosterFilter, committee.name, loadedMemberships, canManage, seatsChanged)
         }
     }
     // A seat added or ended by hand changes what the notice band shows (vacant chair), so the band reloads too.
@@ -350,14 +523,20 @@ internal fun renderCommitteeRoster(
         refreshRoster()
         onSeatsChanged()
     }
-    rosterFilter.subscribe { renderRosterRows(rosterListPanel, rosterFilter, loadedMemberships, canManage, seatsChanged) }
+    rosterFilter.subscribe { renderRosterRows(rosterListPanel, rosterFilter, committee.name, loadedMemberships, canManage, seatsChanged) }
 
     val rosterRefreshButton = rosterFilterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     rosterRefreshButton.onClick { refreshRoster() }
     refreshRoster()
 
     if (canManage && addMemberPanel != null) {
-        renderAddCommitteeMemberForm(addMemberPanel, committee.id, seatsChanged)
+        if (addMemberCollapsed) {
+            addMemberPanel.disclosure(tr("Mitglied hinzufügen"), "lapis-add-committee-member") {
+                renderAddCommitteeMemberForm(this, committee.id, seatsChanged)
+            }
+        } else {
+            renderAddCommitteeMemberForm(addMemberPanel, committee.id, seatsChanged)
+        }
     }
 }
 
@@ -444,7 +623,7 @@ internal fun renderGeneralAssemblyRoster(
             if (offices.isEmpty() && canManage) {
                 officesList.p(tr("Noch keine Ämter besetzt.")) { addCssClasses("text-muted") }
             }
-            offices.forEach { renderRosterRow(officesList, it, canManage, seatsChanged) }
+            if (offices.isNotEmpty()) renderRosterTable(officesList, committee.name, offices, canManage, seatsChanged)
             // c) earlier single entries: collapsed, read-only apart from ending the term, never deleted
             legacyHost.removeAll()
             if (legacy.isNotEmpty()) {
@@ -462,7 +641,7 @@ internal fun renderGeneralAssemblyRoster(
                     ),
                 )
                 val legacyRows = SimplePanel()
-                legacy.forEach { renderRosterRow(legacyRows, it, canManage, seatsChanged) }
+                renderRosterTable(legacyRows, committee.name, legacy, canManage, seatsChanged)
                 details.add(legacyRows)
                 legacyHost.add(details)
             }
@@ -533,6 +712,7 @@ internal fun renderAddCommitteeOfficeForm(
 private fun renderRosterRows(
     listPanel: SimplePanel,
     filter: ListFilter,
+    committeeName: String,
     memberships: List<CommitteeMembershipDto>,
     canManage: Boolean,
     onChanged: () -> Unit,
@@ -549,36 +729,59 @@ private fun renderRosterRows(
         listPanel.p(gettext("Kein Eintrag passt zu \"%1\".", filter.term)) { addCssClasses("text-muted") }
         return
     }
-    visible.forEach { membership -> renderRosterRow(listPanel, membership, canManage, onChanged) }
+    renderRosterTable(listPanel, committeeName, visible, canManage, onChanged)
 }
 
-private fun renderRosterRow(
-    panel: SimplePanel,
-    membership: CommitteeMembershipDto,
+/**
+ * V1.9.192 -- the roster as a table (Name | Rolle | Zeitraum | Aktionen). The only action, "Mitgliedschaft beenden", is an icon-only
+ * button (R58 named exception for master-detail tables) whose name says person and committee; the date dialog is unchanged.
+ */
+private fun renderRosterTable(
+    host: Container,
+    committeeName: String,
+    memberships: List<CommitteeMembershipDto>,
     canManage: Boolean,
     onChanged: () -> Unit,
 ) {
-    val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-    row.untrustedDiv(membership.memberDisplayName, className = "flex-grow-1")
-    row.typeBadge(committeeRoleLabel(membership.role), committeeRoleColor(membership.role))
-    val period =
-        if (membership.until != null) {
-            gettext("%1 – %2", formatDate(membership.since), formatDate(membership.until!!))
-        } else {
-            gettext("seit %1", formatDate(membership.since))
-        }
-    row.div(period) { addCssClasses("text-muted small") }
-    committeeSeatAutoEndNote(membership)?.let { note -> row.div(note) { addCssClasses("text-muted small fst-italic") } }
-
-    if (canManage && membership.until == null) {
-        val endButton = row.button(tr("Mitgliedschaft beenden"), style = ButtonStyle.OUTLINEDANGER)
-        endButton.onClick {
-            endCommitteeMembershipDialog(membership.memberDisplayName) { until ->
-                AppScope.launch {
-                    val result = guarded { rpcService<IGovernanceService>().endCommitteeMembership(membership.id, until) }
-                    if (result != null) {
-                        notifyInfo(gettext("Mitgliedschaft von %1 wurde beendet.", membership.memberDisplayName))
-                        onChanged()
+    val showActions = canManage && memberships.any { it.until == null }
+    val headers =
+        listOf(TableHeader(tr("Name")), TableHeader(tr("Rolle")), TableHeader(tr("Zeitraum"))) +
+            if (showActions) listOf(TableHeader(tr("Aktionen"))) else emptyList()
+    val table = host.masterTable(tr("Mitglieder"), headers)
+    memberships.forEach { membership ->
+        table.row {
+            val nameCell = HeaderCell(scope = Scope.ROW) { addCssClass("fw-normal") }
+            add(nameCell)
+            nameCell.untrustedDiv(membership.memberDisplayName)
+            cell { typeBadge(committeeRoleLabel(membership.role), committeeRoleColor(membership.role)) }
+            val period =
+                if (membership.until != null) {
+                    gettext("%1 – %2", formatDate(membership.since), formatDate(membership.until!!))
+                } else {
+                    gettext("seit %1", formatDate(membership.since))
+                }
+            textCell(trusted(period)) {
+                committeeSeatAutoEndNote(membership)?.let { note -> div(note) { addCssClasses("text-muted small fst-italic") } }
+            }
+            if (showActions) {
+                cell {
+                    if (canManage && membership.until == null) {
+                        // Person and committee are untrusted: the whole composed label is sanitized (title + aria-label).
+                        val label =
+                            sanitizeUntrustedI18nText(
+                                gettext("Mitgliedschaft von %1 in %2 beenden", membership.memberDisplayName, committeeName),
+                            )
+                        tableActionGroup().tableActionButton(ActionIcon.REMOVE, label, ButtonStyle.OUTLINEDANGER).onClick {
+                            endCommitteeMembershipDialog(membership.memberDisplayName) { until ->
+                                AppScope.launch {
+                                    val result = guarded { rpcService<IGovernanceService>().endCommitteeMembership(membership.id, until) }
+                                    if (result != null) {
+                                        notifyInfo(gettext("Mitgliedschaft von %1 wurde beendet.", membership.memberDisplayName))
+                                        onChanged()
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

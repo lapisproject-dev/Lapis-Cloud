@@ -112,6 +112,27 @@ class MemberFinderScreenDomTest {
         }
 
     @Test
+    fun modeA_aMarkdownConsentText_isTheServersHtml_inTheSameReadingFrame(): Promise<Unit> =
+        formTest {
+            withPage(prepare = {
+                state = finderState(optedIn = false)
+                consent =
+                    finderConsent().copy(
+                        body = "Quelltext **roh**",
+                        format = network.lapis.cloud.shared.domain.AgreementTextFormat.MARKDOWN,
+                        renderedHtml = "<h2>Einwilligung</h2>\n<p>Ich stimme <strong>ausdrücklich</strong> zu.</p>\n",
+                    )
+            }) { element, _ ->
+                awaitUntil("the html body") { element.querySelector(".lapis-agreement-frame .lapis-agreement-body") != null }
+                val frame = assertNotNull(element.querySelector(".lapis-agreement-frame") as? HTMLElement)
+                assertEquals("region", frame.getAttribute("role"))
+                assertEquals("Einwilligungstext", frame.getAttribute("aria-label"))
+                assertEquals("ausdrücklich", frame.querySelector("strong")?.textContent)
+                assertFalse(frame.textContent.orEmpty().contains("Quelltext"))
+            }
+        }
+
+    @Test
     fun joining_sendsTheVersionAndHashOfTheShownText_andShowsTheParticipation(): Promise<Unit> =
         formTest {
             withPage(prepare = { state = finderState(optedIn = false) }) { element, requests ->

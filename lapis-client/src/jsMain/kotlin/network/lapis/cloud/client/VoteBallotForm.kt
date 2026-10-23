@@ -65,7 +65,7 @@ internal fun renderBallotForm(
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     formPanel.p(tr("Gebot abgeben")) { addCssClass("fw-bold") }
     val form = formPanel.lapisForm()
-    val optionOptions = untrustedOptions(model.options.sortedBy { it.position }.map { it.id to it.label })
+    val optionOptions = untrustedOptions(model.options.sortedBy { it.position }.map { it.id to voteOptionDisplayLabel(it.label) })
     val optionField =
         form.selectField(
             label = tr("Option"),

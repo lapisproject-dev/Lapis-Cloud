@@ -4,9 +4,11 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.agreementtexts.AgreementMarkdown
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.shared.domain.CalcResult
+import network.lapis.cloud.shared.domain.TravelContactHintFormat
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
 import network.lapis.cloud.shared.domain.TravelExpenseContactDto
 import network.lapis.cloud.shared.domain.TravelExpenseDefaults
@@ -101,6 +103,12 @@ internal object TravelExpenseSettingsStore {
                     email = row[OrganizationSettingsTable.travelContactEmail],
                     phone = row[OrganizationSettingsTable.travelContactPhone],
                     hint = row[OrganizationSettingsTable.travelContactHint],
+                    hintFormat =
+                        if (row[OrganizationSettingsTable.travelContactHintFormat] == TravelContactHintFormat.MARKDOWN.name) {
+                            TravelContactHintFormat.MARKDOWN
+                        } else {
+                            TravelContactHintFormat.PLAIN
+                        },
                 ),
             expenseAccountId = row[OrganizationSettingsTable.travelExpenseAccountId],
             bankAccountId = row[OrganizationSettingsTable.paymentBankAccountId],
@@ -235,7 +243,7 @@ internal object TravelExpenseLineRules {
         ): String? {
             val trimmed = value?.replace("\r\n", "\n")?.trim()?.ifEmpty { null } ?: return null
             if (trimmed.length > max) throw BadRequestException("$field must be at most $max characters")
-            val bad = trimmed.any { it.isISOControl() && !(allowNewline && it == '\n') }
+            val bad = trimmed.any { it.isISOControl() && !(allowNewline && (it == '\n' || it == '\t')) }
             if (bad) throw BadRequestException("$field must not contain control characters")
             return trimmed
         }
@@ -250,7 +258,15 @@ internal object TravelExpenseLineRules {
         val phone = clean(contact.phone, TravelExpenseAmountRules.MAX_CONTACT_PHONE_LENGTH, "contact phone")
         if (phone != null && !PHONE_REGEX.matches(phone)) throw BadRequestException("contact phone contains invalid characters")
         val hint = clean(contact.hint, TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH, "contact hint", allowNewline = true)
-        return TravelExpenseContactDto(name = name, email = email, phone = phone, hint = hint)
+        // V1.9.199: the format only means something with a text; hintHtml is OUTPUT only and is never taken from the client.
+        return TravelExpenseContactDto(
+            name = name,
+            email = email,
+            phone = phone,
+            hint = hint,
+            hintFormat = if (hint == null) TravelContactHintFormat.PLAIN else contact.hintFormat,
+            hintHtml = null,
+        )
     }
 
     /** True for the kinds [addLineKindAllowed] accepts through `addLine`. */
@@ -260,4 +276,17 @@ internal object TravelExpenseLineRules {
             kind == TravelExpenseLineKind.ACCOMMODATION ||
             kind == TravelExpenseLineKind.HOSPITALITY ||
             kind == TravelExpenseLineKind.OTHER
+}
+
+/**
+ * V1.9.199 -- renders the travel-expense contact hint (Markdown) through the same sanitizing pipeline as the agreement texts
+ * ([AgreementMarkdown]: raw HTML escaped, only http/https/mailto links keep an href, images become alt text), capped at
+ * [TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH]. Never logs the text.
+ */
+internal object TravelContactHintMarkdown {
+    fun render(body: String): String = AgreementMarkdown.render(body = body, maxChars = TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH)
+
+    /** `null` if the text is so deeply nested that the parser gives out (`StackOverflowError`). */
+    fun renderOrNull(body: String): String? =
+        AgreementMarkdown.renderOrNull(body = body, maxChars = TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH)
 }

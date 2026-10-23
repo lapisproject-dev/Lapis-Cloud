@@ -112,7 +112,7 @@ class ConsensusBoothDomTest {
                 assertTrue(text.contains("Option A: Widerstand 1 von 10") && text.contains("Option B: Widerstand 6 von 10"))
                 assertTrue(text.contains("Alles bleibt wie bisher (Passivlösung): Widerstand 9 von 10"))
                 assertEquals(0, calls.toRoute(routes.cast).size)
-                el.buttonNamed("Zurück").click()
+                el.buttonNamed("Bewertung ändern").click()
                 awaitUntil("back on the rating step", 1500) { el.hasButton("Prüfen") }
                 awaitUntil("choice kept", 1500) { !el.isButtonDisabled("Prüfen") }
                 val checked = el.allOf("input[type=radio]").count { (it as HTMLInputElement).checked }
@@ -343,7 +343,7 @@ class ConsensusBoothDomTest {
                 el.rateAll()
                 el.reviewAndSubmit()
                 awaitUntil("explained", 2000) { el.flatText().contains("Sie sind für diese Runde nicht stimmberechtigt.") }
-                assertTrue(el.hasButton("Zurück zum Konsensieren"))
+                assertTrue(el.hasButton("Bewertung verlassen"))
             }
         }
 
@@ -393,7 +393,7 @@ class ConsensusBoothDomTest {
                 el.rateAll()
                 el.reviewAndSubmit()
                 awaitUntil("explained", 2000) { el.flatText().contains("Sie sind für diese Runde nicht stimmberechtigt.") }
-                assertTrue(el.hasButton("Zurück zum Konsensieren"))
+                assertTrue(el.hasButton("Bewertung verlassen"))
                 assertNull(el.querySelector("#lapis-consensus-lock-reason"), "no lock note without a host")
             }
         }
@@ -412,7 +412,7 @@ class ConsensusBoothDomTest {
                         consensus = world.consensus,
                         roomHost =
                             ConsensusBoothRoomHost(
-                                exitLabel = "Zurück zur Übersicht",
+                                exitLabel = "Zur Übersicht",
                                 ballotLock = null,
                                 onBusyChanged = { busy += it },
                                 compact = true,
@@ -425,8 +425,8 @@ class ConsensusBoothDomTest {
                     el.rateAll()
                     el.reviewAndSubmit()
                     awaitUntil("explained", 2000) { el.flatText().contains("Sie sind für diese Runde nicht stimmberechtigt.") }
-                    assertTrue(el.hasButton("Zurück zur Übersicht"))
-                    assertFalse(el.hasButton("Zurück zum Konsensieren"))
+                    assertTrue(el.hasButton("Zur Übersicht"))
+                    assertFalse(el.hasButton("Bewertung verlassen"))
                     assertEquals(listOf(true, false), busy, "busy is reported around the request")
                 }
             }

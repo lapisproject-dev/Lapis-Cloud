@@ -69,14 +69,7 @@ import network.lapis.cloud.shared.rpc.IAuditLogService
 fun renderAuditLogScreen(container: SimplePanel) {
     val root =
         container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("Prüfprotokoll"))
-    root.div(
-        tr(
-            "GoBD-revisionssicheres Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und " +
-                "Spendenprüfungen -- unveränderlich und ausschließlich lesbar. Es gibt auf dieser Seite keine " +
-                "Funktion zum Bearbeiten oder Löschen von Einträgen.",
-        ),
-    ) { addCssClasses("text-muted small") }
+    root.pageHeader(tr("Prüfprotokoll"), intro = PageIntros.forRoute(Routes.AUDIT_LOG))
 
     // ---- D1: chain-integrity verification ---------------------------------------------------
     root.h2(tr("Ketten-Integrität prüfen")) { addCssClass("h5") }
@@ -596,6 +589,8 @@ fun decodeAuditSnapshot(
             AuditEntityType.PULPIT_RECORDING -> null
             // Welle V1.9.156 -- event id and the new value of the release of recording / streaming; raw-text display like the other backend-written snapshots.
             AuditEntityType.EVENT_CAPTURE -> null
+            // Welle V1.9.199 -- TravelExpenseDocumentSnapshot (title, MIME type, byte size), raw-text display like the other backend-written snapshots.
+            AuditEntityType.TRAVEL_EXPENSE_DOCUMENT -> null
         }
     }.getOrNull()
 

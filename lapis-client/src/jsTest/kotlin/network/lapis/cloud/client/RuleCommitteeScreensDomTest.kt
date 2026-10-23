@@ -164,7 +164,8 @@ class RuleCommitteeScreensDomTest {
             val r = routes()
             withFetchStub(respond = { request -> with(r) { answer(request, forBoard = true) } }) { calls ->
                 mountedForm("rule-card-board") { root, element ->
-                    renderCommitteesScreen(root)
+                    // V1.9.192: the facts of a rule committee live on its detail page
+                    renderCommitteeDetail(root, ruleId)
                     awaitUntil("the cards") { element().shows("Regelrunde") && element().shows("7 Mitglieder gehören dazu") }
                     val text = element().textContent.orEmpty()
                     assertTrue(text.contains("Regel"), "the badge word")
@@ -193,7 +194,7 @@ class RuleCommitteeScreensDomTest {
             val r = routes()
             withFetchStub(respond = { request -> with(r) { answer(request, forBoard = false) } }) {
                 mountedForm("rule-card-member") { root, element ->
-                    renderCommitteesScreen(root)
+                    renderCommitteeDetail(root, ruleId)
                     awaitUntil("the count") { element().shows("7 Mitglieder gehören dazu") }
                     assertFalse(element().shows("auf die zutrifft"), "no rule sentence for a plain member")
                     assertTrue(element().allOf("button").none { it.textContent.orEmpty().trim() == "Bearbeiten" }, "no edit button")
@@ -470,6 +471,7 @@ class RuleCommitteeScreensDomTest {
                         isBoardOrAdminGlobal = true,
                         audience = MeetingAudience.Derived(committeeId = ruleId, eligibleCount = 12, kind = DerivedAudienceKind.RULE),
                     )
+                    element().openInvitation()
                     awaitUntil("the form") { element().querySelector(".lapis-form") != null }
                     assertTrue(element().shows("An alle Mitglieder des Gremiums (12)"), element().textContent.orEmpty())
                     assertFalse(element().shows("An alle aktiven Mitglieder"), "the assembly's wording is not used")
@@ -491,6 +493,7 @@ class RuleCommitteeScreensDomTest {
                         isBoardOrAdminGlobal = true,
                         audience = MeetingAudience.Derived(committeeId = ruleId, eligibleCount = null, kind = DerivedAudienceKind.RULE),
                     )
+                    element().openInvitation()
                     awaitUntil("the form") { element().querySelector(".lapis-form") != null }
                     assertTrue(element().shows("An alle Mitglieder des Gremiums"))
                     assertFalse(element().shows("(null)"))

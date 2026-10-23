@@ -189,6 +189,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.PULPIT_RECORDING -> gettext("Kanzel-Aufzeichnung")
         // V1.9.156 -- the release of recording / live streaming of one event; the entry names no participant.
         AuditEntityType.EVENT_CAPTURE -> gettext("Aufzeichnung (Veranstaltung)")
+        // V1.9.199 -- upload, rename and removal of an organisation-wide travel-expense document; the entry never carries the file.
+        AuditEntityType.TRAVEL_EXPENSE_DOCUMENT -> gettext("Reisekosten-Unterlage")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -311,6 +313,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.PULPIT_RECORDING -> "warning"
         // Same reasoning as PULPIT_RECORDING: a release that allows recording persons is a consequential act; the label says it too.
         AuditEntityType.EVENT_CAPTURE -> "warning"
+        AuditEntityType.TRAVEL_EXPENSE_DOCUMENT -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

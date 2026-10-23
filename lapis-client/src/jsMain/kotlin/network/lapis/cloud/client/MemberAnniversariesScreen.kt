@@ -53,13 +53,7 @@ import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
  */
 fun renderMemberAnniversariesScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.pageHeader(tr("Geburtstage & Jubiläen"))
-    root.div(
-        tr(
-            "Bevorstehende Geburtstage und Mitgliedschafts-/Förderer-Jubiläen -- eine gemeinsame, " +
-                "chronologische Liste für den Vorstand.",
-        ),
-    ) { addCssClasses("text-muted small") }
+    root.pageHeader(tr("Geburtstage & Jubiläen"), intro = PageIntros.forRoute(Routes.MEMBER_ANNIVERSARIES))
 
     // Welle V1.4.26 (W2): Filterleiste in der Reihenfolge der Richtlinie 2.4 -- Suchfeld, Segment, Detailfilter.
     val filterRow = root.lapisToolbar()

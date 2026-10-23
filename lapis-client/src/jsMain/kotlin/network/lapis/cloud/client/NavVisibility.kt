@@ -46,7 +46,7 @@ object NavVisibility {
     fun showsEncounterSpaces(status: MemberStatus): Boolean = status in MemberStatusSets.CONFERENCE_ELIGIBLE
 
     /**
-     * "Mitfahrerzentrale" (V1.9.125 "Mitfahrten") -- the audience of the passenger allowlist of `ICarpoolService`: ACTIVE, GUEST and FRIEND
+     * "Mitfahrzentrale" (V1.9.125 "Mitfahrten") -- the audience of the passenger allowlist of `ICarpoolService`: ACTIVE, GUEST and FRIEND
      * ([MemberStatusSets.CARPOOL_PASSENGER]). For ACTIVE the entry lives in the "Mitgliedschaft" group as before; GUEST and FRIEND have no such
      * group, so for them it is a flat entry ([showsCarpoolFlatLink]). The server decides what each status may do on the page.
      */

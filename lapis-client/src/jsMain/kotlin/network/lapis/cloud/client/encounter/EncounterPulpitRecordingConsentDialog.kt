@@ -4,7 +4,9 @@ import io.kvision.html.ButtonStyle
 import io.kvision.modal.Modal
 import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.newActionButton
+import network.lapis.cloud.client.renderAgreementBody
 import network.lapis.cloud.client.untrustedDiv
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.PulpitRecordingTextsDto
 import org.w3c.dom.HTMLElement
 
@@ -27,7 +29,12 @@ internal fun showPulpitRecordingConsent(
     onDecline: () -> Unit,
 ) {
     val modal = Modal(caption = terms.recordingConsentTitle())
-    modal.untrustedDiv(texts.pulpitText)
+    // V1.9.196: a MARKDOWN text arrives as server-rendered HTML (shown through the one rich site of the agreement renderer); plain text stays text.
+    if (texts.pulpitFormat == AgreementTextFormat.MARKDOWN && texts.pulpitHtml != null) {
+        modal.renderAgreementBody(text = texts.pulpitText, format = texts.pulpitFormat, renderedHtml = texts.pulpitHtml)
+    } else {
+        modal.untrustedDiv(texts.pulpitText)
+    }
     var decided = false
     val decline = newActionButton(ActionIcon.CANCEL, terms.recordingConsentDecline(), ButtonStyle.SECONDARY)
     decline.onClick {

@@ -1,9 +1,11 @@
 package network.lapis.cloud.client
 
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import org.w3c.dom.HTMLElement
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -112,6 +114,78 @@ class AgreementTextRenderingTest {
             val text = element().textContent.orEmpty()
             assertFalse(text.contains("###KvI18n"), "the marker is gone: '$text'")
             assertTrue(text.contains("Version"))
+        }
+    }
+
+    // ---- V1.9.196: renderAgreementBody / agreementFrame with a MARKDOWN text ----------------------------------------------------------
+
+    private val serverHtml = "<h2>Vertrag</h2>\n<p>Ein <strong>fetter</strong> Absatz.</p>\n<ul>\n<li>eins</li>\n</ul>\n"
+
+    @Test
+    fun body_aPlainText_staysElementText_withoutTheHtmlBody_exactlyAsBefore() {
+        host("agreement-body-plain") { root, element ->
+            root.renderAgreementBody(text = placeholder, format = AgreementTextFormat.PLAIN, renderedHtml = null)
+            val el = element()
+            assertEquals(3, el.querySelectorAll("p").length)
+            assertEquals(3, el.querySelectorAll("ul > li").length)
+            assertNull(el.querySelector(".$AGREEMENT_BODY_CLASS"))
+        }
+        host("agreement-body-plain-ignores-html") { root, element ->
+            // a plain text never takes HTML, even if one were handed over
+            root.renderAgreementBody(
+                text = "Nur Text",
+                format = AgreementTextFormat.PLAIN,
+                renderedHtml = "<script>window.__agreementXss = 3</script>",
+            )
+            assertNull(element().querySelector("script"))
+            assertNull(element().querySelector(".$AGREEMENT_BODY_CLASS"))
+            assertTrue(js("typeof window.__agreementXss === 'undefined'").unsafeCast<Boolean>())
+        }
+    }
+
+    @Test
+    fun body_aMarkdownText_isTheServersHtml_inTheOneBodyElement() {
+        host("agreement-body-markdown") { root, element ->
+            root.renderAgreementBody(
+                text = "# Quelltext **nicht anzeigen**",
+                format = AgreementTextFormat.MARKDOWN,
+                renderedHtml = serverHtml,
+            )
+            val el = element()
+            val body = assertNotNull(el.querySelector(".$AGREEMENT_BODY_CLASS"))
+            assertEquals(1, el.querySelectorAll(".$AGREEMENT_BODY_CLASS").length)
+            assertEquals("Vertrag", body.querySelector("h2")?.textContent)
+            assertEquals("fetter", body.querySelector("p > strong")?.textContent)
+            assertEquals(1, body.querySelectorAll("ul > li").length)
+            assertFalse(el.textContent.orEmpty().contains("Quelltext"), "the source is not shown next to the html")
+        }
+    }
+
+    @Test
+    fun body_aMarkdownTextWithoutUsableHtml_fallsBackToTheSourceAsText() {
+        host("agreement-body-markdown-no-html") { root, element ->
+            root.renderAgreementBody(text = "Quelltext **roh**", format = AgreementTextFormat.MARKDOWN, renderedHtml = null)
+            assertNull(element().querySelector(".$AGREEMENT_BODY_CLASS"))
+            assertTrue(element().textContent.orEmpty().contains("Quelltext **roh**"), "readable, not wrong")
+        }
+        host("agreement-body-markdown-bad-html") { root, element ->
+            // html that does not start with a tag (e.g. a forged i18n marker) is never used
+            root.renderAgreementBody(text = "Quelltext", format = AgreementTextFormat.MARKDOWN, renderedHtml = "###KvI18nS###Version")
+            assertNull(element().querySelector(".$AGREEMENT_BODY_CLASS"))
+            assertFalse(element().textContent.orEmpty().contains("###KvI18n"))
+            assertTrue(element().textContent.orEmpty().contains("Quelltext"))
+        }
+    }
+
+    @Test
+    fun frame_keepsItsRegionAttributes_forMarkdown() {
+        host("agreement-frame-markdown") { root, element ->
+            root.agreementFrame(text = "x", ariaLabel = "Vertrag", format = AgreementTextFormat.MARKDOWN, renderedHtml = serverHtml)
+            val frame = assertNotNull(element().querySelector(".$AGREEMENT_FRAME_CLASS"))
+            assertEquals("region", frame.getAttribute("role"))
+            assertEquals("0", frame.getAttribute("tabindex"))
+            assertEquals("Vertrag", frame.getAttribute("aria-label"))
+            assertNotNull(frame.querySelector(".$AGREEMENT_BODY_CLASS h2"))
         }
     }
 }

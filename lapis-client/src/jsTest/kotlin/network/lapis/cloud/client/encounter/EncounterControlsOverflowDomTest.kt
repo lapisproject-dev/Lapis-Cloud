@@ -99,12 +99,18 @@ class EncounterControlsOverflowDomTest {
                     assertTrue(tops.all { abs(it - tops.first()) <= 1.0 }, "width $width: one row $tops")
                     assertTrue(bar.scrollWidth <= bar.clientWidth + 1, "width $width: clipped, ${bar.scrollWidth} > ${bar.clientWidth}")
                     assertEquals("Verlassen", shown.last().barName(), "width $width: Verlassen is last: ${shown.map { it.barName() }}")
+                    // V1.9.184: the gear (start zone) stands in front of the devices while it is in the bar; the camera is the second to last
+                    // control to move into the sheet, the microphone the last
+                    val withoutGear = shown.filter { it.getAttribute("aria-controls") != "lapis-encounter-device-panel" }
                     assertEquals(
-                        listOf("Mikrofon", "Kamera"),
-                        shown.take(2).map { it.barName() },
-                        "width $width: the devices stand at the left edge: ${shown.map { it.barName() }}",
+                        "Mikrofon",
+                        withoutGear.first().barName(),
+                        "width $width: the microphone stands first after the gear: ${shown.map { it.barName() }}",
                     )
-                    for (fixed in listOf("Hand heben", "Mikrofon", "Kamera")) {
+                    if (shown.any { it.barName() == "Kamera" }) {
+                        assertEquals("Kamera", withoutGear[1].barName(), "width $width: the camera follows the microphone")
+                    }
+                    for (fixed in listOf("Hand heben", "Mikrofon")) {
                         assertTrue(shown.any { it.barName() == fixed }, "width $width: $fixed stays")
                     }
                     val moreShown = shown.any { it.barName() == "Mehr" }
@@ -112,29 +118,34 @@ class EncounterControlsOverflowDomTest {
                     assertEquals(somethingMoved, moreShown, "width $width: Mehr shows exactly while something sits in the sheet")
                     val chatMoved = element.barControl("Chat").classList.contains("lapis-encounter-control-overflowed")
                     val doorsMoved = element.barControl("Türen schließen").classList.contains("lapis-encounter-control-overflowed")
-                    if (chatMoved) assertTrue(doorsMoved, "width $width: the doors go before the chat")
+                    if (doorsMoved) assertTrue(chatMoved, "width $width: V1.9.184: the chat goes before the doors")
                 }
             }
         }
 
     @Test
-    fun at360px_theChatStays_andAt320px_itIsInTheSheet_whileLeaveIsNeverThere(): Promise<Unit> =
+    fun atPhoneWidths_theChatIsInTheSheet_andTheMicrophoneAndLeaveAreNeverThere(): Promise<Unit> =
         formTest {
             assertTrue(stylesLoaded)
-            // V1.9.96: the pulpit of a CHURCH room always has the gear (the bell sound switch lives there) plus the bell and the blessing, so
-            // the chat only stays at 360 px where there is no liturgy group and no gear without devices: the assembly profile.
+            // V1.9.184: the chat is one of the first things a narrow bar gives up (only the doors, the gear and the devices outlast it); at
+            // 360 px the pulpit keeps hand, microphone, camera and "Verlassen", at 320 px the camera follows into the sheet.
             withPulpit(profile = EncounterProfile.ASSEMBLY) { _, element ->
-                element.settleAt(360)
-                assertTrue(element.shownBar().any { it.barName() == "Chat" }, "360 px: ${element.shownBar().map { it.barName() }}")
-                assertTrue(element.shownBar().any { it.barName() == "Mehr" })
-                element.settleAt(320)
-                assertFalse(element.shownBar().any { it.barName() == "Chat" }, "320 px: ${element.shownBar().map { it.barName() }}")
-                element.barControl("Mehr").click()
-                awaitUntil("the sheet is open") { element.sheet() != null }
-                val names = element.sheet()!!.allOf("button").map { it.textContent.orEmpty().trim() }
-                assertTrue("Chat" in names, "the chat's twin: $names")
-                assertFalse("Verlassen" in names, "Verlassen never sits in the sheet: $names")
-                assertFalse("Mikrofon" in names || "Kamera" in names, "the devices never sit in the sheet: $names")
+                for (width in listOf(360, 320)) {
+                    element.settleAt(width)
+                    val shown = element.shownBar().map { it.barName() }
+                    assertFalse("Chat" in shown, "$width px: the chat moved: $shown")
+                    assertTrue("Mehr" in shown, "$width px: Mehr: $shown")
+                    assertTrue("Mikrofon" in shown, "$width px: the microphone stays: $shown")
+                    assertEquals("Verlassen", shown.last(), "$width px: Verlassen is last")
+                    element.barControl("Mehr").click()
+                    awaitUntil("$width px: the sheet is open") { element.sheet() != null }
+                    val names = element.sheet()!!.allOf("button").map { it.textContent.orEmpty().trim() }
+                    assertTrue("Chat" in names, "$width px: the chat's twin: $names")
+                    assertFalse("Verlassen" in names, "$width px: Verlassen never sits in the sheet: $names")
+                    assertFalse("Mikrofon" in names, "$width px: the microphone never sits in the sheet: $names")
+                    element.barControl("Mehr").click()
+                    delay(100)
+                }
             }
         }
 
@@ -153,7 +164,19 @@ class EncounterControlsOverflowDomTest {
                 val names = twins.map { it.textContent.orEmpty().trim() }
                 assertEquals(
                     // V1.9.95/V1.9.96: the pulpit of a church room also has the bell and the blessing (liturgy group, right after the reactions)
-                    listOf("Amen", "Glocke läuten", "Segen", "Chat", "Szene ausblenden", "Vollbild", "Übertragung", "Türen schließen"),
+                    // V1.9.184: at 320 px the gear and the camera sit in the sheet too (twins built before the twin of the doors)
+                    listOf(
+                        "Amen",
+                        "Glocke läuten",
+                        "Segen",
+                        "Chat",
+                        "Szene ausblenden",
+                        "Vollbild",
+                        "Übertragung",
+                        "Einstellungen",
+                        "Kamera",
+                        "Türen schließen",
+                    ),
                     names,
                     "bar order, doors last",
                 )
@@ -243,7 +266,7 @@ class EncounterControlsOverflowDomTest {
             assertTrue(stylesLoaded)
             val closeRoute = routeOf { rpcService<IEncounterSpaceService>().closeSpace("space-1") }
             withPulpit { rig, element ->
-                // the widest bar where the doors already sit in the sheet but the chat is still in the bar
+                // the widest bar where the doors already sit in the sheet (V1.9.184: the chat went before them)
                 var found = false
                 for (width in 900 downTo 320 step 10) {
                     element.settleAt(width)
@@ -254,7 +277,7 @@ class EncounterControlsOverflowDomTest {
                     }
                 }
                 assertTrue(found, "some width moves the doors into the sheet")
-                assertTrue(element.shownBar().any { it.barName() == "Chat" }, "while the chat is still in the bar")
+                assertFalse(element.shownBar().any { it.barName() == "Chat" }, "the chat sits in the sheet already")
                 element.barControl("Mehr").click()
                 awaitUntil("open") { element.sheet() != null }
                 element.sheet()!!.buttonNamed("Türen schließen").click()
@@ -304,16 +327,17 @@ class EncounterControlsOverflowDomTest {
         }
 
     @Test
-    fun atPhoneWidths_theChurchPulpitKeepsTheGearAndLeave_theBellComesBeforeTheBlessingInTheSheet(): Promise<Unit> =
+    fun atPhoneWidths_theChurchPulpitKeepsTheMicrophoneAndLeave_theGearIsInTheSheet_theBellComesBeforeTheBlessing(): Promise<Unit> =
         formTest {
             assertTrue(stylesLoaded)
             withPulpit { _, element ->
                 for (width in listOf(360, 320)) {
                     element.settleAt(width)
                     val shown = element.shownBar().map { it.barName() }
-                    assertTrue("Glockenton einstellen" in shown || "Geräte wählen" in shown, "$width px: the gear stays in the bar: $shown")
+                    // V1.9.184: the gear is gone from the bar (it is third to last into the sheet), the microphone stays
+                    assertFalse("Glockenton einstellen" in shown || "Einstellungen" in shown, "$width px: the gear moved: $shown")
                     assertEquals("Verlassen", shown.last(), "$width px: Verlassen stays last")
-                    assertEquals(listOf("Mikrofon", "Kamera"), shown.take(2), "$width px: the devices first")
+                    assertEquals("Mikrofon", shown.first(), "$width px: the microphone first")
                     element.barControl("Mehr").click()
                     awaitUntil("$width px: the sheet is open") { element.sheet() != null }
                     val names = element.sheet()!!.allOf("button").map { it.textContent.orEmpty().trim() }
@@ -322,6 +346,10 @@ class EncounterControlsOverflowDomTest {
                         "$width px: bell before blessing in the sheet: $names",
                     )
                     assertTrue(names.indexOf("Segen") < names.indexOf("Chat"), "$width px: blessing before chat: $names")
+                    assertTrue(
+                        names.any { it == "Glockenton einstellen" || it == "Einstellungen" },
+                        "$width px: the twin of the gear: $names",
+                    )
                     element.barControl("Mehr").click()
                     delay(100)
                 }

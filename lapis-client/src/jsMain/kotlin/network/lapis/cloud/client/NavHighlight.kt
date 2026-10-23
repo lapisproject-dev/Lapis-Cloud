@@ -42,7 +42,7 @@ object NavHighlight {
      *
      * [openGroup] (Review-Fund 2026-09-08, Finding 4) force-opens [toggle]'s enclosing group --
      * `Sidebar.kt`'s `sidebarGroup` passes a closure that shows the group's body, flips
-     * `aria-expanded`, and persists the new open-set, mirroring its own header-click handler
+     * `aria-expanded` (without persisting -- routing is not a user choice), otherwise mirroring the header-click handler
      * exactly. `null` for every top-level (ungrouped) entry, same as [toggle].
      */
     fun register(

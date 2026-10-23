@@ -5,6 +5,8 @@ import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.TravelExpenseAttachmentTable
+import network.lapis.cloud.server.db.generated.TravelExpenseDocumentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
@@ -31,6 +33,8 @@ class TravelExpenseSchemaDriftTest :
                     "travel_expense_report",
                     "travel_expense_line",
                     "travel_expense_receipt",
+                    "travel_expense_attachment",
+                    "travel_expense_document",
                     "member",
                     "journal_entry",
                     "bank_account",
@@ -117,6 +121,33 @@ class TravelExpenseSchemaDriftTest :
             entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
             real.foreignKeys["line_id"] shouldBe "travel_expense_line"
             real.foreignKeys["uploaded_by"] shouldBe "member"
+        }
+
+        test("travel_expense_attachment table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "travel_expense_attachment" }
+            val real = transaction { introspectTeTable("travel_expense_attachment") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            real.foreignKeys["report_id"] shouldBe "travel_expense_report"
+            real.foreignKeys["uploaded_by"] shouldBe "member"
+            real.uniqueSingleColumns shouldContainExactlyInAnyOrder listOf("storage_key")
+            model.entities
+                .single { it.name == "travel_expense_attachment" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder
+                TravelExpenseAttachmentTable.columns.map { it.name }
+        }
+
+        test("V1.9.199: travel_expense_document table shape matches the real migrated schema (uploaded_by is nullable)") {
+            val entity = model.entities.single { it.name == "travel_expense_document" }
+            val real = transaction { introspectTeTable("travel_expense_document") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") { real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+            real.foreignKeys["uploaded_by"] shouldBe "member"
+            real.columns.getValue("uploaded_by").nullable shouldBe true
+            real.uniqueSingleColumns shouldContainExactlyInAnyOrder listOf("storage_key")
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder TravelExpenseDocumentTable.columns.map { it.name }
         }
 
         test("uq_ter_posted_journal_entry and uq_terc_storage_key are PLAIN (non-partial) unique indexes") {

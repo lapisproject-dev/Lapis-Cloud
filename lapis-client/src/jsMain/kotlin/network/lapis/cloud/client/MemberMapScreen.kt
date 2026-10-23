@@ -64,7 +64,7 @@ fun renderMemberMapScreen(container: SimplePanel) {
         mapController?.destroy()
         mapController = null
     }
-    root.pageHeader(tr("Mitgliederkarte"))
+    root.pageHeader(tr("Mitgliederkarte"), intro = PageIntros.forRoute(Routes.MEMBER_MAP))
     root.div(
         tr(
             "Nur für Vorstand und Administration. Genauigkeit: PLZ-Mittelpunkt, keine Adressen. " +

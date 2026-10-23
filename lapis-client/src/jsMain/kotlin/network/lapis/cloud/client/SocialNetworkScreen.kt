@@ -88,13 +88,13 @@ import network.lapis.cloud.shared.rpc.NotFoundException
  */
 fun renderSocialNetworkScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
     lateinit var draftBannerHost: SimplePanel
-    root.pageHeader(tr("Soziales Netzwerk"), banners = { draftBannerHost = simplePanel() })
+    root.pageHeader(
+        tr("Soziales Netzwerk"),
+        banners = { draftBannerHost = simplePanel() },
+        intro = PageIntros.forRoute(Routes.SOCIAL_NETWORK),
+    )
     // Welle V1.8.2b -- ONE listMyPostDrafts() call (no polling), only OPEN drafts counted; the
     // banner itself is rendered only once that count is known to be > 0 (S4: this extra read stays
     // inside the same file's existing "outside a state region" ledger allowance, see
@@ -789,11 +789,7 @@ fun renderSocialThreadScreen(
     postId: String,
 ) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
     root.link(tr("← Zurück zur Timeline"), url = "#${Routes.SOCIAL_NETWORK}") { addCssClasses("small") }
     root.pageHeader(tr("Thread"))
     val truncatedNotice = root.div()

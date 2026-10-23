@@ -73,6 +73,19 @@ class SidebarGroupStorageTest {
     }
 
     @Test
+    fun sidebarGroupForRoute_committeeAndMeetingDetailRoutes_openTheSelfGovernanceGroupOfTheirList() {
+        // V1.9.192: the detail pages sit in the group of their list ("Gremien" / "Sitzungen" highlight and open it).
+        val list = sidebarGroupForRoute(Routes.COMMITTEES)
+        assertEquals(list, sidebarGroupForRoute("/committees/c-1"))
+        assertEquals(list, sidebarGroupForRoute(Routes.COMMITTEE_DETAIL))
+        assertEquals(sidebarGroupForRoute(Routes.MEETINGS), sidebarGroupForRoute("/meetings/m-1"))
+        assertEquals(sidebarGroupForRoute(Routes.MEETINGS), sidebarGroupForRoute(Routes.MEETING_DETAIL))
+        // V1.9.193
+        assertEquals(sidebarGroupForRoute(Routes.MOTIONS), sidebarGroupForRoute("/motions/a-1"))
+        assertEquals(sidebarGroupForRoute(Routes.MOTIONS), sidebarGroupForRoute(Routes.MOTION_DETAIL))
+    }
+
+    @Test
     fun sidebarGroupForRoute_financeRoute_resolvesToFinance() {
         assertEquals(SidebarGroupId.FINANCE, sidebarGroupForRoute("/ledger"))
         assertEquals(SidebarGroupId.FINANCE, sidebarGroupForRoute("/audit-log"))
@@ -137,5 +150,16 @@ class SidebarGroupStorageTest {
     fun sidebarGroupForRoute_preExistingRoutesWithQueryParams_alsoResolveNow() {
         assertEquals(SidebarGroupId.ADMINISTRATION, sidebarGroupForRoute("/honors?member=x"))
         assertEquals(SidebarGroupId.ADMINISTRATION, sidebarGroupForRoute("/families?family=x"))
+    }
+
+    @Test
+    fun storageKeys_v2IsDistinctFromTheLegacyKey() {
+        assertEquals("lapis-cloud-sidebar-groups.v2", SidebarGroupStorage.STORAGE_KEY)
+        assertEquals("lapis-cloud-sidebar-groups", SidebarGroupStorage.LEGACY_STORAGE_KEY)
+    }
+
+    @Test
+    fun parse_scriptLikeToken_isIgnored() {
+        assertEquals(emptySet(), SidebarGroupStorage.parse("<script>alert(1)</script>"))
     }
 }

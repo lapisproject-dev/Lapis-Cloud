@@ -37,6 +37,24 @@ msgstr "%1 przelewów z rachunku %2 (IBAN •••• %3), realizacja %4"
 msgid "Abrechnung %1 auswählen"
 msgstr "Wybierz rozliczenie %1"
 
+msgid "Abstimmung abbrechen"
+msgstr "Anuluj głosowanie"
+
+msgid "Abstimmung abgebrochen."
+msgstr "Głosowanie anulowane."
+
+msgid "Abstimmung eröffnen"
+msgstr "Otwórz głosowanie"
+
+msgid "Abstimmung eröffnet."
+msgstr "Głosowanie otwarte."
+
+msgid "Abstimmung geschlossen."
+msgstr "Głosowanie zamknięte."
+
+msgid "Achtung: Gewinnt eine andere Antwort als \"NO\", gilt der Antrag als angenommen."
+msgstr "Uwaga: jeśli wygra inna odpowiedź niż \"NO\", wniosek zostaje uznany za przyjęty."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:223
 msgid "Aktivieren …"
 msgstr "Aktywuj …"
@@ -63,6 +81,12 @@ msgstr "Ustaw jako domyślne"
 
 msgid "An diesem Tag werden keine SEPA-Überweisungen ausgeführt (Wochenende oder TARGET2-Feiertag)."
 msgstr "W tym dniu nie są realizowane przelewy SEPA (weekend lub święto TARGET2)."
+
+msgid "Antrag: %1"
+msgstr "Wniosek: %1"
+
+msgid "Antwortmöglichkeiten, durch Komma getrennt"
+msgstr "Opcje odpowiedzi, oddzielone przecinkami"
 
 msgid "Auf dem Server ist kein Verschlüsselungsschlüssel gesetzt."
 msgstr "Na serwerze nie ustawiono klucza szyfrowania."
@@ -137,6 +161,9 @@ msgstr "Data realizacji może przypadać najwyżej za 60 dni."
 msgid "Das Ausführungsdatum darf nicht in der Vergangenheit liegen."
 msgstr "Data realizacji nie może być w przeszłości."
 
+msgid "Das Gremium hat in der Sitzung abgestimmt; Sie halten hier die Ja-, Nein- und Enthaltungsstimmen und das Ergebnis fest."
+msgstr "Organ zagłosował na posiedzeniu; tutaj zapisują Państwo głosy za, przeciw i wstrzymujące się oraz wynik."
+
 msgid "Datei erzeugen und als exportiert markieren"
 msgstr "Wygeneruj plik i oznacz jako wyeksportowane"
 
@@ -145,6 +172,9 @@ msgstr "Plik pobrany. Wgraj go teraz w bankowości internetowej."
 
 msgid "Der Name der Organisation fehlt in den Einstellungen."
 msgstr "W ustawieniach brakuje nazwy organizacji."
+
+msgid "Details zu %1"
+msgstr "Szczegóły: %1"
 
 msgid "Die Abrechnung %1 wurde bereits am %2 exportiert (Datei %3). Ein erneuter Export erzeugt eine neue Datei und kann zu einer doppelten Zahlung führen, wenn die erste Datei bei der Bank eingereicht wurde."
 msgstr "Rozliczenie %1 zostało już wyeksportowane dnia %2 (plik %3). Ponowny eksport tworzy nowy plik i może prowadzić do podwójnej płatności, jeśli pierwszy plik został przekazany do banku."
@@ -166,8 +196,14 @@ msgstr ""
 msgid "Die Keycloak-Verknüpfung von %1 wird entfernt, alle aktiven Sitzungen dieses Mitglieds werden beendet und das Mitglied wird per E-Mail benachrichtigt. Falls die E-Mail-Adresse in Keycloak weiterhin übereinstimmt, wird die Verknüpfung bei der nächsten Anmeldung automatisch wiederhergestellt. Um den Zugang dauerhaft zu sperren, deaktivieren Sie das Konto in Keycloak oder setzen Sie den Mitgliedsstatus z. B. auf „Ausgetreten“."
 msgstr "Powiązanie z Keycloak dla %1 zostanie usunięte, wszystkie aktywne sesje tego członka zostaną zakończone, a członek zostanie powiadomiony e-mailem. Jeśli adres e-mail w Keycloak nadal będzie się zgadzał, powiązanie zostanie automatycznie przywrócone przy następnym logowaniu. Aby trwale zablokować dostęp, należy wyłączyć konto w Keycloak lub ustawić status członkostwa np. na „Wypisany”."
 
+msgid "Die Mitglieder stimmen online mit Ja oder Nein ab und gewichten ihre Stimme mit einem LTR-Einsatz; es gilt die Antwort mit dem höchsten Gewicht."
+msgstr "Członkowie głosują online „tak” lub „nie” i ważą swój głos stawką LTR; obowiązuje odpowiedź o największej wadze."
+
 msgid "Die SEPA-Datei konnte nicht erzeugt werden."
 msgstr "Nie udało się wygenerować pliku SEPA."
+
+msgid "Die Teilnehmenden bewerten Vorschläge nach ihrem Widerstand; der Vorschlag mit dem geringsten Widerstand gewinnt – als unverbindliche Sondierung vorab oder als verbindliche Entscheidung."
+msgstr "Uczestnicy oceniają propozycje według oporu; wygrywa propozycja z najmniejszym oporem – jako niewiążący sondaż wstępny albo wiążąca decyzja."
 
 msgid ""
 "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und "
@@ -175,6 +211,9 @@ msgid ""
 msgstr ""
 "Ta organizacja jest odpowiedzialna za przetwarzanie Twoich danych audio, "
 "wideo i czatu w tym posiedzeniu."
+
+msgid "Dieser Antrag wurde nicht gefunden."
+msgstr "Nie znaleziono tego wniosku."
 
 msgid "Eigene Abrechnung"
 msgstr "Własne rozliczenie"
@@ -185,6 +224,12 @@ msgstr "Dzień roboczy banku (TARGET2), najwyżej 60 dni naprzód."
 msgid "Eine Datei darf höchstens 500 Überweisungen enthalten."
 msgstr "Plik może zawierać najwyżej 500 przelewów."
 
+msgid "Eine förmliche Wahl mit eigenem Ablauf (Ja/Nein-Frage oder Kandidaten), die auf einer eigenen Seite durchgeführt und ausgewertet wird."
+msgstr "Formalne wybory z własnym przebiegiem (pytanie tak/nie lub kandydaci), przeprowadzane i podsumowywane na osobnej stronie."
+
+msgid "Ergebnis festhalten"
+msgstr "Zapisz wynik"
+
 msgid "Erneut exportieren"
 msgstr "Eksportuj ponownie"
 
@@ -193,6 +238,9 @@ msgstr "Eksportuj ponownie …"
 
 msgid "Erneuter Export"
 msgstr "Ponowny eksport"
+
+msgid "Erweitert: eigene Antwortmöglichkeiten"
+msgstr "Zaawansowane: własne opcje odpowiedzi"
 
 msgid "Erzeugt von %1"
 msgstr "Wygenerował(a): %1"
@@ -330,6 +378,9 @@ msgstr "Zaloguj się przez %1"
 msgid "Mitglieder, die die automatische Keycloak-Verknüpfung (Abgleich per E-Mail-Adresse) nicht zuordnen konnte -- z. B. weil die Keycloak-Identität eine andere E-Mail-Adresse nutzt. Hier kann ein Administrator die Verknüpfung manuell herstellen."
 msgstr "Członkowie, których automatyczne łączenie z Keycloak (dopasowanie po adresie e-mail) nie zdołało przypisać -- na przykład dlatego, że tożsamość Keycloak używa innego adresu e-mail. Tutaj administrator może utworzyć powiązanie ręcznie."
 
+msgid "Nach dem Speichern steht das Ergebnis fest und kann nicht mehr geändert werden."
+msgstr "Po zapisaniu wynik jest ostateczny i nie można go już zmienić."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ListFilter.kt:107
 msgid "Nach Name filtern"
 msgstr "Filtruj według nazwy"
@@ -337,6 +388,9 @@ msgstr "Filtruj według nazwy"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:273
 msgid "Neu anmelden …"
 msgstr "Zaloguj się ponownie …"
+
+msgid "Nicht verfügbar: %1 – %2"
+msgstr "Niedostępne: %1 – %2"
 
 msgid "Nichts auszuzahlen"
 msgstr "Nic do wypłaty"
@@ -360,6 +414,12 @@ msgstr "Potrzebne tylko, gdy ma nastąpić wypłata. IBAN jest przechowywany w p
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:450
 msgid "PIN"
 msgstr "PIN"
+
+msgid "Pro Antrag ist nur ein Konsensieren möglich; die Sondierung ist bereits ausgewertet."
+msgstr "Dla jednego wniosku możliwy jest tylko jeden konsensus; sondaż został już oceniony."
+
+msgid "Quorum-Beschluss des Gremiums"
+msgstr "Uchwała organu w drodze kworum"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:409
 msgid "Rechtlicher Hinweis (bitte vollständig lesen):"
@@ -804,10 +864,6 @@ msgstr "Historia interakcji"
 msgid "Interessent"
 msgstr "Zainteresowany"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:68
-msgid "Interessenten, Sympathisanten und sonstige Kontakte, die weder Mitglied noch (notwendigerweise) ein erfasster Spender sind -- eine eigenständige Adressverwaltung, getrennt von der Mitgliederverwaltung und dem Spenderstamm."
-msgstr "Zainteresowani, sympatycy i inne kontakty, którzy nie są ani członkami, ani (niekoniecznie) zarejestrowanymi darczyńcami -- niezależna książka adresowa, oddzielona od zarządzania członkami i rejestru darczyńców."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:137
 msgid "Kein Bankkonto in den Organisationseinstellungen hinterlegt -- Kontoprüfung übersprungen."
 msgstr "W ustawieniach organizacji nie skonfigurowano konta bankowego -- pominięto sprawdzenie konta."
@@ -1049,6 +1105,9 @@ msgstr "VR-Bank"
 msgid "Vorschläge anzeigen"
 msgstr "Pokaż podpowiedzi"
 
+msgid "Wahl"
+msgstr "Wybory"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:89
 msgid "Weitere Importe laden"
 msgstr "Wczytaj więcej importów"
@@ -1056,6 +1115,9 @@ msgstr "Wczytaj więcej importów"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:96
 msgid "Weitere Zeilen laden"
 msgstr "Wczytaj więcej wierszy"
+
+msgid "Wie soll entschieden werden?"
+msgstr "W jaki sposób podjąć decyzję?"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:248
 msgid "Wiedervorlage fällig: %1"
@@ -1113,6 +1175,9 @@ msgstr "Data zgody (ISO, np. 2026-09-14T10:00)"
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr "Czas nie ma poprawnego formatu ISO (np. 2026-09-14T10:00)."
 
+msgid "Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung -- siehe Abschnitt \"Abstimmung\" unten."
+msgstr "Dla tego wniosku istnieje już głosowanie merytokratyczne -- zob. sekcję „Głosowanie” poniżej."
+
 msgid "Zu viele Anfragen. Bitte warten Sie eine Minute."
 msgstr "Zbyt wiele żądań. Proszę poczekać minutę."
 
@@ -1130,6 +1195,9 @@ msgstr "Gotowe do wypłaty"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:361
 msgid "erfasst von %1"
 msgstr "zarejestrował(a): %1"
+
+msgid "Änderung zu: %1"
+msgstr "Zmienia: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:474
 msgid "— Nicht zugeordnet —"
@@ -1298,10 +1366,6 @@ msgstr "%1 · %2 · %3"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1310
 msgid "%1 · %2 · erfasst von %3"
 msgstr "%1 · %2 · zarejestrowane przez %3"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:294
-msgid "%1 · eingereicht von %2 am %3"
-msgstr "%1 · złożono przez %2 dnia %3"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:327
@@ -1526,10 +1590,6 @@ msgstr "%1: %2%3%4"
 msgid "%1. %2"
 msgstr "%1. %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:948
-msgid "%1. %2%3"
-msgstr "%1. %2%3"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1476
 msgid "%1. %2%3%4"
 msgstr "%1. %2%3%4"
@@ -1537,10 +1597,6 @@ msgstr "%1. %2%3%4"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:797
 msgid "← Zurück zur Timeline"
 msgstr "← Powrót do osi czasu"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:289
-msgid "↳ Änderungsantrag: %1"
-msgstr "↳ Wniosek o zmianę: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:892
 msgid "↳ Fortsetzung"
@@ -2267,10 +2323,6 @@ msgstr "Złóż wniosek"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:333
 msgid "Antrag genehmigt."
 msgstr "Wniosek zatwierdzony."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:136
-msgid "Antrag oben auswählen, um Details zu sehen."
-msgstr "Wybierz wniosek powyżej, aby zobaczyć szczegóły."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:257
 msgid "Antrag von %1 ablehnen"
@@ -3706,11 +3758,6 @@ msgstr "Charakterystyka: %1"
 msgid "Chat"
 msgstr "Czat"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:795
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:865
-msgid "Committee-Quorum entscheiden"
-msgstr "Zdecyduj o kworum komitetu"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:105
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:448
 msgid "Crowdfunding"
@@ -4792,10 +4839,6 @@ msgstr "Decyzja"
 msgid "Entscheidung für \"%1\" gespeichert."
 msgstr "Decyzja dla \"%1\" zapisana."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:878
-msgid "Entscheidung speichern"
-msgstr "Zapisz decyzję"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:431
 msgid "Entscheidungsnotiz (optional)"
 msgstr "Notatka decyzyjna (opcjonalnie)"
@@ -4987,14 +5030,6 @@ msgstr "Udzielono"
 msgid "Ertragskonto"
 msgstr "Konto przychodów"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:828
-msgid ""
-"Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe "
-"Abschnitt \"Vote\" unten."
-msgstr ""
-"Dla tego wniosku trwa już głosowanie merytokratyczne -- patrz sekcja "
-"\"Głosowanie\" poniżej."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingForms.kt:73
 msgid ""
 "Es werden %1 als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben "
@@ -5151,10 +5186,6 @@ msgid ""
 "Referenzkurse als einzige Quelle (Mindest-Quorum: %1). Preise werden "
 "höchstens alle %2s neu abgerufen (empfohlene Cache-TTL: %3s)."
 msgstr "Fiat jest powiązany z euro (1 jednostka kotwicy = 1 EUR) i korzysta z kursów referencyjnych EBC jako jedynego źródła (minimalne kworum: %1). Ceny są pobierane ponownie najwyżej co %2 s (zalecany TTL pamięci podręcznej: %3 s)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:129
-msgid "Filter: Referenztyp"
-msgstr "Filtr: typ odniesienia"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:148
 msgid "Filter: Status (persistiert)"
@@ -5585,10 +5616,6 @@ msgstr "Gremium"
 msgid "Gremium anlegen"
 msgstr "Utwórz gremium"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:86
-msgid "Gremium oben auswählen, um die Besetzung zu sehen."
-msgstr "Wybierz gremium powyżej, aby zobaczyć skład."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:421
 msgid "Gremium: %1 · %2 · Termin: %3"
 msgstr "Gremium: %1 · %2 · Termin: %3"
@@ -5872,17 +5899,6 @@ msgstr ""
 "Twój rekord członkowski pozostaje jako anonimowy symbol zastępczy (np. aby "
 "historia składek i księgowania pozostały spójne). Pola osobowe zostaną "
 "wyczyszczone lub zanonimizowane."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:77
-msgid ""
-"Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf "
-"Vergessenwerden\", Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, "
-"nie sofort ausgeführt. Über den Antrag entscheidet danach eine "
-"Administratorin oder ein Administrator gesondert."
-msgstr ""
-"Twoje prawo do wglądu (art. 15/20 RODO) i do usunięcia (\"prawo do bycia "
-"zapomnianym\", art. 17 RODO) -- usunięcie jest tu tylko WNIOSKOWANE, nigdy "
-"wykonywane od razu. O wniosku decyduje następnie oddzielnie administrator."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:959
 msgid "Ihre Antwort erbt die Sichtbarkeit des Ursprungsbeitrags: %1."
@@ -6979,11 +6995,6 @@ msgstr "Zgłoszenie przesłane."
 msgid "Meldungen"
 msgstr "Zgłoszenia"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:799
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:911
-msgid "Meritokratische Vote eröffnen"
-msgstr "Otwórz głosowanie merytokratyczne"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:96
 msgid ""
 "Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen "
@@ -7106,10 +7117,6 @@ msgstr "Członek został dodany."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:313
 msgid "Mitglieder"
 msgstr "Członkowie"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:162
-msgid "Mitglieder anzeigen"
-msgstr "Wyświetl członków"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:793
 msgid ""
@@ -7596,10 +7603,6 @@ msgstr "Nie utworzono jeszcze żadnych zewnętrznych darczyńców."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:162
 msgid "noch keine Gebote, Startpreis: %1"
 msgstr "brak dotychczasowych ofert, cena wywoławcza: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:105
-msgid "Noch keine Gremien vorhanden."
-msgstr "Brak dotychczasowych gremiów."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:101
 msgid "Noch keine Gremien. Mit \"Neues Gremium\" legen Sie eines an."
@@ -8183,18 +8186,6 @@ msgstr ""
 "Protokół wszystkich dotychczasowych prób eksportu/przywracania -- wyłącznie "
 "informacyjnie, na tej liście nie można wykonywać żadnych czynności."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt:60
-msgid ""
-"Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, "
-"keine Aktionen auf dieser Liste. Neue Versandvorgänge werden direkt bei der "
-"jeweiligen Beitragsrechnung, Spendenbescheinigung oder Sitzungseinladung "
-"ausgelöst."
-msgstr ""
-"Protokół wszystkich dotychczasowych wysyłek pocztowych -- wyłącznie "
-"informacyjnie, na tej liście nie można wykonywać żadnych czynności. Nowe "
-"wysyłki są uruchamiane bezpośrednio przy odpowiedniej fakturze składkowej, "
-"zaświadczeniu o darowiźnie lub zaproszeniu na posiedzenie."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1424
 msgid "Protokoll: %1"
 msgstr "Protokół: %1"
@@ -8250,10 +8241,6 @@ msgstr "Kworum osiągnięte"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1510
 msgid "Quorum nicht erreicht"
 msgstr "Kworum nieosiągnięte"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:156
-msgid "Quorum: %1%"
-msgstr "Kworum: %1%"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:207
 msgid "Radierer"
@@ -8801,10 +8788,6 @@ msgstr "Posiedzenie oznaczone jako odbyte."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:290
 msgid "Sitzung anlegen"
 msgstr "Utwórz posiedzenie"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:130
-msgid "Sitzung oben auswählen, um Details zu sehen."
-msgstr "Wybierz posiedzenie powyżej, aby zobaczyć szczegóły."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1885
 msgid "Sitzung zugeordnet."
@@ -9368,10 +9351,6 @@ msgstr "Dodano punkt porządku obrad „%1\"."
 msgid "Tagesordnungspunkt entfernt."
 msgstr "Usunięto punkt porządku obrad."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1004
-msgid "Tagesordnungspunkt hinzufügen"
-msgstr "Dodaj punkt porządku obrad"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:191
 msgid "Technisch-organisatorische Maßnahmen (TOM)"
 msgstr "Środki techniczno-organizacyjne (TOM)"
@@ -9787,26 +9766,6 @@ msgstr "reprezentowany(-a) przez %1"
 msgid "Verwalten"
 msgstr "Zarządzaj"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:70
-msgid ""
-"Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, "
-"generisches RTMP), zu denen Moderatorinnen und Moderatoren eine Besprechung "
-"live übertragen können. Der Stream-Schlüssel wird verschlüsselt gespeichert "
-"und nach dem Speichern nie wieder angezeigt."
-msgstr ""
-"Zarządzają Państwo zewnętrznymi celami RTMP (YouTube, Twitch, PeerTube, "
-"Owncast, ogólny RTMP), na które moderatorzy mogą transmitować spotkanie na "
-"żywo. Klucz transmisji jest zapisywany w formie zaszyfrowanej i po zapisaniu "
-"nigdy więcej nie jest wyświetlany."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:156
-msgid ""
-"Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset "
-"(konfigurierbar: Bitcoin, Gold oder Fiat/Euro) und bucht eingegangene "
-"Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, "
-"Konfigurationsänderungen nur für ADMIN."
-msgstr "Zarządza powiązaniem kotwicy Libertalera (LTR) z realnym aktywem (do wyboru: Bitcoin, złoto lub fiat/euro) i księguje otrzymane darowizny jako emisję LTR. Widoczne dla TREASURER/BOARD/ADMIN, zmiany konfiguracji tylko dla ADMIN."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:211
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:233
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:563
@@ -9859,14 +9818,6 @@ msgstr "Przeglądarka odrzuciła tryb pełnoekranowy."
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:142
 msgid "Vollständigen Datenexport herunterladen (JSON)"
 msgstr "Pobierz pełny eksport danych (JSON)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:50
-msgid ""
-"Vollständiger Export und Wiederherstellung aller Organisationsdaten "
-"(Datenbank + Dokumente) -- nur für Administratorinnen und Administratoren."
-msgstr ""
-"Pełny eksport i przywracanie wszystkich danych organizacji (baza danych + "
-"dokumenty) -- wyłącznie dla administratorów."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:106
 msgid "Vom Zahlungspflichtigen ohne Grundangabe abgelehnt (MS02)"
@@ -9942,39 +9893,6 @@ msgstr "Członkostwo w zarządzie"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:223
 msgid "Vorstandsmitgliedschaft beenden"
 msgstr "Zakończ członkostwo w zarządzie"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:954
-msgid "Vortragend: %1"
-msgstr "Prowadzący: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:994
-msgid "Vote"
-msgstr "Głosowanie"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1113
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1116
-msgid "Vote abbrechen"
-msgstr "Anuluj głosowanie"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1123
-msgid "Vote abgebrochen."
-msgstr "Głosowanie anulowane."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:937
-msgid "Vote eröffnen"
-msgstr "Otwórz głosowanie"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:945
-msgid "Vote eröffnet."
-msgstr "Głosowanie otwarte."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1108
-msgid "Vote geschlossen."
-msgstr "Głosowanie zamknięte."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1103
-msgid "Vote schließen"
-msgstr "Zamknij głosowanie"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:922
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:365
@@ -10597,9 +10515,6 @@ msgstr "Zbuforowane (Cached)"
 
 #~ msgid "Rolle: %1 · Sitzung gültig bis %2"
 #~ msgstr "Rola: %1 · Sesja ważna do %2"
-
-msgid "Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und Rate-Limits. Optional kann je Schlüssel ein Webhook konfiguriert werden, der bei bestimmten Ereignissen automatisch einen HTTP-POST an eine von Ihnen angegebene Adresse sendet."
-msgstr "Te klucze uwierzytelniają zewnętrzny dostęp do tylko-do-odczytu API REST (/api/v1) -- zobacz dokumentację API, aby poznać punkty końcowe i limity zapytań. Opcjonalnie dla każdego klucza można skonfigurować webhook, który przy określonych zdarzeniach automatycznie wysyła żądanie HTTP POST na podany przez Państwa adres."
 
 msgid "Webhook für „%1“ deaktiviert: %2."
 msgstr "Webhook dla „%1” dezaktywowany: %2."
@@ -11407,11 +11322,6 @@ msgid "Wiedervorlage am %1"
 msgstr "Data przeglądu %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-# Welle V1.4.11 "Reisekostenabrechnung fuer Vorstand und Funktionstraeger" -- angehaengt, nicht alphabetisch einsortiert.
-msgid "%1 hinzufügen"
-msgstr "Dodaj %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "%1 Tage × %2"
 msgstr "%1 dni × %2"
 
@@ -11420,8 +11330,8 @@ msgid "Als Entwurf kopieren"
 msgstr "Kopiuj jako szkic"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Als neuer Entwurf kopiert. Belege müssen erneut hochgeladen werden."
-msgstr "Skopiowano jako nowy szkic. Rachunki należy przesłać ponownie."
+msgid "Als neuer Entwurf kopiert. Belege und Anlagen müssen erneut hochgeladen werden."
+msgstr "Skopiowano jako nowy szkic. Rachunki i załączniki należy przesłać ponownie."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Antrag genehmigt und gebucht."
@@ -11592,14 +11502,6 @@ msgid "Tagespauschale"
 msgstr "Dieta dzienna"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Zeile entfernen"
-msgstr "Usuń pozycję"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Zeile hinzufügen"
-msgstr "Dodaj pozycję"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Zeile hinzugefügt."
 msgstr "Dodano pozycję."
 
@@ -11638,14 +11540,6 @@ msgstr "Brak jeszcze pozycji zamówienia dla tego wydarzenia."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Menge"
 msgstr "Ilość"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
-msgid "Menge: %1"
-msgstr "Ilość: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
-msgid "Allergene/Hinweise: %1"
-msgstr "Alergeny/uwagi: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Allergene/Hinweise (optional)"
@@ -11746,10 +11640,6 @@ msgstr "Czy naprawdę odwołać „%1”? Istniejące zgłoszenia zostają zacho
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
 msgid "Schicht stornieren"
 msgstr "Odwołaj zmianę"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
-msgid "Zusagen anzeigen"
-msgstr "Pokaż zgłoszenia"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
 msgid "Noch keine Zusagen für diese Schicht."
@@ -14936,10 +14826,6 @@ msgid "Im Mahnverfahren"
 msgstr "W procedurze windykacyjnej"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInSelectionScreen.kt:1
-msgid "Veranstaltung auswählen, um Tickets am Einlass zu prüfen."
-msgstr "Proszę wybrać wydarzenie, aby sprawdzać bilety przy wejściu."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInSelectionScreen.kt:1
 msgid "Keine bevorstehenden Veranstaltungen."
 msgstr "Brak nadchodzących wydarzeń."
 
@@ -15018,10 +14904,6 @@ msgstr "Nie utworzono jeszcze żadnych sal."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
 msgid "Neuen Raum anlegen"
 msgstr "Utwórz nową salę"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
-msgid "Kapazität: %1"
-msgstr "Pojemność: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
 msgid "Raum deaktivieren"
@@ -15230,10 +15112,6 @@ msgstr "Odroczono"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
 msgid "Gremienbeschluss"
 msgstr "Uchwała gremium"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
-msgid "Meritokratische Vote"
-msgstr "Głosowanie merytokratyczne"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
 msgid "Demokratische Wahl"
@@ -16497,10 +16375,6 @@ msgid "Artikel bearbeiten"
 msgstr "Edytuj artykuł"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
-msgid "Zurück zur Liste"
-msgstr "Powrót do listy"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
 msgid "Artikel ansehen"
 msgstr "Wyświetl artykuł"
 
@@ -16850,16 +16724,12 @@ msgstr "Liczba członków nie jest już widoczna publicznie."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:45
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:370
-msgid "Mitfahrerzentrale"
+msgid "Mitfahrzentrale"
 msgstr "Wspólne przejazdy"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:51
 msgid "Eintrag erstellen"
 msgstr "Utwórz wpis"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:53
-msgid "Meine Einträge"
-msgstr "Moje wpisy"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:62
 msgid "Angebote"
@@ -17444,9 +17314,6 @@ msgstr "Poziomy członkostwa"
 msgid "Mitgliedschaftsstufe"
 msgstr "Poziom członkostwa"
 
-msgid "Beitrag, Intervall und Zahlungsziel je Stufe. Eine Stufe wird nicht gelöscht, sondern geschlossen."
-msgstr "Składka, interwał i termin płatności dla każdego poziomu. Poziom nie jest usuwany, lecz zamykany."
-
 msgid "Mitgliedschaftsstufe anlegen"
 msgstr "Utwórz poziom członkostwa"
 
@@ -17998,9 +17865,6 @@ msgstr "Oddanie głosu chwilowo niemożliwe"
 msgid "Die Stimmabgabe ist gerade nicht möglich, etwa weil eine Übertragung noch pausiert wird. Bitte warten Sie kurz und versuchen Sie es erneut."
 msgstr "Oddanie głosu jest chwilowo niemożliwe, na przykład dlatego, że transmisja jest jeszcze wstrzymywana. Poczekaj chwilę i spróbuj ponownie."
 
-msgid "Zurück zur Wahl"
-msgstr "Wróć do wyborów"
-
 msgid "Erneut abstimmen"
 msgstr "Zagłosuj ponownie"
 
@@ -18360,9 +18224,6 @@ msgstr "Głosowanie, otwarte: %1"
 
 msgid "Zur Wahlkabine"
 msgstr "Do kabiny do głosowania"
-
-msgid "Zurück zur Übersicht"
-msgstr "Powrót do przeglądu"
 
 msgid "offen"
 msgstr "otwarte"
@@ -18829,9 +18690,6 @@ msgstr "Stan się zmienił. Sprawdź ponownie."
 msgid "Bitte kurz warten und erneut versuchen."
 msgstr "Poczekaj chwilę i spróbuj ponownie."
 
-msgid "Zurück zum Konsensieren"
-msgstr "Wróć do konsensusu"
-
 msgid "Ihre Bewertung wurde gezählt"
 msgstr "Twoja ocena została policzona"
 
@@ -19065,9 +18923,6 @@ msgstr "Ankieta została zakończona."
 
 msgid "Die Verbindung wurde unterbrochen. Ob Ihre Antwort gespeichert wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
 msgstr "Połączenie zostało przerwane. Nie udało się sprawdzić, czy Twoja odpowiedź została zapisana. Odśwież stronę."
-
-msgid "Zurück zur Umfrage"
-msgstr "Wróć do ankiety"
 
 msgid "Danke"
 msgstr "Dziękujemy"
@@ -21525,8 +21380,11 @@ msgstr "Slug już istnieje i nie zostanie zmieniony."
 msgid "Veranstaltungsimport"
 msgstr "Import wydarzeń"
 
-msgid "Geräte wählen"
-msgstr "Wybierz urządzenia"
+msgid "Im Raum"
+msgstr "W pokoju"
+
+msgid "Raum verlassen"
+msgstr "Opuść pokój"
 
 msgid "Mikrofon und Lautsprecher wählen"
 msgstr "Wybierz mikrofon i głośnik"
@@ -23073,9 +22931,6 @@ msgstr "Kolacja (% stawki 3)"
 msgid "Abendessen gestellt"
 msgstr "Kolacja zapewniona"
 
-msgid "Abfahrt (Uhrzeit)"
-msgstr "Wyjazd (godzina)"
-
 msgid "Abzug für gestellte Mahlzeiten"
 msgstr "Potrącenie za zapewnione posiłki"
 
@@ -23160,8 +23015,8 @@ msgstr "Termin dla tej podróży (%1) minął. Można mimo to złożyć wniosek 
 msgid "Die Rückkehr darf nicht vor der Abfahrt liegen."
 msgstr "Powrót nie może być przed wyjazdem."
 
-msgid "Die Standardwerte stammen aus der PdV-Vorlage (Reisekostenabrechnung 2024, Hinweise vom 23.07.2025) und sind vorläufig. Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen."
-msgstr "Wartości domyślne pochodzą z szablonu PdV (formularz rozliczenia kosztów podróży 2024, wskazówki z 23.07.2025) i mają charakter tymczasowy. Nie odpowiadają ustawowym ryczałtom (14 € / 28 €). Proszę je sprawdzić, zanim członkowie złożą rozliczenia."
+msgid "Die Beispielwerte stammen aus einer Vorlage (Reisekostenabrechnung 2024) und sind vorläufig. Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen."
+msgstr "Wartości przykładowe pochodzą z szablonu (formularz rozliczenia podróży służbowej 2024) i są tymczasowe. Nie odpowiadają ustawowym ryczałtom (14 € / 28 €). Prosimy sprawdzić je, zanim członkowie rozpoczną rozliczenia."
 
 msgid "Die Stunden müssen von Stufe zu Stufe größer werden."
 msgstr "Liczba godzin musi rosnąć z kolejnymi stawkami."
@@ -23214,9 +23069,6 @@ msgstr "Ta podróż nie ma żadnych dni."
 
 msgid "Ganze Kilometer, 1 bis 5000."
 msgstr "Pełne kilometry, od 1 do 5000."
-
-msgid "Hilfe: Reisekosten abrechnen"
-msgstr "Pomoc: rozliczanie kosztów podróży"
 
 msgid "Hinweistext (Mehr erfahren)"
 msgstr "Tekst informacyjny (Dowiedz się więcej)"
@@ -23299,8 +23151,8 @@ msgstr "Potwierdzenie darowizny (rezygnacja ze zwrotu)"
 msgid "Spendenquittung gewünscht"
 msgstr "Wymagane potwierdzenie darowizny"
 
-msgid "Standardwerte der PdV-Vorlage übernehmen"
-msgstr "Zastosuj wartości domyślne szablonu PdV"
+msgid "Beispielwerte der Vorlage übernehmen"
+msgstr "Zastosuj wartości przykładowe z szablonu"
 
 msgid "Standardwerte eingetragen. Zum Übernehmen bitte speichern."
 msgstr "Wartości domyślne wprowadzono. Zapisz, aby je zastosować."
@@ -23344,9 +23196,6 @@ msgstr "Dieta: od %1 godz. %2 · od %3 godz. %4 · od %5 godz. %6 · stawka za k
 msgid "Tagesbetrag: %1"
 msgstr "Kwota za dzień: %1"
 
-msgid "Tagesbetrag: %1 (Abzüge: %2)"
-msgstr "Kwota za dzień: %1 (potrącenia: %2)"
-
 msgid "Tagespauschale für Altanträge (EUR)"
 msgstr "Dieta ryczałtowa dla starszych wniosków (EUR)"
 
@@ -23385,9 +23234,6 @@ msgstr "Jak ma zostać rozliczone?"
 
 msgid "Zeile gespeichert."
 msgstr "Pozycja zapisana."
-
-msgid "Zeile speichern"
-msgstr "Zapisz pozycję"
 
 msgid "Ziel / Zweck (optional)"
 msgstr "Cel / przeznaczenie (opcjonalnie)"
@@ -23581,13 +23427,13 @@ msgstr "Zapisz miejsce spotkania"
 msgid "Treffpunkt wurde gespeichert."
 msgstr "Miejsce spotkania zostało zapisane."
 
-msgid "Mitfahrerzentrale (%1)"
+msgid "Mitfahrzentrale (%1)"
 msgstr "Wspólne przejazdy (%1)"
 
-msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgid "Laut Mitfahrzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
 msgstr "Według wspólnych przejazdów potwierdzonych pasażerów: %1 (kilka przejazdów w tym okresie)."
 
-msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgid "Laut Mitfahrzentrale %1 bestätigte Mitfahrer."
 msgstr "Według wspólnych przejazdów potwierdzonych pasażerów: %1."
 
 msgid "Mitfahrt"
@@ -25333,12 +25179,6 @@ msgstr "Nie znaleziono ani mikrofonu, ani kamery."
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr "Nie udało się otworzyć urządzenia. Może być używane przez inną aplikację."
 
-msgid "Rückkehr (optional)"
-msgstr "Powrót (opcjonalnie)"
-
-msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
-msgstr "Bez godziny wyjazdu i powrotu nie można obliczyć diety za ten dzień."
-
 msgid "Frühstück"
 msgstr "Śniadanie"
 
@@ -25353,3 +25193,794 @@ msgstr "%1 % · −%2"
 
 msgid "Die Reisetage werden nach dem Speichern aktualisiert."
 msgstr "Dni podróży zostaną zaktualizowane po zapisaniu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/GuestBadge.kt:74
+msgid "Hat ein Freundeskonto auf diesem Server, ist aber kein Mitglied."
+msgstr "Ma konto przyjaciela na tym serwerze, ale nie jest członkiem."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:519
+msgid "%1 von %2 ausgewählt"
+msgstr "Zaznaczono %1 z %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:565
+msgid "Einladung versenden"
+msgstr "Wyślij zaproszenie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1007
+msgid "Punkt hinzufügen"
+msgstr "Dodaj punkt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1027
+msgid "Vortragende"
+msgstr "Prowadzący"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1044
+msgid "Tagesordnungspunkt entfernen"
+msgstr "Usuń punkt porządku obrad"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1045
+msgid "Tagesordnungspunkt \"%1\" entfernen?"
+msgstr "Usunąć punkt porządku obrad \"%1\"?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1156
+msgid "Anwesende anzeigen"
+msgstr "Pokaż obecnych"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1643
+msgid "Was bedeutet Quorum?"
+msgstr "Co oznacza kworum?"
+
+msgid "Filter"
+msgstr "Filtr"
+
+msgid "Werkzeuge anzeigen"
+msgstr "Pokaż narzędzia"
+
+msgid "Für Kassenwarte, Vorstand und Administratoren"
+msgstr "Dla skarbników, zarządu i administratorów"
+
+msgid "Sichtbar für Kassenwarte, Vorstand und Administratoren."
+msgstr "Widoczne dla skarbników, zarządu i administratorów."
+
+msgid "Mitglied ansehen"
+msgstr "Zobacz członka"
+
+msgid "Gutschrift erfassen"
+msgstr "Zarejestruj uznanie"
+
+msgid "Korrektur erfassen"
+msgstr "Zarejestruj korektę"
+
+msgid "Zeigt das Guthaben und die Buchungen eines beliebigen Mitglieds an."
+msgstr "Pokazuje saldo i księgowania dowolnego członka."
+
+msgid "Schreibt einem Mitglied LTR gut. Die Gutschrift lässt sich nur durch eine gegenläufige Buchung rückgängig machen."
+msgstr "Uznaje członka kwotą LTR. Uznanie można cofnąć tylko przeciwnym księgowaniem."
+
+msgid "Überträgt LTR zwischen zwei Mitgliedern aufgrund einer Schiedsanordnung. Die Übertragung ist endgültig."
+msgstr "Przekazuje LTR między dwoma członkami na podstawie orzeczenia arbitrażowego. Przekazanie jest ostateczne."
+
+msgid "Fahrt %1 nach %2 bearbeiten"
+msgstr "Edytuj przejazd z %1 do %2"
+
+msgid "Fahrt %1 nach %2 duplizieren"
+msgstr "Duplikuj przejazd z %1 do %2"
+
+msgid "Fahrt %1 nach %2 löschen"
+msgstr "Usuń przejazd z %1 do %2"
+
+msgid "Nur meine"
+msgstr "Tylko moje"
+
+msgid "%1, %2"
+msgstr "%1, %2"
+
+msgid "Einführung"
+msgstr "Wprowadzenie"
+
+msgid "Mehr in der Hilfe"
+msgstr "Więcej w pomocy"
+
+msgid "Hilfe und Feedback"
+msgstr "Pomoc i opinie"
+
+msgid "Hilfe zu dieser Ansicht"
+msgstr "Pomoc do tego widoku"
+
+msgid "Hilfe-Center"
+msgstr "Centrum pomocy"
+
+msgid "Was ist neu"
+msgstr "Co nowego"
+
+msgid "Das Dashboard zeigt Ihren Status und Ihre Rolle und führt über Kacheln in die Bereiche, die für Sie freigeschaltet sind. Hier ändern Sie auch Ihr Passwort."
+msgstr "Panel pokazuje Twój status i rolę oraz prowadzi kafelkami do obszarów udostępnionych dla Ciebie. Tutaj zmieniasz też swoje hasło."
+
+msgid "Hier treten Sie laufenden Videobesprechungen bei oder starten eine neue. Welche Funktionen Ihnen offenstehen, etwa Aufzeichnung oder Breakout-Räume, hängt von Ihrer Rolle ab."
+msgstr "Tutaj dołączasz do trwających wideospotkań lub rozpoczynasz nowe. To, które funkcje są dla Ciebie dostępne, na przykład nagrywanie lub pokoje grupowe, zależy od Twojej roli."
+
+msgid "Begegnungsräume sind dauerhafte Räume, in denen sich Personen zum Gespräch oder zu einer Veranstaltung treffen. Die Liste zeigt, ob ein Raum geöffnet ist und wie viele Personen anwesend sind."
+msgstr "Przestrzenie wspólnoty to stałe pomieszczenia, w których ludzie spotykają się na rozmowę lub wydarzenie. Lista pokazuje, czy pomieszczenie jest otwarte i ile osób jest obecnych."
+
+msgid "Hier finden Sie angebotene Fahrten und können eine Mitfahrt anfragen. Mitglieder können außerdem selbst Fahrten anbieten oder eine Fahrt suchen."
+msgstr "Tutaj znajdziesz oferowane przejazdy i możesz poprosić o miejsce. Członkowie mogą też sami oferować przejazdy lub szukać przejazdu."
+
+msgid "Hier sehen Sie Ihre Beiträge mit Status und können eine Beitragsvergünstigung oder Stundung beantragen. Lastschrift und Online-Zahlung erscheinen nur, wenn Ihre Organisation sie eingeschaltet hat."
+msgstr "Tutaj widzisz swoje składki wraz ze statusem i możesz złożyć wniosek o obniżenie składki lub o odroczenie. Polecenie zapłaty i płatność online pojawiają się tylko wtedy, gdy Twoja organizacja je włączyła."
+
+msgid "Hier finden Sie die Dokumente Ihrer Organisation in Ordnern. Welche Ordner und Dokumente Sie sehen, richtet sich nach der Sichtbarkeit, die dafür festgelegt ist."
+msgstr "Tutaj znajdziesz dokumenty swojej organizacji w folderach. To, które foldery i dokumenty widzisz, zależy od ustawionej dla nich widoczności."
+
+msgid "Sie stellen Fragen zur Satzung; die Antwort entsteht per KI aus den dafür freigegebenen Dokumenten. Dazu stimmen Sie einmal zu, die Zustimmung können Sie widerrufen."
+msgstr "Zadajesz pytania dotyczące statutu; odpowiedź generuje AI na podstawie dokumentów udostępnionych w tym celu. Zgadzasz się na to jednorazowo i możesz tę zgodę cofnąć."
+
+msgid "Hier verwalten Sie Ihre Mailinglisten, schreiben Direktnachrichten und lesen Ihr Postfach. Vorstand und Administration legen zusätzlich Mailinglisten an und verschicken Nachrichten an sie."
+msgstr "Tutaj zarządzasz swoimi listami mailingowymi, piszesz wiadomości bezpośrednie i czytasz swoją skrzynkę pocztową. Zarząd i administracja dodatkowo tworzą listy mailingowe i wysyłają do nich wiadomości."
+
+msgid "Hier sehen Sie die aktiven Mitglieder Ihres Landesverbands und können nach Name oder E-Mail suchen. Der Zugang gilt nur, solange Ihr Amt im Landesverband aktiv ist."
+msgstr "Tutaj widzisz aktywnych członków swojego oddziału regionalnego i możesz szukać po imieniu i nazwisku lub e-mailu. Dostęp obowiązuje tylko wtedy, gdy Twoja funkcja w oddziale regionalnym jest aktywna."
+
+msgid "Der Mitglieder-Finder ist freiwillig und erst nach Ihrer Einwilligung nutzbar. Eine Verbindung zu einem anderen Mitglied entsteht nur, wenn dieses der Anfrage zustimmt."
+msgstr "Wyszukiwarka członków jest dobrowolna i można z niej korzystać dopiero po wyrażeniu zgody. Połączenie z innym członkiem powstaje tylko wtedy, gdy ten zaakceptuje zapytanie."
+
+msgid "Hier schreiben Sie Artikel und reichen sie zur Freigabe ein. Vorstand und Administration geben Artikel frei, lehnen sie ab oder nehmen veröffentlichte wieder von der Webseite."
+msgstr "Tutaj piszesz artykuły i przesyłasz je do zatwierdzenia. Zarząd i administracja zatwierdzają artykuły, odrzucają je lub ponownie zdejmują opublikowane ze strony internetowej."
+
+msgid "Hier starten Sie eine Online-Spende mit Betrag und Verwendungszweck; bezahlt wird anschließend beim Zahlungsdienstleister. Ob Online-Spenden möglich sind, legt Ihre Organisation fest."
+msgstr "Tutaj rozpoczynasz darowiznę online z kwotą i celem; płacisz następnie u dostawcy usług płatniczych. To, czy darowizny online są możliwe, decyduje Twoja organizacja."
+
+msgid "Hier können Sie Ihre gespeicherten Daten einsehen und exportieren sowie die Löschung beantragen. Eine Löschung wird nur beantragt; über den Antrag entscheidet die Administration."
+msgstr "Tutaj możesz przeglądać i eksportować swoje zapisane dane oraz złożyć wniosek o usunięcie. Usunięcie jest tylko wnioskowane; o wniosku decyduje administracja."
+
+msgid "Hier erfassen Sie Reisekostenanträge als Entwurf, laden Belege hoch und reichen den Antrag zur Freigabe ein. Ihre Anträge sehen Sie unter Meine Anträge."
+msgstr "Tutaj zapisujesz wnioski o zwrot kosztów podróży jako wersję roboczą, przesyłasz paragony i faktury oraz składasz wniosek do zatwierdzenia. Swoje wnioski zobaczysz w sekcji Moje wnioski."
+
+msgid "Hier beantragen Sie Zahlungen für Ehrenamts- und Übungsleiterpauschalen und reichen sie ein. Ihre bisherigen Zahlungen sehen Sie unter Meine Zahlungen."
+msgstr "Tutaj składasz wnioski o wypłaty ryczałtów wolontariackich i dla trenerów oraz je przesyłasz. Swoje dotychczasowe wypłaty zobaczysz w sekcji Moje płatności."
+
+msgid "Hier sehen Sie die offenen Helferschichten geplanter Veranstaltungen und melden sich an. Eine Zusage können Sie wieder zurückziehen."
+msgstr "Tutaj widzisz otwarte zmiany pomocników przy zaplanowanych wydarzeniach i zapisujesz się. Zgłoszenie możesz ponownie wycofać."
+
+msgid "Hier sehen Sie die geplanten Veranstaltungen Ihrer Organisation und können sich anmelden oder wieder abmelden. Bei Online-Veranstaltungen ist die Teilnahme ebenfalls hier möglich."
+msgstr "Tutaj widzisz zaplanowane wydarzenia swojej organizacji i możesz się zapisać lub ponownie wypisać. W wydarzeniach online możesz też uczestniczyć stąd."
+
+msgid "Hier sehen Sie die Gremien mit ihren Mitgliedern und Ämtern. Gremien anlegen und Mitglieder hinzufügen oder entfernen können Vorstand und Administration."
+msgstr "Tutaj widzisz gremia wraz z ich członkami i funkcjami. Zarząd i administracja mogą tworzyć gremia oraz dodawać lub usuwać członków."
+
+msgid "Hier sehen Sie die Sitzungen der Gremien mit Tagesordnung, Anwesenheit und Beschlüssen. Erfassen können das Vorstand, Administration und die Leitung des jeweiligen Gremiums."
+msgstr "Tutaj widzisz posiedzenia gremiów: porządek obrad, obecność i uchwały. Rejestrować je mogą zarząd, administracja oraz kierownictwo danego gremium."
+
+msgid "Hier reichen Sie Anträge an Gremien ein und verfolgen ihren Stand bis zum Beschluss. Prüfen, terminieren und entscheiden können Vorstand, Administration und die Leitung des Gremiums."
+msgstr "Tutaj składasz wnioski do gremiów i śledzisz ich status aż do uchwały. Sprawdzać, wyznaczać terminy i rozstrzygać mogą zarząd, administracja oraz kierownictwo gremium."
+
+msgid "Hier sehen Sie die Wahlen Ihrer Organisation und geben Ihre Stimme ab, wenn Sie wahlberechtigt sind. Eröffnet wird eine Wahl nicht hier, sondern aus einem terminierten Antrag."
+msgstr "Tutaj widzisz wybory w swojej organizacji i oddajesz głos, jeśli masz prawo głosu. Wybory nie są otwierane tutaj, lecz na podstawie zaplanowanego wniosku."
+
+msgid "Beim Konsensieren bewerten Sie jede Option mit einem Widerstand von 0 bis 10; die Option mit dem geringsten Widerstand gewinnt. Eröffnet wird es aus einem terminierten Antrag."
+msgstr "W konsensusie oceniasz każdą opcję oporem od 0 do 10; wygrywa opcja z najmniejszym oporem. Otwiera się go na podstawie zaplanowanego wniosku."
+
+msgid "Umfragen sind unverbindliche Stimmungsbilder unter den Mitgliedern. Ihre Antwort ist anonym, das Ergebnis sehen Sie erst nach dem Ende der Umfrage."
+msgstr "Ankiety to niewiążące obrazy nastrojów wśród członków. Twoja odpowiedź jest anonimowa, a wynik zobaczysz dopiero po zakończeniu ankiety."
+
+msgid "Hier sehen Sie Ihren LTR-Kontostand und Ihre Buchungen und können LTR an andere Mitglieder senden. Senden kann nur, wer aktives Mitglied ist."
+msgstr "Tutaj widzisz swoje saldo LTR i swoje księgowania oraz możesz wysyłać LTR innym członkom. Wysyłać mogą tylko aktywni członkowie."
+
+msgid "Hier reichen Sie Projekte mit einem LTR-Einsatz ein und bewerten freigegebene Projekte mit Like oder Dislike. Der Einsatz wird nicht zurückgebucht."
+msgstr "Tutaj zgłaszasz projekty z wkładem w LTR i oceniasz zatwierdzone projekty za pomocą Like lub Dislike. Wkład nie jest zwracany."
+
+msgid "Hier bieten Sie auf Angebote anderer Mitglieder oder stellen selbst eines ein; geboten wird in LTR. Ob die Auktion eingeschaltet ist, legt die Administration fest."
+msgstr "Tutaj licytujesz oferty innych członków albo sam wystawiasz własną; licytuje się w LTR. Administracja decyduje, czy aukcja jest włączona."
+
+msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie mit Like oder Dislike. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
+msgstr "Tutaj widzisz profile polityków jako ranking i oceniasz je za pomocą Like lub Dislike. Administracja decyduje, czy ta funkcja jest włączona."
+
+msgid "Die Timeline zeigt die Beiträge der Mitglieder. Sie können eigene Beiträge veröffentlichen und auf andere antworten."
+msgstr "Oś czasu pokazuje wpisy członków. Możesz publikować własne wpisy i odpowiadać na cudze."
+
+msgid "Hier prüfen Sie Beitrags-Entwürfe, die ein verbundener KI-Agent für Sie abgelegt hat. Sie bearbeiten, veröffentlichen oder verwerfen sie; Verworfenes lässt sich zeitweise wiederherstellen."
+msgstr "Tutaj sprawdzasz szkice wpisów, które połączony agent AI zostawił dla ciebie. Edytujesz je, publikujesz lub odrzucasz; odrzucone szkice można przez pewien czas przywrócić."
+
+msgid "Hier sehen Sie den Kontenplan und das Journal mit allen Buchungen. Neue Buchungen und Konten legen Schatzmeisterei und Administration an."
+msgstr "Tutaj widzisz plan kont i dziennik ze wszystkimi księgowaniami. Nowe księgowania i konta zakładają skarbnik i administracja."
+
+msgid "Hier sehen Sie offene Posten, also noch nicht bezahlte Forderungen, getrennt nach Kreditoren und Debitoren. Erfassen können sie Schatzmeisterei und Administration."
+msgstr "Tutaj widzisz otwarte pozycje, czyli jeszcze niezapłacone należności, podzielone na wierzycieli i dłużników. Wprowadzać je mogą skarbnik i administracja."
+
+msgid "Hier sehen Sie GuV, Bilanz und Jahresabschluss und exportieren Daten für DATEV oder andere Buchhaltungsprogramme."
+msgstr "Tutaj widzisz rachunek zysków i strat, bilans i sprawozdanie roczne oraz eksportujesz dane do DATEV lub innych programów księgowych."
+
+msgid "Hier sehen Sie die Vier-Sphären-Rechnung, die Mittelverwendung und die USt-Voranmeldung als Vorschau."
+msgstr "Tutaj widzisz rachunek czterech sfer, wykorzystanie środków i wstępną deklarację VAT w formie podglądu."
+
+msgid "Hier verwalten Sie Kostenstellen, also Bereiche, denen Ausgaben zugeordnet werden. Anlegen können sie Schatzmeisterei und Administration."
+msgstr "Tutaj zarządzasz miejscami powstawania kosztów, czyli obszarami, do których przypisywane są wydatki. Zakładać je mogą skarbnik i administracja."
+
+msgid "Hier verwalten Sie Spender, die keine Mitglieder sind. Anlegen können sie Schatzmeisterei und Administration."
+msgstr "Tutaj zarządzasz darczyńcami, którzy nie są członkami. Zakładać ich mogą skarbnik i administracja."
+
+msgid "Hier sehen Sie das Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und Spendenprüfungen. Einträge lassen sich hier nur lesen, nicht ändern oder löschen."
+msgstr "Tutaj widzisz rejestr wszystkich księgowań, uchwał, członkostw w zarządzie i kontroli darowizn. Wpisy można tu tylko odczytywać, nie można ich zmieniać ani usuwać."
+
+msgid "Hier sehen Sie, welche Briefe bereits verschickt wurden. Neue Versendungen starten Sie bei Beitragsrechnung, Spendenbescheinigung oder Sitzungseinladung."
+msgstr "Tutaj widzisz, które listy zostały już wysłane. Nowe przesyłki uruchamiasz z faktury za składkę, zaświadczenia o darowiźnie lub zaproszenia na posiedzenie."
+
+msgid "Hier sehen Sie das Price-Oracle, also die Quelle für Umrechnungskurse. Einstellungen ändern kann nur die Administration."
+msgstr "Tutaj widzisz wyrocznię cenową, czyli źródło kursów przeliczeniowych. Ustawienia może zmieniać tylko administracja."
+
+msgid "Hier verwalten Sie SEPA-Mandate, also die Erlaubnis, Beiträge vom Konto einzuziehen. Im Auftrag eines Mitglieds erfassen sie Schatzmeisterei und Administration."
+msgstr "Tutaj zarządzasz mandatami SEPA, czyli zgodą na pobieranie składek z konta. W imieniu członka mogą je zapisać skarbnik i administracja."
+
+msgid "Hier bereiten Sie SEPA-Lastschriften vor, also den Einzug vom Bankkonto, erzeugen die Datei für die Bank und erfassen Rückläufer."
+msgstr "Tutaj przygotowujesz polecenia zapłaty SEPA, czyli pobranie z konta bankowego, generujesz plik dla banku i rejestrujesz zwroty."
+
+msgid "Hier sehen Sie die Mahnvorgänge zu offenen Beiträgen. Mahnungen ausstellen und Vorgänge zurücksetzen können Schatzmeisterei und Administration."
+msgstr "Tutaj widzisz postępowania windykacyjne dla otwartych składek. Wystawiać monity i resetować postępowania mogą skarbnik i administracja."
+
+msgid "Hier sehen Sie eingegangene Zahlungen und ob sie schon gebucht sind."
+msgstr "Tutaj widzisz otrzymane płatności i to, czy zostały już zaksięgowane."
+
+msgid "Hier verwalten Sie die Bankkonten der Organisation."
+msgstr "Tutaj zarządzasz kontami bankowymi organizacji."
+
+msgid "Hier laden Sie Kontoauszüge hoch und ordnen deren Zeilen zu. Hochladen und zuordnen können Schatzmeisterei und Administration."
+msgstr "Tutaj przesyłasz wyciągi bankowe i przypisujesz ich wiersze. Przesyłać i przypisywać mogą skarbnik i administracja."
+
+msgid "Hier legen Sie Mitgliedschaftsstufen mit Beitrag, Intervall und Zahlungsziel fest. Eine Stufe wird nicht gelöscht, sondern geschlossen."
+msgstr "Tutaj ustalasz poziomy członkostwa ze składką, interwałem i terminem płatności. Poziom nie jest usuwany, lecz zamykany."
+
+msgid "Hier entscheiden Sie über Anträge auf Beitragsvergünstigung oder Stundung. Den eigenen Antrag entscheiden Sie nicht selbst."
+msgstr "Tutaj rozstrzygasz wnioski o ulgę w składce lub odroczenie. Własnego wniosku nie rozstrzygasz samodzielnie."
+
+msgid "Hier entscheiden Sie über eingereichte Reisekostenanträge und erzeugen eine SEPA-Überweisungsdatei für gebuchte Anträge. Die Sätze pflegt die Administration."
+msgstr "Tutaj rozstrzygasz zgłoszone wnioski o zwrot kosztów podróży i generujesz plik przelewów SEPA dla zaksięgowanych wniosków. Stawki prowadzi administracja."
+
+msgid "Hier geben Sie Anträge auf Ehrenamts- und Übungsleiterpauschalen frei oder lehnen sie ab."
+msgstr "Tutaj zatwierdzasz lub odrzucasz wnioski o ryczałty dla wolontariuszy i trenerów."
+
+msgid "Hier verwalten Sie die Mitglieder mit Status, Rolle und Stammdaten. Neue Mitglieder legen Vorstand und Administration an."
+msgstr "Tutaj zarządzasz członkami wraz ze statusem, rolą i danymi podstawowymi. Nowych członków zakładają zarząd i administracja."
+
+msgid "Hier verwalten Sie die Landesverbände. Der Vorstand pflegt Wappen und öffentliche Beschreibung, alles Übrige die Administration."
+msgstr "Tutaj zarządzasz oddziałami regionalnymi. Zarząd prowadzi herb i opis publiczny, administracja wszystko pozostałe."
+
+msgid "Hier führen Sie die Datenschutz-Dokumentation Ihrer Organisation und erfassen Datenpannen."
+msgstr "Tutaj prowadzisz dokumentację ochrony danych swojej organizacji i rejestrujesz naruszenia ochrony danych."
+
+msgid "Hier sehen Sie, wer im Vorstand ist. Wechsel erzeugen eine Erinnerung für das Transparenzregister, das amtliche Register der wirtschaftlich Berechtigten."
+msgstr "Tutaj widzisz, kto jest w zarządzie. Zmiany tworzą przypomnienie dla rejestru przejrzystości, czyli urzędowego rejestru beneficjentów rzeczywistych."
+
+msgid "Hier bearbeiten Sie Meldungen zu Beiträgen. Löschanträge entscheidet die Administration."
+msgstr "Tutaj obsługujesz zgłoszenia dotyczące wpisów. O wnioskach o usunięcie decyduje administracja."
+
+msgid "Hier verwalten Sie API-Schlüssel, also Zugang für andere Programme zur lesenden Schnittstelle. Pro Schlüssel kann ein Webhook eingerichtet werden."
+msgstr "Tutaj zarządzasz kluczami API, czyli dostępem innych programów do interfejsu tylko do odczytu. Dla każdego klucza można skonfigurować webhook."
+
+msgid "Hier verwalten Sie Kontakte und Interessenten, getrennt von Mitgliedern und Spendern."
+msgstr "Tutaj zarządzasz kontaktami i osobami zainteresowanymi, oddzielnie od członków i darczyńców."
+
+msgid "Hier planen Sie Veranstaltungen und verwalten Anmeldungen."
+msgstr "Tutaj planujesz wydarzenia i zarządzasz zapisami."
+
+msgid "Hier wählen Sie eine Veranstaltung, um Tickets am Einlass zu prüfen."
+msgstr "Tutaj wybierasz wydarzenie, aby sprawdzać bilety przy wejściu."
+
+msgid "Hier verwalten Sie Räume für Veranstaltungen."
+msgstr "Tutaj zarządzasz salami na wydarzenia."
+
+msgid "Hier verwalten Sie Catering-Bestellungen je Veranstaltung."
+msgstr "Tutaj zarządzasz zamówieniami cateringowymi dla każdego wydarzenia."
+
+msgid "Hier planen Sie Helferschichten je Veranstaltung."
+msgstr "Tutaj planujesz zmiany pomocników dla każdego wydarzenia."
+
+msgid "Hier sehen Sie, wo Mitglieder wohnen, nach Postleitzahl."
+msgstr "Tutaj widzisz, gdzie mieszkają członkowie, według kodu pocztowego."
+
+msgid "Hier sehen Sie die Entwicklung der Mitgliederzahl und exportieren sie als CSV."
+msgstr "Tutaj widzisz rozwój liczby członków i eksportujesz go do pliku CSV."
+
+msgid "Hier exportieren Sie alle Organisationsdaten und stellen sie wieder her. Das ist der Administration vorbehalten."
+msgstr "Tutaj eksportujesz wszystkie dane organizacji i je przywracasz. Jest to zastrzeżone dla administracji."
+
+msgid "Hier verwalten Sie die externen Stream-Ziele (RTMP), zu denen Moderierende eine Besprechung live übertragen können. Den Stream-Schlüssel sehen Sie nach dem Speichern nicht mehr."
+msgstr "Tutaj zarządzasz zewnętrznymi celami strumieniowania (RTMP), do których moderatorzy mogą nadawać spotkanie na żywo. Klucza strumienia nie widać już po zapisaniu."
+
+msgid "Hier schalten Sie SEPA-Lastschriften ein oder aus und pflegen die Gläubigerdaten der Organisation."
+msgstr "Tutaj włączasz lub wyłączasz polecenia zapłaty SEPA i prowadzisz dane wierzyciela organizacji."
+
+msgid "Hier stellen Sie Sätze und Regeln für Reisekosten ein."
+msgstr "Tutaj ustawiasz stawki i zasady dla kosztów podróży."
+
+msgid "Hier stellen Sie die Online-Zahlung ein und ordnen sie Konten zu."
+msgstr "Tutaj konfigurujesz płatność online i przypisujesz ją do kont."
+
+msgid "Hier stellen Sie das Mahnwesen und die Mahnstufen ein, also wie oft und wie deutlich erinnert wird."
+msgstr "Tutaj ustawiasz windykację i poziomy monitów, czyli to, jak często i jak wyraźnie przypominamy o płatności."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Version v%1 von %2 herunterladen"
+msgstr "Pobierz wersję v%1 pliku %2"
+
+msgid "Hinweis anzeigen"
+msgstr "Pokaż wskazówkę"
+
+msgid "Einführung dieser Seite anzeigen"
+msgstr "Pokaż wprowadzenie do tej strony"
+
+msgid "Einführung einklappen"
+msgstr "Zwiń wprowadzenie"
+
+msgid "Einführungen wieder aufklappen"
+msgstr "Rozwiń wprowadzenia ponownie"
+
+msgid "Mahnstufe \"%1\" deaktivieren"
+msgstr "Dezaktywuj stopień wezwania „%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Kosten hinzufügen"
+msgstr "Dodaj koszty"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Kostenart"
+msgstr "Rodzaj kosztów"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Angaben"
+msgstr "Dane"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "%1 entfernen"
+msgstr "Usuń: %1"
+
+msgid "Noch keine Gremien angelegt."
+msgstr "Nie utworzono jeszcze żadnych gremiów."
+
+msgid "Beschlussfähig ab"
+msgstr "Kworum od"
+
+msgid "%1 von %2 (%3 %)"
+msgstr "%1 z %2 (%3 %)"
+
+msgid "Eine Sitzung ist beschlussfähig, wenn mindestens %1 % der Mitglieder anwesend oder vertreten sind."
+msgstr "Posiedzenie ma kworum, gdy obecnych lub reprezentowanych jest co najmniej %1 % członków."
+
+msgid "Eine Sitzung ist beschlussfähig, wenn mindestens %1 von %2 Mitgliedern (%3 %) anwesend oder vertreten sind."
+msgstr "Posiedzenie ma kworum, gdy obecnych lub reprezentowanych jest co najmniej %1 z %2 członków (%3 %)."
+
+msgid "Genau die Hälfte (%1 von %2) genügt bereits; mehr als die Hälfte wären %3."
+msgstr "Dokładnie połowa (%1 z %2) już wystarcza; więcej niż połowa to %3."
+
+msgid "Die Zahlen zeigen den aktuellen Stand."
+msgstr "Liczby pokazują stan bieżący."
+
+msgid "Das Gremium konnte nicht geladen werden."
+msgstr "Nie udało się wczytać gremium."
+
+msgid "Dieses Gremium wurde nicht gefunden."
+msgstr "Nie znaleziono tego gremium."
+
+msgid "Gremium: %1"
+msgstr "Gremium: %1"
+
+msgid "Gremium bearbeiten"
+msgstr "Edytuj gremium"
+
+msgid "Mitgliedschaft von %1 in %2 beenden"
+msgstr "Zakończ członkostwo %1 w %2"
+
+msgid "Art/Ort"
+msgstr "Rodzaj/Miejsce"
+
+msgid "Vergangene Sitzungen"
+msgstr "Minione posiedzenia"
+
+msgid "Diese Sitzung wurde nicht gefunden."
+msgstr "Nie znaleziono tego posiedzenia."
+
+msgid "Tagesordnungspunkt \"%1\" entfernen"
+msgstr "Usuń punkt porządku obrad \"%1\""
+
+msgid "Beginn der Reise"
+msgstr "Początek podróży"
+
+msgid "Ende der Reise"
+msgstr "Koniec podróży"
+
+msgid "Rückkehr oder Ankunft; bei einer einfachen Fahrt die Ankunft am Ziel"
+msgstr "Powrót lub przyjazd; przy podróży w jedną stronę przyjazd do celu"
+
+msgid "(Abzüge: %1)"
+msgstr "(potrącenia: %1)"
+
+msgid "* Ohne diese Angabe wird für den Tag kein Tagegeld berechnet."
+msgstr "* Bez tej informacji dieta za ten dzień nie zostanie obliczona."
+
+msgid "Zur Liste"
+msgstr "Do listy"
+
+msgid "Auswahl ändern"
+msgstr "Zmień wybór"
+
+msgid "Bewertung ändern"
+msgstr "Zmień ocenę"
+
+msgid "Stimmabgabe verlassen"
+msgstr "Opuść głosowanie"
+
+msgid "Bewertung verlassen"
+msgstr "Opuść ocenę"
+
+msgid "Bearbeiten: %1"
+msgstr "Edytuj: %1"
+
+msgid "Deaktivieren: %1"
+msgstr "Dezaktywuj: %1"
+
+msgid "Aktivieren: %1"
+msgstr "Aktywuj: %1"
+
+msgid "Löschen: %1"
+msgstr "Usuń: %1"
+
+msgid "Stornieren: %1"
+msgstr "Anuluj: %1"
+
+msgid "Zusagen anzeigen: %1"
+msgstr "Pokaż zgłoszenia: %1"
+
+msgid "Zusagen: %1"
+msgstr "Zgłoszenia: %1"
+
+msgid "Kapazität"
+msgstr "Pojemność"
+
+msgid "Ausstattung"
+msgstr "Wyposażenie"
+
+msgid "Besetzung"
+msgstr "Obsada"
+
+msgid "Allergene/Hinweise"
+msgstr "Alergeny/uwagi"
+
+msgid "Platzhalter aktiv"
+msgstr "Aktywny tekst zastępczy"
+
+msgid "Eigene Fassung"
+msgstr "Własna wersja"
+
+msgid "Entwurf offen"
+msgstr "Otwarty szkic"
+
+msgid "Diesen Vertragstext gibt es nicht."
+msgstr "Taki tekst umowy nie istnieje."
+
+msgid "Vertragstext: %1"
+msgstr "Tekst umowy: %1"
+
+msgid "Aktuelle Fassung: %1"
+msgstr "Aktualna wersja: %1"
+
+msgid "In diesem kurzen Text sind Überschriften, Listen, Zitate und Codeblöcke nicht erlaubt."
+msgstr "W tym krótkim tekście nie wolno używać nagłówków, list, cytatów ani bloków kodu."
+
+msgid "In Überschrift und Kernpunkten (Absatz 1 bis 4) sind Überschriften, Listen, Zitate und Codeblöcke nicht erlaubt."
+msgstr "W nagłówku i punktach kluczowych (akapity 1 do 4) nie wolno używać nagłówków, list, cytatów ani bloków kodu."
+
+msgid "Die bisherige Fassung ist einfacher Text. Die neue Fassung wird als Markdown gespeichert: Aufzählungen beginnen mit \"- \" (ein Punktzeichen wird nicht umgewandelt), Absätze trennt eine Leerzeile."
+msgstr "Poprzednia wersja jest zwykłym tekstem. Nowa wersja zostanie zapisana jako Markdown: listy zaczynają się od \"- \" (znak punktora nie jest zamieniany), akapity oddziela pusty wiersz."
+
+msgid "Kurzhilfe: Formatierung"
+msgstr "Krótka pomoc: formatowanie"
+
+msgid "Zeilenumbrüche bleiben erhalten. Verlinkt werden nur Adressen, die mit https:// oder mailto: beginnen (klein geschrieben). Bilder und eingebettetes HTML werden nicht dargestellt."
+msgstr "Podziały wierszy są zachowywane. Odnośnikami stają się tylko adresy zaczynające się od https:// lub mailto: (małymi literami). Obrazy i osadzony HTML nie są wyświetlane."
+
+msgid "Vorschau – so sehen Mitglieder den Text"
+msgstr "Podgląd: tak członkowie widzą tekst"
+
+msgid "Für diesen Text ist keine Vorschau möglich. Bitte beheben Sie den Fehler im Feld links."
+msgstr "Podgląd tego tekstu nie jest możliwy. Proszę poprawić błąd w polu po lewej."
+
+msgid "Verlauf der Fassungen"
+msgstr "Historia wersji"
+
+msgid "Fassung"
+msgstr "Wersja"
+
+msgid "Prüfsumme"
+msgstr "Suma kontrolna"
+
+msgid "Markdown"
+msgstr "Markdown"
+
+msgid "Einfacher Text"
+msgstr "Zwykły tekst"
+
+msgid "Text anzeigen: %1"
+msgstr "Pokaż tekst: %1"
+
+msgid "Bitte den Entwurf erneut speichern, bevor er veröffentlicht werden kann."
+msgstr "Zapisz wersję roboczą ponownie, zanim będzie można ją opublikować."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Anlagen"
+msgstr "Załączniki"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Anlagen gehören zur ganzen Reise, zum Beispiel eine Einladung oder ein Reiseplan. Belege zu einzelnen Kosten laden Sie bei der jeweiligen Kostenzeile hoch."
+msgstr "Załączniki dotyczą całej podróży, na przykład zaproszenie lub plan podróży. Rachunki do poszczególnych kosztów przesyła się przy odpowiedniej pozycji kosztów."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Keine Anlagen."
+msgstr "Brak załączników."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "„%1“ herunterladen"
+msgstr "Pobierz „%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "„%1“ entfernen"
+msgstr "Usuń „%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Nach dem Einreichen können Anlagen nicht mehr geändert werden."
+msgstr "Po złożeniu załączników nie można już zmieniać."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "PDF, JPEG oder PNG, höchstens 10 MB pro Datei, bis zu %1 Anlagen."
+msgstr "PDF, JPEG lub PNG, maksymalnie 10 MB na plik, do %1 załączników."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Höchstens %1 Anlagen pro Abrechnung."
+msgstr "Maksymalnie %1 załączników na rozliczenie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Anlage hinzufügen"
+msgstr "Dodaj załącznik"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Es sind nur noch %1 Anlagen möglich; die übrigen Dateien wurden nicht übernommen."
+msgstr "Można dodać jeszcze tylko %1 załączników; pozostałe pliki nie zostały dodane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Hochgeladen"
+msgstr "Przesłano"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "„%1“: %2"
+msgstr "„%1”: %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Belege"
+msgstr "Rachunki"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "PDF, JPEG oder PNG, höchstens 10 MB pro Datei, bis zu %1 Belege."
+msgstr "PDF, JPEG lub PNG, maksymalnie 10 MB na plik, do %1 rachunków."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Dateien auswählen"
+msgstr "Wybierz pliki"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Foto aufnehmen"
+msgstr "Zrób zdjęcie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Ohne Beleg kann die Abrechnung nicht eingereicht werden. Sie können ihn auch später an der Zeile ergänzen."
+msgstr "Bez rachunku nie można złożyć rozliczenia. Można go też dodać później przy pozycji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Höchstens %1 Belege pro Zeile."
+msgstr "Maksymalnie %1 rachunków na pozycję."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "„%1“ aus der Auswahl entfernen"
+msgstr "Usuń „%1” z wyboru"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Nicht alle Belege wurden hochgeladen."
+msgstr "Nie wszystkie rachunki zostały przesłane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Nicht hochgeladen:"
+msgstr "Nie przesłano:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Erneut hochladen"
+msgstr "Prześlij ponownie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "„%1“ erneut hochladen"
+msgstr "Prześlij ponownie „%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "„%1“ verwerfen"
+msgstr "Odrzuć „%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ hat ein nicht unterstütztes Format. Erlaubt sind PDF, JPEG und PNG."
+msgstr "„%1” ma nieobsługiwany format. Dozwolone są PDF, JPEG i PNG."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ ist zu groß (höchstens 10 MB pro Datei)."
+msgstr "„%1” jest za duży (maksymalnie 10 MB na plik)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Die Abrechnung kann nicht mehr geändert werden oder die Höchstzahl ist erreicht."
+msgstr "Rozliczenia nie można już zmieniać lub osiągnięto maksymalną liczbę."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Zu viele Anfragen – bitte kurz warten und erneut versuchen."
+msgstr "Zbyt wiele żądań – proszę chwilę poczekać i spróbować ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "%1 Anlage hochgeladen."
+msgid_plural "%1 Anlagen hochgeladen."
+msgstr[0] "%1 załącznik przesłany."
+msgstr[1] "%1 załączniki przesłane."
+msgstr[2] "%1 załączników przesłano."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Zeile hinzugefügt, %1 Beleg hochgeladen."
+msgid_plural "Zeile hinzugefügt, %1 Belege hochgeladen."
+msgstr[0] "Dodano pozycję, przesłano %1 rachunek."
+msgstr[1] "Dodano pozycję, przesłano %1 rachunki."
+msgstr[2] "Dodano pozycję, przesłano %1 rachunków."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Datei nach Rückzug/Ablehnung gelöscht"
+msgstr "Plik usunięty po wycofaniu/odrzuceniu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Ein Upload läuft noch. Bitte wählen Sie die Dateien danach erneut aus."
+msgstr "Przesyłanie nadal trwa. Proszę wybrać pliki ponownie po jego zakończeniu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
+msgid "Reisekosten-Unterlage"
+msgstr "Dokument kosztów podróży"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PageIntros.kt
+msgid "Hier stellen Sie Sätze und Regeln für Reisekosten ein und pflegen die Unterlagen für Mitglieder."
+msgstr "Tutaj ustawiają Państwo stawki i zasady dotyczące kosztów podróży oraz zarządzają dokumentami dla członków."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ hat ein nicht unterstütztes Format. Erlaubt sind PDF und Excel (.xlsx, .xls)."
+msgstr "„%1” ma nieobsługiwany format. Dozwolone są PDF i Excel (.xlsx, .xls)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ ist größer als 10 MB."
+msgstr "„%1” jest większy niż 10 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ enthält Makros. Bitte speichern Sie die Datei ohne Makros (.xlsx) und laden Sie sie erneut hoch."
+msgstr "„%1” zawiera makra. Proszę zapisać plik bez makr (.xlsx) i przesłać go ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ ist verschlüsselt oder passwortgeschützt. Bitte laden Sie eine unverschlüsselte Datei hoch."
+msgstr "„%1” jest zaszyfrowany lub chroniony hasłem. Proszę przesłać plik bez szyfrowania."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Es sind höchstens %1 Unterlagen möglich. Bitte löschen Sie zuerst eine."
+msgstr "Możliwe jest najwyżej %1 dokumentów. Proszę najpierw usunąć jeden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Dafür fehlt Ihnen die Berechtigung."
+msgstr "Nie mają Państwo uprawnień do tej czynności."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt
+msgid "Die Erstattungssätze und den Ansprechpartner pflegt die Administration."
+msgstr "Stawki zwrotu kosztów i osobę kontaktową prowadzi administracja."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelContactHintEditor.kt
+msgid "%1 / %2 Zeichen"
+msgstr "%1 / %2 znaków"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelContactHintEditor.kt
+msgid "Der bisherige Text ist einfacher Text. Sobald Sie ihn ändern, wird er als Markdown gespeichert: Absätze trennt eine Leerzeile, Aufzählungen beginnen mit \"- \"."
+msgstr "Dotychczasowy tekst jest zwykłym tekstem. Po jego zmianie zostanie zapisany jako Markdown: pusty wiersz oddziela akapity, a listy zaczynają się od \"- \"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelContactHintEditor.kt
+msgid "Formatierung (Markdown): **fett**, *kursiv*, \"- \" für eine Aufzählung, [Linktext](https://beispiel.de). Eine Leerzeile beginnt einen neuen Absatz. Bilder und eingebettetes HTML werden nicht dargestellt."
+msgstr "Formatowanie (Markdown): **pogrubienie**, *kursywa*, \"- \" dla listy, [tekst odnośnika](https://beispiel.de). Pusty wiersz rozpoczyna nowy akapit. Obrazy i osadzony HTML nie są wyświetlane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelContactHintEditor.kt
+msgid "Für diesen Text ist keine Vorschau möglich. Bitte kürzen Sie ihn."
+msgstr "Dla tego tekstu podgląd jest niemożliwy. Proszę go skrócić."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Excel"
+msgstr "Excel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Unterlagen für Mitglieder"
+msgstr "Dokumenty dla członków"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Diese Dateien sehen alle Mitglieder auf der Seite Reisekosten, zum Beispiel die Reisekostenordnung, Beschlüsse oder Formulare."
+msgstr "Wszyscy członkowie widzą te pliki na stronie Koszty podróży, na przykład regulamin kosztów podróży, uchwały lub formularze."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Änderungen an dieser Stelle gelten sofort. Sie müssen dafür nicht oben auf Speichern klicken."
+msgstr "Zmiany w tym miejscu obowiązują natychmiast. Nie trzeba klikać Zapisz u góry."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Unterlage hinzufügen"
+msgstr "Dodaj dokument"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Noch keine Unterlagen."
+msgstr "Brak dokumentów."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Optional. Ohne Titel wird der Dateiname verwendet."
+msgstr "Opcjonalnie. Bez tytułu zostanie użyta nazwa pliku."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Datei (PDF oder Excel, höchstens 10 MB)"
+msgstr "Plik (PDF lub Excel, najwyżej 10 MB)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Bitte wählen Sie eine Datei aus."
+msgstr "Proszę wybrać plik."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ wurde hochgeladen."
+msgstr "„%1” został przesłany."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ umbenennen"
+msgstr "Zmień nazwę „%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ löschen"
+msgstr "Usuń „%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Unterlage umbenennen"
+msgstr "Zmień nazwę dokumentu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Bitte geben Sie einen Titel ein."
+msgstr "Proszę podać tytuł."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Der Titel wurde geändert."
+msgstr "Tytuł został zmieniony."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Die Unterlage gibt es nicht mehr."
+msgstr "Ten dokument już nie istnieje."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Umbenennen fehlgeschlagen."
+msgstr "Zmiana nazwy nie powiodła się."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Unterlage löschen"
+msgstr "Usuń dokument"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ wirklich löschen?"
+msgstr "Czy na pewno usunąć „%1”?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Die Datei verschwindet sofort für alle Mitglieder. Das lässt sich nicht rückgängig machen."
+msgstr "Plik natychmiast znika dla wszystkich członków. Nie można tego cofnąć."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ wurde gelöscht."
+msgstr "„%1” został usunięty."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
+msgid "Unterlagen und Beschlüsse"
+msgstr "Dokumenty i uchwały"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
+msgid "%1 herunterladen (%2, %3)"
+msgstr "Pobierz %1 (%2, %3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
+msgid "Unterlagen verwalten"
+msgstr "Zarządzaj dokumentami"

@@ -147,7 +147,12 @@ private fun renderRegistrationForm(
 
     val agreementSection =
         AgreementTextSection(parent = form.panel, heading = { version -> gettext("Beitrittsvertrag (Version %1)", version) })
-    agreementSection.show(version = agreement.version, text = agreement.text)
+    agreementSection.show(
+        version = agreement.version,
+        text = agreement.text,
+        format = agreement.format,
+        renderedHtml = agreement.renderedHtml,
+    )
     // Die Zustimmung ist ein Feld der Grammatik (V1.4.29, `checkField`): Pflicht heißt "angekreuzt", der Fehler steht AM Feld
     // (nicht mehr in der Sammelfläche), `aria-required` setzt der Baustein.
     val consentField =
@@ -192,7 +197,12 @@ private fun renderRegistrationForm(
                     notifyError(tr("Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."))
                     loadMembershipAgreement()?.let { fresh ->
                         currentAgreement = fresh
-                        agreementSection.show(version = fresh.version, text = fresh.text)
+                        agreementSection.show(
+                            version = fresh.version,
+                            text = fresh.text,
+                            format = fresh.format,
+                            renderedHtml = fresh.renderedHtml,
+                        )
                         consentField.reset()
                     }
                     null

@@ -44,12 +44,14 @@ object ArticleMarkdown {
     fun render(
         markdown: String,
         embedHost: EmbedLinkHost? = null,
+        maxChars: Int = ArticlePolicy.BODY_MAX,
+        softBreakAsLineBreak: Boolean = false,
     ): String {
         // Defense-in-depth cap -- ArticlePolicy.BODY_MAX already bounds this at the write path
         // (saveDraft/submitArticle), this is a second, independent belt for any caller that
         // reaches this function with an un-vetted string (e.g. a future direct previewArticle
         // call before validateDraftLengths has run).
-        val document = parser.parse(markdown.take(ArticlePolicy.BODY_MAX))
+        val document = parser.parse(markdown.take(maxChars))
         val renderer =
             HtmlRenderer
                 .builder()
@@ -57,7 +59,10 @@ object ArticleMarkdown {
                 .attributeProviderFactory { LinkAttributeProvider(embedHost) }
                 .nodeRendererFactory { context -> ImageAsAltTextRenderer(context) }
                 .nodeRendererFactory { context -> HeadingShiftRenderer(context = context, minLevel = 2, maxLevel = 4) }
-                .build()
+                .apply {
+                    // V1.9.196: agreement texts keep single line breaks (addresses, signature blocks); articles keep the default.
+                    if (softBreakAsLineBreak) softbreak("<br />\n")
+                }.build()
         return renderer.render(document)
     }
 }

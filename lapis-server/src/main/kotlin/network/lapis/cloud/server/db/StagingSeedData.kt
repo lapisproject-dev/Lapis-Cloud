@@ -66,6 +66,9 @@ private val logger = KotlinLogging.logger {}
  * the live services use wherever those can run without an HTTP call (posting bridges, resolution book, audit recorder,
  * election ballot/tally core, event-series materializer). It never touches an external system: no mail, no letter, no
  * webhook, no file.
+ *
+ * The optional LTR balances of the test members are a separate, additive step ([StagingSeedTopUp], V1.9.197) that also
+ * works on an already seeded instance; it is NOT part of this transaction.
  */
 object StagingSeedData {
     const val ORGANIZATION_NAME: String = "Testverein Musterstadt e.V."
@@ -78,7 +81,7 @@ object StagingSeedData {
     internal const val ACCOUNT_PAYABLES: String = "34000"
     private const val LEDGER_ID_OFFSET: Int = 0x10
 
-    private val organizationSettingsId: Uuid = Uuid.parse("00000000-0000-0000-0000-0000000000f2")
+    internal val organizationSettingsId: Uuid = Uuid.parse("00000000-0000-0000-0000-0000000000f2")
     private val standardTierId: Uuid = Uuid.parse("0000000a-0000-0000-0000-000000000001")
     private val reducedTierId: Uuid = SeedIds.base(2)
     private val supporterTierId: Uuid = SeedIds.base(3)
@@ -510,7 +513,7 @@ object StagingSeedData {
         }
     }
 
-    private fun JdbcTransaction.readOrganizationZone(): TimeZone {
+    internal fun JdbcTransaction.readOrganizationZone(): TimeZone {
         val raw =
             OrganizationSettingsTable
                 .selectAll()

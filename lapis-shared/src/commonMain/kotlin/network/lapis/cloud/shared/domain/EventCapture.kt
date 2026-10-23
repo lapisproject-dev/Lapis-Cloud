@@ -32,6 +32,9 @@ data class EventCaptureNoticeDto(
     val fullText: String,
     /** `true` while no version was published (the built-in text is only a placeholder; capture cannot be switched on then). */
     val placeholder: Boolean = false,
+    /** V1.9.196 -- how the text is displayed; [renderedHtml] is the server-rendered sanitized HTML of a MARKDOWN text (`null` for plain text). */
+    val format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    val renderedHtml: String? = null,
 )
 
 /** Why the release of one event cannot be changed right now (`NONE` = it can). */

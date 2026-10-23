@@ -14,7 +14,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.BeneficialOwnerDataGapDto
@@ -56,12 +55,8 @@ import network.lapis.cloud.shared.rpc.IMemberService
  */
 fun renderBoardMembershipScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Vorstand & Transparenzregister"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Vorstand & Transparenzregister"), intro = PageIntros.forRoute(Routes.BOARD_MEMBERSHIP))
     root.div(tr(BOARD_MEMBERSHIP_HEADER_NOTE)) { addCssClasses("text-muted small") }
 
     var currentBoard: List<BoardMembershipDto> = emptyList()

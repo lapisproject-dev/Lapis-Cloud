@@ -71,10 +71,14 @@ class MotionsOpenElectionDomTest {
                     elections = emptyList(),
                     committees = committees,
                 )
-                val text = element().flatText()
-                assertTrue(text.contains("Committee-Quorum entscheiden") && text.contains("Meritokratische Vote eröffnen"))
-                assertTrue(element().hasButton("Wahl eröffnen"))
+                // V1.9.193: one selector, only the form of the chosen way is in the DOM
+                assertTrue(element().hasButton("Quorum-Beschluss des Gremiums") && element().hasButton("Meritokratische Abstimmung"))
+                assertTrue(element().hasButton("Ergebnis festhalten"), "the first way is preselected")
+                assertFalse(element().hasButton("Wahl eröffnen"))
+                element().buttonNamed("Wahl").click()
+                awaitUntil("the election form") { element().hasButton("Wahl eröffnen") }
                 assertTrue(hasLabel(element(), "Wahlart"))
+                assertFalse(element().hasButton("Ergebnis festhalten"))
             }
         }
 
@@ -120,8 +124,8 @@ class MotionsOpenElectionDomTest {
                 assertEquals(1, el.allOf("[role=note]").size)
                 assertTrue(el.hasButton("Zur Wahl"))
                 assertFalse(el.hasButton("Wahl eröffnen"))
-                assertFalse(el.hasButton("Entscheidung speichern"), "the quorum path would race the election")
-                assertFalse(el.hasButton("Vote eröffnen"), "the meritocratic path would race the election")
+                assertFalse(el.hasButton("Ergebnis festhalten"), "the quorum path would race the election")
+                assertFalse(el.hasButton("Abstimmung eröffnen"), "the meritocratic path would race the election")
             }
             listOf(ElectionStatus.PREPARATION, ElectionStatus.CANDIDATE_LIST_RELEASED, ElectionStatus.CLOSED).forEach { status ->
                 mountedForm("motion-election-running-$status") { root, element ->
@@ -137,7 +141,7 @@ class MotionsOpenElectionDomTest {
                         committees = committees,
                     )
                     assertTrue(element().flatText().contains("Zu diesem Antrag läuft noch eine Wahl."), "$status")
-                    assertFalse(element().hasButton("Entscheidung speichern"), "$status")
+                    assertFalse(element().hasButton("Ergebnis festhalten"), "$status")
                 }
             }
             mountedForm("motion-election-tallied") { root, element ->
@@ -167,8 +171,9 @@ class MotionsOpenElectionDomTest {
                     elections = listOf(election(status = ElectionStatus.ABORTED)),
                     committees = committees,
                 )
-                assertTrue(element().hasButton("Wahl eröffnen"), "an aborted election does not block a new one")
-                assertTrue(element().hasButton("Entscheidung speichern"))
+                assertTrue(element().hasButton("Wahl"), "an aborted election does not block a new one")
+                assertTrue(element().buttonNamed("Wahl").getAttribute("aria-disabled") == null)
+                assertTrue(element().hasButton("Ergebnis festhalten"))
             }
         }
 
@@ -195,7 +200,7 @@ class MotionsOpenElectionDomTest {
                 )
                 assertEquals(1, element().allOf("[role=note]").size)
                 assertFalse(element().hasButton("Wahl eröffnen"))
-                assertFalse(element().hasButton("Entscheidung speichern"))
+                assertFalse(element().hasButton("Ergebnis festhalten"))
             }
         }
 
@@ -214,7 +219,7 @@ class MotionsOpenElectionDomTest {
                     elections = emptyList(),
                     committees = committees,
                 )
-                assertTrue(element().flatText().contains("Es läuft bereits eine meritokratische Vote"))
+                assertTrue(element().flatText().contains("Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung"))
                 assertEquals(0, element().allOf("[role=note]").size)
             }
         }
@@ -234,8 +239,13 @@ class MotionsOpenElectionDomTest {
                     elections = emptyList(),
                     committees = committees,
                 )
-                assertTrue(element().hasButton("Wahl eröffnen") && element().isButtonDisabled("Wahl eröffnen"))
-                assertEquals(4, element().allOf("button[disabled]").size, "quorum, vote, election and consensus are all disabled")
+                assertEquals(
+                    4,
+                    element().allOf("[role=radio][aria-disabled=true]").size,
+                    "quorum, vote, election and consensus are all closed",
+                )
+                assertTrue(element().flatText().contains("Zuerst alle Änderungsanträge entscheiden"))
+                assertFalse(element().hasButton("Wahl eröffnen"), "no form while the amendments are open")
             }
         }
 

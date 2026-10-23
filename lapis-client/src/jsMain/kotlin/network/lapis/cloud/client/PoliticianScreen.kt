@@ -13,7 +13,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -125,12 +124,8 @@ fun renderPoliticianScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
 
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Politiker"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Politiker"), intro = PageIntros.forRoute(Routes.POLITICIANS))
 
     // ---- Top-Politiker (dashboard widget, top of screen) ---------------------------------------
     root.h2(tr("Top-Politiker")) { addCssClass("h5") }

@@ -40,7 +40,7 @@ import network.lapis.cloud.shared.rpc.IMemberService
  */
 fun renderChapterRosterScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.pageHeader(tr("Mein Landesverband"))
+    root.pageHeader(tr("Mein Landesverband"), intro = PageIntros.forRoute(Routes.MY_CHAPTER))
 
     var sessionChecked = false
     var state = ChapterRosterState()

@@ -14,17 +14,17 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `ActionIcon` | Icon | Used for
 | `REFRESH` | `fa-arrows-rotate` | Aktualisieren, Neu laden, Erneut versuchen, Nachbuchen; V1.9.75: also "generate a fresh value" ("Neu erzeugen" of the temporary password)
 | `EDIT` | `fa-pen` | Bearbeiten, Umbenennen
-| `DELETE` | `fa-trash` | Löschen (always `OUTLINEDANGER`)
-| `REMOVE` | `fa-circle-minus` | Entfernen, Zuordnung aufheben: detach, the object itself survives
+| `DELETE` | `fa-trash` | Löschen (always `OUTLINEDANGER`); V1.9.192: also "remove agenda item" in the meeting agenda table (icon-only, named after the item)
+| `REMOVE` | `fa-circle-minus` | Entfernen, Zuordnung aufheben: detach, the object itself survives; V1.9.192: also "end membership" in a committee roster (icon-only, named after person and committee)
 | `SAVE` | `fa-floppy-disk` | Speichern (the check mark belongs to `APPROVE`)
 | `CANCEL`, `CLOSE`, `CLEAR` | `fa-xmark` | Abbrechen, Schließen, Suche leeren
 | `ADD` | `fa-plus` | Hinzufügen, Anlegen, "Neu ..."
 | `SEARCH`, `FILTER` | `fa-magnifying-glass`, `fa-filter` | Suchen, Filtern
 | `DOWNLOAD`, `UPLOAD`, `EXPORT` | `fa-download`, `fa-upload`, `fa-file-export` | Herunterladen, Hochladen, Exportieren
 | `COPY`, `PRINT` | `fa-copy`, `fa-print` | Kopieren, Duplizieren, Drucken
-| `VIEW` | `fa-eye` | Details anzeigen, Anzeigen, Vorschau
+| `VIEW` | `fa-eye` | Details anzeigen, Anzeigen, Vorschau; V1.9.193: also the icon-only "Details zu <Titel>" button of a motion row
 | `OPEN_EXTERNAL` | `fa-arrow-up-right-from-square` | opens another site or tab
-| `BACK`, `NEXT` | `fa-arrow-left`, `fa-arrow-right` | Zurück, Weiter, Öffnen
+| `BACK`, `NEXT` | `fa-arrow-left`, `fa-arrow-right` | Zurück, Weiter, Öffnen; V1.9.192: `BACK` is also the "Zur Übersicht" button above the title of a master-detail page (`overviewBackButton`); V1.9.194: `BACK` is always shown with a visible text that names the goal (`backButton`); inside an inline confirmation step it stays as the step back (R27, named in `ClientBackButtonTripwireTest`). V1.9.194: row actions of the Räume, Catering and Helfer-Schichten tables are icon-only `tableActionButton`s named "<Verb>: <Name>" (`EDIT`, `REVOKE` = Deaktivieren, `APPROVE` = Aktivieren, `DELETE`, `UNDO` = Stornieren, `VIEW` = Zusagen anzeigen); V1.9.193: also on the motion page
 | `APPROVE`, `REJECT` | `fa-circle-check`, `fa-circle-xmark` | Genehmigen, Ablehnen
 | `SEND` | `fa-paper-plane` | Senden, Per Post versenden
 | `REVOKE` | `fa-ban` | Widerrufen, Deaktivieren
@@ -33,7 +33,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `ACCESS` | `fa-user-lock` | Sichtbarkeit ändern (who may see an object); V1.9.49, NOT `LOCK`
 | `PASSWORD` | `fa-key` | V1.9.75: Passwort ändern (own password), set a member's password; NOT `LOCK` (reserved), NOT `ACCESS`
 | `LEAVE` | `fa-right-from-bracket` | V1.9.62: leave a room; V1.9.75: also Abmelden (leave the whole app = sign out, button and menu entry). One verb, one picture; there is no separate sign-out icon
-| `UNDO` | `fa-rotate-left` | Stornieren, Zurückziehen, Wiederherstellen, Zurücksetzen
+| `UNDO` | `fa-rotate-left` | Stornieren, Zurückziehen, Wiederherstellen, Zurücksetzen; V1.9.193: "Antrag zurückziehen" (secondary, at the end of the motion page)
 | `BROADCAST` | `fa-tower-broadcast` | V1.9.62: the pulpit transmission of the encounter room; V1.9.66: also the conference live stream (same verb: transmitting live)
 | `RECORD` | `fa-circle-dot` | V1.9.66: start/stop a conference recording (conference bar only)
 | `END_FOR_ALL` | `fa-power-off` | V1.9.66: end the meeting for everyone; deliberately NOT `LEAVE` (own exit) and NOT `CLOSE_DOORS` (encounter room). V1.9.72: it now sits directly before "Verlassen" in the exit group, so the different symbol (and the outline style) is one of the remaining slip protections; used in exactly three places (exit group, sheet twin, confirmation dialog)
@@ -43,6 +43,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `LEAVE_TABLE` | `fa-users-slash` | V1.9.80: get up from a table of the encounter room ("Tisch verlassen"); the person stays in the room, in the plenum
 | `MAP_ENTER`, `MAP_LEAVE` | `fa-person-walking`, `fa-map` | V1.9.166: step onto / off the grid map of the encounter room ("Auf die Karte", "Karte verlassen"); in the map area only. `MAP_LEAVE` is NOT `LEAVE` (the person stays in the room)
 | `MAP_OPEN` | `fa-map-location-dot` | V1.9.167: opens the map overlay of the encounter room (the dock button "Karte öffnen" and its twin in the "Mehr" sheet). It is NOT `MAP_ENTER` (stepping onto the map) and closing the overlay is never an action on the map
+| `VISITOR` | `fa-person-hiking` | V1.9.182: the glyph of the visitor badge (`GuestBadge.kt`), shared by the federated-guest badge and the friend badge; decoration (`aria-hidden`), the badge carries the `aria-label`. Replaces the hand-drawn inline SVG of V0.8.4. Not a button icon
 | `LIFT_QUIET` | `fa-volume-high` | V1.9.80: a moderator lifts the quiet of a table ("Beruhigung aufheben"); the opposite of `SILENCE` at table level
 | `PULPIT_LOUDER` | `fa-bullhorn` | V1.9.80: a person at a table turns the pulpit's sound up ("Kanzel lauter", icon-only bar control with a sheet twin of the same name)
 | `SEND_TO_PLENUM` | `fa-people-roof` | V1.9.80: a moderator sends a person from a table back to the plenum ("Ins Plenum setzen"); NOT `REMOVE` (the person stays in the room)
@@ -50,6 +51,10 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `BELL` | `fa-bell` | V1.9.96: the pulpit's bell in the encounter room (church profile, PULPIT office only); symbol only, liturgy group (before the blessing), sheet twin of the same name. *Known double meaning:* the same symbol already stands for the entry notice to the office holders (`EncounterSpaceScreen.kt`) and for the dunning levels (`Sidebar.kt`), although this table asks for "one picture, one verb". It was chosen on purpose for the bell (the verb is literally "ring the bell") and is flagged here as an open design debt: the entry notice should move to another symbol (for example `fa-envelope`) in a follow-up wave, not silently in this one. In the encounter bar it is used only through `encounterControlButton`
 | `MIC_OFF`, `MIC_MODERATION`, `MIC_LOCKED` | `fa-microphone-slash`, `fa-microphone-lines-slash`, `fa-lock` | V1.9.108: the three microphone states of the video conference roster (muted, muted by the moderators, locked by the moderators). A STATE display next to its text, never the face of a button (the mute / ask buttons use `MIC_OFF` / `MICROPHONE` with their own words). `MIC_MODERATION` gets a CSS badge so it is not mistaken for `MIC_OFF`. `MIC_LOCKED` uses the glyph that `LOCK` reserves, for this one state only; `LOCK` itself stays unused
 | `REQUEST_RIDE`, `PASSENGERS`, `ADD_PERSON` | `fa-car-side`, `fa-user-group`, `fa-user-plus` | V1.9.125 "Mitfahrten": the verbs of the carpool centre. `REQUEST_RIDE` asks to ride along on an offer (the card's "Kontakt aufnehmen" keeps `SEND`), `PASSENGERS` opens the passenger management of an own offer, `ADD_PERSON` adds or invites a passenger. Confirm and decline reuse `APPROVE`/`REJECT`, withdrawing reuses `UNDO`, removing a passenger reuses `REMOVE`.
+| `HELP` | `fa-life-ring` | V1.9.187: the "Hilfe und Feedback" menu at the foot of the sidebar (visible label, never icon-only). Deliberately not `QUESTION` (the reaction "Frage" of the rooms) and not `REACT`; assigned to this purpose only.
+| `INFO` | `fa-circle-info` | V1.9.190: the collapsed page intro ("Hinweis anzeigen"); visible label, never icon-only.
+| `CHEVRON_DOWN` | `fa-chevron-down` | V1.9.190: second glyph of the collapsed page intro toggle (it opens on click). Not `CHEVRON` (right-pointing disclosure arrow of group headers).
+| `CHEVRON_UP` | `fa-chevron-up` | V1.9.190: the open page intro's "Einklappen" button.
 | `REACT` | `fa-face-smile` | V1.9.127: the "Reaktion" button of the video conference bar (opens the menu of five reactions). The raised hand reuses `HAND` (same verb as in the encounter room).
 | `MOVE_UP`, `MOVE_DOWN` | `fa-arrow-up`, `fa-arrow-down` | V1.9.129: move an element of the video overlay library one place up or down (admin card "Videokonferenz"); icon-only in the list row with `title` and `aria-label`. Not used for scrolling or navigation (`BACK`/`NEXT`).
 | `PROTECTED` | `fa-shield-halved` | V1.9.57: geschützt -- the reason text next to a disabled control and the masked value of the admin peer protection; marks a state, never an action; NOT `LOCK`, NOT `ACCESS`
@@ -154,8 +159,9 @@ wave specification said `SAVE` for all submit buttons, the verb table decides, a
 * "Bieten", "Sofort kaufen für …", "Gebot abgeben", "Sofort kaufen", "Abwickeln", "Ich bestätige, den aktuellen Text gelesen zu haben": domain verbs of the auction.
 * "Neu indexieren" (documents, knowledge base): resets the index rather than reloading; `fa-rotate` stays, see below.
 * "Als Entwurf kopieren" (travel expenses): it creates a new request from an old one, not a duplicate of the same object; no icon.
-* The three "<Zeilenart> hinzufügen" buttons of the travel-expense draft carry the icon of the line kind (car, calendar, receipt): three buttons with the
-  same `ADD` picture could not be told apart. `TravelExpenseScreen.kt` is therefore not in the R57 strict set (its form builder `TravelExpenseHeaderForm.kt` is).
+* Travel-expense draft, "Weitere Kosten" (V1.9.191): the three "<Zeilenart> hinzufügen" buttons that carried the icon of the line kind (the reason this screen stood
+  outside the R57 strict set) are gone. There is ONE "Kosten hinzufügen" button with `ADD`; the kind is chosen in the form (`segmentedRadioGroup`), and the actions of a
+  line are icon-only table actions (`EDIT`, `REMOVE`) named after the kind ("Fahrt bearbeiten", "Sonstiges entfernen").
 * "Fertig" (stream destination edit modal), the DSGVO view toggles ("Verarbeitungsverzeichnis (AVV)", "TOM", "DSFA", "Datenpannen"), "Verwalten" (mailing
   lists), "Statistik": navigation or domain verbs.
 
@@ -178,8 +184,8 @@ is in the ledger `R57_LEDGER` of `ClientToolbarIconTripwireTest`, each entry wit
   is a mode switch of one object and carries `EDIT` / `VIEW`.
 * **Disclosure toggles are not actions.** A button that shows or hides a block (`aria-expanded`, label flips to "... ausblenden": "Verlauf anzeigen", "Mehr anzeigen",
   "Zustellungsprotokoll anzeigen") gets NO eye: the picture would promise an action. They are the ledger category `DISCLOSURE`.
-* Domain icons in the ledger (`DOMAIN_ICON`): the conference control bar, the editor/search glyphs, the navigation toggle, the combobox chevron and the three
-  "<Zeilenart> hinzufügen" buttons. `CLASSNAME`: the update pill (custom class). `DIALOG`: "Weiter bearbeiten" of a hand-built discard dialog.
+* Domain icons in the ledger (`DOMAIN_ICON`): the conference control bar, the editor/search glyphs, the navigation toggle and the combobox chevron (the three
+  "<Zeilenart> hinzufügen" buttons were in this ledger until V1.9.191). `CLASSNAME`: the update pill (custom class). `DIALOG`: "Weiter bearbeiten" of a hand-built discard dialog.
 * Moved to standard icons without a change of look: `fa-upload`, `fa-trash`, `fa-eye`, `fa-plus`, `fa-magnifying-glass` (Foto, Vorschau, Hintergrundbild,
   "Frage stellen") and `fa-unlink` -> `REVOKE` (KI access).
 

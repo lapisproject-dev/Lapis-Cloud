@@ -77,12 +77,13 @@ class FormSnapshot(
 internal fun LapisForm.snapshot(): FormSnapshot = FormSnapshot { fields.map { it.value } }
 
 class CollapsibleCreateFormController<P> internal constructor(
-    private val button: Button,
+    internal val button: Button,
     private val formHost: SimplePanel,
     private val formId: String,
     private val build: SimplePanel.(prefill: P?, close: (saved: Boolean) -> Unit) -> FormSnapshot,
     private val askDiscard: (onDiscard: () -> Unit) -> Unit = ::confirmDiscardInputs,
     private val onOpenChange: (open: Boolean) -> Unit = {},
+    private val beforeOpen: (proceed: () -> Unit) -> Unit = { it() },
 ) {
     private var snapshot: FormSnapshot? = null
     private var baseline: List<String>? = null
@@ -92,7 +93,7 @@ class CollapsibleCreateFormController<P> internal constructor(
     init {
         button.setAttribute("aria-expanded", "false")
         button.setAttribute("aria-controls", formId)
-        button.onClick { open() }
+        button.onClick { beforeOpen { open() } }
         formHost.onEvent {
             keydown = { event ->
                 if (event.key == "Escape" &&
@@ -198,8 +199,12 @@ class CollapsibleCreateFormController<P> internal constructor(
  *  - [actionSlot]: the page header's action slot ([PageHeader.actionSlot]); the button goes in there (R36).
  *  - [formHost]: where the form is built, directly under the header; it receives [formId].
  *  - [buttonLabel]: a `tr()` constant ("Neues Gremium"), never a data value.
- *  - [icon]: the verb icon of the button ([ActionIcon.ADD] by default; [ActionIcon.UPLOAD] for "Kontoauszug hochladen").
+ *  - [icon]: the verb icon of the button ([ActionIcon.ADD] by default; [ActionIcon.UPLOAD] for "Kontoauszug hochladen"; `null` = no icon, V1.9.182,
+ *    for a verb whose confirming button inside the form already carries its own icon ("Einladung versenden").
  *  - [onOpenChange]: called with `true` after every (re)build of the form and with `false` after it closed (e.g. to lock a picker the form depends on).
+ *  - [beforeOpen]: V1.9.185 -- runs on a click of the button; the form opens only when it calls `proceed` (default: at once). For a screen with
+ *    several forms of which only one may be open (it asks the others to close first, see [CollapsibleCreateFormController.requestClose]).
+ *    Programmatic [CollapsibleCreateFormController.open] does not go through it.
  *  - [build]: builds the form into the host and returns its [FormSnapshot] (see [LapisForm.snapshot]); it calls `close(true)` after a
  *    successful save and `close(false)` for Cancel.
  */
@@ -208,19 +213,24 @@ fun <P> collapsibleCreateForm(
     formHost: SimplePanel,
     buttonLabel: String,
     formId: String,
-    icon: ActionIcon = ActionIcon.ADD,
+    icon: ActionIcon? = ActionIcon.ADD,
     onOpenChange: (open: Boolean) -> Unit = {},
+    beforeOpen: (proceed: () -> Unit) -> Unit = { it() },
     build: SimplePanel.(prefill: P?, close: (saved: Boolean) -> Unit) -> FormSnapshot,
 ): CollapsibleCreateFormController<P> {
     formHost.id = formId
     // The plus glyph is decoration (`aria-hidden`), the label carries the meaning; both are children of the button.
     val button =
         Button("", style = ButtonStyle.OUTLINEPRIMARY).apply {
-            icon(icon.css) { setAttribute("aria-hidden", "true") }
-            span(buttonLabel, className = "ms-1")
+            if (icon != null) {
+                icon(icon.css) { setAttribute("aria-hidden", "true") }
+                span(buttonLabel, className = "ms-1")
+            } else {
+                span(buttonLabel)
+            }
         }
     actionSlot.add(button)
-    return CollapsibleCreateFormController(button, formHost, formId, build, onOpenChange = onOpenChange)
+    return CollapsibleCreateFormController(button, formHost, formId, build, onOpenChange = onOpenChange, beforeOpen = beforeOpen)
 }
 
 /**

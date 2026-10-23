@@ -2,6 +2,8 @@ package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
@@ -26,6 +28,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.RegistrationInput
 import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
@@ -105,6 +108,34 @@ class AgreementTextPublicFetchTest :
             }
         }
 
+        test("V1.9.196: a MARKDOWN version arrives with its format and server-rendered HTML, a plain one and the placeholder without any") {
+            withApp {
+                client.get("/t/membership-format").bodyAsText() shouldBe "PLAIN|null"
+                AgreementTextTestState.publishDirect(
+                    kind = AgreementTextKind.MEMBERSHIP,
+                    label = "md.v1",
+                    body = "# Vertrag\n\n<script>alert(1)</script>\n\nund **fett**",
+                    format = AgreementTextFormat.MARKDOWN,
+                )
+                AgreementTextTestState.publishDirect(kind = AgreementTextKind.FRIEND, label = "plain.v1", body = "- bleibt *Text*")
+                val membership = client.get("/t/membership-format").bodyAsText()
+                membership.startsWith("MARKDOWN|<h2>Vertrag</h2>") shouldBe true
+                membership shouldContain "&lt;script&gt;"
+                membership shouldNotContain "<script"
+                membership shouldContain "<strong>fett</strong>"
+                // the source text is what was hashed and is still delivered as `text`
+                client.get("/t/membership").bodyAsText() shouldContain "# Vertrag"
+                client.get("/t/friend-format").bodyAsText() shouldBe "PLAIN|null"
+                AgreementTextTestState.publishDirect(
+                    kind = AgreementTextKind.FRIEND,
+                    label = "md.v1",
+                    body = "Nutzung **nur** so.",
+                    format = AgreementTextFormat.MARKDOWN,
+                )
+                client.get("/t/friend-format").bodyAsText() shouldBe "MARKDOWN|<p>Nutzung <strong>nur</strong> so.</p>\n"
+            }
+        }
+
         test("the highest sequence number wins") {
             AgreementTextTestState.publishDirect(kind = AgreementTextKind.FRIEND, label = "f.v1", body = "Eins")
             val sha = AgreementTextTestState.publishDirect(kind = AgreementTextKind.FRIEND, label = "f.v2", body = "Zwei")
@@ -145,6 +176,14 @@ private fun Route.registerPublicFetchRoutes() {
     get("/t/friend") {
         val dto = service(call).getFriendTerms()
         call.respondText("${dto.version}|${dto.sha256}|${dto.text}")
+    }
+    get("/t/membership-format") {
+        val dto = service(call).getMembershipAgreement()
+        call.respondText("${dto.format}|${dto.renderedHtml}")
+    }
+    get("/t/friend-format") {
+        val dto = service(call).getFriendTerms()
+        call.respondText("${dto.format}|${dto.renderedHtml}")
     }
     post("/t/register") {
         val q = call.request.queryParameters

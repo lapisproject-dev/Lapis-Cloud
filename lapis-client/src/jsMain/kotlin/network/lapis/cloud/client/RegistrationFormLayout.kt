@@ -6,6 +6,7 @@ import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.tr
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 
 /**
  * V1.9.134 -- the building blocks of the wide registration form: a two-column field grid (one field per cell, so the DOM order IS the row
@@ -34,13 +35,15 @@ internal fun Div.gridCell(full: Boolean = false): Div =
 internal fun Container.agreementFrame(
     text: String,
     ariaLabel: String,
+    format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    renderedHtml: String? = null,
 ): Div =
     div {
         addCssClass(AGREEMENT_FRAME_CLASS)
         setAttribute("tabindex", "0")
         setAttribute("role", "region")
         setAttribute("aria-label", ariaLabel)
-        renderAgreementText(text)
+        renderAgreementBody(text = text, format = format, renderedHtml = renderedHtml)
     }
 
 /**
@@ -57,11 +60,13 @@ internal class AgreementTextSection(
     fun show(
         version: String,
         text: String,
+        format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+        renderedHtml: String? = null,
     ) {
         host.removeAll()
         val title = heading(version)
         host.h2(title) { addCssClass("h5") }
-        host.agreementFrame(text = text, ariaLabel = title)
+        host.agreementFrame(text = text, ariaLabel = title, format = format, renderedHtml = renderedHtml)
         host.p(tr("Bitte lesen Sie den vollständigen Text.")) { addCssClasses("text-muted small mt-1") }
     }
 }

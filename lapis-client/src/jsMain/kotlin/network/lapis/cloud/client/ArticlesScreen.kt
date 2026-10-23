@@ -40,7 +40,7 @@ fun renderArticlesScreen(container: SimplePanel) {
     lateinit var newButton: Button
     root.pageHeader(tr("Artikel"), primaryAction = {
         newButton = actionButton(ActionIcon.ADD, tr("Neuer Artikel"), style = ButtonStyle.PRIMARY)
-    })
+    }, intro = PageIntros.forRoute(Routes.ARTICLES))
     var openNewEditor: (() -> Unit)? = null
     var openEditor: ArticleEditorHandle? = null
     var activeTab = ArticlesTab.MINE

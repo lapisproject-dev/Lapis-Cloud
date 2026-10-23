@@ -57,6 +57,21 @@ data class TravelExpenseReceiptDto(
     val uploadedAt: LocalDateTime,
 )
 
+/**
+ * V1.9.198: a report-level attachment (e.g. an invitation, an itinerary). Metadata only -- the
+ * bytes are fetched through `/api/travel-expenses/attachments/{id}/download`.
+ */
+@Serializable
+data class TravelExpenseAttachmentDto(
+    val id: String,
+    val reportId: String,
+    val originalFilename: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val sha256: String,
+    val uploadedAt: LocalDateTime,
+)
+
 @Serializable
 data class TravelExpenseLineDto(
     val id: String,
@@ -148,6 +163,8 @@ data class TravelExpenseReportDto(
     val sepaBlocker: TravelExpenseSepaBlocker? = null,
     /** Short human-readable reference `RK-1A2B3C4D`, identical to the one in the transfer's remittance text. */
     val sepaReference: String? = null,
+    /** V1.9.198: report-level attachments; additive with a default (wire compatible). */
+    val attachments: List<TravelExpenseAttachmentDto> = emptyList(),
 )
 
 /**
@@ -209,7 +226,59 @@ data class TravelExpenseContactDto(
     val email: String? = null,
     val phone: String? = null,
     val hint: String? = null,
+    /** V1.9.199: how [hint] is displayed. Sent by the settings screen, returned by the server. */
+    val hintFormat: TravelContactHintFormat = TravelContactHintFormat.PLAIN,
+    /**
+     * V1.9.199: OUTPUT ONLY -- the server-rendered, sanitized HTML of a [TravelContactHintFormat.MARKDOWN] [hint] (`null` for PLAIN).
+     * The server IGNORES whatever a client sends here on input and renders it again.
+     */
+    val hintHtml: String? = null,
 )
+
+/** V1.9.199: display format of the travel-expense contact hint (PLAIN = legacy line breaks, MARKDOWN = rendered by the server). */
+@Serializable
+enum class TravelContactHintFormat { PLAIN, MARKDOWN }
+
+/**
+ * V1.9.199: one organisation-wide travel-expense document (Reisekostenordnung, Beschluss, Formular) for every member. [uploaderName] is
+ * filled ONLY for BOARD/ADMIN ([TravelExpenseRatesDto.canManageDocuments]); `null` then means a former member.
+ */
+@Serializable
+data class TravelExpenseDocumentDto(
+    val id: String,
+    val title: String,
+    val filename: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val uploadedAt: LocalDateTime,
+    val uploaderName: String? = null,
+)
+
+/** V1.9.199: pure rules for the organisation-wide documents, shared by the server routes and the client pre-check. */
+object TravelExpenseDocumentRules {
+    const val MAX_DOCUMENTS = 10
+    const val MAX_BYTES: Long = 10L * 1024 * 1024
+    const val MAX_TITLE = 120
+    const val MIME_PDF = "application/pdf"
+    const val MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    const val MIME_XLS = "application/vnd.ms-excel"
+    val ALLOWED_MIME_TYPES: Set<String> = setOf(MIME_PDF, MIME_XLSX, MIME_XLS)
+
+    /** Drops control characters, trims and keeps at most [MAX_TITLE] characters. */
+    fun normalizeTitle(raw: String): String =
+        raw
+            .filterNot { it.code in 0x00..0x1F || it.code == 0x7F }
+            .trim()
+            .take(MAX_TITLE)
+            .trim()
+
+    /** "Reisekosten_Ordnung_2026.pdf" -> "Reisekosten Ordnung 2026". */
+    fun titleFromFilename(name: String): String {
+        val base = name.substringAfterLast('/').substringAfterLast('\\')
+        val withoutExtension = if (base.contains('.')) base.substringBeforeLast('.') else base
+        return normalizeTitle(withoutExtension.replace('_', ' '))
+    }
+}
 
 /**
  * What the self-service form needs without calling `getOrganizationSettings()` (TREASURER/BOARD/
@@ -228,6 +297,10 @@ data class TravelExpenseRatesDto(
     val canEditSettings: Boolean = false,
     val advanceAccountId: String? = null,
     val donationWaiverAccountId: String? = null,
+    /** V1.9.199: organisation-wide documents, sorted by title; empty when none. */
+    val documents: List<TravelExpenseDocumentDto> = emptyList(),
+    /** BOARD or ADMIN: may upload, rename and delete [documents]. */
+    val canManageDocuments: Boolean = false,
 )
 
 /**
@@ -298,9 +371,15 @@ object TravelExpenseAmountRules {
     const val MAX_CONTACT_NAME_LENGTH = 120
     const val MAX_CONTACT_EMAIL_LENGTH = 254
     const val MAX_CONTACT_PHONE_LENGTH = 40
-    const val MAX_CONTACT_HINT_LENGTH = 1000
+    const val MAX_CONTACT_HINT_LENGTH = 2000
     const val MAX_RECEIPTS_PER_LINE = 5
     const val MAX_RECEIPTS_PER_REPORT = 50
+
+    /** V1.9.198: report-level attachments; deliberately NOT counted against [MAX_RECEIPTS_PER_REPORT]. */
+    const val MAX_ATTACHMENTS_PER_REPORT = 10
+
+    /** Upload cap per receipt/attachment file (10 MiB); shared by server routes and the client pre-check. */
+    const val MAX_UPLOAD_BYTES: Long = 10L * 1024 * 1024
     const val MAX_PURPOSE_LENGTH = 200
     const val MAX_DESCRIPTION_LENGTH = 200
     const val MAX_DECISION_NOTE_LENGTH = 1000

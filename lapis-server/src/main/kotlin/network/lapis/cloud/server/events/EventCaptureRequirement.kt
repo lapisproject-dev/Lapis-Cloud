@@ -1,9 +1,11 @@
 package network.lapis.cloud.server.events
 
+import network.lapis.cloud.server.agreementtexts.AgreementMarkdown
 import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
 import network.lapis.cloud.server.agreementtexts.CurrentAgreementText
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.rpc.EventCaptureSettingsStore
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.EncounterConsentLayout
 import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
@@ -55,13 +57,19 @@ internal object EventCaptureRequirement {
 
     fun noticeDto(current: CurrentAgreementText): EventCaptureNoticeDto {
         val split = EncounterConsentLayout.splitOrNull(body = current.body)
+        val markdown = current.format == AgreementTextFormat.MARKDOWN
+
+        // V1.9.196: headline and key points are plain text; for a MARKDOWN text the Markdown characters are removed (the server owns this).
+        fun summary(paragraph: String) = if (markdown) AgreementMarkdown.toPlainText(paragraph) else paragraph
         return EventCaptureNoticeDto(
             versionLabel = current.versionLabel,
             sha256 = current.sha256,
-            headline = split?.headline ?: "",
-            keyPoints = split?.keyPoints ?: emptyList(),
+            headline = split?.headline?.let(::summary) ?: "",
+            keyPoints = split?.keyPoints?.map(::summary) ?: emptyList(),
             fullText = current.body,
             placeholder = current.placeholder,
+            format = current.format,
+            renderedHtml = AgreementMarkdown.htmlFor(format = current.format, body = current.body),
         )
     }
 }

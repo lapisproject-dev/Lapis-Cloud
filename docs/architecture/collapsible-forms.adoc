@@ -278,7 +278,7 @@ Later to check:
 
 The R57 strict set holds the nine screens (except `TravelExpenseScreen.kt`, see `action-icons.adoc`) and the new builder files. R36B debt ledger: 14 -> 0.
 
-== V1.9.50: Mitfahrerzentrale and Artikel
+== V1.9.50: Mitfahrzentrale and Artikel
 
 Client only: no migration, no server change, no new RPC, `V1__baseline.sql` untouched. The two screens were left behind by the earlier waves: the carpool
 screen kept a hand-built "Eintrag erstellen" button under the page header, the article screen built "Neuer Artikel" inside its list (again with every load).
@@ -325,6 +325,65 @@ The two one-time cards ("Neuer Schlüssel -- jetzt speichern", "Neues Signaturge
 
 *Still open, with the reason.* The post composer of the social network (`SocialNetworkScreen`) stays visible: it is the core action of the feed, and the LTR balance and
 the effort note have to be visible before writing. The decision to collapse it anyway is the owner's.
+
+== V1.9.182 -- Section forms and the disclosure component in the meetings view
+
+The meeting detail page (`MeetingsScreen.kt`) used to show every form and section at once. It now uses `collapsibleCreateForm` for its
+section forms and a new, smaller building block for read-only content.
+
+*Section forms.* Three forms of the meeting page sit behind one button each. The button is a section action in its own `actionSlot`
+directly below the section, not in the page header (R36 keeps at most one primary page action; these are actions of one section):
+
+[cols="1,1,3",options="header"]
+|===
+| Button | Form id | Notes
+| "Punkt hinzufügen" | `lapis-create-agenda-item` | Directly under the agenda table; replaces the always-visible bold title "Tagesordnungspunkt hinzufügen".
+| "Anwesenheit erfassen" | `lapis-record-attendance` | "Bearbeiten" in an attendance row opens the form and then pre-fills it; the prefill function is registered every time the form is built (a closed form is gone). Saving one person does not fold the section.
+| "Einladung versenden" | `lapis-send-invitation` | Built without an icon (`icon = null`): the buttons inside the form carry their own. A one-line summary next to the button describes it (`aria-describedby`): "%1 von %2 ausgewählt" for a roster meeting, live while the form is open, or the default recipients for a derived audience. Closing resets the summary. A fully sent invitation folds the form back; a failure keeps it open, because the outcome lines live in the form.
+|===
+
+Two small extensions of the component came with it: `icon: ActionIcon?` (`null` = a button without an icon) and
+`CollapsibleCreateFormController.button` is now `internal` instead of `private`, so a caller can describe the button further. Every existing
+caller is unchanged (the default stays `ActionIcon.ADD`).
+
+*The disclosure (`Disclosure.kt`).* `SimplePanel.disclosure(label, bodyId, build)` is for content that is read, not filled in: a link-style
+button that shows or hides its body, closed by default. The state is `aria-expanded` on the button, `aria-controls` points at the body
+(`bodyId`), and the label does not change when the state flips (one disclosure, not two actions). `label` must be a static `tr(...)`
+constant. The body is built at once, but KVision does not render a hidden widget, so its content is in the DOM only while the disclosure is open
+(a test has to open it first). It returns the button. It has no snapshot and no unsaved-changes question, unlike `collapsibleCreateForm`.
+
+Uses on the meeting page:
+
+* "Anwesende anzeigen" (`lapis-attendance-list`): the attendance list; the quorum badge and "x von y anwesend" stay visible above it.
+* "Was bedeutet Quorum?" (`lapis-quorum-explanation`): the quorum explanation. The protocol preview keeps the explanation always visible
+  (`renderQuorumRow` with its default `explanationCollapsed = false`).
+
+The agenda itself is a table now (`renderAgendaTable`: "Nr.", "Titel", "Vortragende", "Aktion"); removing an item asks for confirmation first
+(`confirmDialog`) and runs through `runGuardedAction`.
+
+Tests: `MeetingsDisclosureDomTest`. The existing DOM tests that assert on these forms (`FormSubmitBodyPart3DomTest`,
+`GeneralAssemblyScreensDomTest`, `RuleCommitteeScreensDomTest`) open the form or disclosure first (helpers in `FormTestSupport.kt`).
+Checked in headless Chrome only, not on real phones.
+
+== V1.9.185 -- LTR account
+
+The LTR account (`LtrLedgerScreen`) applies the pattern twice and adds one rule.
+
+* *"LTR senden"* is the one button of the balance card (`actionSlot` = a `lapis-page-action` slot inside the card, next to the balance, not the
+  page header: a reasoned exception to R36, the action belongs to the balance it spends). The slot and the form host exist before the
+  member list arrives and live outside the balance `dataSection`, so `refreshBalance()` never touches the button.
+* *The receipt of a send is outside the form* (`#lapis-ltr-send-receipt`, an own host under the form host): `collapse(true)` empties the form
+  host, a receipt inside it would vanish at once. The receipt is shown after `collapse(true)` and cleared in `onOpenChange(true)`. The treasury
+  arbitration transfer does the same with a receipt host per tool.
+* *One tool at a time* (treasury tools: member lookup, mint, arbitration transfer behind the `disclosure` "Werkzeuge anzeigen"). Opening a tool
+  must ask the other open tools to close, and ask about unsaved input. That needs a hook BEFORE the open, which `onOpenChange` cannot be (it
+  runs after the build, and it cannot veto). `collapsibleCreateForm` therefore got an optional `beforeOpen: (proceed: () -> Unit) -> Unit`
+  (default: `proceed` at once, so every existing caller is unchanged): the click on the button calls it, the form opens only when it calls
+  `proceed`. The LTR screen runs `requestClose` of every other open tool inside it; "Weiter bearbeiten" never calls `proceed`, so the changed tool
+  stays open and the new one stays closed. A programmatic `open(prefill)` does not go through `beforeOpen`.
+* The member lookup has no input to lose: its snapshot is `FormSnapshot { emptyList() }`, it never asks before it closes.
+
+Tests: `LtrLedgerAccountDisclosureDomTest`. Checked in headless Chrome only.
 
 == Not done
 

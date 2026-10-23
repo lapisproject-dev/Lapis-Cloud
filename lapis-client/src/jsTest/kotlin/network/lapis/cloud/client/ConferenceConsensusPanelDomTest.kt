@@ -452,7 +452,7 @@ class ConferenceConsensusPanelDomTest {
                         assertEquals(ConferenceVotingLock.RECEIPT, h.locks.last())
                         assertTrue(ConferenceReceiptGate.visible, "the unload guard and the leave buttons read this")
                         assertTrue(el.buttonNamed("Abstimmen schließen").hasAttribute("disabled"))
-                        assertTrue(el.buttonNamed("Zurück zur Übersicht").hasAttribute("disabled"))
+                        assertTrue(el.buttonNamed("Zur Übersicht").hasAttribute("disabled"))
                         assertTrue(el.flatText().contains("Bitte notieren Sie zuerst Ihre Quittung."))
                         el.buttonNamed("Abstimmen schließen").click()
                         assertEquals(0, h.closeRequests)

@@ -45,7 +45,7 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * `reliefLink`/`travelExpenseLink`/the volunteer-allowance counter already establish there) -- a background badge count has no
  * sensible `dataSection`/`dataErrorState` presentation (there is no visible "loading"/"error" state for a sidebar number), so this
  * is not migration debt, it is the same accepted shape as its three siblings, one more time. 147 -> 148.
- * Welle V1.9.12 "Mitfahrerzentrale" turns `CommunicationScreen.kt`'s `renderInbox` from a bare `unreadCount()` (not matched by
+ * Welle V1.9.12 "Mitfahrzentrale" turns `CommunicationScreen.kt`'s `renderInbox` from a bare `unreadCount()` (not matched by
  * [READ_CALL] at all -- "unreadCount" starts with neither "count" nor any other listed prefix) into a real message list via
  * `listInbox()` (which IS matched -- starts with "list"), one more read call in a file this wave does not otherwise migrate onto
  * `dataSection`. 148 -> 149.
@@ -116,10 +116,20 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * the same fire-and-forget option loader as `EventOnlineKindSegment.kt` above: the box stays hidden until the answer is there (a hidden box is the safe default),
  * there is no list with a loading/empty/error state, and a failure toasts through `guarded`; and in `ConferenceScreen.kt` the `getEventCaptureState(` that the
  * entry into an event room asks BEFORE the join (an action step of the join: the answer decides which consent screen is shown). 178 -> 181.
+ * Welle V1.9.192 "Gremien und Sitzungen als Tabelle plus Detailseite" adds FOUR reads, all in the accepted fire-and-forget / one-shot shapes: in
+ * `CommitteesScreen.kt` the quiet count helper (`loadCommitteeEligibleCount`: `listCommitteeMembers(` for a manual committee, `countCommitteeEligible(` for a
+ * derived one -- a table cell shows "..." while it loads and a dash on failure, no loading/error block, no toast) and the detail page's own `listCommittees(`
+ * (there is no `getCommittee` RPC; the page shows a plain sentence for an unknown id, the list moved to the table without a read of its own being added or
+ * removed); in `MeetingsScreen.kt` the detail page's `listCommittees(` (the committee lookup of the invitation/quorum logic, formerly taken from the list
+ * screen). 181 -> 185.
+ * Welle V1.9.199 "Reisekosten-Unterlagen" adds ONE read in ONE new file (57 -> 58 files): the Markdown editor of the contact hint
+ * (`TravelContactHintEditor.kt`) asks the server for the rendered preview (`previewTravelContactHint(`) -- the same stateless, latest-answer-wins dry run as
+ * `previewCommitteeRule(` above: the preview pane shows its own loading/empty/unavailable sentence, no list with a loading/error block. The settings page and
+ * the documents section load through `guarded` + `dataErrorState` (state blocks), so they add no read to this ledger.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 181
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 57
+private const val READ_OUTSIDE_STATE_REGION_MAX = 185
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 58
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

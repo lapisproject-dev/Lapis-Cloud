@@ -69,8 +69,8 @@ import kotlin.uuid.Uuid
  * `cast_at` is the constant `voting_opened_at`, exactly as in a live secret election. Ballot and receipt ids are random.
  *
  * **Honest limits.** Resolutions, tally timestamps and audit entries carry the moment of the seed run (the live code stamps
- * "now"; the seed does not back-date audit evidence). The poll results stay unweighted: there is no LTR data, so the weighted
- * result reads `ZERO_TOTAL_WEIGHT`.
+ * "now"; the seed does not back-date audit evidence). The poll results stay unweighted: the answers are snapshots with weight 0 taken
+ * before any LTR exists, and the later LTR top-up ([StagingSeedTopUp]) does not recompute them.
  */
 internal object StagingSeedGovernance {
     private val boardCommitteeId: Uuid = Uuid.parse("0000000a-0000-0000-0000-000000000010")

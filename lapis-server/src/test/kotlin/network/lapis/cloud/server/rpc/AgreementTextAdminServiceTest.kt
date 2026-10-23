@@ -408,7 +408,7 @@ class AgreementTextAdminServiceTest :
                 entries.map { it[AuditLogEntryTable.action] } shouldContainExactly
                     listOf(AuditAction.CREATE, AuditAction.UPDATE, AuditAction.POST)
                 entries.forEach { it[AuditLogEntryTable.actorMemberId] shouldBe Uuid.parse(ADMIN_ID) }
-                val keys = setOf("event", "kind", "versionLabel", "sha256", "charCount", "validFrom")
+                val keys = setOf("event", "kind", "versionLabel", "sha256", "charCount", "validFrom", "format")
                 val after = entries.map { json.parseToJsonElement(it[AuditLogEntryTable.afterSnapshot]!!).jsonObject }
                 after[0].keys shouldBe keys
                 after[1].keys shouldBe keys
@@ -426,7 +426,7 @@ class AgreementTextAdminServiceTest :
     })
 
 private fun Route.registerAgreementAdminTestRoutes() {
-    fun service(call: ApplicationCall) = AgreementTextAdminService(call)
+    fun service(call: ApplicationCall) = AgreementTextAdminService(call = call)
 
     fun kindOf(call: ApplicationCall) = AgreementTextKind.valueOf(call.request.queryParameters["kind"]!!)
     get("/t/overview") { call.respondText(Json.encodeToString(AgreementTextOverviewDto.serializer(), service(call).getOverview())) }

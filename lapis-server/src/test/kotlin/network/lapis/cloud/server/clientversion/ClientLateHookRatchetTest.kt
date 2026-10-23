@@ -41,6 +41,12 @@ private fun isCommentLine(line: String): Boolean = line.trimStart().let { it.sta
 private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
     mapOf(
         "KvisionLifecycle.kt" to (2 to "the helper itself: registers, then adds"),
+        "MasterDetail.kt" to
+            (
+                1 to
+                    "recordLink registers the focus hand-back hook on the link BEFORE it is added to its cell (V1.9.192, " +
+                    "MasterDetailDomTest pins it): the list gives the focus back to the record that was opened"
+            ),
         "ActionButton.kt" to
             (
                 1 to

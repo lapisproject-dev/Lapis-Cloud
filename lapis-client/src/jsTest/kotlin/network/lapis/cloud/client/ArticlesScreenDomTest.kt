@@ -139,7 +139,7 @@ class ArticlesScreenDomTest {
                     assertFalse(screen.newButtonShown(), "no create button while the editor is open")
                     assertFalse(screen.shows("Erster Entwurf") && screen.allOf(".lapis-card-list").any { it.isRendered() })
 
-                    screen.buttonNamed("Zurück zur Liste").click()
+                    screen.buttonNamed("Zur Liste").click()
                     awaitUntil("back on the list") { screen.querySelector(".lapis-form") == null && screen.shows("Erster Entwurf") }
                     assertTrue(screen.newButtonShown(), "the button is back with the list")
                     assertEquals(1, screen.newButtons().size, "still exactly one button")

@@ -56,6 +56,18 @@ class BrandingTest {
     }
 
     @Test
+    fun helpIndexAndWhatsNewUrls_followTheLanguageRuleOfTheTopicHelp() {
+        // V1.9.187: the help centre and the release notes of the platform website, same language rule as helpUrl.
+        assertEquals("https://cloud.lapisproject.dev/help", Branding.helpIndexUrlFor("en"))
+        assertEquals("https://cloud.lapisproject.dev/de/help", Branding.helpIndexUrlFor("de"))
+        assertEquals("https://cloud.lapisproject.dev/de/help", Branding.helpIndexUrlFor("de-CH"))
+        assertEquals("https://cloud.lapisproject.dev/help", Branding.helpIndexUrlFor("ru"))
+        assertEquals("https://cloud.lapisproject.dev/whats-new", Branding.whatsNewUrlFor("en"))
+        assertEquals("https://cloud.lapisproject.dev/de/whats-new", Branding.whatsNewUrlFor("de"))
+        assertEquals("https://cloud.lapisproject.dev/whats-new", Branding.whatsNewUrlFor("pl"))
+    }
+
+    @Test
     fun noElementInDom_fallsBackToDefaults() {
         removeBrandElement()
         assertEquals(Branding.DEFAULT_TITLE, Branding.title)

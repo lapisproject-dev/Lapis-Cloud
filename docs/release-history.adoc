@@ -539,6 +539,8 @@ tried with real participants or on a real device, and the Keycloak provisioning 
 
 **`v0.37.7`** (waves V1.9.171, V1.9.173, V1.9.180 and V1.9.181, schema `V111`) is a client-only release on `v0.37.6`. **Behaviour changes first:** every date and time field uses the browser's native picker, the activate/deactivate settings pairs show only the applicable action, and the travel expense draft shows its days as one row per day. No migration. Checked in headless Chrome tests only; nobody clicked the native pickers, and Safari, Firefox, real phones and screen readers were not tried. Details: `CHANGELOG.md` `[0.37.7]`.
 
+**`v0.38.0`** (waves V1.9.182 to V1.9.199 and one contacts-list fix, schema `V114`) is a feature release on `v0.37.7`. **Behaviour changes first:** Markdown for agreement text versions saved from now on (existing versions unchanged), travel expense attachments, receipts in the add form and documents for members, a new Lapis Cloud logo and favicons (an operator logo keeps priority), a wide page shell with master-detail tables (Gremien, Sitzungen, Anträge, Vertragstexte), collapsible page intros, one back button, and a contacts list that no longer shows each contact several times. Three additive migrations (`V112` to `V114`), no new environment variable. Checked in headless Chrome only; not looked at on real phones or devices. Details: `CHANGELOG.md` `[0.38.0]`.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,

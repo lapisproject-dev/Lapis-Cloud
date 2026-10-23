@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AgreementTextDraftTable
 import network.lapis.cloud.server.db.generated.AgreementTextVersionTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AuditEntityType
 import org.jetbrains.exposed.v1.core.eq
@@ -37,6 +38,8 @@ internal object AgreementTextTestState {
         label: String,
         body: String,
         validFrom: LocalDate = LocalDate(2026, 1, 1),
+        format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+        authorMemberId: Uuid = AGREEMENT_TEST_ADMIN_ID,
     ): String {
         val sha = AgreementTextHash.of(versionLabel = label, body = body)
         transaction {
@@ -47,8 +50,9 @@ internal object AgreementTextTestState {
                 validFrom = validFrom,
                 body = body,
                 sha256 = sha,
-                authorMemberId = AGREEMENT_TEST_ADMIN_ID,
+                authorMemberId = authorMemberId,
                 now = DbClock.nowLocalDateTime(),
+                format = format,
             )
         }
         return sha

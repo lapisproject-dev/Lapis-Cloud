@@ -228,7 +228,7 @@ class EncounterDevicePickerDomTest {
     // ── who gets which fields ──────────────────────────────────────────────────
 
     @Test
-    fun anOfficeHolder_getsThreeLabelledFields_andTheButtonIsTheLastOfTheDevicesGroup(): Promise<Unit> =
+    fun anOfficeHolder_getsThreeLabelledFields_andTheButtonStandsAloneInTheSettingsGroup(): Promise<Unit> =
         formTest {
             assertTrue(stylesLoaded)
             clearKeys()
@@ -236,14 +236,21 @@ class EncounterDevicePickerDomTest {
             withSteward(steward(), env) { _, element ->
                 awaitUntil("the device button is shown") { element.pickerButton() != null }
                 val button = element.pickerButton()!!
-                assertEquals("Geräte wählen", button.getAttribute("aria-label"))
+                assertEquals("Einstellungen", button.getAttribute("aria-label"))
                 assertEquals("false", button.getAttribute("aria-expanded"))
                 assertEquals("lapis-encounter-device-panel", button.getAttribute("aria-controls"))
+                // V1.9.184: the gear stands alone in the settings group (start zone), in front of the devices group
+                val settings = assertNotNull(element.querySelector(".lapis-encounter-control-group--settings") as? HTMLElement)
+                assertEquals(
+                    listOf("Einstellungen"),
+                    settings.allOf("button").map { it.getAttribute("aria-label").orEmpty() },
+                    "the picker alone in the settings group",
+                )
                 val group = assertNotNull(element.querySelector(".lapis-encounter-control-group--devices") as? HTMLElement)
                 assertEquals(
-                    listOf("Mikrofon", "Kamera", "Geräte wählen"),
+                    listOf("Mikrofon", "Kamera"),
                     group.allOf("button").map { it.getAttribute("aria-label").orEmpty() },
-                    "microphone, camera, then the picker",
+                    "microphone, camera",
                 )
                 assertNull(element.panel(), "closed at first")
                 button.click()
@@ -278,7 +285,7 @@ class EncounterDevicePickerDomTest {
             withSteward(steward(), env) { _, element ->
                 awaitUntil("the device button is shown") { element.pickerButton() != null }
                 val button = element.pickerButton()!!
-                assertEquals("Geräte wählen", button.getAttribute("aria-label"))
+                assertEquals("Einstellungen", button.getAttribute("aria-label"))
                 val icon = assertNotNull(button.querySelector("i") as? HTMLElement, "the button carries an icon element")
                 assertTrue(icon.classList.contains("fas"), icon.className)
                 assertTrue(icon.classList.contains("fa-gear"), icon.className)
@@ -582,17 +589,21 @@ class EncounterDevicePickerDomTest {
                 session = steward(),
                 deviceEnv = FakeDeviceEnvironment(),
             ) { _, element ->
-                (element.querySelector(".lapis-encounter-room")!!.parentElement as HTMLElement).style.width = "340px"
-                delay(150)
-                val more =
-                    assertNotNull(
+                // V1.9.184: the gear is the third-to-last control to move into the sheet -- take the widest bar where "Mehr" is there and the gear
+                // is still in the bar
+                var more: HTMLElement? = null
+                for (width in 900 downTo 340 step 20) {
+                    (element.querySelector(".lapis-encounter-room")!!.parentElement as HTMLElement).style.width = "${width}px"
+                    delay(150)
+                    more =
                         element.allOf(".lapis-encounter-controls button").firstOrNull {
-                            it.getAttribute("aria-label") ==
-                                "Mehr" &&
-                                it.shown()
-                        },
-                    )
-                more.click()
+                            it.getAttribute("aria-label") == "Mehr" && it.shown()
+                        }
+                    if (more != null && element.pickerButton() != null) break
+                }
+                val moreButton = assertNotNull(more, "some width shows Mehr and the gear together")
+                assertNotNull(element.pickerButton(), "the gear is in the bar")
+                moreButton.click()
                 awaitUntil(
                     "the sheet is open",
                 ) { ((element.querySelector(".lapis-encounter-more-sheet") as? HTMLElement)?.shown() == true) }
@@ -601,7 +612,7 @@ class EncounterDevicePickerDomTest {
                     ((element.querySelector(".lapis-encounter-more-sheet") as? HTMLElement)?.shown() == true),
                     "the sheet closed when the panel opened",
                 )
-                more.click()
+                moreButton.click()
                 awaitUntil("the sheet is open again") {
                     (
                         (element.querySelector(".lapis-encounter-more-sheet") as? HTMLElement)?.shown() ==

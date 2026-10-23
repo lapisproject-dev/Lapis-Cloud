@@ -20,6 +20,7 @@ import network.lapis.cloud.client.DataSection
 import network.lapis.cloud.client.FormRules
 import network.lapis.cloud.client.FormSnapshot
 import network.lapis.cloud.client.LapisField
+import network.lapis.cloud.client.PageIntros
 import network.lapis.cloud.client.Routes
 import network.lapis.cloud.client.actionButton
 import network.lapis.cloud.client.actionLink
@@ -72,7 +73,7 @@ fun renderEncounterSpaceScreen(container: SimplePanel) {
             maxWidth = 720.px
             marginTop = 24.px
         }
-    val header = root.pageHeader(tr("Begegnungsräume"))
+    val header = root.pageHeader(tr("Begegnungsräume"), intro = PageIntros.forRoute(Routes.ENCOUNTER))
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
     // R36B: the create form is collapsed; its button sits in the title row and the form opens right under the header.
     val createHost = if (canManage) root.vPanel(spacing = 6) else null

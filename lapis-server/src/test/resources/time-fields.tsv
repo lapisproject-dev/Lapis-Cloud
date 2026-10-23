@@ -400,6 +400,8 @@ dto:BoardMembershipInput.startedAt	D	calendar date (LocalDate); never converted
 dto:TransparenzregisterReminderDto.triggeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:TransparenzregisterReminderDto.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:TravelExpenseReceiptDto.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseAttachmentDto.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseDocumentDto.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:TravelExpenseReportDto.travelFrom	D	calendar date (LocalDate); never converted
 dto:TravelExpenseReportDto.travelTo	D	calendar date (LocalDate); never converted
 dto:TravelExpenseReportDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
@@ -814,6 +816,8 @@ col:TravelExpenseLineTable.dayDate	D	calendar date (LocalDate); never converted
 col:TravelExpenseLineTable.timeFrom	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
 col:TravelExpenseLineTable.timeTo	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
 col:TravelExpenseReceiptTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseAttachmentTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseDocumentTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:TravelExpenseReportTable.travelFrom	D	calendar date (LocalDate); never converted
 col:TravelExpenseReportTable.travelTo	D	calendar date (LocalDate); never converted
 col:TravelExpenseReportTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

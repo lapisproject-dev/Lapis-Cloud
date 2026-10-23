@@ -425,7 +425,7 @@ class FormSubmitBodyPart2DomTest {
                     screen.type("Ja-Stimmen", " 11 ")
                     screen.type("Nein-Stimmen", " 5 ")
                     screen.type("Enthaltungen", " 1 ")
-                    screen.button("Entscheidung speichern").click()
+                    screen.button("Ergebnis festhalten").click()
                     awaitUntil("resolveMotion", timeoutMs = 600) { calls.toRoute(r.resolveMotion).isNotEmpty() }
                     val request = calls.singleCall(r.resolveMotion)
                     assertEquals("motion-3", request.rpcParam(0) as String)

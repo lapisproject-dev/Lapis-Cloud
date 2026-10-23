@@ -179,6 +179,7 @@ class AuditLogSchemaDriftTest :
                             "VIDEO_OVERLAY",
                             "AGREEMENT_TEXT",
                             "PULPIT_RECORDING",
+                            "TRAVEL_EXPENSE_DOCUMENT",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

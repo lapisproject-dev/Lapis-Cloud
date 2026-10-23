@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Widget
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Icon
 import io.kvision.html.Link
 import io.kvision.html.button
 import io.kvision.html.link
@@ -47,7 +48,10 @@ enum class SidebarGroupId(
  * [load]/[save] are the only impure (jsMain-only, `localStorage`-touching) entry points.
  */
 object SidebarGroupStorage {
-    const val STORAGE_KEY = "lapis-cloud-sidebar-groups"
+    const val STORAGE_KEY = "lapis-cloud-sidebar-groups.v2"
+
+    /** Pre-V1.9.183 key: also held groups that were only opened automatically by the route. Read once, migrated, removed. */
+    const val LEGACY_STORAGE_KEY = "lapis-cloud-sidebar-groups"
 
     /**
      * Comma-separated [SidebarGroupId.storageKey] tokens -> the matching set. Unknown tokens are
@@ -67,12 +71,27 @@ object SidebarGroupStorage {
      */
     fun serialize(ids: Set<SidebarGroupId>): String = SidebarGroupId.entries.filter { it in ids }.joinToString(",") { it.storageKey }
 
-    /** Reads [STORAGE_KEY] from `localStorage`. */
-    fun load(): Set<SidebarGroupId> = parse(localStorage[STORAGE_KEY])
+    /**
+     * Reads [STORAGE_KEY] from `localStorage`; if absent, migrates [LEGACY_STORAGE_KEY] once (sanitised by
+     * [parse], written to v2, legacy key removed). Never throws: private mode, blocked site data or a
+     * throwing `getItem`/`setItem` yield an empty set and the page works without persistence.
+     */
+    fun load(): Set<SidebarGroupId> =
+        runCatching {
+            val current = localStorage.getItem(STORAGE_KEY)
+            if (current != null) return@runCatching parse(current)
+            val legacy = localStorage.getItem(LEGACY_STORAGE_KEY) ?: return@runCatching emptySet()
+            val migrated = parse(legacy)
+            runCatching {
+                localStorage.setItem(STORAGE_KEY, serialize(migrated))
+                localStorage.removeItem(LEGACY_STORAGE_KEY)
+            }
+            migrated
+        }.getOrDefault(emptySet())
 
-    /** Persists [ids] to `localStorage` under [STORAGE_KEY]. */
+    /** Persists [ids] to `localStorage` under [STORAGE_KEY]; a silent no-op when storage is unavailable. */
     fun save(ids: Set<SidebarGroupId>) {
-        localStorage[STORAGE_KEY] = serialize(ids)
+        runCatching { localStorage.setItem(STORAGE_KEY, serialize(ids)) }
     }
 }
 
@@ -110,7 +129,7 @@ fun shouldMountSidebarEagerly(viewportWidthPx: Int): Boolean = viewportWidthPx >
  * group open" ([sidebarGroupForRoute]) can never drift from "which routes actually render inside
  * that group" the way two independently-maintained lists could.
  */
-private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
+internal val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
     mapOf(
         SidebarGroupId.MEMBERSHIP to
             listOf(
@@ -118,6 +137,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.DOCUMENTS,
                 Routes.STATUTE_QA,
                 Routes.COMMUNICATION,
+                Routes.ARTICLES,
                 Routes.MY_CHAPTER,
                 Routes.CARPOOL,
                 Routes.MEMBER_FINDER,
@@ -228,6 +248,7 @@ fun sidebarGroupForRoute(route: String?): SidebarGroupId? {
  * bordered, ~264px-wide column next to e.g. the login form on any desktop viewport.
  */
 fun clearSidebar(body: SimplePanel) {
+    SidebarHelpMenu.disposeCurrent()
     body.removeAll()
     body.addCssClass("lapis-sidebar-empty")
     NavHighlight.reset()
@@ -256,6 +277,7 @@ fun buildSidebar(
     activeRoute: String?,
     onNavigate: () -> Unit,
 ) {
+    SidebarHelpMenu.disposeCurrent()
     body.removeAll()
     // Review-Fund 2026-09-08 (Finding 2, HOCH): counterpart to `clearSidebar`'s own
     // `addCssClass("lapis-sidebar-empty")` -- this build IS populating the sidebar, so drop the
@@ -282,8 +304,10 @@ fun buildSidebar(
     val nav = Nav(className = "flex-column lapis-sidebar-nav")
     body.add(nav)
 
-    val openGroups = SidebarGroupStorage.load().toMutableSet()
-    sidebarGroupForRoute(activeRoute)?.let { openGroups += it }
+    // Two sets on purpose: `persisted` changes ONLY through header clicks and is the only thing written
+    // to storage; `openGroups` (persisted + the active route's group) is the display state at build time.
+    val persisted = SidebarGroupStorage.load().toMutableSet()
+    val openGroups = persisted + listOfNotNull(sidebarGroupForRoute(activeRoute))
 
     // Review-Fund 2026-09-08 (Finding 4, MINOR/UX): maps a group's header `toggle` widget to a
     // closure that force-opens that specific group -- populated by `sidebarGroup` below, looked up
@@ -342,25 +366,39 @@ fun buildSidebar(
                 style = ButtonStyle.LINK,
                 className = "lapis-sidebar-group-header w-100 text-start d-flex align-items-center gap-2",
             )
+        val bodyId = "lapis-sidebar-group-${id.name.lowercase()}"
         header.setAttribute("aria-expanded", isOpen.toString())
+        header.setAttribute("aria-controls", bodyId)
+        // Trailing child (Button is a SimplePanel: label first, children after) -- never part of Button.text.
+        val chevron = Icon(ActionIcon.CHEVRON.css)
+        chevron.addCssClass("lapis-sidebar-group-chevron")
+        chevron.setAttribute("aria-hidden", "true")
+        header.add(chevron)
         val groupBody = Nav(className = "flex-column lapis-sidebar-group-body")
+        groupBody.setAttribute("id", bodyId)
         add(groupBody)
 
-        fun setOpen(nowOpen: Boolean) {
+        // Only a header click persists; opening through routing (persist = false) must not be stored.
+        fun setOpen(
+            nowOpen: Boolean,
+            persist: Boolean,
+        ) {
             if (nowOpen) groupBody.show() else groupBody.hide()
             header.setAttribute("aria-expanded", nowOpen.toString())
-            if (nowOpen) openGroups += id else openGroups -= id
-            SidebarGroupStorage.save(openGroups)
+            if (persist) {
+                if (nowOpen) persisted += id else persisted -= id
+                SidebarGroupStorage.save(persisted)
+            }
         }
         // Registered BEFORE `content(header)` runs below -- `sidebarLink` calls inside `content`
         // look this map up immediately (via the `toggle` parameter they're passed), so the entry
         // must already exist by the time the first one of them fires.
-        groupOpeners[header] = { if (!groupBody.visible) setOpen(true) }
+        groupOpeners[header] = { if (!groupBody.visible) setOpen(nowOpen = true, persist = false) }
 
         groupBody.content(header)
         if (!isOpen) groupBody.hide()
         header.onClick {
-            setOpen(!groupBody.visible)
+            setOpen(nowOpen = !groupBody.visible, persist = true)
         }
     }
 
@@ -375,7 +413,7 @@ fun buildSidebar(
 
     // V1.9.125 "Mitfahrten": a guest or friend has no "Mitgliedschaft" group -- the carpool centre is a flat entry for them.
     if (NavVisibility.showsCarpoolFlatLink(session.status)) {
-        val carpoolLink = nav.sidebarLink(Routes.CARPOOL, tr("Mitfahrerzentrale"), "fas fa-car-side")
+        val carpoolLink = nav.sidebarLink(Routes.CARPOOL, tr("Mitfahrzentrale"), "fas fa-car-side")
         updateCarpoolSidebarCount(link = carpoolLink, isMember = false)
     }
 
@@ -395,9 +433,9 @@ fun buildSidebar(
             if (NavVisibility.showsChapterRoster(session.chapterScope)) {
                 sidebarLink(Routes.MY_CHAPTER, tr("Mein Landesverband"), "fas fa-users-rectangle", toggle)
             }
-            // Welle V1.9.12 "Mitfahrerzentrale" -- fa-car-side statt fa-car (Icon-Kollision
+            // Welle V1.9.12 "Mitfahrzentrale" -- fa-car-side statt fa-car (Icon-Kollision
             // vermeiden: fa-car ist bereits an TRAVEL_EXPENSES weiter unten in dieser Gruppe vergeben).
-            val carpoolLink = sidebarLink(Routes.CARPOOL, tr("Mitfahrerzentrale"), "fas fa-car-side", toggle)
+            val carpoolLink = sidebarLink(Routes.CARPOOL, tr("Mitfahrzentrale"), "fas fa-car-side", toggle)
             updateCarpoolSidebarCount(link = carpoolLink, isMember = true)
             // V1.9.145 "Mitglieder-Finder" -- shown only while the server offers it (instance switch on); `fa-user-group` is free (`fa-address-book` is the contacts).
             val finderLink = sidebarLink(Routes.MEMBER_FINDER, tr("Mitglieder-Finder"), "fas fa-user-group", toggle)
@@ -633,6 +671,10 @@ fun buildSidebar(
             sidebarLink(Routes.MAIL_DELIVERY, tr("E-Mail-Versand"), "fas fa-envelopes-bulk", toggle)
         }
     }
+
+    // V1.9.187: the "Hilfe und Feedback" foot of the sidebar -- the SECOND direct child of `body` (after the nav, never inside it, so the
+    // link set and NavHighlight stay untouched). It scrolls with the page like the rest (R59) and its popover opens upward.
+    mountSidebarHelpMenu(body)
 
     // Reapplies whatever route NavHighlight currently tracks (set by Routing.kt's `show()` on the
     // last navigation) to this freshly-built link set -- same "rebuild, then reapply" contract

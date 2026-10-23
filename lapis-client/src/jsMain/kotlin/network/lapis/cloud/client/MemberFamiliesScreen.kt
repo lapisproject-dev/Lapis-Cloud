@@ -61,15 +61,13 @@ fun renderMemberFamiliesScreen(
 
     // V1.9.50 (R36): the create entry is the single primary action of the page -- the title row, not the search toolbar. It opens a dialog.
     lateinit var newFamilyButton: Button
-    root.pageHeader(tr("Familienmitgliedschaften"), primaryAction = {
-        newFamilyButton = actionButton(ActionIcon.ADD, tr("Familie anlegen"), style = ButtonStyle.PRIMARY)
-    })
-    root.div(
-        tr(
-            "Haushalts-/Familienverbünde für die Beitragsabrechnung -- ein Zahler, beliebig viele " +
-                "beitragsfreie Angehörige.",
-        ),
-    ) { addCssClasses("text-muted small") }
+    root.pageHeader(
+        tr("Familienmitgliedschaften"),
+        primaryAction = {
+            newFamilyButton = actionButton(ActionIcon.ADD, tr("Familie anlegen"), style = ButtonStyle.PRIMARY)
+        },
+        intro = PageIntros.forRoute(Routes.MEMBER_FAMILIES),
+    )
 
     val majorityPanel = root.vPanel(spacing = 6)
 

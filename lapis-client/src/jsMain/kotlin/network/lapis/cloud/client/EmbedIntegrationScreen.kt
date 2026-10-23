@@ -13,7 +13,6 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -32,17 +31,8 @@ import kotlinx.coroutines.launch
  */
 fun renderEmbedIntegrationScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Website-Integration"))
-    root.div(
-        tr(
-            "Widgets zum Einbetten auf der eigenen Vereins-/Parteiwebsite (Mitglieder-Login, Mitglied werden).",
-        ),
-    ) { addCssClasses("text-muted small") }
+        container.pageShell(PageWidth.FORM, spacing = 14)
+    root.pageHeader(tr("Website-Integration"), intro = PageIntros.forRoute(Routes.EMBED_INTEGRATION))
 
     val statusPanel = root.vPanel(spacing = 6)
     statusPanel.p(tr("Lädt …"))

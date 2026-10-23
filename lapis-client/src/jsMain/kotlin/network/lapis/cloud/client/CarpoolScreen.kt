@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
@@ -10,7 +11,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.datetime.LocalTime
 import network.lapis.cloud.shared.domain.CarpoolMyParticipationDto
 import network.lapis.cloud.shared.domain.CarpoolPostingDto
@@ -20,8 +20,9 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ICarpoolService
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- "Meine Einträge" (auch knapp abgelaufene, siehe
- * [ICarpoolService.listMyPostings] KDoc), Feed (nur zukünftige, mit Typfilter) und ein
+ * Welle V1.9.12 "Mitfahrzentrale" -- EINE Liste "Fahrten" (seit V1.9.186; vorher zusätzlich "Meine Einträge"): Feed (nur zukünftige, mit
+ * Typfilter) oder, mit dem Schalter "Nur meine", die eigenen Einträge (auch knapp abgelaufene, siehe
+ * [ICarpoolService.listMyPostings] KDoc) -- und ein
  * Erstell-/Bearbeiten-Formular (seit V1.9.50 das eingeklappte Erstell-Formular der Titelzeile, R36B
  * -- "Bearbeiten"/"Duplizieren" öffnen dasselbe, vorbefüllte Formular; sieben Felder passen bequem in die Seite).
  * Kontaktaufnahme läuft über [ICarpoolService.contactAuthor] -- kein eigenes
@@ -40,12 +41,8 @@ import network.lapis.cloud.shared.rpc.ICarpoolService
  */
 fun renderCarpoolScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 640.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Mitfahrerzentrale"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Mitfahrzentrale"), intro = PageIntros.forRoute(Routes.CARPOOL))
     // `requireAuth` guarantees a session; without one (a bare test mount) the pre-V1.9.125 member view is kept -- the server gates anyway.
     val isMember = NavVisibility.mayOfferCarpool(AppState.session?.status ?: MemberStatus.ACTIVE)
     if (isMember) {
@@ -75,31 +72,6 @@ fun renderCarpoolScreen(container: SimplePanel) {
     lateinit var refreshAll: () -> Unit
     val ui = CarpoolUi(announce = { liveRegion.content = it }, onChanged = { refreshAll() })
 
-    // W5-Muster (R34): Laden/Fehler-mit-Wiederholen/leer sind eigene Zustände EINES dataSection --
-    // kein manuelles removeAll()/AppScope.launch{guarded{...}} mehr.
-    var myPostingsSection: DataSection? = null
-    if (isMember) {
-        root.h2(tr("Meine Einträge")) { addCssClass("h5") }
-        myPostingsSection =
-            root.dataSection<List<CarpoolPostingDto>>(
-                emptyText = tr("Noch keine eigenen Einträge."),
-                isEmpty = { it.isEmpty() },
-                load = { guarded { rpcService<ICarpoolService>().listMyPostings() } },
-                render = { panel, postings ->
-                    postings.forEach { posting ->
-                        renderCarpoolCard(
-                            panel,
-                            posting,
-                            isMember = true,
-                            ui = ui,
-                            openForm = { formController.open(it) },
-                            onSaved = { refreshAll() },
-                        )
-                    }
-                },
-            )
-    }
-
     // V1.9.125 "Meine Mitfahrten": the rides of the person as a passenger, waiting items first. The whole block stays hidden while there is
     // nothing to show (an error keeps it visible, so the retry button is reachable).
     val myRidesBlock = root.vPanel(spacing = 6)
@@ -113,9 +85,13 @@ fun renderCarpoolScreen(container: SimplePanel) {
             render = { panel, items -> items.forEach { renderMyParticipationRow(panel, it, ui) } },
         )
 
+    // V1.9.186: ONE list. Members get a toolbar above it: "Nur meine" switches the source to their own entries (expired ones included), the
+    // "Art" select narrows either view. Both are filters, never submitted (R24B FILTER_IS_NOT_A_FORM). Guests get no toolbar.
     var typeFilter: io.kvision.form.select.Select? = null
+    var onlyMineCheck: io.kvision.form.check.CheckBox? = null
     if (isMember) {
         val filterRow = root.lapisToolbar()
+        onlyMineCheck = filterRow.checkBox(label = tr("Nur meine"))
         typeFilter =
             filterRow.select(
                 options =
@@ -141,12 +117,29 @@ fun renderCarpoolScreen(container: SimplePanel) {
                 } else {
                     tr("Noch keine Fahrten angeboten.")
                 },
-            filterTerm = { typeFilter?.value?.takeIf { it.isNotBlank() }?.let { carpoolTypeFilterLabel(it) } },
-            noMatchText = { term -> gettext("Keine Fahrten der Art \"%1\".", term) },
+            filterTerm = {
+                // An active type filter names itself; "Nur meine" without a type filter is carried by a sentinel the noMatchText resolves.
+                typeFilter?.value?.takeIf { it.isNotBlank() }?.let { carpoolTypeFilterLabel(it) }
+                    ?: if (onlyMineCheck?.value == true) CARPOOL_ONLY_MINE_TERM else null
+            },
+            noMatchText = { term ->
+                if (term ==
+                    CARPOOL_ONLY_MINE_TERM
+                ) {
+                    gettext("Noch keine eigenen Einträge.")
+                } else {
+                    gettext("Keine Fahrten der Art \"%1\".", term)
+                }
+            },
             isEmpty = { it.isEmpty() },
             load = {
                 val type = typeFilter?.value?.takeIf { it.isNotBlank() }?.let { CarpoolPostingType.valueOf(it) }
-                guarded { rpcService<ICarpoolService>().listPostings(type) }
+                if (onlyMineCheck?.value == true) {
+                    // `listMyPostings` takes no type: the narrowing happens here, on the (small, capped) list of the own entries.
+                    guarded { rpcService<ICarpoolService>().listMyPostings() }?.filter { type == null || it.type == type }
+                } else {
+                    guarded { rpcService<ICarpoolService>().listPostings(type) }
+                }
             },
             render = { panel, postings ->
                 postings.forEach { posting ->
@@ -163,7 +156,6 @@ fun renderCarpoolScreen(container: SimplePanel) {
         )
 
     refreshAll = {
-        myPostingsSection?.reload()
         myRidesSection.reload()
         feedSection.reload()
     }
@@ -176,10 +168,22 @@ fun renderCarpoolScreen(container: SimplePanel) {
                 formId = "carpool-create-form",
             ) { prefill, close -> buildCarpoolForm(this, prefill, close) { refreshAll() } }
         typeFilter?.subscribe { feedSection.reload() }
+        // KVision's CheckInput.subscribe calls the observer once at registration (see BankStatementImportScreen): skip that synthetic event.
+        var isInitialOnlyMineEvent = true
+        onlyMineCheck?.subscribe {
+            if (isInitialOnlyMineEvent) {
+                isInitialOnlyMineEvent = false
+                return@subscribe
+            }
+            feedSection.reload()
+        }
     }
 
     refreshAll()
 }
+
+/** Filter term of "Nur meine" without a type filter: never shown, [dataSection]'s `noMatchText` turns it into the empty text of the own entries. */
+private const val CARPOOL_ONLY_MINE_TERM = "carpool-only-mine"
 
 /** [tr]/[gettext] label for the currently selected feed type filter -- used as [DataSection]'s `filterTerm`/`noMatchText`. */
 private fun carpoolTypeFilterLabel(rawTypeValue: String): String =
@@ -207,23 +211,28 @@ private fun renderCarpoolCard(
     onSaved: () -> Unit,
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClass("align-items-center") }
+    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.typeBadge(
         if (posting.type == CarpoolPostingType.OFFER) tr("Angebot") else tr("Gesuch"),
         if (posting.type == CarpoolPostingType.OFFER) "success" else "primary",
     )
-    headerRow.untrustedCardTitle(gettext("%1 → %2", posting.fromPlace, posting.toPlace))
+    // V1.9.186: the card SHOWS a tidied place ("06217 MERSEBURG (SAALE), DEUTSCHLAND" -> "Merseburg (Saale)"); the stored text is untouched
+    // and the full original stays one hover away in the title. `title` is an attribute: resolved text only, never a tr() marker.
+    val from = formatCarpoolPlace(posting.fromPlace)
+    val to = formatCarpoolPlace(posting.toPlace)
+    val title = headerRow.untrustedCardTitle(gettext("%1 → %2", from, to))
+    title.setAttribute("title", resolvedAttributeText(sanitizeUntrustedI18nText("${posting.fromPlace} → ${posting.toPlace}")))
     if (posting.isOwn) headerRow.typeBadge(tr("Eigener Eintrag"), "secondary")
     if (posting.isPast) headerRow.statusBadge(tr("Abgelaufen"), "secondary")
-    if (posting.isOwn && posting.openRequests > 0) {
-        headerRow.statusBadge(
-            if (posting.openRequests == 1) tr("1 offene Anfrage") else gettext("%1 offene Anfragen", posting.openRequests),
-            "warning",
-        )
-    }
     posting.myParticipation?.let { mine ->
         headerRow.carpoolStatusBadge(carpoolBadgeSpec(mine.status, mine.initiator, viewerIsDriver = false))
     }
+    // The three own-entry actions sit in the title row as icon buttons; the name carries the route so that a screen reader can tell the
+    // cards apart. The text is data-bearing, so it is sanitized as a whole before it becomes `title`/`aria-label`.
+    val ownActions = if (posting.isOwn) headerRow.hPanel(spacing = 4) { addCssClasses("ms-auto flex-wrap") } else null
+    // The delete confirmation gets a full-width row of its own right under the title row (hidden until "Löschen" is pressed).
+    val confirmBox = if (posting.isOwn) row.hPanel(spacing = 8) { addCssClasses("w-100 align-items-center flex-wrap") } else null
+    confirmBox?.hide()
 
     row.div(formatDate(posting.departureDate) + carpoolDepartureTimeSuffix(posting.departureTime)) { addCssClasses("text-muted small") }
 
@@ -232,50 +241,68 @@ private fun renderCarpoolCard(
     row.untrustedDiv(gettext("von %1", posting.authorDisplayName)) { addCssClasses("text-muted small") }
     posting.meetingNote?.takeIf { it.isNotBlank() }?.let { renderMeetingNoteLine(row, it) }
 
+    if (ownActions != null) {
+        ownActions
+            .actionButton(
+                ActionIcon.EDIT,
+                sanitizeUntrustedI18nText(gettext("Fahrt %1 nach %2 bearbeiten", from, to)),
+                style = ButtonStyle.OUTLINESECONDARY,
+                iconOnly = true,
+            ).onClick { openForm(CarpoolFormPrefill(editing = posting, duplicateFrom = null)) }
+        ownActions
+            .actionButton(
+                ActionIcon.COPY,
+                sanitizeUntrustedI18nText(gettext("Fahrt %1 nach %2 duplizieren", from, to)),
+                style = ButtonStyle.OUTLINESECONDARY,
+                iconOnly = true,
+            ).onClick { openForm(CarpoolFormPrefill(editing = null, duplicateFrom = posting)) }
+        renderCarpoolDeleteControl(
+            actionHost = ownActions,
+            confirmBox = checkNotNull(confirmBox),
+            posting = posting,
+            deleteLabel = sanitizeUntrustedI18nText(gettext("Fahrt %1 nach %2 löschen", from, to)),
+            onSaved = onSaved,
+        )
+        if (posting.type == CarpoolPostingType.OFFER) {
+            renderOwnerPanel(row = row, posting = posting, ui = ui, openRequests = if (posting.isPast) 0 else posting.openRequests)
+        }
+        return
+    }
+    if (posting.isPast) return
     val actionRow = row.hPanel(spacing = 8) { addCssClass("mt-1") }
-    if (posting.isOwn) {
-        actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY).onClick {
-            openForm(CarpoolFormPrefill(editing = posting, duplicateFrom = null))
-        }
-        actionRow.actionButton(ActionIcon.COPY, tr("Duplizieren"), style = ButtonStyle.OUTLINESECONDARY).onClick {
-            openForm(CarpoolFormPrefill(editing = null, duplicateFrom = posting))
-        }
-        renderCarpoolDeleteControl(actionRow = actionRow, posting = posting, onSaved = onSaved)
-        if (posting.type == CarpoolPostingType.OFFER) renderOwnerPanel(row = row, posting = posting, ui = ui)
-    } else if (!posting.isPast) {
-        if (carpoolMayRequestRide(posting)) {
-            val requestButton = actionRow.actionButton(ActionIcon.REQUEST_RIDE, tr("Mitfahrt anfragen"), style = ButtonStyle.PRIMARY)
-            requestButton.onClick {
-                runGuardedAction(requestButton) {
-                    if (guarded { rpcService<ICarpoolService>().requestParticipation(posting.id) } != null) {
-                        val message = gettext("Mitfahrt angefragt.")
-                        notifySuccess(message)
-                        ui.announce(message)
-                        ui.onChanged()
-                    }
+    if (carpoolMayRequestRide(posting)) {
+        val requestButton = actionRow.actionButton(ActionIcon.REQUEST_RIDE, tr("Mitfahrt anfragen"), style = ButtonStyle.PRIMARY)
+        requestButton.onClick {
+            runGuardedAction(requestButton) {
+                if (guarded { rpcService<ICarpoolService>().requestParticipation(posting.id) } != null) {
+                    val message = gettext("Mitfahrt angefragt.")
+                    notifySuccess(message)
+                    ui.announce(message)
+                    ui.onChanged()
                 }
             }
         }
-        // A direct message needs an ACTIVE recipient AND sender: guests and friends have no such channel (they get the meeting note instead).
-        if (isMember) {
-            var contactPanel: SimplePanel? = null
-            actionRow.actionButton(ActionIcon.SEND, tr("Kontakt aufnehmen"), style = ButtonStyle.OUTLINESECONDARY).onClick {
-                if (contactPanel != null) return@onClick
-                contactPanel = renderCarpoolContactForm(row = row, posting = posting) { contactPanel = null }
-            }
+    }
+    // A direct message needs an ACTIVE recipient AND sender: guests and friends have no such channel (they get the meeting note instead).
+    if (isMember) {
+        var contactPanel: SimplePanel? = null
+        actionRow.actionButton(ActionIcon.SEND, tr("Kontakt aufnehmen"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+            if (contactPanel != null) return@onClick
+            contactPanel = renderCarpoolContactForm(row = row, posting = posting) { contactPanel = null }
         }
     }
 }
 
 /** InlineConfirmGate-Riegel gegen einen doppelten Löschvorgang (Forstall-Ruling: Bestätigung inline, kein zweites Modal). */
 private fun renderCarpoolDeleteControl(
-    actionRow: SimplePanel,
+    actionHost: SimplePanel,
+    confirmBox: SimplePanel,
     posting: CarpoolPostingDto,
+    deleteLabel: String,
     onSaved: () -> Unit,
 ) {
     val gate = InlineConfirmGate()
-    val deleteButton = actionRow.actionButton(ActionIcon.DELETE, tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
-    val confirmBox = actionRow.hPanel(spacing = 8) { hide() }
+    val deleteButton = actionHost.actionButton(ActionIcon.DELETE, deleteLabel, style = ButtonStyle.OUTLINEDANGER, iconOnly = true)
 
     fun syncButton() {
         deleteButton.disabled = gate.blocked

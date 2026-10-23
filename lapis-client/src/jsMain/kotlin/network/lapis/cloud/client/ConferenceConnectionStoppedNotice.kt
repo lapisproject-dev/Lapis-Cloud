@@ -69,7 +69,7 @@ internal fun Container.conferenceConnectionStoppedNotice(
                     }
                 }
             }
-            actionButton(ActionIcon.BACK, tr("Zur Übersicht"), style = ButtonStyle.OUTLINESECONDARY).onClick { onOverview() }
+            backButton(tr("Zur Übersicht")) { onOverview() }
         }
     }
     return addWithLifecycle(card, onInsert = { vnode -> (vnode.elm as? HTMLElement)?.focus() })

@@ -57,7 +57,7 @@ import network.lapis.cloud.shared.rpc.IAccountingService
 fun renderFinancialReportsScreen(container: SimplePanel) {
     val root =
         container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("Finanzberichte"))
+    root.pageHeader(tr("Finanzberichte"), intro = PageIntros.forRoute(Routes.FINANCIAL_REPORTS))
 
     // Welle V1.4.27 (W3): ONE segmented control with an active state (R20/R48) instead of five outline buttons
     // that never said which report was showing. The fourth/fifth entries keep their history: V1.4.5.2

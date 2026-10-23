@@ -54,7 +54,7 @@ internal fun renderPollRatingBooth(
                     explanationClosedLabel = tr("Erklärung"),
                     reviewLine = { text, value -> gettext("%1: Widerstand %2 von %3", text, value, PollRules.SK_SCALE_MAX) },
                     finalNote = tr("Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden."),
-                    exitLabel = tr("Zurück zur Umfrage"),
+                    exitLabel = tr("Stimmabgabe verlassen"),
                     doneHeading = tr("Danke"),
                     doneText = tr("Ihre Antwort ist gespeichert."),
                     forbiddenHeading = tr("Keine Berechtigung"),

@@ -104,7 +104,7 @@ private fun renderFriendRegistrationForm(
         AgreementTextSection(parent = form.panel, heading = { version ->
             gettext("Nutzungsbedingungen für Freund-Konten (Version %1)", version)
         })
-    termsSection.show(version = terms.version, text = terms.text)
+    termsSection.show(version = terms.version, text = terms.text, format = terms.format, renderedHtml = terms.renderedHtml)
     // Die Zustimmung ist ein Feld der Grammatik (V1.4.29, `checkField`): Pflicht heißt "angekreuzt", der Fehler steht AM Feld
     // (nicht mehr in der Sammelfläche), `aria-required` setzt der Baustein.
     val consentField =
@@ -136,7 +136,12 @@ private fun renderFriendRegistrationForm(
                     notifyError(tr("Die Nutzungsbedingungen wurden aktualisiert. Bitte lesen Sie sie erneut."))
                     loadFriendTerms()?.let { fresh ->
                         currentTerms = fresh
-                        termsSection.show(version = fresh.version, text = fresh.text)
+                        termsSection.show(
+                            version = fresh.version,
+                            text = fresh.text,
+                            format = fresh.format,
+                            renderedHtml = fresh.renderedHtml,
+                        )
                         consentField.reset()
                     }
                     null

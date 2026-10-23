@@ -17,7 +17,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -126,12 +125,8 @@ fun renderAuctionScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
 
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Auktion"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Auktion"), intro = PageIntros.forRoute(Routes.AUCTION))
 
     // ---- Neues Angebot (V1.9.49, R36B: collapsed behind the header button; the form incl. D3's balance line lives in
     // AuctionCreateListingForm.kt) -- always visible, like the form was: the server's 409 on a disabled auction is shown by `guarded`.

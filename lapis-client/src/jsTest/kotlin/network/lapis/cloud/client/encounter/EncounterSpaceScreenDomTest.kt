@@ -126,7 +126,10 @@ class EncounterSpaceScreenDomTest {
                 assertEquals(listOf("#/begegnung/open-1", "#/begegnung/closed-1"), links.map { it.getAttribute("href") })
                 val buttons = element.allOf("button").map { it.textContent.orEmpty().trim() }
                 listOf("Bearbeiten", "Ämter", "Archivieren", "Neuer Begegnungsraum").forEach { assertFalse(it in buttons, "$it: $buttons") }
-                assertNull(element.querySelector("[aria-controls]"), "no create form button")
+                assertNull(
+                    element.querySelector("[aria-controls]:not(.page-intro__toggle):not(.page-intro__collapse)"),
+                    "no create form button (the page-intro buttons also carry aria-controls since V1.9.190)",
+                )
             }
         }
 

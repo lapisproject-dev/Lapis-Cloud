@@ -13,7 +13,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.number
@@ -60,19 +59,8 @@ import network.lapis.cloud.shared.rpc.IConferenceStreamingService
  */
 fun renderConferenceStreamDestinationsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Stream-Ziele"))
-    root.div(
-        tr(
-            "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), " +
-                "zu denen Moderatorinnen und Moderatoren eine Besprechung live übertragen können. Der " +
-                "Stream-Schlüssel wird verschlüsselt gespeichert und nach dem Speichern nie wieder angezeigt.",
-        ),
-    ) { addCssClasses("text-muted small") }
+        container.pageShell(PageWidth.FORM, spacing = 14)
+    val header = root.pageHeader(tr("Stream-Ziele"), intro = PageIntros.forRoute(Routes.CONFERENCE_STREAM_DESTINATIONS))
 
     val createHost = root.vPanel(spacing = 8)
     val listPanel = root.vPanel(spacing = 8)

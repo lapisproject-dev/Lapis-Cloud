@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.core.Widget
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
@@ -11,14 +12,19 @@ import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
+import io.kvision.table.HeaderCell
+import io.kvision.table.Scope
+import io.kvision.table.cell
+import io.kvision.table.row
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgendaItemDto
 import network.lapis.cloud.shared.domain.AgendaItemInput
@@ -106,12 +112,8 @@ fun renderMeetingsScreen(container: SimplePanel) {
     val isBoardOrAdmin = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
 
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Sitzungen"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Sitzungen"), intro = PageIntros.forRoute(Routes.MEETINGS))
     // V1.9.40 (R36B): the create form is collapsed; its button sits in the title row and the form opens right under the header.
     val createHost = root.vPanel(spacing = 6)
 
@@ -124,12 +126,7 @@ fun renderMeetingsScreen(container: SimplePanel) {
     val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val meetingListPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Details")) { addCssClass("h5") }
-    val detailPanel = root.vPanel(spacing = 10)
-    detailPanel.p(tr("Sitzung oben auswählen, um Details zu sehen."))
-
     var committees: List<CommitteeDto> = emptyList()
-    var currentDetailMeetingId: String? = null
     // Known only after the committee rosters are loaded (below), i.e. usually AFTER the first list render: the empty-state text is
     // corrected in place once it is (see [emptyNote]).
     var canCreate = false
@@ -137,13 +134,6 @@ fun renderMeetingsScreen(container: SimplePanel) {
 
     fun emptyText(): String =
         if (canCreate) tr("Noch keine Sitzungen. Mit \"Neue Sitzung\" legen Sie eine an.") else tr("Noch keine Sitzungen vorhanden.")
-
-    fun refreshDetail() {
-        val meetingId = currentDetailMeetingId ?: return
-        renderMeetingDetail(detailPanel, meetingId, currentMemberId, isBoardOrAdmin, committees) {
-            refreshDetail()
-        }
-    }
 
     fun refreshMeetings() {
         meetingListPanel.removeAll()
@@ -156,12 +146,7 @@ fun renderMeetingsScreen(container: SimplePanel) {
                 emptyNote = meetingListPanel.p(emptyText())
                 return@launch
             }
-            meetings.forEach { meeting ->
-                renderMeetingRow(meetingListPanel, meeting) { selected ->
-                    currentDetailMeetingId = selected.id
-                    refreshDetail()
-                }
-            }
+            renderMeetingTable(meetingListPanel, meetings)
         }
     }
 
@@ -212,29 +197,95 @@ fun renderMeetingsScreen(container: SimplePanel) {
     }
 }
 
-private fun renderMeetingRow(
-    panel: SimplePanel,
-    meeting: MeetingDto,
-    onSelect: (MeetingDto) -> Unit,
-) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    // Security audit W6b follow-up round 3 (major finding A): meeting title is member-editable free text
-    // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
-    headerRow.div(sanitizeUntrustedI18nText(meeting.title)) { addCssClasses("flex-grow-1 fw-bold") }
-    headerRow.statusBadge(meetingStatusLabel(meeting.status), meetingStatusColor(meeting.status))
-    row.div(
-        gettext("%1 · %2 · %3", meeting.committeeName, meetingFormatLabel(meeting.format), formatDateTime(meeting.scheduledAt)),
-    ) {
-        addCssClasses("text-muted small")
-    }
-    meeting.location?.takeIf { it.isNotBlank() }?.let { location ->
-        row.div(gettext("Ort: %1", location)) { addCssClasses("text-muted small") }
-    }
+/**
+ * The meetings in list order: upcoming ones (from [now] on) ascending, then the past ones newest first. A cancelled meeting that lies in
+ * the future stays in the upcoming group, with its status badge.
+ */
+internal fun orderMeetings(
+    meetings: List<MeetingDto>,
+    now: LocalDateTime,
+): Pair<List<MeetingDto>, List<MeetingDto>> {
+    val (upcoming, past) = meetings.partition { it.scheduledAt >= now }
+    return upcoming.sortedBy { it.scheduledAt } to past.sortedByDescending { it.scheduledAt }
+}
 
-    val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.actionButton(ActionIcon.VIEW, tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
-    showButton.onClick { onSelect(meeting) }
+private const val MEETING_COLUMN_COUNT = 5
+
+/**
+ * V1.9.192 -- the meetings as a table (Termin | Titel | Gremium | Art/Ort | Status); the title is the real link to `/meetings/:id`.
+ * No actions column: the only action the old cards had was "Details anzeigen", which the link replaces. Past meetings follow a
+ * spanning heading row ([sectionRow]; not `scope="rowgroup"`, a report-style table has one `<tbody>`).
+ */
+internal fun renderMeetingTable(
+    host: Container,
+    meetings: List<MeetingDto>,
+    now: LocalDateTime = organizationNow(),
+) {
+    val headers =
+        listOf(
+            TableHeader(tr("Termin")),
+            TableHeader(tr("Titel")),
+            TableHeader(tr("Gremium")),
+            TableHeader(tr("Art/Ort")),
+            TableHeader(tr("Status")),
+        )
+    val table = host.masterTable(tr("Sitzungen"), headers)
+    val (upcoming, past) = orderMeetings(meetings, now)
+
+    fun meetingRow(meeting: MeetingDto) {
+        table.row {
+            masterRow()
+            textCell(trusted(formatDateTime(meeting.scheduledAt)))
+            // Meeting title is member-editable free text: sanitized inside [recordLink].
+            val titleCell = HeaderCell(scope = Scope.ROW) { addCssClass("fw-normal") }
+            add(titleCell)
+            titleCell.recordLink(meeting.title, Routes.MEETINGS, meeting.id)
+            textCell(meeting.committeeName)
+            textCell(trusted(meetingFormatLabel(meeting.format))) {
+                meeting.location?.takeIf { it.isNotBlank() }?.let { location -> untrustedDiv(location, className = "small text-muted") }
+            }
+            cell { statusBadge(meetingStatusLabel(meeting.status), meetingStatusColor(meeting.status)) }
+        }
+    }
+    upcoming.forEach(::meetingRow)
+    if (past.isNotEmpty()) table.sectionRow(tr("Vergangene Sitzungen"), MEETING_COLUMN_COUNT)
+    past.forEach(::meetingRow)
+}
+
+/**
+ * V1.9.192 -- one meeting as its own page (`/meetings/:id`, deep link): back button above the title, then the unchanged sections
+ * (invitation, agenda, attendance, resolutions, protocol). An unknown id leaves a sentence next to the back button, never a blank page.
+ */
+fun renderMeetingDetailScreen(
+    container: SimplePanel,
+    id: String,
+) {
+    val session = AppState.session
+    if (session == null) {
+        navigateTo(Routes.LOGIN)
+        return
+    }
+    val root = container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.overviewBackButton(Routes.MEETINGS)
+    val loading = root.p(tr("Wird geladen …"))
+    val isBoardOrAdmin = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
+    AppScope.launch {
+        val detail = guarded { rpcService<IGovernanceService>().getMeetingDetail(id) }
+        root.remove(loading)
+        if (detail == null) {
+            root.p(tr("Diese Sitzung wurde nicht gefunden."))
+            return@launch
+        }
+        val committees = guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = false) } ?: emptyList()
+        // The title is the meeting (member-editable free text): the whole composed result is sanitized.
+        root.pageHeader(sanitizeUntrustedI18nText(gettext("Sitzung: %1", detail.meeting.title)))
+        val body = root.vPanel(spacing = 10)
+        val reload = {
+            container.removeAll()
+            renderMeetingDetailScreen(container, id)
+        }
+        buildMeetingDetail(body, detail, session.memberId, isBoardOrAdmin, committees, reload)
+    }
 }
 
 internal fun renderMeetingCreationForm(
@@ -344,18 +395,15 @@ internal enum class DerivedAudienceKind { GENERAL_ASSEMBLY, RULE }
  * see file KDoc. [committees] is the already-loaded list from [renderMeetingsScreen], reused to
  * look up the meeting's own [CommitteeDto] (for its [CommitteeType]) without an extra round trip.
  */
-private fun renderMeetingDetail(
+private suspend fun buildMeetingDetail(
     panel: SimplePanel,
-    meetingId: String,
+    detail: MeetingDetailDto,
     currentMemberId: String,
     isBoardOrAdmin: Boolean,
     committees: List<CommitteeDto>,
     onChanged: () -> Unit,
 ) {
-    panel.removeAll()
-    panel.p(tr("Wird geladen …"))
-    AppScope.launch {
-        val detail = guarded { rpcService<IGovernanceService>().getMeetingDetail(meetingId) } ?: return@launch
+    run {
         val roster =
             guarded {
                 rpcService<IGovernanceService>().listCommitteeMembers(detail.meeting.committeeId, activeOnly = true)
@@ -388,7 +436,6 @@ private fun renderMeetingDetail(
                 MeetingAudience.Roster(roster.map { MemberSummaryDto(id = it.memberId, displayName = it.memberDisplayName) })
             }
 
-        panel.removeAll()
         renderMeetingMeta(panel, detail.meeting, canManage, onChanged)
         renderEinladungSection(panel, detail.meeting, canManage, isBoardOrAdmin, audience)
         renderAgendaSection(panel, detail, canManage, audience, onChanged)
@@ -407,7 +454,6 @@ private fun renderMeetingMeta(
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     // Security audit W6b follow-up round 3 (major finding A): see the sanitization in `renderMeetingRow` above --
     // same untrusted `meeting.title`, same widget-content path.
-    headerRow.h2(sanitizeUntrustedI18nText(meeting.title)) { addCssClasses("h5 flex-grow-1") }
     headerRow.statusBadge(meetingStatusLabel(meeting.status), meetingStatusColor(meeting.status))
 
     panel.div(
@@ -498,29 +544,82 @@ internal fun renderEinladungSection(
     }
 
     when (audience) {
-        is MeetingAudience.Roster -> renderRosterEinladungForm(panel, meeting, audience.members)
-        is MeetingAudience.Derived -> renderGeneralAssemblyEinladungForm(panel, meeting, audience)
+        is MeetingAudience.Roster -> {
+            panel.div(
+                tr(
+                    "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu " +
+                        "1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, " +
+                        "erfordert eine vollständige Anschrift jedes Empfängers).",
+                ),
+            ) { addCssClasses("text-muted small") }
+            if (audience.members.isEmpty()) {
+                panel.p(tr("Keine berechtigten Mitglieder gefunden."))
+                return
+            }
+            val total = audience.members.size
+            collapsedInvitation(panel, summary = { selected -> gettext("%1 von %2 ausgewählt", selected, total) }) { close, onSelected ->
+                renderRosterEinladungForm(this, meeting, audience.members, close, onSelected)
+            }
+        }
+        is MeetingAudience.Derived -> {
+            panel.div(tr("Einladungen werden als PDF oder per Brief erstellt; eine E-Mail wird nicht verschickt.")) {
+                addCssClasses("text-muted small")
+            }
+            collapsedInvitation(panel, summary = { _ -> derivedInvitationDefaultLabel(audience) }) { close, _ ->
+                renderGeneralAssemblyEinladungForm(this, meeting, audience, close)
+            }
+        }
     }
+}
+
+/** The label of the General Assembly invitation's default recipient choice (shown as the closed summary). */
+private fun derivedInvitationDefaultLabel(audience: MeetingAudience.Derived): String {
+    val n = audience.eligibleCount
+    return when {
+        audience.kind == DerivedAudienceKind.RULE && n != null -> gettext("An alle Mitglieder des Gremiums (%1)", n)
+        audience.kind == DerivedAudienceKind.RULE -> gettext("An alle Mitglieder des Gremiums")
+        n != null -> gettext("An alle aktiven Mitglieder (%1)", n)
+        else -> gettext("An alle aktiven Mitglieder")
+    }
+}
+
+/**
+ * V1.9.182 -- the invitation behind ONE button ("Einladung versenden", form id `lapis-send-invitation`, no icon: the buttons inside carry
+ * their own) with a one-line summary next to it that the button is described by (`aria-describedby`). While the form is open the
+ * summary follows the live selection ([onSelected]); once it is closed the selection is gone with the form, so the summary returns to
+ * its default.
+ */
+private fun collapsedInvitation(
+    panel: SimplePanel,
+    summary: (selected: Int) -> String,
+    build: SimplePanel.(close: (saved: Boolean) -> Unit, onSelected: (Int) -> Unit) -> FormSnapshot,
+) {
+    val row = panel.div(className = "d-flex flex-wrap align-items-center gap-2 mt-2")
+    val actionSlot = row.div()
+    val summaryText = row.span(summary(0), className = "small text-muted")
+    summaryText.id = "lapis-send-invitation-summary"
+    val formHost = panel.vPanel(spacing = 6)
+    val controller =
+        collapsibleCreateForm<Nothing>(
+            actionSlot,
+            formHost,
+            tr("Einladung versenden"),
+            "lapis-send-invitation",
+            icon = null,
+            onOpenChange = { open -> if (!open) summaryText.content = summary(0) },
+        ) { _, close ->
+            build(close) { selected -> summaryText.content = summary(selected) }
+        }
+    controller.button.setAttribute("aria-describedby", summaryText.id.orEmpty())
 }
 
 private fun renderRosterEinladungForm(
     panel: SimplePanel,
     meeting: MeetingDto,
     eligibleMembers: List<MemberSummaryDto>,
-) {
-    panel.div(
-        tr(
-            "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu " +
-                "1.000 Empfänger) oder per Post (kostenpflichtig über Letterxpress, bis zu 50 Empfänger, " +
-                "erfordert eine vollständige Anschrift jedes Empfängers).",
-        ),
-    ) { addCssClasses("text-muted small") }
-
-    if (eligibleMembers.isEmpty()) {
-        panel.p(tr("Keine berechtigten Mitglieder gefunden."))
-        return
-    }
-
+    collapse: (saved: Boolean) -> Unit,
+    onSelected: (Int) -> Unit,
+): FormSnapshot {
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     // Formular-Grammatik (V1.4.29): vier Pflichtfelder => Fall (b). Die Empfängerliste ist eine Auswahlliste, keine Feldgruppe
     // (ein Fehlerslot je Mitglied wäre absurd): "mindestens ein Empfänger" ist eine Querregel in der Sammelfläche.
@@ -548,6 +647,16 @@ private fun renderRosterEinladungForm(
         }
 
     fun selectedRecipients(): List<MemberSummaryDto> = checkboxesByMember.filterValues { it.value }.keys.toList()
+    // V1.9.182: the count follows every change of a checkbox (also "Alle auswählen/abwählen": setting `value` notifies subscribers).
+    val selectionCount = quickToggleRow.span("", className = "small text-muted align-self-center")
+
+    fun announceSelection() {
+        val selected = selectedRecipients().size
+        selectionCount.content = gettext("%1 von %2 ausgewählt", selected, eligibleMembers.size)
+        onSelected(selected)
+    }
+    announceSelection()
+    checkboxesByMember.values.forEach { checkbox -> checkbox.subscribe { announceSelection() } }
     // `.input`, nicht der Wrapper-<div> der CheckBox: nur das <input> nimmt `focus()` an. `watch`: jede Checkbox räumt die
     // Sammelmeldung (ein Listener nur an der ersten sähe Klicks auf die übrigen nie).
     val recipientInputs = checkboxesByMember.values.mapNotNull { it.input as? Widget }
@@ -571,7 +680,7 @@ private fun renderRosterEinladungForm(
     val outcomePanel = form.panel.vPanel(spacing = 4)
 
     val downloadButton = newActionButton(ActionIcon.DOWNLOAD, tr("Als PDF herunterladen"), style = ButtonStyle.OUTLINEPRIMARY)
-    form.buttons(primary = downloadButton)
+    form.buttons(primary = downloadButton, cancel = collapseCancelButton(collapse))
     downloadButton.onClick {
         if (!form.validateAndReport()) return@onClick
         MailmergeHttp.submitEinladungPdfDownload(
@@ -637,11 +746,14 @@ private fun renderRosterEinladungForm(
                             )
                         }
                         results.forEach { log -> outcomePanel.renderPostalDispatchOutcome(log) }
+                        // Fully sent: fold the form back. Failures keep it open -- the outcome lines are the only place that shows them.
+                        if (sentCount == results.size) collapse(true)
                     }
                 }
             }
         }
     }
+    return FormSnapshot { form.snapshot().values() + checkboxesByMember.values.map { it.value.toString() } }
 }
 
 /**
@@ -657,12 +769,10 @@ private fun renderGeneralAssemblyEinladungForm(
     panel: SimplePanel,
     meeting: MeetingDto,
     audience: MeetingAudience.Derived,
-) {
+    collapse: (saved: Boolean) -> Unit,
+): FormSnapshot {
     val committeeId = audience.committeeId
     val n = audience.eligibleCount
-    panel.div(tr("Einladungen werden als PDF oder per Brief erstellt; eine E-Mail wird nicht verschickt.")) {
-        addCssClasses("text-muted small")
-    }
 
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     val form = formPanel.lapisForm()
@@ -895,6 +1005,7 @@ private fun renderGeneralAssemblyEinladungForm(
                             )
                         }
                         results.forEach { log -> outcomePanel.renderPostalDispatchOutcome(log) }
+                        if (sentCount == results.size) collapse(true)
                     }
                 }
             }
@@ -905,9 +1016,11 @@ private fun renderGeneralAssemblyEinladungForm(
             }
         }
     }
+    form.panel.add(collapseCancelButton(collapse))
+    return FormSnapshot { form.snapshot().values() + picked.keys.toList() }
 }
 
-private fun renderAgendaSection(
+internal fun renderAgendaSection(
     panel: SimplePanel,
     detail: MeetingDetailDto,
     canManage: Boolean,
@@ -919,32 +1032,7 @@ private fun renderAgendaSection(
     if (agenda.isEmpty()) {
         panel.p(tr("Noch keine Tagesordnungspunkte."))
     } else {
-        agenda.forEach { item ->
-            val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-            val description = if (item.description.isNullOrBlank()) "" else " -- ${item.description}"
-            // Security audit follow-up (untrusted-text sanitization gaps): item.title/item.description are
-            // member-editable free text composed into gettext(...) strings -- sanitize the whole composed result.
-            row.div(sanitizeUntrustedI18nText(gettext("%1. %2%3", item.position, item.title, description))) {
-                addCssClasses("flex-grow-1")
-            }
-            item.presenterDisplayName?.let { presenter ->
-                // presenter is a member display name -- same untrusted-field category as subscriber.memberDisplayName
-                // (CommunicationScreen.kt) / mandate.memberDisplayName elsewhere, sanitize before rendering.
-                row.div(sanitizeUntrustedI18nText(gettext("Vortragend: %1", presenter))) { addCssClasses("text-muted small") }
-            }
-            if (canManage) {
-                val removeButton = row.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
-                removeButton.onClick {
-                    AppScope.launch {
-                        val result = guarded { rpcService<IGovernanceService>().removeAgendaItem(item.id) }
-                        if (result != null) {
-                            notifySuccess(tr("Tagesordnungspunkt entfernt."))
-                            onChanged()
-                        }
-                    }
-                }
-            }
-        }
+        renderAgendaTable(panel, agenda, canManage, onChanged)
     }
 
     if (canManage) {
@@ -953,7 +1041,65 @@ private fun renderAgendaSection(
                 is MeetingAudience.Roster -> PresenterSource.Options(audience.members)
                 is MeetingAudience.Derived -> PresenterSource.Remote(audience.committeeId)
             }
-        renderAddAgendaItemForm(panel, detail.meeting.id, nextAgendaPosition(agenda), presenterSource, onChanged)
+        // V1.9.182: the add form is collapsed behind one button directly under the table (a section action, not a page action: R36B).
+        val actionSlot = panel.div(className = "mt-2")
+        val formHost = panel.vPanel(spacing = 4)
+        val nextPosition = nextAgendaPosition(agenda)
+        collapsibleCreateForm<Nothing>(actionSlot, formHost, tr("Punkt hinzufügen"), "lapis-create-agenda-item") { _, close ->
+            renderAddAgendaItemForm(this, detail.meeting.id, nextPosition, presenterSource, close, onChanged)
+        }
+    }
+}
+
+/**
+ * V1.9.182 -- the agenda as a table (Nr., Titel, Vortragende, Aktion): the title is the row header (`th scope="row"`, not bold), the
+ * description sits under it, on a narrow screen the presenter does too. Every free text goes through the sanitizing helpers, one field
+ * at a time (never a composed string). Removing a point asks first; the icon-only button is locked while its request runs.
+ */
+internal fun renderAgendaTable(
+    panel: SimplePanel,
+    agenda: List<AgendaItemDto>,
+    canManage: Boolean,
+    onChanged: () -> Unit,
+) {
+    val table = panel.standardTable(emptyList())
+    table.addHeaderCell(HeaderCell(content = tr("Nr."), scope = Scope.COL) { addCssClass("lapis-agenda-narrow") })
+    table.addHeaderCell(HeaderCell(content = tr("Titel"), scope = Scope.COL))
+    table.addHeaderCell(HeaderCell(content = tr("Vortragende"), scope = Scope.COL) { addCssClasses("d-none d-sm-table-cell") })
+    if (canManage) table.addHeaderCell(HeaderCell(content = tr("Aktion"), scope = Scope.COL) { addCssClass("lapis-agenda-narrow") })
+    agenda.forEach { item ->
+        table.row {
+            textCell(item.position.toString()) { addCssClass("lapis-agenda-narrow") }
+            val titleCell = HeaderCell(scope = Scope.ROW) { addCssClasses("fw-normal lapis-agenda-title") }
+            add(titleCell)
+            titleCell.untrustedDiv(item.title)
+            if (!item.description.isNullOrBlank()) titleCell.untrustedDiv(item.description!!, className = "small text-muted")
+            item.presenterDisplayName?.let { presenter -> titleCell.untrustedDiv(presenter, className = "small text-muted d-sm-none") }
+            textCell(item.presenterDisplayName.orEmpty()) { addCssClasses("d-none d-sm-table-cell lapis-agenda-title") }
+            if (canManage) {
+                cell {
+                    // V1.9.192 (R58 named exception): icon-only also with one action; the label names the point (title + aria-label).
+                    val removeLabel = sanitizeUntrustedI18nText(gettext("Tagesordnungspunkt \"%1\" entfernen", item.title))
+                    val removeButton = tableActionGroup().tableActionButton(ActionIcon.DELETE, removeLabel, ButtonStyle.OUTLINEDANGER)
+                    removeButton.onClick {
+                        confirmDialog(
+                            title = tr("Tagesordnungspunkt entfernen"),
+                            message = sanitizeUntrustedI18nText(gettext("Tagesordnungspunkt \"%1\" entfernen?", item.title)),
+                            confirmLabel = tr("Entfernen"),
+                            confirmIcon = ActionIcon.DELETE,
+                        ) {
+                            runGuardedAction(removeButton) {
+                                val result = guarded { rpcService<IGovernanceService>().removeAgendaItem(item.id) }
+                                if (result != null) {
+                                    notifySuccess(tr("Tagesordnungspunkt entfernt."))
+                                    onChanged()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -977,10 +1123,10 @@ internal fun renderAddAgendaItemForm(
     meetingId: String,
     nextPosition: Int,
     presenterSource: PresenterSource,
+    collapse: (saved: Boolean) -> Unit,
     onChanged: () -> Unit,
-) {
+): FormSnapshot {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-    formPanel.p(tr("Tagesordnungspunkt hinzufügen")) { addCssClass("fw-bold") }
     // Formular-Grammatik (V1.4.29): Position und Titel sind Pflicht, Beschreibung und Vortragende optional => Fall (a).
     val form = formPanel.lapisForm()
     val positionField =
@@ -1004,7 +1150,7 @@ internal fun renderAddAgendaItemForm(
         }
 
     val addButton = newActionButton(ActionIcon.ADD, tr("Hinzufügen"), ButtonStyle.OUTLINEPRIMARY)
-    form.buttons(primary = addButton)
+    form.buttons(primary = addButton, cancel = collapseCancelButton(collapse))
     addButton.onClick {
         form.submit(addButton) {
             val title = titleField.value.trim()
@@ -1022,10 +1168,12 @@ internal fun renderAddAgendaItemForm(
                 }
             if (result != null) {
                 notifySuccess(gettext("Tagesordnungspunkt \"%1\" hinzugefügt.", title))
+                collapse(true)
                 onChanged()
             }
         }
     }
+    return form.snapshot()
 }
 
 internal fun renderAttendanceSection(
@@ -1036,39 +1184,58 @@ internal fun renderAttendanceSection(
     onChanged: () -> Unit,
 ) {
     panel.h2(tr("Anwesenheit")) { addCssClass("h5") }
-    // The assembly's form is built BELOW the rows, but each row's "Bearbeiten" must fill it: the callback is wired afterwards.
+    // V1.9.182: quorum badge + "x von y anwesend" first, the explanation behind "Was bedeutet Quorum?", the list behind "Anwesende anzeigen",
+    // the recording form behind one button. The assembly's form is built later than the rows, but each row's "Bearbeiten" must fill it:
+    // the callback is registered when the form is built (the controller opens it first).
     var prefill: ((AttendanceDto) -> Unit)? = null
+    var controller: CollapsibleCreateFormController<Nothing>? = null
     val editable = canManage && audience is MeetingAudience.Derived
+    renderQuorumRow(panel, detail.quorum, explanationCollapsed = true)
+
     if (detail.attendance.isEmpty()) {
         panel.p(tr("Noch keine Anwesenheit erfasst."))
     } else {
-        detail.attendance.forEach { attendance ->
-            val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-            row.untrustedDiv(attendance.memberDisplayName, className = "flex-grow-1")
-            row.statusBadge(attendanceStatusLabel(attendance.status), attendanceStatusColor(attendance.status))
-            attendance.representedByDisplayName?.let { representative ->
-                row.div(gettext("vertreten durch %1", representative)) { addCssClasses("text-muted small") }
-            }
-            attendance.note?.takeIf { it.isNotBlank() }?.let { note ->
-                row.div(note) { addCssClasses("text-muted small") }
-            }
-            if (editable) {
-                val edit = row.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
-                edit.addCssClass("lapis-attendance-edit")
-                edit.onClick { prefill?.invoke(attendance) }
+        panel.disclosure(tr("Anwesende anzeigen"), "lapis-attendance-list") {
+            detail.attendance.forEach { attendance ->
+                val row = hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
+                row.untrustedDiv(attendance.memberDisplayName, className = "flex-grow-1")
+                row.statusBadge(attendanceStatusLabel(attendance.status), attendanceStatusColor(attendance.status))
+                attendance.representedByDisplayName?.let { representative ->
+                    row.div(gettext("vertreten durch %1", representative)) { addCssClasses("text-muted small") }
+                }
+                attendance.note?.takeIf { it.isNotBlank() }?.let { note ->
+                    row.div(note) { addCssClasses("text-muted small") }
+                }
+                if (editable) {
+                    val edit = row.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+                    edit.addCssClass("lapis-attendance-edit")
+                    edit.onClick {
+                        controller?.open()
+                        prefill?.invoke(attendance)
+                    }
+                }
             }
         }
     }
 
-    renderQuorumRow(panel, detail.quorum)
-
     if (canManage) {
-        when (audience) {
-            is MeetingAudience.Roster ->
-                renderAttendanceRecordingForm(panel, detail.meeting.id, audience.members, detail.attendance, onChanged)
-            is MeetingAudience.Derived ->
-                prefill = renderGeneralAssemblyAttendanceForm(panel, detail.meeting.id, audience.committeeId, onChanged)
-        }
+        val actionSlot = panel.div(className = "mt-2")
+        val formHost = panel.vPanel(spacing = 6)
+        controller =
+            collapsibleCreateForm<Nothing>(actionSlot, formHost, tr("Anwesenheit erfassen"), "lapis-record-attendance") { _, close ->
+                when (audience) {
+                    is MeetingAudience.Roster ->
+                        renderAttendanceRecordingForm(this, detail.meeting.id, audience.members, detail.attendance, close, onChanged)
+                    is MeetingAudience.Derived ->
+                        renderGeneralAssemblyAttendanceForm(
+                            this,
+                            detail.meeting.id,
+                            audience.committeeId,
+                            close,
+                            onChanged,
+                        ) { prefill = it }
+                }
+            }
     }
 }
 
@@ -1077,16 +1244,20 @@ internal fun renderAttendanceSection(
  * The person and the representative are found by server-side search; "Bearbeiten" on an existing row fills this same form
  * (the returned function), saving goes through the unchanged `recordAttendance` (an upsert per member).
  *
- * @return the function that pre-fills the form from an existing attendance row.
+ * V1.9.182: the form sits behind the collapsible "Anwesenheit erfassen" button; [registerPrefill] receives the function that pre-fills
+ * it from an existing attendance row (called every time the form is built, since a closed form is gone).
+ *
+ * @return the snapshot the collapsible form compares on closing.
  */
 internal fun renderGeneralAssemblyAttendanceForm(
     panel: SimplePanel,
     meetingId: String,
     committeeId: String,
+    collapse: (saved: Boolean) -> Unit,
     onChanged: () -> Unit,
-): (AttendanceDto) -> Unit {
+    registerPrefill: ((AttendanceDto) -> Unit) -> Unit,
+): FormSnapshot {
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    formPanel.p(tr("Anwesenheit erfassen")) { addCssClass("fw-bold") }
     val form = formPanel.lapisForm()
     val search = committeeCandidateSearch(committeeId)
     val memberField = form.remoteMemberPickerField(label = tr("Mitglied"), search = search, required = true)
@@ -1114,7 +1285,7 @@ internal fun renderGeneralAssemblyAttendanceForm(
         }
     }
     val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.OUTLINEPRIMARY)
-    form.buttons(primary = saveButton)
+    form.buttons(primary = saveButton, cancel = collapseCancelButton(collapse))
     saveButton.onClick {
         form.submit(saveButton) {
             val status = parseOptionalEnum<AttendanceStatus>(statusField.value) ?: return@submit
@@ -1137,11 +1308,12 @@ internal fun renderGeneralAssemblyAttendanceForm(
                 representedByField.reset()
                 noteField.reset()
                 statusField.setValue(AttendanceStatus.PRESENT.name)
+                collapse(true)
                 onChanged()
             }
         }
     }
-    return { attendance ->
+    registerPrefill { attendance ->
         memberPicker.offer(MemberPickDto(attendance.memberId, attendance.memberDisplayName))
         memberField.setValue(attendance.memberId)
         statusField.setValue(attendance.status.name)
@@ -1155,6 +1327,7 @@ internal fun renderGeneralAssemblyAttendanceForm(
         representedByField.validate(force = false)
         formPanel.getElement()?.scrollIntoView()
     }
+    return form.snapshot()
 }
 
 internal fun renderAttendanceRecordingForm(
@@ -1162,13 +1335,15 @@ internal fun renderAttendanceRecordingForm(
     meetingId: String,
     eligibleMembers: List<MemberSummaryDto>,
     existingAttendance: List<AttendanceDto>,
+    collapse: (saved: Boolean) -> Unit,
     onChanged: () -> Unit,
-) {
+): FormSnapshot {
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    formPanel.p(tr("Anwesenheit erfassen")) { addCssClass("fw-bold") }
+    val forms = mutableListOf<LapisForm>()
     if (eligibleMembers.isEmpty()) {
         formPanel.p(tr("Keine berechtigten Mitglieder gefunden."))
-        return
+        formPanel.add(collapseCancelButton(collapse))
+        return FormSnapshot { emptyList() }
     }
     val existingByMember = existingAttendance.associateBy { it.memberId }
     val statusOptions = AttendanceStatus.entries.map { it.name to attendanceStatusLabel(it) }
@@ -1180,6 +1355,7 @@ internal fun renderAttendanceRecordingForm(
         // Ein Mini-Formular je Person (V1.4.29): ein Auswahlfeld hat hier immer einen Wert, kein Feld ist Pflicht => keine
         // Sterne, keine Legende. Die Zeile "Status" steht neben dem Namen, deshalb `host = topRow`.
         val form = row.lapisForm()
+        forms.add(form)
         val topRow = form.panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
         // Security audit W6b follow-up round 3 (major finding A): a member display name is untrusted free text
         // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
@@ -1229,12 +1405,15 @@ internal fun renderAttendanceRecordingForm(
                         )
                     }
                 if (result != null) {
+                    // No collapse(true) here: one mini form per person, saving one must not fold the others away.
                     notifySuccess(gettext("Anwesenheit von %1 gespeichert.", member.displayName))
                     onChanged()
                 }
             }
         }
     }
+    formPanel.add(collapseCancelButton(collapse))
+    return FormSnapshot { forms.flatMap { form -> form.fields.map { it.value } } }
 }
 
 private fun renderResolutionSection(
@@ -1483,6 +1662,7 @@ private fun renderProtocolPreview(
 private fun renderQuorumRow(
     panel: SimplePanel,
     quorum: QuorumResultDto,
+    explanationCollapsed: Boolean = false,
 ) {
     val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     row.statusBadge(
@@ -1500,7 +1680,12 @@ private fun renderQuorumRow(
     )
     // V1.9.112: once a vote of the meeting was opened the circle (the denominator) no longer moves
     if (quorum.frozen) panel.div(tr("Festgeschrieben zum Start der ersten Abstimmung")) { addCssClasses("text-muted small") }
-    panel.quorumExplanation()
+    // V1.9.182: on the meeting page the explanation sits behind "Was bedeutet Quorum?" (closed); the protocol preview keeps it open.
+    if (explanationCollapsed) {
+        panel.disclosure(tr("Was bedeutet Quorum?"), "lapis-quorum-explanation") { quorumExplanation() }
+    } else {
+        panel.quorumExplanation()
+    }
 }
 
 /**
@@ -1568,7 +1753,7 @@ fun resolutionStatusColor(status: ResolutionStatus): String =
 fun resolutionModeLabel(mode: ResolutionMode): String =
     when (mode) {
         ResolutionMode.COMMITTEE_QUORUM -> gettext("Gremienbeschluss")
-        ResolutionMode.MERITOCRATIC -> gettext("Meritokratische Vote")
+        ResolutionMode.MERITOCRATIC -> gettext("Meritokratische Abstimmung")
         ResolutionMode.DEMOCRATIC -> gettext("Demokratische Wahl")
         ResolutionMode.SYSTEMIC_CONSENSUS -> gettext("Systemisches Konsensieren")
     }

@@ -53,7 +53,7 @@ import network.lapis.cloud.shared.rpc.IContributionService
 fun renderContributionReliefQueueScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
     val root = container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("Beitragsvergünstigungen"))
+    root.pageHeader(tr("Beitragsvergünstigungen"), intro = PageIntros.forRoute(Routes.CONTRIBUTION_RELIEF))
 
     val filterRow = root.lapisToolbar()
     val statusOptions = listOf("" to tr("Alle Status")) + ContributionReliefStatus.entries.map { it.name to reliefStatusLabel(it) }

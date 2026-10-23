@@ -26,6 +26,7 @@ import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -253,41 +254,96 @@ class TravelExpenseDayGridDomTest {
             }
         }
 
+    private fun fire(
+        input: HTMLInputElement,
+        value: String,
+    ) {
+        input.value = value
+        input.dispatchEvent(
+            org.w3c.dom.events
+                .Event("input"),
+        )
+    }
+
+    private val endHint = "Rückkehr oder Ankunft; bei einer einfachen Fahrt die Ankunft am Ziel"
+
+    private fun labelsOf(row: HTMLElement): List<String> =
+        row.allOf("label").map {
+            it.textContent
+                .orEmpty()
+                .replace("*", "")
+                .trim()
+        }
+
     @Test
-    fun singleDay_asksForDepartureAndAnOptionalReturn_andLinksTheHintToBothTimeFields(): Promise<Unit> =
+    fun singleDay_asksForBeginAndEndOfTheTrip_bothMarkedRequired_andTheHintHangsOnTheEndField(): Promise<Unit> =
         formTest {
             AppState.setSession(memberSession)
             withDraft("te-row-single", singleDayDraft()) { _, element, _, _ ->
                 val row = element().allOf("fieldset.lapis-te-day").single()
-                val labels = row.allOf("label").map { it.textContent.orEmpty().trim() }
-                assertTrue(labels.any { it.startsWith("Rückkehr (optional)") }, "labels: $labels")
+                val labels = labelsOf(row)
+                assertTrue("Beginn der Reise" in labels && "Ende der Reise" in labels, "labels: $labels")
+                assertFalse(labels.any { it.contains("Abfahrt") || it.contains("Rückkehr") }, "old wording gone: $labels")
                 val times = row.allOf("input[type=time]")
                 assertEquals(2, times.size)
-                times.forEach {
-                    assertTrue(
-                        describedText(it).contains("Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."),
-                        "hint on every time field: ${describedText(it)}",
-                    )
-                }
+                times.forEach { assertEquals("true", it.getAttribute("aria-required"), "required for assistive technology") }
+                assertEquals(2, row.allOf(".lapis-required-mark").size, "required marker on both fields")
+                assertFalse(describedText(times[0]).contains(endHint), "no hint on the begin field")
+                assertTrue(describedText(times[1]).contains(endHint), "hint on the end field: ${describedText(times[1])}")
+                assertFalse(row.textContent.orEmpty().contains("Ohne Abfahrt und Rückkehr"), "old hint removed")
             }
         }
 
     @Test
-    fun theTimeHint_existsOnlyOnASingleDay_andLastDayReturnIsOptionalToo(): Promise<Unit> =
+    fun multiDay_firstDayAsksForBegin_lastDayForEnd_withTheHintOnTheEndFieldOnly(): Promise<Unit> =
         formTest {
             AppState.setSession(memberSession)
             withDraft("te-row-multi", draft()) { _, element, _, _ ->
                 val rows = element().allOf("fieldset.lapis-te-day")
-                rows.forEach {
-                    assertFalse(it.textContent.orEmpty().contains("Ohne Abfahrt und Rückkehr"), "no hint on a multi-day trip")
-                }
+                assertEquals(listOf("Beginn der Reise"), labelsOf(rows[0]).filter { it.endsWith("der Reise") })
+                assertTrue(labelsOf(rows[1]).none { it.endsWith("der Reise") }, "a middle day asks for no time")
+                assertEquals(listOf("Ende der Reise"), labelsOf(rows[2]).filter { it.endsWith("der Reise") })
+                assertFalse(rows[0].textContent.orEmpty().contains(endHint), "no end hint on the first day")
+                val end = rows[2].allOf("input[type=time]").single()
+                assertEquals("true", end.getAttribute("aria-required"))
+                assertTrue(describedText(end).contains(endHint), "hint on the end field: ${describedText(end)}")
+                val begin = rows[0].allOf("input[type=time]").single()
+                assertEquals("true", begin.getAttribute("aria-required"))
+            }
+        }
+
+    @Test
+    fun theAmountCell_hasTwoLinesWithAFixedSize_neverWrapsOrClips(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            AppState.setSession(memberSession)
+            withDraft("te-row-amount", singleDayDraft()) { _, element, _, _ ->
+                val row = element().allOf("fieldset.lapis-te-day").single()
+                val cell = row.querySelector(".lapis-te-day-amount") as HTMLElement
+                // No times yet -> no result: only the first line, 0,00.
+                assertEquals(1, cell.allOf(".lapis-te-day-amount-line").size, "second line absent without a result")
+                assertTrue(cell.textContent.orEmpty().contains("Tagesbetrag: 0,00"))
+                fire(row.allOf("input[type=time]")[0] as HTMLInputElement, "08:00")
+                fire(row.allOf("input[type=time]")[1] as HTMLInputElement, "20:00")
+                delay(80)
+                val lines = cell.allOf(".lapis-te-day-amount-line").map { it as HTMLElement }
+                assertEquals(2, lines.size, "amount line plus deductions line")
+                assertTrue(lines[0].textContent.orEmpty().startsWith("Tagesbetrag: "))
+                assertTrue(lines[1].textContent.orEmpty().startsWith("(Abzüge: "))
+                val first = window.getComputedStyle(lines[0])
+                val second = window.getComputedStyle(lines[1])
+                assertEquals("nowrap", first.whiteSpace)
+                assertTrue(first.fontVariantNumeric.contains("tabular-nums"), first.fontVariantNumeric)
+                assertEquals(first.fontSize, second.fontSize, "same size on both lines")
+                assertTrue(first.color != second.color, "the second line is a little lighter")
+                assertTrue(lines.all { it.scrollWidth <= it.clientWidth }, "nothing is clipped")
+                // A narrow container: still nothing cut.
+                element().style.width = "360px"
+                delay(60)
+                assertTrue(lines.all { it.scrollWidth <= it.clientWidth }, "nothing is clipped at 360 px")
                 assertTrue(
-                    rows[2].allOf("label").any {
-                        it.textContent
-                            .orEmpty()
-                            .trim()
-                            .startsWith("Rückkehr (optional)")
-                    },
+                    cell.getBoundingClientRect().right <= row.getBoundingClientRect().right + 1,
+                    "the cell stays inside the row at 360 px",
                 )
             }
         }
@@ -302,7 +358,15 @@ class TravelExpenseDayGridDomTest {
                 assertEquals(2, firstSlots.size)
                 assertTrue(firstSlots[1].textContent.orEmpty().contains("bis 24:00"))
                 val lastSlots = rows[2].allOf(".lapis-te-day-slot")
-                assertTrue(lastSlots[0].textContent.orEmpty().contains("ab 00:00"))
+                // V1.9.189: the field first, the fixed text to its right -- the same order as the first day.
+                assertTrue(lastSlots[0].textContent.orEmpty().contains("Ende der Reise"))
+                assertTrue(lastSlots[1].textContent.orEmpty().contains("ab 00:00"))
+                assertTrue(lastSlots[0].querySelector("input") != null, "the time field is the first slot")
+                assertEquals(
+                    lastSlots[0].getBoundingClientRect().top,
+                    lastSlots[1].getBoundingClientRect().top,
+                    "both slots sit in the same row",
+                )
                 val middle = rows[1].allOf(".lapis-te-day-slot")
                 assertEquals(1, middle.size)
                 assertTrue(middle.single().classList.contains("lapis-te-day-slot--span"))
@@ -312,6 +376,38 @@ class TravelExpenseDayGridDomTest {
                         .textContent
                         .orEmpty()
                         .contains("ganztägig (24 Std.)"),
+                )
+            }
+        }
+
+    @Test
+    fun lastDay_labelSitsTopLeft_andTheFixedTextIsLevelWithTheInput_likeTheFirstDay(): Promise<Unit> =
+        formTest {
+            AppState.setSession(memberSession)
+            withDraft("te-row-last-geometry", draft()) { _, element, _, _ ->
+                val rows = element().allOf("fieldset.lapis-te-day")
+                for (index in listOf(0, 2)) {
+                    val slots = rows[index].allOf(".lapis-te-day-slot")
+                    val label = assertNotNull(slots[0].querySelector("label") as? HTMLElement, "label of row $index")
+                    val input = assertNotNull(slots[0].querySelector("input") as? HTMLElement, "input of row $index")
+                    val text = assertNotNull(slots[1].querySelector(".lapis-te-day-slot-text") as? HTMLElement, "fixed text of row $index")
+                    assertEquals("flex-start", window.getComputedStyle(slots[0]).justifyContent, "slots start at the top (row $index)")
+                    assertTrue(label.getBoundingClientRect().top < input.getBoundingClientRect().top, "label above the input (row $index)")
+                    assertTrue(
+                        kotlin.math.abs(label.getBoundingClientRect().left - slots[0].getBoundingClientRect().left) < 2,
+                        "label left-aligned in its slot (row $index)",
+                    )
+                    val inputCenter = input.getBoundingClientRect().let { (it.top + it.bottom) / 2 }
+                    val textCenter = text.getBoundingClientRect().let { (it.top + it.bottom) / 2 }
+                    assertTrue(
+                        kotlin.math.abs(inputCenter - textCenter) < 6,
+                        "fixed text level with the input (row $index): $inputCenter vs $textCenter",
+                    )
+                }
+                // Same classes and the same slot order on the first and the last day.
+                assertEquals(
+                    rows[0].allOf(".lapis-te-day-slot").map { it.className },
+                    rows[2].allOf(".lapis-te-day-slot").map { it.className },
                 )
             }
         }
@@ -562,6 +658,7 @@ class TravelExpenseDayGridDomTest {
     @Test
     fun contact_set_rendersMailtoAndTelCorrectlyEncoded_andTheHintAsTextNotMarkup(): Promise<Unit> =
         formTest {
+            PageIntroStorage.expandAll()
             AppState.setSession(memberSession)
             val contact =
                 TravelExpenseContactDto(
@@ -578,8 +675,14 @@ class TravelExpenseDayGridDomTest {
                 val hint = element().querySelector(".lapis-te-contact-hint")
                 assertEquals(0, hint?.querySelectorAll("b")?.length, "a tag in the hint is text, not markup")
                 assertTrue(hint?.textContent.orEmpty().contains("<b>vorher</b>"))
-                val help = element().querySelector("a[href*='/help/travel-expenses']")
-                assertTrue(help?.getAttribute("rel").orEmpty().contains("noopener"))
+                // V1.9.187: the ONE help link of the screen is the page intro's (the contact block no longer carries a second one).
+                val helpLinks = element().querySelectorAll("a[href*='/help/travel-expenses']")
+                assertEquals(1, helpLinks.length, "exactly one help link: the intro's")
+                assertTrue((helpLinks.item(0) as HTMLElement).getAttribute("rel").orEmpty().contains("noopener"))
+                assertNotNull(
+                    element().querySelector(".page-intro a[href*='/help/travel-expenses']"),
+                    "the help link sits in the page intro",
+                )
             }
         }
 

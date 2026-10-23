@@ -3,6 +3,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.plugins.origin
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.agreementtexts.AgreementMarkdown
 import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.forMemberUpdate
@@ -209,7 +210,13 @@ class RegistrationService internal constructor(
     /** V1.9.134 -- the live text: the published version with the highest sequence number, else the built-in placeholder. Never the draft. */
     override suspend fun getMembershipAgreement(): MembershipAgreementDto =
         AgreementTextResolver.current(kind = AgreementTextKind.MEMBERSHIP).let {
-            MembershipAgreementDto(version = it.versionLabel, text = it.body, sha256 = it.sha256)
+            MembershipAgreementDto(
+                version = it.versionLabel,
+                text = it.body,
+                sha256 = it.sha256,
+                format = it.format,
+                renderedHtml = AgreementMarkdown.htmlFor(format = it.format, body = it.body),
+            )
         }
 
     override suspend fun listRegionalChapterOptions(): List<RegionalChapterRefDto> =
@@ -748,7 +755,13 @@ class RegistrationService internal constructor(
     /** V1.9.134 -- see [getMembershipAgreement]. */
     override suspend fun getFriendTerms(): FriendTermsDto =
         AgreementTextResolver.current(kind = AgreementTextKind.FRIEND).let {
-            FriendTermsDto(version = it.versionLabel, text = it.body, sha256 = it.sha256)
+            FriendTermsDto(
+                version = it.versionLabel,
+                text = it.body,
+                sha256 = it.sha256,
+                format = it.format,
+                renderedHtml = AgreementMarkdown.htmlFor(format = it.format, body = it.body),
+            )
         }
 
     /**

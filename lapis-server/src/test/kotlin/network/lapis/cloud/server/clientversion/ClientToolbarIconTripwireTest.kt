@@ -201,9 +201,6 @@ private const val REASON_DISCLOSURE =
 private const val REASON_DIALOG =
     "DIALOG: 'Weiter bearbeiten' is the dismissing answer of a hand-built discard dialog, the dialog helper owns that button (confirmDiscardInputs)"
 
-private const val REASON_DOMAIN_ICON =
-    "DOMAIN_ICON: the three '<Zeilenart> hinzufügen' buttons carry the line-kind icon (car, calendar, receipt); a plain plus would make them identical"
-
 private const val REASON_DOMAIN_ICON_2 =
     "DOMAIN_ICON: the navigation (hamburger) toggle of the shell, not an action verb"
 
@@ -249,13 +246,11 @@ private val R57_LEDGER: Map<String, LedgerEntry> =
         "S2:ConsensusLabels.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S2:ConsensusResultView.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S2:DirectMessageConversation.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
-        "S2:EventVolunteerShiftsScreen.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S2:MailingHtmlEditor.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S2:OpenItemsScreen.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S2:VolunteerAllowanceDeclarationsCard.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S2:WebhookDeliveryLogPanel.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S2:ConferenceNotesController.kt" to LedgerEntry(count = 1, reason = REASON_DIALOG),
-        "S2:TravelExpenseScreen.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON),
         "S3:App.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_2),
         "S3:ClientVersionWatcher.kt" to LedgerEntry(count = 1, reason = REASON_CLASSNAME),
         "S3:ConferenceBackgroundSection.kt" to LedgerEntry(count = 2, reason = REASON_DOMAIN_ICON_3),
@@ -323,10 +318,10 @@ private val R58_ICON_ONLY_FACTORY_CALLS: Map<String, Map<String, Int>> =
         "EncounterControlBar.kt" to mapOf("encounterControlButton" to 1),
     )
 
-/** The declaration line(s) `val controlsRow =` plus the line after it, as one text. */
+/** The declaration line(s) `val roomBar = RoomControlBar(` plus the line after it, as one text (V1.9.184: the bar is a [RoomControlBar]). */
 internal fun controlsRowDeclaration(source: String): String {
     val lines = codeLines(source)
-    val at = lines.indexOfFirst { it.trimStart().startsWith("val controlsRow =") }
+    val at = lines.indexOfFirst { it.trimStart().startsWith("val roomBar = RoomControlBar(") }
     return if (at < 0) "" else lines.subList(at, minOf(at + 3, lines.size)).joinToString("\n")
 }
 
@@ -545,14 +540,16 @@ class ClientToolbarIconTripwireTest :
                             "conferenceViewButton" to 1,
                             "conferenceReactButton" to 1,
                             "conferenceHandControl" to 1,
+                            // V1.9.184: the settings gear alone in the start zone
+                            "conferenceSettingsButton" to 1,
                         ),
                 )
         }
 
         test("V1.9.66: the bar of the conference call never wraps; the chat composer overrides the narrow-width wrap of a toolbar") {
             controlsRowDeclaration(
-                """    val controlsRow =
-        callPanel.hPanel(spacing = 6) { addCssClasses("align-items-center flex-wrap lapis-conference-controls-row") }""",
+                """    val roomBar = RoomControlBar(barDock, "flex-wrap lapis-room-bar--conference lapis-conference-controls-row")
+    val controlsRow: Div = roomBar.root""",
             ).contains("flex-wrap") shouldBe true // the detector sees a wrapping declaration
             val screen = clientFiles().first { it.name == "ConferenceScreen.kt" }.readText()
             val declaration = controlsRowDeclaration(screen)
@@ -561,9 +558,10 @@ class ClientToolbarIconTripwireTest :
                 declaration.contains("flex-wrap") shouldBe false
             }
             val css = THEME_CSS.readText()
-            val bar = Regex("""\.lapis-conference-controls-row\s*\{[^}]*\}""").findAll(css).map { it.value }.toList()
-            withClue("theme.css: .lapis-conference-controls-row must say flex-wrap: nowrap somewhere") {
-                bar.any { it.contains("flex-wrap: nowrap") } shouldBe true
+            // V1.9.184: the bar is a grid of three zones; the zone that holds the controls of the room never wraps
+            val centre = Regex("""\.lapis-room-bar__centre\s*\{[^}]*\}""").findAll(css).map { it.value }.toList()
+            withClue("theme.css: .lapis-room-bar__centre must say flex-wrap: nowrap somewhere") {
+                centre.any { it.contains("flex-wrap: nowrap") } shouldBe true
             }
             val composer = Regex("""\.lapis-toolbar\.lapis-chat-composer\s*\{[^}]*\}""").find(css)?.value ?: ""
             withClue("theme.css: the composer row must not wrap (Spezifitaet 0-3-0 beats the toolbar's narrow-width rule)") {
@@ -728,7 +726,9 @@ class ClientToolbarIconTripwireTest :
         ) {
             val picker = clientFiles().first { it.name == "EncounterDevicePicker.kt" }.readText()
             val code = codeLines(picker).joinToString("\n")
-            withClue("ActionIcon.SETTINGS is used once in the whole client (outside its declaration), in the picker") {
+            withClue(
+                "ActionIcon.SETTINGS is the gear: the picker button, the conference bar's gear (factory) and the labelled twins of both in the sheets",
+            ) {
                 val users =
                     clientFiles()
                         .filter { it.name != "ActionIcon.kt" }
@@ -736,7 +736,16 @@ class ClientToolbarIconTripwireTest :
                             it.name to
                                 codeLines(it.readText()).sumOf { l -> Regex("""ActionIcon\.SETTINGS""").findAll(l).count() }
                         }.filterValues { it > 0 }
-                users shouldBe mapOf("EncounterDevicePicker.kt" to 1)
+                users shouldBe
+                    mapOf(
+                        "EncounterDevicePicker.kt" to 1,
+                        // V1.9.184: the gear of the conference bar (conferenceSettingsButton) ...
+                        "ConferenceControlBar.kt" to 1,
+                        // ... its twin in the "Mehr" sheet (settingsTwin) ...
+                        "ConferenceScreen.kt" to 1,
+                        // ... and the picker button's twin in the encounter sheet (gearTwin)
+                        "EncounterRoom.kt" to 1,
+                    )
             }
             withClue("V1.9.94: the headphones icon and ActionIcon.AUDIO_DEVICES are gone from the whole client (comments excluded)") {
                 val leftovers =
@@ -913,10 +922,10 @@ class ClientToolbarIconTripwireTest :
             }
         }
 
-        test("V1.9.90: devices come first and exit last in the enum; the mic band and its text button are gone") {
+        test("V1.9.90: the settings gear and the devices come first, exit last in the enum; the mic band and its text button are gone") {
             val bar = codeLines(clientFiles().first { it.name == "EncounterControlBar.kt" }.readText()).joinToString("\n")
-            withClue("DEVICES is the first, EXIT the last group of the DOM") {
-                Regex("""enum class EncounterControlGroup \{\s*DEVICES,[^}]*,\s*EXIT\s*\}""").containsMatchIn(bar) shouldBe true
+            withClue("V1.9.184: SETTINGS (the gear, start zone) then DEVICES come first, EXIT is the last group of the DOM") {
+                Regex("""enum class EncounterControlGroup \{\s*SETTINGS,\s*DEVICES,[^}]*,\s*EXIT\s*\}""").containsMatchIn(bar) shouldBe true
             }
             val pulpit = codeLines(clientFiles().first { it.name == "EncounterPulpitControls.kt" }.readText()).joinToString("\n")
             withClue("no text button in the device controls (R58 group, icon-only factory only)") {

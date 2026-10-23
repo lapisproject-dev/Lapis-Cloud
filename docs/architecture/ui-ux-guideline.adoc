@@ -59,8 +59,11 @@ It is a pure client wave: no RPC, DTO, table or migration.
 
 === `DataScreenLayout.kt`
 
-* `dataScreenRoot(spacing = 16)`; screen widths `DATA_SCREEN_MAX_WIDTH_PX` (1440), `NARROW_FORM_MAX_WIDTH_PX` (480),
-  `READING_MAX_WIDTH_PX` (720), `DASHBOARD_MAX_WIDTH_PX` (640) -- the last three are declared, not yet applied
+* `pageShell(PageWidth.WIDE | PageWidth.FORM, spacing = 16)` -- the one page shell (V1.9.189), see <<page-shell>>;
+  `dataScreenRoot(spacing = 16)` is the `WIDE` variant; `formSection()` limits a form block on a wide page to the form measure
+* `buttonRow()`, `filterRow()`, `Widget.asFilterToggle()` -- rows that wrap instead of scrolling sideways
+* pre-login and deep-link cards keep their own width (`AUTH_CARD_MAX_WIDTH_PX` 380, `NARROW_FORM_MAX_WIDTH_PX` 480,
+  `WIDE_FORM_MAX_WIDTH_PX` 960); `READING_MAX_WIDTH_PX`, `DASHBOARD_MAX_WIDTH_PX` and `DATA_SCREEN_MAX_WIDTH_PX` were removed
 * `standardTable(headers: List<TableHeader>)` and `Row.numCell(...)` for hand-built tables
 
 === `DataTable.kt`
@@ -2016,7 +2019,7 @@ The reasoning is in `docs/architecture/collapsible-forms.adoc`; the rule and its
   `R36B_NOT_YET_COLLAPSED`: finance, events, community, documents, compliance, conference administration, the auction), and `open(prefill)` for
   "duplicate" flows: the component and its tests support it, but none of the four pilot screens has such a flow, so nothing calls it yet.
 
-== V1.9.50 -- UI stragglers: Mitfahrerzentrale, Artikel, "Meine Daten"; the scanner sees every file
+== V1.9.50 -- UI stragglers: Mitfahrzentrale, Artikel, "Meine Daten"; the scanner sees every file
 
 Client only: no migration, no server change. Details: `collapsible-forms.adoc` ("V1.9.50") and `action-icons.adoc` ("V1.9.50").
 
@@ -2027,7 +2030,7 @@ Client only: no migration, no server change. Details: `collapsible-forms.adoc` (
   is held and what stays is in `R57_LEDGER` with a reason; (S2) a plain `button(...)`/`Button(...)` whose label ENDS on an icon verb is a finding (multi-line calls and
   `text =` are read); (S3) a plain button with a string-typed `icon = "fa..."` is a finding; (S4) a `container.button(...)` named "Neu ..." or "... erstellen/anlegen" is
   a finding (a `Button(...)` constructor handed to a form's button row is a submit button and never one). The ledger only shrinks (an exact match is asserted).
-* Mitfahrerzentrale and Artikel follow R36/R36B (create button in the title row; the carpool form is a collapsible create form with "Bearbeiten"/"Duplizieren"
+* Mitfahrzentrale and Artikel follow R36/R36B (create button in the title row; the carpool form is a collapsible create form with "Bearbeiten"/"Duplizieren"
   opening the same host). "Meine Daten", the finance, governance, consensus, conference and other screens got the icons of their verbs: about 55 buttons in 40 files.
 * Leaving the article editor goes through one exit that saves first and asks only about unsaved input.
 
@@ -2419,3 +2422,230 @@ Client only. The map layer of the encounter room (`EncounterMapOverlay`) is the 
 . *Breakpoint.* The bottom-sheet variant on a phone uses the guideline's one breakpoint (768 px); the theatre hall of the room has two more (768 and 420 px) because its columns, not a control, change.
 
 *Not verified:* a real device, Safari/iOS, a screen reader; the layer order against the app header and sidebar.
+
+== Sidebar group headers (V1.9.183)
+
+Client only. The six collapsible group headers of the sidebar follow these rules:
+
+. *The chevron sits at the right edge and follows `aria-expanded`.* It is the last child of the header (`ActionIcon.CHEVRON`, `aria-hidden`), pushed right with `margin-inline-start: auto`, and turns a quarter turn through the selector `[aria-expanded="true"]` -- the state lives in the attribute only, there is no second class. The header also carries `aria-controls` pointing at the body of its group.
+. *The group holding the current page is marked, open or closed.* `NavHighlight` puts `active` on the header (quiet emphasis: normal text colour, semi-bold label, the group icon in `fleck-ink`); no second marker class exists.
+. *The focus ring is `fleck-ink`, drawn inside the row* (`outline-offset: -2px`) with no shadow and no background, so it is not clipped by the sidebar edge and does not tint the row.
+. *Only a click is stored.* Opening a group because the route lands in it is never written to `localStorage`; the key is `lapis-cloud-sidebar-groups.v2` (the old key is read once, sanitised, migrated and removed), and a storage that throws only means "nothing is remembered".
+. *No animation.* Opening, closing and the chevron turn happen at once (R54: no `transition` outside the reduced-motion-aware block).
+
+*Not verified:* a real phone, a screen reader, Safari.
+
+== V1.9.184 -- One room bar, three zones (conference and encounter room)
+
+*Decision of the design team, final review by Steve Jobs.* The control bar of the conference call and of the encounter room is one component, `RoomControlBar`, with three zones: the settings gear alone at the start,
+the controls of the room in the centre, the way out at the end. The microphone moves into the middle with the camera and the screen; the gear is the only control at the left edge ("Einstellungen", it opens the device
+panel); "Mehr" is always the last control of the centre; "Verlassen" is always the last control of the bar. The bar is sticky in the content area, not fixed at the viewport, so the sidebar can never cover it.
+
+* *Behaviour changes* (also in the CHANGELOG): recording and stream stand at the end of the centre (they used to lead the conference bar); the gear replaces "Geräte wählen"/"Geräte" in "Mehr"; the microphone, the camera
+  and the gear can move into the sheet when the bar is very narrow (they used to be fixed); "Türen schließen" is the last control of the encounter bar to move (used to move early).
+* R54: the conference bar's transition is gone (ten known transitions). R58: `conferenceSettingsButton` is a new call in the ledger of `conferenceControlButton` (one icon-only button, `ActionIcon.SETTINGS`).
+* R59: new sticky element `.lapis-room-bar-dock` (no overflow, no max-height); new self-scrolling sheet `.lapis-conference-settings-sheet` (class E1). The centre zone clips with `overflow: clip` (never `hidden`).
+* Documented deviation from the first plan: `overflow: clip` sits on the centre zone, not on the bar (a clip on the bar would cut the sheets and the focus rings that hang above it).
+* Architecture: `conference-dock.adoc` (the call's bar), `encounter-space.adoc` ("The room bar (V1.9.184)").
+
+== V1.9.185 -- LTR account with progressive disclosure
+
+*Decision of the design team, final review by Steve Jobs.* A finance screen says in plain words what one can do and offers ONE clear next step; everything else waits behind a button.
+
+* *Section action in the balance card (a reasoned exception to R36).* "LTR senden" stands to the right of the balance in the card, not in the page header: the action belongs to the balance it spends, and the header would put it far from that figure. The element is the same `lapis-page-action` slot, the same outline-primary button (R36B component), and still the only primary action of the screen. R36 itself is unchanged.
+* *The filter of "Meine Buchungen" lives in the title row* (`sectionTitleRow`) and reloads the list from the server on every change, so "Aktualisieren" is gone. The size class of the heading stays spelled out in `sectionTitleRow` (R7).
+* *Treasury tools behind "Werkzeuge anzeigen".* Title and a one-line audience stay visible; the three tools (member lookup, mint, arbitration transfer) are collapsed create forms, one at a time. Each row carries an explanation of what the tool does in one sentence, always visible, so the button names the action ("Mitglied ansehen", "Gutschrift erfassen", "Korrektur erfassen") and the sentence names the consequence. The role names are written out for people (no `TREASURER/BOARD/ADMIN` in the interface). Hiding a button is not protection: the role gate stays on the server.
+* Component: `collapsibleCreateForm(beforeOpen = ...)`, see `collapsible-forms.adoc`.
+
+== V1.9.187 -- Page intros and the "Hilfe und Feedback" menu (Part 1)
+
+*Decision of the design team, final review by Steve Jobs.* Every view that a person reaches from the sidebar says in one or two plain sentences what it is for. Part 1 covers the flat entries, "Mitgliedschaft" and
+"Selbstverwaltung" (23 views); the economy, finance, administration and system groups followed in Part 2 (V1.9.188, below). Client only.
+
+*The page intro (`PageIntro.kt`, `PageIntros.kt`):*
+
+. *Placement.* The intro is part of the page header: directly under the title row and the subtitle, inside `.lapis-page-header`. A screen only passes `intro = PageIntros.forRoute(Routes.X)` to `pageHeader`; there is no per-screen
+  placement. The region is labelled by the page `h1` (`aria-labelledby`); a direct caller of `pageIntro` without that title gets an `aria-label`.
+. *Text.* German source text in the registry (`PageIntros.forRoute`, a `when` over the routes, built with `tr("...")` at call time so a language switch re-translates it). At most two sentences and 220 characters, derived from the
+  screen's code: it says only what the view does, who may do what and what to expect. No legal and no financial promise. Role splits are named only when the screen really shows them. It is plain text, never `rich`.
+. *Collapsible, per view (V1.9.190).* An intro is never gone: it is open ("Einklappen" button, `aria-expanded="true"`, accessible name and tooltip "Einführung einklappen") or folded to one small toggle "Hinweis anzeigen"
+  (`ActionIcon.INFO` plus `CHEVRON_DOWN`, `aria-expanded="false"`, tooltip "Einführung dieser Seite anzeigen", no `aria-label` -- the visible text is the name). Both buttons carry `aria-controls` with the id of the body
+  (`page-intro-<viewKey>-body`); while collapsed that id does not exist, which ARIA allows. Only the section is re-rendered, never the page. The state is `lapis.pageIntro.v2.<viewKey>` = `collapsed` in `localStorage`; every
+  access is wrapped, and a blocked storage only means the fold lasts until the page is reloaded. `viewKey` is a code constant. A stored v1 value `hidden` (until V1.9.189) is read as collapsed on first use: v2 is written, v1
+  removed. Collapsing moves the focus to the toggle, expanding to the body (`tabindex="-1"`, focus ring only for `:focus-visible`); if the target is not rendered yet the page `h1` is the fallback, never `body`. No animation,
+  no confirmation.
+. *Help link.* "Mehr in der Hilfe" appears only for a topic in `HelpTopics.available` (the topics that have a page on the website; today `travel-expenses`). A view without a topic page shows no link at all. The link opens in a
+  new tab with `rel="noopener noreferrer"`; the arrow is decoration. The tab order is text, link, collapse button (DOM order).
+. *Detail views.* The intro appears in the list or overview mode only; the detail of an election, a consensus or a poll keeps its back button and shows no intro. "Fragen zur Satzung" shows its intro only while the AI layer is on,
+  "Mitglieder-Finder" only for members.
+. *Style.* Small text, a thin rule on the left, no background, no transition (R54 untouched), the secondary-text token `--lapis-muted`, a collapse/expand target of at least 2 rem.
+
+*The help menu (`SidebarHelpMenu.kt`):* the second direct child of the sidebar body (after the nav, never inside it), scrolling with the page like everything else (R59). A trigger with `ActionIcon.HELP` and the label
+"Hilfe und Feedback" opens an upward popover (`role="menu"`, built when it opens): "Hilfe zu dieser Ansicht" (only if the current view's topic has a page), "Hilfe-Center", "Was ist neu" (website, UI language, new tab) and
+"Einführungen wieder aufklappen" (only if an intro is collapsed; it clears the v1 and v2 keys and draws the current view again through `rerenderCurrentRoute()`). Keyboard: arrows, Home/End, Escape (focus back to the trigger), Tab closes, a click
+outside closes; the window listener exists only while the menu is open. There is deliberately no "Problem melden" (no operator contact address reaches the client) and no shortcut list (the client has no global shortcuts).
+
+*Guard:* `SidebarIntroCoverageDomTest` builds the sidebar for every role and requires an intro for every Part 1 destination (since V1.9.188 for every destination).
+`PageIntrosSourceScanTest` requires that every registry entry is drawn by a screen and every asked route has an entry, and pins the length rule.
+
+*Not verified:* a real phone, Safari/iOS, a screen reader; the help centre and "Was ist neu" URLs follow the website sources, not the deployed site.
+
+== V1.9.188 -- Page intros, Part 2 (economy, finance, administration, system) and the "Mehr" part
+
+*Decision of the design team, final review by Steve Jobs.* Part 2 gives the remaining 52 sidebar views their intro, so every sidebar destination has one (75 registry entries in all). Client only.
+The texts of the finance, legal and data-protection views are drafts for the owner and the tax advisor to review; the code states what the screens do, not what a law requires.
+
+. *Scope.* Economy (6), Finance (19, including "Bankkonten", the one sidebar link that `GROUP_ROUTES` does not list), Administration (17) and System (10). `EVENT_IMPORT` and `ARTICLE_IMPORT` have no sidebar link and
+  are sub-flows of the event and article screens; they are named in the coverage test as exceptions with that reason. A detail or narrowed mode shows no intro (the honors of ONE member, the check-in of one event, a social thread).
+. *The "Mehr" part (`PageIntroDef.more`).* An intro may carry a second, optional part: a native `<details>` with the summary "Mehr" and one plain-text paragraph. It starts closed on every render, its state is not stored,
+  there is no script, no transition and no animation, and the summary is a target of at least 2 rem. DOM order: text, "Mehr", help link, hide button; "Ausblenden" removes the whole section. It is allowed only for the views
+  listed in `MORE_ALLOWED` of the source scan, today the audit log alone (its GoBD statement), at most two sentences and 360 characters, and its sentence is not repeated in any screen. A new view needs a design decision, not a habit.
+. *Description versus restriction.* A descriptive sentence ("Hier sehen Sie ...") belongs in the intro, which the person may hide. A notice that limits what a result may be used for stays in the screen body, where it
+  cannot be hidden: the use-of-funds banner and the four-sphere subtitle of the compliance reports, the data-protection note of the member map, the warning of the travel-expense settings, the header note of the board
+  membership, the legal lines of the donors and the DSGVO compliance screens, and the ADMIN-only hints of the moderation screen.
+. *Explain a term once, in half a sentence, where it first appears in the text.* Fixed wording: SEPA-Mandat -- "die Erlaubnis, Beiträge vom Konto einzuziehen"; SEPA-Lastschrift -- "der Einzug vom Bankkonto"; Offene Posten --
+  "noch nicht bezahlte Forderungen"; Kostenstelle -- "ein Bereich, dem Ausgaben zugeordnet werden"; Mahnstufe -- "wie oft und wie deutlich erinnert wird"; Price-Oracle -- "die Quelle für Umrechnungskurse"; API-Schlüssel --
+  "Zugang für andere Programme"; Transparenzregister -- "das amtliche Register der wirtschaftlich Berechtigten". The explanation is not repeated on every page.
+. *Banned words.* In `text` and `more`: "rechtssicher", "gesetzeskonform", "garantiert", "automatisch erfüllt", "steuerfrei". In `text` only: "GoBD", "revisionssicher" and the paragraph sign (legal vocabulary belongs in `more`,
+  if anywhere). No gendered pairs ("Moderierende" and "Administration" instead). The source scan enforces both lists.
+. *Hand-built lines moved into the registry.* A screen that had its own grey line under the title (Postversand, Price-Oracle, API-Schlüssel, Backup, E-Mail-Versand, Website-Integration, Forderungs-Mahnstufen, Check-in,
+  Geburtstage, Ehrungen, Familien, Kontakte, Vertragstexte, Stream-Ziele, Mitgliedschaftsstufen (the subtitle), Prüfprotokoll) shows the registry text instead; the source scan fails if the same sentence is still built in a screen.
+
+*Guard:* `SidebarIntroCoverageDomTest` now requires an intro (or a written reason) for every flat and group destination, for ten kinds of session (with and without the agent interface) and statically for every route of `GROUP_ROUTES`;
+`PageIntrosSourceScanTest` pins 75 entries, the length rules for `text` and `more`, `MORE_ALLOWED`, the word lists, and "no sentence twice".
+
+*Not verified:* a real phone, Safari/iOS, a screen reader; the translations by a native speaker; the finance, legal and data-protection texts by the owner and the tax advisor. Help pages exist only for the travel-expenses topic,
+so no Part 2 intro has a help link.
+
+[[page-shell]]
+== Page shell and page widths (V1.9.189)
+
+Every page is mounted into one shell, `pageShell(width)`, with two measures. The values live in `theme.css`
+(`.lapis-page`), never inline: an inline `maxWidth` on a screen root would silently beat the stylesheet, and the source scan
+`PageShellSourceScanTest` rejects it.
+
+* **`PageWidth.WIDE`** -- tables, cards and overviews. Up to `100rem` (1600 px); above that the frame is centred.
+* **`PageWidth.FORM`** -- pages that are only a form. `60rem` (960 px), the comfortable line length. The column sits at the left edge
+  of the same `100rem` frame, so the left edge of the content is identical on every page.
+* **Mixed pages** are `WIDE` with the form in `formSection()` (also `60rem`, left-aligned).
+* **Padding** is 16 px below 768 px, 24 px from 768 px, 32 px from 1400 px; the top margin is 24 px. Tables stay in the
+  responsive frame, so a wide table scrolls itself, not the page.
+* **Chips and groups** go into `buttonRow()`, filter fields with labels above into `filterRow()` (a label-less switch gets
+  `asFilterToggle()`): they wrap, there is no horizontal scrolling.
+* **Icon-only table action.** A table action is a `tableActionButton` with an `ActionIcon`; the name says what it acts on, for example
+  "Version v2 of x.pdf" for the download in the document versions. Text composed with user data (a file name) is sanitized as a whole
+  before it becomes `title` and `aria-label`.
+* **Allow-list.** Only these keep a width of their own, each with a reason in `PageShellSourceScanTest`: the pre-login and
+  deep-link cards (login, registration, password reset, e-mail confirmation, privileged-action veto, payment return, donation checkout,
+  guest join), the full-bleed encounter space, and small component widths (a truncated label, a description cell, an amount field).
+
+== `segmentedRadioGroup` and `segmentedControl` (V1.9.191)
+
+Two segmented controls, two jobs; do not mix them up.
+
+* **`segmentedControl`** is a *toggle for a view*: a filter or a mode ("Alle / Kreditoren / Debitoren"). Each segment is a button with `aria-pressed`,
+  the group is `role="group"`, Tab visits every segment, the page content under it changes, nothing is being filled in.
+* **`segmentedRadioGroup`** is a *single choice inside a form that switches the fields below it* (the cost kind of an expense line). It follows the
+  WAI-ARIA radio pattern: `role="radiogroup"` with an `aria-label`, `role="radio"` + `aria-checked` per segment, roving tabindex (only the chosen segment is in
+  the tab order). Arrow keys move to the next/previous *enabled* segment (wrapping), Home/End to the first/last, and the choice follows the focus. Space and Enter
+  are left to the native `click` of the `<button>` (never reported twice); the handled keys call `preventDefault()` so the page does not scroll.
+  A disabled segment (`SegmentOption.enabled = false`) keeps `aria-disabled` instead of the native `disabled`, so its hint stays a tooltip; the keyboard skips it
+  and a click is ignored. `onSelect` fires only when the choice really changes. `focusSelectedSegment()` puts the focus on the chosen segment when a form opens.
+* **Form behind a radio group.** Switching the segment rebuilds the fields of the new choice from scratch (a new `LapisForm`, so validation state and cross-field rules
+  of the old choice cannot survive). The raw text of the choice being left is kept in a per-choice draft and restored when the member returns to it.
+* No animation (R54); all CSS stays above the single `prefers-reduced-motion` block.
+
+== Master-detail: table plus detail page (V1.9.192)
+
+One pattern for "a list of records, each with its own page" (first used by Gremien and Sitzungen; Umfragen and Konsensieren use its back button). The
+building blocks live in `MasterDetail.kt`.
+
+* **The list is a table** (`masterTable`: `standardTable`, so R14/R15 hold, headers carry `scope="col"`) with a visually hidden `<caption>` as its
+  accessible name. The name column is the row header and holds a real link (`recordLink`: `<a href="#/committees/<id>">`, the id URL-encoded by
+  `detailRoute`), so Ctrl-click, middle-click and "copy link" work. The text of the link is untrusted and sanitized. The **row has no click handler**:
+  the link is the only target.
+* **The detail page is its own route** (`/committees/:id`, `/meetings/:id`), so a deep link works. An unknown id shows one plain sentence next to the
+  back button, never a blank page. The sidebar keeps the list entry highlighted (`NavRouteMatch` prefix rule).
+* **The back button is deterministic**: "Zur Übersicht" (`overviewBackButton`, `ActionIcon.BACK`, natural width) sits ABOVE the title and always navigates
+  to the list route, never `history.back()` (after a deep link that would leave the app).
+* **Focus goes back**: opening a record remembers its id (`MasterDetailFocus`, module-wide, no `localStorage`); the list gives the focus to that link
+  when it is built again. The memory is dropped when the person goes to a route outside the two families, so a fresh visit never restores a stale focus.
+* **R58, named exception (master-detail tables)**: a row of a master-detail table (or of a table on its detail page) uses an icon-only `tableActionButton`
+  also with ONE action ("Bearbeiten", "Mitgliedschaft beenden", "Tagesordnungspunkt entfernen"), because the name column is a link and the row stays
+  compact. `title` and `aria-label` name person/object and verb, the whole composed text sanitized. `ClientToolbarIconTripwireTest` is unaffected: it
+  only restricts `newIconOnlyActionButton`.
+* **A column that would be empty is left out** (Sitzungen has no actions column: the old "Details anzeigen" is the title link now; Gremien has one
+  only for BOARD/ADMIN).
+* **Past rows** (Sitzungen) follow a spanning heading row (`sectionRow`), not `scope="rowgroup"`: a table has one `<tbody>`, so a rowgroup header would
+  claim rows it does not own (see the section-row note above).
+* `PageHeaderTripwire` audits the two screens that now build two headers (list page and detail page are separate routes, never in one render).
+
+=== Vertragstexte in the same pattern, and the Markdown editor (V1.9.196)
+
+* **Vertragstexte** (`/agreement-texts`, `/agreement-texts/:kind`) is the fourth family: a table (Text | Aktuelle Fassung | Gültig ab | Veröffentlicht am | Status | Aktion) with the name as a real link and one
+  icon-only "Bearbeiten: <Name>" button per row; the id in the path is the lower-case kind. `Routes.AGREEMENT_TEXTS` and `Routes.AGREEMENT_TEXTS_DETAIL` belong to `MASTER_DETAIL_ROUTES`. An unknown kind shows a
+  sentence next to the back button. `PageHeaderTripwire` audits two headers for the file (list and detail are separate routes).
+* **Editor pattern "Markdown with live preview side by side"**: the source on the left, the preview on the right (`lapis-agreement-editor-grid`, one column below 62 rem), the preview region grows with its text
+  (no own scroller, so `ScrollSurfaceTripwireTest` is unchanged). The preview is asked from the server 500 ms after the last keystroke, only the latest answer is shown, an error appears inside the field.
+* **The client never renders Markdown.** Markdown becomes HTML on the server only (`AgreementMarkdown` over the sanitizing `ArticleMarkdown`); the client puts that HTML into the page in exactly one function
+  (`agreementHtml`) and falls back to the source as text when the HTML is missing. `ClientAgreementHtmlTripwireTest` pins both. (The article editor keeps its own tabs; it is not converted.)
+
+=== Anträge in the same pattern, and the decision selector (V1.9.193)
+
+* **Anträge** (`/motions`, `/motions/:id`) is the third family: a table (Titel | Gremium | Antragsteller | Status | Datum | Aktionen), the title a real link,
+  one icon-only "Details zu <Titel>" button per row. An amendment keeps its place right after its main motion and names it ("Änderung zu: ...") when the
+  main motion is in the list; with a committee or status filter the main motion may be missing, then the row only says "Änderungsantrag" (a known limit).
+  `Routes.MOTIONS` and `Routes.MOTION_DETAIL` belong to `MASTER_DETAIL_ROUTES`, so the list focus survives the round trip. An unknown id shows a sentence
+  next to the back button (no redirect, same as Sitzungen). The destructive-looking red "Zurückziehen" is gone: "Antrag zurückziehen" is a quiet secondary
+  button at the end of the page (the confirmation dialog stays).
+* **A single choice that switches whole forms is a `segmentedRadioGroup`, not four forms stacked.** "Wie soll entschieden werden?" offers Quorum-Beschluss
+  des Gremiums, Meritokratische Abstimmung, Wahl and Konsensieren; the first open way is preselected and only the form of the chosen way is in the DOM
+  (switching clears the holder). The explanation of the chosen way is one sentence under the group, the group points to it with `aria-describedby`
+  (no `aria-live`). **Closed ways stay in the group as `aria-disabled` and their reason is written out below it** ("Nicht verfügbar: <Weg> – <Grund>"), not
+  only in a tooltip. When a vote, election or consensus already owns the motion there is no selector, only the status sentence and the way to it.
+  Below 40rem the segments stack (container query on `.lapis-decision-selector`).
+* **Option names the server evaluates are never translated, only their display.** `closeVote` treats every winner other than `NO` as adopted, so the
+  meritocratic vote always sends `YES`/`NO`; `voteOptionDisplayLabel` shows "Ja"/"Nein". There is deliberately no "Enthaltung" option (it could win and
+  would then adopt the motion). Own answer options stay available under "Erweitert" with a warning.
+
+== Back buttons, the day-amount cell and action tables (V1.9.194)
+
+* **One back button.** Going back is `overviewBackButton(listRoute, label)` or `backButton(label, onBack)` in `MasterDetail.kt`: the `BACK` arrow plus a **visible text that
+  names the goal** ("Zur Übersicht", "Zur Liste", "Stimmabgabe verlassen"), outline secondary, natural width, **never** `w-100`/`d-grid`, never a bare "Zurück", never a raw
+  `button(tr("Zur Übersicht"))`. `ClientBackButtonTripwireTest` enforces it by a static scan. **Not page navigation, therefore not covered:** a button that undoes an inline
+  confirmation or a review step (R27: "Abbrechen" left, confirm right) or a control-bar action of a room; these are listed by file name, with the reason, in the allow-list of
+  that test. A review step that goes back to the choice names that goal ("Auswahl ändern", "Bewertung ändern").
+* **Travel expenses: "Beginn der Reise" / "Ende der Reise".** The same pair of terms on every day; the hint "Rückkehr oder Ankunft; bei einer einfachen Fahrt die Ankunft am
+  Ziel" hangs on the end field. Both fields carry the required marker and `aria-required`, but an empty time never blocks saving (it means 0,00 EUR for that day).
+* **The day-amount cell is two lines, never cut.** "Tagesbetrag: ..." and below it "(Abzüge: ...)" in the secondary colour and the same size, right-aligned, tabular figures,
+  `white-space: nowrap`, no `overflow: hidden`; the second line exists only with a result. A fixed-width grid column would clip it, so the column is
+  `minmax(10rem, max-content)`.
+* **Action tables.** Räume, Catering and Helfer-Schichten follow the table pattern of Gremien, Sitzungen and Anträge: `dataTable`, row actions as `tableActionButton` icons with
+  `title` and `aria-label` "<Verb>: <Name>" (name sanitized), the destructive actions keep their confirmation dialog, the create form stays collapsed (`CollapsibleCreateForm`),
+  and an edit form or a roster opens **above** the table, not in the row. A status that is saved at once stays a select in its column. Screens whose rows unfold detail editing
+  (API-Schlüssel with webhooks, Kontakte, Veranstaltungen) are not converted until they get a detail page of their own.
+
+== Travel expenses: attachments and receipts in the add form (V1.9.198)
+
+* *"Anlagen" section* (`renderTravelExpenseAttachments`): `h2` plus an explanatory sentence, then either "Keine Anlagen." or a `standardTable` (Datei | Größe | visually hidden Aktionen). Each row has a download link (`actionLink`, a real `href`, no script navigation; the server answers `Content-Disposition: attachment`) and, in a draft, a small button "Entfernen". Both keep their visible text and carry the file name in `aria-label` ("„<Name>“ herunterladen" / "„<Name>“ entfernen"); they are not icon-only because there is no row with two icon-only actions to justify it.
+* *R58 exception, named: file name in the accessible name.* The label is static text with one data slot (`gettext("„%1“ entfernen", ...)`); the file name always passes `sanitizeUntrustedI18nText` and is never rendered as HTML. `aria-label` carrying data is a named R58 exception. Removing an attachment has no confirmation, like removing a receipt of a line (the file can be added again while the report is a draft).
+* *Receipt picker in "Kosten hinzufügen"* (`ReceiptPicker`): a labelled group (`role="group"`, `aria-labelledby`), a multi-file field, and a camera field (`accept="image/*"`, `capture="environment"`) in `.lapis-te-camera`, which is shown only under `@media (pointer: coarse)`. `accept` and `capture` are set through the KVision `Upload` properties (`accept`, `Capture.ENVIRONMENT`), which render onto the real `<input type=file>`. Refused files show a message at the field.
+* *Upload status is text, not animation*, in a polite live region that is created on the first status (the totals bar stays the editor's one permanent live region, which `TravelExpenseDayGridDomTest` pins). No spinner, no transition.
+* *Blocked submit that stays focusable.* When a missing receipt is the reason, the submit button carries `aria-disabled="true"` and `aria-describedby` pointing at the hint (`#lapis-te-missing-receipt`) instead of the native `disabled` (pattern of V1.9.158). A click does nothing but move the focus to the file field of the first affected line; that line's receipt block is a `role="group"` described by the same hint (KVision owns the `aria-describedby` of the input itself, so the description sits on the group). Every other reason keeps the native `disabled`.
+
+== Travel expenses: documents and the Markdown hint (V1.9.199)
+
+* *A mixed page: a form measure above a wide section.* `TravelExpenseSettingsScreen` is `PageWidth.WIDE`; the settings form sits in a `formSection` (the form measure), and the section "Unterlagen für Mitglieder" below it uses the full width
+  (a table), *outside* the `<form>`. Rule: a section that acts at once ("sofort wirkender Abschnitt") never lives inside a form with a "Speichern" button -- it reloads only itself, so unsaved edits of the form stay.
+* *Role-dependent page.* BOARD gets the same route; the form part is not built for it, only the documents and one sentence that names who maintains the rates.
+* *Table with named icon actions* (`dataTable`, cards below `CARD_LIST_BREAKPOINT_PX`): download is a real link (the named R58 exception), rename opens a dialog, delete asks first (`DANGER`). Tooltip and `aria-label` carry the title as a `%1` argument, never inside the template string.
+* *Type is never colour alone.* A file glyph plus the text "PDF" or "Excel".
+* *Tabs "Schreiben" / "Vorschau"* for a single Markdown field (`TravelContactHintEditor`): same markup as the article editor (`role=tab`, `aria-selected`), the preview comes from the server and only the latest answer is shown; the long-form agreement texts keep their side-by-side layout.
+* *Member list:* `.lapis-te-contact-row` is one column, two from 768 px; no block at all when there are no documents (and the viewer cannot manage them).
+
+== Brand mark and favicons (V1.9.195)
+
+* The default brand mark is the cloud-and-lapis-stone symbol of the website. It is *two inline SVGs* (light and dark) in one `span.lapis-brand-mark`; `theme.css` hides one of them by `data-theme` on `<html>`. No `id`, no `currentColor`, no `<defs>`: a page may hold any number of copies. The mark is decorative (`aria-hidden="true"`, `focusable="false"`).
+* Two sizes: *22 px* (navbar, login lockup, `LAPIS_CLOUD_MARK_SVG`) with the gold sparkle, *12 px* (footer credit, `LAPIS_CLOUD_MARK_SMALL_SVG`) without it. Rule: the sparkle only exists from 22 px upward. The 22 px matches `.lapis-brand-logo` (`max-height: 22px`) so the navbar does not jump between the default mark and an operator logo.
+* An operator logo (`Branding.logoUrl`) always wins; with a custom title and no logo no mark is shown.
+* Favicons live in `lapis-client/src/jsMain/resources` and are linked from `index.html` in this order: `favicon.ico` (32), `favicon.svg` (light), `favicon-dark.svg` (dark), `favicon-32.png`, `apple-touch-icon.png` (180). All paths are absolute (`/...`), because the SPA lives under `/app`. The light/dark pair follows the *operating system* (`prefers-color-scheme`), not the in-app switch; no script swaps the icon. Safari ignores `media` on icon links and uses the ICO / PNG.

@@ -13,9 +13,11 @@ import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.addCssClasses
 import network.lapis.cloud.client.lapisForm
 import network.lapis.cloud.client.newActionButton
+import network.lapis.cloud.client.renderAgreementBody
 import network.lapis.cloud.client.untrustedDiv
 import network.lapis.cloud.client.untrustedHeading
 import network.lapis.cloud.client.untrustedP
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterConsentLayout
 import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
@@ -82,6 +84,8 @@ internal fun SimplePanel.encounterEntryPanel(
         }
         box.renderEncounterConsentPreview(
             EncounterConsentLayout.Split(headline = disclaimer.headline, keyPoints = disclaimer.keyPoints, text = disclaimer.text),
+            format = disclaimer.format,
+            renderedHtml = disclaimer.renderedHtml,
         )
     }
     val form = box.lapisForm()
@@ -116,13 +120,23 @@ internal fun SimplePanel.encounterEntryPanel(
 
 /**
  * V1.9.148: how an entry notice is shown -- the headline, the key points, the full text behind a disclosure; always as untrusted element text.
- * ONE function for the entry panel and for the back-office preview (`AgreementTextsScreen`), so what the admin previews is what the guest sees.
+ * Used by the entry panel. The back-office preview (`AgreementTextsScreen`) no longer uses it since V1.9.196: it shows the fully rendered text only.
  */
-internal fun Container.renderEncounterConsentPreview(split: EncounterConsentLayout.Split) {
+internal fun Container.renderEncounterConsentPreview(
+    split: EncounterConsentLayout.Split,
+    format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    renderedHtml: String? = null,
+) {
     untrustedHeading(split.headline, level = 3, className = "h6 mb-0")
     split.keyPoints.forEach { point -> untrustedDiv(point, className = "small") }
     val details = Tag(TAG.DETAILS, className = "small")
     details.add(Tag(TAG.SUMMARY, content = tr("Vollständigen Text anzeigen")))
-    details.untrustedP(split.text, className = "mt-2 mb-0")
+    // V1.9.196: a MARKDOWN notice shows its server-rendered full text (the ONE rich site lives in AgreementTextRendering.kt); headline and key
+    // points stay untrusted element text -- the server removed their Markdown characters.
+    if (format == AgreementTextFormat.MARKDOWN && renderedHtml != null) {
+        details.renderAgreementBody(text = split.text, format = format, renderedHtml = renderedHtml)
+    } else {
+        details.untrustedP(split.text, className = "mt-2 mb-0")
+    }
     add(details)
 }

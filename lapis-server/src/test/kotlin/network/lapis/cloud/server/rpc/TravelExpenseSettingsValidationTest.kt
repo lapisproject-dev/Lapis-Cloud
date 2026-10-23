@@ -131,7 +131,8 @@ class TravelExpenseSettingsValidationTest :
                 client.settings("phone=${enc("call me maybe")}").status shouldBe HttpStatusCode.BadRequest
                 client.settings("hint=${enc("Zeile\u0007Glocke")}").status shouldBe HttpStatusCode.BadRequest
                 client.settings("name=${"x".repeat(121)}").status shouldBe HttpStatusCode.BadRequest
-                client.settings("hint=${"x".repeat(1001)}").status shouldBe HttpStatusCode.BadRequest
+                client.settings("hint=${"x".repeat(2001)}").status shouldBe HttpStatusCode.BadRequest
+                client.settings("hint=${"x".repeat(2000)}").status shouldBe HttpStatusCode.OK
 
                 client
                     .settings("name=${enc("   ")}&email=${enc(" ")}&phone=&hint=${enc("Zeile 1\nZeile 2")}")

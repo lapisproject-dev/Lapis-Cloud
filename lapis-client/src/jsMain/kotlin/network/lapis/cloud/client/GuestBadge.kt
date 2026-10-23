@@ -6,6 +6,7 @@ import io.kvision.core.PopoverOptions
 import io.kvision.core.Trigger
 import io.kvision.core.enablePopover
 import io.kvision.html.Span
+import io.kvision.html.icon
 import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.utils.px
@@ -47,25 +48,13 @@ object GuestBadgeColors {
 }
 
 private const val BADGE_SIZE_PX = 18
-private const val GLYPH_SIZE_PX = 12
 
 /**
- * Static, hand-authored wanderer/hiker glyph -- head circle + one three-subpath body (planted
- * leg, forward-leaning torso/swinging arm, trailing arm-with-stick). Picks the "Wanderer" option
- * over "Reisepass mit Visum-Stempel" (passport/visa-stamp) per the design-team review's own
- * verdict (poor legibility at badge scale) -- see the provenance note on this file's top-level
- * KDoc.
- *
- * NEVER concatenated with any request-derived string -- see [guestBadge] KDoc "XSS".
+ * V1.9.182: the one glyph of the visitor badge (guest AND friend) is the Font Awesome solid hiker with backpack and
+ * stick ([ActionIcon.VISITOR], a compile-time constant), sized by this constant. It replaces the hand-authored inline
+ * SVG of V0.8.4, so the badge no longer has any rich-HTML path.
  */
-private val WANDERER_SVG =
-    """
-    <svg viewBox="0 0 24 24" width="$GLYPH_SIZE_PX" height="$GLYPH_SIZE_PX" xmlns="http://www.w3.org/2000/svg"
-         stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="5" r="2" fill="currentColor" stroke="none"/>
-      <path d="M12 9 L9 14 L7 20 M12 9 L15 13 L18 16 M11 10.5 L8 12.5 L6 19"/>
-    </svg>
-    """.trimIndent()
+private const val GLYPH_SIZE_PX = 12
 
 /**
  * Pure, jsTest-able popover/aria text -- factored out so it doesn't need a DOM harness (see
@@ -77,47 +66,71 @@ fun guestBadgePopoverTitle(homeserverUrl: String): String = gettext("Gast von %1
 
 fun guestBadgePopoverBody(homeserverUrl: String): String = gettext("Angemeldet über den OIDC-Heimserver %1.", homeserverUrl)
 
+/** V1.9.182: texts of the friend variant of the visitor badge (a friend account on this server, not a member). */
+fun friendBadgeAriaLabel(): String = gettext("Freund")
+
+fun friendBadgePopoverTitle(): String = gettext("Freund")
+
+fun friendBadgePopoverBody(): String = gettext("Hat ein Freundeskonto auf diesem Server, ist aber kein Mitglied.")
+
 /**
  * 18x18px circular guest indicator with a hover/focus/tap popover ("Gast von {homeserverUrl}") and
  * an `aria-label` on the badge itself, so screen-reader users get the home-server information
  * without needing to trigger the popover at all. Icon/color/size/interaction rationale: see this
- * file's top-level KDoc "Provenance" -- these are the design-team review's final decisions.
+ * file's top-level KDoc "Provenance" -- these are the design-team review's final decisions
+ * (V1.9.182 swapped the hand-drawn SVG for the Font Awesome hiker, everything else is unchanged).
  *
  * No "Profil auf Heimserver ansehen"-link: no home-profile-URL field exists anywhere in this
- * codebase today (checked against [network.lapis.cloud.server.federation.OidcGuestClaims] and
- * `OidcGuestProfileTable` -- neither carries one), so the design spec's optional popover link is
- * omitted this wave rather than invented.
+ * codebase today, so the design spec's optional popover link is omitted rather than invented.
  *
- * **XSS**: [homeserverUrl] is remote-controlled data (the guest's home OIDC server, ultimately
- * `OidcGuestProfileTable.homeserverUrl` -- see
- * [network.lapis.cloud.server.federation.OidcGuestMemberStore] KDoc). It reaches the DOM only via
+ * **XSS**: [homeserverUrl] is remote-controlled data (the guest's home OIDC server). It reaches the DOM only via
  * [PopoverOptions.title]/[PopoverOptions.content] with `rich` left unset (Bootstrap Popover's own
  * default is `html: false`) and via `aria-label`, a plain attribute value -- both are text sinks,
- * never raw-HTML interpolation. The glyph SVG IS injected as `rich = true`, but [WANDERER_SVG] is
- * a compile-time constant that never incorporates [homeserverUrl] or any other request-derived
- * value.
+ * never raw-HTML interpolation. The glyph is a CSS class from a compile-time constant; there is no rich-HTML path.
  */
 fun Container.guestBadge(homeserverUrl: String): Span =
+    visitorBadge(
+        ariaLabel = guestBadgeAriaLabel(homeserverUrl),
+        popoverTitle = guestBadgePopoverTitle(homeserverUrl),
+        popoverBody = guestBadgePopoverBody(homeserverUrl),
+    )
+
+/** V1.9.182: the friend variant of the visitor badge -- same disc and glyph, own texts, no home server involved. */
+fun Container.friendBadge(): Span =
+    visitorBadge(
+        ariaLabel = friendBadgeAriaLabel(),
+        popoverTitle = friendBadgePopoverTitle(),
+        popoverBody = friendBadgePopoverBody(),
+    )
+
+private fun Container.visitorBadge(
+    ariaLabel: String,
+    popoverTitle: String,
+    popoverBody: String,
+): Span =
     span(className = "d-inline-flex align-items-center justify-content-center rounded-circle") {
         width = BADGE_SIZE_PX.px
         height = BADGE_SIZE_PX.px
         flexShrink = 0
         setStyle("background-color", GuestBadgeColors.FILL)
-        // The SVG glyph paints in `currentColor` -- resolved from this wrapper.
+        // The glyph paints in `currentColor` -- resolved from this wrapper.
         setStyle("color", GuestBadgeColors.GLYPH)
         role = "img"
         tabindex = 0
-        setAttribute("aria-label", guestBadgeAriaLabel(homeserverUrl))
+        setAttribute("aria-label", ariaLabel)
         // Gotcha: the navbar wrapper this badge sits inside re-applies Bootstrap 5's `.disabled`
-        // class (`pointer-events: none`) to preserve the pre-V0.8.4 visual weight of the identity
-        // display -- see App.kt's refreshNavbar. Without this override, hover/click could never
-        // reach the badge at all despite Trigger.HOVER/Trigger.CLICK being configured.
+        // class (`pointer-events: none`) -- see App.kt's refreshNavbar. Without this override, hover/click could
+        // never reach the badge at all despite Trigger.HOVER/Trigger.CLICK being configured.
         setStyle("pointer-events", "auto")
-        span(WANDERER_SVG, rich = true)
+        icon(ActionIcon.VISITOR.css) {
+            setAttribute("aria-hidden", "true")
+            setStyle("font-size", "${GLYPH_SIZE_PX}px")
+            setStyle("line-height", "1")
+        }
         enablePopover(
             PopoverOptions(
-                title = guestBadgePopoverTitle(homeserverUrl),
-                content = guestBadgePopoverBody(homeserverUrl),
+                title = popoverTitle,
+                content = popoverBody,
                 placement = Placement.BOTTOM,
                 triggers = listOf(Trigger.HOVER, Trigger.FOCUS, Trigger.CLICK),
                 // rich intentionally left unset -- see KDoc "XSS" above.

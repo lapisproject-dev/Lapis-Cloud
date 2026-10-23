@@ -23,7 +23,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -60,12 +59,8 @@ import network.lapis.cloud.shared.rpc.IEventService
  */
 fun renderEventsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    val header = root.pageHeader(tr("Veranstaltungen"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val header = root.pageHeader(tr("Veranstaltungen"), intro = PageIntros.forRoute(Routes.EVENT_MANAGEMENT))
     // V1.9.47 (R36B): the create form is collapsed; its host sits directly under the header, before the navigation row.
     val createHost = root.vPanel(spacing = 6)
 

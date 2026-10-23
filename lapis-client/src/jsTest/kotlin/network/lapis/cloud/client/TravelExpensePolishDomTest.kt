@@ -365,7 +365,9 @@ class TravelExpensePolishDomTest {
             useTextTemporalInputs() // the text fallback of V1.9.137 (the picker is the default since V1.9.173)
             AppState.setSession(memberSession)
             withEditor("te-polish-first-night") { element, calls, routes ->
-                element().buttonNamed("Übernachtung hinzufügen").click()
+                element().buttonNamed("Kosten hinzufügen").click()
+                delay(80)
+                element().buttonNamed("Übernachtung").click()
                 delay(80)
                 assertEquals("10.03.2026", element().input("Erste Nacht").value, "prefilled with the first travel day, in the locale order")
                 element().typeInto("Erste Nacht", "13.03.2026")
@@ -377,7 +379,7 @@ class TravelExpensePolishDomTest {
                 assertEquals("11.03.2026", element().input("Erste Nacht").value)
                 element().typeInto("Unterkunft", "Hotel Alpha")
                 element().typeInto("Betrag", "80,00")
-                element().buttonNamed("Zeile hinzufügen").click()
+                element().buttonNamed("Hinzufügen").click()
                 awaitUntil("addLine", timeoutMs = 1000) { calls.toRoute(routes.addLine).size == 1 }
                 val input = calls.singleCall(routes.addLine).rpcParam(1)
                 assertEquals("2026-03-11", input.dayDate as String)

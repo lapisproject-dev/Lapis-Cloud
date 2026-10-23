@@ -13,7 +13,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CandidacyDto
@@ -60,16 +59,11 @@ fun renderElectionsScreen(
     }
     val ctx = ElectionUiContext(session.memberId, AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN))
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Wahlen"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Wahlen"), intro = if (initialElectionId == null) PageIntros.forRoute(Routes.ELECTIONS) else null)
 
     if (initialElectionId != null) {
-        val backButton = root.button(tr("Zur Wahlübersicht"), style = ButtonStyle.OUTLINESECONDARY)
-        backButton.onClick { navigateTo(Routes.ELECTIONS) }
+        val backButton = root.backButton(tr("Zur Wahlübersicht")) { navigateTo(Routes.ELECTIONS) }
         // While a ballot receipt is on screen it cannot be shown again, so the in-app way out is closed until "Fertig".
         electionReceiptVisibilityHook = { showing -> backButton.visible = !showing }
         val detailPanel = root.vPanel(spacing = 10)

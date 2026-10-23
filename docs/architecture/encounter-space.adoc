@@ -353,12 +353,13 @@ Since V1.9.90 there is no standing status band any more: the state lives on the 
 Because the frequent error is speaking into a muted microphone, the room announces "Ihr Mikrofon ist aus." once, 750 ms after entering, in the polite `role="status"` region of the room (a fixed sentence, no personal data); toggling later announces nothing.
 A steward starts with both off.
 
-==== Control bar layout (V1.9.90)
+==== Control bar layout (V1.9.90, replaced by the three zones in V1.9.184)
 
-The bar has one line and the group order (DOM and tab order) is: *devices* (microphone and camera; for a seated congregation person the table microphone and "Pulpit louder"), reactions, panels (chat, "Mehr"), view, moderation, exit ("Türen schließen", "Verlassen").
-Devices stand at the left edge, exit at the right edge, the middle takes the free room (two automatic margins on the reactions and the exit group).
-The devices group has the accessible name "Geräte" and carries the divider itself. Microphone and camera are never moved into the "Mehr" sheet; what does not fit leaves the middle first (see `encounterOverflowOrder`).
-The pure invariant `devicesAreFirst` pins the order in tests.
+Since V1.9.184 the bar is the same *three-zone bar* as the conference's (`RoomControlBar`, a grid `auto | 1fr | auto`; see "The room bar (V1.9.184)" below). The group order (DOM and tab order) is:
+*settings* (the gear, alone in the start zone) | in the centre: *devices* (microphone and camera; for a seated congregation person the table microphone and "Pulpit louder"), reactions, liturgy, panels (chat, map),
+view, recording, moderation (transmission), "Mehr" | in the end zone: exit ("Türen schließen", "Verlassen").
+The devices group has the accessible name "Geräte" and carries the divider itself. What does not fit leaves the middle first and the devices last (see `encounterOverflowOrder`).
+The pure invariants `settingsIsFirst` and `moreImmediatelyBeforeEnd` pin the order in tests (`devicesAreFirst` of V1.9.90 is gone: the gear stands in front of the devices now).
 
 === Scene, pews, reactions
 
@@ -401,7 +402,7 @@ regions (amen bundling for everybody, "<name> hebt die Hand" for office holders 
 === Browser storage
 
 The encounter client has exactly two storage keys of its own (both in `EncounterSceneToggle.kt`; the device picker additionally writes the device ids of the video conference's keys, see "Device selection"): `lapis.encounter.sceneOff` (value `1`) and, since V1.9.96, `lapis.encounter.bellSoundOn` (value `1`, see "Bell"). Neither has a room, a person or a time. Reading or writing them is wrapped in `try`/`catch`; a blocked
-storage means "scene on" and "bell sound off". `ClientEncounterPrivacyTripwireTest` pins this together with the other privacy rules (no `innerHTML`, no console, no exception text, devices only in the two allowed files, no telemetry).
+storage means "scene on" and "bell sound off". `ClientEncounterPrivacyTripwireTest` pins this together with the other privacy rules (no `innerHTML`, no console, no exception text, devices only in the two allowed files, no telemetry). V1.9.196: the entry notice of a guest may be a Markdown text; the encounter files still never spell `rich = true` -- the full text goes through `renderAgreementBody` of `AgreementTextRendering.kt`, the one function that inserts server-rendered HTML (`ClientAgreementHtmlTripwireTest`), while headline and key points stay untrusted element text with the Markdown characters removed by the server.
 
 [[client-mobile]]
 === Mobile bridge
@@ -493,7 +494,7 @@ name, a tooltip (`title`) and a stable label; the state of a toggle is carried b
 "Mehr") together with a ring and, for microphone and camera, the slash symbol -- never by colour alone and never by a changing label ("Szene ausblenden" is pressed while the scene is
 hidden; "Vollbild" changes its symbol, not its name).
 
-Groups, in DOM order (`EncounterControlGroup`): *reactions | devices (office holders) | panels (chat, "Mehr") | view (scene, full screen) | moderation (transmission) | exit*. A divider
+Groups, in DOM order (`EncounterControlGroup`, V1.9.184): *settings (gear) | devices (office holders) | reactions | liturgy | panels (chat, map) | view (scene, full screen) | recording | moderation (transmission) | "Mehr" | exit*. A divider
 (CSS) separates two non-empty groups. The *exit group* sits at the far end of the bar, 12 px between its controls and no hit area in the gap: "Türen schließen" (people who moderate; outline,
 danger colour) and "Verlassen" (everybody; filled, always the *last* control). "Verlassen" has no confirmation; it locks itself (`disabled`, `aria-busy`) at the first click, so a double click
 leaves once. The leave button of the page header is gone (the room owns the only "Verlassen"). The moderation group never borders the reactions.
@@ -511,14 +512,29 @@ control in the bar and its twin in the sheet call the *same* function (`askClose
 * An optional first-visit hint was not built: without persistence it would reappear on every page load, and `localStorage` is ruled out by the promise of no lasting trace of participation.
 
 *Overflow.* The bar never wraps and never scrolls sideways (R59). What does not fit moves into the "Mehr" sheet, measured by the shared `ControlBarOverflow` (also behind the conference bar).
-The order is: full screen, scene, transmission, the event reactions (the last of the canonical order first), "Türen schließen", and last of all the chat. Never moved: the hand, microphone,
-camera, "Mehr" and "Verlassen". "Mehr" is there exactly while something sits in the sheet. At 360 px a person at the pulpit keeps hand, devices, chat and "Verlassen"; at 320 px the chat
-moves into the sheet and nothing else can move (the last step). A group whose controls all moved is hidden, so it takes no gap.
+The order is: full screen, scene, transmission, the event reactions (the last of the canonical order first), the bell, the blessing, the recording, the map, the chat, and (V1.9.184) last of all
+"Türen schließen", the gear, the camera and the microphone. Never moved: the hand, "Mehr" and "Verlassen". "Mehr" is there exactly while something sits in the sheet. At 360 px a person at the pulpit keeps
+hand, microphone, camera and "Verlassen" (view, chat and the gear moved into the sheet); at 320 px the camera follows and only the microphone is left of the devices. The gear, the camera and the microphone have
+labelled twins in the sheet (built before the twin of "Türen schließen", which ends the sheet); a twin clicks its primary. A group whose controls all moved is hidden, so it takes no gap.
 
 *The sheet* (`.lapis-encounter-more-sheet`) is a sibling of the bar inside the dock, anchored above it, *not modal* (`role="dialog"`, no focus trap, name "Weitere Bedienelemente"). It holds labelled twins in the bar's
 order; the twins of scene and full screen mirror `aria-pressed`; the twin of "Türen schließen" stands last, set apart by a rule. "Verlassen" is never in the sheet. On opening, the focus goes
 to the first twin; Escape or a click outside closes it, and Escape returns the focus to "Mehr". A twin closes the sheet and then runs the action. The two document listeners (Escape, click)
 exist only while the sheet is open and are removed on close and in `dispose()`. The sheet scrolls itself (ledger class E1 of the scroll rule, R59).
+
+=== The room bar (V1.9.184)
+
+One bar for the conference call and the encounter room (`RoomControlBar.kt`): a grid `auto | minmax(0, 1fr) | auto` with three labelled zones (`role="group"`): *start* ("Einstellungen": the gear, alone),
+*centre* ("Im Raum": everything one does in the room, centred, one line, `overflow: clip` with a margin for the focus rings) and *end* ("Raum verlassen": "Türen schließen"/"Für alle beenden" and "Verlassen", 12 px apart).
+The separators between the zones are CSS pseudo-elements (1 x 24 px, 8 px from the zone, 16 px of room), so they are no elements and no tab stops; the one at the start is drawn only while the gear is in the bar.
+The bar has no `role="toolbar"`: a toolbar promises arrow-key navigation, which neither bar ever had (every control is an ordinary tab stop, `lapisToolbar` is a plain flex `div`).
+
+The encounter room's dock (`.lapis-encounter-dock`, V1.9.165) is unchanged: sticky, bottom 0, layer 6, the "Mehr" sheet and the device panel hang from it. The bar height is the shared token `--lapis-room-bar-h` (56 px;
+`--lapis-encounter-bar-h` is an alias). The width model of `ControlBarOverflow` gets `reservedWidth` (`RoomControlBar.ZONE_SEPARATORS_RESERVED_PX`, 38 px) for the two separators.
+
+Order of the centre: devices | hand, reactions | liturgy (bell, blessing) | chat, map | scene, full screen | recording | transmission | "Mehr". The recording and the transmission stand together behind the view group and
+"Mehr" directly in front of the end zone. The pure invariant `moderationToolsNeverAdjacentToExitOrReactions` replaces `recordingNeverAdjacentToExitOrModeration`: in the same zone the recording and the transmission
+never border a reaction or an exit control (the end zone is a zone of its own, so "transmission, then the doors" is the intended layout while nothing is in the sheet).
 
 === Floor-plan scenes
 
@@ -727,7 +743,7 @@ A person in the room can choose the devices they use, locally and without a serv
 | Congregation, no table | no | no | yes
 |===
 
-The control is one icon-only bar button (`ActionIcon.SETTINGS`, gear), the *last* control of the devices group; it never moves into the "Mehr" sheet. Its accessible name says what can be chosen ("Geräte wählen", "Mikrofon und Lautsprecher wählen", "Lautsprecher wählen"). It exists only while at least one field is a real, enabled choice, so a person who can choose nothing sees no dead control. (V1.9.96: in a church-service room it also exists for the bell sound switch, see "Bell"; it is then named "Glockenton einstellen" when there is nothing else to choose.) It opens a panel (`role="group"`, no dialog, no focus trap): a popover above the bar from 768 px, a sheet from below under 768 px (the guideline's one breakpoint). Escape closes and returns the focus to the button, a click outside or Tab out of the panel closes it, and the "Mehr" sheet and the panel are never open together. Every field has a visible label and a line "Aktiv: ..." (linked with `aria-describedby`).
+The control is one icon-only bar button (`ActionIcon.SETTINGS`, gear), since V1.9.184 *alone in the start zone* of the bar (group `SETTINGS`); in a narrow bar it moves into the "Mehr" sheet (labelled twin "Einstellungen") after "Türen schließen". Its accessible name says what can be chosen ("Einstellungen", "Mikrofon und Lautsprecher wählen", "Lautsprecher wählen"; before V1.9.184 the first was "Geräte wählen"). It exists only while at least one field is a real, enabled choice, so a person who can choose nothing sees no dead control. (V1.9.96: in a church-service room it also exists for the bell sound switch, see "Bell"; it is then named "Glockenton einstellen" when there is nothing else to choose.) It opens a panel (`role="group"`, no dialog, no focus trap): a popover above the bar from 768 px, a sheet from below under 768 px (the guideline's one breakpoint). Escape closes and returns the focus to the button, a click outside or Tab out of the panel closes it, and the "Mehr" sheet and the panel are never open together. Every field has a visible label and a line "Aktiv: ..." (linked with `aria-describedby`).
 
 === Where the speaker lives
 

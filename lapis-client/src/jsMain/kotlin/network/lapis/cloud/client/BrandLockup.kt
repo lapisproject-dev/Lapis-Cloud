@@ -17,7 +17,7 @@ import io.kvision.panel.SimplePanel
  * dasselbe Opt-out-Muster).
  *
  * Drei-Zustands-Regel identisch zu `App.start`'s Navbar-Brand (V1.2.5 White-Label-Branding): eigenes
- * Logo gewinnt immer; sonst zeigt die Lapis-Gem-Marke NUR neben dem unveränderten Default-Titel;
+ * Logo gewinnt immer; sonst zeigt die Lapis-Cloud-Marke NUR neben dem unveränderten Default-Titel;
  * eigener Titel ohne eigenes Logo bekommt gar keine Marke.
  *
  * [brandLogoImgHtml]/[escapeHtmlAttribute] leben seit dieser Welle hier statt in `App.kt`, weil
@@ -35,7 +35,7 @@ fun SimplePanel.brandLockup(): Link {
                 className = "lapis-brand-logo",
             )
         Branding.title == Branding.DEFAULT_TITLE ->
-            lockup.span(content = LAPIS_GEM_MARK_SVG, rich = true, className = "lapis-brand-mark")
+            lockup.span(content = LAPIS_CLOUD_MARK_SVG, rich = true, className = "lapis-brand-mark")
         else -> {
             // Custom title, no custom logo -- no mark, see class KDoc.
         }

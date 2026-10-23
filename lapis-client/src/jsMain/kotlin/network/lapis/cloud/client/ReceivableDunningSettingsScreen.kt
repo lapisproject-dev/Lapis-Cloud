@@ -20,7 +20,6 @@ import io.kvision.table.TableType
 import io.kvision.table.cell
 import io.kvision.table.row
 import io.kvision.table.table
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.ReceivableDunningLevelDto
 import network.lapis.cloud.shared.domain.ReceivableDunningLevelInput
@@ -41,17 +40,8 @@ import network.lapis.cloud.shared.rpc.IReceivableDunningService
  */
 fun renderReceivableDunningSettingsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 700.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Forderungs-Mahnstufen"))
-    root.p(
-        tr(
-            "Konfiguration des Mahnwesens für offene Forderungen (Debitoren) -- getrennt vom Mahnwesen für Mitgliedsbeiträge.",
-        ),
-    ) { addCssClasses("text-muted small") }
+        container.pageShell(PageWidth.FORM, spacing = 14)
+    root.pageHeader(tr("Forderungs-Mahnstufen"), intro = PageIntros.forRoute(Routes.RECEIVABLE_DUNNING_SETTINGS))
 
     renderReceivableStatusSection(root)
     renderReceivableLevelsSection(root)

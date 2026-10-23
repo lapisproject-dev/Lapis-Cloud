@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.agreementtexts.AgreementMarkdown
 import network.lapis.cloud.server.agreementtexts.AgreementTextDraftRecord
 import network.lapis.cloud.server.agreementtexts.AgreementTextHash
 import network.lapis.cloud.server.agreementtexts.AgreementTextStore
@@ -11,6 +12,7 @@ import network.lapis.cloud.server.agreementtexts.BuiltinAgreementTexts
 import network.lapis.cloud.server.agreementtexts.EncounterConsentLabels
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.isUniqueViolation
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -19,6 +21,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgreementTextDraftDto
 import network.lapis.cloud.shared.domain.AgreementTextDraftInput
 import network.lapis.cloud.shared.domain.AgreementTextDraftLookupDto
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AgreementTextKindOverviewDto
 import network.lapis.cloud.shared.domain.AgreementTextOverviewDto
@@ -33,10 +36,13 @@ import network.lapis.cloud.shared.rpc.AgreementTextDraftChangedException
 import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.IAgreementTextAdminService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RateLimitedException
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 // Privacy rule of this file: the logs name counts and exception classes only -- never the text, a label together with a member, or a hash.
@@ -55,6 +61,8 @@ private val logger = KotlinLogging.logger {}
  */
 class AgreementTextAdminService(
     private val call: ApplicationCall,
+    /** V1.9.196: budget of [previewAgreementText]; Application passes ONE shared instance (the service itself is created per call). */
+    private val previewRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
 ) : IAgreementTextAdminService {
     override suspend fun getOverview(): AgreementTextOverviewDto {
         requireAdmin()
@@ -93,7 +101,14 @@ class AgreementTextAdminService(
         val result =
             try {
                 transaction {
-                    validate(kind = input.kind, versionLabel = input.versionLabel, validFrom = input.validFrom, body = body, today = today)
+                    validate(
+                        kind = input.kind,
+                        versionLabel = input.versionLabel,
+                        validFrom = input.validFrom,
+                        body = body,
+                        today = today,
+                        format = AgreementTextFormat.MARKDOWN,
+                    )
                     val sha = AgreementTextHash.of(versionLabel = input.versionLabel, body = body)
                     val now = DbClock.nowLocalDateTime()
                     val before = AgreementTextStore.lockDraft(input.kind)
@@ -106,6 +121,7 @@ class AgreementTextAdminService(
                                 sha256 = it.sha256,
                                 charCount = it.charCount,
                                 validFrom = it.validFrom,
+                                format = it.format,
                             )
                         }
                     AgreementTextStore.upsertDraft(
@@ -117,6 +133,7 @@ class AgreementTextAdminService(
                         sha256 = sha,
                         updatedBy = current.memberId,
                         now = now,
+                        format = AgreementTextFormat.MARKDOWN,
                     )
                     val after = AgreementTextStore.findDraft(input.kind)!!
                     AgreementTextStore.recordAudit(
@@ -133,6 +150,7 @@ class AgreementTextAdminService(
                                 sha256 = sha,
                                 charCount = body.length,
                                 validFrom = input.validFrom,
+                                format = AgreementTextFormat.MARKDOWN,
                             ),
                         now = now,
                     )
@@ -157,6 +175,9 @@ class AgreementTextAdminService(
             try {
                 transaction {
                     val draft = lockDraftForPublish(kind) ?: throw AgreementTextDraftChangedException()
+                    // A draft stored before V1.9.196 is PLAIN, but the preview always shows Markdown: refuse it, so saving it again (which makes
+                    // it MARKDOWN) is the only way to publish, and what the admin previewed is exactly what members get.
+                    if (draft.format != AgreementTextFormat.MARKDOWN) throw AgreementTextDraftChangedException()
                     val label = draft.versionLabel
                     val body = draft.body
                     val validFrom = draft.validFrom
@@ -167,7 +188,7 @@ class AgreementTextAdminService(
                         throw AgreementTextDraftChangedException()
                     }
                     // Re-check everything: the clock moved, another admin may have published in between.
-                    validate(kind = kind, versionLabel = label, validFrom = validFrom, body = body, today = today)
+                    validate(kind = kind, versionLabel = label, validFrom = validFrom, body = body, today = today, format = draft.format)
                     val now = DbClock.nowLocalDateTime()
                     val versionId = Uuid.random()
                     val row =
@@ -180,6 +201,7 @@ class AgreementTextAdminService(
                             sha256 = sha,
                             authorMemberId = current.memberId,
                             now = now,
+                            format = draft.format,
                         )
                     AgreementTextStore.deleteDraft(kind)
                     AgreementTextStore.recordAudit(
@@ -197,6 +219,7 @@ class AgreementTextAdminService(
                                 charCount = body.length,
                                 validFrom = validFrom,
                                 sequenceNo = row.sequenceNo,
+                                format = draft.format,
                             ),
                         now = now,
                     )
@@ -224,7 +247,11 @@ class AgreementTextAdminService(
         return transaction {
             val row = AgreementTextStore.findVersion(kind = kind, versionLabel = versionLabel)
             if (row != null) {
-                AgreementTextVersionDto(summary = AgreementTextStore.toSummary(row), body = row.body)
+                AgreementTextVersionDto(
+                    summary = AgreementTextStore.toSummary(row),
+                    body = row.body,
+                    renderedHtml = AgreementMarkdown.htmlFor(format = row.format, body = row.body),
+                )
             } else {
                 // V1.9.143: a REC kind has two placeholders (one per room profile); the label picks the one that is shown.
                 val builtin =
@@ -248,6 +275,23 @@ class AgreementTextAdminService(
                 )
             }
         }
+    }
+
+    override suspend fun previewAgreementText(
+        kind: AgreementTextKind,
+        body: String,
+    ): String {
+        val current = requireAdmin()
+        if (!previewRateLimiter.checkAndRecord("member:${current.memberId}")) throw RateLimitedException()
+        val normalized = AgreementTextRules.normalizeBody(body)
+        if (normalized.length >
+            AgreementTextRules.MAX_CHARS
+        ) {
+            throw BadRequestException("text exceeds ${AgreementTextRules.MAX_CHARS} characters")
+        }
+        if (AgreementTextRules.invalidCharacter(normalized)) throw BadRequestException("text contains a character that is not allowed")
+        // Privacy rule of this file: nothing about the text is logged, not even its length.
+        return AgreementMarkdown.renderOrNull(body = normalized) ?: throw BadRequestException("text is too deeply nested")
     }
 
     /**
@@ -274,16 +318,27 @@ class AgreementTextAdminService(
         validFrom: LocalDate,
         body: String,
         today: LocalDate,
+        format: AgreementTextFormat,
     ) {
         if (!AgreementTextRules.isValidLabel(versionLabel)) throw AgreementTextInvalidException()
         if (body.isEmpty() || body.length > AgreementTextRules.MAX_CHARS) throw AgreementTextInvalidException()
         if (AgreementTextRules.invalidCharacter(body)) throw AgreementTextInvalidException()
+        // V1.9.196: a MARKDOWN text must be renderable (an absurdly nested one is refused here, so serving a stored text can never fail).
+        if (format == AgreementTextFormat.MARKDOWN &&
+            AgreementMarkdown.renderOrNull(body = body) == null
+        ) {
+            throw AgreementTextInvalidException()
+        }
         if (validFrom > today) throw AgreementTextInvalidException()
         val currentRow = AgreementTextStore.currentVersion(kind)
         if (currentRow != null && validFrom < currentRow.validFrom) throw AgreementTextInvalidException()
         if (kind.isEncounterConsent()) {
             // V1.9.148: the paragraph rule and the label length (room for the system's "+rec" in VARCHAR(50)).
-            if (EncounterConsentLayout.violation(label = versionLabel, body = body) != null) throw AgreementTextLayoutInvalidException()
+            if (EncounterConsentLayout.violation(label = versionLabel, body = body, format = format) !=
+                null
+            ) {
+                throw AgreementTextLayoutInvalidException()
+            }
             // The acknowledgment table has no kind column: a label must identify ONE text across both ENC kinds and every label code ever wrote.
             if (EncounterConsentLabels.isReserved(versionLabel) ||
                 AgreementTextStore.versionLabelExists(kind = EncounterConsentLabels.siblingOf(kind), versionLabel = versionLabel)
@@ -294,7 +349,19 @@ class AgreementTextAdminService(
         if (kind.isEventCapture()) {
             // V1.9.156: the same paragraph rule (headline + three key points + full text); no "+rec" suffix and no code-owned paragraph, so the label
             // limit is the general VERSION_LABEL_MAX that isValidLabel already enforced above.
-            if (EncounterConsentLayout.violation(label = "", body = body) != null) throw AgreementTextLayoutInvalidException()
+            if (EncounterConsentLayout.violation(label = "", body = body, format = format) !=
+                null
+            ) {
+                throw AgreementTextLayoutInvalidException()
+            }
+        }
+        if (kind == AgreementTextKind.REC_PULPIT || kind == AgreementTextKind.REC_ROOM) {
+            // V1.9.196: both recording texts are short dialog texts; for a MARKDOWN text no line may start with block markup.
+            if (format == AgreementTextFormat.MARKDOWN &&
+                (EncounterConsentLayout.hasBlockMarkup(body) || AgreementMarkdown.hasBlockNodes(body))
+            ) {
+                throw AgreementTextLayoutInvalidException()
+            }
         }
         // V1.9.143: the REC kinds have one placeholder per room profile; a text equal to ANY of them, or a label equal to ANY of them, is refused.
         val builtins = BuiltinAgreementTexts.allOf(kind)

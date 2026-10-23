@@ -129,8 +129,8 @@ class ElectionBoothDomTest {
             withBooth(world, "booth-back") { el, calls, routes ->
                 el.tick("Cleo")
                 el.buttonNamed("Weiter zur Prüfung").click()
-                awaitUntil("review", 1500) { el.hasButton("Zurück") }
-                el.buttonNamed("Zurück").click()
+                awaitUntil("review", 1500) { el.hasButton("Auswahl ändern") }
+                el.buttonNamed("Auswahl ändern").click()
                 awaitUntil("choice again", 1500) { el.hasButton("Weiter zur Prüfung") }
                 assertTrue((el.controlOf("Cleo") as HTMLInputElement).checked, "the selection survives a step back")
                 assertEquals(0, calls.toRoute(routes.cast).size)
@@ -367,7 +367,7 @@ class ElectionBoothDomTest {
                 val alert = el.allOf("[role=alert]").first { it.textContent.orEmpty().contains("nicht gezählt") }
                 assertTrue(alert.className.contains("alert-warning"))
                 assertFalse(el.hasButton("Erneut abstimmen"), "a closed election offers no second try")
-                assertTrue(el.hasButton("Zurück zur Wahl"))
+                assertTrue(el.hasButton("Stimmabgabe verlassen"))
                 // it stays: nothing re-renders the booth by itself
                 kotlinx.coroutines.delay(300)
                 assertTrue(el.allOf("[role=alert]").any { it.textContent.orEmpty().contains("nicht gezählt") })
@@ -388,7 +388,7 @@ class ElectionBoothDomTest {
                     "explained",
                     2000,
                 ) { el.flatText().contains("Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen.") }
-                el.buttonNamed("Zurück zur Wahl").click()
+                el.buttonNamed("Stimmabgabe verlassen").click()
                 assertEquals(listOf(true), exits)
             }
         }

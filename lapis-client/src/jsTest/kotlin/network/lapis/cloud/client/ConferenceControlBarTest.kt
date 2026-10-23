@@ -22,21 +22,23 @@ class ConferenceControlBarTest {
         back: Boolean = false,
     ): List<ConferenceControlMeasure> =
         buildList {
+            // V1.9.184: the gear stands alone at the start, then the centre: devices | hand, reaction | panels | view | recording, stream | "Mehr"
+            add(ConferenceControlSlot.SETTINGS)
             add(ConferenceControlSlot.MIC)
             add(ConferenceControlSlot.CAMERA)
             if (screen) add(ConferenceControlSlot.SCREEN)
+            // V1.9.127: the raised hand (never moves) and "Reaktion" (moves second)
+            add(ConferenceControlSlot.HAND)
+            add(ConferenceControlSlot.REACT)
+            add(ConferenceControlSlot.ROSTER)
+            add(ConferenceControlSlot.CHAT)
+            if (vote) add(ConferenceControlSlot.VOTE)
+            // V1.9.115: "Ansicht" is the first control to move into the sheet
+            add(ConferenceControlSlot.VIEW)
             if (moderator) {
                 add(ConferenceControlSlot.RECORD)
                 add(ConferenceControlSlot.STREAM)
             }
-            // V1.9.115: "Ansicht" sits at the head of the panels group and is the first control to move into the sheet
-            add(ConferenceControlSlot.VIEW)
-            // V1.9.127: "Reaktion" (moves second) and the raised hand (never moves) sit between the view button and the roster
-            add(ConferenceControlSlot.REACT)
-            add(ConferenceControlSlot.HAND)
-            add(ConferenceControlSlot.ROSTER)
-            add(ConferenceControlSlot.CHAT)
-            if (vote) add(ConferenceControlSlot.VOTE)
             add(ConferenceControlSlot.MORE)
             if (back) add(ConferenceControlSlot.BACK)
             // V1.9.72: "Für alle beenden" belongs to the exit group, directly before "Verlassen" (main room only).
@@ -44,10 +46,9 @@ class ConferenceControlBarTest {
             add(ConferenceControlSlot.LEAVE)
         }.map { ConferenceControlMeasure(it, control, conferenceControlGroup(it)) }
 
+    // V1.9.184: the microphone, the camera and the gear are the LAST thing a narrow bar gives up, but they do move (twins in the sheet)
     private val never =
         listOf(
-            ConferenceControlSlot.MIC,
-            ConferenceControlSlot.CAMERA,
             ConferenceControlSlot.CHAT,
             ConferenceControlSlot.HAND,
             ConferenceControlSlot.MORE,
@@ -59,9 +60,9 @@ class ConferenceControlBarTest {
     fun anEmptyButRenderedGroupWrapper_stillCostsAGap() {
         // Without the wrapper the total is smaller, so a width that fits without it must overflow with it.
         val base = measures(moderator = false)
-        val total = base.sumOf { it.width } + (base.map { it.group }.distinct().size - 1) * divider + gap * (base.size + 2 - 1)
-        // moderation group wrapper (group 1) rendered but empty: one more flex item, one more gap.
-        val moved = conferenceControlsOverflow(total, base, gap, divider, containerGroups = setOf(1))
+        val total = modelTotal(base)
+        // moderation group wrapper (group 5) rendered but empty: one more flex item, one more gap.
+        val moved = conferenceControlsOverflow(total, base, gap, divider, containerGroups = setOf(CONFERENCE_MODERATION_GROUP))
         assertTrue(moved.isNotEmpty(), "the empty wrapper's gap must be counted")
         assertEquals(emptySet(), conferenceControlsOverflow(total, base, gap, divider))
     }
@@ -125,15 +126,15 @@ class ConferenceControlBarTest {
         // Two controls in two groups: ONE divider is counted (2*46 + 1*9 + gap*(3-1)).
         val two =
             listOf(
-                ConferenceControlMeasure(ConferenceControlSlot.MIC, control, 0),
-                ConferenceControlMeasure(ConferenceControlSlot.LEAVE, control, 3),
+                ConferenceControlMeasure(ConferenceControlSlot.MIC, control, conferenceControlGroup(ConferenceControlSlot.MIC)),
+                ConferenceControlMeasure(ConferenceControlSlot.LEAVE, control, CONFERENCE_EXIT_GROUP),
             )
         val exact = 2 * control + divider + gap * 2
         assertEquals(emptySet(), conferenceControlsOverflow(exact, two, gap, divider))
-        // The moderation group is empty (a participant): 3 groups, 2 dividers, not 3.
+        // The moderation group is empty (a participant): 7 groups (settings, devices, hand/reaction, panels, view, "Mehr", exit), not 8.
         val participant = measures(moderator = false, screen = false, vote = false)
         val groups = participant.map { it.group }.distinct().size
-        assertEquals(3, groups)
+        assertEquals(7, groups)
     }
 
     @Test
@@ -179,8 +180,18 @@ class ConferenceControlBarTest {
     }
 
     @Test
-    fun endForAll_movesLast_andLeaveAndBackNever() {
-        assertEquals(ConferenceControlSlot.END_FOR_ALL, CONFERENCE_OVERFLOW_ORDER.last())
+    fun endForAll_movesLastOfTheBarControls_thenTheDevices_andLeaveAndBackNever() {
+        // V1.9.184: after "Für alle beenden" only the devices follow -- the gear, the camera and, very last, the microphone.
+        assertEquals(
+            listOf(
+                ConferenceControlSlot.END_FOR_ALL,
+                ConferenceControlSlot.SETTINGS,
+                ConferenceControlSlot.CAMERA,
+                ConferenceControlSlot.MIC,
+            ),
+            CONFERENCE_OVERFLOW_ORDER.takeLast(4),
+        )
+        assertFalse(ConferenceControlSlot.HAND in CONFERENCE_OVERFLOW_ORDER, "the raised hand must never need a second tap")
         assertFalse(ConferenceControlSlot.LEAVE in CONFERENCE_OVERFLOW_ORDER)
         assertFalse(ConferenceControlSlot.BACK in CONFERENCE_OVERFLOW_ORDER)
         // The narrowest width still keeps LEAVE; END_FOR_ALL is gone only after everything else that can move has moved.
@@ -190,17 +201,42 @@ class ConferenceControlBarTest {
     }
 
     @Test
-    fun theExitGroup_isGroupThree_andEndForAllNoLongerSharesTheModerationGroup() {
-        assertEquals(3, conferenceControlGroup(ConferenceControlSlot.END_FOR_ALL))
-        assertEquals(3, conferenceControlGroup(ConferenceControlSlot.LEAVE))
-        assertEquals(3, conferenceControlGroup(ConferenceControlSlot.BACK))
-        assertEquals(1, conferenceControlGroup(ConferenceControlSlot.RECORD))
-        assertEquals(1, conferenceControlGroup(ConferenceControlSlot.STREAM))
+    fun theExitGroup_isGroupSeven_andEndForAllNoLongerSharesTheModerationGroup() {
+        assertEquals(7, CONFERENCE_EXIT_GROUP)
+        assertEquals(CONFERENCE_EXIT_GROUP, conferenceControlGroup(ConferenceControlSlot.END_FOR_ALL))
+        assertEquals(CONFERENCE_EXIT_GROUP, conferenceControlGroup(ConferenceControlSlot.LEAVE))
+        assertEquals(CONFERENCE_EXIT_GROUP, conferenceControlGroup(ConferenceControlSlot.BACK))
+        assertEquals(CONFERENCE_MODERATION_GROUP, conferenceControlGroup(ConferenceControlSlot.RECORD))
+        assertEquals(CONFERENCE_MODERATION_GROUP, conferenceControlGroup(ConferenceControlSlot.STREAM))
+    }
+
+    @Test
+    fun theGroups_followTheSpecifiedCentreOrder_andTheGearStandsAlone() {
+        // V1.9.184: gear | devices | hand, reaction | panels | view | recording, stream | "Mehr" | exit
+        val order = ConferenceControlSlot.entries
+        assertEquals(ConferenceControlSlot.SETTINGS, order.first())
+        assertEquals(ConferenceControlSlot.LEAVE, order.last())
+        assertEquals(0, conferenceControlGroup(ConferenceControlSlot.SETTINGS))
+        assertEquals(listOf(ConferenceControlSlot.SETTINGS), order.filter { conferenceControlGroup(it) == 0 }, "the gear is alone")
+        // the groups never decrease along the DOM order, so each group is one contiguous run
+        val groups = order.map { conferenceControlGroup(it) }
+        assertEquals(groups.sorted(), groups)
+        // hand before reaction; "Mehr" directly in front of the exit group; the moderation tools behind the view button
+        assertTrue(order.indexOf(ConferenceControlSlot.HAND) < order.indexOf(ConferenceControlSlot.REACT))
+        assertTrue(order.indexOf(ConferenceControlSlot.VIEW) < order.indexOf(ConferenceControlSlot.RECORD))
+        assertTrue(order.indexOf(ConferenceControlSlot.STREAM) < order.indexOf(ConferenceControlSlot.MORE))
+        assertEquals(
+            ConferenceControlSlot.MORE,
+            order[
+                order.indexOf(order.first { conferenceControlGroup(it) == CONFERENCE_EXIT_GROUP }) -
+                    1,
+            ],
+        )
     }
 
     @Test
     fun exitGap_isCounted_exactFitStays_oneLessMovesEndForAll() {
-        // Only the exit group remains besides the fixed controls: shown = MIC, CAMERA, CHAT, MORE (groups 0, 2) + END, LEAVE (group 3).
+        // Only the exit group remains besides the fixed controls: shown = MIC, CAMERA (group 1), CHAT (3), MORE (6) + END, LEAVE (7).
         val fixed =
             listOf(
                 ConferenceControlSlot.MIC,
@@ -210,8 +246,8 @@ class ConferenceControlBarTest {
                 ConferenceControlSlot.END_FOR_ALL,
                 ConferenceControlSlot.LEAVE,
             ).map { ConferenceControlMeasure(it, control, conferenceControlGroup(it)) }
-        // 6 controls, 3 groups -> 2 dividers, 5 + 2 = 7 items... items = shown(6) + (groups-1)(2) = 8, gaps = 7; one exit gap is 12, not 6.
-        val exact = 6 * control + 2 * divider + gap * 7 + (CONFERENCE_EXIT_GAP_PX - gap)
+        // 6 controls, 4 groups -> 3 dividers; items = shown(6) + (groups-1)(3) = 9, gaps = 8; one exit gap is 12, not 6.
+        val exact = 6 * control + 3 * divider + gap * 8 + (CONFERENCE_EXIT_GAP_PX - gap)
         assertEquals(emptySet(), conferenceControlsOverflow(exact, fixed, gap, divider), "an exact fit moves nothing")
         assertEquals(
             setOf(ConferenceControlSlot.END_FOR_ALL),
@@ -327,15 +363,23 @@ class ConferenceControlBarTest {
         assertEquals(CONFERENCE_OVERFLOW_ORDER.toSet(), tiny)
     }
 
+    /** The total the model asks for (the same arithmetic as `controlBarOverflow`): widths + gaps + dividers between groups + the exit gap. */
+    private fun modelTotal(all: List<ConferenceControlMeasure>): Double {
+        val groups = all.map { it.group }.distinct().size
+        val exitExtra = (CONFERENCE_EXIT_GAP_PX - gap) * maxOf(0, all.count { it.group == CONFERENCE_EXIT_GROUP } - 1)
+        return all.sumOf { it.width } + (groups - 1) * divider + gap * (all.size + groups - 2) + exitExtra
+    }
+
     @Test
     fun onAPhoneWidth_theHandStaysInTheBar_andTheReactionIsTheSecondToGo() {
         val all = measures()
-        val total = all.sumOf { it.width } + gap * (all.size - 1) + divider * 3
-        // one control too many: only the view button moves
+        val total = modelTotal(all)
+        // one control too many: only the view button moves (it stands alone in its group, so its divider and gaps go with it)
+        val viewSaving = control + divider + 2 * gap
         val one = conferenceControlsOverflow(total - 1.0, all, gap, divider)
         assertEquals(setOf(ConferenceControlSlot.VIEW), one)
         // two controls too many: the reaction button follows
-        val two = conferenceControlsOverflow(total - (control + gap) - 1.0, all, gap, divider)
+        val two = conferenceControlsOverflow(total - viewSaving - 1.0, all, gap, divider)
         assertEquals(setOf(ConferenceControlSlot.VIEW, ConferenceControlSlot.REACT), two)
         for (width in 300..700 step 10) {
             assertFalse(ConferenceControlSlot.HAND in conferenceControlsOverflow(width.toDouble(), all, gap, divider), "width $width")

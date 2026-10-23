@@ -15,7 +15,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DsgvoAuditLogEntryDto
@@ -67,19 +66,8 @@ import network.lapis.cloud.shared.rpc.IDsgvoService
  */
 fun renderDsgvoRightsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Meine Daten"))
-    root.div(
-        tr(
-            "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", " +
-                "Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, nie sofort ausgeführt. Über den " +
-                "Antrag entscheidet danach eine Administratorin oder ein Administrator gesondert.",
-        ),
-    ) { addCssClasses("text-muted small") }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Meine Daten"), intro = PageIntros.forRoute(Routes.DSGVO_RIGHTS))
 
     renderSelfServiceSection(root)
 

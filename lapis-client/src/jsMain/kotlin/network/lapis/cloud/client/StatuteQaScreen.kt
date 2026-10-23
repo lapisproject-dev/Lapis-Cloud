@@ -12,7 +12,6 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AiAnswerOutcome
 import network.lapis.cloud.shared.domain.AiAssistantStateDto
@@ -45,12 +44,12 @@ private class QaEntry(
  */
 fun renderStatuteQaScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Fragen zur Satzung"))
+        container.pageShell(PageWidth.FORM, spacing = 14)
+    // The intro describes the question form; with the AI layer off the screen shows only its "not available" text, so no intro then.
+    root.pageHeader(
+        tr("Fragen zur Satzung"),
+        intro = if (AppState.session?.aiAssistantEnabled == true) PageIntros.forRoute(Routes.STATUTE_QA) else null,
+    )
 
     if (AppState.session?.aiAssistantEnabled != true) {
         root.p(tr(StatuteQaUi.DISABLED_TEXT))

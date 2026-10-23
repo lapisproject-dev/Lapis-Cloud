@@ -133,7 +133,8 @@ class EncounterDevicePickerTest {
     @Test
     fun theButtonName_namesWhatCanBeChosen() {
         val officeHolder = fields(EncounterDeviceRole.OFFICE_HOLDER, mics = options("m1"), outs = options("s1", "s2"))
-        assertEquals("Geräte wählen", encounterDeviceButtonLabel(EncounterDeviceRole.OFFICE_HOLDER, officeHolder))
+        // V1.9.184: the button is the settings gear -- an office holder's button is named "Einstellungen"
+        assertEquals("Einstellungen", encounterDeviceButtonLabel(EncounterDeviceRole.OFFICE_HOLDER, officeHolder))
         val table = fields(EncounterDeviceRole.CONGREGATION_AT_TABLE, mics = options("m1"), outs = options("s1", "s2"))
         assertEquals("Mikrofon und Lautsprecher wählen", encounterDeviceButtonLabel(EncounterDeviceRole.CONGREGATION_AT_TABLE, table))
         val speakerOnly = fields(EncounterDeviceRole.CONGREGATION, outs = options("s1", "s2"))

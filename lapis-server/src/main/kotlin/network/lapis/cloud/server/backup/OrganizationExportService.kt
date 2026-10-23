@@ -26,7 +26,8 @@ private const val JDBC_FETCH_SIZE = 500
  * same column name `storage_key` (see [STORAGE_KEY_COLUMN]), so only the table SET needed to
  * generalize, not the column lookup itself.
  */
-private val BLOB_TABLES: Set<String> = setOf("document_version", "travel_expense_receipt")
+private val BLOB_TABLES: Set<String> =
+    setOf("document_version", "travel_expense_receipt", "travel_expense_attachment", "travel_expense_document")
 private const val STORAGE_KEY_COLUMN = "storage_key"
 
 /**

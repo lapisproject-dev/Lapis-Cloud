@@ -21,6 +21,7 @@ public object AgreementTextVersionTable : Table("agreement_text_version") {
     public val body: Column<String> = text("body")
     public val sha256: Column<String> = varchar("sha256", 64)
     public val charCount: Column<Int> = integer("char_count")
+    public val bodyFormat: Column<String> = varchar("body_format", 16).default("plain")
     public val authorMemberId: Column<Uuid> = reference("author_member_id", MemberTable.id)
     public val publishedAt: Column<LocalDateTime> = datetime("published_at")
 

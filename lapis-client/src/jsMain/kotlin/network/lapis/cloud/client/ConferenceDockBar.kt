@@ -257,7 +257,7 @@ internal fun Container.conferenceDockBar(): Div {
         )
     val stoppedActions = Div(className = "lapis-dock-stopped-actions")
     val toView = stoppedActions.actionButton(ActionIcon.ENTER, tr("Zur Konferenz"), ButtonStyle.PRIMARY)
-    val toOverview = stoppedActions.actionButton(ActionIcon.BACK, tr("Zur Übersicht"), ButtonStyle.OUTLINESECONDARY)
+    val toOverview = stoppedActions.backButton(tr("Zur Übersicht"))
     val close = stoppedActions.actionButton(ActionIcon.CLOSE, tr("Schließen"), ButtonStyle.OUTLINESECONDARY)
     bar.add(stoppedActions)
     toView.onClick { conferenceDockReturnToView() }

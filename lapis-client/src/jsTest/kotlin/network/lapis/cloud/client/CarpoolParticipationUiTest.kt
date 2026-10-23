@@ -99,9 +99,9 @@ class CarpoolParticipationUiTest {
 
     @Test
     fun sidebarLabel_isThePlainLabelWithoutAnythingWaiting() {
-        assertEquals("${KV_I18N_MARKER}Mitfahrerzentrale", carpoolSidebarLabel(null))
-        assertEquals("${KV_I18N_MARKER}Mitfahrerzentrale", carpoolSidebarLabel(0))
-        assertEquals("Mitfahrerzentrale (3)", carpoolSidebarLabel(3))
-        assertEquals("Mitfahrerzentrale (99+)", carpoolSidebarLabel(250))
+        assertEquals("${KV_I18N_MARKER}Mitfahrzentrale", carpoolSidebarLabel(null))
+        assertEquals("${KV_I18N_MARKER}Mitfahrzentrale", carpoolSidebarLabel(0))
+        assertEquals("Mitfahrzentrale (3)", carpoolSidebarLabel(3))
+        assertEquals("Mitfahrzentrale (99+)", carpoolSidebarLabel(250))
     }
 }

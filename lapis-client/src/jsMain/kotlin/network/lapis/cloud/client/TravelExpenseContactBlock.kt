@@ -5,13 +5,13 @@ import io.kvision.html.Div
 import io.kvision.html.TAG
 import io.kvision.html.Tag
 import io.kvision.html.button
-import io.kvision.html.div
 import io.kvision.html.h2
-import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
+import network.lapis.cloud.shared.domain.AgreementTextFormat
+import network.lapis.cloud.shared.domain.TravelContactHintFormat
 import network.lapis.cloud.shared.domain.TravelExpenseContactDto
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 
@@ -24,7 +24,8 @@ private external fun encodeURIComponent(value: String): String
  * `/travel-expense-settings`); nothing is ever pre-filled or invented here.
  *
  * Every operator-entered value is rendered as TEXT (the `untrusted*` helpers), the hint text with its
- * line breaks preserved by CSS (`white-space: pre-line`), never as markup. The `mailto:` address is
+ * line breaks preserved by CSS (`white-space: pre-line`), never as markup. EXCEPTION (V1.9.199): a MARKDOWN hint is shown as the
+ * server-rendered, sanitized HTML through [renderAgreementBody] -- the one rich site, no own `rich = true` here. The `mailto:` address is
  * percent-encoded, the `tel:` link carries only `+` and digits.
  */
 internal fun renderTravelExpenseContactBlock(
@@ -57,19 +58,21 @@ internal fun renderTravelExpenseContactBlock(
     details.add(Tag(TAG.SUMMARY, tr("Mehr erfahren"), className = "text-primary"))
     val hint = contact.hint
     if (hint != null) {
-        val hintBox = Div(className = "lapis-te-contact-hint mt-1")
-        untrustedContent(hintBox, hint)
-        details.add(hintBox)
+        val html = contact.hintHtml
+        if (contact.hintFormat == TravelContactHintFormat.MARKDOWN && html != null && html.startsWith("<")) {
+            // V1.9.199: the server-rendered, sanitized Markdown goes through the ONE rich site for agreement texts (agreementHtml).
+            val hintBox = Div(className = "lapis-te-contact-hint lapis-te-contact-hint--md mt-1")
+            hintBox.renderAgreementBody(text = hint, format = AgreementTextFormat.MARKDOWN, renderedHtml = html)
+            details.add(hintBox)
+        } else {
+            val hintBox = Div(className = "lapis-te-contact-hint mt-1")
+            untrustedContent(hintBox, hint)
+            details.add(hintBox)
+        }
     } else {
         details.add(Div(tr("Alternativ: alte Excel-Vorlage oder E-Mail an den Finanzvorstand."), className = "mt-1"))
     }
     box.add(details)
-    box.div {
-        link(tr("Hilfe: Reisekosten abrechnen"), url = Branding.helpUrl("travel-expenses"), target = "_blank") {
-            addCssClass("small")
-            setAttribute("rel", "noopener noreferrer")
-        }
-    }
 }
 
 internal fun travelExpenseContactIsEmpty(contact: TravelExpenseContactDto): Boolean =

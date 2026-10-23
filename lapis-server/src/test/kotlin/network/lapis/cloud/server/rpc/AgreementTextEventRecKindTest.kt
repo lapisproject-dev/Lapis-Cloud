@@ -60,7 +60,7 @@ class AgreementTextEventRecKindTest :
             encounterApp {
                 fun kind(overview: network.lapis.cloud.shared.domain.AgreementTextOverviewDto) =
                     overview.kinds.single { it.kind == AgreementTextKind.EVENT_REC }
-                val before = client.runAs(member = ADMIN_ID) { call -> AgreementTextAdminService(call).getOverview() }.getOrThrow()
+                val before = client.runAs(member = ADMIN_ID) { call -> AgreementTextAdminService(call = call).getOverview() }.getOrThrow()
                 kind(before).placeholderActive shouldBe true
                 kind(before).builtinVersionLabel shouldBe EventCaptureConsentDefault.VERSION
                 kind(before).olderAcknowledgmentCount shouldBe null
@@ -68,13 +68,15 @@ class AgreementTextEventRecKindTest :
                     client
                         .runAs(
                             member = ADMIN_ID,
-                        ) { call -> AgreementTextAdminService(call).saveDraft(save("2026-10-18.v1", VALID_BODY)) }
+                        ) { call -> AgreementTextAdminService(call = call).saveDraft(save("2026-10-18.v1", VALID_BODY)) }
                         .getOrThrow()
                 client
                     .runAs(member = ADMIN_ID) { call ->
-                        AgreementTextAdminService(call).publishDraft(kind = AgreementTextKind.EVENT_REC, expectedDraftSha256 = draft.sha256)
+                        AgreementTextAdminService(
+                            call = call,
+                        ).publishDraft(kind = AgreementTextKind.EVENT_REC, expectedDraftSha256 = draft.sha256)
                     }.getOrThrow()
-                val after = client.runAs(member = ADMIN_ID) { call -> AgreementTextAdminService(call).getOverview() }.getOrThrow()
+                val after = client.runAs(member = ADMIN_ID) { call -> AgreementTextAdminService(call = call).getOverview() }.getOrThrow()
                 kind(after).placeholderActive shouldBe false
                 // Art. 9 aggregate: ALWAYS zero, never an attendance number
                 kind(after).olderAcknowledgmentCount shouldBe 0
@@ -85,7 +87,7 @@ class AgreementTextEventRecKindTest :
             encounterApp {
                 listOf(BOARD_ID, MEMBER_ID).forEach { who ->
                     client
-                        .runAs(member = who) { call -> AgreementTextAdminService(call).saveDraft(save("2026-10-18.v1", VALID_BODY)) }
+                        .runAs(member = who) { call -> AgreementTextAdminService(call = call).saveDraft(save("2026-10-18.v1", VALID_BODY)) }
                         .failure<ForbiddenException>()
                 }
             }
@@ -101,14 +103,14 @@ class AgreementTextEventRecKindTest :
                     "Überschrift\n\nPunkt eins\n\n${"x".repeat(601)}\n\nPunkt drei",
                 ).forEach { body ->
                     client
-                        .runAs(member = ADMIN_ID) { call -> AgreementTextAdminService(call).saveDraft(save("2026-10-18.v1", body)) }
+                        .runAs(member = ADMIN_ID) { call -> AgreementTextAdminService(call = call).saveDraft(save("2026-10-18.v1", body)) }
                         .failure<AgreementTextLayoutInvalidException>()
                 }
                 val atLimits = "${"h".repeat(160)}\n\nPunkt eins\n\n${"k".repeat(600)}\n\nPunkt drei"
                 client
                     .runAs(
                         member = ADMIN_ID,
-                    ) { call -> AgreementTextAdminService(call).saveDraft(save("2026-10-18.v1", atLimits)) }
+                    ) { call -> AgreementTextAdminService(call = call).saveDraft(save("2026-10-18.v1", atLimits)) }
                     .getOrThrow()
             }
         }
@@ -120,10 +122,10 @@ class AgreementTextEventRecKindTest :
                 client
                     .runAs(
                         member = ADMIN_ID,
-                    ) { call -> AgreementTextAdminService(call).saveDraft(save("a".repeat(50), VALID_BODY)) }
+                    ) { call -> AgreementTextAdminService(call = call).saveDraft(save("a".repeat(50), VALID_BODY)) }
                     .getOrThrow()
                 client
-                    .runAs(member = ADMIN_ID) { call -> AgreementTextAdminService(call).saveDraft(save("a".repeat(51), VALID_BODY)) }
+                    .runAs(member = ADMIN_ID) { call -> AgreementTextAdminService(call = call).saveDraft(save("a".repeat(51), VALID_BODY)) }
                     .failure<AgreementTextInvalidException>()
             }
         }
@@ -132,11 +134,11 @@ class AgreementTextEventRecKindTest :
             encounterApp {
                 client
                     .runAs(member = ADMIN_ID) { call ->
-                        AgreementTextAdminService(call).saveDraft(save("2026-10-18.v1", EventCaptureConsentDefault.TEXT))
+                        AgreementTextAdminService(call = call).saveDraft(save("2026-10-18.v1", EventCaptureConsentDefault.TEXT))
                     }.failure<AgreementTextInvalidException>()
                 client
                     .runAs(member = ADMIN_ID) { call ->
-                        AgreementTextAdminService(call).saveDraft(save(EventCaptureConsentDefault.VERSION, VALID_BODY))
+                        AgreementTextAdminService(call = call).saveDraft(save(EventCaptureConsentDefault.VERSION, VALID_BODY))
                     }.failure<AgreementTextVersionLabelTakenException>()
             }
         }
@@ -147,13 +149,13 @@ class AgreementTextEventRecKindTest :
                     client
                         .runAs(
                             member = ADMIN_ID,
-                        ) { call -> AgreementTextAdminService(call).saveDraft(save("2026-10-18.v1", VALID_BODY)) }
+                        ) { call -> AgreementTextAdminService(call = call).saveDraft(save("2026-10-18.v1", VALID_BODY)) }
                         .getOrThrow()
                 val summary =
                     client
                         .runAs(member = ADMIN_ID) { call ->
                             AgreementTextAdminService(
-                                call,
+                                call = call,
                             ).publishDraft(kind = AgreementTextKind.EVENT_REC, expectedDraftSha256 = draft.sha256)
                         }.getOrThrow()
                 summary.kind shouldBe AgreementTextKind.EVENT_REC
@@ -180,7 +182,7 @@ class AgreementTextEventRecKindTest :
                     client
                         .runAs(member = ADMIN_ID) { call ->
                             AgreementTextAdminService(
-                                call,
+                                call = call,
                             ).getVersion(kind = AgreementTextKind.EVENT_REC, versionLabel = EventCaptureConsentDefault.VERSION)
                         }.getOrThrow()
                 builtin.body shouldBe EventCaptureConsentDefault.TEXT

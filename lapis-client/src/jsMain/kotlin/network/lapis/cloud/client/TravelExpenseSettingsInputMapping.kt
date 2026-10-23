@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDecimal
+import network.lapis.cloud.shared.domain.TravelContactHintFormat
 import network.lapis.cloud.shared.domain.TravelExpenseContactDto
 import network.lapis.cloud.shared.domain.TravelExpenseDefaults
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
@@ -35,6 +36,8 @@ internal data class TravelExpenseSettingsFormValues(
     val contactHint: String,
     val advanceAccountId: String,
     val donationWaiverAccountId: String,
+    /** V1.9.199: the format the hint is sent with (the editor decides, see `TravelContactHintEditor.formatToSend`). */
+    val contactHintFormat: TravelContactHintFormat = TravelContactHintFormat.PLAIN,
 )
 
 /** The form values for what the server currently holds. */
@@ -59,11 +62,12 @@ internal fun travelExpenseSettingsFormValues(rates: TravelExpenseRatesDto): Trav
         contactHint = rates.contact.hint.orEmpty(),
         advanceAccountId = rates.advanceAccountId.orEmpty(),
         donationWaiverAccountId = rates.donationWaiverAccountId.orEmpty(),
+        contactHintFormat = rates.contact.hintFormat,
     )
 }
 
 /**
- * "Standardwerte der PdV-Vorlage übernehmen": replaces ONLY the tier/percentage/passenger values of [current] with the template. The mileage
+ * "Beispielwerte der Vorlage übernehmen": replaces ONLY the tier/percentage/passenger values of [current] with the template. The mileage
  * rate, the legacy rate, the contact person and the account mappings stay as they are -- the template has no opinion on them. Nothing is saved
  * by this; the administration still presses "Speichern".
  */
@@ -109,6 +113,7 @@ internal fun travelExpenseSettingsInput(values: TravelExpenseSettingsFormValues)
                 email = values.contactEmail.trim().ifEmpty { null },
                 phone = values.contactPhone.trim().ifEmpty { null },
                 hint = values.contactHint.trim().ifEmpty { null },
+                hintFormat = values.contactHintFormat,
             ),
         advanceAccountId = values.advanceAccountId.ifBlank { null },
         donationWaiverAccountId = values.donationWaiverAccountId.ifBlank { null },

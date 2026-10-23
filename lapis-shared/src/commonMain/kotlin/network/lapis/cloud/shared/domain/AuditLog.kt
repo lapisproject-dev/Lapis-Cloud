@@ -495,6 +495,14 @@ enum class AuditEntityType {
      * fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     EVENT_CAPTURE,
+
+    /**
+     * Welle V1.9.199 "Reisekosten-Unterlagen" -- `TravelExpenseDocumentRoutes` writes one entry per upload (`CREATE`), rename (`UPDATE`) and
+     * removal (`VOID`, `after = null` -- the audit vocabulary has no delete) of an organisation-wide travel-expense document, `entityId` =
+     * the `travel_expense_document` row's id, snapshot = [TravelExpenseDocumentSnapshot] (title, MIME type, byte size -- never the file
+     * content, the file name or a path). 23 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    TRAVEL_EXPENSE_DOCUMENT,
 }
 
 /** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */
@@ -1218,6 +1226,19 @@ data class TravelExpenseRatesSnapshot(
     val contactHintSet: Boolean = false,
     val advanceAccountConfigured: Boolean = false,
     val donationWaiverAccountConfigured: Boolean = false,
+    /** V1.9.199 -- whether the hint is stored as Markdown; the default is not serialized, so older payload hashes stay byte-identical. */
+    val contactHintMarkdown: Boolean = false,
+)
+
+/**
+ * Structured `before`/`after` payload for an [AuditEntityType.TRAVEL_EXPENSE_DOCUMENT] audit entry (Welle V1.9.199). The title is an
+ * organisational label chosen by BOARD/ADMIN and is carried; the file content, the original file name and the storage path never are.
+ */
+@Serializable
+data class TravelExpenseDocumentSnapshot(
+    val title: String,
+    val mimeType: String,
+    val sizeBytes: Long,
 )
 
 /**

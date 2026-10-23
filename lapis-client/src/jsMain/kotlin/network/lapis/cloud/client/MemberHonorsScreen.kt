@@ -64,18 +64,18 @@ fun renderMemberHonorsScreen(
 
     val headingPanel = root.vPanel(spacing = 2)
     // W5: constant title; the member the list is narrowed to is a data value and goes into the subtitle.
-    val pageHead = headingPanel.pageHeader(tr("Ehrungen & Auszeichnungen"), subtitle = "")
+    // V1.9.188: the intro belongs to the full list only -- narrowed to one member (`requestedMemberId`) the page is a detail view.
+    val pageHead =
+        headingPanel.pageHeader(
+            tr("Ehrungen & Auszeichnungen"),
+            subtitle = "",
+            intro = if (requestedMemberId == null) PageIntros.forRoute(Routes.MEMBER_HONORS) else null,
+        )
     if (requestedMemberId != null) {
         headingPanel.link(tr("Alle Ehrungen anzeigen"), url = "#${memberHonorsRoute(null)}") {
             addCssClasses("small")
         }
     }
-    root.div(
-        tr(
-            "Ehrenmitgliedschaften, Verdienst- und Treueauszeichnungen -- eine Übersicht für den " +
-                "Vorstand.",
-        ),
-    ) { addCssClasses("text-muted small") }
 
     // Welle V1.4.26 (W2): Filterleiste nach Richtlinie 2.4 -- Suchfeld, Kategorie-Segment (der
     // `select` mit fünf gegenseitig ausschließenden Werten trug keinen Aktivzustand und kein

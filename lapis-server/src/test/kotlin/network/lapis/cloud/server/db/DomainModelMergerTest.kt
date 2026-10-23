@@ -556,7 +556,11 @@ class DomainModelMergerTest :
             // member_finder_block, member_finder_region_band) plus an id-only Member stub (dedups into the real entity) -- net +4 (202 -> 206).
             // Welle V1.9.156 "Aufzeichnung in Veranstaltungsraeumen" -- ONE new real table (event_capture_acknowledgment) plus id-only Event and Member
             // stubs (dedup into the real entities) -- net +1 (206 -> 207).
-            val distinctTableNames = 207
+            // Welle V1.9.198 "Reisekosten-Anlagen" -- ONE new real table (travel_expense_attachment); its
+            // TravelExpenseReport/Member FKs dedup into the real entities -- net +1 (207 -> 208).
+            // Welle V1.9.199 "Reisekosten-Unterlagen" -- ONE new real table (travel_expense_document); its Member FK
+            // dedups into the real entity -- net +1 (208 -> 209).
+            val distinctTableNames = 209
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -790,6 +794,10 @@ class DomainModelMergerTest :
                     "TravelExpenseReportTable.kt",
                     "TravelExpenseLineTable.kt",
                     "TravelExpenseReceiptTable.kt",
+                    // V1.9.198 (V113): report-level attachments.
+                    "TravelExpenseAttachmentTable.kt",
+                    // V1.9.199 (V114): organisation-wide documents.
+                    "TravelExpenseDocumentTable.kt",
                     "TravelExpenseSepaBatchTable.kt",
                     "TravelExpenseSepaBatchItemTable.kt",
                     // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- two new real tables

@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.agreementtexts.AgreementMarkdown
 import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
 import network.lapis.cloud.server.agreementtexts.EncounterConsentLabels
 import network.lapis.cloud.server.audit.AuditLogRecorder
@@ -58,6 +59,7 @@ import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -273,7 +275,10 @@ class EncounterSpaceService(
                 // V1.9.143: everybody who enters (members too) is told when the pulpit of this room may be recorded.
                 pulpitRecordingRoomNotice =
                     if (recordingAllowed) {
-                        AgreementTextResolver.current(kind = AgreementTextKind.REC_ROOM, profile = profileOf(row)).body
+                        // V1.9.196: shown as plain text; a MARKDOWN text has its (block-markup-free) Markdown characters removed.
+                        AgreementTextResolver.current(kind = AgreementTextKind.REC_ROOM, profile = profileOf(row)).let {
+                            if (it.format == AgreementTextFormat.MARKDOWN) AgreementMarkdown.toPlainText(it.body) else it.body
+                        }
                     } else {
                         null
                     },
@@ -2313,6 +2318,8 @@ class EncounterSpaceService(
             keyPoints = text.keyPoints,
             text = text.text,
             sha256 = text.sha256,
+            format = text.format,
+            renderedHtml = text.renderedHtml,
         )
 
     /** Configuration is BOARD/ADMIN only (and an ACTIVE member). */

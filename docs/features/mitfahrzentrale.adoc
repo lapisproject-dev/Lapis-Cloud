@@ -1,4 +1,4 @@
-= Mitfahrerzentrale (V1.9.12)
+= Mitfahrzentrale (V1.9.12)
 :toc:
 
 A carpooling bulletin board for members: any `ACTIVE` member can offer a ride (`OFFER`, 1-8 free
@@ -14,6 +14,23 @@ oneself. A posting drops out of the public feed the day after its departure date
 deleted seven days later (`CarpoolRetentionPoller`), so an author can still see and duplicate a
 just-expired trip of their own. Full design, the RPC surface, and the direct-message-reuse
 decision: `docs/architecture/carpool.adoc`.
+
+== One list and tidy cards (V1.9.186)
+
+Since V1.9.186 the centre is called "Mitfahrzentrale" (it was "Mitfahrerzentrale"). The name changed in the user interface and in the
+catalogs only; routes (`#/carpool`), RPC names, tables and code identifiers are unchanged, and the texts that are written by the server
+(e-mails, the legal text, the data export) still say "Mitfahrerzentrale".
+
+* **One list.** The separate section "Meine Einträge" is gone. The list "Fahrten" shows the feed; members get a toolbar above it with
+  "Nur meine" (switches the list to the own entries, expired ones included, in the same cards) and the "Art" filter (works in both views;
+  for the own entries it narrows on the client, because `listMyPostings` takes no type). Guests get no toolbar.
+* **Own-entry actions** are icon buttons in the title row (edit, duplicate, delete). Their name contains the route, for example
+  "Fahrt Braunschweig nach Hannover löschen", so a screen reader can tell the cards apart. The delete confirmation has a full-width row of its own below the title row.
+* **Open requests.** The number sits as a small badge inside the button "Mitfahrer verwalten" (accessible name: "Mitfahrer verwalten, 1 offene Anfrage"). It counts
+  *open* requests, not new ones: the data has no "unseen" state.
+* **Place display.** A card shows a tidied place: a leading postal code and a trailing "Deutschland"/"Germany" are left out, a place written entirely in capitals reads in
+  title case ("06217 MERSEBURG (SAALE), DEUTSCHLAND" reads "Merseburg (Saale)"). Only the display changes: the stored text, the edit form and the contact
+  message keep the original, and the original is the `title` of the card heading. The formatter (`formatCarpoolPlace`) cannot restore "ß" and does not know unusual spellings.
 
 == Riding along (V1.9.125)
 
@@ -37,7 +54,7 @@ members-only (see "Access rule change" in `docs/architecture/carpool.adoc`).
   many searches -- the screen says the same: "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
 * **Notifications.** In the app: "Meine Mitfahrten" and the sidebar number. By e-mail (when the instance has mail configured): a short
   message **without names and without the meeting point** to active members and to friends with a verified address; never to a guest.
-* **Travel expenses.** On a mileage line of one's own travel expense report the field "Mitfahrer" shows a suggestion ("Laut Mitfahrerzentrale
+* **Travel expenses.** On a mileage line of one's own travel expense report the field "Mitfahrer" shows a suggestion ("Laut Mitfahrzentrale
   2 bestätigte Mitfahrer") with a button "Übernehmen". It is never filled in automatically.
 
 == Messages on a confirmed ride (V1.9.139)

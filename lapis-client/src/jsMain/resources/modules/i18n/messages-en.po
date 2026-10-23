@@ -37,6 +37,24 @@ msgstr "%1 transfers from %2 (IBAN •••• %3), execution %4"
 msgid "Abrechnung %1 auswählen"
 msgstr "Select expense report %1"
 
+msgid "Abstimmung abbrechen"
+msgstr "Cancel vote"
+
+msgid "Abstimmung abgebrochen."
+msgstr "Vote cancelled."
+
+msgid "Abstimmung eröffnen"
+msgstr "Open vote"
+
+msgid "Abstimmung eröffnet."
+msgstr "Vote opened."
+
+msgid "Abstimmung geschlossen."
+msgstr "Vote closed."
+
+msgid "Achtung: Gewinnt eine andere Antwort als \"NO\", gilt der Antrag als angenommen."
+msgstr "Caution: if any answer other than \"NO\" wins, the motion counts as adopted."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:223
 msgid "Aktivieren …"
 msgstr "Activate …"
@@ -64,6 +82,12 @@ msgstr "Set as default"
 
 msgid "An diesem Tag werden keine SEPA-Überweisungen ausgeführt (Wochenende oder TARGET2-Feiertag)."
 msgstr "No SEPA transfers are executed on this day (weekend or TARGET2 holiday)."
+
+msgid "Antrag: %1"
+msgstr "Motion: %1"
+
+msgid "Antwortmöglichkeiten, durch Komma getrennt"
+msgstr "Answer options, separated by commas"
 
 msgid "Auf dem Server ist kein Verschlüsselungsschlüssel gesetzt."
 msgstr "No encryption key is set on the server."
@@ -138,6 +162,9 @@ msgstr "The execution date may be at most 60 days in the future."
 msgid "Das Ausführungsdatum darf nicht in der Vergangenheit liegen."
 msgstr "The execution date must not be in the past."
 
+msgid "Das Gremium hat in der Sitzung abgestimmt; Sie halten hier die Ja-, Nein- und Enthaltungsstimmen und das Ergebnis fest."
+msgstr "The committee has voted in the meeting; here you record the yes, no and abstention votes and the result."
+
 msgid "Datei erzeugen und als exportiert markieren"
 msgstr "Generate file and mark as exported"
 
@@ -146,6 +173,9 @@ msgstr "File downloaded. Now upload the file in your online banking."
 
 msgid "Der Name der Organisation fehlt in den Einstellungen."
 msgstr "The name of the organization is missing in the settings."
+
+msgid "Details zu %1"
+msgstr "Details of %1"
 
 msgid "Die Abrechnung %1 wurde bereits am %2 exportiert (Datei %3). Ein erneuter Export erzeugt eine neue Datei und kann zu einer doppelten Zahlung führen, wenn die erste Datei bei der Bank eingereicht wurde."
 msgstr "Expense report %1 was already exported on %2 (file %3). Exporting again creates a new file and can lead to a double payment if the first file was submitted to the bank."
@@ -167,8 +197,14 @@ msgstr ""
 msgid "Die Keycloak-Verknüpfung von %1 wird entfernt, alle aktiven Sitzungen dieses Mitglieds werden beendet und das Mitglied wird per E-Mail benachrichtigt. Falls die E-Mail-Adresse in Keycloak weiterhin übereinstimmt, wird die Verknüpfung bei der nächsten Anmeldung automatisch wiederhergestellt. Um den Zugang dauerhaft zu sperren, deaktivieren Sie das Konto in Keycloak oder setzen Sie den Mitgliedsstatus z. B. auf „Ausgetreten“."
 msgstr "The Keycloak link of %1 will be removed, all active sessions of this member will be ended and the member will be notified by email. If the email address in Keycloak still matches, the link will be automatically restored on the next login. To block access permanently, disable the account in Keycloak or set the membership status to e.g. “Withdrawn”."
 
+msgid "Die Mitglieder stimmen online mit Ja oder Nein ab und gewichten ihre Stimme mit einem LTR-Einsatz; es gilt die Antwort mit dem höchsten Gewicht."
+msgstr "Members vote online with yes or no and weight their vote with an LTR stake; the answer with the highest weight wins."
+
 msgid "Die SEPA-Datei konnte nicht erzeugt werden."
 msgstr "The SEPA file could not be generated."
+
+msgid "Die Teilnehmenden bewerten Vorschläge nach ihrem Widerstand; der Vorschlag mit dem geringsten Widerstand gewinnt – als unverbindliche Sondierung vorab oder als verbindliche Entscheidung."
+msgstr "Participants rate proposals by their resistance; the proposal with the least resistance wins – as a non-binding preliminary poll or as a binding decision."
 
 msgid ""
 "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und "
@@ -176,6 +212,9 @@ msgid ""
 msgstr ""
 "This organization is responsible for processing your audio, video, and chat "
 "data in this meeting."
+
+msgid "Dieser Antrag wurde nicht gefunden."
+msgstr "This motion was not found."
 
 msgid "Eigene Abrechnung"
 msgstr "Own expense report"
@@ -186,6 +225,12 @@ msgstr "A bank business day (TARGET2), at most 60 days ahead."
 msgid "Eine Datei darf höchstens 500 Überweisungen enthalten."
 msgstr "A file may contain at most 500 transfers."
 
+msgid "Eine förmliche Wahl mit eigenem Ablauf (Ja/Nein-Frage oder Kandidaten), die auf einer eigenen Seite durchgeführt und ausgewertet wird."
+msgstr "A formal election with its own procedure (yes/no question or candidates), held and tallied on a page of its own."
+
+msgid "Ergebnis festhalten"
+msgstr "Record result"
+
 msgid "Erneut exportieren"
 msgstr "Export again"
 
@@ -194,6 +239,9 @@ msgstr "Export again …"
 
 msgid "Erneuter Export"
 msgstr "Repeated export"
+
+msgid "Erweitert: eigene Antwortmöglichkeiten"
+msgstr "Advanced: custom answer options"
 
 msgid "Erzeugt von %1"
 msgstr "Generated by %1"
@@ -331,6 +379,9 @@ msgstr "Sign in with %1"
 msgid "Mitglieder, die die automatische Keycloak-Verknüpfung (Abgleich per E-Mail-Adresse) nicht zuordnen konnte -- z. B. weil die Keycloak-Identität eine andere E-Mail-Adresse nutzt. Hier kann ein Administrator die Verknüpfung manuell herstellen."
 msgstr "Members that automatic Keycloak linking (matched by email address) could not assign -- for example because the Keycloak identity uses a different email address. Here an administrator can create the link manually."
 
+msgid "Nach dem Speichern steht das Ergebnis fest und kann nicht mehr geändert werden."
+msgstr "Once saved, the result is final and can no longer be changed."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ListFilter.kt:107
 msgid "Nach Name filtern"
 msgstr "Filter by name"
@@ -338,6 +389,9 @@ msgstr "Filter by name"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:273
 msgid "Neu anmelden …"
 msgstr "Log in again …"
+
+msgid "Nicht verfügbar: %1 – %2"
+msgstr "Not available: %1 – %2"
 
 msgid "Nichts auszuzahlen"
 msgstr "Nothing to pay out"
@@ -361,6 +415,12 @@ msgstr "Only needed if a payout is wanted. The IBAN is stored encrypted."
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:450
 msgid "PIN"
 msgstr "PIN"
+
+msgid "Pro Antrag ist nur ein Konsensieren möglich; die Sondierung ist bereits ausgewertet."
+msgstr "Only one consensus process is possible per motion; the preliminary poll has already been evaluated."
+
+msgid "Quorum-Beschluss des Gremiums"
+msgstr "Committee quorum resolution"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:409
 msgid "Rechtlicher Hinweis (bitte vollständig lesen):"
@@ -804,10 +864,6 @@ msgstr "Interaction history"
 msgid "Interessent"
 msgstr "Prospect"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:68
-msgid "Interessenten, Sympathisanten und sonstige Kontakte, die weder Mitglied noch (notwendigerweise) ein erfasster Spender sind -- eine eigenständige Adressverwaltung, getrennt von der Mitgliederverwaltung und dem Spenderstamm."
-msgstr "Prospects, sympathizers, and other contacts who are neither members nor (necessarily) recorded donors -- a standalone address book, separate from member administration and the donor roster."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:137
 msgid "Kein Bankkonto in den Organisationseinstellungen hinterlegt -- Kontoprüfung übersprungen."
 msgstr "No bank account is configured in the organization settings -- the account check was skipped."
@@ -1049,6 +1105,9 @@ msgstr "VR-Bank"
 msgid "Vorschläge anzeigen"
 msgstr "Show suggestions"
 
+msgid "Wahl"
+msgstr "Election"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:89
 msgid "Weitere Importe laden"
 msgstr "Load more imports"
@@ -1056,6 +1115,9 @@ msgstr "Load more imports"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:96
 msgid "Weitere Zeilen laden"
 msgstr "Load more lines"
+
+msgid "Wie soll entschieden werden?"
+msgstr "How should the decision be made?"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:248
 msgid "Wiedervorlage fällig: %1"
@@ -1113,6 +1175,9 @@ msgstr "Consent timestamp (ISO, e.g. 2026-09-14T10:00)"
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr "Time is not a valid ISO format (e.g. 2026-09-14T10:00)."
 
+msgid "Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung -- siehe Abschnitt \"Abstimmung\" unten."
+msgstr "This motion already has a meritocratic vote -- see the \"Vote\" section below."
+
 msgid "Zu viele Anfragen. Bitte warten Sie eine Minute."
 msgstr "Too many requests. Please wait a minute."
 
@@ -1130,6 +1195,9 @@ msgstr "Ready for payout"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:361
 msgid "erfasst von %1"
 msgstr "recorded by %1"
+
+msgid "Änderung zu: %1"
+msgstr "Amends: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:474
 msgid "— Nicht zugeordnet —"
@@ -1297,10 +1365,6 @@ msgstr "%1 · %2 · %3"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1310
 msgid "%1 · %2 · erfasst von %3"
 msgstr "%1 · %2 · recorded by %3"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:294
-msgid "%1 · eingereicht von %2 am %3"
-msgstr "%1 · submitted by %2 on %3"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:327
@@ -1522,10 +1586,6 @@ msgstr "%1: %2%3%4"
 msgid "%1. %2"
 msgstr "%1. %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:948
-msgid "%1. %2%3"
-msgstr "%1. %2%3"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1476
 msgid "%1. %2%3%4"
 msgstr "%1. %2%3%4"
@@ -1533,10 +1593,6 @@ msgstr "%1. %2%3%4"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:797
 msgid "← Zurück zur Timeline"
 msgstr "← Back to timeline"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:289
-msgid "↳ Änderungsantrag: %1"
-msgstr "↳ Amendment: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:892
 msgid "↳ Fortsetzung"
@@ -2263,10 +2319,6 @@ msgstr "Submit motion"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:333
 msgid "Antrag genehmigt."
 msgstr "Request approved."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:136
-msgid "Antrag oben auswählen, um Details zu sehen."
-msgstr "Select a motion above to see details."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:257
 msgid "Antrag von %1 ablehnen"
@@ -3706,11 +3758,6 @@ msgstr "Characterization: %1"
 msgid "Chat"
 msgstr "Chat"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:795
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:865
-msgid "Committee-Quorum entscheiden"
-msgstr "Decide committee quorum"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:105
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:448
 msgid "Crowdfunding"
@@ -4783,10 +4830,6 @@ msgstr "Decision"
 msgid "Entscheidung für \"%1\" gespeichert."
 msgstr "Decision for \"%1\" saved."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:878
-msgid "Entscheidung speichern"
-msgstr "Save decision"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:431
 msgid "Entscheidungsnotiz (optional)"
 msgstr "Decision note (optional)"
@@ -4976,14 +5019,6 @@ msgstr "Granted on"
 msgid "Ertragskonto"
 msgstr "Revenue account"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:828
-msgid ""
-"Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe "
-"Abschnitt \"Vote\" unten."
-msgstr ""
-"A meritocratic vote is already in progress for this motion -- see the "
-"\"Vote\" section below."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingForms.kt:73
 msgid ""
 "Es werden %1 als Sichtbarkeits-Gewicht aus Ihrem freien LTR-Guthaben "
@@ -5136,10 +5171,6 @@ msgid ""
 "Referenzkurse als einzige Quelle (Mindest-Quorum: %1). Preise werden "
 "höchstens alle %2s neu abgerufen (empfohlene Cache-TTL: %3s)."
 msgstr "Fiat is pegged to the euro (1 anchor unit = 1 EUR) and uses the ECB reference rates as its only source (minimum quorum: %1). Prices are fetched again at most every %2s (recommended cache TTL: %3s)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:129
-msgid "Filter: Referenztyp"
-msgstr "Filter: reference type"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:148
 msgid "Filter: Status (persistiert)"
@@ -5570,10 +5601,6 @@ msgstr "Committee"
 msgid "Gremium anlegen"
 msgstr "Create committee"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:86
-msgid "Gremium oben auswählen, um die Besetzung zu sehen."
-msgstr "Select a committee above to see its composition."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:421
 msgid "Gremium: %1 · %2 · Termin: %3"
 msgstr "Committee: %1 · %2 · Date: %3"
@@ -5858,18 +5885,6 @@ msgstr ""
 "Your member record remains as an anonymous placeholder (e.g. so that "
 "contribution history and entries remain consistent). Personal fields will be "
 "cleared or anonymized."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:77
-msgid ""
-"Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf "
-"Vergessenwerden\", Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, "
-"nie sofort ausgeführt. Über den Antrag entscheidet danach eine "
-"Administratorin oder ein Administrator gesondert."
-msgstr ""
-"Your right to access (Art. 15/20 GDPR) and to erasure (\"right to be "
-"forgotten\", Art. 17 GDPR) -- a deletion is only REQUESTED here, never "
-"executed immediately. An administrator subsequently decides on the request "
-"separately."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:959
 msgid "Ihre Antwort erbt die Sichtbarkeit des Ursprungsbeitrags: %1."
@@ -6959,11 +6974,6 @@ msgstr "Report submitted."
 msgid "Meldungen"
 msgstr "Reports"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:799
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:911
-msgid "Meritokratische Vote eröffnen"
-msgstr "Open meritocratic vote"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:96
 msgid ""
 "Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen "
@@ -7086,10 +7096,6 @@ msgstr "Member has been added."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:313
 msgid "Mitglieder"
 msgstr "Members"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:162
-msgid "Mitglieder anzeigen"
-msgstr "Show members"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:793
 msgid ""
@@ -7570,10 +7576,6 @@ msgstr "No external donors created yet."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:162
 msgid "noch keine Gebote, Startpreis: %1"
 msgstr "no bids yet, starting price: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:105
-msgid "Noch keine Gremien vorhanden."
-msgstr "No committees available yet."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:101
 msgid "Noch keine Gremien. Mit \"Neues Gremium\" legen Sie eines an."
@@ -8156,17 +8158,6 @@ msgstr ""
 "Log of all previous export/restore attempts -- purely informational, no "
 "actions on this list."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt:60
-msgid ""
-"Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, "
-"keine Aktionen auf dieser Liste. Neue Versandvorgänge werden direkt bei der "
-"jeweiligen Beitragsrechnung, Spendenbescheinigung oder Sitzungseinladung "
-"ausgelöst."
-msgstr ""
-"Log of all previous postal mailings -- purely informational, no actions on "
-"this list. New mailings are triggered directly from the respective "
-"membership fee invoice, donation receipt, or meeting invitation."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1424
 msgid "Protokoll: %1"
 msgstr "Minutes: %1"
@@ -8220,10 +8211,6 @@ msgstr "Quorum reached"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1510
 msgid "Quorum nicht erreicht"
 msgstr "Quorum not reached"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:156
-msgid "Quorum: %1%"
-msgstr "Quorum: %1%"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:207
 msgid "Radierer"
@@ -8767,10 +8754,6 @@ msgstr "Meeting marked as held."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:290
 msgid "Sitzung anlegen"
 msgstr "Create meeting"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:130
-msgid "Sitzung oben auswählen, um Details zu sehen."
-msgstr "Select a meeting above to view details."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1885
 msgid "Sitzung zugeordnet."
@@ -9331,10 +9314,6 @@ msgstr "Agenda item \"%1\" added."
 msgid "Tagesordnungspunkt entfernt."
 msgstr "Agenda item removed."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1004
-msgid "Tagesordnungspunkt hinzufügen"
-msgstr "Add agenda item"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:191
 msgid "Technisch-organisatorische Maßnahmen (TOM)"
 msgstr "Technical and organizational measures (TOM)"
@@ -9749,25 +9728,6 @@ msgstr "represented by %1"
 msgid "Verwalten"
 msgstr "Manage"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:70
-msgid ""
-"Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, "
-"generisches RTMP), zu denen Moderatorinnen und Moderatoren eine Besprechung "
-"live übertragen können. Der Stream-Schlüssel wird verschlüsselt gespeichert "
-"und nach dem Speichern nie wieder angezeigt."
-msgstr ""
-"Manage the external RTMP destinations (YouTube, Twitch, PeerTube, Owncast, "
-"generic RTMP) to which moderators can broadcast a meeting live. The stream "
-"key is stored encrypted and is never shown again after saving."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:156
-msgid ""
-"Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset "
-"(konfigurierbar: Bitcoin, Gold oder Fiat/Euro) und bucht eingegangene "
-"Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, "
-"Konfigurationsänderungen nur für ADMIN."
-msgstr "Manages the anchor peg of the Libertaler (LTR) to a real asset (configurable: Bitcoin, gold or fiat/euro) and books incoming donations as LTR mints. Visible to TREASURER/BOARD/ADMIN, configuration changes for ADMIN only."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:211
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:233
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:563
@@ -9820,14 +9780,6 @@ msgstr "Full-screen mode was refused by the browser."
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:142
 msgid "Vollständigen Datenexport herunterladen (JSON)"
 msgstr "Download complete data export (JSON)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:50
-msgid ""
-"Vollständiger Export und Wiederherstellung aller Organisationsdaten "
-"(Datenbank + Dokumente) -- nur für Administratorinnen und Administratoren."
-msgstr ""
-"Complete export and restore of all organization data (database + documents) "
-"-- for administrators only."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:106
 msgid "Vom Zahlungspflichtigen ohne Grundangabe abgelehnt (MS02)"
@@ -9903,39 +9855,6 @@ msgstr "Board membership"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:223
 msgid "Vorstandsmitgliedschaft beenden"
 msgstr "End board membership"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:954
-msgid "Vortragend: %1"
-msgstr "Presenter: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:994
-msgid "Vote"
-msgstr "Vote"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1113
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1116
-msgid "Vote abbrechen"
-msgstr "Cancel vote"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1123
-msgid "Vote abgebrochen."
-msgstr "Vote cancelled."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:937
-msgid "Vote eröffnen"
-msgstr "Open vote"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:945
-msgid "Vote eröffnet."
-msgstr "Vote opened."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1108
-msgid "Vote geschlossen."
-msgstr "Vote closed."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1103
-msgid "Vote schließen"
-msgstr "Close vote"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:922
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:365
@@ -10552,9 +10471,6 @@ msgstr "Cached"
 
 #~ msgid "Rolle: %1 · Sitzung gültig bis %2"
 #~ msgstr "Role: %1 · Session valid until %2"
-
-msgid "Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und Rate-Limits. Optional kann je Schlüssel ein Webhook konfiguriert werden, der bei bestimmten Ereignissen automatisch einen HTTP-POST an eine von Ihnen angegebene Adresse sendet."
-msgstr "These keys authenticate external access to the read-only REST API (/api/v1) -- see the API documentation for endpoints and rate limits. Optionally, a webhook can be configured per key that automatically sends an HTTP POST to an address you specify when certain events occur."
 
 msgid "Webhook für „%1“ deaktiviert: %2."
 msgstr "Webhook for \"%1\" deactivated: %2."
@@ -11362,11 +11278,6 @@ msgid "Wiedervorlage am %1"
 msgstr "Review date %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-# Welle V1.4.11 "Reisekostenabrechnung fuer Vorstand und Funktionstraeger" -- angehaengt, nicht alphabetisch einsortiert.
-msgid "%1 hinzufügen"
-msgstr "Add %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "%1 Tage × %2"
 msgstr "%1 days × %2"
 
@@ -11375,8 +11286,8 @@ msgid "Als Entwurf kopieren"
 msgstr "Copy as draft"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Als neuer Entwurf kopiert. Belege müssen erneut hochgeladen werden."
-msgstr "Copied as a new draft. Receipts must be uploaded again."
+msgid "Als neuer Entwurf kopiert. Belege und Anlagen müssen erneut hochgeladen werden."
+msgstr "Copied as a new draft. Receipts and attachments must be uploaded again."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Antrag genehmigt und gebucht."
@@ -11547,14 +11458,6 @@ msgid "Tagespauschale"
 msgstr "Per diem"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Zeile entfernen"
-msgstr "Remove line"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Zeile hinzufügen"
-msgstr "Add line"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Zeile hinzugefügt."
 msgstr "Line added."
 
@@ -11593,14 +11496,6 @@ msgstr "No order items for this event yet."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Menge"
 msgstr "Quantity"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
-msgid "Menge: %1"
-msgstr "Quantity: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
-msgid "Allergene/Hinweise: %1"
-msgstr "Allergens/notes: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Allergene/Hinweise (optional)"
@@ -11701,10 +11596,6 @@ msgstr "Really cancel \"%1\"? Existing signups remain as history."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
 msgid "Schicht stornieren"
 msgstr "Cancel shift"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
-msgid "Zusagen anzeigen"
-msgstr "Show signups"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
 msgid "Noch keine Zusagen für diese Schicht."
@@ -14891,10 +14782,6 @@ msgid "Im Mahnverfahren"
 msgstr "In dunning procedure"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInSelectionScreen.kt:1
-msgid "Veranstaltung auswählen, um Tickets am Einlass zu prüfen."
-msgstr "Select an event to check tickets at the entrance."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInSelectionScreen.kt:1
 msgid "Keine bevorstehenden Veranstaltungen."
 msgstr "No upcoming events."
 
@@ -14973,10 +14860,6 @@ msgstr "No rooms have been created yet."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
 msgid "Neuen Raum anlegen"
 msgstr "Create new room"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
-msgid "Kapazität: %1"
-msgstr "Capacity: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
 msgid "Raum deaktivieren"
@@ -15185,10 +15068,6 @@ msgstr "Postponed"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
 msgid "Gremienbeschluss"
 msgstr "Committee resolution"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
-msgid "Meritokratische Vote"
-msgstr "Meritocratic vote"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
 msgid "Demokratische Wahl"
@@ -16452,10 +16331,6 @@ msgid "Artikel bearbeiten"
 msgstr "Edit article"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
-msgid "Zurück zur Liste"
-msgstr "Back to list"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
 msgid "Artikel ansehen"
 msgstr "View article"
 
@@ -16805,16 +16680,12 @@ msgstr "Member count is no longer shown publicly."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:45
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:370
-msgid "Mitfahrerzentrale"
+msgid "Mitfahrzentrale"
 msgstr "Carpooling"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:51
 msgid "Eintrag erstellen"
 msgstr "Create entry"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:53
-msgid "Meine Einträge"
-msgstr "My entries"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:62
 msgid "Angebote"
@@ -17398,9 +17269,6 @@ msgstr "Membership tiers"
 msgid "Mitgliedschaftsstufe"
 msgstr "Membership tier"
 
-msgid "Beitrag, Intervall und Zahlungsziel je Stufe. Eine Stufe wird nicht gelöscht, sondern geschlossen."
-msgstr "Contribution, interval and payment term per tier. A tier is not deleted but closed."
-
 msgid "Mitgliedschaftsstufe anlegen"
 msgstr "Create membership tier"
 
@@ -17952,9 +17820,6 @@ msgstr "Voting not possible right now"
 msgid "Die Stimmabgabe ist gerade nicht möglich, etwa weil eine Übertragung noch pausiert wird. Bitte warten Sie kurz und versuchen Sie es erneut."
 msgstr "Voting is not possible right now, for example because a broadcast is still being paused. Please wait a moment and try again."
 
-msgid "Zurück zur Wahl"
-msgstr "Back to the election"
-
 msgid "Erneut abstimmen"
 msgstr "Vote again"
 
@@ -18314,9 +18179,6 @@ msgstr "Voting, %1 open"
 
 msgid "Zur Wahlkabine"
 msgstr "To the voting booth"
-
-msgid "Zurück zur Übersicht"
-msgstr "Back to overview"
 
 msgid "offen"
 msgstr "open"
@@ -18783,9 +18645,6 @@ msgstr "The state has changed. Please check again."
 msgid "Bitte kurz warten und erneut versuchen."
 msgstr "Please wait a moment and try again."
 
-msgid "Zurück zum Konsensieren"
-msgstr "Back to the consensus"
-
 msgid "Ihre Bewertung wurde gezählt"
 msgstr "Your rating was counted"
 
@@ -19019,9 +18878,6 @@ msgstr "The poll has ended."
 
 msgid "Die Verbindung wurde unterbrochen. Ob Ihre Antwort gespeichert wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
 msgstr "The connection was interrupted. It could not be checked whether your answer was saved. Please reload the page."
-
-msgid "Zurück zur Umfrage"
-msgstr "Back to the poll"
 
 msgid "Danke"
 msgstr "Thank you"
@@ -21479,8 +21335,11 @@ msgstr "Slug already exists, will not be changed."
 msgid "Veranstaltungsimport"
 msgstr "Event import"
 
-msgid "Geräte wählen"
-msgstr "Choose devices"
+msgid "Im Raum"
+msgstr "In the room"
+
+msgid "Raum verlassen"
+msgstr "Leave the room"
 
 msgid "Mikrofon und Lautsprecher wählen"
 msgstr "Choose microphone and speaker"
@@ -23021,9 +22880,6 @@ msgstr "Dinner (% of tier 3)"
 msgid "Abendessen gestellt"
 msgstr "Dinner provided"
 
-msgid "Abfahrt (Uhrzeit)"
-msgstr "Departure (time)"
-
 msgid "Abzug für gestellte Mahlzeiten"
 msgstr "Deduction for meals provided"
 
@@ -23108,8 +22964,8 @@ msgstr "The deadline for this trip (%1) has passed. You can still submit -- the 
 msgid "Die Rückkehr darf nicht vor der Abfahrt liegen."
 msgstr "The return must not be before the departure."
 
-msgid "Die Standardwerte stammen aus der PdV-Vorlage (Reisekostenabrechnung 2024, Hinweise vom 23.07.2025) und sind vorläufig. Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen."
-msgstr "The default values come from the PdV template (travel expense form 2024, notes of 23.07.2025) and are provisional. They do not correspond to the statutory flat rates (€14 / €28). Please review them before members submit claims."
+msgid "Die Beispielwerte stammen aus einer Vorlage (Reisekostenabrechnung 2024) und sind vorläufig. Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen."
+msgstr "The example values come from a template (2024 travel expense form) and are provisional. They do not correspond to the statutory flat rates (€14 / €28). Please review them before members submit claims."
 
 msgid "Die Stunden müssen von Stufe zu Stufe größer werden."
 msgstr "The hours must increase from tier to tier."
@@ -23162,9 +23018,6 @@ msgstr "This trip has no days."
 
 msgid "Ganze Kilometer, 1 bis 5000."
 msgstr "Whole kilometres, 1 to 5000."
-
-msgid "Hilfe: Reisekosten abrechnen"
-msgstr "Help: submitting travel expenses"
 
 msgid "Hinweistext (Mehr erfahren)"
 msgstr "Notice text (Learn more)"
@@ -23247,8 +23100,8 @@ msgstr "Donation receipt (waiver of reimbursement)"
 msgid "Spendenquittung gewünscht"
 msgstr "Donation receipt requested"
 
-msgid "Standardwerte der PdV-Vorlage übernehmen"
-msgstr "Apply the PdV template defaults"
+msgid "Beispielwerte der Vorlage übernehmen"
+msgstr "Apply the template's example values"
 
 msgid "Standardwerte eingetragen. Zum Übernehmen bitte speichern."
 msgstr "Default values entered. Please save to apply them."
@@ -23292,9 +23145,6 @@ msgstr "Daily allowance: from %1 h %2 · from %3 h %4 · from %5 h %6 · mileage
 msgid "Tagesbetrag: %1"
 msgstr "Day amount: %1"
 
-msgid "Tagesbetrag: %1 (Abzüge: %2)"
-msgstr "Day amount: %1 (deductions: %2)"
-
 msgid "Tagespauschale für Altanträge (EUR)"
 msgstr "Flat daily rate for old claims (EUR)"
 
@@ -23333,9 +23183,6 @@ msgstr "How should this be settled?"
 
 msgid "Zeile gespeichert."
 msgstr "Line saved."
-
-msgid "Zeile speichern"
-msgstr "Save line"
 
 msgid "Ziel / Zweck (optional)"
 msgstr "Destination / purpose (optional)"
@@ -23529,13 +23376,13 @@ msgstr "Save meeting point"
 msgid "Treffpunkt wurde gespeichert."
 msgstr "The meeting point was saved."
 
-msgid "Mitfahrerzentrale (%1)"
+msgid "Mitfahrzentrale (%1)"
 msgstr "Carpooling (%1)"
 
-msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgid "Laut Mitfahrzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
 msgstr "According to the carpool centre, %1 confirmed passengers (several trips in this period)."
 
-msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgid "Laut Mitfahrzentrale %1 bestätigte Mitfahrer."
 msgstr "According to the carpool centre, %1 confirmed passengers."
 
 msgid "Mitfahrt"
@@ -25279,12 +25126,6 @@ msgstr "Neither a microphone nor a camera was found."
 msgid "Ein Gerät konnte nicht geöffnet werden. Möglicherweise wird es von einer anderen Anwendung verwendet."
 msgstr "A device could not be opened. It may be in use by another application."
 
-msgid "Rückkehr (optional)"
-msgstr "Return (optional)"
-
-msgid "Ohne Abfahrt und Rückkehr kann für diesen Tag kein Tagegeld berechnet werden."
-msgstr "Without a departure and a return time, no daily allowance can be calculated for this day."
-
 msgid "Frühstück"
 msgstr "Breakfast"
 
@@ -25299,3 +25140,792 @@ msgstr "%1 % · −%2"
 
 msgid "Die Reisetage werden nach dem Speichern aktualisiert."
 msgstr "The travel days are updated after saving."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/GuestBadge.kt:74
+msgid "Hat ein Freundeskonto auf diesem Server, ist aber kein Mitglied."
+msgstr "Has a friend account on this server but is not a member."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:519
+msgid "%1 von %2 ausgewählt"
+msgstr "%1 of %2 selected"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:565
+msgid "Einladung versenden"
+msgstr "Send invitation"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1007
+msgid "Punkt hinzufügen"
+msgstr "Add item"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1027
+msgid "Vortragende"
+msgstr "Presenters"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1044
+msgid "Tagesordnungspunkt entfernen"
+msgstr "Remove agenda item"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1045
+msgid "Tagesordnungspunkt \"%1\" entfernen?"
+msgstr "Remove agenda item \"%1\"?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1156
+msgid "Anwesende anzeigen"
+msgstr "Show attendees"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1643
+msgid "Was bedeutet Quorum?"
+msgstr "What does quorum mean?"
+
+msgid "Filter"
+msgstr "Filter"
+
+msgid "Werkzeuge anzeigen"
+msgstr "Show tools"
+
+msgid "Für Kassenwarte, Vorstand und Administratoren"
+msgstr "For treasurers, the board and administrators"
+
+msgid "Sichtbar für Kassenwarte, Vorstand und Administratoren."
+msgstr "Visible to treasurers, the board and administrators."
+
+msgid "Mitglied ansehen"
+msgstr "View member"
+
+msgid "Gutschrift erfassen"
+msgstr "Record credit"
+
+msgid "Korrektur erfassen"
+msgstr "Record correction"
+
+msgid "Zeigt das Guthaben und die Buchungen eines beliebigen Mitglieds an."
+msgstr "Shows the balance and the entries of any member."
+
+msgid "Schreibt einem Mitglied LTR gut. Die Gutschrift lässt sich nur durch eine gegenläufige Buchung rückgängig machen."
+msgstr "Credits LTR to a member. The credit can only be reversed by an opposite entry."
+
+msgid "Überträgt LTR zwischen zwei Mitgliedern aufgrund einer Schiedsanordnung. Die Übertragung ist endgültig."
+msgstr "Transfers LTR between two members on the basis of an arbitration order. The transfer is final."
+
+msgid "Fahrt %1 nach %2 bearbeiten"
+msgstr "Edit trip from %1 to %2"
+
+msgid "Fahrt %1 nach %2 duplizieren"
+msgstr "Duplicate trip from %1 to %2"
+
+msgid "Fahrt %1 nach %2 löschen"
+msgstr "Delete trip from %1 to %2"
+
+msgid "Nur meine"
+msgstr "Only mine"
+
+msgid "%1, %2"
+msgstr "%1, %2"
+
+msgid "Einführung"
+msgstr "Introduction"
+
+msgid "Mehr in der Hilfe"
+msgstr "More in the help"
+
+msgid "Hilfe und Feedback"
+msgstr "Help and feedback"
+
+msgid "Hilfe zu dieser Ansicht"
+msgstr "Help for this view"
+
+msgid "Hilfe-Center"
+msgstr "Help center"
+
+msgid "Was ist neu"
+msgstr "What's new"
+
+msgid "Das Dashboard zeigt Ihren Status und Ihre Rolle und führt über Kacheln in die Bereiche, die für Sie freigeschaltet sind. Hier ändern Sie auch Ihr Passwort."
+msgstr "The dashboard shows your status and role and leads through tiles to the areas enabled for you. You also change your password here."
+
+msgid "Hier treten Sie laufenden Videobesprechungen bei oder starten eine neue. Welche Funktionen Ihnen offenstehen, etwa Aufzeichnung oder Breakout-Räume, hängt von Ihrer Rolle ab."
+msgstr "Here you join running video meetings or start a new one. Which functions are open to you, such as recording or breakout rooms, depends on your role."
+
+msgid "Begegnungsräume sind dauerhafte Räume, in denen sich Personen zum Gespräch oder zu einer Veranstaltung treffen. Die Liste zeigt, ob ein Raum geöffnet ist und wie viele Personen anwesend sind."
+msgstr "Gathering rooms are standing rooms where people meet for a conversation or an event. The list shows whether a room is open and how many people are present."
+
+msgid "Hier finden Sie angebotene Fahrten und können eine Mitfahrt anfragen. Mitglieder können außerdem selbst Fahrten anbieten oder eine Fahrt suchen."
+msgstr "Here you find offered rides and can request a ride along. Members can also offer rides themselves or look for one."
+
+msgid "Hier sehen Sie Ihre Beiträge mit Status und können eine Beitragsvergünstigung oder Stundung beantragen. Lastschrift und Online-Zahlung erscheinen nur, wenn Ihre Organisation sie eingeschaltet hat."
+msgstr "Here you see your contributions with their status and can apply for a contribution reduction or a deferral. Direct debit and online payment appear only if your organization has switched them on."
+
+msgid "Hier finden Sie die Dokumente Ihrer Organisation in Ordnern. Welche Ordner und Dokumente Sie sehen, richtet sich nach der Sichtbarkeit, die dafür festgelegt ist."
+msgstr "Here you find your organization's documents in folders. Which folders and documents you see depends on the visibility set for them."
+
+msgid "Sie stellen Fragen zur Satzung; die Antwort entsteht per KI aus den dafür freigegebenen Dokumenten. Dazu stimmen Sie einmal zu, die Zustimmung können Sie widerrufen."
+msgstr "You ask questions about the statute; the answer is generated by AI from the documents released for this purpose. You agree to this once, and you can withdraw your consent."
+
+msgid "Hier verwalten Sie Ihre Mailinglisten, schreiben Direktnachrichten und lesen Ihr Postfach. Vorstand und Administration legen zusätzlich Mailinglisten an und verschicken Nachrichten an sie."
+msgstr "Here you manage your mailing lists, write direct messages and read your mailbox. The board and the administration also create mailing lists and send messages to them."
+
+msgid "Hier sehen Sie die aktiven Mitglieder Ihres Landesverbands und können nach Name oder E-Mail suchen. Der Zugang gilt nur, solange Ihr Amt im Landesverband aktiv ist."
+msgstr "Here you see the active members of your regional chapter and can search by name or email. Access applies only as long as your office in the regional chapter is active."
+
+msgid "Der Mitglieder-Finder ist freiwillig und erst nach Ihrer Einwilligung nutzbar. Eine Verbindung zu einem anderen Mitglied entsteht nur, wenn dieses der Anfrage zustimmt."
+msgstr "The member finder is voluntary and can be used only after your consent. A connection to another member comes about only if that member agrees to the request."
+
+msgid "Hier schreiben Sie Artikel und reichen sie zur Freigabe ein. Vorstand und Administration geben Artikel frei, lehnen sie ab oder nehmen veröffentlichte wieder von der Webseite."
+msgstr "Here you write articles and submit them for approval. The board and the administration approve articles, reject them or take published ones off the website again."
+
+msgid "Hier starten Sie eine Online-Spende mit Betrag und Verwendungszweck; bezahlt wird anschließend beim Zahlungsdienstleister. Ob Online-Spenden möglich sind, legt Ihre Organisation fest."
+msgstr "Here you start an online donation with an amount and a purpose; you then pay with the payment provider. Whether online donations are possible is decided by your organization."
+
+msgid "Hier können Sie Ihre gespeicherten Daten einsehen und exportieren sowie die Löschung beantragen. Eine Löschung wird nur beantragt; über den Antrag entscheidet die Administration."
+msgstr "Here you can view and export your stored data and request deletion. A deletion is only requested; the administration decides on the request."
+
+msgid "Hier erfassen Sie Reisekostenanträge als Entwurf, laden Belege hoch und reichen den Antrag zur Freigabe ein. Ihre Anträge sehen Sie unter Meine Anträge."
+msgstr "Here you record travel expense claims as a draft, upload receipts and submit the request for approval. You see your requests under My requests."
+
+msgid "Hier beantragen Sie Zahlungen für Ehrenamts- und Übungsleiterpauschalen und reichen sie ein. Ihre bisherigen Zahlungen sehen Sie unter Meine Zahlungen."
+msgstr "Here you apply for payments of volunteer and trainer allowances and submit them. You see your previous payments under My payments."
+
+msgid "Hier sehen Sie die offenen Helferschichten geplanter Veranstaltungen und melden sich an. Eine Zusage können Sie wieder zurückziehen."
+msgstr "Here you see the open volunteer shifts of planned events and sign up. You can withdraw a commitment again."
+
+msgid "Hier sehen Sie die geplanten Veranstaltungen Ihrer Organisation und können sich anmelden oder wieder abmelden. Bei Online-Veranstaltungen ist die Teilnahme ebenfalls hier möglich."
+msgstr "Here you see your organization's planned events and can register or unregister again. For online events, you can also take part here."
+
+msgid "Hier sehen Sie die Gremien mit ihren Mitgliedern und Ämtern. Gremien anlegen und Mitglieder hinzufügen oder entfernen können Vorstand und Administration."
+msgstr "Here you see the committees with their members and offices. The board and the administration can create committees and add or remove members."
+
+msgid "Hier sehen Sie die Sitzungen der Gremien mit Tagesordnung, Anwesenheit und Beschlüssen. Erfassen können das Vorstand, Administration und die Leitung des jeweiligen Gremiums."
+msgstr "Here you see the committees' meetings with agenda, attendance and resolutions. The board, the administration and the leadership of the committee concerned can record these."
+
+msgid "Hier reichen Sie Anträge an Gremien ein und verfolgen ihren Stand bis zum Beschluss. Prüfen, terminieren und entscheiden können Vorstand, Administration und die Leitung des Gremiums."
+msgstr "Here you submit motions to committees and follow their status through to the resolution. The board, the administration and the committee leadership can review, schedule and decide."
+
+msgid "Hier sehen Sie die Wahlen Ihrer Organisation und geben Ihre Stimme ab, wenn Sie wahlberechtigt sind. Eröffnet wird eine Wahl nicht hier, sondern aus einem terminierten Antrag."
+msgstr "Here you see your organization's elections and cast your vote if you are eligible. An election is not opened here but from a scheduled motion."
+
+msgid "Beim Konsensieren bewerten Sie jede Option mit einem Widerstand von 0 bis 10; die Option mit dem geringsten Widerstand gewinnt. Eröffnet wird es aus einem terminierten Antrag."
+msgstr "In consensus voting you rate every option with a resistance from 0 to 10; the option with the lowest resistance wins. It is opened from a scheduled motion."
+
+msgid "Umfragen sind unverbindliche Stimmungsbilder unter den Mitgliedern. Ihre Antwort ist anonym, das Ergebnis sehen Sie erst nach dem Ende der Umfrage."
+msgstr "Polls are non-binding snapshots of opinion among the members. Your answer is anonymous, and you see the result only after the poll has ended."
+
+msgid "Hier sehen Sie Ihren LTR-Kontostand und Ihre Buchungen und können LTR an andere Mitglieder senden. Senden kann nur, wer aktives Mitglied ist."
+msgstr "Here you see your LTR balance and your bookings and can send LTR to other members. Only active members can send."
+
+msgid "Hier reichen Sie Projekte mit einem LTR-Einsatz ein und bewerten freigegebene Projekte mit Like oder Dislike. Der Einsatz wird nicht zurückgebucht."
+msgstr "Here you submit projects with an LTR stake and rate approved projects with Like or Dislike. The stake is not booked back."
+
+msgid "Hier bieten Sie auf Angebote anderer Mitglieder oder stellen selbst eines ein; geboten wird in LTR. Ob die Auktion eingeschaltet ist, legt die Administration fest."
+msgstr "Here you bid on offers from other members or list one yourself; bids are placed in LTR. The administration decides whether the auction is switched on."
+
+msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie mit Like oder Dislike. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
+msgstr "Here you see the politician profiles as a ranking and rate them with Like or Dislike. The administration decides whether this function is switched on."
+
+msgid "Die Timeline zeigt die Beiträge der Mitglieder. Sie können eigene Beiträge veröffentlichen und auf andere antworten."
+msgstr "The timeline shows the members' posts. You can publish your own posts and reply to others."
+
+msgid "Hier prüfen Sie Beitrags-Entwürfe, die ein verbundener KI-Agent für Sie abgelegt hat. Sie bearbeiten, veröffentlichen oder verwerfen sie; Verworfenes lässt sich zeitweise wiederherstellen."
+msgstr "Here you review post drafts that a connected AI agent has left for you. You edit, publish or discard them; discarded drafts can be restored for a limited time."
+
+msgid "Hier sehen Sie den Kontenplan und das Journal mit allen Buchungen. Neue Buchungen und Konten legen Schatzmeisterei und Administration an."
+msgstr "Here you see the chart of accounts and the journal with all bookings. New bookings and accounts are created by the treasury and the administration."
+
+msgid "Hier sehen Sie offene Posten, also noch nicht bezahlte Forderungen, getrennt nach Kreditoren und Debitoren. Erfassen können sie Schatzmeisterei und Administration."
+msgstr "Here you see open items, that is, receivables that have not been paid yet, separated into creditors and debtors. The treasury and the administration can record them."
+
+msgid "Hier sehen Sie GuV, Bilanz und Jahresabschluss und exportieren Daten für DATEV oder andere Buchhaltungsprogramme."
+msgstr "Here you see the profit and loss statement, the balance sheet and the annual financial statements, and export data for DATEV or other accounting software."
+
+msgid "Hier sehen Sie die Vier-Sphären-Rechnung, die Mittelverwendung und die USt-Voranmeldung als Vorschau."
+msgstr "Here you see the four-sphere statement, the use of funds and the VAT advance return as a preview."
+
+msgid "Hier verwalten Sie Kostenstellen, also Bereiche, denen Ausgaben zugeordnet werden. Anlegen können sie Schatzmeisterei und Administration."
+msgstr "Here you manage cost centers, that is, areas to which expenses are assigned. The treasury and the administration can create them."
+
+msgid "Hier verwalten Sie Spender, die keine Mitglieder sind. Anlegen können sie Schatzmeisterei und Administration."
+msgstr "Here you manage donors who are not members. The treasury and the administration can create them."
+
+msgid "Hier sehen Sie das Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und Spendenprüfungen. Einträge lassen sich hier nur lesen, nicht ändern oder löschen."
+msgstr "Here you see the log of all bookings, resolutions, board memberships and donation checks. Entries can only be read here, not changed or deleted."
+
+msgid "Hier sehen Sie, welche Briefe bereits verschickt wurden. Neue Versendungen starten Sie bei Beitragsrechnung, Spendenbescheinigung oder Sitzungseinladung."
+msgstr "Here you see which letters have already been sent. You start new mailings from a contribution invoice, a donation receipt or a meeting invitation."
+
+msgid "Hier sehen Sie das Price-Oracle, also die Quelle für Umrechnungskurse. Einstellungen ändern kann nur die Administration."
+msgstr "Here you see the price oracle, that is, the source of exchange rates. Only the administration can change the settings."
+
+msgid "Hier verwalten Sie SEPA-Mandate, also die Erlaubnis, Beiträge vom Konto einzuziehen. Im Auftrag eines Mitglieds erfassen sie Schatzmeisterei und Administration."
+msgstr "Here you manage SEPA mandates, that is, the permission to collect contributions from the bank account. The treasury and the administration can record one on behalf of a member."
+
+msgid "Hier bereiten Sie SEPA-Lastschriften vor, also den Einzug vom Bankkonto, erzeugen die Datei für die Bank und erfassen Rückläufer."
+msgstr "Here you prepare SEPA direct debits, that is, collection from the bank account, create the file for the bank and record returned debits."
+
+msgid "Hier sehen Sie die Mahnvorgänge zu offenen Beiträgen. Mahnungen ausstellen und Vorgänge zurücksetzen können Schatzmeisterei und Administration."
+msgstr "Here you see the dunning cases for open contributions. The treasury and the administration can issue reminders and reset cases."
+
+msgid "Hier sehen Sie eingegangene Zahlungen und ob sie schon gebucht sind."
+msgstr "Here you see received payments and whether they have already been booked."
+
+msgid "Hier verwalten Sie die Bankkonten der Organisation."
+msgstr "Here you manage the organization's bank accounts."
+
+msgid "Hier laden Sie Kontoauszüge hoch und ordnen deren Zeilen zu. Hochladen und zuordnen können Schatzmeisterei und Administration."
+msgstr "Here you upload bank statements and assign their lines. The treasury and the administration can upload and assign."
+
+msgid "Hier legen Sie Mitgliedschaftsstufen mit Beitrag, Intervall und Zahlungsziel fest. Eine Stufe wird nicht gelöscht, sondern geschlossen."
+msgstr "Here you set membership tiers with contribution, interval and payment term. A tier is not deleted but closed."
+
+msgid "Hier entscheiden Sie über Anträge auf Beitragsvergünstigung oder Stundung. Den eigenen Antrag entscheiden Sie nicht selbst."
+msgstr "Here you decide on requests for a contribution reduction or a deferral. You do not decide on your own request yourself."
+
+msgid "Hier entscheiden Sie über eingereichte Reisekostenanträge und erzeugen eine SEPA-Überweisungsdatei für gebuchte Anträge. Die Sätze pflegt die Administration."
+msgstr "Here you decide on submitted travel expense requests and create a SEPA credit transfer file for booked requests. The administration maintains the rates."
+
+msgid "Hier geben Sie Anträge auf Ehrenamts- und Übungsleiterpauschalen frei oder lehnen sie ab."
+msgstr "Here you approve or reject requests for volunteer and trainer allowances."
+
+msgid "Hier verwalten Sie die Mitglieder mit Status, Rolle und Stammdaten. Neue Mitglieder legen Vorstand und Administration an."
+msgstr "Here you manage the members with status, role and master data. New members are created by the board and the administration."
+
+msgid "Hier verwalten Sie die Landesverbände. Der Vorstand pflegt Wappen und öffentliche Beschreibung, alles Übrige die Administration."
+msgstr "Here you manage the regional chapters. The board maintains the crest and the public description, the administration everything else."
+
+msgid "Hier führen Sie die Datenschutz-Dokumentation Ihrer Organisation und erfassen Datenpannen."
+msgstr "Here you keep your organization's data protection documentation and record data breaches."
+
+msgid "Hier sehen Sie, wer im Vorstand ist. Wechsel erzeugen eine Erinnerung für das Transparenzregister, das amtliche Register der wirtschaftlich Berechtigten."
+msgstr "Here you see who is on the board. Changes create a reminder for the transparency register, the official register of beneficial owners."
+
+msgid "Hier bearbeiten Sie Meldungen zu Beiträgen. Löschanträge entscheidet die Administration."
+msgstr "Here you handle reports about posts. The administration decides on deletion requests."
+
+msgid "Hier verwalten Sie API-Schlüssel, also Zugang für andere Programme zur lesenden Schnittstelle. Pro Schlüssel kann ein Webhook eingerichtet werden."
+msgstr "Here you manage API keys, that is, access for other programs to the read-only interface. A webhook can be set up for each key."
+
+msgid "Hier verwalten Sie Kontakte und Interessenten, getrennt von Mitgliedern und Spendern."
+msgstr "Here you manage contacts and prospects, separate from members and donors."
+
+msgid "Hier planen Sie Veranstaltungen und verwalten Anmeldungen."
+msgstr "Here you plan events and manage registrations."
+
+msgid "Hier wählen Sie eine Veranstaltung, um Tickets am Einlass zu prüfen."
+msgstr "Here you choose an event in order to check tickets at the entrance."
+
+msgid "Hier verwalten Sie Räume für Veranstaltungen."
+msgstr "Here you manage rooms for events."
+
+msgid "Hier verwalten Sie Catering-Bestellungen je Veranstaltung."
+msgstr "Here you manage catering orders for each event."
+
+msgid "Hier planen Sie Helferschichten je Veranstaltung."
+msgstr "Here you plan volunteer shifts for each event."
+
+msgid "Hier sehen Sie, wo Mitglieder wohnen, nach Postleitzahl."
+msgstr "Here you see where members live, by postal code."
+
+msgid "Hier sehen Sie die Entwicklung der Mitgliederzahl und exportieren sie als CSV."
+msgstr "Here you see how the number of members develops and export it as CSV."
+
+msgid "Hier exportieren Sie alle Organisationsdaten und stellen sie wieder her. Das ist der Administration vorbehalten."
+msgstr "Here you export all organization data and restore it. This is reserved for the administration."
+
+msgid "Hier verwalten Sie die externen Stream-Ziele (RTMP), zu denen Moderierende eine Besprechung live übertragen können. Den Stream-Schlüssel sehen Sie nach dem Speichern nicht mehr."
+msgstr "Here you manage the external stream destinations (RTMP) to which moderators can broadcast a meeting live. You can no longer see the stream key after saving."
+
+msgid "Hier schalten Sie SEPA-Lastschriften ein oder aus und pflegen die Gläubigerdaten der Organisation."
+msgstr "Here you switch SEPA direct debits on or off and maintain the organization's creditor details."
+
+msgid "Hier stellen Sie Sätze und Regeln für Reisekosten ein."
+msgstr "Here you set rates and rules for travel expenses."
+
+msgid "Hier stellen Sie die Online-Zahlung ein und ordnen sie Konten zu."
+msgstr "Here you set up online payment and assign it to accounts."
+
+msgid "Hier stellen Sie das Mahnwesen und die Mahnstufen ein, also wie oft und wie deutlich erinnert wird."
+msgstr "Here you set up dunning and the dunning levels, that is, how often and how clearly reminders are sent."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Version v%1 von %2 herunterladen"
+msgstr "Download version v%1 of %2"
+
+msgid "Hinweis anzeigen"
+msgstr "Show hint"
+
+msgid "Einführung dieser Seite anzeigen"
+msgstr "Show the introduction to this page"
+
+msgid "Einführung einklappen"
+msgstr "Collapse introduction"
+
+msgid "Einführungen wieder aufklappen"
+msgstr "Expand introductions again"
+
+msgid "Mahnstufe \"%1\" deaktivieren"
+msgstr "Deactivate dunning level \"%1\""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Kosten hinzufügen"
+msgstr "Add costs"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Kostenart"
+msgstr "Cost type"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Angaben"
+msgstr "Details"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "%1 entfernen"
+msgstr "Remove %1"
+
+msgid "Noch keine Gremien angelegt."
+msgstr "No committees have been created yet."
+
+msgid "Beschlussfähig ab"
+msgstr "Quorum from"
+
+msgid "%1 von %2 (%3 %)"
+msgstr "%1 of %2 (%3 %)"
+
+msgid "Eine Sitzung ist beschlussfähig, wenn mindestens %1 % der Mitglieder anwesend oder vertreten sind."
+msgstr "A meeting has a quorum when at least %1 % of the members are present or represented."
+
+msgid "Eine Sitzung ist beschlussfähig, wenn mindestens %1 von %2 Mitgliedern (%3 %) anwesend oder vertreten sind."
+msgstr "A meeting has a quorum when at least %1 of %2 members (%3 %) are present or represented."
+
+msgid "Genau die Hälfte (%1 von %2) genügt bereits; mehr als die Hälfte wären %3."
+msgstr "Exactly half (%1 of %2) is already enough; more than half would be %3."
+
+msgid "Die Zahlen zeigen den aktuellen Stand."
+msgstr "The numbers show the current state."
+
+msgid "Das Gremium konnte nicht geladen werden."
+msgstr "The committee could not be loaded."
+
+msgid "Dieses Gremium wurde nicht gefunden."
+msgstr "This committee was not found."
+
+msgid "Gremium: %1"
+msgstr "Committee: %1"
+
+msgid "Gremium bearbeiten"
+msgstr "Edit committee"
+
+msgid "Mitgliedschaft von %1 in %2 beenden"
+msgstr "End membership of %1 in %2"
+
+msgid "Art/Ort"
+msgstr "Kind/Place"
+
+msgid "Vergangene Sitzungen"
+msgstr "Past meetings"
+
+msgid "Diese Sitzung wurde nicht gefunden."
+msgstr "This meeting was not found."
+
+msgid "Tagesordnungspunkt \"%1\" entfernen"
+msgstr "Remove agenda item \"%1\""
+
+msgid "Beginn der Reise"
+msgstr "Start of trip"
+
+msgid "Ende der Reise"
+msgstr "End of trip"
+
+msgid "Rückkehr oder Ankunft; bei einer einfachen Fahrt die Ankunft am Ziel"
+msgstr "Return or arrival; for a one-way trip, the arrival at the destination"
+
+msgid "(Abzüge: %1)"
+msgstr "(deductions: %1)"
+
+msgid "* Ohne diese Angabe wird für den Tag kein Tagegeld berechnet."
+msgstr "* Without this entry no daily allowance is calculated for the day."
+
+msgid "Zur Liste"
+msgstr "To the list"
+
+msgid "Auswahl ändern"
+msgstr "Change selection"
+
+msgid "Bewertung ändern"
+msgstr "Change rating"
+
+msgid "Stimmabgabe verlassen"
+msgstr "Leave voting"
+
+msgid "Bewertung verlassen"
+msgstr "Leave rating"
+
+msgid "Bearbeiten: %1"
+msgstr "Edit: %1"
+
+msgid "Deaktivieren: %1"
+msgstr "Deactivate: %1"
+
+msgid "Aktivieren: %1"
+msgstr "Activate: %1"
+
+msgid "Löschen: %1"
+msgstr "Delete: %1"
+
+msgid "Stornieren: %1"
+msgstr "Cancel: %1"
+
+msgid "Zusagen anzeigen: %1"
+msgstr "Show sign-ups: %1"
+
+msgid "Zusagen: %1"
+msgstr "Sign-ups: %1"
+
+msgid "Kapazität"
+msgstr "Capacity"
+
+msgid "Ausstattung"
+msgstr "Equipment"
+
+msgid "Besetzung"
+msgstr "Staffing"
+
+msgid "Allergene/Hinweise"
+msgstr "Allergens/notes"
+
+msgid "Platzhalter aktiv"
+msgstr "Placeholder active"
+
+msgid "Eigene Fassung"
+msgstr "Own version"
+
+msgid "Entwurf offen"
+msgstr "Draft open"
+
+msgid "Diesen Vertragstext gibt es nicht."
+msgstr "This agreement text does not exist."
+
+msgid "Vertragstext: %1"
+msgstr "Agreement text: %1"
+
+msgid "Aktuelle Fassung: %1"
+msgstr "Current version: %1"
+
+msgid "In diesem kurzen Text sind Überschriften, Listen, Zitate und Codeblöcke nicht erlaubt."
+msgstr "Headings, lists, quotes and code blocks are not allowed in this short text."
+
+msgid "In Überschrift und Kernpunkten (Absatz 1 bis 4) sind Überschriften, Listen, Zitate und Codeblöcke nicht erlaubt."
+msgstr "Headings, lists, quotes and code blocks are not allowed in the headline and key points (paragraphs 1 to 4)."
+
+msgid "Die bisherige Fassung ist einfacher Text. Die neue Fassung wird als Markdown gespeichert: Aufzählungen beginnen mit \"- \" (ein Punktzeichen wird nicht umgewandelt), Absätze trennt eine Leerzeile."
+msgstr "The previous version is plain text. The new version is saved as Markdown: bullet lists start with \"- \" (a bullet character is not converted), paragraphs are separated by a blank line."
+
+msgid "Kurzhilfe: Formatierung"
+msgstr "Quick help: formatting"
+
+msgid "Zeilenumbrüche bleiben erhalten. Verlinkt werden nur Adressen, die mit https:// oder mailto: beginnen (klein geschrieben). Bilder und eingebettetes HTML werden nicht dargestellt."
+msgstr "Line breaks are kept. Only addresses that start with https:// or mailto: (lower case) become links. Images and embedded HTML are not displayed."
+
+msgid "Vorschau – so sehen Mitglieder den Text"
+msgstr "Preview – how members see the text"
+
+msgid "Für diesen Text ist keine Vorschau möglich. Bitte beheben Sie den Fehler im Feld links."
+msgstr "No preview is possible for this text. Please fix the error in the field on the left."
+
+msgid "Verlauf der Fassungen"
+msgstr "Version history"
+
+msgid "Fassung"
+msgstr "Version"
+
+msgid "Prüfsumme"
+msgstr "Checksum"
+
+msgid "Markdown"
+msgstr "Markdown"
+
+msgid "Einfacher Text"
+msgstr "Plain text"
+
+msgid "Text anzeigen: %1"
+msgstr "Show text: %1"
+
+msgid "Bitte den Entwurf erneut speichern, bevor er veröffentlicht werden kann."
+msgstr "Please save the draft again before it can be published."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Anlagen"
+msgstr "Attachments"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Anlagen gehören zur ganzen Reise, zum Beispiel eine Einladung oder ein Reiseplan. Belege zu einzelnen Kosten laden Sie bei der jeweiligen Kostenzeile hoch."
+msgstr "Attachments belong to the whole trip, for example an invitation or an itinerary. Upload receipts for individual costs on the respective cost line."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Keine Anlagen."
+msgstr "No attachments."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "„%1“ herunterladen"
+msgstr "Download “%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "„%1“ entfernen"
+msgstr "Remove “%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Nach dem Einreichen können Anlagen nicht mehr geändert werden."
+msgstr "After submission, attachments can no longer be changed."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "PDF, JPEG oder PNG, höchstens 10 MB pro Datei, bis zu %1 Anlagen."
+msgstr "PDF, JPEG or PNG, at most 10 MB per file, up to %1 attachments."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Höchstens %1 Anlagen pro Abrechnung."
+msgstr "At most %1 attachments per expense report."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Anlage hinzufügen"
+msgstr "Add attachment"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Es sind nur noch %1 Anlagen möglich; die übrigen Dateien wurden nicht übernommen."
+msgstr "Only %1 more attachments are possible; the remaining files were not added."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Hochgeladen"
+msgstr "Uploaded"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "„%1“: %2"
+msgstr "“%1”: %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Belege"
+msgstr "Receipts"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "PDF, JPEG oder PNG, höchstens 10 MB pro Datei, bis zu %1 Belege."
+msgstr "PDF, JPEG or PNG, at most 10 MB per file, up to %1 receipts."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Dateien auswählen"
+msgstr "Choose files"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Foto aufnehmen"
+msgstr "Take photo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Ohne Beleg kann die Abrechnung nicht eingereicht werden. Sie können ihn auch später an der Zeile ergänzen."
+msgstr "Without a receipt the expense report cannot be submitted. You can also add it to the line later."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "Höchstens %1 Belege pro Zeile."
+msgstr "At most %1 receipts per line."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseReceiptPicker.kt
+msgid "„%1“ aus der Auswahl entfernen"
+msgstr "Remove “%1” from the selection"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Nicht alle Belege wurden hochgeladen."
+msgstr "Not all receipts were uploaded."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Nicht hochgeladen:"
+msgstr "Not uploaded:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Erneut hochladen"
+msgstr "Upload again"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "„%1“ erneut hochladen"
+msgstr "Upload “%1” again"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "„%1“ verwerfen"
+msgstr "Discard “%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ hat ein nicht unterstütztes Format. Erlaubt sind PDF, JPEG und PNG."
+msgstr "“%1” has an unsupported format. Allowed are PDF, JPEG and PNG."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ ist zu groß (höchstens 10 MB pro Datei)."
+msgstr "“%1” is too large (at most 10 MB per file)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Die Abrechnung kann nicht mehr geändert werden oder die Höchstzahl ist erreicht."
+msgstr "The expense report can no longer be changed, or the maximum number has been reached."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Zu viele Anfragen – bitte kurz warten und erneut versuchen."
+msgstr "Too many requests – please wait a moment and try again."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "%1 Anlage hochgeladen."
+msgid_plural "%1 Anlagen hochgeladen."
+msgstr[0] "%1 attachment uploaded."
+msgstr[1] "%1 attachments uploaded."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt
+msgid "Zeile hinzugefügt, %1 Beleg hochgeladen."
+msgid_plural "Zeile hinzugefügt, %1 Belege hochgeladen."
+msgstr[0] "Line added, %1 receipt uploaded."
+msgstr[1] "Line added, %1 receipts uploaded."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Datei nach Rückzug/Ablehnung gelöscht"
+msgstr "File deleted after withdrawal/rejection"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt
+msgid "Ein Upload läuft noch. Bitte wählen Sie die Dateien danach erneut aus."
+msgstr "An upload is still running. Please select the files again afterwards."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
+msgid "Reisekosten-Unterlage"
+msgstr "Travel expense document"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PageIntros.kt
+msgid "Hier stellen Sie Sätze und Regeln für Reisekosten ein und pflegen die Unterlagen für Mitglieder."
+msgstr "Here you set the rates and rules for travel expenses and manage the documents for members."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ hat ein nicht unterstütztes Format. Erlaubt sind PDF und Excel (.xlsx, .xls)."
+msgstr "“%1” has an unsupported format. Allowed are PDF and Excel (.xlsx, .xls)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ ist größer als 10 MB."
+msgstr "“%1” is larger than 10 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ enthält Makros. Bitte speichern Sie die Datei ohne Makros (.xlsx) und laden Sie sie erneut hoch."
+msgstr "“%1” contains macros. Please save the file without macros (.xlsx) and upload it again."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "„%1“ ist verschlüsselt oder passwortgeschützt. Bitte laden Sie eine unverschlüsselte Datei hoch."
+msgstr "“%1” is encrypted or password-protected. Please upload an unencrypted file."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Es sind höchstens %1 Unterlagen möglich. Bitte löschen Sie zuerst eine."
+msgstr "At most %1 documents are possible. Please delete one first."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseHttp.kt
+msgid "Dafür fehlt Ihnen die Berechtigung."
+msgstr "You do not have permission to do this."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSettingsScreen.kt
+msgid "Die Erstattungssätze und den Ansprechpartner pflegt die Administration."
+msgstr "The administration maintains the reimbursement rates and the contact person."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelContactHintEditor.kt
+msgid "%1 / %2 Zeichen"
+msgstr "%1 / %2 characters"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelContactHintEditor.kt
+msgid "Der bisherige Text ist einfacher Text. Sobald Sie ihn ändern, wird er als Markdown gespeichert: Absätze trennt eine Leerzeile, Aufzählungen beginnen mit \"- \"."
+msgstr "The current text is plain text. As soon as you change it, it is saved as Markdown: a blank line separates paragraphs, lists start with \"- \"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelContactHintEditor.kt
+msgid "Formatierung (Markdown): **fett**, *kursiv*, \"- \" für eine Aufzählung, [Linktext](https://beispiel.de). Eine Leerzeile beginnt einen neuen Absatz. Bilder und eingebettetes HTML werden nicht dargestellt."
+msgstr "Formatting (Markdown): **bold**, *italic*, \"- \" for a list, [link text](https://beispiel.de). A blank line starts a new paragraph. Images and embedded HTML are not displayed."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelContactHintEditor.kt
+msgid "Für diesen Text ist keine Vorschau möglich. Bitte kürzen Sie ihn."
+msgstr "No preview is possible for this text. Please shorten it."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Excel"
+msgstr "Excel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Unterlagen für Mitglieder"
+msgstr "Documents for members"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Diese Dateien sehen alle Mitglieder auf der Seite Reisekosten, zum Beispiel die Reisekostenordnung, Beschlüsse oder Formulare."
+msgstr "All members see these files on the Travel expenses page, for example the travel expense policy, resolutions or forms."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Änderungen an dieser Stelle gelten sofort. Sie müssen dafür nicht oben auf Speichern klicken."
+msgstr "Changes here take effect immediately. You do not need to click Save above."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Unterlage hinzufügen"
+msgstr "Add document"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Noch keine Unterlagen."
+msgstr "No documents yet."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Optional. Ohne Titel wird der Dateiname verwendet."
+msgstr "Optional. Without a title the file name is used."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Datei (PDF oder Excel, höchstens 10 MB)"
+msgstr "File (PDF or Excel, at most 10 MB)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Bitte wählen Sie eine Datei aus."
+msgstr "Please choose a file."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ wurde hochgeladen."
+msgstr "“%1” was uploaded."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ umbenennen"
+msgstr "Rename “%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ löschen"
+msgstr "Delete “%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Unterlage umbenennen"
+msgstr "Rename document"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Bitte geben Sie einen Titel ein."
+msgstr "Please enter a title."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Der Titel wurde geändert."
+msgstr "The title was changed."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Die Unterlage gibt es nicht mehr."
+msgstr "This document no longer exists."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Umbenennen fehlgeschlagen."
+msgstr "Renaming failed."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Unterlage löschen"
+msgstr "Delete document"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ wirklich löschen?"
+msgstr "Really delete “%1”?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "Die Datei verschwindet sofort für alle Mitglieder. Das lässt sich nicht rückgängig machen."
+msgstr "The file disappears immediately for all members. This cannot be undone."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt
+msgid "„%1“ wurde gelöscht."
+msgstr "“%1” was deleted."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
+msgid "Unterlagen und Beschlüsse"
+msgstr "Documents and resolutions"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
+msgid "%1 herunterladen (%2, %3)"
+msgstr "Download %1 (%2, %3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
+msgid "Unterlagen verwalten"
+msgstr "Manage documents"

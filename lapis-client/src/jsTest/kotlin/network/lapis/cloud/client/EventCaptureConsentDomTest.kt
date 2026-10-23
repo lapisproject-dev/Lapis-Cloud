@@ -223,4 +223,24 @@ class EventCaptureBannerDomTest {
                 EventCaptureConsentMemory.clear()
             }
         }
+
+    @Test
+    fun aMarkdownNotice_showsPlainSummary_andTheServersHtmlBehindTheDisclosure(): Promise<Unit> =
+        formTest {
+            mountedForm("capture-consent-markdown") { root, element ->
+                val host = root.simplePanel()
+                val markdown =
+                    noticeDto().copy(
+                        fullText = "Quelltext **roh**",
+                        format = network.lapis.cloud.shared.domain.AgreementTextFormat.MARKDOWN,
+                        renderedHtml = "<h3>Einzelheiten</h3>\n<p>Mit <strong>Gewicht</strong>.</p>\n",
+                    )
+                CoroutineScope(Dispatchers.Default).async { awaitEventCaptureNotice(host, markdown, withGuestNotice = false) }
+                awaitUntil("the screen") { element().text().contains("Aufzeichnung im Saal") }
+                val details = assertNotNull(element().querySelector("details") as? HTMLElement)
+                assertEquals("Einzelheiten", details.querySelector(".lapis-agreement-body h3")?.textContent)
+                assertEquals("Gewicht", details.querySelector(".lapis-agreement-body strong")?.textContent)
+                assertFalse(details.text().contains("Quelltext"))
+            }
+        }
 }

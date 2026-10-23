@@ -187,7 +187,7 @@ class AgreementTextRecKindsTest :
     })
 
 private fun Route.registerRecKindRoutes() {
-    fun service(call: ApplicationCall) = AgreementTextAdminService(call)
+    fun service(call: ApplicationCall) = AgreementTextAdminService(call = call)
 
     fun kindOf(call: ApplicationCall) = AgreementTextKind.valueOf(call.request.queryParameters["kind"]!!)
     post("/t/overview") { call.respondText(Json.encodeToString(AgreementTextOverviewDto.serializer(), service(call).getOverview())) }

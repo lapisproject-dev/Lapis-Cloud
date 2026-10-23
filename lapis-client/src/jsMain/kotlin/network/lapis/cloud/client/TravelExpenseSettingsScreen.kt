@@ -9,38 +9,65 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
+import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.ITravelExpenseService
 
 /**
- * Welle V1.9.122 -- the travel expense settings page, `Routes.TRAVEL_EXPENSE_SETTINGS`, **ADMIN only** (the same gate as the writer
- * `ITravelExpenseService.updateTravelExpenseSettings`). It holds everything the PdV form leaves to the instance: the three day-allowance
+ * Welle V1.9.122 -- the travel expense settings page, `Routes.TRAVEL_EXPENSE_SETTINGS`. The settings form is **ADMIN only** (the same gate as the writer
+ * `ITravelExpenseService.updateTravelExpenseSettings`). It holds everything the example form leaves to the instance: the three day-allowance
  * tiers (hours and amounts), the meal deduction percentages, the mileage and passenger rates, the contact person members see on the travel
  * expense screen, and the two optional account mappings the booking needs for an advance and for a donation waiver.
  *
- * The defaults are the **PdV template** (form 2024, notes of 23.07.2025) -- provisional and PdV-specific, NOT the statutory 14/28 EUR; the
- * page says so in a fixed notice. "Standardwerte der PdV-Vorlage übernehmen" only FILLS the form, nothing is saved until the administration
+ * The defaults are the **example template** (based on a 2024 travel-expense form) -- provisional, NOT the statutory 14/28 EUR; the
+ * page says so in a fixed notice. "Beispielwerte der Vorlage übernehmen" only FILLS the form, nothing is saved until the administration
  * presses "Speichern". Every field rule mirrors a server range; the server validates again before the database.
  */
 fun renderTravelExpenseSettingsScreen(container: SimplePanel) {
+    val isAdmin = AppState.hasRole(AccountRole.ADMIN)
+    // V1.9.199: a mixed page -- the settings form keeps the form measure (formSection), the documents table below it uses the full width.
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 700.px
-            marginTop = 24.px
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Reisekosten-Einstellungen"), intro = PageIntros.forRoute(Routes.TRAVEL_EXPENSE_SETTINGS))
+    // Order on the page: the form (ADMIN) first, the documents below it, outside the form.
+    val formRoot = if (isAdmin) root.formSection() else null
+    if (!isAdmin) {
+        root.p(tr("Die Erstattungssätze und den Ansprechpartner pflegt die Administration.")) { addCssClasses("text-muted small") }
+    }
+    val docsHost = root.div()
+
+    fun renderDocuments(rates: TravelExpenseRatesDto) {
+        docsHost.removeAll()
+        renderTravelExpenseDocumentsAdmin(docsHost, rates) {
+            // Documents act at once: only this section is reloaded, never the settings form (unsaved edits above stay).
+            AppScope.launch {
+                val fresh = guarded { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
+                if (fresh ==
+                    null
+                ) {
+                    docsHost.dataErrorState(onRetry = { reloadDocuments(docsHost, ::renderDocuments) })
+                } else {
+                    renderDocuments(fresh)
+                }
+            }
         }
-    root.pageHeader(tr("Reisekosten-Einstellungen"))
-    root.div(
+    }
+    if (formRoot == null) {
+        // BOARD: only the documents. Rates and contact person stay with the administration.
+        reloadDocuments(docsHost, ::renderDocuments)
+        return
+    }
+    formRoot.div(
         tr(
-            "Die Standardwerte stammen aus der PdV-Vorlage (Reisekostenabrechnung 2024, Hinweise vom 23.07.2025) und sind vorläufig. " +
+            "Die Beispielwerte stammen aus einer Vorlage (Reisekostenabrechnung 2024) und sind vorläufig. " +
                 "Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen.",
         ),
         className = "alert alert-warning",
     )
-    val body = root.vPanel(spacing = 8)
+    val body = formRoot.vPanel(spacing = 8)
 
     fun load() {
         body.removeAll()
@@ -54,11 +81,12 @@ fun renderTravelExpenseSettingsScreen(container: SimplePanel) {
                 body.dataErrorState(onRetry = { load() })
                 return@launch
             }
+            renderDocuments(rates)
             val accountOptions =
                 listOf("" to tr("(nicht konfiguriert)")) + untrustedOptions(accounts.map { it.id to "${it.accountNumber} · ${it.name}" })
             val current = travelExpenseSettingsFormValues(rates)
 
-            val templateButton = body.button(tr("Standardwerte der PdV-Vorlage übernehmen"), style = ButtonStyle.OUTLINESECONDARY)
+            val templateButton = body.button(tr("Beispielwerte der Vorlage übernehmen"), style = ButtonStyle.OUTLINESECONDARY)
             val form = body.lapisForm()
 
             form.panel.h2(tr("Tagegeld nach Abwesenheit")) { addCssClass("h6") }
@@ -193,14 +221,7 @@ fun renderTravelExpenseSettingsScreen(container: SimplePanel) {
                     hint = tr("Nur Ziffern, Leerzeichen und + ( ) / -."),
                     rule = { travelExpensePhoneCheck(it) },
                 )
-            val contactHint =
-                form.textAreaField(
-                    label = tr("Hinweistext (Mehr erfahren)"),
-                    rows = 4,
-                    value = current.contactHint,
-                    hint = tr("Reiner Text. Wird unter \"Mehr erfahren\" angezeigt."),
-                    init = { it.maxlength = TravelExpenseAmountRules.MAX_CONTACT_HINT_LENGTH },
-                )
+            val contactHint = form.travelContactHintEditor(current = current.contactHint, format = current.contactHintFormat)
 
             form.panel.h2(tr("Buchung")) { addCssClass("h6") }
             val advanceAccount =
@@ -271,7 +292,8 @@ fun renderTravelExpenseSettingsScreen(container: SimplePanel) {
                                 contactName = contactName.value,
                                 contactEmail = contactEmail.value,
                                 contactPhone = contactPhone.value,
-                                contactHint = contactHint.value,
+                                contactHint = contactHint.field.value,
+                                contactHintFormat = contactHint.formatToSend(),
                                 advanceAccountId = advanceAccount.value,
                                 donationWaiverAccountId = waiverAccount.value,
                             ),
@@ -341,3 +363,14 @@ internal fun travelExpensePhoneCheck(value: String): FieldCheck =
     } else {
         FieldCheck.Invalid(gettext("Bitte nur Ziffern, Leerzeichen und + ( ) / - verwenden."))
     }
+
+/** Loads the rates and hands them to [render]; a failed load is an error state with a retry (R34). */
+private fun reloadDocuments(
+    host: io.kvision.core.Container,
+    render: (TravelExpenseRatesDto) -> Unit,
+) {
+    AppScope.launch {
+        val rates = guarded { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
+        if (rates == null) host.dataErrorState(onRetry = { reloadDocuments(host, render) }) else render(rates)
+    }
+}

@@ -5,7 +5,7 @@ import io.kvision.core.Widget
 import io.kvision.html.Button
 import io.kvision.html.Span
 import io.kvision.html.button
-import io.kvision.panel.hPanel
+import io.kvision.html.div
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.browser.window
@@ -59,30 +59,33 @@ class ConferenceControlsOverflowDomTest {
         moderator: Boolean = true,
         screenLike: Boolean = false,
     ): Rig {
-        val bar =
-            root.hPanel(spacing = 6) {
-                addCssClasses("align-items-center lapis-conference-controls-row")
-                this.width = width.px
-            }
+        // V1.9.184: the REAL three-zone bar (RoomControlBar) with the real compatibility class, so the grid, the zones and the separators
+        // of theme.css are measured, not a flat row.
+        val dock = root.div(className = "lapis-room-bar-dock lapis-room-bar-dock--conference")
+        val roomBar = RoomControlBar(dock, "lapis-room-bar--conference lapis-conference-controls-row")
+        val bar = roomBar.root
+        bar.width = width.px
+        val centre = roomBar.centre
         // the real class of the sheet, so the twin's rule above it (theme.css) applies
-        val sheet = root.vPanel(spacing = 4) { addCssClass("lapis-conference-more-sheet") }
+        val sheet = dock.vPanel(spacing = 4) { addCssClass("lapis-conference-more-sheet") }
         val endClicks = IntArray(1)
         val buttons = linkedMapOf<ConferenceControlSlot, Button>()
         val twins = linkedMapOf<ConferenceControlSlot, Button>()
-        buttons[ConferenceControlSlot.MIC] = bar.conferenceControlButton(ActionIcon.MICROPHONE, "Mikrofon")
-        buttons[ConferenceControlSlot.CAMERA] = bar.conferenceControlButton(ActionIcon.CAMERA, "Kamera")
-        buttons[ConferenceControlSlot.SCREEN] = bar.conferenceControlButton(ActionIcon.SCENE, "Bildschirm teilen")
-        val divider1 = bar.conferenceControlsDivider()
-        val group = bar.conferenceModerationGroup(moderator, {}, {})
-        val divider2 = bar.conferenceControlsDivider()
-        buttons[ConferenceControlSlot.ROSTER] = bar.conferenceControlButton(ActionIcon.PEOPLE, "Teilnehmende")
-        buttons[ConferenceControlSlot.CHAT] = bar.conferenceControlButton(ActionIcon.CHAT, "Chat")
-        buttons[ConferenceControlSlot.VOTE] = bar.conferenceControlButton(ActionIcon.APPROVE, "Abstimmen")
-        buttons[ConferenceControlSlot.MORE] = bar.conferenceControlButton(ActionIcon.SETTINGS, "Mehr")
-        val divider3 = bar.conferenceControlsDivider()
-        // As in ConferenceScreen (V1.9.72): one exit group -- [BACK (breakout)] [END_FOR_ALL (moderator, main room)] [LEAVE].
+        buttons[ConferenceControlSlot.SETTINGS] = roomBar.start.conferenceSettingsButton()
+        buttons[ConferenceControlSlot.MIC] = centre.conferenceControlButton(ActionIcon.MICROPHONE, "Mikrofon")
+        buttons[ConferenceControlSlot.CAMERA] = centre.conferenceControlButton(ActionIcon.CAMERA, "Kamera")
+        buttons[ConferenceControlSlot.SCREEN] = centre.conferenceControlButton(ActionIcon.SCENE, "Bildschirm teilen")
+        val divider3 = roomBar.divider(centre)
+        buttons[ConferenceControlSlot.ROSTER] = centre.conferenceControlButton(ActionIcon.PEOPLE, "Teilnehmende")
+        buttons[ConferenceControlSlot.CHAT] = centre.conferenceControlButton(ActionIcon.CHAT, "Chat")
+        buttons[ConferenceControlSlot.VOTE] = centre.conferenceControlButton(ActionIcon.APPROVE, "Abstimmen")
+        val divider5 = roomBar.divider(centre)
+        val group = centre.conferenceModerationGroup(moderator, {}, {})
+        val divider6 = roomBar.divider(centre)
+        buttons[ConferenceControlSlot.MORE] = centre.conferenceControlButton(ActionIcon.SETTINGS, "Mehr")
+        // As in ConferenceScreen (V1.9.72): one exit group in the end zone -- [BACK (breakout)] [END_FOR_ALL (moderator, main room)] [LEAVE].
         val exit =
-            bar.conferenceExitGroup(
+            roomBar.end.conferenceExitGroup(
                 canEndForAll = moderator && !screenLike,
                 isBreakout = screenLike,
                 onEndForAll = { endClicks[0]++ },
@@ -96,10 +99,13 @@ class ConferenceControlsOverflowDomTest {
             buttons[ConferenceControlSlot.RECORD] = group.recordButton
             buttons[ConferenceControlSlot.STREAM] = group.streamButton
         } else {
-            divider1.hide()
+            divider5.hide()
         }
         val twinLabels =
             mapOf(
+                ConferenceControlSlot.SETTINGS to "Einstellungen",
+                ConferenceControlSlot.MIC to "Mikrofon",
+                ConferenceControlSlot.CAMERA to "Kamera",
                 ConferenceControlSlot.SCREEN to "Bildschirm teilen",
                 ConferenceControlSlot.RECORD to "Aufzeichnung starten",
                 ConferenceControlSlot.STREAM to "Live-Stream starten …",
@@ -123,11 +129,42 @@ class ConferenceControlsOverflowDomTest {
                     buttons.map { (slot, primary) ->
                         OverflowSlot(slot, primary, twins[slot], mirrorPressed = slot == ConferenceControlSlot.ROSTER)
                     },
-                dividers = listOf(divider1 to 1, divider2 to 2, divider3 to 3),
+                dividers = listOf(divider3 to 3, divider5 to 5, divider6 to 6),
                 onChanged = { moved += it },
-                containerGroups = setOfNotNull(if (group != null) 1 else null, CONFERENCE_EXIT_GROUP),
+                containerGroups = setOfNotNull(if (group != null) CONFERENCE_MODERATION_GROUP else null, CONFERENCE_EXIT_GROUP),
+                reservedWidth = RoomControlBar.ZONE_SEPARATORS_RESERVED_PX,
             )
-        return Rig(bar, group, overflow, buttons, twins, listOf(divider1, divider2, divider3), moved, exit, endClicks, sheet)
+        return Rig(bar, group, overflow, buttons, twins, listOf(divider3, divider5, divider6), moved, exit, endClicks, sheet)
+    }
+
+    /**
+     * The row is not clipped: every shown button lies inside the bar, and every button of the centre inside the centre zone. (`scrollWidth` of
+     * the bar says nothing any more -- the centre zone clips with `overflow: clip`, which is no scroll overflow of the bar.)
+     */
+    private fun assertNothingClipped(
+        bar: HTMLElement,
+        context: String,
+    ) {
+        val barRect = bar.getBoundingClientRect()
+        val centre = bar.q(".lapis-room-bar__centre")
+        val centreRect = centre.getBoundingClientRect()
+        for (button in bar.allOf("button").filter { shown(it) }) {
+            val r = button.getBoundingClientRect()
+            assertTrue(
+                r.left >= barRect.left - 0.5 && r.right <= barRect.right + 0.5,
+                "$context: inside the bar: ${r.left}-${r.right} of ${barRect.left}-${barRect.right}",
+            )
+            if (centre.contains(button)) {
+                assertTrue(
+                    r.left >= centreRect.left - 0.5 && r.right <= centreRect.right + 0.5,
+                    "$context: inside the centre zone: ${r.left}-${r.right} of ${centreRect.left}-${centreRect.right}",
+                )
+            }
+        }
+        assertTrue(
+            centre.scrollWidth <= centre.clientWidth + 1,
+            "$context: centre scrollWidth ${centre.scrollWidth} > clientWidth ${centre.clientWidth}",
+        )
     }
 
     @Test
@@ -145,19 +182,7 @@ class ConferenceControlsOverflowDomTest {
             assertTrue(visible.all { shown(it) })
             val tops = visible.map { it.getBoundingClientRect().top }
             assertTrue(tops.all { abs(it - tops.first()) <= 1.0 }, "one row: $tops")
-            val debug =
-                "moved=${rig.overflow.moved()} gap=${window.getComputedStyle(bar).columnGap}/ " +
-                    "pad=${window.getComputedStyle(bar).paddingLeft} " +
-                    visible.joinToString {
-                        "${it.getAttribute(
-                            "aria-label",
-                        )}:${it.getBoundingClientRect().left}-${it.getBoundingClientRect().right}"
-                    } +
-                    " dividers=" + rig.dividers.joinToString { "${it.getElement()?.getBoundingClientRect()?.left}" }
-            assertTrue(
-                bar.scrollWidth <= bar.clientWidth,
-                "nothing is clipped: scrollWidth ${bar.scrollWidth} > clientWidth ${bar.clientWidth} $debug",
-            )
+            assertNothingClipped(bar, "moved=${rig.overflow.moved()}")
             for (fixed in listOf(
                 ConferenceControlSlot.MIC,
                 ConferenceControlSlot.CAMERA,
@@ -179,10 +204,7 @@ class ConferenceControlsOverflowDomTest {
                 val rig = build(root, width, screenLike = true)
                 rig.overflow.recompute()
                 val bar = element().q(".lapis-conference-controls-row")
-                assertTrue(
-                    bar.scrollWidth <= bar.clientWidth,
-                    "width $width: scrollWidth ${bar.scrollWidth} > clientWidth ${bar.clientWidth}",
-                )
+                assertNothingClipped(bar, "width $width")
             }
         }
     }
@@ -278,13 +300,12 @@ class ConferenceControlsOverflowDomTest {
     }
 
     @Test
-    fun at400px_endForAllAndLeaveAreBothInTheBar_inOneRow_notClipped() {
-        // The width model counts conservatively (it adds the column gap on top of the 6 px spacing margins KVision's hPanel puts on the
-        // direct children), so a moderator's bar keeps "Für alle beenden" in the bar from about 390 px; below that it moves LAST into the
-        // sheet (see at280px_... and the order test above, which holds at every width).
+    fun at500px_endForAllAndLeaveAreBothInTheBar_inOneRow_notClipped() {
+        // V1.9.184: the bar carries the gear and two zone separators now, so a moderator's bar keeps "Für alle beenden" in the bar from about
+        // 450 px; below that it moves into the sheet (see at280px_... and the order test above, which holds at every width).
         assertTrue(stylesLoaded)
-        withMountedRoot("overflow-400-exit") { root, element ->
-            val rig = build(root, 400)
+        withMountedRoot("overflow-500-exit") { root, element ->
+            val rig = build(root, 500)
             rig.overflow.recompute()
             val bar = element().q(".lapis-conference-controls-row")
             assertTrue(ConferenceControlSlot.END_FOR_ALL !in rig.overflow.moved(), "moved=${rig.overflow.moved()}")
@@ -292,7 +313,7 @@ class ConferenceControlsOverflowDomTest {
             val leave = rig.buttons.getValue(ConferenceControlSlot.LEAVE).getElement()!!
             assertTrue(shown(end) && shown(leave))
             assertTrue(abs(end.getBoundingClientRect().top - leave.getBoundingClientRect().top) <= 1.0, "one row")
-            assertTrue(bar.scrollWidth <= bar.clientWidth, "nothing is clipped: ${bar.scrollWidth} > ${bar.clientWidth}")
+            assertNothingClipped(bar, "500")
             val barRect = bar.getBoundingClientRect()
             assertTrue(leave.getBoundingClientRect().right <= barRect.right + 0.5, "Verlassen inside the bar")
         }
@@ -307,10 +328,7 @@ class ConferenceControlsOverflowDomTest {
                     val rig = build(root, width, moderator = moderator)
                     rig.overflow.recompute()
                     val bar = element().q(".lapis-conference-controls-row")
-                    assertTrue(
-                        bar.scrollWidth <= bar.clientWidth,
-                        "moderator $moderator width $width: scrollWidth ${bar.scrollWidth} > clientWidth ${bar.clientWidth}",
-                    )
+                    assertNothingClipped(bar, "moderator $moderator width $width")
                     val leave = rig.buttons.getValue(ConferenceControlSlot.LEAVE).getElement()!!
                     assertTrue(leave.getBoundingClientRect().right <= bar.getBoundingClientRect().right + 0.5, "Verlassen inside at $width")
                 }
@@ -392,7 +410,7 @@ class ConferenceControlsOverflowDomTest {
             val rig = build(root, 1280)
             rig.overflow.recompute()
             assertEquals(emptySet(), rig.overflow.moved())
-            assertTrue(rig.dividers.all { isShown(it) }, "three groups, three dividers")
+            assertTrue(rig.dividers.all { isShown(it) }, "all groups of the centre shown, all dividers shown")
         }
     }
 
@@ -403,7 +421,7 @@ class ConferenceControlsOverflowDomTest {
             val rig = build(root, 1280, moderator = false)
             rig.overflow.recompute()
             val visibleDividers = rig.dividers.map { isShown(it) }
-            assertEquals(listOf(false, true, true), visibleDividers, "no divider for the missing moderation group")
+            assertEquals(listOf(true, false, true), visibleDividers, "no divider for the missing moderation group")
         }
     }
 
@@ -436,6 +454,93 @@ class ConferenceControlsOverflowDomTest {
             val before = rig.overflow.moved()
             rig.overflow.recompute()
             assertEquals(before, rig.overflow.moved(), "a disposed handler does nothing")
+        }
+    }
+
+    // ── V1.9.184: the gear, its twin in the "Mehr" sheet, its panel, and the auto-hide of the dock ─────────────────────────────
+
+    @Test
+    fun theGear_movesIntoTheSheetAtAVeryNarrowBar_asALabelledTwin_andTheTwinClicksTheGear() {
+        assertTrue(stylesLoaded)
+        var found = false
+        for (width in 360 downTo 200 step 10) {
+            withMountedRoot("overflow-gear-$width") { root, _ ->
+                val rig = build(root, width)
+                var clicked = 0
+                rig.buttons.getValue(ConferenceControlSlot.SETTINGS).onClick { clicked++ }
+                rig.overflow.recompute()
+                if (ConferenceControlSlot.SETTINGS in rig.overflow.moved() && !found) {
+                    found = true
+                    val gear = rig.buttons.getValue(ConferenceControlSlot.SETTINGS).getElement()!!
+                    assertTrue(!shown(gear), "width $width: the gear is gone from the bar")
+                    val twin = rig.twins.getValue(ConferenceControlSlot.SETTINGS)
+                    assertTrue(isShown(twin), "width $width: the twin is shown")
+                    assertEquals(
+                        "Einstellungen",
+                        twin
+                            .getElement()!!
+                            .textContent
+                            .orEmpty()
+                            .trim(),
+                        "the twin carries the word",
+                    )
+                    twin.getElement()!!.click()
+                    assertEquals(1, clicked, "the twin clicks the gear")
+                }
+            }
+        }
+        assertTrue(found, "some width moves the gear into the sheet")
+    }
+
+    @Test
+    fun theGear_staysInTheStartZone_whileTheBarIsWide() {
+        assertTrue(stylesLoaded)
+        withMountedRoot("overflow-gear-wide") { root, element ->
+            val rig = build(root, 1200)
+            rig.overflow.recompute()
+            assertTrue(ConferenceControlSlot.SETTINGS !in rig.overflow.moved())
+            val gear = rig.buttons.getValue(ConferenceControlSlot.SETTINGS).getElement()!!
+            assertTrue(shown(gear))
+            assertEquals("Einstellungen", gear.getAttribute("aria-label"))
+            assertTrue(element().q(".lapis-room-bar__start").contains(gear), "the gear is the start zone's control")
+        }
+    }
+
+    @Test
+    fun wireSettingsSheet_tiesTheGearToItsNonModalDialog() {
+        assertTrue(stylesLoaded)
+        withMountedRoot("settings-wire") { root, _ ->
+            val rig = build(root, 600)
+            val gear = rig.buttons.getValue(ConferenceControlSlot.SETTINGS)
+            val sheet = root.vPanel { addCssClass("lapis-conference-settings-sheet") }
+            wireSettingsSheet(gear, sheet)
+            val gearEl = gear.getElement()!!
+            val sheetEl = sheet.getElement()!!
+            assertEquals("dialog", sheetEl.getAttribute("role"))
+            assertEquals("Einstellungen", sheetEl.getAttribute("aria-label"))
+            assertEquals(CONFERENCE_SETTINGS_SHEET_ID, sheetEl.id)
+            assertEquals(CONFERENCE_SETTINGS_SHEET_ID, gearEl.getAttribute("aria-controls"))
+            assertEquals("false", gearEl.getAttribute("aria-expanded"))
+            assertEquals(sheetEl, kotlinx.browser.document.getElementById(gearEl.getAttribute("aria-controls")!!))
+        }
+    }
+
+    @Test
+    fun theHiddenClass_fadesTheWholeDock_surfaceIncluded_notOnlyTheBar() {
+        assertTrue(stylesLoaded)
+        withMountedRoot("dock-hidden") { root, element ->
+            build(root, 600)
+            val dock = element().q(".lapis-room-bar-dock")
+            val bar = element().q(".lapis-room-bar")
+            assertEquals("1", window.getComputedStyle(dock).opacity)
+            dock.classList.add("lapis-conference-controls-hidden")
+            bar.classList.add("lapis-conference-controls-hidden")
+            assertEquals("0", window.getComputedStyle(dock).opacity, "no opaque strip stays behind the faded buttons")
+            assertEquals("none", window.getComputedStyle(dock).getPropertyValue("pointer-events"))
+            assertEquals("none", window.getComputedStyle(bar).getPropertyValue("pointer-events"))
+            dock.classList.remove("lapis-conference-controls-hidden")
+            bar.classList.remove("lapis-conference-controls-hidden")
+            assertEquals("1", window.getComputedStyle(dock).opacity)
         }
     }
 }

@@ -2,7 +2,8 @@
 :toc:
 
 The `/elections` screen drives the whole election lifecycle that `IElectionService` has offered since
-V0.2.4: opening an election from a scheduled motion (yes/no, single or multiple choice; secret or
+V0.2.4: opening an election from a scheduled motion (since V1.9.193 as the way "Wahl" in the motion page's
+selector "Wie soll entschieden werden?"; yes/no, single or multiple choice; secret or
 open; an exact required majority such as two thirds), the election committee (at least three
 members, never members of the target executive board), candidacies, the voting booth (review before
 casting, exactly one request however often the button is clicked), a one-time receipt for secret

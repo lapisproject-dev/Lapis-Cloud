@@ -53,7 +53,7 @@ import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
 fun renderVolunteerAllowanceApprovalsScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
     val root = container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("Ehrenamtspauschalen-Freigaben"))
+    root.pageHeader(tr("Ehrenamtspauschalen-Freigaben"), intro = PageIntros.forRoute(Routes.VOLUNTEER_ALLOWANCE_APPROVALS))
 
     val filterRow = root.lapisToolbar()
     val statusOptions =

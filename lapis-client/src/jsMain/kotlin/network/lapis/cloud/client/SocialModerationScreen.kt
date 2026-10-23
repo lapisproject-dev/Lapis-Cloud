@@ -13,7 +13,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
@@ -45,12 +44,8 @@ import network.lapis.cloud.shared.rpc.ISocialNetworkService
  */
 fun renderSocialModerationScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Moderation"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Moderation"), intro = PageIntros.forRoute(Routes.SOCIAL_MODERATION))
 
     root.h2(tr("Meldungen")) { addCssClass("h5") }
     renderReportQueueSection(root)

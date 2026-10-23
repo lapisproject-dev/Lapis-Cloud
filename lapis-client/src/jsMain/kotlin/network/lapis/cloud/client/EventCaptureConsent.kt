@@ -50,6 +50,8 @@ internal object EventCaptureConsentMemory {
 internal fun Container.renderEventCaptureNotice(notice: EventCaptureNoticeDto) {
     renderEncounterConsentPreview(
         EncounterConsentLayout.Split(headline = notice.headline, keyPoints = notice.keyPoints, text = notice.fullText),
+        format = notice.format,
+        renderedHtml = notice.renderedHtml,
     )
 }
 

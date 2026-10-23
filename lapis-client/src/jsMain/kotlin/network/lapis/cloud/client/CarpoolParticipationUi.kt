@@ -22,7 +22,7 @@ import network.lapis.cloud.shared.domain.CarpoolPostingDto
 import network.lapis.cloud.shared.rpc.ICarpoolService
 
 /**
- * Welle V1.9.125 "Mitfahrten" -- the passenger side of the Mitfahrerzentrale: status badges, "Meine Mitfahrten", the driver's passenger
+ * Welle V1.9.125 "Mitfahrten" -- the passenger side of the Mitfahrzentrale: status badges, "Meine Mitfahrten", the driver's passenger
  * management (list, exact-name search, invitation, meeting note) and the one-click actions with their announcements.
  *
  * **No colour alone**: every state is a badge with an icon (decoration, `aria-hidden`) AND a text; nothing is danger-red -- a declined or
@@ -262,13 +262,20 @@ internal fun renderOwnerPanel(
     row: SimplePanel,
     posting: CarpoolPostingDto,
     ui: CarpoolUi,
+    openRequests: Int = 0,
 ) {
-    val toggle =
-        row.actionButton(
-            ActionIcon.PASSENGERS,
-            if (posting.isPast) tr("Mitfahrer") else tr("Mitfahrer verwalten"),
-            style = ButtonStyle.OUTLINESECONDARY,
-        )
+    // V1.9.186: a compact button in a row of its own (a bare child of the card's column would stretch over the whole width). The number of
+    // OPEN requests (not "new" ones: the DTO has no unseen state) sits inside the button as a small badge instead of in the card header.
+    val toggleRow = row.hPanel(spacing = 8) { addCssClass("mt-1") }
+    val label = if (posting.isPast) tr("Mitfahrer") else tr("Mitfahrer verwalten")
+    val toggle = toggleRow.actionButton(ActionIcon.PASSENGERS, label, style = ButtonStyle.OUTLINESECONDARY, small = true)
+    if (openRequests > 0) {
+        val countText = if (openRequests == 1) gettext("1 offene Anfrage") else gettext("%1 offene Anfragen", openRequests)
+        toggle.span(countText) { addCssClasses("badge rounded-pill text-bg-warning ms-2") }
+        // The badge text is part of the visible name already; an explicit name keeps the order "button, count" stable for a screen reader.
+        val plainLabel = if (posting.isPast) gettext("Mitfahrer") else gettext("Mitfahrer verwalten")
+        toggle.setAttribute("aria-label", resolvedAttributeText(gettext("%1, %2", plainLabel, countText)))
+    }
     toggle.setAttribute("aria-expanded", "false")
     val body = row.vPanel(spacing = 8) { addCssClasses("border-top pt-2 mt-1") }
     body.hide()
@@ -449,9 +456,9 @@ private fun renderMeetingNoteForm(
  */
 internal fun carpoolSidebarLabel(waiting: Int?): String =
     when {
-        waiting == null || waiting <= 0 -> tr("Mitfahrerzentrale")
-        waiting >= MAX_SIDEBAR_COUNT -> gettext("Mitfahrerzentrale (%1)", "$MAX_SIDEBAR_COUNT+")
-        else -> gettext("Mitfahrerzentrale (%1)", waiting)
+        waiting == null || waiting <= 0 -> tr("Mitfahrzentrale")
+        waiting >= MAX_SIDEBAR_COUNT -> gettext("Mitfahrzentrale (%1)", "$MAX_SIDEBAR_COUNT+")
+        else -> gettext("Mitfahrzentrale (%1)", waiting)
     }
 
 private const val MAX_SIDEBAR_COUNT = 99

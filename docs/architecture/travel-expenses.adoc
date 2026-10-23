@@ -25,7 +25,10 @@ Three new tables -- `travel_expense_report` (one row per reimbursement request),
 existing `organization_settings` table (`travel_expense_account_id`,
 `travel_mileage_rate_per_km`, `travel_per_diem_rate`). See
 `lapis-server/src/main/kuml/45-travel-expense.kuml.kts` for the full kUML model and
-`V29__travel_expense.sql` for the migration.
+`V29__travel_expense.sql` for the migration. V1.9.198 adds a fourth table, `travel_expense_attachment`
+(`V113__travel_expense_attachment.sql`): report-level files such as an invitation or an itinerary, see
+"Report attachments (V1.9.198)" below. V1.9.199 adds the organisation-wide `travel_expense_document`
+(`V114__travel_expense_documents.sql`), see "Organisation documents and the Markdown contact hint (V1.9.199)".
 
 [source,kuml,name="travel-expenses"]
 ----
@@ -63,11 +66,18 @@ classDiagram(name = "Travel Expense Reimbursement — ERM excerpt") {
         attribute(name = "mimeType", type = "String") // derived from magic bytes, never the declared Content-Type
         attribute(name = "sha256", type = "String")
     }
+    val travelExpenseAttachment = classOf(name = "TravelExpenseAttachment") { // V1.9.198, hangs off the report, not a line
+        attribute(name = "id", type = "UUID")
+        attribute(name = "storageKey", type = "String") // server-generated: travel-expenses/{report}/attachments/{id}.bin
+        attribute(name = "mimeType", type = "String") // derived from magic bytes
+        attribute(name = "sha256", type = "String")
+    }
     val member = classOf(name = "Member") { attribute(name = "id", type = "UUID") }
     val journalEntry = classOf(name = "JournalEntry") { attribute(name = "id", type = "UUID") }
 
     association(source = travelExpenseReport, target = travelExpenseLine) { target { multiplicity("1..*") } }
     association(source = travelExpenseLine, target = travelExpenseReceipt) { target { multiplicity("0..*") } }
+    association(source = travelExpenseReport, target = travelExpenseAttachment) { target { multiplicity("0..10") } }
     association(source = travelExpenseReport, target = member, id = "subject") { target { multiplicity("1") } }
     association(source = travelExpenseReport, target = journalEntry, id = "posted") { target { multiplicity("0..1") } }
 }
@@ -229,6 +239,115 @@ checklist:
   does neither today -- a pre-existing gap in that route, out of scope for this wave, flagged as a
   follow-up rather than fixed here.
 
+== Report attachments (V1.9.198)
+
+`travel_expense_attachment` holds files that belong to the whole report, not to one cost line. The table mirrors
+`travel_expense_receipt` (server-generated `storage_key`, sniffed `mime_type`, `sha256`, `uploaded_by`), with a foreign key to
+the report instead of the line. `V113` is purely additive; `V29` is not touched (its Flyway checksum must not change). Constraints:
+the MIME allowlist (`chk_tea_mime`), the size range up to 10 MiB (`chk_tea_size`) and unique `storage_key`. The cap of 10
+attachments per report is not a constraint; it is checked under the row lock (below). Attachments do not count against the 50
+receipts of a report, and the reverse.
+
+Routes (`TravelExpenseAttachmentRoutes`, registered next to the receipt routes with the *same* rate limiter instance, so receipts and
+attachments share one budget of 30 requests per minute and member):
+
+* `POST /api/travel-expenses/reports/{reportId}/attachments` -- 201 `{"attachmentId": ...}`
+* `DELETE /api/travel-expenses/attachments/{attachmentId}` -- 204, DRAFT only
+* `GET /api/travel-expenses/attachments/{attachmentId}/download`
+
+Shared upload code. The streaming, size cap, magic-byte sniffing, hashing, file-name sanitising, the download headers and the
+download rule live once in `TravelExpenseFileSupport.kt` and are used by the receipt routes and the attachment routes alike. The
+receipt routes keep their HTTP codes, texts and check order (their tests are unchanged).
+
+* **Authoritative check under a lock.** A cheap pre-check fails fast. The insert transaction re-checks everything from scratch
+  with `forUpdate()` on the *report* row, the row `submitReport`, `withdrawReport` and `decideReport` lock too: existence, who is
+  asking, status (DRAFT only) and the count (below 10). Parallel uploads therefore cannot exceed the cap, and an upload cannot land
+  on a report that has just been submitted. Every refusal and every exception deletes the file that was already written.
+* **Permission before status.** Unlike the receipt route, the attachment route checks "subject or requester" *before* the status, so a
+  foreign member gets 403 and cannot learn the state of someone else's report (the receipt route answers 409 first; left as it is).
+* **Immutable once submitted.** Delete and upload are DRAFT only; there is no replace route. On withdrawal or rejection the files are
+  removed from disk (`deleteUploadedFilesForReport`), the rows stay as the audit trail, and the download then answers 404.
+* **Download rule, one function** (`canDownloadTravelExpenseFile`): subject and requester always; BOARD and ADMIN only after the
+  report left DRAFT; never TREASURER (the same rule as for receipts). Headers: `Content-Disposition: attachment` (RFC 5987),
+  `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-store`, the sniffed content type.
+* **No byte quota per member.** There is none for receipts either; the limits are the counts, 10 MiB per file and the shared rate
+  limit. Worst case per draft: 50 x 10 MiB receipts plus 10 x 10 MiB attachments (600 MiB), with up to 10 open drafts per member.
+* **No virus scan hook** exists in the repository, so none is described or called.
+* **Retention.** Keeping files is the operator's responsibility; no retention period is set here and the legal review is pending.
+  The existing erasure text for receipts (above) is unchanged.
+
+DTO: `TravelExpenseReportDto.attachments` (additive, default empty); the service loads them for a list of reports in one batch
+query (four queries in total, no query per report).
+
+== Organisation documents and the Markdown contact hint (V1.9.199)
+
+`travel_expense_document` (`V114__travel_expense_documents.sql`, additive; `V113` is not edited, its Flyway checksum must not change) holds files that belong to the
+organisation, not to a report: `title` (1..120), server-generated `storage_key`, `original_filename`, the sniffed `mime_type`
+(PDF, XLSX, XLS -- `chk_ted_mime`; the column is `VARCHAR(100)` because the XLSX type is 65 characters long), `size_bytes` (1..10 MiB), `sha256`, a *nullable* `uploaded_by`
+(`ON DELETE SET NULL`) and `uploaded_at`. The same migration widens `organization_settings.travel_contact_hint` to `VARCHAR(2000)`, adds
+`travel_contact_hint_format` (`PLAIN` default | `MARKDOWN`) and widens the `audit_log_entry.entity_type` CHECK by `TRAVEL_EXPENSE_DOCUMENT` (23 characters).
+
+*Deviation from the design text:* the design council specified a `content BYTEA` column. The files live on disk under `travel-expenses/documents/{id}.bin` like
+every other upload of this domain (V29, V113), because the organisation export and restore hang on the `storage_key` column of the blob tables
+(`travel_expense_document` joined `OrganizationExportService.BLOB_TABLES`). Timestamps are `TIMESTAMP` (not `TIMESTAMPTZ`), consistent with V113 and `DbClock`.
+
+[source,kuml,name="travel-expense-documents"]
+----
+classDiagram(name = "Travel Expense Documents — ERM excerpt") {
+    val travelExpenseDocument = classOf(name = "TravelExpenseDocument") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "title", type = "String")
+        attribute(name = "storageKey", type = "String") // server-generated: travel-expenses/documents/{id}.bin
+        attribute(name = "mimeType", type = "String") // sniffed: PDF | XLSX | XLS
+        attribute(name = "sha256", type = "String")
+        attribute(name = "uploadedBy", type = "UUID") // nullable, ON DELETE SET NULL
+    }
+    val member = classOf(name = "Member") { attribute(name = "id", type = "UUID") }
+
+    association(source = travelExpenseDocument, target = member, id = "uploader") { target { multiplicity("0..1") } }
+}
+----
+
+Routes (`TravelExpenseDocumentRoutes`, registered with the *same* rate limiter instance as receipts and attachments):
+
+* `POST /api/travel-expenses/documents` (multipart: optional `title`, the file; either order) -- 201 `{"documentId": ...}`; BOARD/ADMIN
+* `PATCH /api/travel-expenses/documents/{id}` (`{"title": ...}`, JSON content type required) -- 204; BOARD/ADMIN
+* `DELETE /api/travel-expenses/documents/{id}` -- 204; BOARD/ADMIN
+* `GET /api/travel-expenses/documents/{id}/download` -- any signed-in member; unknown id or missing file -> 404
+
+Order for the upload: authentication (401) -> role (403) -> rate limit (429) -> quota fail-fast (409 `limit`) -> streaming (413, 415, 400) -> insert + audit under
+a lock. Every refusal and every exception deletes the file already written. The quota of 10 is re-counted inside the insert transaction under `forUpdate()` on the
+singleton `organization_settings` row, so parallel uploads cannot exceed it (a Postgres scenario covers the race). One instance has exactly one organisation, so
+"another organisation's document" does not exist as a case; a random or unknown id is simply 404.
+
+Upload code is shared, not copied: `streamSingleTravelExpenseFile` gained a `classify` callback (default: the magic-byte allowlist of receipts and attachments,
+unchanged behaviour), an optional collection of text form fields and a file-name fallback. The new `TravelExpenseDocumentSniffer` runs *after* streaming on the complete file:
+
+* *PDF*: `%PDF-` at offset 0; a `/Encrypt` token found by a streaming scan with an overlapping window -> `encrypted`.
+* *XLSX*: an own, bounded ZIP central-directory parser (not `ZipFile`/`ZipInputStream`, which trust header values). Refused: ZIP64, more than 2000 entries, names over 512 bytes,
+  the encryption bit, a missing `[Content_Types].xml` or `xl/workbook.xml`, a duplicated required entry. Macro parts (`vbaProject.bin`, `xl/macrosheets/`, `xl/activeX/`,
+  `xl/embeddings/`, `xl/workbook.bin`) or a `macroEnabled`/`vbaProject` content type -> `macro_content`. Only `[Content_Types].xml` is ever inflated, capped at 256 KiB of *real*
+  output and a 100:1 ratio.
+* *XLS (OLE2)*: header and directory walk through the FAT (visited set, 128 directory sectors at most, sector size 512 or 4096). `EncryptionInfo`/`EncryptedPackage` -> `encrypted`,
+  `_VBA_PROJECT_CUR`/`VBA` -> `macro_content`, no `Workbook`/`Book` stream (a `.doc`) -> `unsupported_type`. More than 109 FAT sectors are refused (no DIFAT chain).
+
+The 415 body is one of three fixed tokens (`unsupported_type`, `macro_content`, `encrypted`), never built from input. The stored name gets the extension of the sniffed type.
+
+Audit: `TRAVEL_EXPENSE_DOCUMENT` with `CREATE` / `UPDATE` / `VOID` (`after = null`; the vocabulary has no delete) and `TravelExpenseDocumentSnapshot` (title, MIME type, size) -- no content, no file name.
+Backup: a blob table. DSGVO: the uploader link is set to `NULL` on erasure (`rowsRetained`: an organisation document is not a personal datum); the Art.-15 export lists the member's uploads as metadata only.
+
+The rates answer carries `documents` (sorted by title) and `canManageDocuments` (BOARD/ADMIN). `uploaderName` is filled only for those two roles; `null` there means a former member.
+`updateTravelExpenseSettings` and the preview stay ADMIN-only: opening the page route to BOARD must not reach the writer (a test pins it).
+
+*Markdown hint.* `TravelExpenseContactDto` gained `hintFormat` (in and out) and `hintHtml` (out only; the server ignores it on input). `TravelContactHintMarkdown` renders through the same sanitizing pipeline as the
+agreement texts (raw HTML escaped, only `http`, `https` and `mailto` links keep an `href`, images become alt text, headings shifted to h2-h4), capped at 2000 characters. The audit snapshot of the settings carries only the flag `contactHintMarkdown`.
+`previewTravelContactHint` is ADMIN-only with its own 30-per-minute budget.
+
+On the client the HTML reaches the page only through `renderAgreementBody` (the one rich site, pinned by `ClientAgreementHtmlTripwireTest`); a plain hint keeps `white-space: pre-line`, a Markdown hint uses
+the modifier class `lapis-te-contact-hint--md` (`white-space: normal`), otherwise the `<br />` of the renderer and the CSS line breaks would double up.
+
+Honest limits are in the changelog entry of V1.9.199.
+
 == DSGVO erasure
 
 A `DRAFT` report (or a `WITHDRAWN` report that was never submitted) has no organizational
@@ -240,6 +359,11 @@ decision note, and the booking reference are retained (Art. 5(2) DSGVO Rechensch
 erasure -- they *are* the accounting voucher. Unlike the V1.4.10 wave's Art. 9 free-text reason,
 there is no automatic redaction sweep here: there is no special-category free text to redact, and
 §147 AO's retention period applies regardless of any later erasure request.
+
+V1.9.198: report attachments follow the receipts. For a deletable report (DRAFT, WITHDRAWN, REJECTED) the attachment files and rows
+are removed *before* the report (foreign key order) and reported as the erasure outcome `travel_expense_attachment`; for a
+retained report both stay. The data export lists attachment metadata (name, type, size, upload time), never the bytes. The
+organization backup treats `travel_expense_attachment` as a blob table: the files travel in the bundle under `blobs/` like receipts.
 
 == What doesn't work yet (this wave)
 
@@ -349,3 +473,14 @@ classDiagram(name = "Travel expense SEPA file — ERM excerpt") {
 * *DSGVO.* Erasing the subject sets `refund_iban_ciphertext`, `refund_iban_last4` and `refund_account_holder` to `NULL` in every status (the organization's bank statement proves the payment; a copy of the member's IBAN is not needed); `sepa_exported_*`
   and the batch rows stay (accountability, section 147 AO) and contain no personal data. The Art.-15 export shows the masked end, the holder and the export mark -- never the ciphertext (same pattern as `PaymentsPersonalData`).
 * *Tests.* `SepaPain001WriterTest` (golden file, structure, limits, escaping), `Target2CalendarTest`, `TravelExpenseSepaExportScenarios` (H2 and PostgreSQL: rights, blockers, four eyes, double export, atomicity, re-export, dates, parallel exports), `TravelExpenseRefundAccountTest`, `TravelExpenseSepaRoutesTest`, `TravelExpenseSepaMigrationTest`, the schema drift and DSGVO tests and `TravelExpenseSepaPanelDomTest`.
+
+== Day rows: labels and the amount cell (V1.9.194)
+
+The time fields of a day row are "Beginn der Reise" and "Ende der Reise" (single day: both; first day: the start and the fixed "bis 24:00"; last day: the end and the fixed
+"ab 00:00"; middle day: "ganztägig (24 Std.)"). One hint on the end field says what it means ("Rückkehr oder Ankunft; bei einer einfachen Fahrt die Ankunft am Ziel"). Both
+fields are marked as required (marker and `aria-required`), but **saving is not blocked** by an empty time: it still means "no allowance that day" and the calculator is
+unchanged. The "Ende before Beginn" check on a single day keeps its message.
+
+The day amount is shown in two lines in the right-hand cell, never cut: "Tagesbetrag: ..." and, only when the day has a result, "(Abzüge: ...)" below it. The numbers come from the
+shared calculator as before.
+

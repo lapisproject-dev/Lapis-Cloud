@@ -13,7 +13,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -47,11 +46,7 @@ import kotlin.time.Duration.Companion.days
  */
 fun renderAiDraftsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
 
     val session = AppState.session
     val mcpEnabled = session?.mcpEnabled == true
@@ -74,6 +69,7 @@ fun renderAiDraftsScreen(container: SimplePanel) {
                 }
             }
         },
+        intro = PageIntros.forRoute(Routes.AI_DRAFTS),
     )
 
     val listPanel = root.vPanel(spacing = 10)

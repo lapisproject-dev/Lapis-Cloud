@@ -1,9 +1,8 @@
-= Travel expense reimbursement (V1.4.11, PdV form V1.9.122, SEPA file V1.9.123)
+= Travel expense reimbursement (V1.4.11, example form V1.9.122, SEPA file V1.9.123)
 :toc:
 
-NOTE: V1.9.122 reworks the editor and the calculation to follow the PdV travel expense form (template 2024, notes of
-23.07.2025). The V1.4.11 text below still describes the state machine, the four-eyes rule, the receipt handling and
-the booking, all unchanged; the sections "PdV form (V1.9.122)" and "Settings and contact person" describe what is new, and the
+NOTE: V1.9.122 reworks the editor and the calculation to follow the example travel expense form (template 2024). The V1.4.11 text below still describes the state machine, the four-eyes rule, the receipt handling and
+the booking, all unchanged; the sections "Example form (V1.9.122)" and "Settings and contact person" describe what is new, and the
 limitations list at the end names what the new model deliberately does not do.
 
 Any authenticated member can file a self-service travel expense report for a board/functionary
@@ -33,7 +32,7 @@ streaming cap, and an IDOR gate on download (subject/requester/BOARD/ADMIN only)
 `docs/architecture/travel-expenses.adoc` for the full state machine, booking shape, and security
 model.
 
-== PdV form (V1.9.122)
+== Example form (V1.9.122)
 
 === The day grid
 
@@ -63,6 +62,36 @@ The position rule lives in `MultiDayRule` -- **the one place** that decides how 
 pays a flat amount for those days on a trip with an overnight stay; the form and the design team ask for a count by hours; this is documented
 as an open question to the treasurer in the CHANGELOG). Night trips across midnight are **not** added up, and a daylight-saving shift is
 ignored (wall clock without a time zone).
+
+=== Further costs: one list, one button (V1.9.191)
+
+Below the day grid, "Weitere Kosten" is one table (Art | Angaben | Betrag | Aktionen). The kind is a word, not a badge or an icon. The second column holds
+the description and, for mileage, per diem and accommodation, one line of detail ("120 km x 0,30/km, 1 Mitfahrer"). Each line has icon-only actions that are named
+after the kind: "Fahrt bearbeiten", "Fahrt entfernen". Lines of the two legacy kinds (per diem, receipted) are listed and can be removed, but not edited.
+
+There is a single button "Kosten hinzufügen". It opens an inline form with a segmented choice of the kind (Fahrt, ÖPNV, Übernachtung, Bewirtung, Sonstiges); the
+first available kind is preselected, and "Fahrt" is greyed out with a hint while no mileage rate is configured. Switching the kind rebuilds the fields; what you
+typed for a kind is kept and comes back if you return to it. "Hinzufügen" sends the line, "Abbrechen" closes the form. Editing opens in place under the line
+without a kind selector (the kind of an existing line is fixed); only one form is open at a time, and the other edit icons are disabled meanwhile. The receipts
+(mandatory for the receipted kinds, an optional map proof for mileage) sit in a row under their line. Nothing changed on the server: the same `addLine` / `updateLine` calls.
+
+=== Receipts in the add form and attachments (V1.9.198)
+
+*Receipts while adding a cost.* For the receipted kinds (public transport, accommodation, hospitality, other) the form "Kosten hinzufügen" has a group "Belege":
+choose files (PDF, JPEG or PNG, up to 10 MB each, up to 5 per line) and, on a phone or tablet, take a photo directly. Chosen files are listed with a remove button
+each. HEIC and WebP photos and files above 10 MB are refused right at the field with a short text. With "Hinzufügen" the line is created first, then the
+files are uploaded one after the other; a status text per file ("Wird hochgeladen...", "Hochgeladen", or the reason) is announced politely. Mileage has no picker; its
+optional map proof stays on the row. You do not have to choose a file: without one the line is added as before and the report cannot be submitted until a receipt
+is added at the line.
+
+*If an upload fails* the line stays. Under it, "Nicht hochgeladen:" lists the files with "Erneut hochladen" and "Verwerfen". The file is only kept in the
+browser's memory: after a reload it is gone, and the hint that the line needs a receipt remains. If the submit button is blocked because a receipt is missing, it stays
+reachable by keyboard; a click moves the focus to the file field of the first affected line.
+
+*Attachments.* The section "Anlagen" (below the further costs) takes documents for the whole trip, for example an invitation or an itinerary: PDF, JPEG or PNG, up to 10 MB
+each, up to 10 per report. They are optional. You can add and remove them while the report is a draft; after submitting they cannot be changed, only downloaded. The
+board sees them with the report (after submission). A withdrawn or rejected report loses its files; the list of names remains. When you copy a report into a
+new draft, receipts and attachments must be uploaded again.
 
 === Tiers, meals, rounding
 
@@ -128,14 +157,14 @@ Two notes appear under a day when a checked meal changes less than its label pro
 The ADMIN-only page **`/travel-expense-settings`** (sidebar: System → Reisekosten-Einstellungen) holds: the three tiers (hours and amounts), the three meal
 percentages, the mileage rate and passenger surcharge, the legacy flat per-day rate (only for reports created before V1.9.122), the two optional account
 mappings (advance, donation waiver) and the **contact person** (name, e-mail, phone, free hint text) that every member sees at the top of the travel
-expense page. "Standardwerte der PdV-Vorlage übernehmen" only **fills the form**; nothing is saved until "Speichern". **This is where the contact
+expense page. "Beispielwerte der Vorlage übernehmen" only **fills the form**; nothing is saved until "Speichern". **This is where the contact
 person is entered** -- the block stays empty ("Kontaktdaten werden noch ergänzt.") until an administrator does so; nothing is pre-filled.
 
 Ranges (validated by the server before the database): tier hours 1 ≤ h1 < h2 < h3 ≤ 24; tier amounts 0 ≤ a1 ≤ a2 ≤ a3 ≤ 100,00 EUR; meal percentages
 0..100; passenger surcharge 0..0,20 EUR/km; mileage rate 0,01..1,00 EUR/km (whole cents); contact fields trimmed, blank becomes `NULL`, e-mail validated
 (no CR/LF), phone `^[+0-9 ()/\-]{3,40}$`, hint plain text only.
 
-CAUTION: The default values are the **PdV template** -- provisional and PdV-specific, *not* the statutory 14 / 28 EUR. They are database column defaults and
+CAUTION: The default values are the **example template** (based on a 2024 travel-expense form) -- provisional, *not* the statutory 14 / 28 EUR. They are database column defaults and
 therefore take effect on **every** instance until an administrator reviews them; the settings page says so in a fixed notice.
 
 === The calculation core in one picture
@@ -223,6 +252,44 @@ written as `NOTPROVIDED`; the creditor agent is never written (members give no B
 . The booking account (`paymentBankAccountId`, a *ledger* account) and the bank account that is debited (`bank_account`, an IBAN) are **two different things and are not reconciled by the system** --
   keep them pointing at the same real bank account.
 
+== Documents for members and a Markdown hint text (V1.9.199)
+
+*Documents.* BOARD and ADMIN can attach up to 10 organisation-wide documents (a travel expense policy, resolutions, forms) that every signed-in
+member sees on the "Reisekosten" page, next to the contact person, under "Unterlagen und Beschlüsse". Allowed are PDF, XLSX and XLS files up to 10 MB.
+A member sees the title, the type (PDF or Excel) and the size, and downloads the file with one click; there is no uploader and no date for members.
+
+BOARD and ADMIN manage them on the page "Reisekosten-Einstellungen" (`/travel-expense-settings`), in the section "Unterlagen für Mitglieder" below the settings form:
+
+* "Unterlage hinzufügen" opens a small form: a file (required) and a title (optional; without one the file name is used, `Reisekosten_Ordnung_2026.pdf` becomes
+  "Reisekosten Ordnung 2026").
+* Each row has icon buttons to download, rename and delete (delete asks first and cannot be undone).
+* These actions take effect at once. They do not belong to the settings form, so unsaved changes of the form above stay untouched.
+* BOARD sees only this section and the sentence "Die Erstattungssätze und den Ansprechpartner pflegt die Administration." The rates and the contact person stay with ADMIN.
+
+The server looks at the content, not at the name: a file that is not really a PDF, XLSX or XLS is refused, and so is anything encrypted or password-protected
+and any Excel file with macros (xlsm, xlsb, files with embedded objects). The member sees one fixed sentence per reason and what to do (for example "save the file without macros (.xlsx)").
+
+*Hint text with formatting.* The text under "Mehr erfahren" can now be written in Markdown (bold, italic, lists, links with `https://` or `mailto:`, up to 2000 characters).
+The editor has the tabs "Schreiben" and "Vorschau"; the preview is produced by the server, exactly as members will see it. A text that existed before stays plain text
+(line breaks only) until the administration changes it; saving the other settings does not convert it. Images and embedded HTML are never shown.
+
+== What doesn't work yet (V1.9.199)
+
+* Documents cannot be replaced, only deleted and uploaded again; the order is by title, there is no manual order and no categories.
+* Excel files are checked for their structure and macros, not parsed. An old `.xls` that is encrypted with the legacy RC4 scheme inside the workbook (not as a
+  separate package) is not detected; a PDF whose `/Encrypt` token is written with name escapes (`/Encr#79pt`) is not detected either.
+* There is no virus scan; the files are not confidential and every signed-in member can download them (also a FRIEND account that can open the page).
+* The uploads share the 30 requests per minute of receipts and attachments.
+* Checked in headless Chrome only; not run against a real staging instance.
+
+== What doesn't work yet (V1.9.198)
+
+* Checked in headless Chrome only. The camera field is only checked as an attribute (`accept="image/*"`, `capture="environment"`); it has not been tried on a real phone. HEIC photos are refused in the client with a hint; there is no conversion.
+* A file that could not be uploaded after the line was created is lost on reload (kept in memory only).
+* There is no byte quota per member; the limits are the counts, 10 MB per file and 30 upload requests per minute shared by receipts and attachments (worst case about 600 MB per draft).
+* The treasurer cannot download receipts or attachments (the decision and the download are for the board, as before).
+* No virus scan. No retention period is set here: keeping the files is the operator's responsibility until the legal review is done.
+
 == What doesn't work yet (V1.9.123, SEPA file)
 
 * *Never tested with a real bank upload.* The file is validated structurally (golden file, element order of `pain.001.001.09`) and optionally against the official XSD when `LAPIS_TEST_PAIN001_XSD` points at a local copy -- the XSD itself is not checked in (licence not reviewed).
@@ -235,7 +302,7 @@ written as `NOTPROVIDED`; the creditor agent is never written (members give no B
 
 == What doesn't work yet (V1.9.122)
 
-* The default tier values are provisional; the PdV form's footnote mentions 24 EUR in one place and 28 EUR in another -- 28 EUR is used.
+* The default tier values are provisional; the template form's footnote mentions 24 EUR in one place and 28 EUR in another -- 28 EUR is used.
 * Thresholds are inclusive ("ab"), not the statutory "more than".
 * An arrival/departure day is counted by hours (see `MultiDayRule`), not as the statutory flat 14 EUR.
 * Night trips across midnight are not added up.

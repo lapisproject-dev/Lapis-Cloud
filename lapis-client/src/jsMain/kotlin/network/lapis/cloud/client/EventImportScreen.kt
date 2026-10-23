@@ -13,7 +13,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.EventImportPreviewDto
 import network.lapis.cloud.shared.domain.EventImportPreviewRowDto
@@ -31,11 +30,7 @@ internal const val EVENT_IMPORT_MAX_BYTES = 2 * 1024 * 1024
  */
 fun renderEventImportScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 1100.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
     root.pageHeader(
         tr("Frühere Veranstaltungen importieren"),
         subtitle =

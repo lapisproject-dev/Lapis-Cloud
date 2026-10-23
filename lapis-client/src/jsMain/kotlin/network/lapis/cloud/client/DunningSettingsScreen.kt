@@ -17,12 +17,12 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.HeaderCell
+import io.kvision.table.Scope
 import io.kvision.table.Table
-import io.kvision.table.TableType
 import io.kvision.table.cell
 import io.kvision.table.row
 import io.kvision.table.table
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.DunningComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.DunningComplianceDisclaimerDto
@@ -44,12 +44,8 @@ import network.lapis.cloud.shared.rpc.IDunningService
  */
 fun renderDunningSettingsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 700.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Mahnwesen-Konfiguration"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Mahnwesen-Konfiguration"), intro = PageIntros.forRoute(Routes.DUNNING_SETTINGS))
 
     renderDunningAdminSection(root)
     renderDunningLevelsSection(root)
@@ -251,20 +247,20 @@ private fun renderDunningLevelsSection(root: SimplePanel) {
                 listPanel.p(tr("Noch keine Mahnstufen konfiguriert."))
                 return@launch
             }
-            val table =
-                listPanel.table(
-                    headerNames =
-                        listOf(
-                            tr("Nr."),
-                            tr("Name"),
-                            tr("Wartefrist"),
-                            tr("Antwortfrist"),
-                            tr("Gebühr"),
-                            tr("Aktiv"),
-                            "",
-                        ),
-                    types = setOf(TableType.STRIPED, TableType.HOVER),
-                )
+            val table = listPanel.standardTable(emptyList())
+
+            // V1.9.190: seven columns; the last one holds only icon buttons, so its header is visually hidden but still named "Aktionen".
+            fun header(
+                title: String,
+                vararg classes: String,
+            ) = HeaderCell(content = title, scope = Scope.COL) { classes.forEach { addCssClass(it) } }
+            table.addHeaderCell(header(tr("Nr."), NUMERIC_CELL_CLASS))
+            table.addHeaderCell(header(tr("Name")))
+            table.addHeaderCell(header(tr("Wartefrist")))
+            table.addHeaderCell(header(tr("Antwortfrist")))
+            table.addHeaderCell(header(tr("Gebühr"), NUMERIC_CELL_CLASS))
+            table.addHeaderCell(header(tr("Aktiv"), "text-center"))
+            table.addHeaderCell(header(tr("Aktionen"), "visually-hidden"))
             levels.sortedBy { it.levelNumber }.forEach { level -> renderDunningLevelRow(table, level, ::loadLevels) }
         }
     }
@@ -286,20 +282,33 @@ private fun renderDunningLevelRow(
     onChanged: () -> Unit,
 ) {
     table.row {
-        textCell(level.levelNumber.toString())
+        numCell(level.levelNumber.toString())
         textCell(level.name)
         textCell(gettext("%1 Tage", level.graceDays))
         textCell(gettext("%1 Tage", level.responseDays))
-        cell { level.feeAmount?.let { moneySpan(it) } ?: div("–") }
-        val activeCell = cell()
+        numCell { level.feeAmount?.let { moneySpan(it) } ?: div("–") }
+        val activeCell = cell { addCssClass("text-center") }
         activeCell.activeStatusBadge(level.active)
-        val actionsCell = cell()
-        val editButton = actionsCell.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+        // V1.9.190: icon-only actions (R58, dense table row); the level name is admin-editable free text, so the composed tooltip /
+        // accessible name is sanitized as a whole before it reaches title and aria-label.
+        val actionsCell = cell { addCssClasses("text-end text-nowrap") }
+        val actions = actionsCell.tableActionGroup().apply { addCssClass("justify-content-end") }
+        val editButton =
+            actions.tableActionButton(
+                ActionIcon.EDIT,
+                sanitizeUntrustedI18nText(gettext("Mahnstufe \"%1\" bearbeiten", level.name)),
+                style = ButtonStyle.OUTLINESECONDARY,
+            )
         editButton.onClick {
             confirmEditDunningLevel(level, onChanged)
         }
         if (level.active) {
-            val deactivateButton = actionsCell.actionButton(ActionIcon.REVOKE, tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+            val deactivateButton =
+                actions.tableActionButton(
+                    ActionIcon.REVOKE,
+                    sanitizeUntrustedI18nText(gettext("Mahnstufe \"%1\" deaktivieren", level.name)),
+                    style = ButtonStyle.OUTLINEDANGER,
+                )
             deactivateButton.onClick {
                 confirmDialog(
                     title = tr("Mahnstufe deaktivieren"),

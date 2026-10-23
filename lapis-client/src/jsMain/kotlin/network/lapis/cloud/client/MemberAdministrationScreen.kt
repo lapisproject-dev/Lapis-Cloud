@@ -65,7 +65,7 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
  */
 fun renderMemberAdministrationScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    val header = root.pageHeader(tr("Mitgliederverwaltung"))
+    val header = root.pageHeader(tr("Mitgliederverwaltung"), intro = PageIntros.forRoute(Routes.MEMBERS))
     // V1.9.48 (R36B): the host sits directly under the header and exists synchronously; the button is hung in once the sections are built.
     val callerRole = AppState.session?.role
     val isBoardOrAdmin = callerRole == AccountRole.BOARD || callerRole == AccountRole.ADMIN

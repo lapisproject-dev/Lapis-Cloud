@@ -31,7 +31,9 @@ private const val BUILD_META_DEV_SENTINEL = "dev"
 private const val RELOAD_ATTEMPTS_KEY = "lapis-cloud-version-reload-attempts"
 private const val RELOAD_BUILD_KEY = "lapis-cloud-version-reload-build"
 private const val VERSION_ENDPOINT = "/api/client-version"
-private const val CONTROLS_ROW_SELECTOR = ".lapis-conference-controls-row"
+
+/** V1.9.184: the one bar of a room (conference and encounter room); the pill is lifted above it. */
+private const val CONTROLS_ROW_SELECTOR = ".lapis-room-bar"
 private const val MAX_RESPONSE_CHARS = 128
 
 /**
@@ -228,7 +230,7 @@ internal object ClientVersionWatcher {
         if (show) {
             reloadButton?.visible = shouldShowReloadButton(state)
             // DOM query instead of guessing the route: self-correcting, and it also covers the
-            // Failed / post-call states in which the fixed conference control bar still stands.
+            // Failed / post-call states in which the sticky room control bar still stands.
             if (document.querySelector(CONTROLS_ROW_SELECTOR) != null) {
                 currentPill.addCssClass(LIFTED_CLASS)
             } else {

@@ -82,10 +82,11 @@ class ConferenceFullscreenStageDomTest {
     }
 
     @Test
-    fun outsideFullscreen_thePanelStillReservesTheControlBar(): Promise<Unit> =
+    fun outsideFullscreen_thePanelReservesNothingForTheBar_itIsStickyNow(): Promise<Unit> =
         test {
             withPanel("conference-stage-normal", 1600, 800) { panel ->
-                assertEquals("68px", window().getComputedStyle(panel).paddingBottom)
+                // V1.9.184: the bar is a sticky box at the end of the panel, no longer a fixed one that needed a 68 px reserve
+                assertEquals("0px", window().getComputedStyle(panel).paddingBottom)
             }
         }
 

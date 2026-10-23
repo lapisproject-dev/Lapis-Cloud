@@ -16,6 +16,9 @@ data class MembershipAgreementDto(
     val version: String,
     val text: String,
     val sha256: String,
+    /** V1.9.196 -- how the text is displayed; [renderedHtml] is the server-rendered sanitized HTML of a MARKDOWN text (`null` for plain text). */
+    val format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    val renderedHtml: String? = null,
 )
 
 /**
@@ -86,6 +89,9 @@ data class FriendTermsDto(
     val version: String,
     val text: String,
     val sha256: String,
+    /** V1.9.196 -- how the text is displayed; [renderedHtml] is the server-rendered sanitized HTML of a MARKDOWN text (`null` for plain text). */
+    val format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    val renderedHtml: String? = null,
 )
 
 /**

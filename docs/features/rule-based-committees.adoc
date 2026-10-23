@@ -136,3 +136,11 @@ resolution quorum, participation card, election and consensus snapshots), `RuleC
 * The public REST API does not show the mode or the rule.
 * An election or consensus that is *opened* in the very moment a committee is switched is not locked against the switch (a vote and an election's target are);
   the block is checked at the time of the switch.
+
+== Where it is shown (V1.9.192)
+
+The committee list is a table (name link, kind, member count, "Beschlussfähig ab", status); a rule committee carries the "Regel" badge next to its name.
+The rule sentence (BOARD/ADMIN only), the live member count and the notes ("Mitglieder ergeben sich aus der Regel", "Bei einer Abstimmung wird der Kreis zum
+Start festgeschrieben", no offices) moved to the committee's own page `/committees/:id`. The numbers shown there and in the list are the **current** state;
+only a vote freezes its electorate (`quorum.frozen`). The count request is the same rate-limited `countCommitteeEligible`; the detail page asks it once.
+

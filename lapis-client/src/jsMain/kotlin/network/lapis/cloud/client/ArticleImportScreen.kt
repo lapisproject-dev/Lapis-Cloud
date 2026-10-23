@@ -16,7 +16,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.ArticleImportImageRowDto
 import network.lapis.cloud.shared.domain.ArticleImportImageStatus
@@ -55,11 +54,7 @@ internal fun parseOrganizationLabels(raw: String): List<String> =
  */
 fun renderArticleImportScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 1100.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
     root.pageHeader(
         tr("Frühere Artikel importieren"),
         subtitle =

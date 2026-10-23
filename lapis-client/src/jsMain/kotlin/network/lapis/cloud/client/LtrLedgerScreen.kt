@@ -69,12 +69,14 @@ import network.lapis.cloud.shared.rpc.IPeerTransferService
  * - [IPeerTransferService.executeArbitrationTransfer] -- `current.requireRole(TREASURER, BOARD,
  *   ADMIN)` server-side. Gated here as `canTreasury`, same tier as the mint form.
  *
- * **Layout (design decision D3, staged disclosure)**: fixed vertical order for every member --
- * (1) balance card, (2) own-entries table + `referenceType` filter, (3) the self-service
- * Peer-Transfer send form (a MEMBER+ action, deliberately kept OUTSIDE the treasury panel so it is
- * never mistaken for a privileged tool), (4) a visually separated, clearly labeled
- * "Treuhänder-Werkzeuge" panel rendered only under `canTreasury`, hosting the member-lookup,
- * mint form, and arbitration-transfer form.
+ * **Layout (design decision D3, staged disclosure; V1.9.185 progressive disclosure)**: fixed vertical order for every member --
+ * (1) balance card with the single primary action "LTR senden" on its right (a reasoned exception to R36, whose slot is the page header:
+ * the action belongs to the balance it spends), opening the collapsed Peer-Transfer form (a MEMBER+ action, deliberately kept OUTSIDE the
+ * treasury panel so it is never mistaken for a privileged tool); its receipt lives in its own host and survives the closing of the form,
+ * (2) own-entries table with a `referenceType` filter in the title row (a change of the filter fetches the list again), (3) under
+ * `canTreasury` a visually separated "Treuhänder-Werkzeuge" panel: closed behind "Werkzeuge anzeigen", then three collapsed tools
+ * (member lookup, mint, arbitration transfer), of which only one is open at a time. The role gating is unchanged and stays
+ * server-side; hiding a button is not protection.
  *
  * **Confirm-dialog severity (design decision D4)**: [mintLtr] uses the plain, neutral-framed
  * [confirmDialog] (Tier 1 "Kostenpflichtig" -- material to the recipient, not costly to the
@@ -99,14 +101,17 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
 
     val root = container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("LTR-Konto"))
+    root.pageHeader(tr("LTR-Konto"), intro = PageIntros.forRoute(Routes.LTR_LEDGER))
 
     // ---- (1) Balance card ------------------------------------------------------------------
     val balanceCard = root.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
+    // V1.9.185: the card is one row -- the balance on the left, the single primary action ("LTR senden", R36B) on the right. The slot
+    // lives OUTSIDE the data section: its `reload()` re-renders the body only and must never touch the button.
+    val balanceRow = balanceCard.div(className = "d-flex flex-wrap align-items-center gap-3")
     // Audit V1.4.27 (F): `dataSection` instead of "Wird geladen ..." followed by an EMPTY card (`?: return@launch`)
     // when the balance cannot be loaded -- the card shows the error state with "Erneut versuchen".
     val balanceSection =
-        balanceCard.dataSection<LtrLedgerBalanceDto>(
+        balanceRow.dataSection<LtrLedgerBalanceDto>(
             isEmpty = { false },
             load = { guarded { rpcService<ILtrLedgerService>().getMyBalance() } },
             render = { body, balance ->
@@ -116,18 +121,25 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
             },
         )
 
+    val sendActionSlot = balanceRow.div(className = "lapis-page-action ms-auto")
+    // Form host and receipt host sit directly under the card as empty containers from the start (the layout must not jump when the
+    // member list arrives). The receipt is deliberately NOT inside the form: closing the form after a send must not remove it.
+    val sendFormHost = root.vPanel(spacing = 6)
+    val sendReceiptHost = root.vPanel(spacing = 4).apply { id = "lapis-ltr-send-receipt" }
+
     fun refreshBalance() = balanceSection.reload()
     refreshBalance()
 
     // ---- (2) Own entries + referenceType filter (D10 empty state) --------------------------
-    root.h2(tr("Meine Buchungen")) { addCssClass("h5") }
-    val filterRow = root.lapisToolbar()
+    val entriesTitleRow = root.sectionTitleRow(tr("Meine Buchungen"))
     val referenceFilterOptions =
         listOf("" to tr("Alle")) +
             listOf("NONE" to tr("Ohne Referenz (z. B. Gutschrift)")) +
             LtrLedgerReferenceType.entries.map { it.name to ltrLedgerReferenceTypeLabel(it) }
-    val referenceFilterSelect = filterRow.select(options = referenceFilterOptions, value = "", label = tr("Filter: Referenztyp"))
-    val entriesRefreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val referenceFilterSelect =
+        entriesTitleRow
+            .select(options = referenceFilterOptions, value = "", label = tr("Filter"))
+            .apply { addCssClasses("form-select-sm w-auto") }
     val entriesStatusRegion = root.dataStatusRegion()
     val entriesPanel = root.vPanel(spacing = 6)
 
@@ -137,6 +149,9 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     // The error box with "Erneut versuchen" stays until a reload succeeds: a change of the filter must neither wipe
     // it nor paint the previous list over it (guideline P7).
     var entriesFailed = false
+    // V1.9.185: a change of the filter fetches the list again (no "Aktualisieren" button any more). The select calls back once while it is
+    // built; the filter only reloads after the first list has arrived.
+    var entriesInitialLoaded = false
     // Welle V1.4.27 (W3): the list is fully loaded (`listMyEntries` has no paging), so it sorts on the client.
     // The initial order is the server's, a third click on a header returns to it.
     var entriesSort: SortState? = null
@@ -192,11 +207,11 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
                 return@launch
             }
             myEntriesCache = entries
+            entriesInitialLoaded = true
             applyEntryFilter()
         }
     }
-    entriesRefreshButton.onClick { refreshMyEntries() }
-    referenceFilterSelect.subscribe { applyEntryFilter() }
+    referenceFilterSelect.subscribe { if (entriesInitialLoaded) refreshMyEntries() }
     refreshMyEntries()
 
     // Members list backs every member-picker on this screen (self-service recipient picker AND,
@@ -211,8 +226,6 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     // unveraendert und wird oben in der Buchungsliste korrekt angezeigt (PEER_TRANSFER_IN).
     val callerStatus = AppState.session?.status
     val showsTransferForm = callerStatus == null || callerStatus !in MemberStatusSets.NON_MEMBER
-    if (showsTransferForm) root.h2(tr("LTR senden")) { addCssClass("h5") }
-    val transferSectionPanel = if (showsTransferForm) root.vPanel(spacing = 6) else null
     val treasuryPanel =
         if (canTreasury) {
             root.vPanel(spacing = 10) { addCssClasses("border rounded p-3 mt-2") }
@@ -225,26 +238,78 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
         val recipientCandidates = members.filter { it.id != currentMemberId }
 
         // ---- (3) Self-service Peer-Transfer send form (outside the treasury panel) ----------
-        if (transferSectionPanel != null) {
-            renderPeerTransferForm(transferSectionPanel, recipientCandidates) {
-                refreshBalance()
-                refreshMyEntries()
+        if (showsTransferForm) {
+            if (recipientCandidates.isEmpty()) {
+                sendFormHost.p(
+                    tr("Keine anderen Mitglieder vorhanden, an die übertragen werden könnte."),
+                ) { addCssClasses("text-muted small") }
+            } else {
+                collapsibleCreateForm<Nothing>(
+                    actionSlot = sendActionSlot,
+                    formHost = sendFormHost,
+                    buttonLabel = tr("LTR senden"),
+                    formId = "lapis-ltr-send-form",
+                    icon = ActionIcon.SEND,
+                    onOpenChange = { open -> if (open) sendReceiptHost.removeAll() },
+                ) { _, collapse ->
+                    renderPeerTransferForm(recipientCandidates, collapse) { result ->
+                        renderPeerTransferResult(sendReceiptHost, result)
+                        refreshBalance()
+                        refreshMyEntries()
+                    }
+                }
             }
         }
 
         // ---- (4) Treuhänder-Werkzeuge (canTreasury only) ------------------------------------
         if (treasuryPanel != null) {
             treasuryPanel.h2(tr("Treuhänder-Werkzeuge")) { addCssClass("h5") }
-            treasuryPanel.div(tr("Sichtbar für TREASURER/BOARD/ADMIN.")) { addCssClasses("text-muted small mb-2") }
-
-            renderMemberLookupSection(treasuryPanel, members)
-            renderMintForm(treasuryPanel, members) {
-                refreshBalance()
-                refreshMyEntries()
-            }
-            renderArbitrationTransferForm(treasuryPanel, members) {
-                refreshBalance()
-                refreshMyEntries()
+            treasuryPanel.div(tr("Für Kassenwarte, Vorstand und Administratoren")) { addCssClasses("text-muted small") }
+            // Only one tool is open at a time: opening one asks the others to close first (and asks about unsaved input).
+            val tools = mutableListOf<CollapsibleCreateFormController<Nothing>>()
+            treasuryPanel.disclosure(tr("Werkzeuge anzeigen"), "lapis-ltr-treasury-tools") {
+                div(tr("Sichtbar für Kassenwarte, Vorstand und Administratoren.")) { addCssClasses("text-muted small mb-2") }
+                treasuryToolRow(
+                    title = tr("Guthaben & Buchungen eines Mitglieds"),
+                    hint = tr("Zeigt das Guthaben und die Buchungen eines beliebigen Mitglieds an."),
+                    buttonLabel = tr("Mitglied ansehen"),
+                    formId = "lapis-ltr-lookup-form",
+                    icon = ActionIcon.VIEW,
+                    tools = tools,
+                    unavailableMessage = if (members.isEmpty()) tr("Keine Mitglieder vorhanden.") else null,
+                ) { collapse, _ -> renderMemberLookupSection(members, collapse) }
+                treasuryToolRow(
+                    title = tr("LTR gutschreiben (Mint)"),
+                    hint =
+                        tr(
+                            "Schreibt einem Mitglied LTR gut. Die Gutschrift lässt sich nur durch eine gegenläufige Buchung rückgängig machen.",
+                        ),
+                    buttonLabel = tr("Gutschrift erfassen"),
+                    formId = "lapis-ltr-mint-form",
+                    icon = ActionIcon.ADD,
+                    tools = tools,
+                    unavailableMessage = if (members.isEmpty()) tr("Keine Mitglieder vorhanden.") else null,
+                ) { collapse, _ ->
+                    renderMintForm(members, collapse) {
+                        refreshBalance()
+                        refreshMyEntries()
+                    }
+                }
+                treasuryToolRow(
+                    title = tr("Schiedsverfahren-Korrekturübertragung"),
+                    hint = tr("Überträgt LTR zwischen zwei Mitgliedern aufgrund einer Schiedsanordnung. Die Übertragung ist endgültig."),
+                    buttonLabel = tr("Korrektur erfassen"),
+                    formId = "lapis-ltr-arbitration-form",
+                    icon = null,
+                    tools = tools,
+                    unavailableMessage = if (members.size < 2) tr("Mindestens zwei Mitglieder erforderlich.") else null,
+                ) { collapse, receiptHost ->
+                    renderArbitrationTransferForm(members, collapse) { result ->
+                        renderPeerTransferResult(receiptHost, result)
+                        refreshBalance()
+                        refreshMyEntries()
+                    }
+                }
             }
         }
     }
@@ -401,17 +466,12 @@ private fun Container.renderLtrReference(entry: LtrLedgerEntryDto) {
 // (3) Self-service Peer-Transfer send form
 // ================================================================================================
 
-private fun renderPeerTransferForm(
-    root: SimplePanel,
+private fun SimplePanel.renderPeerTransferForm(
     recipientCandidates: List<MemberSummaryDto>,
-    onCompleted: () -> Unit,
-) {
-    root.removeAll()
-    if (recipientCandidates.isEmpty()) {
-        root.p(tr("Keine anderen Mitglieder vorhanden, an die übertragen werden könnte.")) { addCssClasses("text-muted small") }
-        return
-    }
-    val panel = root.vPanel(spacing = 6)
+    collapse: (saved: Boolean) -> Unit,
+    onCompleted: (PeerTransferResultDto) -> Unit,
+): FormSnapshot {
+    val panel = vPanel(spacing = 6) { addCssClasses("border rounded p-3 mt-2") }
     val recipientSelect =
         panel.searchableSelect(options = untrustedOptions(recipientCandidates.map { it.id to it.displayName }), label = tr("Empfänger"))
     val amountInput = panel.text(label = tr("Betrag (LTR)"))
@@ -428,12 +488,12 @@ private fun renderPeerTransferForm(
             addCssClass("text-danger")
             hide()
         }
-    val outcomePanel = panel.vPanel(spacing = 4)
 
-    val sendButton = panel.button(tr("LTR übertragen"), style = ButtonStyle.OUTLINEDANGER)
+    val buttons = panel.hPanel(spacing = 8)
+    val sendButton = buttons.button(tr("LTR übertragen"), style = ButtonStyle.OUTLINEDANGER)
+    buttons.add(collapseCancelButton(collapse))
     sendButton.onClick {
         errorBox.hide()
-        outcomePanel.removeAll()
         val recipientId = recipientSelect.value
         val recipient = recipientCandidates.find { it.id == recipientId }
         val amountText = amountInput.value.orEmpty().trim()
@@ -466,14 +526,21 @@ private fun renderPeerTransferForm(
                     }
                 sendButton.disabled = false
                 if (result != null) {
+                    // Order matters: close the form first, then show the receipt in its own host (outside the form), then reload.
+                    collapse(true)
                     notifySuccess(gettext("%1 an %2 übertragen.", formatLtr(result.amountLtr), result.recipientDisplayName))
-                    renderPeerTransferResult(outcomePanel, result)
-                    amountInput.value = null
-                    purposeInput.value = null
-                    onCompleted()
+                    onCompleted(result)
                 }
             }
         }
+    }
+    return FormSnapshot {
+        listOf(
+            recipientSelect.value.orEmpty(),
+            amountInput.value.orEmpty(),
+            characterizationSelect.value.orEmpty(),
+            purposeInput.value.orEmpty(),
+        )
     }
 }
 
@@ -544,19 +611,68 @@ private fun peerTransferConfirmDialog(
 // (4) Treuhänder-Werkzeuge -- member lookup, mint, arbitration transfer
 // ================================================================================================
 
-private fun renderMemberLookupSection(
-    root: SimplePanel,
-    members: List<MemberSummaryDto>,
+/**
+ * V1.9.185: one row of the treasury tools -- title and action button on one line, the explanatory sentence always visible below, the
+ * collapsed form under it, and a host for the receipt of a finished transfer (cleared when the tool is opened again). Only one tool is
+ * open at a time: a click on the button first asks every other open tool to close ([CollapsibleCreateFormController.requestClose]),
+ * so unsaved input is never dropped silently and "Weiter bearbeiten" keeps the other tool open and the new one closed.
+ *
+ * With [unavailableMessage] the row shows that message instead of the button (no member to pick from).
+ */
+private fun SimplePanel.treasuryToolRow(
+    title: String,
+    hint: String,
+    buttonLabel: String,
+    formId: String,
+    icon: ActionIcon?,
+    tools: MutableList<CollapsibleCreateFormController<Nothing>>,
+    unavailableMessage: String?,
+    build: SimplePanel.(collapse: (saved: Boolean) -> Unit, receiptHost: SimplePanel) -> FormSnapshot,
 ) {
-    root.h2(tr("Guthaben & Buchungen eines Mitglieds")) { addCssClass("h6") }
-    if (members.isEmpty()) {
-        root.p(tr("Keine Mitglieder vorhanden.")) { addCssClasses("text-muted small") }
+    val head = div(className = "d-flex flex-wrap align-items-center gap-2")
+    // The size class is spelled out on the call line: tripwire R7 reads it there.
+    head.h2(title) { addCssClasses("h6 flex-grow-1 mb-0") }
+    val slot = head.div(className = "lapis-page-action")
+    div(hint) { addCssClasses("text-muted small") }
+    if (unavailableMessage != null) {
+        p(unavailableMessage) { addCssClasses("text-muted small") }
         return
     }
+    val formHost = vPanel(spacing = 6)
+    val receiptHost = vPanel(spacing = 4)
+    var self: CollapsibleCreateFormController<Nothing>? = null
+
+    fun closeOthers(
+        pending: List<CollapsibleCreateFormController<Nothing>>,
+        proceed: () -> Unit,
+    ) {
+        val next = pending.firstOrNull() ?: return proceed()
+        next.requestClose { closeOthers(pending.drop(1), proceed) }
+    }
+    val controller =
+        collapsibleCreateForm<Nothing>(
+            actionSlot = slot,
+            formHost = formHost,
+            buttonLabel = buttonLabel,
+            formId = formId,
+            icon = icon,
+            onOpenChange = { open -> if (open) receiptHost.removeAll() },
+            beforeOpen = { proceed -> closeOthers(tools.filter { it !== self && it.isOpen }, proceed) },
+        ) { _, collapse -> build(collapse, receiptHost) }
+    self = controller
+    tools.add(controller)
+}
+
+private fun SimplePanel.renderMemberLookupSection(
+    members: List<MemberSummaryDto>,
+    collapse: (saved: Boolean) -> Unit,
+): FormSnapshot {
+    val root = vPanel(spacing = 6) { addCssClasses("border rounded p-3 mt-2") }
     val row = root.lapisToolbar()
     val memberSelect = row.searchableSelect(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
     val showButton = row.actionButton(ActionIcon.VIEW, tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     val resultPanel = root.vPanel(spacing = 6)
+    root.add(collapseCancelButton(collapse))
 
     showButton.onClick {
         val memberId = memberSelect.value ?: return@onClick
@@ -581,19 +697,16 @@ private fun renderMemberLookupSection(
             }
         }
     }
+    // A pure lookup has no input to lose: it never asks before it closes.
+    return FormSnapshot { emptyList() }
 }
 
-private fun renderMintForm(
-    root: SimplePanel,
+private fun SimplePanel.renderMintForm(
     members: List<MemberSummaryDto>,
+    collapse: (saved: Boolean) -> Unit,
     onCompleted: () -> Unit,
-) {
-    root.h2(tr("LTR gutschreiben (Mint)")) { addCssClass("h6") }
-    if (members.isEmpty()) {
-        root.p(tr("Keine Mitglieder vorhanden.")) { addCssClasses("text-muted small") }
-        return
-    }
-    val panel = root.vPanel(spacing = 6)
+): FormSnapshot {
+    val panel = vPanel(spacing = 6) { addCssClasses("border rounded p-3 mt-2") }
     val memberSelect = panel.searchableSelect(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
     val amountInput = panel.text(label = tr("Betrag (LTR)"))
     val noteInput = panel.text(label = tr("Notiz (optional)"))
@@ -603,7 +716,9 @@ private fun renderMintForm(
             hide()
         }
 
-    val mintButton = panel.button(tr("Gutschreiben"), style = ButtonStyle.PRIMARY)
+    val buttons = panel.hPanel(spacing = 8)
+    val mintButton = buttons.button(tr("Gutschreiben"), style = ButtonStyle.PRIMARY)
+    buttons.add(collapseCancelButton(collapse))
     mintButton.onClick {
         errorBox.hide()
         val memberId = memberSelect.value
@@ -639,27 +754,22 @@ private fun renderMintForm(
                     }
                 mintButton.disabled = false
                 if (result != null) {
+                    collapse(true)
                     notifySuccess(gettext("%1 an %2 gutgeschrieben.", formatLtr(amount), member.displayName))
-                    amountInput.value = null
-                    noteInput.value = null
                     onCompleted()
                 }
             }
         }
     }
+    return FormSnapshot { listOf(memberSelect.value.orEmpty(), amountInput.value.orEmpty(), noteInput.value.orEmpty()) }
 }
 
-private fun renderArbitrationTransferForm(
-    root: SimplePanel,
+private fun SimplePanel.renderArbitrationTransferForm(
     members: List<MemberSummaryDto>,
-    onCompleted: () -> Unit,
-) {
-    root.h2(tr("Schiedsverfahren-Korrekturübertragung")) { addCssClass("h6") }
-    if (members.size < 2) {
-        root.p(tr("Mindestens zwei Mitglieder erforderlich.")) { addCssClasses("text-muted small") }
-        return
-    }
-    val panel = root.vPanel(spacing = 6)
+    collapse: (saved: Boolean) -> Unit,
+    onCompleted: (PeerTransferResultDto) -> Unit,
+): FormSnapshot {
+    val panel = vPanel(spacing = 6) { addCssClasses("border rounded p-3 mt-2") }
     val memberOptions = untrustedOptions(members.map { it.id to it.displayName })
     val senderSelect = panel.searchableSelect(options = memberOptions, label = tr("Absender"))
     val recipientSelect = panel.searchableSelect(options = memberOptions, label = tr("Empfänger"))
@@ -677,12 +787,12 @@ private fun renderArbitrationTransferForm(
             addCssClass("text-danger")
             hide()
         }
-    val outcomePanel = panel.vPanel(spacing = 4)
 
-    val executeButton = panel.button(tr("Korrekturübertragung ausführen"), style = ButtonStyle.OUTLINEDANGER)
+    val buttons = panel.hPanel(spacing = 8)
+    val executeButton = buttons.button(tr("Korrekturübertragung ausführen"), style = ButtonStyle.OUTLINEDANGER)
+    buttons.add(collapseCancelButton(collapse))
     executeButton.onClick {
         errorBox.hide()
-        outcomePanel.removeAll()
         val senderId = senderSelect.value
         val recipientId = recipientSelect.value
         val sender = members.find { it.id == senderId }
@@ -726,14 +836,21 @@ private fun renderArbitrationTransferForm(
                     }
                 executeButton.disabled = false
                 if (result != null) {
+                    collapse(true)
                     notifySuccess(gettext("Korrekturübertragung ausgeführt: %1.", formatLtr(result.amountLtr)))
-                    renderPeerTransferResult(outcomePanel, result)
-                    amountInput.value = null
-                    purposeInput.value = null
-                    onCompleted()
+                    onCompleted(result)
                 }
             }
         }
+    }
+    return FormSnapshot {
+        listOf(
+            senderSelect.value.orEmpty(),
+            recipientSelect.value.orEmpty(),
+            amountInput.value.orEmpty(),
+            characterizationSelect.value.orEmpty(),
+            purposeInput.value.orEmpty(),
+        )
     }
 }
 

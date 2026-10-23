@@ -10,7 +10,9 @@ import io.ktor.server.routing.post
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.shared.domain.MultiDayRule
+import network.lapis.cloud.shared.domain.TravelContactHintFormat
 import network.lapis.cloud.shared.domain.TravelExpenseContactDto
 import network.lapis.cloud.shared.domain.TravelExpenseDayInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
@@ -24,8 +26,10 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RateLimitedException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import java.io.File
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Shared throwaway test-route registrar + pipe-string encoding for [TravelExpenseService]/
@@ -199,6 +203,42 @@ internal fun Route.registerTravelExpenseTestRoutes() {
             )
         call.respondText("${dto.canEditSettings}|${dto.rateSet?.tierCents}|${dto.contact.name ?: "-"}")
     }
+    // V1.9.199: contact hint (Markdown) -- the format and a client-sent hintHtml come in, format + rendered HTML go out.
+    post("/test/travelexpense/hint") {
+        val service = TravelExpenseService(call = call, receiptStorageRoot = TEST_RECEIPT_STORAGE_ROOT)
+        val q = call.request.queryParameters
+        val dto =
+            service.updateTravelExpenseSettings(
+                TravelExpenseSettingsInput(
+                    tierHours = listOf(8, 14, 24),
+                    tierCents = listOf(600L, 1200L, 2800L),
+                    breakfastPercent = 20,
+                    lunchPercent = 40,
+                    dinnerPercent = 40,
+                    passengerCentsPerKm = 2,
+                    contact =
+                        TravelExpenseContactDto(
+                            hint = q["text"],
+                            hintFormat = TravelContactHintFormat.valueOf(q["format"] ?: "PLAIN"),
+                            hintHtml = q["html"],
+                        ),
+                ),
+            )
+        call.respondText("${dto.contact.hintFormat}|${dto.contact.hintHtml ?: "-"}")
+    }
+    post("/test/travelexpense/hintrates") {
+        val service = TravelExpenseService(call = call, receiptStorageRoot = TEST_RECEIPT_STORAGE_ROOT)
+        val dto = service.getTravelExpenseRates()
+        val docs = dto.documents.joinToString(",") { "${it.title}:${it.uploaderName ?: "-"}" }
+        call.respondText(
+            "${dto.canManageDocuments}|${dto.canEditSettings}|${dto.documents.size}|$docs|${dto.contact.hintFormat}|${dto.contact.hintHtml ?: "-"}",
+        )
+    }
+    post("/test/travelexpense/previewhint") {
+        val limiter = testPreviewLimiter
+        val service = TravelExpenseService(call = call, receiptStorageRoot = TEST_RECEIPT_STORAGE_ROOT, previewRateLimiter = limiter)
+        call.respondText(service.previewTravelContactHint(call.request.queryParameters["text"].orEmpty()))
+    }
     post("/test/travelexpense/update") {
         val service = TravelExpenseService(call = call, receiptStorageRoot = TEST_RECEIPT_STORAGE_ROOT)
         val q = call.request.queryParameters
@@ -245,6 +285,15 @@ internal fun Route.registerTravelExpenseTestRoutes() {
         val service = TravelExpenseService(call = call, receiptStorageRoot = TEST_RECEIPT_STORAGE_ROOT)
         call.respondText(service.listMyReports().joinToString(";") { it.toPipeString() })
     }
+    // V1.9.198: "<reportId>:<attachment names>" per own report -- the DTO's `attachments` (batch-loaded by `toDtos`).
+    get("/test/travelexpense/mineattachments") {
+        val service = TravelExpenseService(call = call, receiptStorageRoot = TEST_RECEIPT_STORAGE_ROOT)
+        call.respondText(
+            service.listMyReports().joinToString(";") { report ->
+                report.id + ":" + report.attachments.joinToString(",") { it.originalFilename }
+            },
+        )
+    }
     post("/test/travelexpense/withdraw") {
         val service = TravelExpenseService(call = call, receiptStorageRoot = TEST_RECEIPT_STORAGE_ROOT)
         val dto = service.withdrawReport(call.request.queryParameters["id"]!!)
@@ -274,7 +323,16 @@ internal fun Route.registerTravelExpenseTestRoutes() {
     }
 }
 
+/** One shared budget for the preview test route (the service itself is created per call). */
+internal var testPreviewLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes)
+
 internal fun StatusPagesConfig.installTravelExpenseExceptionHandlers() {
+    exception<RateLimitedException> {
+        call,
+        cause,
+        ->
+        call.respondText(cause.message ?: "rate limited", status = HttpStatusCode.TooManyRequests)
+    }
     exception<UnauthenticatedException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Unauthorized) }
     exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
     exception<NotFoundException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.NotFound) }

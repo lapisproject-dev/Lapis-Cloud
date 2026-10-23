@@ -18,6 +18,7 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AiIndexStatus
 import network.lapis.cloud.shared.domain.AiKnowledgeEntryDto
@@ -41,7 +42,7 @@ import network.lapis.cloud.shared.rpc.IDocumentService
  */
 fun renderDocumentsScreen(container: SimplePanel) {
     val root = container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("Dokumentenablage"))
+    root.pageHeader(tr("Dokumentenablage"), intro = PageIntros.forRoute(Routes.DOCUMENTS))
     val canManage = DocumentsAuthzUi.canManage(AppState.session?.role)
 
     // V1.9.49 (R36B): each list has a title row with its own create button; the forms sit directly under the title row.
@@ -95,12 +96,7 @@ fun renderDocumentsScreen(container: SimplePanel) {
                         },
                         sortOptions = VERSION_SORT_OPTIONS,
                         actions = { actions, version ->
-                            actions.link(
-                                tr("Herunterladen"),
-                                url = DocumentHttp.downloadUrl(document.id, version.id),
-                                icon = "fas fa-download",
-                                target = "_blank",
-                            )
+                            actions.versionDownloadButton(DocumentHttp.downloadUrl(document.id, version.id), version)
                         },
                         focusSortKey = focusKey,
                     )
@@ -449,6 +445,26 @@ private fun folderColumns(onOpen: (DocumentFolderDto) -> Unit): List<DataColumn<
         textColumn(title = tr("Dokumente"), numeric = true) { folder: DocumentFolderDto -> folder.documentCount.toString() },
     )
 
+/**
+ * V1.9.189: the download of one version -- icon only (one row height); the name says WHICH version of WHICH file. The file name is user
+ * data inside a gettext result, so the whole composed text is sanitized before it becomes `title` (and, via [tableActionTooltip], `aria-label`).
+ */
+internal fun Container.versionDownloadButton(
+    downloadUrl: String,
+    version: DocumentVersionDto,
+): io.kvision.html.Button {
+    val button =
+        tableActionButton(
+            ActionIcon.DOWNLOAD,
+            sanitizeUntrustedI18nText(gettext("Version v%1 von %2 herunterladen", version.versionNumber, version.fileName)),
+        )
+    button.onClick { window.open(downloadUrl, "_blank", "noopener") }
+    return button
+}
+
+/** V1.9.189: "noch nicht heruntergeladen" is a light badge, a real count stays quiet text. */
+internal fun downloadCountClasses(count: Long): String = if (count == 0L) "badge text-bg-light small" else "text-muted small"
+
 private fun versionColumns(): List<DataColumn<DocumentVersionDto>> =
     listOf(
         textColumn(title = tr("Version"), primary = true, sortKey = VERSION_SORT_NUMBER) { version: DocumentVersionDto ->
@@ -479,7 +495,7 @@ private fun versionColumns(): List<DataColumn<DocumentVersionDto>> =
                 container,
                 version,
                 ->
-                container.span(formatDownloadCount(version.downloadCount)) { addCssClasses("text-muted small") }
+                container.span(formatDownloadCount(version.downloadCount)) { addCssClasses(downloadCountClasses(version.downloadCount)) }
             },
         ),
     )

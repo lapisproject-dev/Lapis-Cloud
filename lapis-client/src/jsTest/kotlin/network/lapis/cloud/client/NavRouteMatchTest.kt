@@ -30,6 +30,19 @@ class NavRouteMatchTest {
     }
 
     @Test
+    fun committeeAndMeetingDetailRoutes_keepTheirListLinkActive() {
+        // V1.9.192: /committees/<id> and /meetings/<id> highlight "Gremien" / "Sitzungen"; the route patterns do too.
+        assertTrue(NavRouteMatch.isActive("/committees/c-1", Routes.COMMITTEES))
+        assertTrue(NavRouteMatch.isActive(Routes.COMMITTEE_DETAIL, Routes.COMMITTEES))
+        assertTrue(NavRouteMatch.isActive("/meetings/m-1", Routes.MEETINGS))
+        assertTrue(NavRouteMatch.isActive(Routes.MEETING_DETAIL, Routes.MEETINGS))
+        assertFalse(NavRouteMatch.isActive("/meetings/m-1", Routes.COMMITTEES))
+        // V1.9.193: /motions/<id> highlights "Anträge".
+        assertTrue(NavRouteMatch.isActive("/motions/a-1", Routes.MOTIONS))
+        assertTrue(NavRouteMatch.isActive(Routes.MOTION_DETAIL, Routes.MOTIONS))
+    }
+
+    @Test
     fun groupRoute_doesNotActivateItsOwnDescendantLink() {
         assertFalse(NavRouteMatch.isActive("/social-network", "/social-network/post/:id"))
     }

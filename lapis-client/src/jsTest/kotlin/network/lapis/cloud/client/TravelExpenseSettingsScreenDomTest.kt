@@ -18,6 +18,7 @@ import org.w3c.dom.HTMLInputElement
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** Welle V1.9.122 -- the ADMIN settings page, driven the way a person does against a stubbed `window.fetch`. */
@@ -68,15 +69,22 @@ class TravelExpenseSettingsScreenDomTest {
                 mountedForm("te-settings-template") { root, element ->
                     renderTravelExpenseSettingsScreen(root)
                     awaitUntil("settings rendered", timeoutMs = 800) {
-                        element().allOf("button").any { it.textContent?.trim() == "Standardwerte der PdV-Vorlage übernehmen" }
+                        element().allOf("button").any { it.textContent?.trim() == "Beispielwerte der Vorlage übernehmen" }
                     }
                     delay(80)
                     assertTrue(element().textContent.orEmpty().contains("vorläufig"), "the fixed provisional notice")
                     assertTrue(element().textContent.orEmpty().contains("nicht den gesetzlichen Pauschalen (14 € / 28 €)"))
+                    assertFalse(element().textContent.orEmpty().contains("PdV"), "V1.9.190: no party name in the settings page")
+                    assertTrue(
+                        element()
+                            .allOf(
+                                "[title], [aria-label]",
+                            ).none { (it.title + it.getAttribute("aria-label").orEmpty()).contains("PdV") },
+                    )
 
                     element().typeInto("Stufe 3: Betrag (EUR)", "30,00")
                     element().typeInto("Frühstück (% von Stufe 3)", "25")
-                    element().buttonNamed("Standardwerte der PdV-Vorlage übernehmen").click()
+                    element().buttonNamed("Beispielwerte der Vorlage übernehmen").click()
                     delay(60)
                     assertEquals(
                         "28,00",

@@ -86,7 +86,7 @@ class PollBoothDomTest {
                 assertTrue(text.contains("Ihr LTR-Stand wird für die gewichtete Auswertung festgehalten, aber nirgends angezeigt."))
                 assertEquals(true, reviews.last(), "the detail is told that the check step is open")
                 assertEquals(0, calls.toRoute(routes.cast).size)
-                el.buttonNamed("Zurück").click()
+                el.buttonNamed("Auswahl ändern").click()
                 awaitUntil("back on the choice", 1500) { el.hasButton("Weiter") }
                 awaitUntil("choice kept", 1500) { !el.isButtonDisabled("Weiter") }
                 val checked = el.allOf("input[type=radio]").map { (it as HTMLInputElement).checked }
@@ -219,7 +219,7 @@ class PollBoothDomTest {
                 world.onRoute = { route -> if (route == routes.get) world.poll = pollDto(status = PollStatus.CLOSED, responseCount = 6) }
                 el.buttonNamed("Endgültig abgeben").click()
                 awaitUntil("explained", 2000) { el.flatText().contains("Die Umfrage ist beendet.") }
-                assertTrue(el.hasButton("Zurück zur Umfrage"))
+                assertTrue(el.hasButton("Stimmabgabe verlassen"))
                 assertEquals(0, el.allOf("input[type=radio]").size)
             }
         }
@@ -249,7 +249,7 @@ class PollBoothDomTest {
             withBooth(world, "poll-booth-forbidden") { el, _, _ ->
                 el.submit()
                 awaitUntil("explained", 2000) { el.flatText().contains("Nur aktive Mitglieder können antworten.") }
-                assertTrue(el.hasButton("Zurück zur Umfrage"))
+                assertTrue(el.hasButton("Stimmabgabe verlassen"))
                 assertEquals(0, document.querySelectorAll(".toast").length)
             }
         }

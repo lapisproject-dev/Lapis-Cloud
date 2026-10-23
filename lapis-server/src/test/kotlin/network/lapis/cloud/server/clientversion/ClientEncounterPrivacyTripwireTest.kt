@@ -13,7 +13,9 @@ import java.io.File
  * behaviour; this keeps the next change from quietly undoing it). Scope: every file `encounter/Encounter*.kt` of the client. A static scan
  * is a floor, not a proof -- it only sees spellings; the rules it pins:
  *
- * - **Text is text**: no `innerHTML`, no `rich = true` (a chat line, a name, a notice must never become markup).
+ * - **Text is text**: no `innerHTML`, no `rich = true` (a chat line, a name, a notice must never become markup). V1.9.196: an entry notice may be a
+ *   server-rendered Markdown text; it is inserted by `renderAgreementBody` in `AgreementTextRendering.kt` (outside this package, the ONE rich site of
+ *   agreement texts, pinned by `ClientAgreementHtmlTripwireTest`) -- no `Encounter*.kt` file spells `rich = true`, and this scan is unchanged.
  * - **Two storage keys, nothing else**: `localStorage`/`sessionStorage`/`indexedDB` appear only in `EncounterSceneToggle.kt` (every use names
  *   `ENCOUNTER_SCENE_OFF_KEY` -- the "scene off" choice -- or, V1.9.96, `ENCOUNTER_BELL_SOUND_ON_KEY` -- the "bell sound on" choice; no room, no person, no time) and `EncounterDevicePicker.kt` (V1.9.91: every use names
  *   `conferenceDeviceStorageKey(`, the key the video conference already uses; one writer, one remover, device ids only).

@@ -2,7 +2,8 @@ package network.lapis.cloud.client
 
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
+import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.icon
@@ -12,19 +13,21 @@ import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.perc
-import io.kvision.utils.px
+import io.kvision.table.HeaderCell
+import io.kvision.table.Scope
+import io.kvision.table.cell
+import io.kvision.table.row
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import network.lapis.cloud.client.encounter.renderEncounterConsentPreview
 import network.lapis.cloud.shared.domain.AgreementTextDraftDto
 import network.lapis.cloud.shared.domain.AgreementTextDraftInput
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AgreementTextKindOverviewDto
+import network.lapis.cloud.shared.domain.AgreementTextOverviewDto
 import network.lapis.cloud.shared.domain.AgreementTextRules
 import network.lapis.cloud.shared.domain.AgreementTextVersionSummaryDto
 import network.lapis.cloud.shared.domain.EncounterConsentLayout
@@ -36,94 +39,121 @@ import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
 import network.lapis.cloud.shared.rpc.IAgreementTextAdminService
 
 /**
- * V1.9.134 -- the administration of the registration texts (ADMIN only, route [Routes.AGREEMENT_TEXTS]): one tab per document (membership
- * agreement, FRIEND terms). Each tab shows, from top to bottom: the warning while the built-in placeholder is the live text, the current
- * version, the editor of the draft (version label, "valid from", the text with a live counter) with a preview, and the list of everything that
- * was ever published. A published version can never be changed; "Veröffentlichen" asks first and says so.
+ * V1.9.196 -- the administration of the agreement texts (ADMIN only) as a master-detail pair (the V1.9.192 pattern): [renderAgreementTextsScreen] is
+ * the table of all texts ([Routes.AGREEMENT_TEXTS]), [renderAgreementTextDetailRoute] one text as its own page ([Routes.AGREEMENT_TEXTS_DETAIL],
+ * deep link). The detail page shows, from top to bottom: the warning while the built-in placeholder is the live text, the current version
+ * (collapsed), the editor of the next version (Markdown on the left, the server-rendered preview on the right) and the history of everything
+ * that was ever published. A published version can never be changed; "Veröffentlichen" asks first and says so.
  *
- * Every text goes through [renderAgreementText] (the same renderer the registration uses): only ever element text, never markup.
+ * **The client never renders Markdown.** The preview and every Markdown text come as HTML from the server and go through the one rich site
+ * of the agreement renderer ([agreementHtml]); plain (legacy) texts stay element text ([renderAgreementText]).
  */
 fun renderAgreementTextsScreen(container: SimplePanel) {
-    val root =
-        container.vPanel(spacing = 10) {
-            addCssClass("mx-auto")
-            maxWidth = WIDE_FORM_MAX_WIDTH_PX.px
-            width = 100.perc
-        }
-    root.pageHeader(tr("Vertragstexte"))
-    root.p(
-        tr(
-            "Hier pflegen Sie die Texte, die bei der Registrierung angezeigt und bestätigt werden. " +
-                "Eine veröffentlichte Fassung kann nicht mehr geändert werden; jede Änderung ist eine neue Fassung.",
-        ),
-    ) { addCssClass("text-muted") }
-    val tabRow =
-        root.hPanel(spacing = 8) {
-            addCssClasses("flex-wrap")
-            setAttribute("role", "tablist")
-        }
-    val content = root.vPanel(spacing = 10)
-    val tabButtons =
-        AgreementTextKind.entries.associateWith { kind ->
-            tabRow.button(agreementKindLabel(kind), style = ButtonStyle.OUTLINEPRIMARY) { setAttribute("role", "tab") }
-        }
-
-    fun showTab(kind: AgreementTextKind) {
-        tabButtons.forEach { (tabKind, tabButton) -> tabButton.setAttribute("aria-selected", (tabKind == kind).toString()) }
-        content.removeAll()
-        renderAgreementKind(content, kind)
-    }
-    tabButtons.forEach { (kind, tabButton) -> tabButton.onClick { showTab(kind) } }
-    showTab(AgreementTextKind.MEMBERSHIP)
+    val root = container.pageShell(PageWidth.WIDE, spacing = 10)
+    root.pageHeader(tr("Vertragstexte"), intro = PageIntros.forRoute(Routes.AGREEMENT_TEXTS))
+    root
+        .dataSection<AgreementTextOverviewDto>(
+            isEmpty = { it.kinds.isEmpty() },
+            load = { guarded { rpcService<IAgreementTextAdminService>().getOverview() } },
+            render = { panel, overview -> renderAgreementTextTable(panel, overview.kinds) },
+        ).reload()
 }
 
-internal fun agreementKindLabel(kind: AgreementTextKind): String =
-    when (kind) {
-        AgreementTextKind.MEMBERSHIP -> tr("Beitrittsvertrag")
-        AgreementTextKind.FRIEND -> tr("Freund-Nutzungsbedingungen")
-        // V1.9.143: the two texts of the optional pulpit recording (see PulpitRecordingSettings.kt).
-        AgreementTextKind.REC_ROOM -> tr("Hinweis bei Aufzeichnung (Raum)")
-        AgreementTextKind.REC_PULPIT -> tr("Zustimmung der Kanzel zur Aufzeichnung")
-        // V1.9.144/V1.9.145: the consent text of the optional member finder (shown to the member on /member-finder, see MemberFinderScreen.kt).
-        AgreementTextKind.FINDER -> tr("Einwilligung Mitglieder-Finder")
-        // V1.9.148: the entry notice a non-member acknowledges before entering an encounter room.
-        AgreementTextKind.ENC_CHURCH -> tr("Eintrittshinweis Gottesdienst")
-        AgreementTextKind.ENC_ASSEM -> tr("Eintrittshinweis Versammlung")
-        // V1.9.156: the consent every participant gives before entering an event room that may be recorded or streamed (see EventCaptureSettings.kt).
-        AgreementTextKind.EVENT_REC -> tr("Aufzeichnung (Veranstaltung)")
-    }
-
-/**
- * V1.9.143/V1.9.144/V1.9.148: the pulpit-recording kinds, the member-finder consent and the two encounter entry notices are no registration text: nobody acknowledges them as part of the
- * registration, and they apply only while the optional feature is on.
- */
-private fun isOptionalFeatureKind(kind: AgreementTextKind): Boolean =
-    kind == AgreementTextKind.REC_ROOM ||
-        kind == AgreementTextKind.REC_PULPIT ||
-        kind == AgreementTextKind.FINDER ||
-        kind.isEncounterConsent() ||
-        kind.isEventCapture()
-
-/** Everything one tab shows, loaded together so the tab renders once. */
-internal class AgreementKindData(
-    val overview: AgreementTextKindOverviewDto,
-    val draft: AgreementTextDraftDto?,
-    val versions: List<AgreementTextVersionSummaryDto>,
-)
-
-private suspend fun loadAgreementKindData(kind: AgreementTextKind): AgreementKindData {
-    val service = rpcService<IAgreementTextAdminService>()
-    val overview = service.getOverview().kinds.first { it.kind == kind }
-    return AgreementKindData(overview = overview, draft = service.getDraft(kind).draft, versions = service.listVersions(kind))
-}
-
-private fun renderAgreementKind(
+private fun renderAgreementTextTable(
     host: SimplePanel,
+    kinds: List<AgreementTextKindOverviewDto>,
+) {
+    val headers =
+        listOf(
+            TableHeader(tr("Text")),
+            TableHeader(tr("Aktuelle Fassung")),
+            TableHeader(tr("Gültig ab")),
+            TableHeader(tr("Veröffentlicht am")),
+            TableHeader(tr("Status")),
+            TableHeader(tr("Aktion")),
+        )
+    val table = host.masterTable(tr("Vertragstexte"), headers)
+    kinds.forEach { overview ->
+        val kind = overview.kind
+        val name = agreementKindLabel(kind)
+        val route = kindRouteId(kind)
+        table.row {
+            masterRow()
+            val nameCell = HeaderCell(scope = Scope.ROW) { addCssClass("fw-normal") }
+            add(nameCell)
+            nameCell.recordLink(name, Routes.AGREEMENT_TEXTS, route)
+            val current = overview.current
+            textCell(current?.versionLabel ?: overview.builtinVersionLabel)
+            textCell(current?.let { formatDate(it.validFrom) } ?: "–")
+            textCell(current?.let { formatSystemDateTime(it.publishedAt) } ?: "–")
+            cell {
+                if (overview.placeholderActive) {
+                    statusBadge(
+                        tr("Platzhalter aktiv"),
+                        "warning",
+                    )
+                } else {
+                    statusBadge(tr("Eigene Fassung"), "success")
+                }
+                if (overview.hasDraft) {
+                    span(" ")
+                    statusBadge(tr("Entwurf offen"), "info")
+                }
+            }
+            cell {
+                tableActionGroup()
+                    .tableActionButton(ActionIcon.EDIT, gettext("Bearbeiten: %1", name))
+                    .onClick {
+                        MasterDetailFocus.remember(Routes.AGREEMENT_TEXTS, route)
+                        navigateTo(detailRoute(Routes.AGREEMENT_TEXTS, route))
+                    }
+            }
+        }
+    }
+}
+
+/** The id of a kind in the route (`/agreement-texts/membership`). */
+internal fun kindRouteId(kind: AgreementTextKind): String = kind.name.lowercase()
+
+/** The kind of a route id, or `null` for anything that is not one (an unknown deep link is a hint on the page, never an exception). */
+internal fun agreementKindFromRoute(id: String?): AgreementTextKind? =
+    AgreementTextKind.entries.firstOrNull {
+        it.name.lowercase() ==
+            id?.lowercase()
+    }
+
+/** The detail route: resolves the kind of the path and shows either its page or a hint with the way back. */
+fun renderAgreementTextDetailRoute(
+    container: SimplePanel,
+    kindId: String,
+) {
+    val kind = agreementKindFromRoute(kindId)
+    if (kind == null) {
+        agreementDetailShell(container, tr("Vertragstext")).p(tr("Diesen Vertragstext gibt es nicht."))
+    } else {
+        renderAgreementTextDetail(container, kind)
+    }
+}
+
+/** The frame of a detail page: the back button ABOVE the one page header (the only `pageHeader` call of the detail routes). */
+private fun agreementDetailShell(
+    container: SimplePanel,
+    title: String,
+): io.kvision.panel.VPanel {
+    val root = container.pageShell(PageWidth.WIDE, spacing = 10)
+    root.overviewBackButton(Routes.AGREEMENT_TEXTS)
+    root.pageHeader(title)
+    return root
+}
+
+fun renderAgreementTextDetail(
+    container: SimplePanel,
     kind: AgreementTextKind,
 ) {
+    val root = agreementDetailShell(container, gettext("Vertragstext: %1", agreementKindLabel(kind)))
     lateinit var section: DataSection
     section =
-        host.dataSection<AgreementKindData>(
+        root.dataSection<AgreementKindData>(
             isEmpty = { false },
             load = { guarded { loadAgreementKindData(kind) } },
             render = { panel, data ->
@@ -143,18 +173,30 @@ private fun renderAgreementKind(
                     )
                 }
                 if (data.overview.placeholderActive) {
-                    renderPlaceholderWarning(
-                        panel,
-                        data.overview.builtinVersionLabel,
-                        isOptionalFeatureKind(kind),
-                    )
+                    renderPlaceholderWarning(panel, data.overview.builtinVersionLabel, isOptionalFeatureKind(kind))
                 }
                 renderCurrentVersionCard(panel, kind, data)
                 renderDraftEditor(panel, kind, data, reload = { section.reload() })
-                renderVersionList(panel, kind, data.versions)
+                renderVersionHistory(panel, kind, data.versions)
             },
         )
     section.reload()
+}
+
+/** Everything one detail page shows, loaded together so the page renders once. [currentBody] is the source of the live version (pre-fills a new draft). */
+internal class AgreementKindData(
+    val overview: AgreementTextKindOverviewDto,
+    val draft: AgreementTextDraftDto?,
+    val versions: List<AgreementTextVersionSummaryDto>,
+    val currentBody: String? = null,
+)
+
+private suspend fun loadAgreementKindData(kind: AgreementTextKind): AgreementKindData {
+    val service = rpcService<IAgreementTextAdminService>()
+    val overview = service.getOverview().kinds.first { it.kind == kind }
+    val draft = service.getDraft(kind).draft
+    val currentBody = overview.current?.let { service.getVersion(kind, it.versionLabel).body }
+    return AgreementKindData(overview = overview, draft = draft, versions = service.listVersions(kind), currentBody = currentBody)
 }
 
 private fun renderPlaceholderWarning(
@@ -183,21 +225,18 @@ private fun renderPlaceholderWarning(
     }
 }
 
-private fun shortHash(sha256: String): String = sha256.take(SHORT_HASH_LENGTH)
+private fun shortHash(
+    sha256: String,
+    length: Int = SHORT_HASH_LENGTH,
+): String = sha256.take(length)
 
 private const val SHORT_HASH_LENGTH = 8
-
-/** The hash in its short form (8 characters, monospace); the full hash is the tooltip. */
-private fun SimplePanel.hashSpan(sha256: String) {
-    span(shortHash(sha256)) {
-        addCssClass("font-monospace")
-        title = sha256
-    }
-}
+private const val HISTORY_HASH_LENGTH = 12
 
 /**
  * A "Text anzeigen" button that shows or hides the text of version [versionLabel] of [kind] in [textHost]; the text is fetched on the first
- * click only. The state is `aria-expanded`; the label stays the same (a disclosure, not two actions).
+ * click only. The state is `aria-expanded`; the label stays the same (a disclosure, not two actions). A MARKDOWN version is shown through its
+ * server-rendered HTML ([renderAgreementBody]), a plain one as text.
  */
 private fun attachVersionTextToggle(
     button: Button,
@@ -222,7 +261,12 @@ private fun attachVersionTextToggle(
                 val version = guarded { rpcService<IAgreementTextAdminService>().getVersion(kind, versionLabel) }
                 if (version != null) {
                     textHost.removeAll()
-                    textHost.agreementFrame(text = version.body, ariaLabel = gettext("Text der Version %1", versionLabel))
+                    textHost.agreementFrame(
+                        text = version.body,
+                        ariaLabel = gettext("Text der Version %1", versionLabel),
+                        format = version.summary.format,
+                        renderedHtml = version.renderedHtml,
+                    )
                     loaded = true
                     setShown(true)
                 }
@@ -236,10 +280,12 @@ private fun renderCurrentVersionCard(
     kind: AgreementTextKind,
     data: AgreementKindData,
 ) {
-    val card = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
-    card.h2(tr("Aktuelle Fassung")) { addCssClass("h5") }
     val current = data.overview.current
     val label = current?.versionLabel ?: data.overview.builtinVersionLabel
+    // Collapsed: the current version is reference material, the editor below is the task.
+    val details = Tag(TAG.DETAILS, className = "border rounded p-3")
+    details.add(Tag(TAG.SUMMARY, content = sanitizeUntrustedI18nText(gettext("Aktuelle Fassung: %1", label)), className = "fw-bold"))
+    val card = details.vPanel(spacing = 4) { addCssClass("mt-2") }
     if (current == null) {
         card.div(gettext("Eingebauter Mustertext, Version %1.", label))
     } else {
@@ -265,7 +311,35 @@ private fun renderCurrentVersionCard(
     val textHost = card.simplePanel { hide() }
     val viewButton = card.actionButton(ActionIcon.VIEW, tr("Text anzeigen"))
     attachVersionTextToggle(button = viewButton, textHost = textHost, kind = kind, versionLabel = label)
+    panel.add(details)
 }
+
+internal fun agreementKindLabel(kind: AgreementTextKind): String =
+    when (kind) {
+        AgreementTextKind.MEMBERSHIP -> tr("Beitrittsvertrag")
+        AgreementTextKind.FRIEND -> tr("Freund-Nutzungsbedingungen")
+        // V1.9.143: the two texts of the optional pulpit recording (see PulpitRecordingSettings.kt).
+        AgreementTextKind.REC_ROOM -> tr("Hinweis bei Aufzeichnung (Raum)")
+        AgreementTextKind.REC_PULPIT -> tr("Zustimmung der Kanzel zur Aufzeichnung")
+        // V1.9.144/V1.9.145: the consent text of the optional member finder (shown to the member on /member-finder, see MemberFinderScreen.kt).
+        AgreementTextKind.FINDER -> tr("Einwilligung Mitglieder-Finder")
+        // V1.9.148: the entry notice a non-member acknowledges before entering an encounter room.
+        AgreementTextKind.ENC_CHURCH -> tr("Eintrittshinweis Gottesdienst")
+        AgreementTextKind.ENC_ASSEM -> tr("Eintrittshinweis Versammlung")
+        // V1.9.156: the consent every participant gives before entering an event room that may be recorded or streamed (see EventCaptureSettings.kt).
+        AgreementTextKind.EVENT_REC -> tr("Aufzeichnung (Veranstaltung)")
+    }
+
+/**
+ * V1.9.143/V1.9.144/V1.9.148: the pulpit-recording kinds, the member-finder consent and the two encounter entry notices are no registration text: nobody acknowledges them as part of the
+ * registration, and they apply only while the optional feature is on.
+ */
+private fun isOptionalFeatureKind(kind: AgreementTextKind): Boolean =
+    kind == AgreementTextKind.REC_ROOM ||
+        kind == AgreementTextKind.REC_PULPIT ||
+        kind == AgreementTextKind.FINDER ||
+        kind.isEncounterConsent() ||
+        kind.isEventCapture()
 
 private fun labelCheck(
     kind: AgreementTextKind,
@@ -297,6 +371,8 @@ private fun bodyCheck(
         AgreementTextRules.invalidCharacter(body) ->
             FieldCheck.Invalid(gettext("Der Vertragstext enthält unzulässige Zeichen (Steuerzeichen oder Richtungsumschalter)."))
         kind.isEncounterConsent() || kind.isEventCapture() -> layoutCheck(body)
+        (kind == AgreementTextKind.REC_ROOM || kind == AgreementTextKind.REC_PULPIT) && EncounterConsentLayout.hasBlockMarkup(body) ->
+            FieldCheck.Invalid(gettext("In diesem kurzen Text sind Überschriften, Listen, Zitate und Codeblöcke nicht erlaubt."))
         else -> FieldCheck.Ok
     }
 }
@@ -309,6 +385,12 @@ private fun layoutCheck(body: String): FieldCheck {
             FieldCheck.Invalid(gettext("Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."))
         paragraphs[0].length > EncounterConsentLayout.HEADLINE_MAX ->
             FieldCheck.Invalid(gettext("Die Überschrift darf höchstens %1 Zeichen lang sein.", EncounterConsentLayout.HEADLINE_MAX))
+        EncounterConsentLayout.violation(label = "", body = body, format = AgreementTextFormat.MARKDOWN) ==
+            EncounterConsentLayout.Violation.BLOCK_MARKUP_IN_SUMMARY ->
+            // V1.9.196: the first four paragraphs are shown as plain text outside the full text.
+            FieldCheck.Invalid(
+                gettext("In Überschrift und Kernpunkten (Absatz 1 bis 4) sind Überschriften, Listen, Zitate und Codeblöcke nicht erlaubt."),
+            )
         else -> {
             val tooLong =
                 (1 until EncounterConsentLayout.MIN_PARAGRAPHS).firstOrNull {
@@ -332,7 +414,8 @@ private fun contradictsRecording(body: String): Boolean = body.lowercase().repla
 private fun counterText(value: String): String =
     gettext("%1 von %2 Zeichen", AgreementTextRules.normalizeBody(value).length, AgreementTextRules.MAX_CHARS)
 
-private const val PREVIEW_DEBOUNCE_MS = 300
+/** The preview waits for this long after the last keystroke before it asks the server (one request per pause, the latest answer wins). */
+internal const val AGREEMENT_PREVIEW_DEBOUNCE_MS = 500
 
 private fun renderDraftEditor(
     panel: SimplePanel,
@@ -345,6 +428,9 @@ private fun renderDraftEditor(
     val draft = data.draft
     val today = organizationToday()
     val sameDay = data.versions.count { it.versionLabel.startsWith("$today.") }
+    // A new draft starts from the source of the live version, so the next version is an edit of it, not a blank page.
+    val seededFromPlain = draft == null && data.currentBody != null && data.overview.current?.format == AgreementTextFormat.PLAIN
+    val startBody = draft?.body ?: data.currentBody
     val form = card.lapisForm()
     val labelField =
         form.textField(
@@ -363,25 +449,64 @@ private fun renderDraftEditor(
             // gettext, not tr(): the hint is joined to "Format: ..." in LocalDateField and a tr() marker only resolves at the start of a text
             extraHint = gettext("Nicht in der Zukunft und nicht vor der aktuellen Fassung."),
         )
+    if (seededFromPlain || draft?.format == AgreementTextFormat.PLAIN) {
+        form.panel.div(
+            tr(
+                "Die bisherige Fassung ist einfacher Text. Die neue Fassung wird als Markdown gespeichert: Aufzählungen beginnen mit " +
+                    "\"- \" (ein Punktzeichen wird nicht umgewandelt), Absätze trennt eine Leerzeile.",
+            ),
+            className = "alert alert-info small mb-0",
+        ) { setAttribute("role", "note") }
+    }
+    val grid = form.panel.div { addCssClass("lapis-agreement-editor-grid") }
+    val editorColumn = grid.div()
+    val previewColumn = grid.div()
     val bodyField =
         form.textAreaField(
-            label = tr("Vertragstext"),
-            rows = 14,
-            value = draft?.body,
+            label = tr("Text (Markdown)"),
+            rows = 20,
+            value = startBody,
             required = true,
             requiredMessage = tr("Bitte geben Sie den Vertragstext ein."),
-            hint = counterText(draft?.body.orEmpty()),
+            hint = counterText(startBody.orEmpty()),
             hintLive = true,
+            host = editorColumn,
             rule = { bodyCheck(kind, it) },
         )
+    editorColumn.div {
+        // Plain element text: the help only NAMES the syntax (lower-case https:// is the one link scheme that works).
+        add(
+            Tag(TAG.DETAILS, className = "small mt-1").apply {
+                add(Tag(TAG.SUMMARY, content = tr("Kurzhilfe: Formatierung")))
+                add(
+                    Tag(
+                        TAG.PRE,
+                        content =
+                            "## Überschrift\n\nEin Absatz mit **fett** und *kursiv*.\n\n- Aufzählung\n- zweiter Punkt\n\n" +
+                                "1. nummeriert\n\n[Linktext](https://beispiel.de)",
+                        className = "small mb-0",
+                    ),
+                )
+                add(
+                    Tag(
+                        TAG.P,
+                        content =
+                            tr(
+                                "Zeilenumbrüche bleiben erhalten. Verlinkt werden nur Adressen, die mit https:// oder mailto: beginnen " +
+                                    "(klein geschrieben). Bilder und eingebettetes HTML werden nicht dargestellt.",
+                            ),
+                        className = "mt-1 mb-0",
+                    ),
+                )
+            },
+        )
+    }
     form.panel.p(
         tr("Maßgeblich ist die deutsche Fassung. Übersetzungen sind nicht rechtsverbindlich."),
     ) { addCssClasses("text-muted small") }
 
     // V1.9.148: the entry notices are laid out as headline + three key points + detail, and the system owns the recording sentence.
     val encounter = kind.isEncounterConsent()
-    // V1.9.156: the event-room consent has the same layout (headline + three key points + detail) but NO code-owned recording sentence.
-    val eventCapture = kind.isEventCapture()
     var recordingRoom = false
     var refreshPreviewHook: (() -> Unit)? = null
     var contradictionWarning: SimplePanel? = null
@@ -398,52 +523,66 @@ private fun renderDraftEditor(
             }
     }
 
-    val previewTitle =
-        when {
-            encounter -> tr("So sieht der Gast den Hinweis")
-            eventCapture -> tr("So sehen Teilnehmende den Hinweis")
-            else -> tr("Vorschau")
-        }
-    form.panel.h2(previewTitle) { addCssClass("h6") }
+    previewColumn.h2(tr("Vorschau – so sehen Mitglieder den Text")) { addCssClass("h6") }
     if (encounter) {
         form
             .checkField(
                 label = if (kind == AgreementTextKind.ENC_ASSEM) tr("Raum mit Podium-Aufzeichnung") else tr("Raum mit Kanzel-Aufzeichnung"),
                 value = false,
+                host = previewColumn,
             ).subscribe {
                 recordingRoom = it == "true"
                 refreshPreviewHook?.invoke()
             }
     }
-    val previewHost = form.panel.simplePanel()
+    val previewHost = previewColumn.div { addCssClasses("lapis-agreement-preview border rounded p-2") }
+    var previewSerial = 0
 
     fun refreshPreview() {
-        previewHost.removeAll()
         val text = AgreementTextRules.normalizeBody(bodyField.value)
         if (contradictionWarning != null) {
             if (contradictsRecording(text)) contradictionWarning.show() else contradictionWarning.hide()
         }
-        if (text.isEmpty()) {
-            previewHost.p(tr("Die Vorschau erscheint, sobald Sie Text eingeben.")) { addCssClasses("text-muted") }
-        } else if (encounter || eventCapture) {
-            val paragraph = if (recordingRoom && encounter) EncounterConsentLayout.recordingParagraph(kind) else null
-            val split = EncounterConsentLayout.splitOrNull(body = text, extraKeyPoint = paragraph)
-            if (split == null) {
-                previewHost.p(tr("Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt.")) {
+        val mine = ++previewSerial
+        val invalid = text.length > AgreementTextRules.MAX_CHARS || AgreementTextRules.invalidCharacter(text)
+        when {
+            text.isEmpty() -> {
+                previewHost.removeAll()
+                previewHost.p(tr("Die Vorschau erscheint, sobald Sie Text eingeben.")) { addCssClasses("text-muted") }
+            }
+            invalid -> {
+                previewHost.removeAll()
+                previewHost.p(tr("Für diesen Text ist keine Vorschau möglich. Bitte beheben Sie den Fehler im Feld links.")) {
                     addCssClasses("text-muted")
                 }
-            } else {
-                previewHost.renderEncounterConsentPreview(
-                    split.copy(text = if (paragraph != null) text + "\n\n" + paragraph else text),
-                )
             }
-        } else {
-            previewHost.agreementFrame(text = text, ariaLabel = tr("Vorschau des Vertragstextes"))
+            else -> {
+                // The server owns the rendering. Only the answer of the LATEST request is shown.
+                val source =
+                    if (encounter && recordingRoom) text + "\n\n" + EncounterConsentLayout.recordingParagraph(kind) else text
+                AppScope.launch {
+                    val html =
+                        try {
+                            rpcService<IAgreementTextAdminService>().previewAgreementText(kind, source)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Throwable) {
+                            null
+                        }
+                    if (mine == previewSerial) {
+                        previewHost.removeAll()
+                        if (html == null) {
+                            previewHost.p(tr("Die Vorschau ist gerade nicht verfügbar.")) { addCssClasses("text-danger") }
+                        } else {
+                            previewHost.renderAgreementBody(text = text, format = AgreementTextFormat.MARKDOWN, renderedHtml = html)
+                        }
+                    }
+                }
+            }
         }
     }
     refreshPreviewHook = ::refreshPreview
     refreshPreview()
-    form.panel.actionButton(ActionIcon.REFRESH, tr("Vorschau aktualisieren")) { onClick { refreshPreview() } }
 
     val saveButton = newActionButton(ActionIcon.SAVE, tr("Als Entwurf speichern"), style = ButtonStyle.OUTLINESECONDARY)
     val publishButton = Button(text = tr("Veröffentlichen"), style = ButtonStyle.PRIMARY)
@@ -451,6 +590,8 @@ private fun renderDraftEditor(
     /** `true` while the editor holds exactly what the stored draft holds (only then the draft is what gets published). */
     fun matchesDraft(): Boolean =
         draft != null &&
+            // a draft stored before V1.9.196 is PLAIN: it must be saved again (as Markdown) before it can be published
+            draft.format == AgreementTextFormat.MARKDOWN &&
             labelField.value.trim() == draft.versionLabel &&
             validFromField.localDateOrNull() == draft.validFrom &&
             AgreementTextRules.normalizeBody(bodyField.value) == draft.body
@@ -463,12 +604,22 @@ private fun renderDraftEditor(
     bodyField.subscribe { value ->
         bodyField.setHintText(counterText(value))
         previewTimer?.let { window.clearTimeout(it) }
-        previewTimer = window.setTimeout({ refreshPreview() }, PREVIEW_DEBOUNCE_MS)
+        previewTimer = window.setTimeout({ refreshPreview() }, AGREEMENT_PREVIEW_DEBOUNCE_MS)
         syncPublishButton()
     }
     labelField.subscribe { syncPublishButton() }
     validFromField.subscribe { syncPublishButton() }
     form.buttons(primary = publishButton, cancel = saveButton)
+    if (draft != null && draft.format != AgreementTextFormat.MARKDOWN) {
+        // explains the grey publish button: a pre-V1.9.196 draft is PLAIN and has to be saved again first
+        card.add(
+            Tag(
+                TAG.DIV,
+                content = tr("Bitte den Entwurf erneut speichern, bevor er veröffentlicht werden kann."),
+                className = "small text-muted mt-1",
+            ),
+        )
+    }
 
     saveButton.onClick {
         form.submit(saveButton) {
@@ -550,30 +701,84 @@ private fun renderDraftEditor(
     }
 }
 
-private fun renderVersionList(
+/** The history of everything that was ever published: a table (newest first); "Text anzeigen" opens one version below it. */
+private fun renderVersionHistory(
     panel: SimplePanel,
     kind: AgreementTextKind,
     versions: List<AgreementTextVersionSummaryDto>,
 ) {
-    panel.h2(tr("Veröffentlichte Fassungen")) { addCssClass("h5") }
+    panel.h2(tr("Verlauf der Fassungen")) { addCssClass("h5") }
     if (versions.isEmpty()) {
         panel.p(tr("Noch keine eigene Fassung veröffentlicht.")) { addCssClass("text-muted") }
         return
     }
+    val headers =
+        listOf(
+            TableHeader(tr("Version")),
+            TableHeader(tr("Gültig ab")),
+            TableHeader(tr("Veröffentlicht am")),
+            TableHeader(tr("Von")),
+            TableHeader(tr("Format")),
+            TableHeader(tr("Prüfsumme")),
+            TableHeader(tr("Text")),
+        )
+    val table = panel.standardTable(headers)
+    table.caption = tr("Verlauf der Fassungen")
+    table.addCssClass(REPORT_CAPTION_HIDDEN_CLASS)
+    val textHost = SimplePanel()
+    val buttons = mutableListOf<Button>()
+    var shownLabel: String? = null
     versions.forEach { version ->
-        val row = panel.vPanel(spacing = 4) { addCssClasses("border-bottom pb-2") }
-        val textHost = SimplePanel().apply { hide() }
-        row.hPanel(spacing = 12) {
-            addCssClasses("flex-wrap align-items-center")
-            span(formatSystemDateTime(version.publishedAt))
-            untrustedSpan(version.versionLabel) { addCssClass("fw-bold") }
-            untrustedSpan(version.authorDisplayName)
-            hashSpan(version.sha256)
-            val viewButton = actionButton(ActionIcon.VIEW, tr("Text anzeigen"), small = true)
-            attachVersionTextToggle(button = viewButton, textHost = textHost, kind = kind, versionLabel = version.versionLabel)
+        table.row {
+            textCell(version.versionLabel)
+            textCell(formatDate(version.validFrom))
+            textCell(formatSystemDateTime(version.publishedAt))
+            textCell(version.authorDisplayName)
+            cell {
+                if (version.format ==
+                    AgreementTextFormat.MARKDOWN
+                ) {
+                    typeBadge(tr("Markdown"), "primary")
+                } else {
+                    typeBadge(tr("Einfacher Text"), "secondary")
+                }
+            }
+            cell {
+                untrustedSpan(shortHash(version.sha256, HISTORY_HASH_LENGTH)) {
+                    addCssClass("font-monospace")
+                    title = version.sha256
+                }
+            }
+            cell {
+                val view = tableActionGroup().tableActionButton(ActionIcon.VIEW, gettext("Text anzeigen: %1", version.versionLabel))
+                view.setAttribute("aria-expanded", "false")
+                buttons += view
+                view.onClick {
+                    buttons.forEach { it.setAttribute("aria-expanded", "false") }
+                    if (shownLabel == version.versionLabel) {
+                        shownLabel = null
+                        textHost.removeAll()
+                    } else {
+                        AppScope.launch {
+                            val loaded = guarded { rpcService<IAgreementTextAdminService>().getVersion(kind, version.versionLabel) }
+                            if (loaded != null) {
+                                shownLabel = version.versionLabel
+                                view.setAttribute("aria-expanded", "true")
+                                textHost.removeAll()
+                                textHost.agreementFrame(
+                                    text = loaded.body,
+                                    ariaLabel = gettext("Text der Version %1", version.versionLabel),
+                                    format = loaded.summary.format,
+                                    renderedHtml = loaded.renderedHtml,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
-        row.add(textHost)
     }
+    panel.add(textHost)
 }
 
 /**

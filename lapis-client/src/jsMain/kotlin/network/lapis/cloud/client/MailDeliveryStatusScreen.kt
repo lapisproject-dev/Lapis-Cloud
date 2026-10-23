@@ -27,15 +27,8 @@ internal fun renderMailDeliveryStatusScreen(
     load: suspend () -> MailDeliveryStatusDto?,
 ) {
     val root = container.dataScreenRoot()
-    val header = root.pageHeader(tr("E-Mail-Versand"))
+    val header = root.pageHeader(tr("E-Mail-Versand"), intro = PageIntros.forRoute(Routes.MAIL_DELIVERY))
     val refresh = header.actionSlot.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"))
-    root.div(
-        tr(
-            "Zustand des E-Mail-Versands: Stundenbudget, wartende System-E-Mails und Fehlschläge der letzten 7 Tage. " +
-                "Es werden nur Zahlen angezeigt, nie Adressen oder Inhalte.",
-        ),
-        className = "text-muted small",
-    )
     // One shared load lifecycle (loading text, error with "Erneut versuchen", content): the card is always "full" -- even a quiet instance has
     // a budget line and a queue line -- so there is no empty state.
     val section =

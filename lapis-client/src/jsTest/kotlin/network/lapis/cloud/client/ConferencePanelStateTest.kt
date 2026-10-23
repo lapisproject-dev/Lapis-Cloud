@@ -525,4 +525,69 @@ class ConferencePanelStateTest {
         val other = conferenceRailLayout(ConferencePanelState(fullscreen = true, normalVotingOpen = true, fullscreenVotingOpen = false))
         assertEquals(ConferenceVotingRailShare.NONE, other.votingShare)
     }
+
+    // ── V1.9.184: the settings panel that the gear of the bar opens ─────────────────────────────────
+
+    @Test
+    fun conferencePanelReduce_settingsToggled_opensAndClosesThePanel_andShowsTheControls() {
+        val opened = conferencePanelReduce(ConferencePanelState(controlsVisible = false), ConferencePanelEvent.SettingsToggled)
+        assertTrue(opened.settingsOpen)
+        assertTrue(opened.controlsVisible)
+        val closed = conferencePanelReduce(opened, ConferencePanelEvent.SettingsToggled)
+        assertFalse(closed.settingsOpen)
+    }
+
+    @Test
+    fun conferencePanelReduce_settingsAndMoreSheet_neverStandOpenTogether_inBothDirections() {
+        val moreOpen = ConferencePanelState(moreOpen = true)
+        val settingsOpened = conferencePanelReduce(moreOpen, ConferencePanelEvent.SettingsToggled)
+        assertTrue(settingsOpened.settingsOpen)
+        assertFalse(settingsOpened.moreOpen, "opening the settings closes the Mehr sheet")
+        val moreOpened = conferencePanelReduce(settingsOpened, ConferencePanelEvent.MoreToggled)
+        assertTrue(moreOpened.moreOpen)
+        assertFalse(moreOpened.settingsOpen, "opening Mehr closes the settings")
+        // closing one does not touch the other (it is closed anyway)
+        val closed = conferencePanelReduce(moreOpened, ConferencePanelEvent.MoreToggled)
+        assertFalse(closed.moreOpen)
+        assertFalse(closed.settingsOpen)
+    }
+
+    @Test
+    fun conferencePanelReduce_settingsToggled_onANarrowViewport_isRefusedWhileAReceiptOrCastingLocks_butNotWhenOpenOrWide() {
+        for (lock in listOf(ConferenceVotingLock.RECEIPT, ConferenceVotingLock.CASTING)) {
+            val locked = ConferencePanelState(narrow = true, votingLock = lock)
+            assertEquals(
+                locked,
+                conferencePanelReduce(locked, ConferencePanelEvent.SettingsToggled),
+                "$lock: a sheet would cover the receipt",
+            )
+            // an already open panel can still be closed
+            val open = locked.copy(settingsOpen = true)
+            assertFalse(conferencePanelReduce(open, ConferencePanelEvent.SettingsToggled).settingsOpen, "$lock: closing is allowed")
+            // a wide viewport has no sheet over the receipt
+            val wide = locked.copy(narrow = false)
+            assertTrue(conferencePanelReduce(wide, ConferencePanelEvent.SettingsToggled).settingsOpen, "$lock: wide viewport")
+        }
+        // a booth alone does not lock the sheets
+        val booth = ConferencePanelState(narrow = true, votingLock = ConferenceVotingLock.BOOTH)
+        assertTrue(conferencePanelReduce(booth, ConferencePanelEvent.SettingsToggled).settingsOpen)
+    }
+
+    @Test
+    fun conferencePanelReduce_fullscreenEntered_closesTheSettingsPanel_andFullscreenExitedDoesNotReopenIt() {
+        val state = ConferencePanelState(settingsOpen = true, controlsVisible = false)
+        val entered = conferencePanelReduce(state, ConferencePanelEvent.FullscreenEntered)
+        assertFalse(entered.settingsOpen)
+        assertTrue(entered.controlsVisible)
+        val exited = conferencePanelReduce(entered, ConferencePanelEvent.FullscreenExited)
+        assertFalse(exited.settingsOpen)
+    }
+
+    @Test
+    fun conferencePanelReduce_inactivityElapsed_doesNotHideTheBar_whileTheSettingsPanelIsOpen() {
+        val open = ConferencePanelState(controlsVisible = true, settingsOpen = true)
+        assertEquals(open, conferencePanelReduce(open, ConferencePanelEvent.InactivityElapsed))
+        val closed = open.copy(settingsOpen = false)
+        assertFalse(conferencePanelReduce(closed, ConferencePanelEvent.InactivityElapsed).controlsVisible)
+    }
 }

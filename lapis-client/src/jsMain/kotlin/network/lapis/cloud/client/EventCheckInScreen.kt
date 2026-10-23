@@ -20,7 +20,6 @@ import io.kvision.panel.HPanel
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -71,11 +70,7 @@ fun renderEventCheckInScreen(
     eventId: String,
 ) {
     val root =
-        container.vPanel(spacing = 12) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 12)
 
     // W5: the offline band sits in the banner slot ABOVE the title (R37); the event's title is a data value and
     // therefore the subtitle of the constant page title.

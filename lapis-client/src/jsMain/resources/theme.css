@@ -349,8 +349,44 @@ body {
 }
 
 .lapis-brand-mark {
-  color: var(--lapis-fleck);
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
 }
+
+/* V1.9.195: the default Lapis Cloud mark is two inline SVGs (light + dark, see App.kt's
+   LAPIS_CLOUD_MARK_SVG); exactly one is shown. The 22px size matches .lapis-brand-logo's max-height
+   so the navbar does not jump between the default mark and an operator logo. */
+.lapis-brand-mark-svg {
+  width: 22px;
+  height: 22px;
+}
+
+html[data-theme="dark"] .lapis-brand-mark--light,
+html:not([data-theme="dark"]) .lapis-brand-mark--dark {
+  display: none;
+}
+
+/* V1.9.195: colours of the default Lapis Cloud mark (geometry in App.kt). Fixed brand colours of the website's symbol, not
+   theme tokens: the light and the dark SVG each carry their own palette. */
+.lapis-brand-mark--light .bm-cloud { fill: #eef3fb; stroke: #234b87; }
+.lapis-brand-mark--light .bm-edge { stroke: #ffffff; }
+.lapis-brand-mark--light .bm-f1 { fill: #5b86c9; }
+.lapis-brand-mark--light .bm-f2 { fill: #8fb0e3; }
+.lapis-brand-mark--light .bm-f3 { fill: #2f5fa8; }
+.lapis-brand-mark--light .bm-f4 { fill: #234b87; }
+.lapis-brand-mark--light .bm-f5 { fill: #3a68b0; }
+.lapis-brand-mark--light .bm-f6 { fill: #16336a; }
+.lapis-brand-mark--light .bm-spark { fill: #c9a227; }
+.lapis-brand-mark--dark .bm-cloud { fill: #16284b; stroke: #8fb0e3; }
+.lapis-brand-mark--dark .bm-edge { stroke: #0b1630; }
+.lapis-brand-mark--dark .bm-f1 { fill: #7ea6e6; }
+.lapis-brand-mark--dark .bm-f2 { fill: #bcd3f5; }
+.lapis-brand-mark--dark .bm-f3 { fill: #4f84d2; }
+.lapis-brand-mark--dark .bm-f4 { fill: #3f6fbd; }
+.lapis-brand-mark--dark .bm-f5 { fill: #5d8cd8; }
+.lapis-brand-mark--dark .bm-f6 { fill: #2b55a3; }
+.lapis-brand-mark--dark .bm-spark { fill: #e6bc3a; }
 
 .lapis-brand-text {
   font-family: var(--lapis-font-display);
@@ -375,9 +411,9 @@ body {
   vertical-align: middle;
 }
 
-/* Smaller variant of .lapis-brand-mark, reused by LapisAttribution.kt's own gem icon -- same SVG
-   markup (App.kt's LAPIS_GEM_MARK_SVG), just visually scaled down for a footer-sized credit line
-   rather than the full navbar brand. */
+/* Smaller variant of .lapis-brand-mark for LapisAttribution.kt's footer credit line: the sparkle-free
+   LAPIS_CLOUD_MARK_SMALL_SVG (App.kt) at 12px. Specificity (0,1,1) deliberately beats
+   .lapis-brand-mark-svg (0,1,0). */
 .lapis-attribution-mark svg {
   width: 12px;
   height: 12px;
@@ -675,12 +711,10 @@ body {
 
   /* V1.4.8 Sidebar-Layout-Fix -- Bootstrap sets `.offcanvas-lg .offcanvas-body { display: flex }`
      from 992px up (navbar pattern, bootstrap.css 5.3.8 line 6515), with no `flex-direction` of its
-     own (default `row`). `.lapis-sidebar-nav` (above) is today the ONLY direct child of that
-     `.offcanvas-body` and already stacks vertically via its own rule -- this line is the documented
-     safety net for the day a second direct child is added there: without it, `.offcanvas-body`'s
-     own row-flex would lay that second child out beside `.lapis-sidebar-nav` instead of below it,
-     reintroducing exactly the bug `.lapis-sidebar-nav` was created to fix (see `Sidebar.kt`'s
-     `buildSidebar()` comment for the full root-cause writeup). */
+     own (default `row`). `.lapis-sidebar-nav` (above) stacks vertically via its own rule. Since V1.9.187 the body has a SECOND direct
+     child, the "Hilfe und Feedback" foot (`.lapis-sidebar-help`): without this line `.offcanvas-body`'s own row-flex would lay it out
+     beside `.lapis-sidebar-nav` instead of below it, reintroducing exactly the bug `.lapis-sidebar-nav` was created to fix (see
+     `Sidebar.kt`'s `buildSidebar()` comment for the full root-cause writeup). */
   .lapis-sidebar .offcanvas-body {
     flex-direction: column;
   }
@@ -689,13 +723,8 @@ body {
     display: none;
   }
 
-  /* The fixed bottom conference control bar (`.lapis-conference-controls-row`, further below)
-     otherwise sits centered under the FULL viewport width, including the space the sidebar now
-     permanently occupies on desktop -- shift its left edge in by the sidebar's own width so it
-     stays centered under `.lapis-content` instead. */
-  .lapis-conference-controls-row {
-    left: var(--lapis-sidebar-width);
-  }
+  /* V1.9.184: the conference control bar used to be `position: fixed` and needed a `left` equal to the sidebar's width here. It is a
+     sticky box in the content area now (`.lapis-room-bar-dock`, further below), so the sidebar cannot cover it any more. */
 }
 
 .lapis-sidebar .nav-link {
@@ -750,14 +779,47 @@ body {
   }
 }
 
-.lapis-sidebar-group-header:hover,
-.lapis-sidebar-group-header:focus {
+/* Disclosure arrow at the right edge; turns with the header's own aria-expanded (no motion). */
+.lapis-sidebar-group-chevron {
+  display: inline-block;
+  margin-inline-start: auto;
+  font-size: 0.625rem;
+  color: var(--lapis-muted);
+}
+
+.lapis-sidebar-group-header[aria-expanded="true"] .lapis-sidebar-group-chevron {
+  transform: rotate(90deg);
+}
+
+.lapis-sidebar-group-header:hover {
   color: var(--lapis-text);
   background-color: var(--lapis-accent-soft);
 }
 
+.lapis-sidebar-group-header:focus {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.lapis-sidebar-group-header:focus:hover {
+  background-color: var(--lapis-accent-soft);
+}
+
+/* The group holding the current page: quiet emphasis, open or closed. */
 .lapis-sidebar-group-header.active {
+  color: var(--lapis-text);
+  font-weight: 600;
+}
+
+.lapis-sidebar-group-header.active > i:first-child {
   color: var(--lapis-fleck-ink);
+}
+
+.lapis-sidebar-group-header:focus-visible {
+  outline: 2px solid var(--lapis-fleck-ink);
+  outline-offset: -2px;
+  border-radius: 0.25rem;
+  box-shadow: none;
 }
 
 .lapis-sidebar-group-body .nav-link {
@@ -1229,30 +1291,10 @@ html.lapis-conference-call-visible .lapis-conference-dock-host {
   }
 }
 
-/* V1.2.10 -- mobil-optimierte Steuerleiste, UI/UX-Design-Team-Review 2026-08-26. Fixe untere
-   Leiste in allen Modi und Breiten (Ive: eine Leiste, kein Sonderfall pro Breite). WARNUNG: niemals
-   transform/filter/perspective auf `.lapis-conference-call-panel` oder einen Vorfahren legen -- das
-   würde `position: fixed` hier lautlos zerstören (Atkinson, containing-block-Regel der CSS-Spec). */
-.lapis-conference-controls-row {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 5;
-  height: calc(56px + env(safe-area-inset-bottom, 0px));
-  padding: 0 8px calc(env(safe-area-inset-bottom, 0px)) 8px;
-  background-color: var(--lapis-surface);
-  border-top: 1px solid var(--lapis-border-strong);
-  justify-content: center;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-/* V1.9.66 -- the bar never wraps: what does not fit moves into the "Mehr" sheet (ConferenceControlBar.kt). The groups
-   (devices | moderation | panels | exit) are separated by thin dividers. */
-.lapis-conference-controls-row {
-  flex-wrap: nowrap;
-  overflow: hidden;
-}
+/* V1.9.66 -- the bar never wraps: what does not fit moves into the "Mehr" sheet (ConferenceControlBar.kt). V1.9.184: the position, the
+   skin and the grid of the bar live in the `.lapis-room-bar` block at the end of this file (one bar for the conference and the
+   encounter room); `.lapis-conference-controls-row` is only the compatibility class that keeps the `.btn` rules below working. The
+   groups of the centre zone (devices | hand, reaction | panels | view | recording, stream | "Mehr") are separated by thin dividers. */
 
 .lapis-conference-controls-group {
   display: flex;
@@ -1314,38 +1356,51 @@ html.lapis-conference-call-visible .lapis-conference-dock-host {
    `data-label` bedient ausschließlich `title`/`aria-label` in ConferenceScreen.kt's
    `setStaticA11yLabel`/`updateMicButtonState` etc., nie sichtbaren Text). */
 
+/* V1.9.184: no transform and no transition any more (see `.lapis-room-bar` at the end of this file); the rule there wins for the bar. */
 .lapis-conference-controls-hidden {
   opacity: 0;
-  transform: translateY(8px);
   pointer-events: none;
 }
 
-/* Reserviert Platz für die fixe untere Leiste, damit der letzte Inhalt im normalen Fluss
-   (z.B. das Ende der Roster-Liste im Normalmodus) nicht dahinter verschwindet. */
-.lapis-conference-call-panel {
-  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+/* V1.9.184: no 68 px reserve at the bottom of the call panel any more -- the bar is a sticky box that rests at the end of the panel, it
+   covers nothing. The panel is at least as high as the free viewport, so the bar rests on the bottom edge of the screen even when the
+   call is short (the dock has `margin-top: auto`, the panel is a flex column). */
+html.lapis-conference-call-visible .lapis-conference-call-panel {
+  min-height: max(480px, calc(100vh - var(--lapis-header-h)));
 }
 
-/* "Mehr"-Blatt: fixe untere Overlay-Karte über der Steuerleiste, rechtsbündig ab 768px, volle
-   Breite darunter (siehe die Breakpoint-Regel unten).
-   Review fix (V1.2.10) -- `right: 8px` used to anchor this sheet to the raw VIEWPORT edge, while
-   `.lapis-conference-controls-row` (see below) is `left:0;right:0;justify-content:center` and thus
-   centers `moreToggleButton` on the full viewport, not on this 960px column -- on any desktop
-   window wider than ~1000-1100px the sheet popped open far to the right of the button that opened
-   it. `renderConferenceScreen`'s own `root` column (ConferenceScreen.kt) is `max-width:960px` with
-   `margin: 0 auto`, i.e. its right edge sits `(100vw - 960px) / 2` in from the viewport's right edge
-   once the viewport exceeds 960px, and flush with the edge (0) below that. The formula below tracks
-   that SAME right edge (plus the original 8px gutter) instead of the raw viewport edge, so the
-   sheet's anchor point grows with the window exactly the way the button cluster's own right portion
-   does -- closing the gap on wide screens without needing the button's actual DOM rect. `max()`
-   keeps the 8px floor for any viewport at or below 960px, matching the previous (correct-there)
-   behavior exactly. */
+@supports (height: 100dvh) {
+  html.lapis-conference-call-visible .lapis-conference-call-panel {
+    min-height: max(480px, calc(100dvh - var(--lapis-header-h)));
+  }
+}
+
+/* "Mehr"-Blatt (V1.9.184: a child of the dock, anchored above the bar like the encounter room's sheet; no longer a fixed card whose right
+   edge had to be computed from the 960 px column). It scrolls itself (R59 ledger class E1). */
 .lapis-conference-more-sheet {
-  position: fixed;
-  right: max(8px, calc((100vw - 960px) / 2 + 8px));
-  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 8px);
-  z-index: 4;
-  width: min(420px, calc(100vw - 16px));
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  z-index: 6;
+  width: min(420px, 100%);
+  max-height: 60vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background-color: var(--lapis-surface);
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* V1.9.184 -- the settings panel (devices, noise suppression, tones) that the gear at the start of the bar opens: the left twin of the
+   "Mehr" sheet. It scrolls itself (R59 ledger class E1). */
+.lapis-conference-settings-sheet {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  z-index: 6;
+  width: min(360px, 100%);
   max-height: 60vh;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1626,20 +1681,12 @@ html.lapis-conference-call-visible .lapis-conference-dock-host {
 }
 
 @media (max-width: 767.98px) {
-  .lapis-conference-more-sheet {
+  .lapis-conference-more-sheet,
+  .lapis-conference-settings-sheet {
     left: 0;
     right: 0;
     width: auto;
     border-radius: 8px 8px 0 0;
-  }
-}
-
-/* V1.9.104: in der vollen Breite sitzt der Knopf "Mehr" in der Mitte des Fensters, nicht mehr am Rand einer 960-px-Spalte -- das Blatt wird
-   über der Mitte verankert (420 px breit, also 210 px nach links). */
-@media (min-width: 768px) {
-  html.lapis-conference-call-visible .lapis-conference-more-sheet {
-    right: auto;
-    left: max(8px, calc(50vw - 210px));
   }
 }
 
@@ -3250,7 +3297,7 @@ html .form-select.is-invalid:focus {
 .lapis-encounter-room {
   /* V1.9.74: positioned room (pseudo fullscreen turns it `fixed`). Since V1.9.165 the sheets hang from `.lapis-encounter-dock`, not from the room. */
   position: relative;
-  --lapis-encounter-bar-h: 56px;
+  --lapis-encounter-bar-h: var(--lapis-room-bar-h);
   --lapis-encounter-room-h: calc(100vh - var(--lapis-header-h) - var(--lapis-encounter-bar-h));
   display: flex;
   flex-direction: column;
@@ -4638,7 +4685,9 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-dock {
   min-height: var(--lapis-dock-min-h);
   padding: 0 8px env(safe-area-inset-bottom, 0px) 8px;
   background-color: var(--lapis-surface);
-  border-top: 1px solid var(--lapis-border-strong);
+  /* V1.9.184: the same skin as the room bar (border + shadow), only the position differs: this bar stays `fixed`. */
+  border-top: 1px solid var(--lapis-border);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
@@ -5722,9 +5771,33 @@ div:hover > .lapis-conference-pin,
   gap: .75rem;
 }
 
-.lapis-te-day-slot { min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; }
+/* V1.9.191: label of a field top left, the fixed text of the neighbouring slot ("bis 24:00" / "ab 00:00") level with the INPUT of
+   the field next to it: the slots start at the top, the text skips the label row (1.5rem line + .5rem margin) and is as high as an input. */
+.lapis-te-day-slot { min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; }
 .lapis-te-day-slot--span { grid-column: 1 / -1; }
-.lapis-te-day-slot-text { align-self: end; }
+.lapis-te-day-slot-text {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  min-height: calc(1.5rem + .75rem + 2px);
+  margin-top: 2rem;
+}
+.lapis-te-day-slot--span .lapis-te-day-slot-text { margin-top: 0; min-height: 0; }
+
+/* V1.9.191: the "Weitere Kosten" list. Amounts in tabular figures, a long description is cut (full text in the title). */
+.lapis-te-extra-table td { vertical-align: middle; }
+.lapis-te-extra-table td:nth-child(2) { max-width: 24rem; }
+.lapis-te-extra-table .lapis-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 575.98px) {
+  /* Phone: one stacked block per line instead of a squeezed four-column row. */
+  .lapis-te-extra-table thead { display: none; }
+  .lapis-te-extra-table,
+  .lapis-te-extra-table tbody { display: block; }
+  .lapis-te-extra-table tr { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .75rem; padding: .5rem 0; }
+  .lapis-te-extra-table td { display: block; border: 0; padding: 0; }
+  .lapis-te-extra-table td:nth-child(2) { flex: 1 1 100%; order: 3; max-width: none; }
+  .lapis-te-extra-table td[colspan] { flex: 1 1 100%; }
+}
 
 .lapis-te-day-meals {
   display: grid;
@@ -5737,10 +5810,28 @@ div:hover > .lapis-conference-pin,
 /* Schmal: Dauer links, Betrag rechts in einer Zeile unter den Eingaben. */
 .lapis-te-day-result {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  gap: .5rem;
+  gap: .25rem .5rem;
+  min-width: 0;
 }
+
+/* V1.9.194: the day amount is TWO lines ("Tagesbetrag: ..." / "(Abzuege: ...)"), right-aligned, never cut: no wrapping, no overflow clip,
+   same font size (the second line only a little less strong in colour). Static, no transition. */
+.lapis-te-day-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  min-width: max-content;
+}
+.lapis-te-day-amount-line {
+  display: block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.lapis-te-day-amount-line + .lapis-te-day-amount-line { color: var(--bs-secondary-color); }
 
 /* Die EINE Container-Query: ab 50rem Rasterbreite steht der Tag in einer Zeile (Ziel | Zeiten | Ergebnis, darunter Mahlzeiten und Hinweise).
    Die `grid-area`-Namen stehen NUR hier: ausserhalb gibt es kein `grid-template-areas`, und ein Name ohne Bereich legt die Elemente
@@ -5754,7 +5845,7 @@ div:hover > .lapis-conference-pin,
   .lapis-te-day-result { grid-area: result; }
 
   .lapis-te-day {
-    grid-template-columns: minmax(12rem, 1fr) 22rem 10rem;
+    grid-template-columns: minmax(12rem, 1fr) 22rem minmax(10rem, max-content);
     grid-template-areas:
       "date date result"
       "dest times result"
@@ -6387,12 +6478,538 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   }
 }
 
+/* V1.9.182: agenda table of the meeting page. The number and action columns shrink to their content (no fixed pixel widths);
+   long titles and presenter names wrap instead of widening the table. */
+.lapis-agenda-narrow {
+  width: 1%;
+  white-space: nowrap;
+  text-align: end;
+}
+
+.lapis-agenda-title {
+  overflow-wrap: anywhere;
+}
+
+/* An icon-only row action keeps a comfortable touch target. */
+.lapis-icon-btn {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+}
+
+/* ── V1.9.184 Die Raumleiste (`.lapis-room-bar`) ────────────────────────────────────────────────────────────────────
+   EINE Leiste fuer die Konferenz und den Begegnungsraum, drei Zonen im Raster `auto | 1fr | auto`: Zahnrad allein links, die Steuerung des
+   Raums in der Mitte, der Ausgang rechts. Der DOCK (`.lapis-room-bar-dock`) ist `position: sticky; bottom: 0` im Inhaltsbereich: die
+   Seitenleiste kann ihn nie ueberdecken (anders als die frueher `fixed` positionierte Konferenzleiste). Die Leiste selbst ist statisch;
+   das "Mehr"-Blatt und das Einstellungsblatt haengen als Geschwister der Leiste am Dock (`bottom: calc(100% + 4px)`).
+   NIE `transform`, `filter` oder `backdrop-filter` am Dock oder an einem Vorfahren und kein `overflow` ausser visible/clip an einem
+   Vorfahren: das schaltet sticky lautlos ab. Die Leiste hat KEIN `overflow: clip` (es schnitte Fokusringe und Merkzeichen ab); nur die
+   Mitte clippt, mit einem Rand fuer die Fokusringe (`overflow-clip-margin`). Sticky ist keine Scroll-Flaeche (R59-Ledger unveraendert).
+   Keine Transition. */
+:root {
+  --lapis-room-bar-h: 56px;
+}
+
+.lapis-room-bar-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-top: auto;
+  background: var(--lapis-surface);
+  border-top: 1px solid var(--lapis-border);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* a vPanel puts spacing under every child: none under the dock, or it could not rest on the bottom edge of the panel */
+  margin-bottom: 0 !important;
+}
+
+/* Full screen of the conference: the picture gets the whole height, the bar stays an overlay (fixed inside the fullscreen box) that
+   fades with the auto-hide class. Nothing is reserved for it; focus never ends up behind it. */
+.lapis-conference-call-panel.lapis-conference-fullscreen {
+  padding-bottom: 0;
+  scroll-padding-bottom: calc(var(--lapis-room-bar-h) + env(safe-area-inset-bottom, 0px));
+}
+
+.lapis-conference-call-panel.lapis-conference-fullscreen .lapis-room-bar-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* auto-hide of the conference bar: invisible and inert, no transition and no transform (see above) */
+.lapis-room-bar.lapis-conference-controls-hidden,
+.lapis-room-bar-dock.lapis-conference-controls-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lapis-room-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 6px;
+  min-height: var(--lapis-room-bar-h);
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.lapis-room-bar__start,
+.lapis-room-bar__end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.lapis-room-bar__end {
+  gap: 12px;
+}
+
+.lapis-room-bar__centre {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: clip;
+  overflow-clip-margin: 6px;
+}
+
+/* the zone separators: 1 x 24 px, 8 px away from the zone, 16 px of room to the centre (see RoomControlBar.ZONE_SEPARATORS_RESERVED_PX for the arithmetic);
+   a separator is drawn only while its zone shows a control (a zone whose controls all moved into the sheet leaves none) */
+.lapis-room-bar__start:has(> :not(.lapis-conference-control-overflowed):not(.lapis-encounter-control-overflowed):not(.lapis-encounter-control-group--spent))::after,
+.lapis-room-bar__end::before {
+  content: "";
+  flex: none;
+  width: 1px;
+  height: 24px;
+  background-color: var(--lapis-border-strong);
+}
+
+.lapis-room-bar__start:has(> :not(.lapis-conference-control-overflowed):not(.lapis-encounter-control-overflowed):not(.lapis-encounter-control-group--spent))::after {
+  margin-inline: 8px 16px;
+}
+
+.lapis-room-bar__end::before {
+  margin-inline: 16px 8px;
+}
+
+.lapis-room-bar .btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* the groups inside the centre: no automatic margins any more (they belonged to the old flex bar), the zone does the centring */
+.lapis-room-bar__centre > .lapis-encounter-control-group--reactions {
+  margin-inline-start: 0;
+}
+
+.lapis-room-bar__end > .lapis-encounter-control-group--exit {
+  margin-inline-start: 0;
+}
+
+/* conference: the exit group is a flex group in the end zone */
+.lapis-room-bar__end > .lapis-conference-controls-group--exit {
+  gap: 12px;
+}
+
+.lapis-room-bar .lapis-conference-controls-group {
+  flex: none;
+}
+
+/* V1.9.187 -- page intro: the short, collapsible introduction under the title of a view (`PageIntro.kt`). Quiet on purpose: small text,
+   a thin rule on the left, no background, no transition and no animation (nothing for the reduced-motion block to switch off).
+   The collapse/expand controls are small link-style buttons; its touch target is at least 2rem (32px) in both directions. */
+.page-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: 70ch;
+  margin: 0.25rem 0 1rem;
+  padding: 0.25rem 0 0.25rem 0.75rem;
+  border-left: 2px solid var(--lapis-border);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--lapis-muted);
+}
+
+.page-intro__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.page-intro__text {
+  margin: 0;
+}
+
+.page-intro__link {
+  display: inline-block;
+  margin-top: 0.25rem;
+}
+
+/* V1.9.188 -- the optional "Mehr" part of an intro: a native <details>, closed on every render. No transition, no animation. */
+.page-intro__more {
+  margin-top: 0.25rem;
+}
+
+.page-intro__more-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  cursor: pointer;
+  color: var(--lapis-accent-strong);
+  font-size: 0.8125rem;
+}
+
+.page-intro__more-text {
+  margin: 0.25rem 0 0;
+}
+
+.page-intro .page-intro__collapse {
+  flex: none;
+  min-width: 2rem;
+  min-height: 2rem;
+  margin-inline-start: auto;
+  color: var(--lapis-muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* V1.9.190 -- the collapsed intro: only the small "Hinweis anzeigen" toggle, no rule on the left. */
+.page-intro--collapsed {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.page-intro .page-intro__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0.125rem 0;
+  font-size: 0.875rem;
+  color: var(--lapis-muted);
+}
+
+.page-intro__body:focus {
+  outline: none;
+}
+
+.page-intro__body:focus-visible {
+  outline: 2px solid var(--lapis-accent-strong);
+  outline-offset: 2px;
+}
+
+/* V1.9.187 -- the "Hilfe und Feedback" foot of the sidebar. It is the second child of the sidebar body, after the nav, and scrolls with
+   the page like everything else (R59): no own scroller, no `overflow` on it. The popover opens UPWARD (`bottom: 100%`) so it never
+   needs room below the last entry; it is absolutely positioned, which makes it neither a scroller nor a new stacking surface. */
+.lapis-sidebar-help {
+  position: relative;
+  padding: 0.5rem;
+  border-top: 1px solid var(--lapis-border);
+}
+
+.lapis-sidebar-help .lapis-sidebar-help__trigger {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.5rem;
+  color: var(--lapis-text);
+  font-size: 0.8125rem;
+  text-align: start;
+  text-decoration: none;
+}
+
+.lapis-sidebar-help__menu {
+  position: absolute;
+  inset-inline: 0.5rem;
+  bottom: 100%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background-color: var(--lapis-surface);
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 0.375rem;
+}
+
+.lapis-sidebar-help__item {
+  display: block;
+  padding: 0.5rem;
+  border: 0;
+  background: none;
+  color: var(--lapis-text);
+  font-size: 0.8125rem;
+  text-align: start;
+  text-decoration: none;
+}
+
+.lapis-sidebar-help__item:hover,
+.lapis-sidebar-help__item:focus {
+  background-color: var(--lapis-accent-soft);
+}
+
+/* V1.9.189 Seitenbreiten: EINE Seitenhuelle (`pageShell`) mit zwei Massen.
+   WIDE = Tabellen-/Uebersichtsseiten, FORM = reine Formularseiten (60rem Zeilenlaenge). Ab 100rem wird der 100rem-Rahmen
+   zentriert; die FORM-Spalte sitzt links IN diesem Rahmen, damit die linke Kante auf jeder Seite gleich bleibt.
+   Rand und Abstand stehen hier, nicht inline (ein Inline-`maxWidth` wuerde diese Regeln stillschweigend ueberstimmen). Keine Transition. */
+.lapis-page {
+  box-sizing: border-box;
+  width: 100%;
+  padding-inline: 1rem;
+  margin-block-start: 1.5rem;
+}
+
+.lapis-page--wide {
+  max-width: 100rem;
+  margin-inline: auto;
+}
+
+.lapis-page--form {
+  max-width: 60rem;
+  margin-inline-start: max(0px, calc((100% - 100rem) / 2));
+  margin-inline-end: auto;
+}
+
+.lapis-page-section--form {
+  max-width: 60rem;
+}
+
+@media (min-width: 768px) {
+  .lapis-page { padding-inline: 1.5rem; }
+}
+
+@media (min-width: 1400px) {
+  .lapis-page { padding-inline: 2rem; }
+}
+
+/* Knopf- und Filterzeilen: umbrechen statt horizontal zu scrollen. */
+.lapis-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+}
+
+.lapis-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: .75rem 1rem;
+}
+
+.lapis-filter-toggle {
+  min-height: 2.375rem;
+  display: flex;
+  align-items: center;
+}
+
+/* Preis-Orakel: die beiden Segment-Gruppen in einer Zeile, unter 576 px umbrechend. */
+.lapis-oracle-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem 1rem;
+}
+
+.lapis-oracle-chart {
+  width: 100%;
+  height: 22rem;
+}
+
+/* V1.9.190 -- an on/off setting row with a select and an action next to the status (payment gateway): one wrapping flex row, the
+   warning is the NEXT sibling below it (never a child). No transition, no animation, no overflow. */
+.lapis-setting-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.lapis-setting-row .toggle-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.375rem;
+}
+
+.lapis-setting-row__select {
+  flex: 0 1 18rem;
+  min-width: 14rem;
+}
+
+.lapis-setting-row__action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+  .lapis-setting-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lapis-setting-row__select {
+    flex-basis: auto;
+    min-width: 0;
+  }
+
+  .lapis-setting-row__action {
+    align-self: flex-start;
+  }
+}
+
+/* V1.9.192 Master-Detail (Gremien, Sitzungen): Datenzeile mit echtem Link im Namen, Zurueck-Knopf in natuerlicher Breite.
+   Keine `transition` (Tripwire R54: der Bewegungsreduktions-Block unten bleibt die einzige Heimat). */
+.lapis-master-row:hover > * {
+  background-color: var(--lapis-accent-soft);
+}
+
+.lapis-back-button {
+  align-self: flex-start;
+  width: auto;
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
-   Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste, schwebendes Konferenzfenster).
+   Datei (body, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste, schwebendes Konferenzfenster).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */
+/* V1.9.193 -- "Wie soll entschieden werden?": the segments of the decision selector stack below 40rem. */
+.lapis-decision-selector {
+  container-type: inline-size;
+}
+
+@container (max-width: 40rem) {
+  .lapis-decision-selector .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .lapis-decision-selector .btn-group > .btn {
+    text-align: left;
+  }
+}
+
+/* V1.9.196: Vertragstext-Editor. Markdown links, serverseitig gerenderte Vorschau rechts; unter 62rem untereinander. Die Vorschau waechst mit
+   dem Text (kein eigener Scroller, siehe ScrollSurfaceTripwireTest); keine Transitions. */
+.lapis-agreement-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 62rem) {
+  .lapis-agreement-editor-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.lapis-agreement-editor-grid textarea {
+  min-height: 24rem;
+  font-family: var(--bs-font-monospace);
+}
+
+.lapis-agreement-preview {
+  min-height: 24rem;
+  background-color: var(--lapis-surface);
+  color: var(--lapis-text);
+}
+
+/* Der gerenderte Text eines Vertrags (Markdown -> HTML vom Server): wie der Artikeltext, Zeilenlaenge 72ch. */
+.lapis-agreement-body {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  max-width: 72ch;
+}
+
+.lapis-agreement-body h2,
+.lapis-agreement-body h3,
+.lapis-agreement-body h4 {
+  margin: 1.2rem 0 0.4rem 0;
+}
+
+.lapis-agreement-body p {
+  margin: 0.6rem 0;
+}
+
+.lapis-agreement-body > :first-child {
+  margin-top: 0;
+}
+
+.lapis-agreement-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* V1.9.198: receipts + attachments of a travel-expense report. No transition, no animation. */
+.lapis-te-camera {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .lapis-te-camera {
+    display: block;
+  }
+}
+
+.lapis-te-attachments td,
+.lapis-te-attachments th {
+  vertical-align: middle;
+}
+
+.lapis-te-upload-status {
+  min-height: 0;
+}
+
+.lapis-te-failed-uploads {
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--bs-danger, #dc3545);
+}
+
+/* V1.9.199 Reisekosten: Ansprechpartner links, Unterlagen rechts (eine Spalte unter 768 px); Markdown-Hinweistext. */
+.lapis-te-contact-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .lapis-te-contact-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.lapis-te-doc-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.lapis-te-doc-link > i {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+
+.lapis-te-contact-hint--md {
+  white-space: normal;
+}
+
+.lapis-te-contact-hint h2,
+.lapis-te-contact-hint h3,
+.lapis-te-contact-hint h4 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   body,
-  .lapis-conference-controls-row,
   .lapis-conference-background-preview,
   .lapis-busy,
   .lapis-encounter-seat,

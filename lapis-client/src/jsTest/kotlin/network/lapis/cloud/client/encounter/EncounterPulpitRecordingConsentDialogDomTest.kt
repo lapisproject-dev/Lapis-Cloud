@@ -89,4 +89,22 @@ class EncounterPulpitRecordingConsentDialogDomTest {
                 assertFalse(accepted > 0)
             }
         }
+
+    @Test
+    fun aMarkdownText_isShownAsTheServersHtml_aPlainOneAsText(): Promise<Unit> =
+        formTest {
+            mountedForm("pulpit-consent-markdown") { _, _ ->
+                val markdown =
+                    texts.copy(
+                        pulpitText = "Quelltext **roh**",
+                        pulpitFormat = network.lapis.cloud.shared.domain.AgreementTextFormat.MARKDOWN,
+                        pulpitHtml = "<p>Ihre Stimme wird <strong>aufgezeichnet</strong>.</p>\n",
+                    )
+                showPulpitRecordingConsent(terms, markdown, {}, {})
+                awaitUntil("the dialog") { document.querySelector(".modal.show") != null }
+                val modal = lastOpenModal()
+                assertEquals("aufgezeichnet", modal.querySelector(".lapis-agreement-body strong")?.textContent)
+                assertFalse(modal.textContent.orEmpty().contains("Quelltext"))
+            }
+        }
 }

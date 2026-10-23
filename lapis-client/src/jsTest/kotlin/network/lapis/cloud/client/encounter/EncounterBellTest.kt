@@ -53,7 +53,8 @@ class EncounterBellTest {
         val chat = order.indexOf(EncounterControlSlot.Chat)
         assertTrue(bell in 0 until blessing, "bell before blessing: $order")
         assertTrue(blessing < chat, "blessing before chat: $order")
-        assertTrue(order.indexOf(EncounterControlSlot.CloseDoors) < bell)
+        // V1.9.184: "Türen schließen" is one of the last things to move (after the chat), the bell goes long before
+        assertTrue(order.indexOf(EncounterControlSlot.CloseDoors) > chat, "doors after chat: $order")
         assertFalse(EncounterControlSlot.Bell in encounterOverflowOrder(EncounterReactionOption.entries, blessing = true))
         assertFalse(EncounterControlSlot.Bell in encounterOverflowOrder(EncounterReactionOption.entries))
     }

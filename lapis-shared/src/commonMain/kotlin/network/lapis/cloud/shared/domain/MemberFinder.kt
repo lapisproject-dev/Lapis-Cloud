@@ -103,6 +103,9 @@ data class MemberFinderConsentTextDto(
     val versionLabel: String,
     val body: String,
     val sha256: String,
+    /** V1.9.196 -- how the text is displayed; [renderedHtml] is the server-rendered sanitized HTML of a MARKDOWN text (`null` for plain text). */
+    val format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    val renderedHtml: String? = null,
 )
 
 /** An own request as the SENDER sees it: no note, no counterpart, no timestamp finer than a date. */

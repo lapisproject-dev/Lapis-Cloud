@@ -9,9 +9,11 @@ import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
+import network.lapis.cloud.server.agreementtexts.AgreementTextTestState
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.EncounterProfile
@@ -196,6 +198,40 @@ class PulpitRecordingServiceTest :
                 // The start is audited with the person who REQUESTED it (the steward), not the confirming pulpit and not without an actor.
                 audit[AuditLogEntryTable.actorMemberId] shouldBe p.w.steward
                 audit[AuditLogEntryTable.actorRole] shouldBe AccountRole.MEMBER
+            }
+        }
+
+        test("V1.9.196: the two texts carry their own format; a MARKDOWN text arrives as server-rendered HTML, a plain one without any") {
+            val p = newWorld()
+            try {
+                val pulpitSha =
+                    AgreementTextTestState.publishDirect(
+                        kind = AgreementTextKind.REC_PULPIT,
+                        label = "rp.v1",
+                        body = "Ihre Stimme wird **aufgezeichnet**.\n\n<script>alert(1)</script>",
+                        format = AgreementTextFormat.MARKDOWN,
+                        authorMemberId = p.w.steward,
+                    )
+                AgreementTextTestState.publishDirect(
+                    kind = AgreementTextKind.REC_ROOM,
+                    label = "rr.v1",
+                    body = "Die Kanzel wird *aufgezeichnet*.",
+                    authorMemberId = p.w.steward,
+                )
+                encounterApp {
+                    p.open(builder = this, confirmation = true, p.w.steward, p.w.pulpit)
+                    val texts = p.asMember(client = client, member = p.w.pulpit) { it.pulpitRecordingTexts(p.w.spaceId) }.getOrThrow()
+                    texts.pulpitFormat shouldBe AgreementTextFormat.MARKDOWN
+                    texts.pulpitSha256 shouldBe pulpitSha
+                    texts.pulpitText shouldBe "Ihre Stimme wird **aufgezeichnet**.\n\n<script>alert(1)</script>"
+                    texts.pulpitHtml!! shouldContain "<strong>aufgezeichnet</strong>"
+                    texts.pulpitHtml!! shouldNotContain "<script"
+                    texts.roomFormat shouldBe AgreementTextFormat.PLAIN
+                    texts.roomHtml shouldBe null
+                    texts.roomText shouldBe "Die Kanzel wird *aufgezeichnet*."
+                }
+            } finally {
+                AgreementTextTestState.reset()
             }
         }
 

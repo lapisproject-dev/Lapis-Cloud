@@ -32,7 +32,7 @@ import io.kvision.panel.SimplePanel
 fun SimplePanel.lapisAttribution(): SimplePanel {
     val attribution =
         div(className = "lapis-attribution") {
-            span(content = LAPIS_GEM_MARK_SVG, rich = true, className = "lapis-brand-mark lapis-attribution-mark")
+            span(content = LAPIS_CLOUD_MARK_SMALL_SVG, rich = true, className = "lapis-brand-mark lapis-attribution-mark")
             val attributionLink: Link =
                 link(
                     label = tr("Betrieben mit Lapis Cloud"),

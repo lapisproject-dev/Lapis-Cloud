@@ -688,7 +688,7 @@ internal fun renderConferenceVotePanel(
     val boothHost = panel.vPanel(spacing = 6) { addCssClass("lapis-vote-booth-host") }
     boothHost.hide()
     val backRow = boothHost.hPanel(spacing = 6)
-    val backButton = backRow.button(tr("Zurück zur Übersicht"), style = ButtonStyle.OUTLINESECONDARY) { addCssClass("btn-sm") }
+    val backButton = backRow.backButton(tr("Zur Übersicht"))
     val boothNote = boothHost.div("") { addCssClasses("text-muted small") }
     boothNote.hide()
     val boothArea = SimplePanel()
@@ -1015,7 +1015,7 @@ internal fun renderConferenceVotePanel(
         renderConsensusBoothInRoom(
             boothArea = boothArea,
             consensus = consensus,
-            exitLabel = tr("Zurück zur Übersicht"),
+            exitLabel = tr("Zur Übersicht"),
             ballotLock = consensusMemberBallotLock(lockClock, onRefreshRoom, scheduler),
             onBusyChanged = { busy ->
                 boothBusy = busy

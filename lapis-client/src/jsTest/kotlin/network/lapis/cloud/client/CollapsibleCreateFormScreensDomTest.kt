@@ -114,7 +114,7 @@ class CollapsibleCreateFormScreensDomTest {
             ) { _ ->
                 mountedForm("r36b-committees-member") { root, element ->
                     renderCommitteesScreen(root)
-                    awaitUntil("the empty state is shown") { element().shows("Noch keine Gremien vorhanden.") }
+                    awaitUntil("the empty state is shown") { element().shows("Noch keine Gremien angelegt.") }
                     assertTrue(element().actionButtons().isEmpty())
                     assertTrue(element().allOf(".lapis-page-action").isEmpty(), "no empty action area")
                 }

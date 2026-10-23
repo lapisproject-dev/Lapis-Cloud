@@ -13,7 +13,6 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.table.row
-import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -48,12 +47,8 @@ import network.lapis.cloud.shared.rpc.IMemberService
  */
 fun renderCommunicationScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 640.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Kommunikation"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Kommunikation"), intro = PageIntros.forRoute(Routes.COMMUNICATION))
 
     val refreshMailingLists = renderMailingLists(root)
     // V1.9.36: the conversation partners load FIRST; the inbox is built only after that (it marks everything read on load).
@@ -213,8 +208,8 @@ internal fun renderTrackingConsentSwitches(
 }
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale", Design-Team-Pflichtteil: aus dem reinen Unread-Zähler wird
- * eine echte Liste, weil die Mitfahrerzentrale-Kontaktnachrichten hier eintreffen (Postfach-
+ * Welle V1.9.12 "Mitfahrzentrale", Design-Team-Pflichtteil: aus dem reinen Unread-Zähler wird
+ * eine echte Liste, weil die Mitfahrzentrale-Kontaktnachrichten hier eintreffen (Postfach-
  * Erweiterung statt neuem Bereich). `message.body`/`senderDisplayName` sind Freitext eines anderen
  * Mitglieds -- IMMER über [untrustedDiv]/[sanitizeUntrustedI18nText] gerendert, nie roh (gleiche
  * Pflicht wie `list.name`/`message.subject` weiter unten in dieser Datei).
@@ -272,7 +267,7 @@ private fun renderMailingListAdminSection(
     root.div(
         tr("Mailinglisten anlegen, Mitglieder gezielt eintragen und Nachrichten an eine Liste verschicken."),
     ) { addCssClasses("text-muted small") }
-    val createHost = root.vPanel(spacing = 6)
+    val createHost = root.formSection()
 
     // `refreshListSelector` breaks the same forward-reference cycle `LedgerScreen.kt`'s
     // `refreshJournalFn` does: the create-form's success callback needs to refresh the selector

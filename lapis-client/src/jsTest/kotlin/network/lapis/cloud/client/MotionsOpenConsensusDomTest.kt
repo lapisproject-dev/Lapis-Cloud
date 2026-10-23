@@ -68,12 +68,15 @@ class MotionsOpenConsensusDomTest {
         formTest {
             mountedForm("sk-motion-offer") { root, element ->
                 element().render(root)
-                assertTrue(element().hasButton("Konsensieren eröffnen"))
-                assertTrue(element().hasButton("Wahl eröffnen") && element().hasButton("Entscheidung speichern"))
+                assertTrue(element().hasButton("Konsensieren") && element().hasButton("Wahl"))
+                assertTrue(element().hasButton("Ergebnis festhalten"))
+                assertFalse(element().hasButton("Konsensieren eröffnen"), "only the form of the chosen way is shown")
+                element().buttonNamed("Konsensieren").click()
+                awaitUntil("the consensus form") { element().hasButton("Konsensieren eröffnen") }
             }
             mountedForm("sk-motion-no-rights") { root, element ->
                 element().render(root, canManage = false)
-                assertFalse(element().hasButton("Konsensieren eröffnen"))
+                assertFalse(element().hasButton("Konsensieren"))
             }
         }
 
@@ -85,7 +88,8 @@ class MotionsOpenConsensusDomTest {
                     root,
                     amendments = listOf(motionDto().copy(id = "a1", amendsMotionId = "m1", status = MotionStatus.SUBMITTED)),
                 )
-                assertTrue(element().isButtonDisabled("Konsensieren eröffnen"))
+                assertEquals("true", element().buttonNamed("Konsensieren").getAttribute("aria-disabled"))
+                assertEquals(4, element().allOf("[role=radio][aria-disabled=true]").size)
             }
         }
 
@@ -102,7 +106,7 @@ class MotionsOpenConsensusDomTest {
                 )
                 assertEquals(1, el.allOf("[role=note]").size)
                 assertTrue(el.hasButton("Zum Konsensieren"))
-                listOf("Konsensieren eröffnen", "Wahl eröffnen", "Entscheidung speichern", "Vote eröffnen").forEach {
+                listOf("Konsensieren eröffnen", "Wahl eröffnen", "Ergebnis festhalten", "Abstimmung eröffnen").forEach {
                     assertFalse(el.hasButton(it), "'$it' would race the consensus")
                 }
             }
@@ -132,12 +136,19 @@ class MotionsOpenConsensusDomTest {
                 element().render(root, consensuses = listOf(consensus(status = SystemicConsensusStatus.EVALUATED)))
                 val el = element()
                 assertTrue(el.hasButton("Ergebnis der Sondierung ansehen"))
-                assertTrue(el.hasButton("Wahl eröffnen") && el.hasButton("Entscheidung speichern"))
-                assertFalse(el.hasButton("Konsensieren eröffnen"), "the server allows one non-aborted consensus per motion")
+                assertTrue(el.hasButton("Wahl") && el.hasButton("Ergebnis festhalten"))
+                assertEquals("true", el.buttonNamed("Konsensieren").getAttribute("aria-disabled"), "one non-aborted consensus per motion")
+                assertEquals(null, el.buttonNamed("Wahl").getAttribute("aria-disabled"))
+                assertTrue(el.flatText().contains("Nicht verfügbar: Konsensieren"), "the reason is written out, not only a tooltip")
+                assertEquals(1, el.allOf("a, button").count { it.textContent?.trim() == "Ergebnis der Sondierung ansehen" })
             }
             mountedForm("sk-motion-aborted") { root, element ->
                 element().render(root, consensuses = listOf(consensus(status = SystemicConsensusStatus.ABORTED)))
-                assertTrue(element().hasButton("Konsensieren eröffnen"), "an aborted consensus does not block a new one")
+                assertEquals(
+                    null,
+                    element().buttonNamed("Konsensieren").getAttribute("aria-disabled"),
+                    "an aborted consensus does not block a new one",
+                )
             }
         }
 

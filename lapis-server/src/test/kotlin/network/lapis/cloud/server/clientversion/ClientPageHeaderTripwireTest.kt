@@ -46,6 +46,10 @@ private val PAGE_HEADER_CALLS_PER_FILE: Map<String, Pair<Int, String>> =
         "RegistrationScreen.kt" to (2 to "form state and the 'application submitted' state"),
         "FriendRegistrationScreen.kt" to (2 to "form state and the 'account created' state"),
         "SocialNetworkScreen.kt" to (2 to "timeline state and thread state"),
+        "CommitteesScreen.kt" to (2 to "master-detail (V1.9.192): the list page and the committee detail page are separate routes"),
+        "MeetingsScreen.kt" to (2 to "master-detail (V1.9.192): the list page and the meeting detail page are separate routes"),
+        "MotionsScreen.kt" to (2 to "master-detail (V1.9.193): the list page and the motion detail page are separate routes"),
+        "AgreementTextsScreen.kt" to (2 to "master-detail (V1.9.196): the list page and the detail page are separate routes"),
         "MemberFinancialHistoryScreen.kt" to (2 to "own history (isSelf) and another member's history: exclusive branches"),
     )
 

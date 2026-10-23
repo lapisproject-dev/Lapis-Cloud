@@ -59,7 +59,7 @@ class AgreementTextPrivacyTripwireTest :
                         routing {
                             post("/t/save") {
                                 val body = call.receiveText()
-                                val service = AgreementTextAdminService(call)
+                                val service = AgreementTextAdminService(call = call)
                                 val saved =
                                     service.saveDraft(
                                         AgreementTextDraftInput(

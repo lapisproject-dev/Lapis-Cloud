@@ -433,8 +433,7 @@ under the same condition that shows the host (state not idle and attached); `cle
 the landmark, so no `:has` over a page tree can work; the switch sits on the document and needs no `:has` at all. The top margin stays 24 px in both
 states (the heading does not jump), there is no transition, and there is deliberately no upper limit on very wide screens. The end card
 (`Stopped`) is full width as long as it is attached (one condition, no second jump when a call ends). The lobby, which shares the root, stays
-narrow whenever no call is visible. The "Mehr" sheet was anchored to the right edge of the 960 px column, so in the wide call it is anchored over
-the middle of the window (where the control bar centres its button), under the same `html` class. The tile area's `ResizeObserver` measures the
+narrow whenever no call is visible. (The "Mehr" sheet was anchored over the middle of the window under the same `html` class; since V1.9.184 it hangs from the dock of the control bar instead, see the last section.) The tile area's `ResizeObserver` measures the
 real width, so the grid follows the wider column without an extra call. Tripwires: `ClientUiGuidelineTripwireTest` (no inline width on the host,
 only the dock sets the class, the old marker is gone); Karma: `ConferenceFullWidthDomTest` (real page structure at a fixed 1400 px stage).
 
@@ -503,3 +502,21 @@ focus and speaking mark kept, small tiles, floor, no motion, padding, wide root,
 
 * link:conference-moderation-audio.adoc[Conference moderation: mute, ask, lock the microphones (V1.9.108)] -- muting, locking and the full-screen
   heading, which are part of the call view this document describes.
+
+== The call's control bar since V1.9.184
+
+The bar of the call (`.lapis-conference-controls-row`) was `position: fixed` at the bottom of the viewport and needed a `left` equal to the sidebar's width from 992 px so that the sidebar would not cover it. Since V1.9.184 it is the
+three-zone `RoomControlBar` of the encounter room, inside a sticky dock:
+
+* The dock (`.lapis-room-bar-dock`) is the *last child of the call panel* (it is created in the middle of `enterCall`, where the controls are referenced, and moved to the end once the panels exist) and is
+  `position: sticky; bottom: 0` on layer 6, `margin-top: auto`. The call panel is a flex column (KVision `VPanel`) with a minimum height of the free viewport (`html.lapis-conference-call-visible`), so the bar
+  rests on the bottom edge of the screen even for a short call. The bar lives in the content area, so the sidebar cannot cover it; it has the width of `.lapis-content`, also under the drawer sidebar (< 992 px).
+* The "Mehr" sheet and the new *settings panel* (the device block: microphone, camera, speaker, noise suppression, tones, opened by the gear at the start of the bar) are siblings of the bar inside the dock, anchored with
+  `bottom: calc(100% + 4px)` (right and left). Both scroll themselves (R59 ledger class E1). They never stand open together (`ConferencePanelState.settingsOpen` / `SettingsToggled`).
+* The old reserve (68 px `padding-bottom` of the panel) and the transition of the bar are gone (R54: ten transitions remain). The auto-hide class now only sets `opacity: 0; pointer-events: none` (no transform).
+* In full screen the dock is `position: fixed` inside the fullscreen panel again: the picture gets the whole height, the bar is an overlay that fades with the auto-hide class, nothing is reserved for it
+  (`scroll-padding-bottom` of the panel is the bar height, so focus never ends up behind it).
+* The mini bar (`.lapis-conference-dock-bar`) stays `fixed`; it shares only the skin (border, shadow).
+* Never put `overflow`, `transform`, `filter` or `backdrop-filter` on the call panel, the dock host or an ancestor: sticky would stop silently. `ClientEncounterDockCssTripwireTest` pins this for the stylesheet.
+* Order of the centre zone: devices (microphone, camera, screen) | hand, reaction | participants, chat, vote | view | recording, stream | "Mehr". Recording and stream moved from the head of the bar to the end of the centre
+  (V1.9.184). Overflow order: view, reaction, vote, screen, participants, stream, recording, "Für alle beenden", gear, camera, microphone (the gear, camera and microphone have twins in the sheet; the hand never moves).

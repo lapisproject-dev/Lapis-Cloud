@@ -12,7 +12,6 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.VPanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.PostalDeliveryLogDto
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
@@ -48,21 +47,10 @@ import network.lapis.cloud.shared.rpc.IPostalMailService
  */
 fun renderPostalMailScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
     // Audit fix (R37): the "Postversand deaktiviert" band stands in the banner slot ABOVE the title, as the guideline wants it.
     lateinit var bannerPanel: VPanel
-    root.pageHeader(tr("Postversand"), banners = { bannerPanel = vPanel(spacing = 4) })
-    root.div(
-        tr(
-            "Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, keine Aktionen auf " +
-                "dieser Liste. Neue Versandvorgänge werden direkt bei der jeweiligen Beitragsrechnung, " +
-                "Spendenbescheinigung oder Sitzungseinladung ausgelöst.",
-        ),
-    ) { addCssClasses("text-muted small") }
+    root.pageHeader(tr("Postversand"), banners = { bannerPanel = vPanel(spacing = 4) }, intro = PageIntros.forRoute(Routes.POSTAL_MAIL))
 
     // Audit fix M2: three states, not two -- an unknown state (the settings RPC failed) is an error box with a retry, NEVER "deaktiviert".
     fun loadBanner() {

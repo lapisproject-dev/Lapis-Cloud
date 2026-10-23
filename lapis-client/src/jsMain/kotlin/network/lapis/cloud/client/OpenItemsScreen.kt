@@ -117,7 +117,7 @@ fun renderOpenItemsScreen(
     selectedItemId: String? = null,
 ) {
     val root = container.dataScreenRoot()
-    val header = root.pageHeader(tr("Offene Posten"))
+    val header = root.pageHeader(tr("Offene Posten"), intro = PageIntros.forRoute(Routes.OPEN_ITEMS))
 
     val role = AppState.session?.role
     val canWrite = OpenItemAuthzUi.canWrite(role)

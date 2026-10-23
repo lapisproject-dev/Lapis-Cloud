@@ -21,7 +21,6 @@ import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.browser.document
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -67,11 +66,7 @@ private var finderRadioSerial = 0
 /** Entry of the route: the status of the session decides before a single call is made (the server refuses everybody but ACTIVE). */
 fun renderMemberFinderScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
+        container.pageShell(PageWidth.WIDE, spacing = 14)
     renderMemberFinderContent(root, AppState.session?.status ?: MemberStatus.GUEST)
 }
 
@@ -80,7 +75,11 @@ internal fun renderMemberFinderContent(
     root: SimplePanel,
     status: MemberStatus,
 ) {
-    root.pageHeader(tr("Mitglieder-Finder"))
+    // The intro describes the opt-in finder; a person who is not a member only gets the "members only" sentence below it.
+    root.pageHeader(
+        tr("Mitglieder-Finder"),
+        intro = if (status in MemberStatusSets.ORGANIZATION_MEMBER) PageIntros.forRoute(Routes.MEMBER_FINDER) else null,
+    )
     if (status !in MemberStatusSets.ORGANIZATION_MEMBER) {
         root.p(tr("Der Mitglieder-Finder steht nur Mitgliedern zur Verfügung."), className = "text-muted")
         return
@@ -289,7 +288,13 @@ private class MemberFinderPage(
                 render = { host, dto ->
                     current = dto
                     host.h2(tr("Einwilligungstext")) { addCssClass("h5") }
-                    frame = host.agreementFrame(text = dto.body, ariaLabel = gettext("Einwilligungstext"))
+                    frame =
+                        host.agreementFrame(
+                            text = dto.body,
+                            ariaLabel = gettext("Einwilligungstext"),
+                            format = dto.format,
+                            renderedHtml = dto.renderedHtml,
+                        )
                     host.p(tr("Bitte lesen Sie den vollständigen Text."), className = "text-muted small")
                 },
             )

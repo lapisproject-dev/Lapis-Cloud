@@ -108,11 +108,6 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                     listOf(
                         "lineTable = lineTableHost.table(headerNames = headers, types = setOf(TableType.STRIPED, TableType.HOVER))",
                     ),
-                // W4 dunning settings
-                "DunningSettingsScreen.kt" to
-                    listOf(
-                        "listPanel.table(",
-                    ),
                 // W4 receivable dunning settings
                 "ReceivableDunningSettingsScreen.kt" to
                     listOf(
@@ -133,11 +128,6 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                     listOf(
                         "lineTable = lineTableHost.table(headerNames = headers, types = setOf(TableType.STRIPED, TableType.HOVER))",
                     ),
-                // W4 dunning settings
-                "DunningSettingsScreen.kt" to
-                    listOf(
-                        "listPanel.table(",
-                    ),
             ),
         R39 to
             mapOf(
@@ -149,13 +139,13 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                 // W5 conference
                 "ConferenceScreen.kt" to
                     listOf(
-                        "controlsRow.button(\"\", icon = \"fas fa-display\", style = ButtonStyle.OUTLINESECONDARY)",
+                        "centre.button(\"\", icon = \"fas fa-display\", style = ButtonStyle.OUTLINESECONDARY)",
                         "overlayControls.button(\"\", icon = \"fas fa-expand\", style = ButtonStyle.OUTLINESECONDARY) { addCssClass(\"btn-sm\") }",
-                        "val cameraButton = controlsRow.button(\"\", icon = \"fas fa-video\", style = ButtonStyle.OUTLINESECONDARY)",
-                        "val chatToggleButton = controlsRow.button(\"\", icon = \"fas fa-comments\", style = ButtonStyle.OUTLINESECONDARY)",
-                        "val micButton = controlsRow.button(\"\", icon = \"fas fa-microphone\", style = ButtonStyle.OUTLINESECONDARY)",
-                        "val moreToggleButton = controlsRow.button(\"\", icon = \"fas fa-ellipsis\", style = ButtonStyle.OUTLINESECONDARY)",
-                        "val rosterToggleButton = controlsRow.button(\"\", icon = \"fas fa-users\", style = ButtonStyle.OUTLINESECONDARY)",
+                        "val cameraButton = centre.button(\"\", icon = \"fas fa-video\", style = ButtonStyle.OUTLINESECONDARY)",
+                        "val chatToggleButton = centre.button(\"\", icon = \"fas fa-comments\", style = ButtonStyle.OUTLINESECONDARY)",
+                        "val micButton = centre.button(\"\", icon = \"fas fa-microphone\", style = ButtonStyle.OUTLINESECONDARY)",
+                        "val moreToggleButton = centre.button(\"\", icon = \"fas fa-ellipsis\", style = ButtonStyle.OUTLINESECONDARY)",
+                        "val rosterToggleButton = centre.button(\"\", icon = \"fas fa-users\", style = ButtonStyle.OUTLINESECONDARY)",
                     ),
                 // V1.9.4 own-uploaded-background remove (×) button -- same pattern as the conference control
                 // buttons above: aria-label is set right after construction via RawAttributes, not inline in
@@ -577,7 +567,7 @@ private val R24_MIGRATED: Set<String> =
         // `PoliticianScreen.politicianRevokeConfirmDialog`) in the same wave so R29 does not rise when
         // the file joins this set.
         "KeycloakLinkScreen.kt",
-        // Welle V1.9.12 "Mitfahrerzentrale": every labelled text field (Von/Nach/Abfahrtsdatum/
+        // Welle V1.9.12 "Mitfahrzentrale": every labelled text field (Von/Nach/Abfahrtsdatum/
         // Abfahrtszeit/Freie Plätze/Notiz in the create/edit form, Nachricht in the contact form)
         // goes through `lapisForm`'s `textField`/`textAreaField`/`selectField` from the start --
         // the file's only RAW `select(...)` call is the feed's "Art" type filter (justified below,
@@ -883,9 +873,10 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         // reason as TravelExpenseApprovalsScreen.kt's statusSelect above).
         "VolunteerAllowanceApprovalsScreen.kt" to
             listOf("val statusSelect = filterRow.select(options = statusOptions, value = \"\", label = tr(\"Status\"))"),
-        // Welle V1.9.12 "Mitfahrerzentrale" -- FILTER_IS_NOT_A_FORM: narrows the feed by
+        // Welle V1.9.12 "Mitfahrzentrale" -- FILTER_IS_NOT_A_FORM: narrows the feed by
         // OFFER/REQUEST, never submitted, same reason as the approval-queue statusSelects above.
-        "CarpoolScreen.kt" to listOf("filterRow.select( [label \"Art\"]"),
+        // V1.9.186: the same toolbar gains "Nur meine" -- switches the list between the feed and the own entries, never submitted.
+        "CarpoolScreen.kt" to listOf("filterRow.select( [label \"Art\"]", "onlyMineCheck = filterRow.checkBox(label = tr(\"Nur meine\"))"),
     )
 
 /**
@@ -1508,8 +1499,8 @@ class ClientUiGuidelineTripwireTest :
             }
         }
 
-        test("R14/R15 see every table( call of the client, also the ones broken before the dot (7 including the standardTable helper)") {
-            clientKotlinFiles().sumOf { tableCalls(it.readText()).size } shouldBe 7
+        test("R14/R15 see every table( call of the client, also the ones broken before the dot (6 including the standardTable helper)") {
+            clientKotlinFiles().sumOf { tableCalls(it.readText()).size } shouldBe 6
         }
 
         test("C7c: no reportTable( call of the client carries sort wiring (a report is never sortable)") {
@@ -1891,7 +1882,8 @@ class ClientUiGuidelineTripwireTest :
         }
 
         test(
-            "R54 names exactly the eleven known transitions today (V1.9.62: the hand and event symbols of the encounter room; " +
+            "R54 names exactly the ten known transitions today (V1.9.184: the fade of the old conference control bar is gone, the bar is " +
+                "a sticky box without transition; V1.9.62: the hand and event symbols of the encounter room; " +
                 "V1.9.71: the floating conference window; V1.9.79: the encounter seat button's colour change; " +
                 "V1.9.95: the opacity fade of the blessing; V1.9.96: the same fade of the bell sign; " +
                 "V1.9.166: the figures of the grid map, " +
@@ -1903,7 +1895,6 @@ class ClientUiGuidelineTripwireTest :
             reduced shouldBe
                 setOf(
                     "body",
-                    ".lapis-conference-controls-row",
                     ".lapis-conference-background-preview",
                     ".lapis-busy",
                     ".lapis-encounter-seat",
@@ -2325,11 +2316,19 @@ class ClientUiGuidelineTripwireTest :
                         "html.lapis-conference-call-visible .lapis-conference-dock-host" in selectorsOf(it)
                 }
             lifted.body.contains("max-width: none") shouldBe true
-            css.any {
-                it.atRules.any { a -> a.contains("min-width: 768px") } &&
-                    selectorsOf(it) == listOf("html.lapis-conference-call-visible .lapis-conference-more-sheet") &&
-                    it.body.contains("right: auto")
+            // V1.9.184: the "Mehr" sheet hangs from the dock (absolute, right: 0) -- the old `right: auto` lift rule for the wide call is gone
+            css.none {
+                selectorsOf(it) == listOf("html.lapis-conference-call-visible .lapis-conference-more-sheet")
             } shouldBe true
+            css
+                .first {
+                    it.atRules.isEmpty() &&
+                        selectorsOf(
+                            it,
+                        ) == listOf(".lapis-conference-more-sheet")
+                }.body
+                .contains("right: 0;") shouldBe
+                true
             // the dock host is a class, never an inline style (an inline max-width / margin beats the lifting rule)
             val dockSource = codeOnly(clientKotlinFiles().first { it.name == "ConferenceDock.kt" }.readText())
             val hostBuilder = dockSource.substringAfter("internal fun Container.conferenceDockHost()").substringBefore("\n\n")

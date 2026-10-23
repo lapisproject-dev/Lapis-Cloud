@@ -32,6 +32,8 @@ class ConferenceDockI18nCatalogTest :
                 "ConferenceDock.kt",
                 "ConferenceDockBar.kt",
                 "ConferenceControlBar.kt",
+                // V1.9.184 -- the three-zone bar: the labels of its zones
+                "RoomControlBar.kt",
                 // V1.9.71 -- the floating window
                 "ConferenceFloatWindow.kt",
                 "ConferenceFloatSelection.kt",

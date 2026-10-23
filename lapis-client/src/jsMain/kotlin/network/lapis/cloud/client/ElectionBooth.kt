@@ -281,7 +281,7 @@ private class ElectionBooth(
             ) { addCssClasses("text-muted mb-0") }
         }
         val row = booth.hPanel(spacing = 8)
-        val back = newActionButton(ActionIcon.BACK, tr("Zurück"), ButtonStyle.OUTLINESECONDARY)
+        val back = newActionButton(ActionIcon.BACK, tr("Auswahl ändern"), ButtonStyle.OUTLINESECONDARY)
         val cast = Button(tr("Stimme endgültig abgeben"), style = ButtonStyle.PRIMARY)
         row.add(back)
         row.add(cast)
@@ -439,7 +439,7 @@ private class ElectionBooth(
             }
         }
         val row = booth.hPanel(spacing = 8)
-        row.button(tr("Zurück zur Wahl"), style = ButtonStyle.OUTLINESECONDARY).onClick { exit(true) }
+        row.backButton(tr("Stimmabgabe verlassen")) { exit(true) }
         if (retry) row.button(tr("Erneut abstimmen"), style = ButtonStyle.PRIMARY).onClick { showSelect() }
     }
 

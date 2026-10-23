@@ -91,6 +91,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.StagingSeedData
+import network.lapis.cloud.server.db.StagingSeedTopUp
 import network.lapis.cloud.server.db.dbFailureKind
 import network.lapis.cloud.server.dsgvo.MailOutboxPersonalData
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
@@ -260,6 +261,8 @@ import network.lapis.cloud.server.routes.registerPublicPoliticiansOverviewRoutes
 import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
+import network.lapis.cloud.server.routes.registerTravelExpenseAttachmentRoutes
+import network.lapis.cloud.server.routes.registerTravelExpenseDocumentRoutes
 import network.lapis.cloud.server.routes.registerTravelExpenseReceiptRoutes
 import network.lapis.cloud.server.routes.registerTravelExpenseSepaRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
@@ -477,6 +480,9 @@ fun main() {
     // testApplication { application { module() } } across this whole test suite). A no-op
     // everywhere except a real deployment with LAPIS_STAGING_MODE=true set explicitly.
     StagingSeedData.seedIfEmpty()
+    // V1.9.197: additive LTR balances for the seeded test members; same rule -- ONLY here, never in module(). Guarded by the
+    // staging env AND an instance check (see StagingSeedTopUp KDoc); a no-op everywhere else.
+    StagingSeedTopUp.topUpIfEligible()
     // Welle V1.4.14 "Mehrere Bankkonten" -- deliberately ONLY here, never in `module()` below.
     // Unlike DevSeedData.seedIfEmpty() (whose "already seeded?" check is a stable, ambient-state-
     // independent fact), this backfill's own "anything to do?" check reads
@@ -1374,6 +1380,8 @@ internal fun Application.module(
     // while still bounding a single member's sustained flood to a small multiple of every other
     // write-capable upload route's own 10/min budget in this file.
     val travelExpenseReceiptUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    // V1.9.199: ONE shared budget for the travel-expense contact-hint Markdown preview (the RPC service is created per call).
+    val travelContactHintPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     // Welle V1.9.123 -- ONE limiter shared by both SEPA-credit-transfer routes (generating a payment file is a rare, deliberate action).
     val travelExpenseSepaExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val travelExpenseSepaExport = TravelExpenseSepaExport(sepaConfig.secretEncryptionKey)
@@ -1733,6 +1741,8 @@ internal fun Application.module(
     // pair above (member-keyed write, bounded per-IP read), plus a member-keyed preview budget
     // and an IP-keyed page-read budget for the public /aktuelles/{slug} surface.
     val articlePreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    // V1.9.196: ADMIN-only live preview of an agreement text (60,000 characters at most); member-keyed, same budget as the article preview.
+    val agreementTextPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     // Security fix (post-V1.4.36 review, DoS finding): saveDraft was reachable by every active
     // member with no rate limit at all -- see ArticleService.saveDraft KDoc. Creates get a
     // generous-but-bounded budget (mirrors eventCoverWriteRateLimiter's 20/10min posture for
@@ -2197,6 +2207,7 @@ internal fun Application.module(
                 call = call,
                 receiptStorageRoot = documentStorageRoot,
                 secretEncryptionKey = sepaConfig.secretEncryptionKey,
+                previewRateLimiter = travelContactHintPreviewRateLimiter,
             )
         }
         // Welle V1.9.4 -- reuses documentStorageRoot with a "conference-backgrounds/" storage-key
@@ -2677,7 +2688,9 @@ internal fun Application.module(
             )
         }
         // V1.9.134 administration of the registration texts.
-        registerService(IAgreementTextAdminService::class) { call -> AgreementTextAdminService(call) }
+        registerService(IAgreementTextAdminService::class) { call ->
+            AgreementTextAdminService(call = call, previewRateLimiter = agreementTextPreviewRateLimiter)
+        }
         // V1.9.143 optional recording of the pulpit of an encounter room. Since V1.9.144 the member finder below is the LAST registerService.
         registerService(IPulpitRecordingService::class) { call ->
             PulpitRecordingService(
@@ -2705,6 +2718,10 @@ internal fun Application.module(
         }
         registerDocumentRoutes(documentStorageRoot)
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
+        // V1.9.198: report-level attachments; deliberately the SAME limiter instance (one upload budget).
+        registerTravelExpenseAttachmentRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
+        // V1.9.199: organisation-wide documents; deliberately the SAME upload budget as receipts/attachments.
+        registerTravelExpenseDocumentRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
         // Welle V1.9.123 "SEPA-Ueberweisungsdatei" -- POST (commits + delivers the pain.001 file in one request, never stored).
         registerTravelExpenseSepaRoutes(
             export = travelExpenseSepaExport,

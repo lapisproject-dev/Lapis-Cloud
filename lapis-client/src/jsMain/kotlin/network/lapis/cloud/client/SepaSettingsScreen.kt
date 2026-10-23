@@ -11,7 +11,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.SepaComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.SepaComplianceDisclaimerDto
@@ -29,12 +28,8 @@ import network.lapis.cloud.shared.rpc.ISepaService
  */
 fun renderSepaSettingsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 700.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("SEPA-Konfiguration"))
+        container.pageShell(PageWidth.FORM, spacing = 14)
+    root.pageHeader(tr("SEPA-Konfiguration"), intro = PageIntros.forRoute(Routes.SEPA_SETTINGS))
 
     renderSepaAdminSection(root)
     renderSepaCreditorSettingsSection(root)

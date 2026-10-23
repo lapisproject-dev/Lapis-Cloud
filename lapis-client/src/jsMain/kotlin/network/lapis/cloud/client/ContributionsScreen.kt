@@ -16,7 +16,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionDto
@@ -74,12 +73,8 @@ fun renderContributionsScreen(container: SimplePanel) {
             return
         }
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 760.px
-            marginTop = 24.px
-        }
-    root.pageHeader(tr("Beitragsübersicht"))
+        container.pageShell(PageWidth.WIDE, spacing = 14)
+    root.pageHeader(tr("Beitragsübersicht"), intro = PageIntros.forRoute(Routes.CONTRIBUTIONS))
 
     // V1.2.2 SEPA-Client-UI wave -- see SepaMandateSection.kt file KDoc "K1". Owns its own panel,
     // renders nothing at all for a plain MEMBER when SEPA is disabled for this organization.

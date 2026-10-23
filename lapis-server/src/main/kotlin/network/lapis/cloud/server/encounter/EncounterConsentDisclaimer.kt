@@ -2,10 +2,13 @@
 
 package network.lapis.cloud.server.encounter
 
+import network.lapis.cloud.server.agreementtexts.AgreementMarkdown
 import network.lapis.cloud.server.agreementtexts.AgreementTextHash
 import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
 import network.lapis.cloud.server.agreementtexts.EncounterConsentLabels
+import network.lapis.cloud.shared.domain.AgreementTextFormat
 import network.lapis.cloud.shared.domain.AgreementTextKind
+import network.lapis.cloud.shared.domain.AgreementTextRules
 import network.lapis.cloud.shared.domain.EncounterConsentLayout
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.rpc.ServiceBusyException
@@ -18,6 +21,12 @@ interface EncounterConsentText {
     val keyPoints: List<String>
     val text: String
     val sha256: String
+
+    /** V1.9.196: how [text] is displayed; [headline] and [keyPoints] are always plain text (Markdown characters removed). */
+    val format: AgreementTextFormat get() = AgreementTextFormat.PLAIN
+
+    /** V1.9.196: server-rendered sanitized HTML of [text] for a MARKDOWN notice, else `null`. */
+    val renderedHtml: String? get() = null
 
     /** `true` iff [version] and [sha256] equal this text's own (constant-time compare; a malformed hash is a non-match, never thrown). */
     fun matches(
@@ -38,6 +47,8 @@ internal data class ResolvedEncounterConsent(
     override val sha256: String,
     val kind: AgreementTextKind,
     val placeholder: Boolean,
+    override val format: AgreementTextFormat = AgreementTextFormat.PLAIN,
+    override val renderedHtml: String? = null,
 ) : EncounterConsentText {
     override fun matches(
         version: String,
@@ -70,12 +81,14 @@ internal fun encounterConsentFor(
         val split = EncounterConsentLayout.splitOrNull(body = current.body) ?: throw ServiceBusyException()
         return ResolvedEncounterConsent(
             version = current.versionLabel,
-            headline = split.headline,
-            keyPoints = split.keyPoints,
+            headline = plainSummary(format = current.format, paragraph = split.headline),
+            keyPoints = split.keyPoints.map { plainSummary(format = current.format, paragraph = it) },
             text = current.body,
             sha256 = current.sha256,
             kind = kind,
             placeholder = current.placeholder,
+            format = current.format,
+            renderedHtml = AgreementMarkdown.htmlFor(format = current.format, body = current.body),
         )
     }
     // The code, never the admin, appends its paragraphs (recording first, then map) as the last key points and as the end of the full text, adds
@@ -101,14 +114,29 @@ internal fun encounterConsentFor(
     val text = base + "\n\n" + paragraphs.joinToString("\n\n")
     return ResolvedEncounterConsent(
         version = label,
-        headline = split.headline,
-        keyPoints = split.keyPoints,
+        headline = plainSummary(format = current.format, paragraph = split.headline),
+        keyPoints = split.keyPoints.map { plainSummary(format = current.format, paragraph = it) },
         text = text,
         sha256 = AgreementTextHash.of(versionLabel = label, body = text),
         kind = kind,
         placeholder = current.placeholder,
+        format = current.format,
+        // The COMPOSED full text is rendered (the code-owned paragraphs are plain sentences and valid Markdown); the hash above is over the source.
+        renderedHtml =
+            AgreementMarkdown.htmlFor(
+                format = current.format,
+                body = text,
+                // the composed text (published text + code-owned paragraphs) may exceed MAX_CHARS: never render less than what is hashed
+                maxChars = maxOf(AgreementTextRules.MAX_CHARS, text.length),
+            ),
     )
 }
+
+/** Headline / key point of a notice: for a MARKDOWN text the Markdown characters are removed (the summary is shown as plain text). */
+private fun plainSummary(
+    format: AgreementTextFormat,
+    paragraph: String,
+): String = if (format == AgreementTextFormat.MARKDOWN) AgreementMarkdown.toPlainText(paragraph) else paragraph
 
 internal object ConsentHashing {
     fun sha256Hex(input: String): String {

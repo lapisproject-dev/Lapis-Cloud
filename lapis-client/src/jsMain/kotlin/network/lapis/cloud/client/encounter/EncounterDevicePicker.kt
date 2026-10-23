@@ -162,10 +162,10 @@ internal fun encounterDeviceButtonLabel(
     val speaker = fields.any { it.kind == ConferenceDeviceKind.SPEAKER && it is EncounterDeviceField.Choice }
     val microphone = fields.any { it.kind == ConferenceDeviceKind.MICROPHONE && it is EncounterDeviceField.Choice }
     return when {
-        role == EncounterDeviceRole.OFFICE_HOLDER -> gettext("Geräte wählen")
+        role == EncounterDeviceRole.OFFICE_HOLDER -> gettext("Einstellungen")
         speaker && microphone -> gettext("Mikrofon und Lautsprecher wählen")
         speaker -> gettext("Lautsprecher wählen")
-        else -> gettext("Geräte wählen")
+        else -> gettext("Einstellungen")
     }
 }
 
@@ -269,7 +269,7 @@ internal class EncounterDevicePicker(
     noiseSuppression: ConferenceNoiseSuppressionController? = null,
 ) {
     /** Icon-only (R58 named exception c, the bar's own factory): the name is set per role in [refresh]. */
-    val button: Button = devicesGroup.encounterControlButton(ActionIcon.SETTINGS, tr("Geräte wählen"))
+    val button: Button = devicesGroup.encounterControlButton(ActionIcon.SETTINGS, tr("Einstellungen"))
     private val panel: Div = panelParent.div(className = "lapis-encounter-device-panel")
     private val rows: Map<ConferenceDeviceKind, Row>
     private val speakerNote: Div

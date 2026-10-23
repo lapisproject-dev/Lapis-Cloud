@@ -25,7 +25,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * V1.9.125 "Mitfahrten" -- the Mitfahrerzentrale as a member, a guest and a friend sees it: the seat line ("2 von 3 Plätzen frei", "Ausgebucht"),
+ * V1.9.125 "Mitfahrten" -- the Mitfahrzentrale as a member, a guest and a friend sees it: the seat line ("2 von 3 Plätzen frei", "Ausgebucht"),
  * the request button only on a foreign, bookable offer, status badges with an icon AND a text and never a danger colour, "Meine Mitfahrten"
  * (waiting items first, hidden while empty), the polite live region, the driver's passenger panel and the exact-name search with its single
  * "nobody" text.
@@ -294,7 +294,7 @@ class CarpoolParticipationDomTest {
         formTest {
             AppState.setSession(session(MemberStatus.ACTIVE))
             withCarpoolStub(
-                mine = listOf(posting("own", own = true, openRequests = 1)),
+                feed = listOf(posting("own", own = true, openRequests = 1)),
                 participants =
                     listOf(
                         CarpoolParticipantDto(
@@ -312,9 +312,19 @@ class CarpoolParticipationDomTest {
                     renderCarpoolScreen(root)
                     awaitUntil("the own offer is shown") { element().shows("Ort-own") }
                     val screen = element()
-                    assertTrue(screen.shows("1 offene Anfrage"))
+                    // V1.9.186: the number of open requests is part of the "Mitfahrer verwalten" button, not a badge in the card header.
+                    val manage = screen.allOf("button").first { it.textContent.orEmpty().contains("Mitfahrer verwalten") }
+                    assertTrue(manage.textContent.orEmpty().contains("1 offene Anfrage"), manage.textContent.orEmpty())
+                    assertEquals("Mitfahrer verwalten, 1 offene Anfrage", manage.getAttribute("aria-label"))
+                    assertEquals(
+                        1,
+                        screen.allOf(".badge").count { it.textContent.orEmpty().contains("offene Anfrage") },
+                        "exactly one counter: the one inside the button",
+                    )
+                    assertTrue(manage.classList.contains("btn-sm"), "compact button")
+                    assertFalse(manage.classList.contains("w-100"), "not full width")
                     assertTrue(calls.toRoute(routes.participants).isEmpty(), "the passenger list is loaded on the first unfold only")
-                    screen.buttonNamed("Mitfahrer verwalten").click()
+                    manage.click()
                     awaitUntil("the participants are listed") { screen.shows("Gustav Gast") }
                     assertTrue(screen.shows("Wartet auf Ihre Bestätigung"))
                     // The exact-name search: nobody found -> the one fixed text.
@@ -337,7 +347,7 @@ class CarpoolParticipationDomTest {
         formTest {
             AppState.setSession(session(MemberStatus.ACTIVE))
             withCarpoolStub(
-                mine = listOf(posting("own", own = true)),
+                feed = listOf(posting("own", own = true)),
                 hits = listOf(CarpoolInviteeCandidateDto(personRef = "opaque-token", displayName = "Gustav Gast")),
             ) { calls, routes ->
                 mountedForm("carpool-invite") { root, element ->

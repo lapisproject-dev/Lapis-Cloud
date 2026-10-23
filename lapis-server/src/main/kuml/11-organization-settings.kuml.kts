@@ -442,7 +442,11 @@ classDiagram(name = "OrganizationSettings") {
         }
         attribute(name = "travelContactHint", type = "String") {
             multiplicity = Multiplicity(0, 1)
-            stereotype("Column") { "columnName" to "travel_contact_hint"; "sqlType" to "VARCHAR(1000)" }
+            stereotype("Column") { "columnName" to "travel_contact_hint"; "sqlType" to "VARCHAR(2000)" }
+        }
+        // V1.9.199 (V114): PLAIN (legacy) or MARKDOWN; set only via updateTravelExpenseSettings.
+        attribute(name = "travelContactHintFormat", type = "String") {
+            stereotype("Column") { "columnName" to "travel_contact_hint_format"; "sqlType" to "VARCHAR(16)" }
         }
         // Optional account mappings: advance (credit side for an advance already paid) and
         // donation waiver (income account "Aufwandsspenden"). See TravelExpensePostingBridge KDoc.

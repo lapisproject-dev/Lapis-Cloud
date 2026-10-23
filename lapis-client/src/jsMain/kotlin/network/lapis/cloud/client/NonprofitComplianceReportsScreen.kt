@@ -74,7 +74,7 @@ import network.lapis.cloud.shared.rpc.IVatService
  */
 fun renderNonprofitComplianceReportsScreen(container: SimplePanel) {
     val root = container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("Gemeinnützigkeits-Berichte"))
+    root.pageHeader(tr("Gemeinnützigkeits-Berichte"), intro = PageIntros.forRoute(Routes.COMPLIANCE_REPORTS))
 
     // Welle V1.4.27 (W3): a segmented control with an active state instead of three outline buttons that never
     // said which report was showing. "USt-Voranmeldung -- Vorschau" is Welle V1.4.13 "USt-Voranmeldung

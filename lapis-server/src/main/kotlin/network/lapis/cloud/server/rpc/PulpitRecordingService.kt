@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
+import network.lapis.cloud.server.agreementtexts.AgreementMarkdown
 import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -76,6 +77,10 @@ class PulpitRecordingService(
                 pulpitSha256 = pulpit.sha256,
                 pulpitText = pulpit.body,
                 roomText = room.body,
+                pulpitFormat = pulpit.format,
+                pulpitHtml = AgreementMarkdown.htmlFor(format = pulpit.format, body = pulpit.body),
+                roomFormat = room.format,
+                roomHtml = AgreementMarkdown.htmlFor(format = room.format, body = room.body),
             )
         }
     }

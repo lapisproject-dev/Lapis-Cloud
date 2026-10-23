@@ -30,6 +30,9 @@ import org.w3c.dom.HTMLElement
  *    `refreshShell`) must not take the focus away from the control the person was using.
  *
  * The `h1` gets its `id` and `tabindex` and its hooks BEFORE it is added ([addWithLifecycle], see there).
+ *
+ * V1.9.187: an optional [intro] (from [PageIntros], collapsible per view, see [pageIntro]) is drawn inside the header, directly under the
+ * title row and the subtitle, so it never needs per-screen placement logic.
  */
 class PageHeader internal constructor(
     val root: Div,
@@ -127,6 +130,7 @@ fun Container.pageHeader(
     subtitle: String? = null,
     banners: (Container.() -> Unit)? = null,
     primaryAction: (Container.() -> Unit)? = null,
+    intro: PageIntroDef? = null,
 ): PageHeader {
     val header = div(className = "lapis-page-header")
     if (banners != null) header.banners()
@@ -156,6 +160,8 @@ fun Container.pageHeader(
         } else {
             null
         }
+    // V1.9.187: the page intro sits directly under the title (and subtitle); nothing when the view has none (a collapsed intro stays as a small toggle).
+    if (intro != null) header.pageIntro(intro.viewKey, intro.text, intro.helpTopic, labelledByTitle = true, more = intro.more)
     PageTitle.set(title, subtitle)
     (document.getElementById(LIVE_REGION_ID))?.textContent = resolvedAttributeText(title)
     return PageHeader(header, subtitleTag, subtitleRow, titleRow, actionSlot)
