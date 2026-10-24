@@ -1129,7 +1129,14 @@ class LapisField internal constructor(
         if (first is io.kvision.html.Span) first.content = text else label.content = text
     }
 
+    /** V1.9.200: a field inside a date-time group shows its required star on the group's legend, not on its hidden label. */
+    internal var requiredMarkRedirect: (() -> Unit)? = null
+
     internal fun appendRequiredMark() {
+        requiredMarkRedirect?.let {
+            it()
+            return
+        }
         val label = control.flabel
         // Tag.render() rendert die KINDER vor dem `content`-Text -- ein `span(" *")` als Kind neben dem Label-Content
         // stünde also VOR dem Labeltext. Deshalb wird auch der Labeltext zum Kind (zuerst), der Stern zum zweiten.

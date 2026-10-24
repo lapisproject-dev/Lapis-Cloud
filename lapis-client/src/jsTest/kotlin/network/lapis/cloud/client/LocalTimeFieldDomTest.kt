@@ -121,7 +121,7 @@ class LocalTimeFieldDomTest {
                         .replace(" *", "")
                         .trim()
                 }
-            assertTrue("Termin (Datum)" in texts && "Termin (Uhrzeit)" in texts, "$texts")
+            assertTrue("Termin, Datum" in texts && "Termin, Uhrzeit" in texts, "$texts")
             assertEquals("15.10.2026", element().inputOf(0).value)
             assertEquals("18:00", element().inputOf(1).value)
             assertEquals(LocalDateTime(2026, 10, 15, 18, 0), pair.dateTimeOrNull())

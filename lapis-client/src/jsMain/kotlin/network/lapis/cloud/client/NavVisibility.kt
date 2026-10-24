@@ -89,6 +89,14 @@ object NavVisibility {
     /** Soziales Netzwerk -- seit V1.1.4 auch für FRIEND (LTR_ELIGIBLE). */
     fun showsSocialNetwork(status: MemberStatus): Boolean = status in MemberStatusSets.LTR_ELIGIBLE
 
+    /**
+     * "Ausschreibungen" (V1.9.202) -- ACTIVE and FRIEND ([MemberStatusSets.LTR_ELIGIBLE]): a tender is paid in LTR, and a guest keeps the LTR
+     * account on the home server, so the entry offers a door only to the two statuses that can hold the money. A guest who arrives through a
+     * direct link still reads the tender (the server admits GUEST to read) but is told why bidding is closed. Deliberately NOT inside the
+     * member-only block of the economy group.
+     */
+    fun showsTenders(status: MemberStatus): Boolean = status in MemberStatusSets.LTR_ELIGIBLE
+
     /** Crowdfunding/Auktion/Politiker -- bleiben ORGANIZATION_MEMBER-exklusiv. */
     fun showsMemberOnlyEconomy(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
 

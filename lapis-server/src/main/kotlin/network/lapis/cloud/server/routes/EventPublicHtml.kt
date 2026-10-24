@@ -37,6 +37,7 @@ import kotlinx.html.textInput
 import kotlinx.html.title
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventText
+import network.lapis.cloud.shared.domain.EventRegistrationMessageLimits
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventTicketCode
 
@@ -244,6 +245,26 @@ internal object EventPublicHtml {
                         attributes["maxlength"] = EventPolicy.MAX_GUEST_EMAIL_LENGTH.toString()
                     }
                 }
+                // V1.9.204 -- optional message to the organisers. Plain page without JavaScript, so no live character counter.
+                div(classes = "event-field") {
+                    label {
+                        htmlFor = "guestMessage"
+                        +"Nachricht an die Veranstalter (optional)"
+                    }
+                    textArea(rows = "3") {
+                        id = "guestMessage"
+                        name = "nachricht"
+                        attributes["maxlength"] = EventRegistrationMessageLimits.MAX_LENGTH.toString()
+                        attributes["aria-describedby"] = "guestMessageHint"
+                    }
+                    p(classes = "event-hint") {
+                        id = "guestMessageHint"
+                        +(
+                            "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, " +
+                                "nicht durch eine Antwort auf Ihre Frage. Höchstens ${EventRegistrationMessageLimits.MAX_LENGTH} Zeichen."
+                        )
+                    }
+                }
                 button(type = ButtonType.submit, classes = "event-submit") {
                     +(if (waitlist) "Auf die Warteliste setzen" else "Verbindlich anmelden")
                 }
@@ -277,7 +298,11 @@ internal object EventPublicHtml {
         slug: String,
     ): String =
         skeleton(ctx = ctx, heading = "Angaben unvollständig", currentPath = "/veranstaltung/$slug", noIndex = true) {
-            callout(text = "Bitte geben Sie Ihren Namen und eine gültige E-Mail-Adresse an.")
+            callout(
+                text =
+                    "Bitte geben Sie Ihren Namen und eine gültige E-Mail-Adresse an. " +
+                        "Eine Nachricht darf höchstens 500 Zeichen lang sein.",
+            )
             p { a(href = ctx.href("/veranstaltung/$slug")) { +"Zurück zur Anmeldung" } }
         }
 

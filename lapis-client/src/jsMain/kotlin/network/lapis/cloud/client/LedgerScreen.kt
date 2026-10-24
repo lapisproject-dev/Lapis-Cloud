@@ -5,6 +5,7 @@ import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.core.Container
 import io.kvision.core.Widget
+import io.kvision.core.onEvent
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
@@ -25,12 +26,15 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CostCenterDto
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.ExternalDonorDto
+import network.lapis.cloud.shared.domain.FinanceSetupStatusDto
+import network.lapis.cloud.shared.domain.FinanceSetupStep
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.GeneralLedgerDto
 import network.lapis.cloud.shared.domain.JournalEntryDto
@@ -43,13 +47,13 @@ import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
-import network.lapis.cloud.shared.domain.PaymentAccountMapping
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.domain.PostingDto
 import network.lapis.cloud.shared.domain.PostingInput
 import network.lapis.cloud.shared.domain.PostingSide
 import network.lapis.cloud.shared.domain.ReserveType
 import network.lapis.cloud.shared.domain.VatRate
+import network.lapis.cloud.shared.domain.slug
 import network.lapis.cloud.shared.domain.suggestedVatRate
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IMemberService
@@ -105,19 +109,115 @@ import network.lapis.cloud.shared.rpc.IPostalMailService
  * `PostalMailScreen.kt`'s file KDoc for the "address never touches the browser" load-bearing
  * finding that shapes that dialog's copy.
  */
-fun renderLedgerScreen(container: SimplePanel) {
+fun renderLedgerScreen(
+    container: SimplePanel,
+    deepLinkHash: String = window.location.hash,
+) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
+    val access = financeSetupAccessOf(AppState.hasRole(AccountRole.ADMIN), AppState.hasRole(AccountRole.TREASURER))
 
     val root = container.dataScreenRoot()
-    val header = root.pageHeader(tr("Kontenplan & Journal"), intro = PageIntros.forRoute(Routes.LEDGER))
-    // V1.9.45 (R36B): both create forms are collapsed. The two slot containers are created first so the button order is fixed
-    // ("Neue Buchung", then "Neues Konto") no matter when the data for the posting form arrives; hosts sit directly under the header.
-    val entrySlot = if (canManage) header.actionSlot.div() else null
-    val accountSlot = if (canManage) header.actionSlot.div() else null
-    val entryHost = if (canManage) root.simplePanel() else null
+    root.pageHeader(tr("Kontenplan & Journal"), intro = PageIntros.forRoute(Routes.LEDGER))
+    val loadingRegion = root.dataStatusRegion()
+    loadingRegion.showLoading()
+    val explicitTab = parseLedgerTab(deepLinkHash)
+    val explicitStep = parseSetupStepAnchor(deepLinkHash)
+
+    AppScope.launch {
+        val initialStatus = guarded { rpcService<IAccountingService>().getFinanceSetupStatus() }
+        loadingRegion.clearStatus()
+        var setupStatus: FinanceSetupStatusDto? = initialStatus
+        val hintHosts = mutableListOf<SimplePanel>()
+        var tabsHandle: PageTabsHandle<LedgerTab>? = null
+
+        fun setupTabLabel(): String {
+            val open = setupStatus?.openRequiredCount ?: 0
+            return if (open > 0) gettext("Einrichtung · %1 offen", open) else tr("Einrichtung")
+        }
+
+        val rendered = mutableSetOf<LedgerTab>()
+        var pendingStep: FinanceSetupStep? = null
+
+        fun showSetup(step: FinanceSetupStep?) {
+            val handle = tabsHandle ?: return
+            // A not yet rendered setup tab loads asynchronously: hand the step to its first render instead of looking it up now.
+            pendingStep = pendingSetupStep(LedgerTab.SETUP in rendered, step)
+            handle.select(LedgerTab.SETUP)
+            val target = step?.let { window.document.getElementById("finance-setup-title-${it.slug}") as? org.w3c.dom.HTMLElement }
+            target?.scrollIntoView()
+            target?.focus()
+        }
+
+        fun repaintHints() {
+            hintHosts.forEach { host ->
+                host.removeAll()
+                val status = setupStatus ?: return@forEach
+                val missing = status.firstOpenRequired ?: return@forEach
+                host.div(className = "alert alert-warning d-flex flex-wrap align-items-center gap-2 mb-2") {
+                    span(setupHintText(missing))
+                    val link = link(tr("Zur Einrichtung"), url = ledgerHash(LedgerTab.SETUP, missing), dataNavigo = false)
+                    link.onEvent {
+                        click = { e ->
+                            e.preventDefault()
+                            showSetup(missing)
+                        }
+                    }
+                }
+            }
+        }
+
+        fun newHintHost(): SimplePanel = SimplePanel().also { hintHosts += it }
+
+        val initialTab = defaultLedgerTab(explicitTab, initialStatus, canManage)
+        var initialSelectionDone = false
+        val handle =
+            root.pageTabs(
+                tabs =
+                    listOf(
+                        PageTab(LedgerTab.SETUP, setupTabLabel(), "ledger-tab-setup", "ledger-panel-setup"),
+                        PageTab(LedgerTab.ACCOUNTS, tr("Konten"), "ledger-tab-accounts", "ledger-panel-accounts"),
+                        PageTab(LedgerTab.JOURNAL, tr("Journal"), "ledger-tab-journal", "ledger-panel-journal"),
+                    ),
+                selected = initialTab,
+                ariaLabel = tr("Bereiche von Kontenplan und Journal"),
+            ) { tab, panel ->
+                // The address follows the tab without a re-render: `replaceState` raises no `hashchange`, so the router stays out.
+                if (initialSelectionDone) {
+                    runCatching { window.history.replaceState(null, "", ledgerHash(tab)) }
+                }
+                if (rendered.add(tab)) {
+                    when (tab) {
+                        LedgerTab.SETUP ->
+                            renderFinanceSetupTab(panel, access, pendingStep ?: explicitStep) { status ->
+                                setupStatus = status
+                                tabsHandle?.setLabel(LedgerTab.SETUP, setupTabLabel())
+                                repaintHints()
+                            }
+                        LedgerTab.ACCOUNTS -> renderLedgerAccountsTab(panel, canManage, newHintHost())
+                        LedgerTab.JOURNAL -> renderLedgerJournalTab(panel, canManage, newHintHost())
+                    }
+                    repaintHints()
+                }
+            }
+        tabsHandle = handle
+        initialSelectionDone = true
+    }
+}
+
+/**
+ * V1.9.206: the "Konten" tab -- the chart of accounts (search, inactive toggle, table, drill-down, "Neues Konto"). Moved out of
+ * [renderLedgerScreen] unchanged in behaviour; the create button now sits in this tab's own action row. [hintHost] receives the
+ * "setup incomplete" hint.
+ */
+internal fun renderLedgerAccountsTab(
+    root: SimplePanel,
+    canManage: Boolean,
+    hintHost: SimplePanel,
+) {
+    root.add(hintHost)
+    val accountSlot = if (canManage) root.div() else null
     val accountHost = if (canManage) root.simplePanel() else null
 
-    // ---- Accounts (Kontenplan) -------------------------------------------------------------
     root.h2(tr("Konten (SKR42 Kontenplan)")) { addCssClass("h5") }
     // Design-Team-Welle 2026-09-18, Punkt 3: bis dahin gab es hier NUR die
     // "Inaktive Konten anzeigen"-Checkbox -- ein SKR42-Kontenplan hat aber von Anfang an dutzende
@@ -132,9 +232,10 @@ fun renderLedgerScreen(container: SimplePanel) {
     // der Grund, warum es ausserhalb des Listen-Panels sitzt: sonst risse jeder Tastendruck das
     // eigene Eingabefeld ab und wuerfe den Fokus heraus (dieselbe Falle, die `DocumentsScreen.kt`
     // in seinem eigenen Kommentar beschreibt). Ein bedingt sichtbares Feld haette zusaetzlich nach
-    // jedem Ladevorgang umgeschaltet werden muessen -- und ein leerer Kontenplan existiert
-    // praktisch nicht, weil die SKR42-Grundausstattung beim Anlegen der Organisation gesetzt wird.
-    val accountsFilterRow = root.lapisToolbar()
+    // jedem Ladevorgang umgeschaltet werden muessen -- Ein leerer Kontenplan ist dagegen
+    // der Normalfall einer neuen Organisation (V1.9.206: es gibt keine automatische Grundausstattung -- der Leertext verweist auf
+    // den Reiter "Einrichtung").
+    val accountsFilterRow = root.inlineFieldRow {}
     val accountSearchInput = accountsFilterRow.text(label = tr("Konto suchen (Nummer oder Name)"))
     val includeInactiveAccountsCheck = accountsFilterRow.checkBox(label = tr("Inaktive Konten anzeigen"))
     val accountsRefreshButton =
@@ -304,24 +405,33 @@ fun renderLedgerScreen(container: SimplePanel) {
             formId = "lapis-create-ledger-account",
         ) { _, close -> renderAccountCreationForm(this, close) { refreshAccounts() } }
     }
+}
 
-    // ---- Kontenzuordnung Zahlungsverkehr (V1.2.1 Zahlungs-Fundament) ----------------------
-    // Deliberately its OWN, narrower role check -- ADMIN-only, NOT the screen-wide `canManage`
-    // (TREASURER/ADMIN) -- see renderPaymentAccountMappingSection KDoc "Role gate" (Review Round 1,
-    // 2026-08-19, MINOR-5): OrganizationSettingsService.updateOrganizationSettings itself requires
-    // AccountRole.ADMIN only, so a TREASURER must not see an editable form that always fails.
-    root.h2(tr("Kontenzuordnung Zahlungsverkehr")) { addCssClass("h5") }
-    renderPaymentAccountMappingSection(root, AppState.hasRole(AccountRole.ADMIN))
+/**
+ * V1.9.206: the "Journal" tab -- filter row, list, details and "Neue Buchung". Moved out of [renderLedgerScreen]; the filter row is one
+ * [inlineFieldRow] (no nested toolbar), so search, status, dates and the refresh button share one centre line.
+ */
+internal fun renderLedgerJournalTab(
+    root: SimplePanel,
+    canManage: Boolean,
+    hintHost: SimplePanel,
+) {
+    root.add(hintHost)
+    val entrySlot = if (canManage) root.div() else null
+    val entryHost = if (canManage) root.simplePanel() else null
 
     // ---- Journal (Grundbuch) --------------------------------------------------------------
     root.h2(tr("Journal (Grundbuch)")) { addCssClass("h5") }
-    val journalFilterRow = root.lapisToolbar()
+    // V1.9.206: ONE inline row (V1.9.200) instead of a toolbar with a nested toolbar -- every control is a direct child, so the search
+    // field, the status group, both dates and the button share one centre line. The status group gets a visible label.
+    val journalFilterRow = root.inlineFieldRow {}
     val journalSearchInput = journalFilterRow.text(label = tr("Buchung suchen (Beschreibung)"))
-    val journalStatusSegmentHost = journalFilterRow.simplePanel()
-    val journalDateFilter = journalFilterRow.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
+    val journalStatusSegmentHost =
+        journalFilterRow.inlineFieldGroup {
+            span(tr("Status"), className = "fw-semibold")
+        }
+    val journalDateFilter = journalFilterRow.dateRangeFields(fromLabel = tr("Von"), toLabel = tr("Bis"))
     val journalRefreshButton = journalFilterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
-    // Das Datumsformat steht im Hinweis, nie im Label (W4c): ein Beispielsatz stimmt in jeder Sprache.
-    root.div(gettext("Format: %1", localeDatePattern())) { addCssClasses("text-muted small") }
     val journalCountsLabel = root.div().apply { addCssClasses("text-muted small") }
     val journalStatusRegion = root.dataStatusRegion()
     val journalListPanel = root.vPanel(spacing = 6)
@@ -519,281 +629,6 @@ fun renderLedgerScreen(container: SimplePanel) {
             newEntryPrefill = { entry -> entryForm.open(entry) }
         }
     }
-}
-
-// ============================================================================================
-// Kontenzuordnung Zahlungsverkehr (V1.2.1 "Zahlungs-Fundament")
-// ============================================================================================
-
-/**
- * Welle V1.2.1 "Zahlungs-Fundament" — lets an ADMIN pick which SKR42 [LedgerAccountDto]s
- * [ContributionPostingBridge][network.lapis.cloud.server.rpc.ContributionPostingBridge] books a
- * manually marked-paid contribution into (`OrganizationSettingsDto.paymentBankAccountId`/
- * `.paymentFeeAccountId`/`.contributionIncomeAccountId`). Unlike `renderPoliticianRankingToggle`
- * (`PoliticianScreen.kt`) these three fields ARE part of the generic `updateOrganizationSettings`
- * write-set (plain configuration, not a liability-relevant feature toggle) -- see
- * `OrganizationSettingsDto` KDoc. Same "wholesale-replace every OTHER field unchanged" idiom that
- * KDoc's own `toInputWithPoliticianRankingEnabled` helper establishes -- see
- * [OrganizationSettingsDto.toInputWithPaymentAccountMapping] below.
- *
- * **Role gate (Review Round 1, 2026-08-19, MINOR-5):** [canManage] here is deliberately
- * `AppState.hasRole(ADMIN)` ONLY, narrower than [renderLedgerScreen]'s own screen-wide `canManage`
- * (`TREASURER`/`ADMIN`) that gates account creation/journal posting -- because
- * `OrganizationSettingsService.updateOrganizationSettings` itself requires `AccountRole.ADMIN` only.
- * Widening the endpoint to accept `TREASURER` was rejected: `updateOrganizationSettings` is a broad,
- * wholesale settings-update method that also writes bank IBAN/BIC, tax-exemption data, and other
- * org-wide fields with no established TREASURER-write precedent elsewhere in this codebase, so
- * narrowing the CLIENT-side gate on just this section to match the actual, unwidened endpoint
- * requirement was the least invasive fix.
- *
- * While unconfigured (any of the three still unset), a paid contribution's status still transitions
- * but no journal entry is booked -- the empty option in each select IS a valid, savable choice
- * (clears that mapping back to `null`), not merely a placeholder.
- *
- * **Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6)** added a FOURTH mapping,
- * `donationIncomeAccountId` -- where [DonationPostingBridge][network.lapis.cloud.server.rpc.DonationPostingBridge]
- * books a gateway donation's brutto amount. Kept on THIS SAME section (not duplicated onto
- * `PaymentGatewaySettingsScreen.kt`, which calls this function too, `internal` visibility) --
- * single source of truth for "which ledger accounts does a payment channel book into", same
- * reasoning [OrganizationSettingsService.updateOrganizationSettings] already gives for treating
- * all four fields identically (plain configuration, ADMIN-only).
- */
-internal fun renderPaymentAccountMappingSection(
-    root: SimplePanel,
-    canManage: Boolean,
-) {
-    val panel = root.vPanel(spacing = 8)
-    panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-
-    fun load() {
-        panel.removeAll()
-        panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val accounts = guarded { rpcService<IAccountingService>().listLedgerAccounts(activeOnly = true) } ?: return@launch
-            val settings = guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() } ?: return@launch
-            panel.removeAll()
-
-            if (!canManage) {
-                val unconfigured = tr("(nicht konfiguriert)")
-                panel.p(
-                    gettext(
-                        "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8",
-                        accounts.find { it.id == settings.paymentBankAccountId }?.name ?: unconfigured,
-                        accounts.find { it.id == settings.paymentFeeAccountId }?.name ?: unconfigured,
-                        accounts.find { it.id == settings.contributionIncomeAccountId }?.name ?: unconfigured,
-                        accounts.find { it.id == settings.donationIncomeAccountId }?.name ?: unconfigured,
-                        accounts.find { it.id == settings.eventIncomeAccountId }?.name ?: unconfigured,
-                        sphereLabel(settings.eventIncomeSphere),
-                        accounts.find { it.id == settings.travelExpenseAccountId }?.name ?: unconfigured,
-                        accounts.find { it.id == settings.volunteerAllowanceAccountId }?.name ?: unconfigured,
-                    ),
-                )
-                // Welle V1.4.21 (Offene Posten): eigener Absatz statt Erweiterung des obigen
-                // %1..%8-Formatstrings -- dessen msgid bleibt in allen Katalogen unveraendert.
-                panel.p(
-                    gettext(
-                        "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2",
-                        accounts.find { it.id == settings.receivablesAccountId }?.name ?: unconfigured,
-                        accounts.find { it.id == settings.payablesAccountId }?.name ?: unconfigured,
-                    ),
-                )
-                return@launch
-            }
-
-            panel.p(
-                tr(
-                    "Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt markierter " +
-                        "Beitrag NICHT gebucht -- der Status wechselt trotzdem auf \"bezahlt\".",
-                ),
-            ) { addCssClasses("text-muted small") }
-
-            val accountOptions =
-                listOf("" to tr("(nicht konfiguriert)")) + untrustedOptions(accounts.map { it.id to "${it.accountNumber} · ${it.name}" })
-
-            // W4c: alle Zuordnungen sind ein Formular. Jedes Feld ist freiwillig -- die leere Auswahl IST eine gültige Antwort
-            // (sie setzt die Zuordnung zurück auf `null`), deshalb kein Stern und keine Legende.
-            val form = panel.lapisForm()
-            val bankField =
-                form.selectField(label = tr("Bankkonto"), options = accountOptions, value = settings.paymentBankAccountId.orEmpty())
-            val feeField =
-                form.selectField(label = tr("Gebührenkonto"), options = accountOptions, value = settings.paymentFeeAccountId.orEmpty())
-            val incomeField =
-                form.selectField(
-                    label = tr("Beitragserlöskonto"),
-                    options = accountOptions,
-                    value = settings.contributionIncomeAccountId.orEmpty(),
-                )
-            val donationIncomeField =
-                form.selectField(
-                    label = tr("Spendenerlöskonto"),
-                    options = accountOptions,
-                    value = settings.donationIncomeAccountId.orEmpty(),
-                )
-            // Review MAJOR fix -- previously reachable only via a direct RPC call, no UI field at
-            // all (see EventFeePostingBridge KDoc); this panel already establishes the pattern every
-            // OTHER account-mapping field uses.
-            val eventIncomeField =
-                form.selectField(
-                    label = tr("Veranstaltungserlöskonto"),
-                    options = accountOptions,
-                    value = settings.eventIncomeAccountId.orEmpty(),
-                )
-            val eventIncomeSphereOptions = GemeinnuetzigkeitSphere.entries.map { it.name to sphereLabel(it) }
-            val eventIncomeSphereField =
-                form.selectField(
-                    label = tr("Sphäre der Veranstaltungserlöse"),
-                    options = eventIncomeSphereOptions,
-                    value = settings.eventIncomeSphere.name,
-                )
-            // Welle V1.4.11 "Reisekostenabrechnung" -- erste EXPENSE-Kontenzuordnung dieses
-            // Panels (jede andere ist INCOME/ASSET), siehe TravelExpensePostingBridge KDoc.
-            val travelExpenseField =
-                form.selectField(
-                    label = tr("Reisekosten-Aufwandskonto"),
-                    options = accountOptions,
-                    value = settings.travelExpenseAccountId.orEmpty(),
-                )
-            // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- zweite EXPENSE-Kontenzuordnung
-            // dieses Panels, siehe VolunteerAllowancePostingBridge KDoc.
-            val volunteerAllowanceField =
-                form.selectField(
-                    label = tr("Ehrenamtspauschalen-Aufwandskonto"),
-                    options = accountOptions,
-                    value = settings.volunteerAllowanceAccountId.orEmpty(),
-                )
-
-            // Welle V1.4.21 "Offene Posten" -- Forderungs-/Verbindlichkeitenkonto (Sammelkonten der
-            // Debitoren-/Kreditorenbuchhaltung). NUR Typfilter (ASSET bzw. LIABILITY), keine
-            // SKR42-Nummernlogik im Client -- der Server validiert (`receivables_account_not_asset_type`/
-            // `payables_account_not_liability_type`). Ohne beide Zuordnungen bucht kein offener Posten.
-            form.panel.p(
-                tr(
-                    "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht.",
-                ),
-            ) { addCssClasses("text-muted small") }
-            val receivablesOptions =
-                listOf("" to tr("(nicht konfiguriert)")) +
-                    untrustedOptions(
-                        accounts.filter { it.type == LedgerAccountType.ASSET }.map {
-                            it.id to
-                                "${it.accountNumber} · ${it.name}"
-                        },
-                    )
-            val payablesOptions =
-                listOf("" to tr("(nicht konfiguriert)")) +
-                    untrustedOptions(
-                        accounts.filter { it.type == LedgerAccountType.LIABILITY }.map {
-                            it.id to
-                                "${it.accountNumber} · ${it.name}"
-                        },
-                    )
-            val receivablesField =
-                form.selectField(
-                    label = tr("Forderungskonto (Debitoren)"),
-                    options = receivablesOptions,
-                    value = settings.receivablesAccountId.orEmpty(),
-                )
-            val payablesField =
-                form.selectField(
-                    label = tr("Verbindlichkeitenkonto (Kreditoren)"),
-                    options = payablesOptions,
-                    value = settings.payablesAccountId.orEmpty(),
-                )
-            // Welle V1.4.22 Audit-Nachtrag (MAJOR-3): `updateOrganizationSettings` lehnt eine widersprüchliche Zuordnung mit
-            // `ConflictException` ab -- deren Meldung erreicht den Browser nie (Kilua RPC überträgt nur den Typ). Dieselbe Regel,
-            // hier vor dem Round-Trip: `paymentAccountMappingProblem`. Eine Querregel (sie betrifft DREI Felder), die Meldung
-            // steht in der Sammelfläche.
-            form.crossFieldRule(
-                focusOn = bankField.control.input as? Widget,
-                watch = listOf(bankField, receivablesField, payablesField).mapNotNull { it.control.input as? Widget },
-            ) {
-                val problem =
-                    paymentAccountMappingProblem(
-                        PaymentAccountMapping(
-                            defaultBankAccountId = bankField.value.takeIf { it.isNotBlank() },
-                            receivablesAccountId = receivablesField.value.takeIf { it.isNotBlank() },
-                            payablesAccountId = payablesField.value.takeIf { it.isNotBlank() },
-                        ),
-                    )
-                if (problem == null) FieldCheck.Ok else FieldCheck.Invalid(resolvedAttributeText(problem))
-            }
-
-            // Welle V1.4.5.2 "DATEV-Format-Export". Kein Fehlertext bei leerem Zustand -- eine
-            // Anweisung (Zhuo/Jobs): der Steuerberater vergibt beide Nummern, nicht der Verein
-            // selbst. Diese zwei Felder gehören hierher, weil dies bereits die einzige
-            // ADMIN-Schreiboberfläche für `organization_settings` ist.
-            form.panel.p(
-                tr("Berater- und Mandantennummer erhalten Sie von Ihrem Steuerberater."),
-            ) { addCssClasses("text-muted small") }
-            // Review-Fund (2026-09): "Feld leer" und "Feld enthält keine ganze Zahl" sind zwei Zustände -- `.toIntOrNull()` allein
-            // machte beide zu `null`, und updateOrganizationSettings ersetzt den ganzen Feldsatz, ein Tippfehler (`1OO1`) setzte also
-            // eine gesetzte Beraternummer still zurück. Siehe [parseDatevNumberInput]. Die Regel sieht nur nicht-leere Werte;
-            // ein leeres Feld ist [DatevNumberInput.Empty] und gültig.
-            val datevBeraterField =
-                form.textField(
-                    label = tr("DATEV-Beraternummer"),
-                    value = settings.datevBeraterNummer?.toString().orEmpty(),
-                    rule = {
-                        if (parseDatevNumberInput(it) is DatevNumberInput.Invalid) {
-                            FieldCheck.Invalid(gettext("DATEV-Beraternummer ist keine gültige Zahl."))
-                        } else {
-                            FieldCheck.Ok
-                        }
-                    },
-                )
-            val datevMandantField =
-                form.textField(
-                    label = tr("DATEV-Mandantennummer"),
-                    value = settings.datevMandantNummer?.toString().orEmpty(),
-                    rule = {
-                        if (parseDatevNumberInput(it) is DatevNumberInput.Invalid) {
-                            FieldCheck.Invalid(gettext("DATEV-Mandantennummer ist keine gültige Zahl."))
-                        } else {
-                            FieldCheck.Ok
-                        }
-                    },
-                )
-
-            val saveButton = newActionButton(ActionIcon.SAVE, tr("Kontenzuordnung speichern"), ButtonStyle.PRIMARY)
-            form.buttons(primary = saveButton)
-            saveButton.onClick {
-                // `form.submit` = Prüfung + Doppelklick-Schutz (`runGuardedAction`, `disabled` im `finally` zurückgesetzt -- auch bei
-                // einem Abbruch der Coroutine, Review Round 4, 2026-08-19).
-                form.submit(saveButton) {
-                    val beraterInput = parseDatevNumberInput(datevBeraterField.value)
-                    val mandantInput = parseDatevNumberInput(datevMandantField.value)
-                    val selectedEventIncomeSphere =
-                        eventIncomeSphereField.value
-                            .let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() }
-                            ?: GemeinnuetzigkeitSphere.ZWECKBETRIEB
-                    val result =
-                        guarded {
-                            rpcService<IOrganizationSettingsService>().updateOrganizationSettings(
-                                settings.toInputWithPaymentAccountMapping(
-                                    paymentBankAccountId = bankField.value.takeIf { it.isNotBlank() },
-                                    paymentFeeAccountId = feeField.value.takeIf { it.isNotBlank() },
-                                    contributionIncomeAccountId = incomeField.value.takeIf { it.isNotBlank() },
-                                    donationIncomeAccountId = donationIncomeField.value.takeIf { it.isNotBlank() },
-                                    eventIncomeAccountId = eventIncomeField.value.takeIf { it.isNotBlank() },
-                                    eventIncomeSphere = selectedEventIncomeSphere,
-                                    datevBeraterNummer = (beraterInput as? DatevNumberInput.Valid)?.value,
-                                    datevMandantNummer = (mandantInput as? DatevNumberInput.Valid)?.value,
-                                    travelExpenseAccountId = travelExpenseField.value.takeIf { it.isNotBlank() },
-                                    volunteerAllowanceAccountId = volunteerAllowanceField.value.takeIf { it.isNotBlank() },
-                                    receivablesAccountId = receivablesField.value.takeIf { it.isNotBlank() },
-                                    payablesAccountId = payablesField.value.takeIf { it.isNotBlank() },
-                                ),
-                            )
-                        }
-                    if (result != null) {
-                        notifySuccess(tr("Kontenzuordnung gespeichert."))
-                        load()
-                    }
-                }
-            }
-        }
-    }
-    load()
 }
 
 /**

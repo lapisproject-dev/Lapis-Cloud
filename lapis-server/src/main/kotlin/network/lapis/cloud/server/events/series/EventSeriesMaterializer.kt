@@ -254,7 +254,7 @@ internal object EventSeriesMaterializer {
                     EventStore.setStatus(id = eventId, status = EventStatus.CANCELLED, cancelledAt = now)
                 }
                 val activeRegistrations =
-                    EventStore.listByEvent(eventId).filter { r ->
+                    EventStore.listByEvent(eventId = eventId).filter { r ->
                         r[EventRegistrationTable.status] !in network.lapis.cloud.shared.domain.EventRegistrationStatusSets.INACTIVE
                     }
                 activeRegistrations.forEach { r -> EventStore.cancelRegistration(id = r[EventRegistrationTable.id], now = now) }

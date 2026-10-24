@@ -43,6 +43,19 @@ class NavRouteMatchTest {
     }
 
     @Test
+    fun eventDetailRoute_keepsTheEventsLinkActive_andIsNotTheImportOrTheCheckIn() {
+        // V1.9.204: /events/<id> highlights "Veranstaltungen"; the literal /events/import is a route of its own and does the same, and the
+        // check-in group ("/event-checkin") is not a descendant of "/events".
+        assertTrue(NavRouteMatch.isActive("/events/e-1", Routes.EVENT_MANAGEMENT))
+        assertTrue(NavRouteMatch.isActive(Routes.EVENT_DETAIL, Routes.EVENT_MANAGEMENT))
+        assertTrue(NavRouteMatch.isActive(Routes.EVENT_IMPORT, Routes.EVENT_MANAGEMENT))
+        assertFalse(NavRouteMatch.isActive("/event-checkin", Routes.EVENT_MANAGEMENT))
+        assertFalse(NavRouteMatch.isActive("/events/e-1", Routes.EVENT_CHECKIN))
+        // the import route is registered before the id route, and both are distinct literals
+        assertTrue(Routes.EVENT_IMPORT != Routes.EVENT_DETAIL)
+    }
+
+    @Test
     fun groupRoute_doesNotActivateItsOwnDescendantLink() {
         assertFalse(NavRouteMatch.isActive("/social-network", "/social-network/post/:id"))
     }

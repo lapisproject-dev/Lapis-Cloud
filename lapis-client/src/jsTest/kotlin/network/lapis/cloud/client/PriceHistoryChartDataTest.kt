@@ -198,4 +198,19 @@ class PriceHistoryChartDataTest {
             I18n.language = originalLanguage
         }
     }
+
+    @Test
+    fun buildPriceHistoryChartData_pointsCarryReadableAxisLabels_inTheUiLanguage() {
+        val previous = I18n.language
+        try {
+            I18n.language = "de"
+            val rows = listOf(row(2026, 10, 22, 14, 60_000.0), row(2026, 10, 22, 15, 61_000.0))
+            val point = buildPriceHistoryChartData(rows, AnchorAsset.BITCOIN_BTC) { it.toString() }.points.first()!!
+            assertEquals("22.10.2026", point.axisDate, "the date label is in the UI language, not the epoch number")
+            assertEquals("14:00", point.axisTime)
+            assertFalse(point.axisDate.all { it.isDigit() }, "never the raw epoch milliseconds")
+        } finally {
+            I18n.language = previous
+        }
+    }
 }

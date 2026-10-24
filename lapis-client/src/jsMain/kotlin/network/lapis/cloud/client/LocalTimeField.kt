@@ -3,8 +3,12 @@ package network.lapis.cloud.client
 import io.kvision.core.Container
 import io.kvision.core.Widget
 import io.kvision.core.onEvent
+import io.kvision.form.text.Text
 import io.kvision.html.InputType
+import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.div
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -158,9 +162,55 @@ internal class LocalDateTimeFields(
 }
 
 /**
- * Two locale fields for one point in time, labelled "[label] (Datum)" and "[label] (Uhrzeit)" ([label] is an already translated text such as
- * `gettext("Termin")`). Both sit in [host]; the stored value is an ISO [LocalDateTime] (a wall-clock of the organization zone, class B -- no zone
- * is introduced here).
+ * V1.9.200: ONE labelled group for a point in time -- `<fieldset class="lapis-datetime-group"><legend>[label]</legend>` and the two inputs. The
+ * legend is the only visible label; the inputs keep a visually hidden label and an `aria-label` ("[label], Datum" / "[label], Uhrzeit"), so a
+ * screen reader hears the same words and the screen shows no "(Datum)"/"(Uhrzeit)" twice. In picker mode date and time stand side by side in a
+ * `.lapis-datetime-row`; the text fallback keeps its stacked layout inside the same fieldset. Shared by [localDateTimeFields] and
+ * [localDateTimeInput], so the two families cannot drift apart.
+ */
+internal class DateTimeGroup(
+    val fieldset: Tag,
+    val legend: Tag,
+    val inner: Container,
+) {
+    private var starred = false
+
+    /** Appends the required star to the legend, once (both inner fields ask for it). */
+    fun markRequired() {
+        if (starred) return
+        starred = true
+        val text = legend.content
+        legend.content = null
+        if (text != null) legend.span(text)
+        legend.span(" *") {
+            addCssClass("lapis-required-mark")
+            setAttribute("aria-hidden", "true")
+        }
+    }
+}
+
+internal fun Container.dateTimeGroup(
+    label: String,
+    pickerMode: Boolean,
+): DateTimeGroup {
+    val fieldset = Tag(TAG.FIELDSET, className = "lapis-datetime-group")
+    val legend = Tag(TAG.LEGEND, label, className = "lapis-datetime-legend")
+    fieldset.add(legend)
+    add(fieldset)
+    val inner: Container = if (pickerMode) fieldset.div { addCssClass("lapis-datetime-row") } else fieldset
+    return DateTimeGroup(fieldset, legend, inner)
+}
+
+/** The visible label of an inner input is replaced by the legend: hidden visually (still the accessible name) plus an explicit `aria-label`. */
+internal fun Text.hideVisibleLabel(accessibleName: String) {
+    flabel.addCssClass("visually-hidden")
+    input.setAttribute("aria-label", resolvedAttributeText(accessibleName))
+}
+
+/**
+ * Two locale fields for one point in time inside one [dateTimeGroup]: the legend is [label] (an already translated text such as
+ * `gettext("Termin")`), the inputs are named "[label], Datum" and "[label], Uhrzeit" for assistive technology. Both sit in [host]; the stored
+ * value is an ISO [LocalDateTime] (a wall-clock of the organization zone, class B -- no zone is introduced here).
  */
 internal fun LapisForm.localDateTimeFields(
     label: String,
@@ -170,19 +220,24 @@ internal fun LapisForm.localDateTimeFields(
     picker: Boolean = true,
     stepMinutes: Int = 1,
 ): LocalDateTimeFields {
-    // The side-by-side row only exists with native pickers; the text fallback keeps its exact old layout.
+    // The side-by-side row only exists with native pickers; the text fallback keeps its stacked layout.
     val pickerMode = pickerEffective(picker, supportsDatePicker) && pickerEffective(picker, supportsTimePicker)
-    val rowHost: Container = if (pickerMode) host.div { addCssClass("lapis-datetime-row") } else host
-    val dateField =
-        localDateField(label = gettext("%1 (Datum)", label), value = value?.date, required = required, host = rowHost, picker = pickerMode)
+    val group = host.dateTimeGroup(label, pickerMode)
+    val dateName = gettext("%1, Datum", label)
+    val timeName = gettext("%1, Uhrzeit", label)
+    val dateField = localDateField(label = dateName, value = value?.date, required = required, host = group.inner, picker = pickerMode)
     val timeField =
         localTimeField(
-            label = gettext("%1 (Uhrzeit)", label),
+            label = timeName,
             value = value?.time,
             required = required,
-            host = rowHost,
+            host = group.inner,
             picker = pickerMode,
             stepMinutes = stepMinutes,
         )
+    listOf(dateField to dateName, timeField to timeName).forEach { (field, name) ->
+        (field.control as? Text)?.hideVisibleLabel(name)
+        field.requiredMarkRedirect = group::markRequired
+    }
     return LocalDateTimeFields(dateField, timeField)
 }

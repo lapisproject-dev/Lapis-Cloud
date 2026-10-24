@@ -1855,10 +1855,6 @@ msgstr "Администрация"
 msgid "Administrator"
 msgstr "Администратор"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:91
-msgid "Akteur-Mitglieds-ID (optional)"
-msgstr "ID участника-инициатора (необязательно)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:359
 msgid "Akteur: %1"
 msgstr "Инициатор: %1"
@@ -3320,10 +3316,6 @@ msgstr "По (ГГГГ-ММ-ДД)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:95
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "По (ГГГГ-ММ-ДДTЧЧ:ММ:СС, необязательно)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:204
-msgid "Bis Sequenznummer (optional)"
-msgstr "До порядкового номера (необязательно)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:726
 msgid "Bisherige Jahressumme (vor dieser Spende)"
@@ -4823,10 +4815,6 @@ msgstr "Воздержавшиеся"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:360
 msgid "Entität: %1"
 msgstr "Сущность: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:90
-msgid "Entitäts-ID (optional)"
-msgstr "ID сущности (необязательно)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:89
@@ -6377,18 +6365,6 @@ msgstr "Класс счёта %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:468
 msgid "Kontenplan & Journal"
 msgstr "План счетов и журнал"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:789
-msgid "Kontenzuordnung gespeichert."
-msgstr "Назначение счетов сохранено."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:757
-msgid "Kontenzuordnung speichern"
-msgstr "Сохранить назначение счетов"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:313
-msgid "Kontenzuordnung Zahlungsverkehr"
-msgstr "Назначение счетов платёжных операций"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:90
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:100
@@ -8875,13 +8851,6 @@ msgstr ""
 "Цена немедленной покупки (LTR, необязательно -- должна быть выше стартовой "
 "цены)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:604
-msgid ""
-"Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt "
-"markierter Beitrag NICHT gebucht -- der Status wechselt trotzdem auf "
-"\"bezahlt\"."
-msgstr "Пока не назначен один из трёх счетов, взнос, отмеченный как оплаченный, НЕ проводится -- статус при этом всё равно меняется на «оплачен»."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1165
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1513
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2318
@@ -9832,10 +9801,6 @@ msgstr "С (ГГГГ-ММ-ДД, обязательное поле)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:94
 msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "С (ГГГГ-ММ-ДДTЧЧ:MM:SS, необязательно)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:203
-msgid "Von Sequenznummer (optional)"
-msgstr "С порядкового номера (необязательно)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:400
 msgid "Vorher"
@@ -11871,10 +11836,6 @@ msgstr "Скрыть"
 msgid "In „Offene Posten“ öffnen"
 msgstr "Открыть в «Открытые позиции»"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:409
-msgid "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2"
-msgstr "Счёт дебиторской задолженности (дебиторы): %1 · Счёт кредиторской задолженности (кредиторы): %2"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:485
 msgid "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht."
 msgstr "Без счёта дебиторской и кредиторской задолженности открытые позиции создаются, но не проводятся."
@@ -12026,10 +11987,6 @@ msgstr "Назад"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:353
 msgid "Verrechnung gebucht."
 msgstr "Взаимозачёт проведён."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:48
-msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
-msgstr "Введите сумму в виде 1234,56 (без разделителей тысяч)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:53
 msgid "Höchstens %1 Nachkommastellen erlaubt."
@@ -13754,10 +13711,6 @@ msgstr "Все настроенные уровни напоминаний в т�
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:208
 msgid "BIC"
 msgstr "BIC"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:553
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8"
-msgstr "Банковский счёт: %1 · Счёт комиссий: %2 · Счёт доходов от взносов: %3 · Счёт доходов от пожертвований: %4 · Счёт доходов от мероприятий: %5 (%6) · Счёт расходов на поездки: %7 · Счёт расходов на добровольческие выплаты: %8"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
 msgid "Bankname"
@@ -15598,18 +15551,6 @@ msgstr "URL вебхука для ввода в панели разработч�
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
 msgid "Bankkonto zugeordnet"
 msgstr "Банковский счёт назначен"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Beitragserlöskonto zugeordnet"
-msgstr "Счёт доходов от взносов назначен"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Spendenerlöskonto zugeordnet"
-msgstr "Счёт доходов от пожертвований назначен"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Gebührenkonto zugeordnet"
-msgstr "Счёт комиссий назначен"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
 msgid "Erfasst"
@@ -24040,12 +23981,6 @@ msgstr "Текст договора недопустим. Проверьте д�
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "Черновик тем временем изменён. Перезагрузите страницу и проверьте его снова."
 
-msgid "%1 (Datum)"
-msgstr "%1 (дата)"
-
-msgid "%1 (Uhrzeit)"
-msgstr "%1 (время)"
-
 msgid "Aufsichtsbehörde benachrichtigt am (optional)"
 msgstr "Надзорный орган уведомлён (необязательно)"
 
@@ -24057,9 +23992,6 @@ msgstr "Затронутые лица уведомлены (необязател
 
 msgid "Bis (Pflichtfeld)"
 msgstr "По (обязательно)"
-
-msgid "Bis (optional)"
-msgstr "По (необязательно)"
 
 msgid "Bitte AM oder PM angeben."
 msgstr "Укажите AM или PM."
@@ -25974,3 +25906,816 @@ msgstr "Скачать %1 (%2, %3)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
 msgid "Unterlagen verwalten"
 msgstr "Управлять документами"
+
+msgid "Alle Filter sind optional."
+msgstr "Все фильтры необязательны."
+
+msgid "%1, Datum"
+msgstr "%1, дата"
+
+msgid "%1, Uhrzeit"
+msgstr "%1, время"
+
+msgid "Bitte einen Betrag wie %1 eingeben."
+msgstr "Введите сумму, например %1."
+
+msgid "Boost-Betrag in LTR"
+msgstr "Сумма буста в LTR"
+
+msgid "Um aktuell ganz oben zu stehen: %1"
+msgstr "Чтобы сейчас быть на самом верху: %1"
+
+msgid "Ihr Guthaben reicht nicht, höchstens %1."
+msgstr "Вашего баланса не хватает, не более %1."
+
+msgid "Vorschlag übernehmen"
+msgstr "Применить предложение"
+
+msgid "Entitäts-ID"
+msgstr "ID сущности"
+
+msgid "Akteur-Mitglieds-ID"
+msgstr "ID участника-исполнителя"
+
+msgid "Von Sequenznummer"
+msgstr "С порядкового номера"
+
+msgid "Bis Sequenznummer"
+msgstr "До порядкового номера"
+
+msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
+msgstr "Введите сумму в виде 1234,56 (без разделителей тысяч)."
+
+msgid "Ausschreibungen"
+msgstr "Тендеры"
+
+msgid "Standard-Sichtbarkeit der Angebote"
+msgstr "Видимость предложений по умолчанию"
+
+msgid "Verdeckt bis zur Frist"
+msgstr "Скрыты до крайнего срока"
+
+msgid "Bieter sehen nur ihr eigenes Angebot"
+msgstr "Участники видят только своё предложение"
+
+msgid "Gilt als Vorbelegung beim Anlegen einer Ausschreibung; nach dem Veröffentlichen nicht mehr änderbar."
+msgstr "Используется как значение по умолчанию при создании тендера; после публикации изменить нельзя."
+
+msgid "Unbekannte Auswahl"
+msgstr "Неизвестный выбор"
+
+msgid "Ausschreibung"
+msgstr "Тендер"
+
+msgid "Hier schreibt der Vorstand Aufträge aus, die ein Beschluss vorsieht. Mitglieder und Freunde geben bis zur Frist ein Angebot ab."
+msgstr "Здесь правление объявляет тендеры на работы, предусмотренные решением. Члены и друзья подают предложения до окончания срока."
+
+msgid "Nur eigenes Angebot sichtbar"
+msgstr "Видно только своё предложение"
+
+msgid "Abgenommen"
+msgstr "Принято"
+
+msgid "%1 Tag"
+msgid_plural "%1 Tage"
+msgstr[0] "%1 день"
+msgstr[1] "%1 дня"
+msgstr[2] "%1 дней"
+
+msgid "%1 Stunde"
+msgid_plural "%1 Stunden"
+msgstr[0] "%1 час"
+msgstr[1] "%1 часа"
+msgstr[2] "%1 часов"
+
+msgid "noch %1 und %2"
+msgstr "осталось %1 и %2"
+
+msgid "noch %1"
+msgstr "осталось %1"
+
+msgid "Erwartetes Ergebnis"
+msgstr "Ожидаемый результат"
+
+msgid "abgelaufen am %1"
+msgstr "истёк %1"
+
+msgid "Vergabe nach: %1"
+msgstr "Присуждение по: %1"
+
+msgid "Vergütung: %1"
+msgstr "Оплата: %1"
+
+msgid "Sichtbarkeit der Angebote: %1"
+msgstr "Видимость предложений: %1"
+
+msgid "Beruht auf: "
+msgstr "Основано на: "
+
+msgid "Als Gast können Sie auf diese Ausschreibung nicht bieten: Sie wird in LTR vergütet, und Gäste führen ihr LTR-Konto auf ihrem Heimatserver."
+msgstr "Как гость вы не можете участвовать в этом тендере: он оплачивается в LTR, а гости ведут свой счёт LTR на домашнем сервере."
+
+msgid "Sie können auf diese Ausschreibung nicht bieten."
+msgstr "Вы не можете участвовать в этом тендере."
+
+msgid "Diese Ausschreibung ist noch nicht veröffentlicht."
+msgstr "Этот тендер ещё не опубликован."
+
+msgid "Diese Ausschreibung wurde abgesagt."
+msgstr "Этот тендер отменён."
+
+msgid "Die Frist ist abgelaufen. Es können keine Angebote mehr abgegeben werden."
+msgstr "Срок истёк. Подавать предложения больше нельзя."
+
+msgid "Diese Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "Этот тендер больше не принимает предложения."
+
+msgid "Ihr Angebot"
+msgstr "Ваше предложение"
+
+msgid "Preis: %1"
+msgstr "Цена: %1"
+
+msgid "Angebot zurückziehen"
+msgstr "Отозвать предложение"
+
+msgid "Sie haben Ihr Angebot zurückgezogen. Sie können bis zur Frist ein neues abgeben."
+msgstr "Вы отозвали своё предложение. До окончания срока можно подать новое."
+
+msgid "Angebot ändern"
+msgstr "Изменить предложение"
+
+msgid "Angebot zurückziehen?"
+msgstr "Отозвать предложение?"
+
+msgid "Sie können bis zur Frist jederzeit ein neues Angebot abgeben."
+msgstr "До окончания срока вы можете в любой момент подать новое предложение."
+
+msgid "Angebot zurückgezogen."
+msgstr "Предложение отозвано."
+
+msgid "Preis in LTR"
+msgstr "Цена в LTR"
+
+msgid "Höchstens zwei Nachkommastellen."
+msgstr "Не более двух знаков после запятой."
+
+msgid "Angebot abgeben"
+msgstr "Подать предложение"
+
+msgid "Änderung speichern"
+msgstr "Сохранить изменение"
+
+msgid "Angebot gespeichert."
+msgstr "Предложение сохранено."
+
+msgid "Noch keine Angebote."
+msgstr "Предложений пока нет."
+
+msgid "Bei dieser Ausschreibung sieht jeder Bieter nur sein eigenes Angebot."
+msgstr "В этом тендере каждый участник видит только своё предложение."
+
+msgid "Die Angebote anderer sind bis %1 verdeckt."
+msgstr "Предложения других скрыты до %1."
+
+msgid "Die Angebote sehen nur die Bieter und der Vorstand."
+msgstr "Предложения видят только участники и правление."
+
+msgid "Bieter"
+msgstr "Участник"
+
+msgid "Preis"
+msgstr "Цена"
+
+msgid "Zuschlag erteilen an %1"
+msgstr "Присудить: %1"
+
+msgid "Zuschlag erteilen?"
+msgstr "Присудить подряд?"
+
+msgid "Zuschlag an %1 für %2."
+msgstr "Присуждение: %1, сумма %2."
+
+msgid "Der Zuschlag kann nicht zurückgenommen werden."
+msgstr "Присуждение нельзя отменить."
+
+msgid "Zuschlag erteilen"
+msgstr "Присудить"
+
+msgid "Zuschlag erteilt."
+msgstr "Подряд присуждён."
+
+msgid "Zuschlag"
+msgstr "Присуждение"
+
+msgid "%1 hat den Zuschlag erhalten (%2, am %3)."
+msgstr "%1 получил(а) подряд (%2, %3)."
+
+msgid "Abnahme"
+msgstr "Приёмка"
+
+msgid "Sie haben selbst ein Angebot abgegeben (auch ein zurückgezogenes zählt). Deshalb dürfen Sie diese Ausschreibung weder vergeben noch abnehmen noch absagen."
+msgstr "Вы сами подали предложение (отозванное тоже считается). Поэтому вы не можете присуждать, принимать или отменять этот тендер."
+
+msgid "Entwurf bearbeiten"
+msgstr "Редактировать черновик"
+
+msgid "Ausschreibung veröffentlichen?"
+msgstr "Опубликовать тендер?"
+
+msgid "Danach können Mitglieder und Freunde bis zur Frist Angebote abgeben."
+msgstr "После этого члены и друзья смогут подавать предложения до окончания срока."
+
+msgid "Frist, Vergabe-Kriterium und Sichtbarkeit lassen sich nach dem Veröffentlichen nicht mehr ändern."
+msgstr "После публикации срок, критерий присуждения и видимость изменить нельзя."
+
+msgid "Ausschreibung veröffentlicht."
+msgstr "Тендер опубликован."
+
+msgid "Ausschreibung absagen"
+msgstr "Отменить тендер"
+
+msgid "Ausschreibung absagen?"
+msgstr "Отменить тендер?"
+
+msgid "Der Grund ist für alle sichtbar, die die Ausschreibung sehen."
+msgstr "Причина видна всем, кто видит тендер."
+
+msgid "Eine abgesagte Ausschreibung kann nicht wieder geöffnet werden."
+msgstr "Отменённый тендер нельзя открыть снова."
+
+msgid "Ausschreibung abgesagt."
+msgstr "Тендер отменён."
+
+msgid "Der bisherige Vergabeantrag wurde nicht angenommen. Legen Sie einen neuen fest."
+msgstr "Прежняя заявка на присуждение не принята. Укажите новую."
+
+msgid "Die Frist ist abgelaufen. Für den Zuschlag braucht es einen Vergabebeschluss des Gremiums."
+msgstr "Срок истёк. Для присуждения нужно решение органа о присуждении."
+
+msgid "Legen Sie unter Anträge einen Antrag für den Vergabebeschluss an. Er wird nach Ablauf der Frist in einer Sitzung entschieden."
+msgstr "В разделе «Заявки» создайте заявку на решение о присуждении. Её рассмотрят на заседании после окончания срока."
+
+msgid "Über den Vergabeantrag ist noch nicht entschieden."
+msgstr "По заявке на присуждение ещё не принято решение."
+
+msgid "Der Vergabebeschluss wurde vor Ablauf der Frist gefasst und zählt deshalb nicht."
+msgstr "Решение о присуждении принято до окончания срока и поэтому не учитывается."
+
+msgid "Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "Присудить подряд можно у предложения в таблице выше."
+
+msgid "Der Vergabebeschluss liegt vor. Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "Решение о присуждении есть. Присудить подряд можно у предложения в таблице выше."
+
+msgid "Vergabeantrag: "
+msgstr "Заявка на присуждение: "
+
+msgid "ist der Beschluss, auf dem die Ausschreibung beruht"
+msgstr "является решением, на котором основан тендер"
+
+msgid "gehört zu einem anderen Gremium"
+msgstr "относится к другому органу"
+
+msgid "ist ein Änderungsantrag"
+msgstr "является поправкой"
+
+msgid "ist schon entschieden oder zurückgezogen"
+msgstr "уже решена или отозвана"
+
+msgid "gehört schon zu einer Ausschreibung"
+msgstr "уже относится к тендеру"
+
+msgid "hat einen Änderungsantrag"
+msgstr "имеет поправку"
+
+msgid "wird schon abgestimmt"
+msgstr "уже голосуется"
+
+msgid "Vergabeantrag"
+msgstr "Заявка на присуждение"
+
+msgid "-- bitte wählen --"
+msgstr "-- выберите --"
+
+msgid "%1 -- nicht wählbar: %2"
+msgstr "%1 -- недоступно: %2"
+
+msgid "Dieser Antrag kann nicht gewählt werden: %1"
+msgstr "Эту заявку нельзя выбрать: %1"
+
+msgid "Vergabebeschluss festlegen"
+msgstr "Определить решение о присуждении"
+
+msgid "Vergabeantrag festgelegt."
+msgstr "Заявка на присуждение определена."
+
+msgid "Der Zuschlag ist erteilt. Nehmen Sie das Ergebnis ab oder lehnen Sie es mit einer Notiz ab."
+msgstr "Подряд присуждён. Примите результат или отклоните его с заметкой."
+
+msgid "Abnehmen"
+msgstr "Принять"
+
+msgid "Notiz (bei Ablehnung Pflicht)"
+msgstr "Заметка (обязательна при отклонении)"
+
+msgid "Bei einer Ablehnung ist eine Notiz nötig."
+msgstr "При отклонении нужна заметка."
+
+msgid "Abnahme erfassen"
+msgstr "Зафиксировать приёмку"
+
+msgid "Abnahme erfasst."
+msgstr "Приёмка зафиксирована."
+
+msgid "Die Aktion ist gerade nicht möglich. Bitte laden Sie die Seite neu."
+msgstr "Сейчас это действие невозможно. Перезагрузите страницу."
+
+msgid "Nur ein Entwurf kann geändert werden."
+msgstr "Изменить можно только черновик."
+
+msgid "Nur ein Entwurf kann veröffentlicht werden."
+msgstr "Опубликовать можно только черновик."
+
+msgid "Die Frist muss mindestens eine Stunde in der Zukunft liegen."
+msgstr "Срок должен быть не раньше, чем через час."
+
+msgid "Die Ausschreibung wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu."
+msgstr "Тендер тем временем изменился. Перезагрузите страницу."
+
+msgid "Diese Aktion ist im jetzigen Stand der Ausschreibung nicht möglich."
+msgstr "В текущем состоянии тендера это действие невозможно."
+
+msgid "Gäste können nur auf Ausschreibungen bieten, die in Euro vergütet werden."
+msgstr "Гости могут участвовать только в тендерах с оплатой в евро."
+
+msgid "Die Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "Тендер больше не принимает предложения."
+
+msgid "Es gibt kein Angebot, das zurückgezogen werden kann."
+msgstr "Нет предложения, которое можно отозвать."
+
+msgid "Einen Vergabeantrag gibt es nur bei der Vergabe nach dem besten Angebot."
+msgstr "Заявка на присуждение бывает только при присуждении по лучшему предложению."
+
+msgid "Die Frist der Ausschreibung muss zuerst abgelaufen sein."
+msgstr "Сначала должен истечь срок тендера."
+
+msgid "Die Ausschreibung hat kein Angebot, über das entschieden werden könnte."
+msgstr "В тендере нет предложения, по которому можно принять решение."
+
+msgid "Der eingetragene Vergabeantrag kann nicht mehr ersetzt werden."
+msgstr "Определённую заявку на присуждение больше нельзя заменить."
+
+msgid "Dieses Angebot ist nicht mehr im Rennen."
+msgstr "Это предложение больше не участвует."
+
+msgid "Der Bieter darf für diese Ausschreibung nicht mehr berücksichtigt werden."
+msgstr "Этого участника больше нельзя учитывать в этом тендере."
+
+msgid "Der Zuschlag muss an das günstigste Angebot gehen."
+msgstr "Подряд должен достаться самому дешёвому предложению."
+
+msgid "Bei gleichem Preis ist eine Begründung nötig."
+msgstr "При одинаковой цене нужно обоснование."
+
+msgid "Bitte geben Sie eine Begründung an."
+msgstr "Укажите обоснование."
+
+msgid "Es ist noch kein Vergabeantrag festgelegt."
+msgstr "Заявка на присуждение ещё не определена."
+
+msgid "Der Vergabeantrag wurde nicht angenommen."
+msgstr "Заявка на присуждение не принята."
+
+msgid "Der Vergabeantrag wurde vor Ablauf der Frist entschieden."
+msgstr "Заявка на присуждение решена до окончания срока."
+
+msgid "Eine Ablehnung braucht eine Begründung."
+msgstr "Отклонение требует обоснования."
+
+msgid "Die Beschreibung kann nicht dargestellt werden. Bitte vereinfachen Sie sie."
+msgstr "Описание нельзя отобразить. Упростите его."
+
+msgid "Ausschreibungen sind vorerst nur in LTR möglich."
+msgstr "Пока тендеры возможны только в LTR."
+
+msgid "Der Preis darf höchstens zwei Nachkommastellen haben."
+msgstr "В цене может быть не более двух знаков после запятой."
+
+msgid "Der Preis ist zu groß."
+msgstr "Цена слишком велика."
+
+msgid "Der Antrag ist kein angenommener Beschluss seines Gremiums."
+msgstr "Заявка не является принятым решением своего органа."
+
+msgid "Dieser Antrag kann nicht als Vergabeantrag dienen."
+msgstr "Эта заявка не может служить заявкой на присуждение."
+
+msgid "Über einen Vergabeantrag entscheidet nur die Beschlussfähigkeit des Gremiums oder eine meritokratische Abstimmung."
+msgstr "Заявку на присуждение решает только кворум органа или меритократическое голосование."
+
+msgid "Der Titel muss 1 bis %1 Zeichen haben."
+msgstr "Название должно содержать от 1 до %1 символов."
+
+msgid "Die Beschreibung muss 1 bis %1 Zeichen haben."
+msgstr "Описание должно содержать от 1 до %1 символов."
+
+msgid "Das erwartete Ergebnis muss 1 bis %1 Zeichen haben."
+msgstr "Ожидаемый результат должен содержать от 1 до %1 символов."
+
+msgid "Der Angebotstext muss 1 bis %1 Zeichen haben."
+msgstr "Текст предложения должен содержать от 1 до %1 символов."
+
+msgid "Der Grund muss 1 bis %1 Zeichen haben."
+msgstr "Причина должна содержать от 1 до %1 символов."
+
+msgid "Der Grund darf höchstens %1 Zeichen haben."
+msgstr "Причина может содержать не более %1 символов."
+
+msgid "Die Begründung darf höchstens %1 Zeichen haben."
+msgstr "Обоснование может содержать не более %1 символов."
+
+msgid "Der Preis muss mindestens %1 betragen."
+msgstr "Цена должна быть не меньше %1."
+
+msgid "Für diesen Antrag läuft bereits ein Entscheidungsweg oder er ist schon entschieden."
+msgstr "По этой заявке уже идёт процесс принятия решения, либо она уже решена."
+
+msgid "Frist abgelaufen"
+msgstr "Срок истёк"
+
+msgid "Vergeben"
+msgstr "Присуждено"
+
+msgid "LTR"
+msgstr "LTR"
+
+msgid "Euro"
+msgstr "Евро"
+
+msgid "Günstigster Preis"
+msgstr "Наименьшая цена"
+
+msgid "Bestes Angebot"
+msgstr "Лучшее предложение"
+
+msgid "Der Vorstand erteilt den Zuschlag dem günstigsten Angebot. Ein Beschluss ist dafür nicht nötig."
+msgstr "Правление присуждает подряд самому дешёвому предложению. Для этого решение не требуется."
+
+msgid "Der Zuschlag ist eine Wertung. Darüber entscheidet das Gremium mit einem Vergabebeschluss nach Ablauf der Frist."
+msgstr "Присуждение — это оценка. Решает орган решением о присуждении после окончания срока."
+
+msgid "Zuschlag erhalten"
+msgstr "Подряд получен"
+
+msgid "Nicht berücksichtigt"
+msgstr "Не учтено"
+
+msgid "noch nicht beschlossen"
+msgstr "ещё не принято решение"
+
+msgid "Beschluss nicht angenommen"
+msgstr "решение не принято"
+
+msgid "Beschluss in einem anderen Gremium gefasst"
+msgstr "решение принято в другом органе"
+
+msgid "Bis zum Ende der Frist sieht niemand fremde Angebote. Danach sehen alle Bieter und der Vorstand alle Angebote."
+msgstr "До конца срока никто не видит чужих предложений. Затем все участники и правление видят все предложения."
+
+msgid "Alle Beteiligten sehen die Angebote der anderen sofort."
+msgstr "Все участники сразу видят предложения других."
+
+msgid "Jeder Bieter sieht nur sein eigenes Angebot. Der Vorstand sieht nach Ablauf der Frist alle Angebote. Wer den Zuschlag erhält, wird allen angezeigt."
+msgstr "Каждый участник видит только своё предложение. После окончания срока правление видит все предложения. Кто получил подряд, показывается всем."
+
+msgid "Entwürfe"
+msgstr "Черновики"
+
+msgid "Keine Ausschreibungen in dieser Auswahl."
+msgstr "В этой выборке нет тендеров."
+
+msgid "Neue Ausschreibung"
+msgstr "Новый тендер"
+
+msgid "Vergütung"
+msgstr "Оплата"
+
+msgid "Mein Angebot"
+msgstr "Моё предложение"
+
+msgid "Die Zahl der Angebote ist verdeckt."
+msgstr "Количество предложений скрыто."
+
+msgid "Ausschreibung %1 öffnen"
+msgstr "Открыть тендер %1"
+
+msgid "Beschluss, auf dem die Ausschreibung beruht"
+msgstr "Решение, на котором основан тендер"
+
+msgid "Mindestens eine Stunde nach dem Veröffentlichen. Bis zu dieser Uhrzeit können Angebote abgegeben werden."
+msgstr "Не раньше чем через час после публикации. До этого времени можно подавать предложения."
+
+msgid "Vergabe nach"
+msgstr "Присуждение по"
+
+msgid "Sichtbarkeit der Angebote"
+msgstr "Видимость предложений"
+
+msgid "Euro-Vergütung kommt später."
+msgstr "Оплата в евро появится позже."
+
+msgid "Bitte geben Sie die Frist mit Datum und Uhrzeit an."
+msgstr "Укажите срок с датой и временем."
+
+msgid "Als Entwurf gespeichert, aber nicht veröffentlicht: %1"
+msgstr "Сохранено как черновик, но не опубликовано: %1"
+
+msgid "Menü durchsuchen"
+msgstr "Поиск по меню"
+
+msgid "Suchen …"
+msgstr "Поиск …"
+
+msgid "Befehlspalette"
+msgstr "Палитра команд"
+
+msgid "Strg K"
+msgstr "Ctrl K"
+
+msgid "%1 Treffer"
+msgstr "Результатов: %1"
+
+msgid "%1 Treffer, %2 angezeigt. Suche verfeinern"
+msgstr "Результатов: %1, показано: %2. Уточните запрос"
+
+msgid "Zuletzt besucht"
+msgstr "Недавно посещённые"
+
+msgid "Noch keine Veranstaltungen."
+msgstr "Пока нет мероприятий."
+
+msgid "Belegung"
+msgstr "Заполненность"
+
+msgid "Veröffentlichen: %1"
+msgstr "Опубликовать: %1"
+
+msgid "Absagen: %1"
+msgstr "Отменить: %1"
+
+msgid "Warteliste nachrücken: %1"
+msgstr "Продвинуть список ожидания: %1"
+
+msgid "Abgesagt/abgelaufen"
+msgstr "Отменено/истекло"
+
+msgid "Mit Nachricht"
+msgstr "С сообщением"
+
+msgid "Nicht bezahlt"
+msgstr "Не оплачено"
+
+msgid "Angemeldet %1 · Warteliste %2 · Abgesagt/abgelaufen %3"
+msgstr "Записано %1 · Список ожидания %2 · Отменено/истекло %3"
+
+msgid "Freie Plätze %1"
+msgstr "Свободных мест %1"
+
+msgid "Anmeldungen"
+msgstr "Регистрации"
+
+msgid "Noch keine Anmeldungen."
+msgstr "Пока нет регистраций."
+
+msgid "Alle Anmeldungen als CSV"
+msgstr "Все регистрации в формате CSV"
+
+msgid "Es werden nur die ersten 2000 Anmeldungen angezeigt. Die CSV enthält alle."
+msgstr "Показаны только первые 2000 регистраций. В файле CSV есть все."
+
+msgid "Keine Anmeldungen in dieser Auswahl."
+msgstr "В этой выборке нет регистраций."
+
+msgid "Wartelistenplatz"
+msgstr "Место в списке ожидания"
+
+msgid "Angemeldet am"
+msgstr "Дата регистрации"
+
+msgid "E-Mail (Gast)"
+msgstr "Эл. почта (гость)"
+
+msgid "Nachricht anzeigen: %1"
+msgstr "Показать сообщение: %1"
+
+msgid "Veranstaltung nicht gefunden."
+msgstr "Мероприятие не найдено."
+
+msgid "Ausgebucht · %1 auf der Warteliste"
+msgstr "Мест нет · %1 в списке ожидания"
+
+msgid "Nachricht an die Veranstalter hinzufügen"
+msgstr "Добавить сообщение для организаторов"
+
+msgid "Nachricht an die Veranstalter (optional)"
+msgstr "Сообщение для организаторов (необязательно)"
+
+msgid "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage."
+msgstr "Организаторы увидят ваше сообщение. Регистрация действительна после подтверждения, а не после ответа на ваш вопрос."
+
+msgid "Export der Anmeldungen"
+msgstr "Экспорт регистраций"
+
+msgid "%1 von %2 Platz belegt · noch %3 frei"
+msgid_plural "%1 von %2 Plätzen belegt · noch %3 frei"
+msgstr[0] "%1 из %2 места занято · свободно ещё %3"
+msgstr[1] "%1 из %2 мест занято · свободно ещё %3"
+msgstr[2] "%1 из %2 мест занято · свободно ещё %3"
+
+msgid "Einrichtung · %1 offen"
+msgstr "Настройка · открыто: %1"
+
+msgid "Einrichtung"
+msgstr "Настройка"
+
+msgid "Es fehlt noch: %1. Solange das fehlt, werden bezahlte Beiträge nicht gebucht."
+msgstr "Ещё не хватает: %1. Пока этого нет, оплаченные взносы не проводятся."
+
+msgid "Es fehlt noch: %1."
+msgstr "Всё ещё отсутствует: %1."
+
+msgid "Zur Einrichtung"
+msgstr "К настройке"
+
+msgid "Konten"
+msgstr "Счета"
+
+msgid "Journal"
+msgstr "Журнал"
+
+msgid "Bereiche von Kontenplan und Journal"
+msgstr "Разделы плана счетов и журнала"
+
+msgid "Kontenzuordnung: vollständig"
+msgstr "Назначение счетов: полное"
+
+msgid "Kontenzuordnung: unvollständig"
+msgstr "Назначение счетов: неполное"
+
+msgid "Kontenzuordnung: unvollständig, es fehlt %1"
+msgstr "Назначение счетов: неполное, не хватает: %1"
+
+msgid "Online-Zahlung kann erst aktiviert werden, wenn die Kontenzuordnung vollständig ist."
+msgstr "Онлайн-оплату можно включить только после полного назначения счетов."
+
+msgid "Hier richten Sie die Finanzen ein, sehen den Kontenplan und das Journal mit allen Buchungen. Einrichten und buchen können Schatzmeisterei und Administration; die Zuordnung der Konten ändert nur die Administration."
+msgstr "Здесь вы настраиваете финансы и видите план счетов и журнал со всеми проводками. Настраивать и проводить могут казначейство и администрация; назначение счетов меняет только администрация."
+
+msgid "Hier stellen Sie die Online-Zahlung ein. Die Zuordnung zu Konten finden Sie unter Kontenplan & Journal, im Reiter Einrichtung."
+msgstr "Здесь вы настраиваете онлайн-оплату. Назначение счетов находится в разделе «План счетов и журнал», на вкладке «Настройка»."
+
+msgid "Kontenplan"
+msgstr "План счетов"
+
+msgid "Erlöskonto für Mitgliedsbeiträge"
+msgstr "Счёт доходов от членских взносов"
+
+msgid "Erlöskonto für Spenden"
+msgstr "Счёт доходов от пожертвований"
+
+msgid "Erlöskonto für Veranstaltungen"
+msgstr "Счёт доходов от мероприятий"
+
+msgid "Gebührenkonto (optional)"
+msgstr "Счёт комиссий (необязательно)"
+
+msgid "Der Kontenplan ist die Liste aller Konten, auf die Ihr Verein bucht. Ohne ihn kann nichts gebucht werden."
+msgstr "План счетов — это список всех счетов, на которые проводит операции ваше объединение. Без него ничего нельзя провести."
+
+msgid "Das Konto, auf dem das Geld Ihres Vereins liegt, also Ihr Girokonto."
+msgstr "Счёт, на котором находятся деньги вашего объединения, то есть ваш расчётный счёт."
+
+msgid "Ein Erlöskonto sammelt Einnahmen einer Art, zum Beispiel alle Mitgliedsbeiträge."
+msgstr "Счёт доходов собирает поступления одного вида, например все членские взносы."
+
+msgid "Hierhin werden Spenden gebucht, für die Sie eine Zuwendungsbestätigung ausstellen."
+msgstr "Сюда проводятся пожертвования, на которые вы выдаёте подтверждение о пожертвовании."
+
+msgid "Hierhin werden Einnahmen aus Veranstaltungen gebucht, zum Beispiel Eintrittsgelder."
+msgstr "Сюда проводятся доходы от мероприятий, например плата за вход."
+
+msgid "Hierhin würden Gebühren des Zahlungsanbieters gebucht. Dieser Schritt darf leer bleiben."
+msgstr "Сюда проводились бы комиссии платёжного провайдера. Этот шаг можно оставить пустым."
+
+msgid "Zum Beispiel: %1"
+msgstr "Например: %1"
+
+msgid "Noch kein Bankkonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "В плане счетов ещё нет банковского счёта. Сначала создайте стандартный план счетов."
+
+msgid "Noch kein Aufwandskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "В плане счетов ещё нет счёта расходов. Сначала создайте стандартный план счетов."
+
+msgid "Noch kein Erlöskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "В плане счетов ещё нет счёта доходов. Сначала создайте стандартный план счетов."
+
+msgid "Optional"
+msgstr "Необязательно"
+
+msgid "%1 von %2 Pflichtschritten erledigt"
+msgstr "Выполнено обязательных шагов: %1 из %2"
+
+msgid "Die Zuordnung kann nur ein Administrator ändern."
+msgstr "Назначение может изменить только администратор."
+
+msgid "Die Sphäre ist der steuerliche Bereich eines Vereins (ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher Geschäftsbetrieb); sie wird je Buchung gewählt."
+msgstr "Сфера — это налоговая область объединения (идеальная сфера, управление имуществом, целевая деятельность, хозяйственная деятельность); она выбирается для каждой проводки."
+
+msgid "Nicht gespeichert"
+msgstr "Не сохранено"
+
+msgid "Das bisher zugeordnete Konto %1 ist deaktiviert. Bitte ein anderes wählen. Beim Speichern wird die alte Zuordnung entfernt."
+msgstr "Назначенный ранее счёт %1 деактивирован. Выберите другой. При сохранении прежнее назначение будет удалено."
+
+msgid "Zum Kontenplan"
+msgstr "К плану счетов"
+
+msgid "(nicht gewählt)"
+msgstr "(не выбрано)"
+
+msgid "Standard verwenden"
+msgstr "Использовать стандарт"
+
+msgid "Standardkonto %1 nicht im Kontenplan."
+msgstr "Стандартного счёта %1 нет в плане счетов."
+
+msgid "Alle Standardkonten vorschlagen"
+msgstr "Предложить все стандартные счета"
+
+msgid "Zuordnung gespeichert."
+msgstr "Назначение сохранено."
+
+msgid "%1 aktive Konten im Kontenplan."
+msgstr "Активных счетов в плане счетов: %1."
+
+msgid "Noch kein Konto angelegt. Das legt die Schatzmeisterei oder die Administration an."
+msgstr "Ни одного счёта ещё не создано. Их создаёт казначейство или администрация."
+
+msgid "Ein Vorschlag. Bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Это предложение. Попросите вашего налогового консультанта подтвердить его."
+
+msgid "Standard-Kontenplan SKR42 für Vereine anlegen"
+msgstr "Создать стандартный план счетов SKR42 для объединений"
+
+msgid "Standard-Kontenplan anlegen"
+msgstr "Создать стандартный план счетов"
+
+msgid "Es werden %1 Konten angelegt:"
+msgstr "Будет создано счетов: %1:"
+
+msgid "Kontenplan anlegen"
+msgstr "Создать план счетов"
+
+msgid "%1 %2 (%3), %4"
+msgstr "%1 %2 (%3), %4"
+
+msgid "Vorhandene Konten bleiben unverändert."
+msgstr "Существующие счета остаются без изменений."
+
+msgid "Angelegte Konten lassen sich später nicht löschen, nur deaktivieren."
+msgstr "Созданные счета нельзя удалить позже, их можно только деактивировать."
+
+msgid "Der Kontenplan ist ein Vorschlag; bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "План счетов — это предложение; попросите вашего налогового консультанта подтвердить его."
+
+msgid "%1 Konten angelegt, %2 schon vorhanden."
+msgstr "Создано счетов: %1, уже существовало: %2."
+
+msgid "Der Kontenplan wurde inzwischen geändert. Bitte prüfen."
+msgstr "Тем временем план счетов был изменён. Проверьте его."
+
+msgid "Erweitert"
+msgstr "Дополнительно"
+
+msgid "Die Sphäre der Veranstaltungserlöse ist der steuerliche Bereich, dem Einnahmen aus Veranstaltungen zugerechnet werden."
+msgstr "Сфера доходов от мероприятий — это налоговая область, к которой относятся доходы от мероприятий."
+
+msgid "Auf dieses Aufwandskonto werden Reisekostenabrechnungen gebucht."
+msgstr "На этот счёт расходов проводятся отчёты о командировочных расходах."
+
+msgid "Auf dieses Aufwandskonto werden Übungsleiter- und Ehrenamtspauschalen gebucht."
+msgstr "На этот счёт расходов проводятся компенсации инструкторам и волонтёрам."
+
+msgid "Alle Bereiche"
+msgstr "Все области"
+
+msgid "Kein Bereich"
+msgstr "Нет области"
+
+msgid "Wird je Buchung gewählt"
+msgstr "Выбирается для каждой проводки"
+
+msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
+msgstr "Целевая и хозяйственная деятельность"

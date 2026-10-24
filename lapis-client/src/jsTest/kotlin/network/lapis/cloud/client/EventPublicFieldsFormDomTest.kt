@@ -106,7 +106,7 @@ class EventPublicFieldsFormDomTest {
             ) { _ ->
                 mountedForm("event-fields-counter") { root, element ->
                     renderEventsScreen(root)
-                    awaitUntil("the empty list is shown") { element().text().contains("Keine Veranstaltungen gefunden.") }
+                    awaitUntil("the empty list is shown") { element().text().contains("Noch keine Veranstaltungen.") }
                     val form =
                         createFormButton(element(), "lapis-create-event").let {
                             it.click()
@@ -143,7 +143,7 @@ class EventPublicFieldsFormDomTest {
             ) { _ ->
                 mountedForm("event-fields-online-link") { root, element ->
                     renderEventsScreen(root)
-                    awaitUntil("the empty list is shown") { element().text().contains("Keine Veranstaltungen gefunden.") }
+                    awaitUntil("the empty list is shown") { element().text().contains("Noch keine Veranstaltungen.") }
                     createFormButton(element(), "lapis-create-event").click()
                     awaitUntil("the form is built") { element().querySelector("[id='lapis-create-event'] label") != null }
                     val form = element().querySelector("[id='lapis-create-event']") as HTMLElement
@@ -184,7 +184,7 @@ class EventPublicFieldsFormDomTest {
             ) { calls ->
                 mountedForm("event-fields-create") { root, element ->
                     renderEventsScreen(root)
-                    awaitUntil("the empty list is shown") { element().text().contains("Keine Veranstaltungen gefunden.") }
+                    awaitUntil("the empty list is shown") { element().text().contains("Noch keine Veranstaltungen.") }
                     createFormButton(element(), "lapis-create-event").click()
                     awaitUntil("the form is built") { element().querySelector("[id='lapis-create-event'] label") != null }
                     val form = element().querySelector("[id='lapis-create-event']") as HTMLElement
@@ -211,23 +211,21 @@ class EventPublicFieldsFormDomTest {
     fun theEditForm_warnsAboutAMissingAltText_untilOneIsTyped_andNeverBlocksSaving(): Promise<Unit> =
         formTest {
             AppState.setSession(boardSession())
-            val list = routeOf { rpcService<IEventService>().listEvents() }
+            val get = routeOf { rpcService<IEventService>().getEvent("1") }
             val update = routeOf { rpcService<IEventService>().updateEvent("1", seedInput) }
             val withCover = event("1", "Mit Bild", coverImageUrl = "https://example.org/veranstaltung/slug-1/bild?v=abc12345")
             withFetchStub(
                 respond = { request ->
                     when {
                         !request.isRpc -> StubResponse()
-                        request.rpcRoute == list -> request.answerWith(page(listOf(withCover)))
+                        request.rpcRoute == get -> request.answerWith(jsonOf(EventDto.serializer(), withCover))
                         request.rpcRoute == update -> request.answerWith(jsonOf(EventDto.serializer(), withCover))
                         else -> request.answerWith("[]")
                     }
                 },
             ) { calls ->
                 mountedForm("event-fields-alt") { root, element ->
-                    renderEventsScreen(root)
-                    awaitUntil("the row is shown") { element().text().contains("Mit Bild") }
-                    element().buttonNamed("Bearbeiten").click()
+                    renderEventDetailScreen(root, "1")
                     awaitUntil("the edit form is built") { element().allOf("label").any { it.text().startsWith("Bildbeschreibung") } }
 
                     // KVision drops the vnode of a hidden widget and reuses the DOM element, so the warning is looked up anew each time.
@@ -253,17 +251,21 @@ class EventPublicFieldsFormDomTest {
     fun theEditForm_hasNoWarningForAnEventWithoutACoverImage_andShowsStoredValues(): Promise<Unit> =
         formTest {
             AppState.setSession(boardSession())
-            val list = routeOf { rpcService<IEventService>().listEvents() }
+            val get = routeOf { rpcService<IEventService>().getEvent("2") }
             val plain = event("2", "Ohne Bild", coverImageAlt = "Gespeicherter Text")
             withFetchStub(
                 respond = { request ->
-                    if (request.isRpc && request.rpcRoute == list) request.answerWith(page(listOf(plain))) else request.answerWith("[]")
+                    if (request.isRpc &&
+                        request.rpcRoute == get
+                    ) {
+                        request.answerWith(jsonOf(EventDto.serializer(), plain))
+                    } else {
+                        request.answerWith("[]")
+                    }
                 },
             ) { _ ->
                 mountedForm("event-fields-alt-nocover") { root, element ->
-                    renderEventsScreen(root)
-                    awaitUntil("the row is shown") { element().text().contains("Ohne Bild") }
-                    element().buttonNamed("Bearbeiten").click()
+                    renderEventDetailScreen(root, "2")
                     awaitUntil("the edit form is built") { element().allOf("label").any { it.text().startsWith("Bildbeschreibung") } }
                     assertEquals("Gespeicherter Text", (element().controlOf("Bildbeschreibung") as HTMLInputElement).value)
                     assertTrue(
@@ -288,7 +290,7 @@ class EventPublicFieldsFormDomTest {
                 mountedForm("event-fields-badge") { root, element ->
                     renderEventsScreen(root)
                     awaitUntil("the rows are shown") { element().text().contains("Importierte") && element().text().contains("Normale") }
-                    val badges = element().allOf("div.badge").filter { it.text().trim() == "Importiert" }
+                    val badges = element().allOf(".badge").filter { it.text().trim() == "Importiert" }
                     assertEquals(1, badges.size, "only the imported event has the badge")
                 }
             }

@@ -1,7 +1,5 @@
 package network.lapis.cloud.client
 
-import dev.kilua.rpc.types.toDecimal
-import dev.kilua.rpc.types.toDouble
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
 import io.kvision.html.ButtonStyle
@@ -58,12 +56,14 @@ internal fun renderSubmitProjectForm(
         val description = descriptionInput.value.orEmpty().trim()
         val weightText = weightInput.value.orEmpty().trim()
 
-        if (!Validation.isNonBlank(title) || !Validation.isNonBlank(description) || !Validation.isPositiveDecimal(weightText)) {
-            errorBox.content = tr("Bitte Titel, Beschreibung und ein positives Sichtbarkeits-Gewicht (LTR) angeben.")
+        val weightParsed = parseLtrAmountInput(weightText)
+        if (!Validation.isNonBlank(title) || !Validation.isNonBlank(description) || weightParsed !is AmountInput.Valid) {
+            errorBox.content =
+                amountErrorText(weightParsed, tr("Bitte Titel, Beschreibung und ein positives Sichtbarkeits-Gewicht (LTR) angeben."))
             errorBox.show()
             return@onClick
         }
-        val weight = weightText.toDouble().toDecimal()
+        val weight = weightParsed.value
 
         // Tier 1 "Kostenpflichtig" (D4): the plain, neutral-framed confirmDialog -- material to the
         // submitter's own free balance, not a treasury cost.

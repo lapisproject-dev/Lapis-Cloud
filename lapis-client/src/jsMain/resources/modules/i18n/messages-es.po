@@ -1854,10 +1854,6 @@ msgstr "Administración"
 msgid "Administrator"
 msgstr "Administrador"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:91
-msgid "Akteur-Mitglieds-ID (optional)"
-msgstr "ID de miembro actor (opcional)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:359
 msgid "Akteur: %1"
 msgstr "Actor: %1"
@@ -3326,10 +3322,6 @@ msgstr "Hasta (AAAA-MM-DD)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:95
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Hasta (AAAA-MM-DDTHH:MM:SS, opcional)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:204
-msgid "Bis Sequenznummer (optional)"
-msgstr "Hasta el número de secuencia (opcional)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:726
 msgid "Bisherige Jahressumme (vor dieser Spende)"
@@ -4837,10 +4829,6 @@ msgstr "Abstenciones"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:354
 msgid "Entität: %1"
 msgstr "Entidad: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:89
-msgid "Entitäts-ID (optional)"
-msgstr "ID de entidad (opcional)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:299
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:88
@@ -6368,18 +6356,6 @@ msgstr "Clase de cuenta %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:450
 msgid "Kontenplan & Journal"
 msgstr "Plan de cuentas y diario"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:760
-msgid "Kontenzuordnung gespeichert."
-msgstr "Asignación de cuentas guardada."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:728
-msgid "Kontenzuordnung speichern"
-msgstr "Guardar asignación de cuentas"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:294
-msgid "Kontenzuordnung Zahlungsverkehr"
-msgstr "Asignación de cuentas de pagos"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:90
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:103
@@ -8828,13 +8804,6 @@ msgstr ""
 "Precio de compra inmediata (LTR, opcional; debe ser superior al precio de "
 "salida)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:575
-msgid ""
-"Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt "
-"markierter Beitrag NICHT gebucht -- der Status wechselt trotzdem auf "
-"\"bezahlt\"."
-msgstr "Mientras una de las tres cuentas no esté asignada, una cuota marcada como pagada NO se contabiliza; el estado cambia igualmente a «pagada»."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1133
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1476
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2271
@@ -9748,10 +9717,6 @@ msgstr "Desde (AAAA-MM-DD, campo obligatorio)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:93
 msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Desde (AAAA-MM-DDTHH:MM:SS, opcional)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:202
-msgid "Von Sequenznummer (optional)"
-msgstr "Desde el número de secuencia (opcional)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:394
 msgid "Vorher"
@@ -11774,10 +11739,6 @@ msgstr "Ocultar"
 msgid "In „Offene Posten“ öffnen"
 msgstr "Abrir en «Partidas abiertas»"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:409
-msgid "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2"
-msgstr "Cuenta de cuentas por cobrar (deudores): %1 · Cuenta de cuentas por pagar (acreedores): %2"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:485
 msgid "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht."
 msgstr "Sin cuenta de cuentas por cobrar y por pagar, las partidas abiertas se crean pero no se contabilizan."
@@ -11929,10 +11890,6 @@ msgstr "Volver"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:353
 msgid "Verrechnung gebucht."
 msgstr "Compensación contabilizada."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:48
-msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
-msgstr "Introduzca un importe como 1234,56 (sin separadores de miles)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:53
 msgid "Höchstens %1 Nachkommastellen erlaubt."
@@ -13657,10 +13614,6 @@ msgstr "Todos los niveles de reclamación configurados ya se han utilizado en el
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:208
 msgid "BIC"
 msgstr "BIC"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:553
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8"
-msgstr "Cuenta bancaria: %1 · Cuenta de comisiones: %2 · Cuenta de ingresos por cuotas: %3 · Cuenta de ingresos por donaciones: %4 · Cuenta de ingresos por eventos: %5 (%6) · Cuenta de gastos de viaje: %7 · Cuenta de gastos por compensación de voluntariado: %8"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
 msgid "Bankname"
@@ -15501,18 +15454,6 @@ msgstr "URL del webhook que debe introducirse en el panel de desarrolladores de 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
 msgid "Bankkonto zugeordnet"
 msgstr "Cuenta bancaria asignada"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Beitragserlöskonto zugeordnet"
-msgstr "Cuenta de ingresos por cuotas asignada"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Spendenerlöskonto zugeordnet"
-msgstr "Cuenta de ingresos por donaciones asignada"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Gebührenkonto zugeordnet"
-msgstr "Cuenta de comisiones asignada"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
 msgid "Erfasst"
@@ -23934,12 +23875,6 @@ msgstr "El texto del contrato no es admisible. Compruebe la longitud, los caract
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "El borrador se ha modificado entretanto. Recargue la vista y revíselo de nuevo."
 
-msgid "%1 (Datum)"
-msgstr "%1 (fecha)"
-
-msgid "%1 (Uhrzeit)"
-msgstr "%1 (hora)"
-
 msgid "Aufsichtsbehörde benachrichtigt am (optional)"
 msgstr "Autoridad de control notificada el (opcional)"
 
@@ -23951,9 +23886,6 @@ msgstr "Personas afectadas notificadas el (opcional)"
 
 msgid "Bis (Pflichtfeld)"
 msgstr "Hasta (obligatorio)"
-
-msgid "Bis (optional)"
-msgstr "Hasta (opcional)"
 
 msgid "Bitte AM oder PM angeben."
 msgstr "Indique AM o PM."
@@ -25866,3 +25798,813 @@ msgstr "Descargar %1 (%2, %3)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
 msgid "Unterlagen verwalten"
 msgstr "Gestionar documentos"
+
+msgid "Alle Filter sind optional."
+msgstr "Todos los filtros son opcionales."
+
+msgid "%1, Datum"
+msgstr "%1, fecha"
+
+msgid "%1, Uhrzeit"
+msgstr "%1, hora"
+
+msgid "Bitte einen Betrag wie %1 eingeben."
+msgstr "Introduzca un importe como %1."
+
+msgid "Boost-Betrag in LTR"
+msgstr "Importe del impulso en LTR"
+
+msgid "Um aktuell ganz oben zu stehen: %1"
+msgstr "Para estar ahora mismo en lo más alto: %1"
+
+msgid "Ihr Guthaben reicht nicht, höchstens %1."
+msgstr "Su saldo no alcanza, como máximo %1."
+
+msgid "Vorschlag übernehmen"
+msgstr "Aplicar la sugerencia"
+
+msgid "Entitäts-ID"
+msgstr "ID de la entidad"
+
+msgid "Akteur-Mitglieds-ID"
+msgstr "ID del miembro actor"
+
+msgid "Von Sequenznummer"
+msgstr "Desde el número de secuencia"
+
+msgid "Bis Sequenznummer"
+msgstr "Hasta el número de secuencia"
+
+msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
+msgstr "Introduzca un importe como 1234,56 (sin separadores de miles)."
+
+msgid "Ausschreibungen"
+msgstr "Licitaciones"
+
+msgid "Standard-Sichtbarkeit der Angebote"
+msgstr "Visibilidad predeterminada de las ofertas"
+
+msgid "Verdeckt bis zur Frist"
+msgstr "Ocultas hasta el plazo"
+
+msgid "Bieter sehen nur ihr eigenes Angebot"
+msgstr "Los licitadores solo ven su propia oferta"
+
+msgid "Gilt als Vorbelegung beim Anlegen einer Ausschreibung; nach dem Veröffentlichen nicht mehr änderbar."
+msgstr "Se usa como valor inicial al crear una licitación; no se puede cambiar tras la publicación."
+
+msgid "Unbekannte Auswahl"
+msgstr "Selección desconocida"
+
+msgid "Ausschreibung"
+msgstr "Licitación"
+
+msgid "Hier schreibt der Vorstand Aufträge aus, die ein Beschluss vorsieht. Mitglieder und Freunde geben bis zur Frist ein Angebot ab."
+msgstr "Aquí la junta directiva licita los encargos que prevé un acuerdo. Los miembros y los amigos presentan una oferta antes del plazo."
+
+msgid "Nur eigenes Angebot sichtbar"
+msgstr "Solo se ve la propia oferta"
+
+msgid "Abgenommen"
+msgstr "Recibido"
+
+msgid "%1 Tag"
+msgid_plural "%1 Tage"
+msgstr[0] "%1 día"
+msgstr[1] "%1 días"
+
+msgid "%1 Stunde"
+msgid_plural "%1 Stunden"
+msgstr[0] "%1 hora"
+msgstr[1] "%1 horas"
+
+msgid "noch %1 und %2"
+msgstr "quedan %1 y %2"
+
+msgid "noch %1"
+msgstr "quedan %1"
+
+msgid "Erwartetes Ergebnis"
+msgstr "Resultado esperado"
+
+msgid "abgelaufen am %1"
+msgstr "venció el %1"
+
+msgid "Vergabe nach: %1"
+msgstr "Adjudicación según: %1"
+
+msgid "Vergütung: %1"
+msgstr "Remuneración: %1"
+
+msgid "Sichtbarkeit der Angebote: %1"
+msgstr "Visibilidad de las ofertas: %1"
+
+msgid "Beruht auf: "
+msgstr "Basada en: "
+
+msgid "Als Gast können Sie auf diese Ausschreibung nicht bieten: Sie wird in LTR vergütet, und Gäste führen ihr LTR-Konto auf ihrem Heimatserver."
+msgstr "Como invitado no puede ofertar en esta licitación: se remunera en LTR y los invitados llevan su cuenta LTR en su servidor de origen."
+
+msgid "Sie können auf diese Ausschreibung nicht bieten."
+msgstr "No puede ofertar en esta licitación."
+
+msgid "Diese Ausschreibung ist noch nicht veröffentlicht."
+msgstr "Esta licitación aún no está publicada."
+
+msgid "Diese Ausschreibung wurde abgesagt."
+msgstr "Esta licitación fue cancelada."
+
+msgid "Die Frist ist abgelaufen. Es können keine Angebote mehr abgegeben werden."
+msgstr "El plazo ha vencido. Ya no se pueden presentar ofertas."
+
+msgid "Diese Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "Esta licitación no admite más ofertas."
+
+msgid "Ihr Angebot"
+msgstr "Su oferta"
+
+msgid "Preis: %1"
+msgstr "Precio: %1"
+
+msgid "Angebot zurückziehen"
+msgstr "Retirar la oferta"
+
+msgid "Sie haben Ihr Angebot zurückgezogen. Sie können bis zur Frist ein neues abgeben."
+msgstr "Ha retirado su oferta. Puede presentar una nueva hasta el plazo."
+
+msgid "Angebot ändern"
+msgstr "Modificar la oferta"
+
+msgid "Angebot zurückziehen?"
+msgstr "¿Retirar la oferta?"
+
+msgid "Sie können bis zur Frist jederzeit ein neues Angebot abgeben."
+msgstr "Puede presentar una nueva oferta en cualquier momento hasta el plazo."
+
+msgid "Angebot zurückgezogen."
+msgstr "Oferta retirada."
+
+msgid "Preis in LTR"
+msgstr "Precio en LTR"
+
+msgid "Höchstens zwei Nachkommastellen."
+msgstr "Como máximo dos decimales."
+
+msgid "Angebot abgeben"
+msgstr "Presentar la oferta"
+
+msgid "Änderung speichern"
+msgstr "Guardar el cambio"
+
+msgid "Angebot gespeichert."
+msgstr "Oferta guardada."
+
+msgid "Noch keine Angebote."
+msgstr "Aún no hay ofertas."
+
+msgid "Bei dieser Ausschreibung sieht jeder Bieter nur sein eigenes Angebot."
+msgstr "En esta licitación cada oferente ve solo su propia oferta."
+
+msgid "Die Angebote anderer sind bis %1 verdeckt."
+msgstr "Las ofertas de los demás permanecen ocultas hasta el %1."
+
+msgid "Die Angebote sehen nur die Bieter und der Vorstand."
+msgstr "Las ofertas solo las ven los oferentes y la junta directiva."
+
+msgid "Bieter"
+msgstr "Oferente"
+
+msgid "Preis"
+msgstr "Precio"
+
+msgid "Zuschlag erteilen an %1"
+msgstr "Adjudicar a %1"
+
+msgid "Zuschlag erteilen?"
+msgstr "¿Adjudicar?"
+
+msgid "Zuschlag an %1 für %2."
+msgstr "Adjudicación a %1 por %2."
+
+msgid "Der Zuschlag kann nicht zurückgenommen werden."
+msgstr "La adjudicación no se puede revocar."
+
+msgid "Zuschlag erteilen"
+msgstr "Adjudicar"
+
+msgid "Zuschlag erteilt."
+msgstr "Adjudicación realizada."
+
+msgid "Zuschlag"
+msgstr "Adjudicación"
+
+msgid "%1 hat den Zuschlag erhalten (%2, am %3)."
+msgstr "%1 recibió la adjudicación (%2, el %3)."
+
+msgid "Abnahme"
+msgstr "Recepción"
+
+msgid "Sie haben selbst ein Angebot abgegeben (auch ein zurückgezogenes zählt). Deshalb dürfen Sie diese Ausschreibung weder vergeben noch abnehmen noch absagen."
+msgstr "Usted mismo presentó una oferta (también cuenta una retirada). Por ello no puede adjudicar, recibir ni cancelar esta licitación."
+
+msgid "Entwurf bearbeiten"
+msgstr "Editar el borrador"
+
+msgid "Ausschreibung veröffentlichen?"
+msgstr "¿Publicar la licitación?"
+
+msgid "Danach können Mitglieder und Freunde bis zur Frist Angebote abgeben."
+msgstr "Después, los miembros y los amigos podrán presentar ofertas hasta el plazo."
+
+msgid "Frist, Vergabe-Kriterium und Sichtbarkeit lassen sich nach dem Veröffentlichen nicht mehr ändern."
+msgstr "El plazo, el criterio de adjudicación y la visibilidad ya no se pueden cambiar tras la publicación."
+
+msgid "Ausschreibung veröffentlicht."
+msgstr "Licitación publicada."
+
+msgid "Ausschreibung absagen"
+msgstr "Cancelar la licitación"
+
+msgid "Ausschreibung absagen?"
+msgstr "¿Cancelar la licitación?"
+
+msgid "Der Grund ist für alle sichtbar, die die Ausschreibung sehen."
+msgstr "El motivo es visible para todos los que ven la licitación."
+
+msgid "Eine abgesagte Ausschreibung kann nicht wieder geöffnet werden."
+msgstr "Una licitación cancelada no se puede reabrir."
+
+msgid "Ausschreibung abgesagt."
+msgstr "Licitación cancelada."
+
+msgid "Der bisherige Vergabeantrag wurde nicht angenommen. Legen Sie einen neuen fest."
+msgstr "La moción de adjudicación anterior no fue aprobada. Fije una nueva."
+
+msgid "Die Frist ist abgelaufen. Für den Zuschlag braucht es einen Vergabebeschluss des Gremiums."
+msgstr "El plazo ha vencido. Para la adjudicación se necesita un acuerdo de adjudicación del órgano."
+
+msgid "Legen Sie unter Anträge einen Antrag für den Vergabebeschluss an. Er wird nach Ablauf der Frist in einer Sitzung entschieden."
+msgstr "Cree en Mociones una moción para el acuerdo de adjudicación. Se decide en una sesión tras el plazo."
+
+msgid "Über den Vergabeantrag ist noch nicht entschieden."
+msgstr "Aún no se ha decidido sobre la moción de adjudicación."
+
+msgid "Der Vergabebeschluss wurde vor Ablauf der Frist gefasst und zählt deshalb nicht."
+msgstr "El acuerdo de adjudicación se adoptó antes del vencimiento del plazo y por ello no cuenta."
+
+msgid "Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "La adjudicación se realiza en la oferta de la tabla de arriba."
+
+msgid "Der Vergabebeschluss liegt vor. Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "El acuerdo de adjudicación está disponible. La adjudicación se realiza en la oferta de la tabla de arriba."
+
+msgid "Vergabeantrag: "
+msgstr "Moción de adjudicación: "
+
+msgid "ist der Beschluss, auf dem die Ausschreibung beruht"
+msgstr "es el acuerdo en el que se basa la licitación"
+
+msgid "gehört zu einem anderen Gremium"
+msgstr "pertenece a otro órgano"
+
+msgid "ist ein Änderungsantrag"
+msgstr "es una moción de enmienda"
+
+msgid "ist schon entschieden oder zurückgezogen"
+msgstr "ya fue decidida o retirada"
+
+msgid "gehört schon zu einer Ausschreibung"
+msgstr "ya pertenece a una licitación"
+
+msgid "hat einen Änderungsantrag"
+msgstr "tiene una moción de enmienda"
+
+msgid "wird schon abgestimmt"
+msgstr "ya se está votando"
+
+msgid "Vergabeantrag"
+msgstr "Moción de adjudicación"
+
+msgid "-- bitte wählen --"
+msgstr "-- seleccione --"
+
+msgid "%1 -- nicht wählbar: %2"
+msgstr "%1 -- no seleccionable: %2"
+
+msgid "Dieser Antrag kann nicht gewählt werden: %1"
+msgstr "Esta moción no se puede elegir: %1"
+
+msgid "Vergabebeschluss festlegen"
+msgstr "Fijar el acuerdo de adjudicación"
+
+msgid "Vergabeantrag festgelegt."
+msgstr "Moción de adjudicación fijada."
+
+msgid "Der Zuschlag ist erteilt. Nehmen Sie das Ergebnis ab oder lehnen Sie es mit einer Notiz ab."
+msgstr "La adjudicación está hecha. Reciba el resultado o recháce lo con una nota."
+
+msgid "Abnehmen"
+msgstr "Recibir"
+
+msgid "Notiz (bei Ablehnung Pflicht)"
+msgstr "Nota (obligatoria al rechazar)"
+
+msgid "Bei einer Ablehnung ist eine Notiz nötig."
+msgstr "Un rechazo requiere una nota."
+
+msgid "Abnahme erfassen"
+msgstr "Registrar la recepción"
+
+msgid "Abnahme erfasst."
+msgstr "Recepción registrada."
+
+msgid "Die Aktion ist gerade nicht möglich. Bitte laden Sie die Seite neu."
+msgstr "La acción no es posible en este momento. Vuelva a cargar la página."
+
+msgid "Nur ein Entwurf kann geändert werden."
+msgstr "Solo se puede modificar un borrador."
+
+msgid "Nur ein Entwurf kann veröffentlicht werden."
+msgstr "Solo se puede publicar un borrador."
+
+msgid "Die Frist muss mindestens eine Stunde in der Zukunft liegen."
+msgstr "El plazo debe estar al menos una hora en el futuro."
+
+msgid "Die Ausschreibung wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu."
+msgstr "La licitación se modificó entretanto. Vuelva a cargar la página."
+
+msgid "Diese Aktion ist im jetzigen Stand der Ausschreibung nicht möglich."
+msgstr "Esta acción no es posible en el estado actual de la licitación."
+
+msgid "Gäste können nur auf Ausschreibungen bieten, die in Euro vergütet werden."
+msgstr "Los invitados solo pueden ofertar en licitaciones remuneradas en euros."
+
+msgid "Die Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "La licitación no admite más ofertas."
+
+msgid "Es gibt kein Angebot, das zurückgezogen werden kann."
+msgstr "No hay ninguna oferta que se pueda retirar."
+
+msgid "Einen Vergabeantrag gibt es nur bei der Vergabe nach dem besten Angebot."
+msgstr "Una moción de adjudicación solo existe cuando se adjudica a la mejor oferta."
+
+msgid "Die Frist der Ausschreibung muss zuerst abgelaufen sein."
+msgstr "Primero debe haber vencido el plazo de la licitación."
+
+msgid "Die Ausschreibung hat kein Angebot, über das entschieden werden könnte."
+msgstr "La licitación no tiene ninguna oferta sobre la que decidir."
+
+msgid "Der eingetragene Vergabeantrag kann nicht mehr ersetzt werden."
+msgstr "La moción de adjudicación registrada ya no se puede sustituir."
+
+msgid "Dieses Angebot ist nicht mehr im Rennen."
+msgstr "Esta oferta ya no está en carrera."
+
+msgid "Der Bieter darf für diese Ausschreibung nicht mehr berücksichtigt werden."
+msgstr "El oferente ya no puede ser considerado para esta licitación."
+
+msgid "Der Zuschlag muss an das günstigste Angebot gehen."
+msgstr "La adjudicación debe ir a la oferta más barata."
+
+msgid "Bei gleichem Preis ist eine Begründung nötig."
+msgstr "Con precios iguales se requiere una justificación."
+
+msgid "Bitte geben Sie eine Begründung an."
+msgstr "Indique una justificación."
+
+msgid "Es ist noch kein Vergabeantrag festgelegt."
+msgstr "Aún no se ha fijado ninguna moción de adjudicación."
+
+msgid "Der Vergabeantrag wurde nicht angenommen."
+msgstr "La moción de adjudicación no fue aprobada."
+
+msgid "Der Vergabeantrag wurde vor Ablauf der Frist entschieden."
+msgstr "La moción de adjudicación se decidió antes del vencimiento del plazo."
+
+msgid "Eine Ablehnung braucht eine Begründung."
+msgstr "Un rechazo necesita una justificación."
+
+msgid "Die Beschreibung kann nicht dargestellt werden. Bitte vereinfachen Sie sie."
+msgstr "La descripción no se puede mostrar. Simplifíquela."
+
+msgid "Ausschreibungen sind vorerst nur in LTR möglich."
+msgstr "Por ahora las licitaciones solo son posibles en LTR."
+
+msgid "Der Preis darf höchstens zwei Nachkommastellen haben."
+msgstr "El precio puede tener como máximo dos decimales."
+
+msgid "Der Preis ist zu groß."
+msgstr "El precio es demasiado grande."
+
+msgid "Der Antrag ist kein angenommener Beschluss seines Gremiums."
+msgstr "La moción no es un acuerdo aprobado de su órgano."
+
+msgid "Dieser Antrag kann nicht als Vergabeantrag dienen."
+msgstr "Esta moción no puede servir como moción de adjudicación."
+
+msgid "Über einen Vergabeantrag entscheidet nur die Beschlussfähigkeit des Gremiums oder eine meritokratische Abstimmung."
+msgstr "Una moción de adjudicación solo se decide por el quórum del órgano o por una votación meritocrática."
+
+msgid "Der Titel muss 1 bis %1 Zeichen haben."
+msgstr "El título debe tener entre 1 y %1 caracteres."
+
+msgid "Die Beschreibung muss 1 bis %1 Zeichen haben."
+msgstr "La descripción debe tener entre 1 y %1 caracteres."
+
+msgid "Das erwartete Ergebnis muss 1 bis %1 Zeichen haben."
+msgstr "El resultado esperado debe tener entre 1 y %1 caracteres."
+
+msgid "Der Angebotstext muss 1 bis %1 Zeichen haben."
+msgstr "El texto de la oferta debe tener entre 1 y %1 caracteres."
+
+msgid "Der Grund muss 1 bis %1 Zeichen haben."
+msgstr "El motivo debe tener entre 1 y %1 caracteres."
+
+msgid "Der Grund darf höchstens %1 Zeichen haben."
+msgstr "El motivo puede tener como máximo %1 caracteres."
+
+msgid "Die Begründung darf höchstens %1 Zeichen haben."
+msgstr "La justificación puede tener como máximo %1 caracteres."
+
+msgid "Der Preis muss mindestens %1 betragen."
+msgstr "El precio debe ser de al menos %1."
+
+msgid "Für diesen Antrag läuft bereits ein Entscheidungsweg oder er ist schon entschieden."
+msgstr "Para esta moción ya hay un proceso de decisión en curso, o ya está decidida."
+
+msgid "Frist abgelaufen"
+msgstr "Plazo vencido"
+
+msgid "Vergeben"
+msgstr "Adjudicada"
+
+msgid "LTR"
+msgstr "LTR"
+
+msgid "Euro"
+msgstr "Euro"
+
+msgid "Günstigster Preis"
+msgstr "Precio más bajo"
+
+msgid "Bestes Angebot"
+msgstr "Mejor oferta"
+
+msgid "Der Vorstand erteilt den Zuschlag dem günstigsten Angebot. Ein Beschluss ist dafür nicht nötig."
+msgstr "La junta directiva adjudica a la oferta más barata. No se necesita ningún acuerdo."
+
+msgid "Der Zuschlag ist eine Wertung. Darüber entscheidet das Gremium mit einem Vergabebeschluss nach Ablauf der Frist."
+msgstr "La adjudicación es una valoración. Decide el órgano con un acuerdo de adjudicación tras el plazo."
+
+msgid "Zuschlag erhalten"
+msgstr "Adjudicatario"
+
+msgid "Nicht berücksichtigt"
+msgstr "No considerada"
+
+msgid "noch nicht beschlossen"
+msgstr "aún no acordada"
+
+msgid "Beschluss nicht angenommen"
+msgstr "acuerdo no aprobado"
+
+msgid "Beschluss in einem anderen Gremium gefasst"
+msgstr "acuerdo adoptado en otro órgano"
+
+msgid "Bis zum Ende der Frist sieht niemand fremde Angebote. Danach sehen alle Bieter und der Vorstand alle Angebote."
+msgstr "Hasta el fin del plazo nadie ve las ofertas ajenas. Después, todos los oferentes y la junta directiva ven todas las ofertas."
+
+msgid "Alle Beteiligten sehen die Angebote der anderen sofort."
+msgstr "Todos los participantes ven de inmediato las ofertas de los demás."
+
+msgid "Jeder Bieter sieht nur sein eigenes Angebot. Der Vorstand sieht nach Ablauf der Frist alle Angebote. Wer den Zuschlag erhält, wird allen angezeigt."
+msgstr "Cada oferente ve solo su propia oferta. Tras el plazo, la junta directiva ve todas las ofertas. Quién recibe la adjudicación se muestra a todos."
+
+msgid "Entwürfe"
+msgstr "Borradores"
+
+msgid "Keine Ausschreibungen in dieser Auswahl."
+msgstr "No hay licitaciones en esta selección."
+
+msgid "Neue Ausschreibung"
+msgstr "Nueva licitación"
+
+msgid "Vergütung"
+msgstr "Remuneración"
+
+msgid "Mein Angebot"
+msgstr "Mi oferta"
+
+msgid "Die Zahl der Angebote ist verdeckt."
+msgstr "El número de ofertas está oculto."
+
+msgid "Ausschreibung %1 öffnen"
+msgstr "Abrir la licitación %1"
+
+msgid "Beschluss, auf dem die Ausschreibung beruht"
+msgstr "Acuerdo en el que se basa la licitación"
+
+msgid "Mindestens eine Stunde nach dem Veröffentlichen. Bis zu dieser Uhrzeit können Angebote abgegeben werden."
+msgstr "Al menos una hora después de la publicación. Hasta esa hora se pueden presentar ofertas."
+
+msgid "Vergabe nach"
+msgstr "Adjudicación según"
+
+msgid "Sichtbarkeit der Angebote"
+msgstr "Visibilidad de las ofertas"
+
+msgid "Euro-Vergütung kommt später."
+msgstr "La remuneración en euros llegará más adelante."
+
+msgid "Bitte geben Sie die Frist mit Datum und Uhrzeit an."
+msgstr "Indique el plazo con fecha y hora."
+
+msgid "Als Entwurf gespeichert, aber nicht veröffentlicht: %1"
+msgstr "Guardada como borrador, pero no publicada: %1"
+
+msgid "Menü durchsuchen"
+msgstr "Buscar en el menú"
+
+msgid "Suchen …"
+msgstr "Buscar …"
+
+msgid "Befehlspalette"
+msgstr "Paleta de comandos"
+
+msgid "Strg K"
+msgstr "Ctrl K"
+
+msgid "%1 Treffer"
+msgstr "%1 resultados"
+
+msgid "%1 Treffer, %2 angezeigt. Suche verfeinern"
+msgstr "%1 resultados, %2 mostrados. Afine la búsqueda"
+
+msgid "Zuletzt besucht"
+msgstr "Visitado recientemente"
+
+msgid "Noch keine Veranstaltungen."
+msgstr "Todavía no hay eventos."
+
+msgid "Belegung"
+msgstr "Ocupación"
+
+msgid "Veröffentlichen: %1"
+msgstr "Publicar: %1"
+
+msgid "Absagen: %1"
+msgstr "Cancelar: %1"
+
+msgid "Warteliste nachrücken: %1"
+msgstr "Avanzar la lista de espera: %1"
+
+msgid "Abgesagt/abgelaufen"
+msgstr "Cancelado/caducado"
+
+msgid "Mit Nachricht"
+msgstr "Con mensaje"
+
+msgid "Nicht bezahlt"
+msgstr "No pagado"
+
+msgid "Angemeldet %1 · Warteliste %2 · Abgesagt/abgelaufen %3"
+msgstr "Inscritos %1 · Lista de espera %2 · Cancelados/caducados %3"
+
+msgid "Freie Plätze %1"
+msgstr "Plazas libres %1"
+
+msgid "Anmeldungen"
+msgstr "Inscripciones"
+
+msgid "Noch keine Anmeldungen."
+msgstr "Todavía no hay inscripciones."
+
+msgid "Alle Anmeldungen als CSV"
+msgstr "Todas las inscripciones como CSV"
+
+msgid "Es werden nur die ersten 2000 Anmeldungen angezeigt. Die CSV enthält alle."
+msgstr "Solo se muestran las primeras 2000 inscripciones. El CSV las contiene todas."
+
+msgid "Keine Anmeldungen in dieser Auswahl."
+msgstr "No hay inscripciones en esta selección."
+
+msgid "Wartelistenplatz"
+msgstr "Posición en la lista de espera"
+
+msgid "Angemeldet am"
+msgstr "Inscrito el"
+
+msgid "E-Mail (Gast)"
+msgstr "Correo electrónico (invitado)"
+
+msgid "Nachricht anzeigen: %1"
+msgstr "Mostrar mensaje: %1"
+
+msgid "Veranstaltung nicht gefunden."
+msgstr "Evento no encontrado."
+
+msgid "Ausgebucht · %1 auf der Warteliste"
+msgstr "Completo · %1 en la lista de espera"
+
+msgid "Nachricht an die Veranstalter hinzufügen"
+msgstr "Añadir un mensaje para los organizadores"
+
+msgid "Nachricht an die Veranstalter (optional)"
+msgstr "Mensaje para los organizadores (opcional)"
+
+msgid "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage."
+msgstr "Los organizadores verán su mensaje. Su inscripción es válida con la confirmación, no con una respuesta a su pregunta."
+
+msgid "Export der Anmeldungen"
+msgstr "Exportación de inscripciones"
+
+msgid "%1 von %2 Platz belegt · noch %3 frei"
+msgid_plural "%1 von %2 Plätzen belegt · noch %3 frei"
+msgstr[0] "%1 de %2 plaza ocupada · quedan %3 libres"
+msgstr[1] "%1 de %2 plazas ocupadas · quedan %3 libres"
+
+msgid "Einrichtung · %1 offen"
+msgstr "Configuración · %1 pendientes"
+
+msgid "Einrichtung"
+msgstr "Configuración"
+
+msgid "Es fehlt noch: %1. Solange das fehlt, werden bezahlte Beiträge nicht gebucht."
+msgstr "Aún falta: %1. Mientras falte, las cuotas pagadas no se contabilizan."
+
+msgid "Es fehlt noch: %1."
+msgstr "Aún falta: %1."
+
+msgid "Zur Einrichtung"
+msgstr "Ir a la configuración"
+
+msgid "Konten"
+msgstr "Cuentas"
+
+msgid "Journal"
+msgstr "Diario"
+
+msgid "Bereiche von Kontenplan und Journal"
+msgstr "Secciones del plan de cuentas y del diario"
+
+msgid "Kontenzuordnung: vollständig"
+msgstr "Asignación de cuentas: completa"
+
+msgid "Kontenzuordnung: unvollständig"
+msgstr "Asignación de cuentas: incompleta"
+
+msgid "Kontenzuordnung: unvollständig, es fehlt %1"
+msgstr "Asignación de cuentas: incompleta, falta %1"
+
+msgid "Online-Zahlung kann erst aktiviert werden, wenn die Kontenzuordnung vollständig ist."
+msgstr "El pago en línea solo puede activarse cuando la asignación de cuentas esté completa."
+
+msgid "Hier richten Sie die Finanzen ein, sehen den Kontenplan und das Journal mit allen Buchungen. Einrichten und buchen können Schatzmeisterei und Administration; die Zuordnung der Konten ändert nur die Administration."
+msgstr "Aquí configura las finanzas y ve el plan de cuentas y el diario con todos los asientos. La tesorería y la administración pueden configurar y contabilizar; solo la administración puede cambiar la asignación de cuentas."
+
+msgid "Hier stellen Sie die Online-Zahlung ein. Die Zuordnung zu Konten finden Sie unter Kontenplan & Journal, im Reiter Einrichtung."
+msgstr "Aquí configura el pago en línea. La asignación a cuentas se encuentra en Plan de cuentas y diario, en la pestaña Configuración."
+
+msgid "Kontenplan"
+msgstr "Plan de cuentas"
+
+msgid "Erlöskonto für Mitgliedsbeiträge"
+msgstr "Cuenta de ingresos por cuotas de socios"
+
+msgid "Erlöskonto für Spenden"
+msgstr "Cuenta de ingresos por donaciones"
+
+msgid "Erlöskonto für Veranstaltungen"
+msgstr "Cuenta de ingresos por eventos"
+
+msgid "Gebührenkonto (optional)"
+msgstr "Cuenta de comisiones (opcional)"
+
+msgid "Der Kontenplan ist die Liste aller Konten, auf die Ihr Verein bucht. Ohne ihn kann nichts gebucht werden."
+msgstr "El plan de cuentas es la lista de todas las cuentas en las que contabiliza su asociación. Sin él no se puede contabilizar nada."
+
+msgid "Das Konto, auf dem das Geld Ihres Vereins liegt, also Ihr Girokonto."
+msgstr "La cuenta en la que está el dinero de su asociación, es decir, su cuenta corriente."
+
+msgid "Ein Erlöskonto sammelt Einnahmen einer Art, zum Beispiel alle Mitgliedsbeiträge."
+msgstr "Una cuenta de ingresos recoge un tipo de ingresos, por ejemplo todas las cuotas de socios."
+
+msgid "Hierhin werden Spenden gebucht, für die Sie eine Zuwendungsbestätigung ausstellen."
+msgstr "Aquí se contabilizan las donaciones para las que emite un certificado de donación."
+
+msgid "Hierhin werden Einnahmen aus Veranstaltungen gebucht, zum Beispiel Eintrittsgelder."
+msgstr "Aquí se contabilizan los ingresos de eventos, por ejemplo las entradas."
+
+msgid "Hierhin würden Gebühren des Zahlungsanbieters gebucht. Dieser Schritt darf leer bleiben."
+msgstr "Aquí se contabilizarían las comisiones del proveedor de pagos. Este paso puede quedar vacío."
+
+msgid "Zum Beispiel: %1"
+msgstr "Por ejemplo: %1"
+
+msgid "Noch kein Bankkonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Todavía no hay una cuenta bancaria en el plan de cuentas. Cree primero el plan de cuentas estándar."
+
+msgid "Noch kein Aufwandskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Todavía no hay una cuenta de gastos en el plan de cuentas. Cree primero el plan de cuentas estándar."
+
+msgid "Noch kein Erlöskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Todavía no hay una cuenta de ingresos en el plan de cuentas. Cree primero el plan de cuentas estándar."
+
+msgid "Optional"
+msgstr "Opcional"
+
+msgid "%1 von %2 Pflichtschritten erledigt"
+msgstr "%1 de %2 pasos obligatorios completados"
+
+msgid "Die Zuordnung kann nur ein Administrator ändern."
+msgstr "Solo un administrador puede cambiar la asignación."
+
+msgid "Die Sphäre ist der steuerliche Bereich eines Vereins (ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher Geschäftsbetrieb); sie wird je Buchung gewählt."
+msgstr "La esfera es el ámbito fiscal de una asociación (ámbito ideal, administración de patrimonio, explotación vinculada al fin, explotación económica); se elige en cada asiento."
+
+msgid "Nicht gespeichert"
+msgstr "No guardado"
+
+msgid "Das bisher zugeordnete Konto %1 ist deaktiviert. Bitte ein anderes wählen. Beim Speichern wird die alte Zuordnung entfernt."
+msgstr "La cuenta %1 asignada hasta ahora está desactivada. Elija otra. Al guardar se elimina la asignación anterior."
+
+msgid "Zum Kontenplan"
+msgstr "Al plan de cuentas"
+
+msgid "(nicht gewählt)"
+msgstr "(sin elegir)"
+
+msgid "Standard verwenden"
+msgstr "Usar el estándar"
+
+msgid "Standardkonto %1 nicht im Kontenplan."
+msgstr "La cuenta estándar %1 no está en el plan de cuentas."
+
+msgid "Alle Standardkonten vorschlagen"
+msgstr "Proponer todas las cuentas estándar"
+
+msgid "Zuordnung gespeichert."
+msgstr "Asignación guardada."
+
+msgid "%1 aktive Konten im Kontenplan."
+msgstr "%1 cuentas activas en el plan de cuentas."
+
+msgid "Noch kein Konto angelegt. Das legt die Schatzmeisterei oder die Administration an."
+msgstr "Todavía no se ha creado ninguna cuenta. La tesorería o la administración la crea."
+
+msgid "Ein Vorschlag. Bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Una propuesta. Pídale a su asesoría fiscal que la confirme."
+
+msgid "Standard-Kontenplan SKR42 für Vereine anlegen"
+msgstr "Crear el plan de cuentas estándar SKR42 para asociaciones"
+
+msgid "Standard-Kontenplan anlegen"
+msgstr "Crear el plan de cuentas estándar"
+
+msgid "Es werden %1 Konten angelegt:"
+msgstr "Se crearán %1 cuentas:"
+
+msgid "Kontenplan anlegen"
+msgstr "Crear plan de cuentas"
+
+msgid "%1 %2 (%3), %4"
+msgstr "%1 %2 (%3), %4"
+
+msgid "Vorhandene Konten bleiben unverändert."
+msgstr "Las cuentas existentes permanecen sin cambios."
+
+msgid "Angelegte Konten lassen sich später nicht löschen, nur deaktivieren."
+msgstr "Las cuentas creadas no se pueden eliminar después, solo desactivar."
+
+msgid "Der Kontenplan ist ein Vorschlag; bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "El plan de cuentas es una propuesta; pídale a su asesoría fiscal que lo confirme."
+
+msgid "%1 Konten angelegt, %2 schon vorhanden."
+msgstr "%1 cuentas creadas, %2 ya existían."
+
+msgid "Der Kontenplan wurde inzwischen geändert. Bitte prüfen."
+msgstr "El plan de cuentas se ha modificado entretanto. Compruébelo."
+
+msgid "Erweitert"
+msgstr "Avanzado"
+
+msgid "Die Sphäre der Veranstaltungserlöse ist der steuerliche Bereich, dem Einnahmen aus Veranstaltungen zugerechnet werden."
+msgstr "La esfera de los ingresos por eventos es el ámbito fiscal al que se atribuyen los ingresos de los eventos."
+
+msgid "Auf dieses Aufwandskonto werden Reisekostenabrechnungen gebucht."
+msgstr "En esta cuenta de gastos se contabilizan las liquidaciones de gastos de viaje."
+
+msgid "Auf dieses Aufwandskonto werden Übungsleiter- und Ehrenamtspauschalen gebucht."
+msgstr "En esta cuenta de gastos se contabilizan las pagas a monitores y voluntarios."
+
+msgid "Alle Bereiche"
+msgstr "Todos los ámbitos"
+
+msgid "Kein Bereich"
+msgstr "Ningún ámbito"
+
+msgid "Wird je Buchung gewählt"
+msgstr "Se elige en cada asiento"
+
+msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
+msgstr "Explotación vinculada al fin y explotación económica"

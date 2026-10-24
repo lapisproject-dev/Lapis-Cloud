@@ -63,6 +63,13 @@ object Routes {
     const val MOTION_DETAIL = "/motions/:id"
 
     /**
+     * V1.9.202 "Ausschreibungen" (tenders): list and detail, `requireAuth` like [MEETINGS] -- the server decides what each status may see
+     * (ACTIVE, FRIEND and GUEST read published tenders; BOARD/ADMIN manage). The id in the path is not a secret.
+     */
+    const val TENDERS = "/tenders"
+    const val TENDER_DETAIL = "/tenders/:id"
+
+    /**
      * V1.9.28 "Konsensieren" (systemic consensus): list and detail, same pattern as [ELECTIONS]/[ELECTION_DETAIL]. The id in the path is
      * not a secret; a rating or a receipt code never appears in a URL.
      */
@@ -488,6 +495,10 @@ object Routes {
     // `current.requireRole(BOARD, ADMIN)` first in both methods. Reached from a secondary button on [EVENT_MANAGEMENT].
     const val EVENT_IMPORT = "/events/import"
 
+    // V1.9.204: the detail page of one event (key facts, edit form, registrations); BOARD/ADMIN like [EVENT_MANAGEMENT]. Registered AFTER
+    // [EVENT_IMPORT] so the literal "/events/import" is never taken for an id.
+    const val EVENT_DETAIL = "/events/:id"
+
     // Welle V1.9.105 "Artikel-Import" -- BOARD/ADMIN, `IArticleImportService` calls `current.requireRole(BOARD, ADMIN)` first in both
     // methods. Reached from a secondary button on [ARTICLES].
     const val ARTICLE_IMPORT = "/articles/import"
@@ -742,6 +753,10 @@ private val MASTER_DETAIL_ROUTES =
         Routes.MOTION_DETAIL,
         Routes.AGREEMENT_TEXTS,
         Routes.AGREEMENT_TEXTS_DETAIL,
+        Routes.TENDERS,
+        Routes.TENDER_DETAIL,
+        Routes.EVENT_MANAGEMENT,
+        Routes.EVENT_DETAIL,
     )
 
 /** Programmatic navigation (nav tiles, post-login/-logout redirects, guards) -- see [initRouting]. */
@@ -896,6 +911,19 @@ fun initRouting(pageContainer: SimplePanel) {
             }
         }
     }
+    routing.kvOn(Routes.TENDERS) {
+        requireAuth(routing) { show(Routes.TENDERS) { container -> renderTendersScreen(container) } }
+    }
+    routing.kvOn(Routes.TENDER_DETAIL) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(Routes.TENDERS)
+            } else {
+                show(Routes.TENDER_DETAIL) { container -> renderTenderDetailScreen(container, id) }
+            }
+        }
+    }
     routing.kvOn(Routes.MOTIONS) {
         requireAuth(routing) { show(Routes.MOTIONS) { container -> renderMotionsScreen(container) } }
     }
@@ -948,9 +976,12 @@ fun initRouting(pageContainer: SimplePanel) {
             }
         }
     }
-    routing.kvOn(Routes.LEDGER) {
+    routing.kvOn(Routes.LEDGER) { params ->
+        // Navigo runs this handler BEFORE it pushes the new URL, so `window.location.hash` is still the previous page's here:
+        // the deep link (`?tab=`/`?step=`) is taken from the match itself and handed to the screen.
+        val hash = ledgerHashOfMatch(params.asDynamic().queryString as? String)
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
-            show(Routes.LEDGER, ::renderLedgerScreen)
+            show(Routes.LEDGER) { container -> renderLedgerScreen(container, hash) }
         }
     }
     routing.kvOn(Routes.FINANCIAL_REPORTS) {
@@ -1204,6 +1235,17 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.EVENT_IMPORT) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.EVENT_IMPORT, ::renderEventImportScreen)
+        }
+    }
+    // V1.9.204: AFTER the literal /events/import. The handler guards the literal once more, should the router ever try this one first.
+    routing.kvOn(Routes.EVENT_DETAIL) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            when {
+                id.isNullOrBlank() -> routing.navigate(Routes.EVENT_MANAGEMENT)
+                id == "import" -> routing.navigate(Routes.EVENT_IMPORT)
+                else -> show(Routes.EVENT_DETAIL) { container -> renderEventDetailScreen(container, id) }
+            }
         }
     }
     routing.kvOn(Routes.ARTICLE_IMPORT) {

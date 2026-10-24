@@ -91,6 +91,7 @@ internal fun computeQuorum(
     voteId: Uuid? = null,
     electionId: Uuid? = null,
     systemicConsensusId: Uuid? = null,
+    excludedMemberIds: Set<Uuid> = emptySet(),
 ): QuorumResultDto {
     val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
     val quorumPercent = committeeRow[CommitteeTable.quorumPercent]
@@ -105,7 +106,9 @@ internal fun computeQuorum(
             electionId = electionId,
             consensusId = systemicConsensusId,
         )
-    val eligible = electorate.memberIds
+    // V1.9.201: the bidders of a tender are excluded from BOTH sides of the quorum on the award motion of that tender (see TenderConflicts).
+    // Subtracted from whatever electorate was chosen above; no new electorate lookup.
+    val eligible = electorate.memberIds - excludedMemberIds
     val presentCount =
         AttendanceTable
             .selectAll()
@@ -175,6 +178,7 @@ internal fun insertResolutionRow(
     voteId: Uuid? = null,
     electionId: Uuid? = null,
     systemicConsensusId: Uuid? = null,
+    excludedMemberIds: Set<Uuid> = emptySet(),
 ): ResolutionDto {
     val quorum =
         computeQuorum(
@@ -184,6 +188,7 @@ internal fun insertResolutionRow(
             voteId = voteId,
             electionId = electionId,
             systemicConsensusId = systemicConsensusId,
+            excludedMemberIds = excludedMemberIds,
         )
     val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
     val now = DbClock.nowLocalDateTime()

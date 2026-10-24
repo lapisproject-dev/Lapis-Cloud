@@ -359,6 +359,7 @@ class LegalHtmlTest :
                     "encounterSpace" to "Begegnungsräume",
                     "eventCapture" to "Aufzeichnung in Veranstaltungsräumen",
                     "mailOutbox" to "System-E-Mails",
+                    "tenders" to "Ausschreibungen",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

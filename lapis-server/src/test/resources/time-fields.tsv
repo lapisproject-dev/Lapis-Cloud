@@ -926,3 +926,20 @@ col:MemberFinderRequestTable.senderWithdrawnAt	A	stamped by the server clock (Db
 col:MemberFinderBlockTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MemberFinderRegionBandTable.computedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:EventCaptureAcknowledgmentTable.acknowledgedOn	D	EventOnlineJoin / EventCaptureAcknowledgments: OrganizationTimeZone.today() -- a DATE on purpose, never a timestamp (Art. 9: no time of attendance)
+dto:TenderCreateInput.deadline	B	TenderService.createTender/updateTenderDraft: the deadline typed in the tender form (organisation wall-clock); compared via OrganizationTimeZone.wallNow with a strict boundary (TenderStore.closeIfDue, TenderVisibilityPolicy)
+dto:TenderDraftUpdateInput.deadline	B	TenderService.createTender/updateTenderDraft: the deadline typed in the tender form (organisation wall-clock); compared via OrganizationTimeZone.wallNow with a strict boundary (TenderStore.closeIfDue, TenderVisibilityPolicy)
+dto:TenderAwardPublicDto.awardedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TenderSummaryDto.deadline	B	TenderService.createTender/updateTenderDraft: the deadline typed in the tender form (organisation wall-clock); compared via OrganizationTimeZone.wallNow with a strict boundary (TenderStore.closeIfDue, TenderVisibilityPolicy)
+dto:TenderBidDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TenderBidDto.priceSetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TenderAcceptanceDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TenderTable.deadline	B	TenderService.createTender/updateTenderDraft: the deadline typed in the tender form (organisation wall-clock); compared via OrganizationTimeZone.wallNow with a strict boundary (TenderStore.closeIfDue, TenderVisibilityPolicy)
+col:TenderTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TenderTable.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TenderTable.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TenderTable.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TenderBidTable.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TenderBidTable.priceSetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TenderBidTable.withdrawnAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TenderAwardTable.awardedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TenderAcceptanceTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

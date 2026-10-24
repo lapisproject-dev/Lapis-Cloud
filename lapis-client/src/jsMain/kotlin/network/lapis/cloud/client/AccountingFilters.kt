@@ -81,11 +81,19 @@ internal fun LapisField.asEndpoint(): DateEndpoint =
 internal fun Container.dateRangeFilter(
     fromLabel: String = tr("Von (optional)"),
     toLabel: String = tr("Bis"),
+): DateRangeFilterControls = lapisToolbar().dateRangeFields(fromLabel, toLabel)
+
+/**
+ * V1.9.206: the two date fields placed DIRECTLY into the receiver -- no toolbar of their own. [dateRangeFilter] wraps them in one;
+ * a screen that already has a row (an `inlineFieldRow`) calls this so the row has no nested toolbar and one centre line.
+ */
+internal fun Container.dateRangeFields(
+    fromLabel: String = tr("Von (optional)"),
+    toLabel: String = tr("Bis"),
 ): DateRangeFilterControls {
-    val row = lapisToolbar()
     // V1.9.137: the two fields read and show the date in the locale (`15.10.2026`); V1.9.173: native pickers, no hint line in a toolbar.
-    val fromInput = row.localDateInput(label = fromLabel, hintLine = false)
-    val toInput = row.localDateInput(label = toLabel, hintLine = false)
+    val fromInput = localDateInput(label = fromLabel, hintLine = false)
+    val toInput = localDateInput(label = toLabel, hintLine = false)
     linkDateRange(fromInput, toInput)
     return DateRangeFilterControls(fromInput.asEndpoint(), toInput.asEndpoint())
 }

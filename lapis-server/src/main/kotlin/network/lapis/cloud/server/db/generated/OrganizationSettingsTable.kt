@@ -7,6 +7,7 @@ import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.PaymentProvider
+import network.lapis.cloud.shared.domain.TenderBidVisibility
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.date
@@ -104,6 +105,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.9.156 -- hand-edited, see 11-organization-settings.kuml.kts.
     public val eventCaptureEnabled: Column<Boolean> = bool("event_capture_enabled").default(false)
     public val eventCaptureNoticeVersion: Column<String?> = varchar("event_capture_notice_version", 16).nullable()
+    // Welle V1.9.201 -- hand-edited, see 11-organization-settings.kuml.kts.
+    public val tenderDefaultVisibility: Column<TenderBidVisibility> =
+        enumerationByName<TenderBidVisibility>("tender_default_visibility", 21).default(TenderBidVisibility.HIDDEN_UNTIL_DEADLINE)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

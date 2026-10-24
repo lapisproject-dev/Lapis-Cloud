@@ -31,6 +31,8 @@ import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
+import network.lapis.cloud.server.events.EventRegistrationMessage
+import network.lapis.cloud.server.events.EventRegistrationMessageNotifier
 import network.lapis.cloud.server.events.EventRegistrationResult
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.events.EventStore
@@ -59,8 +61,12 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.math.BigDecimal
 import java.security.MessageDigest
 
-/** Hard cap on `POST /veranstaltung/{slug}/anmeldung`'s form body -- generous for name+email+honeypot, same DoS-guard reasoning as `SocialPublicRoutes.REPORT_MAX_BODY_BYTES`. */
-private const val MAX_EVENT_REGISTRATION_BODY_BYTES = 4096L
+/**
+ * Hard cap on `POST /veranstaltung/{slug}/anmeldung`'s form body -- generous for name+email+honeypot+message, same DoS-guard reasoning as
+ * `SocialPublicRoutes.REPORT_MAX_BODY_BYTES`. V1.9.204: raised from 4096 -- a 500-character message of 3-byte UTF-8 characters is up to
+ * 4500 bytes URL-encoded, the name (300 characters) up to 2700 more.
+ */
+private const val MAX_EVENT_REGISTRATION_BODY_BYTES = 16384L
 
 /** `MAX_EVENT_REGISTRATION_BODY_BYTES`, but for Ktor's OWN form-field buffering cap (default 50 MiB) -- see `registerEventPublicRoutes` KDoc "Content-Length-Deckel". */
 private const val EVENT_FORM_FIELD_LIMIT = MAX_EVENT_REGISTRATION_BODY_BYTES
@@ -123,6 +129,8 @@ internal fun Route.registerEventPublicRoutes(
     // every-request, not failures-only, budget -- a calendar client polling its subscription is a
     // normal request, not a "failed attempt").
     icsFeedRateLimiter: FederationInboxRateLimiter,
+    // V1.9.204 -- tells the event's creator about a guest registration that carries a message; no-op by default.
+    messageNotifier: EventRegistrationMessageNotifier = EventRegistrationMessageNotifier.DISABLED,
 ) {
     val frameAncestors = embedFrameAncestors(embedConfig)
 
@@ -135,6 +143,7 @@ internal fun Route.registerEventPublicRoutes(
             checkoutGateways = checkoutGateways,
             baseUrl = baseUrl,
             mailDispatcher = mailDispatcher,
+            messageNotifier = messageNotifier,
         )
 
     get("/veranstaltung/{slug}") {
@@ -239,6 +248,15 @@ internal fun Route.registerEventPublicRoutes(
                 call.respondEventInvalidInput(ctx = ctx, slug = slug)
                 return@withEventPublicErrorHandling
             }
+            // V1.9.204 -- the optional message; checked HERE, before the strict registration budget is spent (no echo of the text).
+            val guestMessage =
+                when (val outcome = EventRegistrationMessage.normalize(params["nachricht"])) {
+                    is EventRegistrationMessage.Outcome.Ok -> outcome.value
+                    EventRegistrationMessage.Outcome.TooLong -> {
+                        call.respondEventInvalidInput(ctx = ctx, slug = slug)
+                        return@withEventPublicErrorHandling
+                    }
+                }
             val eventId = transaction { EventStore.getEventBySlugOrNull(slug)?.get(EventTable.id) }
             if (eventId == null) {
                 call.respondEventNotFound(ctx)
@@ -263,6 +281,7 @@ internal fun Route.registerEventPublicRoutes(
                 submission.submit(
                     eventId = eventId,
                     participant = EventParticipant.Guest(name = guestName, normalizedEmail = normalizedEmail),
+                    message = guestMessage,
                 )
             when (result) {
                 is EventRegistrationResult.Confirmed ->

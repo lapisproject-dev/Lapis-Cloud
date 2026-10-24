@@ -1845,10 +1845,6 @@ msgstr "Administration"
 msgid "Administrator"
 msgstr "Administrator"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:91
-msgid "Akteur-Mitglieds-ID (optional)"
-msgstr "Actor member ID (optional)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:359
 msgid "Akteur: %1"
 msgstr "Actor: %1"
@@ -3311,10 +3307,6 @@ msgstr "To (YYYY-MM-DD)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:95
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "To (YYYY-MM-DDTHH:MM:SS, optional)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:204
-msgid "Bis Sequenznummer (optional)"
-msgstr "To sequence number (optional)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:726
 msgid "Bisherige Jahressumme (vor dieser Spende)"
@@ -4812,10 +4804,6 @@ msgstr "Abstentions"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:360
 msgid "Entität: %1"
 msgstr "Entity: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:90
-msgid "Entitäts-ID (optional)"
-msgstr "Entity ID (optional)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:89
@@ -6361,18 +6349,6 @@ msgstr "Account class %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:468
 msgid "Kontenplan & Journal"
 msgstr "Chart of accounts & journal"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:789
-msgid "Kontenzuordnung gespeichert."
-msgstr "Account mapping saved."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:757
-msgid "Kontenzuordnung speichern"
-msgstr "Save account mapping"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:313
-msgid "Kontenzuordnung Zahlungsverkehr"
-msgstr "Payment account mapping"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:90
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:100
@@ -8843,13 +8819,6 @@ msgid "Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"
 msgstr ""
 "Instant purchase price (LTR, optional -- must be above the starting price)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:604
-msgid ""
-"Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt "
-"markierter Beitrag NICHT gebucht -- der Status wechselt trotzdem auf "
-"\"bezahlt\"."
-msgstr "As long as one of the three accounts is not assigned, a contribution marked as paid is NOT posted -- its status still changes to \"paid\"."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1165
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1513
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2318
@@ -9800,10 +9769,6 @@ msgstr "From (YYYY-MM-DD, required field)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:94
 msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "From (YYYY-MM-DDTHH:MM:SS, optional)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:203
-msgid "Von Sequenznummer (optional)"
-msgstr "From sequence number (optional)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:400
 msgid "Vorher"
@@ -11837,10 +11802,6 @@ msgstr "Dismiss"
 msgid "In „Offene Posten“ öffnen"
 msgstr "Open in “Open items”"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:409
-msgid "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2"
-msgstr "Receivables account (debtors): %1 · Payables account (creditors): %2"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:485
 msgid "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht."
 msgstr "Without a receivables and a payables account, open items are created but not booked."
@@ -11992,10 +11953,6 @@ msgstr "Back"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:353
 msgid "Verrechnung gebucht."
 msgstr "Netting booked."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:48
-msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
-msgstr "Please enter an amount like 1234.56 (without thousands separators)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:53
 msgid "Höchstens %1 Nachkommastellen erlaubt."
@@ -13720,10 +13677,6 @@ msgstr "All configured dunning levels have already been used in the current cycl
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:208
 msgid "BIC"
 msgstr "BIC"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:553
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8"
-msgstr "Bank account: %1 · Fee account: %2 · Contribution income account: %3 · Donation income account: %4 · Event income account: %5 (%6) · Travel expense account: %7 · Volunteer allowance expense account: %8"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
 msgid "Bankname"
@@ -15564,18 +15517,6 @@ msgstr "Webhook URL to enter in the PayPal developer dashboard: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
 msgid "Bankkonto zugeordnet"
 msgstr "Bank account assigned"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Beitragserlöskonto zugeordnet"
-msgstr "Contribution revenue account assigned"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Spendenerlöskonto zugeordnet"
-msgstr "Donation revenue account assigned"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Gebührenkonto zugeordnet"
-msgstr "Fee account assigned"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
 msgid "Erfasst"
@@ -23997,12 +23938,6 @@ msgstr "The agreement text is not allowed. Please check length, characters, vers
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "The draft has been changed in the meantime. Please reload the view and check it again."
 
-msgid "%1 (Datum)"
-msgstr "%1 (date)"
-
-msgid "%1 (Uhrzeit)"
-msgstr "%1 (time)"
-
 msgid "Aufsichtsbehörde benachrichtigt am (optional)"
 msgstr "Supervisory authority notified on (optional)"
 
@@ -24014,9 +23949,6 @@ msgstr "Data subjects notified on (optional)"
 
 msgid "Bis (Pflichtfeld)"
 msgstr "To (required)"
-
-msgid "Bis (optional)"
-msgstr "To (optional)"
 
 msgid "Bitte AM oder PM angeben."
 msgstr "Please enter AM or PM."
@@ -25929,3 +25861,813 @@ msgstr "Download %1 (%2, %3)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
 msgid "Unterlagen verwalten"
 msgstr "Manage documents"
+
+msgid "Alle Filter sind optional."
+msgstr "All filters are optional."
+
+msgid "%1, Datum"
+msgstr "%1, date"
+
+msgid "%1, Uhrzeit"
+msgstr "%1, time"
+
+msgid "Bitte einen Betrag wie %1 eingeben."
+msgstr "Please enter an amount like %1."
+
+msgid "Boost-Betrag in LTR"
+msgstr "Boost amount in LTR"
+
+msgid "Um aktuell ganz oben zu stehen: %1"
+msgstr "To be at the very top right now: %1"
+
+msgid "Ihr Guthaben reicht nicht, höchstens %1."
+msgstr "Your balance is not enough, at most %1."
+
+msgid "Vorschlag übernehmen"
+msgstr "Use suggestion"
+
+msgid "Entitäts-ID"
+msgstr "Entity ID"
+
+msgid "Akteur-Mitglieds-ID"
+msgstr "Actor member ID"
+
+msgid "Von Sequenznummer"
+msgstr "From sequence number"
+
+msgid "Bis Sequenznummer"
+msgstr "To sequence number"
+
+msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
+msgstr "Please enter an amount like 1234.56 (without thousands separators)."
+
+msgid "Ausschreibungen"
+msgstr "Tenders"
+
+msgid "Standard-Sichtbarkeit der Angebote"
+msgstr "Default visibility of bids"
+
+msgid "Verdeckt bis zur Frist"
+msgstr "Hidden until the deadline"
+
+msgid "Bieter sehen nur ihr eigenes Angebot"
+msgstr "Bidders only see their own bid"
+
+msgid "Gilt als Vorbelegung beim Anlegen einer Ausschreibung; nach dem Veröffentlichen nicht mehr änderbar."
+msgstr "Used as the preset when a tender is created; cannot be changed after publication."
+
+msgid "Unbekannte Auswahl"
+msgstr "Unknown selection"
+
+msgid "Ausschreibung"
+msgstr "Tender"
+
+msgid "Hier schreibt der Vorstand Aufträge aus, die ein Beschluss vorsieht. Mitglieder und Freunde geben bis zur Frist ein Angebot ab."
+msgstr "Here the board puts out tenders for jobs that a resolution provides for. Members and friends submit a bid by the deadline."
+
+msgid "Nur eigenes Angebot sichtbar"
+msgstr "Only own bid visible"
+
+msgid "Abgenommen"
+msgstr "Accepted"
+
+msgid "%1 Tag"
+msgid_plural "%1 Tage"
+msgstr[0] "%1 day"
+msgstr[1] "%1 days"
+
+msgid "%1 Stunde"
+msgid_plural "%1 Stunden"
+msgstr[0] "%1 hour"
+msgstr[1] "%1 hours"
+
+msgid "noch %1 und %2"
+msgstr "%1 and %2 left"
+
+msgid "noch %1"
+msgstr "%1 left"
+
+msgid "Erwartetes Ergebnis"
+msgstr "Expected result"
+
+msgid "abgelaufen am %1"
+msgstr "expired on %1"
+
+msgid "Vergabe nach: %1"
+msgstr "Award by: %1"
+
+msgid "Vergütung: %1"
+msgstr "Payment: %1"
+
+msgid "Sichtbarkeit der Angebote: %1"
+msgstr "Visibility of bids: %1"
+
+msgid "Beruht auf: "
+msgstr "Based on: "
+
+msgid "Als Gast können Sie auf diese Ausschreibung nicht bieten: Sie wird in LTR vergütet, und Gäste führen ihr LTR-Konto auf ihrem Heimatserver."
+msgstr "As a guest you cannot bid on this tender: it is paid in LTR, and guests keep their LTR account on their home server."
+
+msgid "Sie können auf diese Ausschreibung nicht bieten."
+msgstr "You cannot bid on this tender."
+
+msgid "Diese Ausschreibung ist noch nicht veröffentlicht."
+msgstr "This tender has not been published yet."
+
+msgid "Diese Ausschreibung wurde abgesagt."
+msgstr "This tender has been cancelled."
+
+msgid "Die Frist ist abgelaufen. Es können keine Angebote mehr abgegeben werden."
+msgstr "The deadline has passed. No more bids can be submitted."
+
+msgid "Diese Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "This tender cannot take any more bids."
+
+msgid "Ihr Angebot"
+msgstr "Your bid"
+
+msgid "Preis: %1"
+msgstr "Price: %1"
+
+msgid "Angebot zurückziehen"
+msgstr "Withdraw bid"
+
+msgid "Sie haben Ihr Angebot zurückgezogen. Sie können bis zur Frist ein neues abgeben."
+msgstr "You have withdrawn your bid. You can submit a new one until the deadline."
+
+msgid "Angebot ändern"
+msgstr "Change bid"
+
+msgid "Angebot zurückziehen?"
+msgstr "Withdraw bid?"
+
+msgid "Sie können bis zur Frist jederzeit ein neues Angebot abgeben."
+msgstr "You can submit a new bid at any time until the deadline."
+
+msgid "Angebot zurückgezogen."
+msgstr "Bid withdrawn."
+
+msgid "Preis in LTR"
+msgstr "Price in LTR"
+
+msgid "Höchstens zwei Nachkommastellen."
+msgstr "At most two decimal places."
+
+msgid "Angebot abgeben"
+msgstr "Submit bid"
+
+msgid "Änderung speichern"
+msgstr "Save change"
+
+msgid "Angebot gespeichert."
+msgstr "Bid saved."
+
+msgid "Noch keine Angebote."
+msgstr "No bids yet."
+
+msgid "Bei dieser Ausschreibung sieht jeder Bieter nur sein eigenes Angebot."
+msgstr "In this tender each bidder sees only their own bid."
+
+msgid "Die Angebote anderer sind bis %1 verdeckt."
+msgstr "The bids of others are hidden until %1."
+
+msgid "Die Angebote sehen nur die Bieter und der Vorstand."
+msgstr "Only the bidders and the board see the bids."
+
+msgid "Bieter"
+msgstr "Bidder"
+
+msgid "Preis"
+msgstr "Price"
+
+msgid "Zuschlag erteilen an %1"
+msgstr "Award the contract to %1"
+
+msgid "Zuschlag erteilen?"
+msgstr "Award the contract?"
+
+msgid "Zuschlag an %1 für %2."
+msgstr "Award to %1 for %2."
+
+msgid "Der Zuschlag kann nicht zurückgenommen werden."
+msgstr "The award cannot be undone."
+
+msgid "Zuschlag erteilen"
+msgstr "Award the contract"
+
+msgid "Zuschlag erteilt."
+msgstr "Contract awarded."
+
+msgid "Zuschlag"
+msgstr "Award"
+
+msgid "%1 hat den Zuschlag erhalten (%2, am %3)."
+msgstr "%1 received the award (%2, on %3)."
+
+msgid "Abnahme"
+msgstr "Acceptance"
+
+msgid "Sie haben selbst ein Angebot abgegeben (auch ein zurückgezogenes zählt). Deshalb dürfen Sie diese Ausschreibung weder vergeben noch abnehmen noch absagen."
+msgstr "You have submitted a bid yourself (a withdrawn one counts as well). Therefore you may neither award, accept nor cancel this tender."
+
+msgid "Entwurf bearbeiten"
+msgstr "Edit draft"
+
+msgid "Ausschreibung veröffentlichen?"
+msgstr "Publish tender?"
+
+msgid "Danach können Mitglieder und Freunde bis zur Frist Angebote abgeben."
+msgstr "After that, members and friends can submit bids until the deadline."
+
+msgid "Frist, Vergabe-Kriterium und Sichtbarkeit lassen sich nach dem Veröffentlichen nicht mehr ändern."
+msgstr "The deadline, the award criterion and the visibility can no longer be changed after publication."
+
+msgid "Ausschreibung veröffentlicht."
+msgstr "Tender published."
+
+msgid "Ausschreibung absagen"
+msgstr "Cancel tender"
+
+msgid "Ausschreibung absagen?"
+msgstr "Cancel tender?"
+
+msgid "Der Grund ist für alle sichtbar, die die Ausschreibung sehen."
+msgstr "The reason is visible to everyone who can see the tender."
+
+msgid "Eine abgesagte Ausschreibung kann nicht wieder geöffnet werden."
+msgstr "A cancelled tender cannot be reopened."
+
+msgid "Ausschreibung abgesagt."
+msgstr "Tender cancelled."
+
+msgid "Der bisherige Vergabeantrag wurde nicht angenommen. Legen Sie einen neuen fest."
+msgstr "The previous award motion was not adopted. Set a new one."
+
+msgid "Die Frist ist abgelaufen. Für den Zuschlag braucht es einen Vergabebeschluss des Gremiums."
+msgstr "The deadline has passed. The award needs an award resolution of the committee."
+
+msgid "Legen Sie unter Anträge einen Antrag für den Vergabebeschluss an. Er wird nach Ablauf der Frist in einer Sitzung entschieden."
+msgstr "Create a motion for the award resolution under Motions. It is decided in a meeting after the deadline."
+
+msgid "Über den Vergabeantrag ist noch nicht entschieden."
+msgstr "The award motion has not been decided yet."
+
+msgid "Der Vergabebeschluss wurde vor Ablauf der Frist gefasst und zählt deshalb nicht."
+msgstr "The award resolution was passed before the deadline and therefore does not count."
+
+msgid "Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "You award the contract at the bid in the table above."
+
+msgid "Der Vergabebeschluss liegt vor. Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "The award resolution is in place. You award the contract at the bid in the table above."
+
+msgid "Vergabeantrag: "
+msgstr "Award motion: "
+
+msgid "ist der Beschluss, auf dem die Ausschreibung beruht"
+msgstr "is the resolution the tender is based on"
+
+msgid "gehört zu einem anderen Gremium"
+msgstr "belongs to another committee"
+
+msgid "ist ein Änderungsantrag"
+msgstr "is an amendment motion"
+
+msgid "ist schon entschieden oder zurückgezogen"
+msgstr "has already been decided or withdrawn"
+
+msgid "gehört schon zu einer Ausschreibung"
+msgstr "already belongs to a tender"
+
+msgid "hat einen Änderungsantrag"
+msgstr "has an amendment motion"
+
+msgid "wird schon abgestimmt"
+msgstr "is already being voted on"
+
+msgid "Vergabeantrag"
+msgstr "Award motion"
+
+msgid "-- bitte wählen --"
+msgstr "-- please choose --"
+
+msgid "%1 -- nicht wählbar: %2"
+msgstr "%1 -- not selectable: %2"
+
+msgid "Dieser Antrag kann nicht gewählt werden: %1"
+msgstr "This motion cannot be chosen: %1"
+
+msgid "Vergabebeschluss festlegen"
+msgstr "Set award resolution"
+
+msgid "Vergabeantrag festgelegt."
+msgstr "Award motion set."
+
+msgid "Der Zuschlag ist erteilt. Nehmen Sie das Ergebnis ab oder lehnen Sie es mit einer Notiz ab."
+msgstr "The contract has been awarded. Accept the result or reject it with a note."
+
+msgid "Abnehmen"
+msgstr "Accept"
+
+msgid "Notiz (bei Ablehnung Pflicht)"
+msgstr "Note (required for a rejection)"
+
+msgid "Bei einer Ablehnung ist eine Notiz nötig."
+msgstr "A rejection needs a note."
+
+msgid "Abnahme erfassen"
+msgstr "Record acceptance"
+
+msgid "Abnahme erfasst."
+msgstr "Acceptance recorded."
+
+msgid "Die Aktion ist gerade nicht möglich. Bitte laden Sie die Seite neu."
+msgstr "The action is not possible right now. Please reload the page."
+
+msgid "Nur ein Entwurf kann geändert werden."
+msgstr "Only a draft can be changed."
+
+msgid "Nur ein Entwurf kann veröffentlicht werden."
+msgstr "Only a draft can be published."
+
+msgid "Die Frist muss mindestens eine Stunde in der Zukunft liegen."
+msgstr "The deadline must be at least one hour in the future."
+
+msgid "Die Ausschreibung wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu."
+msgstr "The tender was changed in the meantime. Please reload the page."
+
+msgid "Diese Aktion ist im jetzigen Stand der Ausschreibung nicht möglich."
+msgstr "This action is not possible in the current state of the tender."
+
+msgid "Gäste können nur auf Ausschreibungen bieten, die in Euro vergütet werden."
+msgstr "Guests can only bid on tenders that are paid in euro."
+
+msgid "Die Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "The tender cannot take any more bids."
+
+msgid "Es gibt kein Angebot, das zurückgezogen werden kann."
+msgstr "There is no bid that can be withdrawn."
+
+msgid "Einen Vergabeantrag gibt es nur bei der Vergabe nach dem besten Angebot."
+msgstr "An award motion exists only when the award goes to the best offer."
+
+msgid "Die Frist der Ausschreibung muss zuerst abgelaufen sein."
+msgstr "The deadline of the tender must have passed first."
+
+msgid "Die Ausschreibung hat kein Angebot, über das entschieden werden könnte."
+msgstr "The tender has no bid that could be decided on."
+
+msgid "Der eingetragene Vergabeantrag kann nicht mehr ersetzt werden."
+msgstr "The registered award motion can no longer be replaced."
+
+msgid "Dieses Angebot ist nicht mehr im Rennen."
+msgstr "This bid is no longer in the running."
+
+msgid "Der Bieter darf für diese Ausschreibung nicht mehr berücksichtigt werden."
+msgstr "The bidder can no longer be considered for this tender."
+
+msgid "Der Zuschlag muss an das günstigste Angebot gehen."
+msgstr "The award must go to the cheapest bid."
+
+msgid "Bei gleichem Preis ist eine Begründung nötig."
+msgstr "With equal prices a justification is required."
+
+msgid "Bitte geben Sie eine Begründung an."
+msgstr "Please give a justification."
+
+msgid "Es ist noch kein Vergabeantrag festgelegt."
+msgstr "No award motion has been set yet."
+
+msgid "Der Vergabeantrag wurde nicht angenommen."
+msgstr "The award motion was not adopted."
+
+msgid "Der Vergabeantrag wurde vor Ablauf der Frist entschieden."
+msgstr "The award motion was decided before the deadline."
+
+msgid "Eine Ablehnung braucht eine Begründung."
+msgstr "A rejection needs a justification."
+
+msgid "Die Beschreibung kann nicht dargestellt werden. Bitte vereinfachen Sie sie."
+msgstr "The description cannot be displayed. Please simplify it."
+
+msgid "Ausschreibungen sind vorerst nur in LTR möglich."
+msgstr "For now, tenders are only possible in LTR."
+
+msgid "Der Preis darf höchstens zwei Nachkommastellen haben."
+msgstr "The price may have at most two decimal places."
+
+msgid "Der Preis ist zu groß."
+msgstr "The price is too large."
+
+msgid "Der Antrag ist kein angenommener Beschluss seines Gremiums."
+msgstr "The motion is not an adopted resolution of its committee."
+
+msgid "Dieser Antrag kann nicht als Vergabeantrag dienen."
+msgstr "This motion cannot serve as the award motion."
+
+msgid "Über einen Vergabeantrag entscheidet nur die Beschlussfähigkeit des Gremiums oder eine meritokratische Abstimmung."
+msgstr "An award motion is decided only by the committee's quorum or by a meritocratic vote."
+
+msgid "Der Titel muss 1 bis %1 Zeichen haben."
+msgstr "The title must have 1 to %1 characters."
+
+msgid "Die Beschreibung muss 1 bis %1 Zeichen haben."
+msgstr "The description must have 1 to %1 characters."
+
+msgid "Das erwartete Ergebnis muss 1 bis %1 Zeichen haben."
+msgstr "The expected result must have 1 to %1 characters."
+
+msgid "Der Angebotstext muss 1 bis %1 Zeichen haben."
+msgstr "The bid text must have 1 to %1 characters."
+
+msgid "Der Grund muss 1 bis %1 Zeichen haben."
+msgstr "The reason must have 1 to %1 characters."
+
+msgid "Der Grund darf höchstens %1 Zeichen haben."
+msgstr "The reason may have at most %1 characters."
+
+msgid "Die Begründung darf höchstens %1 Zeichen haben."
+msgstr "The justification may have at most %1 characters."
+
+msgid "Der Preis muss mindestens %1 betragen."
+msgstr "The price must be at least %1."
+
+msgid "Für diesen Antrag läuft bereits ein Entscheidungsweg oder er ist schon entschieden."
+msgstr "A decision process is already running for this motion, or it has already been decided."
+
+msgid "Frist abgelaufen"
+msgstr "Deadline passed"
+
+msgid "Vergeben"
+msgstr "Awarded"
+
+msgid "LTR"
+msgstr "LTR"
+
+msgid "Euro"
+msgstr "Euro"
+
+msgid "Günstigster Preis"
+msgstr "Lowest price"
+
+msgid "Bestes Angebot"
+msgstr "Best offer"
+
+msgid "Der Vorstand erteilt den Zuschlag dem günstigsten Angebot. Ein Beschluss ist dafür nicht nötig."
+msgstr "The board awards the contract to the cheapest bid. No resolution is needed for this."
+
+msgid "Der Zuschlag ist eine Wertung. Darüber entscheidet das Gremium mit einem Vergabebeschluss nach Ablauf der Frist."
+msgstr "The award is a judgement. The committee decides it with an award resolution after the deadline."
+
+msgid "Zuschlag erhalten"
+msgstr "Awarded the contract"
+
+msgid "Nicht berücksichtigt"
+msgstr "Not considered"
+
+msgid "noch nicht beschlossen"
+msgstr "not yet resolved"
+
+msgid "Beschluss nicht angenommen"
+msgstr "resolution not adopted"
+
+msgid "Beschluss in einem anderen Gremium gefasst"
+msgstr "resolution passed in another committee"
+
+msgid "Bis zum Ende der Frist sieht niemand fremde Angebote. Danach sehen alle Bieter und der Vorstand alle Angebote."
+msgstr "Until the end of the deadline nobody sees other bids. After that all bidders and the board see all bids."
+
+msgid "Alle Beteiligten sehen die Angebote der anderen sofort."
+msgstr "All participants see the bids of the others immediately."
+
+msgid "Jeder Bieter sieht nur sein eigenes Angebot. Der Vorstand sieht nach Ablauf der Frist alle Angebote. Wer den Zuschlag erhält, wird allen angezeigt."
+msgstr "Each bidder sees only their own bid. After the deadline the board sees all bids. Who receives the award is shown to everyone."
+
+msgid "Entwürfe"
+msgstr "Drafts"
+
+msgid "Keine Ausschreibungen in dieser Auswahl."
+msgstr "No tenders in this selection."
+
+msgid "Neue Ausschreibung"
+msgstr "New tender"
+
+msgid "Vergütung"
+msgstr "Payment"
+
+msgid "Mein Angebot"
+msgstr "My bid"
+
+msgid "Die Zahl der Angebote ist verdeckt."
+msgstr "The number of bids is hidden."
+
+msgid "Ausschreibung %1 öffnen"
+msgstr "Open tender %1"
+
+msgid "Beschluss, auf dem die Ausschreibung beruht"
+msgstr "Resolution the tender is based on"
+
+msgid "Mindestens eine Stunde nach dem Veröffentlichen. Bis zu dieser Uhrzeit können Angebote abgegeben werden."
+msgstr "At least one hour after publication. Bids can be submitted until this time."
+
+msgid "Vergabe nach"
+msgstr "Award by"
+
+msgid "Sichtbarkeit der Angebote"
+msgstr "Visibility of bids"
+
+msgid "Euro-Vergütung kommt später."
+msgstr "Payment in euro will follow later."
+
+msgid "Bitte geben Sie die Frist mit Datum und Uhrzeit an."
+msgstr "Please enter the deadline with date and time."
+
+msgid "Als Entwurf gespeichert, aber nicht veröffentlicht: %1"
+msgstr "Saved as a draft, but not published: %1"
+
+msgid "Menü durchsuchen"
+msgstr "Search the menu"
+
+msgid "Suchen …"
+msgstr "Search …"
+
+msgid "Befehlspalette"
+msgstr "Command palette"
+
+msgid "Strg K"
+msgstr "Ctrl K"
+
+msgid "%1 Treffer"
+msgstr "%1 results"
+
+msgid "%1 Treffer, %2 angezeigt. Suche verfeinern"
+msgstr "%1 results, %2 shown. Refine your search"
+
+msgid "Zuletzt besucht"
+msgstr "Recently visited"
+
+msgid "Noch keine Veranstaltungen."
+msgstr "No events yet."
+
+msgid "Belegung"
+msgstr "Occupancy"
+
+msgid "Veröffentlichen: %1"
+msgstr "Publish: %1"
+
+msgid "Absagen: %1"
+msgstr "Cancel: %1"
+
+msgid "Warteliste nachrücken: %1"
+msgstr "Move up the waiting list: %1"
+
+msgid "Abgesagt/abgelaufen"
+msgstr "Cancelled/expired"
+
+msgid "Mit Nachricht"
+msgstr "With message"
+
+msgid "Nicht bezahlt"
+msgstr "Not paid"
+
+msgid "Angemeldet %1 · Warteliste %2 · Abgesagt/abgelaufen %3"
+msgstr "Registered %1 · Waiting list %2 · Cancelled/expired %3"
+
+msgid "Freie Plätze %1"
+msgstr "Free seats %1"
+
+msgid "Anmeldungen"
+msgstr "Registrations"
+
+msgid "Noch keine Anmeldungen."
+msgstr "No registrations yet."
+
+msgid "Alle Anmeldungen als CSV"
+msgstr "All registrations as CSV"
+
+msgid "Es werden nur die ersten 2000 Anmeldungen angezeigt. Die CSV enthält alle."
+msgstr "Only the first 2000 registrations are shown. The CSV contains all of them."
+
+msgid "Keine Anmeldungen in dieser Auswahl."
+msgstr "No registrations in this selection."
+
+msgid "Wartelistenplatz"
+msgstr "Waiting list position"
+
+msgid "Angemeldet am"
+msgstr "Registered on"
+
+msgid "E-Mail (Gast)"
+msgstr "Email (guest)"
+
+msgid "Nachricht anzeigen: %1"
+msgstr "Show message: %1"
+
+msgid "Veranstaltung nicht gefunden."
+msgstr "Event not found."
+
+msgid "Ausgebucht · %1 auf der Warteliste"
+msgstr "Fully booked · %1 on the waiting list"
+
+msgid "Nachricht an die Veranstalter hinzufügen"
+msgstr "Add a message to the organisers"
+
+msgid "Nachricht an die Veranstalter (optional)"
+msgstr "Message to the organisers (optional)"
+
+msgid "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage."
+msgstr "The organisers will see your message. Your registration is valid through the confirmation, not through an answer to your question."
+
+msgid "Export der Anmeldungen"
+msgstr "Registration export"
+
+msgid "%1 von %2 Platz belegt · noch %3 frei"
+msgid_plural "%1 von %2 Plätzen belegt · noch %3 frei"
+msgstr[0] "%1 of %2 seat taken · %3 still free"
+msgstr[1] "%1 of %2 seats taken · %3 still free"
+
+msgid "Einrichtung · %1 offen"
+msgstr "Setup · %1 open"
+
+msgid "Einrichtung"
+msgstr "Setup"
+
+msgid "Es fehlt noch: %1. Solange das fehlt, werden bezahlte Beiträge nicht gebucht."
+msgstr "Still missing: %1. Until it is set, paid contributions are not posted."
+
+msgid "Es fehlt noch: %1."
+msgstr "Still missing: %1."
+
+msgid "Zur Einrichtung"
+msgstr "Go to setup"
+
+msgid "Konten"
+msgstr "Accounts"
+
+msgid "Journal"
+msgstr "Journal"
+
+msgid "Bereiche von Kontenplan und Journal"
+msgstr "Sections of the chart of accounts and journal"
+
+msgid "Kontenzuordnung: vollständig"
+msgstr "Account assignment: complete"
+
+msgid "Kontenzuordnung: unvollständig"
+msgstr "Account assignment: incomplete"
+
+msgid "Kontenzuordnung: unvollständig, es fehlt %1"
+msgstr "Account assignment: incomplete, %1 is missing"
+
+msgid "Online-Zahlung kann erst aktiviert werden, wenn die Kontenzuordnung vollständig ist."
+msgstr "Online payment can only be activated once the account assignment is complete."
+
+msgid "Hier richten Sie die Finanzen ein, sehen den Kontenplan und das Journal mit allen Buchungen. Einrichten und buchen können Schatzmeisterei und Administration; die Zuordnung der Konten ändert nur die Administration."
+msgstr "Here you set up your finances and see the chart of accounts and the journal with all postings. Treasury and administration can set up and post; only administration can change the account assignment."
+
+msgid "Hier stellen Sie die Online-Zahlung ein. Die Zuordnung zu Konten finden Sie unter Kontenplan & Journal, im Reiter Einrichtung."
+msgstr "Here you configure online payment. You will find the assignment to accounts under Chart of accounts & journal, on the Setup tab."
+
+msgid "Kontenplan"
+msgstr "Chart of accounts"
+
+msgid "Erlöskonto für Mitgliedsbeiträge"
+msgstr "Income account for membership contributions"
+
+msgid "Erlöskonto für Spenden"
+msgstr "Income account for donations"
+
+msgid "Erlöskonto für Veranstaltungen"
+msgstr "Income account for events"
+
+msgid "Gebührenkonto (optional)"
+msgstr "Fee account (optional)"
+
+msgid "Der Kontenplan ist die Liste aller Konten, auf die Ihr Verein bucht. Ohne ihn kann nichts gebucht werden."
+msgstr "The chart of accounts is the list of all accounts your association posts to. Nothing can be posted without it."
+
+msgid "Das Konto, auf dem das Geld Ihres Vereins liegt, also Ihr Girokonto."
+msgstr "The account that holds your association's money, that is, your current account."
+
+msgid "Ein Erlöskonto sammelt Einnahmen einer Art, zum Beispiel alle Mitgliedsbeiträge."
+msgstr "An income account collects one kind of income, for example all membership contributions."
+
+msgid "Hierhin werden Spenden gebucht, für die Sie eine Zuwendungsbestätigung ausstellen."
+msgstr "Donations for which you issue a donation receipt are posted here."
+
+msgid "Hierhin werden Einnahmen aus Veranstaltungen gebucht, zum Beispiel Eintrittsgelder."
+msgstr "Income from events is posted here, for example admission fees."
+
+msgid "Hierhin würden Gebühren des Zahlungsanbieters gebucht. Dieser Schritt darf leer bleiben."
+msgstr "Fees of the payment provider would be posted here. This step may stay empty."
+
+msgid "Zum Beispiel: %1"
+msgstr "For example: %1"
+
+msgid "Noch kein Bankkonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "No bank account in the chart of accounts yet. Create the standard chart of accounts first."
+
+msgid "Noch kein Aufwandskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "No expense account in the chart of accounts yet. Create the standard chart of accounts first."
+
+msgid "Noch kein Erlöskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "No income account in the chart of accounts yet. Create the standard chart of accounts first."
+
+msgid "Optional"
+msgstr "Optional"
+
+msgid "%1 von %2 Pflichtschritten erledigt"
+msgstr "%1 of %2 required steps done"
+
+msgid "Die Zuordnung kann nur ein Administrator ändern."
+msgstr "Only an administrator can change the assignment."
+
+msgid "Die Sphäre ist der steuerliche Bereich eines Vereins (ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher Geschäftsbetrieb); sie wird je Buchung gewählt."
+msgstr "The sphere is the tax area of an association (ideal area, asset management, purpose-related operation, commercial operation); it is chosen per posting."
+
+msgid "Nicht gespeichert"
+msgstr "Not saved"
+
+msgid "Das bisher zugeordnete Konto %1 ist deaktiviert. Bitte ein anderes wählen. Beim Speichern wird die alte Zuordnung entfernt."
+msgstr "The account %1 assigned so far is deactivated. Please choose another one. Saving removes the old assignment."
+
+msgid "Zum Kontenplan"
+msgstr "To the chart of accounts"
+
+msgid "(nicht gewählt)"
+msgstr "(not chosen)"
+
+msgid "Standard verwenden"
+msgstr "Use default"
+
+msgid "Standardkonto %1 nicht im Kontenplan."
+msgstr "Default account %1 is not in the chart of accounts."
+
+msgid "Alle Standardkonten vorschlagen"
+msgstr "Suggest all default accounts"
+
+msgid "Zuordnung gespeichert."
+msgstr "Assignment saved."
+
+msgid "%1 aktive Konten im Kontenplan."
+msgstr "%1 active accounts in the chart of accounts."
+
+msgid "Noch kein Konto angelegt. Das legt die Schatzmeisterei oder die Administration an."
+msgstr "No account created yet. Treasury or administration creates it."
+
+msgid "Ein Vorschlag. Bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "A proposal. Please have your tax advisor confirm it."
+
+msgid "Standard-Kontenplan SKR42 für Vereine anlegen"
+msgstr "Create standard SKR42 chart of accounts for associations"
+
+msgid "Standard-Kontenplan anlegen"
+msgstr "Create standard chart of accounts"
+
+msgid "Es werden %1 Konten angelegt:"
+msgstr "%1 accounts will be created:"
+
+msgid "Kontenplan anlegen"
+msgstr "Create chart of accounts"
+
+msgid "%1 %2 (%3), %4"
+msgstr "%1 %2 (%3), %4"
+
+msgid "Vorhandene Konten bleiben unverändert."
+msgstr "Existing accounts remain unchanged."
+
+msgid "Angelegte Konten lassen sich später nicht löschen, nur deaktivieren."
+msgstr "Accounts that have been created cannot be deleted later, only deactivated."
+
+msgid "Der Kontenplan ist ein Vorschlag; bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "The chart of accounts is a proposal; please have your tax advisor confirm it."
+
+msgid "%1 Konten angelegt, %2 schon vorhanden."
+msgstr "%1 accounts created, %2 already existed."
+
+msgid "Der Kontenplan wurde inzwischen geändert. Bitte prüfen."
+msgstr "The chart of accounts has been changed in the meantime. Please check."
+
+msgid "Erweitert"
+msgstr "Advanced"
+
+msgid "Die Sphäre der Veranstaltungserlöse ist der steuerliche Bereich, dem Einnahmen aus Veranstaltungen zugerechnet werden."
+msgstr "The sphere of event income is the tax area to which income from events is attributed."
+
+msgid "Auf dieses Aufwandskonto werden Reisekostenabrechnungen gebucht."
+msgstr "Travel expense reports are posted to this expense account."
+
+msgid "Auf dieses Aufwandskonto werden Übungsleiter- und Ehrenamtspauschalen gebucht."
+msgstr "Instructor and volunteer allowances are posted to this expense account."
+
+msgid "Alle Bereiche"
+msgstr "All areas"
+
+msgid "Kein Bereich"
+msgstr "No area"
+
+msgid "Wird je Buchung gewählt"
+msgstr "Chosen per posting"
+
+msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
+msgstr "Purpose-related and commercial operation"

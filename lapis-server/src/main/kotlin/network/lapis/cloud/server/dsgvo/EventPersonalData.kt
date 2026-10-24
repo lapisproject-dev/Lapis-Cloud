@@ -11,8 +11,12 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.EventVolunteerShiftTable
 import network.lapis.cloud.server.db.generated.EventVolunteerSignupTable
 import network.lapis.cloud.shared.domain.ErasureMode
+import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 /**
@@ -126,6 +130,7 @@ object EventPersonalData : MemberPersonalDataContributor {
                     EventRegistrationTable
                         .selectAll()
                         .where { EventRegistrationTable.memberId eq memberId }
+                        .orderBy(EventRegistrationTable.registeredAt to SortOrder.ASC, EventRegistrationTable.id to SortOrder.ASC)
                         .limit(MAX_EXPORTED_REGISTRATIONS)
                         .forEach { row ->
                             add(
@@ -137,6 +142,8 @@ object EventPersonalData : MemberPersonalDataContributor {
                                     put("registeredAt", row[EventRegistrationTable.registeredAt].toString())
                                     // V1.9.35: when the board marked the refund of this registration as paid (outside Lapis Cloud)
                                     row[EventRegistrationTable.refundMarkedAt]?.let { put("refundMarkedAt", it.toString()) }
+                                    // V1.9.204: the member's own free-text message to the organisers
+                                    row[EventRegistrationTable.message]?.let { put("message", it) }
                                 },
                             )
                         }
@@ -323,15 +330,24 @@ object EventPersonalData : MemberPersonalDataContributor {
                 .where { EventSeriesTable.createdBy eq memberId }
                 .count()
                 .toInt()
+        // V1.9.204: the optional message is free text the member wrote -- removed (set to NULL), the row itself stays.
+        val clearedMessages =
+            EventRegistrationTable.update(
+                { (EventRegistrationTable.memberId eq memberId) and EventRegistrationTable.message.isNotNull() },
+            ) {
+                it[EventRegistrationTable.message] = null
+            }
         val outcomes = mutableListOf<TableErasureOutcome>()
         if (registrationCount > 0) {
             outcomes +=
                 TableErasureOutcome(
                     table = "event_registration",
+                    rowsAnonymized = clearedMessages,
                     rowsRetained = registrationCount,
                     retentionReason =
                         "member_id-FK bleibt als Anker erhalten -- die Zeile speichert keinen Namen/keine " +
-                            "E-Mail-Adresse direkt, und eine bestätigte/bezahlte Anmeldung ist über " +
+                            "E-Mail-Adresse direkt (die freie Nachricht an die Veranstalter wird gelöscht), " +
+                            "und eine bestätigte/bezahlte Anmeldung ist über " +
                             "payment_transaction/journal_entry buchhalterisch nachvollziehbar. Das " +
                             "referenzierte member-Datum wird an anderer Stelle anonymisiert.",
                 )

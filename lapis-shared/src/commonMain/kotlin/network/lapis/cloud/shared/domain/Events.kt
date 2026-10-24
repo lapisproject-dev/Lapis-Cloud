@@ -303,6 +303,43 @@ data class EventRegistrationDto(
     val openItemId: String? = null,
     val invoiceIssuedAt: LocalDateTime? = null,
     val invoiceIssuedByDisplayName: String? = null,
+    /**
+     * V1.9.204 -- the registrant's optional message to the organisers. Filled ONLY by
+     * [network.lapis.cloud.shared.rpc.IEventService.getRegistrationOverview] (BOARD/ADMIN); every other mapper leaves it `null`.
+     */
+    val message: String? = null,
+    /** V1.9.204 -- payment state for the overview table; `null` outside [network.lapis.cloud.shared.rpc.IEventService.getRegistrationOverview]. */
+    val paymentState: EventRegistrationPaymentState? = null,
+)
+
+/** V1.9.204 -- how a registration stands payment-wise, as shown in the overview table and the CSV. */
+@Serializable
+enum class EventRegistrationPaymentState { FREE, OPEN, PAID, REFUNDED, UNPAID }
+
+/** V1.9.204 -- one limit for the registrant message, shared by client (`maxlength`) and server (check). Counted in UTF-16 units. */
+object EventRegistrationMessageLimits {
+    const val MAX_LENGTH = 500
+}
+
+/**
+ * V1.9.204 -- BOARD/ADMIN overview of an event's registrations: counters computed on the server plus the rows (message and payment state
+ * filled). [rows] carry the EFFECTIVE status: a `PENDING_PAYMENT` whose hold has lapsed is shown as `EXPIRED`. [truncated] is `true` when
+ * more rows exist than [rows] holds (the counters stay exact).
+ */
+@Serializable
+data class EventRegistrationOverviewDto(
+    val eventId: String,
+    val capacity: Int?,
+    /** CONFIRMED plus not-yet-lapsed PENDING_PAYMENT -- equals `EventDto.occupiedSeats`. */
+    val activeCount: Int,
+    val waitlistedCount: Int,
+    /** CANCELLED, EXPIRED and lapsed PENDING_PAYMENT. */
+    val inactiveCount: Int,
+    /** `null` without a capacity, otherwise `max(0, capacity - activeCount)`. */
+    val freeSeats: Int?,
+    val withMessageCount: Int,
+    val rows: List<EventRegistrationDto>,
+    val truncated: Boolean = false,
 )
 
 /**

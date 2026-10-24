@@ -358,12 +358,13 @@ internal object SocialPublicHtml {
         .event-form { margin: 0; }
         .event-field { margin-bottom: 1rem; }
         .event-field label { display: block; margin-bottom: 0.3rem; font-size: 0.95rem; font-weight: 600; }
-        .event-field input {
+        .event-field input, .event-field textarea {
             display: block; width: 100%; box-sizing: border-box; padding: 0.65rem 0.75rem; font: inherit; color: inherit;
             background: transparent; border: 1px solid rgba(128, 128, 128, 0.6); border-radius: 0.4rem;
         }
-        .event-field input:focus-visible { outline: 2px solid #C9A227; outline-offset: 1px; }
-        .event-field input:user-invalid { border-color: #b00020; }
+        .event-field textarea { resize: vertical; }
+        .event-field input:focus-visible, .event-field textarea:focus-visible { outline: 2px solid #C9A227; outline-offset: 1px; }
+        .event-field input:user-invalid, .event-field textarea:user-invalid { border-color: #b00020; }
         .event-submit {
             display: block; width: 100%; box-sizing: border-box; padding: 0.75rem 1.1rem; font: inherit; font-weight: 600;
             text-align: center; text-decoration: none; cursor: pointer;

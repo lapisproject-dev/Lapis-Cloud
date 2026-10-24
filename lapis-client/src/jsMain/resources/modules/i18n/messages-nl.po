@@ -1853,10 +1853,6 @@ msgstr "Administratie"
 msgid "Administrator"
 msgstr "Beheerder"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:91
-msgid "Akteur-Mitglieds-ID (optional)"
-msgstr "Actor-lid-ID (optioneel)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:359
 msgid "Akteur: %1"
 msgstr "Actor: %1"
@@ -3319,10 +3315,6 @@ msgstr "Tot (JJJJ-MM-DD)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:95
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Tot (JJJJ-MM-DDTHH:MM:SS, optioneel)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:204
-msgid "Bis Sequenznummer (optional)"
-msgstr "Tot volgnummer (optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:726
 msgid "Bisherige Jahressumme (vor dieser Spende)"
@@ -4833,10 +4825,6 @@ msgstr "Onthoudingen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:360
 msgid "Entität: %1"
 msgstr "Entiteit: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:90
-msgid "Entitäts-ID (optional)"
-msgstr "Entiteit-ID (optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:89
@@ -6388,18 +6376,6 @@ msgstr "Rekeningklasse %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:468
 msgid "Kontenplan & Journal"
 msgstr "Rekeningschema & journaal"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:789
-msgid "Kontenzuordnung gespeichert."
-msgstr "Rekeningtoewijzing opgeslagen."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:757
-msgid "Kontenzuordnung speichern"
-msgstr "Rekeningtoewijzing opslaan"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:313
-msgid "Kontenzuordnung Zahlungsverkehr"
-msgstr "Rekeningtoewijzing betalingsverkeer"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:90
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:100
@@ -8881,13 +8857,6 @@ msgid "Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"
 msgstr ""
 "Directe-aankoopprijs (LTR, optioneel -- moet boven de startprijs liggen)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:604
-msgid ""
-"Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt "
-"markierter Beitrag NICHT gebucht -- der Status wechselt trotzdem auf "
-"\"bezahlt\"."
-msgstr "Zolang een van de drie rekeningen niet is toegewezen, wordt een als betaald gemarkeerde bijdrage NIET geboekt -- de status wijzigt toch naar \"betaald\"."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1165
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1513
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2318
@@ -9839,10 +9808,6 @@ msgstr "Van (JJJJ-MM-DD, verplicht veld)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:94
 msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Van (JJJJ-MM-DDTHH:MM:SS, optioneel)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:203
-msgid "Von Sequenznummer (optional)"
-msgstr "Vanaf volgnummer (optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:400
 msgid "Vorher"
@@ -11883,10 +11848,6 @@ msgstr "Verbergen"
 msgid "In „Offene Posten“ öffnen"
 msgstr "Openen in “Openstaande posten”"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:409
-msgid "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2"
-msgstr "Vorderingenrekening (debiteuren): %1 · Schuldenrekening (crediteuren): %2"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:485
 msgid "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht."
 msgstr "Zonder vorderingen- en schuldenrekening worden openstaande posten aangemaakt maar niet geboekt."
@@ -12038,10 +11999,6 @@ msgstr "Terug"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:353
 msgid "Verrechnung gebucht."
 msgstr "Verrekening geboekt."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:48
-msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
-msgstr "Voer een bedrag in zoals 1234,56 (zonder duizendtalscheidingstekens)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:53
 msgid "Höchstens %1 Nachkommastellen erlaubt."
@@ -13766,10 +13723,6 @@ msgstr "Alle geconfigureerde aanmaningsniveaus zijn in de lopende cyclus al gebr
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:208
 msgid "BIC"
 msgstr "BIC"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:553
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8"
-msgstr "Bankrekening: %1 · Rekening transactiekosten: %2 · Opbrengstrekening bijdragen: %3 · Opbrengstrekening donaties: %4 · Opbrengstrekening evenementen: %5 (%6) · Reiskostenrekening: %7 · Kostenrekening vrijwilligersvergoedingen: %8"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
 msgid "Bankname"
@@ -15610,18 +15563,6 @@ msgstr "Webhook-URL om in te voeren in het PayPal-ontwikkelaarsdashboard: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
 msgid "Bankkonto zugeordnet"
 msgstr "Bankrekening toegewezen"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Beitragserlöskonto zugeordnet"
-msgstr "Opbrengstrekening bijdragen toegewezen"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Spendenerlöskonto zugeordnet"
-msgstr "Opbrengstrekening donaties toegewezen"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Gebührenkonto zugeordnet"
-msgstr "Kostenrekening toegewezen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
 msgid "Erfasst"
@@ -24043,12 +23984,6 @@ msgstr "De contracttekst is niet toegestaan. Controleer lengte, tekens, versie e
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "Het concept is intussen gewijzigd. Laad de weergave opnieuw en controleer het opnieuw."
 
-msgid "%1 (Datum)"
-msgstr "%1 (datum)"
-
-msgid "%1 (Uhrzeit)"
-msgstr "%1 (tijd)"
-
 msgid "Aufsichtsbehörde benachrichtigt am (optional)"
 msgstr "Toezichthouder op de hoogte gesteld op (optioneel)"
 
@@ -24060,9 +23995,6 @@ msgstr "Betrokken personen op de hoogte gesteld op (optioneel)"
 
 msgid "Bis (Pflichtfeld)"
 msgstr "Tot (verplicht)"
-
-msgid "Bis (optional)"
-msgstr "Tot (optioneel)"
 
 msgid "Bitte AM oder PM angeben."
 msgstr "Geef AM of PM op."
@@ -25975,3 +25907,813 @@ msgstr "%1 downloaden (%2, %3)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
 msgid "Unterlagen verwalten"
 msgstr "Documenten beheren"
+
+msgid "Alle Filter sind optional."
+msgstr "Alle filters zijn optioneel."
+
+msgid "%1, Datum"
+msgstr "%1, datum"
+
+msgid "%1, Uhrzeit"
+msgstr "%1, tijd"
+
+msgid "Bitte einen Betrag wie %1 eingeben."
+msgstr "Voer een bedrag in zoals %1."
+
+msgid "Boost-Betrag in LTR"
+msgstr "Boostbedrag in LTR"
+
+msgid "Um aktuell ganz oben zu stehen: %1"
+msgstr "Om nu bovenaan te staan: %1"
+
+msgid "Ihr Guthaben reicht nicht, höchstens %1."
+msgstr "Uw saldo is niet genoeg, hooguit %1."
+
+msgid "Vorschlag übernehmen"
+msgstr "Suggestie overnemen"
+
+msgid "Entitäts-ID"
+msgstr "Entiteits-ID"
+
+msgid "Akteur-Mitglieds-ID"
+msgstr "Lid-ID van de actor"
+
+msgid "Von Sequenznummer"
+msgstr "Vanaf volgnummer"
+
+msgid "Bis Sequenznummer"
+msgstr "Tot volgnummer"
+
+msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
+msgstr "Voer een bedrag in zoals 1234,56 (zonder duizendtalscheidingstekens)."
+
+msgid "Ausschreibungen"
+msgstr "Aanbestedingen"
+
+msgid "Standard-Sichtbarkeit der Angebote"
+msgstr "Standaardzichtbaarheid van biedingen"
+
+msgid "Verdeckt bis zur Frist"
+msgstr "Verborgen tot de deadline"
+
+msgid "Bieter sehen nur ihr eigenes Angebot"
+msgstr "Bieders zien alleen hun eigen bod"
+
+msgid "Gilt als Vorbelegung beim Anlegen einer Ausschreibung; nach dem Veröffentlichen nicht mehr änderbar."
+msgstr "Geldt als voorinstelling bij het aanmaken van een aanbesteding; na publicatie niet meer te wijzigen."
+
+msgid "Unbekannte Auswahl"
+msgstr "Onbekende keuze"
+
+msgid "Ausschreibung"
+msgstr "Aanbesteding"
+
+msgid "Hier schreibt der Vorstand Aufträge aus, die ein Beschluss vorsieht. Mitglieder und Freunde geben bis zur Frist ein Angebot ab."
+msgstr "Hier schrijft het bestuur opdrachten uit die een besluit voorziet. Leden en vrienden dienen vóór de deadline een bod in."
+
+msgid "Nur eigenes Angebot sichtbar"
+msgstr "Alleen eigen bod zichtbaar"
+
+msgid "Abgenommen"
+msgstr "Opgeleverd"
+
+msgid "%1 Tag"
+msgid_plural "%1 Tage"
+msgstr[0] "%1 dag"
+msgstr[1] "%1 dagen"
+
+msgid "%1 Stunde"
+msgid_plural "%1 Stunden"
+msgstr[0] "%1 uur"
+msgstr[1] "%1 uur"
+
+msgid "noch %1 und %2"
+msgstr "nog %1 en %2"
+
+msgid "noch %1"
+msgstr "nog %1"
+
+msgid "Erwartetes Ergebnis"
+msgstr "Verwacht resultaat"
+
+msgid "abgelaufen am %1"
+msgstr "verlopen op %1"
+
+msgid "Vergabe nach: %1"
+msgstr "Gunning op basis van: %1"
+
+msgid "Vergütung: %1"
+msgstr "Vergoeding: %1"
+
+msgid "Sichtbarkeit der Angebote: %1"
+msgstr "Zichtbaarheid van de biedingen: %1"
+
+msgid "Beruht auf: "
+msgstr "Gebaseerd op: "
+
+msgid "Als Gast können Sie auf diese Ausschreibung nicht bieten: Sie wird in LTR vergütet, und Gäste führen ihr LTR-Konto auf ihrem Heimatserver."
+msgstr "Als gast kunt u niet inschrijven op deze aanbesteding: ze wordt in LTR vergoed, en gasten houden hun LTR-rekening bij op hun thuisserver."
+
+msgid "Sie können auf diese Ausschreibung nicht bieten."
+msgstr "U kunt niet inschrijven op deze aanbesteding."
+
+msgid "Diese Ausschreibung ist noch nicht veröffentlicht."
+msgstr "Deze aanbesteding is nog niet gepubliceerd."
+
+msgid "Diese Ausschreibung wurde abgesagt."
+msgstr "Deze aanbesteding is afgelast."
+
+msgid "Die Frist ist abgelaufen. Es können keine Angebote mehr abgegeben werden."
+msgstr "De deadline is verstreken. Er kunnen geen biedingen meer worden ingediend."
+
+msgid "Diese Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "Deze aanbesteding kan geen biedingen meer aannemen."
+
+msgid "Ihr Angebot"
+msgstr "Uw bod"
+
+msgid "Preis: %1"
+msgstr "Prijs: %1"
+
+msgid "Angebot zurückziehen"
+msgstr "Bod intrekken"
+
+msgid "Sie haben Ihr Angebot zurückgezogen. Sie können bis zur Frist ein neues abgeben."
+msgstr "U hebt uw bod ingetrokken. U kunt tot de deadline een nieuw bod indienen."
+
+msgid "Angebot ändern"
+msgstr "Bod wijzigen"
+
+msgid "Angebot zurückziehen?"
+msgstr "Bod intrekken?"
+
+msgid "Sie können bis zur Frist jederzeit ein neues Angebot abgeben."
+msgstr "U kunt tot de deadline op elk moment een nieuw bod indienen."
+
+msgid "Angebot zurückgezogen."
+msgstr "Bod ingetrokken."
+
+msgid "Preis in LTR"
+msgstr "Prijs in LTR"
+
+msgid "Höchstens zwei Nachkommastellen."
+msgstr "Hoogstens twee decimalen."
+
+msgid "Angebot abgeben"
+msgstr "Bod indienen"
+
+msgid "Änderung speichern"
+msgstr "Wijziging opslaan"
+
+msgid "Angebot gespeichert."
+msgstr "Bod opgeslagen."
+
+msgid "Noch keine Angebote."
+msgstr "Nog geen biedingen."
+
+msgid "Bei dieser Ausschreibung sieht jeder Bieter nur sein eigenes Angebot."
+msgstr "Bij deze aanbesteding ziet elke inschrijver alleen het eigen bod."
+
+msgid "Die Angebote anderer sind bis %1 verdeckt."
+msgstr "De biedingen van anderen zijn verborgen tot %1."
+
+msgid "Die Angebote sehen nur die Bieter und der Vorstand."
+msgstr "De biedingen zijn alleen zichtbaar voor de inschrijvers en het bestuur."
+
+msgid "Bieter"
+msgstr "Inschrijver"
+
+msgid "Preis"
+msgstr "Prijs"
+
+msgid "Zuschlag erteilen an %1"
+msgstr "Gunning aan %1"
+
+msgid "Zuschlag erteilen?"
+msgstr "Gunning verlenen?"
+
+msgid "Zuschlag an %1 für %2."
+msgstr "Gunning aan %1 voor %2."
+
+msgid "Der Zuschlag kann nicht zurückgenommen werden."
+msgstr "De gunning kan niet worden teruggedraaid."
+
+msgid "Zuschlag erteilen"
+msgstr "Gunning verlenen"
+
+msgid "Zuschlag erteilt."
+msgstr "Gunning verleend."
+
+msgid "Zuschlag"
+msgstr "Gunning"
+
+msgid "%1 hat den Zuschlag erhalten (%2, am %3)."
+msgstr "%1 kreeg de gunning (%2, op %3)."
+
+msgid "Abnahme"
+msgstr "Oplevering"
+
+msgid "Sie haben selbst ein Angebot abgegeben (auch ein zurückgezogenes zählt). Deshalb dürfen Sie diese Ausschreibung weder vergeben noch abnehmen noch absagen."
+msgstr "U hebt zelf een bod ingediend (ook een ingetrokken bod telt mee). Daarom mag u deze aanbesteding niet gunnen, opleveren of afgelasten."
+
+msgid "Entwurf bearbeiten"
+msgstr "Concept bewerken"
+
+msgid "Ausschreibung veröffentlichen?"
+msgstr "Aanbesteding plaatsen?"
+
+msgid "Danach können Mitglieder und Freunde bis zur Frist Angebote abgeben."
+msgstr "Daarna kunnen leden en vrienden tot de deadline biedingen indienen."
+
+msgid "Frist, Vergabe-Kriterium und Sichtbarkeit lassen sich nach dem Veröffentlichen nicht mehr ändern."
+msgstr "Deadline, gunningscriterium en zichtbaarheid kunnen na het plaatsen niet meer worden gewijzigd."
+
+msgid "Ausschreibung veröffentlicht."
+msgstr "Aanbesteding geplaatst."
+
+msgid "Ausschreibung absagen"
+msgstr "Aanbesteding afgelasten"
+
+msgid "Ausschreibung absagen?"
+msgstr "Aanbesteding afgelasten?"
+
+msgid "Der Grund ist für alle sichtbar, die die Ausschreibung sehen."
+msgstr "De reden is zichtbaar voor iedereen die de aanbesteding ziet."
+
+msgid "Eine abgesagte Ausschreibung kann nicht wieder geöffnet werden."
+msgstr "Een afgelaste aanbesteding kan niet opnieuw worden geopend."
+
+msgid "Ausschreibung abgesagt."
+msgstr "Aanbesteding afgelast."
+
+msgid "Der bisherige Vergabeantrag wurde nicht angenommen. Legen Sie einen neuen fest."
+msgstr "Het vorige gunningsvoorstel is niet aangenomen. Stel een nieuw voorstel vast."
+
+msgid "Die Frist ist abgelaufen. Für den Zuschlag braucht es einen Vergabebeschluss des Gremiums."
+msgstr "De deadline is verstreken. Voor de gunning is een gunningsbesluit van het orgaan nodig."
+
+msgid "Legen Sie unter Anträge einen Antrag für den Vergabebeschluss an. Er wird nach Ablauf der Frist in einer Sitzung entschieden."
+msgstr "Maak onder Voorstellen een voorstel voor het gunningsbesluit aan. Het wordt na afloop van de deadline in een vergadering beslist."
+
+msgid "Über den Vergabeantrag ist noch nicht entschieden."
+msgstr "Over het gunningsvoorstel is nog niet beslist."
+
+msgid "Der Vergabebeschluss wurde vor Ablauf der Frist gefasst und zählt deshalb nicht."
+msgstr "Het gunningsbesluit is vóór het verstrijken van de deadline genomen en telt daarom niet mee."
+
+msgid "Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "De gunning verleent u bij het bod in de tabel hierboven."
+
+msgid "Der Vergabebeschluss liegt vor. Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "Het gunningsbesluit ligt er. De gunning verleent u bij het bod in de tabel hierboven."
+
+msgid "Vergabeantrag: "
+msgstr "Gunningsvoorstel: "
+
+msgid "ist der Beschluss, auf dem die Ausschreibung beruht"
+msgstr "is het besluit waarop de aanbesteding berust"
+
+msgid "gehört zu einem anderen Gremium"
+msgstr "hoort bij een ander orgaan"
+
+msgid "ist ein Änderungsantrag"
+msgstr "is een wijzigingsvoorstel"
+
+msgid "ist schon entschieden oder zurückgezogen"
+msgstr "is al beslist of ingetrokken"
+
+msgid "gehört schon zu einer Ausschreibung"
+msgstr "hoort al bij een aanbesteding"
+
+msgid "hat einen Änderungsantrag"
+msgstr "heeft een wijzigingsvoorstel"
+
+msgid "wird schon abgestimmt"
+msgstr "wordt al over gestemd"
+
+msgid "Vergabeantrag"
+msgstr "Gunningsvoorstel"
+
+msgid "-- bitte wählen --"
+msgstr "-- maak een keuze --"
+
+msgid "%1 -- nicht wählbar: %2"
+msgstr "%1 -- niet te kiezen: %2"
+
+msgid "Dieser Antrag kann nicht gewählt werden: %1"
+msgstr "Dit voorstel kan niet worden gekozen: %1"
+
+msgid "Vergabebeschluss festlegen"
+msgstr "Gunningsbesluit vaststellen"
+
+msgid "Vergabeantrag festgelegt."
+msgstr "Gunningsvoorstel vastgesteld."
+
+msgid "Der Zuschlag ist erteilt. Nehmen Sie das Ergebnis ab oder lehnen Sie es mit einer Notiz ab."
+msgstr "De gunning is verleend. Neem het resultaat af of wijs het met een notitie af."
+
+msgid "Abnehmen"
+msgstr "Opleveren"
+
+msgid "Notiz (bei Ablehnung Pflicht)"
+msgstr "Notitie (verplicht bij afwijzing)"
+
+msgid "Bei einer Ablehnung ist eine Notiz nötig."
+msgstr "Bij een afwijzing is een notitie nodig."
+
+msgid "Abnahme erfassen"
+msgstr "Oplevering vastleggen"
+
+msgid "Abnahme erfasst."
+msgstr "Oplevering vastgelegd."
+
+msgid "Die Aktion ist gerade nicht möglich. Bitte laden Sie die Seite neu."
+msgstr "De actie is momenteel niet mogelijk. Laad de pagina opnieuw."
+
+msgid "Nur ein Entwurf kann geändert werden."
+msgstr "Alleen een concept kan worden gewijzigd."
+
+msgid "Nur ein Entwurf kann veröffentlicht werden."
+msgstr "Alleen een concept kan worden geplaatst."
+
+msgid "Die Frist muss mindestens eine Stunde in der Zukunft liegen."
+msgstr "De deadline moet minstens een uur in de toekomst liggen."
+
+msgid "Die Ausschreibung wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu."
+msgstr "De aanbesteding is intussen gewijzigd. Laad de pagina opnieuw."
+
+msgid "Diese Aktion ist im jetzigen Stand der Ausschreibung nicht möglich."
+msgstr "Deze actie is in de huidige stand van de aanbesteding niet mogelijk."
+
+msgid "Gäste können nur auf Ausschreibungen bieten, die in Euro vergütet werden."
+msgstr "Gasten kunnen alleen inschrijven op aanbestedingen die in euro worden vergoed."
+
+msgid "Die Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "De aanbesteding kan geen biedingen meer aannemen."
+
+msgid "Es gibt kein Angebot, das zurückgezogen werden kann."
+msgstr "Er is geen bod dat kan worden ingetrokken."
+
+msgid "Einen Vergabeantrag gibt es nur bei der Vergabe nach dem besten Angebot."
+msgstr "Een gunningsvoorstel bestaat alleen bij gunning op het beste bod."
+
+msgid "Die Frist der Ausschreibung muss zuerst abgelaufen sein."
+msgstr "Eerst moet de deadline van de aanbesteding zijn verstreken."
+
+msgid "Die Ausschreibung hat kein Angebot, über das entschieden werden könnte."
+msgstr "De aanbesteding heeft geen bod waarover beslist kan worden."
+
+msgid "Der eingetragene Vergabeantrag kann nicht mehr ersetzt werden."
+msgstr "Het vastgestelde gunningsvoorstel kan niet meer worden vervangen."
+
+msgid "Dieses Angebot ist nicht mehr im Rennen."
+msgstr "Dit bod is niet meer in de race."
+
+msgid "Der Bieter darf für diese Ausschreibung nicht mehr berücksichtigt werden."
+msgstr "De inschrijver mag voor deze aanbesteding niet meer worden meegenomen."
+
+msgid "Der Zuschlag muss an das günstigste Angebot gehen."
+msgstr "De gunning moet naar het goedkoopste bod gaan."
+
+msgid "Bei gleichem Preis ist eine Begründung nötig."
+msgstr "Bij gelijke prijs is een motivering nodig."
+
+msgid "Bitte geben Sie eine Begründung an."
+msgstr "Geef een motivering op."
+
+msgid "Es ist noch kein Vergabeantrag festgelegt."
+msgstr "Er is nog geen gunningsvoorstel vastgesteld."
+
+msgid "Der Vergabeantrag wurde nicht angenommen."
+msgstr "Het gunningsvoorstel is niet aangenomen."
+
+msgid "Der Vergabeantrag wurde vor Ablauf der Frist entschieden."
+msgstr "Over het gunningsvoorstel is vóór het verstrijken van de deadline beslist."
+
+msgid "Eine Ablehnung braucht eine Begründung."
+msgstr "Een afwijzing heeft een motivering nodig."
+
+msgid "Die Beschreibung kann nicht dargestellt werden. Bitte vereinfachen Sie sie."
+msgstr "De beschrijving kan niet worden weergegeven. Vereenvoudig haar."
+
+msgid "Ausschreibungen sind vorerst nur in LTR möglich."
+msgstr "Aanbestedingen zijn voorlopig alleen in LTR mogelijk."
+
+msgid "Der Preis darf höchstens zwei Nachkommastellen haben."
+msgstr "De prijs mag hoogstens twee decimalen hebben."
+
+msgid "Der Preis ist zu groß."
+msgstr "De prijs is te hoog."
+
+msgid "Der Antrag ist kein angenommener Beschluss seines Gremiums."
+msgstr "Het voorstel is geen aangenomen besluit van zijn orgaan."
+
+msgid "Dieser Antrag kann nicht als Vergabeantrag dienen."
+msgstr "Dit voorstel kan niet als gunningsvoorstel dienen."
+
+msgid "Über einen Vergabeantrag entscheidet nur die Beschlussfähigkeit des Gremiums oder eine meritokratische Abstimmung."
+msgstr "Over een gunningsvoorstel beslist alleen het quorum van het orgaan of een meritocratische stemming."
+
+msgid "Der Titel muss 1 bis %1 Zeichen haben."
+msgstr "De titel moet 1 tot %1 tekens hebben."
+
+msgid "Die Beschreibung muss 1 bis %1 Zeichen haben."
+msgstr "De beschrijving moet 1 tot %1 tekens hebben."
+
+msgid "Das erwartete Ergebnis muss 1 bis %1 Zeichen haben."
+msgstr "Het verwachte resultaat moet 1 tot %1 tekens hebben."
+
+msgid "Der Angebotstext muss 1 bis %1 Zeichen haben."
+msgstr "De biedtekst moet 1 tot %1 tekens hebben."
+
+msgid "Der Grund muss 1 bis %1 Zeichen haben."
+msgstr "De reden moet 1 tot %1 tekens hebben."
+
+msgid "Der Grund darf höchstens %1 Zeichen haben."
+msgstr "De reden mag hoogstens %1 tekens hebben."
+
+msgid "Die Begründung darf höchstens %1 Zeichen haben."
+msgstr "De motivering mag hoogstens %1 tekens hebben."
+
+msgid "Der Preis muss mindestens %1 betragen."
+msgstr "De prijs moet minstens %1 bedragen."
+
+msgid "Für diesen Antrag läuft bereits ein Entscheidungsweg oder er ist schon entschieden."
+msgstr "Voor dit voorstel loopt al een besluitvormingstraject of het is al beslist."
+
+msgid "Frist abgelaufen"
+msgstr "Deadline verstreken"
+
+msgid "Vergeben"
+msgstr "Gegund"
+
+msgid "LTR"
+msgstr "LTR"
+
+msgid "Euro"
+msgstr "Euro"
+
+msgid "Günstigster Preis"
+msgstr "Laagste prijs"
+
+msgid "Bestes Angebot"
+msgstr "Beste bod"
+
+msgid "Der Vorstand erteilt den Zuschlag dem günstigsten Angebot. Ein Beschluss ist dafür nicht nötig."
+msgstr "Het bestuur gunt aan het goedkoopste bod. Hiervoor is geen besluit nodig."
+
+msgid "Der Zuschlag ist eine Wertung. Darüber entscheidet das Gremium mit einem Vergabebeschluss nach Ablauf der Frist."
+msgstr "De gunning is een beoordeling. Het orgaan beslist erover met een gunningsbesluit na afloop van de deadline."
+
+msgid "Zuschlag erhalten"
+msgstr "Gunning ontvangen"
+
+msgid "Nicht berücksichtigt"
+msgstr "Niet meegenomen"
+
+msgid "noch nicht beschlossen"
+msgstr "nog niet besloten"
+
+msgid "Beschluss nicht angenommen"
+msgstr "besluit niet aangenomen"
+
+msgid "Beschluss in einem anderen Gremium gefasst"
+msgstr "besluit genomen in een ander orgaan"
+
+msgid "Bis zum Ende der Frist sieht niemand fremde Angebote. Danach sehen alle Bieter und der Vorstand alle Angebote."
+msgstr "Tot het einde van de deadline ziet niemand de biedingen van anderen. Daarna zien alle inschrijvers en het bestuur alle biedingen."
+
+msgid "Alle Beteiligten sehen die Angebote der anderen sofort."
+msgstr "Alle betrokkenen zien de biedingen van de anderen direct."
+
+msgid "Jeder Bieter sieht nur sein eigenes Angebot. Der Vorstand sieht nach Ablauf der Frist alle Angebote. Wer den Zuschlag erhält, wird allen angezeigt."
+msgstr "Elke inschrijver ziet alleen het eigen bod. Na afloop van de deadline ziet het bestuur alle biedingen. Wie de gunning krijgt, wordt aan iedereen getoond."
+
+msgid "Entwürfe"
+msgstr "Concepten"
+
+msgid "Keine Ausschreibungen in dieser Auswahl."
+msgstr "Geen aanbestedingen in deze keuze."
+
+msgid "Neue Ausschreibung"
+msgstr "Nieuwe aanbesteding"
+
+msgid "Vergütung"
+msgstr "Vergoeding"
+
+msgid "Mein Angebot"
+msgstr "Mijn bod"
+
+msgid "Die Zahl der Angebote ist verdeckt."
+msgstr "Het aantal biedingen is verborgen."
+
+msgid "Ausschreibung %1 öffnen"
+msgstr "Aanbesteding %1 openen"
+
+msgid "Beschluss, auf dem die Ausschreibung beruht"
+msgstr "Besluit waarop de aanbesteding berust"
+
+msgid "Mindestens eine Stunde nach dem Veröffentlichen. Bis zu dieser Uhrzeit können Angebote abgegeben werden."
+msgstr "Minstens een uur na het plaatsen. Tot dit tijdstip kunnen biedingen worden ingediend."
+
+msgid "Vergabe nach"
+msgstr "Gunning op basis van"
+
+msgid "Sichtbarkeit der Angebote"
+msgstr "Zichtbaarheid van de biedingen"
+
+msgid "Euro-Vergütung kommt später."
+msgstr "Vergoeding in euro volgt later."
+
+msgid "Bitte geben Sie die Frist mit Datum und Uhrzeit an."
+msgstr "Geef de deadline op met datum en tijd."
+
+msgid "Als Entwurf gespeichert, aber nicht veröffentlicht: %1"
+msgstr "Opgeslagen als concept, maar niet geplaatst: %1"
+
+msgid "Menü durchsuchen"
+msgstr "Menu doorzoeken"
+
+msgid "Suchen …"
+msgstr "Zoeken …"
+
+msgid "Befehlspalette"
+msgstr "Opdrachtenpalet"
+
+msgid "Strg K"
+msgstr "Ctrl K"
+
+msgid "%1 Treffer"
+msgstr "%1 resultaten"
+
+msgid "%1 Treffer, %2 angezeigt. Suche verfeinern"
+msgstr "%1 resultaten, %2 weergegeven. Verfijn de zoekopdracht"
+
+msgid "Zuletzt besucht"
+msgstr "Onlangs bezocht"
+
+msgid "Noch keine Veranstaltungen."
+msgstr "Nog geen evenementen."
+
+msgid "Belegung"
+msgstr "Bezetting"
+
+msgid "Veröffentlichen: %1"
+msgstr "Publiceren: %1"
+
+msgid "Absagen: %1"
+msgstr "Afzeggen: %1"
+
+msgid "Warteliste nachrücken: %1"
+msgstr "Wachtlijst laten opschuiven: %1"
+
+msgid "Abgesagt/abgelaufen"
+msgstr "Afgezegd/verlopen"
+
+msgid "Mit Nachricht"
+msgstr "Met bericht"
+
+msgid "Nicht bezahlt"
+msgstr "Niet betaald"
+
+msgid "Angemeldet %1 · Warteliste %2 · Abgesagt/abgelaufen %3"
+msgstr "Aangemeld %1 · Wachtlijst %2 · Afgezegd/verlopen %3"
+
+msgid "Freie Plätze %1"
+msgstr "Vrije plaatsen %1"
+
+msgid "Anmeldungen"
+msgstr "Aanmeldingen"
+
+msgid "Noch keine Anmeldungen."
+msgstr "Nog geen aanmeldingen."
+
+msgid "Alle Anmeldungen als CSV"
+msgstr "Alle aanmeldingen als CSV"
+
+msgid "Es werden nur die ersten 2000 Anmeldungen angezeigt. Die CSV enthält alle."
+msgstr "Alleen de eerste 2000 aanmeldingen worden getoond. De CSV bevat ze allemaal."
+
+msgid "Keine Anmeldungen in dieser Auswahl."
+msgstr "Geen aanmeldingen in deze selectie."
+
+msgid "Wartelistenplatz"
+msgstr "Plaats op de wachtlijst"
+
+msgid "Angemeldet am"
+msgstr "Aangemeld op"
+
+msgid "E-Mail (Gast)"
+msgstr "E-mail (gast)"
+
+msgid "Nachricht anzeigen: %1"
+msgstr "Bericht tonen: %1"
+
+msgid "Veranstaltung nicht gefunden."
+msgstr "Evenement niet gevonden."
+
+msgid "Ausgebucht · %1 auf der Warteliste"
+msgstr "Volgeboekt · %1 op de wachtlijst"
+
+msgid "Nachricht an die Veranstalter hinzufügen"
+msgstr "Bericht aan de organisatoren toevoegen"
+
+msgid "Nachricht an die Veranstalter (optional)"
+msgstr "Bericht aan de organisatoren (optioneel)"
+
+msgid "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage."
+msgstr "De organisatoren zien uw bericht. Uw aanmelding is geldig door de bevestiging, niet door een antwoord op uw vraag."
+
+msgid "Export der Anmeldungen"
+msgstr "Export van aanmeldingen"
+
+msgid "%1 von %2 Platz belegt · noch %3 frei"
+msgid_plural "%1 von %2 Plätzen belegt · noch %3 frei"
+msgstr[0] "%1 van %2 plaats bezet · nog %3 vrij"
+msgstr[1] "%1 van %2 plaatsen bezet · nog %3 vrij"
+
+msgid "Einrichtung · %1 offen"
+msgstr "Instellen · %1 openstaand"
+
+msgid "Einrichtung"
+msgstr "Instellen"
+
+msgid "Es fehlt noch: %1. Solange das fehlt, werden bezahlte Beiträge nicht gebucht."
+msgstr "Nog ontbrekend: %1. Zolang dit ontbreekt, worden betaalde bijdragen niet geboekt."
+
+msgid "Es fehlt noch: %1."
+msgstr "Nog ontbrekend: %1."
+
+msgid "Zur Einrichtung"
+msgstr "Naar het instellen"
+
+msgid "Konten"
+msgstr "Rekeningen"
+
+msgid "Journal"
+msgstr "Journaal"
+
+msgid "Bereiche von Kontenplan und Journal"
+msgstr "Onderdelen van rekeningschema en journaal"
+
+msgid "Kontenzuordnung: vollständig"
+msgstr "Rekeningtoewijzing: volledig"
+
+msgid "Kontenzuordnung: unvollständig"
+msgstr "Rekeningtoewijzing: onvolledig"
+
+msgid "Kontenzuordnung: unvollständig, es fehlt %1"
+msgstr "Rekeningtoewijzing: onvolledig, %1 ontbreekt"
+
+msgid "Online-Zahlung kann erst aktiviert werden, wenn die Kontenzuordnung vollständig ist."
+msgstr "Online betalen kan pas worden geactiveerd als de rekeningtoewijzing volledig is."
+
+msgid "Hier richten Sie die Finanzen ein, sehen den Kontenplan und das Journal mit allen Buchungen. Einrichten und buchen können Schatzmeisterei und Administration; die Zuordnung der Konten ändert nur die Administration."
+msgstr "Hier stelt u de financiën in en ziet u het rekeningschema en het journaal met alle boekingen. Penningmeester en beheer kunnen instellen en boeken; alleen het beheer kan de rekeningtoewijzing wijzigen."
+
+msgid "Hier stellen Sie die Online-Zahlung ein. Die Zuordnung zu Konten finden Sie unter Kontenplan & Journal, im Reiter Einrichtung."
+msgstr "Hier stelt u het online betalen in. De toewijzing aan rekeningen vindt u onder Rekeningschema & journaal, op het tabblad Instellen."
+
+msgid "Kontenplan"
+msgstr "Rekeningschema"
+
+msgid "Erlöskonto für Mitgliedsbeiträge"
+msgstr "Opbrengstrekening voor lidmaatschapsbijdragen"
+
+msgid "Erlöskonto für Spenden"
+msgstr "Opbrengstrekening voor donaties"
+
+msgid "Erlöskonto für Veranstaltungen"
+msgstr "Opbrengstrekening voor evenementen"
+
+msgid "Gebührenkonto (optional)"
+msgstr "Kostenrekening voor transactiekosten (optioneel)"
+
+msgid "Der Kontenplan ist die Liste aller Konten, auf die Ihr Verein bucht. Ohne ihn kann nichts gebucht werden."
+msgstr "Het rekeningschema is de lijst van alle rekeningen waarop uw vereniging boekt. Zonder dit kan er niets worden geboekt."
+
+msgid "Das Konto, auf dem das Geld Ihres Vereins liegt, also Ihr Girokonto."
+msgstr "De rekening waarop het geld van uw vereniging staat, dus uw betaalrekening."
+
+msgid "Ein Erlöskonto sammelt Einnahmen einer Art, zum Beispiel alle Mitgliedsbeiträge."
+msgstr "Een opbrengstrekening verzamelt één soort inkomsten, bijvoorbeeld alle lidmaatschapsbijdragen."
+
+msgid "Hierhin werden Spenden gebucht, für die Sie eine Zuwendungsbestätigung ausstellen."
+msgstr "Hier worden donaties geboekt waarvoor u een donatiebewijs uitreikt."
+
+msgid "Hierhin werden Einnahmen aus Veranstaltungen gebucht, zum Beispiel Eintrittsgelder."
+msgstr "Hier worden inkomsten uit evenementen geboekt, bijvoorbeeld toegangsgelden."
+
+msgid "Hierhin würden Gebühren des Zahlungsanbieters gebucht. Dieser Schritt darf leer bleiben."
+msgstr "Hier zouden de kosten van de betaaldienstaanbieder worden geboekt. Deze stap mag leeg blijven."
+
+msgid "Zum Beispiel: %1"
+msgstr "Bijvoorbeeld: %1"
+
+msgid "Noch kein Bankkonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Nog geen bankrekening in het rekeningschema. Maak eerst het standaard rekeningschema aan."
+
+msgid "Noch kein Aufwandskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Nog geen kostenrekening in het rekeningschema. Maak eerst het standaard rekeningschema aan."
+
+msgid "Noch kein Erlöskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Nog geen opbrengstrekening in het rekeningschema. Maak eerst het standaard rekeningschema aan."
+
+msgid "Optional"
+msgstr "Optioneel"
+
+msgid "%1 von %2 Pflichtschritten erledigt"
+msgstr "%1 van %2 verplichte stappen afgehandeld"
+
+msgid "Die Zuordnung kann nur ein Administrator ändern."
+msgstr "Alleen een beheerder kan de toewijzing wijzigen."
+
+msgid "Die Sphäre ist der steuerliche Bereich eines Vereins (ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher Geschäftsbetrieb); sie wird je Buchung gewählt."
+msgstr "De sfeer is het fiscale gebied van een vereniging (ideële sfeer, vermogensbeheer, doelgebonden bedrijf, economische bedrijfsvoering); deze wordt per boeking gekozen."
+
+msgid "Nicht gespeichert"
+msgstr "Niet opgeslagen"
+
+msgid "Das bisher zugeordnete Konto %1 ist deaktiviert. Bitte ein anderes wählen. Beim Speichern wird die alte Zuordnung entfernt."
+msgstr "De tot nu toe toegewezen rekening %1 is gedeactiveerd. Kies een andere. Bij het opslaan wordt de oude toewijzing verwijderd."
+
+msgid "Zum Kontenplan"
+msgstr "Naar het rekeningschema"
+
+msgid "(nicht gewählt)"
+msgstr "(niet gekozen)"
+
+msgid "Standard verwenden"
+msgstr "Standaard gebruiken"
+
+msgid "Standardkonto %1 nicht im Kontenplan."
+msgstr "Standaardrekening %1 staat niet in het rekeningschema."
+
+msgid "Alle Standardkonten vorschlagen"
+msgstr "Alle standaardrekeningen voorstellen"
+
+msgid "Zuordnung gespeichert."
+msgstr "Toewijzing opgeslagen."
+
+msgid "%1 aktive Konten im Kontenplan."
+msgstr "%1 actieve rekeningen in het rekeningschema."
+
+msgid "Noch kein Konto angelegt. Das legt die Schatzmeisterei oder die Administration an."
+msgstr "Nog geen rekening aangemaakt. De penningmeester of het beheer maakt die aan."
+
+msgid "Ein Vorschlag. Bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Een voorstel. Laat dit bevestigen door uw belastingadviseur."
+
+msgid "Standard-Kontenplan SKR42 für Vereine anlegen"
+msgstr "Standaard SKR42-rekeningschema voor verenigingen aanmaken"
+
+msgid "Standard-Kontenplan anlegen"
+msgstr "Standaard rekeningschema aanmaken"
+
+msgid "Es werden %1 Konten angelegt:"
+msgstr "Er worden %1 rekeningen aangemaakt:"
+
+msgid "Kontenplan anlegen"
+msgstr "Rekeningschema aanmaken"
+
+msgid "%1 %2 (%3), %4"
+msgstr "%1 %2 (%3), %4"
+
+msgid "Vorhandene Konten bleiben unverändert."
+msgstr "Bestaande rekeningen blijven ongewijzigd."
+
+msgid "Angelegte Konten lassen sich später nicht löschen, nur deaktivieren."
+msgstr "Aangemaakte rekeningen kunnen later niet worden verwijderd, alleen gedeactiveerd."
+
+msgid "Der Kontenplan ist ein Vorschlag; bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Het rekeningschema is een voorstel; laat het bevestigen door uw belastingadviseur."
+
+msgid "%1 Konten angelegt, %2 schon vorhanden."
+msgstr "%1 rekeningen aangemaakt, %2 bestonden al."
+
+msgid "Der Kontenplan wurde inzwischen geändert. Bitte prüfen."
+msgstr "Het rekeningschema is inmiddels gewijzigd. Controleer het."
+
+msgid "Erweitert"
+msgstr "Geavanceerd"
+
+msgid "Die Sphäre der Veranstaltungserlöse ist der steuerliche Bereich, dem Einnahmen aus Veranstaltungen zugerechnet werden."
+msgstr "De sfeer van de evenementopbrengsten is het fiscale gebied waaraan inkomsten uit evenementen worden toegerekend."
+
+msgid "Auf dieses Aufwandskonto werden Reisekostenabrechnungen gebucht."
+msgstr "Op deze kostenrekening worden reiskostendeclaraties geboekt."
+
+msgid "Auf dieses Aufwandskonto werden Übungsleiter- und Ehrenamtspauschalen gebucht."
+msgstr "Op deze kostenrekening worden vergoedingen voor trainers en vrijwilligers geboekt."
+
+msgid "Alle Bereiche"
+msgstr "Alle sferen"
+
+msgid "Kein Bereich"
+msgstr "Geen sfeer"
+
+msgid "Wird je Buchung gewählt"
+msgstr "Wordt per boeking gekozen"
+
+msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
+msgstr "Doelgebonden en economische bedrijfsvoering"

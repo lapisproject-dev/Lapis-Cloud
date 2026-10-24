@@ -90,6 +90,16 @@ The key `events` stays the board/admin management page.
 | bridge off | any | `404`.
 |===
 
+== Seat counter and message (V1.9.204)
+
+The card of an event with a capacity shows the counter ("23 von 40 Plätzen belegt · noch 17 frei", "Ausgebucht · 3 auf der Warteliste"); the numbers are
+the ones `listEvents` already sends every member. While a registration is possible, a button opens a field for a message to the organisers (at most 500
+characters, counter `n/500`, `aria-live`). With text the client calls `registerSelfWithMessage`, without (or only spaces) `registerSelf`.
+
+Server side the shared `EventRegistrationSubmission.submit(..., message)` stores the text in the insert and, after the placement, hands over to
+`EventRegistrationMessageNotifier` -- **outside any transaction** (a direct message in its own transaction, the mail through the dispatcher). The notifier
+never throws and never logs text, name or address. See link:../features/event-registrations.adoc[Event registrations].
+
 == Honest limits
 
 * **No refund.** Withdrawing never refunds automatically; the board pays outside Lapis Cloud and marks it. Lapis Cloud books nothing for it: the

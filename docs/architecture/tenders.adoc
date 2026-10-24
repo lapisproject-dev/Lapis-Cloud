@@ -1,0 +1,78 @@
+= Tenders (V1.9.201, V1.9.202)
+:toc:
+:icons: font
+
+Operator view: link:../features/tenders.adoc[docs/features/tenders.adoc]. Migrations `V115__tenders.sql` and `V116__tender_description_format.sql`, model `74-tender.kuml.kts`.
+
+== Tender state machine
+
+[source,kuml,name="tender-state-machine"]
+----
+stateDiagram(name = "Tender") {
+    val start = initialState()
+    val draft = state(name = "DRAFT")
+    val published = state(name = "PUBLISHED")
+    val closed = state(name = "CLOSED")
+    val awarded = state(name = "AWARDED")
+    val completed = finalState(name = "COMPLETED")
+    val cancelled = finalState(name = "CANCELLED")
+
+    transition(source = start, target = draft) { trigger = "createTender()" }
+    transition(source = draft, target = published) { trigger = "publishTender()" }
+    transition(source = published, target = closed) { trigger = "deadline reached (lazy)" }
+    transition(source = closed, target = awarded) { trigger = "awardTender()" }
+    transition(source = awarded, target = completed) { trigger = "recordAcceptance(ACCEPTED)" }
+    transition(source = draft, target = cancelled) { trigger = "cancelTender()" }
+    transition(source = published, target = cancelled) { trigger = "cancelTender()" }
+    transition(source = closed, target = cancelled) { trigger = "cancelTender()" }
+    transition(source = awarded, target = cancelled) { trigger = "cancelTender()" }
+}
+----
+
+[source,kuml,name="tender-bid-state-machine"]
+----
+stateDiagram(name = "Tender bid") {
+    val start = initialState()
+    val submitted = state(name = "SUBMITTED")
+    val withdrawn = state(name = "WITHDRAWN")
+    val awarded = finalState(name = "AWARDED")
+    val rejected = finalState(name = "REJECTED")
+
+    transition(source = start, target = submitted) { trigger = "submitBid()" }
+    transition(source = submitted, target = withdrawn) { trigger = "withdrawBid()" }
+    transition(source = withdrawn, target = submitted) { trigger = "submitBid()" }
+    transition(source = submitted, target = awarded) { trigger = "awardTender() (winner)" }
+    transition(source = submitted, target = rejected) { trigger = "awardTender() (loser)" }
+}
+----
+
+== Lazy close
+
+`PUBLISHED` is the stored status. Every writing path locks the tender row (`TenderStore.lock`), reads the clock **after** the lock was granted and calls `closeIfDue`: stored PUBLISHED and `wallNow >= deadline` becomes CLOSED with `closed_at`. Reading paths compute `effectiveTenderStatus` and write nothing. A bid is valid only for `wallNow < deadline`; the boundary is strict.
+
+== Visibility matrix
+
+The matrix in the feature document is implemented by `bidViewFor` / `bidCountVisible` / `tenderVisibleTo` (`TenderVisibilityPolicy.kt`, pure) and pinned twice: exhaustively by `TenderVisibilityPolicyTest` and end to end, with a JSON scan for foreign prices, texts, ids and names, by `TenderVisibilityLeakTest`. Counters are as sensitive as prices and follow the same decision.
+
+== Lock order
+
+motion -> tender -> bids -> member (`forMemberUpdate` only) -> audit entry (last). Several motions are locked in ascending id order. This is the order of `GovernanceService`, so registering an award motion and opening its vote cannot deadlock (`TenderConcurrencyScenarios`).
+
+== Governance hooks
+
+`TenderConflicts` supplies the set of bidders of the tender whose `award_motion_id` is the motion. The hooks only subtract it: `computeQuorum` / `insertResolutionRow` (`excludedMemberIds`), `freezeVoteElectorate`, `castVoteBallot` (refusal before anything is staked); `openElection` and `openSystemicConsensus` refuse the motion. No new call of `eligibleMemberIds`. `TenderConflictHookTripwireTest` pins all of it.
+
+== Currency and payout
+
+`CHECK (currency = 'LTR')` on `tender` and `tender_bid`; the service refuses EUR. `tender.payout_ledger_entry_id` is reserved for wave 3 and never written; `TenderAccessTripwireTest` forbids ledger and balance-provider use in the tender files.
+
+== Wave 2 (V1.9.202): the screens and what the server decides for them
+
+* **V116** (additive, repeatable) adds `tender.description_format` (`PLAIN` default, `MARKDOWN`). V115 is not edited: it may already have run on staging or demo, and a changed Flyway checksum would stop the start.
+* **ITenderService** has 16 methods; the new ones (`listTenderMotionOptions`, `listAwardMotionOptions`, `previewTenderDescription`) are board-only and are registered at the end. The option lists are display-only: the writing paths decide again, under the lock, with the very same functions (`TenderMotionBinding.bindingIneligibility`, `awardIneligibility`).
+* **TenderAwardRules** is the one place that knows which bids can win (`runningBids`, `awardableBidIds`, `justificationRequired`) and how far the award motion is (`awardReadiness`). `awardTender` (enforcement, with its unchanged messages) and `TenderDtos` (the marks the screen shows) both use it, so the page cannot offer what the server refuses.
+* **Guest rule.** `tenderBidderEligible(status, currency)` in `TenderVisibilityPolicy`: a participant status, except that a GUEST never holds a bid on an LTR tender. `submitBid` decides it from the *locked* member row; `awardTender` uses it for the winner and for the running bids; `withdrawBid` does not (withdrawing is always safe).
+* **Blocked reason.** `tenderBidBlockedReason` (order: not a participant, guest on LTR, not open, cap reached) fills `TenderDetailDto.bidBlockedReason`. The bid count that feeds the cap decision is never shipped.
+* **Award marks** (`awardable`, `awardReadiness`, `awardJustificationRequired`) are set only for a manager without a bid of their own while the tender is effectively CLOSED; everybody else gets the neutral defaults.
+* **Markdown description.** Rendered by `AgreementMarkdown` (raw HTML escaped, only http/https/mailto links, images become text); the text is normalised (`\r\n` to `\n`) before the length check, and a text that cannot be rendered is never stored or published. The preview has its own shared rate limiter.
+* **Remaining time.** `minutesUntilDeadline` is computed from real elapsed time on the server clock, so there is no time zone error in the browser.

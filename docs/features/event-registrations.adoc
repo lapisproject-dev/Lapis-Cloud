@@ -1,0 +1,88 @@
+= Event registrations: overview, message, CSV export (V1.9.204)
+:toc:
+
+The board work around the registrations of one event: a table of events with a detail page, an overview of the registrations with counters, an
+optional message of the registrant, a seat counter for members and a CSV export.
+
+== Pages and roles
+
+[cols="2,3,3"]
+|===
+| Route | What | Who
+
+| `/events`
+| Events as a table: title link to the detail page, date, place, occupancy (`23/40`, a dash without a capacity), status. Icon-only row actions: publish (draft), cancel, move up the waiting list.
+| BOARD, ADMIN
+
+| `/events/:id`
+| Key facts with the status actions, the edit form (open at once, no longer folded behind a card), and the section "Anmeldungen". An unknown id shows one neutral sentence, never a server message.
+| BOARD, ADMIN
+
+| `/my-events`
+| Seat counter on every event with a capacity ("23 von 40 Plätzen belegt · noch 17 frei", "Ausgebucht · 3 auf der Warteliste") and the folded message field.
+| every member
+|===
+
+The counter of the member list adds no new data: `occupiedSeats`, `waitlistCount` and `full` were already sent to every caller of `listEvents`.
+The public event page stays **binary** ("Plätze frei" / "Ausgebucht -- Warteliste möglich"). That is a decision of V1.9.204: a number on a page
+anybody can open lets a stranger watch an organisation fill up. See link:public-event-page.adoc[Public event page].
+
+== The registrant message
+
+* Optional, at most **500 characters** (counted in UTF-16 units, the strictest of H2, PostgreSQL and the browser). Column `event_registration.message`
+  (`V117`, `VARCHAR(500)`, NULL for old rows).
+* **Written once, never changed**: the insert of the registration is the only writer. A duplicate registration does not overwrite it; a new
+  registration after a withdrawal is a new row with its own message. Promotion, expiry, check-in, invoice and refund never touch the column.
+* Control characters and the Unicode bidi controls are removed, line breaks become LF, the text is trimmed; HTML stays literal and is escaped where it
+  is shown (the client sets it as element text, the CSV applies the formula guard, mails never contain it).
+* **One reader**: `getRegistrationOverview` (BOARD/ADMIN) and the CSV export. Every other registration DTO (`registerSelf*`, `cancelOwnRegistration`,
+  `listRegistrations`, the check-in roster, the invoice call, the MCP tools, the public pages) carries `null`. `EventRegistrationMessageTripwireTest`
+  pins where the column may be read or written.
+* Where it is typed: members in the folded field of `/my-events` (`registerSelfWithMessage`), guests in the field `nachricht` of the public form.
+  The embed widget and the MCP tool have no message field (a limit of this wave).
+
+=== Notice to the event's creator
+
+* A member registrant who is ACTIVE sends a **direct message** to the creator (title, date and text) -- the postbox needs a member as sender.
+* A guest has no postbox sender: the creator gets **only the mail**; the text stays in the overview.
+* The mail names the event and links to the overview. **It never contains the text** (data minimisation; guest-written text must not get a path into an
+  inbox). Purpose `event-registration-message`.
+* At most 30 notices per event and hour; beyond that the message stays stored and nobody is notified.
+* A creator who is anonymised, not ACTIVE or the registrant himself gets nothing. A failing mail transport never affects the registration.
+* The creator only sees the message in the overview if he is BOARD or ADMIN **now** (the same rule as `listRegistrations`); a creator whose role was
+  withdrawn reads it in the postbox or the mail link only.
+
+== Overview (`getRegistrationOverview`)
+
+BOARD/ADMIN, rate limited like the other management calls. Counters are computed on the server: `activeCount` (confirmed plus not yet lapsed holds, equal
+to `EventDto.occupiedSeats`), `waitlistedCount`, `inactiveCount` (cancelled, expired and lapsed holds), `freeSeats` (only with a capacity),
+`withMessageCount`. The rows carry the **effective** status (a lapsed `PENDING_PAYMENT` is shown as expired) and the payment state
+(free / open / paid / refunded / unpaid), ordered by status group, waiting list position, then time and id. At most 2000 rows; `truncated` says so and the
+counters stay exact. The filter on the page only hides loaded rows.
+
+== CSV export (`GET /api/events/{id}/registrations.csv`)
+
+* BOARD/ADMIN. Order: identity, role, rate limit (10 per minute), then the id -- so a caller without the role learns nothing about which ids exist. A bad or
+  unknown id is one neutral 404 without echo.
+* Always the **whole** list, whatever the filter shows. At most 10 000 rows (409 above).
+* UTF-8 with BOM, `;` separator, CRLF, German headings: Name, Art, Status, Wartelistenplatz, Angemeldet am, Gebühr, Zahlungsstatus, E-Mail (Gast), Nachricht.
+  The time is converted from UTC to the organisation zone (`dd.MM.yyyy HH:mm`); money has two decimals and a comma.
+* Every cell goes through `SpreadsheetCsv.field`: a leading `=`, `+`, `-`, `@`, TAB or CR gets an apostrophe and quotes (OWASP CSV injection).
+* Headers: `Content-Disposition: attachment` (`filename` and `filename*`), `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`.
+* **Audit**: one entry `EVENT_REGISTRATION_EXPORT` (`CREATE`, `entityId` = the event, snapshot `{"rowCount":n,"format":"csv"}`) -- never a name, an address or
+  a message. It is the last operation of the read transaction.
+
+== Data protection
+
+The export of a data subject contains the member's own message; the erasure sets it to NULL (the row stays, as before). A guest's message falls into the
+documented gap of `event_registration` (see `PersonalDataRegistry.knownUncoveredSubjectRoots`). The column is found by the organisation backup on its own
+(`OrganizationSchemaCatalog`); `EventRegistrationMessageBackupTest` pins the round trip.
+
+== Honest limits
+
+* Tested with unit, scenario (H2 and PostgreSQL), route and DOM tests in headless Chrome. **No person has used the pages in a real browser, and the CSV was
+  not opened in a real Excel or LibreOffice.**
+* A guest's message reaches the creator by a mail without text only, never in the postbox.
+* The embed widget and the MCP tool have no message field; the plain public page has no live character counter (no JavaScript there).
+* The overview shows at most 2000 rows, the export refuses more than 10 000.
+* The new translations were written by the model, not by a native speaker.

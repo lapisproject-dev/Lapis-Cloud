@@ -176,10 +176,10 @@ class FormGrammarPart3AuditDomTest {
                     element().shownErrors().any { it.contains("größer als 0") },
                     "zero: the field says it must be larger than 0: ${element().shownErrors()}",
                 )
-                element().typeInto("Rücklastschriftgebühr in EUR", "1.234,56")
+                element().typeInto("Rücklastschriftgebühr in EUR", "1,2,3")
                 assertTrue(
-                    element().shownErrors().any { it.contains("Tausendertrennzeichen") },
-                    "a thousands separator: the field names it: ${element().shownErrors()}",
+                    element().shownErrors().any { it.contains("Bitte einen Betrag wie") },
+                    "a broken number: the field names an example: ${element().shownErrors()}",
                 )
                 element().typeInto("Rücklastschriftgebühr in EUR", "2000000000")
                 assertTrue(

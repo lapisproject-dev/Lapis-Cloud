@@ -32,6 +32,17 @@ ticket, error pages) exist in two presentations.
 Only the exact value `embed=1` (a single parameter) activates the embed mode; anything else is the standard page. The raw value is never
 reflected.
 
+== Message field and occupancy (V1.9.204)
+
+* The registration form has the optional field `nachricht` ("Nachricht an die Veranstalter (optional)", `maxlength` 500, the hint sentence "Ihre Nachricht
+  sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage."). It is NOT the honeypot `kommentar`.
+  A text over 500 characters answers 400 before the strict registration budget is spent and without echoing the text. The page has no JavaScript, so no
+  live counter.
+* The body cap of the form is **16 384 bytes** (was 4 096): 500 three-byte characters are up to 4 500 bytes URL-encoded, the name up to 2 700 more.
+* **The occupancy line stays binary** ("Plätze frei" / "Ausgebucht -- Warteliste möglich", no number). This is a decision of V1.9.204: a number on a page
+  anybody can open lets a stranger watch an organisation fill up. Members see the counter inside the app. Do not "repair" this.
+* Details: link:event-registrations.adoc[Event registrations].
+
 == Order of the detail page (V1.9.140)
 
 Facts, cover image, description, status callout (ended / closed / full), then the registration card. The registration card used to sit above the

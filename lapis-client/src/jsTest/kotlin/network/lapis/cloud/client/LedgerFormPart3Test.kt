@@ -84,7 +84,7 @@ class LedgerFormPart3Test {
 
     @Test
     fun postingAmount_rejectsWhatTheServerRejects_insteadOfRoundingIt() {
-        for (bad in listOf("10,005", "1.234,56", "0", "0,00", "-5", "abc", "1e3")) {
+        for (bad in listOf("10,005", "1,2,3", "0", "0,00", "-5", "abc", "1e3")) {
             val check = FormRules.postingAmount(bad)
             assertTrue(check is FieldCheck.Invalid, "'$bad' must be rejected")
             assertFalse(check.message.contains("###KvI18nS###"), "the message is resolved text, never a tr() marker: ${check.message}")

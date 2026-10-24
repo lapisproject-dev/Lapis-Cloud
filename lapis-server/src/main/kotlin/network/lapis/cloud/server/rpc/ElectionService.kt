@@ -26,6 +26,7 @@ import network.lapis.cloud.server.security.canStandAsCandidate
 import network.lapis.cloud.server.security.isElectionBoard
 import network.lapis.cloud.server.security.isElectionBoardMember
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.tender.requireNotTenderAwardMotion
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CandidacyDto
@@ -165,6 +166,8 @@ class ElectionService(
             MotionDecisionLock.requireNoElection(aId)
             MotionDecisionLock.requireNoOpenVote(aId)
             MotionDecisionLock.requireNoActiveSystemicConsensus(aId)
+            // V1.9.201: the award motion of a tender is decided by the quorum or the meritocratic vote only (bidders are excluded there).
+            requireNotTenderAwardMotion(aId)
             // V1.9.54: a main motion with a pending amendment may not enter a decision path (serverside; the client
             // only hid the button before). Otherwise that amendment could be adopted while the vote runs and change
             // `currentText` under the voters. Together with submitMotion's refusal (no amendment during a running

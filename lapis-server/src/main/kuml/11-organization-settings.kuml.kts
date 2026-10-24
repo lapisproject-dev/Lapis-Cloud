@@ -48,6 +48,9 @@
 //    `updateOrganizationSettings` write-set" treatment `auctionEnabled` already established above.
 //    Settable ONLY via the new `ISepaService.enableSepaDebit`/`disableSepaDebit` and
 //    `IPaymentGatewayService.enablePaymentGateway`/`disablePaymentGateway`
+//    (V1.9.206: `enablePaymentGateway` additionally requires a COMPLETE account mapping -- bank, contribution,
+//    donation and event income account, see `network.lapis.cloud.shared.domain.financeSetupStatusOf`; the
+//    fee account stays optional)
 //    (`network.lapis.cloud.server.rpc.SepaComplianceDisclaimer`/`PaymentGatewayComplianceDisclaimer`
 //    disclaimer-acknowledgment flow, mirroring `AuctionComplianceDisclaimer` exactly). Neither gate
 //    has any real functionality behind it yet in V1.2.1 (SEPA mandates/PSP webhooks are V1.2.2/
@@ -253,7 +256,8 @@ classDiagram(name = "OrganizationSettings") {
         }
         // V1.2.1 Zahlungs-Fundament: opt-in gate, NOT NULL, defaults to FALSE. Same treatment as
         // sepaDebitEnabled above. Settable ONLY via IPaymentGatewayService.enablePaymentGateway
-        // (disclaimer-acknowledgment)/disablePaymentGateway.
+        // (disclaimer-acknowledgment)/disablePaymentGateway. V1.9.206: enabling is refused with a ConflictException
+        // while the finance setup is incomplete (4 required account mappings); an already enabled gateway is never switched off by it.
         attribute(name = "paymentGatewayEnabled", type = "Boolean") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "payment_gateway_enabled" }
@@ -571,6 +575,13 @@ classDiagram(name = "OrganizationSettings") {
         attribute(name = "eventCaptureNoticeVersion", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "event_capture_notice_version"; "sqlType" to "VARCHAR(16)" }
+        }
+        // Welle V1.9.201 "Ausschreibungen" (V115__tenders.sql). The bid visibility a new tender is pre-filled with (HIDDEN_UNTIL_DEADLINE | OPEN |
+        // OWN_ONLY), NOT NULL, default HIDDEN_UNTIL_DEADLINE. NOT part of the generic updateOrganizationSettings write-set: settable ONLY through
+        // IOrganizationSettingsService.updateTenderDefaultVisibility (ADMIN, audited on change). A published tender keeps its own visibility.
+        attribute(name = "tenderDefaultVisibility", type = "String") {
+            defaultValue = "HIDDEN_UNTIL_DEADLINE"
+            stereotype("Column") { "columnName" to "tender_default_visibility"; "sqlType" to "VARCHAR(21)" }
         }
     }
 }

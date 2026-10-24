@@ -77,7 +77,8 @@ class DomainModelMergerTest :
             // Welle V1.9.143 "Kanzel-Aufzeichnung" -- was 71, now 72 with the addition of 71-pulpit-recording.kuml.kts.
             // Welle V1.9.144 "Mitglieder-Finder" -- was 72, now 73 with the addition of 72-member-finder.kuml.kts.
             // Welle V1.9.156 "Aufzeichnung in Veranstaltungsraeumen" -- now 74 with the addition of 73-event-capture.kuml.kts.
-            scriptFiles shouldHaveSize 74
+            // Welle V1.9.201 "Ausschreibungen" -- now 75 with the addition of 74-tender.kuml.kts.
+            scriptFiles shouldHaveSize 75
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -560,7 +561,9 @@ class DomainModelMergerTest :
             // TravelExpenseReport/Member FKs dedup into the real entities -- net +1 (207 -> 208).
             // Welle V1.9.199 "Reisekosten-Unterlagen" -- ONE new real table (travel_expense_document); its Member FK
             // dedups into the real entity -- net +1 (208 -> 209).
-            val distinctTableNames = 209
+            // Welle V1.9.201 "Ausschreibungen" -- FOUR new real tables (tender, tender_bid, tender_award, tender_acceptance); the Member, Motion and
+            // Resolution stubs dedup into the real entities -- net +4 (209 -> 213).
+            val distinctTableNames = 213
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -927,6 +930,11 @@ class DomainModelMergerTest :
                     "MemberFinderRegionBandTable.kt",
                     // Welle V1.9.156 "Aufzeichnung in Veranstaltungsraeumen" -- ONE new real table, no new stub.
                     "EventCaptureAcknowledgmentTable.kt",
+                    // Welle V1.9.201 "Ausschreibungen" -- FOUR new real tables, no new stub.
+                    "TenderTable.kt",
+                    "TenderBidTable.kt",
+                    "TenderAwardTable.kt",
+                    "TenderAcceptanceTable.kt",
                 )
         }
 

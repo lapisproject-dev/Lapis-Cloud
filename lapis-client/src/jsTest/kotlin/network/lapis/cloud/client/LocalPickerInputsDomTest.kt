@@ -103,8 +103,8 @@ class LocalPickerInputsDomTest {
     fun picker_labelIsLinkedToTheControl() {
         withMountedRoot("picker-label") { root, element ->
             root.localDateTimeInput(label = "Beginn", picker = true)
-            assertEquals("date", (element().controlOf("Beginn (Datum)") as HTMLInputElement).type)
-            assertEquals("time", (element().controlOf("Beginn (Uhrzeit)") as HTMLInputElement).type)
+            assertEquals("date", (element().controlOf("Beginn, Datum") as HTMLInputElement).type)
+            assertEquals("time", (element().controlOf("Beginn, Uhrzeit") as HTMLInputElement).type)
         }
     }
 

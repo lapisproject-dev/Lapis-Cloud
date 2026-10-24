@@ -1777,10 +1777,6 @@ msgstr ""
 msgid "Administrator"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:91
-msgid "Akteur-Mitglieds-ID (optional)"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:359
 msgid "Akteur: %1"
 msgstr ""
@@ -3167,10 +3163,6 @@ msgstr ""
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:204
-msgid "Bis Sequenznummer (optional)"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:726
 msgid "Bisherige Jahressumme (vor dieser Spende)"
 msgstr ""
@@ -4370,10 +4362,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:360
 msgid "Entität: %1"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:90
-msgid "Entitäts-ID (optional)"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:305
@@ -5799,18 +5787,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:112
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:468
 msgid "Kontenplan & Journal"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:789
-msgid "Kontenzuordnung gespeichert."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:757
-msgid "Kontenzuordnung speichern"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:313
-msgid "Kontenzuordnung Zahlungsverkehr"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:90
@@ -8118,10 +8094,6 @@ msgstr ""
 msgid "Sofortkaufpreis (LTR, optional -- muss über dem Startpreis liegen)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:604
-msgid "Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt markierter Beitrag NICHT gebucht -- der Status wechselt trotzdem auf \"bezahlt\"."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1165
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1513
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2318
@@ -9047,10 +9019,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:94
 msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:203
-msgid "Von Sequenznummer (optional)"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:400
@@ -11006,10 +10974,6 @@ msgstr ""
 msgid "In „Offene Posten“ öffnen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:409
-msgid "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:485
 msgid "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht."
 msgstr ""
@@ -11160,10 +11124,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:353
 msgid "Verrechnung gebucht."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:48
-msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:53
@@ -12888,10 +12848,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:208
 msgid "BIC"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:553
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
@@ -14732,18 +14688,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
 msgid "Bankkonto zugeordnet"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Beitragserlöskonto zugeordnet"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Spendenerlöskonto zugeordnet"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Gebührenkonto zugeordnet"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
@@ -23154,12 +23098,6 @@ msgstr ""
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr ""
 
-msgid "%1 (Datum)"
-msgstr ""
-
-msgid "%1 (Uhrzeit)"
-msgstr ""
-
 msgid "Aufsichtsbehörde benachrichtigt am (optional)"
 msgstr ""
 
@@ -23170,9 +23108,6 @@ msgid "Betroffene Personen benachrichtigt am (optional)"
 msgstr ""
 
 msgid "Bis (Pflichtfeld)"
-msgstr ""
-
-msgid "Bis (optional)"
 msgstr ""
 
 msgid "Bitte AM oder PM angeben."
@@ -25085,4 +25020,814 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
 msgid "Unterlagen verwalten"
+msgstr ""
+
+msgid "Alle Filter sind optional."
+msgstr ""
+
+msgid "%1, Datum"
+msgstr ""
+
+msgid "%1, Uhrzeit"
+msgstr ""
+
+msgid "Bitte einen Betrag wie %1 eingeben."
+msgstr ""
+
+msgid "Boost-Betrag in LTR"
+msgstr ""
+
+msgid "Um aktuell ganz oben zu stehen: %1"
+msgstr ""
+
+msgid "Ihr Guthaben reicht nicht, höchstens %1."
+msgstr ""
+
+msgid "Vorschlag übernehmen"
+msgstr ""
+
+msgid "Entitäts-ID"
+msgstr ""
+
+msgid "Akteur-Mitglieds-ID"
+msgstr ""
+
+msgid "Von Sequenznummer"
+msgstr ""
+
+msgid "Bis Sequenznummer"
+msgstr ""
+
+msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
+msgstr ""
+
+msgid "Ausschreibungen"
+msgstr ""
+
+msgid "Standard-Sichtbarkeit der Angebote"
+msgstr ""
+
+msgid "Verdeckt bis zur Frist"
+msgstr ""
+
+msgid "Bieter sehen nur ihr eigenes Angebot"
+msgstr ""
+
+msgid "Gilt als Vorbelegung beim Anlegen einer Ausschreibung; nach dem Veröffentlichen nicht mehr änderbar."
+msgstr ""
+
+msgid "Unbekannte Auswahl"
+msgstr ""
+
+msgid "Ausschreibung"
+msgstr ""
+
+msgid "Hier schreibt der Vorstand Aufträge aus, die ein Beschluss vorsieht. Mitglieder und Freunde geben bis zur Frist ein Angebot ab."
+msgstr ""
+
+msgid "Nur eigenes Angebot sichtbar"
+msgstr ""
+
+msgid "Abgenommen"
+msgstr ""
+
+msgid "%1 Tag"
+msgid_plural "%1 Tage"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%1 Stunde"
+msgid_plural "%1 Stunden"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "noch %1 und %2"
+msgstr ""
+
+msgid "noch %1"
+msgstr ""
+
+msgid "Erwartetes Ergebnis"
+msgstr ""
+
+msgid "abgelaufen am %1"
+msgstr ""
+
+msgid "Vergabe nach: %1"
+msgstr ""
+
+msgid "Vergütung: %1"
+msgstr ""
+
+msgid "Sichtbarkeit der Angebote: %1"
+msgstr ""
+
+msgid "Beruht auf: "
+msgstr ""
+
+msgid "Als Gast können Sie auf diese Ausschreibung nicht bieten: Sie wird in LTR vergütet, und Gäste führen ihr LTR-Konto auf ihrem Heimatserver."
+msgstr ""
+
+msgid "Sie können auf diese Ausschreibung nicht bieten."
+msgstr ""
+
+msgid "Diese Ausschreibung ist noch nicht veröffentlicht."
+msgstr ""
+
+msgid "Diese Ausschreibung wurde abgesagt."
+msgstr ""
+
+msgid "Die Frist ist abgelaufen. Es können keine Angebote mehr abgegeben werden."
+msgstr ""
+
+msgid "Diese Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr ""
+
+msgid "Ihr Angebot"
+msgstr ""
+
+msgid "Preis: %1"
+msgstr ""
+
+msgid "Angebot zurückziehen"
+msgstr ""
+
+msgid "Sie haben Ihr Angebot zurückgezogen. Sie können bis zur Frist ein neues abgeben."
+msgstr ""
+
+msgid "Angebot ändern"
+msgstr ""
+
+msgid "Angebot zurückziehen?"
+msgstr ""
+
+msgid "Sie können bis zur Frist jederzeit ein neues Angebot abgeben."
+msgstr ""
+
+msgid "Angebot zurückgezogen."
+msgstr ""
+
+msgid "Preis in LTR"
+msgstr ""
+
+msgid "Höchstens zwei Nachkommastellen."
+msgstr ""
+
+msgid "Angebot abgeben"
+msgstr ""
+
+msgid "Änderung speichern"
+msgstr ""
+
+msgid "Angebot gespeichert."
+msgstr ""
+
+msgid "Noch keine Angebote."
+msgstr ""
+
+msgid "Bei dieser Ausschreibung sieht jeder Bieter nur sein eigenes Angebot."
+msgstr ""
+
+msgid "Die Angebote anderer sind bis %1 verdeckt."
+msgstr ""
+
+msgid "Die Angebote sehen nur die Bieter und der Vorstand."
+msgstr ""
+
+msgid "Bieter"
+msgstr ""
+
+msgid "Preis"
+msgstr ""
+
+msgid "Zuschlag erteilen an %1"
+msgstr ""
+
+msgid "Zuschlag erteilen?"
+msgstr ""
+
+msgid "Zuschlag an %1 für %2."
+msgstr ""
+
+msgid "Der Zuschlag kann nicht zurückgenommen werden."
+msgstr ""
+
+msgid "Zuschlag erteilen"
+msgstr ""
+
+msgid "Zuschlag erteilt."
+msgstr ""
+
+msgid "Zuschlag"
+msgstr ""
+
+msgid "%1 hat den Zuschlag erhalten (%2, am %3)."
+msgstr ""
+
+msgid "Abnahme"
+msgstr ""
+
+msgid "Sie haben selbst ein Angebot abgegeben (auch ein zurückgezogenes zählt). Deshalb dürfen Sie diese Ausschreibung weder vergeben noch abnehmen noch absagen."
+msgstr ""
+
+msgid "Entwurf bearbeiten"
+msgstr ""
+
+msgid "Ausschreibung veröffentlichen?"
+msgstr ""
+
+msgid "Danach können Mitglieder und Freunde bis zur Frist Angebote abgeben."
+msgstr ""
+
+msgid "Frist, Vergabe-Kriterium und Sichtbarkeit lassen sich nach dem Veröffentlichen nicht mehr ändern."
+msgstr ""
+
+msgid "Ausschreibung veröffentlicht."
+msgstr ""
+
+msgid "Ausschreibung absagen"
+msgstr ""
+
+msgid "Ausschreibung absagen?"
+msgstr ""
+
+msgid "Der Grund ist für alle sichtbar, die die Ausschreibung sehen."
+msgstr ""
+
+msgid "Eine abgesagte Ausschreibung kann nicht wieder geöffnet werden."
+msgstr ""
+
+msgid "Ausschreibung abgesagt."
+msgstr ""
+
+msgid "Der bisherige Vergabeantrag wurde nicht angenommen. Legen Sie einen neuen fest."
+msgstr ""
+
+msgid "Die Frist ist abgelaufen. Für den Zuschlag braucht es einen Vergabebeschluss des Gremiums."
+msgstr ""
+
+msgid "Legen Sie unter Anträge einen Antrag für den Vergabebeschluss an. Er wird nach Ablauf der Frist in einer Sitzung entschieden."
+msgstr ""
+
+msgid "Über den Vergabeantrag ist noch nicht entschieden."
+msgstr ""
+
+msgid "Der Vergabebeschluss wurde vor Ablauf der Frist gefasst und zählt deshalb nicht."
+msgstr ""
+
+msgid "Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr ""
+
+msgid "Der Vergabebeschluss liegt vor. Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr ""
+
+msgid "Vergabeantrag: "
+msgstr ""
+
+msgid "ist der Beschluss, auf dem die Ausschreibung beruht"
+msgstr ""
+
+msgid "gehört zu einem anderen Gremium"
+msgstr ""
+
+msgid "ist ein Änderungsantrag"
+msgstr ""
+
+msgid "ist schon entschieden oder zurückgezogen"
+msgstr ""
+
+msgid "gehört schon zu einer Ausschreibung"
+msgstr ""
+
+msgid "hat einen Änderungsantrag"
+msgstr ""
+
+msgid "wird schon abgestimmt"
+msgstr ""
+
+msgid "Vergabeantrag"
+msgstr ""
+
+msgid "-- bitte wählen --"
+msgstr ""
+
+msgid "%1 -- nicht wählbar: %2"
+msgstr ""
+
+msgid "Dieser Antrag kann nicht gewählt werden: %1"
+msgstr ""
+
+msgid "Vergabebeschluss festlegen"
+msgstr ""
+
+msgid "Vergabeantrag festgelegt."
+msgstr ""
+
+msgid "Der Zuschlag ist erteilt. Nehmen Sie das Ergebnis ab oder lehnen Sie es mit einer Notiz ab."
+msgstr ""
+
+msgid "Abnehmen"
+msgstr ""
+
+msgid "Notiz (bei Ablehnung Pflicht)"
+msgstr ""
+
+msgid "Bei einer Ablehnung ist eine Notiz nötig."
+msgstr ""
+
+msgid "Abnahme erfassen"
+msgstr ""
+
+msgid "Abnahme erfasst."
+msgstr ""
+
+msgid "Die Aktion ist gerade nicht möglich. Bitte laden Sie die Seite neu."
+msgstr ""
+
+msgid "Nur ein Entwurf kann geändert werden."
+msgstr ""
+
+msgid "Nur ein Entwurf kann veröffentlicht werden."
+msgstr ""
+
+msgid "Die Frist muss mindestens eine Stunde in der Zukunft liegen."
+msgstr ""
+
+msgid "Die Ausschreibung wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu."
+msgstr ""
+
+msgid "Diese Aktion ist im jetzigen Stand der Ausschreibung nicht möglich."
+msgstr ""
+
+msgid "Gäste können nur auf Ausschreibungen bieten, die in Euro vergütet werden."
+msgstr ""
+
+msgid "Die Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr ""
+
+msgid "Es gibt kein Angebot, das zurückgezogen werden kann."
+msgstr ""
+
+msgid "Einen Vergabeantrag gibt es nur bei der Vergabe nach dem besten Angebot."
+msgstr ""
+
+msgid "Die Frist der Ausschreibung muss zuerst abgelaufen sein."
+msgstr ""
+
+msgid "Die Ausschreibung hat kein Angebot, über das entschieden werden könnte."
+msgstr ""
+
+msgid "Der eingetragene Vergabeantrag kann nicht mehr ersetzt werden."
+msgstr ""
+
+msgid "Dieses Angebot ist nicht mehr im Rennen."
+msgstr ""
+
+msgid "Der Bieter darf für diese Ausschreibung nicht mehr berücksichtigt werden."
+msgstr ""
+
+msgid "Der Zuschlag muss an das günstigste Angebot gehen."
+msgstr ""
+
+msgid "Bei gleichem Preis ist eine Begründung nötig."
+msgstr ""
+
+msgid "Bitte geben Sie eine Begründung an."
+msgstr ""
+
+msgid "Es ist noch kein Vergabeantrag festgelegt."
+msgstr ""
+
+msgid "Der Vergabeantrag wurde nicht angenommen."
+msgstr ""
+
+msgid "Der Vergabeantrag wurde vor Ablauf der Frist entschieden."
+msgstr ""
+
+msgid "Eine Ablehnung braucht eine Begründung."
+msgstr ""
+
+msgid "Die Beschreibung kann nicht dargestellt werden. Bitte vereinfachen Sie sie."
+msgstr ""
+
+msgid "Ausschreibungen sind vorerst nur in LTR möglich."
+msgstr ""
+
+msgid "Der Preis darf höchstens zwei Nachkommastellen haben."
+msgstr ""
+
+msgid "Der Preis ist zu groß."
+msgstr ""
+
+msgid "Der Antrag ist kein angenommener Beschluss seines Gremiums."
+msgstr ""
+
+msgid "Dieser Antrag kann nicht als Vergabeantrag dienen."
+msgstr ""
+
+msgid "Über einen Vergabeantrag entscheidet nur die Beschlussfähigkeit des Gremiums oder eine meritokratische Abstimmung."
+msgstr ""
+
+msgid "Der Titel muss 1 bis %1 Zeichen haben."
+msgstr ""
+
+msgid "Die Beschreibung muss 1 bis %1 Zeichen haben."
+msgstr ""
+
+msgid "Das erwartete Ergebnis muss 1 bis %1 Zeichen haben."
+msgstr ""
+
+msgid "Der Angebotstext muss 1 bis %1 Zeichen haben."
+msgstr ""
+
+msgid "Der Grund muss 1 bis %1 Zeichen haben."
+msgstr ""
+
+msgid "Der Grund darf höchstens %1 Zeichen haben."
+msgstr ""
+
+msgid "Die Begründung darf höchstens %1 Zeichen haben."
+msgstr ""
+
+msgid "Der Preis muss mindestens %1 betragen."
+msgstr ""
+
+msgid "Für diesen Antrag läuft bereits ein Entscheidungsweg oder er ist schon entschieden."
+msgstr ""
+
+msgid "Frist abgelaufen"
+msgstr ""
+
+msgid "Vergeben"
+msgstr ""
+
+msgid "LTR"
+msgstr ""
+
+msgid "Euro"
+msgstr ""
+
+msgid "Günstigster Preis"
+msgstr ""
+
+msgid "Bestes Angebot"
+msgstr ""
+
+msgid "Der Vorstand erteilt den Zuschlag dem günstigsten Angebot. Ein Beschluss ist dafür nicht nötig."
+msgstr ""
+
+msgid "Der Zuschlag ist eine Wertung. Darüber entscheidet das Gremium mit einem Vergabebeschluss nach Ablauf der Frist."
+msgstr ""
+
+msgid "Zuschlag erhalten"
+msgstr ""
+
+msgid "Nicht berücksichtigt"
+msgstr ""
+
+msgid "noch nicht beschlossen"
+msgstr ""
+
+msgid "Beschluss nicht angenommen"
+msgstr ""
+
+msgid "Beschluss in einem anderen Gremium gefasst"
+msgstr ""
+
+msgid "Bis zum Ende der Frist sieht niemand fremde Angebote. Danach sehen alle Bieter und der Vorstand alle Angebote."
+msgstr ""
+
+msgid "Alle Beteiligten sehen die Angebote der anderen sofort."
+msgstr ""
+
+msgid "Jeder Bieter sieht nur sein eigenes Angebot. Der Vorstand sieht nach Ablauf der Frist alle Angebote. Wer den Zuschlag erhält, wird allen angezeigt."
+msgstr ""
+
+msgid "Entwürfe"
+msgstr ""
+
+msgid "Keine Ausschreibungen in dieser Auswahl."
+msgstr ""
+
+msgid "Neue Ausschreibung"
+msgstr ""
+
+msgid "Vergütung"
+msgstr ""
+
+msgid "Mein Angebot"
+msgstr ""
+
+msgid "Die Zahl der Angebote ist verdeckt."
+msgstr ""
+
+msgid "Ausschreibung %1 öffnen"
+msgstr ""
+
+msgid "Beschluss, auf dem die Ausschreibung beruht"
+msgstr ""
+
+msgid "Mindestens eine Stunde nach dem Veröffentlichen. Bis zu dieser Uhrzeit können Angebote abgegeben werden."
+msgstr ""
+
+msgid "Vergabe nach"
+msgstr ""
+
+msgid "Sichtbarkeit der Angebote"
+msgstr ""
+
+msgid "Euro-Vergütung kommt später."
+msgstr ""
+
+msgid "Bitte geben Sie die Frist mit Datum und Uhrzeit an."
+msgstr ""
+
+msgid "Als Entwurf gespeichert, aber nicht veröffentlicht: %1"
+msgstr ""
+
+msgid "Menü durchsuchen"
+msgstr ""
+
+msgid "Suchen …"
+msgstr ""
+
+msgid "Befehlspalette"
+msgstr ""
+
+msgid "Strg K"
+msgstr ""
+
+msgid "%1 Treffer"
+msgstr ""
+
+msgid "%1 Treffer, %2 angezeigt. Suche verfeinern"
+msgstr ""
+
+msgid "Zuletzt besucht"
+msgstr ""
+
+msgid "Noch keine Veranstaltungen."
+msgstr ""
+
+msgid "Belegung"
+msgstr ""
+
+msgid "Veröffentlichen: %1"
+msgstr ""
+
+msgid "Absagen: %1"
+msgstr ""
+
+msgid "Warteliste nachrücken: %1"
+msgstr ""
+
+msgid "Abgesagt/abgelaufen"
+msgstr ""
+
+msgid "Mit Nachricht"
+msgstr ""
+
+msgid "Nicht bezahlt"
+msgstr ""
+
+msgid "Angemeldet %1 · Warteliste %2 · Abgesagt/abgelaufen %3"
+msgstr ""
+
+msgid "Freie Plätze %1"
+msgstr ""
+
+msgid "Anmeldungen"
+msgstr ""
+
+msgid "Noch keine Anmeldungen."
+msgstr ""
+
+msgid "Alle Anmeldungen als CSV"
+msgstr ""
+
+msgid "Es werden nur die ersten 2000 Anmeldungen angezeigt. Die CSV enthält alle."
+msgstr ""
+
+msgid "Keine Anmeldungen in dieser Auswahl."
+msgstr ""
+
+msgid "Wartelistenplatz"
+msgstr ""
+
+msgid "Angemeldet am"
+msgstr ""
+
+msgid "E-Mail (Gast)"
+msgstr ""
+
+msgid "Nachricht anzeigen: %1"
+msgstr ""
+
+msgid "Veranstaltung nicht gefunden."
+msgstr ""
+
+msgid "Ausgebucht · %1 auf der Warteliste"
+msgstr ""
+
+msgid "Nachricht an die Veranstalter hinzufügen"
+msgstr ""
+
+msgid "Nachricht an die Veranstalter (optional)"
+msgstr ""
+
+msgid "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage."
+msgstr ""
+
+msgid "Export der Anmeldungen"
+msgstr ""
+
+msgid "%1 von %2 Platz belegt · noch %3 frei"
+msgid_plural "%1 von %2 Plätzen belegt · noch %3 frei"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Einrichtung · %1 offen"
+msgstr ""
+
+msgid "Einrichtung"
+msgstr ""
+
+msgid "Es fehlt noch: %1. Solange das fehlt, werden bezahlte Beiträge nicht gebucht."
+msgstr ""
+
+msgid "Es fehlt noch: %1."
+msgstr ""
+
+msgid "Zur Einrichtung"
+msgstr ""
+
+msgid "Konten"
+msgstr ""
+
+msgid "Journal"
+msgstr ""
+
+msgid "Bereiche von Kontenplan und Journal"
+msgstr ""
+
+msgid "Kontenzuordnung: vollständig"
+msgstr ""
+
+msgid "Kontenzuordnung: unvollständig"
+msgstr ""
+
+msgid "Kontenzuordnung: unvollständig, es fehlt %1"
+msgstr ""
+
+msgid "Online-Zahlung kann erst aktiviert werden, wenn die Kontenzuordnung vollständig ist."
+msgstr ""
+
+msgid "Hier richten Sie die Finanzen ein, sehen den Kontenplan und das Journal mit allen Buchungen. Einrichten und buchen können Schatzmeisterei und Administration; die Zuordnung der Konten ändert nur die Administration."
+msgstr ""
+
+msgid "Hier stellen Sie die Online-Zahlung ein. Die Zuordnung zu Konten finden Sie unter Kontenplan & Journal, im Reiter Einrichtung."
+msgstr ""
+
+msgid "Kontenplan"
+msgstr ""
+
+msgid "Erlöskonto für Mitgliedsbeiträge"
+msgstr ""
+
+msgid "Erlöskonto für Spenden"
+msgstr ""
+
+msgid "Erlöskonto für Veranstaltungen"
+msgstr ""
+
+msgid "Gebührenkonto (optional)"
+msgstr ""
+
+msgid "Der Kontenplan ist die Liste aller Konten, auf die Ihr Verein bucht. Ohne ihn kann nichts gebucht werden."
+msgstr ""
+
+msgid "Das Konto, auf dem das Geld Ihres Vereins liegt, also Ihr Girokonto."
+msgstr ""
+
+msgid "Ein Erlöskonto sammelt Einnahmen einer Art, zum Beispiel alle Mitgliedsbeiträge."
+msgstr ""
+
+msgid "Hierhin werden Spenden gebucht, für die Sie eine Zuwendungsbestätigung ausstellen."
+msgstr ""
+
+msgid "Hierhin werden Einnahmen aus Veranstaltungen gebucht, zum Beispiel Eintrittsgelder."
+msgstr ""
+
+msgid "Hierhin würden Gebühren des Zahlungsanbieters gebucht. Dieser Schritt darf leer bleiben."
+msgstr ""
+
+msgid "Zum Beispiel: %1"
+msgstr ""
+
+msgid "Noch kein Bankkonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr ""
+
+msgid "Noch kein Aufwandskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr ""
+
+msgid "Noch kein Erlöskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr ""
+
+msgid "Optional"
+msgstr ""
+
+msgid "%1 von %2 Pflichtschritten erledigt"
+msgstr ""
+
+msgid "Die Zuordnung kann nur ein Administrator ändern."
+msgstr ""
+
+msgid "Die Sphäre ist der steuerliche Bereich eines Vereins (ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher Geschäftsbetrieb); sie wird je Buchung gewählt."
+msgstr ""
+
+msgid "Nicht gespeichert"
+msgstr ""
+
+msgid "Das bisher zugeordnete Konto %1 ist deaktiviert. Bitte ein anderes wählen. Beim Speichern wird die alte Zuordnung entfernt."
+msgstr ""
+
+msgid "Zum Kontenplan"
+msgstr ""
+
+msgid "(nicht gewählt)"
+msgstr ""
+
+msgid "Standard verwenden"
+msgstr ""
+
+msgid "Standardkonto %1 nicht im Kontenplan."
+msgstr ""
+
+msgid "Alle Standardkonten vorschlagen"
+msgstr ""
+
+msgid "Zuordnung gespeichert."
+msgstr ""
+
+msgid "%1 aktive Konten im Kontenplan."
+msgstr ""
+
+msgid "Noch kein Konto angelegt. Das legt die Schatzmeisterei oder die Administration an."
+msgstr ""
+
+msgid "Ein Vorschlag. Bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr ""
+
+msgid "Standard-Kontenplan SKR42 für Vereine anlegen"
+msgstr ""
+
+msgid "Standard-Kontenplan anlegen"
+msgstr ""
+
+msgid "Es werden %1 Konten angelegt:"
+msgstr ""
+
+msgid "Kontenplan anlegen"
+msgstr ""
+
+msgid "%1 %2 (%3), %4"
+msgstr ""
+
+msgid "Vorhandene Konten bleiben unverändert."
+msgstr ""
+
+msgid "Angelegte Konten lassen sich später nicht löschen, nur deaktivieren."
+msgstr ""
+
+msgid "Der Kontenplan ist ein Vorschlag; bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr ""
+
+msgid "%1 Konten angelegt, %2 schon vorhanden."
+msgstr ""
+
+msgid "Der Kontenplan wurde inzwischen geändert. Bitte prüfen."
+msgstr ""
+
+msgid "Erweitert"
+msgstr ""
+
+msgid "Die Sphäre der Veranstaltungserlöse ist der steuerliche Bereich, dem Einnahmen aus Veranstaltungen zugerechnet werden."
+msgstr ""
+
+msgid "Auf dieses Aufwandskonto werden Reisekostenabrechnungen gebucht."
+msgstr ""
+
+msgid "Auf dieses Aufwandskonto werden Übungsleiter- und Ehrenamtspauschalen gebucht."
+msgstr ""
+
+msgid "Alle Bereiche"
+msgstr ""
+
+msgid "Kein Bereich"
+msgstr ""
+
+msgid "Wird je Buchung gewählt"
+msgstr ""
+
+msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
 msgstr ""

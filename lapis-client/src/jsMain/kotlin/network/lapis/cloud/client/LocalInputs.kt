@@ -334,8 +334,8 @@ internal fun Container.localTimeInput(
 }
 
 /**
- * A raw date + time input pair: the date field is labelled "[label] (Datum)", the time field "[label] (Uhrzeit)". Pass an already translated
- * [label] (`gettext("Beginn")`).
+ * A raw date + time input pair in the same [dateTimeGroup] structure as [localDateTimeFields]: the legend is [label], the inputs are named
+ * "[label], Datum" and "[label], Uhrzeit" (hidden label plus `aria-label`). Pass an already translated [label] (`gettext("Beginn")`).
  */
 internal fun Container.localDateTimeInput(
     label: String,
@@ -344,18 +344,21 @@ internal fun Container.localDateTimeInput(
     picker: Boolean = true,
     stepMinutes: Int = 1,
 ): LocalDateTimeInput {
-    // The side-by-side row only exists with native pickers; everything else keeps its exact old layout.
+    // The side-by-side row only exists with native pickers; the text fallback keeps its stacked layout.
     val pickerMode = pickerEffective(picker, supportsDatePicker) && pickerEffective(picker, supportsTimePicker)
-    val host: Container = if (pickerMode) div { addCssClass("lapis-datetime-row") } else this
-    return LocalDateTimeInput(
-        date = host.localDateInput(label = gettext("%1 (Datum)", label), value = value?.date, hintLine = hintLine, picker = pickerMode),
-        time =
-            host.localTimeInput(
-                label = gettext("%1 (Uhrzeit)", label),
-                value = value?.time,
-                hintLine = hintLine,
-                picker = pickerMode,
-                stepMinutes = stepMinutes,
-            ),
-    )
+    val group = dateTimeGroup(label, pickerMode)
+    val dateName = gettext("%1, Datum", label)
+    val timeName = gettext("%1, Uhrzeit", label)
+    val date = group.inner.localDateInput(label = dateName, value = value?.date, hintLine = hintLine, picker = pickerMode)
+    val time =
+        group.inner.localTimeInput(
+            label = timeName,
+            value = value?.time,
+            hintLine = hintLine,
+            picker = pickerMode,
+            stepMinutes = stepMinutes,
+        )
+    date.input.hideVisibleLabel(dateName)
+    time.input.hideVisibleLabel(timeName)
+    return LocalDateTimeInput(date = date, time = time)
 }

@@ -2649,3 +2649,79 @@ building blocks live in `MasterDetail.kt`.
 * Two sizes: *22 px* (navbar, login lockup, `LAPIS_CLOUD_MARK_SVG`) with the gold sparkle, *12 px* (footer credit, `LAPIS_CLOUD_MARK_SMALL_SVG`) without it. Rule: the sparkle only exists from 22 px upward. The 22 px matches `.lapis-brand-logo` (`max-height: 22px`) so the navbar does not jump between the default mark and an operator logo.
 * An operator logo (`Branding.logoUrl`) always wins; with a custom title and no logo no mark is shown.
 * Favicons live in `lapis-client/src/jsMain/resources` and are linked from `index.html` in this order: `favicon.ico` (32), `favicon.svg` (light), `favicon-dark.svg` (dark), `favicon-32.png`, `apple-touch-icon.png` (180). All paths are absolute (`/...`), because the SPA lives under `/app`. The light/dark pair follows the *operating system* (`prefers-color-scheme`), not the in-app switch; no script swaps the icon. Safari ignores `media` on icon links and uses the ICO / PNG.
+
+== Inline field rows, date and time groups, amounts and the stake suggestion (V1.9.200)
+
+* *Inline field row.* `inlineFieldRow()` is one wrapping row; each labelled field has its label *beside* the control (CSS only, KVision's `form-group`
+  stays). `inlineFieldGroup()` keeps label, field and button together: the group wraps as a whole, never between the field and its button. Field,
+  select and button of such a row share one height (`calc(1.5em + .75rem + 2px)`) and one centre line. The boost amount of a post card is the
+  example: `Thread öffnen`, `Antworten`, the group (`Boost-Betrag (LTR)`, 8 rem field, `Boosten`), a flexible spacer, and `Löschung beantragen (DSGVO)` on the right.
+  The label keeps its unit "(LTR)": the unit says what the number is. The field has `inputmode="decimal"`, the placeholder "LTR" and an `aria-label`.
+* *Filter row.* `filterRow(hint)` keeps the labels *above* the controls and one shared bottom edge, so a "Filtern" button sits on the line of the
+  fields. "Alle Filter sind optional." stands *once*, muted, above the block (pass `hint = null` for the second row of the same block); the labels
+  carry no "(optional)" suffix.
+* *Date and time are one group.* `localDateTimeFields()` and `localDateTimeInput()` build the same structure: `fieldset.lapis-datetime-group` with
+  a `legend` (the caller's label, for example "Anmeldeschluss (optional)", on one line) and the two inputs in `.lapis-datetime-row`. The inner
+  labels are visually hidden and each input has an `aria-label` ("Beginn, Datum", "Beginn, Uhrzeit"), so no "(Datum)"/"(Uhrzeit)" is shown twice.
+  The required star stands on the legend, once. Below 30rem the two fields stack. The text fallback keeps its stacked layout inside the same fieldset.
+* *Amounts follow the UI language.* `parseAmountInput` removes blanks, U+00A0, U+202F and apostrophes; with both `.` and `,` the last one is the
+  decimal sign; with one sign, the decimal sign of the UI language is the decimal sign, the other sign is grouping when it stands once with exactly
+  three digits behind it or several times in groups of three. So `1.234` is 1234 in German and refused in English (three decimal places), `1,234`
+  the other way round; `0,1` and `0.1` are 0.1 in both. LTR fields (stake, boost, bid, transfer) use `parseLtrAmountInput`: more than two decimal
+  places are *refused with a message*, no longer rounded silently.
+* *Stake suggestion.* Under the stake field of the compose form, once timeline and balance are loaded: the stake that beats the highest total weight
+  of all loaded posts by 0.01, rounded up to whole cents (`suggestStake`, cents over the decimal text, never `Double`). If the balance covers it, a
+  text button "Vorschlag übernehmen" writes the figure; if not, the line says so and has no button. *The field is never prefilled.* The reply form
+  of a thread has no suggestion (it has no timeline). The figure is a snapshot: weights decay.
+* *`PageWidth.FORM` is for forms.* A file with `PageWidth.FORM` and a table fails `FormShellTableSourceScanTest`; use `PageWidth.WIDE` or add the file
+  to its allow-list with a reason (it is empty today). `ReceivableDunningSettingsScreen` moved to `WIDE`.
+
+== Tenders: the server gives the reasons, the client shows the allowed (V1.9.202)
+
+The tender screens are the example for a rule that holds for every screen with permissions: the **server** decides and ships the result as fields (`bidBlockedReason`, `bidView`, `awardable`, `awardReadiness`, `viewerIsConflicted`); the client renders the matching text or control and never recomputes a rule. A control that is not allowed is not drawn; where the reason matters (a guest cannot bid in LTR, the deadline has passed) the reason is drawn instead, as text.
+
+A choice that is not available is shown **disabled with its reason in plain sight**, not only as a tooltip: the payment segment shows "Euro" disabled and the sentence "Euro-Vergütung kommt später." below it. A motion that cannot be chosen stays in its list with the reason in the option text and is refused at the field (`TenderLabels.motionReason`). The sentences that explain the three visibilities are the same in the form, on the page and in the organisation settings (`tenderVisibilityExplanation`).
+
+The tender page uses the narrow form shell although it holds a small bid table (five narrow columns, scrolls inside its own frame); it is on the allow list of `FormShellTableSourceScanTest` with that reason. Row actions are icon-only buttons named "<Verb> <Name>" (R58); the award uses the new icon `AWARD`.
+
+== Master-detail, fifth family: Veranstaltungen (V1.9.204)
+
+`/events` is a master table (title link to `/events/:id`, date, place, occupancy, status, icon-only row actions) and `/events/:id` the detail page, in the
+same grammar as above (`MASTER_DETAIL_ROUTES`, deterministic back button, focus back to the link). The literal `/events/import` is registered BEFORE
+`/events/:id` and the id handler guards it once more. The edit form is open on the detail page, not folded.
+
+Two small patterns from this wave:
+
+* **Fold a long text out of a table row with a button**: the row has a hidden detail row (`d-none`, so `aria-controls` always names a real element); the
+  icon-only button carries `aria-expanded` and an `aria-label` naming person and verb; the text is set as element text (`untrustedDiv`), never as HTML.
+* **Export link in the section header**: a text link ("Alle Anmeldungen als CSV") on the right of the section header, always the WHOLE list whatever
+  the filter shows. The filter is a `segmentedRadioGroup` over loaded rows (no second request).
+
+== Menu search (V1.9.203)
+
+The sidebar starts with a search field and Ctrl+K / Cmd+K opens the same search as a dialog (user description: `docs/features/menu-search.adoc`).
+
+*Where the index comes from.* `buildSidebar` registers every link it builds in `MenuIndex` (`sidebarLink` does it, with the group label that `sidebarGroup` sets while its content runs). The role and status gates therefore exist once, in the sidebar code, and the search cannot offer what the menu hides. A link that is built but hidden later (the member finder) is asked at query time (`isVisible`). The index holds the base title: the counters of the approval links change `link.label` afterwards and never reach the index. `MenuIndexCompletenessTest` builds the sidebar for every kind of person, requires index = rendered links, and requires search words (or a written reason) for every destination. A new sidebar link without a row in `MenuSearchKeywords` fails the build.
+
+*Shortcut rule.* One `document` keydown listener, bubble phase, installed once with `CommandPalette.install`. It ignores a key that another handler already took (`defaultPrevented`), `contenteditable` areas, `textarea`, input composition, and Alt or Shift. The mail editor relies on this order: it calls `preventDefault()` on its own element first. Do not move the listener to the capture phase.
+
+*Focus.* The palette is a modal dialog: Tab is trapped, Escape and a click on the backdrop close it, and the focus returns to the element that had it (or is dropped when that element is gone after a sidebar rebuild). The sidebar field keeps the focus when the shortcut is pressed in it. The input is a combobox with `aria-activedescendant`; the focus never moves into the list. The mouse must not take the focus from the input (`mousedown` is prevented on the options), otherwise the overlay would close before the click lands.
+
+*Text.* Titles, groups and queries reach the DOM as text nodes only (no `innerHTML`); a hit is highlighted by `<mark>` elements built from the plain pieces, with the ranges mapped back from the folded text (`ß`->`ss` and `ae`->`a` change lengths).
+
+*Styles.* The classes `.lapis-menu-search*` and `.lapis-command-palette*` sit above the final reduced-motion block of `theme.css`; they have no `transition`, no `animation` and no backdrop blur (R54). The overlay is absolutely positioned and does not scroll (R59).
+
+*Planned, not built.* Phase 2 (sections of settings pages, help topics) and a declarative `NavEntry` list that both the sidebar and the index would be built from. Until then the sidebar stays imperative.
+
+== Finance pages must work for laypeople (V1.9.206)
+
+A treasurer sets up the books once and may never have seen a ledger. The finance setup (`FinanceSetupTab`, user description: `docs/features/finance-setup.adoc`) is the pattern:
+
+* *Plain language and safe defaults.* Every step has a title, one explanatory sentence and an example; "Standard verwenden" fills the proposed account but never saves. A select offers only what the server would accept (one shared rule, `FinanceSetupStep.accepts`); a wrong type is absent, not greyed out.
+* *A technical word always comes with one sentence* ("Ein Erlöskonto sammelt Einnahmen einer Art ..."; the sphere). *Confirm before an irreversible creation*, with the full list and the sentence that created accounts can only be deactivated; the focus starts on "Abbrechen".
+* *Red only for a real error.* An incomplete setup is yellow ("unvollständig"), a deactivated mapped account is the real error. State is never colour alone: icon and word.
+* *The next step is visible and linked.* The first open required step is accentuated; every hint names the missing step and links to it (`?tab=einrichtung&step=<slug>`).
+* *Tabs after WAI-ARIA, not `segmentedControl`.* `pageTabs`: `tablist`/`tab`/`tabpanel`, roving `tabindex`, arrows with wrap-around, Home/End, selection follows focus, inactive panels `hidden`, panels render on first use. `segmentedControl` is a filter (`aria-pressed`).
+* *Deep link.* `?tab=` and `?step=` live in the one hash query (a second `#` is impossible in hash routing); a tab change calls `history.replaceState`, never `location.hash =`, so the router does not re-render and typed input survives.
+* *One home for a setting.* The account mapping lives only in the setup tab; other pages show a status line and a link.
+* *One filter row, no nested toolbar.* Search, labelled status group, dates and refresh button are direct children of one `inlineFieldRow` and share a centre line (`dateRangeFields` places the two dates into any row; `dateRangeFilter` wraps them in a toolbar for the screens that still want one).

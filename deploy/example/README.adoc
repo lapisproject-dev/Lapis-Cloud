@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.38.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.39.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -343,7 +343,7 @@ on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, 
 (GitHub package settings; an organisation must allow public packages first). Check
 `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
 keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
-`LAPIS_IMAGE_TAG=0.38.0` (no `v`; the git tag is `v0.38.0`, the image tag is `0.38.0`).
+`LAPIS_IMAGE_TAG=0.39.0` (no `v`; the git tag is `v0.39.0`, the image tag is `0.39.0`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -364,6 +364,8 @@ each of them -- see the CHANGELOG "Operator notes" entry for this wave for the f
 the exact command. Run it once per instance before rebuilding that instance below.
 
 Upgrading from `v0.37.7` to `v0.38.0` adds three additive migrations (`V112` agreement text format, `V113` travel expense attachments, `V114` travel expense documents and the Markdown hint format; the reported migration count goes up by exactly three, check the real count) and needs no `flywayRepair` of its own: take a backup as always, set `LAPIS_IMAGE_TAG=0.38.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** (1) agreement texts saved from now on are Markdown; existing versions stay plain text and are shown exactly as before, and the consent hash is unchanged; (2) travel expense attachments, receipts and the new documents for members are stored as files like the existing receipts (they are part of the organisation backup); no retention period is set and there is no virus scan, so keeping or deleting the files is the operator's job until the legal review is done; (3) an operator logo keeps precedence over the new default Lapis Cloud mark; (4) the rest is client behaviour (wide page shell, tables with detail pages, collapsible intros). The staging seed top-up of LTR balances runs only in staging mode on the seeded test instance. Tested in headless Chrome and on H2; PostgreSQL scenarios run only with `LAPIS_TEST_POSTGRES_URL`.
+
+Upgrading from `v0.38.0` to `v0.39.0` adds three additive migrations (`V115` tenders, `V116` tender description format, `V117` event registration message and the export audit literal; the reported migration count goes up by exactly three, check the real count) and needs no `flywayRepair` of its own: take a backup as always, set `LAPIS_IMAGE_TAG=0.39.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** (1) the payment activation (`enablePaymentGateway`) now refuses while the bank, contribution, donation or event income account is missing, inactive or of the wrong type; an instance whose online payment is **already switched on** is not switched off by this and keeps working, but switching it off and on again meets the gate; the account mapping moved from the payment configuration page to Finanzen > Kontenplan & Journal > Einrichtung; (2) the standard chart of accounts for associations (version `skr42-verein-2026-10`) is created only on a click of the treasurer or administrator, it is a proposal and a tax advisor must confirm it; (3) tenders (Ausschreibungen) are LTR only, nothing is booked in LTR yet, and guests cannot bid; (4) the events list is a table with a detail page and a CSV export of the registrations (one audit entry per export); (5) the rest is client behaviour (menu search with Ctrl+K / Cmd+K, inline field rows, amounts with thousands separators). The staging seed top-up parts (V1.9.205) run only in staging mode on the seeded test instance and the demo. Tested in headless Chrome and on H2; PostgreSQL scenarios run only with `LAPIS_TEST_POSTGRES_URL`; nothing was run against a real instance or opened in a real Excel.
 
 Upgrading from `v0.37.6` to `v0.37.7` adds no migration (the schema stays `V111`) and needs no `flywayRepair`: take a backup as always, set `LAPIS_IMAGE_TAG=0.37.7`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** client-only release, tested only in headless Chrome; nothing changes in the database or on the server. Every date and time field of the application now uses the browser's native picker (with the old text field as fallback), the settings pairs of Auktion, Mahnwesen, Forderungs-Mahnwesen, Online-Zahlung and SEPA-Lastschrift show only the applicable action (activate or deactivate), and the draft of a travel expense shows its days as one row per day.
 
@@ -1953,8 +1955,37 @@ low-balance case), Mia (friend) 20.00, and between 10 and 80 for the other activ
 ACTIVE or FRIEND receive nothing, and a transfer is skipped when either end is not eligible. Every outgoing transfer is covered by
 the sender's own earlier mints, so no balance can become negative.
 
-Honest limits: only LTR (no crowdfunding projects, no auctions yet). The mints are back-dated, so a new vote in a running seed poll
+Honest limits: this step is only LTR; the sample data for the LTR economy follows in the next section. The mints are back-dated, so a new vote in a running seed poll
 sees them, while the existing seed poll answers keep their weight 0. Nothing is pushed to or checked on the real staging instance.
+
+=== Seed top-up part 2 (V1.9.205)
+
+After the LTR step the same start-up call runs eight **parts** on the seeded test instance: `crowdfunding`, `auctions`, `social`, `politicians`,
+`governance` (two committees and five motions for the tender screen), `tenders`, `events` and `oracle` (price history). Same two guards as the
+LTR step, and every part runs in its own transaction that starts with the instance check again. A part that fails is rolled back alone and logged
+by its name (no person data); the other parts and the server start go on. No migration, no new environment variable.
+
+What it writes (all texts say "Demodaten", ids in the namespaces `0000000a-0000-0000-0000-70...` to `...77...`, ledger notes start with `[SEED]`):
+
+* five crowdfunding projects in every state of the model plus reactions (the model has no pledges and no funded/expired status);
+* five auctions (open, sold, closed without a sale, instant purchase; the model has no "cancelled" status), with the exact ledger chain of the
+  live service;
+* nine posts, three comments, four boosts, one post hidden by its author and one removed for a legal reason;
+* five politician profiles (two with the public-listing consent) and ten reactions;
+* four tenders (draft, running with hidden bids, awarded, running with open bids), 40 event registrations in five events, and 90 days of EUR
+  quotes for the three anchors.
+
+How it stays safe to run again: an entity is written whole or not at all, and only when its root id is missing, the members have a fitting status
+and the current free LTR balance covers every debit (otherwise it is skipped; the check looks at today's balance only, so on an instance with later ledger activity of its own a back-dated debit can make a past balance negative). Existing rows are never changed or
+deleted, hand-made rows stay. The price history is written only into an empty `price_oracle_snapshot` table. The audit chain grows only by the
+events the live service audits too (publish and award of a tender, the legal removal, the three resolutions).
+
+**What you still have to switch on**: auctions (Administration, with the compliance acknowledgement) and the politician ranking are off by default
+and the seed does not switch them on; until then their data is there but not shown.
+
+Honest limits: open auctions, open tenders and upcoming events expire on staging, because the seed never overwrites (the demo is re-seeded every
+night). Resolutions carry the moment of the seed run as their decision time. Checked on H2 and in the PostgreSQL test lane only; nothing is run
+against the real staging instance.
 
 === What it deliberately does not contain
 
@@ -1966,7 +1997,8 @@ sees them, while the existing seed poll answers keep their weight 0. Nothing is 
 * **Manual journal entries, opening balance, donations**: the general ledger only holds what the bridges book (contribution
   payments, open-item creation).
 * **A settled open item** and **a waived contribution**.
-* **Weighted poll results**: there is no LTR data, so the weighted result reads "not available" (the head count is shown).
+* **Weighted poll results**: the seed polls were answered before any LTR existed, so their weighted result reads "not available" (the head count is shown).
+* **Politician photos, crowdfunding distributions and public member bios**: a photo needs a file in storage (an effect outside the transaction), a distribution is a live treasurer action.
 * **The encounter space** and **crest images**.
 * **SEPA without a key**: if `LAPIS_SECRET_ENCRYPTION_KEY` is not set (or invalid) the seed skips SEPA completely and logs one
   INFO line; everything else is still seeded.

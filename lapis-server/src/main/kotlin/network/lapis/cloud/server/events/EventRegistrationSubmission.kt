@@ -142,7 +142,14 @@ internal class EventRegistrationSubmission(
     private val checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
     private val baseUrl: String,
     private val mailDispatcher: MailDispatcher,
+    // V1.9.204 -- tells the event's creator about a registration that carries a message; `DISABLED` for callers without one.
+    private val messageNotifier: EventRegistrationMessageNotifier = EventRegistrationMessageNotifier.DISABLED,
 ) {
+    /**
+     * Registers [participant] for [eventId]. [message] is the registrant's optional note to the organisers, ALREADY normalised by
+     * `EventRegistrationMessage.normalize` (the caller rejects an over-long text before any rate-limit budget is spent). After a
+     * successful placement (confirmed, payment pending or waitlisted) the creator is notified -- outside any transaction.
+     */
     suspend fun submit(
         eventId: Uuid,
         participant: EventParticipant,
@@ -160,6 +167,28 @@ internal class EventRegistrationSubmission(
         // form-route one in `payment_checkout_session`, making a per-partner-origin audit/takedown
         // impossible.
         embedOrigin: String? = null,
+        message: String? = null,
+    ): EventRegistrationResult {
+        val result = submitPlaced(eventId = eventId, participant = participant, now = now, embedOrigin = embedOrigin, message = message)
+        if (message != null) {
+            val registrationId =
+                when (result) {
+                    is EventRegistrationResult.Confirmed -> result.registrationId
+                    is EventRegistrationResult.PaymentRequired -> result.registrationId
+                    is EventRegistrationResult.Waitlisted -> result.registrationId
+                    else -> null
+                }
+            if (registrationId != null) messageNotifier.notify(registrationId = registrationId, participant = participant)
+        }
+        return result
+    }
+
+    private suspend fun submitPlaced(
+        eventId: Uuid,
+        participant: EventParticipant,
+        now: LocalDateTime,
+        embedOrigin: String?,
+        message: String?,
     ): EventRegistrationResult {
         // 1. Resolve + a CHEAP pre-lock registration-window check (early exit for the common case
         // only -- step 3 re-checks this authoritatively against the LOCKED row).
@@ -236,6 +265,7 @@ internal class EventRegistrationSubmission(
                             confirmedAt = if (gatewayNeeded) null else now,
                             ticketCodeSha256 = ticket?.sha256,
                             ticketIssuedAt = if (ticket != null) now else null,
+                            message = message,
                         )
                         Placement.Placed(needsPayment = gatewayNeeded, feeAmount = feeAmount, ticketRawCode = ticket?.rawCode)
                     } else {
@@ -254,6 +284,7 @@ internal class EventRegistrationSubmission(
                             cancelTokenHash = cancelTokenHash,
                             now = now,
                             confirmedAt = null,
+                            message = message,
                         )
                         Placement.Waitlisted(position)
                     }
@@ -652,6 +683,7 @@ internal class EventRegistrationSubmission(
         confirmedAt: LocalDateTime?,
         ticketCodeSha256: String? = null,
         ticketIssuedAt: LocalDateTime? = null,
+        message: String? = null,
     ) {
         // Savepoint (V1.9.37): the caller catches a `uq_event_registration_active_participant` violation
         // and goes on using this transaction (promotion sweep, commit). On PostgreSQL that violation
@@ -673,6 +705,7 @@ internal class EventRegistrationSubmission(
                 confirmedAt = confirmedAt,
                 ticketCodeSha256 = ticketCodeSha256,
                 ticketIssuedAt = ticketIssuedAt,
+                message = message,
             )
         }
     }

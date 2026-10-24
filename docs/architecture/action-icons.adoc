@@ -26,6 +26,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `OPEN_EXTERNAL` | `fa-arrow-up-right-from-square` | opens another site or tab
 | `BACK`, `NEXT` | `fa-arrow-left`, `fa-arrow-right` | Zurück, Weiter, Öffnen; V1.9.192: `BACK` is also the "Zur Übersicht" button above the title of a master-detail page (`overviewBackButton`); V1.9.194: `BACK` is always shown with a visible text that names the goal (`backButton`); inside an inline confirmation step it stays as the step back (R27, named in `ClientBackButtonTripwireTest`). V1.9.194: row actions of the Räume, Catering and Helfer-Schichten tables are icon-only `tableActionButton`s named "<Verb>: <Name>" (`EDIT`, `REVOKE` = Deaktivieren, `APPROVE` = Aktivieren, `DELETE`, `UNDO` = Stornieren, `VIEW` = Zusagen anzeigen); V1.9.193: also on the motion page
 | `APPROVE`, `REJECT` | `fa-circle-check`, `fa-circle-xmark` | Genehmigen, Ablehnen
+| `AWARD` | `fa-trophy` | V1.9.202: "Zuschlag erteilen" on a bid of a tender (icon-only row action "Zuschlag erteilen an <Name>" and the confirming verb of its dialog); NOT `APPROVE` (that is the acceptance of the result)
 | `SEND` | `fa-paper-plane` | Senden, Per Post versenden
 | `REVOKE` | `fa-ban` | Widerrufen, Deaktivieren
 | `LOCK` | `fa-lock` | reserved

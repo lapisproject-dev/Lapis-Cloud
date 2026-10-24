@@ -33,6 +33,7 @@ import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.domain.OrganizationSettingsPaymentMappingSnapshot
 import network.lapis.cloud.shared.domain.PULPIT_RECORDING_NOTICE_VERSION
 import network.lapis.cloud.shared.domain.PaymentAccountMapping
+import network.lapis.cloud.shared.domain.TenderBidVisibility
 import network.lapis.cloud.shared.domain.paymentAccountMappingConflictOf
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.EventCaptureBusyException
@@ -119,6 +120,44 @@ class OrganizationSettingsService(
                 loadOrganizationSettings().withInfrastructure() to (before != enabled)
             }
         if (result.second) logger.info { "noise suppression default set to $enabled by ${current.memberId}" }
+        return result.first
+    }
+
+    /**
+     * V1.9.201 -- the ONLY way to change [OrganizationSettingsDto.tenderDefaultVisibility] (ADMIN): the pre-selected bid visibility of a new
+     * tender. A change writes one [AuditEntityType.ORGANIZATION_SETTINGS] `UPDATE` entry (before/after as a one-field JSON snapshot, no personal
+     * data); setting the value it already has writes neither a row nor an audit entry. The generic [updateOrganizationSettings] never touches the
+     * column. A tender that is already published keeps its own visibility (there is no way to change that).
+     */
+    override suspend fun updateTenderDefaultVisibility(visibility: TenderBidVisibility): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val result =
+            transaction {
+                val before =
+                    OrganizationSettingsTable
+                        .select(OrganizationSettingsTable.tenderDefaultVisibility)
+                        .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                        .singleOrNull()
+                        ?.get(OrganizationSettingsTable.tenderDefaultVisibility)
+                        ?: TenderBidVisibility.HIDDEN_UNTIL_DEADLINE
+                if (before != visibility) {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[tenderDefaultVisibility] = visibility
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = "{\"tenderDefaultVisibility\":\"${before.name}\"}",
+                        after = "{\"tenderDefaultVisibility\":\"${visibility.name}\"}",
+                    )
+                }
+                loadOrganizationSettings().withInfrastructure() to (before != visibility)
+            }
+        if (result.second) logger.info { "tender default visibility changed by ${current.memberId}" }
         return result.first
     }
 
@@ -617,6 +656,7 @@ class OrganizationSettingsService(
                 // updatePulpitRecordingEnabled / updatePulpitRecordingRequireConfirmation may set them.
                 // V1.9.144: memberFinderEnabled / memberFinderNoticeVersion likewise -- only updateMemberFinderEnabled may set them.
                 // V1.9.156: eventCaptureEnabled / eventCaptureNoticeVersion likewise -- only updateEventCaptureEnabled may set them.
+                // V1.9.201: tenderDefaultVisibility likewise -- only updateTenderDefaultVisibility may set it.
             }
 
             val afterMapping =
@@ -829,6 +869,8 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         // V1.9.156 -- read-only here, set only through updateEventCaptureEnabled. eventCaptureTextIsPlaceholder is filled by loadOrganizationSettings().
         eventCaptureEnabled = this[OrganizationSettingsTable.eventCaptureEnabled],
         eventCaptureNoticeVersion = this[OrganizationSettingsTable.eventCaptureNoticeVersion],
+        // V1.9.201 -- read-only here, set only through updateTenderDefaultVisibility.
+        tenderDefaultVisibility = this[OrganizationSettingsTable.tenderDefaultVisibility],
     )
 
 /**

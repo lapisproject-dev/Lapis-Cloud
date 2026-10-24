@@ -1849,10 +1849,6 @@ msgstr "Administracja"
 msgid "Administrator"
 msgstr "Administrator"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:91
-msgid "Akteur-Mitglieds-ID (optional)"
-msgstr "ID członka-aktora (opcjonalnie)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:359
 msgid "Akteur: %1"
 msgstr "Aktor: %1"
@@ -3318,10 +3314,6 @@ msgstr "Do (RRRR-MM-DD)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:95
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Do (RRRR-MM-DDTHH:MM:SS, opcjonalnie)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:204
-msgid "Bis Sequenznummer (optional)"
-msgstr "Do numeru sekwencyjnego (opcjonalnie)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:726
 msgid "Bisherige Jahressumme (vor dieser Spende)"
@@ -4821,10 +4813,6 @@ msgstr "Wstrzymania"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:360
 msgid "Entität: %1"
 msgstr "Encja: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:90
-msgid "Entitäts-ID (optional)"
-msgstr "ID encji (opcjonalnie)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:89
@@ -6378,18 +6366,6 @@ msgstr "Klasa konta %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:468
 msgid "Kontenplan & Journal"
 msgstr "Plan kont i dziennik"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:789
-msgid "Kontenzuordnung gespeichert."
-msgstr "Przypisanie kont zapisane."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:757
-msgid "Kontenzuordnung speichern"
-msgstr "Zapisz przypisanie kont"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:313
-msgid "Kontenzuordnung Zahlungsverkehr"
-msgstr "Przypisanie kont płatności"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:90
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:100
@@ -8879,13 +8855,6 @@ msgstr ""
 "Cena zakupu natychmiastowego (LTR, opcjonalnie -- musi być wyższa niż cena "
 "wywoławcza)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:604
-msgid ""
-"Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt "
-"markierter Beitrag NICHT gebucht -- der Status wechselt trotzdem auf "
-"\"bezahlt\"."
-msgstr "Dopóki jedno z trzech kont nie jest przypisane, składka oznaczona jako opłacona NIE jest księgowana -- status mimo to zmienia się na \"opłacona\"."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1165
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1513
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2318
@@ -9838,10 +9807,6 @@ msgstr "Od (RRRR-MM-DD, pole obowiązkowe)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:94
 msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Od (RRRR-MM-DDTHH:MM:SS, opcjonalnie)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:203
-msgid "Von Sequenznummer (optional)"
-msgstr "Od numeru sekwencyjnego (opcjonalnie)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:400
 msgid "Vorher"
@@ -11881,10 +11846,6 @@ msgstr "Ukryj"
 msgid "In „Offene Posten“ öffnen"
 msgstr "Otwórz w „Otwarte pozycje”"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:409
-msgid "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2"
-msgstr "Konto należności (dłużnicy): %1 · Konto zobowiązań (wierzyciele): %2"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:485
 msgid "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht."
 msgstr "Bez konta należności i konta zobowiązań otwarte pozycje są tworzone, ale nie są księgowane."
@@ -12036,10 +11997,6 @@ msgstr "Wstecz"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:353
 msgid "Verrechnung gebucht."
 msgstr "Potrącenie zaksięgowane."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:48
-msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
-msgstr "Podaj kwotę w formacie 1234,56 (bez separatorów tysięcy)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:53
 msgid "Höchstens %1 Nachkommastellen erlaubt."
@@ -13764,10 +13721,6 @@ msgstr "Wszystkie skonfigurowane stopnie wezwań zostały już wykorzystane w bi
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:208
 msgid "BIC"
 msgstr "BIC"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:553
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8"
-msgstr "Rachunek bankowy: %1 · Konto opłat: %2 · Konto przychodów ze składek: %3 · Konto przychodów z darowizn: %4 · Konto przychodów z wydarzeń: %5 (%6) · Konto kosztów podróży: %7 · Konto kosztów ryczałtów wolontariackich: %8"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
 msgid "Bankname"
@@ -15608,18 +15561,6 @@ msgstr "Adres URL webhooka do wpisania w panelu deweloperskim PayPal: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
 msgid "Bankkonto zugeordnet"
 msgstr "Konto bankowe przypisane"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Beitragserlöskonto zugeordnet"
-msgstr "Konto przychodów ze składek przypisane"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Spendenerlöskonto zugeordnet"
-msgstr "Konto przychodów z darowizn przypisane"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Gebührenkonto zugeordnet"
-msgstr "Konto opłat przypisane"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
 msgid "Erfasst"
@@ -24050,12 +23991,6 @@ msgstr "Tekst umowy jest niedozwolony. Sprawdź długość, znaki, wersję i dat
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "Wersja robocza została w międzyczasie zmieniona. Odśwież widok i sprawdź ją ponownie."
 
-msgid "%1 (Datum)"
-msgstr "%1 (data)"
-
-msgid "%1 (Uhrzeit)"
-msgstr "%1 (godzina)"
-
 msgid "Aufsichtsbehörde benachrichtigt am (optional)"
 msgstr "Organ nadzorczy powiadomiony dnia (opcjonalnie)"
 
@@ -24067,9 +24002,6 @@ msgstr "Osoby, których dane dotyczą, powiadomione dnia (opcjonalnie)"
 
 msgid "Bis (Pflichtfeld)"
 msgstr "Do (wymagane)"
-
-msgid "Bis (optional)"
-msgstr "Do (opcjonalnie)"
 
 msgid "Bitte AM oder PM angeben."
 msgstr "Proszę podać AM lub PM."
@@ -25984,3 +25916,816 @@ msgstr "Pobierz %1 (%2, %3)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
 msgid "Unterlagen verwalten"
 msgstr "Zarządzaj dokumentami"
+
+msgid "Alle Filter sind optional."
+msgstr "Wszystkie filtry są opcjonalne."
+
+msgid "%1, Datum"
+msgstr "%1, data"
+
+msgid "%1, Uhrzeit"
+msgstr "%1, godzina"
+
+msgid "Bitte einen Betrag wie %1 eingeben."
+msgstr "Proszę podać kwotę, na przykład %1."
+
+msgid "Boost-Betrag in LTR"
+msgstr "Kwota boosta w LTR"
+
+msgid "Um aktuell ganz oben zu stehen: %1"
+msgstr "Aby być teraz na samej górze: %1"
+
+msgid "Ihr Guthaben reicht nicht, höchstens %1."
+msgstr "Państwa saldo nie wystarcza, najwyżej %1."
+
+msgid "Vorschlag übernehmen"
+msgstr "Zastosuj propozycję"
+
+msgid "Entitäts-ID"
+msgstr "ID encji"
+
+msgid "Akteur-Mitglieds-ID"
+msgstr "ID członka wykonawcy"
+
+msgid "Von Sequenznummer"
+msgstr "Od numeru kolejnego"
+
+msgid "Bis Sequenznummer"
+msgstr "Do numeru kolejnego"
+
+msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
+msgstr "Podaj kwotę w formacie 1234,56 (bez separatorów tysięcy)."
+
+msgid "Ausschreibungen"
+msgstr "Przetargi"
+
+msgid "Standard-Sichtbarkeit der Angebote"
+msgstr "Domyślna widoczność ofert"
+
+msgid "Verdeckt bis zur Frist"
+msgstr "Ukryte do terminu"
+
+msgid "Bieter sehen nur ihr eigenes Angebot"
+msgstr "Oferenci widzą tylko własną ofertę"
+
+msgid "Gilt als Vorbelegung beim Anlegen einer Ausschreibung; nach dem Veröffentlichen nicht mehr änderbar."
+msgstr "Służy jako ustawienie wstępne przy tworzeniu przetargu; po opublikowaniu nie można go zmienić."
+
+msgid "Unbekannte Auswahl"
+msgstr "Nieznany wybór"
+
+msgid "Ausschreibung"
+msgstr "Przetarg"
+
+msgid "Hier schreibt der Vorstand Aufträge aus, die ein Beschluss vorsieht. Mitglieder und Freunde geben bis zur Frist ein Angebot ab."
+msgstr "Tutaj zarząd ogłasza przetargi na zlecenia przewidziane uchwałą. Członkowie i przyjaciele składają oferty do wyznaczonego terminu."
+
+msgid "Nur eigenes Angebot sichtbar"
+msgstr "Widoczna tylko własna oferta"
+
+msgid "Abgenommen"
+msgstr "Odebrano"
+
+msgid "%1 Tag"
+msgid_plural "%1 Tage"
+msgstr[0] "%1 dzień"
+msgstr[1] "%1 dni"
+msgstr[2] "%1 dni"
+
+msgid "%1 Stunde"
+msgid_plural "%1 Stunden"
+msgstr[0] "%1 godzina"
+msgstr[1] "%1 godziny"
+msgstr[2] "%1 godzin"
+
+msgid "noch %1 und %2"
+msgstr "jeszcze %1 i %2"
+
+msgid "noch %1"
+msgstr "jeszcze %1"
+
+msgid "Erwartetes Ergebnis"
+msgstr "Oczekiwany rezultat"
+
+msgid "abgelaufen am %1"
+msgstr "wygasł %1"
+
+msgid "Vergabe nach: %1"
+msgstr "Rozstrzygnięcie według: %1"
+
+msgid "Vergütung: %1"
+msgstr "Wynagrodzenie: %1"
+
+msgid "Sichtbarkeit der Angebote: %1"
+msgstr "Widoczność ofert: %1"
+
+msgid "Beruht auf: "
+msgstr "Na podstawie: "
+
+msgid "Als Gast können Sie auf diese Ausschreibung nicht bieten: Sie wird in LTR vergütet, und Gäste führen ihr LTR-Konto auf ihrem Heimatserver."
+msgstr "Jako gość nie może Pan/Pani składać ofert w tym przetargu: jest on wynagradzany w LTR, a goście prowadzą konto LTR na swoim serwerze macierzystym."
+
+msgid "Sie können auf diese Ausschreibung nicht bieten."
+msgstr "Nie może Pan/Pani składać ofert w tym przetargu."
+
+msgid "Diese Ausschreibung ist noch nicht veröffentlicht."
+msgstr "Ten przetarg nie został jeszcze opublikowany."
+
+msgid "Diese Ausschreibung wurde abgesagt."
+msgstr "Ten przetarg został odwołany."
+
+msgid "Die Frist ist abgelaufen. Es können keine Angebote mehr abgegeben werden."
+msgstr "Termin upłynął. Nie można już składać ofert."
+
+msgid "Diese Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "Ten przetarg nie przyjmuje już kolejnych ofert."
+
+msgid "Ihr Angebot"
+msgstr "Pana/Pani oferta"
+
+msgid "Preis: %1"
+msgstr "Cena: %1"
+
+msgid "Angebot zurückziehen"
+msgstr "Wycofaj ofertę"
+
+msgid "Sie haben Ihr Angebot zurückgezogen. Sie können bis zur Frist ein neues abgeben."
+msgstr "Wycofał(a) Pan/Pani ofertę. Do terminu można złożyć nową."
+
+msgid "Angebot ändern"
+msgstr "Zmień ofertę"
+
+msgid "Angebot zurückziehen?"
+msgstr "Wycofać ofertę?"
+
+msgid "Sie können bis zur Frist jederzeit ein neues Angebot abgeben."
+msgstr "Do terminu może Pan/Pani w każdej chwili złożyć nową ofertę."
+
+msgid "Angebot zurückgezogen."
+msgstr "Oferta wycofana."
+
+msgid "Preis in LTR"
+msgstr "Cena w LTR"
+
+msgid "Höchstens zwei Nachkommastellen."
+msgstr "Najwyżej dwa miejsca po przecinku."
+
+msgid "Angebot abgeben"
+msgstr "Złóż ofertę"
+
+msgid "Änderung speichern"
+msgstr "Zapisz zmianę"
+
+msgid "Angebot gespeichert."
+msgstr "Oferta zapisana."
+
+msgid "Noch keine Angebote."
+msgstr "Brak ofert."
+
+msgid "Bei dieser Ausschreibung sieht jeder Bieter nur sein eigenes Angebot."
+msgstr "W tym przetargu każdy oferent widzi tylko własną ofertę."
+
+msgid "Die Angebote anderer sind bis %1 verdeckt."
+msgstr "Oferty innych są ukryte do %1."
+
+msgid "Die Angebote sehen nur die Bieter und der Vorstand."
+msgstr "Oferty widzą tylko oferenci i zarząd."
+
+msgid "Bieter"
+msgstr "Oferent"
+
+msgid "Preis"
+msgstr "Cena"
+
+msgid "Zuschlag erteilen an %1"
+msgstr "Udziel zamówienia: %1"
+
+msgid "Zuschlag erteilen?"
+msgstr "Udzielić zamówienia?"
+
+msgid "Zuschlag an %1 für %2."
+msgstr "Zamówienie dla %1 za %2."
+
+msgid "Der Zuschlag kann nicht zurückgenommen werden."
+msgstr "Udzielenia zamówienia nie można cofnąć."
+
+msgid "Zuschlag erteilen"
+msgstr "Udziel zamówienia"
+
+msgid "Zuschlag erteilt."
+msgstr "Zamówienie udzielone."
+
+msgid "Zuschlag"
+msgstr "Udzielenie zamówienia"
+
+msgid "%1 hat den Zuschlag erhalten (%2, am %3)."
+msgstr "%1 otrzymał(a) zamówienie (%2, dnia %3)."
+
+msgid "Abnahme"
+msgstr "Odbiór"
+
+msgid "Sie haben selbst ein Angebot abgegeben (auch ein zurückgezogenes zählt). Deshalb dürfen Sie diese Ausschreibung weder vergeben noch abnehmen noch absagen."
+msgstr "Sam(a) złożył(a) Pan/Pani ofertę (liczy się także wycofana). Dlatego nie wolno Panu/Pani udzielić zamówienia, odebrać prac ani odwołać tego przetargu."
+
+msgid "Entwurf bearbeiten"
+msgstr "Edytuj wersję roboczą"
+
+msgid "Ausschreibung veröffentlichen?"
+msgstr "Opublikować przetarg?"
+
+msgid "Danach können Mitglieder und Freunde bis zur Frist Angebote abgeben."
+msgstr "Potem członkowie i przyjaciele będą mogli składać oferty do terminu."
+
+msgid "Frist, Vergabe-Kriterium und Sichtbarkeit lassen sich nach dem Veröffentlichen nicht mehr ändern."
+msgstr "Po opublikowaniu nie można już zmienić terminu, kryterium rozstrzygnięcia ani widoczności."
+
+msgid "Ausschreibung veröffentlicht."
+msgstr "Przetarg opublikowany."
+
+msgid "Ausschreibung absagen"
+msgstr "Odwołaj przetarg"
+
+msgid "Ausschreibung absagen?"
+msgstr "Odwołać przetarg?"
+
+msgid "Der Grund ist für alle sichtbar, die die Ausschreibung sehen."
+msgstr "Powód jest widoczny dla wszystkich, którzy widzą przetarg."
+
+msgid "Eine abgesagte Ausschreibung kann nicht wieder geöffnet werden."
+msgstr "Odwołanego przetargu nie można ponownie otworzyć."
+
+msgid "Ausschreibung abgesagt."
+msgstr "Przetarg odwołany."
+
+msgid "Der bisherige Vergabeantrag wurde nicht angenommen. Legen Sie einen neuen fest."
+msgstr "Poprzedni wniosek o udzielenie zamówienia nie został przyjęty. Proszę wskazać nowy."
+
+msgid "Die Frist ist abgelaufen. Für den Zuschlag braucht es einen Vergabebeschluss des Gremiums."
+msgstr "Termin upłynął. Do udzielenia zamówienia potrzebna jest uchwała organu o rozstrzygnięciu."
+
+msgid "Legen Sie unter Anträge einen Antrag für den Vergabebeschluss an. Er wird nach Ablauf der Frist in einer Sitzung entschieden."
+msgstr "W sekcji Wnioski proszę złożyć wniosek o uchwałę w sprawie rozstrzygnięcia. Zostanie rozstrzygnięty na posiedzeniu po upływie terminu."
+
+msgid "Über den Vergabeantrag ist noch nicht entschieden."
+msgstr "Wniosek o udzielenie zamówienia nie został jeszcze rozstrzygnięty."
+
+msgid "Der Vergabebeschluss wurde vor Ablauf der Frist gefasst und zählt deshalb nicht."
+msgstr "Uchwała o rozstrzygnięciu została podjęta przed upływem terminu i dlatego nie jest wiążąca."
+
+msgid "Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "Zamówienia udziela się przy ofercie w tabeli powyżej."
+
+msgid "Der Vergabebeschluss liegt vor. Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "Uchwała o rozstrzygnięciu jest dostępna. Zamówienia udziela się przy ofercie w tabeli powyżej."
+
+msgid "Vergabeantrag: "
+msgstr "Wniosek o udzielenie zamówienia: "
+
+msgid "ist der Beschluss, auf dem die Ausschreibung beruht"
+msgstr "jest uchwałą, na której opiera się przetarg"
+
+msgid "gehört zu einem anderen Gremium"
+msgstr "należy do innego organu"
+
+msgid "ist ein Änderungsantrag"
+msgstr "jest wnioskiem zmieniającym"
+
+msgid "ist schon entschieden oder zurückgezogen"
+msgstr "został już rozstrzygnięty lub wycofany"
+
+msgid "gehört schon zu einer Ausschreibung"
+msgstr "należy już do przetargu"
+
+msgid "hat einen Änderungsantrag"
+msgstr "ma wniosek zmieniający"
+
+msgid "wird schon abgestimmt"
+msgstr "jest już poddawany głosowaniu"
+
+msgid "Vergabeantrag"
+msgstr "Wniosek o udzielenie zamówienia"
+
+msgid "-- bitte wählen --"
+msgstr "-- proszę wybrać --"
+
+msgid "%1 -- nicht wählbar: %2"
+msgstr "%1 -- nie można wybrać: %2"
+
+msgid "Dieser Antrag kann nicht gewählt werden: %1"
+msgstr "Tego wniosku nie można wybrać: %1"
+
+msgid "Vergabebeschluss festlegen"
+msgstr "Ustal uchwałę o rozstrzygnięciu"
+
+msgid "Vergabeantrag festgelegt."
+msgstr "Wniosek o udzielenie zamówienia ustalony."
+
+msgid "Der Zuschlag ist erteilt. Nehmen Sie das Ergebnis ab oder lehnen Sie es mit einer Notiz ab."
+msgstr "Zamówienie zostało udzielone. Proszę odebrać rezultat lub odrzucić go z notatką."
+
+msgid "Abnehmen"
+msgstr "Odbierz"
+
+msgid "Notiz (bei Ablehnung Pflicht)"
+msgstr "Notatka (obowiązkowa przy odrzuceniu)"
+
+msgid "Bei einer Ablehnung ist eine Notiz nötig."
+msgstr "Przy odrzuceniu wymagana jest notatka."
+
+msgid "Abnahme erfassen"
+msgstr "Zapisz odbiór"
+
+msgid "Abnahme erfasst."
+msgstr "Odbiór zapisany."
+
+msgid "Die Aktion ist gerade nicht möglich. Bitte laden Sie die Seite neu."
+msgstr "Ta czynność jest teraz niemożliwa. Proszę odświeżyć stronę."
+
+msgid "Nur ein Entwurf kann geändert werden."
+msgstr "Zmienić można tylko wersję roboczą."
+
+msgid "Nur ein Entwurf kann veröffentlicht werden."
+msgstr "Opublikować można tylko wersję roboczą."
+
+msgid "Die Frist muss mindestens eine Stunde in der Zukunft liegen."
+msgstr "Termin musi przypadać co najmniej godzinę w przyszłości."
+
+msgid "Die Ausschreibung wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu."
+msgstr "Przetarg został w międzyczasie zmieniony. Proszę odświeżyć stronę."
+
+msgid "Diese Aktion ist im jetzigen Stand der Ausschreibung nicht möglich."
+msgstr "Ta czynność nie jest możliwa w obecnym stanie przetargu."
+
+msgid "Gäste können nur auf Ausschreibungen bieten, die in Euro vergütet werden."
+msgstr "Goście mogą składać oferty tylko w przetargach wynagradzanych w euro."
+
+msgid "Die Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "Przetarg nie przyjmuje już kolejnych ofert."
+
+msgid "Es gibt kein Angebot, das zurückgezogen werden kann."
+msgstr "Nie ma oferty, którą można wycofać."
+
+msgid "Einen Vergabeantrag gibt es nur bei der Vergabe nach dem besten Angebot."
+msgstr "Wniosek o udzielenie zamówienia istnieje tylko przy rozstrzygnięciu według najlepszej oferty."
+
+msgid "Die Frist der Ausschreibung muss zuerst abgelaufen sein."
+msgstr "Najpierw musi upłynąć termin przetargu."
+
+msgid "Die Ausschreibung hat kein Angebot, über das entschieden werden könnte."
+msgstr "Przetarg nie ma oferty, o której można by rozstrzygnąć."
+
+msgid "Der eingetragene Vergabeantrag kann nicht mehr ersetzt werden."
+msgstr "Ustalonego wniosku o udzielenie zamówienia nie można już zastąpić."
+
+msgid "Dieses Angebot ist nicht mehr im Rennen."
+msgstr "Ta oferta nie bierze już udziału w rozstrzygnięciu."
+
+msgid "Der Bieter darf für diese Ausschreibung nicht mehr berücksichtigt werden."
+msgstr "Oferent nie może już być brany pod uwagę w tym przetargu."
+
+msgid "Der Zuschlag muss an das günstigste Angebot gehen."
+msgstr "Zamówienie musi trafić do najtańszej oferty."
+
+msgid "Bei gleichem Preis ist eine Begründung nötig."
+msgstr "Przy równej cenie wymagane jest uzasadnienie."
+
+msgid "Bitte geben Sie eine Begründung an."
+msgstr "Proszę podać uzasadnienie."
+
+msgid "Es ist noch kein Vergabeantrag festgelegt."
+msgstr "Nie ustalono jeszcze wniosku o udzielenie zamówienia."
+
+msgid "Der Vergabeantrag wurde nicht angenommen."
+msgstr "Wniosek o udzielenie zamówienia nie został przyjęty."
+
+msgid "Der Vergabeantrag wurde vor Ablauf der Frist entschieden."
+msgstr "Wniosek o udzielenie zamówienia rozstrzygnięto przed upływem terminu."
+
+msgid "Eine Ablehnung braucht eine Begründung."
+msgstr "Odrzucenie wymaga uzasadnienia."
+
+msgid "Die Beschreibung kann nicht dargestellt werden. Bitte vereinfachen Sie sie."
+msgstr "Opisu nie można wyświetlić. Proszę go uprościć."
+
+msgid "Ausschreibungen sind vorerst nur in LTR möglich."
+msgstr "Na razie przetargi są możliwe tylko w LTR."
+
+msgid "Der Preis darf höchstens zwei Nachkommastellen haben."
+msgstr "Cena może mieć najwyżej dwa miejsca po przecinku."
+
+msgid "Der Preis ist zu groß."
+msgstr "Cena jest zbyt wysoka."
+
+msgid "Der Antrag ist kein angenommener Beschluss seines Gremiums."
+msgstr "Wniosek nie jest przyjętą uchwałą swojego organu."
+
+msgid "Dieser Antrag kann nicht als Vergabeantrag dienen."
+msgstr "Ten wniosek nie może służyć jako wniosek o udzielenie zamówienia."
+
+msgid "Über einen Vergabeantrag entscheidet nur die Beschlussfähigkeit des Gremiums oder eine meritokratische Abstimmung."
+msgstr "O wniosku o udzielenie zamówienia rozstrzyga wyłącznie kworum organu lub głosowanie merytokratyczne."
+
+msgid "Der Titel muss 1 bis %1 Zeichen haben."
+msgstr "Tytuł musi mieć od 1 do %1 znaków."
+
+msgid "Die Beschreibung muss 1 bis %1 Zeichen haben."
+msgstr "Opis musi mieć od 1 do %1 znaków."
+
+msgid "Das erwartete Ergebnis muss 1 bis %1 Zeichen haben."
+msgstr "Oczekiwany rezultat musi mieć od 1 do %1 znaków."
+
+msgid "Der Angebotstext muss 1 bis %1 Zeichen haben."
+msgstr "Treść oferty musi mieć od 1 do %1 znaków."
+
+msgid "Der Grund muss 1 bis %1 Zeichen haben."
+msgstr "Powód musi mieć od 1 do %1 znaków."
+
+msgid "Der Grund darf höchstens %1 Zeichen haben."
+msgstr "Powód może mieć najwyżej %1 znaków."
+
+msgid "Die Begründung darf höchstens %1 Zeichen haben."
+msgstr "Uzasadnienie może mieć najwyżej %1 znaków."
+
+msgid "Der Preis muss mindestens %1 betragen."
+msgstr "Cena musi wynosić co najmniej %1."
+
+msgid "Für diesen Antrag läuft bereits ein Entscheidungsweg oder er ist schon entschieden."
+msgstr "Dla tego wniosku trwa już tryb rozstrzygania lub został on już rozstrzygnięty."
+
+msgid "Frist abgelaufen"
+msgstr "Termin upłynął"
+
+msgid "Vergeben"
+msgstr "Zamówienie udzielone"
+
+msgid "LTR"
+msgstr "LTR"
+
+msgid "Euro"
+msgstr "Euro"
+
+msgid "Günstigster Preis"
+msgstr "Najniższa cena"
+
+msgid "Bestes Angebot"
+msgstr "Najlepsza oferta"
+
+msgid "Der Vorstand erteilt den Zuschlag dem günstigsten Angebot. Ein Beschluss ist dafür nicht nötig."
+msgstr "Zarząd udziela zamówienia najtańszej ofercie. Uchwała nie jest do tego potrzebna."
+
+msgid "Der Zuschlag ist eine Wertung. Darüber entscheidet das Gremium mit einem Vergabebeschluss nach Ablauf der Frist."
+msgstr "Rozstrzygnięcie jest oceną. Decyduje o nim organ uchwałą o rozstrzygnięciu po upływie terminu."
+
+msgid "Zuschlag erhalten"
+msgstr "Otrzymano zamówienie"
+
+msgid "Nicht berücksichtigt"
+msgstr "Nie uwzględniono"
+
+msgid "noch nicht beschlossen"
+msgstr "jeszcze nie uchwalony"
+
+msgid "Beschluss nicht angenommen"
+msgstr "uchwała nie została przyjęta"
+
+msgid "Beschluss in einem anderen Gremium gefasst"
+msgstr "uchwała podjęta w innym organie"
+
+msgid "Bis zum Ende der Frist sieht niemand fremde Angebote. Danach sehen alle Bieter und der Vorstand alle Angebote."
+msgstr "Do końca terminu nikt nie widzi cudzych ofert. Potem wszyscy oferenci i zarząd widzą wszystkie oferty."
+
+msgid "Alle Beteiligten sehen die Angebote der anderen sofort."
+msgstr "Wszyscy uczestnicy od razu widzą oferty pozostałych."
+
+msgid "Jeder Bieter sieht nur sein eigenes Angebot. Der Vorstand sieht nach Ablauf der Frist alle Angebote. Wer den Zuschlag erhält, wird allen angezeigt."
+msgstr "Każdy oferent widzi tylko własną ofertę. Po upływie terminu zarząd widzi wszystkie oferty. To, kto otrzymał zamówienie, jest pokazane wszystkim."
+
+msgid "Entwürfe"
+msgstr "Wersje robocze"
+
+msgid "Keine Ausschreibungen in dieser Auswahl."
+msgstr "Brak przetargów w tym wyborze."
+
+msgid "Neue Ausschreibung"
+msgstr "Nowy przetarg"
+
+msgid "Vergütung"
+msgstr "Wynagrodzenie"
+
+msgid "Mein Angebot"
+msgstr "Moja oferta"
+
+msgid "Die Zahl der Angebote ist verdeckt."
+msgstr "Liczba ofert jest ukryta."
+
+msgid "Ausschreibung %1 öffnen"
+msgstr "Otwórz przetarg %1"
+
+msgid "Beschluss, auf dem die Ausschreibung beruht"
+msgstr "Uchwała, na której opiera się przetarg"
+
+msgid "Mindestens eine Stunde nach dem Veröffentlichen. Bis zu dieser Uhrzeit können Angebote abgegeben werden."
+msgstr "Co najmniej godzinę po publikacji. Do tej godziny można składać oferty."
+
+msgid "Vergabe nach"
+msgstr "Rozstrzygnięcie według"
+
+msgid "Sichtbarkeit der Angebote"
+msgstr "Widoczność ofert"
+
+msgid "Euro-Vergütung kommt später."
+msgstr "Wynagrodzenie w euro pojawi się później."
+
+msgid "Bitte geben Sie die Frist mit Datum und Uhrzeit an."
+msgstr "Proszę podać termin z datą i godziną."
+
+msgid "Als Entwurf gespeichert, aber nicht veröffentlicht: %1"
+msgstr "Zapisano jako wersję roboczą, ale nie opublikowano: %1"
+
+msgid "Menü durchsuchen"
+msgstr "Przeszukaj menu"
+
+msgid "Suchen …"
+msgstr "Szukaj …"
+
+msgid "Befehlspalette"
+msgstr "Paleta poleceń"
+
+msgid "Strg K"
+msgstr "Ctrl K"
+
+msgid "%1 Treffer"
+msgstr "Wyniki: %1"
+
+msgid "%1 Treffer, %2 angezeigt. Suche verfeinern"
+msgstr "Wyniki: %1, wyświetlono: %2. Zawęź wyszukiwanie"
+
+msgid "Zuletzt besucht"
+msgstr "Ostatnio odwiedzone"
+
+msgid "Noch keine Veranstaltungen."
+msgstr "Brak jeszcze wydarzeń."
+
+msgid "Belegung"
+msgstr "Obłożenie"
+
+msgid "Veröffentlichen: %1"
+msgstr "Opublikuj: %1"
+
+msgid "Absagen: %1"
+msgstr "Odwołaj: %1"
+
+msgid "Warteliste nachrücken: %1"
+msgstr "Przesuń listę oczekujących: %1"
+
+msgid "Abgesagt/abgelaufen"
+msgstr "Odwołane/wygasłe"
+
+msgid "Mit Nachricht"
+msgstr "Z wiadomością"
+
+msgid "Nicht bezahlt"
+msgstr "Nieopłacone"
+
+msgid "Angemeldet %1 · Warteliste %2 · Abgesagt/abgelaufen %3"
+msgstr "Zapisani %1 · Lista oczekujących %2 · Odwołane/wygasłe %3"
+
+msgid "Freie Plätze %1"
+msgstr "Wolne miejsca %1"
+
+msgid "Anmeldungen"
+msgstr "Zgłoszenia"
+
+msgid "Noch keine Anmeldungen."
+msgstr "Brak jeszcze zgłoszeń."
+
+msgid "Alle Anmeldungen als CSV"
+msgstr "Wszystkie zgłoszenia jako CSV"
+
+msgid "Es werden nur die ersten 2000 Anmeldungen angezeigt. Die CSV enthält alle."
+msgstr "Wyświetlane jest tylko pierwszych 2000 zgłoszeń. Plik CSV zawiera wszystkie."
+
+msgid "Keine Anmeldungen in dieser Auswahl."
+msgstr "Brak zgłoszeń w tym wyborze."
+
+msgid "Wartelistenplatz"
+msgstr "Miejsce na liście oczekujących"
+
+msgid "Angemeldet am"
+msgstr "Zapisano dnia"
+
+msgid "E-Mail (Gast)"
+msgstr "E-mail (gość)"
+
+msgid "Nachricht anzeigen: %1"
+msgstr "Pokaż wiadomość: %1"
+
+msgid "Veranstaltung nicht gefunden."
+msgstr "Nie znaleziono wydarzenia."
+
+msgid "Ausgebucht · %1 auf der Warteliste"
+msgstr "Brak miejsc · %1 na liście oczekujących"
+
+msgid "Nachricht an die Veranstalter hinzufügen"
+msgstr "Dodaj wiadomość dla organizatorów"
+
+msgid "Nachricht an die Veranstalter (optional)"
+msgstr "Wiadomość dla organizatorów (opcjonalnie)"
+
+msgid "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage."
+msgstr "Organizatorzy zobaczą Twoją wiadomość. Zgłoszenie jest ważne dzięki potwierdzeniu, a nie dzięki odpowiedzi na Twoje pytanie."
+
+msgid "Export der Anmeldungen"
+msgstr "Eksport zgłoszeń"
+
+msgid "%1 von %2 Platz belegt · noch %3 frei"
+msgid_plural "%1 von %2 Plätzen belegt · noch %3 frei"
+msgstr[0] "%1 z %2 miejsca zajęte · jeszcze %3 wolnych"
+msgstr[1] "%1 z %2 miejsc zajętych · jeszcze %3 wolnych"
+msgstr[2] "%1 z %2 miejsc zajętych · jeszcze %3 wolnych"
+
+msgid "Einrichtung · %1 offen"
+msgstr "Konfiguracja · %1 otwarte"
+
+msgid "Einrichtung"
+msgstr "Konfiguracja"
+
+msgid "Es fehlt noch: %1. Solange das fehlt, werden bezahlte Beiträge nicht gebucht."
+msgstr "Brakuje jeszcze: %1. Dopóki tego brakuje, opłacone składki nie są księgowane."
+
+msgid "Es fehlt noch: %1."
+msgstr "Nadal brakuje: %1."
+
+msgid "Zur Einrichtung"
+msgstr "Przejdź do konfiguracji"
+
+msgid "Konten"
+msgstr "Konta"
+
+msgid "Journal"
+msgstr "Dziennik"
+
+msgid "Bereiche von Kontenplan und Journal"
+msgstr "Sekcje planu kont i dziennika"
+
+msgid "Kontenzuordnung: vollständig"
+msgstr "Przypisanie kont: kompletne"
+
+msgid "Kontenzuordnung: unvollständig"
+msgstr "Przypisanie kont: niekompletne"
+
+msgid "Kontenzuordnung: unvollständig, es fehlt %1"
+msgstr "Przypisanie kont: niekompletne, brakuje: %1"
+
+msgid "Online-Zahlung kann erst aktiviert werden, wenn die Kontenzuordnung vollständig ist."
+msgstr "Płatność online można włączyć dopiero po skompletowaniu przypisania kont."
+
+msgid "Hier richten Sie die Finanzen ein, sehen den Kontenplan und das Journal mit allen Buchungen. Einrichten und buchen können Schatzmeisterei und Administration; die Zuordnung der Konten ändert nur die Administration."
+msgstr "Tutaj konfigurują Państwo finanse i widzą plan kont oraz dziennik ze wszystkimi księgowaniami. Skarbnik i administracja mogą konfigurować i księgować; przypisanie kont może zmienić tylko administracja."
+
+msgid "Hier stellen Sie die Online-Zahlung ein. Die Zuordnung zu Konten finden Sie unter Kontenplan & Journal, im Reiter Einrichtung."
+msgstr "Tutaj konfigurują Państwo płatności online. Przypisanie do kont znajdą Państwo w sekcji Plan kont i dziennik, na karcie Konfiguracja."
+
+msgid "Kontenplan"
+msgstr "Plan kont"
+
+msgid "Erlöskonto für Mitgliedsbeiträge"
+msgstr "Konto przychodów ze składek członkowskich"
+
+msgid "Erlöskonto für Spenden"
+msgstr "Konto przychodów z darowizn"
+
+msgid "Erlöskonto für Veranstaltungen"
+msgstr "Konto przychodów z wydarzeń"
+
+msgid "Gebührenkonto (optional)"
+msgstr "Konto opłat (opcjonalne)"
+
+msgid "Der Kontenplan ist die Liste aller Konten, auf die Ihr Verein bucht. Ohne ihn kann nichts gebucht werden."
+msgstr "Plan kont to lista wszystkich kont, na których księguje Państwa stowarzyszenie. Bez niego nic nie można zaksięgować."
+
+msgid "Das Konto, auf dem das Geld Ihres Vereins liegt, also Ihr Girokonto."
+msgstr "Konto, na którym znajdują się środki Państwa stowarzyszenia, czyli rachunek bieżący."
+
+msgid "Ein Erlöskonto sammelt Einnahmen einer Art, zum Beispiel alle Mitgliedsbeiträge."
+msgstr "Konto przychodów gromadzi wpływy jednego rodzaju, na przykład wszystkie składki członkowskie."
+
+msgid "Hierhin werden Spenden gebucht, für die Sie eine Zuwendungsbestätigung ausstellen."
+msgstr "Tutaj księgowane są darowizny, na które wystawiają Państwo potwierdzenie darowizny."
+
+msgid "Hierhin werden Einnahmen aus Veranstaltungen gebucht, zum Beispiel Eintrittsgelder."
+msgstr "Tutaj księgowane są wpływy z wydarzeń, na przykład opłaty za wstęp."
+
+msgid "Hierhin würden Gebühren des Zahlungsanbieters gebucht. Dieser Schritt darf leer bleiben."
+msgstr "Tutaj księgowane byłyby opłaty dostawcy płatności. Ten krok może pozostać pusty."
+
+msgid "Zum Beispiel: %1"
+msgstr "Na przykład: %1"
+
+msgid "Noch kein Bankkonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "W planie kont nie ma jeszcze rachunku bankowego. Proszę najpierw utworzyć standardowy plan kont."
+
+msgid "Noch kein Aufwandskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "W planie kont nie ma jeszcze konta kosztowego. Proszę najpierw utworzyć standardowy plan kont."
+
+msgid "Noch kein Erlöskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "W planie kont nie ma jeszcze konta przychodów. Proszę najpierw utworzyć standardowy plan kont."
+
+msgid "Optional"
+msgstr "Opcjonalne"
+
+msgid "%1 von %2 Pflichtschritten erledigt"
+msgstr "%1 z %2 obowiązkowych kroków ukończono"
+
+msgid "Die Zuordnung kann nur ein Administrator ändern."
+msgstr "Przypisanie może zmienić tylko administrator."
+
+msgid "Die Sphäre ist der steuerliche Bereich eines Vereins (ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher Geschäftsbetrieb); sie wird je Buchung gewählt."
+msgstr "Sfera to obszar podatkowy stowarzyszenia (sfera ideowa, zarządzanie majątkiem, działalność statutowa uprzywilejowana, działalność gospodarcza); wybiera się ją przy każdym księgowaniu."
+
+msgid "Nicht gespeichert"
+msgstr "Nie zapisano"
+
+msgid "Das bisher zugeordnete Konto %1 ist deaktiviert. Bitte ein anderes wählen. Beim Speichern wird die alte Zuordnung entfernt."
+msgstr "Dotychczas przypisane konto %1 jest dezaktywowane. Proszę wybrać inne. Zapisanie usunie dotychczasowe przypisanie."
+
+msgid "Zum Kontenplan"
+msgstr "Do planu kont"
+
+msgid "(nicht gewählt)"
+msgstr "(nie wybrano)"
+
+msgid "Standard verwenden"
+msgstr "Użyj standardu"
+
+msgid "Standardkonto %1 nicht im Kontenplan."
+msgstr "Konta standardowego %1 nie ma w planie kont."
+
+msgid "Alle Standardkonten vorschlagen"
+msgstr "Zaproponuj wszystkie konta standardowe"
+
+msgid "Zuordnung gespeichert."
+msgstr "Przypisanie zapisano."
+
+msgid "%1 aktive Konten im Kontenplan."
+msgstr "%1 aktywnych kont w planie kont."
+
+msgid "Noch kein Konto angelegt. Das legt die Schatzmeisterei oder die Administration an."
+msgstr "Nie utworzono jeszcze żadnego konta. Tworzy je skarbnik lub administracja."
+
+msgid "Ein Vorschlag. Bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Propozycja. Proszę dać ją do potwierdzenia swojemu doradcy podatkowemu."
+
+msgid "Standard-Kontenplan SKR42 für Vereine anlegen"
+msgstr "Utwórz standardowy plan kont SKR42 dla stowarzyszeń"
+
+msgid "Standard-Kontenplan anlegen"
+msgstr "Utwórz standardowy plan kont"
+
+msgid "Es werden %1 Konten angelegt:"
+msgstr "Zostanie utworzonych kont: %1:"
+
+msgid "Kontenplan anlegen"
+msgstr "Utwórz plan kont"
+
+msgid "%1 %2 (%3), %4"
+msgstr "%1 %2 (%3), %4"
+
+msgid "Vorhandene Konten bleiben unverändert."
+msgstr "Istniejące konta pozostają bez zmian."
+
+msgid "Angelegte Konten lassen sich später nicht löschen, nur deaktivieren."
+msgstr "Utworzonych kont nie można później usunąć, można je tylko dezaktywować."
+
+msgid "Der Kontenplan ist ein Vorschlag; bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Plan kont jest propozycją; proszę dać go do potwierdzenia swojemu doradcy podatkowemu."
+
+msgid "%1 Konten angelegt, %2 schon vorhanden."
+msgstr "Utworzono kont: %1, już istniało: %2."
+
+msgid "Der Kontenplan wurde inzwischen geändert. Bitte prüfen."
+msgstr "W międzyczasie plan kont został zmieniony. Proszę sprawdzić."
+
+msgid "Erweitert"
+msgstr "Zaawansowane"
+
+msgid "Die Sphäre der Veranstaltungserlöse ist der steuerliche Bereich, dem Einnahmen aus Veranstaltungen zugerechnet werden."
+msgstr "Sfera przychodów z wydarzeń to obszar podatkowy, do którego zalicza się wpływy z wydarzeń."
+
+msgid "Auf dieses Aufwandskonto werden Reisekostenabrechnungen gebucht."
+msgstr "Na to konto kosztowe księgowane są rozliczenia kosztów podróży."
+
+msgid "Auf dieses Aufwandskonto werden Übungsleiter- und Ehrenamtspauschalen gebucht."
+msgstr "Na to konto kosztowe księgowane są ryczałty dla instruktorów i wolontariuszy."
+
+msgid "Alle Bereiche"
+msgstr "Wszystkie obszary"
+
+msgid "Kein Bereich"
+msgstr "Brak obszaru"
+
+msgid "Wird je Buchung gewählt"
+msgstr "Wybierany przy każdym księgowaniu"
+
+msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
+msgstr "Działalność statutowa uprzywilejowana i gospodarcza"

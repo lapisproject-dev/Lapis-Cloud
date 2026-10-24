@@ -37,6 +37,9 @@ enum class ActionIcon(
     BACK("fas fa-arrow-left"),
     NEXT("fas fa-arrow-right"),
     APPROVE("fas fa-circle-check"),
+
+    /** V1.9.202: award the contract of a tender to a bid ("Zuschlag erteilen"). One verb, one picture; NOT [APPROVE] (that is acceptance). */
+    AWARD("fas fa-trophy"),
     REJECT("fas fa-circle-xmark"),
     SEND("fas fa-paper-plane"),
     REVOKE("fas fa-ban"),
@@ -240,7 +243,7 @@ enum class ActionIcon(
     /**
      * V1.9.139 "Mitfahr-Nachrichten": open the short message history of a CONFIRMED ride ([MESSAGES]; NOT [CHAT], which is the chat of a room, and NOT
      * [SEND], which sends the message). Closing the history of both sides for good is a text button without a picture of its own ([REVOKE]'s
-     * glyph would suggest a ban).
+     * glyph would suggest a ban). V1.9.204: also "show the message a registrant left for the organisers" (one row of the registration table).
      */
     MESSAGES("fas fa-comment"),
 }

@@ -60,6 +60,9 @@ class AgreementTextChannelTripwireTest :
                     "PulpitRecordingService.kt",
                     // V1.9.199: the travel-expense contact hint (Markdown) is rendered into the rates DTO and the ADMIN preview
                     "TravelExpenseLineRules.kt",
+                    // V1.9.202: the Markdown description of a tender is rendered into the tender DTO, checked at save, and previewed for the board
+                    "TenderService.kt",
+                    "TenderDtos.kt",
                 )
         }
 

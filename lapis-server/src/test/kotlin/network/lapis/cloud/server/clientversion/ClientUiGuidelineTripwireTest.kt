@@ -1471,7 +1471,9 @@ private val INVALID_CALL = Regex("""\b(?:FieldCheck|AmountInput)\.Invalid\(""")
  */
 private val R24_MIN_FORMS: Map<String, Int> =
     mapOf(
-        "LedgerScreen.kt" to 3,
+        // V1.9.206: the account-mapping form moved to FinanceSetupTab.kt (3 -> 2 here, +1 there).
+        "LedgerScreen.kt" to 2,
+        "FinanceSetupTab.kt" to 1,
         "OpenItemsScreen.kt" to 1,
         "OpenItemDialogs.kt" to 3,
         "SepaBatchesScreen.kt" to 2,

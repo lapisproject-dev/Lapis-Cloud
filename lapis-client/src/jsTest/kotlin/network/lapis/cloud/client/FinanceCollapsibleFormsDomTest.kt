@@ -11,6 +11,10 @@ import network.lapis.cloud.shared.domain.CostCenterInput
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.ExternalDonorDto
 import network.lapis.cloud.shared.domain.ExternalDonorInput
+import network.lapis.cloud.shared.domain.FinanceSetupStatusDto
+import network.lapis.cloud.shared.domain.FinanceSetupStep
+import network.lapis.cloud.shared.domain.FinanceSetupStepState
+import network.lapis.cloud.shared.domain.FinanceSetupStepStatus
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.JournalEntryDto
 import network.lapis.cloud.shared.domain.JournalEntryInput
@@ -265,6 +269,24 @@ class FinanceCollapsibleFormsDomTest {
         active = true,
     )
 
+    /** V1.9.206: a finished setup, so the ledger screen opens on the "Konten" tab and the tests below keep their old fixtures. */
+    private fun completeSetupStatus() =
+        FinanceSetupStatusDto(
+            steps = FinanceSetupStep.entries.map { FinanceSetupStepStatus(step = it, state = FinanceSetupStepState.DONE) },
+            activeAccountCount = 2,
+            mappingComplete = true,
+        )
+
+    /** The create buttons now sit in the action row of their own tab (V1.9.206), not in the title row. */
+    private fun HTMLElement.ledgerCreateButtons(): List<HTMLElement> = allOf("button[aria-controls^='lapis-create-']")
+
+    /** Visits every tab once, so each panel is built (they render lazily); ends on "Konten". */
+    private suspend fun openAllLedgerTabs(screen: HTMLElement) {
+        awaitUntil("the tabs are there") { screen.querySelector("#ledger-tab-journal") != null }
+        (screen.querySelector("#ledger-tab-journal") as HTMLElement).click()
+        (screen.querySelector("#ledger-tab-accounts") as HTMLElement).click()
+    }
+
     private suspend fun withLedgerScreen(
         id: String,
         role: AccountRole,
@@ -273,18 +295,21 @@ class FinanceCollapsibleFormsDomTest {
     ) {
         AppState.setSession(session(role))
         val listAccounts = routeOf { rpcService<IAccountingService>().listLedgerAccounts(true) }
+        val setupStatus = routeOf { rpcService<IAccountingService>().getFinanceSetupStatus() }
         withFetchStub(
             respond = { request ->
                 when {
                     !request.isRpc -> StubResponse()
                     request.rpcRoute == listAccounts ->
                         request.answerWith(jsonOf(ListSerializer(LedgerAccountDto.serializer()), accounts))
+                    request.rpcRoute == setupStatus -> request.answerWith(jsonOf(FinanceSetupStatusDto.serializer(), completeSetupStatus()))
                     else -> request.answerWith("[]")
                 }
             },
         ) { calls ->
             mountedForm(id) { root, element ->
                 renderLedgerScreen(root)
+                openAllLedgerTabs(element())
                 awaitUntil("the account list is shown") { accounts.isEmpty() || element().shows(accounts.first().name) }
                 block(element(), calls)
             }
@@ -292,12 +317,12 @@ class FinanceCollapsibleFormsDomTest {
     }
 
     @Test
-    fun ledger_bothButtonsSitInTheTitleRowInAFixedOrder_andBothFormsAreCollapsed(): Promise<Unit> =
+    fun ledger_bothButtonsSitInTheirTabsInAFixedOrder_andBothFormsAreCollapsed(): Promise<Unit> =
         formTest {
             val accounts = listOf(account("a1", "1000", LedgerAccountType.ASSET), account("a2", "4000", LedgerAccountType.INCOME))
             withLedgerScreen("r36b-finance-ledger", AccountRole.TREASURER, accounts) { screen, _ ->
-                awaitUntil("both buttons are there") { screen.actionButtons().size == 2 }
-                assertEquals(listOf("Neue Buchung", "Neues Konto"), screen.actionButtons().map { it.textContent?.trim() })
+                awaitUntil("both buttons are there") { screen.ledgerCreateButtons().size == 2 }
+                assertEquals(listOf("Neues Konto", "Neue Buchung"), screen.ledgerCreateButtons().map { it.textContent?.trim() })
                 assertFalse(screen.hasForm("lapis-create-journal-entry"))
                 assertFalse(screen.hasForm("lapis-create-ledger-account"))
                 assertFalse(screen.shows("Neues Konto anlegen"), "the old always-visible section title is gone")
@@ -309,7 +334,7 @@ class FinanceCollapsibleFormsDomTest {
         formTest {
             val accounts = listOf(account("a1", "1000", LedgerAccountType.ASSET), account("a2", "4000", LedgerAccountType.INCOME))
             withLedgerScreen("r36b-finance-ledger-snapshot", AccountRole.TREASURER, accounts) { screen, _ ->
-                awaitUntil("the journal button is there") { screen.actionButtons().size == 2 }
+                awaitUntil("the journal button is there") { screen.ledgerCreateButtons().size == 2 }
                 val host = openCreateForm(screen, "lapis-create-journal-entry")
                 // untouched: no question
                 escape(host)
@@ -335,7 +360,7 @@ class FinanceCollapsibleFormsDomTest {
                 awaitUntil("the hint is shown") {
                     screen.shows("Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen.")
                 }
-                assertEquals(listOf("Neues Konto"), screen.actionButtons().map { it.textContent?.trim() })
+                assertEquals(listOf("Neues Konto"), screen.ledgerCreateButtons().map { it.textContent?.trim() })
             }
         }
 
@@ -347,7 +372,7 @@ class FinanceCollapsibleFormsDomTest {
                 AccountRole.BOARD,
                 listOf(account("a1", "1000", LedgerAccountType.ASSET)),
             ) { screen, _ ->
-                assertTrue(screen.actionButtons().isEmpty())
+                assertTrue(screen.ledgerCreateButtons().isEmpty())
                 assertTrue(screen.allOf(".lapis-page-action").isEmpty(), "no empty action area")
             }
         }
@@ -413,6 +438,7 @@ class FinanceCollapsibleFormsDomTest {
         val listJournal = routeOf { rpcService<IAccountingService>().listJournal(null, null, null, null) }
         val getEntry = routeOf { rpcService<IAccountingService>().getJournalEntry("j1") }
         val saveDraft = routeOf { rpcService<IAccountingService>().saveDraftEntry(JournalEntryInput(LocalDate(2026, 1, 1), "x")) }
+        val setupStatus = routeOf { rpcService<IAccountingService>().getFinanceSetupStatus() }
         val draft = draftEntry()
         withFetchStub(
             respond = { request ->
@@ -422,6 +448,7 @@ class FinanceCollapsibleFormsDomTest {
                         request.answerWith(jsonOf(ListSerializer(LedgerAccountDto.serializer()), accounts))
                     request.rpcRoute == listJournal ->
                         request.answerWith(jsonOf(ListSerializer(JournalEntryDto.serializer()), listOf(draft)))
+                    request.rpcRoute == setupStatus -> request.answerWith(jsonOf(FinanceSetupStatusDto.serializer(), completeSetupStatus()))
                     request.rpcRoute == getEntry -> request.answerWith(jsonOf(JournalEntryDto.serializer(), draft))
                     request.rpcRoute == saveDraft -> request.answerWith(jsonOf(JournalEntryDto.serializer(), draft))
                     else -> request.answerWith("[]")
@@ -430,8 +457,9 @@ class FinanceCollapsibleFormsDomTest {
         ) { calls ->
             mountedForm(id) { root, element ->
                 renderLedgerScreen(root)
+                openAllLedgerTabs(element())
                 awaitUntil("the draft is listed") { element().shows("Altentwurf Spende") }
-                awaitUntil("both buttons are there") { element().actionButtons().size == 2 }
+                awaitUntil("both buttons are there") { element().ledgerCreateButtons().size == 2 }
                 block(element(), calls, saveDraft, listJournal)
             }
         }

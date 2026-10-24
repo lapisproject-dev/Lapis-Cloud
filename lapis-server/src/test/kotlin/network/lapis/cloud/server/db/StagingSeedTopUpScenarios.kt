@@ -66,7 +66,8 @@ abstract class StagingSeedTopUpScenarios(
 
         fun <T> read(block: () -> T): T = transaction(db) { block() }
 
-        fun topUp(): StagingSeedLtr.Result = (StagingSeedTopUp.topUpWith(db).shouldBeInstanceOf<StagingTopUpOutcome.Applied>()).result
+        fun topUp(): StagingSeedLtr.Result =
+            (StagingSeedTopUp.topUpWith(database = db, parts = emptyList()).shouldBeInstanceOf<StagingTopUpOutcome.Applied>()).result
 
         fun balances(): Map<Int, BigDecimal> =
             read {

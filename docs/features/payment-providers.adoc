@@ -48,6 +48,12 @@ mapping instead degrades a webhook-confirmed payment to an `UNPOSTED` row in the
 `Zahlungseingänge` reconciliation queue rather than losing it silently, and rather than blocking
 checkout creation up front.
 
+Since V1.9.206 the mapping is edited in *Kontenplan & Journal*, tab *Einrichtung* (see link:finance-setup.adoc[Finance setup]),
+no longer on the payment configuration page, which only shows a status line with a link. A complete mapping (bank, contribution,
+donation and event income account; the fee account stays optional) is now also a *precondition of `enablePaymentGateway`*:
+while it is incomplete the call throws a `ConflictException`. It does not switch off a gateway that is already active, and checkout
+creation is unchanged.
+
 == Environment variables — secrets are ENV-ONLY, never persisted
 
 Same discipline as `LAPIS_SMTP_*` above: `PspConfig.load()`/`PaypalConfig.load()` are the ONLY

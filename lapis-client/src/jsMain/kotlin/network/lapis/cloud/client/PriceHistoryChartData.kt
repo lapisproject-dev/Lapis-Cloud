@@ -42,6 +42,10 @@ internal data class PriceHistoryPoint(
      * des Moments ein, genau wie ein `gettext`-Argument ([DateTime.kt] Datei-KDoc "Widget content
      * follows a language switch"). */
     val dateLabel: String,
+    /** Short x-axis tick label, date only (`22.10.2026`), same language/zone rules as [dateLabel]; the axis picks it for longer ranges. */
+    val axisDate: String = "",
+    /** Short x-axis tick label, time only (`14:30`), used when the whole chart spans at most two days. */
+    val axisTime: String = "",
 )
 
 internal data class PriceHistoryChartData(
@@ -115,6 +119,8 @@ internal fun buildPriceHistoryChartData(
                 yValue = row.medianPrice.toDouble(),
                 tooltipLabel = formatTooltip(row.medianPrice),
                 dateLabel = formatPriceTimestampLabel(row.priceTimestamp),
+                axisDate = formatDateIn(I18n.language, row.priceTimestamp.date),
+                axisTime = formatTimeIn(I18n.language, row.priceTimestamp),
             ),
         )
         previousEpochMillis = epochMillis

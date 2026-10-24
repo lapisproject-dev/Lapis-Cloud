@@ -504,6 +504,9 @@ class App : Application() {
             lapisAttribution()
 
             initNotifications()
+            // V1.9.203: the command palette (Ctrl+K / Cmd+K), installed exactly once. A child of the root BEFORE the version watcher below,
+            // so that one stays the last child (the palette is only mounted while it is open). A choice runs the same close-the-drawer step as a sidebar link.
+            CommandPalette.install(this) { if (!shouldMountSidebarEagerly(window.innerWidth)) sidebar.hide() }
             // V1.4.20: last child of the root -> last tab stop; global, started exactly once.
             ClientVersionWatcher.start(this)
             AppState.onSessionChange = ::refreshShell

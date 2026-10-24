@@ -1,8 +1,10 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.onClick
+import io.kvision.form.text.TextArea
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Div
 import io.kvision.html.div
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -18,6 +20,7 @@ import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRegistrationDto
+import network.lapis.cloud.shared.domain.EventRegistrationMessageLimits
 import network.lapis.cloud.shared.domain.EventRegistrationResultDto
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
@@ -29,6 +32,12 @@ internal interface MemberEventsRpc {
     suspend fun listUpcoming(): EventPageDto
 
     suspend fun registerSelf(eventId: String): EventRegistrationResultDto
+
+    /** V1.9.204 -- like [registerSelf], with a message to the organisers. */
+    suspend fun registerSelfWithMessage(
+        eventId: String,
+        message: String?,
+    ): EventRegistrationResultDto = throw UnsupportedOperationException("registerSelfWithMessage is not provided")
 
     suspend fun cancelOwnRegistration(eventId: String): EventRegistrationDto
 
@@ -46,6 +55,11 @@ internal fun liveMemberEventsRpc(): MemberEventsRpc =
             )
 
         override suspend fun registerSelf(eventId: String) = rpcService<IEventService>().registerSelf(eventId)
+
+        override suspend fun registerSelfWithMessage(
+            eventId: String,
+            message: String?,
+        ) = rpcService<IEventService>().registerSelfWithMessage(eventId, message)
 
         override suspend fun cancelOwnRegistration(eventId: String) = rpcService<IEventService>().cancelOwnRegistration(eventId)
 
@@ -240,11 +254,17 @@ private fun renderEventCard(
         ) { addCssClasses("text-muted small") }
     }
     card.renderOwnRefundLine(e)
+    renderSeatCounter(card, e)
+
+    // V1.9.204: an optional message to the organisers, offered only while a registration is possible; folded away behind a button so a list
+    // of many events does not show a text field per card.
+    val action = memberEventAction(e, now())
+    var messageArea: TextArea? = null
+    if (action != MemberEventAction.None) messageArea = renderMessageField(card)
 
     val actions = card.hPanel(spacing = 8)
     renderResumePaymentButton(actions, e, rpc, navigate, toastError, reload)
     renderOnlineJoin(actions, e, rpc, now, toastError, openRoute)
-    val action = memberEventAction(e, now())
     if (action != MemberEventAction.None) {
         val label =
             when (action) {
@@ -262,7 +282,10 @@ private fun renderEventCard(
                     runOrConflict(
                         conflictMessage = gettext("Die Anmeldung war nicht möglich. Die Ansicht wurde aktualisiert."),
                         toast = toastError,
-                    ) { result = rpc.registerSelf(e.id) }
+                    ) {
+                        val text = messageArea?.value?.trim()?.takeIf { it.isNotEmpty() }
+                        result = if (text == null) rpc.registerSelf(e.id) else rpc.registerSelfWithMessage(e.id, text)
+                    }
                 if (ok) {
                     val url = result?.checkoutRedirectUrl
                     if (url != null) {
@@ -310,6 +333,75 @@ private fun renderEventCard(
             }
         }
     }
+}
+
+/**
+ * V1.9.204 -- the seat counter of an event with a capacity: "23 von 40 Plätzen belegt · noch 17 frei", or "Ausgebucht · 3 auf der Warteliste".
+ * The numbers are the ones the server already sends every member (`occupiedSeats`, `waitlistCount`, `full`). Without a capacity there is
+ * nothing to count, so nothing is shown.
+ */
+internal fun seatCounterText(e: EventDto): String? {
+    val capacity = e.capacity ?: return null
+    if (e.full) {
+        return if (e.waitlistCount > 0) gettext("Ausgebucht · %1 auf der Warteliste", e.waitlistCount.toString()) else gettext("Ausgebucht")
+    }
+    val free = (capacity - e.occupiedSeats).coerceAtLeast(0)
+    return ngettext(
+        "%1 von %2 Platz belegt · noch %3 frei",
+        "%1 von %2 Plätzen belegt · noch %3 frei",
+        capacity,
+        e.occupiedSeats.toString(),
+        capacity.toString(),
+        free.toString(),
+    )
+}
+
+private fun renderSeatCounter(
+    card: SimplePanel,
+    e: EventDto,
+) {
+    val text = seatCounterText(e) ?: return
+    card.div(text) { addCssClasses("text-muted small") }
+}
+
+/**
+ * V1.9.204 -- the folded message field: a button opens a text area (at most 500 characters) with a visible counter, and the sentence that says
+ * what the message is and is not. Returns the text area so the registration button can read it.
+ */
+private fun renderMessageField(card: SimplePanel): TextArea {
+    val fieldId = "lapis-member-event-message-${card.hashCode()}"
+    val holder = card.vPanel(spacing = 4) { addCssClasses("lapis-member-event-message") }
+    val toggle = holder.actionButton(ActionIcon.ADD, tr("Nachricht an die Veranstalter hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
+    toggle.setAttribute("aria-expanded", "false")
+    toggle.setAttribute("aria-controls", fieldId)
+    val area = TextArea(rows = 3, label = tr("Nachricht an die Veranstalter (optional)"))
+    area.id = fieldId
+    // The attributes belong on the real <textarea> (`input`), not on the form-group around it.
+    area.input.setAttribute("maxlength", EventRegistrationMessageLimits.MAX_LENGTH.toString())
+    area.input.setAttribute("aria-describedby", "$fieldId-hint")
+    val counter = Div("0/${EventRegistrationMessageLimits.MAX_LENGTH}", className = "text-muted small")
+    counter.setAttribute("aria-live", "polite")
+    val hint =
+        Div(
+            tr(
+                "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage.",
+            ),
+            className = "form-text",
+        )
+    hint.id = "$fieldId-hint"
+    val body = holder.vPanel(spacing = 2)
+    body.add(area)
+    body.add(counter)
+    body.add(hint)
+    body.hide()
+    area.subscribe { counter.content = "${area.value.orEmpty().length}/${EventRegistrationMessageLimits.MAX_LENGTH}" }
+    var open = false
+    toggle.onClick {
+        open = !open
+        if (open) body.show() else body.hide()
+        toggle.setAttribute("aria-expanded", open.toString())
+    }
+    return area
 }
 
 /**

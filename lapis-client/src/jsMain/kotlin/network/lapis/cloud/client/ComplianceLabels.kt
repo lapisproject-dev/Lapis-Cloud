@@ -191,6 +191,10 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.EVENT_CAPTURE -> gettext("Aufzeichnung (Veranstaltung)")
         // V1.9.199 -- upload, rename and removal of an organisation-wide travel-expense document; the entry never carries the file.
         AuditEntityType.TRAVEL_EXPENSE_DOCUMENT -> gettext("Reisekosten-Unterlage")
+        // V1.9.201 -- publication, award motion, award, acceptance and cancellation of a tender; the entry carries no text, name or price.
+        AuditEntityType.TENDER -> gettext("Ausschreibung")
+        // V1.9.204 -- one entry per CSV export of an event's registrations; row count and format only.
+        AuditEntityType.EVENT_REGISTRATION_EXPORT -> gettext("Export der Anmeldungen")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -314,6 +318,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // Same reasoning as PULPIT_RECORDING: a release that allows recording persons is a consequential act; the label says it too.
         AuditEntityType.EVENT_CAPTURE -> "warning"
         AuditEntityType.TRAVEL_EXPENSE_DOCUMENT -> "secondary"
+        AuditEntityType.TENDER -> "secondary"
+        AuditEntityType.EVENT_REGISTRATION_EXPORT -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

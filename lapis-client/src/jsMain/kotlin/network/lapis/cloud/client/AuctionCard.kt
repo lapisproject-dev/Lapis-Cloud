@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
-import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.form.text.text
 import io.kvision.html.Button
@@ -132,7 +131,8 @@ private fun renderBidAndBuyNowControls(
 ) {
     val controlsPanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-1") }
     val bidRow = controlsPanel.lapisToolbar()
-    val bidInput = bidRow.text(label = tr("Ihr Höchstgebot (LTR)"))
+    val bidInput = bidRow.text(label = tr("Ihr Höchstgebot (LTR)")) { placeholder = "LTR" }
+    bidInput.input.setAttribute("inputmode", "decimal")
     val bidButton = bidRow.button(tr("Bieten"), style = ButtonStyle.OUTLINEDANGER)
     val bidBusyLabel = bidRow.div(tr("Wird ausgeführt …")) { addCssClasses("text-muted small") }
     bidBusyLabel.hide()
@@ -145,12 +145,13 @@ private fun renderBidAndBuyNowControls(
     bidButton.onClick {
         errorBox.hide()
         val bidText = bidInput.value.orEmpty().trim()
-        if (!Validation.isPositiveDecimal(bidText)) {
-            errorBox.content = tr("Bitte ein positives Höchstgebot (LTR) angeben.")
+        val bidParsed = parseLtrAmountInput(bidText)
+        if (bidParsed !is AmountInput.Valid) {
+            errorBox.content = amountErrorText(bidParsed, tr("Bitte ein positives Höchstgebot (LTR) angeben."))
             errorBox.show()
             return@onClick
         }
-        val bidAmount = bidText.toDouble().toDecimal()
+        val bidAmount = bidParsed.value
         if (bidAmount.toDouble() < auction.startingBidLtr.toDouble()) {
             errorBox.content =
                 gettext("Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen.", formatLtr(auction.startingBidLtr))

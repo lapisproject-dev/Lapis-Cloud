@@ -508,8 +508,8 @@ class FormSubmitBodyPart2DomTest {
                     )
                     val screen = element()
                     screen.type("Titel", "  Vorstandssitzung  ")
-                    screen.type("Termin (Datum)", "  15.08.2026 ")
-                    screen.type("Termin (Uhrzeit)", " 18:00 ")
+                    screen.type("Termin, Datum", "  15.08.2026 ")
+                    screen.type("Termin, Uhrzeit", " 18:00 ")
                     screen.type("Ort", "  Halle 3  ")
                     screen.button("Sitzung anlegen").click()
                     awaitUntil("createMeeting", timeoutMs = 600) { calls.toRoute(r.createMeeting).isNotEmpty() }

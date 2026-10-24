@@ -179,6 +179,14 @@ internal object PageIntros {
                             "Erfassen können das Vorstand, Administration und die Leitung des jeweiligen Gremiums.",
                     ),
                 )
+            Routes.TENDERS ->
+                PageIntroDef(
+                    "tenders",
+                    tr(
+                        "Hier schreibt der Vorstand Aufträge aus, die ein Beschluss vorsieht. " +
+                            "Mitglieder und Freunde geben bis zur Frist ein Angebot ab.",
+                    ),
+                )
             Routes.MOTIONS ->
                 PageIntroDef(
                     "motions",
@@ -264,8 +272,8 @@ internal object PageIntros {
                 PageIntroDef(
                     "ledger",
                     tr(
-                        "Hier sehen Sie den Kontenplan und das Journal mit allen Buchungen. Neue Buchungen und Konten legen " +
-                            "Schatzmeisterei und Administration an.",
+                        "Hier richten Sie die Finanzen ein, sehen den Kontenplan und das Journal mit allen Buchungen. Einrichten " +
+                            "und buchen können Schatzmeisterei und Administration; die Zuordnung der Konten ändert nur die Administration.",
                     ),
                 )
             Routes.OPEN_ITEMS ->
@@ -582,7 +590,8 @@ internal object PageIntros {
                 PageIntroDef(
                     "payment-gateway-settings",
                     tr(
-                        "Hier stellen Sie die Online-Zahlung ein und ordnen sie Konten zu.",
+                        "Hier stellen Sie die Online-Zahlung ein. Die Zuordnung zu Konten finden Sie unter Kontenplan & Journal, " +
+                            "im Reiter Einrichtung.",
                     ),
                 )
             Routes.DUNNING_SETTINGS ->
@@ -648,6 +657,7 @@ internal object PageIntros {
             Routes.CROWDFUNDING,
             Routes.AUCTION,
             Routes.POLITICIANS,
+            Routes.TENDERS,
             Routes.SOCIAL_NETWORK,
             Routes.AI_DRAFTS,
             Routes.LEDGER,

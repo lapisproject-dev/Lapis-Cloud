@@ -180,6 +180,7 @@ class AuditLogSchemaDriftTest :
                             "AGREEMENT_TEXT",
                             "PULPIT_RECORDING",
                             "TRAVEL_EXPENSE_DOCUMENT",
+                            "TENDER",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

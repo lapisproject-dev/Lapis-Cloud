@@ -36,7 +36,7 @@ class MembershipTierLabelsTest {
 
     @Test
     fun amount_refusesNegativeTooLargeTooManyDecimalsAndGarbage() {
-        listOf("-0,01", "-5", "100000,01", "100001", "1,234", "abc", "1.234,56", "1e3").forEach {
+        listOf("-0,01", "-5", "100000,01", "100001", "1,234", "abc", "1,2,3", "1e3").forEach {
             assertTrue(invalid(validateTierAmount(it)), "'$it' must be refused")
         }
     }

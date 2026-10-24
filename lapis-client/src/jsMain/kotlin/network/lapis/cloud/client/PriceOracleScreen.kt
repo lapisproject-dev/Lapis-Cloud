@@ -608,6 +608,12 @@ internal fun renderPriceHistoryChart(
         val values = data.points.map { it?.yValue }.toTypedArray()
         val tooltipLabels = data.points.map { it?.tooltipLabel }.toTypedArray()
         val dateLabels = data.points.map { it?.dateLabel }.toTypedArray()
+        // x axis: readable labels instead of the raw epoch numbers. A chart of at most two days shows times, a longer one shows dates;
+        // `maxTicksLimit` thins the category ticks so the labels never overlap, whatever the width.
+        val epochs = data.points.mapNotNull { it?.epochMillis }
+        val spanMillis = if (epochs.size >= 2) epochs.last() - epochs.first() else 0L
+        val showTimes = spanMillis <= TWO_DAYS_MILLIS
+        val axisLabels = data.points.map { if (showTimes) it?.axisTime.orEmpty() else it?.axisDate.orEmpty() }.toTypedArray()
 
         val dataset = js("({})")
         dataset.data = values
@@ -629,8 +635,7 @@ internal fun renderPriceHistoryChart(
         }
         // Chart.js' Default-Title-Callback ist `items => items[0].label` -- fuer eine
         // "category"-Skala exakt der rohe `labels`-Eintrag, also die epochMillis-Zahl aus Zeile
-        // oben (`xTicks.display = false` macht sie nur auf der Achse unsichtbar, NICHT im
-        // Tooltip). Ohne einen eigenen Callback zeigt jeder Hover die rohe Millisekundenzahl als
+        // oben (die Achsen-Ticks zeigen sie nicht mehr, siehe `xTicks.callback`, der Tooltip aber schon). Ohne einen eigenen Callback zeigt jeder Hover die rohe Millisekundenzahl als
         // Titel -- Review-Befund 2026-09-17. Signatur ist ein Array von Tooltip-Items (ueblicherweise
         // genau eins bei einem Einzel-Datensatz-Chart wie diesem), das erste traegt denselben
         // `dataIndex` wie der `label`-Callback oben.
@@ -651,8 +656,14 @@ internal fun renderPriceHistoryChart(
         plugins.legend = legend
         plugins.tooltip = tooltip
 
+        val xTicksCallback: (dynamic, dynamic, dynamic) -> String = { _, index, _ -> axisLabels.getOrNull(index as Int) ?: "" }
         val xTicks = js("({})")
-        xTicks.display = false
+        xTicks.display = true
+        xTicks.color = colors.muted
+        xTicks.maxTicksLimit = X_AXIS_MAX_TICKS
+        xTicks.maxRotation = 0
+        xTicks.autoSkip = true
+        xTicks.callback = xTicksCallback
         val xGrid = js("({})")
         xGrid.display = false
         val xBorder = js("({})")
@@ -1114,3 +1125,9 @@ fun priceStatusColor(status: PriceStatus): String =
         PriceStatus.CACHED -> "secondary"
         PriceStatus.DEFERRED -> "secondary"
     }
+
+/** Most x-axis labels the Kursverlauf chart shows at once; Chart.js thins the category ticks down to this. */
+private const val X_AXIS_MAX_TICKS = 7
+
+/** A chart spanning at most this long labels its x axis with times, a longer one with dates. */
+private const val TWO_DAYS_MILLIS = 2L * 24 * 60 * 60 * 1000

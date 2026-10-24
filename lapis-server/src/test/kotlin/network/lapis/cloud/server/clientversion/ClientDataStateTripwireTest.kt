@@ -126,9 +126,11 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * (`TravelContactHintEditor.kt`) asks the server for the rendered preview (`previewTravelContactHint(`) -- the same stateless, latest-answer-wins dry run as
  * `previewCommitteeRule(` above: the preview pane shows its own loading/empty/unavailable sentence, no list with a loading/error block. The settings page and
  * the documents section load through `guarded` + `dataErrorState` (state blocks), so they add no read to this ledger.
- * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
+ * Welle V1.9.206 "Finanz-Einrichtung" adds THREE reads (185 -> 188, same 58 files): `LedgerScreen.kt` loads `getFinanceSetupStatus()` once before the tabs
+ * exist (a failure leaves the default tab), and `PaymentGatewaySettingsScreen.kt` reads it for its one-line status and for the pre-check of "aktivieren".
+ * The setup tab itself uses `dataErrorState`. The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 185
+private const val READ_OUTSIDE_STATE_REGION_MAX = 188
 private const val FILES_OUTSIDE_STATE_REGION_MAX = 58
 
 /**

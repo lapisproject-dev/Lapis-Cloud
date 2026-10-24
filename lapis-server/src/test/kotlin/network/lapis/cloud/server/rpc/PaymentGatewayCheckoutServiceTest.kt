@@ -74,10 +74,13 @@ class PaymentGatewayCheckoutServiceTest :
         val createdTierIds = mutableListOf<Uuid>()
         val createdContributionIds = mutableListOf<Uuid>()
         val createdLedgerAccountIds = mutableListOf<Uuid>()
+        val fixtureAccountIds = mutableListOf<Uuid>()
 
         beforeSpec { DatabaseConfig.connect() }
 
         afterTest {
+            PaymentMappingFixture.clear(fixtureAccountIds)
+            fixtureAccountIds.clear()
             transaction {
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                     it[paymentGatewayEnabled] = false
@@ -656,6 +659,7 @@ class PaymentGatewayCheckoutServiceTest :
                         }
                     }
                 }
+                fixtureAccountIds += PaymentMappingFixture.seedComplete()
                 val admin = createMember("checkout-enable-paypal-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
                 val response = client.post("/test/enable-paypal") { header("X-Member-Id", admin.toString()) }
                 response.status shouldBe HttpStatusCode.OK
@@ -686,6 +690,7 @@ class PaymentGatewayCheckoutServiceTest :
                         }
                     }
                 }
+                fixtureAccountIds += PaymentMappingFixture.seedComplete()
                 val admin = createMember("checkout-enable-paypal-unusable-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
                 val response = client.post("/test/enable-paypal-unusable") { header("X-Member-Id", admin.toString()) }
                 response.status shouldBe HttpStatusCode.OK

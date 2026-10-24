@@ -79,6 +79,8 @@ object PersonalDataRegistry {
             EncounterSpacePersonalData,
             // V1.9.144: the member finder (consent events, requests, blocks).
             MemberFinderPersonalData,
+            // V1.9.201: tenders (bids, awards, acceptances).
+            TenderPersonalData,
             // V1.9.156: the capture-consent proofs of event rooms (retained, no name, no clock time).
             EventCapturePersonalData,
         )
@@ -112,7 +114,9 @@ object PersonalDataRegistry {
                 "Anmeldung ohne member_id, hat fuer diesen Fall keinen member-FK und faellt daher " +
                 "aus dem Auskunfts-/Loeschframework heraus. Ein Selbstbedienungs-Auskunfts-/" +
                 "Loeschpfad fuer Gaeste sowie eine automatische Aufbewahrungsfrist sind fuer " +
-                "V1.4.3.2 vorgesehen. Sichtbar gemacht, nicht geschlossen.",
+                "V1.4.3.2 vorgesehen. Seit V1.9.204 traegt die Zeile auch die optionale Nachricht " +
+                "eines Gastes an die Veranstalter (freier Text, derselbe Personenbezug). " +
+                "Sichtbar gemacht, nicht geschlossen.",
             "bank_statement_line" to
                 "Welle V1.4.5.1. Traegt PII eines Nicht-Mitglieds (Auftraggebername, IBAN-Suffix) " +
                 "aus einem Bankkontoauszug, hat fuer diesen Fall keinen member-FK und faellt daher " +

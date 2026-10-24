@@ -27,6 +27,7 @@ private class FakeEventsRpc(
 ) : MemberEventsRpc {
     var listCalls = 0
     val registerCalls = mutableListOf<String>()
+    val messageCalls = mutableListOf<Pair<String, String?>>()
     val cancelCalls = mutableListOf<String>()
     var registerResult: EventRegistrationResultDto? = null
     var registerFailure: Throwable? = null
@@ -65,6 +66,15 @@ private class FakeEventsRpc(
         gate?.await()
         registerFailure?.let { throw it }
         return registerResult ?: EventRegistrationResultDto(registration(eventId, EventRegistrationStatus.CONFIRMED), null)
+    }
+
+    override suspend fun registerSelfWithMessage(
+        eventId: String,
+        message: String?,
+    ): EventRegistrationResultDto {
+        messageCalls += eventId to message
+        registerFailure?.let { throw it }
+        return EventRegistrationResultDto(registration(eventId, EventRegistrationStatus.CONFIRMED), null)
     }
 
     override suspend fun resumeOwnEventPayment(eventId: String): EventRegistrationResultDto {
@@ -524,5 +534,105 @@ class MemberEventsScreenDomTest {
     fun withoutAPayment_noRefundLineAppears(): Promise<Unit> =
         withScreen("ev-refund-none", FakeEventsRpc(listOf(testEvent(fee = 12.0)))) { el, _ ->
             assertFalse(el().textContent.orEmpty().contains("Erstattung"))
+        }
+
+    // ---- V1.9.204: seat counter and message to the organisers ----------------------------------------------------------------------------
+
+    @Test
+    fun seatCounter_showsOccupancyAndFreeSeats_onlyWithACapacity(): Promise<Unit> {
+        val rows =
+            listOf(
+                testEvent(id = "open", title = "Offen", capacity = 40, occupiedSeats = 23),
+                testEvent(id = "single", title = "Einzel", capacity = 1, occupiedSeats = 0),
+                testEvent(id = "nocap", title = "OhneLimit"),
+            )
+        return withScreen("ev-counter", FakeEventsRpc(rows)) { el, _ ->
+            val text = el().textContent.orEmpty()
+            assertTrue(text.contains("23 von 40 Plätzen belegt · noch 17 frei"), text)
+            assertTrue(text.contains("0 von 1 Platz belegt · noch 1 frei"), text)
+            assertEquals(2, Regex("belegt · noch").findAll(text).count(), "no counter for the event without a capacity")
+        }
+    }
+
+    @Test
+    fun seatCounter_saysFullWithAndWithoutAWaitingList(): Promise<Unit> {
+        val rows =
+            listOf(
+                testEvent(id = "f1", title = "VollMitListe", capacity = 10, occupiedSeats = 10, waitlistCount = 3, full = true),
+                testEvent(id = "f2", title = "VollOhneListe", capacity = 10, occupiedSeats = 10, waitlistCount = 0, full = true),
+            )
+        return withScreen("ev-counter-full", FakeEventsRpc(rows)) { el, _ ->
+            val text = el().textContent.orEmpty()
+            assertTrue(text.contains("Ausgebucht · 3 auf der Warteliste"), text)
+            assertEquals(
+                2,
+                el().allOf("div.text-muted.small").count {
+                    it.textContent
+                        .orEmpty()
+                        .trim()
+                        .startsWith("Ausgebucht")
+                },
+            )
+        }
+    }
+
+    @Test
+    fun theMessageField_isFoldedAway_opensOnDemand_countsAndCarriesTheHint(): Promise<Unit> =
+        withScreen("ev-message-field", FakeEventsRpc(listOf(testEvent()))) { el, _ ->
+            val toggle = el().buttonNamed("Nachricht an die Veranstalter hinzufügen")
+            assertEquals("false", toggle.getAttribute("aria-expanded"))
+            assertTrue(el().allOf("textarea").none { it.offsetParent != null }, "the field is not visible before the click")
+            toggle.click()
+            awaitUntil("the field is visible") { el().allOf("textarea").any { it.offsetParent != null } }
+            assertEquals("true", toggle.getAttribute("aria-expanded"))
+            val area = el().controlOf("Nachricht an die Veranstalter") as org.w3c.dom.HTMLTextAreaElement
+            assertEquals("500", area.getAttribute("maxlength"))
+            assertTrue(el().textContent.orEmpty().contains("0/500"))
+            area.value = "abc"
+            area.dispatchEvent(
+                org.w3c.dom.events
+                    .Event("input"),
+            )
+            awaitUntil("the counter follows") { el().textContent.orEmpty().contains("3/500") }
+            assertTrue(el().allOf("[aria-live=polite]").any { it.textContent.orEmpty().trim() == "3/500" })
+            assertTrue(
+                el().textContent.orEmpty().contains(
+                    "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage.",
+                ),
+            )
+        }
+
+    @Test
+    fun withAMessage_theRegistrationGoesThroughRegisterSelfWithMessage(): Promise<Unit> {
+        val rpc = FakeEventsRpc(listOf(testEvent()))
+        return withScreen("ev-message-send", rpc) { el, _ ->
+            el().buttonNamed("Nachricht an die Veranstalter hinzufügen").click()
+            awaitUntil("the field is visible") { el().allOf("textarea").any { it.offsetParent != null } }
+            el().typeInto("Nachricht an die Veranstalter", "  Bitte Rampe  ")
+            el().buttonNamed("Zur Veranstaltung anmelden").click()
+            awaitUntil("reloaded") { rpc.listCalls == 2 }
+            assertEquals(listOf<Pair<String, String?>>("e1" to "Bitte Rampe"), rpc.messageCalls)
+            assertTrue(rpc.registerCalls.isEmpty())
+        }
+    }
+
+    @Test
+    fun withoutAMessage_orWithOnlySpaces_theOldCallIsUsed(): Promise<Unit> {
+        val rpc = FakeEventsRpc(listOf(testEvent()))
+        return withScreen("ev-message-blank", rpc) { el, _ ->
+            el().buttonNamed("Nachricht an die Veranstalter hinzufügen").click()
+            awaitUntil("the field is visible") { el().allOf("textarea").any { it.offsetParent != null } }
+            el().typeInto("Nachricht an die Veranstalter", "   ")
+            el().buttonNamed("Zur Veranstaltung anmelden").click()
+            awaitUntil("reloaded") { rpc.listCalls == 2 }
+            assertEquals(listOf("e1"), rpc.registerCalls)
+            assertTrue(rpc.messageCalls.isEmpty())
+        }
+    }
+
+    @Test
+    fun noMessageField_whenThereIsNothingToRegisterFor(): Promise<Unit> =
+        withScreen("ev-message-none", FakeEventsRpc(listOf(testEvent(own = EventRegistrationStatus.CONFIRMED)))) { el, _ ->
+            assertFalse(el().hasButton("Nachricht an die Veranstalter hinzufügen"))
         }
 }

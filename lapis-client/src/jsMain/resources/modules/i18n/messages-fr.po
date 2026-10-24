@@ -1854,10 +1854,6 @@ msgstr "Administration"
 msgid "Administrator"
 msgstr "Administrateur"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:91
-msgid "Akteur-Mitglieds-ID (optional)"
-msgstr "ID membre de l'acteur (facultatif)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:359
 msgid "Akteur: %1"
 msgstr "Acteur : %1"
@@ -3329,10 +3325,6 @@ msgstr "Jusqu'à (AAAA-MM-JJ)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:95
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Jusqu'à (AAAA-MM-JJTHH:MM:SS, facultatif)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:204
-msgid "Bis Sequenznummer (optional)"
-msgstr "Jusqu'au numéro de séquence (facultatif)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:726
 msgid "Bisherige Jahressumme (vor dieser Spende)"
@@ -4867,10 +4859,6 @@ msgstr "Abstentions"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:360
 msgid "Entität: %1"
 msgstr "Entité : %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:90
-msgid "Entitäts-ID (optional)"
-msgstr "ID de l'entité (facultatif)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:89
@@ -6436,18 +6424,6 @@ msgstr "Classe de compte %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:468
 msgid "Kontenplan & Journal"
 msgstr "Plan comptable et journal"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:789
-msgid "Kontenzuordnung gespeichert."
-msgstr "Affectation des comptes enregistrée."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:757
-msgid "Kontenzuordnung speichern"
-msgstr "Enregistrer l'affectation des comptes"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:313
-msgid "Kontenzuordnung Zahlungsverkehr"
-msgstr "Affectation des comptes de paiement"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:90
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:100
@@ -8940,13 +8916,6 @@ msgstr ""
 "Prix d'achat immédiat (LTR, facultatif -- doit être supérieur au prix de "
 "départ)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:604
-msgid ""
-"Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt "
-"markierter Beitrag NICHT gebucht -- der Status wechselt trotzdem auf "
-"\"bezahlt\"."
-msgstr "Tant que l'un des trois comptes n'est pas affecté, une cotisation marquée comme payée n'est PAS comptabilisée -- le statut passe tout de même à « payée »."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1165
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1513
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2318
@@ -9901,10 +9870,6 @@ msgstr "De (AAAA-MM-JJ, champ obligatoire)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:94
 msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "De (AAAA-MM-JJTHH:MM:SS, facultatif)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:203
-msgid "Von Sequenznummer (optional)"
-msgstr "À partir du numéro de séquence (facultatif)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:400
 msgid "Vorher"
@@ -11945,10 +11910,6 @@ msgstr "Masquer"
 msgid "In „Offene Posten“ öffnen"
 msgstr "Ouvrir dans « Postes ouverts »"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:409
-msgid "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2"
-msgstr "Compte de créances (débiteurs) : %1 · Compte de dettes (créditeurs) : %2"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:485
 msgid "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht."
 msgstr "Sans compte de créances ni compte de dettes, les postes ouverts sont créés mais non comptabilisés."
@@ -12100,10 +12061,6 @@ msgstr "Retour"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:353
 msgid "Verrechnung gebucht."
 msgstr "Compensation comptabilisée."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:48
-msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
-msgstr "Veuillez saisir un montant du type 1234,56 (sans séparateur de milliers)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:53
 msgid "Höchstens %1 Nachkommastellen erlaubt."
@@ -13828,10 +13785,6 @@ msgstr "Tous les niveaux de relance configurés ont déjà été utilisés dans 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:208
 msgid "BIC"
 msgstr "BIC"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:553
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8"
-msgstr "Compte bancaire : %1 · Compte de frais : %2 · Compte de produits des cotisations : %3 · Compte de produits des dons : %4 · Compte de produits des événements : %5 (%6) · Compte de frais de déplacement : %7 · Compte de charges des indemnités de bénévolat : %8"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
 msgid "Bankname"
@@ -15672,18 +15625,6 @@ msgstr "URL du webhook à saisir dans le tableau de bord développeur PayPal : %
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
 msgid "Bankkonto zugeordnet"
 msgstr "Compte bancaire affecté"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Beitragserlöskonto zugeordnet"
-msgstr "Compte de produits des cotisations affecté"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Spendenerlöskonto zugeordnet"
-msgstr "Compte de produits des dons affecté"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Gebührenkonto zugeordnet"
-msgstr "Compte de frais affecté"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
 msgid "Erfasst"
@@ -24105,12 +24046,6 @@ msgstr "Le texte du contrat n'est pas admis. Veuillez vérifier la longueur, les
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "Le brouillon a entre-temps été modifié. Veuillez recharger la vue et le vérifier à nouveau."
 
-msgid "%1 (Datum)"
-msgstr "%1 (date)"
-
-msgid "%1 (Uhrzeit)"
-msgstr "%1 (heure)"
-
 msgid "Aufsichtsbehörde benachrichtigt am (optional)"
 msgstr "Autorité de contrôle notifiée le (facultatif)"
 
@@ -24122,9 +24057,6 @@ msgstr "Personnes concernées informées le (facultatif)"
 
 msgid "Bis (Pflichtfeld)"
 msgstr "Jusqu'au (obligatoire)"
-
-msgid "Bis (optional)"
-msgstr "Jusqu'au (facultatif)"
 
 msgid "Bitte AM oder PM angeben."
 msgstr "Veuillez indiquer AM ou PM."
@@ -26037,3 +25969,813 @@ msgstr "Télécharger %1 (%2, %3)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
 msgid "Unterlagen verwalten"
 msgstr "Gérer les documents"
+
+msgid "Alle Filter sind optional."
+msgstr "Tous les filtres sont facultatifs."
+
+msgid "%1, Datum"
+msgstr "%1, date"
+
+msgid "%1, Uhrzeit"
+msgstr "%1, heure"
+
+msgid "Bitte einen Betrag wie %1 eingeben."
+msgstr "Veuillez saisir un montant comme %1."
+
+msgid "Boost-Betrag in LTR"
+msgstr "Montant du boost en LTR"
+
+msgid "Um aktuell ganz oben zu stehen: %1"
+msgstr "Pour être tout en haut actuellement : %1"
+
+msgid "Ihr Guthaben reicht nicht, höchstens %1."
+msgstr "Votre solde ne suffit pas, au maximum %1."
+
+msgid "Vorschlag übernehmen"
+msgstr "Appliquer la suggestion"
+
+msgid "Entitäts-ID"
+msgstr "ID de l'entité"
+
+msgid "Akteur-Mitglieds-ID"
+msgstr "ID du membre acteur"
+
+msgid "Von Sequenznummer"
+msgstr "À partir du numéro de séquence"
+
+msgid "Bis Sequenznummer"
+msgstr "Jusqu'au numéro de séquence"
+
+msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
+msgstr "Veuillez saisir un montant du type 1234,56 (sans séparateur de milliers)."
+
+msgid "Ausschreibungen"
+msgstr "Appels d'offres"
+
+msgid "Standard-Sichtbarkeit der Angebote"
+msgstr "Visibilité par défaut des offres"
+
+msgid "Verdeckt bis zur Frist"
+msgstr "Masquées jusqu'à l'échéance"
+
+msgid "Bieter sehen nur ihr eigenes Angebot"
+msgstr "Les soumissionnaires ne voient que leur propre offre"
+
+msgid "Gilt als Vorbelegung beim Anlegen einer Ausschreibung; nach dem Veröffentlichen nicht mehr änderbar."
+msgstr "Sert de valeur par défaut à la création d'un appel d'offres ; non modifiable après la publication."
+
+msgid "Unbekannte Auswahl"
+msgstr "Sélection inconnue"
+
+msgid "Ausschreibung"
+msgstr "Appel d'offres"
+
+msgid "Hier schreibt der Vorstand Aufträge aus, die ein Beschluss vorsieht. Mitglieder und Freunde geben bis zur Frist ein Angebot ab."
+msgstr "Ici, le conseil d'administration lance les appels d'offres prévus par une décision. Les membres et les amis déposent une offre avant la date limite."
+
+msgid "Nur eigenes Angebot sichtbar"
+msgstr "Seule sa propre offre est visible"
+
+msgid "Abgenommen"
+msgstr "Réceptionné"
+
+msgid "%1 Tag"
+msgid_plural "%1 Tage"
+msgstr[0] "%1 jour"
+msgstr[1] "%1 jours"
+
+msgid "%1 Stunde"
+msgid_plural "%1 Stunden"
+msgstr[0] "%1 heure"
+msgstr[1] "%1 heures"
+
+msgid "noch %1 und %2"
+msgstr "encore %1 et %2"
+
+msgid "noch %1"
+msgstr "encore %1"
+
+msgid "Erwartetes Ergebnis"
+msgstr "Résultat attendu"
+
+msgid "abgelaufen am %1"
+msgstr "expiré le %1"
+
+msgid "Vergabe nach: %1"
+msgstr "Attribution selon : %1"
+
+msgid "Vergütung: %1"
+msgstr "Rémunération : %1"
+
+msgid "Sichtbarkeit der Angebote: %1"
+msgstr "Visibilité des offres : %1"
+
+msgid "Beruht auf: "
+msgstr "Fondé sur : "
+
+msgid "Als Gast können Sie auf diese Ausschreibung nicht bieten: Sie wird in LTR vergütet, und Gäste führen ihr LTR-Konto auf ihrem Heimatserver."
+msgstr "En tant qu'invité, vous ne pouvez pas soumissionner à cet appel d'offres : il est rémunéré en LTR, et les invités tiennent leur compte LTR sur leur serveur d'origine."
+
+msgid "Sie können auf diese Ausschreibung nicht bieten."
+msgstr "Vous ne pouvez pas soumissionner à cet appel d'offres."
+
+msgid "Diese Ausschreibung ist noch nicht veröffentlicht."
+msgstr "Cet appel d'offres n'est pas encore publié."
+
+msgid "Diese Ausschreibung wurde abgesagt."
+msgstr "Cet appel d'offres a été annulé."
+
+msgid "Die Frist ist abgelaufen. Es können keine Angebote mehr abgegeben werden."
+msgstr "Le délai est expiré. Il n'est plus possible de déposer d'offres."
+
+msgid "Diese Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "Cet appel d'offres ne peut plus recevoir d'offres."
+
+msgid "Ihr Angebot"
+msgstr "Votre offre"
+
+msgid "Preis: %1"
+msgstr "Prix : %1"
+
+msgid "Angebot zurückziehen"
+msgstr "Retirer l'offre"
+
+msgid "Sie haben Ihr Angebot zurückgezogen. Sie können bis zur Frist ein neues abgeben."
+msgstr "Vous avez retiré votre offre. Vous pouvez en déposer une nouvelle jusqu'à la date limite."
+
+msgid "Angebot ändern"
+msgstr "Modifier l'offre"
+
+msgid "Angebot zurückziehen?"
+msgstr "Retirer l'offre ?"
+
+msgid "Sie können bis zur Frist jederzeit ein neues Angebot abgeben."
+msgstr "Vous pouvez déposer une nouvelle offre à tout moment jusqu'à la date limite."
+
+msgid "Angebot zurückgezogen."
+msgstr "Offre retirée."
+
+msgid "Preis in LTR"
+msgstr "Prix en LTR"
+
+msgid "Höchstens zwei Nachkommastellen."
+msgstr "Au plus deux décimales."
+
+msgid "Angebot abgeben"
+msgstr "Déposer l'offre"
+
+msgid "Änderung speichern"
+msgstr "Enregistrer la modification"
+
+msgid "Angebot gespeichert."
+msgstr "Offre enregistrée."
+
+msgid "Noch keine Angebote."
+msgstr "Pas encore d'offres."
+
+msgid "Bei dieser Ausschreibung sieht jeder Bieter nur sein eigenes Angebot."
+msgstr "Dans cet appel d'offres, chaque soumissionnaire ne voit que sa propre offre."
+
+msgid "Die Angebote anderer sind bis %1 verdeckt."
+msgstr "Les offres des autres sont masquées jusqu'au %1."
+
+msgid "Die Angebote sehen nur die Bieter und der Vorstand."
+msgstr "Seuls les soumissionnaires et le conseil d'administration voient les offres."
+
+msgid "Bieter"
+msgstr "Soumissionnaire"
+
+msgid "Preis"
+msgstr "Prix"
+
+msgid "Zuschlag erteilen an %1"
+msgstr "Attribuer le marché à %1"
+
+msgid "Zuschlag erteilen?"
+msgstr "Attribuer le marché ?"
+
+msgid "Zuschlag an %1 für %2."
+msgstr "Attribution à %1 pour %2."
+
+msgid "Der Zuschlag kann nicht zurückgenommen werden."
+msgstr "L'attribution ne peut pas être annulée."
+
+msgid "Zuschlag erteilen"
+msgstr "Attribuer le marché"
+
+msgid "Zuschlag erteilt."
+msgstr "Marché attribué."
+
+msgid "Zuschlag"
+msgstr "Attribution"
+
+msgid "%1 hat den Zuschlag erhalten (%2, am %3)."
+msgstr "%1 a reçu l'attribution (%2, le %3)."
+
+msgid "Abnahme"
+msgstr "Réception"
+
+msgid "Sie haben selbst ein Angebot abgegeben (auch ein zurückgezogenes zählt). Deshalb dürfen Sie diese Ausschreibung weder vergeben noch abnehmen noch absagen."
+msgstr "Vous avez vous-même déposé une offre (une offre retirée compte aussi). Vous ne pouvez donc ni attribuer, ni réceptionner, ni annuler cet appel d'offres."
+
+msgid "Entwurf bearbeiten"
+msgstr "Modifier le brouillon"
+
+msgid "Ausschreibung veröffentlichen?"
+msgstr "Publier l'appel d'offres ?"
+
+msgid "Danach können Mitglieder und Freunde bis zur Frist Angebote abgeben."
+msgstr "Ensuite, les membres et les amis pourront déposer des offres jusqu'à la date limite."
+
+msgid "Frist, Vergabe-Kriterium und Sichtbarkeit lassen sich nach dem Veröffentlichen nicht mehr ändern."
+msgstr "Le délai, le critère d'attribution et la visibilité ne peuvent plus être modifiés après la publication."
+
+msgid "Ausschreibung veröffentlicht."
+msgstr "Appel d'offres publié."
+
+msgid "Ausschreibung absagen"
+msgstr "Annuler l'appel d'offres"
+
+msgid "Ausschreibung absagen?"
+msgstr "Annuler l'appel d'offres ?"
+
+msgid "Der Grund ist für alle sichtbar, die die Ausschreibung sehen."
+msgstr "Le motif est visible par tous ceux qui voient l'appel d'offres."
+
+msgid "Eine abgesagte Ausschreibung kann nicht wieder geöffnet werden."
+msgstr "Un appel d'offres annulé ne peut pas être rouvert."
+
+msgid "Ausschreibung abgesagt."
+msgstr "Appel d'offres annulé."
+
+msgid "Der bisherige Vergabeantrag wurde nicht angenommen. Legen Sie einen neuen fest."
+msgstr "La proposition d'attribution précédente n'a pas été adoptée. Définissez-en une nouvelle."
+
+msgid "Die Frist ist abgelaufen. Für den Zuschlag braucht es einen Vergabebeschluss des Gremiums."
+msgstr "Le délai est expiré. L'attribution nécessite une décision d'attribution de l'organe."
+
+msgid "Legen Sie unter Anträge einen Antrag für den Vergabebeschluss an. Er wird nach Ablauf der Frist in einer Sitzung entschieden."
+msgstr "Créez sous Motions une motion pour la décision d'attribution. Elle sera tranchée en séance après l'échéance."
+
+msgid "Über den Vergabeantrag ist noch nicht entschieden."
+msgstr "Il n'a pas encore été statué sur la motion d'attribution."
+
+msgid "Der Vergabebeschluss wurde vor Ablauf der Frist gefasst und zählt deshalb nicht."
+msgstr "La décision d'attribution a été prise avant l'expiration du délai et ne compte donc pas."
+
+msgid "Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "Vous attribuez le marché sur l'offre dans le tableau ci-dessus."
+
+msgid "Der Vergabebeschluss liegt vor. Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "La décision d'attribution est disponible. Vous attribuez le marché sur l'offre dans le tableau ci-dessus."
+
+msgid "Vergabeantrag: "
+msgstr "Motion d'attribution : "
+
+msgid "ist der Beschluss, auf dem die Ausschreibung beruht"
+msgstr "est la décision sur laquelle repose l'appel d'offres"
+
+msgid "gehört zu einem anderen Gremium"
+msgstr "relève d'un autre organe"
+
+msgid "ist ein Änderungsantrag"
+msgstr "est une motion d'amendement"
+
+msgid "ist schon entschieden oder zurückgezogen"
+msgstr "a déjà été tranchée ou retirée"
+
+msgid "gehört schon zu einer Ausschreibung"
+msgstr "relève déjà d'un appel d'offres"
+
+msgid "hat einen Änderungsantrag"
+msgstr "a une motion d'amendement"
+
+msgid "wird schon abgestimmt"
+msgstr "fait déjà l'objet d'un vote"
+
+msgid "Vergabeantrag"
+msgstr "Motion d'attribution"
+
+msgid "-- bitte wählen --"
+msgstr "-- veuillez choisir --"
+
+msgid "%1 -- nicht wählbar: %2"
+msgstr "%1 -- non sélectionnable : %2"
+
+msgid "Dieser Antrag kann nicht gewählt werden: %1"
+msgstr "Cette motion ne peut pas être choisie : %1"
+
+msgid "Vergabebeschluss festlegen"
+msgstr "Définir la décision d'attribution"
+
+msgid "Vergabeantrag festgelegt."
+msgstr "Motion d'attribution définie."
+
+msgid "Der Zuschlag ist erteilt. Nehmen Sie das Ergebnis ab oder lehnen Sie es mit einer Notiz ab."
+msgstr "Le marché est attribué. Réceptionnez le résultat ou refusez-le avec une note."
+
+msgid "Abnehmen"
+msgstr "Réceptionner"
+
+msgid "Notiz (bei Ablehnung Pflicht)"
+msgstr "Note (obligatoire en cas de refus)"
+
+msgid "Bei einer Ablehnung ist eine Notiz nötig."
+msgstr "Un refus nécessite une note."
+
+msgid "Abnahme erfassen"
+msgstr "Enregistrer la réception"
+
+msgid "Abnahme erfasst."
+msgstr "Réception enregistrée."
+
+msgid "Die Aktion ist gerade nicht möglich. Bitte laden Sie die Seite neu."
+msgstr "L'action n'est pas possible pour le moment. Veuillez recharger la page."
+
+msgid "Nur ein Entwurf kann geändert werden."
+msgstr "Seul un brouillon peut être modifié."
+
+msgid "Nur ein Entwurf kann veröffentlicht werden."
+msgstr "Seul un brouillon peut être publié."
+
+msgid "Die Frist muss mindestens eine Stunde in der Zukunft liegen."
+msgstr "Le délai doit se situer au moins une heure dans le futur."
+
+msgid "Die Ausschreibung wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu."
+msgstr "L'appel d'offres a été modifié entre-temps. Veuillez recharger la page."
+
+msgid "Diese Aktion ist im jetzigen Stand der Ausschreibung nicht möglich."
+msgstr "Cette action n'est pas possible dans l'état actuel de l'appel d'offres."
+
+msgid "Gäste können nur auf Ausschreibungen bieten, die in Euro vergütet werden."
+msgstr "Les invités ne peuvent soumissionner qu'aux appels d'offres rémunérés en euros."
+
+msgid "Die Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "L'appel d'offres ne peut plus recevoir d'offres."
+
+msgid "Es gibt kein Angebot, das zurückgezogen werden kann."
+msgstr "Il n'y a aucune offre pouvant être retirée."
+
+msgid "Einen Vergabeantrag gibt es nur bei der Vergabe nach dem besten Angebot."
+msgstr "Une motion d'attribution n'existe que pour l'attribution à la meilleure offre."
+
+msgid "Die Frist der Ausschreibung muss zuerst abgelaufen sein."
+msgstr "Le délai de l'appel d'offres doit d'abord être expiré."
+
+msgid "Die Ausschreibung hat kein Angebot, über das entschieden werden könnte."
+msgstr "L'appel d'offres n'a aucune offre sur laquelle statuer."
+
+msgid "Der eingetragene Vergabeantrag kann nicht mehr ersetzt werden."
+msgstr "La motion d'attribution enregistrée ne peut plus être remplacée."
+
+msgid "Dieses Angebot ist nicht mehr im Rennen."
+msgstr "Cette offre n'est plus en lice."
+
+msgid "Der Bieter darf für diese Ausschreibung nicht mehr berücksichtigt werden."
+msgstr "Le soumissionnaire ne peut plus être pris en compte pour cet appel d'offres."
+
+msgid "Der Zuschlag muss an das günstigste Angebot gehen."
+msgstr "L'attribution doit aller à l'offre la moins chère."
+
+msgid "Bei gleichem Preis ist eine Begründung nötig."
+msgstr "À prix égal, une justification est nécessaire."
+
+msgid "Bitte geben Sie eine Begründung an."
+msgstr "Veuillez indiquer une justification."
+
+msgid "Es ist noch kein Vergabeantrag festgelegt."
+msgstr "Aucune motion d'attribution n'a encore été définie."
+
+msgid "Der Vergabeantrag wurde nicht angenommen."
+msgstr "La motion d'attribution n'a pas été adoptée."
+
+msgid "Der Vergabeantrag wurde vor Ablauf der Frist entschieden."
+msgstr "La motion d'attribution a été tranchée avant l'expiration du délai."
+
+msgid "Eine Ablehnung braucht eine Begründung."
+msgstr "Un refus nécessite une justification."
+
+msgid "Die Beschreibung kann nicht dargestellt werden. Bitte vereinfachen Sie sie."
+msgstr "La description ne peut pas être affichée. Veuillez la simplifier."
+
+msgid "Ausschreibungen sind vorerst nur in LTR möglich."
+msgstr "Pour l'instant, les appels d'offres ne sont possibles qu'en LTR."
+
+msgid "Der Preis darf höchstens zwei Nachkommastellen haben."
+msgstr "Le prix ne peut avoir plus de deux décimales."
+
+msgid "Der Preis ist zu groß."
+msgstr "Le prix est trop élevé."
+
+msgid "Der Antrag ist kein angenommener Beschluss seines Gremiums."
+msgstr "La motion n'est pas une décision adoptée de son organe."
+
+msgid "Dieser Antrag kann nicht als Vergabeantrag dienen."
+msgstr "Cette motion ne peut pas servir de motion d'attribution."
+
+msgid "Über einen Vergabeantrag entscheidet nur die Beschlussfähigkeit des Gremiums oder eine meritokratische Abstimmung."
+msgstr "Une motion d'attribution n'est tranchée que par le quorum de l'organe ou par un vote méritocratique."
+
+msgid "Der Titel muss 1 bis %1 Zeichen haben."
+msgstr "Le titre doit comporter de 1 à %1 caractères."
+
+msgid "Die Beschreibung muss 1 bis %1 Zeichen haben."
+msgstr "La description doit comporter de 1 à %1 caractères."
+
+msgid "Das erwartete Ergebnis muss 1 bis %1 Zeichen haben."
+msgstr "Le résultat attendu doit comporter de 1 à %1 caractères."
+
+msgid "Der Angebotstext muss 1 bis %1 Zeichen haben."
+msgstr "Le texte de l'offre doit comporter de 1 à %1 caractères."
+
+msgid "Der Grund muss 1 bis %1 Zeichen haben."
+msgstr "Le motif doit comporter de 1 à %1 caractères."
+
+msgid "Der Grund darf höchstens %1 Zeichen haben."
+msgstr "Le motif ne peut pas dépasser %1 caractères."
+
+msgid "Die Begründung darf höchstens %1 Zeichen haben."
+msgstr "La justification ne peut pas dépasser %1 caractères."
+
+msgid "Der Preis muss mindestens %1 betragen."
+msgstr "Le prix doit être d'au moins %1."
+
+msgid "Für diesen Antrag läuft bereits ein Entscheidungsweg oder er ist schon entschieden."
+msgstr "Un processus de décision est déjà en cours pour cette motion, ou elle est déjà tranchée."
+
+msgid "Frist abgelaufen"
+msgstr "Délai expiré"
+
+msgid "Vergeben"
+msgstr "Attribué"
+
+msgid "LTR"
+msgstr "LTR"
+
+msgid "Euro"
+msgstr "Euro"
+
+msgid "Günstigster Preis"
+msgstr "Prix le plus bas"
+
+msgid "Bestes Angebot"
+msgstr "Meilleure offre"
+
+msgid "Der Vorstand erteilt den Zuschlag dem günstigsten Angebot. Ein Beschluss ist dafür nicht nötig."
+msgstr "Le conseil d'administration attribue le marché à l'offre la moins chère. Aucune décision n'est nécessaire."
+
+msgid "Der Zuschlag ist eine Wertung. Darüber entscheidet das Gremium mit einem Vergabebeschluss nach Ablauf der Frist."
+msgstr "L'attribution est une appréciation. L'organe en décide par une décision d'attribution après l'échéance."
+
+msgid "Zuschlag erhalten"
+msgstr "Marché attribué"
+
+msgid "Nicht berücksichtigt"
+msgstr "Non retenue"
+
+msgid "noch nicht beschlossen"
+msgstr "pas encore décidée"
+
+msgid "Beschluss nicht angenommen"
+msgstr "décision non adoptée"
+
+msgid "Beschluss in einem anderen Gremium gefasst"
+msgstr "décision prise dans un autre organe"
+
+msgid "Bis zum Ende der Frist sieht niemand fremde Angebote. Danach sehen alle Bieter und der Vorstand alle Angebote."
+msgstr "Jusqu'à la fin du délai, personne ne voit les offres des autres. Ensuite, tous les soumissionnaires et le conseil d'administration voient toutes les offres."
+
+msgid "Alle Beteiligten sehen die Angebote der anderen sofort."
+msgstr "Tous les participants voient immédiatement les offres des autres."
+
+msgid "Jeder Bieter sieht nur sein eigenes Angebot. Der Vorstand sieht nach Ablauf der Frist alle Angebote. Wer den Zuschlag erhält, wird allen angezeigt."
+msgstr "Chaque soumissionnaire ne voit que sa propre offre. Après l'échéance, le conseil d'administration voit toutes les offres. Le bénéficiaire de l'attribution est affiché à tous."
+
+msgid "Entwürfe"
+msgstr "Brouillons"
+
+msgid "Keine Ausschreibungen in dieser Auswahl."
+msgstr "Aucun appel d'offres dans cette sélection."
+
+msgid "Neue Ausschreibung"
+msgstr "Nouvel appel d'offres"
+
+msgid "Vergütung"
+msgstr "Rémunération"
+
+msgid "Mein Angebot"
+msgstr "Mon offre"
+
+msgid "Die Zahl der Angebote ist verdeckt."
+msgstr "Le nombre d'offres est masqué."
+
+msgid "Ausschreibung %1 öffnen"
+msgstr "Ouvrir l'appel d'offres %1"
+
+msgid "Beschluss, auf dem die Ausschreibung beruht"
+msgstr "Décision sur laquelle repose l'appel d'offres"
+
+msgid "Mindestens eine Stunde nach dem Veröffentlichen. Bis zu dieser Uhrzeit können Angebote abgegeben werden."
+msgstr "Au moins une heure après la publication. Des offres peuvent être déposées jusqu'à cette heure."
+
+msgid "Vergabe nach"
+msgstr "Attribution selon"
+
+msgid "Sichtbarkeit der Angebote"
+msgstr "Visibilité des offres"
+
+msgid "Euro-Vergütung kommt später."
+msgstr "La rémunération en euros viendra plus tard."
+
+msgid "Bitte geben Sie die Frist mit Datum und Uhrzeit an."
+msgstr "Veuillez indiquer le délai avec la date et l'heure."
+
+msgid "Als Entwurf gespeichert, aber nicht veröffentlicht: %1"
+msgstr "Enregistré comme brouillon, mais non publié : %1"
+
+msgid "Menü durchsuchen"
+msgstr "Rechercher dans le menu"
+
+msgid "Suchen …"
+msgstr "Rechercher …"
+
+msgid "Befehlspalette"
+msgstr "Palette de commandes"
+
+msgid "Strg K"
+msgstr "Ctrl K"
+
+msgid "%1 Treffer"
+msgstr "%1 résultats"
+
+msgid "%1 Treffer, %2 angezeigt. Suche verfeinern"
+msgstr "%1 résultats, %2 affichés. Affinez la recherche"
+
+msgid "Zuletzt besucht"
+msgstr "Récemment consulté"
+
+msgid "Noch keine Veranstaltungen."
+msgstr "Aucun événement pour l'instant."
+
+msgid "Belegung"
+msgstr "Occupation"
+
+msgid "Veröffentlichen: %1"
+msgstr "Publier : %1"
+
+msgid "Absagen: %1"
+msgstr "Annuler : %1"
+
+msgid "Warteliste nachrücken: %1"
+msgstr "Faire avancer la liste d'attente : %1"
+
+msgid "Abgesagt/abgelaufen"
+msgstr "Annulé/expiré"
+
+msgid "Mit Nachricht"
+msgstr "Avec message"
+
+msgid "Nicht bezahlt"
+msgstr "Non payé"
+
+msgid "Angemeldet %1 · Warteliste %2 · Abgesagt/abgelaufen %3"
+msgstr "Inscrits %1 · Liste d'attente %2 · Annulés/expirés %3"
+
+msgid "Freie Plätze %1"
+msgstr "Places libres %1"
+
+msgid "Anmeldungen"
+msgstr "Inscriptions"
+
+msgid "Noch keine Anmeldungen."
+msgstr "Aucune inscription pour l'instant."
+
+msgid "Alle Anmeldungen als CSV"
+msgstr "Toutes les inscriptions en CSV"
+
+msgid "Es werden nur die ersten 2000 Anmeldungen angezeigt. Die CSV enthält alle."
+msgstr "Seules les 2000 premières inscriptions sont affichées. Le CSV les contient toutes."
+
+msgid "Keine Anmeldungen in dieser Auswahl."
+msgstr "Aucune inscription dans cette sélection."
+
+msgid "Wartelistenplatz"
+msgstr "Position sur la liste d'attente"
+
+msgid "Angemeldet am"
+msgstr "Inscrit le"
+
+msgid "E-Mail (Gast)"
+msgstr "E-mail (invité)"
+
+msgid "Nachricht anzeigen: %1"
+msgstr "Afficher le message : %1"
+
+msgid "Veranstaltung nicht gefunden."
+msgstr "Événement introuvable."
+
+msgid "Ausgebucht · %1 auf der Warteliste"
+msgstr "Complet · %1 sur la liste d'attente"
+
+msgid "Nachricht an die Veranstalter hinzufügen"
+msgstr "Ajouter un message pour les organisateurs"
+
+msgid "Nachricht an die Veranstalter (optional)"
+msgstr "Message pour les organisateurs (facultatif)"
+
+msgid "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage."
+msgstr "Les organisateurs verront votre message. Votre inscription est valable par la confirmation, et non par une réponse à votre question."
+
+msgid "Export der Anmeldungen"
+msgstr "Export des inscriptions"
+
+msgid "%1 von %2 Platz belegt · noch %3 frei"
+msgid_plural "%1 von %2 Plätzen belegt · noch %3 frei"
+msgstr[0] "%1 place sur %2 occupée · %3 encore libres"
+msgstr[1] "%1 places sur %2 occupées · %3 encore libres"
+
+msgid "Einrichtung · %1 offen"
+msgstr "Configuration · %1 ouvert(s)"
+
+msgid "Einrichtung"
+msgstr "Configuration"
+
+msgid "Es fehlt noch: %1. Solange das fehlt, werden bezahlte Beiträge nicht gebucht."
+msgstr "Il manque encore : %1. Tant que cela manque, les cotisations payées ne sont pas comptabilisées."
+
+msgid "Es fehlt noch: %1."
+msgstr "Il manque encore : %1."
+
+msgid "Zur Einrichtung"
+msgstr "Aller à la configuration"
+
+msgid "Konten"
+msgstr "Comptes"
+
+msgid "Journal"
+msgstr "Journal"
+
+msgid "Bereiche von Kontenplan und Journal"
+msgstr "Sections du plan comptable et du journal"
+
+msgid "Kontenzuordnung: vollständig"
+msgstr "Rattachement des comptes : complet"
+
+msgid "Kontenzuordnung: unvollständig"
+msgstr "Rattachement des comptes : incomplet"
+
+msgid "Kontenzuordnung: unvollständig, es fehlt %1"
+msgstr "Rattachement des comptes : incomplet, il manque %1"
+
+msgid "Online-Zahlung kann erst aktiviert werden, wenn die Kontenzuordnung vollständig ist."
+msgstr "Le paiement en ligne ne peut être activé que lorsque le rattachement des comptes est complet."
+
+msgid "Hier richten Sie die Finanzen ein, sehen den Kontenplan und das Journal mit allen Buchungen. Einrichten und buchen können Schatzmeisterei und Administration; die Zuordnung der Konten ändert nur die Administration."
+msgstr "Ici, vous configurez les finances et consultez le plan comptable et le journal avec toutes les écritures. La trésorerie et l'administration peuvent configurer et comptabiliser ; seule l'administration peut modifier le rattachement des comptes."
+
+msgid "Hier stellen Sie die Online-Zahlung ein. Die Zuordnung zu Konten finden Sie unter Kontenplan & Journal, im Reiter Einrichtung."
+msgstr "Ici, vous configurez le paiement en ligne. Le rattachement aux comptes se trouve sous Plan comptable et journal, dans l'onglet Configuration."
+
+msgid "Kontenplan"
+msgstr "Plan comptable"
+
+msgid "Erlöskonto für Mitgliedsbeiträge"
+msgstr "Compte de produits des cotisations des membres"
+
+msgid "Erlöskonto für Spenden"
+msgstr "Compte de produits des dons"
+
+msgid "Erlöskonto für Veranstaltungen"
+msgstr "Compte de produits des événements"
+
+msgid "Gebührenkonto (optional)"
+msgstr "Compte de frais (facultatif)"
+
+msgid "Der Kontenplan ist die Liste aller Konten, auf die Ihr Verein bucht. Ohne ihn kann nichts gebucht werden."
+msgstr "Le plan comptable est la liste de tous les comptes sur lesquels votre association comptabilise. Sans lui, rien ne peut être comptabilisé."
+
+msgid "Das Konto, auf dem das Geld Ihres Vereins liegt, also Ihr Girokonto."
+msgstr "Le compte sur lequel se trouve l'argent de votre association, c'est-à-dire votre compte courant."
+
+msgid "Ein Erlöskonto sammelt Einnahmen einer Art, zum Beispiel alle Mitgliedsbeiträge."
+msgstr "Un compte de produits regroupe un type de recettes, par exemple toutes les cotisations des membres."
+
+msgid "Hierhin werden Spenden gebucht, für die Sie eine Zuwendungsbestätigung ausstellen."
+msgstr "Les dons pour lesquels vous délivrez un reçu fiscal sont comptabilisés ici."
+
+msgid "Hierhin werden Einnahmen aus Veranstaltungen gebucht, zum Beispiel Eintrittsgelder."
+msgstr "Les recettes des événements sont comptabilisées ici, par exemple les droits d'entrée."
+
+msgid "Hierhin würden Gebühren des Zahlungsanbieters gebucht. Dieser Schritt darf leer bleiben."
+msgstr "Les frais du prestataire de paiement seraient comptabilisés ici. Cette étape peut rester vide."
+
+msgid "Zum Beispiel: %1"
+msgstr "Par exemple : %1"
+
+msgid "Noch kein Bankkonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Aucun compte bancaire dans le plan comptable pour le moment. Créez d'abord le plan comptable standard."
+
+msgid "Noch kein Aufwandskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Aucun compte de charges dans le plan comptable pour le moment. Créez d'abord le plan comptable standard."
+
+msgid "Noch kein Erlöskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Aucun compte de produits dans le plan comptable pour le moment. Créez d'abord le plan comptable standard."
+
+msgid "Optional"
+msgstr "Facultatif"
+
+msgid "%1 von %2 Pflichtschritten erledigt"
+msgstr "%1 étape(s) obligatoire(s) sur %2 terminée(s)"
+
+msgid "Die Zuordnung kann nur ein Administrator ändern."
+msgstr "Seul un administrateur peut modifier le rattachement."
+
+msgid "Die Sphäre ist der steuerliche Bereich eines Vereins (ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher Geschäftsbetrieb); sie wird je Buchung gewählt."
+msgstr "La sphère est le domaine fiscal d'une association (domaine idéal, gestion de patrimoine, activité liée à l'objet social, activité économique) ; elle est choisie pour chaque écriture."
+
+msgid "Nicht gespeichert"
+msgstr "Non enregistré"
+
+msgid "Das bisher zugeordnete Konto %1 ist deaktiviert. Bitte ein anderes wählen. Beim Speichern wird die alte Zuordnung entfernt."
+msgstr "Le compte %1 rattaché jusqu'ici est désactivé. Veuillez en choisir un autre. L'enregistrement supprime l'ancien rattachement."
+
+msgid "Zum Kontenplan"
+msgstr "Vers le plan comptable"
+
+msgid "(nicht gewählt)"
+msgstr "(non choisi)"
+
+msgid "Standard verwenden"
+msgstr "Utiliser le standard"
+
+msgid "Standardkonto %1 nicht im Kontenplan."
+msgstr "Le compte standard %1 n'est pas dans le plan comptable."
+
+msgid "Alle Standardkonten vorschlagen"
+msgstr "Proposer tous les comptes standard"
+
+msgid "Zuordnung gespeichert."
+msgstr "Rattachement enregistré."
+
+msgid "%1 aktive Konten im Kontenplan."
+msgstr "%1 comptes actifs dans le plan comptable."
+
+msgid "Noch kein Konto angelegt. Das legt die Schatzmeisterei oder die Administration an."
+msgstr "Aucun compte créé pour le moment. La trésorerie ou l'administration le crée."
+
+msgid "Ein Vorschlag. Bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Une proposition. Veuillez la faire confirmer par votre conseiller fiscal."
+
+msgid "Standard-Kontenplan SKR42 für Vereine anlegen"
+msgstr "Créer le plan comptable standard SKR42 pour associations"
+
+msgid "Standard-Kontenplan anlegen"
+msgstr "Créer le plan comptable standard"
+
+msgid "Es werden %1 Konten angelegt:"
+msgstr "%1 comptes seront créés :"
+
+msgid "Kontenplan anlegen"
+msgstr "Créer le plan comptable"
+
+msgid "%1 %2 (%3), %4"
+msgstr "%1 %2 (%3), %4"
+
+msgid "Vorhandene Konten bleiben unverändert."
+msgstr "Les comptes existants restent inchangés."
+
+msgid "Angelegte Konten lassen sich später nicht löschen, nur deaktivieren."
+msgstr "Les comptes créés ne peuvent plus être supprimés par la suite, seulement désactivés."
+
+msgid "Der Kontenplan ist ein Vorschlag; bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Le plan comptable est une proposition ; veuillez le faire confirmer par votre conseiller fiscal."
+
+msgid "%1 Konten angelegt, %2 schon vorhanden."
+msgstr "%1 comptes créés, %2 existaient déjà."
+
+msgid "Der Kontenplan wurde inzwischen geändert. Bitte prüfen."
+msgstr "Le plan comptable a été modifié entre-temps. Veuillez vérifier."
+
+msgid "Erweitert"
+msgstr "Avancé"
+
+msgid "Die Sphäre der Veranstaltungserlöse ist der steuerliche Bereich, dem Einnahmen aus Veranstaltungen zugerechnet werden."
+msgstr "La sphère des recettes d'événements est le domaine fiscal auquel sont rattachées les recettes des événements."
+
+msgid "Auf dieses Aufwandskonto werden Reisekostenabrechnungen gebucht."
+msgstr "Les notes de frais de déplacement sont comptabilisées sur ce compte de charges."
+
+msgid "Auf dieses Aufwandskonto werden Übungsleiter- und Ehrenamtspauschalen gebucht."
+msgstr "Les indemnités forfaitaires des animateurs et des bénévoles sont comptabilisées sur ce compte de charges."
+
+msgid "Alle Bereiche"
+msgstr "Tous les domaines"
+
+msgid "Kein Bereich"
+msgstr "Aucun domaine"
+
+msgid "Wird je Buchung gewählt"
+msgstr "Choisi pour chaque écriture"
+
+msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
+msgstr "Activité liée à l'objet social et activité économique"

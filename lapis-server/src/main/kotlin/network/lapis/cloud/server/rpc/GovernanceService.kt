@@ -31,6 +31,8 @@ import network.lapis.cloud.server.security.canRecordForMeeting
 import network.lapis.cloud.server.security.canSubmitMotion
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.tender.isTenderAwardMotion
+import network.lapis.cloud.server.tender.tenderConflictedMemberIdsForMotion
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
@@ -906,6 +908,10 @@ class GovernanceService(
                 // under the voters, and the amendment would only block the tally. The target row is locked above and
                 // every path opens under that same lock, so this check is serialized against them.
                 MotionDecisionLock.requireNoRunningDecisionPath(amendsId)
+                // V1.9.201: an amendment is a separate motion and would escape the bidder conflict of interest; the award motion's text is fixed.
+                if (isTenderAwardMotion(amendsId)) {
+                    throw ConflictException("The award motion of a tender cannot be amended")
+                }
             }
             val id = Uuid.random()
             val now = nowLocalDateTime()
@@ -1168,6 +1174,21 @@ class GovernanceService(
                     votesAbstain = input.votesAbstain,
                     status = input.status,
                 )
+            // V1.9.201: on the award motion of a tender its bidders are excluded from both sides of the quorum, and the entered figures must be
+            // plausible against the remaining present members. The server cannot see WHO the protocol keeper counted (see docs/architecture/tenders.adoc).
+            val tenderExcluded = tenderConflictedMemberIdsForMotion(aId)
+            if (tenderExcluded.isNotEmpty()) {
+                val quorumAfterExclusion =
+                    computeQuorum(
+                        meetingId = sId,
+                        committeeId = committeeId,
+                        scheduledDate = meeting.scheduledAt.date,
+                        excludedMemberIds = tenderExcluded,
+                    )
+                if (input.votesYes + input.votesNo + input.votesAbstain > quorumAfterExclusion.presentCount) {
+                    throw ConflictException("The votes exceed the number of present members who are not bidders of the tender")
+                }
+            }
             val resolution =
                 insertResolutionRow(
                     sId = sId,
@@ -1175,6 +1196,7 @@ class GovernanceService(
                     scheduledDate = meeting.scheduledAt.date,
                     input = resolutionInput,
                     current = current,
+                    excludedMemberIds = tenderExcluded,
                 )
             val newMotionStatus =
                 when (input.status) {
@@ -1277,7 +1299,12 @@ class GovernanceService(
             // V1.9.112: the electorate is frozen NOW, in the same transaction and under the motion lock taken at the top -- the circle of
             // voters (and the denominator of the quorum) can no longer change under a running vote. openVote takes no room lock, so there
             // is nothing to hold across this insert. See frozenOrLiveElectorate.
-            freezeVoteElectorate(voteId = id, meetingId = sId, committeeId = committeeId)
+            freezeVoteElectorate(
+                voteId = id,
+                meetingId = sId,
+                committeeId = committeeId,
+                excludedMemberIds = tenderConflictedMemberIdsForMotion(aId),
+            )
             loadVote(id)
         }
     }
@@ -1324,6 +1351,8 @@ class GovernanceService(
                     "Vote ${input.voteId} is ${voteRow[VoteTable.status]}, expected OPEN",
                 )
             }
+            // V1.9.201: a bidder of a tender has no vote on the award motion of that tender (refused before anything is staked).
+            if (current.memberId in tenderConflictedMemberIdsForMotion(voteRow[VoteTable.motionId])) throw ForbiddenException()
             VoteOptionTable
                 .selectAll()
                 .where { (VoteOptionTable.id eq optId) and (VoteOptionTable.voteId eq abId) }
@@ -1582,6 +1611,8 @@ class GovernanceService(
                     current = current,
                     resolutionMode = ResolutionMode.MERITOCRATIC,
                     voteId = abId,
+                    // V1.9.201: the bidders of a tender never count on its award motion.
+                    excludedMemberIds = tenderConflictedMemberIdsForMotion(motionRow[MotionTable.id]),
                 )
 
             val newMotionStatus =
@@ -1711,6 +1742,7 @@ class GovernanceService(
         voteId: Uuid,
         meetingId: Uuid,
         committeeId: Uuid,
+        excludedMemberIds: Set<Uuid> = emptySet(),
     ) {
         val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
         // FOR UPDATE: the committee cannot be switched to rule mode between this read and the commit (the switch locks the same row; the
@@ -1721,7 +1753,9 @@ class GovernanceService(
                 .where { CommitteeTable.id eq committeeId }
                 .forUpdate()
                 .single()
-        val eligible = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date)
+        // V1.9.201: the bidders of a tender are not part of the frozen circle on its award motion.
+        val eligible =
+            eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date) - excludedMemberIds
         if (eligible.isEmpty()) return
         VoteEligibleVoterTable.batchInsert(eligible.sortedBy { it.toString() }, shouldReturnGeneratedValues = false) { memberId ->
             this[VoteEligibleVoterTable.id] = Uuid.random()

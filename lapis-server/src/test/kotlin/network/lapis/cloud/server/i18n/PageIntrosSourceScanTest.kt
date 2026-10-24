@@ -65,7 +65,7 @@ private fun viewKeysWithMore(code: String): Set<String> =
  *    route a screen asks for has an entry (a registry entry nobody draws, or a call that always gets `null`, is a silent gap);
  *  - every intro text is at most 220 characters and at most two sentences (the rule of the page intro);
  *  - the hand-built intro of "Meine Daten" is gone (it moved into the registry), and the intro text is plain text, never `rich`;
- *  - V1.9.188 (Part 2): 75 views; the optional `more` part exists only for the views named in [MORE_ALLOWED], is at most 360 characters
+ *  - V1.9.188 (Part 2): 76 views (V1.9.202: Ausschreibungen); the optional `more` part exists only for the views named in [MORE_ALLOWED], is at most 360 characters
  *    and two sentences, and its sentence is not repeated in any screen; no registry sentence is also hand-built in a screen; and the
  *    wording rules: no "rechtssicher"/"gesetzeskonform"/"garantiert"/"automatisch erfüllt"/"steuerfrei" in `text` or `more`, no "GoBD"/
  *    "revisionssicher"/paragraph sign in `text`, no gendered pairs.
@@ -92,8 +92,8 @@ class PageIntrosSourceScanTest :
                 }.toSet()
         }
 
-        test("the registry is read (not vacuous): 75 views (23 of Part 1, 52 of Part 2)") {
-            registryRoutes.size shouldBe 75
+        test("the registry is read (not vacuous): 76 views (23 of Part 1, 53 of Part 2)") {
+            registryRoutes.size shouldBe 76
             listedRoutes shouldBe registryRoutes
         }
 

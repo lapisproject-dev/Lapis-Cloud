@@ -122,6 +122,7 @@ import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventConferencePoller
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.events.EventOnlineServices
+import network.lapis.cloud.server.events.EventRegistrationMessageNotifier
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
 import network.lapis.cloud.server.federation.FederationConfig
@@ -235,6 +236,7 @@ import network.lapis.cloud.server.routes.registerEmbedRoutes
 import network.lapis.cloud.server.routes.registerEventCoverRoutes
 import network.lapis.cloud.server.routes.registerEventOnlineGuestRoutes
 import network.lapis.cloud.server.routes.registerEventPublicRoutes
+import network.lapis.cloud.server.routes.registerEventRegistrationCsvRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerKeycloakAuthRoutes
 import network.lapis.cloud.server.routes.registerLegalRoutes
@@ -348,6 +350,7 @@ import network.lapis.cloud.server.rpc.RegistrationService
 import network.lapis.cloud.server.rpc.SepaService
 import network.lapis.cloud.server.rpc.SocialNetworkService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
+import network.lapis.cloud.server.rpc.TenderService
 import network.lapis.cloud.server.rpc.TravelExpenseSepaExport
 import network.lapis.cloud.server.rpc.TravelExpenseService
 import network.lapis.cloud.server.rpc.TrustAnchorService
@@ -448,6 +451,7 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.ISepaService
 import network.lapis.cloud.shared.rpc.ISocialNetworkService
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
+import network.lapis.cloud.shared.rpc.ITenderService
 import network.lapis.cloud.shared.rpc.ITravelExpenseService
 import network.lapis.cloud.shared.rpc.ITrustAnchorService
 import network.lapis.cloud.shared.rpc.IVatService
@@ -1382,6 +1386,8 @@ internal fun Application.module(
     val travelExpenseReceiptUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     // V1.9.199: ONE shared budget for the travel-expense contact-hint Markdown preview (the RPC service is created per call).
     val travelContactHintPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    // V1.9.202: budget of ITenderService.previewTenderDescription, one shared instance (the service is created per call).
+    val tenderDescriptionPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     // Welle V1.9.123 -- ONE limiter shared by both SEPA-credit-transfer routes (generating a payment file is a rare, deliberate action).
     val travelExpenseSepaExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val travelExpenseSepaExport = TravelExpenseSepaExport(sepaConfig.secretEncryptionKey)
@@ -1550,6 +1556,8 @@ internal fun Application.module(
     // method -- only the byte-serializing file route, which does real per-request CSV rendering
     // work, is limited).
     val datevExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    // V1.9.204 -- own budget for the event registration CSV export (names, guest addresses, messages).
+    val eventRegistrationExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
     // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- deliberately NOT fail-fast (see
     // AccountingExportConfig KDoc). accountingExportSecretBox is `null` whenever
@@ -1654,6 +1662,17 @@ internal fun Application.module(
     // widget, see EmbedRoutes.kt's own call site) -- the shared budget is deliberate, so the
     // embed widget cannot be used to double a real registrant's hourly cap.
     val eventWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+    // V1.9.204 -- at most 30 "registration with message" notices per event and hour (module-scoped, shared by the member RPC and the public form).
+    val eventMessageNotifier =
+        EventRegistrationMessageNotifier(
+            mailDispatcher = mailDispatcher,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            perEventLimiter =
+                FederationInboxRateLimiter(
+                    maxRequests = EventRegistrationMessageNotifier.LIMIT,
+                    window = 60.minutes,
+                ),
+        )
     val eventRegistrationAttemptRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes, maxTrackedKeys = 50_000)
     val eventRegistrationRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes, maxTrackedKeys = 50_000)
     val eventPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
@@ -2620,6 +2639,7 @@ internal fun Application.module(
                 checkInRateLimiter = eventCheckInRateLimiter,
                 seriesPreviewRateLimiter = eventSeriesPreviewRateLimiter,
                 eventOnline = eventOnline,
+                messageNotifier = eventMessageNotifier,
             )
         }
         // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)".
@@ -2691,7 +2711,7 @@ internal fun Application.module(
         registerService(IAgreementTextAdminService::class) { call ->
             AgreementTextAdminService(call = call, previewRateLimiter = agreementTextPreviewRateLimiter)
         }
-        // V1.9.143 optional recording of the pulpit of an encounter room. Since V1.9.144 the member finder below is the LAST registerService.
+        // V1.9.143 optional recording of the pulpit of an encounter room. Since V1.9.201 the tenders (after the member finder) are the LAST registerService.
         registerService(IPulpitRecordingService::class) { call ->
             PulpitRecordingService(
                 call = call,
@@ -2701,9 +2721,13 @@ internal fun Application.module(
                 recordingInfrastructureAvailable = conferenceRecordingConfig.enabled && conferenceConfig.enabled,
             )
         }
-        // V1.9.144 optional member finder. MUST stay the LAST registerService (Kilua numbers routes by declaration order).
+        // V1.9.144 optional member finder. Since V1.9.201 the tenders below are the LAST registerService (Kilua numbers routes by declaration order).
         registerService(IMemberFinderService::class) { call ->
             MemberFinderService(call = call, rateLimiter = memberFinderRateLimiter)
+        }
+        // V1.9.201 tenders. MUST stay the LAST registerService (Kilua numbers routes by declaration order).
+        registerService(ITenderService::class) { call ->
+            TenderService(call = call, previewRateLimiter = tenderDescriptionPreviewRateLimiter)
         }
     }
 
@@ -2752,6 +2776,8 @@ internal fun Application.module(
         registerDunningRoutes(storageRoot = documentStorageRoot, previewRateLimiter = dunningPreviewRateLimiter)
         // Welle V1.4.5.2 "DATEV-Format-Export".
         registerDatevRoutes(exportRateLimiter = datevExportRateLimiter)
+        // V1.9.204 -- CSV export of an event's registrations (BOARD/ADMIN).
+        registerEventRegistrationCsvRoutes(exportRateLimiter = eventRegistrationExportRateLimiter)
         registerBackupRoutes(
             database = DatabaseConfig.connect(),
             documentStorageRoot = documentStorageRoot,
@@ -2960,6 +2986,7 @@ internal fun Application.module(
             ticketPageRateLimiter = eventTicketPageRateLimiter,
             ticketCodeFailureLimiter = eventTicketCodeFailureLimiter,
             icsFeedRateLimiter = eventIcsFeedRateLimiter,
+            messageNotifier = eventMessageNotifier,
         )
         // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- the two account-less literal routes (/api/events/{slug}/online-*).
         registerEventOnlineGuestRoutes(

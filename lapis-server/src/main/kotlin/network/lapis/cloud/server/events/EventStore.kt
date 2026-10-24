@@ -339,12 +339,49 @@ internal object EventStore {
             .limit(1)
             .firstOrNull()
 
-    fun listByEvent(eventId: Uuid): List<ResultRow> =
+    /** Every registration of [eventId], ordered `registered_at, id` (unique tiebreak); [limit] caps the result when given. */
+    fun listByEvent(
+        eventId: Uuid,
+        limit: Int? = null,
+    ): List<ResultRow> =
         EventRegistrationTable
             .selectAll()
             .where { EventRegistrationTable.eventId eq eventId }
-            .orderBy(EventRegistrationTable.registeredAt to SortOrder.ASC)
+            .orderBy(EventRegistrationTable.registeredAt to SortOrder.ASC, EventRegistrationTable.id to SortOrder.ASC)
+            .let { q -> if (limit != null) q.limit(limit) else q }
             .toList()
+
+    /** Per-status row counts of [eventId] -- used by the overview when the row list is truncated. */
+    fun countByStatus(eventId: Uuid): Map<EventRegistrationStatus, Int> =
+        EventRegistrationStatus.entries.associateWith { status ->
+            EventRegistrationTable
+                .selectAll()
+                .where { (EventRegistrationTable.eventId eq eventId) and (EventRegistrationTable.status eq status) }
+                .count()
+                .toInt()
+        }
+
+    /** Number of registrations of [eventId] that carry a message. */
+    fun countWithMessage(eventId: Uuid): Int =
+        EventRegistrationTable
+            .selectAll()
+            .where { (EventRegistrationTable.eventId eq eventId) and EventRegistrationTable.message.isNotNull() }
+            .count()
+            .toInt()
+
+    /** Number of `PENDING_PAYMENT` registrations of [eventId] whose hold has already lapsed (shown as expired). */
+    fun countLapsedHolds(
+        eventId: Uuid,
+        now: LocalDateTime,
+    ): Int =
+        EventRegistrationTable
+            .selectAll()
+            .where {
+                (EventRegistrationTable.eventId eq eventId) and
+                    (EventRegistrationTable.status eq EventRegistrationStatus.PENDING_PAYMENT) and
+                    (EventRegistrationTable.holdExpiresAt lessEq now)
+            }.count()
+            .toInt()
 
     /**
      * Security-Review LOW fix (Welle V1.4.3.2 Fix-Runde): [EventService.openCheckIn] re-calls
@@ -367,7 +404,7 @@ internal object EventStore {
         EventRegistrationTable
             .selectAll()
             .where { EventRegistrationTable.eventId eq eventId }
-            .orderBy(EventRegistrationTable.registeredAt to SortOrder.ASC)
+            .orderBy(EventRegistrationTable.registeredAt to SortOrder.ASC, EventRegistrationTable.id to SortOrder.ASC)
             .limit(MAX_CHECKIN_ROSTER_SIZE)
             .toList()
 
@@ -390,6 +427,8 @@ internal object EventStore {
         // `EventRegistrationSubmission` call site.
         ticketCodeSha256: String? = null,
         ticketIssuedAt: LocalDateTime? = null,
+        // V1.9.204 -- already normalised by `EventRegistrationMessage.normalize`; never written again after this insert.
+        message: String? = null,
     ) {
         EventRegistrationTable.insert {
             it[EventRegistrationTable.id] = id
@@ -409,6 +448,7 @@ internal object EventStore {
             it[waitlistOfferedAt] = null
             it[EventRegistrationTable.ticketCodeSha256] = ticketCodeSha256
             it[EventRegistrationTable.ticketIssuedAt] = ticketIssuedAt
+            it[EventRegistrationTable.message] = message
         }
     }
 
@@ -589,7 +629,7 @@ internal object EventStore {
                     PaymentTransactionTable.checkoutSessionId,
                 ).select(PaymentTransactionTable.id, PaymentTransactionTable.journalEntryId)
                 .where { PaymentCheckoutSessionTable.eventRegistrationId eq registrationId }
-                .orderBy(PaymentCheckoutSessionTable.createdAt to SortOrder.DESC)
+                .orderBy(PaymentCheckoutSessionTable.createdAt to SortOrder.DESC, PaymentCheckoutSessionTable.id to SortOrder.DESC)
                 .limit(1)
                 .firstOrNull() ?: return null to null
         return row.getOrNull(PaymentTransactionTable.id) to row.getOrNull(PaymentTransactionTable.journalEntryId)

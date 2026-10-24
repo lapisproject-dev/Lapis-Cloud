@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.security.canManageSystemicConsensus
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.tender.requireNotTenderAwardMotion
 import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.PublicTextNormalization
 import network.lapis.cloud.shared.domain.ResolutionInput
@@ -140,6 +141,8 @@ class SystemicConsensusService(
             val sId = motionRow[MotionTable.meetingId] ?: throw ConflictException("Motion ${input.motionId} has no scheduled Meeting")
             MotionDecisionLock.requireNoActiveElection(aId)
             MotionDecisionLock.requireNoOpenVote(aId)
+            // V1.9.201: the award motion of a tender is decided by the quorum or the meritocratic vote only (bidders are excluded there).
+            requireNotTenderAwardMotion(aId)
             // V1.9.54: only a BINDING consensus can decide (and so adopt an amendment); an ADVISORY one never does.
             if (input.bindingness == SystemicConsensusBindingness.BINDING && motionRow[MotionTable.amendsMotionId] == null) {
                 requireNoPendingAmendments(aId)

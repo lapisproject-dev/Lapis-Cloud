@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
+import io.kvision.core.Container
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
@@ -10,7 +11,6 @@ import io.kvision.form.text.TextArea
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
 import io.kvision.form.upload.upload
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.button
@@ -18,11 +18,16 @@ import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.image
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.HeaderCell
+import io.kvision.table.Scope
+import io.kvision.table.cell
+import io.kvision.table.row
 import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -118,12 +123,11 @@ fun renderEventsScreen(container: SimplePanel) {
                 } ?: return@launch
             if (generation != refreshGeneration) return@launch
             if (page.rows.isEmpty()) {
-                listPanel.p(tr("Keine Veranstaltungen gefunden."))
+                val filtered = status != null || includePastCheck.value
+                listPanel.p(if (filtered) tr("Keine Veranstaltungen gefunden.") else tr("Noch keine Veranstaltungen."))
                 return@launch
             }
-            page.rows.forEach { event ->
-                renderEventListRow(listPanel, event, allRooms, ::refreshList)
-            }
+            renderEventTable(listPanel, page.rows, ::refreshList)
         }
     }
 
@@ -155,142 +159,126 @@ fun renderEventsScreen(container: SimplePanel) {
 }
 
 // ============================================================================================
-// List row
+// List table (V1.9.204): one row per event, the title links to the detail page `/events/:id`
 // ============================================================================================
 
-private fun renderEventListRow(
-    panel: SimplePanel,
-    event: EventDto,
-    rooms: List<EventRoomDto>,
+/** "23/40" with a capacity, "-" without one (an open event has no seats to count). */
+internal fun eventOccupancyText(event: EventDto): String {
+    val capacity = event.capacity ?: return "–"
+    return "${event.occupiedSeats}/$capacity"
+}
+
+private fun renderEventTable(
+    host: SimplePanel,
+    events: List<EventDto>,
     onChanged: () -> Unit,
 ) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    val displayHolder = row.vPanel(spacing = 4)
-    val editFormHolder = row.vPanel(spacing = 6) { hide() }
-
-    fun renderDisplay() {
-        displayHolder.removeAll()
-        val headerRow = displayHolder.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        // Security audit W6b follow-up round 3 (major finding A): an event title is organizer-editable free
-        // text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
-        headerRow.div(sanitizeUntrustedI18nText(event.title)) { addCssClasses("flex-grow-1 fw-bold") }
-        // Follow-up wave "Wiederkehrende Veranstaltungen: Admin-UI" -- the ↻ recurrence symbol from
-        // the implementation plan's "flache, chronologische Terminliste" section. Struck through for
-        // an individually detached exception instance (still part of the series historically, but no
-        // longer governed by it -- see `EventSeriesEditScope.THIS` KDoc). `event.seriesRuleSummary` is
-        // server-built (`RecurrenceSentence.frequencyOnly`), so no client-side sentence logic here.
-        if (event.seriesId != null) {
-            headerRow.div("↻") {
-                addCssClasses(if (event.seriesDetached) "text-muted text-decoration-line-through" else "text-muted")
-                title = event.seriesRuleSummary ?: tr("Teil einer Serie")
-            }
-        }
-        headerRow.eventStatusBadge(event.status)
-        headerRow.eventVisibilityBadge(event.visibility)
-        if (event.imported) headerRow.div(tr("Importiert")) { addCssClasses("badge text-bg-secondary") }
-
-        displayHolder.weekdayDateTimeSpan(event.startsAt).apply { addCssClasses("text-muted small") }
-        if (event.roomName != null) {
-            displayHolder.div(gettext("Raum: %1", event.roomName)) { addCssClasses("text-muted small") }
-        }
-        displayHolder.div(
-            gettext("Belegung: %1 belegt, %2 auf Warteliste", event.occupiedSeats.toString(), event.waitlistCount.toString()),
-        ) { addCssClasses("text-muted small") }
-        val publicUrl = event.publicUrl
-        if (publicUrl != null) {
-            val urlRow = displayHolder.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            urlRow.div(publicUrl) { addCssClasses("text-muted small text-truncate") }
-            val copyLabel = tr("Kopieren")
-            val copiedLabel = tr("Kopiert")
-            lateinit var copyButton: Button
-            copyButton =
-                urlRow.button(copyLabel, style = ButtonStyle.OUTLINESECONDARY) {
-                    onClick {
-                        copyEventUrlToClipboard(publicUrl) {
-                            copyButton.text = copiedLabel
-                            AppScope.launch {
-                                delay(2000)
-                                copyButton.text = copyLabel
-                            }
-                        }
-                    }
-                }
-        }
-
-        // V1.9.113: how the event can be attended online (a word) and, while the window of a conference is open, the moderator's view of the
-        // people who joined without an account.
-        if (event.onlineKind != EventOnlineKind.NONE) {
-            displayHolder.div(gettext("Online-Teilnahme: %1", eventOnlineKindLabel(event.onlineKind))) { addCssClasses("text-muted small") }
-        }
-        // V1.9.156: the board sees at a glance that recording / live streaming is released for this event (words, not a symbol).
-        if (event.captureAllowed) displayHolder.div(tr("Aufzeichnung und Übertragung: erlaubt")) { addCssClasses("text-muted small") }
-        if (event.status == EventStatus.PUBLISHED) renderEventGuestsPanel(displayHolder, event)
-
-        val actionRow = displayHolder.hPanel(spacing = 8)
-        if (event.status != EventStatus.CANCELLED) {
-            val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
-            editButton.onClick {
-                displayHolder.hide()
-                editFormHolder.removeAll()
-                renderEventEditForm(
-                    editFormHolder,
-                    event,
-                    rooms,
-                    onSaved = onChanged,
-                    onCancel = {
-                        editFormHolder.removeAll()
-                        editFormHolder.hide()
-                        displayHolder.show()
-                    },
-                )
-                editFormHolder.show()
-            }
-        }
-        if (event.status == EventStatus.DRAFT) {
-            val publishButton = actionRow.button(tr("Veröffentlichen"), style = ButtonStyle.SUCCESS)
-            publishButton.onClick {
-                val message =
-                    if (event.visibility == EventVisibility.PUBLIC) {
-                        tr(
-                            "Diese Veranstaltung wird veröffentlicht und ist danach öffentlich " +
-                                "(auch für nicht angemeldete Besucher) sichtbar und anmeldbar.",
-                        )
-                    } else {
-                        tr("Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar.")
-                    }
-                confirmDialog(
-                    title = tr("Veranstaltung veröffentlichen"),
-                    message = message,
-                    confirmLabel = tr("Veröffentlichen"),
-                ) {
-                    AppScope.launch {
-                        val result = guarded { rpcService<IEventService>().publishEvent(event.id) }
-                        if (result != null) {
-                            notifySuccess(tr("Veranstaltung wurde veröffentlicht."))
-                            onChanged()
-                        }
-                    }
+    val headers =
+        listOf(
+            TableHeader(tr("Titel")),
+            TableHeader(tr("Datum")),
+            TableHeader(tr("Ort")),
+            TableHeader(tr("Belegung"), numeric = true),
+            TableHeader(tr("Status")),
+            TableHeader(tr("Aktionen")),
+        )
+    val table = host.masterTable(tr("Veranstaltungen"), headers)
+    events.forEach { event ->
+        table.row {
+            masterRow()
+            val titleCell = HeaderCell(scope = Scope.ROW) { addCssClass("fw-normal") }
+            add(titleCell)
+            // An event title is organizer-editable free text: sanitized inside [recordLink].
+            titleCell.recordLink(event.title, Routes.EVENT_MANAGEMENT, event.id)
+            // The recurrence symbol of the old card (struck through for a detached exception); `seriesRuleSummary` is server-built.
+            if (event.seriesId != null) {
+                titleCell.span(" ")
+                titleCell.span("↻") {
+                    addCssClasses(if (event.seriesDetached) "text-muted text-decoration-line-through" else "text-muted")
+                    title = event.seriesRuleSummary ?: tr("Teil einer Serie")
                 }
             }
+            titleCell.span(" ")
+            titleCell.eventVisibilityBadge(event.visibility)
+            if (event.imported) {
+                titleCell.span(" ")
+                titleCell.span(tr("Importiert")) { addCssClasses("badge text-bg-secondary") }
+            }
+            cell { weekdayDateTimeSpan(event.startsAt) }
+            val place = event.locationText?.takeIf { it.isNotBlank() } ?: event.roomName
+            if (place != null) textCell(place) else textCell(trusted(tr("Online")))
+            numCell(eventOccupancyText(event))
+            cell { eventStatusBadge(event.status) }
+            cell { eventRowActions(event, onChanged) }
         }
-        if (event.status != EventStatus.CANCELLED) {
-            val cancelButton = actionRow.button(tr("Absagen"), style = ButtonStyle.OUTLINEDANGER)
-            cancelButton.onClick { cancelEventDialog(event, onChanged) }
+    }
+}
+
+/** The icon-only row actions: publish (draft), cancel (not cancelled), sweep the waitlist. Editing lives on the detail page. */
+private fun Container.eventRowActions(
+    event: EventDto,
+    onChanged: () -> Unit,
+) {
+    val name = sanitizeUntrustedI18nText(event.title)
+    val group = tableActionGroup()
+    if (event.status == EventStatus.DRAFT) {
+        group
+            .tableActionButton(ActionIcon.SEND, gettext("Veröffentlichen: %1", name), ButtonStyle.OUTLINESUCCESS)
+            .onClick { publishEventDialog(event, onChanged) }
+    }
+    if (event.status != EventStatus.CANCELLED) {
+        group
+            .tableActionButton(ActionIcon.REVOKE, gettext("Absagen: %1", name), ButtonStyle.OUTLINEDANGER)
+            .onClick { cancelEventDialog(event, onChanged) }
+    }
+    if (event.waitlistCount > 0 && event.status == EventStatus.PUBLISHED) {
+        group
+            .tableActionButton(ActionIcon.REFRESH, gettext("Warteliste nachrücken: %1", name))
+            .onClick { sweepEventWaitlist(event, onChanged) }
+    }
+}
+
+/** Asks first, then publishes; the wording depends on who will see the event. */
+internal fun publishEventDialog(
+    event: EventDto,
+    onChanged: () -> Unit,
+) {
+    val message =
+        if (event.visibility == EventVisibility.PUBLIC) {
+            tr(
+                "Diese Veranstaltung wird veröffentlicht und ist danach öffentlich " +
+                    "(auch für nicht angemeldete Besucher) sichtbar und anmeldbar.",
+            )
+        } else {
+            tr("Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar.")
         }
-        if (event.waitlistCount > 0 && event.status == EventStatus.PUBLISHED) {
-            val sweepButton = actionRow.button(tr("Warteliste nachrücken"), style = ButtonStyle.OUTLINESECONDARY)
-            sweepButton.onClick {
-                AppScope.launch {
-                    val result = guarded { rpcService<IEventService>().sweepEvent(event.id) }
-                    if (result != null) {
-                        notifySuccess(tr("Warteliste wurde geprüft."))
-                        onChanged()
-                    }
-                }
+    confirmDialog(
+        title = tr("Veranstaltung veröffentlichen"),
+        message = message,
+        confirmLabel = tr("Veröffentlichen"),
+    ) {
+        AppScope.launch {
+            val result = guarded { rpcService<IEventService>().publishEvent(event.id) }
+            if (result != null) {
+                notifySuccess(tr("Veranstaltung wurde veröffentlicht."))
+                onChanged()
             }
         }
     }
-    renderDisplay()
+}
+
+/** Lets the waitlist move up into free seats. */
+internal fun sweepEventWaitlist(
+    event: EventDto,
+    onChanged: () -> Unit,
+) {
+    AppScope.launch {
+        val result = guarded { rpcService<IEventService>().sweepEvent(event.id) }
+        if (result != null) {
+            notifySuccess(tr("Warteliste wurde geprüft."))
+            onChanged()
+        }
+    }
 }
 
 /**
@@ -302,7 +290,7 @@ private fun renderEventListRow(
  * detached instance is REJECTED by `impactOfSeriesEdit`/`cancelSeriesEvent` ("Dieser Termin wurde
  * bereits aus der Serie gelöst.") and must therefore never reach that path.
  */
-private fun cancelEventDialog(
+internal fun cancelEventDialog(
     event: EventDto,
     onCancelled: () -> Unit,
 ) {
@@ -341,7 +329,7 @@ private fun cancelEventDialog(
  * .deleteOrCancel` KDoc "Entscheidung 3") -- this dialog's wording covers both outcomes rather than
  * promising one specific one.
  */
-private fun cancelSeriesEventDialog(
+internal fun cancelSeriesEventDialog(
     event: EventDto,
     onCancelled: () -> Unit,
 ) {
@@ -388,7 +376,7 @@ private fun cancelSeriesEventDialog(
  * fehlender/blockierter Clipboard-API wird [onCopied] trotzdem NICHT aufgerufen (ehrliches
  * Fehlschlagen statt eines irreführenden "Kopiert").
  */
-private fun copyEventUrlToClipboard(
+internal fun copyEventUrlToClipboard(
     text: String,
     onCopied: () -> Unit,
 ) {
@@ -542,7 +530,7 @@ private fun buildEventFormFields(
  * (mit "(inaktiv)"-Suffix) zusätzlich in die Optionen aufgenommen, damit das Dropdown die wahre
  * aktuelle Zuordnung zeigt statt fälschlich auf "Kein Raum" zu fallen.
  */
-private fun eventRoomOptions(
+internal fun eventRoomOptions(
     allRooms: List<EventRoomDto>,
     currentRoomId: String?,
 ): List<Pair<String, String>> {
@@ -703,7 +691,7 @@ private fun EventFormFieldRefs.snapshotValues(): List<String> =
         if (online.onlineUrlPublicCheck.value) "1" else "0",
     ).map { it.orEmpty() }
 
-private fun renderEventEditForm(
+internal fun renderEventEditForm(
     panel: SimplePanel,
     event: EventDto,
     rooms: List<EventRoomDto>,
@@ -778,7 +766,7 @@ private fun renderEventEditForm(
  * mirrors the server's own limits (`EventCoverPolicy`) but the server stays authoritative -- see
  * `EventCoverRoutes` KDoc.
  */
-private fun renderEventCoverCard(
+internal fun renderEventCoverCard(
     panel: SimplePanel,
     event: EventDto,
 ) {
@@ -896,7 +884,7 @@ private fun renderEventCoverCard(
  * LiveKit on demand, each with "Entfernen". Shown only for a published Lapis conference whose window is open now; a person with an
  * account is removed in the conference itself. The names are untrusted (they were typed by the guest).
  */
-private fun renderEventGuestsPanel(
+internal fun renderEventGuestsPanel(
     parent: SimplePanel,
     event: EventDto,
 ) {

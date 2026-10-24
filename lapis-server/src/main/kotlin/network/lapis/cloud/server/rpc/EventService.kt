@@ -26,8 +26,11 @@ import network.lapis.cloud.server.events.EventOnlineWindow
 import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRefunds
+import network.lapis.cloud.server.events.EventRegistrationMessage
+import network.lapis.cloud.server.events.EventRegistrationMessageNotifier
 import network.lapis.cloud.server.events.EventRegistrationResult
 import network.lapis.cloud.server.events.EventRegistrationSubmission
+import network.lapis.cloud.server.events.EventRegistrationView
 import network.lapis.cloud.server.events.EventRoomCollisionGuard
 import network.lapis.cloud.server.events.EventRoomStore
 import network.lapis.cloud.server.events.EventStore
@@ -73,6 +76,7 @@ import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRefundDto
 import network.lapis.cloud.shared.domain.EventRegistrationDto
+import network.lapis.cloud.shared.domain.EventRegistrationOverviewDto
 import network.lapis.cloud.shared.domain.EventRegistrationResultDto
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventRegistrationStatusSets
@@ -175,6 +179,8 @@ class EventService(
     // V1.9.113 "Online-Teilnahme" -- module-scoped bundle (provisioner, join coordinator, limiters); the default keeps every
     // pre-V1.9.113 construction working: with conferencing unconfigured every online action answers UNAVAILABLE.
     private val eventOnline: EventOnlineServices = EventOnlineServices.DISABLED,
+    // V1.9.204 -- tells the event's creator about a registration with a message; the default (no-op) keeps older constructions working.
+    private val messageNotifier: EventRegistrationMessageNotifier = EventRegistrationMessageNotifier.DISABLED,
 ) : IEventService {
     /** Fixed, per [EventSeriesLimits.SUPPORTED_TIMEZONES] -- see that object's KDoc "Frage F2"/"Zeitzone" for why this codebase does not (yet) offer a per-series timezone picker. */
     private val seriesZone: ZoneId = ZoneId.of(EventSeriesLimits.SUPPORTED_TIMEZONES.first())
@@ -184,6 +190,7 @@ class EventService(
             checkoutGateways = checkoutGateways,
             baseUrl = baseUrl,
             mailDispatcher = mailDispatcher,
+            messageNotifier = messageNotifier,
         )
     }
 
@@ -418,7 +425,7 @@ class EventService(
                 }
                 EventStore.setStatus(id = eventId, status = EventStatus.CANCELLED, cancelledAt = now)
                 val activeRegistrations =
-                    EventStore.listByEvent(eventId).filter { row ->
+                    EventStore.listByEvent(eventId = eventId).filter { row ->
                         row[EventRegistrationTable.status] !in EventRegistrationStatusSets.INACTIVE
                     }
                 activeRegistrations.forEach { row -> EventStore.cancelRegistration(id = row[EventRegistrationTable.id], now = now) }
@@ -464,13 +471,30 @@ class EventService(
         val id = eventId.toEventUuid()
         return transaction {
             EventStore.getEventOrThrow(id)
-            EventStore.listByEvent(id).map { it.toRegistrationDto() }
+            EventStore.listByEvent(eventId = id).map { it.toRegistrationDto() }
         }
     }
 
-    override suspend fun registerSelf(eventId: String): EventRegistrationResultDto {
+    override suspend fun registerSelf(eventId: String): EventRegistrationResultDto =
+        registerSelfInternal(eventId = eventId, rawMessage = null)
+
+    override suspend fun registerSelfWithMessage(
+        eventId: String,
+        message: String?,
+    ): EventRegistrationResultDto = registerSelfInternal(eventId = eventId, rawMessage = message)
+
+    /** V1.9.204 -- order: identity, rate limit, message check (a too-long text is a BadRequest and never reaches the registration). */
+    private suspend fun registerSelfInternal(
+        eventId: String,
+        rawMessage: String?,
+    ): EventRegistrationResultDto {
         val current = resolveCurrentMember(call)
         requireWithinRate(current.memberId)
+        val message =
+            when (val outcome = EventRegistrationMessage.normalize(rawMessage)) {
+                is EventRegistrationMessage.Outcome.Ok -> outcome.value
+                EventRegistrationMessage.Outcome.TooLong -> throw BadRequestException(EventRegistrationMessage.TOO_LONG_TEXT)
+            }
         val id = eventId.toEventUuid()
         val (email, displayName) =
             transaction {
@@ -480,6 +504,7 @@ class EventService(
             submission.submit(
                 eventId = id,
                 participant = EventParticipant.Member(memberId = current.memberId, displayName = displayName, email = email),
+                message = message,
             )
         return when (result) {
             is EventRegistrationResult.Confirmed ->
@@ -498,6 +523,49 @@ class EventService(
             EventRegistrationResult.WaitlistFull -> throw ConflictException("Die Warteliste dieser Veranstaltung ist voll.")
             EventRegistrationResult.GatewayUnavailable -> throw ConflictException("Zahlungsabwicklung derzeit nicht verfügbar.")
             is EventRegistrationResult.PaymentFailed -> throw ConflictException("Zahlungsvorgang konnte nicht gestartet werden.")
+        }
+    }
+
+    /**
+     * V1.9.204 -- BOARD/ADMIN. Order: role check, rate limit, id parse, then ONE read transaction. The rows carry the EFFECTIVE status (a lapsed
+     * `PENDING_PAYMENT` hold is shown as `EXPIRED`) and are the only registration DTOs that include the registrant message.
+     */
+    override suspend fun getRegistrationOverview(eventId: String): EventRegistrationOverviewDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinRate(current.memberId)
+        val id = eventId.toEventUuid()
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            val event = EventStore.getEventOrThrow(id)
+            val capacity = event[EventTable.capacity]
+            val loaded = EventStore.listByEvent(eventId = id, limit = MAX_OVERVIEW_ROWS + 1)
+            val truncated = loaded.size > MAX_OVERVIEW_ROWS
+            val rows = loaded.take(MAX_OVERVIEW_ROWS)
+            val occupied = EventStore.countOccupied(eventId = id, now = now)
+            val byStatus = EventStore.countByStatus(id)
+            val waitlisted = byStatus.getValue(EventRegistrationStatus.WAITLISTED)
+            val lapsed = EventStore.countLapsedHolds(eventId = id, now = now)
+            val inactive =
+                byStatus.getValue(EventRegistrationStatus.CANCELLED) + byStatus.getValue(EventRegistrationStatus.EXPIRED) + lapsed
+            val dtos =
+                rows
+                    .map { it.toOverviewRegistrationDto(now) }
+                    .sortedWith(
+                        compareBy<EventRegistrationDto> { overviewRank(it.status) }
+                            .thenBy(nullsLast()) { it.waitlistPosition },
+                    )
+            EventRegistrationOverviewDto(
+                eventId = id.toString(),
+                capacity = capacity,
+                activeCount = occupied,
+                waitlistedCount = waitlisted,
+                inactiveCount = inactive,
+                freeSeats = capacity?.let { (it - occupied).coerceAtLeast(0) },
+                withMessageCount = EventStore.countWithMessage(id),
+                rows = dtos,
+                truncated = truncated,
+            )
         }
     }
 
@@ -1599,6 +1667,23 @@ private fun ResultRow.toEventDto(
         ownRefundMarkedAt = ownLatest?.get(EventRegistrationTable.refundMarkedAt),
         ownPaidAmount = ownPaidAmount,
     )
+}
+
+private const val MAX_OVERVIEW_ROWS = 2000
+
+private fun overviewRank(status: EventRegistrationStatus): Int =
+    when (status) {
+        EventRegistrationStatus.CONFIRMED, EventRegistrationStatus.PENDING_PAYMENT -> 0
+        EventRegistrationStatus.WAITLISTED -> 1
+        else -> 2
+    }
+
+/** V1.9.204 -- the overview row: effective status, payment state and (only here) the registrant message. */
+private fun ResultRow.toOverviewRegistrationDto(now: LocalDateTime): EventRegistrationDto {
+    val base = toRegistrationDto()
+    val effective = EventRegistrationView.effectiveStatus(row = this, now = now)
+    val paymentState = EventRegistrationView.paymentState(this)
+    return base.copy(status = effective, message = this[EventRegistrationTable.message], paymentState = paymentState)
 }
 
 private fun ResultRow.toRegistrationDto(): EventRegistrationDto {

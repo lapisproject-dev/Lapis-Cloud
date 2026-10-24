@@ -236,6 +236,13 @@ data class OrganizationSettingsDto(
     val eventCaptureNoticeVersion: String? = null,
     /** V1.9.156 -- `true` while no `EVENT_REC` text was published (capture cannot be switched on then). Computed, never stored. */
     val eventCaptureTextIsPlaceholder: Boolean = true,
+    /**
+     * V1.9.201 -- the pre-selected bid visibility when a tender is created (default [TenderBidVisibility.HIDDEN_UNTIL_DEADLINE]). **Read-only
+     * here**, deliberately NOT in [OrganizationSettingsInput]: it changes only through
+     * [network.lapis.cloud.shared.rpc.IOrganizationSettingsService.updateTenderDefaultVisibility] (ADMIN, audited on change). It only pre-fills the form:
+     * the visibility of a published tender never changes.
+     */
+    val tenderDefaultVisibility: TenderBidVisibility = TenderBidVisibility.HIDDEN_UNTIL_DEADLINE,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

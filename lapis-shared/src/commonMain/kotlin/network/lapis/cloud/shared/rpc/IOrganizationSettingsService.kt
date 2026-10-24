@@ -3,6 +3,7 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
+import network.lapis.cloud.shared.domain.TenderBidVisibility
 
 /**
  * The issuing association's own letterhead/bank/Gemeinnuetzigkeit settings (V0.4.1 Serienbrief/
@@ -70,4 +71,11 @@ interface IOrganizationSettingsService {
         enabled: Boolean,
         acknowledgedNoticeVersion: String?,
     ): OrganizationSettingsDto
+
+    /**
+     * V1.9.201. Role: ADMIN only. Sets the bid visibility that a new tender is pre-filled with. A change writes one audit entry (the value
+     * before and after, no personal data); setting the value it already has writes nothing. The generic `updateOrganizationSettings` never
+     * touches the column. A published tender keeps its own visibility.
+     */
+    suspend fun updateTenderDefaultVisibility(visibility: TenderBidVisibility): OrganizationSettingsDto
 }

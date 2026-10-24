@@ -18,3 +18,6 @@ own KOST1/KOST2 fields), an abweichendes Wirtschaftsjahr (fiscal year other than
 year), and re-export/duplicate-marking are all deliberately out of scope — see
 `docs/architecture/datev-export.adoc`'s own "What doesn't work yet" section for why each one
 specifically does not exist yet.
+
+NOTE: Since V1.9.206 the DATEV consultant number and client number are edited in *Kontenplan & Journal*, tab *Einrichtung*, folded section *Erweitert*
+(see link:finance-setup.adoc[Finance setup]).

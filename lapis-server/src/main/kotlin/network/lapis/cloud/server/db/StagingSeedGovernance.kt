@@ -240,7 +240,7 @@ internal object StagingSeedGovernance {
         }
     }
 
-    private fun JdbcTransaction.insertCommittee(
+    internal fun JdbcTransaction.insertCommittee(
         id: Uuid,
         name: String,
         type: CommitteeType,
@@ -276,7 +276,7 @@ internal object StagingSeedGovernance {
 
     // ---- meetings ---------------------------------------------------------------------------------------------------------
 
-    private fun JdbcTransaction.insertMeeting(
+    internal fun JdbcTransaction.insertMeeting(
         id: Uuid,
         title: String,
         scheduledAt: LocalDateTime,
@@ -299,13 +299,14 @@ internal object StagingSeedGovernance {
         }
     }
 
-    private fun JdbcTransaction.insertAgendaItem(
+    internal fun JdbcTransaction.insertAgendaItem(
         meetingId: Uuid,
         position: Int,
         title: String,
         presenter: Uuid?,
+        fixedId: Uuid = Uuid.random(),
     ): Uuid {
-        val agendaItemId = Uuid.random()
+        val agendaItemId = fixedId
         AgendaItemTable.insert {
             it[id] = agendaItemId
             it[AgendaItemTable.position] = position
@@ -345,7 +346,7 @@ internal object StagingSeedGovernance {
 
     // ---- motions ----------------------------------------------------------------------------------------------------------
 
-    private class MotionSeed(
+    internal class MotionSeed(
         val id: Uuid,
         val committeeId: Uuid,
         val title: String,
@@ -356,7 +357,7 @@ internal object StagingSeedGovernance {
         val submittedAt: LocalDateTime,
     )
 
-    private fun JdbcTransaction.insertMotion(
+    internal fun JdbcTransaction.insertMotion(
         motion: MotionSeed,
         meetingId: Uuid? = null,
         agendaItemId: Uuid? = null,
@@ -387,7 +388,7 @@ internal object StagingSeedGovernance {
      * Records the decision of a SCHEDULED motion exactly like `GovernanceService.resolveMotion`: resolution row (committee
      * quorum), then the motion becomes RESOLVED / REJECTED / POSTPONED and links to it, the audit entry comes last.
      */
-    private fun JdbcTransaction.decideByCommittee(
+    internal fun JdbcTransaction.decideByCommittee(
         motionId: Uuid,
         meetingId: Uuid,
         committeeId: Uuid,

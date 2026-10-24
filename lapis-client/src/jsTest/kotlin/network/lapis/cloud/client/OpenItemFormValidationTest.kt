@@ -24,10 +24,55 @@ class OpenItemFormValidationTest {
         assertEquals(0.01, valid("0,01"))
     }
 
+    private fun plain(
+        raw: String,
+        language: String,
+    ): String? = (parseAmountInput(raw, language = language) as? AmountInput.Valid)?.value?.let { displayDigits(it) }
+
+    /** V1.9.200: the full table of the plan, in German AND English (the UI language decides `1.234` versus `1,234`). */
     @Test
-    fun parseAmountInput_rejectsThousandsSeparators() {
-        assertTrue(parseAmountInput("1.234,56") is AmountInput.Invalid)
-        assertTrue(parseAmountInput("1,234.56") is AmountInput.Invalid)
+    fun parseAmountInput_thousandsSeparators_followTheUiLanguage() {
+        assertEquals("1234", plain("1.234", "de"))
+        assertNull(plain("1.234", "en"), "three decimal places in English")
+        assertNull(plain("1,234", "de"), "three decimal places in German")
+        assertEquals("1234", plain("1,234", "en"))
+        assertEquals("1000.5", plain("1.000,50", "de"))
+        assertEquals("1000.5", plain("1.000,50", "en"))
+        assertEquals("1000.5", plain("1,000.50", "de"))
+        assertEquals("1000.5", plain("1,000.50", "en"))
+        assertEquals("0.1", plain("0,1", "de"))
+        assertEquals("0.1", plain("0.1", "de"))
+        assertEquals("0.1", plain("0,1", "en"))
+        assertEquals("0.1", plain("0.1", "en"))
+        assertEquals("1000000", plain("1.000.000", "de"))
+        assertEquals("1000000", plain("1.000.000", "en"))
+        assertNull(plain("1.00.0", "de"))
+        assertNull(plain("1.00.0", "en"))
+        assertEquals("1234.56", plain("1 234,56", "de"))
+        assertEquals("1234.56", plain("1'234.56", "en"))
+        assertEquals("1234.56", plain("1\u00A0234,56", "fr"))
+        assertEquals("1234.56", plain("1\u202F234,56", "fr"))
+    }
+
+    @Test
+    fun parseAmountInput_rejectsBrokenGrouping() {
+        assertNull(plain("1.23.456", "de"), "groups must be three digits")
+        assertNull(plain("0.500", "de"), "leading group 0 is no grouping")
+        assertNull(plain("0.123", "de"))
+        assertNull(plain("0,001", "en"))
+        assertNull(plain("1234.567", "de"), "leading group longer than three digits")
+        assertNull(plain("0.000,50", "de"))
+        assertNull(plain("12,3456.7", "en"))
+        assertNull(plain("1,000,00", "en"))
+        assertNull(plain("1.234,567.8", "de"), "two decimal signs")
+        assertNull(plain(".5.", "de"))
+    }
+
+    @Test
+    fun parseAmountInput_errorMessageNamesAnExampleWithoutAnyNoThousandsClaim() {
+        val reason = (parseAmountInput("abc", language = "de") as AmountInput.Invalid).reason
+        assertTrue(reason.contains("1.234,56"), reason)
+        assertTrue(!reason.contains("Tausendertrennzeichen"), reason)
     }
 
     @Test
@@ -39,8 +84,9 @@ class OpenItemFormValidationTest {
 
     @Test
     fun parseAmountInput_rejectsMoreThanTwoFractionDigits() {
-        assertTrue(parseAmountInput("12,505") is AmountInput.Invalid)
-        assertTrue(parseAmountInput("12.500") is AmountInput.Invalid)
+        assertTrue(parseAmountInput("12,505", language = "de") is AmountInput.Invalid)
+        assertTrue(parseAmountInput("12.505", language = "en") is AmountInput.Invalid)
+        assertTrue(parseAmountInput("12.500", language = "en") is AmountInput.Invalid)
     }
 
     /**

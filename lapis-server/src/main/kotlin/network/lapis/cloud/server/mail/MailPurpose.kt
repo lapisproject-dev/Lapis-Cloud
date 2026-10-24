@@ -64,6 +64,7 @@ object MailPurpose {
             "event-registration",
             "event-ticket-reissue",
             "event-ticket",
+            EVENT_REGISTRATION_MESSAGE_PURPOSE,
         )
 
     /** Priority 1, lane BULK. */
@@ -101,3 +102,9 @@ const val EVENT_CANCELLED_PURPOSE = "event-cancelled"
  * it must never starve a password reset of the reserve). Names nobody, see `CarpoolNotifier`.
  */
 const val CARPOOL_NOTICE_PURPOSE = "carpool-notice"
+
+/**
+ * V1.9.204 -- the registry string of the notice to an event's creator that a registration came in WITH a message. Priority 1, lane SYSTEM,
+ * no TTL. The mail names the event and links to the registration overview; it never carries the message text.
+ */
+const val EVENT_REGISTRATION_MESSAGE_PURPOSE = "event-registration-message"

@@ -7,6 +7,7 @@ import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.series.EventSeriesLimits
 import network.lapis.cloud.server.events.series.EventSeriesMaterializer
@@ -274,7 +275,8 @@ internal object StagingSeedCommunity {
             it[id] = Uuid.random()
             it[EventRegistrationTable.eventId] = eventId
             it[EventRegistrationTable.memberId] = memberId
-            it[activeParticipantKey] = "member:$memberId"
+            // The live key (`m:<id>`): a seeded member could otherwise register a second time for the same seeded event (corrected V1.9.205).
+            it[activeParticipantKey] = EventPolicy.activeParticipantKey(memberId = memberId, normalizedGuestEmail = null)
             it[status] = EventRegistrationStatus.CONFIRMED
             it[feeAmount] = BigDecimal("0.00")
             it[registeredAt] = now

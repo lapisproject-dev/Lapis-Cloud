@@ -372,6 +372,17 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Ausschreibungen: Mitglieder, Freunde und Gäste können auf eine vom Vorstand veröffentlichte Ausschreibung " +
+                        "ein Angebot abgeben (Preis in LTR, Angebotstext, Zeitpunkte); den Vorstand und die Gremien betrifft " +
+                        "die Verwaltung (wer veröffentlicht, zuschlägt oder abnimmt). Ob andere Bieter ein Angebot sehen, " +
+                        "richtet sich nach der bei der Veröffentlichung festgelegten Sichtbarkeit; der Zuschlag (Name und " +
+                        "Preis des Gewinners) ist für alle Teilnehmer sichtbar — Art. 6 Abs. 1 lit. b DSGVO. Der Text " +
+                        "nicht bezuschlagter Angebote wird bei einer Löschung ersetzt, Zuschlag und Abnahme bleiben als " +
+                        "Entscheidungsnachweis erhalten."
+                )
+            }
+            li {
+                +(
                     "Versand von System-E-Mails (z. B. Passwort zurücksetzen, Bestätigungen, Hinweise): Ist die " +
                         "Zustellung nicht sofort möglich, wird die E-Mail verschlüsselt zwischengespeichert, bis sie " +
                         "zugestellt ist; sicherheitsrelevante E-Mails verfallen nach 30 Minuten ungesendet. Nach " +

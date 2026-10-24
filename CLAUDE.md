@@ -309,3 +309,20 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 - **Neue RPC-Methoden immer ans Ende** der Interfaces (Route = Deklarationsreihenfolge). Signaturen bestehender Methoden (`joinEventOnline`) bleiben; neue DTO-Felder bekommen Standardwerte.
 - **Das Banner-Thema `lapis-event-capture`** steht in `sendDataPayloadLimit`; der Client nimmt nur Pakete **ohne** sendende Person an (ein Gast darf Daten senden). Gesendet wird nach dem Commit (`EventCaptureLiveBroadcaster`), nie in einer Transaktion; ein Fehler schaltet das Banner nie ab.
 - **V1.9.158 (nicht verfügbare Optionen).** `startRecordingInTransaction` und `startStreamInternal` prüfen die **Moderatorin vor** `requireEventCaptureAllowed` (die typisierten Gründe `EventRoomCaptureBlockedBy…Exception` dürfen nur Moderatorinnen erreichen; `EventConferenceGuardTripwireTest` prüft die Reihenfolge, dass nur `EventConferenceGuard` sie wirft und `eventCaptureAvailability(` nur dort gelesen wird). Der DTO-Pfad nutzt `eventCaptureStateFor`, nie `requireEventCaptureAllowed` (Zwei-Aufrufer-Wächter). Jede neue Service-Exception braucht einen Text in `AppState.typedRefusalText`/`handleGuardedFailure` oder einen lokalen `catch` (`ClientServiceExceptionMappingTripwireTest`); eine nicht verfügbare Schaltfläche ist `aria-disabled` + `aria-describedby`, nicht `disabled`.
+
+## Ausschreibungen (V1.9.201)
+
+- **Sichtbarkeit nur über `TenderVisibilityPolicy`**; keine andere Stelle entscheidet über Modus, Frist oder Rolle, um ein fremdes Angebot oder einen Zähler zu zeigen. Reads schreiben nie (Status wird berechnet), nur erfolgreiche Schreibwege persistieren `CLOSED`.
+- **Befangenheit nur über `TenderConflicts`** (jede Angebotszeile zählt, auch zurückgezogene). Die Governance-Haken subtrahieren die Menge, rufen `eligibleMemberIds` nicht erneut auf.
+- **Sperrreihenfolge:** Antrag -> Ausschreibung -> Angebote -> Mitglied (`forMemberUpdate`) -> Audit zuletzt. `ITenderService` ist die letzte `registerService`; neue Methoden ans Ende.
+- **EUR ist unerreichbar**, es wird nichts gebucht (`TenderAccessTripwireTest`: kein `LtrLedger*`, kein Balance-Provider). `tender*`-Tabellen nur in `TenderStore`/`TenderPersonalData` abfragen.
+
+## Staging-Seed Teil 2 (V1.9.205)
+
+- **Jeder Teil von `StagingSeedTopUp.PARTS` läuft in einer eigenen Transaktion, `instanceCheck()` ist die erste Anweisung.** Ein Teil schreibt eine Entität nur ganz (Wurzel-ID fehlt, Mitglieder passend, aktuelles freies Guthaben deckt jede Abbuchung) und ändert nie eine vorhandene Zeile; Unique-Konflikte vorher prüfen, nie fangen. Ausschreibungs-Tabellen nur über `TenderStore` (`TenderAccessTripwireTest`).
+
+## Finanz-Einrichtung (V1.9.206)
+
+- **Die Kontenzuordnung hat genau einen Ort:** Reiter "Einrichtung" von "Kontenplan & Journal" (`FinanceSetupTab`). Andere Seiten zeigen nur eine Statuszeile mit Link. Deep-Links nutzen eine Hash-Query: `#/ledger?tab=einrichtung&step=bank` (ein zweites `#` gibt es im Hash-Routing nicht); ein Tabwechsel ruft `history.replaceState`, nie `location.hash =`.
+- **Welche Konten ein Schritt anbietet und wann die Einrichtung vollständig ist, entscheidet nur `FinanceSetup.kt` in `lapis-shared`** (`accepts`, `financeSetupStatusOf`); Client, `getFinanceSetupStatus` und die Sperre in `enablePaymentGateway` rufen dieselbe Funktion (`FinanceSetupParityTest`). Das Gebührenkonto ist nie Pflicht.
+- **`createStandardChart` ist idempotent und schreibt höchstens einen aggregierten `ORGANIZATION_SETTINGS`/`UPDATE`-Eintrag.** Der Kontenplan ist ein Vorschlag (Steuerberatung bestätigt); die Sphäre liegt nie am Konto.

@@ -1,4 +1,5 @@
 package network.lapis.cloud.server.rpc
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -35,6 +36,7 @@ import network.lapis.cloud.shared.domain.DonorDutyDto
 import network.lapis.cloud.shared.domain.DonorType
 import network.lapis.cloud.shared.domain.ExternalDonorDto
 import network.lapis.cloud.shared.domain.ExternalDonorInput
+import network.lapis.cloud.shared.domain.FinanceSetupStatusDto
 import network.lapis.cloud.shared.domain.FourSphereIncomeStatementDto
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.GeneralLedgerDto
@@ -53,6 +55,9 @@ import network.lapis.cloud.shared.domain.PostingInput
 import network.lapis.cloud.shared.domain.PostingSide
 import network.lapis.cloud.shared.domain.PostingSnapshot
 import network.lapis.cloud.shared.domain.ReserveType
+import network.lapis.cloud.shared.domain.StandardAssociationChart
+import network.lapis.cloud.shared.domain.StandardChartAppliedSnapshot
+import network.lapis.cloud.shared.domain.StandardChartResultDto
 import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
 import network.lapis.cloud.shared.domain.VatNotApplicableReason
 import network.lapis.cloud.shared.domain.VatRate
@@ -73,11 +78,15 @@ import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
+
+private val logger = KotlinLogging.logger {}
 
 private val TREASURY_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
 private val ACCOUNTING_READ_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
@@ -118,40 +127,117 @@ class AccountingService(
     override suspend fun createLedgerAccount(input: LedgerAccountInput): LedgerAccountDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
+        validateLedgerAccountInput(input)
+        return transaction {
+            val id = insertLedgerAccountInTx(input)
+            loadLedgerAccount(id)
+        }
+    }
+
+    /** The three format/consistency checks shared by [createLedgerAccount] and [createStandardChart]. */
+    private fun validateLedgerAccountInput(input: LedgerAccountInput) {
         requireValidAccountNumberFormat(input.accountNumber)
         requireReserveTypeOnlyOnEquity(type = input.type, reserveType = input.reserveType)
         requireCashRegisterOnlyOnAsset(type = input.type, isCashRegister = input.isCashRegister)
-        return transaction {
-            val duplicate =
-                LedgerAccountTable
-                    .selectAll()
-                    .where { LedgerAccountTable.accountNumber eq input.accountNumber }
-                    .count() > 0
-            if (duplicate) {
-                throw ConflictException("LedgerAccount with accountNumber ${input.accountNumber} already exists")
-            }
-            val id = Uuid.random()
-            try {
-                LedgerAccountTable.insert {
-                    it[LedgerAccountTable.id] = id
-                    it[accountNumber] = input.accountNumber
-                    it[name] = input.name
-                    it[accountClass] = input.accountClass
-                    it[type] = input.type
-                    it[active] = input.active
-                    it[reserveType] = input.reserveType
-                    it[isCashRegister] = input.isCashRegister
-                }
-            } catch (e: ExposedSQLException) {
-                if (!e.isUniqueViolation()) throw e // V1.9.55: a timeout is not a duplicate
-                // Application-level pre-check above is racy under concurrency on its own -- the
-                // DB-level UNIQUE (uq_ledger_account_number) is the real backstop, same
-                // "pre-check + ExposedSQLException backstop" idiom as ElectionService's receipt
-                // code / duplicate-vote handling.
-                throw ConflictException("LedgerAccount with accountNumber ${input.accountNumber} already exists")
-            }
-            loadLedgerAccount(id)
+    }
+
+    /** Duplicate pre-check + insert + unique-violation backstop. Must run inside a `transaction {}`. */
+    private fun insertLedgerAccountInTx(input: LedgerAccountInput): Uuid {
+        check(TransactionManager.currentOrNull() != null) { "insertLedgerAccountInTx must run inside an open transaction" }
+        val duplicate =
+            LedgerAccountTable
+                .selectAll()
+                .where { LedgerAccountTable.accountNumber eq input.accountNumber }
+                .count() > 0
+        if (duplicate) {
+            throw ConflictException("LedgerAccount with accountNumber ${input.accountNumber} already exists")
         }
+        val id = Uuid.random()
+        try {
+            LedgerAccountTable.insert {
+                it[LedgerAccountTable.id] = id
+                it[accountNumber] = input.accountNumber
+                it[name] = input.name
+                it[accountClass] = input.accountClass
+                it[type] = input.type
+                it[active] = input.active
+                it[reserveType] = input.reserveType
+                it[isCashRegister] = input.isCashRegister
+            }
+        } catch (e: ExposedSQLException) {
+            if (!e.isUniqueViolation()) throw e // V1.9.55: a timeout is not a duplicate
+            // Application-level pre-check above is racy under concurrency on its own -- the
+            // DB-level UNIQUE (uq_ledger_account_number) is the real backstop, same
+            // "pre-check + ExposedSQLException backstop" idiom as ElectionService's receipt
+            // code / duplicate-vote handling.
+            throw ConflictException("LedgerAccount with accountNumber ${input.accountNumber} already exists")
+        }
+        return id
+    }
+
+    /**
+     * V1.9.206. Applies [StandardAssociationChart]. Serialised by a row lock on the organization
+     * settings row (taken BEFORE the audit chain row [AuditLogRecorder] locks -- the same order every
+     * settings writer uses), so two parallel calls cannot interleave. All-or-nothing: any failure
+     * rolls the whole transaction back, so a half chart is never observable.
+     */
+    override suspend fun createStandardChart(): StandardChartResultDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TREASURY_ROLES)
+        // Self-check of the static data: a failure here is a programming error, not a user error.
+        StandardAssociationChart.accounts.forEach { validateLedgerAccountInput(StandardAssociationChart.toInput(it)) }
+        val result =
+            transaction {
+                OrganizationSettingsTable
+                    .selectAll()
+                    .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                    .forUpdate()
+                    .single()
+                val existing =
+                    LedgerAccountTable
+                        .select(LedgerAccountTable.accountNumber)
+                        .orderBy(LedgerAccountTable.accountNumber, SortOrder.ASC)
+                        .map { it[LedgerAccountTable.accountNumber] }
+                        .toSet()
+                val created = mutableListOf<String>()
+                val skipped = mutableListOf<String>()
+                for (proposed in StandardAssociationChart.accounts) {
+                    if (proposed.accountNumber in existing) {
+                        skipped += proposed.accountNumber
+                    } else {
+                        insertLedgerAccountInTx(StandardAssociationChart.toInput(proposed))
+                        created += proposed.accountNumber
+                    }
+                }
+                if (created.isNotEmpty()) {
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = null,
+                        after =
+                            Json.encodeToString(
+                                StandardChartAppliedSnapshot.serializer(),
+                                StandardChartAppliedSnapshot(
+                                    chartVersion = StandardAssociationChart.VERSION,
+                                    created = created,
+                                    skipped = skipped,
+                                ),
+                            ),
+                    )
+                }
+                StandardChartResultDto(created = created, skipped = skipped)
+            }
+        logger.info { "standard chart applied: created=${result.created.size} skipped=${result.skipped.size}" }
+        return result
+    }
+
+    override suspend fun getFinanceSetupStatus(): FinanceSetupStatusDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*ACCOUNTING_READ_ROLES)
+        return transaction { loadFinanceSetupStatusInTx() }
     }
 
     /**

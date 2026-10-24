@@ -6,6 +6,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toKotlinLocalDate
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.csv.SpreadsheetCsv
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -1009,35 +1010,16 @@ internal fun validateReportPathWritable(path: Path) {
 private fun csvLine(fields: List<String>): String = fields.joinToString(";") { csvField(it) }
 
 /**
- * The set of leading characters Excel/LibreOffice/Google Sheets treat as "this cell is a formula,
- * not text" on CSV import -- the classic OWASP CSV/Formula-Injection trigger set. `'-'`/`'+'` are
- * included alongside the more obvious `'='`/`'@'` because Excel accepts a bare arithmetic
- * expression (`-1+2`, `+cmd|'/c calc'!A1`) as a formula with no leading `=` at all. A leading TAB
- * (`0x09`) or CR (`0x0D`) is included too -- Excel's own CSV importer trims/normalizes leading
- * whitespace-like control characters before this same formula-sniffing check runs, so a value that
- * only *looks* safe because it starts with a tab is not.
- */
-private val FORMULA_TRIGGER_CHARS = charArrayOf('=', '+', '-', '@', '\t', '\r')
-
-/**
  * Security finding fix (feature/v1.2.11-member-csv-import, MAJOR, OWASP CSV Injection): this report
  * is opened directly in Excel by an operator (see [writeReport] KDoc) and untrusted CRM values
  * (`Name`/`Personennummer`/`Status (CSV)`) flow into it verbatim. A value whose FIRST character is a
- * [FORMULA_TRIGGER_CHARS] member gets a leading apostrophe prefixed -- the standard "force this cell
+ * [SpreadsheetCsv.FORMULA_TRIGGER_CHARS] member gets a leading apostrophe prefixed -- the standard "force this cell
  * to be text, never a formula" escape every spreadsheet application honors -- and is then ALWAYS
  * quoted (not only when it happens to also contain a delimiter/quote/newline): simply quoting a
  * formula value is NOT sufficient on its own, since Excel re-evaluates a quoted CSV cell's leading
  * `=`/`+`/`-`/`@` as a formula trigger on import regardless of the surrounding quotes.
  */
-private fun csvField(value: String): String {
-    val needsFormulaGuard = value.isNotEmpty() && value[0] in FORMULA_TRIGGER_CHARS
-    val guardedValue = if (needsFormulaGuard) "'$value" else value
-    return if (needsFormulaGuard || guardedValue.any { it == ';' || it == '"' || it == '\n' || it == '\r' }) {
-        "\"" + guardedValue.replace("\"", "\"\"") + "\""
-    } else {
-        guardedValue
-    }
-}
+private fun csvField(value: String): String = SpreadsheetCsv.field(value = value)
 
 // =====================================================================================================
 // Aggregate log output -- NEVER any PII, only counts.

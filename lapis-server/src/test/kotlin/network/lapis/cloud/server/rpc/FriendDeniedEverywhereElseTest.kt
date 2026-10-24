@@ -103,6 +103,10 @@ private val ENABLED_CONFIG =
  * ([MemberStatusSets.LTR_ELIGIBLE]), see `LtrLedgerServiceTest`'s own positive coverage. Sending a
  * peer transfer ([PeerTransferService.transferLtr]) remains refused below -- only the sender side
  * is gated, and that gate is unchanged by V1.1.4.
+ *
+ * V1.9.201: tenders admit FRIEND (and GUEST) deliberately, for seeing a published tender and bidding ([MemberStatusSets.TENDER_PARTICIPANT]); only a
+ * new positive admission, nothing in this matrix changes. V1.9.202: the three option/preview methods of the tender screens are board-only (`requireRole`);
+ * their FRIEND/GUEST refusal is pinned in `TenderMotionOptionsTest` and `TenderDescriptionFormatTest`.
  */
 class FriendDeniedEverywhereElseTest :
     FunSpec({

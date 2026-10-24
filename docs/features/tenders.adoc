@@ -1,0 +1,88 @@
+= Tenders (V1.9.201 foundation, V1.9.202 screens)
+:toc:
+
+A tender puts a task out to bid. It implements an **adopted resolution**: the board publishes the task with a deadline, participants bid in LTR, the board awards and finally accepts the result.
+Design, state machine, visibility matrix and lock order: link:../architecture/tenders.adoc[docs/architecture/tenders.adoc].
+
+NOTE: **Wave 2 adds the screens** (list, detail, board actions) on top of the wave 1 foundation. **Nothing is booked in LTR** (the payout is wave 3), and the screens were tested only with DOM tests in headless Chrome: no person has seen them in a real browser or on a real instance.
+
+== Screens (V1.9.202)
+
+[cols="2,5"]
+|===
+|Screen |What it does
+|"Ausschreibungen" (`/tenders`), sidebar group "Wirtschaft" |The list: title (link), status, deadline, payment, number of bids (a dash where the viewer may not see it), the own bid, an icon action "open". Filter: all, open, deadline passed, awarded, finished (completed or cancelled), and "Entwürfe" for BOARD, ADMIN and TREASURER. BOARD and ADMIN get "Neue Ausschreibung" (a collapsed form: title, resolution, Markdown description with server-rendered preview, expected result, deadline, criterion, visibility, payment).
+|Tender page (`/tenders/:id`) |Status row, facts (deadline with the remaining time computed by the server, criterion, payment, visibility and what it means, link to the resolution), description, the bid card, the bids the server shows to this viewer, and for the board the actions: edit and publish a draft, set the award motion, award, record acceptance, cancel.
+|===
+
+The sidebar entry sits in "Wirtschaft" because a tender is paid in LTR; it appears for ACTIVE and FRIEND (`MemberStatusSets.LTR_ELIGIBLE`), outside the member-only block. The link "Beruht auf" connects to the self-administration (the resolution) and is shown only to members: for a friend the resolution title is empty and the link is not offered.
+
+The screens show what the server decided and repeat no rule: `bidBlockedReason` (may this person bid, and if not why), `bidView` (which bids), `bid.awardable` (can this bid win), `awardReadiness` (how far is the decision), `viewerIsConflicted`, `minutesUntilDeadline`. The Markdown description arrives as sanitized HTML (`descriptionHtml`); the client never renders Markdown.
+
+=== Guests and LTR
+
+A GUEST keeps the LTR account on the home server, so a guest **cannot bid on an LTR tender** (the server refuses with a fixed text and the page says why). A guest may still withdraw a bid that was stored before this rule, and such an old bid can neither win nor block the cheapest valid bid. FRIEND and ACTIVE bid as before. This tightens the rule of V1.9.201 (which admitted GUEST); V1.9.201 was not released.
+
+=== Euro
+
+The payment choice shows "Euro" disabled with the reason "Euro-Vergütung kommt später." in plain text. LTR is the only possible choice.
+
+== Roles
+
+[cols="2,5"]
+|===
+|Who |May
+|BOARD, ADMIN (status ACTIVE) |create, change a draft, publish, cancel, register an award motion, award, accept or reject
+|TREASURER |read like the board (drafts, bids after the reveal); manages nothing
+|ACTIVE, FRIEND |see published tenders and submit, replace and withdraw their own bid
+|GUEST |see published tenders; **cannot bid on an LTR tender** (V1.9.202); may withdraw an older bid
+|Anybody else (applicants, former members, donors, deceased) |nothing; an invisible tender reads as "not found"
+|===
+
+A manager who has **any** bid row on a tender (also a withdrawn one) may neither award, accept nor register an award motion on it.
+
+== Binding resolution
+
+A tender needs a motion with status RESOLVED whose resolution is ADOPTED and was taken in a meeting of the committee the motion is addressed to. An amendment is never valid. The check runs at creation and again at publication. One resolution may carry several tenders ("tender tasks A and B").
+
+== Bids
+
+* Price in LTR, at most two decimals (never rounded), at least 0.01; text 1 to 4000 characters; one bid per member and tender (a second submission replaces it).
+* A bid is valid only while `now < deadline`; the deadline is a wall-clock time of the organisation zone.
+* EUR is reserved and refused (service and database).
+
+== Visibility of bids
+
+Chosen per tender before publication (default from the ADMIN setting, factory default `HIDDEN_UNTIL_DEADLINE`) and **never changeable afterwards**.
+
+[cols="2,2,2,2,2,2",options="header"]
+|===
+|Mode |Bidder before |Board view before |Bidder after |Board view after |Non-bidding participant
+|`OPEN` |all + counter |all + counter |all + counter |all + counter |all + counter
+|`HIDDEN_UNTIL_DEADLINE` |own, no counter |nothing |all + counter |all + counter |nothing
+|`OWN_ONLY` |own, no counter |nothing |own, no counter |all + counter |nothing
+|===
+
+"Board view" = BOARD, ADMIN or TREASURER without a bid of their own (a bidding board member is treated as a bidder). A tender cancelled before its deadline never reveals its bids in the hiding modes. Withdrawn bids are visible only to their bidder and never counted. From AWARDED on, the winner's name, price and date are public to every participant in every mode.
+
+== Award
+
+* `LOWEST_PRICE`: an act of the board without a vote; the server enforces that the chosen bid has the lowest price among running bids; a tie needs a justification.
+* `BEST_OFFER`: a judgement, so a committee resolution is needed. Once the tender is CLOSED the board registers an **award motion** (same committee as the binding resolution, not an amendment, not yet in any decision path). Election and systemic consensus are refused for it. The award then needs its ADOPTED resolution decided after the deadline, and a justification.
+* On the award motion the bidders are excluded from the right to vote and from both sides of the quorum.
+
+After the award the winning bid is AWARDED, other running bids REJECTED (withdrawn ones stay withdrawn). Acceptance: ACCEPTED completes the tender; REJECTED needs a reason and leaves it AWARDED. Cancellation needs a reason.
+
+== Honest limits
+
+* No notifications, no attachments, no award to several bidders, no early closing of a tender.
+* The TREASURER reads (drafts included) and manages nothing.
+* The reason of a cancellation is visible to everybody who sees the tender (also friends and guests).
+* Kilua RPC does not transmit the message of a refusal, only its type; the client therefore shows one general sentence for a refusal of the tender and prevents the common refusals (lengths, deadline, amount, guest rule) before the call.
+* The translations of the new texts were written by the model, not by a native speaker.
+* LTR only; EUR is unreachable. **No payout** (wave 3). Whether a GUEST can be paid out is undecided: a guest keeps the LTR account on the home server.
+* With manual counting of votes (`resolveMotion`) the server enforces the quorum without bidders and that the figures fit the present non-bidders, but it cannot see whether a bidder voted.
+* The award criterion is entered by the board; the server cannot check it against the motion text.
+* A refused write rolls back with its transaction, so a deadline that passes is persisted as CLOSED by the next *successful* write; readers always see the effective status.
+* The binding motion's title and id are hidden from friends and guests.
+* Audit: one entry per publication, award-motion registration, award, acceptance and cancellation (ids and enums only).

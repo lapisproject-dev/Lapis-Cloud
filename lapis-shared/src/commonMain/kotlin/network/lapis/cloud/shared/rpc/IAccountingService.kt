@@ -11,6 +11,7 @@ import network.lapis.cloud.shared.domain.DatevExportPreviewDto
 import network.lapis.cloud.shared.domain.DonationDutyReportDto
 import network.lapis.cloud.shared.domain.ExternalDonorDto
 import network.lapis.cloud.shared.domain.ExternalDonorInput
+import network.lapis.cloud.shared.domain.FinanceSetupStatusDto
 import network.lapis.cloud.shared.domain.FourSphereIncomeStatementDto
 import network.lapis.cloud.shared.domain.GeneralLedgerDto
 import network.lapis.cloud.shared.domain.IncomeStatementDto
@@ -20,6 +21,7 @@ import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.KassenbuchDto
 import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.LedgerAccountInput
+import network.lapis.cloud.shared.domain.StandardChartResultDto
 import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
 import network.lapis.cloud.shared.domain.VatReturnPreviewDto
 
@@ -283,4 +285,15 @@ interface IAccountingService {
         from: LocalDate,
         to: LocalDate,
     ): VatReturnPreviewDto
+
+    /**
+     * V1.9.206. TREASURER/ADMIN. Applies the [network.lapis.cloud.shared.domain.StandardAssociationChart]:
+     * creates every proposed account whose number does not exist yet. Idempotent -- existing numbers
+     * (active OR inactive) are skipped and never changed. All-or-nothing in one transaction; writes one
+     * aggregated ORGANIZATION_SETTINGS/UPDATE audit entry, and none when nothing was created.
+     */
+    suspend fun createStandardChart(): StandardChartResultDto
+
+    /** V1.9.206. TREASURER/BOARD/ADMIN, read only. State of the six finance-setup steps. */
+    suspend fun getFinanceSetupStatus(): FinanceSetupStatusDto
 }

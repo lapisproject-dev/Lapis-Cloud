@@ -1,0 +1,102 @@
+= Finance setup for laypeople (V1.9.206)
+:toc:
+
+A treasurer who has never set up a ledger can get the books ready in one place: the tab *Einrichtung* of *Kontenplan & Journal* (`#/ledger?tab=einrichtung`).
+It replaces the old "Kontenzuordnung Zahlungsverkehr" block and the four badges on the payment configuration page. The account mapping now lives in exactly one place.
+
+[IMPORTANT]
+====
+The standard chart of accounts is *a proposal. A tax advisor must confirm it for the association.* The confidence marks below are assumptions, not a verified DATEV chart.
+====
+
+== The six steps
+
+[cols="1,3,1"]
+|===
+|Step |What it is |Required
+
+|Chart of accounts |At least one active account exists. With none, the button "Standard-Kontenplan SKR42 für Vereine anlegen" creates the proposal below. |yes
+|Bank account |`paymentBankAccountId`: type ASSET, active, no cash-register account. |yes
+|Income account for contributions |`contributionIncomeAccountId`: type INCOME, active. |yes
+|Income account for donations |`donationIncomeAccountId`: type INCOME, active. |yes
+|Income account for events |`eventIncomeAccountId`: type INCOME, active. |yes
+|Fee account |`paymentFeeAccountId`: type EXPENSE, active. No payment provider reports fees today, so it is optional. |no
+|===
+
+Each step shows a status that is never colour alone: done (✓), open (○), optional (–) or error (!). An *error* is a stored mapping whose account was deactivated afterwards (or has the wrong type);
+its select starts empty with a red sentence, and saving removes the old mapping on purpose and visibly.
+The select of a step offers *only* the accounts the server would accept (`FinanceSetupStep.accepts`, one shared rule, pinned by `FinanceSetupParityTest`); wrong types are absent, not greyed out.
+"Standard verwenden" fills one field with the proposed account, "Alle Standardkonten vorschlagen" fills the *empty* fields only; neither saves. "Nicht gespeichert" marks a difference to the stored value.
+
+Under *Erweitert* (folded) sit the further fields of the old section: sphere of event income, travel-expense and volunteer-allowance expense account, receivables and payables account, DATEV consultant and client number.
+The cross rule (bank, receivables and payables must be three different accounts) is kept.
+
+== Who may do what
+
+[cols="2,1,1,1"]
+|===
+| |ADMIN |TREASURER |BOARD
+
+|See the state of all steps |yes |yes |yes
+|Create the standard chart |yes |yes |no
+|Change the mapping (`updateOrganizationSettings`) |yes |no (read-only text and the sentence "Die Zuordnung kann nur ein Administrator ändern.") |no
+|===
+
+The first tab is *Einrichtung* for TREASURER and ADMIN while a required step is open, otherwise *Konten*. An explicit `?tab=` always wins. Deep links use one hash only: `#/ledger?tab=einrichtung&step=bank`
+(`chart`, `bank`, `contribution`, `donation`, `event`, `fee`). Changing the tab updates the address with `replaceState` and does not re-render.
+
+== The standard chart (`StandardAssociationChart`, version `skr42-verein-2026-10`)
+
+`IAccountingService.createStandardChart()` (TREASURER, ADMIN) creates every account of the list whose number does not exist yet. The *typical area* is a hint only; the sphere is chosen per posting, never stored on the account.
+
+[cols="1,4,1,1,2"]
+|===
+|No. |Name |Type |Confidence |Typical area (hint only)
+
+|06500 |Betriebs- und Geschäftsausstattung |ASSET |LOW |all areas
+|12000 |Forderungen aus Lieferungen und Leistungen |ASSET |MED |all areas
+|16000 |Kasse (cash register) |ASSET |HIGH |all areas
+|18000 |Bank (Girokonto) |ASSET |HIGH |all areas
+|20000 |Vereinsvermögen / Ergebnisvortrag |EQUITY |LOW |none
+|21000 |Projektrücklage (§62 Abs. 1 Nr. 1 AO) |EQUITY |MED |ideal area
+|21500 |Freie Rücklage (§62 Abs. 1 Nr. 3 AO) |EQUITY |MED |asset management
+|34000 |Verbindlichkeiten aus Lieferungen und Leistungen |LIABILITY |MED |all areas
+|37500 |Umsatzsteuer |LIABILITY |LOW |commercial and non-profit operations
+|40000 |Echte Mitgliedsbeiträge |INCOME |HIGH |ideal area
+|40450 |Geldzuwendungen (Spenden) gegen Zuwendungsbestätigung |INCOME |HIGH |ideal area
+|42010 |Erlöse aus Eintrittsgeldern (Zweckbetrieb) |INCOME |HIGH |non-profit operation
+|44000 |Erlöse wirtschaftlicher Geschäftsbetrieb |INCOME |MED |commercial operation
+|50000 |Wareneinsatz / Materialaufwand |EXPENSE |MED |commercial operation
+|63000 |Raumkosten (z. B. Miete) |EXPENSE |LOW |chosen per posting
+|64000 |Bürobedarf / Verwaltungsaufwand |EXPENSE |MED |chosen per posting
+|64200 |Sonstige Aufwendungen |EXPENSE |LOW |chosen per posting
+|68550 |Nebenkosten des Geldverkehrs |EXPENSE |MED (SKR04 6855 mapped to SKR42) |chosen per posting
+|71100 |Zinserträge Bankguthaben |INCOME |MED |asset management
+|90000 |Saldenvorträge Sachkonten / Eröffnungsbilanz |EQUITY |LOW |none
+|===
+
+The names are the demo names of `DevSeedData` without the technical suffixes; a test pins that both lists agree on class, type and flags for every shared number.
+
+*Idempotent.* Existing numbers (active *or* inactive) are skipped and never changed; a second call creates nothing and writes no audit entry. The call is one transaction behind a row lock on the organization settings row:
+two parallel calls together create each account once, and a failure leaves no half chart. The confirmation dialog lists all accounts that will be created and says that created accounts can only be deactivated later.
+
+== Audit (GoBD)
+
+One aggregated `ORGANIZATION_SETTINGS` / `UPDATE` entry per application (`StandardChartAppliedSnapshot`: chart version, created numbers, skipped numbers; account numbers only, no personal data).
+No entry when nothing was created. A per-account `LEDGER_ACCOUNT` audit literal would need a migration and is not part of this wave; the normal `createLedgerAccount` is still not audited (a known gap).
+
+== Activation gate for online payment
+
+`enablePaymentGateway` throws a `ConflictException` (`payment_account_mapping_incomplete`) while bank, contribution, donation or event income account is not set, inactive or of the wrong type.
+The gate runs in the same transaction as the update and uses the same shared function as the screen. The payment page shows a one-line status ("Kontenzuordnung: vollständig" / "unvollständig, es fehlt …", yellow, never red) with a link to the setup,
+and the enable button answers an incomplete mapping with a message and a link instead of opening the disclaimer.
+
+== Honest limits
+
+* No sphere is stored on an account (decision of the design team).
+* The fee account is optional because no provider reports fees.
+* The gate does *not* switch off an already active payment gateway and does not block checkout; an incomplete mapping still records a posting error as before.
+* `updateOrganizationSettings` does not forbid clearing a required mapping while the gateway is active.
+* The chart is a proposal and not verified against the official DATEV SKR42; there is no automatic basic chart when an organization is created.
+* Account type names in tables ("Aktivkonto" and so on) are unchanged and still technical.
+* The DOM tests run in headless Chrome only; no run against staging.

@@ -102,6 +102,10 @@ object DevSeedData {
      * (clubdesk.de, commu-core.com, vibss.de), MED/LOW = SKR04-consistent candidates that should be
      * verified against the official DATEV SKR42 Kontenplan before a real deployment relies on them
      * (see V0.3.1.1 research notes).
+     *
+     * V1.9.206: the production-facing proposal is `network.lapis.cloud.shared.domain.StandardAssociationChart` (same
+     * numbers, cleaned names, applied by `IAccountingService.createStandardChart`); `FinanceSetupParityTest` pins that
+     * both lists agree on class, type and flags for every shared number. This demo list stays as it is (tests pin its size).
      */
     data class SeedLedgerAccount(
         val accountNumber: String,

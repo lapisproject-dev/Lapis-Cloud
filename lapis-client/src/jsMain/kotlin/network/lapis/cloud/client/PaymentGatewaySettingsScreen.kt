@@ -6,19 +6,25 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.html.link
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.FinanceSetupStatusDto
+import network.lapis.cloud.shared.domain.FinanceSetupStep
 import network.lapis.cloud.shared.domain.PaymentGatewayComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.PaymentGatewayComplianceDisclaimerDto
 import network.lapis.cloud.shared.domain.PaymentGatewaySettingsDto
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.PspConfigStatusDto
+import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IPaymentGatewayService
 
 /**
@@ -27,9 +33,8 @@ import network.lapis.cloud.shared.rpc.IPaymentGatewayService
  * disclaimer-modal / disable, reading `version`/`sha256` off the just-fetched DTO as LOCAL values,
  * never editable form fields; (b) `getPspConfigStatus()` rendered as green/red presence badges plus
  * the exact webhook URL to paste into the Stripe dashboard -- **never a secret value, not even
- * truncated**; (c) the four ledger-account mappings, reusing `LedgerScreen.kt`'s own
- * `renderPaymentAccountMappingSection` rather than a second, duplicate implementation (see that
- * function's own KDoc "Welle V1.2.8" addendum).
+ * truncated**; (c) since V1.9.206 only a one-line status of the ledger-account mapping with a link -- the mapping itself has one
+ * home, the tab "Einrichtung" of "Kontenplan & Journal" (`FinanceSetupTab.kt`).
  */
 fun renderPaymentGatewaySettingsScreen(container: SimplePanel) {
     val root =
@@ -37,14 +42,59 @@ fun renderPaymentGatewaySettingsScreen(container: SimplePanel) {
     root.pageHeader(tr("Zahlungs-Konfiguration"), intro = PageIntros.forRoute(Routes.PAYMENT_GATEWAY_SETTINGS))
 
     renderPaymentGatewayAdminSection(root)
+    renderFinanceMappingStatusLine(root)
     renderPspConfigStatusSection(root)
+}
+
+/** Id of the message that explains why "Online-Zahlung aktivieren" does not proceed; the button points at it via `aria-describedby`. */
+private const val PAYMENT_MAPPING_GATE_MESSAGE_ID = "payment-mapping-gate-message"
+
+/**
+ * V1.9.206. Text and Bootstrap colour of the one-line finance-mapping status. Incomplete is a WARNING (yellow), not an error: the
+ * books are merely not ready yet. Pure, so the wording is testable without a DOM.
+ */
+internal fun financeMappingStatusText(status: FinanceSetupStatusDto): Pair<String, String> =
+    if (status.mappingComplete) {
+        tr("Kontenzuordnung: vollständig") to "success"
+    } else {
+        val missing = status.firstOpenRequired
+        if (missing == null) {
+            tr("Kontenzuordnung: unvollständig") to "warning"
+        } else {
+            gettext("Kontenzuordnung: unvollständig, es fehlt %1", setupStepTitle(missing)) to "warning"
+        }
+    }
+
+/**
+ * V1.9.206. The account mapping no longer lives on this page (it has exactly one home: "Kontenplan & Journal", tab "Einrichtung").
+ * Here only a status line with a real link stays, so nobody wonders where the four accounts went.
+ */
+private fun renderFinanceMappingStatusLine(root: SimplePanel) {
     root.h2(tr("Kontenzuordnung")) { addCssClass("h5") }
-    renderPaymentAccountMappingSection(root, canManage = AppState.hasRole(AccountRole.ADMIN))
+    val line = root.div(className = "lapis-finance-status-line")
+    line.span(tr("Wird geladen …"), className = "text-muted small")
+    AppScope.launch {
+        val status = guarded { rpcService<IAccountingService>().getFinanceSetupStatus() } ?: return@launch
+        line.removeAll()
+        val (text, color) = financeMappingStatusText(status)
+        line.statusBadge(text, color)
+        line.link(tr("Zur Einrichtung"), url = ledgerHash(LedgerTab.SETUP, status.firstOpenRequired))
+    }
 }
 
 // ================================================================================================
 // Aktivieren/Deaktivieren
 // ================================================================================================
+
+internal enum class EnableConflictOutcome { ALREADY_REPORTED, MAPPING_GATE, GENERIC_ERROR }
+
+/** What an enable `ConflictException` means, given the re-read mapping status (`null` = that re-read failed too). */
+internal fun enableConflictOutcome(fresh: FinanceSetupStatusDto?): EnableConflictOutcome =
+    when {
+        fresh == null -> EnableConflictOutcome.ALREADY_REPORTED
+        !fresh.mappingComplete -> EnableConflictOutcome.MAPPING_GATE
+        else -> EnableConflictOutcome.GENERIC_ERROR
+    }
 
 private const val PAYMENT_PROVIDER_WARNING_ID = "payment-provider-warning"
 
@@ -52,6 +102,7 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
     root.h2(tr("Status")) { addCssClass("h5") }
     val settingsPanel = root.vPanel(spacing = 4)
     val actionsHost = root.toggleActionsHost()
+    val gateMessage = root.div().apply { setAttribute("id", PAYMENT_MAPPING_GATE_MESSAGE_ID) }
     lateinit var toggle: ToggleSettingsPanel<PaymentGatewaySettingsDto>
     var configStatus: PspConfigStatusDto? = null
 
@@ -77,13 +128,24 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
         if (!providerIsConfigured(selectedProvider)) return
         enableButton.disabled = true
         AppScope.launch {
+            // V1.9.206: no disclaimer modal while the books cannot receive the postings -- say so, with a way forward.
+            val setup = guarded { rpcService<IAccountingService>().getFinanceSetupStatus() }
+            gateMessage.removeAll()
+            if (setup != null && !setup.mappingComplete) {
+                enableButton.disabled = false
+                showMappingGateMessage(gateMessage, setup.firstOpenRequired)
+                enableButton.setAttribute("aria-describedby", PAYMENT_MAPPING_GATE_MESSAGE_ID)
+                return@launch
+            }
             val disclaimer = guarded { rpcService<IPaymentGatewayService>().getPaymentGatewayComplianceDisclaimer() }
             enableButton.disabled = false
             if (disclaimer != null) {
                 paymentGatewayEnableDisclaimerModal(disclaimer) {
                     AppScope.launch {
+                        // Outside `guarded`: a ConflictException here means the server refused for an incomplete mapping (a race with
+                        // another admin); Kilua transmits only the type, so the client's own sentence is the explanation.
                         val result =
-                            guarded {
+                            try {
                                 rpcService<IPaymentGatewayService>().enablePaymentGateway(
                                     provider = selectedProvider,
                                     acknowledgment =
@@ -92,6 +154,23 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
                                             disclaimerSha256 = disclaimer.sha256,
                                         ),
                                 )
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: ConflictException) {
+                                val fresh = guarded { rpcService<IAccountingService>().getFinanceSetupStatus() }
+                                when (enableConflictOutcome(fresh)) {
+                                    EnableConflictOutcome.ALREADY_REPORTED -> null // the status call failed: `guarded` showed its error
+                                    EnableConflictOutcome.MAPPING_GATE -> {
+                                        gateMessage.removeAll()
+                                        showMappingGateMessage(gateMessage, fresh?.firstOpenRequired)
+                                        enableButton.setAttribute("aria-describedby", PAYMENT_MAPPING_GATE_MESSAGE_ID)
+                                        null
+                                    }
+                                    // Mapping is fine: the refusal has another cause (e.g. a changed disclaimer) -- generic error path.
+                                    EnableConflictOutcome.GENERIC_ERROR -> guarded<PaymentGatewaySettingsDto> { throw e }
+                                }
+                            } catch (e: Throwable) {
+                                guarded<PaymentGatewaySettingsDto> { throw e }
                             }
                         if (result != null) {
                             notifySuccess(tr("Online-Zahlung aktiviert."))
@@ -297,11 +376,6 @@ private fun renderPspConfigStatusSection(root: SimplePanel) {
                 status.paypalWebhookUrl,
             ),
         ) { addCssClasses("small font-monospace mt-2") }
-        panel.div(tr("Kontenzuordnung")) { addCssClasses("fw-bold small mt-3") }
-        renderPspConfigStatusRow(panel, tr("Bankkonto zugeordnet"), status.paymentBankAccountConfigured)
-        renderPspConfigStatusRow(panel, tr("Beitragserlöskonto zugeordnet"), status.contributionIncomeAccountConfigured)
-        renderPspConfigStatusRow(panel, tr("Spendenerlöskonto zugeordnet"), status.donationIncomeAccountConfigured)
-        renderPspConfigStatusRow(panel, tr("Gebührenkonto zugeordnet"), status.paymentFeeAccountConfigured)
     }
 }
 
@@ -313,4 +387,16 @@ private fun renderPspConfigStatusRow(
     val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     row.div(label) { addCssClasses("text-muted small") }
     row.statusBadge(if (configured) tr("Ja") else tr("Nein"), if (configured) "success" else "danger")
+}
+
+/** The explanation next to a refused activation, with a real link to the first missing step. */
+private fun showMappingGateMessage(
+    host: SimplePanel,
+    missing: FinanceSetupStep?,
+) {
+    host.div(className = "alert alert-warning d-flex flex-wrap align-items-center gap-2 mt-2") {
+        setAttribute("role", "alert")
+        span(tr("Online-Zahlung kann erst aktiviert werden, wenn die Kontenzuordnung vollständig ist."))
+        link(tr("Zur Einrichtung"), url = ledgerHash(LedgerTab.SETUP, missing))
+    }
 }

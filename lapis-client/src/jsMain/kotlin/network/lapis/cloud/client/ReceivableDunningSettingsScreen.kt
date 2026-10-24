@@ -40,7 +40,7 @@ import network.lapis.cloud.shared.rpc.IReceivableDunningService
  */
 fun renderReceivableDunningSettingsScreen(container: SimplePanel) {
     val root =
-        container.pageShell(PageWidth.FORM, spacing = 14)
+        container.pageShell(PageWidth.WIDE, spacing = 14)
     root.pageHeader(tr("Forderungs-Mahnstufen"), intro = PageIntros.forRoute(Routes.RECEIVABLE_DUNNING_SETTINGS))
 
     renderReceivableStatusSection(root)

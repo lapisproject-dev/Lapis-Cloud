@@ -1,0 +1,60 @@
+= Menu search and command palette (V1.9.203)
+:toc:
+
+A person who does not remember where a screen lives can type a word and jump to it: a search field at the top of the sidebar, and the
+same search in a dialog that opens with **Ctrl+K** (**Cmd+K** on an Apple device). Client only: no server call, no new setting, no migration.
+
+== What the search finds
+
+* **Only what the menu shows to this person.** The search list is filled by the sidebar code itself, link by link, while the sidebar is
+  built (`MenuIndex`). The role and status rules stay in one place; a member cannot find the backup screen, an administrator can. A
+  test builds the sidebar for every kind of person and checks that the list equals the rendered links.
+* **By the menu title, the group name and search words.** "Spesen" finds "Reisekosten", "Backup" finds "Backup & Wiederherstellung". The
+  search words are a German table (`MenuSearchKeywords`) and are **not translated**: in another language the search finds an entry by its
+  translated title plus the German words.
+* **Forgiving.** Upper and lower case do not matter; `ä`/`ö`/`ü`/`ß` equal `ae`/`oe`/`ue`/`ss` (typed or in the title); a part of a word is
+  enough; the words may come in any order; "reise kosten" finds "Reisekosten".
+* **Ranked.** Exact title, start of the title, start of a word, inside the title, group, search word. Equal scores follow the sidebar
+  order. At most eight hits are shown; beyond that the list says "N Treffer, 8 angezeigt. Suche verfeinern".
+* **Not the content of screens.** Sections inside the settings pages, help topics and records (members, motions) are not searched. That is
+  planned as a second phase and is not built.
+
+== The field in the sidebar
+
+A one-line field with a magnifier and the shortcut hint ("Strg K" or "⌘K"). The hits open as an overlay right under the field; the
+sidebar itself is **not** filtered, so its groups, their open state and the scroll position stay as they are. With an empty field the
+overlay offers "Zuletzt besucht" (the last five choices, newest first, kept in the browser of the viewer only) or, if there are none, the
+first eight entries of the menu.
+
+== The command palette
+
+Ctrl+K / Cmd+K opens a dialog with the same search. Rules of the shortcut:
+
+* It is a single listener on the document in the bubble phase, installed once; rebuilding the sidebar (sign-in, language change) never adds
+  another.
+* It does nothing while the focus is in a `contenteditable` area or a `textarea`, when another handler already took the key (the mail editor
+  uses Ctrl+K for "insert link" and calls `preventDefault()` first), while an input method composes a character, or with Alt or Shift.
+  A plain one-line input does open it.
+* In the sidebar field the shortcut keeps the focus there. With the palette open it closes the palette. The key is always taken from the
+  browser (it would otherwise focus the address bar).
+* With nobody signed in there is nothing to search and the palette stays closed.
+
+The dialog has `role=dialog` and `aria-modal`, keeps Tab inside, closes on Escape and on a click on the backdrop, and gives the focus back
+to the element that had it before.
+
+== Keyboard and screen readers
+
+The input is an ARIA combobox: the focus stays in the input, arrow down/up move the active hit (wrapping around), Enter goes to it, Escape
+closes. The list is a `listbox` of `option`s; the active one is named by `aria-activedescendant`. A live region announces "N Treffer" or
+"Keine Treffer" 150 ms after the last keystroke. Hits are drawn as text nodes: a menu title or a query with markup is shown as text, never
+interpreted; the highlight is a `<mark>` built from the plain pieces.
+
+== Honest limits
+
+* Tested only in headless Chrome (unit and DOM tests). No test on a real phone, with a real screen reader, on Safari or on an Apple
+  keyboard; the layout was not seen in a real browser.
+* The search words exist in German only.
+* No phase 2 (settings sections, help topics, records).
+* The sidebar is still built imperatively; the index follows from that code. A declarative list of menu entries is a possible later
+  refactoring and is not part of this version.
+* The translations of the new texts were written by the model, not by a native speaker.

@@ -19,6 +19,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ExternalDonorTable
+import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
@@ -34,6 +35,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
@@ -52,7 +54,14 @@ class PaymentGatewayServiceTest :
         val createdExternalDonorIds = mutableListOf<Uuid>()
         val createdCheckoutSessionIds = mutableListOf<Uuid>()
 
+        val fixtureAccountIds = mutableListOf<Uuid>()
+
         beforeSpec { DatabaseConfig.connect() }
+
+        afterTest {
+            PaymentMappingFixture.clear(fixtureAccountIds)
+            fixtureAccountIds.clear()
+        }
 
         // paymentGatewayDisclaimerIsCurrentlyAcknowledged() deliberately has no member scoping -- it
         // reads the single, org-wide latest acknowledgment row. [PaymentComplianceGateTest] writes to
@@ -188,6 +197,7 @@ class PaymentGatewayServiceTest :
                     }
                 }
 
+                fixtureAccountIds += PaymentMappingFixture.seedComplete()
                 val admin = createTestMember("gateway-disable-provider-${Uuid.random()}@example.org")
 
                 val enabled = client.post("/test/enable") { header("X-Member-Id", admin.toString()) }
@@ -277,4 +287,100 @@ class PaymentGatewayServiceTest :
                 asTreasurer.bodyAsText() shouldBe "OK:$checkoutSessionId"
             }
         }
+
+        // V1.9.206 -- activation gate: online payment needs a complete finance setup.
+        fun clearMapping() {
+            transaction {
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[paymentBankAccountId] = null
+                    it[contributionIncomeAccountId] = null
+                    it[donationIncomeAccountId] = null
+                    it[eventIncomeAccountId] = null
+                    it[paymentGatewayEnabled] = false
+                    it[paymentGatewayProvider] = null
+                }
+            }
+        }
+
+        suspend fun enableViaRoute(
+            admin: Uuid,
+            block: suspend io.ktor.client.HttpClient.() -> Unit,
+        ) {
+            testApplication {
+                application {
+                    routing {
+                        post("/test/enable-gated") {
+                            val result =
+                                try {
+                                    PaymentGatewayService(call = call)
+                                        .enablePaymentGateway(
+                                            provider = PaymentProvider.STRIPE,
+                                            acknowledgment =
+                                                PaymentGatewayComplianceAcknowledgmentInput(
+                                                    disclaimerVersion = PaymentGatewayComplianceDisclaimer.VERSION,
+                                                    disclaimerSha256 = PaymentGatewayComplianceDisclaimer.SHA256,
+                                                ),
+                                        ).paymentGatewayEnabled
+                                        .toString()
+                                } catch (e: network.lapis.cloud.shared.rpc.ConflictException) {
+                                    "conflict:${e.message}"
+                                }
+                            call.respondText(result)
+                        }
+                    }
+                }
+                client.block()
+            }
+        }
+
+        test("enablePaymentGateway with an incomplete mapping -> Conflict, no acknowledgment row, gateway stays off") {
+            clearMapping()
+            val admin = createTestMember("gateway-gate-incomplete-${Uuid.random()}@example.org")
+            enableViaRoute(admin) {
+                val body = post("/test/enable-gated") { header("X-Member-Id", admin.toString()) }.bodyAsText()
+                body.startsWith("conflict:payment_account_mapping_incomplete") shouldBe true
+            }
+            transaction { PaymentGatewayComplianceAcknowledgmentTable.selectAll().count() } shouldBe 0L
+            paymentGatewayEnabledInDb() shouldBe false
+        }
+
+        test("enablePaymentGateway with a complete mapping succeeds; a deactivated income account blocks it again") {
+            clearMapping()
+            val admin = createTestMember("gateway-gate-complete-${Uuid.random()}@example.org")
+            val ids = PaymentMappingFixture.seedComplete()
+            fixtureAccountIds += ids
+            transaction { LedgerAccountTable.update({ LedgerAccountTable.id eq ids[1] }) { it[active] = false } }
+            enableViaRoute(admin) {
+                post("/test/enable-gated") { header("X-Member-Id", admin.toString()) }
+                    .bodyAsText()
+                    .startsWith("conflict:") shouldBe true
+            }
+            transaction { LedgerAccountTable.update({ LedgerAccountTable.id eq ids[1] }) { it[active] = true } }
+            enableViaRoute(admin) {
+                post("/test/enable-gated") { header("X-Member-Id", admin.toString()) }.bodyAsText() shouldBe "true"
+            }
+        }
+
+        test("an already active gateway stays active when the mapping is cleared afterwards (no auto-disable)") {
+            clearMapping()
+            val admin = createTestMember("gateway-gate-stays-${Uuid.random()}@example.org")
+            fixtureAccountIds += PaymentMappingFixture.seedComplete()
+            enableViaRoute(admin) {
+                post("/test/enable-gated") { header("X-Member-Id", admin.toString()) }.bodyAsText() shouldBe "true"
+            }
+            transaction {
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[paymentBankAccountId] = null
+                }
+            }
+            paymentGatewayEnabledInDb() shouldBe true
+        }
     })
+
+private fun paymentGatewayEnabledInDb(): Boolean =
+    transaction {
+        OrganizationSettingsTable
+            .selectAll()
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .single()[OrganizationSettingsTable.paymentGatewayEnabled]
+    }

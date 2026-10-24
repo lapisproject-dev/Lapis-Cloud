@@ -638,5 +638,10 @@ classDiagram(name = "Events") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "refund_marked_by"; "fkEntity" to "Member" }
         }
+        // V1.9.204 optional message of the registrant to the organisers (V117, immutable after insert).
+        attribute(name = "message", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "message"; "sqlType" to "VARCHAR(500)" }
+        }
     }
 }

@@ -89,7 +89,7 @@ class EventImportScreenDomTest {
                 ) { _ ->
                     mountedForm("event-import-button-${role.name}") { root, element ->
                         renderEventsScreen(root)
-                        awaitUntil("the empty list is shown") { element().text().contains("Keine Veranstaltungen gefunden.") }
+                        awaitUntil("the empty list is shown") { element().text().contains("Noch keine Veranstaltungen.") }
                         val present = element().allOf("button").any { it.textContent?.trim() == "Importieren" }
                         assertEquals(expected, present, "import button for ${role.name}")
                     }

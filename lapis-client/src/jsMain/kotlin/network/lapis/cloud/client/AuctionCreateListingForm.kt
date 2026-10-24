@@ -60,8 +60,10 @@ internal fun SimplePanel.renderCreateListingForm(
         val durationText = durationInput.value.orEmpty().trim()
         val durationHours = durationText.toIntOrNull()
 
-        if (!Validation.isNonBlank(title) || !Validation.isNonBlank(description) || !Validation.isPositiveDecimal(startingBidText)) {
-            errorBox.content = tr("Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben.")
+        val startingBidParsed = parseLtrAmountInput(startingBidText)
+        if (!Validation.isNonBlank(title) || !Validation.isNonBlank(description) || startingBidParsed !is AmountInput.Valid) {
+            errorBox.content =
+                amountErrorText(startingBidParsed, tr("Bitte Titel, Beschreibung und einen positiven Startpreis (LTR) angeben."))
             errorBox.show()
             return@onClick
         }
@@ -70,15 +72,17 @@ internal fun SimplePanel.renderCreateListingForm(
             errorBox.show()
             return@onClick
         }
-        val startingBid = startingBidText.toDouble().toDecimal()
+        val startingBid = startingBidParsed.value
         var buyNowPrice: Decimal? = null
         if (buyNowText.isNotBlank()) {
-            if (!Validation.isPositiveDecimal(buyNowText)) {
-                errorBox.content = tr("Der Sofortkaufpreis muss, falls angegeben, ein positiver LTR-Betrag sein.")
+            val buyNowParsed = parseLtrAmountInput(buyNowText)
+            if (buyNowParsed !is AmountInput.Valid) {
+                errorBox.content =
+                    amountErrorText(buyNowParsed, tr("Der Sofortkaufpreis muss, falls angegeben, ein positiver LTR-Betrag sein."))
                 errorBox.show()
                 return@onClick
             }
-            val parsed = buyNowText.toDouble().toDecimal()
+            val parsed = buyNowParsed.value
             if (parsed.toDouble() <= startingBid.toDouble()) {
                 errorBox.content = tr("Der Sofortkaufpreis muss über dem Startpreis liegen.")
                 errorBox.show()

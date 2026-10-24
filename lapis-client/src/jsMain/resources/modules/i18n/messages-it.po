@@ -1853,10 +1853,6 @@ msgstr "Amministrazione"
 msgid "Administrator"
 msgstr "Amministratore"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:91
-msgid "Akteur-Mitglieds-ID (optional)"
-msgstr "ID socio responsabile (opzionale)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:359
 msgid "Akteur: %1"
 msgstr "Responsabile: %1"
@@ -3326,10 +3322,6 @@ msgstr "A (AAAA-MM-GG)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:95
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "A (AAAA-MM-GGTHH:MM:SS, opzionale)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:204
-msgid "Bis Sequenznummer (optional)"
-msgstr "Al numero di sequenza (opzionale)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:726
 msgid "Bisherige Jahressumme (vor dieser Spende)"
@@ -4856,10 +4848,6 @@ msgstr "Astensioni"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:360
 msgid "Entität: %1"
 msgstr "Entità: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:90
-msgid "Entitäts-ID (optional)"
-msgstr "ID entità (opzionale)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:89
@@ -6419,18 +6407,6 @@ msgstr "Classe di conto %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:468
 msgid "Kontenplan & Journal"
 msgstr "Piano dei conti e giornale"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:789
-msgid "Kontenzuordnung gespeichert."
-msgstr "Assegnazione dei conti salvata."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:757
-msgid "Kontenzuordnung speichern"
-msgstr "Salva assegnazione dei conti"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:313
-msgid "Kontenzuordnung Zahlungsverkehr"
-msgstr "Assegnazione conti per i pagamenti"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:90
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:100
@@ -8923,13 +8899,6 @@ msgstr ""
 "Prezzo di acquisto immediato (LTR, facoltativo -- deve superare il prezzo di "
 "partenza)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:604
-msgid ""
-"Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt "
-"markierter Beitrag NICHT gebucht -- der Status wechselt trotzdem auf "
-"\"bezahlt\"."
-msgstr "Finché uno dei tre conti non è assegnato, un contributo contrassegnato come pagato NON viene registrato -- lo stato passa comunque a \"pagato\"."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1165
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1513
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2318
@@ -9882,10 +9851,6 @@ msgstr "Da (AAAA-MM-GG, campo obbligatorio)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:94
 msgid "Von (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Da (AAAA-MM-GGTHH:MM:SS, facoltativo)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:203
-msgid "Von Sequenznummer (optional)"
-msgstr "Da numero di sequenza (facoltativo)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:400
 msgid "Vorher"
@@ -11927,10 +11892,6 @@ msgstr "Nascondi"
 msgid "In „Offene Posten“ öffnen"
 msgstr "Apri in «Partite aperte»"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:409
-msgid "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2"
-msgstr "Conto crediti (debitori): %1 · Conto debiti (creditori): %2"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:485
 msgid "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht."
 msgstr "Senza un conto crediti e un conto debiti, le partite aperte vengono create ma non registrate."
@@ -12082,10 +12043,6 @@ msgstr "Indietro"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:353
 msgid "Verrechnung gebucht."
 msgstr "Compensazione registrata."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:48
-msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
-msgstr "Inserire un importo come 1234,56 (senza separatori delle migliaia)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:53
 msgid "Höchstens %1 Nachkommastellen erlaubt."
@@ -13810,10 +13767,6 @@ msgstr "Tutti i livelli di sollecito configurati sono già stati utilizzati nel 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:208
 msgid "BIC"
 msgstr "BIC"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:553
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8"
-msgstr "Conto bancario: %1 · Conto commissioni: %2 · Conto ricavi da contributi: %3 · Conto ricavi da donazioni: %4 · Conto ricavi da eventi: %5 (%6) · Conto spese di viaggio: %7 · Conto spese per indennità di volontariato: %8"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
 msgid "Bankname"
@@ -15654,18 +15607,6 @@ msgstr "URL del webhook da inserire nella dashboard sviluppatori di PayPal: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
 msgid "Bankkonto zugeordnet"
 msgstr "Conto bancario assegnato"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Beitragserlöskonto zugeordnet"
-msgstr "Conto ricavi da contributi assegnato"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Spendenerlöskonto zugeordnet"
-msgstr "Conto ricavi da donazioni assegnato"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
-msgid "Gebührenkonto zugeordnet"
-msgstr "Conto commissioni assegnato"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
 msgid "Erfasst"
@@ -24087,12 +24028,6 @@ msgstr "Il testo del contratto non è ammesso. Verifichi lunghezza, caratteri, v
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "La bozza è stata nel frattempo modificata. Ricarichi la vista e la controlli di nuovo."
 
-msgid "%1 (Datum)"
-msgstr "%1 (data)"
-
-msgid "%1 (Uhrzeit)"
-msgstr "%1 (ora)"
-
 msgid "Aufsichtsbehörde benachrichtigt am (optional)"
 msgstr "Autorità di controllo notificata il (facoltativo)"
 
@@ -24104,9 +24039,6 @@ msgstr "Persone interessate informate il (facoltativo)"
 
 msgid "Bis (Pflichtfeld)"
 msgstr "Fino al (obbligatorio)"
-
-msgid "Bis (optional)"
-msgstr "Fino al (facoltativo)"
 
 msgid "Bitte AM oder PM angeben."
 msgstr "Indicare AM o PM."
@@ -26019,3 +25951,813 @@ msgstr "Scarica %1 (%2, %3)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsList.kt
 msgid "Unterlagen verwalten"
 msgstr "Gestisci documenti"
+
+msgid "Alle Filter sind optional."
+msgstr "Tutti i filtri sono facoltativi."
+
+msgid "%1, Datum"
+msgstr "%1, data"
+
+msgid "%1, Uhrzeit"
+msgstr "%1, ora"
+
+msgid "Bitte einen Betrag wie %1 eingeben."
+msgstr "Inserisca un importo come %1."
+
+msgid "Boost-Betrag in LTR"
+msgstr "Importo del boost in LTR"
+
+msgid "Um aktuell ganz oben zu stehen: %1"
+msgstr "Per essere in cima al momento: %1"
+
+msgid "Ihr Guthaben reicht nicht, höchstens %1."
+msgstr "Il Suo saldo non basta, al massimo %1."
+
+msgid "Vorschlag übernehmen"
+msgstr "Usa il suggerimento"
+
+msgid "Entitäts-ID"
+msgstr "ID dell'entità"
+
+msgid "Akteur-Mitglieds-ID"
+msgstr "ID del membro attore"
+
+msgid "Von Sequenznummer"
+msgstr "Dal numero di sequenza"
+
+msgid "Bis Sequenznummer"
+msgstr "Fino al numero di sequenza"
+
+msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
+msgstr "Inserire un importo come 1234,56 (senza separatori delle migliaia)."
+
+msgid "Ausschreibungen"
+msgstr "Bandi di gara"
+
+msgid "Standard-Sichtbarkeit der Angebote"
+msgstr "Visibilità predefinita delle offerte"
+
+msgid "Verdeckt bis zur Frist"
+msgstr "Nascoste fino alla scadenza"
+
+msgid "Bieter sehen nur ihr eigenes Angebot"
+msgstr "Gli offerenti vedono solo la propria offerta"
+
+msgid "Gilt als Vorbelegung beim Anlegen einer Ausschreibung; nach dem Veröffentlichen nicht mehr änderbar."
+msgstr "Vale come impostazione iniziale alla creazione di un bando; non modificabile dopo la pubblicazione."
+
+msgid "Unbekannte Auswahl"
+msgstr "Selezione sconosciuta"
+
+msgid "Ausschreibung"
+msgstr "Bando di gara"
+
+msgid "Hier schreibt der Vorstand Aufträge aus, die ein Beschluss vorsieht. Mitglieder und Freunde geben bis zur Frist ein Angebot ab."
+msgstr "Qui il consiglio direttivo bandisce gli incarichi previsti da una delibera. Soci e amici presentano un'offerta entro la scadenza."
+
+msgid "Nur eigenes Angebot sichtbar"
+msgstr "Solo la propria offerta è visibile"
+
+msgid "Abgenommen"
+msgstr "Collaudato"
+
+msgid "%1 Tag"
+msgid_plural "%1 Tage"
+msgstr[0] "%1 giorno"
+msgstr[1] "%1 giorni"
+
+msgid "%1 Stunde"
+msgid_plural "%1 Stunden"
+msgstr[0] "%1 ora"
+msgstr[1] "%1 ore"
+
+msgid "noch %1 und %2"
+msgstr "ancora %1 e %2"
+
+msgid "noch %1"
+msgstr "ancora %1"
+
+msgid "Erwartetes Ergebnis"
+msgstr "Risultato atteso"
+
+msgid "abgelaufen am %1"
+msgstr "scaduta il %1"
+
+msgid "Vergabe nach: %1"
+msgstr "Aggiudicazione secondo: %1"
+
+msgid "Vergütung: %1"
+msgstr "Compenso: %1"
+
+msgid "Sichtbarkeit der Angebote: %1"
+msgstr "Visibilità delle offerte: %1"
+
+msgid "Beruht auf: "
+msgstr "Basata su: "
+
+msgid "Als Gast können Sie auf diese Ausschreibung nicht bieten: Sie wird in LTR vergütet, und Gäste führen ihr LTR-Konto auf ihrem Heimatserver."
+msgstr "Come ospite non può presentare offerte per questo bando: è compensato in LTR e gli ospiti tengono il proprio conto LTR sul server di origine."
+
+msgid "Sie können auf diese Ausschreibung nicht bieten."
+msgstr "Non può presentare offerte per questo bando."
+
+msgid "Diese Ausschreibung ist noch nicht veröffentlicht."
+msgstr "Questo bando non è ancora pubblicato."
+
+msgid "Diese Ausschreibung wurde abgesagt."
+msgstr "Questo bando è stato annullato."
+
+msgid "Die Frist ist abgelaufen. Es können keine Angebote mehr abgegeben werden."
+msgstr "La scadenza è trascorsa. Non è più possibile presentare offerte."
+
+msgid "Diese Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "Questo bando non può ricevere altre offerte."
+
+msgid "Ihr Angebot"
+msgstr "La sua offerta"
+
+msgid "Preis: %1"
+msgstr "Prezzo: %1"
+
+msgid "Angebot zurückziehen"
+msgstr "Ritira l'offerta"
+
+msgid "Sie haben Ihr Angebot zurückgezogen. Sie können bis zur Frist ein neues abgeben."
+msgstr "Ha ritirato la sua offerta. Può presentarne una nuova fino alla scadenza."
+
+msgid "Angebot ändern"
+msgstr "Modifica l'offerta"
+
+msgid "Angebot zurückziehen?"
+msgstr "Ritirare l'offerta?"
+
+msgid "Sie können bis zur Frist jederzeit ein neues Angebot abgeben."
+msgstr "Può presentare una nuova offerta in qualsiasi momento fino alla scadenza."
+
+msgid "Angebot zurückgezogen."
+msgstr "Offerta ritirata."
+
+msgid "Preis in LTR"
+msgstr "Prezzo in LTR"
+
+msgid "Höchstens zwei Nachkommastellen."
+msgstr "Al massimo due cifre decimali."
+
+msgid "Angebot abgeben"
+msgstr "Presenta l'offerta"
+
+msgid "Änderung speichern"
+msgstr "Salva la modifica"
+
+msgid "Angebot gespeichert."
+msgstr "Offerta salvata."
+
+msgid "Noch keine Angebote."
+msgstr "Ancora nessuna offerta."
+
+msgid "Bei dieser Ausschreibung sieht jeder Bieter nur sein eigenes Angebot."
+msgstr "In questo bando ogni offerente vede solo la propria offerta."
+
+msgid "Die Angebote anderer sind bis %1 verdeckt."
+msgstr "Le offerte degli altri sono nascoste fino al %1."
+
+msgid "Die Angebote sehen nur die Bieter und der Vorstand."
+msgstr "Le offerte sono visibili solo agli offerenti e al consiglio direttivo."
+
+msgid "Bieter"
+msgstr "Offerente"
+
+msgid "Preis"
+msgstr "Prezzo"
+
+msgid "Zuschlag erteilen an %1"
+msgstr "Aggiudicare a %1"
+
+msgid "Zuschlag erteilen?"
+msgstr "Aggiudicare?"
+
+msgid "Zuschlag an %1 für %2."
+msgstr "Aggiudicazione a %1 per %2."
+
+msgid "Der Zuschlag kann nicht zurückgenommen werden."
+msgstr "L'aggiudicazione non può essere revocata."
+
+msgid "Zuschlag erteilen"
+msgstr "Aggiudica"
+
+msgid "Zuschlag erteilt."
+msgstr "Aggiudicazione effettuata."
+
+msgid "Zuschlag"
+msgstr "Aggiudicazione"
+
+msgid "%1 hat den Zuschlag erhalten (%2, am %3)."
+msgstr "%1 ha ricevuto l'aggiudicazione (%2, il %3)."
+
+msgid "Abnahme"
+msgstr "Collaudo"
+
+msgid "Sie haben selbst ein Angebot abgegeben (auch ein zurückgezogenes zählt). Deshalb dürfen Sie diese Ausschreibung weder vergeben noch abnehmen noch absagen."
+msgstr "Ha presentato lei stesso un'offerta (conta anche una ritirata). Perciò non può né aggiudicare, né collaudare, né annullare questo bando."
+
+msgid "Entwurf bearbeiten"
+msgstr "Modifica la bozza"
+
+msgid "Ausschreibung veröffentlichen?"
+msgstr "Pubblicare il bando?"
+
+msgid "Danach können Mitglieder und Freunde bis zur Frist Angebote abgeben."
+msgstr "Dopo di che soci e amici potranno presentare offerte fino alla scadenza."
+
+msgid "Frist, Vergabe-Kriterium und Sichtbarkeit lassen sich nach dem Veröffentlichen nicht mehr ändern."
+msgstr "Scadenza, criterio di aggiudicazione e visibilità non sono più modificabili dopo la pubblicazione."
+
+msgid "Ausschreibung veröffentlicht."
+msgstr "Bando pubblicato."
+
+msgid "Ausschreibung absagen"
+msgstr "Annulla il bando"
+
+msgid "Ausschreibung absagen?"
+msgstr "Annullare il bando?"
+
+msgid "Der Grund ist für alle sichtbar, die die Ausschreibung sehen."
+msgstr "Il motivo è visibile a tutti coloro che vedono il bando."
+
+msgid "Eine abgesagte Ausschreibung kann nicht wieder geöffnet werden."
+msgstr "Un bando annullato non può essere riaperto."
+
+msgid "Ausschreibung abgesagt."
+msgstr "Bando annullato."
+
+msgid "Der bisherige Vergabeantrag wurde nicht angenommen. Legen Sie einen neuen fest."
+msgstr "La precedente mozione di aggiudicazione non è stata approvata. Ne stabilisca una nuova."
+
+msgid "Die Frist ist abgelaufen. Für den Zuschlag braucht es einen Vergabebeschluss des Gremiums."
+msgstr "La scadenza è trascorsa. Per l'aggiudicazione serve una delibera di aggiudicazione dell'organo."
+
+msgid "Legen Sie unter Anträge einen Antrag für den Vergabebeschluss an. Er wird nach Ablauf der Frist in einer Sitzung entschieden."
+msgstr "Crei sotto Mozioni una mozione per la delibera di aggiudicazione. Verrà decisa in una seduta dopo la scadenza."
+
+msgid "Über den Vergabeantrag ist noch nicht entschieden."
+msgstr "Sulla mozione di aggiudicazione non è ancora stato deciso."
+
+msgid "Der Vergabebeschluss wurde vor Ablauf der Frist gefasst und zählt deshalb nicht."
+msgstr "La delibera di aggiudicazione è stata adottata prima della scadenza e perciò non vale."
+
+msgid "Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "L'aggiudicazione si effettua sull'offerta nella tabella sopra."
+
+msgid "Der Vergabebeschluss liegt vor. Den Zuschlag erteilen Sie am Angebot in der Tabelle oben."
+msgstr "La delibera di aggiudicazione è disponibile. L'aggiudicazione si effettua sull'offerta nella tabella sopra."
+
+msgid "Vergabeantrag: "
+msgstr "Mozione di aggiudicazione: "
+
+msgid "ist der Beschluss, auf dem die Ausschreibung beruht"
+msgstr "è la delibera su cui si basa il bando"
+
+msgid "gehört zu einem anderen Gremium"
+msgstr "appartiene a un altro organo"
+
+msgid "ist ein Änderungsantrag"
+msgstr "è una mozione di modifica"
+
+msgid "ist schon entschieden oder zurückgezogen"
+msgstr "è già stata decisa o ritirata"
+
+msgid "gehört schon zu einer Ausschreibung"
+msgstr "appartiene già a un bando"
+
+msgid "hat einen Änderungsantrag"
+msgstr "ha una mozione di modifica"
+
+msgid "wird schon abgestimmt"
+msgstr "è già in votazione"
+
+msgid "Vergabeantrag"
+msgstr "Mozione di aggiudicazione"
+
+msgid "-- bitte wählen --"
+msgstr "-- scegliere --"
+
+msgid "%1 -- nicht wählbar: %2"
+msgstr "%1 -- non selezionabile: %2"
+
+msgid "Dieser Antrag kann nicht gewählt werden: %1"
+msgstr "Questa mozione non può essere scelta: %1"
+
+msgid "Vergabebeschluss festlegen"
+msgstr "Stabilisci la delibera di aggiudicazione"
+
+msgid "Vergabeantrag festgelegt."
+msgstr "Mozione di aggiudicazione stabilita."
+
+msgid "Der Zuschlag ist erteilt. Nehmen Sie das Ergebnis ab oder lehnen Sie es mit einer Notiz ab."
+msgstr "L'aggiudicazione è avvenuta. Collaudi il risultato o lo respinga con una nota."
+
+msgid "Abnehmen"
+msgstr "Collauda"
+
+msgid "Notiz (bei Ablehnung Pflicht)"
+msgstr "Nota (obbligatoria in caso di rifiuto)"
+
+msgid "Bei einer Ablehnung ist eine Notiz nötig."
+msgstr "Un rifiuto richiede una nota."
+
+msgid "Abnahme erfassen"
+msgstr "Registra il collaudo"
+
+msgid "Abnahme erfasst."
+msgstr "Collaudo registrato."
+
+msgid "Die Aktion ist gerade nicht möglich. Bitte laden Sie die Seite neu."
+msgstr "L'azione al momento non è possibile. Ricarichi la pagina."
+
+msgid "Nur ein Entwurf kann geändert werden."
+msgstr "Si può modificare solo una bozza."
+
+msgid "Nur ein Entwurf kann veröffentlicht werden."
+msgstr "Si può pubblicare solo una bozza."
+
+msgid "Die Frist muss mindestens eine Stunde in der Zukunft liegen."
+msgstr "La scadenza deve essere almeno un'ora nel futuro."
+
+msgid "Die Ausschreibung wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu."
+msgstr "Nel frattempo il bando è stato modificato. Ricarichi la pagina."
+
+msgid "Diese Aktion ist im jetzigen Stand der Ausschreibung nicht möglich."
+msgstr "Questa azione non è possibile nello stato attuale del bando."
+
+msgid "Gäste können nur auf Ausschreibungen bieten, die in Euro vergütet werden."
+msgstr "Gli ospiti possono presentare offerte solo per bandi compensati in euro."
+
+msgid "Die Ausschreibung kann keine weiteren Angebote aufnehmen."
+msgstr "Il bando non può ricevere altre offerte."
+
+msgid "Es gibt kein Angebot, das zurückgezogen werden kann."
+msgstr "Non c'è nessuna offerta che possa essere ritirata."
+
+msgid "Einen Vergabeantrag gibt es nur bei der Vergabe nach dem besten Angebot."
+msgstr "Una mozione di aggiudicazione esiste solo per l'aggiudicazione all'offerta migliore."
+
+msgid "Die Frist der Ausschreibung muss zuerst abgelaufen sein."
+msgstr "Prima deve essere trascorsa la scadenza del bando."
+
+msgid "Die Ausschreibung hat kein Angebot, über das entschieden werden könnte."
+msgstr "Il bando non ha nessuna offerta su cui decidere."
+
+msgid "Der eingetragene Vergabeantrag kann nicht mehr ersetzt werden."
+msgstr "La mozione di aggiudicazione registrata non può più essere sostituita."
+
+msgid "Dieses Angebot ist nicht mehr im Rennen."
+msgstr "Questa offerta non è più in gara."
+
+msgid "Der Bieter darf für diese Ausschreibung nicht mehr berücksichtigt werden."
+msgstr "L'offerente non può più essere considerato per questo bando."
+
+msgid "Der Zuschlag muss an das günstigste Angebot gehen."
+msgstr "L'aggiudicazione deve andare all'offerta più economica."
+
+msgid "Bei gleichem Preis ist eine Begründung nötig."
+msgstr "A parità di prezzo serve una motivazione."
+
+msgid "Bitte geben Sie eine Begründung an."
+msgstr "Indichi una motivazione."
+
+msgid "Es ist noch kein Vergabeantrag festgelegt."
+msgstr "Non è ancora stata stabilita alcuna mozione di aggiudicazione."
+
+msgid "Der Vergabeantrag wurde nicht angenommen."
+msgstr "La mozione di aggiudicazione non è stata approvata."
+
+msgid "Der Vergabeantrag wurde vor Ablauf der Frist entschieden."
+msgstr "La mozione di aggiudicazione è stata decisa prima della scadenza."
+
+msgid "Eine Ablehnung braucht eine Begründung."
+msgstr "Un rifiuto richiede una motivazione."
+
+msgid "Die Beschreibung kann nicht dargestellt werden. Bitte vereinfachen Sie sie."
+msgstr "La descrizione non può essere visualizzata. La semplifichi."
+
+msgid "Ausschreibungen sind vorerst nur in LTR möglich."
+msgstr "Per ora i bandi sono possibili solo in LTR."
+
+msgid "Der Preis darf höchstens zwei Nachkommastellen haben."
+msgstr "Il prezzo può avere al massimo due cifre decimali."
+
+msgid "Der Preis ist zu groß."
+msgstr "Il prezzo è troppo grande."
+
+msgid "Der Antrag ist kein angenommener Beschluss seines Gremiums."
+msgstr "La mozione non è una delibera approvata del suo organo."
+
+msgid "Dieser Antrag kann nicht als Vergabeantrag dienen."
+msgstr "Questa mozione non può fungere da mozione di aggiudicazione."
+
+msgid "Über einen Vergabeantrag entscheidet nur die Beschlussfähigkeit des Gremiums oder eine meritokratische Abstimmung."
+msgstr "Una mozione di aggiudicazione è decisa solo dal quorum dell'organo o da una votazione meritocratica."
+
+msgid "Der Titel muss 1 bis %1 Zeichen haben."
+msgstr "Il titolo deve avere da 1 a %1 caratteri."
+
+msgid "Die Beschreibung muss 1 bis %1 Zeichen haben."
+msgstr "La descrizione deve avere da 1 a %1 caratteri."
+
+msgid "Das erwartete Ergebnis muss 1 bis %1 Zeichen haben."
+msgstr "Il risultato atteso deve avere da 1 a %1 caratteri."
+
+msgid "Der Angebotstext muss 1 bis %1 Zeichen haben."
+msgstr "Il testo dell'offerta deve avere da 1 a %1 caratteri."
+
+msgid "Der Grund muss 1 bis %1 Zeichen haben."
+msgstr "Il motivo deve avere da 1 a %1 caratteri."
+
+msgid "Der Grund darf höchstens %1 Zeichen haben."
+msgstr "Il motivo può avere al massimo %1 caratteri."
+
+msgid "Die Begründung darf höchstens %1 Zeichen haben."
+msgstr "La motivazione può avere al massimo %1 caratteri."
+
+msgid "Der Preis muss mindestens %1 betragen."
+msgstr "Il prezzo deve essere di almeno %1."
+
+msgid "Für diesen Antrag läuft bereits ein Entscheidungsweg oder er ist schon entschieden."
+msgstr "Per questa mozione è già in corso un percorso decisionale oppure è già stata decisa."
+
+msgid "Frist abgelaufen"
+msgstr "Scadenza trascorsa"
+
+msgid "Vergeben"
+msgstr "Aggiudicato"
+
+msgid "LTR"
+msgstr "LTR"
+
+msgid "Euro"
+msgstr "Euro"
+
+msgid "Günstigster Preis"
+msgstr "Prezzo più basso"
+
+msgid "Bestes Angebot"
+msgstr "Offerta migliore"
+
+msgid "Der Vorstand erteilt den Zuschlag dem günstigsten Angebot. Ein Beschluss ist dafür nicht nötig."
+msgstr "Il consiglio direttivo aggiudica all'offerta più economica. Non serve alcuna delibera."
+
+msgid "Der Zuschlag ist eine Wertung. Darüber entscheidet das Gremium mit einem Vergabebeschluss nach Ablauf der Frist."
+msgstr "L'aggiudicazione è una valutazione. Decide l'organo con una delibera di aggiudicazione dopo la scadenza."
+
+msgid "Zuschlag erhalten"
+msgstr "Ha ottenuto l'aggiudicazione"
+
+msgid "Nicht berücksichtigt"
+msgstr "Non considerata"
+
+msgid "noch nicht beschlossen"
+msgstr "non ancora deliberata"
+
+msgid "Beschluss nicht angenommen"
+msgstr "delibera non approvata"
+
+msgid "Beschluss in einem anderen Gremium gefasst"
+msgstr "delibera adottata in un altro organo"
+
+msgid "Bis zum Ende der Frist sieht niemand fremde Angebote. Danach sehen alle Bieter und der Vorstand alle Angebote."
+msgstr "Fino alla fine della scadenza nessuno vede le offerte altrui. Dopo, tutti gli offerenti e il consiglio direttivo vedono tutte le offerte."
+
+msgid "Alle Beteiligten sehen die Angebote der anderen sofort."
+msgstr "Tutti i partecipanti vedono subito le offerte degli altri."
+
+msgid "Jeder Bieter sieht nur sein eigenes Angebot. Der Vorstand sieht nach Ablauf der Frist alle Angebote. Wer den Zuschlag erhält, wird allen angezeigt."
+msgstr "Ogni offerente vede solo la propria offerta. Dopo la scadenza il consiglio direttivo vede tutte le offerte. Chi riceve l'aggiudicazione viene mostrato a tutti."
+
+msgid "Entwürfe"
+msgstr "Bozze"
+
+msgid "Keine Ausschreibungen in dieser Auswahl."
+msgstr "Nessun bando in questa selezione."
+
+msgid "Neue Ausschreibung"
+msgstr "Nuovo bando"
+
+msgid "Vergütung"
+msgstr "Compenso"
+
+msgid "Mein Angebot"
+msgstr "La mia offerta"
+
+msgid "Die Zahl der Angebote ist verdeckt."
+msgstr "Il numero delle offerte è nascosto."
+
+msgid "Ausschreibung %1 öffnen"
+msgstr "Apri il bando %1"
+
+msgid "Beschluss, auf dem die Ausschreibung beruht"
+msgstr "Delibera su cui si basa il bando"
+
+msgid "Mindestens eine Stunde nach dem Veröffentlichen. Bis zu dieser Uhrzeit können Angebote abgegeben werden."
+msgstr "Almeno un'ora dopo la pubblicazione. Fino a quest'ora si possono presentare offerte."
+
+msgid "Vergabe nach"
+msgstr "Aggiudicazione secondo"
+
+msgid "Sichtbarkeit der Angebote"
+msgstr "Visibilità delle offerte"
+
+msgid "Euro-Vergütung kommt später."
+msgstr "Il compenso in euro arriverà più avanti."
+
+msgid "Bitte geben Sie die Frist mit Datum und Uhrzeit an."
+msgstr "Indichi la scadenza con data e ora."
+
+msgid "Als Entwurf gespeichert, aber nicht veröffentlicht: %1"
+msgstr "Salvato come bozza, ma non pubblicato: %1"
+
+msgid "Menü durchsuchen"
+msgstr "Cerca nel menu"
+
+msgid "Suchen …"
+msgstr "Cerca …"
+
+msgid "Befehlspalette"
+msgstr "Riquadro comandi"
+
+msgid "Strg K"
+msgstr "Ctrl K"
+
+msgid "%1 Treffer"
+msgstr "%1 risultati"
+
+msgid "%1 Treffer, %2 angezeigt. Suche verfeinern"
+msgstr "%1 risultati, %2 mostrati. Affini la ricerca"
+
+msgid "Zuletzt besucht"
+msgstr "Visitato di recente"
+
+msgid "Noch keine Veranstaltungen."
+msgstr "Nessun evento per ora."
+
+msgid "Belegung"
+msgstr "Occupazione"
+
+msgid "Veröffentlichen: %1"
+msgstr "Pubblica: %1"
+
+msgid "Absagen: %1"
+msgstr "Annulla: %1"
+
+msgid "Warteliste nachrücken: %1"
+msgstr "Fai avanzare la lista d'attesa: %1"
+
+msgid "Abgesagt/abgelaufen"
+msgstr "Annullato/scaduto"
+
+msgid "Mit Nachricht"
+msgstr "Con messaggio"
+
+msgid "Nicht bezahlt"
+msgstr "Non pagato"
+
+msgid "Angemeldet %1 · Warteliste %2 · Abgesagt/abgelaufen %3"
+msgstr "Iscritti %1 · Lista d'attesa %2 · Annullati/scaduti %3"
+
+msgid "Freie Plätze %1"
+msgstr "Posti liberi %1"
+
+msgid "Anmeldungen"
+msgstr "Iscrizioni"
+
+msgid "Noch keine Anmeldungen."
+msgstr "Nessuna iscrizione per ora."
+
+msgid "Alle Anmeldungen als CSV"
+msgstr "Tutte le iscrizioni come CSV"
+
+msgid "Es werden nur die ersten 2000 Anmeldungen angezeigt. Die CSV enthält alle."
+msgstr "Vengono mostrate solo le prime 2000 iscrizioni. Il CSV le contiene tutte."
+
+msgid "Keine Anmeldungen in dieser Auswahl."
+msgstr "Nessuna iscrizione in questa selezione."
+
+msgid "Wartelistenplatz"
+msgstr "Posizione in lista d'attesa"
+
+msgid "Angemeldet am"
+msgstr "Iscritto il"
+
+msgid "E-Mail (Gast)"
+msgstr "E-mail (ospite)"
+
+msgid "Nachricht anzeigen: %1"
+msgstr "Mostra messaggio: %1"
+
+msgid "Veranstaltung nicht gefunden."
+msgstr "Evento non trovato."
+
+msgid "Ausgebucht · %1 auf der Warteliste"
+msgstr "Al completo · %1 in lista d'attesa"
+
+msgid "Nachricht an die Veranstalter hinzufügen"
+msgstr "Aggiungi un messaggio per gli organizzatori"
+
+msgid "Nachricht an die Veranstalter (optional)"
+msgstr "Messaggio per gli organizzatori (facoltativo)"
+
+msgid "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, nicht durch eine Antwort auf Ihre Frage."
+msgstr "Gli organizzatori vedranno il suo messaggio. L'iscrizione è valida con la conferma, non con una risposta alla sua domanda."
+
+msgid "Export der Anmeldungen"
+msgstr "Esportazione delle iscrizioni"
+
+msgid "%1 von %2 Platz belegt · noch %3 frei"
+msgid_plural "%1 von %2 Plätzen belegt · noch %3 frei"
+msgstr[0] "%1 di %2 posto occupato · ancora %3 liberi"
+msgstr[1] "%1 di %2 posti occupati · ancora %3 liberi"
+
+msgid "Einrichtung · %1 offen"
+msgstr "Configurazione · %1 aperti"
+
+msgid "Einrichtung"
+msgstr "Configurazione"
+
+msgid "Es fehlt noch: %1. Solange das fehlt, werden bezahlte Beiträge nicht gebucht."
+msgstr "Manca ancora: %1. Finché manca, i contributi pagati non vengono registrati."
+
+msgid "Es fehlt noch: %1."
+msgstr "Manca ancora: %1."
+
+msgid "Zur Einrichtung"
+msgstr "Vai alla configurazione"
+
+msgid "Konten"
+msgstr "Conti"
+
+msgid "Journal"
+msgstr "Giornale"
+
+msgid "Bereiche von Kontenplan und Journal"
+msgstr "Sezioni del piano dei conti e del giornale"
+
+msgid "Kontenzuordnung: vollständig"
+msgstr "Assegnazione dei conti: completa"
+
+msgid "Kontenzuordnung: unvollständig"
+msgstr "Assegnazione dei conti: incompleta"
+
+msgid "Kontenzuordnung: unvollständig, es fehlt %1"
+msgstr "Assegnazione dei conti: incompleta, manca %1"
+
+msgid "Online-Zahlung kann erst aktiviert werden, wenn die Kontenzuordnung vollständig ist."
+msgstr "Il pagamento online può essere attivato solo quando l'assegnazione dei conti è completa."
+
+msgid "Hier richten Sie die Finanzen ein, sehen den Kontenplan und das Journal mit allen Buchungen. Einrichten und buchen können Schatzmeisterei und Administration; die Zuordnung der Konten ändert nur die Administration."
+msgstr "Qui configura le finanze e vede il piano dei conti e il giornale con tutte le registrazioni. Tesoreria e amministrazione possono configurare e registrare; solo l'amministrazione può modificare l'assegnazione dei conti."
+
+msgid "Hier stellen Sie die Online-Zahlung ein. Die Zuordnung zu Konten finden Sie unter Kontenplan & Journal, im Reiter Einrichtung."
+msgstr "Qui configura il pagamento online. L'assegnazione ai conti si trova in Piano dei conti e giornale, nella scheda Configurazione."
+
+msgid "Kontenplan"
+msgstr "Piano dei conti"
+
+msgid "Erlöskonto für Mitgliedsbeiträge"
+msgstr "Conto ricavi per i contributi associativi"
+
+msgid "Erlöskonto für Spenden"
+msgstr "Conto ricavi per le donazioni"
+
+msgid "Erlöskonto für Veranstaltungen"
+msgstr "Conto ricavi per gli eventi"
+
+msgid "Gebührenkonto (optional)"
+msgstr "Conto commissioni (facoltativo)"
+
+msgid "Der Kontenplan ist die Liste aller Konten, auf die Ihr Verein bucht. Ohne ihn kann nichts gebucht werden."
+msgstr "Il piano dei conti è l'elenco di tutti i conti su cui la vostra associazione registra. Senza di esso non si può registrare nulla."
+
+msgid "Das Konto, auf dem das Geld Ihres Vereins liegt, also Ihr Girokonto."
+msgstr "Il conto su cui si trova il denaro della vostra associazione, cioè il conto corrente."
+
+msgid "Ein Erlöskonto sammelt Einnahmen einer Art, zum Beispiel alle Mitgliedsbeiträge."
+msgstr "Un conto ricavi raccoglie un tipo di entrate, per esempio tutti i contributi associativi."
+
+msgid "Hierhin werden Spenden gebucht, für die Sie eine Zuwendungsbestätigung ausstellen."
+msgstr "Qui vengono registrate le donazioni per le quali rilasciate una ricevuta di donazione."
+
+msgid "Hierhin werden Einnahmen aus Veranstaltungen gebucht, zum Beispiel Eintrittsgelder."
+msgstr "Qui vengono registrate le entrate degli eventi, per esempio le quote d'ingresso."
+
+msgid "Hierhin würden Gebühren des Zahlungsanbieters gebucht. Dieser Schritt darf leer bleiben."
+msgstr "Qui verrebbero registrate le commissioni del fornitore di pagamenti. Questo passaggio può restare vuoto."
+
+msgid "Zum Beispiel: %1"
+msgstr "Ad esempio: %1"
+
+msgid "Noch kein Bankkonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Nessun conto bancario nel piano dei conti. Create prima il piano dei conti standard."
+
+msgid "Noch kein Aufwandskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Nessun conto di costo nel piano dei conti. Create prima il piano dei conti standard."
+
+msgid "Noch kein Erlöskonto im Kontenplan. Legen Sie zuerst den Standard-Kontenplan an."
+msgstr "Nessun conto ricavi nel piano dei conti. Create prima il piano dei conti standard."
+
+msgid "Optional"
+msgstr "Facoltativo"
+
+msgid "%1 von %2 Pflichtschritten erledigt"
+msgstr "%1 di %2 passaggi obbligatori completati"
+
+msgid "Die Zuordnung kann nur ein Administrator ändern."
+msgstr "Solo un amministratore può modificare l'assegnazione."
+
+msgid "Die Sphäre ist der steuerliche Bereich eines Vereins (ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, wirtschaftlicher Geschäftsbetrieb); sie wird je Buchung gewählt."
+msgstr "L'ambito è l'area fiscale di un'associazione (ambito ideale, gestione del patrimonio, attività strumentale, attività commerciale); viene scelto per ogni registrazione."
+
+msgid "Nicht gespeichert"
+msgstr "Non salvato"
+
+msgid "Das bisher zugeordnete Konto %1 ist deaktiviert. Bitte ein anderes wählen. Beim Speichern wird die alte Zuordnung entfernt."
+msgstr "Il conto %1 finora assegnato è disattivato. Scegliete un altro conto. Salvando, la vecchia assegnazione viene rimossa."
+
+msgid "Zum Kontenplan"
+msgstr "Al piano dei conti"
+
+msgid "(nicht gewählt)"
+msgstr "(non scelto)"
+
+msgid "Standard verwenden"
+msgstr "Usa lo standard"
+
+msgid "Standardkonto %1 nicht im Kontenplan."
+msgstr "Il conto standard %1 non è nel piano dei conti."
+
+msgid "Alle Standardkonten vorschlagen"
+msgstr "Proponi tutti i conti standard"
+
+msgid "Zuordnung gespeichert."
+msgstr "Assegnazione salvata."
+
+msgid "%1 aktive Konten im Kontenplan."
+msgstr "%1 conti attivi nel piano dei conti."
+
+msgid "Noch kein Konto angelegt. Das legt die Schatzmeisterei oder die Administration an."
+msgstr "Nessun conto creato ancora. Lo crea la tesoreria o l'amministrazione."
+
+msgid "Ein Vorschlag. Bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Una proposta. Fatela confermare dal vostro consulente fiscale."
+
+msgid "Standard-Kontenplan SKR42 für Vereine anlegen"
+msgstr "Crea il piano dei conti standard SKR42 per associazioni"
+
+msgid "Standard-Kontenplan anlegen"
+msgstr "Crea il piano dei conti standard"
+
+msgid "Es werden %1 Konten angelegt:"
+msgstr "Verranno creati %1 conti:"
+
+msgid "Kontenplan anlegen"
+msgstr "Crea piano dei conti"
+
+msgid "%1 %2 (%3), %4"
+msgstr "%1 %2 (%3), %4"
+
+msgid "Vorhandene Konten bleiben unverändert."
+msgstr "I conti esistenti restano invariati."
+
+msgid "Angelegte Konten lassen sich später nicht löschen, nur deaktivieren."
+msgstr "I conti creati non possono essere eliminati in seguito, solo disattivati."
+
+msgid "Der Kontenplan ist ein Vorschlag; bitte von Ihrer Steuerberatung bestätigen lassen."
+msgstr "Il piano dei conti è una proposta; fatelo confermare dal vostro consulente fiscale."
+
+msgid "%1 Konten angelegt, %2 schon vorhanden."
+msgstr "%1 conti creati, %2 già presenti."
+
+msgid "Der Kontenplan wurde inzwischen geändert. Bitte prüfen."
+msgstr "Nel frattempo il piano dei conti è stato modificato. Verificate."
+
+msgid "Erweitert"
+msgstr "Avanzate"
+
+msgid "Die Sphäre der Veranstaltungserlöse ist der steuerliche Bereich, dem Einnahmen aus Veranstaltungen zugerechnet werden."
+msgstr "L'ambito dei ricavi degli eventi è l'area fiscale a cui vengono attribuite le entrate degli eventi."
+
+msgid "Auf dieses Aufwandskonto werden Reisekostenabrechnungen gebucht."
+msgstr "Su questo conto di costo vengono registrate le note spese di viaggio."
+
+msgid "Auf dieses Aufwandskonto werden Übungsleiter- und Ehrenamtspauschalen gebucht."
+msgstr "Su questo conto di costo vengono registrati i compensi forfettari per istruttori e volontari."
+
+msgid "Alle Bereiche"
+msgstr "Tutti gli ambiti"
+
+msgid "Kein Bereich"
+msgstr "Nessun ambito"
+
+msgid "Wird je Buchung gewählt"
+msgstr "Scelto per ogni registrazione"
+
+msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
+msgstr "Attività strumentale e attività commerciale"

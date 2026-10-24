@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
+import network.lapis.cloud.shared.domain.TenderBidVisibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -139,6 +140,18 @@ class OrganizationSettingsInputMappingTest {
         val off = fullyPopulated.copy(noiseSuppressionDefault = false)
         assertEquals(off.toInput(), on.toInput(), "the default has no influence on the input")
         assertEquals(fullyPopulated.toInput(), on.toInput())
+    }
+
+    /**
+     * V1.9.201 -- `tenderDefaultVisibility` is READ-ONLY here too: it is not a field of the input, so no wholesale replace can carry (or reset)
+     * it; it changes only through `updateTenderDefaultVisibility`.
+     */
+    @Test
+    fun toInput_neverCarriesTheTenderDefaultVisibility_whateverTheDtoSays() {
+        val open = fullyPopulated.copy(tenderDefaultVisibility = TenderBidVisibility.OPEN)
+        val ownOnly = fullyPopulated.copy(tenderDefaultVisibility = TenderBidVisibility.OWN_ONLY)
+        assertEquals(ownOnly.toInput(), open.toInput(), "the visibility has no influence on the input")
+        assertEquals(fullyPopulated.toInput(), open.toInput())
     }
 
     /** Keine stille Umdeutung von `null`/`false`: ein leeres DTO bleibt leer. */

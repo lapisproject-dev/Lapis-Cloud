@@ -1,8 +1,6 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
-import dev.kilua.rpc.types.toDecimal
-import dev.kilua.rpc.types.toDouble
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.Button
@@ -416,12 +414,14 @@ private fun renderAdminSection(
             if (text.isBlank()) {
                 null
             } else {
-                if (!Validation.isPositiveDecimal(text)) {
-                    maxValueErrorBox.content = tr("Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein.")
+                val parsed = parseLtrAmountInput(text)
+                if (parsed !is AmountInput.Valid) {
+                    maxValueErrorBox.content =
+                        amountErrorText(parsed, tr("Die Wertobergrenze muss, falls angegeben, ein positiver LTR-Betrag sein."))
                     maxValueErrorBox.show()
                     return@onClick
                 }
-                text.toDouble().toDecimal()
+                parsed.value
             }
         confirmDialog(
             title = tr("Wertobergrenze setzen"),

@@ -52,7 +52,7 @@ class LedgerScreenTest {
     // OTHER field unchanged from `this` and flips exactly one flag), toInputWithPaymentAccountMapping
     // takes datevBeraterNummer/datevMandantNummer as explicit override parameters, same tier as
     // paymentBankAccountId/eventIncomeSphere -- they are edited via their OWN text fields on this
-    // same screen/section (see renderPaymentAccountMappingSection), not silently carried over from
+    // same screen/section (see renderFinanceSetupTab, section "Erweitert"), not silently carried over from
     // the already-loaded settings row. These tests pin that both values reach OrganizationSettingsInput
     // unchanged, including through a null round-trip (leaving both unconfigured is a valid save).
     @Test

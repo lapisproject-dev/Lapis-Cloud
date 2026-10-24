@@ -62,7 +62,11 @@ class PaymentComplianceGateTest :
             DevSeedData.seedIfEmpty(force = true)
         }
 
+        val fixtureAccountIds = mutableListOf<Uuid>()
+
         afterTest {
+            PaymentMappingFixture.clear(fixtureAccountIds)
+            fixtureAccountIds.clear()
             transaction {
                 SepaComplianceAcknowledgmentTable.deleteWhere {
                     SepaComplianceAcknowledgmentTable.id eq SepaComplianceAcknowledgmentTable.id
@@ -154,6 +158,7 @@ class PaymentComplianceGateTest :
                     install(StatusPages) { installPaymentGateExceptionHandlers() }
                     routing { registerPaymentGateTestRoutes() }
                 }
+                fixtureAccountIds += PaymentMappingFixture.seedComplete()
                 val disclaimer = client.get("/test/gateway-disclaimer") { header("X-Member-Id", ADMIN_ID) }.bodyAsText().split("|")
                 val version = disclaimer[0]
                 val sha256 = disclaimer[1]

@@ -89,6 +89,15 @@ object MemberStatusSets {
     /** V1.9.125 -- may offer rides, invite passengers and manage participants (the V1.9.12 rule, unchanged). Only for the carpool methods. */
     val CARPOOL_DRIVER: Set<MemberStatus> = ORGANIZATION_MEMBER
 
+    /**
+     * V1.9.201 -- may SEE a published tender and submit or withdraw a bid on it: ACTIVE, FRIEND and GUEST. Deliberately narrow: used ONLY by the tender
+     * files (`TenderAccessTripwireTest` forbids every other use). Managing a tender (BOARD/ADMIN role) stays tied to ORGANIZATION_MEMBER by the
+     * role itself. Whether a GUEST can be PAID out is open and belongs to wave 3 (a guest keeps the LTR account on the home server, see
+     * [LTR_ELIGIBLE]).
+     */
+    val TENDER_PARTICIPANT: Set<MemberStatus> =
+        setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.GUEST)
+
     /** May enter a conference room. THE extension point for widening FRIEND later. */
     val CONFERENCE_ELIGIBLE: Set<MemberStatus> =
         setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)

@@ -146,6 +146,12 @@ class PaymentGatewayService(
         }
         val now = DbClock.nowLocalDateTime()
         return transaction {
+            // V1.9.206: online payment may only be switched on once the books can receive its postings.
+            // Same shared rule as the settings screen; no ids in the message.
+            val setup = loadFinanceSetupStatusInTx()
+            if (!setup.mappingComplete) {
+                throw ConflictException("payment_account_mapping_incomplete: first missing step ${setup.firstOpenRequired?.name}")
+            }
             PaymentGatewayComplianceAcknowledgmentTable.insert {
                 it[id] = Uuid.random()
                 it[acknowledgedByMemberId] = current.memberId

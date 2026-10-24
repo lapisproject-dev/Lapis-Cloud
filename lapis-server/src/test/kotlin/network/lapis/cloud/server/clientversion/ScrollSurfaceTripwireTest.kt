@@ -159,6 +159,8 @@ private val CSS_LEDGER: Map<String, String> =
         ".lapis-encounter-map-overlay__panel" to "E1",
         ".lapis-encounter-side" to "E1",
         ".lapis-encounter-side.is-sheet" to "E1",
+        // V1.9.203: the command palette (Ctrl+K), a modal dialog bounded by max-height 70vh; at most eight hits, so it scrolls only on a very low screen
+        ".lapis-command-palette__dialog" to "E1",
         ".lapis-member-map-search-results" to "E2",
         ".lapis-ssel-dropdown" to "E2",
         ".lapis-conference-chat-log" to "E3",

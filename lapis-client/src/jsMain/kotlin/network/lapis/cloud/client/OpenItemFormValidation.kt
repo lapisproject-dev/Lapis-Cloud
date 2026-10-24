@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
+import io.kvision.i18n.I18n
 import io.kvision.i18n.gettext
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.LedgerAccountType
@@ -34,6 +35,73 @@ internal const val MAX_OPEN_ITEM_NOTE_LENGTH = 1000
 internal const val MAX_OPEN_ITEM_REASON_LENGTH = 500
 
 private val AMOUNT_SHAPE = Regex("^\\d+([.,]\\d+)?$")
+private val GROUP_BLANKS = Regex("[\\s\\u00A0\\u202F'\\u2019]")
+private val DIGITS_ONLY = Regex("^\\d+$")
+
+/**
+ * Result of [normalizeAmountText]: a dot-decimal digit string (`1234.56`) or `null` when the text is not a number in the rules below.
+ */
+private fun groupedOk(
+    integerPart: String,
+    sep: Char,
+): Boolean {
+    val groups = integerPart.split(sep)
+    return groups.size > 1 &&
+        groups.first().length in 1..3 &&
+        !groups.first().startsWith('0') &&
+        groups.drop(1).all { it.length == 3 } &&
+        groups.all { DIGITS_ONLY.matches(it) }
+}
+
+/**
+ * V1.9.200: reads a typed amount into a plain dot-decimal string (`1234.56`), or `null`. The rules, in this order:
+ * 1. Blanks, U+00A0, U+202F and apostrophes (`'`, U+2019) are grouping and are removed.
+ * 2. Both `.` and `,` present: the LAST one is the decimal sign, the other one may only separate groups of three (`1.000,50`, `1,000.50`).
+ * 3. Only one sign present: if it is the decimal sign of the UI [language] (comma for de/es/fr/it/nl/pl/ru, point for en) it is the decimal
+ *    sign. If it is the OTHER sign it is grouping when it stands once with exactly three digits behind it, or several times in valid groups
+ *    of three (`1.234` is 1234 in German; `1,234` is 1234 in English). With one or two digits behind it, it is the decimal sign
+ *    (`0.1` in German, `0,1` in English stay valid).
+ * 4. The same sign more than once is grouping only in valid groups of three (`1.000.000`, in every language); otherwise (`1.00.0`) it is invalid.
+ * The server always receives the dot-decimal result; nothing here goes through `Double`.
+ */
+internal fun normalizeAmountText(
+    raw: String,
+    language: String,
+): String? {
+    val text = GROUP_BLANKS.replace(raw, "")
+    if (text.isEmpty()) return null
+    val uiDecimal = moneyLocale(language).decimal.single()
+    val hasDot = '.' in text
+    val hasComma = ',' in text
+    val body: String
+    when {
+        hasDot && hasComma -> {
+            val sign = if (text.lastIndexOf('.') > text.lastIndexOf(',')) '.' else ','
+            val other = if (sign == '.') ',' else '.'
+            if (text.count { it == sign } != 1) return null
+            val integerPart = text.substringBefore(sign)
+            if (!groupedOk(integerPart, other)) return null
+            body = integerPart.replace(other.toString(), "") + "." + text.substringAfter(sign)
+        }
+        hasDot || hasComma -> {
+            val sign = if (hasDot) '.' else ','
+            val count = text.count { it == sign }
+            val after = text.substringAfterLast(sign)
+            val asGrouping =
+                (count > 1 && groupedOk(text, sign)) ||
+                    (count == 1 && sign != uiDecimal && after.length == 3 && groupedOk(text, sign))
+            when {
+                asGrouping -> body = text.replace(sign.toString(), "")
+                count == 1 -> body = text.replace(sign, '.')
+                else -> return null
+            }
+        }
+        else -> {
+            body = text
+        }
+    }
+    return if (AMOUNT_SHAPE.matches(body)) body else null
+}
 
 /**
  * Spiegel von `OpenItemService.MAX_AMOUNT` (loser Spiegel, der Server bleibt die Autorität): jeder
@@ -50,8 +118,8 @@ private val AMOUNT_SHAPE = Regex("^\\d+([.,]\\d+)?$")
 internal const val MAX_OPEN_ITEM_AMOUNT = 1_000_000_000.00
 
 /**
- * Betrags-Parser: Dezimalkomma ODER -punkt, **keine** Tausendertrennzeichen ("1.234,56" ist
- * mehrdeutig und wird abgelehnt statt geraten), strikt größer 0, höchstens zwei Nachkommastellen
+ * Betrags-Parser (seit V1.9.200 mit Tausendertrennzeichen, Regeln siehe [normalizeAmountText]; die Sprache der Oberfläche
+ * entscheidet über "1.234" gegenüber "1,234"), strikt größer 0, höchstens zwei Nachkommastellen
  * (sonst lehnt der Server erst nach dem Round-Trip mit einem kryptischen Fehler ab) und höchstens
  * [MAX_OPEN_ITEM_AMOUNT].
  *
@@ -63,16 +131,19 @@ fun parseAmountInput(
     raw: String?,
     allowZero: Boolean = false,
     enforceMaxAmount: Boolean = true,
+    language: String = I18n.language,
+    maxFractionDigits: Int = MAX_OPEN_ITEM_AMOUNT_SCALE,
 ): AmountInput {
     val trimmed = raw?.trim().orEmpty()
     if (trimmed.isEmpty()) return AmountInput.Empty
-    if (!AMOUNT_SHAPE.matches(trimmed)) {
-        return AmountInput.Invalid(gettext("Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."))
-    }
-    val normalized = trimmed.replace(',', '.')
+    val normalized =
+        normalizeAmountText(trimmed, language)
+            ?: return AmountInput.Invalid(
+                gettext("Bitte einen Betrag wie %1 eingeben.", formatPlainAmountIn(language, 1234.56.toDecimal())),
+            )
     val fractionDigits = normalized.substringAfter('.', "").length
-    if (fractionDigits > MAX_OPEN_ITEM_AMOUNT_SCALE) {
-        return AmountInput.Invalid(gettext("Höchstens %1 Nachkommastellen erlaubt.", MAX_OPEN_ITEM_AMOUNT_SCALE))
+    if (fractionDigits > maxFractionDigits) {
+        return AmountInput.Invalid(gettext("Höchstens %1 Nachkommastellen erlaubt.", maxFractionDigits))
     }
     val value = normalized.toDoubleOrNull()
     if (value == null || !value.isFinite() || value < 0.0 || (value == 0.0 && !allowZero)) {
@@ -169,3 +240,15 @@ fun openItemPostingErrorMessage(code: String): String? =
         "cash_register_balance_insufficient" -> gettext("Der Kassenbestand würde negativ.")
         else -> null
     }
+
+/**
+ * V1.9.200: the one reader for an LTR amount typed into a field (stake, boost, bid, transfer, pledge): [parseAmountInput] in the language of the
+ * UI, strictly above 0, at most two decimal places (the server's scale), no ledger ceiling. `.Empty` and `.Invalid` carry the reason.
+ */
+internal fun parseLtrAmountInput(text: String): AmountInput = parseAmountInput(text, allowZero = false, enforceMaxAmount = false)
+
+/** The message for a rejected amount: the parser's own reason where it has one, [emptyMessage] (the field's "please enter ...") when blank. */
+internal fun amountErrorText(
+    parsed: AmountInput,
+    emptyMessage: String,
+): String = (parsed as? AmountInput.Invalid)?.reason ?: emptyMessage

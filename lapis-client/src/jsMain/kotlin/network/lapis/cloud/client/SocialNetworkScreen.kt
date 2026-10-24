@@ -1,9 +1,10 @@
 package network.lapis.cloud.client
 
-import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.core.Container
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
+import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
 import io.kvision.html.Button
@@ -22,6 +23,7 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
+import io.kvision.utils.rem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -133,7 +135,10 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
     // erklaert die Ursache VOR dem ersten fehlgeschlagenen Versuch, statt den Fehler nur als Toast
     // nach dem Absenden zu zeigen.
     lateinit var zeroBalanceHintHolder: SimplePanel
+    // V1.9.200: the stake suggestion line lives in the compose form; the balance and the timeline feed it.
+    lateinit var stakeHint: StakeSuggestionHint
     composerPanel.renderMyLtrBalanceInline { balance ->
+        stakeHint.updateBalance(balance)
         if (balance != null && balance.toDouble() == 0.0) {
             zeroBalanceHintHolder.div(
                 tr(
@@ -162,6 +167,8 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
         AppScope.launch {
             val page = guarded { rpcService<ISocialNetworkService>().listTimeline(SocialTimelineQuery()) } ?: return@launch
             timelinePanel.removeAll()
+            // The top weight over EVERY loaded visible post, not the first row (an empty timeline = 0).
+            stakeHint.updateWeights(page.posts.filter { it.state == SocialPostState.VISIBLE }.map { it.totalCurrentWeightLtr })
             if (page.posts.isEmpty()) {
                 timelinePanel.p(tr("Noch keine Beiträge.")) { addCssClasses("text-muted small") }
                 return@launch
@@ -171,7 +178,7 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
     }
 
     refreshButton.onClick { loadTimeline() }
-    renderComposeForm(composerPanel) { loadTimeline() }
+    stakeHint = renderComposeForm(composerPanel) { loadTimeline() }
     loadTimeline()
 
     // ---- Welle V1.1.5 (E-C, DSA Art. 17): Eigenansicht "Meine entfernten Beiträge" -------------
@@ -274,10 +281,12 @@ object SocialComposerVisibility {
 private fun renderComposeForm(
     root: SimplePanel,
     onCompleted: () -> Unit,
-) {
+): StakeSuggestionHint {
     val panel = root.vPanel(spacing = 6)
     val contentInput = panel.textArea(label = tr("Inhalt"), rows = 3)
     val weightInput = panel.text(label = tr("Einsatz (LTR)"))
+    weightInput.input.setAttribute("inputmode", "decimal")
+    val stakeHint = StakeSuggestionHint(panel) { figure -> weightInput.value = figure }
 
     val callerStatus = AppState.session?.status
     val defaultVisibility = SocialComposerVisibility.defaultVisibility(callerStatus)
@@ -329,12 +338,13 @@ private fun renderComposeForm(
         val weightText = weightInput.value.orEmpty().trim()
         val visibility = parseOptionalEnum<SocialPostVisibility>(visibilitySelect.value) ?: defaultVisibility
 
-        if (!Validation.isNonBlank(content) || !Validation.isPositiveDecimal(weightText)) {
-            errorBox.content = tr("Bitte Inhalt und einen positiven Einsatz (LTR) angeben.")
+        val weightParsed = parseLtrAmountInput(weightText)
+        if (!Validation.isNonBlank(content) || weightParsed !is AmountInput.Valid) {
+            errorBox.content = amountErrorText(weightParsed, tr("Bitte Inhalt und einen positiven Einsatz (LTR) angeben."))
             errorBox.show()
             return@onClick
         }
-        val weight = weightText.toDouble().toDecimal()
+        val weight = weightParsed.value
 
         // Tier 1 "Kostenpflichtig" (D4-analogue) -- siehe CrowdfundingScreen.kt's submitProject.
         confirmDialog(
@@ -365,6 +375,7 @@ private fun renderComposeForm(
             }
         }
     }
+    return stakeHint
 }
 
 // ================================================================================================
@@ -420,7 +431,8 @@ private fun renderSocialPostCard(
         gettext("%1 Antworten · %2 Boosts", post.totalDescendantCount.toString(), post.boostCount.toString()),
     ) { addCssClasses("text-muted small") }
 
-    val actionsRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    // V1.9.200: one wrapping row -- Thread, Antworten, the boost group (label, field, button as one unit), a spacer, the DSGVO request on the right.
+    val actionsRow = card.inlineFieldRow(className = "lapis-inline-row lapis-post-actions") {}
     actionsRow.button(tr("Thread öffnen"), style = ButtonStyle.OUTLINESECONDARY).onClick {
         navigateTo("${Routes.SOCIAL_NETWORK}/post/${post.id}")
     }
@@ -431,6 +443,7 @@ private fun renderSocialPostCard(
     }
     renderBoostControl(actionsRow, post, onChanged)
     renderReportControl(actionsRow, post, isAuthor, onChanged)
+    actionsRow.div(className = "lapis-inline-spacer")
     renderRequestErasureControl(actionsRow, post, onChanged)
 
     if (isAuthor && post.state == SocialPostState.VISIBLE) {
@@ -457,29 +470,39 @@ private fun renderPostContentText(
  * zweistufige Ablauf wie `AuctionScreen.kt`'s Gebotsabgabe): keine Betragseingabe im Modal selbst.
  */
 private fun renderBoostControl(
-    row: SimplePanel,
+    row: Container,
     post: SocialPostDto,
     onChanged: () -> Unit,
 ) {
-    val amountInput = row.text(label = tr("Boost-Betrag (LTR)")) { maxWidth = 140.px }
+    lateinit var amountInput: Text
+    lateinit var boostButton: Button
+    row.inlineFieldGroup {
+        // The label keeps its unit: "(LTR)" says what the number is. The field is 8 rem wide, a decimal keypad on phones.
+        amountInput =
+            text(label = tr("Boost-Betrag (LTR)")) {
+                placeholder = "LTR"
+                width = 8.rem
+            }
+        amountInput.input.setAttribute("inputmode", "decimal")
+        amountInput.input.setAttribute("aria-label", gettext("Boost-Betrag in LTR"))
+        boostButton = button(tr("Boosten"), style = ButtonStyle.OUTLINEPRIMARY)
+    }
     val errorBox =
         row.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val boostButton = row.button(tr("Boosten"), style = ButtonStyle.OUTLINEPRIMARY)
     boostButton.onClick {
         errorBox.hide()
         val amountText = amountInput.value.orEmpty().trim()
-        if (!Validation.isPositiveDecimal(amountText)) {
-            errorBox.content = tr("Bitte einen positiven Betrag (LTR) angeben.")
+        val amountParsed = parseLtrAmountInput(amountText)
+        if (amountParsed !is AmountInput.Valid) {
+            errorBox.content = amountErrorText(amountParsed, tr("Bitte einen positiven Betrag (LTR) angeben."))
             errorBox.show()
             return@onClick
         }
-        // Stolperfalle 15 (Review Runde 1, 2026-08-18): round to 2 decimal places client-side BEFORE
-        // sending -- otherwise a stray third digit (e.g. "1.005") only fails after the round trip
-        // with a server ConflictException that reads like a bug.
-        val amount = Validation.roundToTwoDecimalPlaces(amountText.toDouble()).toDecimal()
+        // V1.9.200: a third decimal place is refused with a message (before: rounded silently, "0,123" became 0,12).
+        val amount = amountParsed.value
         confirmDialog(
             title = tr("Beitrag boosten"),
             message =
@@ -568,7 +591,7 @@ object SocialModerationUi {
 
 /** "Melden" -- DSA Art. 16, siehe [ISocialNetworkService.reportPost] KDoc. Nicht sichtbar für den Autor oder einen nicht-`VISIBLE`n Post. */
 private fun renderReportControl(
-    row: SimplePanel,
+    row: Container,
     post: SocialPostDto,
     isAuthor: Boolean,
     onChanged: () -> Unit,
@@ -643,7 +666,7 @@ private fun openReportDialog(
  * die betroffene Person ist nicht notwendig der Autor.
  */
 private fun renderRequestErasureControl(
-    row: SimplePanel,
+    row: Container,
     post: SocialPostDto,
     onChanged: () -> Unit,
 ) {
@@ -971,14 +994,14 @@ private fun renderReplyForm(
         errorBox.hide()
         val content = contentInput.value.orEmpty().trim()
         val weightText = weightInput.value.orEmpty().trim()
-        if (!Validation.isNonBlank(content) || !Validation.isPositiveDecimal(weightText)) {
-            errorBox.content = tr("Bitte Inhalt und einen positiven Einsatz (LTR) angeben.")
+        val weightParsed = parseLtrAmountInput(weightText)
+        if (!Validation.isNonBlank(content) || weightParsed !is AmountInput.Valid) {
+            errorBox.content = amountErrorText(weightParsed, tr("Bitte Inhalt und einen positiven Einsatz (LTR) angeben."))
             errorBox.show()
             return@onClick
         }
-        // Stolperfalle 15 (Review Runde 1, 2026-08-18): round to 2 decimal places client-side, same
-        // as renderBoostControl.
-        val weight = Validation.roundToTwoDecimalPlaces(weightText.toDouble()).toDecimal()
+        // V1.9.200: more than two decimal places are refused with a message (the parser), no longer rounded silently.
+        val weight = weightParsed.value
         confirmDialog(
             title = tr("Antwort veröffentlichen"),
             message =

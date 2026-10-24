@@ -130,8 +130,17 @@ fun Container.dataScreenRoot(
  */
 fun Container.buttonRow(): Div = div(className = "lapis-button-row")
 
-/** A row of labelled filter fields (labels above the fields), aligned at the bottom (`.lapis-filter-row`). */
-fun Container.filterRow(): Div = div(className = "lapis-filter-row")
+/**
+ * A row of labelled filter fields (labels above the fields), aligned at the bottom (`.lapis-filter-row`, which is also a `.lapis-toolbar`:
+ * the field wrappers lose their bottom margin, so a button shares the bottom edge of the controls).
+ *
+ * V1.9.200: [hint] (for example `tr("Alle Filter sind optional.")`) stands ONCE, muted, above the row, so the labels carry no "(optional)"
+ * suffix. A second row of the same filter block passes `null`. The default is no hint: the unchanged call `filterRow()` renders as before.
+ */
+fun Container.filterRow(hint: String? = null): Div {
+    if (hint != null) div(hint) { addCssClasses("text-muted small mb-1") }
+    return div(className = "lapis-filter-row lapis-toolbar")
+}
 
 /** Marks a label-less control (a switch) in a [filterRow] so it lines up with the labelled fields. */
 fun Widget.asFilterToggle() {

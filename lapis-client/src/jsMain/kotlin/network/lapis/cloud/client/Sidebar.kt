@@ -155,6 +155,7 @@ internal val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.CROWDFUNDING,
                 Routes.AUCTION,
                 Routes.POLITICIANS,
+                Routes.TENDERS,
                 Routes.SOCIAL_NETWORK,
                 Routes.AI_DRAFTS,
             ),
@@ -249,6 +250,10 @@ fun sidebarGroupForRoute(route: String?): SidebarGroupId? {
  */
 fun clearSidebar(body: SimplePanel) {
     SidebarHelpMenu.disposeCurrent()
+    // V1.9.203: nobody is signed in -- nothing to search, and no timer or open palette of the old session survives.
+    MenuSearchField.disposeCurrent()
+    CommandPalette.close()
+    MenuIndex.reset()
     body.removeAll()
     body.addCssClass("lapis-sidebar-empty")
     NavHighlight.reset()
@@ -278,6 +283,10 @@ fun buildSidebar(
     onNavigate: () -> Unit,
 ) {
     SidebarHelpMenu.disposeCurrent()
+    // V1.9.203: the menu index is rebuilt together with the links (see [MenuIndex]); the old field's timer and an open palette go first.
+    MenuSearchField.disposeCurrent()
+    CommandPalette.close()
+    MenuIndex.reset()
     body.removeAll()
     // Review-Fund 2026-09-08 (Finding 2, HOCH): counterpart to `clearSidebar`'s own
     // `addCssClass("lapis-sidebar-empty")` -- this build IS populating the sidebar, so drop the
@@ -303,6 +312,9 @@ fun buildSidebar(
     // die Regressionsabsicherung.
     val nav = Nav(className = "flex-column lapis-sidebar-nav")
     body.add(nav)
+    // V1.9.203: the menu search is the first child of the nav, before "Dashboard" (it is neither a Link nor a Nav, so the link/group scans of
+    // the sidebar tests are unaffected).
+    mountMenuSearchField(nav, onNavigate)
 
     // Two sets on purpose: `persisted` changes ONLY through header clicks and is the only thing written
     // to storage; `openGroups` (persisted + the active route's group) is the display state at build time.
@@ -322,6 +334,9 @@ fun buildSidebar(
     // keep in sync with it.
     val groupOpeners = mutableMapOf<Widget, () -> Unit>()
 
+    // V1.9.203: the label of the group whose links are being built (null for the flat entries) -- `sidebarLink` files each link in the menu index with it.
+    var currentGroupLabel: String? = null
+
     // Welle V1.4.10.1 "Beitragsvergünstigungen: Bedienoberfläche" -- returns the [Link] widget
     // (previously `Unit`) so the FINANCE group's new relief entry can update its own label once the
     // open-request count has loaded (see [reliefSidebarLabel]'s call site below). Every existing
@@ -340,6 +355,15 @@ fun buildSidebar(
         // file's build.gradle.kts header comment) -- named by review discipline instead, since there
         // is no automated enforcement here.
         NavHighlight.register(route = route, link = link, toggle = toggle, openGroup = toggle?.let { groupOpeners[it] })
+        // V1.9.203: the menu index gets exactly the links that are built here (so the search can only offer what the menu shows). The title is
+        // the plain label as given NOW -- the counters of the approval links change `link.label` later, the index keeps the base title.
+        MenuIndex.register(
+            route = route,
+            title = plainMenuText(label),
+            icon = icon,
+            groupLabel = currentGroupLabel,
+            isVisible = { link.visible },
+        )
         return link
     }
 
@@ -395,7 +419,9 @@ fun buildSidebar(
         // must already exist by the time the first one of them fires.
         groupOpeners[header] = { if (!groupBody.visible) setOpen(nowOpen = true, persist = false) }
 
+        currentGroupLabel = plainMenuText(label)
         groupBody.content(header)
+        currentGroupLabel = null
         if (!isOpen) groupBody.hide()
         header.onClick {
             setOpen(nowOpen = !groupBody.visible, persist = true)
@@ -503,6 +529,10 @@ fun buildSidebar(
                 sidebarLink(Routes.CROWDFUNDING, tr("Crowdfunding"), "fas fa-hand-holding-heart", toggle)
                 sidebarLink(Routes.AUCTION, tr("Auktion"), "fas fa-gavel", toggle)
                 sidebarLink(Routes.POLITICIANS, tr("Politiker"), "fas fa-landmark", toggle)
+            }
+            // V1.9.202 -- outside the member-only block: FRIEND may bid on a tender as well.
+            if (NavVisibility.showsTenders(session.status)) {
+                sidebarLink(Routes.TENDERS, tr("Ausschreibungen"), "fas fa-handshake", toggle)
             }
             if (NavVisibility.showsSocialNetwork(session.status)) {
                 sidebarLink(Routes.SOCIAL_NETWORK, tr("Soziales Netzwerk"), "fas fa-comments", toggle)
@@ -681,6 +711,15 @@ fun buildSidebar(
     // `NavHighlight.apply()`'s own KDoc documents for `refreshNavbar`.
     NavHighlight.apply()
 }
+
+/**
+ * V1.9.203: the readable text of a sidebar label. `tr(key)` returns the key with a marker that KVision resolves at render time; the menu
+ * index needs the real text now, so the marker is removed and the key is translated with `gettext`. Text without the marker is returned as is.
+ */
+internal fun plainMenuText(label: String): String =
+    if (label.startsWith(KVISION_TR_MARKER)) gettext(label.removePrefix(KVISION_TR_MARKER)) else label
+
+private const val KVISION_TR_MARKER = "###KvI18nS###"
 
 /**
  * Welle V1.4.10.1 -- `null`/`0` renders the plain label (no badge), `>= 200` shows "200+" rather

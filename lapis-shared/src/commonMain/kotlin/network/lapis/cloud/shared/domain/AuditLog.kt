@@ -503,6 +503,21 @@ enum class AuditEntityType {
      * content, the file name or a path). 23 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     TRAVEL_EXPENSE_DOCUMENT,
+
+    /**
+     * Welle V1.9.201 "Ausschreibungen" -- `TenderService` writes one entry per publication, award-motion registration, award, acceptance and
+     * cancellation of a tender (`entityId` = the `tender` row's id, snapshot = [TenderAuditSnapshot]: event, enums and ids only, no free text, no
+     * name, no price). A bid, a deadline closing and a draft write NO entry. 6 chars, fits within `audit_log_entry.entity_type`
+     * `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    TENDER,
+
+    /**
+     * Welle V1.9.204 -- `EventRegistrationCsvRoutes` writes one entry (`CREATE`) per CSV export of an event's registrations, `entityId` = the
+     * event's id, snapshot = row count and format only -- never a name, mail address or message. 25 chars, fits within
+     * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    EVENT_REGISTRATION_EXPORT,
 }
 
 /** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */
@@ -1339,4 +1354,16 @@ data class CommitteeRuleChangeSnapshot(
     val ruleJson: String? = null,
     val eligibleCount: Int? = null,
     val endedSeats: Int? = null,
+)
+
+/**
+ * Payload of the aggregated [AuditEntityType.ORGANIZATION_SETTINGS] `UPDATE` entry written when the
+ * standard association chart of accounts is applied (V1.9.206). Account numbers only -- no personal
+ * data. One entry per application, listing what was created and what already existed.
+ */
+@Serializable
+data class StandardChartAppliedSnapshot(
+    val chartVersion: String,
+    val created: List<String>,
+    val skipped: List<String>,
 )

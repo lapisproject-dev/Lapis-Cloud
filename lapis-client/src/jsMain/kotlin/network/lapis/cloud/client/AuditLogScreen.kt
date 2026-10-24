@@ -77,15 +77,15 @@ fun renderAuditLogScreen(container: SimplePanel) {
 
     // ---- List: filters + keyset-paginated entries --------------------------------------------
     root.h2(tr("Einträge")) { addCssClass("h5") }
-    val filterRow1 = root.lapisToolbar()
+    val filterRow1 = root.filterRow(hint = tr("Alle Filter sind optional."))
     val entityTypeOptions = listOf("" to tr("Alle Entitätstypen")) + AuditEntityType.entries.map { it.name to auditEntityTypeLabel(it) }
     val entityTypeSelect = filterRow1.select(options = entityTypeOptions, value = "", label = tr("Entitätstyp"))
-    val entityIdInput = filterRow1.text(label = tr("Entitäts-ID (optional)"))
-    val actorMemberIdInput = filterRow1.text(label = tr("Akteur-Mitglieds-ID (optional)"))
+    val entityIdInput = filterRow1.text(label = tr("Entitäts-ID"))
+    val actorMemberIdInput = filterRow1.text(label = tr("Akteur-Mitglieds-ID"))
 
-    val filterRow2 = root.lapisToolbar()
-    val fromInput = filterRow2.localDateTimeInput(label = gettext("Von (optional)"), hintLine = false)
-    val toInput = filterRow2.localDateTimeInput(label = gettext("Bis (optional)"), hintLine = false)
+    val filterRow2 = root.filterRow(hint = null)
+    val fromInput = filterRow2.localDateTimeInput(label = gettext("Von"), hintLine = false)
+    val toInput = filterRow2.localDateTimeInput(label = gettext("Bis"), hintLine = false)
     linkDateRange(fromInput.date, toInput.date)
     val filterButton = filterRow2.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
@@ -193,9 +193,9 @@ private const val AUDIT_LOG_PAGE_SIZE = 50
  * been pressed and a real server response has come back (Norman, design review).
  */
 private fun renderChainVerificationPanel(root: SimplePanel) {
-    val row = root.lapisToolbar()
-    val fromSeqInput = row.text(label = tr("Von Sequenznummer (optional)"))
-    val toSeqInput = row.text(label = tr("Bis Sequenznummer (optional)"))
+    val row = root.filterRow(hint = tr("Alle Filter sind optional."))
+    val fromSeqInput = row.text(label = tr("Von Sequenznummer"))
+    val toSeqInput = row.text(label = tr("Bis Sequenznummer"))
     val verifyButton = row.button(tr("Kette prüfen"), style = ButtonStyle.PRIMARY)
     val resultPanel = root.vPanel(spacing = 2)
 
@@ -591,6 +591,10 @@ fun decodeAuditSnapshot(
             AuditEntityType.EVENT_CAPTURE -> null
             // Welle V1.9.199 -- TravelExpenseDocumentSnapshot (title, MIME type, byte size), raw-text display like the other backend-written snapshots.
             AuditEntityType.TRAVEL_EXPENSE_DOCUMENT -> null
+            // Welle V1.9.201 -- TenderAuditSnapshot (event, enums and ids only), raw-text display like the other backend-written snapshots.
+            AuditEntityType.TENDER -> null
+            // V1.9.204 -- the export entry carries a row count and a format only; shown as raw text.
+            AuditEntityType.EVENT_REGISTRATION_EXPORT -> null
         }
     }.getOrNull()
 

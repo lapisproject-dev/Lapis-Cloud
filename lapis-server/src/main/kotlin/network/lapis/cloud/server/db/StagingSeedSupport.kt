@@ -135,4 +135,33 @@ internal object SeedIds {
         require(n in 0..0xffff) { "ltr index out of range: $n" }
         return Uuid.parse("0000000a-0000-0000-0000-60000000%04x".format(n))
     }
+
+    /**
+     * Top-up part namespaces (V1.9.205): 16-bit index per part inside `0000000a-0000-0000-0000-PP000000NNNN`, PP in 0x70..0x77, disjoint from
+     * every namespace above. Ranges inside a part: 0x0000-0x0fff root entities, 0x1000+ ledger rows, 0x2000+ children, 0x3000+ further children.
+     * Indices are fixed per plan entry (never the list position at run time); plans only grow at the end (pinned by `StagingSeedPartsPlanTest`).
+     */
+    private fun part(
+        prefix: Int,
+        n: Int,
+    ): Uuid {
+        require(n in 0..0xffff) { "part index out of range: $n" }
+        return Uuid.parse("0000000a-0000-0000-0000-%02x000000%04x".format(prefix, n))
+    }
+
+    fun crowdfunding(n: Int): Uuid = part(prefix = 0x70, n = n)
+
+    fun auctions(n: Int): Uuid = part(prefix = 0x71, n = n)
+
+    fun social(n: Int): Uuid = part(prefix = 0x72, n = n)
+
+    fun politicians(n: Int): Uuid = part(prefix = 0x73, n = n)
+
+    fun governanceTopUp(n: Int): Uuid = part(prefix = 0x74, n = n)
+
+    fun tenders(n: Int): Uuid = part(prefix = 0x75, n = n)
+
+    fun events(n: Int): Uuid = part(prefix = 0x76, n = n)
+
+    fun oracle(n: Int): Uuid = part(prefix = 0x77, n = n)
 }

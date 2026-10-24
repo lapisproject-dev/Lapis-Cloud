@@ -230,7 +230,7 @@ class EventsCollapsibleFormsDomTest {
             ) { calls ->
                 mountedForm("r36b-events-series") { root, element ->
                     renderEventsScreen(root)
-                    awaitUntil("the empty list is shown") { element().shows("Keine Veranstaltungen gefunden.") }
+                    awaitUntil("the empty list is shown") { element().shows("Noch keine Veranstaltungen.") }
                     val screen = element()
                     val host = openForm(screen, "lapis-create-event")
                     host.tick("Wiederkehrende Veranstaltung")
@@ -255,7 +255,7 @@ class EventsCollapsibleFormsDomTest {
             ) { _ ->
                 mountedForm("r36b-events-series-dirty") { root, element ->
                     renderEventsScreen(root)
-                    awaitUntil("the empty list is shown") { element().shows("Keine Veranstaltungen gefunden.") }
+                    awaitUntil("the empty list is shown") { element().shows("Noch keine Veranstaltungen.") }
                     val screen = element()
                     val host = openForm(screen, "lapis-create-event")
                     host.tick("Wiederkehrende Veranstaltung")
@@ -420,8 +420,10 @@ class EventsCollapsibleFormsDomTest {
                 mountedForm("r36b-events-names") { root, element ->
                     renderEventsScreen(root)
                     awaitUntil("the list is shown") { element().shows("Altbestand") }
-                    val names = element().allOf("button").map { it.textContent?.trim().orEmpty() }
-                    assertTrue("Bearbeiten" in names && "Absagen" in names && "Neue Veranstaltung" in names, "names: $names")
+                    // the row actions are icon-only: their accessible name is the aria-label, and it names the event
+                    val names = element().allOf("button").map { it.getAttribute("aria-label") ?: it.textContent?.trim().orEmpty() }
+                    assertTrue("Absagen: Altbestand" in names && "Neue Veranstaltung" in names, "names: $names")
+                    assertFalse("Bearbeiten" in names, "editing moved to the detail page: $names")
                 }
             }
         }

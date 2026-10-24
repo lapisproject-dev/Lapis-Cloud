@@ -50,6 +50,7 @@ class CommitteeSeatLifecycleTripwireTest :
                 "network/lapis/cloud/server/rpc/ElectionSeatSuccession.kt" to
                     "V1.9.103: the tally-time succession of an election with an incumbent policy",
                 "network/lapis/cloud/server/db/StagingSeedGovernance.kt" to "staging seed insert",
+                "network/lapis/cloud/server/db/StagingSeedGovernanceTopUp.kt" to "staging seed top-up insert",
             )
         val hookCall = Regex("""CommitteeSeatLifecycle\s*\.\s*endSeatsForStatusChange\s*\(""")
         val statusWrite =

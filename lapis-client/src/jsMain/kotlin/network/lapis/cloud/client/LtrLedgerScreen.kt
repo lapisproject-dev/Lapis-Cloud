@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
-import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.core.Container
 import io.kvision.form.select.select
@@ -501,12 +500,14 @@ private fun SimplePanel.renderPeerTransferForm(
         val characterization = characterizationValue?.let { runCatching { PeerTransferCharacterization.valueOf(it) }.getOrNull() }
         val purpose = purposeInput.value?.trim()?.takeIf { it.isNotBlank() }
 
-        if (recipient == null || !Validation.isPositiveDecimal(amountText) || characterization == null) {
-            errorBox.content = tr("Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben.")
+        val amountParsed = parseLtrAmountInput(amountText)
+        if (recipient == null || amountParsed !is AmountInput.Valid || characterization == null) {
+            errorBox.content =
+                amountErrorText(amountParsed, tr("Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben."))
             errorBox.show()
             return@onClick
         }
-        val amount = amountText.toDouble().toDecimal()
+        val amount = amountParsed.value
 
         // D8: recipient display name + amount + characterization echoed back in full-sentence
         // form BEFORE the caller can confirm, not left to the specifics-only-in-form-fields shape.
@@ -726,12 +727,13 @@ private fun SimplePanel.renderMintForm(
         val amountText = amountInput.value.orEmpty().trim()
         val note = noteInput.value?.trim()?.takeIf { it.isNotBlank() }
 
-        if (member == null || !Validation.isPositiveDecimal(amountText)) {
-            errorBox.content = tr("Bitte Mitglied und einen positiven LTR-Betrag angeben.")
+        val amountParsed = parseLtrAmountInput(amountText)
+        if (member == null || amountParsed !is AmountInput.Valid) {
+            errorBox.content = amountErrorText(amountParsed, tr("Bitte Mitglied und einen positiven LTR-Betrag angeben."))
             errorBox.show()
             return@onClick
         }
-        val amount = amountText.toDouble().toDecimal()
+        val amount = amountParsed.value
 
         // Tier 1 "Kostenpflichtig" (D4): the plain, neutral-framed confirmDialog -- a MINT is
         // material to the recipient/organization but not costly to the treasurer performing it.
@@ -802,22 +804,26 @@ private fun SimplePanel.renderArbitrationTransferForm(
         val characterization = characterizationValue?.let { runCatching { PeerTransferCharacterization.valueOf(it) }.getOrNull() }
         val purpose = purposeInput.value.orEmpty().trim()
 
+        val amountParsed = parseLtrAmountInput(amountText)
         if (sender == null ||
             recipient == null ||
             sender.id == recipient.id ||
-            !Validation.isPositiveDecimal(amountText) ||
+            amountParsed !is AmountInput.Valid ||
             characterization == null ||
             !Validation.isNonBlank(purpose)
         ) {
             errorBox.content =
-                tr(
-                    "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung " +
-                        "und eine Schiedsanordnungs-Referenz angeben.",
+                amountErrorText(
+                    amountParsed,
+                    tr(
+                        "Bitte unterschiedliche Absender/Empfänger, einen positiven LTR-Betrag, eine Charakterisierung " +
+                            "und eine Schiedsanordnungs-Referenz angeben.",
+                    ),
                 )
             errorBox.show()
             return@onClick
         }
-        val amount = amountText.toDouble().toDecimal()
+        val amount = amountParsed.value
 
         arbitrationTransferConfirmDialog(sender.displayName, recipient.displayName, amount, characterization, purpose) {
             executeButton.disabled = true

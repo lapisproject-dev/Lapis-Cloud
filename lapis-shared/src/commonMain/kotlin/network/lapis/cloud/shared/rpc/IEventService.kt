@@ -74,6 +74,22 @@ interface IEventService {
      */
     suspend fun registerSelf(eventId: String): EventRegistrationResultDto
 
+    /**
+     * V1.9.204 -- like [registerSelf], plus an optional [message] to the organisers (at most
+     * [network.lapis.cloud.shared.domain.EventRegistrationMessageLimits.MAX_LENGTH] characters; longer is a BadRequest). The message is
+     * stored with the registration, never changed afterwards, and visible only to BOARD/ADMIN via [getRegistrationOverview].
+     */
+    suspend fun registerSelfWithMessage(
+        eventId: String,
+        message: String?,
+    ): EventRegistrationResultDto
+
+    /**
+     * V1.9.204 -- BOARD/ADMIN. Counters plus every registration of [eventId] (capped, see `truncated`), with the registrant message and
+     * payment state. The only call that returns a message.
+     */
+    suspend fun getRegistrationOverview(eventId: String): network.lapis.cloud.shared.domain.EventRegistrationOverviewDto
+
     /** Role: any authenticated member. Cancels the CALLING member's own registration for [eventId] -- never someone else's. */
     suspend fun cancelOwnRegistration(eventId: String): EventRegistrationDto
 

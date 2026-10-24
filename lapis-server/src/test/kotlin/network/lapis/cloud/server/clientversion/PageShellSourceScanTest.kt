@@ -43,7 +43,6 @@ private val ALLOWED_OWN_WIDTH: Map<String, String> =
         "EncounterServiceView.kt" to "full-bleed stage of the encounter space",
         "AgentOriginLine.kt" to "component width (a truncated label), not a page width",
         "CostCentersScreen.kt" to "component width (a description cell), not a page width",
-        "SocialNetworkScreen.kt" to "component width (the boost amount field), not a page width",
     )
 
 class PageShellSourceScanTest :
