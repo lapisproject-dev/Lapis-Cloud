@@ -74,13 +74,11 @@
 // V24__member_date_of_death.sql). DSGVO ErwG 27 -- Verstorbene sind keine betroffenen Personen --
 // deshalb bewusst NICHT Teil der FoundationPersonalData.eraseMember-Loeschung, siehe dort.
 //
-// This is the versioned source-of-truth *model* for the schema shape (ADR-0016), verified
-// against both the real Flyway-migrated H2 schema and the hand-written Exposed Table objects
-// (network.lapis.cloud.server.db.tables.FoundationTables.kt) by SchemaDriftTest. Per ADR-0016's
-// designModelStrategy option B, this is a verification-only artifact for now: the hand-written
-// Table objects remain the actually-compiled/imported-by-N-files source. See
-// docs/architecture/domain-model.adoc and CLAUDE.md's kUML-Repo-Konventionen (vault) for the
-// full rationale (enum-to-VARCHAR type-fidelity gap, Kotlin-object-naming-override gap).
+// This is the versioned source-of-truth *model* for the schema shape (ADR-0016). The Exposed Table
+// objects (network.lapis.cloud.server.db.generated.*) are generated from it (since 4756e695) and
+// verified, together with the real Flyway-migrated schema, by SchemaDriftTest. (Earlier versions of this
+// header described a "verification-only artifact" with hand-written Table objects, designModelStrategy
+// option B -- that framing is stale.) See docs/architecture/domain-model.adoc for how generation works.
 //
 // Every attribute carries an explicit «Column»{columnName} tag (not just the ones that need
 // overriding) — establishes the per-file naming-tag convention this retrofit's later domain

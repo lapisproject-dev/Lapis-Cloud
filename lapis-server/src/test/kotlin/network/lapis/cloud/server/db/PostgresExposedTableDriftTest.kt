@@ -12,7 +12,7 @@ import org.jetbrains.exposed.v1.core.Table
 import java.io.File
 
 /**
- * Welle V1.9.37 (Postgres test lane) -- every hand-written Exposed `Table` object in
+ * Welle V1.9.37 (Postgres test lane) -- every generated Exposed `Table` object in
  * `network.lapis.cloud.server.db.generated` against the REAL Postgres schema: same table, same
  * column names, same nullability. (Complements the per-wave `*SchemaDriftTest`s, which check the same
  * objects against the kUML model and H2.)
