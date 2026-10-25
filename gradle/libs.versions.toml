@@ -238,13 +238,15 @@ hbci4j-core                      = { module = "com.github.hbci4j:hbci4j-core", v
 # and lapis-client do NOT get this dependency.
 kotlinx-html-jvm                 = { module = "org.jetbrains.kotlinx:kotlinx-html-jvm", version.ref = "kotlinx-html" }
 
-# kUML MDA persistence pipeline (ADR-0016) — test-scoped only (SchemaDriftTest evaluates
-# design.kuml.kts and diffs the generated SQL DDL / Exposed Kotlin against the real schema
-# and the hand-written Table objects). Never added to `implementation`/`api`: kUML's own
+# kUML MDA persistence pipeline (ADR-0016) -- test-scoped only. The Exposed tables in
+# server/db/generated and the baseline SQL schema are generated from src/main/kuml/*.kuml.kts and
+# committed; SchemaDriftTest (and its per-domain siblings) evaluate the models via KumlScriptHost and diff
+# the generated output against the real schema. Never added to `implementation`/`api`: kUML's own
 # transitive deps (Kotlin scripting host, ELK layout engine, etc.) are irrelevant to and
-# potentially conflicting with the Ktor server's runtime dependency graph. The `dev.kuml`
-# Gradle *plugin* itself is unpublished (404 on Gradle Plugin Portal) — these are plain
-# published library coordinates from Maven Central, resolved as regular dependencies.
+# potentially conflicting with the Ktor server's runtime dependency graph. These are plain library
+# coordinates from Maven Central. The `dev.kuml` Gradle plugin (published since kUML 0.32.0) is not used:
+# the domain models need a cross-file merge (DomainModelMerger) that its per-diagram generate task
+# does not do -- see docs/architecture/domain-model.adoc.
 kuml-core-model                 = { module = "dev.kuml:kuml-core-model", version.ref = "kuml" }
 kuml-core-dsl                   = { module = "dev.kuml:kuml-core-dsl", version.ref = "kuml" }
 kuml-core-script                = { module = "dev.kuml:kuml-core-script", version.ref = "kuml" }
