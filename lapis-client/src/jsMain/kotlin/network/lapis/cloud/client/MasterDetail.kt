@@ -8,6 +8,7 @@ import io.kvision.i18n.tr
 import io.kvision.table.Row
 import io.kvision.table.Table
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLTableElement
 
 /**
  * V1.9.192 -- the one master-detail pattern (Gremien, Sitzungen; Umfragen and Konsensieren reuse the back button).
@@ -43,12 +44,29 @@ internal fun detailRoute(
 internal fun Container.masterTable(
     caption: String,
     headers: List<TableHeader>,
+    mobileLayout: TableMobileLayout = TableMobileLayout.CARDS,
 ): Table {
-    val table = standardTable(headers)
+    requireValidMobileHidden(headers)
+    val table = standardTable(headers, stickyFirstColumn = mobileLayout == TableMobileLayout.SCROLL)
     table.caption = caption
     table.addCssClass(REPORT_CAPTION_HIDDEN_CLASS)
+    if (mobileLayout == TableMobileLayout.CARDS) table.addCssClass(TABLE_CARDS_CLASS)
+    val hidden = headers.indices.filter { headers[it].mobileHidden }.toSet()
+    var observer: TableLabelObserver? = null
+    table.addAfterInsertHook { vnode ->
+        val element = vnode.elm as? HTMLTableElement ?: return@addAfterInsertHook
+        observer?.stop()
+        observer = TableLabelObserver(element, hidden).also { it.start() }
+    }
+    table.addAfterDestroyHook {
+        observer?.stop()
+        observer = null
+    }
     return table
 }
+
+/** How a [masterTable] behaves below 768 px: a card list (default) or a sideways scrolling table with a sticky first column. */
+internal enum class TableMobileLayout { CARDS, SCROLL }
 
 /** Marks a data row of a [masterTable]. */
 internal fun Row.masterRow() {

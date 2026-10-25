@@ -42,6 +42,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.branding.LapisCloudMark
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IAuthService
@@ -88,37 +89,37 @@ val AppScope: CoroutineScope = CoroutineScope(SupervisorJob() + window.asCorouti
 
 /**
  * The Lapis Cloud default brand mark: the cloud-and-lapis-stone symbol, geometry copied verbatim from
- * `cloud.lapisproject.dev`'s `Logo.astro` (22 px variant: strokes 12/5, with the gold sparkle). Two inline SVGs
+ * `cloud.lapisproject.dev`'s `Logo.astro` (full-size variant: strokes 12/5, with the gold sparkle). Two inline SVGs
  * in one span, a light and a dark one, of which `theme.css` shows exactly one depending on `data-theme` on
  * `<html>`. No `currentColor`, no `id`, no `<defs>`, and no colour literal here: fills and strokes are the `bm-*`
  * classes in `theme.css` (palette per variant), so the colours are not Kotlin debt for rule R9. The copies (and any
  * further copy on the page) can never collide. Purely decorative (`aria-hidden`). The sparkle only exists at this
  * size; the footer variant [LAPIS_CLOUD_MARK_SMALL_SVG] drops it. An operator-supplied logo always takes
- * precedence over this mark (see `brandLockup()` and the navbar).
+ * precedence over this mark (see `brandLockup()` and the navbar); without a logo the mark shows regardless of the title.
  */
-internal const val LAPIS_CLOUD_MARK_SVG = """<svg class="lapis-brand-mark-svg lapis-brand-mark--light" width="22" height="22" viewBox="128 193 340 340" aria-hidden="true" focusable="false">
-    <path class="bm-cloud" d="M180 410 C154.061 403.107 136.886 378.499 139.36 351.774 C141.835 325.05 163.237 304.013 190 302 C192.78 266.701 218.433 237.428 253.062 230.041 C287.691 222.653 323.057 238.908 340 270 C360.809 256.583 387.433 256.154 408.664 268.893 C429.895 281.631 442.046 305.325 440 330 C452.038 340.208 458.55 355.501 457.565 371.254 C456.581 387.007 448.216 401.37 435 410 Z" stroke-width="12" stroke-linejoin="round" />
-    <g class="bm-edge" stroke-width="5" stroke-linejoin="round">
-        <path class="bm-f1" d="M226 395 L256 350 L281 395 Z" />
-        <path class="bm-f2" d="M256 350 L356 350 L331 395 L281 395 Z" />
-        <path class="bm-f3" d="M356 350 L386 395 L331 395 Z" />
-        <path class="bm-f4" d="M226 395 L281 395 L306 500 Z" />
-        <path class="bm-f5" d="M281 395 L331 395 L306 500 Z" />
-        <path class="bm-f6" d="M331 395 L386 395 L306 500 Z" />
+internal const val LAPIS_CLOUD_MARK_SVG = """<svg class="lapis-brand-mark-svg lapis-brand-mark--light" width="32" height="32" viewBox="${LapisCloudMark.VIEW_BOX}" aria-hidden="true" focusable="false">
+    <path class="bm-cloud" d="${LapisCloudMark.CLOUD_D}" stroke-width="${LapisCloudMark.STROKE_CLOUD}" stroke-linejoin="round" />
+    <g class="bm-edge" stroke-width="${LapisCloudMark.STROKE_EDGE}" stroke-linejoin="round">
+        <path class="bm-f1" d="${LapisCloudMark.F1_D}" />
+        <path class="bm-f2" d="${LapisCloudMark.F2_D}" />
+        <path class="bm-f3" d="${LapisCloudMark.F3_D}" />
+        <path class="bm-f4" d="${LapisCloudMark.F4_D}" />
+        <path class="bm-f5" d="${LapisCloudMark.F5_D}" />
+        <path class="bm-f6" d="${LapisCloudMark.F6_D}" />
     </g>
-    <path class="bm-spark" d="M395 331 L397.828 342.172 L409 345 L397.828 347.828 L395 359 L392.172 347.828 L381 345 L392.172 342.172 Z" />
+    <path class="bm-spark" d="${LapisCloudMark.SPARK_D}" />
 </svg>
-<svg class="lapis-brand-mark-svg lapis-brand-mark--dark" width="22" height="22" viewBox="128 193 340 340" aria-hidden="true" focusable="false">
-    <path class="bm-cloud" d="M180 410 C154.061 403.107 136.886 378.499 139.36 351.774 C141.835 325.05 163.237 304.013 190 302 C192.78 266.701 218.433 237.428 253.062 230.041 C287.691 222.653 323.057 238.908 340 270 C360.809 256.583 387.433 256.154 408.664 268.893 C429.895 281.631 442.046 305.325 440 330 C452.038 340.208 458.55 355.501 457.565 371.254 C456.581 387.007 448.216 401.37 435 410 Z" stroke-width="12" stroke-linejoin="round" />
-    <g class="bm-edge" stroke-width="5" stroke-linejoin="round">
-        <path class="bm-f1" d="M226 395 L256 350 L281 395 Z" />
-        <path class="bm-f2" d="M256 350 L356 350 L331 395 L281 395 Z" />
-        <path class="bm-f3" d="M356 350 L386 395 L331 395 Z" />
-        <path class="bm-f4" d="M226 395 L281 395 L306 500 Z" />
-        <path class="bm-f5" d="M281 395 L331 395 L306 500 Z" />
-        <path class="bm-f6" d="M331 395 L386 395 L306 500 Z" />
+<svg class="lapis-brand-mark-svg lapis-brand-mark--dark" width="32" height="32" viewBox="${LapisCloudMark.VIEW_BOX}" aria-hidden="true" focusable="false">
+    <path class="bm-cloud" d="${LapisCloudMark.CLOUD_D}" stroke-width="${LapisCloudMark.STROKE_CLOUD}" stroke-linejoin="round" />
+    <g class="bm-edge" stroke-width="${LapisCloudMark.STROKE_EDGE}" stroke-linejoin="round">
+        <path class="bm-f1" d="${LapisCloudMark.F1_D}" />
+        <path class="bm-f2" d="${LapisCloudMark.F2_D}" />
+        <path class="bm-f3" d="${LapisCloudMark.F3_D}" />
+        <path class="bm-f4" d="${LapisCloudMark.F4_D}" />
+        <path class="bm-f5" d="${LapisCloudMark.F5_D}" />
+        <path class="bm-f6" d="${LapisCloudMark.F6_D}" />
     </g>
-    <path class="bm-spark" d="M395 331 L397.828 342.172 L409 345 L397.828 347.828 L395 359 L392.172 347.828 L381 345 L392.172 342.172 Z" />
+    <path class="bm-spark" d="${LapisCloudMark.SPARK_D}" />
 </svg>"""
 
 /**
@@ -126,26 +127,26 @@ internal const val LAPIS_CLOUD_MARK_SVG = """<svg class="lapis-brand-mark-svg la
  * `favicon.svg` / `favicon-dark.svg` -- thicker strokes 16/7 so the facets stay legible, and NO
  * sparkle (it would be sub-pixel at this size).
  */
-internal const val LAPIS_CLOUD_MARK_SMALL_SVG = """<svg class="lapis-brand-mark-svg lapis-brand-mark--light" width="12" height="12" viewBox="128 193 340 340" aria-hidden="true" focusable="false">
-    <path class="bm-cloud" d="M180 410 C154.061 403.107 136.886 378.499 139.36 351.774 C141.835 325.05 163.237 304.013 190 302 C192.78 266.701 218.433 237.428 253.062 230.041 C287.691 222.653 323.057 238.908 340 270 C360.809 256.583 387.433 256.154 408.664 268.893 C429.895 281.631 442.046 305.325 440 330 C452.038 340.208 458.55 355.501 457.565 371.254 C456.581 387.007 448.216 401.37 435 410 Z" stroke-width="16" stroke-linejoin="round" />
+internal const val LAPIS_CLOUD_MARK_SMALL_SVG = """<svg class="lapis-brand-mark-svg lapis-brand-mark--light" width="12" height="12" viewBox="${LapisCloudMark.VIEW_BOX}" aria-hidden="true" focusable="false">
+    <path class="bm-cloud" d="${LapisCloudMark.CLOUD_D}" stroke-width="16" stroke-linejoin="round" />
     <g class="bm-edge" stroke-width="7" stroke-linejoin="round">
-        <path class="bm-f1" d="M226 395 L256 350 L281 395 Z" />
-        <path class="bm-f2" d="M256 350 L356 350 L331 395 L281 395 Z" />
-        <path class="bm-f3" d="M356 350 L386 395 L331 395 Z" />
-        <path class="bm-f4" d="M226 395 L281 395 L306 500 Z" />
-        <path class="bm-f5" d="M281 395 L331 395 L306 500 Z" />
-        <path class="bm-f6" d="M331 395 L386 395 L306 500 Z" />
+        <path class="bm-f1" d="${LapisCloudMark.F1_D}" />
+        <path class="bm-f2" d="${LapisCloudMark.F2_D}" />
+        <path class="bm-f3" d="${LapisCloudMark.F3_D}" />
+        <path class="bm-f4" d="${LapisCloudMark.F4_D}" />
+        <path class="bm-f5" d="${LapisCloudMark.F5_D}" />
+        <path class="bm-f6" d="${LapisCloudMark.F6_D}" />
     </g>
 </svg>
-<svg class="lapis-brand-mark-svg lapis-brand-mark--dark" width="12" height="12" viewBox="128 193 340 340" aria-hidden="true" focusable="false">
-    <path class="bm-cloud" d="M180 410 C154.061 403.107 136.886 378.499 139.36 351.774 C141.835 325.05 163.237 304.013 190 302 C192.78 266.701 218.433 237.428 253.062 230.041 C287.691 222.653 323.057 238.908 340 270 C360.809 256.583 387.433 256.154 408.664 268.893 C429.895 281.631 442.046 305.325 440 330 C452.038 340.208 458.55 355.501 457.565 371.254 C456.581 387.007 448.216 401.37 435 410 Z" stroke-width="16" stroke-linejoin="round" />
+<svg class="lapis-brand-mark-svg lapis-brand-mark--dark" width="12" height="12" viewBox="${LapisCloudMark.VIEW_BOX}" aria-hidden="true" focusable="false">
+    <path class="bm-cloud" d="${LapisCloudMark.CLOUD_D}" stroke-width="16" stroke-linejoin="round" />
     <g class="bm-edge" stroke-width="7" stroke-linejoin="round">
-        <path class="bm-f1" d="M226 395 L256 350 L281 395 Z" />
-        <path class="bm-f2" d="M256 350 L356 350 L331 395 L281 395 Z" />
-        <path class="bm-f3" d="M356 350 L386 395 L331 395 Z" />
-        <path class="bm-f4" d="M226 395 L281 395 L306 500 Z" />
-        <path class="bm-f5" d="M281 395 L331 395 L306 500 Z" />
-        <path class="bm-f6" d="M331 395 L386 395 L306 500 Z" />
+        <path class="bm-f1" d="${LapisCloudMark.F1_D}" />
+        <path class="bm-f2" d="${LapisCloudMark.F2_D}" />
+        <path class="bm-f3" d="${LapisCloudMark.F3_D}" />
+        <path class="bm-f4" d="${LapisCloudMark.F4_D}" />
+        <path class="bm-f5" d="${LapisCloudMark.F5_D}" />
+        <path class="bm-f6" d="${LapisCloudMark.F6_D}" />
     </g>
 </svg>"""
 
@@ -273,16 +274,12 @@ class App : Application() {
             // is a normal child add, not a special API.
             navbar.brandLink.labelFirst = false
             navbar.brandLink.addCssClass("lapis-brand-text")
-            // V1.2.5 White-Label-Branding, three-state rule (UI/UX-Design-Team-Review, Jobs' final
-            // review): a custom logo always wins; absent that, the Lapis Cloud mark shows ONLY next
-            // to the untouched default title (an operator who set a custom title but no logo gets
-            // no mark at all, rather than a mark that misleadingly still reads "Lapis" branding
-            // next to their own name). Rendered as a real `<img src="...">` element (Ive's
-            // requirement) via the same `rich = true` HTML-string mechanism the gem mark below
-            // already uses -- not KVision's `Link.image` property, whose exact mutation semantics
-            // on an already-constructed `Link` were not verified against this pinned KVision
-            // version (see V1.2.5 plan "Offene Frage 1"); this path is proven to compile and
-            // render in this exact codebase already.
+            // V1.2.5 White-Label-Branding, two-branch rule since V1.9.214: a custom logo always wins;
+            // without one the Lapis Cloud mark shows regardless of the title (before: only next to the
+            // untouched default title). Rendered as a real `<img src="...">` element (Ive's requirement)
+            // via the same `rich = true` HTML-string mechanism the mark uses -- not KVision's
+            // `Link.image` property, whose mutation semantics on an already-constructed `Link` were not
+            // verified against this pinned KVision version (see V1.2.5 plan "Offene Frage 1").
             when {
                 Branding.logoUrl != null ->
                     navbar.brandLink.span(
@@ -290,11 +287,8 @@ class App : Application() {
                         rich = true,
                         className = "lapis-brand-logo",
                     )
-                Branding.title == Branding.DEFAULT_TITLE ->
+                else ->
                     navbar.brandLink.span(content = LAPIS_CLOUD_MARK_SVG, rich = true, className = "lapis-brand-mark")
-                else -> {
-                    // Custom title, no custom logo -- no mark, see comment above.
-                }
             }
             // Review-Fund 2026-09-08 (Finding 1, KRITISCH): the toggle button used to be built HERE,
             // once, as a local `val`. `Navbar.add()` (verified against pinned kvision-bootstrap
@@ -420,6 +414,8 @@ class App : Application() {
             // never two calls that could drift out of step with each other.
             fun refreshShell() {
                 refreshNavbar(navbar, sidebar, onLanguageChange = ::refreshShell)
+                // V1.9.209: sticky navbar -- keep `--lapis-navbar-height` in step with the real height (idempotent per element).
+                installNavbarHeightObserver()
                 val session = AppState.session
                 if (session != null) {
                     // Live-Fund 2026-09-09 (PROD_HOST, ADMIN, Nachfolge-Bug von

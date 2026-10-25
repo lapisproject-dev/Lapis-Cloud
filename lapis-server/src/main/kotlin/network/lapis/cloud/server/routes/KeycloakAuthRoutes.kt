@@ -46,6 +46,7 @@ import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.SessionTokens
 import network.lapis.cloud.shared.auth.safeReturnTo
+import network.lapis.cloud.shared.domain.LoginMethod
 import network.lapis.cloud.shared.domain.OidcLoginEventType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -738,7 +739,7 @@ internal fun Route.registerKeycloakAuthRoutes(
         }
 
         // Never persist/log id_token/tokenResponse itself beyond this point -- see class KDoc.
-        val issuedSession = SessionStore.createSession(memberId)
+        val issuedSession = SessionStore.createSession(memberId = memberId, loginMethod = LoginMethod.KEYCLOAK)
         call.response.cookies.append(
             Cookie(
                 name = SESSION_COOKIE_NAME,

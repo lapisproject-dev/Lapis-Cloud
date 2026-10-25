@@ -1017,6 +1017,7 @@ internal fun renderHauptbuchLines(
             caption = gettext("%1 · %2", ledger.accountNumber, ledger.name),
             headers = HAUPTBUCH_HEADERS,
             captionVisible = false,
+            stickyFirstColumn = true,
         )
     report.reportRows(generalLedgerRows(ledger), HAUPTBUCH_HEADERS)
 }
@@ -1063,6 +1064,7 @@ internal fun renderKassenbuchLines(
             caption = gettext("%1 · %2", kassenbuch.accountNumber, kassenbuch.name),
             headers = KASSENBUCH_HEADERS,
             captionVisible = false,
+            stickyFirstColumn = true,
         )
     report.reportRows(kassenbuchRows(kassenbuch), KASSENBUCH_HEADERS)
 }
@@ -1336,7 +1338,7 @@ internal fun renderPostingsTable(
         panel.p(tr("Keine Buchungszeilen.")) { addCssClasses("text-muted") }
         return
     }
-    val report = panel.reportTable(caption = tr("Buchungszeilen"), headers = JOURNAL_POSTING_HEADERS)
+    val report = panel.reportTable(caption = tr("Buchungszeilen"), headers = JOURNAL_POSTING_HEADERS, stickyFirstColumn = true)
     report.reportRows(journalPostingRows(postings), JOURNAL_POSTING_HEADERS)
 }
 
@@ -2152,7 +2154,7 @@ internal fun renderPostingConfirmTable(
             add(TableHeader(title = tr("Kostenstelle")))
             if (showVatColumn) add(TableHeader(title = tr("USt")))
         }
-    val report = container.reportTable(caption = tr("Buchungszeilen"), headers = headers)
+    val report = container.reportTable(caption = tr("Buchungszeilen"), headers = headers, stickyFirstColumn = true)
     // sumExact fails loud on unrepresentable amounts; show the failure instead of a silent no-op click.
     val sums =
         try {

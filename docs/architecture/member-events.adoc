@@ -23,11 +23,11 @@ withdrawal (`IEventService.registerSelf`, `cancelOwnRegistration`) are unchanged
 [cols="2,3", options="header"]
 |===
 | State | Offered
-| no active registration, open, free | "Zur Veranstaltung anmelden"
-| no active registration, open, fee | "Anmelden und bezahlen (amount)"
-| no active registration, open, full | "Auf die Warteliste" (the server never charges for the waitlist)
-| `PENDING_PAYMENT` | "Zahlung fortsetzen (amount)" and "Von der Veranstaltung abmelden"
-| `CONFIRMED`, `WAITLISTED` | "Von der Veranstaltung abmelden" (confirmation dialog, "Abbrechen" focused)
+| no active registration, open, free | "Teilnahme anmelden"
+| no active registration, open, fee | "Anmelden und bezahlen" (accessible name "Anmelden und bezahlen (amount)")
+| no active registration, open, full | "Warteliste" (accessible name "Auf die Warteliste"; the server never charges for the waitlist)
+| `PENDING_PAYMENT` | "Zahlung fortsetzen (amount)" and "Teilnahme abmelden"
+| `CONFIRMED`, `WAITLISTED` | "Teilnahme abmelden" (confirmation dialog, "Abbrechen" focused)
 | `CONFIRMED` and paid | the dialog adds "you paid X, not refunded automatically, appears with the board as an open refund"
 | withdrawn (`CANCELLED`/`EXPIRED`) and paid | the line "Bezahlt – Erstattung noch offen." until the board marks it, then "Erstattung vom Vorstand als erledigt vermerkt am ..."
 | `CANCELLED`, `EXPIRED`, never paid | as if never registered
@@ -99,6 +99,14 @@ characters, counter `n/500`, `aria-live`). With text the client calls `registerS
 Server side the shared `EventRegistrationSubmission.submit(..., message)` stores the text in the insert and, after the placement, hands over to
 `EventRegistrationMessageNotifier` -- **outside any transaction** (a direct message in its own transaction, the mail through the dispatcher). The notifier
 never throws and never logs text, name or address. See link:../features/event-registrations.adoc[Event registrations].
+
+== Mobile labels (V1.9.208)
+
+The buttons of a card stand in one `actionGroup` (wrapping row, 44 px targets, destructive action last). Visible labels are short: "Teilnahme anmelden",
+"Warteliste", "Anmelden und bezahlen", "Teilnahme abmelden"; "Warteliste" and the payment button carry the longer wording (with the amount) as `title` and
+`aria-label`. The online button keeps its existing states ("Teilnehmen ab 19:45 Uhr" is focusable and `aria-disabled`; the reason "Der Zugang öffnet am ..."
+stands below it), so nothing new was needed there. The optional message opens from a quiet link-style button "Nachricht hinzufügen" (accessible name
+"Nachricht hinzufügen, an die Veranstalter", still a 44 px target). See `ui-ux-guideline.adoc`, V1.9.208.
 
 == Honest limits
 

@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.core.onClick
 import io.kvision.form.text.TextArea
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.div
@@ -262,19 +261,26 @@ private fun renderEventCard(
     var messageArea: TextArea? = null
     if (action != MemberEventAction.None) messageArea = renderMessageField(card)
 
-    val actions = card.hPanel(spacing = 8)
+    // V1.9.208: one wrapping action row; short visible labels, the full wording is the accessible name (title + aria-label).
+    val actions = card.actionGroup()
     renderResumePaymentButton(actions, e, rpc, navigate, toastError, reload)
     renderOnlineJoin(actions, e, rpc, now, toastError, openRoute)
     if (action != MemberEventAction.None) {
         val label =
             when (action) {
-                MemberEventAction.Register -> gettext("Zur Veranstaltung anmelden")
+                MemberEventAction.Register -> gettext("Teilnahme anmelden")
+                MemberEventAction.Waitlist -> gettext("Warteliste")
+                is MemberEventAction.RegisterAndPay -> gettext("Anmelden und bezahlen")
+                MemberEventAction.None -> ""
+            }
+        val fullName =
+            when (action) {
+                MemberEventAction.Register -> label
                 MemberEventAction.Waitlist -> gettext("Auf die Warteliste")
                 is MemberEventAction.RegisterAndPay -> gettext("Anmelden und bezahlen (%1)", action.amountText)
                 MemberEventAction.None -> ""
             }
-        val button = Button(label, style = ButtonStyle.PRIMARY)
-        actions.add(button)
+        val button = actions.actionButton(ActionIcon.REGISTER, label, style = ButtonStyle.PRIMARY, accessibleName = fullName)
         button.onClick {
             runGuardedAction(button) {
                 var result: EventRegistrationResultDto? = null
@@ -309,8 +315,12 @@ private fun renderEventCard(
         }
     }
     if (canCancelOwn(e)) {
-        val cancel = Button(tr("Von der Veranstaltung abmelden"), style = ButtonStyle.OUTLINEDANGER)
-        actions.add(cancel)
+        val cancel =
+            actions.actionButton(
+                ActionIcon.UNREGISTER,
+                tr("Teilnahme abmelden"),
+                style = ButtonStyle.OUTLINEDANGER,
+            )
         cancel.onClick {
             if (cancel.disabled) return@onClick
             val refundNote = memberWithdrawRefundNote(e)
@@ -371,7 +381,15 @@ private fun renderSeatCounter(
 private fun renderMessageField(card: SimplePanel): TextArea {
     val fieldId = "lapis-member-event-message-${card.hashCode()}"
     val holder = card.vPanel(spacing = 4) { addCssClasses("lapis-member-event-message") }
-    val toggle = holder.actionButton(ActionIcon.ADD, tr("Nachricht an die Veranstalter hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
+    // V1.9.208: a quiet link-style button (it is optional), still a 44px target; the accessible name says who reads the message.
+    val toggle =
+        holder.actionButton(
+            ActionIcon.ADD,
+            tr("Nachricht hinzufügen"),
+            style = ButtonStyle.LINK,
+            small = true,
+            accessibleName = tr("Nachricht hinzufügen, an die Veranstalter"),
+        ) { addCssClasses("lapis-action-btn text-decoration-none align-self-start") }
     toggle.setAttribute("aria-expanded", "false")
     toggle.setAttribute("aria-controls", fieldId)
     val area = TextArea(rows = 3, label = tr("Nachricht an die Veranstalter (optional)"))

@@ -7644,10 +7644,6 @@ msgstr ""
 msgid "RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:422
-msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:63
 msgid "Rückgelastschrift"
 msgstr ""
@@ -25830,4 +25826,76 @@ msgid "Wird je Buchung gewählt"
 msgstr ""
 
 msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
+msgstr ""
+
+msgid "Letzte Anmeldung"
+msgstr ""
+
+msgid "nie angemeldet"
+msgstr ""
+
+msgid "Zentrale Anmeldung"
+msgstr ""
+
+msgid "Partner-Server"
+msgstr ""
+
+msgid "RTMP-Ziel-URL Ihrer Plattform"
+msgstr ""
+
+msgid "Server-URL und Stream-Schlüssel zeigt Facebook beim Einrichten der Live-Übertragung an. Der Schlüssel kann wechseln."
+msgstr ""
+
+msgid "Server-URL und Stream-Schlüssel zeigt Telegram beim Start der Übertragung an, wenn Sie mit anderer Software streamen."
+msgstr ""
+
+msgid "Server-URL und Stream-Schlüssel erhalten Sie von LinkedIn für jede einzelne Live-Veranstaltung."
+msgstr ""
+
+msgid "Server-URL und Stream-Schlüssel zeigt Rumble beim Einrichten der Übertragung an. Der Schlüssel gilt oft nur einmal."
+msgstr ""
+
+msgid "Server-URL und Stream-Schlüssel zeigt Kick im Creator-Dashboard an."
+msgstr ""
+
+msgid "Server-URL und Stream-Schlüssel zeigt Vimeo in den Einstellungen der Live-Veranstaltung an."
+msgstr ""
+
+msgid "Teilnahme anmelden"
+msgstr ""
+
+msgid "Teilnahme abmelden"
+msgstr ""
+
+msgid "Anmelden und bezahlen"
+msgstr ""
+
+msgid "Nachricht hinzufügen"
+msgstr ""
+
+msgid "Nachricht hinzufügen, an die Veranstalter"
+msgstr ""
+
+msgid "Gerade angemeldet"
+msgstr ""
+
+msgid "Gerade aktiv"
+msgstr ""
+
+msgid "Angemeldet insgesamt"
+msgstr ""
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3"
+msgstr ""
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3 · Sonstige %4"
+msgstr ""
+
+msgid "„Gerade aktiv“ zählt alle, die in den letzten %1 Minuten etwas getan haben. Eine Anmeldung bleibt bis zu %2 Stunden gültig, deshalb kann „Angemeldet insgesamt“ höher sein. Sie selbst sind mitgezählt."
+msgstr ""
+
+msgid "Stand: %1 Uhr"
+msgstr ""
+
+msgid "Die Zahlen konnten gerade nicht geladen werden."
 msgstr ""

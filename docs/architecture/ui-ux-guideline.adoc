@@ -47,6 +47,12 @@ It is a pure client wave: no RPC, DTO, table or migration.
 | One `prefers-reduced-motion: reduce` block, last in `theme.css`, listing every selector that has a `transition`.
 |===
 
+== Themability (V1.9.216)
+
+An operator theme (`LAPIS_THEME_PATH`, see link:../features/theming.adoc[Themes from files]) can override only the 16 core colour tokens, the font-family tokens
+and the Bootstrap corner radius, all through CSS custom properties. New UI therefore uses `var(--lapis-...)` tokens exclusively and never colour literals,
+otherwise it cannot be themed and looks wrong next to a themed shell. The tripwire R9 remains the authority for client code.
+
 == Building blocks
 
 === `DataTableState.kt` (pure)
@@ -2098,9 +2104,10 @@ Client only: no migration, no server change, no new RPC.
   aliases `fa-times`, `fa-edit`, `fa-refresh` are forbidden. Delete is always `OUTLINEDANGER`; "remove from a list" (detach) is the minus
   circle, not the bin. Confirm dialogs take an optional `confirmIcon`. Full table and the verbs that deliberately have no icon:
   `docs/architecture/action-icons.adoc`.
-* **R58 -- icon-only buttons only in dense table rows.** From two actions per row the table uses icon-only `btn-sm` buttons; with one action
-  icon plus text. Every icon-only button carries `title` and `aria-label` (`require(label.isNotBlank())`); labels are static `tr()` texts, never
-  data. Named exceptions: see V1.9.66.
+* **R58 -- icon-only buttons only in dense table rows (and, since V1.9.208, responsive on cards, rows and headers).** From two actions per row the
+  table uses icon-only `btn-sm` buttons; with one action icon plus text. Every icon-only button carries `title` and `aria-label`
+  (`require(label.isNotBlank())`); labels are static `tr()` texts, never data. Named exceptions: see V1.9.66. The only other place where a label
+  gives way to its icon is `ActionLabelMode.RESPONSIVE` inside an `actionGroup` (V1.9.208, below).
 
 Tripwire block `ClientToolbarIconTripwireTest` (module `lapis-server`): no `hPanel` row with `align-items-center|end` holds a field and a
 button (one named roster row), no `btn-sm` inside a toolbar, `theme.css` keeps the bottom alignment and the zero wrapper margin, no forbidden
@@ -2217,7 +2224,7 @@ scrolling of the encounter bar (it wraps) and of the segmented control (it wraps
 
 The encounter room height is now a *minimum* (the former height), so the room grows with its benches; the stage size is unchanged (`--lapis-encounter-room-h`). In fullscreen the height stays fixed and the room scrolls (E0).
 
-WCAG 2.4.11: `html { scroll-padding-top }` keeps a keyboard-focused element below the sticky transparency banner. The only sticky elements left are that banner and the member map.
+WCAG 2.4.11: `html { scroll-padding-top }` keeps a keyboard-focused element below the sticky transparency banner. With V1.9.209 the sticky elements are the navbar, the rating booth head, that banner, the member map and the travel expense totals bar (plus the docks); the scroll padding is `calc(var(--lapis-navbar-height) + ...)`, see <<sticky-navbar>>.
 
 *Not verified:* the whole conference and encounter screens cannot be mounted in Karma (the DOM tests run on the production classes and the real encounter room); not tested on a real device or in
 Safari/iOS (`dvh`, rubber-banding, `overscroll-behavior` before iOS 16). Follow-ups: a "Mehr" overflow for the encounter bar (the conference bar's mechanism is tied to its control slots), a paged
@@ -2287,6 +2294,7 @@ test and the CSS review).
 Client only; no server, RPC or database change. Architecture, the video loan ledger and the keyboard model are in `conference-dock.adoc`; this section is the interface
 rule that came out of it.
 
+* **R62 -- responsive tables (V1.9.211).** A master list (`masterTable`) is a real table on desktop and a card list below 768 px (`767.98px`, the break of `dataTable`, `CARD_LIST_BREAKPOINT_PX`): `thead` stays in the DOM but is visually hidden, each cell shows its column header from `data-label`, the name cell (`th[scope=row]`) is the card title, and the action cell sits under a divider. The labels are written by `TableCardLabels.kt` (`labelTable`, kept current by a `MutationObserver` on `childList`/`subtree` only), together with explicit ARIA roles (`table`, `row`, `cell`, `rowheader`, `columnheader`) because `display: block/flex` removes the native table semantics. `TableHeader.mobileHidden` hides ONE column on the card (never the name column, never the actions; only when the value is on the detail page; `requireValidMobileHidden`). A wide comparison table scrolls sideways instead: `stickyFirstColumn = true` on `standardTable`/`reportTable` (or `TableMobileLayout.SCROLL` on `masterTable`) keeps the first column opaque and sticky, stripe and hover colours included. A card table that gets sorting must ship a sort `select` in the same wave (the sort buttons live in the hidden header). Touch targets of 44 px apply to buttons and the name link. A `dataTable` already becomes cards below 768 px, so `stickyFirstColumn` is not set there; a `reportTable` keeps scrolling sideways (V1.4.27). Follow-up: the remaining `standardTable` calls. The row-action `td` of a `dataTable` carries `lapis-table-actions-cell` (V1.9.212: `white-space: nowrap`, shrinks to its content, at every width; the card mode is unchanged). `ClientResponsiveTableTripwireTest` guards the breakpoint, the R54 ordering of the CSS block and the hook.
 * **R61 -- dates and times use native pickers (V1.9.173).** Every date, time and date-plus-time input is built by `localDateField`/`localTimeField`/`localDateTimeFields` (a `LapisForm`) or `localDateInput`/`localTimeInput`/`localDateTimeInput` (a raw screen); `LocalInputs.kt`, `LocalDateField.kt` and `LocalTimeField.kt` are the only files that may name `type=date`/`type=time` (`ClientTemporalFormatTripwireTest` T7). `picker = true` is the DEFAULT; the locale text field is the fallback for a browser without the input types and the test lever, and no screen passes `picker = false` (`ClientTemporalPickerTripwireTest` P2). In picker mode `LapisField.value` is ISO -- read with `localDateOrNull()`/`localTimeOrNull()`, write with `setDate`/`setTime`, never with locale text; a raw input is never unwrapped to its `Text` (P1). There is no placeholder and no "Format:" hint in picker mode (only `extraHint`). `stepMinutes` is a PER-FIELD property: 1 by default, 5 only on planning screens (events, shifts, carpool departure); an off-grid entry is an error only where `stepMinutes > 1`. `linkDateRange` sets `min`/`max` on a Von/Bis pair as a popup hint only -- the cross-field rule stays the check, because a typed date bypasses the attribute. A half-typed picker entry (empty value, `badInput`) is the German format error, never a silent blank. A month or a year is never `type=month`: a year is `type=number` with `min`/`max`, a month a `select`. No own icons on the pickers. A plain text box whose label or hint speaks of a date or time fails T9 unless it is listed there with a reason. Follow-up: a `fieldset` group around the date and time labels, and copying the start date into an empty end date.
 * **R60 -- a non-modal floating overlay.** A surface that floats over the page without blocking it (today only `.lapis-conference-float`) obeys five rules:
   (1) its `z-index` is a named token below every dialog, the offcanvas and the update pill (`--lapis-z-conference-float: 1034`; the whole order is tabulated in
@@ -2445,6 +2453,7 @@ panel); "Mehr" is always the last control of the centre; "Verlassen" is always t
   and the gear can move into the sheet when the bar is very narrow (they used to be fixed); "Türen schließen" is the last control of the encounter bar to move (used to move early).
 * R54: the conference bar's transition is gone (ten known transitions). R58: `conferenceSettingsButton` is a new call in the ledger of `conferenceControlButton` (one icon-only button, `ActionIcon.SETTINGS`).
 * R59: new sticky element `.lapis-room-bar-dock` (no overflow, no max-height); new self-scrolling sheet `.lapis-conference-settings-sheet` (class E1). The centre zone clips with `overflow: clip` (never `hidden`).
+* R59 (V1.9.209): new sticky elements `.navbar.lapis-navbar` and `.lapis-rating-booth-head` (no overflow, no max-height); `html { scroll-padding-top }` now follows `--lapis-navbar-height`.
 * Documented deviation from the first plan: `overflow: clip` sits on the centre zone, not on the bar (a clip on the bar would cut the sheets and the focus rings that hang above it).
 * Architecture: `conference-dock.adoc` (the call's bar), `encounter-space.adoc` ("The room bar (V1.9.184)").
 
@@ -2646,9 +2655,9 @@ building blocks live in `MasterDetail.kt`.
 == Brand mark and favicons (V1.9.195)
 
 * The default brand mark is the cloud-and-lapis-stone symbol of the website. It is *two inline SVGs* (light and dark) in one `span.lapis-brand-mark`; `theme.css` hides one of them by `data-theme` on `<html>`. No `id`, no `currentColor`, no `<defs>`: a page may hold any number of copies. The mark is decorative (`aria-hidden="true"`, `focusable="false"`).
-* Two sizes: *22 px* (navbar, login lockup, `LAPIS_CLOUD_MARK_SVG`) with the gold sparkle, *12 px* (footer credit, `LAPIS_CLOUD_MARK_SMALL_SVG`) without it. Rule: the sparkle only exists from 22 px upward. The 22 px matches `.lapis-brand-logo` (`max-height: 22px`) so the navbar does not jump between the default mark and an operator logo.
-* An operator logo (`Branding.logoUrl`) always wins; with a custom title and no logo no mark is shown.
-* Favicons live in `lapis-client/src/jsMain/resources` and are linked from `index.html` in this order: `favicon.ico` (32), `favicon.svg` (light), `favicon-dark.svg` (dark), `favicon-32.png`, `apple-touch-icon.png` (180). All paths are absolute (`/...`), because the SPA lives under `/app`. The light/dark pair follows the *operating system* (`prefers-color-scheme`), not the in-app switch; no script swaps the icon. Safari ignores `media` on icon links and uses the ICO / PNG.
+* Two sizes: *32 px* in the navbar (token `--lapis-brand-logo-size`, 2rem) and *40 px* in the login lockup (`LAPIS_CLOUD_MARK_SVG`) with the gold sparkle, *12 px* (footer credit, `LAPIS_CLOUD_MARK_SMALL_SVG`) without it. Rule: the sparkle only exists from 22 px upward. The navbar size equals the operator logo height (`.lapis-brand-logo img`, 32 px, at most 180 px wide) so the navbar does not jump between the default mark and an operator logo (V1.9.210). The token is deliberately not derived from the measured `--lapis-navbar-height`.
+* An operator logo (`Branding.logoUrl`) always wins; without a logo the Lapis Cloud mark is shown next to the title, whatever the title is (V1.9.214).
+* Favicons live in `lapis-client/src/jsMain/webAssets/favicons` (not in `resources`) and are linked from `index.html` in this order: `favicon.ico` (32), `favicon.svg` (light), `favicon-dark.svg` (dark), `favicon-32.png`, `apple-touch-icon.png` (180). All paths are absolute (`/...`), because the SPA lives under `/app`. The light/dark pair follows the *operating system* (`prefers-color-scheme`), not the in-app switch; no script swaps the icon. Safari ignores `media` on icon links and uses the ICO / PNG. Since V1.9.213 the Gradle task `copyFaviconsToWebpack` (a `Copy`, never a `Sync`) puts the five files into the webpack output root that the Dockerfile ships, because `index.html` links them with absolute paths and the `staticFiles` catch-all answers a missing file with a real 404. `VerifyFaviconLinks` breaks the build when a linked icon is missing or empty, and `scripts/ci-assert-image-clean.sh` checks the five files in the release image. The favicon applies to every instance, also with an operator logo or title.
 
 == Inline field rows, date and time groups, amounts and the stake suggestion (V1.9.200)
 
@@ -2725,3 +2734,62 @@ A treasurer sets up the books once and may never have seen a ledger. The finance
 * *Deep link.* `?tab=` and `?step=` live in the one hash query (a second `#` is impossible in hash routing); a tab change calls `history.replaceState`, never `location.hash =`, so the router does not re-render and typed input survives.
 * *One home for a setting.* The account mapping lives only in the setup tab; other pages show a status line and a link.
 * *One filter row, no nested toolbar.* Search, labelled status group, dates and refresh button are direct children of one `inlineFieldRow` and share a centre line (`dateRangeFields` places the two dates into any row; `dateRangeFilter` wraps them in a toolbar for the screens that still want one).
+
+== Mobile action groups and filter rows (V1.9.208)
+
+Client only: no migration, no RPC, no DTO. The Begegnungsraum card and the Veranstaltungen card were measured on a 360 px phone: four labelled
+buttons wrapped into two rows of uneven width, and a checkbox in the Kontenplan filter row sat above the line of its field.
+
+* *`actionGroup {}` and `ActionLabelMode`.* `actionGroup()` is the one container for the actions of a card, a row or a header (a wrapping flex row,
+  gap 0.5 rem, `.lapis-action-group`). It holds buttons only; fields stay in `lapisToolbar()` (R56 is untouched, the toolbar keeps its bottom
+  alignment). `actionButton(..., labelMode = ...)` has three modes: `ALWAYS` (default), `ICON_ONLY` (the former `iconOnly = true`, dense tables) and
+  `RESPONSIVE`.
+* *`RESPONSIVE`.* From 576 px: icon plus text. Below: the icon only. The text is a sibling span `lapis-action-label d-none d-sm-inline`, `aria-hidden`;
+  the name always lives in `title` and `aria-label` (static `tr()` text, never data). The button is `lapis-action-btn` (44 px minimum height and
+  width, `white-space: nowrap`) and **never `btn-sm`** (`require`). The icon margin moves onto the span (a hidden sibling would otherwise defeat
+  `:only-child`).
+* *Rules for a group.* At most one `ALWAYS` (labelled) action per group; the destructive action (`OUTLINEDANGER`) comes last; no button of a group is
+  taller than 48 px at 360 px. A state belongs in a hint line below the group, not in the label ("Teilnehmen ab 19:45 Uhr" keeps its separate reason
+  line). `RESPONSIVE` is **not** for dense tables: those keep `tableActionButton` (`btn-sm`, 36 px class in R58). The primary page action ("Neu ...",
+  "Speichern") and dialog buttons stay `ALWAYS`.
+* *`accessibleName`.* A short visible label may have a longer accessible name that contains the visible label (WCAG 2.5.3): "Warteliste" -> "Auf die
+  Warteliste", "Anmelden und bezahlen" -> "Anmelden und bezahlen (25,00 €)". The amount therefore sits in the name, not in the label.
+* *Applied to.* Begegnungsraum card (Zum Raum stays the one labelled action; Bearbeiten, Ämter, Archivieren are `RESPONSIVE`; the confirm dialog keeps its
+  full text) and the Veranstaltungen card. **Audit result: other screens were not converted** -- `lapisToolbar` is used in about 40 screens, most of them for
+  fields next to buttons (kept); the card/row/header groups of Mitgliederfamilien, Gremien, Kontakte, Sitzungen, Spender, Kostenstellen and others are an
+  **open point** for a follow-up wave, together with an overflow menu for rarely used actions such as "Archivieren".
+* *Filter rows.* `.lapis-inline-row` and `.lapis-filter-row` give a `.form-check` a control-height flex box (no Bootstrap float, no negative margin,
+  padding 0) so the tick box, the field and the button share one centre line; below 576 px fields and buttons are 44 px high. `.lapis-toolbar` is not
+  changed (R56 pins its `flex-end`). The labelled filters of the audit log keep their labels above the fields (a label-less field would lose its
+  visible name).
+* *Tests.* `NarrowViewport.kt` (`measureAtWidth`) clones the rendered markup and the page styles into an off-screen iframe of exactly the given width, because
+  Karma's window width cannot be set; media queries are then measured for real (`ActionButtonDomTest`, `FilterRowGeometryDomTest`,
+  `EncounterSpaceScreenDomTest`, `MemberEventsScreenDomTest`). Server tripwire `ClientActionGroupTripwireTest`: `RESPONSIVE` only in a file with an
+  `actionGroup`, never in a `lapisToolbar`; at most one labelled action per group (ledger: the mutually exclusive register/withdraw variants of the
+  Veranstaltungen card); CSS pins for 44 px, no-wrap and the checkbox reset.
+
+[[sticky-navbar]]
+== Sticky navbar (V1.9.209)
+
+Client only. The navbar (`.navbar.lapis-navbar`) sticks to the top edge on every viewport.
+
+.z-index order
+|===
+|Layer |z-index
+
+|Content |auto
+|Rating booth head |5
+|Transparency banner |6
+|Navbar |1020
+|Update pill |1035
+|Offcanvas |1045
+|Modal |1055
+|Pseudo-fullscreen room, popover |1060
+|===
+
+* **Variable rules.** `--lapis-navbar-height` defaults to 56 px in CSS (no flash before JS). A `ResizeObserver` (`installNavbarHeightObserver`) overrides it with the measured height. The navbar itself uses `min-height: 56px` as a literal, never `height` (WCAG 1.4.4, 200 % text zoom) and never the variable (that would be a ratchet: the bar could not shrink again).
+* **No hide on scroll.** Debated (Raskin/Norman: constant position; Duarte: more room on phones); Jobs decided: no. The bar stays, without shadow or motion (R54).
+* **Rooms unchanged.** Real fullscreen uses the top layer, pseudo-fullscreen is `fixed` at 1060, above the navbar. In windowed mode `--lapis-header-h` (136 px) already includes the navbar and stays a fixed token.
+* **Ancestors.** No ancestor of a sticky element may set `overflow` other than `visible`/`clip`, nor `transform`, `filter` or `backdrop-filter`; otherwise sticky silently stops working.
+* **Dependent offsets.** Banner, member map panel, totals bar (from 992 px), rating booth head and `html { scroll-padding-top }` all derive from `--lapis-navbar-height`. Do not use Bootstrap's `.sticky-top` (same z-index 1020, top 0).
+* **Print.** Navbar, banner and booth head are `position: static`.

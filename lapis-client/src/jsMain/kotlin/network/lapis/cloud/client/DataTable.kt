@@ -290,7 +290,12 @@ private fun <R> DataTablePanel.renderTableMode(
                     column.cell(this, data)
                 }
             }
-            if (actions != null) cell { actions(this, data) }
+            if (actions != null) {
+                cell {
+                    addCssClass(TABLE_ACTIONS_CELL_CLASS)
+                    actions(this, data)
+                }
+            }
         }
     }
 }

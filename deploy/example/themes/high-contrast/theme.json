@@ -1,0 +1,45 @@
+{
+  "$schema": "../../../../lapis-server/src/main/resources/theme/theme.schema.json",
+  "version": 1,
+  "name": "High Contrast",
+  "description": "Maximum contrast for low-vision use.",
+  "colors": {
+    "light": {
+      "bg": "#FFFFFF",
+      "surface": "#FFFFFF",
+      "surface-sunken": "#F0F0F0",
+      "text": "#000000",
+      "muted": "#333333",
+      "border": "#767676",
+      "border-strong": "#000000",
+      "nav": "#000000",
+      "nav-hover-bg": "#1A1A1A",
+      "nav-text": "#FFFFFF",
+      "nav-muted": "#E0E0E0",
+      "accent": "#0030A0",
+      "accent-strong": "#001F70",
+      "accent-soft": "#E6ECFF",
+      "accent-contrast": "#FFFFFF",
+      "invalid": "#A00000"
+    },
+    "dark": {
+      "bg": "#000000",
+      "surface": "#0A0A0A",
+      "surface-sunken": "#141414",
+      "text": "#FFFFFF",
+      "muted": "#D0D0D0",
+      "border": "#8A8A8A",
+      "border-strong": "#FFFFFF",
+      "nav": "#000000",
+      "nav-hover-bg": "#1F1F1F",
+      "nav-text": "#FFFFFF",
+      "nav-muted": "#D0D0D0",
+      "accent": "#7FB0FF",
+      "accent-strong": "#A8C8FF",
+      "accent-soft": "#0F2040",
+      "accent-contrast": "#000000",
+      "invalid": "#FF8A8A"
+    }
+  },
+  "radius": "none"
+}

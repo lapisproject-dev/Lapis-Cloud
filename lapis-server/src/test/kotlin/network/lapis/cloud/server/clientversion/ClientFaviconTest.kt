@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -16,6 +17,7 @@ import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.ResolvedBranding
 import java.io.File
+import java.nio.file.Files
 
 /**
  * V1.9.195 -- the favicon set of the SPA: the five files exist in the client resources and are served from the site root by the same
@@ -28,6 +30,17 @@ class ClientFaviconTest :
         fun resource(name: String): File =
             File("../lapis-client/src/jsMain/resources/$name")
                 .let { if (it.exists()) it else File("lapis-client/src/jsMain/resources/$name") }
+
+        fun favicon(name: String): File =
+            File("../lapis-client/src/jsMain/webAssets/favicons/$name")
+                .let { if (it.exists()) it else File("lapis-client/src/jsMain/webAssets/favicons/$name") }
+
+        fun distRoot(vararg include: String): File =
+            Files.createTempDirectory("favicon-dist").toFile().also { root ->
+                root.deleteOnExit()
+                resource("index.html").copyTo(File(root, "index.html"))
+                include.forEach { favicon(it).copyTo(File(root, it)) }
+            }
 
         val indexHtml = resource("index.html").readText()
         val files = listOf("favicon.ico", "favicon.svg", "favicon-dark.svg", "favicon-32.png", "apple-touch-icon.png")
@@ -53,8 +66,8 @@ class ClientFaviconTest :
             result shouldContain """<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">"""
         }
 
-        test("the five icon files are served from the site root with sensible content types, and no CSP header is added") {
-            val dir = resource("favicon.svg").parentFile
+        test("the five icon files are served from a dist root with sensible content types, and no CSP header is added") {
+            val dir = distRoot(*files.toTypedArray())
             testApplication {
                 application { routing { staticFiles("/", dir) } }
                 files.forEach { name ->
@@ -67,21 +80,51 @@ class ClientFaviconTest :
                         else -> (type.contains("image/vnd.microsoft.icon") || type.contains("image/x-icon")) shouldBe true
                     }
                     response.headers["Content-Security-Policy"] shouldBe null
-                    response.readRawBytes().size shouldBe resource(name).length().toInt()
+                    response.readRawBytes().size shouldBe favicon(name).length().toInt()
+                    // a real file, not an SPA fallback to index.html
+                    (response.readRawBytes().contentEquals(indexHtml.toByteArray())) shouldBe false
                 }
             }
         }
 
+        test("a favicon missing from the dist root is a real 404, not index.html") {
+            val dir = distRoot(*files.filter { it != "favicon.ico" }.toTypedArray())
+            testApplication {
+                application { routing { staticFiles("/", dir) } }
+                val response = client.get("/favicon.ico")
+                response.status shouldBe HttpStatusCode.NotFound
+                response.bodyAsText() shouldNotContain "<html"
+            }
+        }
+
+        test("source tripwire: every linked icon exists in webAssets/favicons and none is left in resources") {
+            val hrefs =
+                Regex("""<link rel="(?:icon|apple-touch-icon)"[^>]*href="/([^"]+)"""").findAll(indexHtml).map { it.groupValues[1] }.toList()
+            hrefs.size shouldBe 5
+            hrefs.forEach { favicon(it).isFile shouldBe true }
+            files.forEach { resource(it).exists() shouldBe false }
+        }
+
+        test("Application.kt registers the staticFiles catch-all after the client asset routes") {
+            val app =
+                File("src/main/kotlin/network/lapis/cloud/server/Application.kt")
+                    .let { if (it.exists()) it else File("lapis-server/src/main/kotlin/network/lapis/cloud/server/Application.kt") }
+                    .readText()
+            val catchAll = app.indexOf("""staticFiles("/", clientDistRoot)""")
+            val assetRoutes = app.indexOf("registerClientAssetRoutes")
+            (assetRoutes in 0 until catchAll) shouldBe true
+        }
+
         test("the SVGs carry no active content, ids or external references, and the whole icon set stays small") {
             listOf("favicon.svg", "favicon-dark.svg").forEach { name ->
-                val svg = resource(name).readText()
+                val svg = favicon(name).readText()
                 svg shouldNotContain "<script"
                 svg shouldNotContain "foreignObject"
                 svg shouldNotContain "href"
                 svg shouldNotContain "http://www.w3.org/1999/xlink"
                 svg shouldNotContain " id="
             }
-            (files.sumOf { resource(it).length() } < 64 * 1024) shouldBe true
+            (files.sumOf { favicon(it).length() } < 64 * 1024) shouldBe true
         }
 
         test("theme.css: the brand-mark rules exist, sit before the last reduced-motion block, and add no transition") {

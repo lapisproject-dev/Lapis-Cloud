@@ -27,6 +27,11 @@ import io.kvision.snabbdom.VNode
  * the same widget objects) fires destroy and then insert again -- [onInsert] must therefore be safe to
  * run more than once per widget object, and [onDestroy] must leave the widget re-attachable.
  *
+ * V1.9.218: the widget's whole subtree is built BEFORE this call, and [onInsert] must not change any widget state synchronously
+ * (`disabled`, `content`, `visible`, ...): that re-renders the root in the middle of the patch that is inserting the widget, the nested
+ * patch builds the widget a second time and the page shows it twice (the dashboard tile "Gerade angemeldet"). Start a coroutine or use
+ * the DOM element (`vnode.elm`) instead.
+ *
  * NOT for the idiom `getElement()?.let { ... } ?: addAfterInsertHook { ... }` (see `setStaticA11yLabel`
  * in `ConferenceScreen.kt`): that one registers the hook only while the widget has no element yet, i.e.
  * before its first render, which is already the correct order.

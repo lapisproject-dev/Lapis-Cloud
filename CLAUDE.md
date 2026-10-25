@@ -262,8 +262,19 @@ Details: `docs/features/auth-and-consent-pages.adoc`. Kurzregeln:
 Details: `docs/features/public-event-page.adoc`. Kurzregeln:
 
 - Token- und Folgeseiten (Anmelde-POST, danke, Warteliste, abgebrochen, Storno, Zahlung, Ticket inkl. `ticket.svg`/`ticket.pdf`) setzen `X-Robots-Tag: noindex, nofollow` als **erste Anweisung** im Handler (`markEventNoIndex()`, vor Rate-Limit und Fehlerbehandlung, damit auch 400/404/429/500 und Redirects ihn tragen) und rendern mit `skeleton(noIndex = true)`; dasselbe gilt für alle Fehlerseiten der Familie. Die Detailseite (200) nie. Nie zwei `name="robots"`-Metas in einem Dokument.
-- Reihenfolge der Detailseite: Fakten, Titelbild, Beschreibung, Hinweis, Anmeldekarte (`id="anmeldung"`); der Link „Zur Anmeldung“ nur bei möglicher Anmeldung und nicht leerer Beschreibung, ohne `target`.
+- Reihenfolge der Detailseite: Fakten, Titelbild, Beschreibung, Hinweis, Anmeldekarte (`id="anmeldung"`), Teilen-Leiste; der Link „Zur Anmeldung“ nur bei möglicher Anmeldung und nicht leerer Beschreibung, ohne `target`.
 - Artikel-Textlinks: `ArticleMarkdown.render(md)` ohne `embedHost` bleibt byte-gleich (Golden-Test); nur im Embed-Modus bekommen absolute Links auf den eigenen Host `target="_top"`, jedes `_blank` trägt `noopener`.
+
+## Teilen-Leiste (V1.9.217)
+
+Details: `docs/features/public-sharing.adoc`. Kurzregeln:
+
+- **Allowlist: genau drei Seiten** (`/veranstaltung/{slug}`, `/aktuelles/{slug}`, `/s/{id}`, nur Standard-Darstellung). `renderShareBar(` darf nur dort aufgerufen werden (`ShareBarTripwireTest`). Nie in Embed-, Token-, Fehler- oder Übersichtsseiten.
+- **Ein `ShareBarModel?` bestimmt Leiste UND CSP.** Die Route baut es (`ShareConfig.barFor`), leitet daraus `scriptSrcSelf` ab und reicht dasselbe Modell an den Renderer; nie getrennt entscheiden (auch nicht im 304-Pfad von `/s/{id}`).
+- **Share-URLs entstehen nur aus der konfigurierten Basis-URL**, nie aus dem Host-Header oder `X-Forwarded-*`. Ziel-Hosts sind feste Präfixe in `ShareLinks`; Nutzerwerte sind nur prozent-kodierte Parameter.
+- **`unsafe` nur für den JSON-LD-Block** der Veranstaltung, escaped nach der Serialisierung (`EventShareMeta.escapeForScriptBlock`). `share.js` bleibt eine Konstante ohne `innerHTML`/Netz/Speicher.
+- **Route-Funktionen haben `shareConfig = ShareConfig.DISABLED` als Default** (Bestands-CSP-Tests bleiben byte-gleich); die Produktion übergibt die geladene Konfiguration, der Tripwire prüft die Verdrahtung in `Application.kt`.
+- **Compose: `${LAPIS_SHARE_NETWORKS-all}` ohne Doppelpunkt**, sonst wird „nicht gesetzt“ zu leer und die Leiste überall abgeschaltet; in `.env.example` bleibt die Variable auskommentiert.
 
 ## Lasttest-Werkzeug (V1.9.149)
 
@@ -314,8 +325,22 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 
 - **Sichtbarkeit nur über `TenderVisibilityPolicy`**; keine andere Stelle entscheidet über Modus, Frist oder Rolle, um ein fremdes Angebot oder einen Zähler zu zeigen. Reads schreiben nie (Status wird berechnet), nur erfolgreiche Schreibwege persistieren `CLOSED`.
 - **Befangenheit nur über `TenderConflicts`** (jede Angebotszeile zählt, auch zurückgezogene). Die Governance-Haken subtrahieren die Menge, rufen `eligibleMemberIds` nicht erneut auf.
-- **Sperrreihenfolge:** Antrag -> Ausschreibung -> Angebote -> Mitglied (`forMemberUpdate`) -> Audit zuletzt. `ITenderService` ist die letzte `registerService`; neue Methoden ans Ende.
+- **Sperrreihenfolge:** Antrag -> Ausschreibung -> Angebote -> Mitglied (`forMemberUpdate`) -> Audit zuletzt. `ITenderService` ist seit V1.9.215 die vorletzte `registerService` (die letzte ist `IOnlineCountsService`); neue Methoden ans Ende.
 - **EUR ist unerreichbar**, es wird nichts gebucht (`TenderAccessTripwireTest`: kein `LtrLedger*`, kein Balance-Provider). `tender*`-Tabellen nur in `TenderStore`/`TenderPersonalData` abfragen.
+
+## Themes per Datei (V1.9.216)
+
+- **Nur die 16 Kern-Tokens sind themebar** (`ThemeTokens.COLOR_KEYS`). Ein neues Token ist Schema-`version` 2: `ThemeTokens`, `ThemeDefaults`, `theme.schema.json`, `theming.adoc` und Tests im selben Schritt (`ThemeConsistencyTest` hält Defaults, `theme.css` und Schema zusammen).
+- **Das CSS entsteht nur in `ThemeCssRenderer`** aus festen Vorlagen, normalisierten Hex-Werten und regex-geprüften Namen, nie aus freien Strings der Datei (auch `name`/`description` nie). Schriftbytes werden nur beim Start gelesen (`ThemeFontLoader`), Anfragen bedienen nur den Speicher.
+- **Die Spezifität `html:root` nicht entfernen:** das Client-`theme.css` wird vom Bundler zur Laufzeit angehängt und käme sonst nach dem statischen Link.
+- **Jede neue `style-src 'self'`-Policy braucht `font-src 'self'`**, jede öffentliche Seite bindet das Stylesheet nur über `publicStylesheetLinks()` (Tripwire `PublicThemeTripwireTest`).
+- **Neue UI nutzt ausschließlich Tokens, nie Farbliterale** (sonst ist sie nicht themebar); der Tripwire R9 bleibt maßgeblich.
+
+## Angemeldete Nutzer (V1.9.215)
+
+- **Nur Zählwerte** (`OnlineCountsDto`): keine IDs, keine Namen, nichts Neues gespeichert, keine Logzeile mit Zahlen. Nur ADMIN (`requireRole(ADMIN)` als erste Anweisung).
+- **`OnlineSessionCounts.groupOf` ist die einzige Zuordnung Status -> Gruppe**, ein `when` ohne `else`; Zählregeln stehen im KDoc (gleicher Join wie `SessionStore.resolve`).
+- **`IOnlineCountsService` ist die letzte `registerService`** (Kilua nummeriert nach Deklarationsreihenfolge); neue Methoden ans Ende, nie dazwischen. Pinned von `ConferenceTimerServiceEventGuardTripwireTest`.
 
 ## Staging-Seed Teil 2 (V1.9.205)
 

@@ -308,7 +308,7 @@ class ConferenceConsensusPanelDomTest {
                 assertTrue(el.flatText().contains("Gewählt wird die Option mit dem geringsten Gesamtwiderstand."))
                 assertTrue(el.flatText().contains("0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."))
                 // the counter sits next to "Prüfen", not in the sticky head
-                assertNull(el.querySelector(".sticky-top [role=status]"), "no counter in the head")
+                assertNull(el.querySelector(".lapis-rating-booth-head [role=status]"), "no counter in the head")
                 awaitUntil("counter", 1500) { el.flatText().contains("0 von 3 Optionen bewertet") }
                 val radios = el.allOf("input[type=radio]")
                 assertEquals(3 * 11, radios.size)

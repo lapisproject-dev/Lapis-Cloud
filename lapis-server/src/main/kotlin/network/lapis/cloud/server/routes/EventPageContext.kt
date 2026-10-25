@@ -120,17 +120,21 @@ internal fun embedFrameAncestors(embedConfig: EmbedConfig): List<String> =
  *   express an allowlist, and browsers that understand `frame-ancestors` ignore it anyway). The STANDARD mode is never frameable, whatever
  *   the allowlist says -- `?embed=1` is the only switch, and it only has an effect where the operator opted in.
  * - No `<script>` on this surface, so `default-src 'none'` and `style-src 'self'` stay maximally strict (no inline styles anywhere).
+ *   The one exception (V1.9.217): a detail page that renders the share bar passes [scriptSrcSelf] and gets `script-src 'self'` (only
+ *   the same-origin share script; still no inline script, no hashes, no nonces).
  */
 internal fun ApplicationCall.applyPageModeHeaders(
     isEmbed: Boolean,
     frameAncestors: List<String>,
+    scriptSrcSelf: Boolean = false,
 ) {
     val imgSrc = if (isEmbed) "'self'" else "'self' data:"
     val frameable = isEmbed && frameAncestors.isNotEmpty()
     val ancestors = if (frameable) "'self' " + frameAncestors.joinToString(" ") else "'none'"
     response.header(
         "Content-Security-Policy",
-        "default-src 'none'; img-src $imgSrc; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors $ancestors",
+        "default-src 'none'; img-src $imgSrc; style-src 'self'; font-src 'self'; ${if (scriptSrcSelf) "script-src 'self'; " else ""}" +
+            "form-action 'self'; base-uri 'none'; frame-ancestors $ancestors",
     )
     response.header("X-Content-Type-Options", "nosniff")
     response.header("Referrer-Policy", "no-referrer")

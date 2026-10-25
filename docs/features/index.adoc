@@ -7,6 +7,8 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 [cols="2,3",options="header"]
 |===
 |Feature |Description
+|link:theming.adoc[Themes from files (V1.9.216)] |Operator colour/radius/font theme from one directory (`LAPIS_THEME_PATH`): 16 tokens in light and dark, WCAG contrast check, optional self-hosted woff2 fonts, generated `/theme.css`, validator command; falls back to the built-in look when anything is wrong
+|link:online-counts.adoc[Signed-in users (V1.9.215)] |ADMIN-only dashboard tile with head counts of people active in the last 15 minutes and of people with any valid session (up to 8 hours), split by members, friends, guests and other; counts only, nothing stored
 |link:event-registrations.adoc[Event registrations (V1.9.204)] |Events as a table with a detail page; overview of the registrations with counters; optional registrant message (BOARD/ADMIN read it, mails never carry it); seat counter for members; CSV export with formula guard and an audit entry
 |link:menu-search.adoc[Menu search and command palette (V1.9.203)] |Search field at the top of the sidebar and a Ctrl+K / Cmd+K dialog; finds only what the menu shows to this person, by title, group and German search words; client only, no phase 2 (settings sections, help topics, records)
 |link:tenders.adoc[Tenders (V1.9.201 foundation, V1.9.202 screens)] |Board-published tasks bound to an adopted resolution; members and friends bid in LTR before a strict deadline (guests cannot bid on an LTR tender since V1.9.202); visibility modes, award by lowest price or by an award motion with conflicted bidders excluded, acceptance; list and detail screens for the board and bidders; LTR only, guests cannot bid, no payout yet
@@ -55,5 +57,6 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 |link:conference-voting.adoc[Voting in the conference room (V1.9.24-V1.9.27)] |Voting panel inside the video-conference room
 |link:systemic-consensus.adoc[Systemic consensus web client (V1.9.28)] |Web client for systemic consensus (Konsensieren)
 |link:polls.adoc[Opinion polls (V1.9.30/V1.9.31)] |Non-binding anonymous opinion polls
+|link:public-sharing.adoc[Share buttons on public pages (V1.9.217)] |Share bar on the event, article and post detail pages, configured by `LAPIS_SHARE_NETWORKS`
 |link:../architecture/governance-committees.adoc[General Assembly, offices and person search (V1.9.101)] |Automatic assembly membership with N, offices, server-side person search, invitation to all active members (PDF in parts, postal cap 50)
 |===

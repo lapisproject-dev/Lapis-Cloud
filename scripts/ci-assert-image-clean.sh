@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # V1.9.93: content check of the release image before it is pushed. Fails (exit 1) when the image contains
 # files that never belong in it (secrets, env files, keys, private geodata, dumps, .git, deploy/, source maps in the
-# client bundle) or when the expected application files are missing (guards against a vacuous pass on a broken image).
+# client bundle) or when the expected application files (incl. the five favicons, V1.9.213) are missing (guards against a vacuous pass on a broken image).
 # Exit 2 = the check itself could not run (Docker error); never treat that as green.
 #
 # Usage: scripts/ci-assert-image-clean.sh <image-reference>
@@ -30,7 +30,8 @@ fi
 # stores and the JDK's own tree are skipped.
 inner='
 set -u
-for f in /app/server/bin/lapis-server /app/client/index.html; do
+for f in /app/server/bin/lapis-server /app/client/index.html /app/client/favicon.ico /app/client/favicon.svg \
+  /app/client/favicon-dark.svg /app/client/favicon-32.png /app/client/apple-touch-icon.png; do
   [ -e "$f" ] || { echo "MISSING $f"; exit 3; }
 done
 # find exits non-zero on any unreadable or vanished entry; that must neither abort the script (set -e) nor hide

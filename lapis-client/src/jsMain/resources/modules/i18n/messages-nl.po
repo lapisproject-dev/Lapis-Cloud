@@ -8332,10 +8332,6 @@ msgstr ""
 "RTMP-URL van uw PeerTube-instantie, bijv. rtmp://peertube.example.org:1935/"
 "live"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:422
-msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
-msgstr "RTMP-doel-URL, bijv. voor Facebook Live, LinkedIn Live of Vimeo"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:63
 msgid "Rückgelastschrift"
 msgstr "Teruggeboekt"
@@ -26717,3 +26713,75 @@ msgstr "Wordt per boeking gekozen"
 
 msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
 msgstr "Doelgebonden en economische bedrijfsvoering"
+
+msgid "Letzte Anmeldung"
+msgstr "Laatste aanmelding"
+
+msgid "nie angemeldet"
+msgstr "nooit aangemeld"
+
+msgid "Zentrale Anmeldung"
+msgstr "Centrale aanmelding"
+
+msgid "Partner-Server"
+msgstr "Partnerserver"
+
+msgid "RTMP-Ziel-URL Ihrer Plattform"
+msgstr "RTMP-doel-URL van uw platform"
+
+msgid "Server-URL und Stream-Schlüssel zeigt Facebook beim Einrichten der Live-Übertragung an. Der Schlüssel kann wechseln."
+msgstr "Facebook toont de server-URL en de streamsleutel bij het instellen van de livestream. De sleutel kan wisselen."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Telegram beim Start der Übertragung an, wenn Sie mit anderer Software streamen."
+msgstr "Telegram toont de server-URL en de streamsleutel bij het starten van de uitzending met andere software."
+
+msgid "Server-URL und Stream-Schlüssel erhalten Sie von LinkedIn für jede einzelne Live-Veranstaltung."
+msgstr "LinkedIn geeft de server-URL en de streamsleutel voor elk afzonderlijk live-evenement."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Rumble beim Einrichten der Übertragung an. Der Schlüssel gilt oft nur einmal."
+msgstr "Rumble toont de server-URL en de streamsleutel bij het instellen van de uitzending. De sleutel geldt vaak maar één keer."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Kick im Creator-Dashboard an."
+msgstr "Kick toont de server-URL en de streamsleutel in het creator-dashboard."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Vimeo in den Einstellungen der Live-Veranstaltung an."
+msgstr "Vimeo toont de server-URL en de streamsleutel in de instellingen van het live-evenement."
+
+msgid "Teilnahme anmelden"
+msgstr "Aanmelden"
+
+msgid "Teilnahme abmelden"
+msgstr "Afmelden"
+
+msgid "Anmelden und bezahlen"
+msgstr "Aanmelden en betalen"
+
+msgid "Nachricht hinzufügen"
+msgstr "Bericht toevoegen"
+
+msgid "Nachricht hinzufügen, an die Veranstalter"
+msgstr "Bericht toevoegen voor de organisatoren"
+
+msgid "Gerade angemeldet"
+msgstr "Nu ingelogd"
+
+msgid "Gerade aktiv"
+msgstr "Nu actief"
+
+msgid "Angemeldet insgesamt"
+msgstr "Ingelogd (totaal)"
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3"
+msgstr "Leden %1 · Vrienden %2 · Gasten %3"
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3 · Sonstige %4"
+msgstr "Leden %1 · Vrienden %2 · Gasten %3 · Overigen %4"
+
+msgid "„Gerade aktiv“ zählt alle, die in den letzten %1 Minuten etwas getan haben. Eine Anmeldung bleibt bis zu %2 Stunden gültig, deshalb kann „Angemeldet insgesamt“ höher sein. Sie selbst sind mitgezählt."
+msgstr "‘Nu actief’ telt iedereen die in de afgelopen %1 minuten iets heeft gedaan. Een aanmelding blijft tot %2 uur geldig, daarom kan ‘Ingelogd (totaal)’ hoger zijn. U wordt zelf ook meegeteld."
+
+msgid "Stand: %1 Uhr"
+msgstr "Stand: %1"
+
+msgid "Die Zahlen konnten gerade nicht geladen werden."
+msgstr "De cijfers konden nu niet worden geladen."

@@ -22,6 +22,10 @@ import kotlinx.html.time
 import kotlinx.html.title
 import kotlinx.html.unsafe
 import network.lapis.cloud.server.articles.ArticleLead
+import network.lapis.cloud.server.share.ShareBarModel
+import network.lapis.cloud.server.share.renderShareBar
+import network.lapis.cloud.server.share.renderShareScript
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 
 /**
  * Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- the server-rendered, unauthenticated
@@ -80,6 +84,8 @@ internal object ArticlePublicHtml {
     fun articlePage(
         ctx: ArticlePageContext,
         view: View,
+        /** V1.9.217 -- the share bar (STANDARD mode only; the route passes `null` in EMBED mode and when sharing is off). */
+        share: ShareBarModel? = null,
     ): String =
         skeleton(
             ctx = ctx,
@@ -87,6 +93,7 @@ internal object ArticlePublicHtml {
             currentPath = "/aktuelles/${view.slug}",
             canonicalPath = "/aktuelles/${view.slug}",
             view = view,
+            share = if (ctx.isEmbed) null else share,
         ) {
             if (ctx.isEmbed) {
                 h1(classes = "article-title") { +view.title }
@@ -139,7 +146,10 @@ internal object ArticlePublicHtml {
             }
         }
 
-    private fun HEAD.renderArticleOgMetas(view: View) {
+    private fun HEAD.renderArticleOgMetas(
+        view: View,
+        ogUrl: String?,
+    ) {
         meta {
             attributes["property"] = "og:title"
             attributes["content"] = view.title
@@ -156,6 +166,13 @@ internal object ArticlePublicHtml {
             attributes["property"] = "article:published_time"
             attributes["content"] = view.publishedAtIso
         }
+        if (ogUrl != null) {
+            meta {
+                attributes["property"] = "og:url"
+                attributes["content"] = ogUrl
+            }
+        }
+        meta(name = "twitter:card", content = "summary")
         if (view.coverImageUrl != null) {
             meta {
                 attributes["property"] = "og:image"
@@ -204,6 +221,7 @@ internal object ArticlePublicHtml {
         currentPath: String,
         canonicalPath: String?,
         view: View?,
+        share: ShareBarModel? = null,
         content: FlowContent.() -> Unit,
     ): String =
         createHTML(prettyPrint = false).html {
@@ -212,7 +230,7 @@ internal object ArticlePublicHtml {
                 meta(charset = "utf-8")
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title { +"$heading – ${ctx.brandTitle}" }
-                link(rel = "stylesheet", href = "/s/assets/style.css")
+                publicStylesheetLinks()
                 if (ctx.isEmbed) {
                     meta(name = "robots", content = "noindex")
                     if (canonicalPath != null) link(rel = "canonical", href = "${ctx.baseUrl}$canonicalPath")
@@ -223,7 +241,18 @@ internal object ArticlePublicHtml {
                     )
                     with(PublicChrome) { renderHreflangAlternates(baseUrl = ctx.baseUrl, currentPath = canonicalPath) }
                 }
-                if (view != null) renderArticleOgMetas(view)
+                if (view != null) {
+                    val ogUrl =
+                        canonicalPath?.let {
+                            if (ctx.isEmbed) {
+                                "${ctx.baseUrl}$it"
+                            } else {
+                                PublicChrome.languageUrl(baseUrl = ctx.baseUrl, currentPath = it, lang = ctx.lang)
+                            }
+                        }
+                    renderArticleOgMetas(view = view, ogUrl = ogUrl)
+                }
+                renderShareScript(share)
             }
             if (ctx.isEmbed) {
                 body {
@@ -257,6 +286,10 @@ internal object ArticlePublicHtml {
                         div {
                             attributes["lang"] = "de"
                             content()
+                        }
+                        // Outside the lang="de" wrapper on purpose: the labels follow the UI language (V1.9.217).
+                        if (share != null) {
+                            div(classes = "article-column") { renderShareBar(model = share, strings = PublicChrome.stringsFor(ctx.lang)) }
                         }
                     }
                     with(PublicChrome) { renderPublicFooter(lang = ctx.lang, baseUrl = ctx.baseUrl, branding = ctx.branding) }

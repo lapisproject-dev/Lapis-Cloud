@@ -20,6 +20,7 @@ import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 private class FakeEventsRpc(
@@ -155,7 +156,13 @@ class MemberEventsScreenDomTest {
             }
         }
 
-    private fun HTMLElement.hasButton(text: String) = allOf("button").any { it.textContent?.trim() == text }
+    /** V1.9.208: a button is named by its visible text OR by its accessible name (the short visible label has a longer `aria-label`). */
+    private fun HTMLElement.hasButton(text: String) = allOf("button").any { it.named(text) }
+
+    private fun HTMLElement.named(text: String) = textContent?.trim() == text || getAttribute("aria-label") == text
+
+    private fun HTMLElement.buttonNamed(text: String): HTMLElement =
+        assertNotNull(allOf("button").firstOrNull { it.named(text) }, "no button '$text'")
 
     @Test
     fun noEvents_showsTheEmptyText(): Promise<Unit> =
@@ -202,10 +209,10 @@ class MemberEventsScreenDomTest {
                 testEvent(id = "mine", title = "Meins", own = EventRegistrationStatus.CONFIRMED),
             )
         return withScreen("ev-buttons", FakeEventsRpc(rows)) { el, _ ->
-            assertTrue(el().hasButton("Zur Veranstaltung anmelden"))
+            assertTrue(el().hasButton("Teilnahme anmelden"))
             assertTrue(el().hasButton("Anmelden und bezahlen (${formatMoney(12.0)})"))
             assertTrue(el().hasButton("Auf die Warteliste"))
-            assertTrue(el().hasButton("Von der Veranstaltung abmelden"))
+            assertTrue(el().hasButton("Teilnahme abmelden"))
             val text = el().textContent.orEmpty()
             assertTrue(text.contains("Ausgebucht"))
             assertTrue(text.contains("Angemeldet"))
@@ -221,9 +228,9 @@ class MemberEventsScreenDomTest {
                 testEvent(id = "waitlisted", own = EventRegistrationStatus.WAITLISTED),
             )
         return withScreen("ev-nobutton", FakeEventsRpc(rows)) { el, _ ->
-            assertFalse(el().hasButton("Zur Veranstaltung anmelden"))
+            assertFalse(el().hasButton("Teilnahme anmelden"))
             assertFalse(el().hasButton("Auf die Warteliste"))
-            assertEquals(1, el().allOf("button").count { it.textContent?.trim() == "Von der Veranstaltung abmelden" })
+            assertEquals(1, el().allOf("button").count { it.textContent?.trim() == "Teilnahme abmelden" })
         }
     }
 
@@ -239,7 +246,7 @@ class MemberEventsScreenDomTest {
     fun registering_callsTheServerOnce_toastsAndReloads(): Promise<Unit> {
         val rpc = FakeEventsRpc(listOf(testEvent()))
         return withScreen("ev-register", rpc) { el, h ->
-            el().buttonNamed("Zur Veranstaltung anmelden").click()
+            el().buttonNamed("Teilnahme anmelden").click()
             awaitUntil("reloaded") { rpc.listCalls == 2 }
             assertEquals(listOf("e1"), rpc.registerCalls)
             assertEquals(listOf("Sie sind angemeldet."), h.successes)
@@ -252,7 +259,7 @@ class MemberEventsScreenDomTest {
         val gate = CompletableDeferred<Unit>()
         val rpc = FakeEventsRpc(listOf(testEvent())).apply { this.gate = gate }
         return withScreen("ev-double", rpc) { el, _ ->
-            val button = el().buttonNamed("Zur Veranstaltung anmelden")
+            val button = el().buttonNamed("Teilnahme anmelden")
             button.click()
             button.click()
             delay(60)
@@ -337,7 +344,7 @@ class MemberEventsScreenDomTest {
     fun aRegistrationConflict_reloads_withAFixedMessage(): Promise<Unit> {
         val rpc = FakeEventsRpc(listOf(testEvent())).apply { registerFailure = ConflictException("Anmeldung geschlossen") }
         return withScreen("ev-conflict", rpc) { el, h ->
-            el().buttonNamed("Zur Veranstaltung anmelden").click()
+            el().buttonNamed("Teilnahme anmelden").click()
             awaitUntil("reloaded") { rpc.listCalls == 2 }
             assertEquals(1, h.errors.size)
             assertFalse(h.errors.single().contains("geschlossen"))
@@ -348,7 +355,7 @@ class MemberEventsScreenDomTest {
     fun withdrawing_asksFirst_andCancelPerformsNoCall(): Promise<Unit> {
         val rpc = FakeEventsRpc(listOf(testEvent(own = EventRegistrationStatus.CONFIRMED)))
         return withScreen("ev-withdraw-dialog", rpc) { el, h ->
-            el().buttonNamed("Von der Veranstaltung abmelden").click()
+            el().buttonNamed("Teilnahme abmelden").click()
             val dialog = h.dialogs.shown.single()
             assertTrue(dialog.message.contains("Sommerfest"))
             assertTrue(dialog.extraLines.isEmpty(), "a free event carries no refund note")
@@ -364,7 +371,7 @@ class MemberEventsScreenDomTest {
                 listOf(testEvent(fee = 12.0, own = EventRegistrationStatus.CONFIRMED, ownPaid = true, ownPaidAmount = 12.0)),
             )
         return withScreen("ev-withdraw-refund", rpc) { el, h ->
-            el().buttonNamed("Von der Veranstaltung abmelden").click()
+            el().buttonNamed("Teilnahme abmelden").click()
             val dialog = h.dialogs.shown.single()
             assertEquals(1, dialog.extraLines.size)
             assertTrue(dialog.extraLines.single().contains("offene Erstattung"))
@@ -382,7 +389,7 @@ class MemberEventsScreenDomTest {
                 cancelFailure = NotFoundException("gone")
             }
         return withScreen("ev-withdraw-notfound", rpc) { el, h ->
-            el().buttonNamed("Von der Veranstaltung abmelden").click()
+            el().buttonNamed("Teilnahme abmelden").click()
             h.dialogs.shown
                 .single()
                 .onConfirm()
@@ -399,7 +406,7 @@ class MemberEventsScreenDomTest {
         return withScreen("ev-forged", rpc) { el, h ->
             assertFalse(el().textContent.orEmpty().contains("###KvI18nS###"))
             assertTrue(el().textContent.orEmpty().contains("Fest"))
-            el().buttonNamed("Von der Veranstaltung abmelden").click()
+            el().buttonNamed("Teilnahme abmelden").click()
             assertFalse(
                 h.dialogs.shown
                     .single()
@@ -415,7 +422,7 @@ class MemberEventsScreenDomTest {
     fun aFeeBearingConfirmedRegistrationWithoutPayment_showsNoRefundNote(): Promise<Unit> {
         val rpc = FakeEventsRpc(listOf(testEvent(fee = 12.0, own = EventRegistrationStatus.CONFIRMED)))
         return withScreen("ev-withdraw-no-note", rpc) { el, h ->
-            el().buttonNamed("Von der Veranstaltung abmelden").click()
+            el().buttonNamed("Teilnahme abmelden").click()
             assertTrue(
                 h.dialogs.shown
                     .single()
@@ -579,7 +586,7 @@ class MemberEventsScreenDomTest {
     @Test
     fun theMessageField_isFoldedAway_opensOnDemand_countsAndCarriesTheHint(): Promise<Unit> =
         withScreen("ev-message-field", FakeEventsRpc(listOf(testEvent()))) { el, _ ->
-            val toggle = el().buttonNamed("Nachricht an die Veranstalter hinzufügen")
+            val toggle = el().buttonNamed("Nachricht hinzufügen, an die Veranstalter")
             assertEquals("false", toggle.getAttribute("aria-expanded"))
             assertTrue(el().allOf("textarea").none { it.offsetParent != null }, "the field is not visible before the click")
             toggle.click()
@@ -606,10 +613,10 @@ class MemberEventsScreenDomTest {
     fun withAMessage_theRegistrationGoesThroughRegisterSelfWithMessage(): Promise<Unit> {
         val rpc = FakeEventsRpc(listOf(testEvent()))
         return withScreen("ev-message-send", rpc) { el, _ ->
-            el().buttonNamed("Nachricht an die Veranstalter hinzufügen").click()
+            el().buttonNamed("Nachricht hinzufügen, an die Veranstalter").click()
             awaitUntil("the field is visible") { el().allOf("textarea").any { it.offsetParent != null } }
             el().typeInto("Nachricht an die Veranstalter", "  Bitte Rampe  ")
-            el().buttonNamed("Zur Veranstaltung anmelden").click()
+            el().buttonNamed("Teilnahme anmelden").click()
             awaitUntil("reloaded") { rpc.listCalls == 2 }
             assertEquals(listOf<Pair<String, String?>>("e1" to "Bitte Rampe"), rpc.messageCalls)
             assertTrue(rpc.registerCalls.isEmpty())
@@ -620,10 +627,10 @@ class MemberEventsScreenDomTest {
     fun withoutAMessage_orWithOnlySpaces_theOldCallIsUsed(): Promise<Unit> {
         val rpc = FakeEventsRpc(listOf(testEvent()))
         return withScreen("ev-message-blank", rpc) { el, _ ->
-            el().buttonNamed("Nachricht an die Veranstalter hinzufügen").click()
+            el().buttonNamed("Nachricht hinzufügen, an die Veranstalter").click()
             awaitUntil("the field is visible") { el().allOf("textarea").any { it.offsetParent != null } }
             el().typeInto("Nachricht an die Veranstalter", "   ")
-            el().buttonNamed("Zur Veranstaltung anmelden").click()
+            el().buttonNamed("Teilnahme anmelden").click()
             awaitUntil("reloaded") { rpc.listCalls == 2 }
             assertEquals(listOf("e1"), rpc.registerCalls)
             assertTrue(rpc.messageCalls.isEmpty())
@@ -633,6 +640,34 @@ class MemberEventsScreenDomTest {
     @Test
     fun noMessageField_whenThereIsNothingToRegisterFor(): Promise<Unit> =
         withScreen("ev-message-none", FakeEventsRpc(listOf(testEvent(own = EventRegistrationStatus.CONFIRMED)))) { el, _ ->
-            assertFalse(el().hasButton("Nachricht an die Veranstalter hinzufügen"))
+            assertFalse(el().hasButton("Nachricht hinzufügen, an die Veranstalter"))
         }
+
+    @Test
+    fun shortVisibleLabels_fullWordingAsAccessibleName_andNoButtonTallerThan48pxOnAPhone(): Promise<Unit> {
+        val rows =
+            listOf(
+                testEvent(id = "free", title = "Gratis"),
+                testEvent(id = "paid", title = "Bezahlt", fee = 12.0),
+                testEvent(id = "full", title = "Voll", full = true),
+                testEvent(id = "mine", title = "Meins", own = EventRegistrationStatus.CONFIRMED),
+            )
+        return withScreen("ev-short-labels", FakeEventsRpc(rows)) { el, _ ->
+            val visible = el().allOf("button").map { it.textContent?.trim() }
+            listOf("Teilnahme anmelden", "Anmelden und bezahlen", "Warteliste", "Teilnahme abmelden").forEach {
+                assertTrue(it in visible, "$it: $visible")
+            }
+            val pay = el().allOf("button").first { it.textContent?.trim() == "Anmelden und bezahlen" }
+            assertEquals("Anmelden und bezahlen (${formatMoney(12.0)})", pay.getAttribute("aria-label"), "the amount is in the name")
+            val waitlist = el().allOf("button").first { it.textContent?.trim() == "Warteliste" }
+            assertEquals("Auf die Warteliste", waitlist.getAttribute("aria-label"))
+            assertTrue(el().queryAll(".lapis-action-group").size >= 4, "every card has an action group")
+            measureAtWidth(el(), 360) { _, host ->
+                host.queryAll("button").filter { it.offsetParent != null }.forEach { b ->
+                    val h = b.getBoundingClientRect().height
+                    assertTrue(h <= 48.0, "'${b.textContent?.trim()}' is $h px high at 360 px")
+                }
+            }
+        }
+    }
 }

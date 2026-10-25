@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.html.div
 import io.kvision.panel.vPanel
 import kotlinx.browser.document
+import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
@@ -84,6 +85,18 @@ class ConferenceTitleRowStartDomTest {
         )
 
     private fun HTMLElement.headerButtons(): List<HTMLElement> = allOf(".lapis-page-header .lapis-page-action button")
+
+    /** The header buttons a person can see: not inside a hidden ancestor (the lobby slot is hidden while a call runs). */
+    private fun HTMLElement.visibleHeaderButtons(): List<HTMLElement> =
+        headerButtons().filter { button ->
+            var node: org.w3c.dom.Element? = button
+            var visible = true
+            while (node != null) {
+                if (window.getComputedStyle(node).display == "none") visible = false
+                node = node.parentElement
+            }
+            visible
+        }
 
     private fun HTMLElement.shows(text: String): Boolean = textContent.orEmpty().contains(text)
 
@@ -254,12 +267,23 @@ class ConferenceTitleRowStartDomTest {
                         renderConferenceScreen(root)
                         awaitUntil("the start button is shown", timeoutMs) { element().headerButtons().isNotEmpty() }
                         element().headerButtons().single().click()
-                        awaitUntil("the call panel is shown (enterCall was reached)", timeoutMs) {
-                            element().querySelector(".lapis-conference-call-panel") != null
+                        // Wait for the STATE (call open, start action not visible), not for a moment. The call of this test has no media server
+                        // and ends on its own after a short while, which brings the lobby (and its start action) back legitimately.
+                        awaitUntil("the call is open and no start action is visible", timeoutMs) {
+                            element().querySelector(".lapis-conference-call-panel") != null && element().visibleHeaderButtons().isEmpty()
                         }
                         assertEquals(1, calls.toRoute(routes.create).size)
-                        assertEquals(emptyList(), element().headerButtons().map { it.textContent }, "no start action inside a call")
-                        assertFalse(element().shows("Aktive Besprechungen"), "the lobby is gone while the call runs")
+                        // While the call is open the start action must stay away and no start progress text may show; sampled, because a
+                        // flash of the old text is exactly what a single check at one moment misses.
+                        repeat(15) {
+                            if (element().querySelector(".lapis-conference-call-panel") != null) {
+                                val state = element().visibleHeaderButtons().map { it.textContent }
+                                assertEquals(emptyList(), state, "no start action inside a call")
+                                assertFalse(element().shows("Wird gestartet"), "no start progress text inside a call")
+                                assertFalse(element().shows("Aktive Besprechungen"), "the lobby is gone while the call runs")
+                            }
+                            delay(20)
+                        }
                     } finally {
                         ConferenceDock.resetForTest()
                     }

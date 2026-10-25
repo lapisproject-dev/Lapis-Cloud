@@ -2,6 +2,8 @@ package network.lapis.cloud.server.clientversion
 
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.theme.ResolvedTheme
+import network.lapis.cloud.server.theme.ThemeHtml
 import java.io.File
 
 /**
@@ -39,6 +41,8 @@ internal data class ClientShell(
              * caller/test stays source-compatible.
              */
             emergencyAdminLoginEnabled: Boolean = false,
+            /** V1.9.216 -- the theme whose content hash is stamped into the shell's stylesheet link (default: the compiled-in theme). */
+            theme: ResolvedTheme = ResolvedTheme.DEFAULT,
         ): ClientShell {
             val buildId = ClientBuildId.compute(clientDistRoot = clientDistRoot)
             val indexFile = File(clientDistRoot, "index.html")
@@ -48,11 +52,15 @@ internal data class ClientShell(
                 } else {
                     ClientVersionHtml.inject(
                         html =
-                            BrandingHtml.inject(
-                                html = indexFile.readText(),
-                                brand = branding,
-                                keycloakMode = keycloakEnabled,
-                                emergencyAdminLoginEnabled = emergencyAdminLoginEnabled,
+                            ThemeHtml.inject(
+                                html =
+                                    BrandingHtml.inject(
+                                        html = indexFile.readText(),
+                                        brand = branding,
+                                        keycloakMode = keycloakEnabled,
+                                        emergencyAdminLoginEnabled = emergencyAdminLoginEnabled,
+                                    ),
+                                theme = theme,
                             ),
                         buildId = buildId,
                     )

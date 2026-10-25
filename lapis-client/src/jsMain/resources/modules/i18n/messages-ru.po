@@ -8323,9 +8323,6 @@ msgstr ""
 "RTMP-адрес вашего экземпляра PeerTube, например rtmp://"
 "peertube.example.org:1935/live"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:422
-msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
-msgstr ""
 "Целевой RTMP-адрес, например для Facebook Live, LinkedIn Live или Vimeo"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:63
@@ -26719,3 +26716,75 @@ msgstr "Выбирается для каждой проводки"
 
 msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
 msgstr "Целевая и хозяйственная деятельность"
+
+msgid "Letzte Anmeldung"
+msgstr "Последний вход"
+
+msgid "nie angemeldet"
+msgstr "ни разу не входил"
+
+msgid "Zentrale Anmeldung"
+msgstr "Центральный вход"
+
+msgid "Partner-Server"
+msgstr "Сервер-партнёр"
+
+msgid "RTMP-Ziel-URL Ihrer Plattform"
+msgstr "URL назначения RTMP вашей платформы"
+
+msgid "Server-URL und Stream-Schlüssel zeigt Facebook beim Einrichten der Live-Übertragung an. Der Schlüssel kann wechseln."
+msgstr "Facebook показывает URL сервера и ключ трансляции при настройке прямого эфира. Ключ может меняться."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Telegram beim Start der Übertragung an, wenn Sie mit anderer Software streamen."
+msgstr "Telegram показывает URL сервера и ключ трансляции при запуске эфира через стороннее программное обеспечение."
+
+msgid "Server-URL und Stream-Schlüssel erhalten Sie von LinkedIn für jede einzelne Live-Veranstaltung."
+msgstr "LinkedIn предоставляет URL сервера и ключ трансляции для каждого отдельного прямого эфира."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Rumble beim Einrichten der Übertragung an. Der Schlüssel gilt oft nur einmal."
+msgstr "Rumble показывает URL сервера и ключ трансляции при настройке эфира. Ключ часто действует только один раз."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Kick im Creator-Dashboard an."
+msgstr "Kick показывает URL сервера и ключ трансляции на панели автора."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Vimeo in den Einstellungen der Live-Veranstaltung an."
+msgstr "Vimeo показывает URL сервера и ключ трансляции в настройках прямого эфира."
+
+msgid "Teilnahme anmelden"
+msgstr "Записаться"
+
+msgid "Teilnahme abmelden"
+msgstr "Отменить запись"
+
+msgid "Anmelden und bezahlen"
+msgstr "Записаться и оплатить"
+
+msgid "Nachricht hinzufügen"
+msgstr "Добавить сообщение"
+
+msgid "Nachricht hinzufügen, an die Veranstalter"
+msgstr "Добавить сообщение для организаторов"
+
+msgid "Gerade angemeldet"
+msgstr "Сейчас в системе"
+
+msgid "Gerade aktiv"
+msgstr "Сейчас активны"
+
+msgid "Angemeldet insgesamt"
+msgstr "Вошли в систему (всего)"
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3"
+msgstr "Члены %1 · Друзья %2 · Гости %3"
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3 · Sonstige %4"
+msgstr "Члены %1 · Друзья %2 · Гости %3 · Прочие %4"
+
+msgid "„Gerade aktiv“ zählt alle, die in den letzten %1 Minuten etwas getan haben. Eine Anmeldung bleibt bis zu %2 Stunden gültig, deshalb kann „Angemeldet insgesamt“ höher sein. Sie selbst sind mitgezählt."
+msgstr "«Сейчас активны» — все, кто что-то делал за последние %1 мин. Вход остаётся действительным до %2 ч, поэтому «Вошли в систему (всего)» может быть больше. Вы тоже учтены."
+
+msgid "Stand: %1 Uhr"
+msgstr "По состоянию на %1"
+
+msgid "Die Zahlen konnten gerade nicht geladen werden."
+msgstr "Не удалось загрузить данные."

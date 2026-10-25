@@ -768,12 +768,18 @@ private fun renderLobby(
             }
             val generation = ConferenceDock.generation
             val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
-            startButton.text = tr("Besprechung jetzt starten")
             if (token != null) {
                 // the call was ended hard (sign-out, language change) while the token was on its way: no device may be switched on
-                if (!ConferenceDock.isCurrent(generation)) return@runGuardedAction
+                if (!ConferenceDock.isCurrent(generation)) {
+                    startButton.text = tr("Besprechung jetzt starten")
+                    return@runGuardedAction
+                }
                 enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, rejoinGuard, refreshLobby)
+                // V1.9.218: reset only AFTER the lobby is hidden; before, the start button flashed up again with its resting text while the call opened.
+                // Still needed: the button is shown again when the person returns to the lobby.
+                startButton.text = tr("Besprechung jetzt starten")
             } else {
+                startButton.text = tr("Besprechung jetzt starten")
                 ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
             }
             // else: guarded {} already toasted the error; the room stays in the already-refreshed

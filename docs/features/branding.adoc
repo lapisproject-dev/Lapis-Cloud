@@ -1,0 +1,16 @@
+= Branding (logo in the navbar)
+:toc:
+
+Operators can show their own logo instead of the default Lapis Cloud mark. Without a logo the mark is shown next to the title, whatever the title is (since V1.9.214). The logo is served at
+`/api/branding/logo`; the architecture of the public chrome is described in
+`docs/architecture/public-chrome.adoc`.
+Colours, corner radius and fonts are a separate feature: see link:theming.adoc[Themes from files].
+
+== Logo recommendations
+
+* Use a transparent PNG or an SVG. Any aspect ratio works.
+* The logo is shown *32 px tall* in the navbar (the height scales with the text zoom), at most
+  *180 px wide* (120 px on phones). In the login lockup it is *40 px tall*, at most 240 px wide.
+  A wider logo is scaled down to fit, never cropped.
+* For sharp rendering use an SVG, or a PNG that is at least 96 px tall.
+* Do not add your own padding inside the image: the spacing to the title comes from the interface.

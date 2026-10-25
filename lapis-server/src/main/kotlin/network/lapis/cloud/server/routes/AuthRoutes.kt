@@ -29,6 +29,7 @@ import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.extractSessionToken
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.LoginMethod
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.WeakPasswordException
@@ -205,7 +206,7 @@ internal fun Route.registerAuthRoutes(
         rateLimiter.reset(ipKey)
 
         val memberId = accountRow[MemberTable.id]
-        val issued = SessionStore.createSession(memberId)
+        val issued = SessionStore.createSession(memberId = memberId, loginMethod = LoginMethod.PASSWORD)
         call.response.cookies.append(
             Cookie(
                 name = SESSION_COOKIE_NAME,

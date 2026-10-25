@@ -1,0 +1,115 @@
+= Share buttons on public pages (V1.9.217)
+:toc:
+
+A small share bar on the public detail pages lets a visitor pass a page on. It consists of plain links and one tiny same-origin script.
+Nothing is loaded from or sent to a third party before the visitor clicks.
+
+== Where the bar appears
+
+[cols="2,3"]
+|===
+| Page | Notes
+
+| `GET /veranstaltung/{slug}` | Standard presentation, the 200 page only. After the registration card.
+| `GET /aktuelles/{slug}` | Standard presentation, the 200 page only. Below the article text.
+| `GET /s/{id}` | Directly after the post, before the replies.
+|===
+
+The bar never appears in the `?embed=1` presentation, on token or follow-up pages (thanks, waitlist, cancelled, storno, payment, ticket), on error
+pages, on drafts or unpublished items, or on any overview, landing, transparency, legal or login page. The renderer is called from exactly three
+places (checked by a tripwire test).
+
+== Networks and link formats
+
+The bar offers, in this fixed order: the system share dialog (`native`), copy link (`copy`), WhatsApp, Telegram, Facebook, X, LinkedIn, Reddit and
+e-mail. Every target host is a constant; the page URL, title and text are only ever percent-encoded parameter values.
+
+[cols="1,3"]
+|===
+| Network | Link
+
+| Facebook | `https://www.facebook.com/sharer/sharer.php?u=<url>`
+| X | `https://twitter.com/intent/tweet?url=<url>&text=<text>`
+| LinkedIn | `https://www.linkedin.com/sharing/share-offsite/?url=<url>`
+| WhatsApp | `https://wa.me/?text=<text>%20<url>`
+| Telegram | `https://t.me/share/url?url=<url>&text=<text>`
+| Reddit | `https://www.reddit.com/submit?url=<url>&title=<title>`
+| E-mail | `mailto:?subject=<title>&body=<text>%0A%0A<url>`
+|===
+
+The shared URL is built from the configured public base URL (`LAPIS_PUBLIC_BASE_URL`), plus `?lang=xx` for a non-default UI language. It is never
+derived from the request's `Host` or `X-Forwarded-*` headers. Titles and texts are normalised (control and bidi characters removed, whitespace
+collapsed) and cut by code points: title 200, text 240, Open Graph description 300; the ellipsis counts inside the limit.
+
+== Privacy
+
+* Links only: no widget, no pixel, no third-party font or script.
+* Network links carry `target="_blank"` and `rel="noopener noreferrer"`; every public page sends `Referrer-Policy: no-referrer`.
+* `share.js` reads no storage and cookies, sends nothing and writes only `textContent`.
+
+== Content-Security-Policy
+
+The bar needs a script only for `native` and `copy`. A page that renders such a bar widens its policy by `script-src 'self'` and nothing else (no
+`unsafe-inline`, no hash, no nonce); the JSON-LD block is a data block and not covered by `script-src`. Both the markup and the policy are derived from
+the same model in the route, so they cannot disagree. All other responses are unchanged.
+
+[cols="1,3"]
+|===
+| Page | Policy with a script-needing bar
+
+| Event and article page
+| `default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`
+
+| Post page
+| `default-src 'none'; style-src 'self'; font-src 'self'; script-src 'self'; img-src data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`
+|===
+
+== `share.js` and the behaviour without JavaScript
+
+`GET /s/assets/share.js` is a constant ES5 string (about 30 lines, `text/javascript`, `nosniff`, ETag with `304`, `max-age=86400`). It:
+
+* checks that the bar's URL starts with the page's own origin and does nothing otherwise;
+* reveals the system share button when `navigator.share` exists (and `canShare` accepts the URL); cancelling the dialog is silent;
+* turns the copy link into a clipboard copy with a polite status line ("Link kopiert" or a failure message).
+
+Without JavaScript the copy entry is a normal link to the page and the system share button stays hidden. `navigator.share` and `navigator.clipboard`
+exist only in a secure context; the bar is not rendered on a base URL that is neither https nor loopback.
+
+== Open Graph, Twitter and JSON-LD (event page)
+
+[cols="1,3"]
+|===
+| Tag | Value
+
+| `og:title` | The event title
+| `og:description` | `Do, 12.11.2030, 19:00 Uhr · <place or Online> · <first paragraph>`, at most 300 code points. German in every UI language, like the page body.
+| `og:url` | The canonical URL
+| `og:type` | `website` (there is no better Open Graph type for an event)
+| `og:site_name` | The instance name
+| `og:image` | The cover image; otherwise the operator logo when it is a PNG or WebP file (`/api/branding/logo`); never an SVG
+| `twitter:card` | `summary`
+|===
+
+A schema.org `Event` JSON-LD block carries name, start and end with the organisation's UTC offset, attendance mode, status, location (`Place` and/or
+`VirtualLocation`), URL, image and description. It is built with a JSON builder and escaped afterwards (`<`, `>`, `&`, U+2028, U+2029) so the data block
+cannot be closed early. This is the only `unsafe` output of the page. The article page gains `og:url` and `twitter:card`.
+
+== Configuration
+
+`LAPIS_SHARE_NETWORKS`, read once at startup:
+
+* not set: all networks;
+* set but empty (or `none`): the bar is off;
+* otherwise a comma list of `native`, `copy`, `whatsapp`, `telegram`, `facebook`, `x`, `linkedin`, `reddit`, `email` (`all` is accepted as a keyword);
+  names are trimmed and lower-cased, unknown names are ignored with one warning, and the order of the list never changes the order of the bar;
+* `native` alone renders no bar (it is hidden without JavaScript).
+
+In `deploy/example/docker-compose.yml` the variable is passed as `${LAPIS_SHARE_NETWORKS-all}` (no colon). With `${...:-}` an unset variable would reach the
+server as an empty string and silently disable the bar everywhere. Keep the line in `.env.example` commented out for the same reason.
+
+== Limits
+
+* Facebook and LinkedIn read only Open Graph tags; they ignore the text parameter.
+* WebP as `og:image` is accepted by Facebook; support at other networks is not guaranteed.
+* Cutting by code points can separate an emoji sequence joined by zero-width joiners.
+* Sharing needs a reachable page: a preview of a private instance or of an unpublished event does not exist.

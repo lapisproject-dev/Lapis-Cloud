@@ -22,6 +22,7 @@ import kotlinx.html.stream.createHTML
 import kotlinx.html.title
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 import network.lapis.cloud.shared.domain.CommitteeRole
 
 /**
@@ -142,7 +143,7 @@ internal object PublicTransparencyHtml {
             // Seiten weiterhin auffindbar.
             meta(name = "robots", content = "noindex,follow")
             link(rel = "canonical", href = canonicalUrl)
-            link(rel = "stylesheet", href = "/s/assets/style.css")
+            publicStylesheetLinks()
             meta(content = pageTitle) { attributes["property"] = "og:title" }
             meta(content = description) { attributes["property"] = "og:description" }
             meta(content = canonicalUrl) { attributes["property"] = "og:url" }

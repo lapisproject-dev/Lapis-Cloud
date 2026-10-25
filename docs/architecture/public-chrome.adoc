@@ -44,7 +44,7 @@ text links to icon-only links. See <<icon-navigation,below>>.
   precedent and are best-effort translations, not yet reviewed by a native speaker of
   each language.
 * `renderChrome(lang, active, baseUrl, branding, currentPath, nav)` — a `FlowContent`
-  extension rendering the skip-link + `<header class="chrome">` (brand wordmark/logo,
+  extension rendering the skip-link + `<header class="chrome">` (brand logo, or the Lapis Cloud mark plus wordmark,
   primary nav with `aria-current="page"` on the active entry, an 8-entry
   `<details class="chrome-lang">` language switcher, login/register CTAs). Since V1.9.11
   the `nav: PublicNavAvailability` parameter is **required, no default** — see
@@ -107,6 +107,16 @@ Content-Security-Policy, used exclusively when the chrome renders the operator's
 (`ResolvedBranding.logoAvailable`, served at `GET /api/branding/logo`). Every existing
 call site that does not pass `branding.logoAvailable` explicitly keeps its
 byte-identical, image-free CSP — this is additive, not a loosening of the default.
+
+== Brand rule (V1.9.214)
+
+The brand link shows the operator logo when `ResolvedBranding.logoAvailable` is set (image only, as before). Otherwise it
+shows the Lapis Cloud mark followed by the title wordmark, whatever the title is. The mark is a 22 px inline SVG, dark variant
+only because the chrome bar is fixed `#14181E`, and decorative (`aria-hidden`); the link's accessible name is the wordmark.
+Colours are SVG presentation attributes, never `style=`, so the CSP stays unchanged. Geometry and palette come from
+`LapisCloudMark` in `lapis-shared`, which the client mark uses as well. The 22 px height equals `img.chrome-logo`, so the bar
+does not jump between logo and mark. The `.chrome-brand` and `.chrome-mark` rules (spacing) live in the shared public
+stylesheet; the SVG itself is sized by its attributes.
 
 == Branding threading: `ResolvedBranding`, not `brandTitle: String`
 
@@ -183,3 +193,5 @@ route family this chrome now wraps.
 == V1.9.20 cross-reference
 
 See xref:public-profiles.adoc[Public pages: board, politicians, regional chapters] (new tabs, touch fix, consumers of the photo/crest, chapter description and crest).
+
+See `docs/features/branding.adoc` for the logo size recommendations of the signed-in navbar and the login lockup.

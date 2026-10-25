@@ -29,7 +29,14 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
  * change-password action, and a self-service Austritt action gated behind a real confirmation
  * step (see [ConfirmDialog]) since it is destructive/irreversible from the member's perspective.
  */
-fun renderDashboardScreen(container: SimplePanel) {
+fun renderDashboardScreen(container: SimplePanel) = renderDashboardScreen(container, liveOnlineCountsRpc(), WindowOnlineCountsScheduler)
+
+/** Test seam (V1.9.218): the tile's RPC and scheduler can be replaced; the public overload keeps the route signature `(SimplePanel) -> Unit`. */
+internal fun renderDashboardScreen(
+    container: SimplePanel,
+    onlineCountsRpc: OnlineCountsRpc,
+    onlineCountsScheduler: OnlineCountsScheduler,
+) {
     val session = AppState.session
     if (session == null) {
         navigateTo(Routes.LOGIN)
@@ -85,6 +92,8 @@ fun renderDashboardScreen(container: SimplePanel) {
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         navTile(nav, tr("Mitgliederverwaltung"), Routes.MEMBERS)
     }
+
+    if (shouldShowOnlineCounts()) renderOnlineCountsCard(root, rpc = onlineCountsRpc, scheduler = onlineCountsScheduler)
 
     root.h2(tr("Konto")) { addCssClass("h5") }
     renderMemberCard(root, session.status)

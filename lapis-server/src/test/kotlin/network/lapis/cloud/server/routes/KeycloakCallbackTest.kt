@@ -326,7 +326,7 @@ class KeycloakCallbackTest :
                 val response = client.get("/auth/keycloak/callback?state=never-issued&code=whatever")
                 response.status shouldBe HttpStatusCode.Unauthorized
                 response.headers["Content-Security-Policy"] shouldBe
-                    "default-src 'none'; style-src 'self'; img-src data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+                    "default-src 'none'; style-src 'self'; font-src 'self'; img-src data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
                 response.headers["X-Frame-Options"] shouldBe "DENY"
                 response.headers["Cache-Control"] shouldBe "no-store"
                 response.headers["Referrer-Policy"] shouldBe "same-origin"

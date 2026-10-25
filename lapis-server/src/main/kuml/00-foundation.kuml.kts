@@ -133,6 +133,13 @@ classDiagram(name = "Foundation") {
         literal(name = "ADMIN")
     }
 
+    // Welle V1.9.207 -- append-only, never reorder (mirrors `account.last_login_method VARCHAR(32)`, V118).
+    val loginMethod = enumOf(name = "LoginMethod") {
+        literal(name = "PASSWORD")
+        literal(name = "KEYCLOAK")
+        literal(name = "OIDC_FEDERATION")
+    }
+
     // RegionalChapter-owned stub -- id-only, mirrors the cross-domain-stub pattern every other
     // domain file establishes for a table it references but does not own (kUML has no cross-file
     // model-import mechanism, each domain script is evaluated independently -- see
@@ -347,6 +354,20 @@ classDiagram(name = "Foundation") {
         attribute(name = "roleChangedAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "role_changed_at" }
+        }
+        // Welle V1.9.207 (V118): stamped (UTC, Klasse A) on every successful login by SessionStore.createSession; NULL = never signed in
+        // since V118. Both columns are set together (chk_account_last_login_pair in V118).
+        attribute(name = "lastLoginAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "last_login_at" }
+        }
+        attribute(name = "lastLoginMethod", type = loginMethod) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "last_login_method"
+                "sqlType" to "VARCHAR(32)"
+                "enumType" to "network.lapis.cloud.shared.domain.LoginMethod"
+            }
         }
     }
 

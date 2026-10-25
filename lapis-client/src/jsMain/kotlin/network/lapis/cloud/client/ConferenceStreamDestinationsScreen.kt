@@ -108,7 +108,7 @@ private fun renderDestinationRow(
         setAttribute("aria-hidden", "true")
     }
     headerRow.untrustedCardTitle(destination.label)
-    headerRow.typeBadge(conferenceStreamPlatformLabel(destination.platform), "secondary")
+    headerRow.typeBadge(conferenceStreamDestinationLabel(destination.platform, destination.rtmpUrl), "secondary")
     headerRow.activeStatusBadge(destination.enabled)
 
     row.untrustedDiv(destination.rtmpUrl, className = "text-muted small")
@@ -183,7 +183,7 @@ private fun SimplePanel.renderDestinationCreateForm(
     // Formular-Grammatik (V1.4.28): vier Felder, alle Pflicht => Legende "Alle Felder sind Pflichtfelder." (Fall b).
     val form = card.lapisForm()
     val labelField = form.textField(label = tr("Bezeichnung (z. B. \"PdV YouTube-Kanal\")"), required = true)
-    val platformOptions = ConferenceStreamPlatform.entries.map { it.name to conferenceStreamPlatformLabel(it) }
+    val platformOptions = conferenceStreamPlatformOptions()
     val platformField =
         form.selectField(
             label = tr("Plattform"),
@@ -214,17 +214,17 @@ private fun SimplePanel.renderDestinationCreateForm(
     form.buttons(primary = createButton, cancel = collapseCancelButton(collapse))
 
     fun applyPlatformDefaults() {
-        val platform = ConferenceStreamPlatform.valueOf(platformSelect.value ?: ConferenceStreamPlatform.GENERIC_RTMP.name)
+        val (platform, preset) = conferenceStreamSelection(platformSelect.value)
         // Ersetzt oder leert nur einen Preset-Wert; eine getippte Adresse bleibt unangetastet (conferenceStreamUrlAfterPlatformSwitch).
-        conferenceStreamUrlAfterPlatformSwitch(urlField.value, platform)?.let { next ->
+        conferenceStreamUrlAfterSelectionSwitch(urlField.value, platform, preset)?.let { next ->
             // Über das LapisField, nicht am Control vorbei: sonst bliebe ein schon gezeigter Feldfehler (und
             // aria-invalid) an der nun gültigen URL stehen.
             urlField.setValue(next)
             urlField.validate(force = false)
         }
         // Bei jedem Wechsel neu gesetzt, sonst bliebe der Platzhalter von X bei einer anderen Plattform stehen.
-        (urlField.control as? Text)?.placeholder = conferenceStreamUrlPlaceholder(platform)
-        hintLine.content = conferenceStreamPlatformHint(platform).orEmpty()
+        (urlField.control as? Text)?.placeholder = conferenceStreamUrlPlaceholder(platform, preset)
+        hintLine.content = (preset?.keyHint?.invoke() ?: conferenceStreamPlatformHint(platform)).orEmpty()
     }
     platformSelect.subscribe { applyPlatformDefaults() }
     applyPlatformDefaults()
@@ -232,7 +232,8 @@ private fun SimplePanel.renderDestinationCreateForm(
     createButton.onClick {
         form.submit(createButton) {
             val label = labelField.value.trim()
-            val platform = ConferenceStreamPlatform.valueOf(platformSelect.value ?: ConferenceStreamPlatform.GENERIC_RTMP.name)
+            // A preset is stored as GENERIC_RTMP; the stream key field is never read or written by presets.
+            val platform = conferenceStreamSelection(platformSelect.value).first
             val result =
                 guarded {
                     rpcService<IConferenceStreamingService>().createDestination(label, platform, urlField.value.trim(), keyField.value)
@@ -392,22 +393,70 @@ internal fun conferenceStreamPresetUrl(platform: ConferenceStreamPlatform): Stri
 internal fun conferenceStreamUrlAfterPlatformSwitch(
     current: String,
     newPlatform: ConferenceStreamPlatform,
-): String? {
-    val trimmed = current.trim()
-    if (trimmed.isEmpty()) return conferenceStreamPresetUrl(newPlatform)
-    val isPreset = ConferenceStreamPlatform.entries.any { conferenceStreamPresetUrl(it) == trimmed }
-    return if (isPreset) conferenceStreamPresetUrl(newPlatform) ?: "" else null
-}
+): String? = conferenceStreamUrlAfterSelectionSwitch(current, newPlatform, null)
 
 /** Platzhalter des URL-Felds: nur bei X (ohne Vorbelegung) ein Formhinweis, sonst keiner. */
-internal fun conferenceStreamUrlPlaceholder(platform: ConferenceStreamPlatform): String? =
-    if (platform == ConferenceStreamPlatform.X) "rtmps://…" else null
+internal fun conferenceStreamUrlPlaceholder(
+    platform: ConferenceStreamPlatform,
+    preset: ConferenceStreamPreset? = null,
+): String? = if (platform == ConferenceStreamPlatform.X || preset?.perEventUrl == true) "rtmps://…" else null
+
+/** Select options: presets first (`preset:<id>`), then the fixed platform order; GENERIC_RTMP stays the default. */
+internal fun conferenceStreamPlatformOptions(): List<Pair<String, String>> =
+    conferenceStreamPresets.map { (PRESET_OPTION_PREFIX + it.id) to it.label } +
+        listOf(
+            ConferenceStreamPlatform.YOUTUBE,
+            ConferenceStreamPlatform.TWITCH,
+            ConferenceStreamPlatform.X,
+            ConferenceStreamPlatform.PEERTUBE,
+            ConferenceStreamPlatform.OWNCAST,
+            ConferenceStreamPlatform.GENERIC_RTMP,
+        ).map { it.name to conferenceStreamPlatformLabel(it) }
+
+/** Select value -> (platform, preset). A preset maps to GENERIC_RTMP; an unknown id or value falls back to GENERIC_RTMP. */
+internal fun conferenceStreamSelection(value: String?): Pair<ConferenceStreamPlatform, ConferenceStreamPreset?> {
+    if (value == null) return ConferenceStreamPlatform.GENERIC_RTMP to null
+    if (value.startsWith(PRESET_OPTION_PREFIX)) {
+        return ConferenceStreamPlatform.GENERIC_RTMP to conferenceStreamPresetById(value.removePrefix(PRESET_OPTION_PREFIX))
+    }
+    val platform = ConferenceStreamPlatform.entries.firstOrNull { it.name == value } ?: ConferenceStreamPlatform.GENERIC_RTMP
+    return platform to null
+}
+
+/**
+ * As [conferenceStreamUrlAfterPlatformSwitch], but aware of presets: a value counts as a prefill when it equals a platform preset URL
+ * or a catalog `serverUrl`; a typed address is never overwritten. `null` = leave the field alone.
+ */
+internal fun conferenceStreamUrlAfterSelectionSwitch(
+    current: String,
+    platform: ConferenceStreamPlatform,
+    preset: ConferenceStreamPreset?,
+): String? {
+    val target = if (preset != null) preset.serverUrl else conferenceStreamPresetUrl(platform)
+    val trimmed = current.trim()
+    if (trimmed.isEmpty()) return target
+    val isPrefill =
+        ConferenceStreamPlatform.entries.any { conferenceStreamPresetUrl(it) == trimmed } ||
+            conferenceStreamPresets.any { it.serverUrl == trimmed }
+    return if (isPrefill) target ?: "" else null
+}
+
+/** List badge: a generic destination whose host is a known preset shows the brand, everything else the platform label. */
+internal fun conferenceStreamDestinationLabel(
+    platform: ConferenceStreamPlatform,
+    rtmpUrl: String,
+): String =
+    if (platform == ConferenceStreamPlatform.GENERIC_RTMP) {
+        conferenceStreamPresetForUrl(rtmpUrl)?.label ?: conferenceStreamPlatformLabel(platform)
+    } else {
+        conferenceStreamPlatformLabel(platform)
+    }
 
 internal fun conferenceStreamPlatformHint(platform: ConferenceStreamPlatform): String? =
     when (platform) {
         ConferenceStreamPlatform.PEERTUBE -> tr("RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live")
         ConferenceStreamPlatform.OWNCAST -> tr("RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live")
-        ConferenceStreamPlatform.GENERIC_RTMP -> tr("RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo")
+        ConferenceStreamPlatform.GENERIC_RTMP -> tr("RTMP-Ziel-URL Ihrer Plattform")
         ConferenceStreamPlatform.X ->
             tr(
                 "X (ehemals Twitter): Server-URL und Stream-Schlüssel finden Sie im Media Studio von X unter \"Producer\". " +

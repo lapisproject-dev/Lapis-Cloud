@@ -21,6 +21,7 @@ import kotlinx.html.stream.createHTML
 import kotlinx.html.title
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 
 /**
  * Welle V1.4.6 "Öffentliche Startseite" (`GET /`) -- a THIRD unauthenticated, account-less public
@@ -140,7 +141,7 @@ internal object PublicLandingHtml {
             // client-seitigen SPA) an dieser Stelle.
             meta(name = "robots", content = "index,follow")
             link(rel = "canonical", href = canonicalUrl)
-            link(rel = "stylesheet", href = "/s/assets/style.css")
+            publicStylesheetLinks()
             with(PublicChrome) { renderHreflangAlternates(baseUrl = baseUrl, currentPath = "/") }
             meta(content = branding.title) { attributes["property"] = "og:title" }
             meta(content = description) { attributes["property"] = "og:description" }

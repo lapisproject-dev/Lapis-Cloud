@@ -12,7 +12,10 @@ import network.lapis.cloud.client.buttonNamed
 import network.lapis.cloud.client.formTest
 import network.lapis.cloud.client.jsonOf
 import network.lapis.cloud.client.lastOpenModal
+import network.lapis.cloud.client.measureAtWidth
 import network.lapis.cloud.client.mountedForm
+import network.lapis.cloud.client.queryAll
+import network.lapis.cloud.client.queryOne
 import network.lapis.cloud.client.routeOf
 import network.lapis.cloud.client.rpcService
 import network.lapis.cloud.client.typeInto
@@ -36,6 +39,7 @@ import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -438,6 +442,32 @@ class EncounterSpaceScreenDomTest {
                 assertEquals("Amtsträger erhalten eine anonyme E-Mail bei jeder Person ohne Amt", everyLabel)
                 // no badge, no number: the bell is a quiet glyph
                 assertNull(rows.first { it.textContent.orEmpty().contains("Erster") }.querySelector(".badge[role=img]"))
+            }
+        }
+
+    @Test
+    fun atPhoneWidth_theFourActionsShareOneRow_asIcons_each44pxHigh(): Promise<Unit> =
+        formTest {
+            withScreen(AccountRole.BOARD, listOf(closedSpace)) { element, _, _ ->
+                assertNotNull(element.querySelector(".lapis-encounter-space-row .lapis-action-group"), "an action group, not a toolbar")
+                measureAtWidth(element, 360) { doc, host ->
+                    val win = doc.defaultView!!
+                    val group = host.queryAll(".lapis-encounter-space-row .lapis-action-group").single()
+                    val buttons = group.queryAll("button")
+                    assertEquals(3, buttons.size, "Bearbeiten, Ämter, Archivieren (+ the link Zum Raum)")
+                    buttons.forEach { b ->
+                        assertEquals("none", win.getComputedStyle(b.queryOne(".lapis-action-label")).display)
+                        assertTrue(b.getBoundingClientRect().height in 44.0..48.0, "height ${b.getBoundingClientRect().height}")
+                        assertTrue(b.getAttribute("aria-label").orEmpty().isNotBlank(), "an icon-only button keeps its name")
+                    }
+                    val link = group.queryAll("a").single()
+                    val centres = (buttons + link).map { it.getBoundingClientRect().let { r -> (r.top + r.bottom) / 2 } }
+                    assertTrue(centres.max() - centres.min() <= 2.0, "one row: centres $centres")
+                }
+                measureAtWidth(element, 1200) { doc, host ->
+                    val label = host.queryAll(".lapis-encounter-space-row .lapis-action-label").first()
+                    assertNotEquals("none", doc.defaultView!!.getComputedStyle(label).display)
+                }
             }
         }
 }

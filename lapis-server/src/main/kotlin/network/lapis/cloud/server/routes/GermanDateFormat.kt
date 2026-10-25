@@ -56,3 +56,10 @@ internal fun formatEventRange(
         else -> "$startDay, ${germanTime(start)} Uhr bis ${germanWeekday(end)}, ${germanDate(end)}, ${germanTime(end)} Uhr"
     }
 }
+
+/** Two-letter German weekday abbreviation (`Mo`..`So`) of [dt]'s calendar date (V1.9.217). */
+internal fun germanWeekdayShort(dt: LocalDateTime): String = GERMAN_WEEKDAYS[dt.dayOfWeek.isoDayNumber - 1].take(2)
+
+/** Numeric German date and time, e.g. `12.11.2026, 19:00` (V1.9.217). */
+internal fun germanShortDateTime(dt: LocalDateTime): String =
+    "%02d.%02d.%04d, %s".format(dt.dayOfMonth, dt.monthNumber, dt.year, germanTime(dt))

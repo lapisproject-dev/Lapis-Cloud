@@ -6,6 +6,7 @@ import org.w3c.dom.HTMLElement
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -83,6 +84,79 @@ class ActionButtonDomTest {
             assertEquals(1, clicks)
             b.disabled = true
             assertTrue(element().q("button").hasAttribute("disabled"))
+        }
+    }
+
+    @Test
+    fun responsive_hasAHiddenLabelSpan_aName_andNoBtnSm() {
+        assertTrue(stylesLoaded)
+        withMountedRoot("action-button-responsive") { root, element ->
+            root.actionGroup {
+                actionButton(ActionIcon.EDIT, "Bearbeiten", labelMode = ActionLabelMode.RESPONSIVE)
+            }
+            val btn = element().q(".lapis-action-group button")
+            val span = btn.q("span.lapis-action-label")
+            assertEquals("Bearbeiten", span.textContent)
+            assertEquals("true", span.getAttribute("aria-hidden"))
+            assertTrue(span.classList.contains("d-none") && span.classList.contains("d-sm-inline"), "classes ${span.className}")
+            assertEquals("Bearbeiten", btn.getAttribute("aria-label"))
+            assertEquals("Bearbeiten", btn.getAttribute("title"))
+            assertTrue(btn.classList.contains("lapis-action-btn"))
+            assertTrue(!btn.classList.contains("btn-sm"), "a responsive action button is never btn-sm")
+            assertEquals("true", btn.q("i").getAttribute("aria-hidden"))
+        }
+    }
+
+    @Test
+    fun responsive_atDesktopWidth_showsTheText_atPhoneWidth_onlyTheIcon_andStays44pxHigh() {
+        assertTrue(stylesLoaded)
+        withMountedRoot("action-button-responsive-width") { root, element ->
+            root.actionGroup {
+                actionButton(ActionIcon.EDIT, "Bearbeiten", labelMode = ActionLabelMode.RESPONSIVE)
+                actionButton(
+                    ActionIcon.ARCHIVE,
+                    "Archivieren",
+                    style = io.kvision.html.ButtonStyle.OUTLINEDANGER,
+                    labelMode = ActionLabelMode.RESPONSIVE,
+                )
+            }
+            measureAtWidth(element(), 1200) { doc, host ->
+                val win = doc.defaultView!!
+                host.queryAll("button").forEach { b ->
+                    val label = b.queryOne("span.lapis-action-label")
+                    assertNotEquals("none", win.getComputedStyle(label).display, "desktop shows the text")
+                    assertTrue(label.getBoundingClientRect().width > 0.0, "the text takes room")
+                    assertTrue(b.getBoundingClientRect().height in 44.0..48.0, "desktop height ${b.getBoundingClientRect().height}")
+                }
+            }
+            measureAtWidth(element(), 360) { doc, host ->
+                val win = doc.defaultView!!
+                val buttons = host.queryAll("button")
+                buttons.forEach { b ->
+                    assertEquals("none", win.getComputedStyle(b.queryOne("span.lapis-action-label")).display, "phone hides the text")
+                    val r = b.getBoundingClientRect()
+                    assertTrue(r.height in 44.0..48.0, "phone height ${r.height}")
+                    assertTrue(r.width >= 44.0 && r.width < 120.0, "phone width ${r.width}")
+                }
+                assertTrue(
+                    kotlin.math.abs(buttons[0].getBoundingClientRect().top - buttons[1].getBoundingClientRect().top) <= 2.0,
+                    "both icons share one row",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun alwaysWithAccessibleName_keepsTheShortVisibleLabel() {
+        withMountedRoot("action-button-accessible-name") { root, element ->
+            root.actionButton(ActionIcon.REGISTER, "Teilnahme anmelden", accessibleName = "Teilnahme anmelden bei der Veranstaltung")
+            val btn = element().q("button")
+            assertEquals("Teilnahme anmelden", btn.textContent?.trim())
+            assertEquals("Teilnahme anmelden bei der Veranstaltung", btn.getAttribute("aria-label"))
+            assertTrue(
+                btn.getAttribute("aria-label")!!.lowercase().contains(btn.textContent!!.trim().lowercase()),
+                "the visible label is part of the name (WCAG 2.5.3)",
+            )
         }
     }
 

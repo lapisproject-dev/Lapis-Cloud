@@ -299,7 +299,7 @@ class ScrollSurfaceTripwireTest :
         }
 
         test(
-            "R59: the only sticky elements are the transparency banner, (with room for it) the member map, the travel expense totals bar, the encounter dock and the room bar dock",
+            "R59: the only sticky elements are the navbar, the rating booth head, the transparency banner, (with room for it) the member map, the travel expense totals bar, the encounter dock and the room bar dock",
         ) {
             val sticky = scrollCssRules(THEME_CSS.readText()).filter { Regex("""position\s*:\s*sticky""").containsMatchIn(it.body) }
             // V1.9.122: `.lapis-te-totals` -- the totals bar of the travel expense editor (right column from 992px, bottom edge below). It is a
@@ -310,11 +310,17 @@ class ScrollSurfaceTripwireTest :
             // the bottom edge of the page; no overflow and no max-height, so the ledger of scrollers stays as it is.
             sticky.map { it.selector }.toSet() shouldBe
                 setOf(
+                    // V1.9.209: the navbar and the rating booth head stick to the top edge (no overflow, no max-height: no scroller).
+                    ".navbar.lapis-navbar",
+                    ".lapis-rating-booth-head",
                     ".lapis-conference-transparency-banner",
                     ".lapis-member-map-panel",
                     ".lapis-te-totals",
                     ".lapis-encounter-dock",
                     ".lapis-room-bar-dock",
+                    // V1.9.211 (R62): the first column of a wide report table sticks to the left edge of its OWN scroll frame
+                    // (.table-responsive, an existing scroller); a cell is no scroller, so the ledger of scrollers is unchanged.
+                    ".lapis-table-sticky-first tr > :first-child",
                 )
             for (selector in listOf(".lapis-encounter-dock", ".lapis-room-bar-dock")) {
                 val dock = sticky.single { it.selector == selector }

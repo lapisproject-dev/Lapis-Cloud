@@ -50,7 +50,7 @@ private val RAW_GERMAN_FALLBACK_BASELINE: Map<String, Pair<Int, String>> = empty
 private val UNWRAPPED_CONSTANT_USES: Map<String, Int> =
     mapOf(
         // brand name of the product, deliberately not translated
-        "DEFAULT_TITLE" to 3,
+        "DEFAULT_TITLE" to 1,
         "PLATFORM_NAME" to 1,
         // parts of a constant `+` chain that is itself the argument of tr()/gettext() (the extractor evaluates the chain)
         "DUNNING_GATE_CONFLICT_HINT" to 2,

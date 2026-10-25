@@ -45,7 +45,8 @@ reflected.
 
 == Order of the detail page (V1.9.140)
 
-Facts, cover image, description, status callout (ended / closed / full), then the registration card. The registration card used to sit above the
+Facts, cover image, description, status callout (ended / closed / full), then the registration card and, in the standard presentation, the share bar
+(see <<public-sharing.adoc#,share buttons>>; that is also the only reason the detail page can carry `script-src 'self'`). The registration card used to sit above the
 description, so the visitor had to get past the form to read about the event; now the text comes first.
 
 The card carries `id="anmeldung"`. The "Plätze" row ends with a same-page link "Zur Anmeldung" (`href="#anmeldung"`, no `target`, in both modes)

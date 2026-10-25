@@ -6,6 +6,183 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.40.0] — 2026-10-25
+
+Feature release on top of `[0.39.0]` (V1.9.207 to V1.9.218, twelve waves). One additive migration: **`V118`** (the time and method of the last sign-in on `account`); the schema goes from `V117` to **`V118`**. Two new, optional environment variables: **`LAPIS_THEME_PATH`** (a theme directory, unset by default) and **`LAPIS_SHARE_NETWORKS`** (the networks of the share bar, all by default). No operator action beyond the usual backup and the image tag. **Behaviour changes first:** (1) **the Lapis Cloud mark is the default brand mark**: an instance with a custom `LAPIS_BRAND_TITLE` and no `LAPIS_BRAND_LOGO_PATH` now shows the mark in the navbar, on the sign-in page and in the chrome of the public pages (set `LAPIS_BRAND_LOGO_PATH` to replace it; an operator logo still wins everywhere); (2) **the pages that carry a share bar** (event detail, article, post) widen their Content-Security-Policy by `script-src 'self'` when the copy-link or native-share entry is enabled, every other response keeps its policy, and the public pages now also allow `font-src 'self'`; the share bar itself is **on by default** on instances with an https base URL (`LAPIS_SHARE_NETWORKS=` switches it off); (3) **the favicon files are in the client image again**: since 0.38.0 `/favicon.ico` and the other icons answered 404 (fixed in V1.9.213); (4) the public pages now use the theme tokens, so their default look changed slightly (in dark mode the page chrome is `#0B0E12` instead of `#14181E`, the active navigation entry light grey instead of gold, primary buttons Lapis blue instead of gold); (5) the navbar is **sticky** on every viewport and carries a larger logo (32 px); (6) master tables turn into **cards below 768 px**; (7) the admin member list gets a **last sign-in column** and the dashboard an ADMIN-only tile **"Gerade angemeldet"** (head counts only). New and optional: **themes from files** (colours, corner radius and self-hosted fonts per instance, read once at startup, file based only -- there is **no administration screen** for themes, and **no font binaries are shipped**, an operator must add their own `.woff2` files and licence file), **share buttons** on three kinds of public pages, six stream presets that **prefill nothing**. Accounts that signed in before `V118` show "nie angemeldet" until their next sign-in. Everything was checked in headless Chrome and on H2 only; PostgreSQL scenarios run only with `LAPIS_TEST_POSTGRES_URL`; nothing was looked at on real phones or devices, in Safari or with a screen reader; the stream presets and the share links were not tried against the real platforms; the themes were not judged by eye on a running instance beyond the automated checks.
+
+### V1.9.218 -- dashboard tile shown twice, flaky conference test
+
+No migration (schema stays V118), no RPC, no DTO, no server change, no new i18n string. Client fix plus test hardening.
+
+#### Fixed
+
+- The tile "Gerade angemeldet" appeared twice on the admin dashboard (the second one stuck at "Wird geladen …"). Cause, reproduced first by a failing
+  whole-screen test and narrowed down by switching one thing at a time: with plain `add` instead of `addWithLifecycle` the tile was single, with the
+  button built detached, the tile moved behind the account block, or without the member card it was still double. The insert hook started `load()`, which
+  disabled the refresh button synchronously; a widget change inside an insert hook re-renders the root while the patch that inserts the tile is still
+  running, the nested patch builds the tile a second time from the old vnode, and the outer patch finishes as well. The button is now disabled inside the
+  coroutine. New test `dashboardAsAdmin_rendersExactlyOneOnlineTile_andOneTimer` renders the whole dashboard as ADMIN and counts tiles, refresh buttons,
+  running intervals and `visibilitychange` listeners (also after the tile is gone); the role test now counts tiles per role instead of searching text.
+  `addWithLifecycle` documents the rule (subtree built before the call, no synchronous widget change in `onInsert`). Other users of `addWithLifecycle`
+  were checked: they only touch the DOM element or start a coroutine; the receipt booths of `ElectionBooth` and `ConsensusReceipt` hide the back button
+  synchronously from their insert hook (same class, not observed to duplicate anything, left as it is).
+- The text "Besprechung jetzt starten" no longer flashes up on the start button while a call opens (the label was reset before the lobby was hidden). The
+  test `enteringACall_hidesTheTitleRowStart_...` waits for the state "no visible start action" instead of checking at a fixed moment, then checks
+  again after 300 ms that it stays so.
+
+### V1.9.217 -- share buttons on public pages
+
+No migration (schema stays V118), no RPC, no DTO, no new client i18n string. New environment variable `LAPIS_SHARE_NETWORKS`.
+
+- A share bar on exactly three pages: the event detail page `/veranstaltung/{slug}`, the article page `/aktuelles/{slug}` and the post page `/s/{id}`
+  (standard presentation only). Never in `?embed=1`, on token, follow-up, error or overview pages. Plain links to WhatsApp, Telegram, Facebook, X,
+  LinkedIn, Reddit and e-mail; nothing is sent to a third party before a click. Without JavaScript every link still works.
+- `GET /s/assets/share.js` (ES5, about 30 lines, no network, no storage) reveals the system share dialog where the browser supports it and copies the
+  link with a polite status message. Pages that render a bar widen their CSP by `script-src 'self'` only when the script is needed (`copy` or `native`
+  enabled); every other response is byte-identical to V1.9.216.
+- `LAPIS_SHARE_NETWORKS`: not set = all networks, explicitly empty (or `none`) = off, otherwise a comma list; unknown names are ignored with one warning.
+  The order of the bar is fixed. The bar needs a base URL that is https (or loopback); share URLs are built from the configured base URL, never from the
+  request's Host header.
+- Event detail page: Open Graph (`og:title`, `og:description` with weekday, date, time and place, `og:url`, `og:type=website`, `og:site_name`,
+  `og:image` = cover image or a PNG/WebP operator logo, never SVG), `twitter:card` and a schema.org `Event` JSON-LD block (the only `unsafe` output,
+  escaped after serialisation). Article page: `og:url` and `twitter:card` added.
+- Seven new public UI strings in all eight languages.
+
+### V1.9.216 -- themes from files
+
+No migration (schema stays V118), no RPC, no DTO, no new i18n string. New environment variable `LAPIS_THEME_PATH`.
+
+- An operator can restyle the whole application from one directory: `theme.json` (schema `version` 1) with the 16 core colour tokens in light and dark, a corner radius
+  preset (`none`, `small`, `default`, `large`) and optionally self-hosted `.woff2` fonts (body and display) with their licence file next to them.
+  Read once at startup, held in memory; nothing is read per request.
+- Never fail-fast: a broken theme falls back to the built-in look and logs `theme.rejected code=... path=... action=...` (codes, JSON paths and hashes only, never
+  values). Structure or colour errors and a contrast failure in either mode discard the whole theme; a font or licence error only drops the fonts.
+  Fourteen WCAG pairs per mode must reach 4.5:1; `border-strong` on `surface` only warns (the shipped defaults reach 1.57:1 and 1.92:1).
+- New routes `GET /theme.css` (generated, weak ETag, `?v=<hash>` makes it immutable) and `GET /theme-fonts/{file}` (only the files loaded at startup, strong ETag,
+  never compressed). They replace what the static catch-all served at `/theme.css` before (the raw client file, which nobody linked). The generated rules use
+  the selector `html:root`, which beats the bundled token blocks whatever the stylesheet order.
+- The SPA shell links `/theme.css` and the server stamps the content hash into the link. The server-rendered public pages (landing, transparency, social, events, articles,
+  legal, sign-in, embed) link it after the shared stylesheet through one helper; their CSP gained `font-src 'self'`.
+- Visible change of the default look of the public pages (they now use the tokens): the page chrome in dark mode is `#0B0E12` instead of `#14181E`, the active
+  navigation entry is light grey instead of gold, and the primary buttons are Lapis blue instead of gold. Content greys and the gold callouts are unchanged.
+- Validator: `./gradlew -q :lapis-server:validateTheme -Ptheme=<dir>`, in the container `java -cp '/app/server/lib/*' network.lapis.cloud.server.theme.ThemeValidatorCli /app/theme`.
+  One JSON line on stdout; exit 0 valid, 1 errors, 2 usage or unreadable directory.
+- Presets in `deploy/example/themes/`: `lapis-default`, `neutral`, `high-contrast`, `party-yellow-blue` (its fonts must be added by the operator; without them the
+  validator reports `THEME_FONT_MISSING` and the colours still apply). No font binaries are part of the repository.
+- Limits (documented in `docs/features/theming.adoc`): only the 16 tokens are themable, literal radii in the client stay, the Canvas font of the video overlay is fixed,
+  the OG images keep their font.
+- Tests: strict JSON reader, parser, contrast, font loader (paths, symlinks, magic bytes, size limits, licence), loader, CSS whitelist, defaults-vs-`theme.css` consistency,
+  schema, presets, validator CLI, startup log, routes (304, immutable, no compression, traversal 404), shell injection and public-page tripwires.
+
+### V1.9.215 -- signed-in users tile
+
+No migration (schema stays V118). New RPC `IOnlineCountsService.onlineCounts` (ADMIN only, the last registered service), new DTOs, new i18n strings.
+
+- New tile "Gerade angemeldet" on the dashboard, visible to ADMIN only (BOARD does not imply it; the server enforces the same). It shows how many people
+  are active right now (a valid session used within the last 15 minutes) and how many are signed in at all (any valid session, up to 8 hours), each split into
+  members, friends, guests and other. The tile reloads once a minute while the tab is visible, on a button, and when the tab becomes visible again.
+- Rules (`OnlineSessionCounts`): same triple join as `SessionStore.resolve`; `revoked_at IS NULL`, `expires_at > now` (exclusive), `last_used_at >= now - 15 min`
+  (inclusive); a person with several sessions counts once; `groupOf` is the one place that maps a member status to a group (no `else`: a new status must be decided).
+  Not counted: event guests without an account, API keys, the `X-Member-Id` test fallback. The admin who looks counts too.
+- Privacy: counts only, no id, no name; nothing new is stored and nothing is logged. `computedAt` is a class-A system timestamp (UTC),
+  shown through the new `formatSystemTime`.
+- Deviation from the design note: `computedAt` is a `LocalDateTime` (UTC) like every class-A field, not an `Instant`.
+- The registration tail of `Application.kt` is now timer, agreement texts, pulpit recording, member finder, tenders, online counts (pinned by
+  `ConferenceTimerServiceEventGuardTripwireTest`).
+- Tests: `OnlineSessionCountsTest` and `OnlineSessionCountsPostgresTest` (window edges, expiry, revocation, distinct people, split, `groupOf` for every status),
+  `OnlineCountsServiceTest`, `OnlineCountsRpcWireTest` (no ids on the wire), `OnlineCountsCardDomTest` (figures, refresh, error keeps old figures, hidden tab,
+  timer ends with the tile, 360 px, ADMIN-only dashboard).
+
+### V1.9.214 -- Lapis Cloud mark as the default
+
+No migration (schema stays V118), no RPC, no DTO, no new i18n string.
+
+- **BEHAVIOUR CHANGE:** instances with a custom `LAPIS_BRAND_TITLE` and no `LAPIS_BRAND_LOGO_PATH` now show the Lapis Cloud mark
+  (navbar, sign-in lockup, public pages). Set `LAPIS_BRAND_LOGO_PATH` to replace it. An operator logo still wins everywhere.
+- The server-rendered public chrome (landing, transparency, social, events, legal, member card, sign-in/consent pages) now shows the
+  mark (22 px, dark variant, decorative) next to the title wordmark when no logo is set. It used to show the wordmark only.
+- Geometry and dark palette live once in `LapisCloudMark` (`lapis-shared`); client and server render from it.
+- Tests: `PublicChromeBrandTest`, `LapisCloudMarkTest`, `BrandMarkTest` (custom title and neither-set cases, geometry equality).
+
+### V1.9.213 -- favicon files shipped
+
+No migration, no RPC, no DTO, no new i18n string.
+
+- Fixed: the five favicon files (V1.9.195) were missing from the shipped client image since 0.38.0, so `/favicon.ico` and the other icons
+  answered 404. The Dockerfile only copies the webpack output, not `processedResources`.
+- The icons moved to `lapis-client/src/jsMain/webAssets/favicons`; the new `copyFaviconsToWebpack` task (`Copy`, finalizer of
+  `jsBrowserProductionWebpack`, dependency of `jsBrowserDistribution`) places them in the client root.
+- Guards: `VerifyFaviconLinks` build check (every icon link of `index.html` must exist and be non-empty), the five files in
+  `scripts/ci-assert-image-clean.sh` (with stub tests), and `ClientFaviconTest` now serves from a dist root, proves a real 404, and has a source tripwire.
+
+### V1.9.212 -- last sign-in formatting
+
+Client only: no migration, no RPC, no DTO, no server change, no new i18n string.
+
+- Fixed: the member roster column "Letzte Anmeldung" showed the raw ISO UTC string (`2026-10-24T18:11:02.793482Z`). V1.9.207 composed a
+  date token into a template (`"$stamp · ..."`); tokens only resolve when they are a widget's whole text. The cell now renders the date through
+  `systemDateTimeSpan` (organization zone, locale format, e.g. `24.10.2026, 20:11`) followed by the method as a muted word.
+- Row actions of a `dataTable` no longer wrap: the action `td` carries `lapis-table-actions-cell` (`white-space: nowrap`, shrinks to its content).
+  The card mode (below 768 px) is unchanged. Follow-up ticket noted, not built: a row overflow menu for tables with very many actions.
+- Tripwires: `ClientTemporalFormatTripwireTest` T2 now also names `systemDateTimeToken`, `systemTimestampToken` and `weekdayDateTimeToken`
+  (the gap that hid the bug); new T9 (a token held in a variable must not be composed into a string) and T10 (no raw `toString()` of a temporal
+  local in a table-cell helper), each with a red proof; `ClientResponsiveTableTripwireTest` guards the action-cell class and CSS.
+- Tests: DOM safety net `assertNoRawTemporalInCells` (no i18n marker, no ISO date-time in any `td`/`th`), fixed-instant tests for the cell text in
+  summer and winter time.
+
+### V1.9.211 -- responsive tables
+
+Client only: **no migration**, no RPC, no DTO, no server change, no new i18n string.
+
+- **Master lists as cards on phones**: every `masterTable` (committees, meetings, events, motions, tenders, agreement texts, registrations) renders below 768 px as a card list: the name is the card title, each value carries its column label, the actions sit under a divider, buttons and the name link are 44 px. On desktop nothing changes.
+- **Label hook**: new `TableCardLabels.kt` writes `data-label`/`data-cell`/`data-mobile-hidden` and explicit ARIA roles and keeps them current while rows are re-rendered (`MutationObserver`, stopped on destroy).
+- **`TableHeader.mobileHidden`** (at most one column, never the name column) and **`TableMobileLayout`** (`CARDS` default, `SCROLL`).
+- **Sticky first column** (`stickyFirstColumn`) for the wide posting-line report tables (general ledger, cash book, journal detail, audit snapshot); opaque in stripe, hover and dark mode.
+- **Guideline R62**, tripwire `ClientResponsiveTableTripwireTest` and DOM tests (360 px, 1200 px, dark mode, re-render, sticky).
+
+### V1.9.210 -- logo in the navbar
+
+Client only: **no migration**, no RPC, no DTO, no server change, no new i18n string.
+
+- **Larger logo and mark**: the operator logo and the default Lapis Cloud mark are 32 px (2rem, token `--lapis-brand-logo-size`) tall instead of 22 px. The navbar height is unchanged: brand box 4 + 32 + 4 + 2 px border = 42 px, as before.
+- **Real gap to the title**: the brand link is a flex row with a 0.5rem gap (none on phones, where the title stays hidden).
+- **Width cap**: an operator logo keeps its aspect ratio (`object-fit: contain`) and is at most 180 px wide, 120 px on phones.
+- **Login lockup**: logo and mark are 40 px tall (logo at most 240 px wide), gap 0.5rem.
+- **Deliberately not tied to `--lapis-navbar-height`**: that variable is the measured navbar height (`NavbarHeight.kt`), so a logo derived from it would be a feedback loop.
+- Footer credit mark (12 px) and the server-rendered public chrome are unchanged.
+- Tests: `BrandLogoSizeDomTest` (32 px square logo, navbar not taller than before, gap, 8:1 logo capped at 120 px on 390 px without overflow and with the toolbar trigger inside the viewport, 180 px cap on desktop, default mark 32 px, lockup 40 px); `BrandMarkTest` expects 32.
+- Docs: new `docs/features/branding.adoc` (logo recommendations).
+
+### V1.9.209 -- sticky navbar
+
+Client only: **no migration**, no RPC, no DTO, no server change (only a server-side tripwire test is adapted).
+
+- **Sticky navbar on every viewport**: `.navbar.lapis-navbar` is `position: sticky; top: 0; z-index: 1020` with a `min-height` of 56 px (never a hard `height`, WCAG 1.4.4). No hide-on-scroll, no shadow, no motion (R54).
+- **`--lapis-navbar-height`**: CSS default 56 px; `installNavbarHeightObserver` (`NavbarHeight.kt`, a `ResizeObserver`) writes the measured height to `:root`, installed once per navbar element and idempotent across `refreshShell()` / language switches.
+- **Dependent offsets follow the variable**: the transparency banner (`top`), the member map panel, the travel expense totals bar (from 992 px) and the new `html { scroll-padding-top }` rules (`calc(var(--lapis-navbar-height) + ...)`, larger while a transparency banner is on the page, so a focused element lands below navbar and banner, WCAG 2.4.11).
+- **RatingBooth head**: Bootstrap's `.sticky-top` (also z-index 1020, top 0) is replaced by `.lapis-rating-booth-head`, which rests directly below the navbar.
+- **Print**: navbar, banner and booth head are `position: static`.
+- Tests: `StickyNavbarDomTest` (sticky after scroll at 390/1280 px, hit test, banner and booth head below the navbar, focus below navbar/banner, variable equals `offsetHeight`, no ratchet, idempotent observer, print rule); the R59 sticky ledger in `ScrollSurfaceTripwireTest` now lists the navbar and the booth head.
+- Not changed: `--lapis-header-h` (136 px, room height) stays a fixed token. Open: measure the real navbar in the running app (390/1280 px); if it is above 56 px, trim its padding.
+
+### V1.9.208 -- mobile action groups and filter rows
+
+Client only: **no migration**, no RPC, no DTO, no server change (only a server-side tripwire test is new).
+
+- **`actionGroup` and `ActionLabelMode.RESPONSIVE`**: the actions of a card, row or header stand in one wrapping row; below 576 px a responsive button shrinks to its icon (44 px touch target, never `btn-sm`, `title` + `aria-label` carry the name, the label span is `aria-hidden`). `actionButton` also takes `accessibleName` for a short visible label with a longer accessible name.
+- **Begegnungsraum card**: Bearbeiten, Ämter and Archivieren are responsive, "Zum Raum" stays the one labelled action; on a 360 px phone all four share one row.
+- **Veranstaltungen card**: short labels ("Teilnahme anmelden", "Warteliste", "Anmelden und bezahlen", "Teilnahme abmelden") with the full wording and the amount as accessible name, new glyphs `REGISTER`/`UNREGISTER`, the message field opens from a quiet "Nachricht hinzufügen" button. The online join button already was disabled with a reason line before the start; unchanged.
+- **Filter rows**: a checkbox in `.lapis-inline-row` / `.lapis-filter-row` no longer sits above its field (Bootstrap `.form-check` float and margin reset, control-height box); 44 px controls below 576 px. `.lapis-toolbar` is unchanged.
+- Tests: `measureAtWidth` (iframe at an exact width, because Karma's window width cannot be set), DOM tests for the action button, the Begegnungsraum card, the Veranstaltungen card and the filter row geometry; server tripwire `ClientActionGroupTripwireTest`; five new msgids in the template and the seven catalogs.
+- Open: other screens with action groups on cards, rows or headers (Mitgliederfamilien, Gremien, Kontakte, Sitzungen, Spender, Kostenstellen) are not converted yet; an overflow menu for rarely used actions such as "Archivieren" is not built.
+
+### V1.9.207 -- administration small items
+
+- **Admin member list: "Letzte Anmeldung" column** (ADMIN only, nulled on the server for everybody else, also for chapter-scoped officers). Shows time and method (password, central sign-in, partner server) or "nie angemeldet"; sortable, never-signed-in first when ascending. Any other role asking for the sort gets the name order. Stamped by the three login routes in the session transaction; no audit entry, no log line. Included in the GDPR export; removed with the account on erasure.
+- **Stream destinations: six presets** (Facebook Live, Telegram, LinkedIn Live, Rumble, Kick, Vimeo Live) in the platform selection. A preset is stored as generic RTMP (no enum value, no migration), never touches the stream key, and the list recognises a stored destination by its host. **Honest limit:** none of the six ingest URLs could be confirmed against first-party vendor documentation on 2026-10-24 (help pages are login-gated or show the value only in screenshots; Telegram, Rumble and Kick assign it per account or event), so the presets prefill nothing and only show where the platform displays its own server URL. Nothing was tested with a real stream.
+- Migration **V118** (additive: two nullable columns on `account`, a pair CHECK and a method CHECK). No new environment variable, no operator action. Not backfilled: accounts that signed in before V118 show "nie angemeldet" until their next sign-in.
+- Tests: H2 and PostgreSQL (sort with `NULLS FIRST/LAST`, V118 CHECKs); the Keycloak and OIDC routes are covered by a source tripwire (`LoginMethodStampTripwireTest`) and a direct `SessionStore` test, not by a route-level login test. The moderator stream dialog still labels preset destinations "Generisches RTMP" (it must not receive the URL).
+
 ## [0.39.0] — 2026-10-24
 
 Feature release on top of `[0.38.0]` (V1.9.200 to V1.9.206, a price-chart fix and a staging-seed fix). Three additive migrations: **`V115`** (tenders), **`V116`** (tender description format) and **`V117`** (event registration message and the audit literal `EVENT_REGISTRATION_EXPORT`); the schema goes from `V114` to **`V117`**. No new environment variable and no operator action beyond the usual backup and the image tag. **Behaviour changes first:** (1) tenders (Ausschreibungen) bound to an adopted resolution, with list, detail page and board actions; LTR only, nothing is booked in LTR yet, and a guest cannot bid; (2) a menu search in the sidebar and a Ctrl+K / Cmd+K command palette; (3) events are a table with a detail page, a registrations overview, a seat counter for members, an optional registrant message and a CSV export (one audit entry per export); (4) a guided finance setup with a standard association chart (a proposal that a tax advisor must confirm; it is created only on request), in which the account mapping now lives, and the activation of online payment refuses while bank, contribution, donation or event income account is incomplete -- a gateway that is already active is not switched off; (5) inline field rows, one date-time group, amounts with thousands separators (a third decimal place is refused instead of rounded) and a stake suggestion; (6) a readable time axis on the price chart. V1.9.205 and its fix (staging seed top-up) matter only on the seeded staging and demo instances (staging mode). Everything was checked in headless Chrome and on H2 only; PostgreSQL scenarios run only with `LAPIS_TEST_POSTGRES_URL`; nothing was looked at on real phones or devices, in Safari or with a screen reader, and the CSV was not opened in a real Excel.
@@ -7814,7 +7991,7 @@ lapis-server` runs this wave's code against any of them.
   (`BankStatementFingerprint.bankAccountDiscriminator`) war an `bankAccountRowCount > 1` gekoppelt
   -- eine veraenderliche Groesse, die bei jedem Wechsel der Kontenanzahl (1 → 2 Konten oder 2 → 1
   Konten) die Fingerprint-Formel eines Kontos aenderte, dessen eigene Identitaet sich nie geaendert
-  hatte, und dabei ein Dublettenfenster oeffnete. Der Diskriminator ist jetzt unconditional (an die
+  hatte, und dabei ein Dublettenfenster öffnete. Der Diskriminator ist jetzt unconditional (an die
   Identitaet des aufgeloesten Kontos gebunden, nicht an die Kontenanzahl);
   `BankStatementImportService.import` prueft je Zeile zusaetzlich den Legacy-Fingerprint (ohne
   Diskriminator), eingeschraenkt auf Importe desselben Kontos, um mit jedem bereits gespeicherten

@@ -658,7 +658,7 @@ internal fun renderJournalEntrySnapshotBody(
     snapshot.donorCategory?.let { details.labelTypeBadgeRow(gettext("Spenderkategorie"), donorCategoryLabel(it), donorCategoryColor(it)) }
 
     if (snapshot.postings.isNotEmpty()) {
-        val report = panel.reportTable(caption = tr("Buchungszeilen:"), headers = SNAPSHOT_POSTING_HEADERS)
+        val report = panel.reportTable(caption = tr("Buchungszeilen:"), headers = SNAPSHOT_POSTING_HEADERS, stickyFirstColumn = true)
         report.reportRows(journalPostingSnapshotRows(snapshot.postings), SNAPSHOT_POSTING_HEADERS)
     }
 }

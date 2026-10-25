@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.domain
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 
 /**
@@ -85,6 +86,12 @@ data class MemberAdminRowDto(
      * `PeerPolicy.READ_PROTECTED_DATA`). `null` therefore does NOT mean "not recorded".
      */
     val countryCode: String? = null,
+    /**
+     * Welle V1.9.207 -- last successful sign-in (UTC, Klasse A). ADMIN only: always `null` for BOARD, TREASURER and chapter-scoped
+     * callers, nulled on the server (not only hidden in the client). `null` for an ADMIN caller means "no sign-in recorded since V118".
+     */
+    val lastLoginAt: LocalDateTime? = null,
+    val lastLoginMethod: LoginMethod? = null,
 )
 
 /** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */
@@ -114,7 +121,7 @@ object DeathDateRules {
 
 /** Sortierschlüssel für [network.lapis.cloud.shared.rpc.IMemberService.listMembersForAdministration] -- niemals ein roher Client-Spaltenname (keine SQL-Injection-Fläche über die Sortierung). */
 @Serializable
-enum class MemberAdminSort { NAME_ASC, NAME_DESC, JOINED_DESC, JOINED_ASC }
+enum class MemberAdminSort { NAME_ASC, NAME_DESC, JOINED_DESC, JOINED_ASC, LAST_LOGIN_ASC, LAST_LOGIN_DESC }
 
 /**
  * Bündelt [network.lapis.cloud.shared.rpc.IMemberService.listMembersForAdministration]s Filter/

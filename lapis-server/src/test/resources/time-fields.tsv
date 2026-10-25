@@ -285,6 +285,7 @@ dto:McpPostDraftDto.statusChangedAt	A	stamped by the server clock (DbClock/Serve
 dto:MemberAddressViolation.EARLIEST_BIRTH_DATE	D	calendar date (LocalDate); never converted
 dto:MemberAdminRowDto.joinedAt	D	calendar date (LocalDate); never converted
 dto:MemberAdminRowDto.dateOfDeath	D	calendar date (LocalDate); never converted
+dto:MemberAdminRowDto.lastLoginAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:AnniversaryEntryDto.occursOn	D	calendar date (LocalDate); never converted
 dto:AnniversaryEntryDto.originalDate	D	calendar date (LocalDate); never converted
 dto:MemberAnniversaryOverviewDto.from	D	calendar date (LocalDate); never converted
@@ -455,6 +456,7 @@ dto:WebhookDeliveryDto.nextAttemptAt	A	stamped by the server clock (DbClock/Serv
 dto:WebhookDeliveryDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:WebhookDeliveryDto.deliveredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountTable.roleChangedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountTable.lastLoginAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportCategoryMapTable.mappedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportConnectionTable.lastTestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportConnectionTable.zeroVatAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
@@ -943,3 +945,4 @@ col:TenderBidTable.priceSetAt	A	stamped by the server clock (DbClock/ServerClock
 col:TenderBidTable.withdrawnAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:TenderAwardTable.awardedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:TenderAcceptanceTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OnlineCountsDto.computedAt	A	stamped by the server clock (DbClock) in OnlineCountsService; sent as UTC

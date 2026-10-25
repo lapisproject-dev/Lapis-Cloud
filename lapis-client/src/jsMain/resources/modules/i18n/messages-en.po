@@ -8295,10 +8295,6 @@ msgstr ""
 "RTMP URL of your PeerTube instance, e.g. rtmp://peertube.example.org:1935/"
 "live"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:422
-msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
-msgstr "RTMP destination URL, e.g. for Facebook Live, LinkedIn Live, or Vimeo"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:63
 msgid "Rückgelastschrift"
 msgstr "Returned"
@@ -26671,3 +26667,75 @@ msgstr "Chosen per posting"
 
 msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
 msgstr "Purpose-related and commercial operation"
+
+msgid "Letzte Anmeldung"
+msgstr "Last sign-in"
+
+msgid "nie angemeldet"
+msgstr "never signed in"
+
+msgid "Zentrale Anmeldung"
+msgstr "Central sign-in"
+
+msgid "Partner-Server"
+msgstr "Partner server"
+
+msgid "RTMP-Ziel-URL Ihrer Plattform"
+msgstr "RTMP destination URL of your platform"
+
+msgid "Server-URL und Stream-Schlüssel zeigt Facebook beim Einrichten der Live-Übertragung an. Der Schlüssel kann wechseln."
+msgstr "Facebook shows the server URL and stream key when you set up the live broadcast. The key may change."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Telegram beim Start der Übertragung an, wenn Sie mit anderer Software streamen."
+msgstr "Telegram shows the server URL and stream key when you start the broadcast with other software."
+
+msgid "Server-URL und Stream-Schlüssel erhalten Sie von LinkedIn für jede einzelne Live-Veranstaltung."
+msgstr "LinkedIn provides the server URL and stream key for each individual live event."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Rumble beim Einrichten der Übertragung an. Der Schlüssel gilt oft nur einmal."
+msgstr "Rumble shows the server URL and stream key when you set up the broadcast. The key often applies only once."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Kick im Creator-Dashboard an."
+msgstr "Kick shows the server URL and stream key in the creator dashboard."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Vimeo in den Einstellungen der Live-Veranstaltung an."
+msgstr "Vimeo shows the server URL and stream key in the settings of the live event."
+
+msgid "Teilnahme anmelden"
+msgstr "Register"
+
+msgid "Teilnahme abmelden"
+msgstr "Withdraw"
+
+msgid "Anmelden und bezahlen"
+msgstr "Register and pay"
+
+msgid "Nachricht hinzufügen"
+msgstr "Add a message"
+
+msgid "Nachricht hinzufügen, an die Veranstalter"
+msgstr "Add a message to the organisers"
+
+msgid "Gerade angemeldet"
+msgstr "Signed in right now"
+
+msgid "Gerade aktiv"
+msgstr "Active right now"
+
+msgid "Angemeldet insgesamt"
+msgstr "Signed in (total)"
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3"
+msgstr "Members %1 · Friends %2 · Guests %3"
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3 · Sonstige %4"
+msgstr "Members %1 · Friends %2 · Guests %3 · Other %4"
+
+msgid "„Gerade aktiv“ zählt alle, die in den letzten %1 Minuten etwas getan haben. Eine Anmeldung bleibt bis zu %2 Stunden gültig, deshalb kann „Angemeldet insgesamt“ höher sein. Sie selbst sind mitgezählt."
+msgstr "“Active right now” counts everyone who did something in the last %1 minutes. A sign-in stays valid for up to %2 hours, so “Signed in (total)” can be higher. You are counted too."
+
+msgid "Stand: %1 Uhr"
+msgstr "As of %1"
+
+msgid "Die Zahlen konnten gerade nicht geladen werden."
+msgstr "The figures could not be loaded just now."

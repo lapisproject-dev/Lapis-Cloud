@@ -8290,10 +8290,6 @@ msgstr ""
 "URL RTMP de su instancia de PeerTube, p. ej., rtmp://"
 "peertube.example.org:1935/live"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:379
-msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
-msgstr "URL de destino RTMP, p. ej., para Facebook Live, LinkedIn Live o Vimeo"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:63
 msgid "Rückgelastschrift"
 msgstr "Devuelto"
@@ -26608,3 +26604,75 @@ msgstr "Se elige en cada asiento"
 
 msgid "Zweckbetrieb und wirtschaftlicher Geschäftsbetrieb"
 msgstr "Explotación vinculada al fin y explotación económica"
+
+msgid "Letzte Anmeldung"
+msgstr "Último inicio de sesión"
+
+msgid "nie angemeldet"
+msgstr "nunca ha iniciado sesión"
+
+msgid "Zentrale Anmeldung"
+msgstr "Inicio de sesión central"
+
+msgid "Partner-Server"
+msgstr "Servidor asociado"
+
+msgid "RTMP-Ziel-URL Ihrer Plattform"
+msgstr "URL de destino RTMP de su plataforma"
+
+msgid "Server-URL und Stream-Schlüssel zeigt Facebook beim Einrichten der Live-Übertragung an. Der Schlüssel kann wechseln."
+msgstr "Facebook muestra la URL del servidor y la clave de transmisión al configurar la emisión en directo. La clave puede cambiar."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Telegram beim Start der Übertragung an, wenn Sie mit anderer Software streamen."
+msgstr "Telegram muestra la URL del servidor y la clave de transmisión al iniciar la emisión con otro software."
+
+msgid "Server-URL und Stream-Schlüssel erhalten Sie von LinkedIn für jede einzelne Live-Veranstaltung."
+msgstr "LinkedIn proporciona la URL del servidor y la clave de transmisión para cada evento en directo."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Rumble beim Einrichten der Übertragung an. Der Schlüssel gilt oft nur einmal."
+msgstr "Rumble muestra la URL del servidor y la clave de transmisión al configurar la emisión. La clave suele valer una sola vez."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Kick im Creator-Dashboard an."
+msgstr "Kick muestra la URL del servidor y la clave de transmisión en el panel del creador."
+
+msgid "Server-URL und Stream-Schlüssel zeigt Vimeo in den Einstellungen der Live-Veranstaltung an."
+msgstr "Vimeo muestra la URL del servidor y la clave de transmisión en los ajustes del evento en directo."
+
+msgid "Teilnahme anmelden"
+msgstr "Inscribirse"
+
+msgid "Teilnahme abmelden"
+msgstr "Darse de baja"
+
+msgid "Anmelden und bezahlen"
+msgstr "Inscribirse y pagar"
+
+msgid "Nachricht hinzufügen"
+msgstr "Añadir un mensaje"
+
+msgid "Nachricht hinzufügen, an die Veranstalter"
+msgstr "Añadir un mensaje para los organizadores"
+
+msgid "Gerade angemeldet"
+msgstr "Conectados ahora"
+
+msgid "Gerade aktiv"
+msgstr "Activos ahora"
+
+msgid "Angemeldet insgesamt"
+msgstr "Sesión iniciada (total)"
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3"
+msgstr "Miembros %1 · Amigos %2 · Invitados %3"
+
+msgid "Mitglieder %1 · Freunde %2 · Gäste %3 · Sonstige %4"
+msgstr "Miembros %1 · Amigos %2 · Invitados %3 · Otros %4"
+
+msgid "„Gerade aktiv“ zählt alle, die in den letzten %1 Minuten etwas getan haben. Eine Anmeldung bleibt bis zu %2 Stunden gültig, deshalb kann „Angemeldet insgesamt“ höher sein. Sie selbst sind mitgezählt."
+msgstr "«Activos ahora» cuenta a todas las personas que han hecho algo en los últimos %1 minutos. Un inicio de sesión sigue siendo válido hasta %2 horas, por eso «Sesión iniciada (total)» puede ser mayor. Usted también está incluido."
+
+msgid "Stand: %1 Uhr"
+msgstr "Actualizado a las %1"
+
+msgid "Die Zahlen konnten gerade nicht geladen werden."
+msgstr "No se han podido cargar las cifras en este momento."

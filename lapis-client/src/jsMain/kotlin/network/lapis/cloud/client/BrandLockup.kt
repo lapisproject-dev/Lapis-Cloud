@@ -16,9 +16,8 @@ import io.kvision.panel.SimplePanel
  * global `Link.useDataNavigoForLinks = true` setzt (siehe dort und [LoginScreen]'s OIDC-Link für
  * dasselbe Opt-out-Muster).
  *
- * Drei-Zustands-Regel identisch zu `App.start`'s Navbar-Brand (V1.2.5 White-Label-Branding): eigenes
- * Logo gewinnt immer; sonst zeigt die Lapis-Cloud-Marke NUR neben dem unveränderten Default-Titel;
- * eigener Titel ohne eigenes Logo bekommt gar keine Marke.
+ * Zwei-Zweige-Regel identisch zu `App.start`'s Navbar-Brand (seit V1.9.214): eigenes Logo gewinnt
+ * immer; sonst zeigt die Lapis-Cloud-Marke, unabhängig vom Titel.
  *
  * [brandLogoImgHtml]/[escapeHtmlAttribute] leben seit dieser Welle hier statt in `App.kt`, weil
  * beide Aufrufer (die Navbar-Marke UND dieses Lockup) sie jetzt teilen -- eine gemeinsame Datei
@@ -34,11 +33,8 @@ fun SimplePanel.brandLockup(): Link {
                 rich = true,
                 className = "lapis-brand-logo",
             )
-        Branding.title == Branding.DEFAULT_TITLE ->
+        else ->
             lockup.span(content = LAPIS_CLOUD_MARK_SVG, rich = true, className = "lapis-brand-mark")
-        else -> {
-            // Custom title, no custom logo -- no mark, see class KDoc.
-        }
     }
     return lockup
 }

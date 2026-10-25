@@ -74,6 +74,9 @@ fun formatSystemDateTime(utc: LocalDateTime): String = formatDateTime(toOrganiza
 
 fun formatSystemTimestamp(utc: LocalDateTime): String = formatTimestamp(toOrganizationZone(utc))
 
+/** Class A, time of day only (V1.9.215): the UTC system timestamp as HH:MM in the organization zone. */
+fun formatSystemTime(utc: LocalDateTime): String = formatTime(toOrganizationZone(utc))
+
 /**
  * Date + time + zone abbreviation, e.g. `02.10.2026, 03:48 MESZ` -- ONLY for the one place where "until when" matters
  * across zones (the session expiry on the dashboard) and for the zone preview in the admin settings. A finished string:

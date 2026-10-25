@@ -14,6 +14,7 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.client.ActionIcon
+import network.lapis.cloud.client.ActionLabelMode
 import network.lapis.cloud.client.AppScope
 import network.lapis.cloud.client.AppState
 import network.lapis.cloud.client.DataSection
@@ -23,6 +24,7 @@ import network.lapis.cloud.client.LapisField
 import network.lapis.cloud.client.PageIntros
 import network.lapis.cloud.client.Routes
 import network.lapis.cloud.client.actionButton
+import network.lapis.cloud.client.actionGroup
 import network.lapis.cloud.client.actionLink
 import network.lapis.cloud.client.addCssClasses
 import network.lapis.cloud.client.collapseCancelButton
@@ -31,7 +33,6 @@ import network.lapis.cloud.client.confirmDialog
 import network.lapis.cloud.client.dataSection
 import network.lapis.cloud.client.guarded
 import network.lapis.cloud.client.lapisForm
-import network.lapis.cloud.client.lapisToolbar
 import network.lapis.cloud.client.newActionButton
 import network.lapis.cloud.client.notifySuccess
 import network.lapis.cloud.client.pageHeader
@@ -130,13 +131,21 @@ private fun renderEncounterSpaceRow(
         facts.untrustedSpan(termsFor(space.profile).speakersFact(space.pulpitDisplayNames.joinToString(", ")))
     }
 
-    val actions = row.lapisToolbar()
+    // V1.9.208: one wrapping row of actions; below 576px the buttons shrink to their icons (title + aria-label keep the name).
+    val actions = row.actionGroup()
     actions.actionLink(ActionIcon.ENTER, tr("Zum Raum"), "#${Routes.ENCOUNTER}/${space.id}")
     if (!canManage) return
     val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
     editPanel.hide()
     var editOpen = false
-    actions.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY).onClick {
+    val editButton =
+        actions.actionButton(
+            ActionIcon.EDIT,
+            tr("Bearbeiten"),
+            style = ButtonStyle.OUTLINEPRIMARY,
+            labelMode = ActionLabelMode.RESPONSIVE,
+        )
+    editButton.onClick {
         editOpen = !editOpen
         editPanel.removeAll()
         if (editOpen) {
@@ -156,7 +165,14 @@ private fun renderEncounterSpaceRow(
     val rolesPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
     rolesPanel.hide()
     var rolesOpen = false
-    actions.actionButton(ActionIcon.OFFICES, tr("Ämter"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+    val officesButton =
+        actions.actionButton(
+            ActionIcon.OFFICES,
+            tr("Ämter"),
+            style = ButtonStyle.OUTLINESECONDARY,
+            labelMode = ActionLabelMode.RESPONSIVE,
+        )
+    officesButton.onClick {
         rolesOpen = !rolesOpen
         rolesPanel.removeAll()
         if (rolesOpen) {
@@ -170,7 +186,13 @@ private fun renderEncounterSpaceRow(
             rolesPanel.hide()
         }
     }
-    val archiveButton = actions.actionButton(ActionIcon.ARCHIVE, tr("Archivieren"), style = ButtonStyle.OUTLINEDANGER)
+    val archiveButton =
+        actions.actionButton(
+            ActionIcon.ARCHIVE,
+            tr("Archivieren"),
+            style = ButtonStyle.OUTLINEDANGER,
+            labelMode = ActionLabelMode.RESPONSIVE,
+        )
     if (space.open) {
         // An open room cannot be archived: the doors have to be closed first (the server refuses it too).
         archiveButton.disabled = true

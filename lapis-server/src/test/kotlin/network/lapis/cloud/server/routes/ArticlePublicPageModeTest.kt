@@ -227,10 +227,10 @@ class ArticlePublicPageModeTest :
             withApp(embedConfig = eventTestEmbedConfigEnabled("https://partner.example")) {
                 val standard = client.get("/aktuelles/$slug")
                 standard.csp() shouldBe
-                    "default-src 'none'; img-src 'self' data:; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+                    "default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
                 val embed = client.get("/aktuelles/$slug?embed=1")
                 embed.csp() shouldBe
-                    "default-src 'none'; img-src 'self'; style-src 'self'; form-action 'self'; base-uri 'none'; " +
+                    "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; form-action 'self'; base-uri 'none'; " +
                     "frame-ancestors 'self' https://partner.example"
                 for (r in listOf(standard, embed)) {
                     r.headers["Permissions-Policy"] shouldBe "geolocation=(), microphone=(), camera=()"
@@ -372,7 +372,7 @@ class ArticlePublicPageModeTest :
                             for (ancestors in listOf(emptyList(), listOf("https://partner.example"))) {
                                 val key = "$embed-${ancestors.size}"
                                 get("/old-$key") {
-                                    call.applyEventPageHeaders(eventTestContext(embed = embed, frameAncestors = ancestors))
+                                    call.applyEventPageHeaders(ctx = eventTestContext(embed = embed, frameAncestors = ancestors))
                                     call.respondTextOk()
                                 }
                                 get("/new-$key") {
@@ -391,7 +391,7 @@ class ArticlePublicPageModeTest :
                     withClue(key) { names.forEach { old.headers[it] shouldBe new.headers[it] } }
                 }
                 client.get("/old-true-0").csp() shouldBe
-                    "default-src 'none'; img-src 'self'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+                    "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
             }
         }
 

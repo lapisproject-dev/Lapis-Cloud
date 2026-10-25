@@ -129,7 +129,7 @@ Tbilisi). It is therefore ADMIN-only and audited; the admin form says so.
 == Client
 
 * `OrganizationTime.kt` is the only file that touches a zone source. `OrganizationTime.zoneId` is set from the session (`AppState.setSession`).
-* A class-A field is displayed through `formatSystemDateTime`, `formatSystemTimestamp`, `systemDateTimeToken`, `systemDateTimeSpan`,
+* A class-A field is displayed through `formatSystemDateTime`, `formatSystemTimestamp`, `formatSystemTime` (time of day only), `systemDateTimeToken`, `systemDateTimeSpan`,
   `systemDateTimeColumn`, `systemTimestampColumn` (with `utcTitle = true` for audit and journal lists: the hover title is the ISO UTC instant).
   The token carries the value already converted to the organization wall-clock, so it follows a language switch like any other token.
 * A class-B field keeps the plain formatters of `DateTime.kt`. `DateTime.kt` itself never converts anything.
@@ -181,13 +181,20 @@ server tests because all tripwires run there and read it; the shared DTOs are un
 | `ServerImplicitZoneTripwireTest` | no `currentSystemDefault`, `ZoneId.systemDefault`, zone-less `.now()` in `lapis-server/src/main` outside `ServerClock.kt`
 | `ClientSystemTimestampTripwireTest` | a class-A field is never formatted with a plain formatter, a class-B field never with a `system*` one
 | `ClientImplicitZoneTripwireTest` | no browser-zone API in the client outside `OrganizationTime.kt`
+| `ClientTemporalFormatTripwireTest` T2 | a temporal token (including `systemDateTimeToken`, `systemTimestampToken`, `weekdayDateTimeToken`) is never concatenated into a string
+| `ClientTemporalFormatTripwireTest` T9 | a token held in a local variable is never composed into a template or concatenation (V1.9.207 raw-ISO bug in the member roster)
+| `ClientTemporalFormatTripwireTest` T10 | no raw `toString()` of a temporal local in `cellText`/`textCell`/`numCell`
 |===
+
+Tokens only ever stand alone as a widget's whole text. `last_login_at` is class A and is shown through `systemDateTimeSpan`; `assertNoRawTemporalInCells` (client DOM tests) fails on any raw i18n marker or ISO date-time in a table cell.
 
 A NEW temporal field fails the first test until it is classified: that is the point where its clock and its display rule are decided.
 
 NOTE: The member-count history (V1.9.59, `member-status-history.adoc`) is a worked example of the three classes: `member_status_history.effective_from` and
 `recorded_at` are class A (UTC), the request and the periods of `IMemberStatisticsService` are class D (calendar dates), and the period boundaries are
 computed in the organization zone with `atStartOfDayIn`, never in the process zone. The V72 backfill converts dates to instants as noon UTC.
+
+NOTE: `account.last_login_at` (V1.9.207, `MemberAdminRowDto.lastLoginAt`) is class A: stamped from the server clock, stored as `TIMESTAMP` in UTC, displayed in the organization zone by `systemDateTimeToken`.
 
 `./gradlew :lapis-server:test -PtestTimeZone=Europe/Berlin` runs the whole suite with a non-UTC process zone (JVM zone and `TZ`); both
 that run and the default UTC run must stay green.

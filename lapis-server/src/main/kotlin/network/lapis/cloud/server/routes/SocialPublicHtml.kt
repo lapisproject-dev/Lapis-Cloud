@@ -33,6 +33,10 @@ import kotlinx.html.time
 import kotlinx.html.title
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.share.ShareBarModel
+import network.lapis.cloud.server.share.renderShareBar
+import network.lapis.cloud.server.share.renderShareScript
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 import network.lapis.cloud.shared.domain.SocialPostReportCategory
 
 /**
@@ -83,7 +87,7 @@ internal object SocialPublicHtml {
     const val STYLESHEET: String =
         """
         :root { color-scheme: light dark; }
-        body { font-family: system-ui, -apple-system, sans-serif; max-width: 42rem; margin: 0 auto; padding: 1.5rem; line-height: 1.55; }
+        body { font-family: var(--lapis-font-body); max-width: 42rem; margin: 0 auto; padding: 1.5rem; line-height: 1.55; }
         header, footer { margin-bottom: 1.5rem; }
         footer { margin-top: 2rem; font-size: 0.85rem; color: #888; }
         article { border-bottom: 1px solid rgba(128, 128, 128, 0.3); padding: 1rem 0; }
@@ -169,14 +173,16 @@ internal object SocialPublicHtml {
            a single space and the operator's line breaks are silently lost -- see LegalHtml's
            renderResponsiblePartyFields/renderPrivacyBody call sites. */
         .legal-multiline { white-space: pre-wrap; }
-        .chrome { background: #14181E; color: #EDEAE3; }
+        .chrome { background: var(--lapis-nav); color: var(--lapis-nav-text); }
         .chrome-inner {
             max-width: 42rem; margin: 0 auto; padding: 0.6rem 1.5rem;
             display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
         }
-        .chrome a { color: #EDEAE3; text-decoration: none; }
+        .chrome a { color: var(--lapis-nav-text); text-decoration: none; }
         .chrome-logo { max-height: 22px; width: auto; vertical-align: middle; }
-        .chrome-wordmark { font-family: Georgia, serif; letter-spacing: 0.01em; }
+        .chrome-brand { display: inline-flex; align-items: center; gap: 0.5rem; }
+        .chrome-mark { display: inline-flex; line-height: 0; }
+        .chrome-wordmark { font-family: var(--lapis-font-display); letter-spacing: 0.01em; }
         /* Welle V1.9.11 "Öffentliche Icon-Navigation" -- switched from text links to ICON-ONLY links
            (Design-Team-Review, Kare/Ive/Jobs), see PublicChrome.renderChrome KDoc for the four
            guarantees this makes. Bound to CSS CLASSES, never an index-based selector -- .nav-articles/.nav-events
@@ -187,7 +193,7 @@ internal object SocialPublicHtml {
             position: relative; display: inline-flex; align-items: center; justify-content: center;
             width: 2.75rem; height: 2.75rem; padding: 0; border-bottom: 2px solid transparent;
         }
-        .chrome-nav a[aria-current="page"] { color: #C9A227; border-bottom-color: #C9A227; }
+        .chrome-nav a[aria-current="page"] { color: var(--lapis-nav-text); border-bottom-color: var(--lapis-nav-text); }
         .chrome-nav a::before {
             content: ""; display: inline-block; width: 1.25rem; height: 1.25rem;
             background-color: currentColor;
@@ -245,13 +251,13 @@ internal object SocialPublicHtml {
         .chrome-nav a::after {
             content: attr(aria-label); position: absolute; top: calc(100% + 0.3rem); left: 50%;
             transform: translateX(-50%); padding: 0.3rem 0.6rem; border-radius: 0.3rem;
-            background: #1E242E; color: #EDEAE3; font-size: 0.75rem; white-space: nowrap;
+            background: var(--lapis-nav-hover-bg); color: var(--lapis-nav-text); font-size: 0.75rem; white-space: nowrap;
             opacity: 0; visibility: hidden; z-index: 2;
         }
         .chrome-nav a:first-child::after { left: 0; transform: none; }
         .chrome-nav a:last-child::after { left: auto; right: 0; transform: none; }
         .chrome-nav a:focus-visible {
-            outline: 2px solid #C9A227; outline-offset: 2px;
+            outline: 2px solid var(--lapis-nav-text); outline-offset: 2px;
         }
         .chrome-nav a:focus-visible::after { opacity: 1; visibility: visible; transition-delay: 0s; }
         @media (hover: hover) {
@@ -268,14 +274,14 @@ internal object SocialPublicHtml {
         }
         .chrome-lang summary::-webkit-details-marker { display: none; }
         .chrome-lang[open] > div {
-            position: absolute; right: 0; z-index: 1; background: #14181E;
-            border: 1px solid #1E242E; padding: 0.3rem 0; min-width: 9rem;
+            position: absolute; right: 0; z-index: 1; background: var(--lapis-nav);
+            border: 1px solid var(--lapis-nav-hover-bg); padding: 0.3rem 0; min-width: 9rem;
         }
         .chrome-lang a { display: block; padding: 0.55rem 0.9rem; }
-        .chrome-lang a[aria-current="true"] { color: #C9A227; }
+        .chrome-lang a[aria-current="true"] { color: var(--lapis-nav-text); }
         .chrome-cta { border: 1px solid currentColor; border-radius: 0.35rem; padding: 0.4rem 0.9rem; }
         .skip-link { position: absolute; left: -9999px; top: 0; }
-        .skip-link:focus { position: static; display: block; padding: 0.5rem 1.5rem; background: #C9A227; color: #14181E; }
+        .skip-link:focus { position: static; display: block; padding: 0.5rem 1.5rem; background: var(--lapis-nav-text); color: var(--lapis-nav); }
         /* Welle V1.9.20 -- touch fix (closes the residual gap documented in PublicChrome.renderChrome
            KDoc guarantee 1): on a phone there is no hover and :focus-visible is unreliable, so the
            four-column nav row shows the text label (the aria-label, via the same ::after) UNDER each
@@ -368,7 +374,7 @@ internal object SocialPublicHtml {
         .event-submit {
             display: block; width: 100%; box-sizing: border-box; padding: 0.75rem 1.1rem; font: inherit; font-weight: 600;
             text-align: center; text-decoration: none; cursor: pointer;
-            border: 0; border-radius: 0.4rem; background: #C9A227; color: #14181E;
+            border: 0; border-radius: 0.4rem; background: var(--lapis-accent); color: var(--lapis-accent-contrast);
         }
         .event-submit:hover { filter: brightness(1.08); }
         .event-submit:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
@@ -434,7 +440,7 @@ internal object SocialPublicHtml {
             display: inline-block; box-sizing: border-box; padding: 0.6rem 1.2rem; font: inherit; font-weight: 600;
             text-align: center; text-decoration: none; cursor: pointer; border-radius: 0.35rem;
         }
-        .auth-primary { background: #C9A227; color: #14181E; border: 1px solid #C9A227; }
+        .auth-primary { background: var(--lapis-accent); color: var(--lapis-accent-contrast); border: 1px solid var(--lapis-accent); }
         .auth-secondary { background: transparent; color: inherit; border: 1px solid currentColor; }
         .auth-primary:focus-visible, .auth-secondary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
         .auth-callout { margin: 0 0 1rem 0; padding: 0.8rem 1rem; border-left: 4px solid #C9A227; border-radius: 0.35rem; background: rgba(201, 162, 39, 0.12); }
@@ -497,6 +503,51 @@ internal object SocialPublicHtml {
             mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 5 6v5.5c0 4.4 3 7.6 7 9.5 4-1.9 7-5.1 7-9.5V6z'/%3E%3C/svg%3E");
         }
         .profiles-link { margin: 0.75rem 0 0 0; }
+        .share { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--lapis-border); }
+        .share h2 { font-size: 0.95rem; margin: 0 0 0.5rem 0; }
+        .share-list { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+        .share-item[hidden] { display: none; }
+        .share-list a, .share-list button { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; padding: 0; border: 0; border-radius: 0.5rem; background: transparent; color: var(--lapis-muted); cursor: pointer; text-decoration: none; }
+        .share-list a:hover, .share-list a:focus-visible, .share-list button:hover, .share-list button:focus-visible { background: var(--lapis-surface-sunken); color: var(--lapis-text); }
+        .share-list a:focus-visible, .share-list button:focus-visible { outline: 2px solid var(--lapis-accent); outline-offset: 2px; }
+        .share-ico { width: 1.25rem; height: 1.25rem; background-color: currentColor; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }
+        .share-ico--native {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='6' cy='12' r='2.5'/%3E%3Ccircle cx='18' cy='6' r='2.5'/%3E%3Ccircle cx='18' cy='18' r='2.5'/%3E%3Cpath d='M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='6' cy='12' r='2.5'/%3E%3Ccircle cx='18' cy='6' r='2.5'/%3E%3Ccircle cx='18' cy='18' r='2.5'/%3E%3Cpath d='M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6'/%3E%3C/svg%3E");
+        }
+        .share-ico--copy {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1'/%3E%3Cpath d='M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1'/%3E%3Cpath d='M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'/%3E%3C/svg%3E");
+        }
+        .share-ico--whatsapp {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20l1.3-4.2A8 8 0 1 1 8.2 18.7z'/%3E%3Cpath d='M9 9.5c0 3 2.5 5.5 5.5 5.5'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20l1.3-4.2A8 8 0 1 1 8.2 18.7z'/%3E%3Cpath d='M9 9.5c0 3 2.5 5.5 5.5 5.5'/%3E%3C/svg%3E");
+        }
+        .share-ico--telegram {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 4L3 11l6 2.5L11 20l3-4 5 3z'/%3E%3Cpath d='M9 13.5L21 4'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 4L3 11l6 2.5L11 20l3-4 5 3z'/%3E%3Cpath d='M9 13.5L21 4'/%3E%3C/svg%3E");
+        }
+        .share-ico--facebook {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 21v-8h3l.5-3.5H14V7.5c0-1 .5-1.7 1.8-1.7H17.5V3c-.5-.1-1.5-.2-2.6-.2-2.6 0-4.4 1.6-4.4 4.4v2.3H7.5V13h3v8z'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 21v-8h3l.5-3.5H14V7.5c0-1 .5-1.7 1.8-1.7H17.5V3c-.5-.1-1.5-.2-2.6-.2-2.6 0-4.4 1.6-4.4 4.4v2.3H7.5V13h3v8z'/%3E%3C/svg%3E");
+        }
+        .share-ico--x {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 4l14 16M19 4L5 20'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 4l14 16M19 4L5 20'/%3E%3C/svg%3E");
+        }
+        .share-ico--linkedin {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='9' width='3.5' height='11'/%3E%3Ccircle cx='5.75' cy='5.5' r='1.6'/%3E%3Cpath d='M11 20V9h3.3v1.5c.6-1 1.8-1.8 3.4-1.8 2.6 0 3.3 1.7 3.3 4V20h-3.5v-6c0-1.2-.4-2-1.5-2s-2 .8-2 2v6z'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='9' width='3.5' height='11'/%3E%3Ccircle cx='5.75' cy='5.5' r='1.6'/%3E%3Cpath d='M11 20V9h3.3v1.5c.6-1 1.8-1.8 3.4-1.8 2.6 0 3.3 1.7 3.3 4V20h-3.5v-6c0-1.2-.4-2-1.5-2s-2 .8-2 2v6z'/%3E%3C/svg%3E");
+        }
+        .share-ico--reddit {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='14' r='6'/%3E%3Ccircle cx='9.5' cy='13.5' r='.8'/%3E%3Ccircle cx='14.5' cy='13.5' r='.8'/%3E%3Cpath d='M9.5 16.5c1.4 1 3.6 1 5 0M12 8l1.2-4 4 1'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='14' r='6'/%3E%3Ccircle cx='9.5' cy='13.5' r='.8'/%3E%3Ccircle cx='14.5' cy='13.5' r='.8'/%3E%3Cpath d='M9.5 16.5c1.4 1 3.6 1 5 0M12 8l1.2-4 4 1'/%3E%3C/svg%3E");
+        }
+        .share-ico--email {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='1'/%3E%3Cpath d='M3 7l9 6 9-6'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='1'/%3E%3Cpath d='M3 7l9 6 9-6'/%3E%3C/svg%3E");
+        }
+        .share-status { min-height: 1.2em; margin: 0.5rem 0 0 0; font-size: 0.85rem; color: var(--lapis-muted); }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */
@@ -698,6 +749,8 @@ internal object SocialPublicHtml {
         lang: PublicLanguage = PublicLanguage.DEFAULT,
         /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
         nav: PublicNavAvailability,
+        /** V1.9.217 -- the share bar; `null` when sharing is off. Also decides whether `share.js` is linked. */
+        share: ShareBarModel? = null,
     ): String =
         createHTML(prettyPrint = false).html {
             val strings = PublicChrome.stringsFor(lang)
@@ -711,6 +764,7 @@ internal object SocialPublicHtml {
                 ogType = "article",
                 hreflangBaseUrl = baseUrl,
                 hreflangCurrentPath = currentPath,
+                share = share,
             )
             body(classes = "has-chrome") {
                 with(PublicChrome) {
@@ -735,6 +789,8 @@ internal object SocialPublicHtml {
                         renderPostMeta(post = view.root, baseUrl = baseUrl, lang = lang)
                         renderPostContent(post = view.root, lines = view.root.contentLines)
                     }
+                    // Directly after the post, before a possibly long reply list (V1.9.217).
+                    if (share != null) renderShareBar(model = share, strings = strings)
                     if (view.descendants.isNotEmpty() || view.truncated) {
                         section {
                             h2 { +strings.replies }
@@ -1219,6 +1275,7 @@ internal object SocialPublicHtml {
         ogType: String?,
         hreflangBaseUrl: String? = null,
         hreflangCurrentPath: String? = null,
+        share: ShareBarModel? = null,
     ) {
         head {
             meta(charset = "utf-8")
@@ -1229,7 +1286,7 @@ internal object SocialPublicHtml {
             if (canonicalUrl != null) {
                 link(rel = "canonical", href = canonicalUrl)
             }
-            link(rel = "stylesheet", href = "/s/assets/style.css")
+            publicStylesheetLinks()
             if (hreflangBaseUrl != null && hreflangCurrentPath != null) {
                 with(PublicChrome) { renderHreflangAlternates(baseUrl = hreflangBaseUrl, currentPath = hreflangCurrentPath) }
             }
@@ -1247,6 +1304,7 @@ internal object SocialPublicHtml {
             meta(content = "Lapis Cloud") { attributes["property"] = "og:site_name" }
             // No og:image in this wave -- see implementation plan § 4.2, "Kein og:image".
             meta(name = "twitter:card", content = "summary")
+            renderShareScript(share)
         }
     }
 
@@ -1358,10 +1416,14 @@ internal object SocialPublicHtml {
         }
     }
 
+    /** V1.9.217 -- the title/text a shared link of this thread carries (the root post's title-safe excerpt). */
+    fun shareTitle(view: PublicThreadView): String = view.root.excerptTitle
+
     /**
      * Title-safe excerpt: the first non-blank content line, truncated to [TITLE_MAX_LEN] -- never
      * blank (falls back to a generic label so `<title>`/`og:title` are never empty).
      */
+
     private val PublicPostView.excerptTitle: String
         get() = excerpt(maxLen = TITLE_MAX_LEN).ifBlank { "Beitrag" }
 

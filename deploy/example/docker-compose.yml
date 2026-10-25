@@ -57,7 +57,7 @@ services:
     # V1.9.93: the server pulls the image CI published for a release tag instead of compiling the sources itself.
     # LAPIS_IMAGE_TAG is an exact version without the leading `v` (never `latest`); rollback = set the old value.
     # To build from source instead, add the override file: see docker-compose.build.yml.
-    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.39.0)}
+    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.40.0)}
     container_name: lapis-cloud-server
     depends_on:
       postgres:
@@ -166,6 +166,9 @@ services:
       LAPIS_BRAND_LOGO_PATH: ${LAPIS_BRAND_LOGO_PATH:-}
       # V1.4.18 -- operator website URL linked from the public footer, see BrandConfig KDoc.
       LAPIS_BRAND_WEBSITE_URL: ${LAPIS_BRAND_WEBSITE_URL:-}
+      # Themes per file (V1.9.216) -- OPTIONAL, unset by default: an absolute in-container path to a theme directory, see
+      # docs/features/theming.adoc. Needs the ./theme volume below (commented out until you use it).
+      LAPIS_THEME_PATH: ${LAPIS_THEME_PATH:-}
       # Vorstands-Karte (V1.9.5) -- OPTIONAL, unset by default, see README.adoc "Member map
       # (optional)" and MemberMapConfig KDoc. Never fail-fast: unset/invalid/missing just means the
       # BOARD/ADMIN-only map screen shows its "no basemap configured" state.
@@ -230,6 +233,10 @@ services:
       # LAPIS_EMBED_ALLOW_INSECURE bewusst weggelassen, nicht auf "" gesetzt (WebhookConfig "O4").
       LAPIS_EMBED_ENABLED: ${LAPIS_EMBED_ENABLED:-}
       LAPIS_EMBED_ALLOWED_ORIGINS: ${LAPIS_EMBED_ALLOWED_ORIGINS:-}
+      # Share buttons on the public detail pages (V1.9.217). NOTE the missing colon in "${...-all}": a variable that is not set
+      # in .env means "all networks", while an explicitly empty value switches the bar off. The ":-" form would turn the unset
+      # case into an empty string and silently disable the bar on every instance.
+      LAPIS_SHARE_NETWORKS: ${LAPIS_SHARE_NETWORKS-all}
       # Companion-App WebView-Bruecke (V1.5.2, Lapis-Cloud-Mobile) -- OPTIONAL, default aus. Same
       # class of gap as the SEPA-Poller/Webhooks/Embed fixes above: without this line,
       # LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED=true in .env silently never reaches
@@ -249,6 +256,9 @@ services:
       # rebuild must preserve. The operator drops the file directly into
       # deploy/production/branding/ on the host; :ro because lapis-server only ever reads it.
       - ./branding:/app/branding:ro
+      # Themes per file (V1.9.216) -- uncomment together with LAPIS_THEME_PATH=/app/theme. Left commented on purpose: if the host
+      # directory ./theme does not exist, Docker creates it empty and root-owned, and the server then logs THEME_JSON_MISSING.
+      # - ./theme:/app/theme:ro
       # Vorstands-Karte (V1.9.5) -- same bind-mount reasoning as ./branding above: the PMTiles
       # basemap file is deployment-local, operator-provisioned (never checked into git, see the
       # root .gitignore's `*.pmtiles` entry), not runtime state a rebuild must preserve. The operator

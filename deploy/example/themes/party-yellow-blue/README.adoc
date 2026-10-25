@@ -1,0 +1,12 @@
+= Preset: party-yellow-blue
+
+Yellow and blue colours after a party style guide, with the Inter typeface for body text and headings.
+
+The repository does not contain font files. To use the fonts:
+
+. Download the Inter release from `github.com/rsms/inter` (SIL Open Font License 1.1).
+. Copy `Inter-Regular.woff2`, `Inter-SemiBold.woff2` and `Inter-Bold.woff2` into this directory (the theme directory you mount), together with the licence text as `OFL.txt`.
+. Validate: `./gradlew -q :lapis-server:validateTheme -Ptheme=<directory>`.
+
+Without the font files the validator reports `THEME_FONT_MISSING` (exit 1) on purpose and the server uses the colours with the default fonts. Do not remove the `fonts`
+section to silence the message; add the files instead.

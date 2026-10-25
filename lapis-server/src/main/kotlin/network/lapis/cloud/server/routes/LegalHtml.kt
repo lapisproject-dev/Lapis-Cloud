@@ -21,6 +21,7 @@ import kotlinx.html.title
 import kotlinx.html.ul
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.legal.LegalConfig
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 
 /**
  * V1.4.7 "Rechtstexte" -- renders `/impressum` and `/datenschutz`, [network.lapis.cloud.server
@@ -160,7 +161,7 @@ internal object LegalHtml {
             // Satz -- der Volltext existiert nur auf Deutsch (Klassen-KDoc).
             meta(name = "robots", content = "noindex,follow")
             link(rel = "canonical", href = canonicalUrl)
-            link(rel = "stylesheet", href = "/s/assets/style.css")
+            publicStylesheetLinks()
         }
     }
 

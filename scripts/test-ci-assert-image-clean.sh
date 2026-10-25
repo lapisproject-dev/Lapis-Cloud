@@ -35,6 +35,7 @@ new_fixture() {
   fx="$work/fx$RANDOM"
   mkdir -p "$fx/app/server/bin" "$fx/app/client" "$fx/etc"
   : > "$fx/app/server/bin/lapis-server"; : > "$fx/app/client/index.html"
+  local i; for i in favicon.ico favicon.svg favicon-dark.svg favicon-32.png apple-touch-icon.png; do : > "$fx/app/client/$i"; done
 }
 run_case() { # name expected-rc [env...]
   local name="$1" want="$2"; shift 2
@@ -51,6 +52,9 @@ new_fixture; : > "$fx/app/.env"; run_case "planted .env" 1
 new_fixture; : > "$fx/etc/server.pem"; run_case "planted .pem" 1
 new_fixture; : > "$fx/app/client/main.bundle.js.map"; run_case "source map" 1
 new_fixture; rm "$fx/app/client/index.html"; run_case "missing application file" 1
+for icon in favicon.ico favicon.svg favicon-dark.svg favicon-32.png apple-touch-icon.png; do
+  new_fixture; rm "$fx/app/client/$icon"; run_case "missing $icon" 1
+done
 new_fixture; run_case "wrong user" 1 STUB_USER=root
 new_fixture; run_case "docker run failure" 2 STUB_RUN_FAIL=1
 new_fixture; run_case "image missing" 2 STUB_NO_IMAGE=1

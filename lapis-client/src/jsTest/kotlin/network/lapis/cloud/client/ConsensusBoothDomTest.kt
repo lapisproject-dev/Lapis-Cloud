@@ -388,7 +388,7 @@ class ConsensusBoothDomTest {
             world.failures[routes.cast] = FORBIDDEN_EXCEPTION
             withBooth(world, "sk-booth-no-host") { el, _, _ ->
                 assertNull(el.querySelector(".lapis-booth-compact"), "no compact grid on the consensus screen")
-                assertNotNull(el.querySelector(".sticky-top [role=status]"), "the counter stays in the sticky head")
+                assertNotNull(el.querySelector(".lapis-rating-booth-head [role=status]"), "the counter stays in the sticky head")
                 assertFalse(el.flatText().contains("Gewählt wird die Option mit dem geringsten Gesamtwiderstand."))
                 el.rateAll()
                 el.reviewAndSubmit()
@@ -420,7 +420,7 @@ class ConsensusBoothDomTest {
                     ) {}
                     val el = element()
                     assertNotNull(el.querySelector(".lapis-booth-compact"))
-                    assertNull(el.querySelector(".sticky-top [role=status]"), "no counter in the head")
+                    assertNull(el.querySelector(".lapis-rating-booth-head [role=status]"), "no counter in the head")
                     assertTrue(el.flatText().contains("Gewählt wird die Option mit dem geringsten Gesamtwiderstand."))
                     el.rateAll()
                     el.reviewAndSubmit()

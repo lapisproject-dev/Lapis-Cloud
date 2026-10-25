@@ -16,6 +16,7 @@ import kotlinx.html.stream.createHTML
 import kotlinx.html.title
 import kotlinx.html.ul
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 
 /**
  * Welle V1.9.11 "Öffentliche Icon-Navigation" -- server-rendered public overview pages for the two
@@ -160,7 +161,7 @@ internal object PublicOverviewHtml {
                 title { +"$heading – ${branding.title}" }
                 meta(name = "robots", content = robots)
                 link(rel = "canonical", href = canonicalUrl)
-                link(rel = "stylesheet", href = "/s/assets/style.css")
+                publicStylesheetLinks()
                 with(PublicChrome) { renderHreflangAlternates(baseUrl = baseUrl, currentPath = currentPath) }
                 meta(content = heading) { attributes["property"] = "og:title" }
                 meta(content = canonicalUrl) { attributes["property"] = "og:url" }

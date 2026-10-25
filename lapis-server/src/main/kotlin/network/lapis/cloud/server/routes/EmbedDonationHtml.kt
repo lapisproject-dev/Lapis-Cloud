@@ -6,11 +6,11 @@ import kotlinx.html.div
 import kotlinx.html.h1
 import kotlinx.html.head
 import kotlinx.html.html
-import kotlinx.html.link
 import kotlinx.html.meta
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 import kotlinx.html.title
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 
 /**
  * Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad" -- the two rückkehr
@@ -65,7 +65,7 @@ internal object EmbedDonationHtml {
                 meta(charset = "utf-8")
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title { +"$heading – $brandTitle" }
-                link(rel = "stylesheet", href = "/s/assets/style.css")
+                publicStylesheetLinks()
             }
             body {
                 div("embed-page") {

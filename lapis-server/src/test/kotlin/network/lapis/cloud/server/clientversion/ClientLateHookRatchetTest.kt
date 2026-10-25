@@ -43,9 +43,11 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
         "KvisionLifecycle.kt" to (2 to "the helper itself: registers, then adds"),
         "MasterDetail.kt" to
             (
-                1 to
+                3 to
                     "recordLink registers the focus hand-back hook on the link BEFORE it is added to its cell (V1.9.192, " +
-                    "MasterDetailDomTest pins it): the list gives the focus back to the record that was opened"
+                    "MasterDetailDomTest pins it): the list gives the focus back to the record that was opened; masterTable " +
+                    "(V1.9.211) registers its label-observer insert/destroy hooks on the still detached table before the caller " +
+                    "adds rows (MasterTableCardsDomTest pins the labels, the re-render and the stop)"
             ),
         "ActionButton.kt" to
             (

@@ -332,6 +332,7 @@ import network.lapis.cloud.server.rpc.MemberPhotoService
 import network.lapis.cloud.server.rpc.MemberPublicProfileService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.MemberStatisticsService
+import network.lapis.cloud.server.rpc.OnlineCountsService
 import network.lapis.cloud.server.rpc.OpenItemService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
 import network.lapis.cloud.server.rpc.OrganizationTimeZoneService
@@ -362,7 +363,12 @@ import network.lapis.cloud.server.rpc.installArticleImportBodyLimit
 import network.lapis.cloud.server.rpc.installEventImportBodyLimit
 import network.lapis.cloud.server.rpc.installRpcErrorSanitizer
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.share.ShareConfig
 import network.lapis.cloud.server.social.PostDraftRetentionPoller
+import network.lapis.cloud.server.theme.ThemeConfig
+import network.lapis.cloud.server.theme.ThemeStartupCheck
+import network.lapis.cloud.server.theme.WOFF2_CONTENT_TYPE
+import network.lapis.cloud.server.theme.registerThemeRoutes
 import network.lapis.cloud.server.videooverlays.VideoOverlayInstanceLogo
 import network.lapis.cloud.server.videooverlays.VideoOverlayStorage
 import network.lapis.cloud.server.webhook.WebhookConfig
@@ -433,6 +439,7 @@ import network.lapis.cloud.shared.rpc.IMemberPhotoService
 import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IMemberStatisticsService
+import network.lapis.cloud.shared.rpc.IOnlineCountsService
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IOrganizationTimeZoneService
@@ -627,6 +634,10 @@ internal fun Application.module(
     val brandConfig = BrandConfig.load()
     val resolvedBranding = BrandingStartupCheck.resolve(config = brandConfig)
 
+    // V1.9.216 "Themes per Datei" -- operator-supplied colour/font/radius theme from LAPIS_THEME_PATH (see ThemeStartupCheck KDoc).
+    // Same never-fail-fast posture as branding: a broken theme degrades to the compiled-in default and a WARN, never an outage.
+    val resolvedTheme = ThemeStartupCheck.resolve(config = ThemeConfig.load())
+
     // V1.9.129 -- whether the operator logo is offered as the first element of the video overlay library (PNG/WebP only), decided once.
     val videoOverlayInstanceLogo = VideoOverlayInstanceLogo.resolve(resolvedBranding)
 
@@ -652,6 +663,7 @@ internal fun Application.module(
             // Review fix (MINOR 3): the pre-login emergency-admin disclosure must only render when
             // this deployment can actually accept a local ADMIN login in Keycloak mode.
             emergencyAdminLoginEnabled = keycloakConfig.emergencyAdminLoginEnabled,
+            theme = resolvedTheme,
         )
     }
 
@@ -1613,6 +1625,8 @@ internal fun Application.module(
     // unusable allowlist. Referenced unconditionally (also when disabled) so a packaging mistake
     // in the two embed .js resources (see EmbedAssets.kt KDoc) surfaces at STARTUP.
     val embedConfig = EmbedConfig.load()
+    // V1.9.217 -- share buttons on the public detail pages (LAPIS_SHARE_NETWORKS); read once, never throws.
+    val shareConfig = ShareConfig.load(baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'))
     // Force eager classloading/resource-packaging validation NOW, at startup -- also when
     // embedConfig.enabled is false. EmbedAssets.loadResource throws via checkNotNull if either
     // .js resource is missing from the built JAR (see EmbedAssets KDoc "Loaded eagerly").
@@ -2157,6 +2171,8 @@ internal fun Application.module(
         // TravelExpenseReceiptRoutes' own JPEG/PNG receipt downloads, which is harmless (the same
         // "already compressed" argument applies there too).
         excludeContentType(ContentType.Image.JPEG)
+        // V1.9.216: theme fonts are WOFF2, already compressed (the route also calls suppressCompression()).
+        excludeContentType(WOFF2_CONTENT_TYPE)
         // Welle V1.9.5 "Vorstands-Karte": the PMTiles basemap route (registerMemberMapRoutes) calls
         // `call.suppressCompression()` itself, on every response, before this route needed a
         // global exclusion here -- see that function's own KDoc for why a 206 partial-content
@@ -2721,13 +2737,17 @@ internal fun Application.module(
                 recordingInfrastructureAvailable = conferenceRecordingConfig.enabled && conferenceConfig.enabled,
             )
         }
-        // V1.9.144 optional member finder. Since V1.9.201 the tenders below are the LAST registerService (Kilua numbers routes by declaration order).
+        // V1.9.144 optional member finder. Since V1.9.215 the online counts at the very end are the LAST registerService, the tenders second to last (Kilua numbers routes by declaration order).
         registerService(IMemberFinderService::class) { call ->
             MemberFinderService(call = call, rateLimiter = memberFinderRateLimiter)
         }
-        // V1.9.201 tenders. MUST stay the LAST registerService (Kilua numbers routes by declaration order).
+        // V1.9.201 tenders. Since V1.9.215 second to last (Kilua numbers routes by declaration order).
         registerService(ITenderService::class) { call ->
             TenderService(call = call, previewRateLimiter = tenderDescriptionPreviewRateLimiter)
+        }
+        // V1.9.215 online counts (admin dashboard tile). MUST stay the LAST registerService (Kilua numbers routes by declaration order).
+        registerService(IOnlineCountsService::class) { call ->
+            OnlineCountsService(call = call)
         }
     }
 
@@ -2887,6 +2907,7 @@ internal fun Application.module(
             reportRateLimiter = socialPublicReportRateLimiter,
             branding = resolvedBranding,
             navAvailability = publicNavAvailability,
+            shareConfig = shareConfig,
         )
         // V1.3.0 "Öffentliche Transparenz-Startseite" -- literal route (/transparenz), same
         // "registered before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
@@ -2987,6 +3008,7 @@ internal fun Application.module(
             ticketCodeFailureLimiter = eventTicketCodeFailureLimiter,
             icsFeedRateLimiter = eventIcsFeedRateLimiter,
             messageNotifier = eventMessageNotifier,
+            shareConfig = shareConfig,
         )
         // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- the two account-less literal routes (/api/events/{slug}/online-*).
         registerEventOnlineGuestRoutes(
@@ -3045,6 +3067,7 @@ internal fun Application.module(
             coverStorage = articleCoverStorage,
             pageRateLimiter = articlePageRateLimiter,
             coverReadRateLimiter = articleCoverReadRateLimiter,
+            shareConfig = shareConfig,
         )
         registerArticleCoverRoutes(
             storage = articleCoverStorage,
@@ -3111,6 +3134,8 @@ internal fun Application.module(
         registerClientVersionRoutes(rateLimiter = clientVersionRateLimiter, buildIdProvider = { clientShell.buildId })
         // V1.4.23 Videokonferenz-Hintergrundeffekte -- WASM/Modell/Hintergrundbilder mit Cache-Control, siehe
         // `registerClientAssetRoutes` KDoc (ohne sie laedt jeder Kamera-Toggle 19 MB neu).
+        // V1.9.216: /theme.css + /theme-fonts/{file} -- literal routes, registered before the staticFiles catch-all below.
+        registerThemeRoutes(theme = resolvedTheme)
         registerClientAssetRoutes(clientDistRoot = clientDistRoot)
         registerMemberMapRoutes(basemap = memberMapBasemap)
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this

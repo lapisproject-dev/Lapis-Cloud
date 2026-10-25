@@ -266,7 +266,7 @@ class ArticlePublicRoutesTest :
             testApp {
                 val page = client.get("/aktuelles/$slug")
                 page.headers["Content-Security-Policy"] shouldBe
-                    "default-src 'none'; img-src 'self' data:; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+                    "default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
                 page.headers[HttpHeaders.CacheControl] shouldBe "no-store"
 
                 val matchingV = client.get("/aktuelles/$slug/bild?v=${coverId.toString().take(8)}")

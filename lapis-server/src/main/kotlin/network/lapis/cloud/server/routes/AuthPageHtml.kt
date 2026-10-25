@@ -14,12 +14,12 @@ import kotlinx.html.h1
 import kotlinx.html.head
 import kotlinx.html.html
 import kotlinx.html.input
-import kotlinx.html.link
 import kotlinx.html.main
 import kotlinx.html.meta
 import kotlinx.html.stream.createHTML
 import kotlinx.html.title
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 import java.net.URI
 
 /**
@@ -60,7 +60,7 @@ internal fun ApplicationCall.applyAuthPageHeaders(
     val fa = if (formAction == AuthFormAction.SELF) " form-action 'self';" else ""
     response.header(
         "Content-Security-Policy",
-        "default-src 'none'; style-src 'self'; $img base-uri 'none';$fa frame-ancestors 'none'",
+        "default-src 'none'; style-src 'self'; font-src 'self'; $img base-uri 'none';$fa frame-ancestors 'none'",
     )
     response.header("X-Frame-Options", "DENY")
     response.header("X-Content-Type-Options", "nosniff")
@@ -85,7 +85,7 @@ internal fun renderAuthPage(
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 meta(name = "robots", content = "noindex, nofollow")
                 title { +"$title – ${branding.title}" }
-                link(rel = "stylesheet", href = "/s/assets/style.css")
+                publicStylesheetLinks()
             }
             body(classes = "has-chrome auth-page") {
                 with(PublicChrome) { renderAuthChrome(lang = PublicLanguage.DEFAULT, baseUrl = baseUrl, branding = branding) }

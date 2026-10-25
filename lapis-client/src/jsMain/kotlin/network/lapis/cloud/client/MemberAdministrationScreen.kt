@@ -23,9 +23,11 @@ import io.kvision.panel.vPanel
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.FamilyMemberRole
+import network.lapis.cloud.shared.domain.LoginMethod
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
@@ -637,7 +639,13 @@ private fun renderMemberRoster(
             load = { guarded { rpcService<IMemberService>().listMembersForAdministration(rosterQuery(state)) } },
             render = { panel, page ->
                 panel.dataTable(
-                    columns = rosterColumns(showChapter = chapters.isNotEmpty(), showCountry = isBoardOrAdmin),
+                    columns =
+                        rosterColumns(
+                            showChapter = chapters.isNotEmpty(),
+                            showCountry = isBoardOrAdmin,
+                            // V1.9.207 -- ADMIN only (an ADMIN is never chapter-scoped); the server nulls the value for everyone else.
+                            showLastLogin = AppState.session?.role == AccountRole.ADMIN,
+                        ),
                     rows = page.rows,
                     sort = state.sort.toSortState(),
                     onSort = { clicked ->
@@ -745,11 +753,13 @@ private val ROSTER_SORT_OPTIONS =
 
 private const val ROSTER_SORT_NAME = "name"
 private const val ROSTER_SORT_JOINED = "joined"
+private const val ROSTER_SORT_LAST_LOGIN = "lastLogin"
 
 /** The columns of the roster table / card list; Name is the card title. [showChapter] mirrors every other chapter-UI element's `chapters.isNotEmpty()` gate (Welle V1.9.14). */
 private fun rosterColumns(
     showChapter: Boolean,
     showCountry: Boolean = false,
+    showLastLogin: Boolean = false,
 ): List<DataColumn<MemberAdminRowDto>> =
     listOf<DataColumn<MemberAdminRowDto>>(
         DataColumn(
@@ -811,7 +821,64 @@ private fun rosterColumns(
                 sortKey = ROSTER_SORT_JOINED,
                 cell = { container, row -> container.cellText(trusted(dateToken(row.joinedAt))) },
             ),
-        )
+        ) +
+        // V1.9.207 -- ADMIN only; sortable (never-signed-in first when ascending).
+        if (showLastLogin) {
+            listOf(
+                DataColumn(
+                    title = tr("Letzte Anmeldung"),
+                    sortKey = ROSTER_SORT_LAST_LOGIN,
+                    cell = { container, row -> container.lastLoginCell(row.lastLoginAt, row.lastLoginMethod) },
+                ),
+            )
+        } else {
+            emptyList()
+        }
+
+/** V1.9.207 -- plain-text label of a [LoginMethod]; `gettext` (resolved now), because it is embedded in a composed string. */
+internal fun loginMethodLabel(method: LoginMethod): String =
+    when (method) {
+        LoginMethod.PASSWORD -> gettext("Passwort")
+        LoginMethod.KEYCLOAK -> gettext("Zentrale Anmeldung")
+        LoginMethod.OIDC_FEDERATION -> gettext("Partner-Server")
+    }
+
+/** V1.9.212 -- live-translated (`tr`) label of a [LoginMethod]; only ever the WHOLE text of its own widget, never composed. */
+internal fun loginMethodTr(method: LoginMethod): String =
+    when (method) {
+        LoginMethod.PASSWORD -> tr("Passwort")
+        LoginMethod.KEYCLOAK -> tr("Zentrale Anmeldung")
+        LoginMethod.OIDC_FEDERATION -> tr("Partner-Server")
+    }
+
+/** V1.9.212 -- plain text of the cell (tests, export fallback): "24.10.2026, 20:11 · Passwort"; `null` = never signed in. */
+internal fun lastLoginPlainText(
+    at: LocalDateTime?,
+    method: LoginMethod?,
+): String? {
+    if (at == null) return null
+    val stamp = formatSystemDateTime(at)
+    return if (method == null) stamp else "$stamp · ${loginMethodLabel(method)}"
+}
+
+/**
+ * V1.9.212 -- renders the cell on one line: the date through the live-resolving span, the method as a muted word. Tokens
+ * stand alone as a widget's whole text (V1.9.207 composed one into a template and leaked the raw ISO string).
+ */
+internal fun Container.lastLoginCell(
+    at: LocalDateTime?,
+    method: LoginMethod?,
+) {
+    if (at == null) {
+        cellText(tr("nie angemeldet"), "text-body-secondary")
+        return
+    }
+    systemDateTimeSpan(at)
+    if (method != null) {
+        cellText(" · ", "text-body-secondary")
+        cellText(loginMethodTr(method), "text-body-secondary")
+    }
+}
 
 /**
  * The term the "no match" sentence quotes: the search text, or -- with only a status chip active -- that
@@ -829,19 +896,22 @@ internal fun rosterFilterTerm(
         ?: statuses.singleOrNull()?.let { memberStatusLabel(it) }
         ?: chapterFilterLabel
 
-/** `MemberAdminSort` <-> the generic [SortState] of `dataTable` (all four values, both directions). */
+/** `MemberAdminSort` <-> the generic [SortState] of `dataTable` (all six values, both directions). */
 internal fun MemberAdminSort.toSortState(): SortState =
     when (this) {
         MemberAdminSort.NAME_ASC -> SortState(key = ROSTER_SORT_NAME, direction = SortDirection.ASC)
         MemberAdminSort.NAME_DESC -> SortState(key = ROSTER_SORT_NAME, direction = SortDirection.DESC)
         MemberAdminSort.JOINED_ASC -> SortState(key = ROSTER_SORT_JOINED, direction = SortDirection.ASC)
         MemberAdminSort.JOINED_DESC -> SortState(key = ROSTER_SORT_JOINED, direction = SortDirection.DESC)
+        MemberAdminSort.LAST_LOGIN_ASC -> SortState(key = ROSTER_SORT_LAST_LOGIN, direction = SortDirection.ASC)
+        MemberAdminSort.LAST_LOGIN_DESC -> SortState(key = ROSTER_SORT_LAST_LOGIN, direction = SortDirection.DESC)
     }
 
 internal fun SortState.toMemberAdminSort(): MemberAdminSort {
     val ascending = direction == SortDirection.ASC
     return when (key) {
         ROSTER_SORT_JOINED -> if (ascending) MemberAdminSort.JOINED_ASC else MemberAdminSort.JOINED_DESC
+        ROSTER_SORT_LAST_LOGIN -> if (ascending) MemberAdminSort.LAST_LOGIN_ASC else MemberAdminSort.LAST_LOGIN_DESC
         else -> if (ascending) MemberAdminSort.NAME_ASC else MemberAdminSort.NAME_DESC
     }
 }

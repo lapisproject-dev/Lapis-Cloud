@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.39.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.40.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -343,7 +343,7 @@ on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, 
 (GitHub package settings; an organisation must allow public packages first). Check
 `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
 keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
-`LAPIS_IMAGE_TAG=0.39.0` (no `v`; the git tag is `v0.39.0`, the image tag is `0.39.0`).
+`LAPIS_IMAGE_TAG=0.40.0` (no `v`; the git tag is `v0.40.0`, the image tag is `0.40.0`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -364,6 +364,8 @@ each of them -- see the CHANGELOG "Operator notes" entry for this wave for the f
 the exact command. Run it once per instance before rebuilding that instance below.
 
 Upgrading from `v0.37.7` to `v0.38.0` adds three additive migrations (`V112` agreement text format, `V113` travel expense attachments, `V114` travel expense documents and the Markdown hint format; the reported migration count goes up by exactly three, check the real count) and needs no `flywayRepair` of its own: take a backup as always, set `LAPIS_IMAGE_TAG=0.38.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** (1) agreement texts saved from now on are Markdown; existing versions stay plain text and are shown exactly as before, and the consent hash is unchanged; (2) travel expense attachments, receipts and the new documents for members are stored as files like the existing receipts (they are part of the organisation backup); no retention period is set and there is no virus scan, so keeping or deleting the files is the operator's job until the legal review is done; (3) an operator logo keeps precedence over the new default Lapis Cloud mark; (4) the rest is client behaviour (wide page shell, tables with detail pages, collapsible intros). The staging seed top-up of LTR balances runs only in staging mode on the seeded test instance. Tested in headless Chrome and on H2; PostgreSQL scenarios run only with `LAPIS_TEST_POSTGRES_URL`.
+
+Upgrading from `v0.39.0` to `v0.40.0` adds one additive migration (`V118` last sign-in on `account`; the reported migration count goes up by exactly one, check the real count) and needs no `flywayRepair` of its own: take a backup as always, set `LAPIS_IMAGE_TAG=0.40.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. Two new optional environment variables, both with a safe default: `LAPIS_THEME_PATH` (unset = built-in look) and `LAPIS_SHARE_NETWORKS` (unset = all networks). **Things to know:** (1) an instance with a custom `LAPIS_BRAND_TITLE` and no `LAPIS_BRAND_LOGO_PATH` now shows the Lapis Cloud mark; set `LAPIS_BRAND_LOGO_PATH` to replace it; (2) public event, article and post pages show a share bar when the base URL is https; the pages that carry it send a Content-Security-Policy with `script-src 'self'` when copy-link or native share is enabled; set `LAPIS_SHARE_NETWORKS=` (empty) to switch the bar off; (3) the favicon files are in the image again (they were missing since `v0.38.0`); (4) accounts that signed in before `V118` show "nie angemeldet" in the member list until their next sign-in; (5) themes are files only, there is no administration screen, and no font binaries are shipped: an operator adds their own `.woff2` files and licence file; validate a theme directory with the `ThemeValidatorCli` on the mounted directory (see `docs/features/theming.adoc`). Tested in headless Chrome and on H2; PostgreSQL scenarios run only with `LAPIS_TEST_POSTGRES_URL`.
 
 Upgrading from `v0.38.0` to `v0.39.0` adds three additive migrations (`V115` tenders, `V116` tender description format, `V117` event registration message and the export audit literal; the reported migration count goes up by exactly three, check the real count) and needs no `flywayRepair` of its own: take a backup as always, set `LAPIS_IMAGE_TAG=0.39.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** (1) the payment activation (`enablePaymentGateway`) now refuses while the bank, contribution, donation or event income account is missing, inactive or of the wrong type; an instance whose online payment is **already switched on** is not switched off by this and keeps working, but switching it off and on again meets the gate; the account mapping moved from the payment configuration page to Finanzen > Kontenplan & Journal > Einrichtung; (2) the standard chart of accounts for associations (version `skr42-verein-2026-10`) is created only on a click of the treasurer or administrator, it is a proposal and a tax advisor must confirm it; (3) tenders (Ausschreibungen) are LTR only, nothing is booked in LTR yet, and guests cannot bid; (4) the events list is a table with a detail page and a CSV export of the registrations (one audit entry per export); (5) the rest is client behaviour (menu search with Ctrl+K / Cmd+K, inline field rows, amounts with thousands separators). The staging seed top-up parts (V1.9.205) run only in staging mode on the seeded test instance and the demo. Tested in headless Chrome and on H2; PostgreSQL scenarios run only with `LAPIS_TEST_POSTGRES_URL`; nothing was run against a real instance or opened in a real Excel.
 
@@ -1099,6 +1101,20 @@ Behaviour worth knowing: security mails (password reset, e-mail change, ...) exp
 and can therefore arrive twice; a mailing-list send that is interrupted by a restart continues for the recipients not yet started, while a recipient that was already being sent is
 shown as "unclear" and is **not** mailed again.
 
+== Theme (optional)
+
+`LAPIS_THEME_PATH` -- optional, unset by default. Points at a directory **inside the container** that holds a `theme.json` (16 colour
+tokens for light and dark, a corner radius preset) and, if wanted, self-hosted `.woff2` fonts plus their licence file. The server reads
+it once at startup; a broken theme never stops it from starting but falls back to the built-in look and logs `theme.rejected`.
+
+1. Copy one of the presets from `deploy/example/themes/` to `deploy/example/theme/`.
+2. Uncomment the `./theme:/app/theme:ro` volume in `docker-compose.yml` and set `LAPIS_THEME_PATH=/app/theme` in `.env`.
+3. Validate: `docker compose exec lapis-server java -cp '/app/server/lib/*' network.lapis.cloud.server.theme.ThemeValidatorCli /app/theme`
+   (exit 0 = valid).
+4. Restart the server and look for `theme.loaded name=... hash=...` in the log.
+
+Details, the error codes and the limits are in `docs/features/theming.adoc`.
+
 == White-Label-Branding (optional)
 
 `LAPIS_BRAND_TITLE`, `LAPIS_BRAND_LOGO_PATH` -- **both optional, independent of each other**
@@ -1119,7 +1135,7 @@ URL (would reopen an SSRF surface for a purely cosmetic feature). Drop the actua
 `deploy/example/branding/` on the host (bind-mounted read-only to `/app/branding` in
 `docker-compose.yml`) and point this variable at the in-container path, e.g.
 `LAPIS_BRAND_LOGO_PATH=/app/branding/logo.svg`. Requirements, all checked at startup
-(`network.lapis.cloud.server.branding.BrandingStartupCheck`), each one degrading to "no logo shown"
+(`network.lapis.cloud.server.branding.BrandingStartupCheck`), each one degrading to the Lapis Cloud mark
 with a `WARN` log line rather than refusing to start:
 
 * Extension `.svg`, `.png`, or `.webp` (case-insensitive).
@@ -1127,9 +1143,9 @@ with a `WARN` log line rather than refusing to start:
 * A regular, readable file that actually exists at that path.
 
 The logo, when active, is streamed at `GET /api/branding/logo` (`Cache-Control: public,
-max-age=300`) and shown in the navbar in place of the Lapis gem mark. A custom title with NO custom
-logo shows no mark at all next to it, rather than a mark that would misleadingly still read as
-"Lapis" branding next to an operator's own name.
+max-age=300`) and shown in the navbar in place of the Lapis gem mark. Without a custom logo the
+Lapis Cloud mark is shown next to the title, whatever the title is (since V1.9.214). To replace it,
+set `LAPIS_BRAND_LOGO_PATH`.
 
 **"Betrieben mit Lapis Cloud" is NOT removable by this or any other configuration.** Every screen
 (app shell and login screen alike) carries a small, fixed credit linking to

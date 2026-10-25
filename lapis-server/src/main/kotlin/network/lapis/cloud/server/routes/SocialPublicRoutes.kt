@@ -35,6 +35,10 @@ import network.lapis.cloud.server.rpc.SocialPostWeight
 import network.lapis.cloud.server.rpc.SocialReadPipeline
 import network.lapis.cloud.server.rpc.SocialReportSubmission
 import network.lapis.cloud.server.rpc.SocialVisibility
+import network.lapis.cloud.server.share.SHARE_SCRIPT
+import network.lapis.cloud.server.share.SHARE_SCRIPT_PATH
+import network.lapis.cloud.server.share.ShareConfig
+import network.lapis.cloud.server.share.barFor
 import network.lapis.cloud.shared.domain.SocialPostDto
 import network.lapis.cloud.shared.domain.SocialPostReportCategory
 import network.lapis.cloud.shared.domain.SocialPostVisibility
@@ -172,7 +176,7 @@ private val REPORT_FORM_ALLOWED_QUERY_PARAMS = setOf("lang")
  * Kombination, ein starker ETag würde eine byte-genaue Repräsentation behaupten, die je nach
  * Content-Coding abweicht.
  */
-fun Route.registerSocialPublicRoutes(
+internal fun Route.registerSocialPublicRoutes(
     readRateLimiter: FederationInboxRateLimiter,
     sitemapRateLimiter: FederationInboxRateLimiter,
     /** Welle V1.1.5 -- `POST /s/{id}/report` (öffentlicher Melde-Weg), EIGENER, deutlich strengerer Limiter als [readRateLimiter]. */
@@ -188,6 +192,8 @@ fun Route.registerSocialPublicRoutes(
     branding: ResolvedBranding,
     /** Welle V1.9.11 -- shared, process-lifetime nav-availability provider, see [PublicNavAvailabilityProvider] KDoc. No default -- every caller (production, tests) must pass one explicitly. */
     navAvailability: PublicNavAvailabilityProvider,
+    /** V1.9.217 -- share bar on `GET /s/{id}`; DISABLED keeps every response byte-identical to V1.9.216. Application.kt wires the real one. */
+    shareConfig: ShareConfig = ShareConfig.DISABLED,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider()
@@ -354,11 +360,27 @@ fun Route.registerSocialPublicRoutes(
                 is PostResolution.Found -> {
                     val view = resolution.thread.toPublicThreadView()
                     val nav = navAvailability.current()
-                    val body = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
+                    val shareTitle = SocialPublicHtml.shareTitle(view)
+                    val share =
+                        shareConfig.barFor(
+                            url = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/s/${view.root.id}", lang = lang),
+                            rawTitle = shareTitle,
+                            rawText = shareTitle,
+                        )
+                    val body =
+                        SocialPublicHtml.postPage(
+                            view = view,
+                            baseUrl = baseUrl,
+                            branding = branding,
+                            lang = lang,
+                            nav = nav,
+                            share = share,
+                        )
                     call.respondPublicCacheable(
                         body = body,
                         contentType = HTML_CONTENT_TYPE,
                         cacheControl = "public, max-age=300, stale-while-revalidate=3600",
+                        scriptSrcSelf = share?.needsScript == true,
                         imgSrcSelf = branding.logoAvailable,
                     )
                 }
@@ -542,6 +564,17 @@ fun Route.registerSocialPublicRoutes(
             call.respondPublicCacheable(
                 body = LANDING_HASH_BRIDGE_SCRIPT,
                 contentType = ContentType.Application.JavaScript.withParameter("charset", "utf-8"),
+                cacheControl = "public, max-age=86400",
+            )
+        }
+    }
+
+    // V1.9.217 -- the share bar's same-origin script. A constant string, registered independently of the configuration.
+    get(SHARE_SCRIPT_PATH) {
+        call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
+            call.respondPublicCacheable(
+                body = SHARE_SCRIPT,
+                contentType = ContentType.Text.JavaScript.withParameter("charset", "utf-8"),
                 cacheControl = "public, max-age=86400",
             )
         }
@@ -871,7 +904,7 @@ internal fun ApplicationCall.applyPublicPageHeaders(
     val imgDirective = if (imgSrcSelf) " img-src 'self' data:;" else " img-src data:;"
     response.header(
         "Content-Security-Policy",
-        "default-src 'none'; style-src 'self';$scriptDirective$imgDirective base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        "default-src 'none'; style-src 'self'; font-src 'self';$scriptDirective$imgDirective base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
     )
     response.header("X-Content-Type-Options", "nosniff")
     response.header("Referrer-Policy", "no-referrer")
@@ -884,21 +917,6 @@ private fun computeETag(body: String): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(body.toByteArray(Charsets.UTF_8))
     val hex = digest.joinToString(separator = "") { "%02x".format(it) }.take(32)
     return "W/\"$hex\""
-}
-
-/**
- * Weak-Vergleichssemantik (§ 5.1): auf beiden Seiten das optionale `W/`-Präfix und die
- * Anführungszeichen abstreifen, dann vergleichen; `If-None-Match: *` ⇒ immer Treffer; mehrere
- * komma-separierte Werte ⇒ Treffer, wenn einer passt.
- */
-private fun ifNoneMatchHits(
-    headerValue: String?,
-    etag: String,
-): Boolean {
-    if (headerValue == null) return false
-    if (headerValue.trim() == "*") return true
-    val target = etag.removePrefix("W/").trim('"')
-    return headerValue.split(",").map { it.trim() }.any { candidate -> candidate.removePrefix("W/").trim('"') == target }
 }
 
 /**

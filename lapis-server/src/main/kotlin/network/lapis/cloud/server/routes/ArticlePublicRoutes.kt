@@ -24,6 +24,8 @@ import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.share.ShareConfig
+import network.lapis.cloud.server.share.barFor
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -66,6 +68,8 @@ internal fun Route.registerArticlePublicRoutes(
     coverStorage: EventCoverStorage,
     pageRateLimiter: FederationInboxRateLimiter,
     coverReadRateLimiter: FederationInboxRateLimiter,
+    // V1.9.217 -- share bar on the article page; DISABLED keeps every response byte-identical to V1.9.216. Application.kt wires the real one.
+    shareConfig: ShareConfig = ShareConfig.DISABLED,
 ) {
     val frameAncestors = embedFrameAncestors(embedConfig)
 
@@ -121,9 +125,23 @@ internal fun Route.registerArticlePublicRoutes(
                     byline = row[ArticleTable.byline],
                 )
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyPageModeHeaders(isEmbed = ctx.isEmbed, frameAncestors = ctx.frameAncestors)
+            val share =
+                if (ctx.isEmbed) {
+                    null
+                } else {
+                    shareConfig.barFor(
+                        url = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/aktuelles/$slug", lang = ctx.lang),
+                        rawTitle = view.title,
+                        rawText = view.title,
+                    )
+                }
+            call.applyPageModeHeaders(
+                isEmbed = ctx.isEmbed,
+                frameAncestors = ctx.frameAncestors,
+                scriptSrcSelf = share?.needsScript == true,
+            )
             call.respondText(
-                text = ArticlePublicHtml.articlePage(ctx = ctx, view = view),
+                text = ArticlePublicHtml.articlePage(ctx = ctx, view = view, share = share),
                 contentType = HTML_CONTENT_TYPE,
             )
         }

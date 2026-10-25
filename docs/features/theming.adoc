@@ -1,0 +1,158 @@
+= Themes from files (V1.9.216)
+:toc:
+
+An operator can change the colours, the corner radius and the fonts of the whole application, and nothing else, by pointing `LAPIS_THEME_PATH` at a directory.
+The directory is read once at startup. Without the variable, or when anything in the directory is wrong, the built-in Lapis look applies and nothing breaks.
+
+== Directory layout
+
+----
+theme/
+  theme.json        required
+  OFL.txt           required when fonts are used (LICENSE, LICENCE, OFL or COPYING, with or without an extension)
+  Inter-Regular.woff2   optional fonts, flat in this directory, plain file names
+----
+
+`LAPIS_THEME_PATH` is an absolute path inside the container, for example `/app/theme`, mounted read-only (see `deploy/example/README.adoc`). The directory itself may be a
+symbolic link or a mount point. Files inside it must not be symbolic links.
+
+== theme.json (version 1)
+
+The machine-readable schema is `lapis-server/src/main/resources/theme/theme.schema.json` (JSON Schema 2020-12, no additional properties anywhere).
+
+[cols="1,1,3",options="header"]
+|===
+|Key |Required |Meaning
+|`$schema` |no |ignored
+|`version` |yes |the integer `1` (not `"1"`, not `1.0`)
+|`name` |yes |letters, digits, space, dot, underscore, hyphen, 1 to 64 characters; appears in the log only, never in the CSS
+|`description` |no |at most 200 characters, no control characters; never used by the server
+|`colors.light`, `colors.dark` |yes |all 16 tokens below, each `#RGB`, `#RRGGBB` or `#RRGGBBAA`
+|`radius` |no |`none`, `small`, `default` (the default) or `large`
+|`fonts.body`, `fonts.display` |no |a font role, see below
+|===
+
+The JSON is read strictly: duplicate keys, comments, trailing commas and text after the document are errors. Limits: 64 KiB, nesting depth 8, 1024 characters per string, 64 members per object.
+
+=== The 16 colour tokens
+
+Each token `x` becomes the CSS custom property `--lapis-x`.
+
+[cols="1,3",options="header"]
+|===
+|Token |Used for
+|`bg` |page background
+|`surface` |cards, dialogs, table bodies
+|`surface-sunken` |zebra rows, table heads, inactive areas
+|`text` |body text
+|`muted` |secondary text
+|`border` |hairlines
+|`border-strong` |input borders, stronger separators
+|`nav` |sidebar, navbar and the chrome bar of the public pages
+|`nav-hover-bg` |hover and open state on `nav`
+|`nav-text` |text and active marker on `nav`
+|`nav-muted` |secondary text on `nav`
+|`accent` |links, primary buttons, focus
+|`accent-strong` |hover and pressed state of `accent`
+|`accent-soft` |tinted backgrounds of selected or informational areas
+|`accent-contrast` |text on `accent`
+|`invalid` |error text and borders
+|===
+
+=== Radius
+
+[cols="1,1,1,1",options="header"]
+|===
+|Preset |`--bs-border-radius` |`--bs-border-radius-sm` |`--bs-border-radius-lg`
+|`none` |0 |0 |0
+|`small` |.25rem |.125rem |.375rem
+|`default` |.375rem |.25rem |.5rem
+|`large` |.75rem |.5rem |1rem
+|===
+
+Only these three Bootstrap properties are set; `-xl`, `-xxl` and `-pill` keep their Bootstrap values.
+
+=== Fonts
+
+A font role (`body` or `display`) has `family` (letters, digits, space, hyphen; the name used in CSS), `fallback` (`sans-serif`, `serif`, `system-ui`, `monospace`) and
+`files` (1 to 4 entries with `file`, `weight` 100 to 900 in steps of 100, optional `style` `normal` or `italic`, optional `format` `woff2`).
+
+* Only WOFF2. Each file at most 512 KiB, all files together at most 2 MiB, at most 8 distinct files. The first four bytes must be `wOF2`.
+* File names are plain names matching `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\.woff2$`. No directories, no `..`.
+* One family, weight and style may map to only one file.
+* A licence file must sit next to the fonts (at most 64 KiB).
+* *Licences:* use only fonts you may redistribute (SIL OFL, Apache-2.0), self-hosted. Do not use font CDNs: they send visitor data to a third party (GDPR) and the content security policy
+  allows fonts from this server only. No font binaries are part of this repository.
+
+== What a problem does
+
+Nothing here stops the server. Everything is logged once at startup as `theme.rejected code=<CODE> path=<JSON path> action=<default|fonts-dropped|none>`.
+The log carries codes, paths and hashes, never values from the file.
+
+[cols="2,1,3",options="header"]
+|===
+|Code |Result |How to fix
+|`THEME_DIR_MISSING`, `THEME_JSON_MISSING`, `THEME_IO` |default |check the mount and the path
+|`THEME_JSON_SYMLINK`, `THEME_JSON_TOO_LARGE`, `THEME_JSON_MALFORMED` |default |plain file under 64 KiB, valid strict JSON
+|`THEME_TYPE`, `THEME_UNKNOWN_KEY`, `THEME_MISSING_KEY` |default (fonts section: fonts dropped) |compare with the schema
+|`THEME_BAD_VERSION`, `THEME_BAD_NAME`, `THEME_BAD_DESCRIPTION`, `THEME_BAD_HEX`, `THEME_BAD_ENUM` |default (fonts section: fonts dropped) |fix the named path
+|`THEME_CONTRAST` |default for colours and fonts, in both modes together |raise the contrast of the named pair
+|`THEME_CONTRAST_ADVISORY` |none (warning) |optional
+|`THEME_FONT_FAMILY`, `THEME_FONT_PATH`, `THEME_FONT_COUNT`, `THEME_FONT_CONFLICT` |fonts dropped, colours kept |fix the fonts section
+|`THEME_FONT_SYMLINK`, `THEME_FONT_MISSING`, `THEME_FONT_MAGIC`, `THEME_FONT_TOO_LARGE`, `THEME_FONT_LICENSE_MISSING` |fonts dropped, colours kept |add or repair the files and the licence
+|===
+
+Do not "repair" a font error by deleting the `fonts` section: add the missing files instead.
+
+=== Contrast rules
+
+For each mode these pairs (foreground on background) need at least 4.5:1: `text` on `bg`, `surface`, `surface-sunken` and `accent-soft`; `muted` on `bg`, `surface` and `surface-sunken`; `nav-text` on `nav` and
+on `nav-hover-bg`; `nav-muted` on `nav`; `accent` on `surface`; `accent-contrast` on `accent`; `accent-strong` on `surface`; `invalid` on `surface`. Colours with an alpha channel are mixed onto the
+background of the pair first (`nav-hover-bg` onto `nav`, the background itself onto `surface`, `surface` onto `bg`, `bg` onto white or black). `border-strong` on `surface` should reach 3:1 and only produces a warning.
+
+== Validating a theme
+
+[source,sh]
+----
+# in the repository
+./gradlew -q :lapis-server:validateTheme -Ptheme=deploy/example/themes/neutral
+# in the container
+docker compose exec lapis-server java -cp '/app/server/lib/*' network.lapis.cloud.server.theme.ThemeValidatorCli /app/theme
+----
+
+Output is one JSON line, for example
+`{"valid":true,"hash":"8b409a69d7f7","source":"custom","errors":[],"warnings":[]}`. Each error has `code`, `path`, `message` and `action`. Exit code 0 means valid (warnings allowed), 1 means at least one error
+(including font and licence errors), 2 means a usage error or an unreadable directory. Gradle prints `BUILD FAILED` after a non-zero exit; the JSON above it is the report.
+
+== Instructions for an agent
+
+. Copy a preset from `deploy/example/themes/` to the theme directory and edit `theme.json`.
+. Run the validator until it exits 0.
+. Restart the server.
+. Check the log for `theme.loaded name=... hash=<12 hex>` and compare the hash with `href="/theme.css?v=<hash>"` in the source of `/app`.
+
+== Presets
+
+`lapis-default` (the built-in look), `neutral`, `high-contrast` and `party-yellow-blue` in `deploy/example/themes/`. The last one names Inter fonts but ships none: see its README. Without the files the validator
+reports `THEME_FONT_MISSING` and the colours apply with the default fonts.
+
+== How it works
+
+The server generates `/theme.css` from the validated values only (fixed templates, normalised hex values, enum strings, validated family names; no comments, no free text from the file). Its rules use the selector
+`html:root` (and the matching dark-mode selectors), which is more specific than the bundled token blocks, so it wins regardless of stylesheet order. Fonts are served from memory under `/theme-fonts/<file>?v=<hash>`
+with a strong ETag and no compression. `/theme.css` has a weak ETag and revalidates; the SPA and its link carry `?v=<hash>` and are cached immutably.
+
+== Limits
+
+* Only the 16 tokens are themable. Role colours, chart, encounter, map and gold ("fleck") tokens stay fixed until a `version` 2 of the format.
+* Corner radii written as literals in the client stay as they are.
+* The video overlay draws on a canvas with a fixed `Inter Variable`; a theme font does not change it.
+* On the server-rendered public pages the chrome bar, the body and wordmark fonts and the primary buttons follow the theme. Content greys, the gold callouts and the error red keep their fixed values.
+* The OG images keep their font (DejaVu).
+
+== Security
+
+* No outgoing fetch and no URL field: everything is local.
+* File names are validated by pattern; every entry is read without following symbolic links, bounded, and checked to stay inside the real theme directory. Bytes are read once at startup, requests touch only memory.
+* No string from the file reaches the CSS other than normalised hex values and validated family names.
+* The content security policy of the public pages gained `font-src 'self'` only; `style-src` is unchanged.

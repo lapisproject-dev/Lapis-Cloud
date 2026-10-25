@@ -1,0 +1,47 @@
+= Signed-in users (admin) (V1.9.215)
+:toc:
+
+== Purpose
+
+The dashboard of an ADMIN shows a tile "Gerade angemeldet" with two head counts: how many people are *active right now* and how many are *signed in* at all.
+Only counts are shown. No name, no id. Nothing new is stored, and the server writes no log line with a figure or a person.
+
+== Rules
+
+* *Signed in*: a person with at least one session that would authenticate right now. The query uses the same join as `SessionStore.resolve`
+  (`session`, `member`, `account`) with `revoked_at IS NULL` and `expires_at > now` (exclusive).
+* *Active*: signed in, and `last_used_at >= now - 15 minutes` (inclusive). `SessionStore.resolve` writes `last_used_at` on every authenticated request;
+  there is no throttling, so the window is exact. A session never used since sign-in counts as signed in, not as active.
+* A session is valid for up to 8 hours, so "signed in" can be higher than "active".
+* A person with several sessions counts once.
+* The admin who opens the tile counts too (if the session is a real one).
+
+[cols="1,2",options="header"]
+|===
+|Group |Member status
+|Members |`ACTIVE`
+|Friends |`FRIEND`
+|Guests |`GUEST` (including OIDC guests, which are ordinary member rows)
+|Other |`APPLICATION`, `WITHDRAWN`, `REJECTED`, `DONOR`, `DECEASED`
+|===
+
+The mapping lives in one place, `OnlineSessionCounts.groupOf`, a `when` without an `else` branch, so a new member status forces a decision at compile time.
+
+*Not counted*: event guests without an account (`evg-` identities, LiveKit token only, no session row), API keys, and the `X-Member-Id` test fallback (no session row).
+
+== Access
+
+`IOnlineCountsService.onlineCounts` requires the ADMIN role as its first statement; BOARD does not imply it. The service is the last registered RPC service.
+The response carries `total`, `members`, `friends`, `guests` and `other` for both counts, the window (15 minutes), the session lifetime (8 hours) and
+`computedAt`, a class-A system timestamp in UTC that the client shows in the organization zone (`formatSystemTime`).
+
+== Behaviour of the tile
+
+* It loads when it appears and then once a minute, but only while the browser tab is visible; when the tab becomes visible again it loads at once.
+* The "Aktualisieren" button loads on demand. Two requests never run at the same time.
+* If a reload fails, the last figures and their time stay on screen and a quiet message appears. Only that message is a live region, so the silent refresh is never announced.
+* The timer and the visibility listener end when the tile leaves the document.
+
+== Data protection
+
+No new personal data is processed or stored. The counts are derived from the existing session table, which is already covered by the session personal-data handling.

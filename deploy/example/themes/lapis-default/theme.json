@@ -1,0 +1,45 @@
+{
+  "$schema": "../../../../lapis-server/src/main/resources/theme/theme.schema.json",
+  "version": 1,
+  "name": "Lapis Default",
+  "description": "The built-in Lapis Cloud look. Copy this folder as a starting point.",
+  "colors": {
+    "light": {
+      "bg": "#FFFFFF",
+      "surface": "#FFFFFF",
+      "surface-sunken": "#F6F7F9",
+      "text": "#14181E",
+      "muted": "#5A626E",
+      "border": "#E3E6EB",
+      "border-strong": "#C9CFD8",
+      "nav": "#14181E",
+      "nav-hover-bg": "#1E242E",
+      "nav-text": "#EDEAE3",
+      "nav-muted": "#A8AEB8",
+      "accent": "#1E56C8",
+      "accent-strong": "#17429B",
+      "accent-soft": "#E7EDFB",
+      "accent-contrast": "#FFFFFF",
+      "invalid": "#A52834"
+    },
+    "dark": {
+      "bg": "#14181E",
+      "surface": "#1B2028",
+      "surface-sunken": "#232933",
+      "text": "#E8E6E0",
+      "muted": "#9AA1AC",
+      "border": "#333A44",
+      "border-strong": "#454D59",
+      "nav": "#0B0E12",
+      "nav-hover-bg": "#1E242E",
+      "nav-text": "#EDEAE3",
+      "nav-muted": "#A8AEB8",
+      "accent": "#5B8FF0",
+      "accent-strong": "#7CA6F3",
+      "accent-soft": "#1B2A44",
+      "accent-contrast": "#0B0E12",
+      "invalid": "#EA868F"
+    }
+  },
+  "radius": "default"
+}

@@ -1,6 +1,8 @@
 = Public article page: Lapis header, layout and `?embed=1` (V1.9.130)
 :toc:
 
+NOTE: the standard presentation ends with a share bar, see <<public-sharing.adoc#,share buttons>>.
+
 The public article page `GET /aktuelles/{slug}` (and its 404, 429 and 500 pages) exists in two presentations, same rule as the event page
 (<<public-event-page.adoc#,V1.9.128>>).
 

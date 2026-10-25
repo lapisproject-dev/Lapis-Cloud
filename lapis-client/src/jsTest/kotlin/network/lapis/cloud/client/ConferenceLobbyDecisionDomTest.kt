@@ -76,7 +76,9 @@ class ConferenceLobbyDecisionDomTest {
                             assertFalse(element().shows("Aktive Besprechungen"), "[$name] no member lobby")
                         } else {
                             awaitUntil("[$name] the member lobby is shown", timeoutMs) { element().shows("Aktive Besprechungen") }
-                            assertTrue(calls.toRoute(list).isNotEmpty(), "[$name] listActiveRooms is called")
+                            // The heading is rendered before the list request is on the wire (the stub records it after reading the body):
+                            // wait for the request instead of checking at the moment the heading shows (V1.9.218, failed in the full run).
+                            awaitUntil("[$name] listActiveRooms is called", timeoutMs) { calls.toRoute(list).isNotEmpty() }
                             assertFalse(element().shows("Als Gast beitreten"), "[$name] no guest lobby")
                         }
                     }

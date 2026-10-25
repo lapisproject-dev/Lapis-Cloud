@@ -839,12 +839,25 @@ class MemberService(
             // Deterministic pagination requires a stable, two-column sort -- name/joinedAt alone is
             // not unique (two members can share a display name or a joined date), so a row could
             // otherwise be skipped or duplicated across page boundaries. id is always unique.
+            // V1.9.207 -- the last-login sort is ADMIN-only; anyone else silently falls back to NAME_ASC (no exception, no oracle).
+            val effectiveSort =
+                if (query.sort in LAST_LOGIN_SORTS &&
+                    !canSeeLastLogin(current = current, chapterScopeId = chapterScopeId)
+                ) {
+                    MemberAdminSort.NAME_ASC
+                } else {
+                    query.sort
+                }
             val orderColumns: Array<Pair<Expression<*>, SortOrder>> =
-                when (query.sort) {
+                when (effectiveSort) {
                     MemberAdminSort.NAME_ASC -> arrayOf(MemberTable.displayName to SortOrder.ASC, MemberTable.id to SortOrder.ASC)
                     MemberAdminSort.NAME_DESC -> arrayOf(MemberTable.displayName to SortOrder.DESC, MemberTable.id to SortOrder.ASC)
                     MemberAdminSort.JOINED_DESC -> arrayOf(MemberTable.joinedAt to SortOrder.DESC, MemberTable.id to SortOrder.ASC)
                     MemberAdminSort.JOINED_ASC -> arrayOf(MemberTable.joinedAt to SortOrder.ASC, MemberTable.id to SortOrder.ASC)
+                    MemberAdminSort.LAST_LOGIN_ASC ->
+                        arrayOf(AccountTable.lastLoginAt to SortOrder.ASC_NULLS_FIRST, MemberTable.id to SortOrder.ASC)
+                    MemberAdminSort.LAST_LOGIN_DESC ->
+                        arrayOf(AccountTable.lastLoginAt to SortOrder.DESC_NULLS_LAST, MemberTable.id to SortOrder.ASC)
                 }
 
             val rows =
@@ -859,6 +872,7 @@ class MemberService(
                             includeFamilyDetails = current.isPrivileged,
                             chapterScoped = chapterScopeId != null,
                             countryViewer = current,
+                            includeLastLogin = canSeeLastLogin(current = current, chapterScopeId = chapterScopeId),
                         )
                     }
 
@@ -1852,6 +1866,14 @@ const val MEMBER_DISPLAY_NAME_MAX_LENGTH = 200
  * [MEMBER_DISPLAY_NAME_MAX_LENGTH]'s own KDoc.
  */
 const val MEMBER_EMAIL_MAX_LENGTH = 320
+private val LAST_LOGIN_SORTS = setOf(MemberAdminSort.LAST_LOGIN_ASC, MemberAdminSort.LAST_LOGIN_DESC)
+
+/** V1.9.207 -- the single rule for the last-login column and its sort: ADMIN with unscoped visibility only. */
+private fun canSeeLastLogin(
+    current: CurrentMember,
+    chapterScopeId: Uuid?,
+): Boolean = current.role == AccountRole.ADMIN && chapterScopeId == null
+
 private const val MIN_REASON_LENGTH = 3
 private const val MAX_REASON_LENGTH = 1000
 
@@ -1930,6 +1952,8 @@ private fun ResultRow.toMemberAdminRowDto(
      * entry is written (the country is an address component shown in the roster; see CHANGELOG decision F2).
      */
     countryViewer: CurrentMember? = null,
+    /** V1.9.207 -- ADMIN only, see [canSeeLastLogin]; `false` yields `null` fields (nulled server-side). */
+    includeLastLogin: Boolean = false,
 ): MemberAdminRowDto =
     MemberAdminRowDto(
         id = this[MemberTable.id].toString(),
@@ -1954,6 +1978,9 @@ private fun ResultRow.toMemberAdminRowDto(
         hasPhoto = includeFamilyDetails && !chapterScoped && this.getOrNull(MemberPhotoTable.id) != null,
         hasPublicBio = includeFamilyDetails && !chapterScoped && this.getOrNull(MemberPublicBioTable.id) != null,
         countryCode = if (chapterScoped) null else rosterCountryCodeFor(countryViewer),
+        // LEFT JOIN account: a member without an account yields null for both (nullable columns, no `!!`).
+        lastLoginAt = if (includeLastLogin) this.getOrNull(AccountTable.lastLoginAt) else null,
+        lastLoginMethod = if (includeLastLogin) this.getOrNull(AccountTable.lastLoginMethod) else null,
     )
 
 /** V1.9.141 -- see [toMemberAdminRowDto] `countryViewer`. `null` for non-privileged viewers and for peer-masked rows. */
@@ -1981,7 +2008,11 @@ private fun loadMemberAdminRow(
         .selectAll()
         .where { MemberTable.id eq id }
         .single()
-        .toMemberAdminRowDto(includeFamilyDetails = includeFamilyDetails, countryViewer = viewer)
+        .toMemberAdminRowDto(
+            includeFamilyDetails = includeFamilyDetails,
+            countryViewer = viewer,
+            includeLastLogin = viewer != null && canSeeLastLogin(current = viewer, chapterScopeId = null),
+        )
 
 private fun String.toMemberUuidOrThrow(): Uuid =
     runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Member $this not found") }

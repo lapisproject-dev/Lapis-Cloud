@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lapis.example/theme.schema.json",
+  "title": "Lapis Cloud theme (version 1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "name",
+    "colors"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9 ._-]{1,64}$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "colors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "light",
+        "dark"
+      ],
+      "properties": {
+        "light": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bg",
+            "surface",
+            "surface-sunken",
+            "text",
+            "muted",
+            "border",
+            "border-strong",
+            "nav",
+            "nav-hover-bg",
+            "nav-text",
+            "nav-muted",
+            "accent",
+            "accent-strong",
+            "accent-soft",
+            "accent-contrast",
+            "invalid"
+          ],
+          "properties": {
+            "bg": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "surface": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "surface-sunken": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "text": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "muted": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "border": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "border-strong": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "nav": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "nav-hover-bg": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "nav-text": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "nav-muted": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "accent": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "accent-strong": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "accent-soft": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "accent-contrast": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "invalid": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            }
+          }
+        },
+        "dark": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bg",
+            "surface",
+            "surface-sunken",
+            "text",
+            "muted",
+            "border",
+            "border-strong",
+            "nav",
+            "nav-hover-bg",
+            "nav-text",
+            "nav-muted",
+            "accent",
+            "accent-strong",
+            "accent-soft",
+            "accent-contrast",
+            "invalid"
+          ],
+          "properties": {
+            "bg": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "surface": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "surface-sunken": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "text": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "muted": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "border": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "border-strong": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "nav": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "nav-hover-bg": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "nav-text": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "nav-muted": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "accent": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "accent-strong": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "accent-soft": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "accent-contrast": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            },
+            "invalid": {
+              "type": "string",
+              "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+            }
+          }
+        }
+      }
+    },
+    "radius": {
+      "enum": [
+        "none",
+        "small",
+        "default",
+        "large"
+      ]
+    },
+    "fonts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "family",
+            "files"
+          ],
+          "properties": {
+            "family": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9 -]{0,62}$"
+            },
+            "fallback": {
+              "enum": [
+                "sans-serif",
+                "serif",
+                "system-ui",
+                "monospace"
+              ]
+            },
+            "files": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file",
+                  "weight"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\\.woff2$"
+                  },
+                  "weight": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 900,
+                    "multipleOf": 100
+                  },
+                  "style": {
+                    "enum": [
+                      "normal",
+                      "italic"
+                    ]
+                  },
+                  "format": {
+                    "const": "woff2"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "display": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "family",
+            "files"
+          ],
+          "properties": {
+            "family": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9 -]{0,62}$"
+            },
+            "fallback": {
+              "enum": [
+                "sans-serif",
+                "serif",
+                "system-ui",
+                "monospace"
+              ]
+            },
+            "files": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file",
+                  "weight"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\\.woff2$"
+                  },
+                  "weight": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 900,
+                    "multipleOf": 100
+                  },
+                  "style": {
+                    "enum": [
+                      "normal",
+                      "italic"
+                    ]
+                  },
+                  "format": {
+                    "const": "woff2"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

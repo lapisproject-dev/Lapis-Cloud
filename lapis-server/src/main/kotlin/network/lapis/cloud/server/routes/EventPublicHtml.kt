@@ -30,13 +30,19 @@ import kotlinx.html.link
 import kotlinx.html.main
 import kotlinx.html.meta
 import kotlinx.html.p
+import kotlinx.html.script
 import kotlinx.html.section
 import kotlinx.html.stream.createHTML
 import kotlinx.html.textArea
 import kotlinx.html.textInput
 import kotlinx.html.title
+import kotlinx.html.unsafe
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventText
+import network.lapis.cloud.server.share.ShareBarModel
+import network.lapis.cloud.server.share.renderShareBar
+import network.lapis.cloud.server.share.renderShareScript
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 import network.lapis.cloud.shared.domain.EventRegistrationMessageLimits
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventTicketCode
@@ -46,8 +52,8 @@ import network.lapis.cloud.shared.domain.EventTicketCode
  * `registerEventPublicRoutes` KDoc). Same rendering discipline as [EmbedDonationHtml]/[EmbedHtml]:
  * `kotlinx.html`'s ordinary, HTML-escaping text-node/attribute APIs only, no `unsafe { }`/raw-string
  * concatenation anywhere in this file, same pattern `EmbedDonationHtml`/`EmbedHtml` already
- * establish. Deliberately NO `<script>` tag anywhere -- a four-field form needs no JavaScript
- * (Duarte).
+ * establish. No `<script src>` except the share bar's same-origin `share.js` (V1.9.217, detail page only), and one
+ * `application/ld+json` data block (the only `unsafe`, escaped).
  *
  * **Occupancy is always BINARY** ("Plätze frei" / "Warteliste"), never an exact remaining count --
  * no digit of a remaining-seats count may ever appear in the rendered HTML.
@@ -92,9 +98,19 @@ internal object EventPublicHtml {
         val onlineJoinUrl: String? = null,
     )
 
+    /** V1.9.217 -- Open Graph description, preview image and JSON-LD of the STANDARD detail page, assembled by the route. */
+    data class EventOgMeta(
+        val description: String,
+        val image: String?,
+        val jsonLd: String,
+    )
+
     fun eventPage(
         ctx: EventPageContext,
         view: View,
+        /** V1.9.217 -- the share bar (STANDARD mode only; the route passes `null` in EMBED mode and when sharing is off). */
+        share: ShareBarModel? = null,
+        ogMeta: EventOgMeta? = null,
     ): String =
         skeleton(
             ctx = ctx,
@@ -102,6 +118,8 @@ internal object EventPublicHtml {
             currentPath = "/veranstaltung/${view.slug}",
             ogImage = view.coverImageUrl,
             canonicalPath = "/veranstaltung/${view.slug}",
+            share = share,
+            ogMeta = ogMeta,
         ) {
             val canRegister = !view.hasEnded && view.registrationOpen
             // The jump link only makes sense when the description pushes the form down (V1.9.140).
@@ -513,15 +531,20 @@ internal object EventPublicHtml {
         canonicalPath: String? = null,
         /** V1.9.140 -- token/follow-up and error pages: `noindex, nofollow` (replaces, never duplicates, the EMBED `noindex`). */
         noIndex: Boolean = false,
+        /** V1.9.217 -- only the 200 detail page passes it; a `noIndex` page or the EMBED mode never renders it. */
+        share: ShareBarModel? = null,
+        ogMeta: EventOgMeta? = null,
         content: FlowContent.() -> Unit,
     ): String =
         createHTML(prettyPrint = false).html {
+            check(share == null || !noIndex) { "The share bar must never render on a noindex page" }
+            val shareBar = if (ctx.isEmbed || noIndex) null else share
             attributes["lang"] = if (ctx.isEmbed) "de" else ctx.lang.code
             head {
                 meta(charset = "utf-8")
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title { +"$heading – ${ctx.brandTitle}" }
-                link(rel = "stylesheet", href = "/s/assets/style.css")
+                publicStylesheetLinks()
                 val robots =
                     when {
                         noIndex -> "noindex, nofollow"
@@ -538,12 +561,39 @@ internal object EventPublicHtml {
                     )
                     with(PublicChrome) { renderHreflangAlternates(baseUrl = ctx.baseUrl, currentPath = canonicalPath) }
                 }
-                if (ogImage != null) {
+                if (ogMeta != null && !ctx.isEmbed && !noIndex && canonicalPath != null) {
+                    val pageUrl = PublicChrome.languageUrl(baseUrl = ctx.baseUrl, currentPath = canonicalPath, lang = ctx.lang)
+                    for (
+                    (property, value) in
+                    listOf(
+                        "og:title" to heading,
+                        "og:description" to ogMeta.description,
+                        "og:url" to pageUrl,
+                        "og:type" to "website",
+                        "og:site_name" to ctx.brandTitle,
+                    )
+                    ) {
+                        meta {
+                            attributes["property"] = property
+                            attributes["content"] = value
+                        }
+                    }
+                    meta(name = "twitter:card", content = "summary")
+                    if (ogMeta.image != null) {
+                        meta {
+                            attributes["property"] = "og:image"
+                            attributes["content"] = ogMeta.image
+                        }
+                    }
+                    // The only `unsafe` of this file: a data block whose JSON is escaped by EventShareMeta.escapeForScriptBlock.
+                    script(type = "application/ld+json") { unsafe { +ogMeta.jsonLd } }
+                } else if (ogImage != null) {
                     meta {
                         attributes["property"] = "og:image"
                         attributes["content"] = ogImage
                     }
                 }
+                renderShareScript(shareBar)
             }
             if (ctx.isEmbed) {
                 body {
@@ -580,6 +630,8 @@ internal object EventPublicHtml {
                             h1(classes = "event-title") { +heading }
                             content()
                         }
+                        // Outside the lang="de" wrapper on purpose: the labels follow the UI language (V1.9.217).
+                        if (shareBar != null) renderShareBar(model = shareBar, strings = PublicChrome.stringsFor(ctx.lang))
                     }
                     with(PublicChrome) { renderPublicFooter(lang = ctx.lang, baseUrl = ctx.baseUrl, branding = ctx.branding) }
                 }

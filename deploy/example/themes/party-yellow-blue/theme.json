@@ -1,0 +1,74 @@
+{
+  "$schema": "../../../../lapis-server/src/main/resources/theme/theme.schema.json",
+  "version": 1,
+  "name": "Party Yellow Blue",
+  "description": "Yellow and blue after a party style guide, with self-hosted Inter (add the font files, see README).",
+  "colors": {
+    "light": {
+      "bg": "#FFFFFF",
+      "surface": "#FFFFFF",
+      "surface-sunken": "#F6F7F9",
+      "text": "#000000",
+      "muted": "#4A5060",
+      "border": "#E3E6EB",
+      "border-strong": "#8891A0",
+      "nav": "#1D2968",
+      "nav-hover-bg": "#20358C",
+      "nav-text": "#FFED00",
+      "nav-muted": "#C8CFEE",
+      "accent": "#20358C",
+      "accent-strong": "#1D2968",
+      "accent-soft": "#E8ECFA",
+      "accent-contrast": "#FFFFFF",
+      "invalid": "#D00080"
+    },
+    "dark": {
+      "bg": "#0E1430",
+      "surface": "#141B3D",
+      "surface-sunken": "#1A2350",
+      "text": "#F2F4FF",
+      "muted": "#A9B3D9",
+      "border": "#2A3566",
+      "border-strong": "#6573B5",
+      "nav": "#1D2968",
+      "nav-hover-bg": "#20358C",
+      "nav-text": "#FFED00",
+      "nav-muted": "#C8CFEE",
+      "accent": "#FFED00",
+      "accent-strong": "#FAB500",
+      "accent-soft": "#1D2968",
+      "accent-contrast": "#000000",
+      "invalid": "#FF6FB5"
+    }
+  },
+  "radius": "default",
+  "fonts": {
+    "body": {
+      "family": "Inter",
+      "fallback": "sans-serif",
+      "files": [
+        {
+          "file": "Inter-Regular.woff2",
+          "weight": 400,
+          "style": "normal"
+        },
+        {
+          "file": "Inter-SemiBold.woff2",
+          "weight": 600,
+          "style": "normal"
+        }
+      ]
+    },
+    "display": {
+      "family": "Inter",
+      "fallback": "sans-serif",
+      "files": [
+        {
+          "file": "Inter-Bold.woff2",
+          "weight": 700,
+          "style": "normal"
+        }
+      ]
+    }
+  }
+}

@@ -406,14 +406,33 @@ internal const val FOCUS_AFTER_PATCH_DELAY_MS = 60
  */
 fun Container.tableActionGroup(): HPanel =
     hPanel(spacing = 4) {
-        addCssClasses("flex-nowrap align-items-center")
+        addCssClasses("flex-nowrap align-items-center $TABLE_ACTIONS_CLASS")
     }
 
-/** One column header of a [standardTable]; [numeric] right-aligns it like its `td`s ([numCell]). */
+/** CSS classes of the responsive-table rule R62 (`theme.css`, block "R62 / V1.9.211"). */
+internal const val TABLE_CARDS_CLASS = "lapis-table-cards"
+internal const val STICKY_FIRST_COLUMN_CLASS = "lapis-table-sticky-first"
+internal const val TABLE_ACTIONS_CLASS = "lapis-table-actions"
+
+/** V1.9.212 -- the `td` that holds a row's actions: never wraps, shrinks to its content. */
+internal const val TABLE_ACTIONS_CELL_CLASS = "lapis-table-actions-cell"
+
+/**
+ * One column header of a [standardTable]; [numeric] right-aligns it like its `td`s ([numCell]).
+ * [mobileHidden] hides the column in the card layout of a [masterTable] (below 768 px); allowed for at most one
+ * column, never the first (name) column, only when the value is on the detail page ([requireValidMobileHidden]).
+ */
 class TableHeader(
     val title: String,
     val numeric: Boolean = false,
+    val mobileHidden: Boolean = false,
 )
+
+/** Guards the [TableHeader.mobileHidden] limits of R62: at most one hidden column and never the name column. */
+internal fun requireValidMobileHidden(headers: List<TableHeader>) {
+    check(headers.count { it.mobileHidden } <= 1) { "At most one column may be mobileHidden (R62)" }
+    check(headers.firstOrNull()?.mobileHidden != true) { "The name column must not be mobileHidden (R62)" }
+}
 
 /**
  * The one table of the guideline: striped + hover + small rows, wrapped in Bootstrap's horizontally
@@ -425,12 +444,16 @@ class TableHeader(
  * the `headerNames` setter empties the header row, and [dataTable] needs widget headers for its sort
  * buttons. [headers] may be empty when the caller adds its own header cells.
  */
-fun Container.standardTable(headers: List<TableHeader>): Table {
+fun Container.standardTable(
+    headers: List<TableHeader>,
+    stickyFirstColumn: Boolean = false,
+): Table {
     val standard =
         table(
             types = setOf(TableType.STRIPED, TableType.HOVER, TableType.SMALL),
             responsiveType = ResponsiveType.RESPONSIVE,
         )
+    if (stickyFirstColumn) standard.addCssClass(STICKY_FIRST_COLUMN_CLASS)
     headers.forEach { header -> standard.addHeaderCell(plainHeaderCell(header)) }
     return standard
 }
@@ -531,8 +554,9 @@ fun Container.reportTable(
     caption: String,
     headers: List<TableHeader>,
     captionVisible: Boolean = true,
+    stickyFirstColumn: Boolean = false,
 ): Table {
-    val report = standardTable(headers)
+    val report = standardTable(headers, stickyFirstColumn)
     report.caption = caption
     report.addCssClasses("$REPORT_TABLE_CLASS caption-top")
     // Audit V1.4.27 (MINOR-2): a caption that only repeats the heading or the header row right above the table is

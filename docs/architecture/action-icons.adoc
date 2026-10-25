@@ -57,6 +57,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `CHEVRON_DOWN` | `fa-chevron-down` | V1.9.190: second glyph of the collapsed page intro toggle (it opens on click). Not `CHEVRON` (right-pointing disclosure arrow of group headers).
 | `CHEVRON_UP` | `fa-chevron-up` | V1.9.190: the open page intro's "Einklappen" button.
 | `REACT` | `fa-face-smile` | V1.9.127: the "Reaktion" button of the video conference bar (opens the menu of five reactions). The raised hand reuses `HAND` (same verb as in the encounter room).
+| `REGISTER`, `UNREGISTER` | `fa-calendar-check`, `fa-calendar-xmark` | V1.9.208: sign YOURSELF up for an event ("Teilnahme anmelden", "Warteliste", "Anmelden und bezahlen") and withdraw ("Teilnahme abmelden"); NOT `ADD_PERSON` (adds or invites ANOTHER person, `fa-user-plus`) and NOT `UNDO`
 | `MOVE_UP`, `MOVE_DOWN` | `fa-arrow-up`, `fa-arrow-down` | V1.9.129: move an element of the video overlay library one place up or down (admin card "Videokonferenz"); icon-only in the list row with `title` and `aria-label`. Not used for scrolling or navigation (`BACK`/`NEXT`).
 | `PROTECTED` | `fa-shield-halved` | V1.9.57: geschützt -- the reason text next to a disabled control and the masked value of the admin peer protection; marks a state, never an action; NOT `LOCK`, NOT `ACCESS`
 |===
@@ -66,6 +67,11 @@ bundled stylesheet; without that check a wrong name renders an invisible icon an
 
 == Usage rules
 
+* One glyph, one meaning, and no duplicate glyph inside one button group (V1.9.208). Check the table AND the status glyphs (`MemberStatusLabels.kt`) before
+  choosing: `fa-id-badge` is the guest status, so "Ämter" keeps `fa-user-tie` (`OFFICES`, one use); `fa-user-plus` is `ADD_PERSON`, so event registration
+  has its own glyphs (`REGISTER`/`UNREGISTER`).
+* V1.9.208: `RESPONSIVE` action buttons (icon only below 576 px, `title` + `aria-label` carry the name) are for the actions of a card, row or header in an
+  `actionGroup`; dense tables keep the icon-only `btn-sm` button.
 * Outside tables: icon plus text. In tables: from two actions per row icon-only `btn-sm` with `title` and `aria-label`; with one action icon plus text.
 * The icon is decoration (`aria-hidden`); the visible text is the accessible name and is unchanged. Labels are static `tr()` texts.
 * Do not mix `btn-sm` into a tool row; the buttons of a row keep one height.

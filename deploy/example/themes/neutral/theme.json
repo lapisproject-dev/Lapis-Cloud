@@ -1,0 +1,45 @@
+{
+  "$schema": "../../../../lapis-server/src/main/resources/theme/theme.schema.json",
+  "version": 1,
+  "name": "Neutral Grey",
+  "description": "A calm grey theme without a strong brand colour.",
+  "colors": {
+    "light": {
+      "bg": "#FFFFFF",
+      "surface": "#FFFFFF",
+      "surface-sunken": "#F4F4F5",
+      "text": "#18181B",
+      "muted": "#52525B",
+      "border": "#E4E4E7",
+      "border-strong": "#858590",
+      "nav": "#27272A",
+      "nav-hover-bg": "#3F3F46",
+      "nav-text": "#FAFAFA",
+      "nav-muted": "#D4D4D8",
+      "accent": "#3F3F46",
+      "accent-strong": "#27272A",
+      "accent-soft": "#F4F4F5",
+      "accent-contrast": "#FFFFFF",
+      "invalid": "#B91C1C"
+    },
+    "dark": {
+      "bg": "#18181B",
+      "surface": "#1F1F23",
+      "surface-sunken": "#27272A",
+      "text": "#F4F4F5",
+      "muted": "#A1A1AA",
+      "border": "#3F3F46",
+      "border-strong": "#71717A",
+      "nav": "#09090B",
+      "nav-hover-bg": "#27272A",
+      "nav-text": "#FAFAFA",
+      "nav-muted": "#A1A1AA",
+      "accent": "#E4E4E7",
+      "accent-strong": "#FFFFFF",
+      "accent-soft": "#27272A",
+      "accent-contrast": "#18181B",
+      "invalid": "#F87171"
+    }
+  },
+  "radius": "small"
+}

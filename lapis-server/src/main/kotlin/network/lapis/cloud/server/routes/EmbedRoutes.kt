@@ -505,7 +505,7 @@ internal data class EmbedAdminStatusResponse(
 internal fun ApplicationCall.applyEmbedPageHeaders() {
     response.header(
         "Content-Security-Policy",
-        "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; " +
+        "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; " +
             "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     )
     response.header("X-Content-Type-Options", "nosniff")

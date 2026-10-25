@@ -16,6 +16,13 @@
     <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <!--
+      V1.9.216 operator theme: the server generates this stylesheet from the theme directory and stamps a content-hash
+      query string into the link below when it serves the shell. Its rules use a more specific root selector than the bundled
+      colour tokens, so it wins although the bundler adds those later. Keep the element's id attribute verbatim and do not
+      repeat it inside comments (the server matches the first occurrence).
+    -->
+    <link rel="stylesheet" href="/theme.css" id="lapis-theme-css">
+    <!--
       V1.2.5 White-Label-Branding: dev-time default payload. `network.lapis.cloud.server.branding
       .BrandingHtml.inject` overwrites BOTH the <title> text above and this element's JSON content
       with the operator's actual LAPIS_BRAND_TITLE/LAPIS_BRAND_LOGO_PATH whenever the server serves

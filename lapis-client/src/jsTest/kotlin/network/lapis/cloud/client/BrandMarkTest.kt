@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import kotlinx.browser.document
 import kotlinx.browser.window
+import network.lapis.cloud.shared.branding.LapisCloudMark
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLScriptElement
 import org.w3c.dom.svg.SVGElement
@@ -12,8 +13,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * V1.9.195 -- the default Lapis Cloud mark: two inline SVGs (light + dark) in one span, an operator logo always wins, a custom title
- * without a logo shows no mark, the footer variant is 12 px and has no sparkle, and exactly one of the two SVGs is visible per theme
+ * V1.9.195 -- the default Lapis Cloud mark: two inline SVGs (light + dark) in one span, an operator logo always wins, without a logo the mark shows whatever
+ * the title is, the footer variant is 12 px and has no sparkle, and exactly one of the two SVGs is visible per theme
  * (the rule lives in theme.css; a copy of it is injected here, see [RULES]).
  */
 class BrandMarkTest {
@@ -65,7 +66,7 @@ class BrandMarkTest {
     private fun SVGElement.displayed(): Boolean = window.getComputedStyle(this).display != "none"
 
     @Test
-    fun defaultBrand_lockupHoldsBothVariants_decorative22px() {
+    fun defaultBrand_lockupHoldsBothVariants_decorative32px() {
         setBrand("""{"title":"Lapis Cloud","logoUrl":null}""")
         withMountedRoot("brand-mark-default") { root, element ->
             root.brandLockup()
@@ -74,8 +75,8 @@ class BrandMarkTest {
             assertEquals(1, el.querySelectorAll(".lapis-brand-mark--dark").length)
             for (i in 0 until el.svgs().length) {
                 val svg = el.svgs().item(i) as SVGElement
-                assertEquals("22", svg.getAttribute("width"))
-                assertEquals("22", svg.getAttribute("height"))
+                assertEquals("32", svg.getAttribute("width"))
+                assertEquals("32", svg.getAttribute("height"))
                 assertEquals("true", svg.getAttribute("aria-hidden"))
                 assertEquals("false", svg.getAttribute("focusable"))
             }
@@ -109,11 +110,24 @@ class BrandMarkTest {
     }
 
     @Test
-    fun customTitleWithoutLogo_showsNoMark() {
+    fun customTitleWithoutLogo_showsMark() {
         setBrand("""{"title":"Mein Verein","logoUrl":null}""")
         withMountedRoot("brand-mark-custom") { root, element ->
             root.brandLockup()
-            assertEquals(0, element().svgs().length)
+            assertEquals(2, element().svgs().length)
+            assertTrue(element().querySelector(".lapis-brand-mark") != null)
+            assertTrue(element().querySelector(".lapis-brand-logo") == null)
+            assertTrue(element().textContent!!.contains("Mein Verein"))
+        }
+    }
+
+    @Test
+    fun neitherTitleNorLogo_showsMarkAndDefaultName() {
+        setBrand("""{}""")
+        withMountedRoot("brand-mark-none") { root, element ->
+            root.brandLockup()
+            assertEquals(2, element().svgs().length)
+            assertTrue(element().textContent!!.contains("Lapis Cloud"))
         }
     }
 
@@ -146,6 +160,19 @@ class BrandMarkTest {
             assertFalse(svg.contains("#"), "no colour literal in the Kotlin markup")
             assertEquals(2, Regex("<svg ").findAll(svg).count())
         }
+        for (d in listOf(
+            LapisCloudMark.CLOUD_D,
+            LapisCloudMark.F1_D,
+            LapisCloudMark.F2_D,
+            LapisCloudMark.F3_D,
+            LapisCloudMark.F4_D,
+            LapisCloudMark.F5_D,
+            LapisCloudMark.F6_D,
+        )) {
+            assertTrue(LAPIS_CLOUD_MARK_SVG.contains("d=\"$d\""), "full mark carries $d")
+            assertTrue(LAPIS_CLOUD_MARK_SMALL_SVG.contains("d=\"$d\""), "small mark carries $d")
+        }
+        assertTrue(LAPIS_CLOUD_MARK_SVG.contains("d=\"${LapisCloudMark.SPARK_D}\""))
         assertEquals(2, Regex("bm-spark").findAll(LAPIS_CLOUD_MARK_SVG).count())
         assertFalse(LAPIS_CLOUD_MARK_SMALL_SVG.contains("bm-spark"))
     }

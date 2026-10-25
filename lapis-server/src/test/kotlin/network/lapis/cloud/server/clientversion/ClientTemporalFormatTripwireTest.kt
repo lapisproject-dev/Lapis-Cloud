@@ -49,8 +49,36 @@ private val FORBIDDEN_DATE_API = Regex("""Intl\.DateTimeFormat|toLocaleDateStrin
 
 /** T2: a temporal token concatenated into another string leaks the i18n marker (mirrors `ClientMoneyFormatTripwireTest`'s
  * M3 for the five money/LTR kinds). */
-private val TEMPORAL_TOKEN_CALL = Regex("""\b(?:dateToken|dayMonthToken|dateTimeToken|timestampToken|timeToken)\(""")
+private val TEMPORAL_TOKEN_NAMES =
+    "dateToken|dayMonthToken|dateTimeToken|timestampToken|timeToken|systemDateTimeToken|systemTimestampToken|weekdayDateTimeToken"
+private val TEMPORAL_TOKEN_CALL = Regex("""\b(?:$TEMPORAL_TOKEN_NAMES)\(""")
 private val TOKEN_CONCATENATION = Regex(""""\s*\+|\+\s*"|\$\{|\$\w|gettext\(""")
+
+/** T9 (V1.9.212): a token held in a local variable and then composed into a template or concatenation. T2 only sees a token
+ * NAMED on the composing line; `val stamp = systemDateTimeToken(at)` followed by `"${'$'}stamp · ..."` (V1.9.207, the raw-ISO bug in the
+ * member roster) slips through it. Tokens only ever stand alone as a widget's whole text. */
+private val TOKEN_VARIABLE_DECL = Regex("""(?:val|var)\s+(\w+)\s*=\s*\w*Token\(""")
+
+private fun tokenVariableCompositionSites(lines: List<String>): List<String> {
+    val names = lines.mapNotNull { TOKEN_VARIABLE_DECL.find(it)?.groupValues?.get(1) }.toSet()
+    return names.flatMap { name ->
+        val use = Regex("""\$\{?$name\b|\+\s*$name\b|\b$name\s*\+""")
+        lines.filter { !TOKEN_VARIABLE_DECL.containsMatchIn(it) && use.containsMatchIn(it) }.map { it.trim() }
+    }
+}
+
+/** T10 (V1.9.212): a local initialised from a persisted temporal field and rendered through `.toString()` in a table-cell helper
+ * (`val at = row.lastLoginAt; cellText(at.toString())`) -- the shape T5a (qualified `x.field.toString()`) cannot see. */
+private val TEMPORAL_LOCAL_DECL by lazy { Regex("""(?:val|var)\s+(\w+)\s*=\s*(?:\w+\??\.)+(?:$TEMPORAL_FIELD_ALTERNATION)\b""") }
+private val CELL_HELPER_CALL = Regex("""\b(?:cellText|textCell|numCell)\(""")
+
+private fun temporalLocalCellToStringSites(lines: List<String>): List<String> {
+    val names = lines.mapNotNull { TEMPORAL_LOCAL_DECL.find(it)?.groupValues?.get(1) }.toSet()
+    return names.flatMap { name ->
+        val raw = Regex("""\b$name\??\.toString\(\)""")
+        lines.filter { CELL_HELPER_CALL.containsMatchIn(it) && raw.containsMatchIn(it) }.map { it.trim() }
+    }
+}
 
 /** T3: no screen re-derives `DateTime.kt`'s own zero-padding of a day/month/hour/minute/second/year component instead of
  * calling its `internal` `pad2`/`pad4` (Review-Befund 2026-09-24: three independent
@@ -311,6 +339,32 @@ class ClientTemporalFormatTripwireTest :
             TOKEN_CONCATENATION.containsMatchIn("""val s = "${'$'}{timestampToken(x)} extra"""") shouldBe true
             TOKEN_CONCATENATION.containsMatchIn("""trFormat(tr("Termin: %1"), dateToken(x))""") shouldBe false
             TOKEN_CONCATENATION.containsMatchIn("""span(dateTimeToken(at)) {""") shouldBe false
+        }
+
+        test("T9: a token held in a variable is never composed into a string, and the detector sees the V1.9.207 shape") {
+            files.flatMap { f -> tokenVariableCompositionSites(codeLines(f)).map { "${f.name}: $it" } } shouldBe emptyList()
+            val v207 =
+                listOf(
+                    "    val stamp = systemDateTimeToken(at)",
+                    """    return if (method == null) stamp else "${'$'}stamp · ${'$'}{loginMethodLabel(method)}"""",
+                )
+            tokenVariableCompositionSites(v207).size shouldBe 1
+            tokenVariableCompositionSites(listOf("val s = dateToken(d)", "val t = s + \"x\"")).size shouldBe 1
+            tokenVariableCompositionSites(listOf("val stamp = systemDateTimeToken(at)", "span(stamp)")) shouldBe emptyList()
+            tokenVariableCompositionSites(listOf("val stamp = systemDateTimeToken(at)", "cellText(trusted(stamp))")) shouldBe emptyList()
+            // T2 now names the system*/weekday* tokens as well
+            TEMPORAL_TOKEN_CALL.containsMatchIn("""val s = "${'$'}{systemDateTimeToken(x)} · m"""") shouldBe true
+            TEMPORAL_TOKEN_CALL.containsMatchIn(""""a" + systemTimestampToken(x)""") shouldBe true
+            TEMPORAL_TOKEN_CALL.containsMatchIn("""x + weekdayDateTimeToken(x)""") shouldBe true
+        }
+
+        test("T10: no raw toString() of a temporal local in a table-cell helper, and the detector sees one") {
+            files.flatMap { f -> temporalLocalCellToStringSites(codeLines(f)).map { "${f.name}: $it" } } shouldBe emptyList()
+            temporalLocalCellToStringSites(
+                listOf("val at = row.lastLoginAt", "container.cellText(at.toString())"),
+            ).size shouldBe 1
+            temporalLocalCellToStringSites(listOf("val at = row.lastLoginAt", "container.systemDateTimeSpan(at)")) shouldBe emptyList()
+            temporalLocalCellToStringSites(listOf("val n = row.name", "container.cellText(n.toString())")) shouldBe emptyList()
         }
 
         test("T3: no screen re-derives DateTime.kt's own zero-padding of a date/time component, and the detector sees one") {

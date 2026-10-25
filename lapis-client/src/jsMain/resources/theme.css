@@ -309,7 +309,7 @@ body {
 .lapis-navbar .nav-link:hover,
 .lapis-navbar .nav-link:focus,
 .lapis-navbar .dropdown-toggle:hover {
-  color: #FFFFFF !important;
+  color: var(--lapis-nav-text) !important;
   background-color: var(--lapis-nav-hover-bg);
 }
 
@@ -318,7 +318,7 @@ body {
    with BOTH `dropdown-toggle` and `nav-link` when `forNavbar = true` (see NavHighlight.kt), so no
    separate `.dropdown-toggle.active` selector is needed here. */
 .lapis-navbar .nav-link.active {
-  color: var(--lapis-fleck) !important;
+  color: var(--lapis-nav-text) !important; /* themable, contrast-checked pair; gold stays on the underline only */
   border-bottom: 2px solid var(--lapis-fleck);
 }
 
@@ -355,11 +355,11 @@ body {
 }
 
 /* V1.9.195: the default Lapis Cloud mark is two inline SVGs (light + dark, see App.kt's
-   LAPIS_CLOUD_MARK_SVG); exactly one is shown. The 22px size matches .lapis-brand-logo's max-height
-   so the navbar does not jump between the default mark and an operator logo. */
+   LAPIS_CLOUD_MARK_SVG); exactly one is shown. V1.9.210: the size is the shared --lapis-brand-logo-size token
+   (same as an operator logo's height) so the navbar does not jump between the default mark and an operator logo. */
 .lapis-brand-mark-svg {
-  width: 22px;
-  height: 22px;
+  width: var(--lapis-brand-logo-size);
+  height: var(--lapis-brand-logo-size);
 }
 
 html[data-theme="dark"] .lapis-brand-mark--light,
@@ -404,11 +404,31 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
    review apparently never exercised an SVG with a large intrinsic size. The descendant selector
    below is the actual fix; the bare selector is kept too in case a future caller ever puts this
    class directly on an img. */
-.lapis-brand-logo,
-.lapis-brand-logo img {
-  max-height: 22px;
-  width: auto;
+.lapis-brand-logo {
+  display: inline-flex;
+  flex-shrink: 0;
   vertical-align: middle;
+}
+
+/* V1.9.210 "Logo in der Kopfleiste": the logo image is 32px (2rem) tall, any aspect ratio, capped at 180px wide
+   (120px on phones). The wrapper span carries no height or overflow of its own; only the img is sized. */
+.lapis-brand-logo img {
+  display: block;
+  height: var(--lapis-brand-logo-size);
+  width: auto;
+  max-width: 180px;
+  object-fit: contain;
+}
+
+/* V1.9.210: the brand link lays out mark/logo and title as a flex row with a real gap. Box: 4 + 32 + 4 + 2px border = 42px,
+   exactly as high as before (5 + 30 + 5 + 2). On phones the title has font-size 0; see the mobile block. */
+.lapis-navbar .navbar-brand {
+  display: inline-flex;
+  align-items: center;
+  column-gap: 0.5rem;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  min-width: 0;
 }
 
 /* Smaller variant of .lapis-brand-mark for LapisAttribution.kt's footer credit line: the sparkle-free
@@ -442,10 +462,21 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
 .lapis-lockup {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
+  gap: 0.5rem;
   text-decoration: none;
   color: inherit;
   font-weight: 600;
+}
+
+/* V1.9.210: the login lockup shows the brand larger than the navbar does: 40px tall, logo capped at 240px wide. */
+.lapis-lockup .lapis-brand-logo img,
+.lapis-lockup .lapis-brand-mark-svg {
+  height: 40px;
+  max-width: 240px;
+}
+
+.lapis-lockup .lapis-brand-mark-svg {
+  width: 40px;
 }
 
 .lapis-lockup:hover {
@@ -551,7 +582,7 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
 
 .lapis-sidebar-toggle:hover,
 .lapis-sidebar-toggle:focus {
-  color: #FFFFFF !important;
+  color: var(--lapis-nav-text) !important;
   background-color: var(--lapis-nav-hover-bg);
 }
 
@@ -616,6 +647,15 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
   .lapis-navbar .dropdown-toggle i,
   .lapis-navbar .nav-link i {
     font-size: 1rem;
+  }
+
+  /* V1.9.210: no gap next to the hidden (font-size 0) title text node; the logo is capped narrower on phones. */
+  .lapis-navbar .navbar-brand {
+    column-gap: 0;
+  }
+
+  .lapis-navbar .lapis-brand-logo img {
+    max-width: 120px;
   }
 }
 
@@ -831,6 +871,21 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
 :focus-visible {
   outline: 2px solid var(--lapis-fleck);
   outline-offset: 2px;
+}
+
+/* On the themable navbar the fixed gold ring is not contrast-checked against a custom nav colour;
+   use the themable nav-text token instead (it is validated against nav and nav-hover-bg). */
+.lapis-navbar .navbar-brand:focus-visible,
+.lapis-navbar .nav-link:focus-visible,
+.lapis-navbar .dropdown-toggle:focus-visible,
+.lapis-sidebar-toggle:focus-visible {
+  outline-color: var(--lapis-nav-text);
+}
+
+/* Dropdown menus sit on the light content surface, not on the nav colour: the nav-text ring would be
+   near-invisible there, so menu items keep the contrast-checked accent. */
+.lapis-navbar .dropdown-menu :focus-visible {
+  outline-color: var(--lapis-accent);
 }
 
 .btn-primary {
@@ -1741,7 +1796,7 @@ html.lapis-conference-call-visible .lapis-conference-call-panel {
    erstmals auf schmalen Viewports eingelöst). */
 .lapis-conference-transparency-banner {
   position: sticky;
-  top: 0;
+  top: var(--lapis-navbar-height); /* V1.9.209: directly below the sticky navbar */
   z-index: 6;
 }
 
@@ -1749,7 +1804,12 @@ html.lapis-conference-call-visible .lapis-conference-call-panel {
    viewport; a keyboard-focused element scrolled into view must land below it, not under it. The
    page is the one scroll surface, so the padding lives on its scroll container (`html`). */
 html {
-  scroll-padding-top: 4.5rem;
+  scroll-padding-top: calc(var(--lapis-navbar-height) + 0.75rem);
+}
+
+/* V1.9.209: with the sticky banner on the page, the focus must land below navbar AND banner. */
+html:has(.lapis-conference-transparency-banner) {
+  scroll-padding-top: calc(var(--lapis-navbar-height) + 4.5rem);
 }
 
 /* Defensiver Belt-and-suspenders: native :fullscreen-Pseudoklasse als Backup, falls der
@@ -2370,7 +2430,7 @@ html .form-select.is-invalid:focus {
 @media (min-width: 992px) and (min-height: 760px) {
   .lapis-member-map-panel {
     position: sticky;
-    top: 1rem;
+    top: calc(var(--lapis-navbar-height) + 1rem);
     align-self: start;
   }
 }
@@ -5927,7 +5987,7 @@ div:hover > .lapis-conference-pin,
     grid-column: 1;
     grid-row: 1;
     position: sticky;
-    top: 16px;
+    top: calc(var(--lapis-navbar-height) + 16px);
     bottom: auto;
     display: flex;
     flex-wrap: wrap;
@@ -7307,6 +7367,257 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
         flex-direction: column;
         align-items: stretch;
     }
+}
+
+/* V1.9.208 (R58, mobile): action groups on cards, rows and headers. The buttons keep a 44px touch target; below 576px the label span
+   (.lapis-action-label, d-none d-sm-inline) disappears and the icon stays, the name lives in title + aria-label. No transition and no
+   animation, so nothing needs switching off under prefers-reduced-motion (R54). Dense table rows keep their btn-sm icon buttons. */
+.lapis-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+}
+
+.lapis-action-btn {
+  min-height: 44px;
+  min-width: 44px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lapis-action-btn .lapis-action-icon {
+  margin-inline-end: 0;
+}
+
+.lapis-action-btn .lapis-action-label {
+  margin-inline-start: .375rem;
+}
+
+/* V1.9.208: checkboxes in filter rows. Bootstrap's .form-check floats the input into a negative margin and adds padding; inside a row that
+   centres its items the box would sit above the field. Flex-centre it in a box of the control height (44px on a phone) instead. */
+.lapis-inline-row .form-check,
+.lapis-filter-row .form-check,
+.lapis-filter-row .lapis-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0;
+  padding-left: 0;
+  min-height: calc(1.5em + .75rem + 2px);
+}
+
+.lapis-inline-row .form-check .form-check-input,
+.lapis-filter-row .form-check .form-check-input {
+  float: none;
+  margin: 0;
+}
+
+.lapis-inline-row .form-check .form-check-label,
+.lapis-filter-row .form-check .form-check-label {
+  margin: 0;
+}
+
+.lapis-filter-row .btn {
+  min-height: calc(1.5em + .75rem + 2px);
+}
+
+@media (max-width: 575.98px) {
+  .lapis-inline-row input,
+  .lapis-inline-row select,
+  .lapis-inline-row .btn {
+    height: 2.75rem;
+  }
+
+  .lapis-filter-row .btn,
+  .lapis-inline-row .form-check,
+  .lapis-filter-row .form-check,
+  .lapis-filter-row .lapis-filter-toggle {
+    min-height: 2.75rem;
+  }
+}
+
+/* V1.9.209 "Feste Kopfleiste": the navbar is sticky on every viewport (no hide-on-scroll, no shadow, no motion -- R54). The CSS
+   default 56px is the value before JS runs; App.kt's ResizeObserver overrides it with the measured height (text zoom, wrapping brand).
+   `min-height`, never `height`: a hard height would clip the content at 200% text zoom (WCAG 1.4.4). z-index 1020 sits below the
+   offcanvas (1045), modal (1055) and the pseudo-fullscreen room (1060). No ancestor may set overflow (other than visible/clip),
+   transform, filter or backdrop-filter, or sticky silently stops working. */
+:root {
+  --lapis-navbar-height: 56px;
+  /* V1.9.210 "Logo in der Kopfleiste": brand logo / default mark height. Brand box 4 + 32 + 4 + 2px border = 42px, same as before.
+     Deliberately NOT var(--lapis-navbar-height): that is the MEASURED navbar height (NavbarHeight.kt, ResizeObserver), so a logo
+     derived from it would feed back (logo grows, bar grows, measurement grows, logo grows). rem: scales with text zoom. */
+  --lapis-brand-logo-size: 2rem;
+}
+
+.navbar.lapis-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  /* A literal, NOT the variable: the variable is the MEASURED height, so min-height: var() would be a ratchet (the bar could never shrink
+     again after it once grew, e.g. after zooming back out). */
+  min-height: 56px;
+}
+
+/* The head of the rating booth (counter) rests directly below the navbar. Own class instead of Bootstrap's `.sticky-top`
+   (top: 0, z-index 1020), which would slide under the navbar. */
+.lapis-rating-booth-head {
+  position: sticky;
+  top: var(--lapis-navbar-height);
+  z-index: 5;
+}
+
+@media print {
+  .navbar.lapis-navbar,
+  .lapis-conference-transparency-banner,
+  .lapis-rating-booth-head {
+    position: static;
+  }
+}
+
+/* R62 / V1.9.211 (V1.9.212: action cell) -- the action cell never wraps and shrinks to its content at every width. */
+.lapis-table-actions-cell {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.lapis-table-actions-cell > .lapis-table-actions {
+  flex-wrap: nowrap;
+}
+
+/* R62 / V1.9.211 -- responsive tables. A master list (class lapis-table-cards, set by masterTable) is a real table on
+   desktop and a card list below 768 px (767.98px = CARD_LIST_BREAKPOINT_PX - 0.02, same break as dataTable). Cell labels
+   come from data-label (TableCardLabels.kt). Tokens only, no hex values; nothing animates, so nothing to switch off
+   under prefers-reduced-motion (R54). */
+@media (max-width: 767.98px) {
+  .table-responsive:has(> .lapis-table-cards) {
+    overflow-x: visible;
+  }
+
+  .lapis-table-cards {
+    width: 100%;
+  }
+
+  .lapis-table-cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .lapis-table-cards,
+  .lapis-table-cards tbody {
+    display: block;
+  }
+
+  .lapis-table-cards tbody tr {
+    display: block;
+    margin: 0 0 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--lapis-border);
+    border-radius: 0.5rem;
+    background-color: var(--lapis-surface);
+  }
+
+  .lapis-table-cards tbody tr > * {
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  .lapis-table-cards tbody th[scope="row"] {
+    display: block;
+    padding: 0 0 0.5rem;
+    border: 0;
+    font-weight: 600;
+    min-height: 44px;
+  }
+
+  .lapis-table-cards tbody th[scope="row"] a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .lapis-table-cards tbody td {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    border: 0;
+    text-align: left;
+    min-width: 0;
+  }
+
+  .lapis-table-cards tbody td > * {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .lapis-table-cards tbody td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 40%;
+    max-width: 9rem;
+    color: var(--lapis-muted);
+    font-size: 0.8125rem;
+  }
+
+  .lapis-table-cards tbody td[data-cell="actions"] {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--lapis-border);
+  }
+
+  .lapis-table-cards tbody td[data-cell="actions"]::before {
+    content: none;
+  }
+
+  /* V1.9.212 -- undo the desktop shrink-to-content rule: in a card the action cell is a full-width flex row that wraps. */
+  .lapis-table-cards tbody td[data-cell="actions"] {
+    width: auto;
+    white-space: normal;
+  }
+
+  .lapis-table-cards tbody td[data-cell="actions"] > .lapis-table-actions {
+    flex-wrap: wrap;
+  }
+
+  .lapis-table-cards tbody td[data-cell="actions"] .btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .lapis-table-cards tbody td[data-mobile-hidden]:not([data-cell="actions"]) {
+    display: none;
+  }
+}
+
+/* Sticky first column of a wide comparison table: opaque, so scrolled cells never show through (stripe and hover included). */
+.lapis-table-sticky-first tr > :first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--lapis-surface);
+  box-shadow: inset -1px 0 0 var(--lapis-border);
+}
+
+.lapis-table-sticky-first.table-striped > tbody > tr:nth-of-type(odd) > :first-child {
+  background-color: var(--lapis-surface-sunken);
+}
+
+.lapis-table-sticky-first.table-hover > tbody > tr:hover > :first-child {
+  background-color: var(--lapis-accent-soft);
+}
+
+.lapis-table-sticky-first thead tr > :first-child {
+  background-color: var(--lapis-surface-sunken);
 }
 
 @media (prefers-reduced-motion: reduce) {

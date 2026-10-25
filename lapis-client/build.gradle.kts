@@ -358,6 +358,73 @@ tasks.named("jsBrowserProductionWebpack") { finalizedBy(copyVideoEffectAssetsToW
 tasks.named("jsBrowserDistribution") { dependsOn(copyVideoEffectAssetsToWebpack) }
 
 /**
+ * V1.9.213: Config-Cache-safe guard for the favicon files. `index.html` links its icons with ROOT-absolute paths, so every
+ * linked file must exist (and be non-empty) in the served client root. Only plain `File`/`String` fields.
+ */
+private class VerifyFaviconLinks(
+    private val taskName: String,
+    private val indexHtml: File,
+    private val rootDir: File,
+) : Action<Task> {
+    private fun isNonEmptyFile(file: File): Boolean = file.isFile && file.length() > 0L
+
+    override fun execute(task: Task) {
+        val linkRegex = Regex("""<link\b[^>]*>""", RegexOption.IGNORE_CASE)
+        val relRegex = Regex("""\brel\s*=\s*["'](?:icon|apple-touch-icon)["']""", RegexOption.IGNORE_CASE)
+        val hrefRegex = Regex("""\bhref\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+        val hrefs =
+            linkRegex
+                .findAll(indexHtml.readText())
+                .map { it.value }
+                .filter { relRegex.containsMatchIn(it) }
+                .mapNotNull { hrefRegex.find(it)?.groupValues?.get(1) }
+                .toList()
+        // Against a vacuous pass: an empty regex match must not count as green.
+        check(hrefs.size >= 5) { "$taskName: only ${hrefs.size} icon link(s) found in ${indexHtml.path}, expected at least 5." }
+        val notRooted = hrefs.filter { !it.startsWith("/") || it.startsWith("//") || it.contains("..") }
+        check(notRooted.isEmpty()) { "$taskName: icon href(s) must be root-absolute paths: ${notRooted.joinToString()}." }
+        val missing = hrefs.filterNot { href -> isNonEmptyFile(File(rootDir, href.removePrefix("/"))) }
+        check(missing.isEmpty()) {
+            "$taskName: favicon file(s) missing or empty under ${rootDir.path}: ${missing.joinToString()}. " +
+                "They are served by the staticFiles catch-all; without them the browser gets a 404."
+        }
+    }
+}
+
+// V1.9.213: the favicons live in webAssets/favicons (not in `resources`) and are copied into the webpack root, the directory the
+// Dockerfile ships. `Copy`, NOT `Sync`: a Sync would delete main.bundle.js and index.html, which belong to jsBrowserProductionWebpack.
+val faviconIndexHtml: File = layout.projectDirectory.file("src/jsMain/resources/index.html").asFile
+val faviconWebpackRoot = layout.buildDirectory.dir("kotlin-webpack/js/productionExecutable")
+
+val copyFaviconsToWebpack by tasks.registering(Copy::class) {
+    from(layout.projectDirectory.dir("src/jsMain/webAssets/favicons"))
+    into(faviconWebpackRoot)
+    doLast(
+        VerifyFaviconLinks(
+            taskName = "copyFaviconsToWebpack",
+            indexHtml = faviconIndexHtml,
+            rootDir = faviconWebpackRoot.get().asFile,
+        ),
+    )
+}
+tasks.named("jsBrowserProductionWebpack") { finalizedBy(copyFaviconsToWebpack) }
+val faviconDistRoot: File =
+    layout.buildDirectory
+        .dir("dist/js/productionExecutable")
+        .get()
+        .asFile
+tasks.named("jsBrowserDistribution") {
+    dependsOn(copyFaviconsToWebpack)
+    doLast(
+        VerifyFaviconLinks(
+            taskName = "jsBrowserDistribution",
+            indexHtml = faviconIndexHtml,
+            rootDir = faviconDistRoot,
+        ),
+    )
+}
+
+/**
  * Config-Cache-safe worker for `verifyMediaPipeVersion` -- a real `Action<Task>` object (not a script-level
  * lambda), same idiom as `VerifyI18nCatalogParity` in the root build script. Catches a silent transitive version
  * jump: the served path claims 0.10.14, the installed package would be something else.

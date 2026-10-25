@@ -189,6 +189,13 @@ erasable `privileged_action_request` row. A request that was refused is audited 
 ADMIN targets and only for the actions that matter, and throttled per caller (30 per hour). `PrivilegedActionPersonalData` exports every row
 the subject is part of (never a token hash), deletes the rows in which the subject is the target and replaces the free text in the others.
 
+== Last sign-in (V1.9.207)
+
+The member list shows the last successful sign-in (`account.last_login_at`, `last_login_method`) to ADMIN only. For BOARD, TREASURER and
+chapter-scoped officers the server returns `null` (not just hidden in the client), and the sort by last sign-in falls back to `NAME_ASC` for them,
+so the sort order is no oracle for the value. The stamp is written only by the three login routes, in the same transaction as the session; failed
+attempts, refresh and logout write nothing, and no audit entry is created.
+
 == Tripwires
 
 * `PrivilegedPeerActionTripwireTest` -- every code path that writes `account.password_hash`/`role`, mints a reset token, writes a member's address,
@@ -196,6 +203,7 @@ the subject is part of (never a token hash), deletes the rows in which the subje
   function that calls `PeerGuard`/`peerGuarded`/`PeerPolicy.decide`, or is on an allowlist with a reason; the allowlist is exact. The two
   mutation objects the guarded callers delegate to are allowlisted, and every *call* of their entry points must itself be guarded.
 * `AccountRoleChangedAtTripwireTest` -- every write of `account.role` stamps `role_changed_at`.
+* `LoginMethodStampTripwireTest` (V1.9.207) -- every production `SessionStore.createSession(` call passes a `LoginMethod`.
 * `MemberEmailChangeTokenLeakTripwireTest` -- extended to the objection token.
 
 == Known limitations

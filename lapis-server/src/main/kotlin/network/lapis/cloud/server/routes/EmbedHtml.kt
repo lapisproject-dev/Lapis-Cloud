@@ -11,13 +11,13 @@ import kotlinx.html.html
 import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
-import kotlinx.html.link
 import kotlinx.html.meta
 import kotlinx.html.noScript
 import kotlinx.html.p
 import kotlinx.html.script
 import kotlinx.html.stream.createHTML
 import kotlinx.html.title
+import network.lapis.cloud.server.theme.publicStylesheetLinks
 
 /**
  * Welle V1.4.1a "Öffentliche Website-Integration" -- the popup page rendered at
@@ -63,7 +63,7 @@ internal object EmbedHtml {
                 meta(charset = "utf-8")
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title { +"Anmeldung – $brandTitle" }
-                link(rel = "stylesheet", href = "/s/assets/style.css")
+                publicStylesheetLinks()
             }
             body {
                 div("embed-page") {
@@ -141,7 +141,7 @@ internal object EmbedHtml {
                 meta(charset = "utf-8")
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title { +"Nicht verfügbar – $brandTitle" }
-                link(rel = "stylesheet", href = "/s/assets/style.css")
+                publicStylesheetLinks()
             }
             body {
                 div("embed-page") {

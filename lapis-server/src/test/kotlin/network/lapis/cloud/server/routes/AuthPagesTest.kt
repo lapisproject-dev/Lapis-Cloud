@@ -175,9 +175,10 @@ class AuthPagesTest :
         // ---- header strings via routes ----
 
         val selfCsp =
-            "default-src 'none'; style-src 'self'; img-src data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+            "default-src 'none'; style-src 'self'; font-src 'self'; img-src data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
-        val unrestrictedCsp = "default-src 'none'; style-src 'self'; img-src data:; base-uri 'none'; frame-ancestors 'none'"
+        val unrestrictedCsp =
+            "default-src 'none'; style-src 'self'; font-src 'self'; img-src data:; base-uri 'none'; frame-ancestors 'none'"
 
         test("GET rp/login: no form-action (POST 302s to the home server), full header set, Referrer-Policy same-origin") {
             testApplication {

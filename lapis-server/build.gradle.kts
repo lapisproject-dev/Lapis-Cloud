@@ -287,3 +287,18 @@ val postgresTest =
     }
 
 tasks.named("check") { dependsOn(postgresTest) }
+
+// V1.9.216 "Themes per Datei": validates a LAPIS_THEME_PATH directory (theme.json + woff2 files) exactly as the server loads
+// it, prints one JSON document and exits non-zero on errors. Usage: ./gradlew -q :lapis-server:validateTheme -Ptheme=<dir>
+// (-q keeps Gradle's own output off stdout; a failing theme ends with Gradle's "BUILD FAILED", the JSON above it is the report).
+// A relative -Ptheme resolves against the repository root. Inside the container there is no Gradle:
+// java -cp '/app/server/lib/*' network.lapis.cloud.server.theme.ThemeValidatorCli /app/theme
+tasks.register<JavaExec>("validateTheme") {
+    group = "verification"
+    description = "Validates a LAPIS_THEME_PATH directory (theme.json + fonts), prints JSON, exits non-zero on errors."
+    mainClass.set("network.lapis.cloud.server.theme.ThemeValidatorCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = rootDir
+    val themeArg = providers.gradleProperty("theme")
+    argumentProviders.add(CommandLineArgumentProvider { listOfNotNull(themeArg.orNull) })
+}

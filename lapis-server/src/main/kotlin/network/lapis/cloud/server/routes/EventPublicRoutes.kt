@@ -47,6 +47,9 @@ import network.lapis.cloud.server.pdf.EventTicketPdfGenerator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.share.EventShareMeta
+import network.lapis.cloud.server.share.ShareConfig
+import network.lapis.cloud.server.share.barFor
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
@@ -131,6 +134,8 @@ internal fun Route.registerEventPublicRoutes(
     icsFeedRateLimiter: FederationInboxRateLimiter,
     // V1.9.204 -- tells the event's creator about a guest registration that carries a message; no-op by default.
     messageNotifier: EventRegistrationMessageNotifier = EventRegistrationMessageNotifier.DISABLED,
+    // V1.9.217 -- share bar on the detail page; DISABLED keeps every response byte-identical to V1.9.216. Application.kt wires the real one.
+    shareConfig: ShareConfig = ShareConfig.DISABLED,
 ) {
     val frameAncestors = embedFrameAncestors(embedConfig)
 
@@ -161,8 +166,36 @@ internal fun Route.registerEventPublicRoutes(
             }
             call.response.header(HttpHeaders.CacheControl, "no-store")
             // The cover image is same-origin (`/veranstaltung/{slug}/bild`), already covered by `img-src 'self'`.
-            call.applyEventPageHeaders(ctx)
-            call.respondText(text = EventPublicHtml.eventPage(ctx = ctx, view = view), contentType = HTML_CONTENT_TYPE)
+            val shareUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/veranstaltung/${view.slug}", lang = ctx.lang)
+            val share =
+                if (ctx.isEmbed) {
+                    null
+                } else {
+                    shareConfig.barFor(url = shareUrl, rawTitle = view.title, rawText = EventShareMeta.shareText(view))
+                }
+            // Open Graph + JSON-LD only where the base URL is shareable (https or loopback); DISABLED (default) emits neither.
+            val ogMeta =
+                if (ctx.isEmbed || !shareConfig.baseUrlShareable) {
+                    null
+                } else {
+                    val image = EventShareMeta.ogImage(view = view, baseUrl = baseUrl, branding = ctx.branding)
+                    EventPublicHtml.EventOgMeta(
+                        description = EventShareMeta.ogDescription(view),
+                        image = image,
+                        jsonLd =
+                            EventShareMeta.jsonLd(
+                                view = view,
+                                shareUrl = shareUrl,
+                                image = image,
+                                orgZone = OrganizationTimeZone.current(),
+                            ),
+                    )
+                }
+            call.applyEventPageHeaders(ctx = ctx, scriptSrcSelf = share?.needsScript == true)
+            call.respondText(
+                text = EventPublicHtml.eventPage(ctx = ctx, view = view, share = share, ogMeta = ogMeta),
+                contentType = HTML_CONTENT_TYPE,
+            )
         }
     }
 
@@ -362,7 +395,7 @@ internal fun Route.registerEventPublicRoutes(
             val slug = call.parameters["slug"].orEmpty()
             val token = call.parameters["token"].orEmpty()
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyEventPageHeaders(ctx)
+            call.applyEventPageHeaders(ctx = ctx)
             // GET never mutates (a mail-client link-prefetch must never storno a registration on its
             // own) -- always the confirmation form, even for an unknown/expired token; the actual
             // lookup happens only on POST.
@@ -427,7 +460,7 @@ internal fun Route.registerEventPublicRoutes(
             // ALWAYS the same neutral success page -- unknown/expired token, already-cancelled
             // registration, or a genuine cancellation all look identical to the caller.
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyEventPageHeaders(ctx)
+            call.applyEventPageHeaders(ctx = ctx)
             call.respondText(
                 text = EventPublicHtml.cancelledSuccessPage(ctx = ctx, slug = call.parameters["slug"].orEmpty()),
                 contentType = HTML_CONTENT_TYPE,
@@ -454,7 +487,7 @@ internal fun Route.registerEventPublicRoutes(
             val slug = call.parameters["slug"].orEmpty()
             val token = call.parameters["token"].orEmpty()
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyEventPageHeaders(ctx)
+            call.applyEventPageHeaders(ctx = ctx)
             call.respondText(
                 text = EventPublicHtml.paymentConfirmPage(ctx = ctx, slug = slug, token = token),
                 contentType = HTML_CONTENT_TYPE,
@@ -567,7 +600,7 @@ internal fun Route.registerEventPublicRoutes(
                 TicketResolution.NotFound -> call.respondEventNotFound(ctx)
                 is TicketResolution.NotConfirmedYet -> {
                     call.response.header(HttpHeaders.CacheControl, "no-store")
-                    call.applyEventPageHeaders(ctx)
+                    call.applyEventPageHeaders(ctx = ctx)
                     call.respondText(
                         text = EventPublicHtml.ticketNotConfirmedPage(ctx = ctx, slug = slug, status = resolution.status),
                         contentType = HTML_CONTENT_TYPE,
@@ -575,7 +608,7 @@ internal fun Route.registerEventPublicRoutes(
                 }
                 is TicketResolution.Ticket -> {
                     call.response.header(HttpHeaders.CacheControl, "no-store")
-                    call.applyEventPageHeaders(ctx)
+                    call.applyEventPageHeaders(ctx = ctx)
                     call.respondText(
                         text = EventPublicHtml.ticketPage(ctx = ctx, view = resolution.toView()),
                         contentType = HTML_CONTENT_TYPE,
@@ -811,11 +844,11 @@ private suspend fun ApplicationCall.respondEventReturnPage(
     try {
         response.header(HttpHeaders.CacheControl, "no-store")
         if (!rateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = request.origin.remoteHost))) {
-            applyEventPageHeaders(ctx)
+            applyEventPageHeaders(ctx = ctx)
             respondText(text = render(), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.TooManyRequests)
             return
         }
-        applyEventPageHeaders(ctx)
+        applyEventPageHeaders(ctx = ctx)
         respondText(text = render(), contentType = HTML_CONTENT_TYPE)
     } catch (e: CancellationException) {
         throw e
@@ -878,8 +911,11 @@ private fun loadPublicEventView(
  * The security headers of every HTML response of the `/veranstaltung/...` family (V1.9.128). Since V1.9.130 the header core is shared
  * with the article page via [applyPageModeHeaders]; this is a plain delegation, the emitted headers are unchanged.
  */
-internal fun ApplicationCall.applyEventPageHeaders(ctx: EventPageContext) {
-    applyPageModeHeaders(isEmbed = ctx.isEmbed, frameAncestors = ctx.frameAncestors)
+internal fun ApplicationCall.applyEventPageHeaders(
+    ctx: EventPageContext,
+    scriptSrcSelf: Boolean = false,
+) {
+    applyPageModeHeaders(isEmbed = ctx.isEmbed, frameAncestors = ctx.frameAncestors, scriptSrcSelf = scriptSrcSelf)
 }
 
 private suspend fun ApplicationCall.respondEventRedirect(
@@ -887,7 +923,7 @@ private suspend fun ApplicationCall.respondEventRedirect(
     location: String,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPageHeaders(ctx)
+    applyEventPageHeaders(ctx = ctx)
     response.header(HttpHeaders.Location, location)
     respond(HttpStatusCode(303, "See Other"))
 }
@@ -906,7 +942,7 @@ private suspend fun ApplicationCall.respondEventPaymentRequired(
         return
     }
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPageHeaders(ctx)
+    applyEventPageHeaders(ctx = ctx)
     respondText(
         text = EventPublicHtml.paymentHandoffPage(ctx = ctx, slug = slug, redirectUrl = redirectUrl),
         contentType = HTML_CONTENT_TYPE,
@@ -915,14 +951,14 @@ private suspend fun ApplicationCall.respondEventPaymentRequired(
 
 private suspend fun ApplicationCall.respondEventNotFound(ctx: EventPageContext) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPageHeaders(ctx)
+    applyEventPageHeaders(ctx = ctx)
     respondText(text = EventPublicHtml.notFoundPage(ctx), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.NotFound)
 }
 
 private suspend fun ApplicationCall.respondEventTooManyRequests(ctx: EventPageContext) {
     response.header(HttpHeaders.RetryAfter, "60")
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPageHeaders(ctx)
+    applyEventPageHeaders(ctx = ctx)
     respondText(
         text = EventPublicHtml.tooManyRequestsPage(ctx),
         contentType = HTML_CONTENT_TYPE,
@@ -935,7 +971,7 @@ private suspend fun ApplicationCall.respondEventMalformed(
     status: HttpStatusCode,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPageHeaders(ctx)
+    applyEventPageHeaders(ctx = ctx)
     respondText(text = EventPublicHtml.malformedRequestPage(ctx), contentType = HTML_CONTENT_TYPE, status = status)
 }
 
@@ -945,7 +981,7 @@ private suspend fun ApplicationCall.respondEventInvalidInput(
     slug: String,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPageHeaders(ctx)
+    applyEventPageHeaders(ctx = ctx)
     respondText(
         text = EventPublicHtml.invalidInputPage(ctx = ctx, slug = slug),
         contentType = HTML_CONTENT_TYPE,
@@ -955,7 +991,7 @@ private suspend fun ApplicationCall.respondEventInvalidInput(
 
 private suspend fun ApplicationCall.respondEventServerError(ctx: EventPageContext) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPageHeaders(ctx)
+    applyEventPageHeaders(ctx = ctx)
     respondText(
         text = EventPublicHtml.serverErrorPage(ctx),
         contentType = HTML_CONTENT_TYPE,

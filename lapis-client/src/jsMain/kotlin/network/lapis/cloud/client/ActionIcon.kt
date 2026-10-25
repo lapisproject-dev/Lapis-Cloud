@@ -246,4 +246,11 @@ enum class ActionIcon(
      * glyph would suggest a ban). V1.9.204: also "show the message a registrant left for the organisers" (one row of the registration table).
      */
     MESSAGES("fas fa-comment"),
+
+    /**
+     * V1.9.208 "Veranstaltungen": [REGISTER] sign YOURSELF up for an event ("Anmelden", "Auf die Warteliste", "Anmelden und bezahlen"), [UNREGISTER]
+     * withdraw that registration ("Abmelden"). NOT [ADD_PERSON] (adds or invites ANOTHER person) and NOT [UNDO] (undoes an action).
+     */
+    REGISTER("fas fa-calendar-check"),
+    UNREGISTER("fas fa-calendar-xmark"),
 }

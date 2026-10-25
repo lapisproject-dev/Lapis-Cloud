@@ -3,13 +3,17 @@ package network.lapis.cloud.server.dsgvo
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ErasureMode
+import network.lapis.cloud.shared.domain.LoginMethod
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -117,5 +121,34 @@ class FoundationPersonalDataTest :
             chapterStillExists shouldBe 1L
 
             transaction { RegionalChapterTable.deleteWhere { RegionalChapterTable.id eq chapterId } }
+        }
+
+        test(
+            "V1.9.207: exportMember carries lastLoginAt and lastLoginMethod, null for a never-signed-in account; erasure deletes the account row",
+        ) {
+            val member = newDeceasedMember(null)
+            transaction {
+                AccountTable.insert {
+                    it[AccountTable.id] = Uuid.random()
+                    it[memberId] = member
+                    it[role] = AccountRole.MEMBER
+                }
+            }
+            val never = transaction { FoundationPersonalData.exportMember(member) }
+            never["lastLoginAt"]?.jsonPrimitive?.isString shouldBe false
+            never["lastLoginMethod"]?.jsonPrimitive?.isString shouldBe false
+
+            transaction {
+                AccountTable.update({ AccountTable.memberId eq member }) {
+                    it[lastLoginAt] = LocalDateTime(2026, 10, 24, 10, 0, 0)
+                    it[lastLoginMethod] = LoginMethod.KEYCLOAK
+                }
+            }
+            val stamped = transaction { FoundationPersonalData.exportMember(member) }
+            stamped["lastLoginAt"]?.jsonPrimitive?.content shouldBe "2026-10-24T10:00"
+            stamped["lastLoginMethod"]?.jsonPrimitive?.content shouldBe "KEYCLOAK"
+
+            transaction { FoundationPersonalData.eraseMember(memberId = member, mode = ErasureMode.ANONYMIZE) }
+            transaction { AccountTable.selectAll().where { AccountTable.memberId eq member }.count() } shouldBe 0L
         }
     })

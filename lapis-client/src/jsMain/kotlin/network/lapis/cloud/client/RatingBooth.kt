@@ -184,7 +184,7 @@ private class RatingBooth(
     fun showSelect(notice: String? = null) {
         onReview(false)
         val booth = fresh()
-        val head = booth.div { addCssClasses("sticky-top bg-body py-2 border-bottom") }
+        val head = booth.div { addCssClasses("lapis-rating-booth-head bg-body py-2 border-bottom") }
         val heading = texts.heading
         head.h2(heading) { addCssClass("h5") }
         head.untrustedP(texts.subjectRaw, className = "fw-bold mb-1")

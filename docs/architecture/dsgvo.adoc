@@ -257,6 +257,12 @@ documents the automatic end of membership under § 38 BGB and is retained as evi
 This exception is intentional and must not be "cleaned up" by a later, well-meaning refactor that
 notices it looks inconsistent with the rest of the class.
 
+== Last sign-in (`account.last_login_at`, `last_login_method`, Welle V1.9.207)
+
+`FoundationPersonalData.exportMember` adds two fields to the account part of the Art. 15 export: `lastLoginAt` (ISO, UTC; `null` = no sign-in recorded
+since V118) and `lastLoginMethod` (`PASSWORD`, `KEYCLOAK` or `OIDC_FEDERATION`). Erasure needs no new code: the `account` row is hard-deleted in every
+mode, so both columns disappear with it. No new table, `coveredTables` is unchanged. The values are visible to ADMIN only in the member list.
+
 == Contribution relief (`contribution_relief_request`, Welle V1.4.10)
 
 `ContributionReliefPersonalData` covers `contribution_relief_request`, which carries a member in

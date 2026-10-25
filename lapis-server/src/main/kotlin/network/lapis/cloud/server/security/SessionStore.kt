@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SessionTable
+import network.lapis.cloud.shared.domain.LoginMethod
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
@@ -57,8 +58,20 @@ object SessionStore {
         val expiresAt: LocalDateTime,
     )
 
-    /** Issues and persists a brand-new session for [memberId] — always a fresh [SessionTokens.newRawToken] (see [SessionTokens] KDoc "session-fixation"), never a client-supplied value. */
-    fun createSession(memberId: Uuid): IssuedSession {
+    /** Session without a login stamp (tests, tooling). Production login routes use the overload with a [LoginMethod]. */
+    fun createSession(memberId: Uuid): IssuedSession = createSession(memberId = memberId, loginMethod = null)
+
+    /**
+     * Issues and persists a brand-new session for [memberId] — always a fresh [SessionTokens.newRawToken] (see [SessionTokens] KDoc "session-fixation"), never a client-supplied value.
+     *
+     * V1.9.207: when [loginMethod] is given, `account.last_login_at/_method` are stamped in the SAME transaction (atomic with the session).
+     * Only the three login routes pass it (enforced by `LoginMethodStampTripwireTest`); [resolve], [touch]-style bookkeeping, refresh and
+     * logout never write it, and no audit entry is created.
+     */
+    fun createSession(
+        memberId: Uuid,
+        loginMethod: LoginMethod?,
+    ): IssuedSession {
         val rawToken = SessionTokens.newRawToken()
         val now = nowLocalDateTime()
         val expiresAt = (now.toInstant(TimeZone.UTC) + SESSION_TTL).toLocalDateTime(TimeZone.UTC)
@@ -71,6 +84,12 @@ object SessionStore {
                 it[SessionTable.expiresAt] = expiresAt
                 it[lastUsedAt] = null
                 it[revokedAt] = null
+            }
+            if (loginMethod != null) {
+                AccountTable.update({ AccountTable.memberId eq memberId }) {
+                    it[lastLoginAt] = now
+                    it[lastLoginMethod] = loginMethod
+                }
             }
         }
         if (Random.nextDouble() < PURGE_PROBABILITY) {

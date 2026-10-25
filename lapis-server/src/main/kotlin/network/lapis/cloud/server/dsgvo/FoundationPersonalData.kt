@@ -22,7 +22,7 @@ import kotlin.uuid.Uuid
  * Datensaetze (e.g. [network.lapis.cloud.server.db.generated.ContributionTable], see
  * [ContributionPersonalData]) keep a foreign key to it — the row must survive as an FK anchor.
  * [AccountTable] has no retention duty of its own and is always hard-deleted regardless of
- * [ErasureMode]: that is the step that actually severs the member's ability to log in.
+ * [ErasureMode]: that is the step that actually severs the member's ability to log in (incl. `last_login_*`, V1.9.207).
  *
  * **V0.7.2**: `reviewedBy`/`reviewedAt`/`rejectionReason` (the board's own admission-decision
  * metadata) are exported/nulled-out alongside the other V0.4.1/V0.5.2 PII fields when THIS member
@@ -86,6 +86,9 @@ object FoundationPersonalData : MemberPersonalDataContributor {
                 put("hasOidcLogin", accountRow[AccountTable.oidcSubject] != null)
                 // V0.8.2 OIDC-Gastzugang-Federation: exported alongside hasOidcLogin above.
                 put("oidcHomeServerIssuer", accountRow[AccountTable.oidcIssuer])
+                // V1.9.207: last sign-in (UTC ISO) and method; null = no sign-in recorded since V118.
+                put("lastLoginAt", accountRow[AccountTable.lastLoginAt]?.toString())
+                put("lastLoginMethod", accountRow[AccountTable.lastLoginMethod]?.name)
             }
         }
 

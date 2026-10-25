@@ -87,6 +87,7 @@ import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.SessionTokens
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.auth.safeReturnTo
+import network.lapis.cloud.shared.domain.LoginMethod
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.OidcLoginEventType
 import org.jetbrains.exposed.v1.core.and
@@ -1160,7 +1161,7 @@ fun Route.registerOidcRoutes(
                 )
                 return@get
             }
-        val issuedSession = SessionStore.createSession(memberId)
+        val issuedSession = SessionStore.createSession(memberId = memberId, loginMethod = LoginMethod.OIDC_FEDERATION)
         call.response.cookies.append(
             Cookie(
                 name = SESSION_COOKIE_NAME,
