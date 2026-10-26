@@ -91,7 +91,13 @@ exist only in a secure context; the bar is not rendered on a base URL that is ne
 |===
 
 A schema.org `Event` JSON-LD block carries name, start and end with the organisation's UTC offset, attendance mode, status, location (`Place` and/or
-`VirtualLocation`), URL, image and description. It is built with a JSON builder and escaped afterwards (`<`, `>`, `&`, U+2028, U+2029) so the data block
+`VirtualLocation`), URL, image and description. It also carries the fields Google Search Console asks for:
+
+* `organizer` and `performer`: the operating organization (`Organization` with the instance name and the base URL). The data model has no speaker field, and the creating member is never published, so `performer` deliberately falls back to the organization.
+* `offers`: an `Offer` with the real fee (`price` as a plain string, `"0"` for free events), `priceCurrency` (three-letter code, else `EUR`), `availability` (`InStock`, or `SoldOut` when the event is full) and `validThrough` when a registration deadline is set. There is no registration-start field, so `validFrom` is never emitted. The offer is omitted when the event is over or registration is closed, because no honest availability exists for those states.
+* `image` is always present: the cover image, else a PNG or WebP operator logo, else `/apple-touch-icon.png`. `og:image` is unchanged and keeps its stricter rule (no fallback icon).
+
+The block is built with a JSON builder and escaped afterwards (`<`, `>`, `&`, U+2028, U+2029) so the data block
 cannot be closed early. This is the only `unsafe` output of the page. The article page gains `og:url` and `twitter:card`.
 
 == Configuration

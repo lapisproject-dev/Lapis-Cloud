@@ -96,6 +96,12 @@ internal object EventPublicHtml {
          * window and the authorization are decided there.
          */
         val onlineJoinUrl: String? = null,
+        /** Numeric fee for the schema.org `Offer` (JSON-LD); [feeLabel] stays the display text and is never parsed. */
+        val feeAmount: java.math.BigDecimal = java.math.BigDecimal.ZERO,
+        /** Currency of [feeAmount]; only emitted into JSON-LD if it is a three-letter upper-case code. */
+        val feeCurrency: String = "EUR",
+        /** End of the registration window (JSON-LD `Offer.validThrough`); `null` when open-ended. */
+        val registrationClosesAt: LocalDateTime? = null,
     )
 
     /** V1.9.217 -- Open Graph description, preview image and JSON-LD of the STANDARD detail page, assembled by the route. */

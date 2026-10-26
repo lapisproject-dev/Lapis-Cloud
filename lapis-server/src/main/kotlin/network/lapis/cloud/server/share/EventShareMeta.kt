@@ -52,6 +52,18 @@ internal object EventShareMeta {
         return if (branding.logoAvailable && raster) "$baseUrl/api/branding/logo" else null
     }
 
+    /**
+     * Image for JSON-LD only (Google requires one): cover, else raster logo, else the public apple-touch-icon. Never `null`.
+     * `og:image` deliberately keeps using [ogImage] so Open Graph behaviour is unchanged.
+     */
+    fun jsonLdImage(
+        view: EventPublicHtml.View,
+        baseUrl: String,
+        branding: ResolvedBranding,
+    ): String = ogImage(view = view, baseUrl = baseUrl, branding = branding) ?: "${baseUrl.trimEnd('/')}/apple-touch-icon.png"
+
+    private val CURRENCY = Regex("^[A-Z]{3}$")
+
     private fun iso(
         dt: kotlinx.datetime.LocalDateTime,
         zone: TimeZone,
@@ -66,9 +78,13 @@ internal object EventShareMeta {
     fun jsonLd(
         view: EventPublicHtml.View,
         shareUrl: String,
-        image: String?,
+        image: String,
+        branding: ResolvedBranding,
+        baseUrl: String,
         orgZone: TimeZone,
     ): String {
+        val orgUrl = baseUrl.trimEnd('/')
+        val orgName = ShareLinks.normalize(branding.title)
         val physical = !view.locationText.isNullOrBlank()
         val online = view.onlineUrl != null || view.onlineJoinUrl != null
         val obj: JsonObject =
@@ -110,10 +126,42 @@ internal object EventShareMeta {
                     put("location", kotlinx.serialization.json.JsonArray(places))
                 }
                 put("url", shareUrl)
-                if (image != null) put("image", JsonPrimitive(image))
+                put("image", JsonPrimitive(image))
+                // The data model has no speaker/organizer-person field and `createdBy` is a member (PII) that must never be published:
+                // organizer and performer are therefore both the operating organization.
+                val organization =
+                    buildJsonObject {
+                        put("@type", "Organization")
+                        if (orgName.isNotEmpty()) put("name", orgName)
+                        put("url", orgUrl)
+                    }
+                put("organizer", organization)
+                put("performer", organization)
+                offer(view = view, shareUrl = shareUrl, orgZone = orgZone)?.let { put("offers", it) }
                 put("description", ogDescription(view))
             }
         return escapeForScriptBlock(Json.encodeToString(JsonObject.serializer(), obj))
+    }
+
+    /**
+     * The schema.org Offer, or `null` when no honest statement is possible (event over, or registration closed). There is no
+     * registration-start field in the data model, so `validFrom` is never emitted.
+     */
+    private fun offer(
+        view: EventPublicHtml.View,
+        shareUrl: String,
+        orgZone: TimeZone,
+    ): JsonObject? {
+        if (view.hasEnded || !view.registrationOpen) return null
+        val free = view.feeAmount.compareTo(java.math.BigDecimal.ZERO) == 0
+        return buildJsonObject {
+            put("@type", "Offer")
+            put("url", shareUrl)
+            put("price", if (free) "0" else view.feeAmount.toPlainString())
+            put("priceCurrency", view.feeCurrency.takeIf { CURRENCY.matches(it) } ?: "EUR")
+            put("availability", if (view.full) "https://schema.org/SoldOut" else "https://schema.org/InStock")
+            view.registrationClosesAt?.let { put("validThrough", iso(dt = it, zone = orgZone)) }
+        }
     }
 
     /** Neutralizes everything that could end or confuse a `<script>` data block; the result is still valid JSON. */

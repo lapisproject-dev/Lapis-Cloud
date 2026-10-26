@@ -186,7 +186,9 @@ internal fun Route.registerEventPublicRoutes(
                             EventShareMeta.jsonLd(
                                 view = view,
                                 shareUrl = shareUrl,
-                                image = image,
+                                image = EventShareMeta.jsonLdImage(view = view, baseUrl = baseUrl, branding = ctx.branding),
+                                branding = ctx.branding,
+                                baseUrl = baseUrl,
                                 orgZone = OrganizationTimeZone.current(),
                             ),
                     )
@@ -893,6 +895,9 @@ private fun loadPublicEventView(
             startsAt = row[EventTable.startsAt],
             endsAt = row[EventTable.endsAt],
             feeLabel = feeLabel,
+            feeAmount = fee,
+            feeCurrency = row[EventTable.feeCurrency],
+            registrationClosesAt = row[EventTable.registrationClosesAt],
             full = full,
             registrationOpen = registrationOpen,
             hasEnded = row[EventTable.endsAt] <= wallNow,

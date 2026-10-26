@@ -91,6 +91,7 @@ class EventPublicSharingTest :
             onlineUrl: String? = null,
             status: EventStatus = EventStatus.PUBLISHED,
             visibility: EventVisibility = EventVisibility.PUBLIC,
+            fee: BigDecimal = BigDecimal.ZERO,
         ): String {
             val id = Uuid.random()
             val slug = "event-share-$id"
@@ -107,7 +108,7 @@ class EventPublicSharingTest :
                     it[startsAt] = LocalDateTime(2030, 11, 12, 19, 0)
                     it[endsAt] = LocalDateTime(2030, 11, 12, 21, 0)
                     it[capacity] = null
-                    it[feeAmount] = BigDecimal.ZERO
+                    it[feeAmount] = fee
                     it[feeCurrency] = "EUR"
                     it[EventTable.status] = status
                     it[EventTable.visibility] = visibility
@@ -308,8 +309,31 @@ class EventPublicSharingTest :
                 json["@type"]!!.jsonPrimitive.content shouldBe "Event"
                 Regex("^2030-11-12T19:00(:00)?[+-]\\d{2}:\\d{2}$").matches(json["startDate"]!!.jsonPrimitive.content) shouldBe true
                 json["location"]!!.jsonObject["@type"]!!.jsonPrimitive.content shouldBe "Place"
+                json["organizer"]!!.jsonObject["@type"]!!.jsonPrimitive.content shouldBe "Organization"
+                json["performer"]!!.jsonObject["url"]!!.jsonPrimitive.content shouldBe BASE
+                json["offers"]!!.jsonObject["price"]!!.jsonPrimitive.content shouldBe "0"
+                json["offers"]!!.jsonObject["availability"]!!.jsonPrimitive.content shouldBe "https://schema.org/InStock"
+                // no logo and no cover: og:image stays absent, JSON-LD image falls back to the icon
+                doc.select("meta[property=og:image]").size shouldBe 0
+                json["image"]!!.jsonPrimitive.content shouldBe "$BASE/apple-touch-icon.png"
                 // no inline script apart from the data block
                 doc.select("script:not([type=application/ld+json])").all { it.hasAttr("src") } shouldBe true
+            }
+        }
+
+        test("JSON-LD offer carries the real fee of a paid event") {
+            val slug = createEvent(fee = BigDecimal("12.50"))
+            withApp(enabled) {
+                val raw =
+                    Jsoup
+                        .parse(
+                            client.get("/veranstaltung/$slug").bodyAsText(),
+                        ).select("script[type=application/ld+json]")
+                        .single()
+                        .data()
+                val offer = Json.parseToJsonElement(raw).jsonObject["offers"]!!.jsonObject
+                offer["price"]!!.jsonPrimitive.content shouldBe "12.50"
+                offer["priceCurrency"]!!.jsonPrimitive.content shouldBe "EUR"
             }
         }
 
