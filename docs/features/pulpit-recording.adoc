@@ -13,7 +13,7 @@ The texts shown to the persons concerned are drafts the operator replaces with l
 
 == Switching on
 
-. *Instance (ADMIN):* settings, card "Videokonferenz", section "Begegnungsraum": "Aufzeichnung von Kanzel bzw. Podium erlauben". The switch opens the operator notice
+. *Instance (ADMIN):* page Organisation, section "Aufzeichnung & Übertragung", part "Begegnungsraum": "Aufzeichnung von Kanzel bzw. Podium erlauben". The switch opens the operator notice
   (four paragraphs, version in the foot). "Einschalten" stays locked until the box "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die
   Verantwortung." is ticked. The audit entry records the version and the hash of the German reference text. The switch is locked with a hint when this server has no
   recording service (`LAPIS_RECORDING_ENABLED`, the same egress service as the conference recording).

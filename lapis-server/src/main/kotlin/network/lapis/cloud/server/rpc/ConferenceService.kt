@@ -20,7 +20,6 @@ import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgm
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.ElectionTable
-import network.lapis.cloud.server.db.generated.EventConferenceTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
@@ -73,10 +72,8 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.neq
-import org.jetbrains.exposed.v1.core.notInSubQuery
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -1564,11 +1561,7 @@ class ConferenceService(
     }
 
     /** V1.9.113 -- `true` for every room that does NOT belong to an event (the ordinary-room list and the lazy reconciliation never see event rooms). */
-    private fun notAnEventRoom(): Op<Boolean> =
-        ConferenceRoomTable.id notInSubQuery
-            EventConferenceTable
-                .select(EventConferenceTable.conferenceRoomId)
-                .where { EventConferenceTable.conferenceRoomId.isNotNull() }
+    private fun notAnEventRoom(): Op<Boolean> = notAnEventRoomPredicate()
 
     private fun graceElapsed(
         createdAt: LocalDateTime,

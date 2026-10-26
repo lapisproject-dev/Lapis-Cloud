@@ -80,7 +80,8 @@ class ConferenceTimerServiceEventGuardTripwireTest :
         }
 
         test(
-            "the tail of the registrations in Application.kt is pinned: timer, agreement texts, pulpit recording, member finder, the tenders, then the online counts (Kilua numbers routes by declaration order)",
+            "the tail of the registrations in Application.kt is pinned: timer, agreement texts, pulpit recording, member finder, " +
+                "the tenders, the online counts, the image gallery, then the dashboard (Kilua numbers routes by declaration order)",
         ) {
             val code = SourceScan.blank(EncounterSourceScan.mainFile("Application.kt").readText())
             val registrations = Regex("""registerService\(""").findAll(code).map { it.range.first }.toList()
@@ -90,19 +91,26 @@ class ConferenceTimerServiceEventGuardTripwireTest :
             val memberFinder = code.indexOf("registerService(IMemberFinderService::class)")
             val tenders = code.indexOf("registerService(ITenderService::class)")
             val onlineCounts = code.indexOf("registerService(IOnlineCountsService::class)")
+            val attachedImages = code.indexOf("registerService(IAttachedImageService::class)")
+            val dashboard = code.indexOf("registerService(IDashboardService::class)")
             (timer >= 0) shouldBe true
             (agreementTexts > timer) shouldBe true
             (pulpitRecording > agreementTexts) shouldBe true
             (memberFinder > pulpitRecording) shouldBe true
             (tenders > memberFinder) shouldBe true
             (onlineCounts > tenders) shouldBe true
-            // a new service is always appended: the timer stays sixth to last, the agreement texts fifth to last, the pulpit recording fourth to
-            // last, the member finder third to last, the tenders second to last, the online counts last
-            registrations[registrations.size - 6] shouldBe timer
-            registrations[registrations.size - 5] shouldBe agreementTexts
-            registrations[registrations.size - 4] shouldBe pulpitRecording
-            registrations[registrations.size - 3] shouldBe memberFinder
-            registrations[registrations.size - 2] shouldBe tenders
-            registrations.last() shouldBe onlineCounts
+            (attachedImages > onlineCounts) shouldBe true
+            (dashboard > attachedImages) shouldBe true
+            // a new service is always appended (V1.9.224: the dashboard after the image gallery): the timer stays eighth to last, the
+            // agreement texts seventh to last, the pulpit recording sixth to last, the member finder fifth to last, the tenders fourth to
+            // last, the online counts third to last, the image gallery second to last, the dashboard last
+            registrations[registrations.size - 8] shouldBe timer
+            registrations[registrations.size - 7] shouldBe agreementTexts
+            registrations[registrations.size - 6] shouldBe pulpitRecording
+            registrations[registrations.size - 5] shouldBe memberFinder
+            registrations[registrations.size - 4] shouldBe tenders
+            registrations[registrations.size - 3] shouldBe onlineCounts
+            registrations[registrations.size - 2] shouldBe attachedImages
+            registrations.last() shouldBe dashboard
         }
     })

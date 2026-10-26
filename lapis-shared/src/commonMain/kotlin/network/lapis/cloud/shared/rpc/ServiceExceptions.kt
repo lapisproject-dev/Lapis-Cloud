@@ -816,3 +816,15 @@ class ConferenceRecordingAlreadyActiveException(
 class ConferenceRoomEndedException(
     override val message: String = "This conference has already ended",
 ) : AbstractServiceException()
+
+/** V1.9.222 -- distinct type. The gallery can no longer be changed (auction with bids or closed, crowdfunding project decided). */
+@RpcServiceException
+class GalleryLockedException(
+    override val message: String = "The gallery can no longer be changed",
+) : AbstractServiceException()
+
+/** V1.9.222 -- distinct type. The id list of a re-order is not exactly the set of all pictures of the owner. */
+@RpcServiceException
+class GalleryOrderMismatchException(
+    override val message: String = "The order does not match the pictures of the gallery",
+) : AbstractServiceException()

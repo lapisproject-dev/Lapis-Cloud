@@ -117,3 +117,10 @@ an "active chapters" filter, crest files in a restore, instant nav tabs, a BOARD
 `video_overlay_asset` and its files (`assets/video-overlays/<uuid>.png|jpg`, the fourth asset family of `BACKUP_ASSET_KINDS`) belong to the organization although they are not public: they are
 exported and restored with the backup. A restore treats the ZIP as untrusted (strict entry name, signature of the extension, size cap). A restored frame is not re-checked for
 transparency; the backup comes from the admin themselves, so a fully opaque frame would be a cosmetic problem only.
+
+== Gallery pictures in the backup (V1.9.222)
+
+`attached_image` and its files (`assets/attached-images/<storage_key>.png|jpg`, the fifth asset family of `BACKUP_ASSET_KINDS`; the id column is `storage_key`, because the file is named by
+it and not by the row id) are exported and restored with the backup, with the same untrusted-ZIP rules (strict entry name, signature of the extension, 5 MiB cap). That cap is why a stored
+picture may never exceed 5 MiB (see link:../features/image-gallery.adoc[image-gallery.adoc]). The pictures are visible to members, so they belong to the organization's records like the
+project or auction they illustrate; member photos stay excluded.

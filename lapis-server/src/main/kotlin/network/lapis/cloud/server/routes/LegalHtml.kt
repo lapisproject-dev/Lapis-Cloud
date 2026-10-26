@@ -461,6 +461,15 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Bilder zu Crowdfunding-Projekten und Auktionsangeboten (freiwillig, sofern hochgeladen) — Art. 6 Abs. 1 " +
+                        "lit. b DSGVO. Die Bilder und ihre Beschriftungen sind für angemeldete Mitglieder dieser Organisation " +
+                        "sichtbar, nicht öffentlich. Nach der Entscheidung des Vorstands über ein Projekt bzw. nach dem ersten " +
+                        "Gebot auf ein Angebot können sie nicht mehr geändert werden; der Vorstand kann ein Bild entfernen. " +
+                        "Die Bilder sind Teil des Organisations-Backups und werden bei einem Löschauftrag unmittelbar entfernt."
+                )
+            }
+            li {
+                +(
                     "Öffentliche Kurzvorstellung (freiwillig, nur für Vorstandsmitglieder und ernannte Politiker) — " +
                         "Art. 6 Abs. 1 lit. a DSGVO. Der selbst verfasste Text ist nach dem Speichern privat. Nur wenn das " +
                         "Mitglied ausdrücklich einwilligt, wird er auf den öffentlichen Seiten Vorstand und Politiker sowie " +

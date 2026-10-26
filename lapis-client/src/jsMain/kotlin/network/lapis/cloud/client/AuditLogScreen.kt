@@ -77,17 +77,17 @@ fun renderAuditLogScreen(container: SimplePanel) {
 
     // ---- List: filters + keyset-paginated entries --------------------------------------------
     root.h2(tr("Einträge")) { addCssClass("h5") }
+    // V1.9.221: ONE filter row (it wraps on a narrow screen) instead of two stacked ones.
     val filterRow1 = root.filterRow(hint = tr("Alle Filter sind optional."))
     val entityTypeOptions = listOf("" to tr("Alle Entitätstypen")) + AuditEntityType.entries.map { it.name to auditEntityTypeLabel(it) }
     val entityTypeSelect = filterRow1.select(options = entityTypeOptions, value = "", label = tr("Entitätstyp"))
     val entityIdInput = filterRow1.text(label = tr("Entitäts-ID"))
     val actorMemberIdInput = filterRow1.text(label = tr("Akteur-Mitglieds-ID"))
 
-    val filterRow2 = root.filterRow(hint = null)
-    val fromInput = filterRow2.localDateTimeInput(label = gettext("Von"), hintLine = false)
-    val toInput = filterRow2.localDateTimeInput(label = gettext("Bis"), hintLine = false)
+    val fromInput = filterRow1.localDateTimeInput(label = gettext("Von"), hintLine = false)
+    val toInput = filterRow1.localDateTimeInput(label = gettext("Bis"), hintLine = false)
     linkDateRange(fromInput.date, toInput.date)
-    val filterButton = filterRow2.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow1.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
@@ -595,6 +595,9 @@ fun decodeAuditSnapshot(
             AuditEntityType.TENDER -> null
             // V1.9.204 -- the export entry carries a row count and a format only; shown as raw text.
             AuditEntityType.EVENT_REGISTRATION_EXPORT -> null
+            // V1.9.222 -- AttachedImageSnapshot (owner, position, size, MIME type; never a caption or a key), raw-text display like the
+            // other backend-written snapshots.
+            AuditEntityType.ATTACHED_IMAGE -> null
         }
     }.getOrNull()
 

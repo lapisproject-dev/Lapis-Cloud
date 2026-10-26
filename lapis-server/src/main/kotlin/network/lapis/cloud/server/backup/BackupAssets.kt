@@ -4,7 +4,9 @@ import network.lapis.cloud.server.images.SvgCrestSanitizer
 import network.lapis.cloud.server.images.SvgSanitizeResult
 import java.io.File
 
-/** ZIP entry name prefix under which public-asset files (chapter crests, event and article covers, video overlays) are stored (bundle format 2). */
+/** ZIP entry name prefix under which asset files (chapter crests, event and article covers, video overlays, gallery pictures) are
+ * stored
+ * (bundle format 2). */
 internal const val ASSET_ENTRY_PREFIX = "assets/"
 
 /** Upper bound of one restored asset file; a stored raster is already re-encoded to at most 1600 px (5 MiB is the upload cap of every cover pipeline). */
@@ -12,8 +14,12 @@ internal const val MAX_RESTORED_ASSET_BYTES = 5L * 1024 * 1024
 
 /**
  * A file family that lives OUTSIDE the document blobs but is referenced by an id column of an exported table, and belongs to
- * the public face of the organization (V1.9.65): crests, event covers and article covers. Member photos and conference
- * backgrounds are deliberately NOT here -- they are private (see [OrganizationSchemaCatalog.EXCLUDED_TABLES]).
+ * the organization's own data: the public face (V1.9.65: crests, event covers and article covers), the video overlay library, and since
+ * V1.9.222
+ * the gallery pictures of crowdfunding projects and auctions (visible to members, part of an organization's records like the project
+ * itself).
+ * Member photos and conference backgrounds are deliberately NOT here -- they are a member's PRIVATE data (see
+ * [OrganizationSchemaCatalog.EXCLUDED_TABLES]).
  */
 internal data class BackupAssetKind(
     val folder: String,
@@ -34,14 +40,24 @@ internal val BACKUP_ASSET_KINDS: List<BackupAssetKind> =
         BackupAssetKind(folder = "article-covers", tableName = "article", idColumn = "cover_image_id", extensions = setOf("jpg", "png")),
         // V1.9.129 -- the admin's video overlay library (logos and frames). Not public, but organization data (no member FK).
         BackupAssetKind(folder = "video-overlays", tableName = "video_overlay_asset", idColumn = "id", extensions = setOf("jpg", "png")),
+        // V1.9.222 -- gallery pictures: the FILE NAME is the row's `storage_key` (a server UUID distinct from the row id), so that is
+        // the
+        // id column.
+        BackupAssetKind(
+            folder = "attached-images",
+            tableName = "attached_image",
+            idColumn = "storage_key",
+            extensions = setOf("jpg", "png"),
+        ),
     )
 
-/** The configured storage roots (`LAPIS_*_STORAGE_ROOT`) of the four asset families. */
+/** The configured storage roots (`LAPIS_*_STORAGE_ROOT`) of the five asset families. */
 class BackupAssetRoots(
     val chapterCrests: File,
     val eventCovers: File,
     val articleCovers: File,
     val videoOverlays: File,
+    val attachedImages: File,
 ) {
     /** Exhaustive on purpose: an unknown folder is a programming error, never silently the article-cover folder. */
     internal fun rootFor(kind: BackupAssetKind): File =
@@ -50,6 +66,7 @@ class BackupAssetRoots(
             "event-covers" -> eventCovers
             "article-covers" -> articleCovers
             "video-overlays" -> videoOverlays
+            "attached-images" -> attachedImages
             else -> error("No storage root configured for backup asset folder '${kind.folder}'")
         }
 
@@ -61,6 +78,7 @@ class BackupAssetRoots(
                 eventCovers = documentStorageRoot.resolve("event-covers"),
                 articleCovers = documentStorageRoot.resolve("article-covers"),
                 videoOverlays = documentStorageRoot.resolve("video-overlays"),
+                attachedImages = documentStorageRoot.resolve("attached-images"),
             )
     }
 }

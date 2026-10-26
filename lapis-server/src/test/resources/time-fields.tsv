@@ -946,3 +946,5 @@ col:TenderBidTable.withdrawnAt	A	stamped by the server clock (DbClock/ServerCloc
 col:TenderAwardTable.awardedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:TenderAcceptanceTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:OnlineCountsDto.computedAt	A	stamped by the server clock (DbClock) in OnlineCountsService; sent as UTC
+dto:AttachedImageDto.createdAt	A	AttachedImageService/AttachedImageRoutes.upload: stamped by ServerClock
+col:AttachedImageTable.createdAt	A	AttachedImageService/AttachedImageRoutes.upload: stamped by ServerClock

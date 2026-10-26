@@ -33,6 +33,7 @@ import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostDto
 import network.lapis.cloud.shared.domain.SocialPostErasureInput
+import network.lapis.cloud.shared.domain.SocialPostImagePreviewDto
 import network.lapis.cloud.shared.domain.SocialPostInput
 import network.lapis.cloud.shared.domain.SocialPostRemovalNoticeDto
 import network.lapis.cloud.shared.domain.SocialPostReportCategory
@@ -173,7 +174,8 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
                 timelinePanel.p(tr("Noch keine Beiträge.")) { addCssClasses("text-muted small") }
                 return@launch
             }
-            page.posts.forEach { post -> renderSocialPostCard(timelinePanel, post) { loadTimeline() } }
+            val previews = loadSocialPreviews(page.posts)
+            page.posts.forEach { post -> renderSocialPostCard(timelinePanel, post, previews[post.id]) { loadTimeline() } }
         }
     }
 
@@ -284,6 +286,9 @@ private fun renderComposeForm(
 ): StakeSuggestionHint {
     val panel = root.vPanel(spacing = 6)
     val contentInput = panel.textArea(label = tr("Inhalt"), rows = 3)
+    lateinit var finishPublish: () -> Unit
+    val images = SocialComposerImages(onFinished = { finishPublish() })
+    panel.add(images)
     val weightInput = panel.text(label = tr("Einsatz (LTR)"))
     weightInput.input.setAttribute("inputmode", "decimal")
     val stakeHint = StakeSuggestionHint(panel) { figure -> weightInput.value = figure }
@@ -332,6 +337,20 @@ private fun renderComposeForm(
         }
     val submitButton = panel.button(tr("Veröffentlichen"), style = ButtonStyle.PRIMARY)
 
+    // After the post exists its text is fixed: the inputs stay locked until the pictures are done (or given up).
+    fun lockInputs(locked: Boolean) {
+        contentInput.disabled = locked
+        weightInput.disabled = locked
+        visibilitySelect.disabled = locked
+        submitButton.disabled = locked
+    }
+    finishPublish = {
+        contentInput.value = null
+        weightInput.value = null
+        lockInputs(false)
+        onCompleted()
+    }
+
     submitButton.onClick {
         errorBox.hide()
         val content = contentInput.value.orEmpty().trim()
@@ -368,9 +387,12 @@ private fun renderComposeForm(
                 submitButton.disabled = false
                 if (result != null) {
                     notifySuccess(tr("Beitrag veröffentlicht."))
-                    contentInput.value = null
-                    weightInput.value = null
-                    onCompleted()
+                    if (images.hasPending()) {
+                        lockInputs(true)
+                        images.afterPublish(result.id)
+                    } else {
+                        finishPublish()
+                    }
                 }
             }
         }
@@ -385,6 +407,7 @@ private fun renderComposeForm(
 private fun renderSocialPostCard(
     panel: SimplePanel,
     post: SocialPostDto,
+    imagePreview: SocialPostImagePreviewDto?,
     onChanged: () -> Unit,
 ) {
     val isAuthor = AppState.session?.memberId == post.authorMemberId
@@ -398,6 +421,7 @@ private fun renderSocialPostCard(
     if (post.aiAssisted) headerRow.statusBadge(tr("KI-unterstützt"), "secondary")
 
     renderPostContentText(card, post)
+    imagePreview?.let { card.socialFeedImagePreview(it, post.authorDisplayName) { navigateTo("${Routes.SOCIAL_NETWORK}/post/${post.id}") } }
     card.div(gettext("Veröffentlicht am %1", formatSystemDateTime(post.publishedAt))) { addCssClasses("text-muted small") }
 
     // Drei Kennzahlen nebeneinander, nie zu einer verschmolzen (Meritokratie-Konzept "Anzeige in
@@ -917,6 +941,8 @@ private fun renderThreadNode(
     if (node.aiAssisted) headerRow.statusBadge(tr("KI-unterstützt"), "secondary")
 
     renderPostContentText(card, node)
+    // V1.9.223: only a ROOT post carries pictures
+    if (node.depth == 0) card.socialThreadImages(node)
     // Welle V1.8.2b -- the full sentence, in the thread DETAIL view only (the badge alone suffices
     // on the timeline card above) -- directly under the content, before the publish date.
     if (node.aiAssisted) {

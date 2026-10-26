@@ -1,0 +1,61 @@
+= Organisation page (V1.9.221)
+:toc:
+
+The settings that apply to the whole organization used to sit as separate cards at the bottom of the member administration. Since V1.9.221 they live on one
+page, *Organisation* (`/organization`, sidebar group System, ADMIN only), in five collapsible sections. Client only: no migration (schema stays V118), no new
+RPC, no DTO change. Every switch and form calls the RPC it called before; the server still enforces ADMIN on each of them.
+
+== Sections
+
+[cols="2,3,3",options="header"]
+|===
+|Section (key) |Contents |Summary line (closed)
+|General (`allgemein`) |Time zone of the organization; public member count (switch with confirmation) |Time zone and member count public: on/off
+|Video conference (`videokonferenz`) |Noise suppression default, offer of the video overlays, overlay library |Noise suppression and overlays: on/off
+|Recording & transmission (`aufzeichnung`) |Pulpit recording, recording and live streaming in event rooms, link to the stream destinations |Pulpit recording and events: on/off
+|Member finder (`mitglieder-finder`) |Switch of the member finder (operator notice dialog) |on/off
+|Tenders (`ausschreibungen`) |Default bid visibility of new tenders |The chosen visibility
+|===
+
+== Rules
+
+* Each section is a native `<details>` element, closed at first. The `<summary>` shows an icon (decoration, `aria-hidden`), the title and one line with the
+  current values. Keyboard and screen readers work without script.
+* The content of a section is built when it is opened for the first time, never twice. A section nobody opens makes no request of its own.
+* The summary lines come from one read of the organization settings and one read of the time zone. A saved change refreshes them; the section stays open.
+  If a read fails, its part of the summary stays empty and the sections remain usable.
+* Deep link: `#/organization?section=<key>` opens and scrolls to that section. Aliases: `zeitzone` and `mitgliederzahl` open `allgemein`, `overlays` opens
+  `videokonferenz`, `stream` opens `aufzeichnung`. An unknown key is ignored. The key is only looked up in a fixed map; it is never rendered.
+* There is no old address to redirect from (the cards never had a route). The member administration shows an ADMIN a pointer with a link instead.
+* UI rule: settings that save at once are folded with `<details>`; `collapsibleCreateForm` stays for forms that create a record (R36B).
+
+== Inventory
+
+[cols="2,2,2,3",options="header"]
+|===
+|Setting |Was |Write / read |Now
+|Time zone |card on `/members` |ADMIN / ADMIN |Organisation, General
+|Public member count |card on `/members` |ADMIN / TREASURER, BOARD, ADMIN |Switch: Organisation, General (ADMIN). TREASURER and BOARD keep a *read-only status line* on `/members`; the ADMIN sees it there too, with a link.
+|Noise suppression, overlay switch, overlay library |card "Videokonferenz" |ADMIN |Organisation, Video conference
+|Pulpit recording, event capture |card "Videokonferenz" |ADMIN |Organisation, Recording & transmission
+|Member finder switch |card "Videokonferenz" |ADMIN |Organisation, Member finder
+|Tender default visibility |card on `/members` |ADMIN |Organisation, Tenders
+|Board overview of the member finder |card on `/members` |BOARD, ADMIN (read only) |*Stays.* It is a report, not a setting, and BOARD must keep it (the page is ADMIN only).
+|Politician ranking |`PoliticianScreen` |BOARD, ADMIN |Stays; it enables its own page and the board may write.
+|Small business (Kleinunternehmer), account assignment |`NonprofitComplianceReportsScreen`, `FinanceSetupTab`, `OpenItemPaymentAccounts` |ADMIN |Stay; they sit next to the status they control.
+|SEPA, dunning, payments, travel expenses, stream destinations, price oracle |pages of their own |as before |Stay.
+|===
+
+No text in the client sent people to the member administration to change one of these settings (searched for "Mitgliederverwaltung" in `lapis-client/src/jsMain`:
+only unrelated hints in `DonorsScreen` and `RegionalChaptersScreen`, which are about the member list itself).
+
+== Tidied pages
+
+* Audit log: one filter row (it wraps on a narrow screen) instead of two stacked rows.
+* Price oracle: the edit form of the configuration is a closed `<details>`; the current configuration stays visible. The suffix "(ADMIN)" is gone from the text.
+* "My data": the erasure request form starts closed behind a button in the title row ("Antrag stellen").
+* Already in the target state and left alone: cost centres, auction (one create form), compliance (four create forms).
+
+== Not verified
+
+Checked in headless Chrome plus one look in a local browser. Nothing was looked at on a real phone, in Safari, or with a screen reader.

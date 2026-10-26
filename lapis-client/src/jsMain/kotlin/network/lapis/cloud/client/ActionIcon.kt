@@ -253,4 +253,17 @@ enum class ActionIcon(
      */
     REGISTER("fas fa-calendar-check"),
     UNREGISTER("fas fa-calendar-xmark"),
+
+    /**
+     * V1.9.222 "Bildergalerie": [PHOTO_TAKE] take a picture with the device camera ("Foto aufnehmen"; NOT [CAMERA], which is the camera
+     * of
+     * the video
+     * conference), [IMAGES_PICK] choose pictures from the device ("Bilder auswählen"; NOT [SCENE], which is the scene picture of a
+     * room).
+     */
+    PHOTO_TAKE("fas fa-camera"),
+    IMAGES_PICK("fas fa-images"),
+
+    /** V1.9.222: "Als Titelbild" -- make a gallery picture the cover picture. Used for that purpose only. */
+    SET_COVER("fas fa-star"),
 }

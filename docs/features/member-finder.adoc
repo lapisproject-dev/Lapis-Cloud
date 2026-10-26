@@ -96,7 +96,7 @@ out of date (no consent, not eligible, switch off) redraws it from the server's 
 
 == Operator notice and instance switch (V1.9.145)
 
-The switch sits in the "Videokonferenz" card of the member administration, below the recording of the pulpit (ADMIN only). Switching **on** opens the operator notice: three paragraphs, the legal check as the label
+The switch sits in the section "Mitglieder-Finder" of the page Organisation (ADMIN only). Switching **on** opens the operator notice: three paragraphs, the legal check as the label
 of a box (the fourth paragraph), a hint what a later switch-off deletes, and "Hinweis Version 1" in the foot. The focus starts on "Abbrechen", Escape cancels, "Einschalten" stays locked until the box is ticked. The
 paragraphs stand **word for word** in `MemberFinderSettings.kt`; `MemberFinderNoticePinTest` pins them against the server's reference text, so a change needs a new version. The sentence about the deletion is *not* part
 of the hashed notice V1. While the built-in consent text is still the placeholder, a warning with a link to the agreement texts shows in the section and in the dialog. An acknowledgment of an older notice version is

@@ -518,6 +518,18 @@ enum class AuditEntityType {
      * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     EVENT_REGISTRATION_EXPORT,
+
+    /**
+     * Welle V1.9.222 "Bildergalerie" -- `AttachedImageRoutes` writes one entry (`CREATE`) per added picture and `AttachedImageService`
+     * one
+     * (`VOID`, `after = null` -- the audit vocabulary has no delete) per removed picture, `entityId` = the `attached_image` row's id,
+     * snapshot =
+     * [AttachedImageSnapshot] (owner type and id, position, byte size, MIME type, and the moderator on a moderated removal -- never a
+     * caption,
+     * a file name or a storage key). Re-ordering and captions write NO entry. 14 chars, fits within `audit_log_entry.entity_type`
+     * `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    ATTACHED_IMAGE,
 }
 
 /** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */

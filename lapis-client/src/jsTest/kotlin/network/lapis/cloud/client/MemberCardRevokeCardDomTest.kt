@@ -104,7 +104,7 @@ class MemberCardRevokeCardDomTest {
             el().buttonNamed("Ausweis sperren …").click()
             val dialog = dialogs.shown.single()
             assertTrue(dialog.message.contains("keinen neuen Ausweis"))
-            assertTrue(dialog.message.contains("auf der Startseite herunterladen"))
+            assertTrue(dialog.message.contains("auf dieser Seite herunterladen"))
             assertEquals("Ausweis sperren", dialog.confirmLabel)
             delay(40)
             assertTrue(rpc.calls.isEmpty(), "opening (and not confirming) the dialog must not call the server")

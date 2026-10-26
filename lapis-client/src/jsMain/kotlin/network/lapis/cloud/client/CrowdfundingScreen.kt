@@ -6,6 +6,7 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.html.image
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -14,6 +15,7 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AttachedImageOwnerType
 import network.lapis.cloud.shared.domain.CrowdfundingDistributionDto
 import network.lapis.cloud.shared.domain.CrowdfundingProjectDto
 import network.lapis.cloud.shared.domain.CrowdfundingProjectStatus
@@ -115,7 +117,10 @@ fun renderCrowdfundingScreen(container: SimplePanel) {
     val projectsPanel = root.vPanel(spacing = 10)
 
     // ---- Treuhänder-Werkzeuge container (canTreasury only, D3 staged disclosure) --------------
-    val treasuryPanel = if (canTreasury) root.vPanel(spacing = 10) { addCssClasses("border rounded p-3 mt-2") } else null
+    // V1.9.222: the treasurer's tools sit in their own CLOSED disclosure -- most visitors never need them, and they pushed the project
+    // list
+    // down.
+    val treasuryPanel = if (canTreasury) root.vPanel(spacing = 6) { addCssClasses("mt-2") } else null
 
     // ---- Verteilungshistorie container (any authenticated member, read-only) -------------------
     root.h2(tr("Verteilungshistorie")) { addCssClass("h5") }
@@ -163,15 +168,18 @@ fun renderCrowdfundingScreen(container: SimplePanel) {
     ) { _, close -> renderSubmitProjectForm(this, close) { loadProjects() } }
 
     if (treasuryPanel != null) {
-        val distributionSlot = treasuryPanel.sectionTitleRow(tr("Treuhänder-Werkzeuge"))
-        treasuryPanel.div(tr("Sichtbar für TREASURER/BOARD/ADMIN.")) { addCssClasses("text-muted small mb-2") }
-        val distributionHost = treasuryPanel.vPanel(spacing = 6)
-        collapsibleCreateForm<Unit>(
-            actionSlot = distributionSlot,
-            formHost = distributionHost,
-            buttonLabel = tr("Verteilung berechnen"),
-            formId = "lapis-create-crowdfunding-distribution",
-        ) { _, close -> renderDistributionComputeForm(this, close) { loadDistributions() } }
+        treasuryPanel.disclosure(tr("Treuhänder-Werkzeuge"), bodyId = "lapis-crowdfunding-treasury") {
+            addCssClasses("border rounded p-3")
+            div(tr("Sichtbar für TREASURER/BOARD/ADMIN.")) { addCssClasses("text-muted small mb-2") }
+            val distributionSlot = div(className = "lapis-page-action")
+            val distributionHost = vPanel(spacing = 6)
+            collapsibleCreateForm<Unit>(
+                actionSlot = distributionSlot,
+                formHost = distributionHost,
+                buttonLabel = tr("Verteilung berechnen"),
+                formId = "lapis-create-crowdfunding-distribution",
+            ) { _, close -> renderDistributionComputeForm(this, close) { loadDistributions() } }
+        }
     }
 
     loadProjects()
@@ -193,6 +201,14 @@ private fun renderProjectCard(
     onChanged: () -> Unit,
 ) {
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+    // V1.9.222: the card shows what a person scans a list for -- cover image, title, status, weight, likes -- and keeps the rest behind
+    // "Details".
+    project.coverImageUrl?.let { url ->
+        card.image(url, gettext("Titelbild von %1", sanitizeUntrustedI18nText(project.title)), className = "lapis-gallery-card-cover") {
+            setAttribute("loading", "lazy")
+            setAttribute("decoding", "async")
+        }
+    }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     // Security audit W6b follow-up round 3 (major finding A): project title/description are submitter-controlled
     // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
@@ -206,25 +222,6 @@ private fun renderProjectCard(
             gettext("Effektiv: %1", crowdfundingProjectStatusLabel(project.effectiveStatus)),
             crowdfundingProjectStatusColor(project.effectiveStatus),
         )
-    }
-
-    card.div(sanitizeUntrustedI18nText(project.description)) { addCssClasses("small") }
-    card.div(
-        gettext("Eingereicht von %1 am %2", project.submitterDisplayName, formatSystemDateTime(project.submittedAt)),
-    ) { addCssClasses("text-muted small") }
-
-    // status (persisted board decision) vs. effectiveStatus/isAutoApproved (14-day
-    // silence-is-approval) are two DISTINCT signals -- a project can permanently show
-    // status=PENDING, effectiveStatus=APPROVED, isAutoApproved=true, and that is the normal,
-    // expected shape, not a bug to hide.
-    if (project.isAutoApproved) {
-        card.div(
-            tr(
-                "Automatisch genehmigt durch die 14-Tage-Schweigefrist -- der Vorstand hat keinen expliziten " +
-                    "Beschluss gefasst (Status bleibt dauerhaft \"Ausstehend\", effektiver Status zeigt \"Genehmigt\"). " +
-                    "Das ist der normale, erwartete Zustand.",
-            ),
-        ) { addCssClasses("text-muted small fst-italic") }
     }
 
     // initialWeightLtr (immutable, submission-time) vs. currentWeightLtr (same value, decayed
@@ -244,23 +241,54 @@ private fun renderProjectCard(
         addCssClasses("small")
     }
 
-    if (project.status == CrowdfundingProjectStatus.REJECTED) {
-        card.div(gettext("Ablehnungsgrund: %1", project.rejectionReason.orEmpty())) { addCssClasses("text-danger small") }
-    }
-    project.reviewedByDisplayName?.let { reviewer ->
-        card.div(
-            gettext("Entschieden von %1 am %2", reviewer, formatSystemDateTime(project.reviewedAt!!)),
-        ) { addCssClasses("text-muted small") }
-    }
-
     // castReaction/retractReaction require effectiveStatus == APPROVED server-side -- only
     // RENDERED once approved, never shown-then-failed on a still-PENDING/REJECTED project.
     if (project.effectiveStatus == CrowdfundingProjectStatus.APPROVED) {
         renderReactionControls(card, project, onChanged)
     }
 
-    if (canBoard && project.status == CrowdfundingProjectStatus.PENDING) {
-        renderBoardDecidePanel(card, project, onChanged)
+    // ---- Details (closed): description, who/when, decision, pictures, board decision --------------
+    var galleryLoaded = false
+    var galleryHost: SimplePanel? = null
+    val toggle =
+        card.disclosure(tr("Details"), bodyId = "cf-details-${project.id}") {
+            div(sanitizeUntrustedI18nText(project.description)) { addCssClasses("small") }
+            div(
+                gettext("Eingereicht von %1 am %2", project.submitterDisplayName, formatSystemDateTime(project.submittedAt)),
+            ) { addCssClasses("text-muted small") }
+
+            // status (persisted board decision) vs. effectiveStatus/isAutoApproved (14-day
+            // silence-is-approval) are two DISTINCT signals -- a project can permanently show
+            // status=PENDING, effectiveStatus=APPROVED, isAutoApproved=true, and that is the normal,
+            // expected shape, not a bug to hide.
+            if (project.isAutoApproved) {
+                div(
+                    tr(
+                        "Automatisch genehmigt durch die 14-Tage-Schweigefrist -- der Vorstand hat keinen expliziten " +
+                            "Beschluss gefasst (Status bleibt dauerhaft \"Ausstehend\", effektiver Status zeigt \"Genehmigt\"). " +
+                            "Das ist der normale, erwartete Zustand.",
+                    ),
+                ) { addCssClasses("text-muted small fst-italic") }
+            }
+            if (project.status == CrowdfundingProjectStatus.REJECTED) {
+                div(gettext("Ablehnungsgrund: %1", project.rejectionReason.orEmpty())) { addCssClasses("text-danger small") }
+            }
+            project.reviewedByDisplayName?.let { reviewer ->
+                div(
+                    gettext("Entschieden von %1 am %2", reviewer, formatSystemDateTime(project.reviewedAt!!)),
+                ) { addCssClasses("text-muted small") }
+            }
+            // V1.9.222: the gallery is loaded when this disclosure is first opened (no request per card of a long list).
+            galleryHost = vPanel(spacing = 4)
+            if (canBoard && project.status == CrowdfundingProjectStatus.PENDING) {
+                renderBoardDecidePanel(this, project, onChanged)
+            }
+        }
+    toggle.onClick {
+        if (!galleryLoaded) {
+            galleryLoaded = true
+            galleryHost?.loadGalleryInto(AttachedImageOwnerType.CROWDFUNDING_PROJECT, project.id, project.title)
+        }
     }
 }
 

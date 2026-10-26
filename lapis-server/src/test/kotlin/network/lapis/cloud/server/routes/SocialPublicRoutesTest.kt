@@ -35,6 +35,7 @@ import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.generated.AttachedImageTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SocialPostBoostTable
@@ -42,9 +43,11 @@ import network.lapis.cloud.server.db.generated.SocialPostReportTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.gallery.AttachedImageStore
 import network.lapis.cloud.server.rpc.SocialReadPipeline
 import network.lapis.cloud.server.rpc.SocialVisibility
 import network.lapis.cloud.server.shouldNotContainNumber
+import network.lapis.cloud.shared.domain.AttachedImageOwnerType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SocialPostState
@@ -87,6 +90,9 @@ class SocialPublicRoutesTest :
 
         afterTest {
             transaction {
+                if (createdMemberIds.isNotEmpty()) {
+                    AttachedImageTable.deleteWhere { AttachedImageTable.uploadedBy inList createdMemberIds }
+                }
                 if (createdPostIds.isNotEmpty()) {
                     SocialPostBoostTable.deleteWhere { SocialPostBoostTable.postId inList createdPostIds }
                     val remaining = createdPostIds.toMutableList()
@@ -1443,5 +1449,43 @@ class SocialPublicRoutesTest :
             // buckets.
             rateLimitKeyFor("not-an-ip%eth0") shouldBe rateLimitKeyFor("not-an-ip%wlan0")
             rateLimitKeyFor("not-an-ip%eth0") shouldBe "ip:not-an-ip"
+        }
+
+        // ── V1.9.223: pictures of a post never reach the public pages ───────────────────────
+        test(
+            "V1.9.223: attached pictures change nothing on /s/{id}, /s and the sitemap -- the HTML is byte-identical, no image URL or id",
+        ) {
+            testApp {
+                val author = createAuthor()
+                val id = insertPost(authorMemberId = author, content = "Beitrag mit Bildern")
+                val before =
+                    Triple(client.get("/s/$id").bodyAsText(), client.get("/s").bodyAsText(), client.get("/sitemap.xml").bodyAsText())
+                val imageIds =
+                    (0 until 3).map { position ->
+                        val imageId = Uuid.random()
+                        transaction {
+                            AttachedImageStore.insertInTx(
+                                id = imageId,
+                                type = AttachedImageOwnerType.SOCIAL_POST,
+                                ownerId = id,
+                                storageKey = Uuid.random(),
+                                mimeType = "image/jpeg",
+                                byteSize = 10L + position,
+                                width = 10,
+                                height = 10,
+                                uploadedBy = author,
+                                createdAt = DbClock.nowLocalDateTime(),
+                            )
+                        }
+                        imageId
+                    }
+                val after =
+                    Triple(client.get("/s/$id").bodyAsText(), client.get("/s").bodyAsText(), client.get("/sitemap.xml").bodyAsText())
+                after shouldBe before
+                listOf(after.first, after.second, after.third).forEach { body ->
+                    body shouldNotContain "/api/images"
+                    imageIds.forEach { body shouldNotContain it.toString() }
+                }
+            }
         }
     })

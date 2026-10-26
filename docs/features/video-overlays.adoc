@@ -26,7 +26,7 @@ Guests without an account never get it (`videoOverlaysOffered` is always `false`
 
 == What an ADMIN can do
 
-In the card "Videokonferenz" of the member administration: the switch "Overlays anbieten" (`IOrganizationSettingsService.updateVideoOverlaysOffered`,
+In the section "Videokonferenz" of the page Organisation (ADMIN): the switch "Overlays anbieten" (`IOrganizationSettingsService.updateVideoOverlaysOffered`,
 audited on change) and the library: upload a logo or a frame, rename, move up or down, delete. Library and switch are ADMIN-only (BOARD is not enough,
 exactly like the other branding settings).
 

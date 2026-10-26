@@ -13,7 +13,7 @@ operator has published its own consent text**.
 
 == Switching on
 
-. *Instance (ADMIN):* settings, card "Videokonferenz", section "Veranstaltungen": "Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben". The switch opens the
+. *Instance (ADMIN):* page Organisation, section "Aufzeichnung & Übertragung", part "Veranstaltungen": "Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben". The switch opens the
   operator notice (four paragraphs, version in the foot); "Einschalten" stays locked until the legal-check box is ticked. The switch is locked with a hint and a link
   while the consent text (`EVENT_REC`, tab "Aufzeichnung (Veranstaltung)" under "Vertragstexte") is still the built-in placeholder. The audit entry records the notice
   version and the hash of the German reference text. Switching **on** is refused while a released event is active (people who entered while it was off acknowledged

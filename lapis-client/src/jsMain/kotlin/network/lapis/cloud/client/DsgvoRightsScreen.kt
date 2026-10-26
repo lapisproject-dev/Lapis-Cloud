@@ -107,7 +107,8 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     renderMcpAccessSection(root)
     renderMemberEmailSection(root)
     renderMemberAddressSection(root)
-    renderMemberCardRevokeSection(root)
+    renderChangePassword(root)
+    AppState.session?.status?.let { renderMemberCardSection(root, it) }
 
     root.h2(tr("Auskunft")) { addCssClass("h5") }
     root.div(
@@ -141,10 +142,21 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     ) { addCssClasses("text-muted small") }
     renderPublicRankingConsentSection(root)
 
-    root.h2(tr("Löschung beantragen")) { addCssClass("h5") }
+    // V1.9.221: the request form starts closed; one button in the title row opens it (R36B).
+    val erasureTitleSlot = root.sectionTitleRow(tr("Löschung beantragen"))
     val formHolder = root.vPanel(spacing = 6)
     val statusPanel = root.vPanel(spacing = 6)
-    renderErasureRequestForm(formHolder, myMemberId) { request -> renderOwnErasureStatusCard(statusPanel, request) }
+    collapsibleCreateForm<Unit>(
+        actionSlot = erasureTitleSlot,
+        formHost = formHolder,
+        buttonLabel = tr("Antrag stellen"),
+        formId = "dsgvo-erasure-request",
+    ) { _, close ->
+        renderErasureRequestForm(this, myMemberId, close) { request -> renderOwnErasureStatusCard(statusPanel, request) }
+    }
+
+    // V1.9.220: the last self-service block, before the admin areas.
+    renderLeaveMembership(root)
 }
 
 // ================================================================================================
@@ -277,8 +289,9 @@ private fun renderExportManifest(
 private fun renderErasureRequestForm(
     root: SimplePanel,
     myMemberId: String,
+    collapse: (saved: Boolean) -> Unit,
     onRequested: (ErasureRequestDto) -> Unit,
-) {
+): FormSnapshot {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
 
     val modeOptions = ErasureMode.entries.map { it.name to erasureModeLabel(it) }
@@ -295,7 +308,9 @@ private fun renderErasureRequestForm(
             hide()
         }
 
-    val submitButton = panel.actionButton(ActionIcon.SEND, tr("Löschung beantragen"), style = ButtonStyle.PRIMARY)
+    val buttons = panel.hPanel(spacing = 8)
+    val submitButton = buttons.actionButton(ActionIcon.SEND, tr("Löschung beantragen"), style = ButtonStyle.PRIMARY)
+    buttons.add(collapseCancelButton(collapse))
     // D10(b): permanent, always visible directly under the submit button -- not conditional on
     // whether a request was just made this visit.
     panel.div(tr(ERASURE_SELF_STATUS_VISIBILITY_CAPTION)) { addCssClasses("text-muted small") }
@@ -320,9 +335,11 @@ private fun renderErasureRequestForm(
                 notifySuccess(tr("Löschung wurde beantragt."))
                 reasonInput.value = null
                 onRequested(result)
+                collapse(true)
             }
         }
     }
+    return FormSnapshot { listOf(modeSelect.value.orEmpty(), reasonInput.value.orEmpty()) }
 }
 
 private fun renderOwnErasureStatusCard(

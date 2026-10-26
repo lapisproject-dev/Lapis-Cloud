@@ -325,7 +325,7 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 
 - **Sichtbarkeit nur über `TenderVisibilityPolicy`**; keine andere Stelle entscheidet über Modus, Frist oder Rolle, um ein fremdes Angebot oder einen Zähler zu zeigen. Reads schreiben nie (Status wird berechnet), nur erfolgreiche Schreibwege persistieren `CLOSED`.
 - **Befangenheit nur über `TenderConflicts`** (jede Angebotszeile zählt, auch zurückgezogene). Die Governance-Haken subtrahieren die Menge, rufen `eligibleMemberIds` nicht erneut auf.
-- **Sperrreihenfolge:** Antrag -> Ausschreibung -> Angebote -> Mitglied (`forMemberUpdate`) -> Audit zuletzt. `ITenderService` ist seit V1.9.215 die vorletzte `registerService` (die letzte ist `IOnlineCountsService`); neue Methoden ans Ende.
+- **Sperrreihenfolge:** Antrag -> Ausschreibung -> Angebote -> Mitglied (`forMemberUpdate`) -> Audit zuletzt. `ITenderService` ist seit V1.9.224 die viertletzte `registerService` (danach `IOnlineCountsService`, `IAttachedImageService`, zuletzt `IDashboardService`); neue Methoden ans Ende.
 - **EUR ist unerreichbar**, es wird nichts gebucht (`TenderAccessTripwireTest`: kein `LtrLedger*`, kein Balance-Provider). `tender*`-Tabellen nur in `TenderStore`/`TenderPersonalData` abfragen.
 
 ## Themes per Datei (V1.9.216)
@@ -336,11 +336,35 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 - **Jede neue `style-src 'self'`-Policy braucht `font-src 'self'`**, jede öffentliche Seite bindet das Stylesheet nur über `publicStylesheetLinks()` (Tripwire `PublicThemeTripwireTest`).
 - **Neue UI nutzt ausschließlich Tokens, nie Farbliterale** (sonst ist sie nicht themebar); der Tripwire R9 bleibt maßgeblich.
 
+## Bildergalerie (V1.9.222)
+
+- **Store-Monopol:** `attached_image` wird nur in `AttachedImageStore` gelesen und geschrieben (Ausnahme: `AttachedImagePersonalData` nennt die Tabelle in `coveredTables`); `GalleryTripwireTest` prüft das.
+- **`GalleryOwnerPolicy` ist der einzige Rechte-Resolver** (sichtbar, bearbeitbar, gesperrt). Unbekannt und unsichtbar sind dasselbe `null` und damit dasselbe 404. Sie sperrt die Besitzerzeile (`FOR UPDATE`, dieselbe Zeile wie `placeBid`/`approveProject`) und löst **nie** das Lazy-Close einer Auktion aus. Crowdfunding sperrt nach dem **effektiven** Status (Schweigefrist), nicht nach der Spalte.
+- **Löscht je ein Pfad eine Auktion oder ein Projekt, muss er `AttachedImageStore.deleteAllForOwnerInTx` in derselben Transaktion rufen** und die Dateien danach per `deleteAfterCommit` entfernen (`GalleryTripwireTest` bricht sonst). Heute gibt es keinen solchen Pfad.
+- **Umsortieren und Lückenschließen sind zweiphasig** (`1000 + i`, dann `i`), weil der Unique-Index auf Postgres nicht aufschiebbar ist. Positionen sind lückenlos, Position 0 ist das Titelbild.
+- **Sperrreihenfolge:** Besitzerzeile -> Bildzeilen -> Audit zuletzt. Keine Mitgliedssperre. Dateien werden vor der Transaktion geschrieben und nach dem Commit gelöscht, nie darin (Exposed wiederholt den Block); der DSGVO-Contributor ist die dokumentierte Ausnahme.
+- **Alle Prüfungen des Uploads werden unter der Besitzersperre wiederholt** (`GalleryUploadGate.commitInTx`, TOCTOU); der Vorab-Check dient nur dazu, keinen Decode an eine aussichtslose Anfrage zu verschwenden.
+- **Ausgabe ist nie WebP, nie größer als 5 MiB** (der Backup-Restore verweigert größere Dateien): ein großes PNG ohne Transparenz wird JPEG. `CoverImageFormat` bekommt kein WEBP-Literal.
+- **Fehlerantworten der Upload-Route sind JSON mit festem Code** (`GalleryUploadErrorCode`), nie Freitext; Antworten für unbekannt, unsichtbar, fehlende Datei und anonym sind byte-gleich. Die Auslieferung setzt `Cross-Origin-Resource-Policy: same-origin` und `private`, **nicht** `respondCoverFile` (öffentliche Titelbilder, `cross-origin`).
+- **`IAttachedImageService` ist seit V1.9.224 die vorletzte `registerService`** (die letzte ist `IDashboardService`); neue Methoden ans Ende, nie dazwischen. Pinned von `ConferenceTimerServiceEventGuardTripwireTest` und `GalleryTripwireTest`.
+- **Im Log nur IDs und Zahlen** (`GalleryTripwireTest`): keine Beschriftung, kein `storage_key`, kein Pfad.
+- **Soziale Beiträge als Besitzer (V1.9.223, `SOCIAL_POST`, Migration V120):** nur Wurzelbeiträge. Sichtbarkeit steht in `socialImagesReadable` (strenger als `SocialVisibility.isReadable`: `VISIBLE`, nicht gelöscht), die Policy bekommt deshalb den Betrachter. Kein Entwurfszustand: der Autor darf 10 Minuten nach `published_at` Bilder anhängen/entfernen (`SOCIAL_POST_PUBLISHED`); Umsortieren, Titelbild und Bildunterschrift gibt es nie, der Alternativtext ist einmal setzbar. Auslieferung `private, no-store`. Moderation **entfernt** (kein Verstecken).
+- **`executeContentErasure` ruft `deleteAllForOwnerInTx`** (Bild-Audit vor dem Post-Audit, Dateien nach dem Commit). `SocialPostDto` bekommt nie ein Bildfeld: öffentliche Seiten, Mails und MCP kennen keine Bilder (`GalleryTripwireTest`). Neue Methode `listSocialPostPreviews` steht am Ende von `IAttachedImageService`.
+
 ## Angemeldete Nutzer (V1.9.215)
 
 - **Nur Zählwerte** (`OnlineCountsDto`): keine IDs, keine Namen, nichts Neues gespeichert, keine Logzeile mit Zahlen. Nur ADMIN (`requireRole(ADMIN)` als erste Anweisung).
 - **`OnlineSessionCounts.groupOf` ist die einzige Zuordnung Status -> Gruppe**, ein `when` ohne `else`; Zählregeln stehen im KDoc (gleicher Join wie `SessionStore.resolve`).
-- **`IOnlineCountsService` ist die letzte `registerService`** (Kilua nummeriert nach Deklarationsreihenfolge); neue Methoden ans Ende, nie dazwischen. Pinned von `ConferenceTimerServiceEventGuardTripwireTest`.
+- **`IOnlineCountsService` ist seit V1.9.224 die drittletzte `registerService`** (danach `IAttachedImageService`, zuletzt `IDashboardService`; Kilua nummeriert nach Deklarationsreihenfolge); neue Methoden ans Ende, nie dazwischen. Pinned von `ConferenceTimerServiceEventGuardTripwireTest`.
+
+## Dashboard-Signale und Menüzähler (V1.9.224)
+
+- **Das Dashboard zeigt nur, was das Menü nicht hat** (`docs/features/dashboard.adoc`): Signale, die den Aufrufer jetzt betreffen. Jede Quelle (`DashboardSignalSource` in `dashboard/sources/`) liest **nur eigene Zeilen** oder zählt rollenbasiert (`applications.open`, `treasury.*`: nackter `COUNT`, `objectId` immer `null`). Kein Titel, kein Name, kein Betrag eines anderen im Signal; `DashboardSignalTest` serialisiert und sucht nach Geheimnissen.
+- **Keine Freitext-Parameter:** `params` enthalten nur Ziffern oder ISO-Daten (`DashboardSignalCollector.sanitizeAndSort` verwirft den Rest, der Client prüft nochmals). Der Server schickt nie eine Route: `objectId` (nur bei `count == 1`) plus Modul-Schlüssel, die Route baut der Client aus einer festen Tabelle (`DashboardSignalRoutes`).
+- **Gates nur über `SignalGates`/`MemberStatusSets`** (Spiegel von `NavVisibility`), nie inline `== ACTIVE`. Neue Auszählung bestehender Logik (Auktion: `computeAuctionOutcome`; Beteiligung: `*OwnParticipation`; Gremium: `isCommitteeEligible`) wird **aufgerufen, nicht nachgebaut**.
+- **Eine fehlerhafte Quelle kostet nur ihre Signale** (Savepoint je Quelle, Log nur Modulschlüssel und Exception-Klasse). Jede neue Abfrage muss indiziert sein: `DashboardQueryPlanPostgresTest` erklärt alle Statements mit `enable_seqscan = off`.
+- **`NavCountsQuery` kennt kein LiveKit** (Tripwire): die Zähler "(aktiv/gesamt)" kommen aus der Datenbank und sind bis zu ca. 90 s alt. "Gesamt" heißt "gerade offen".
+- **`IDashboardService` ist die letzte `registerService`** (nach `IAttachedImageService`); neue Methoden ans Ende, nie dazwischen. Cache 20 s/30 s je (Mitglied, Rolle, Status), 12 ungecachte Aufrufe pro Minute je Methode.
 
 ## Staging-Seed Teil 2 (V1.9.205)
 

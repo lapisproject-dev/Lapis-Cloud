@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
  *  - a static pass over [GROUP_ROUTES] holds the same for the routes that a group lists, whatever the person's role (a link the sidebar
  *    hides for the sessions below is still checked);
  *  - the pass is not vacuous: it must have SEEN the entries that are only offered under a flag (KI-Entwürfe needs `mcpEnabled`) and the
- *    one sidebar link that [GROUP_ROUTES] does not list (Bankkonten).
+ *    a sidebar link that used to be missing from [GROUP_ROUTES] (Bankkonten).
  *
  * A new sidebar entry therefore either gets an intro or is named here; it cannot slip through unnoticed.
  */
@@ -112,8 +112,11 @@ class SidebarIntroCoverageDomTest {
     fun theScan_seesTheFlagGatedAndTheUnlistedDestinations_soItIsNotVacuous() {
         val seen = seenDestinations()
         assertTrue(Routes.AI_DRAFTS in seen, "KI-Entwürfe is offered only with mcpEnabled: a session with the flag must reach it")
-        assertTrue(Routes.BANK_ACCOUNTS in seen, "Bankkonten is a sidebar link that GROUP_ROUTES does not list")
-        assertTrue(Routes.BANK_ACCOUNTS !in GROUP_ROUTES.values.flatten(), "(if it ever is listed, this guard can go)")
+        assertTrue(Routes.BANK_ACCOUNTS in seen, "Bankkonten is a sidebar link")
+        assertTrue(
+            Routes.BANK_ACCOUNTS in GROUP_ROUTES.values.flatten(),
+            "since V1.9.220 GROUP_ROUTES is derived from the registry and lists it",
+        )
         GROUP_ROUTES.keys.forEach { group ->
             assertTrue(
                 sessions.any { destinations(it).second[group].orEmpty().isNotEmpty() },
@@ -144,7 +147,7 @@ class SidebarIntroCoverageDomTest {
             assertTrue(intro.viewKey.matches(Regex("[a-z]+(-[a-z]+)*")), "view key of $route is a code constant: ${intro.viewKey}")
         }
         assertEquals(PageIntros.routes.size, PageIntros.routes.toSet().size, "no route twice")
-        assertEquals(76, PageIntros.routes.size, "23 views of Part 1 plus 53 of Part 2")
+        assertEquals(77, PageIntros.routes.size, "23 views of Part 1 plus 54 of Part 2")
         val keys = PageIntros.routes.map { PageIntros.forRoute(it)!!.viewKey }
         assertEquals(keys.size, keys.toSet().size, "every view has its own storage key")
         assertEquals("travel-expenses", PageIntros.forRoute(Routes.TRAVEL_EXPENSES)?.helpTopic)

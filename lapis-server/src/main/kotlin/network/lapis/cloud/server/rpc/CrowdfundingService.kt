@@ -12,9 +12,13 @@ import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.gallery.AttachedImageStore
+import network.lapis.cloud.server.gallery.GalleryCoverRef
+import network.lapis.cloud.server.gallery.GalleryUrls
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AttachedImageOwnerType
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.CrowdfundingDistributionDto
 import network.lapis.cloud.shared.domain.CrowdfundingProjectDto
@@ -163,7 +167,12 @@ class CrowdfundingService(
             val query = if (condition != null) projectJoin().selectAll().where { condition } else projectJoin().selectAll()
             val rows = query.toList()
             val counts = reactionCountsByProject(rows.map { it[CrowdfundingProjectTable.id] })
-            rows.map { it.toProjectDto(now = now, counts = counts) }
+            val covers =
+                AttachedImageStore.coverRefsFor(
+                    type = AttachedImageOwnerType.CROWDFUNDING_PROJECT,
+                    ownerIds = rows.map { it[CrowdfundingProjectTable.id] },
+                )
+            rows.map { it.toProjectDto(now = now, counts = counts, covers = covers) }
         }
     }
 
@@ -440,7 +449,8 @@ class CrowdfundingService(
             projectJoin().selectAll().where { CrowdfundingProjectTable.id eq id }.singleOrNull()
                 ?: throw NotFoundException("CrowdfundingProject $id not found")
         val counts = reactionCountsByProject(listOf(id))
-        return row.toProjectDto(now = now, counts = counts)
+        val covers = AttachedImageStore.coverRefsFor(type = AttachedImageOwnerType.CROWDFUNDING_PROJECT, ownerIds = listOf(id))
+        return row.toProjectDto(now = now, counts = counts, covers = covers)
     }
 
     private fun loadDistributions(condition: Op<Boolean>?): List<CrowdfundingDistributionDto> {
@@ -500,6 +510,7 @@ class CrowdfundingService(
     private fun ResultRow.toProjectDto(
         now: LocalDateTime,
         counts: Map<Uuid, Pair<Int, Int>>,
+        covers: Map<Uuid, GalleryCoverRef> = emptyMap(),
     ): CrowdfundingProjectDto {
         val id = this[CrowdfundingProjectTable.id]
         val submittedAt = this[CrowdfundingProjectTable.submittedAt]
@@ -538,6 +549,7 @@ class CrowdfundingService(
             likeCount = likeCount,
             dislikeCount = dislikeCount,
             basketTotal = (likeCount - dislikeCount).coerceAtLeast(0),
+            coverImageUrl = covers[id]?.let { GalleryUrls.imageUrl(imageId = it.imageId, storageKey = it.storageKey) },
         )
     }
 

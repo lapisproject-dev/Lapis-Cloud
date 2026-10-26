@@ -565,6 +565,12 @@ neither a member nor a CRM contact has no subject root and therefore no Art. 15/
 
 * `network.lapis.cloud.server.dsgvo.MemberPhotoPersonalData` — hard-delete contributor for `member_photo`, export with
   the image but never the public token (Welle V1.9.19, xref:member-photo.adoc[member-photo.adoc]).
+* `network.lapis.cloud.server.dsgvo.AttachedImagePersonalData` -- hard-delete contributor for `attached_image` (V1.9.222): the pictures a member uploaded to a crowdfunding project,
+  an auction or (V1.9.223) a social post, their captions and alternative texts. Export carries the metadata and the picture (base64), never the storage key or a path. Erasure deletes rows AND files in every
+  mode and closes the gaps in the gallery of the owner; the obligation to delete outranks the freezing of an auction with bids. The files are deleted inside the caller's transaction
+  (a contributor runs in it, like `MemberPhotoPersonalData`); after a rollback a row would point to a missing file, which the delivery route answers with 404 and the export reports
+  as `imageMissing`. Pictures of a social post belong to their uploader (only the author can upload), so deleting the member deletes them in every mode; a post-related erasure request
+  (`executeContentErasure`) deletes the pictures of that post with its content. See xref:../features/image-gallery.adoc[image-gallery.adoc].
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the
   framework itself, in full KDoc detail.
 * `network.lapis.cloud.server.dsgvo.PersonalDataCoverageTest` — the actual enforcement mechanism.

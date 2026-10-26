@@ -98,7 +98,7 @@ class MemberFinderSettingsDomTest {
             },
         ) { requests ->
             mountedForm("member-finder-settings") { root, element ->
-                renderConferenceDefaultsCard(root)
+                renderMemberFinderSettings(root)
                 awaitUntil("the section is shown") { element().text().contains("Mitglieder-Finder erlauben") }
                 block(element(), requests, switchRoute)
             }

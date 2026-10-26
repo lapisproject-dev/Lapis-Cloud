@@ -107,6 +107,13 @@ zxing-core              = "3.5.4"
 # larger surface/plugin graph is unnecessary here) deliberately at the latest stable 0.2x line.
 commonmark              = "0.22.0"
 
+# V1.9.222 Bildergalerie -- WebP uploads. The JDK's ImageIO has no WebP reader, so a WebP picture could not be decoded on the server at all.
+# com.twelvemonkeys.imageio:imageio-webp (BSD-3-Clause, pure Java, no native code) adds ONE reader, registered by ServiceLoader for the format
+# name "webp" only; it never touches the JPEG/PNG decoders. WebP is only READ: the picture is re-encoded as JPEG (PNG when it has transparency)
+# and WebP itself is never stored. The decoder is fed attacker-controlled bytes, so it runs behind the same header-dimension guard
+# (8000 px / 40 MP, checked before a pixel is decoded) and under the same process-wide decode semaphore as the other image pipelines.
+twelvemonkeys-imageio   = "3.12.0"
+
 # V1.4.35 Wiederkehrende Veranstaltungen (RFC 5545 RRULE) -- org.mnode.ical4j:ical4j 4.3.0,
 # Maven-Metadaten geprüft (Stand 2026-09-28), BSD-3, java.time-basiert, aktiv gepflegt. Genutzt
 # wird NUR net.fortuna.ical4j.model.Recur -- TimeZoneRegistry/CalendarOutputter kommen nicht zum
@@ -208,6 +215,7 @@ zxing-core                       = { module = "com.google.zxing:core", version.r
 
 # V1.4.34 Nachrichten-/Artikel-Modul -- see [versions] entry above for the library-choice rationale.
 commonmark                       = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+twelvemonkeys-imageio-webp       = { module = "com.twelvemonkeys.imageio:imageio-webp", version.ref = "twelvemonkeys-imageio" }
 
 # V1.4.35 Wiederkehrende Veranstaltungen -- see the [versions] entry above for the library-choice
 # rationale. lapis-server ONLY.

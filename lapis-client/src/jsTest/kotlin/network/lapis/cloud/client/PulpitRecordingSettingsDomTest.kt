@@ -85,7 +85,7 @@ class PulpitRecordingSettingsDomTest {
             },
         ) { requests ->
             mountedForm("pulpit-settings") { root, element ->
-                renderConferenceDefaultsCard(root)
+                renderConferenceRecordingSettings(root)
                 awaitUntil("the section is shown") { element().text().contains("Aufzeichnung von Kanzel bzw. Podium erlauben") }
                 block(element(), requests)
             }

@@ -63,13 +63,14 @@ internal class MemberCardRevokeCard(
     private val confirm: MemberCardRevokeConfirm = liveMemberCardRevokeConfirm,
     private val toast: (String) -> Unit = { notifyError(it) },
     private val cooldownMs: Long = MEMBER_CARD_REISSUE_COOLDOWN_MS,
+    heading: Boolean = true,
 ) {
     internal val root: SimplePanel = parent.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
     internal val revokeButton: Button
     internal val statusLine: Div
 
     init {
-        root.h2(tr("Mitgliedsausweis")) { addCssClass("h5") }
+        if (heading) root.h2(tr("Mitgliedsausweis")) { addCssClass("h5") }
         root.div(
             tr(
                 "Haben Sie Ihren Ausweis verloren? Dann können Sie ihn hier sperren, ohne einen neuen auszustellen.",
@@ -85,7 +86,7 @@ internal class MemberCardRevokeCard(
             confirm.show(
                 gettext("Ausweis sperren"),
                 gettext(
-                    "Ihr bisheriger Ausweis und sein QR-Code werden sofort ungültig. Sie erhalten dabei keinen neuen Ausweis. Einen neuen Ausweis können Sie jederzeit auf der Startseite herunterladen.",
+                    "Ihr bisheriger Ausweis und sein QR-Code werden sofort ungültig. Sie erhalten dabei keinen neuen Ausweis. Einen neuen Ausweis können Sie jederzeit auf dieser Seite herunterladen.",
                 ),
                 gettext("Ausweis sperren"),
             ) { revoke() }
@@ -113,14 +114,15 @@ internal class MemberCardRevokeCard(
     }
 }
 
-/** Mounts the card for an active organization member (same condition as the download card on the start page); nothing otherwise. */
+/** Mounts the card for an active organization member (same condition as the download card above it); nothing otherwise. */
 internal fun renderMemberCardRevokeSection(
     container: SimplePanel,
     rpc: MemberCardRevokeRpc = liveMemberCardRevokeRpc(),
     confirm: MemberCardRevokeConfirm = liveMemberCardRevokeConfirm,
     cooldownMs: Long = MEMBER_CARD_REISSUE_COOLDOWN_MS,
+    heading: Boolean = true,
 ) {
     val session = AppState.session ?: return
     if (session.isGuest || session.status !in MemberStatusSets.ORGANIZATION_MEMBER) return
-    MemberCardRevokeCard(container, session.memberId, rpc, confirm, cooldownMs = cooldownMs)
+    MemberCardRevokeCard(container, session.memberId, rpc, confirm, cooldownMs = cooldownMs, heading = heading)
 }

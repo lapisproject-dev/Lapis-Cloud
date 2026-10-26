@@ -664,7 +664,6 @@ internal fun refreshNavbar(
             }
             // Deliberately plain `ddLink`, NOT [NavHighlight]-registered -- see this function's own
             // KDoc "Jobs' review call".
-            ddLink(tr("Mein Konto"), url = "#${Routes.DASHBOARD}")
             ddLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}")
             separator()
             // dataNavigo = false: rein lokaler Klick-Handler (kein Ziel-Route) -- ohne dieses Opt-out

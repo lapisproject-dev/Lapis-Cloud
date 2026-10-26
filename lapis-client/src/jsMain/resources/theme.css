@@ -665,6 +665,7 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
 }
 
 .lapis-navbar .navbar-nav {
+  align-items: center;
   min-width: 0;
   flex-wrap: nowrap;
 }
@@ -678,13 +679,54 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  vertical-align: bottom;
+  vertical-align: middle;
 }
 
 @media (min-width: 1200px) {
   .lapis-navbar .dropdown-toggle.lapis-account-toggle {
     max-width: 18rem;
   }
+}
+
+/* V1.9.219 (Kopfleiste mobil): the account trigger was `inline-block` + `vertical-align: bottom` and so sat lower than the other icon
+   buttons. Below 768px all navbar triggers are one 44x44 flex box (icon centred), which gives them one vertical centre line. This block
+   MUST stay below the account rule above: both have specificity 0,3,0 and the later `display` wins. */
+@media (max-width: 767.98px) {
+  .lapis-navbar .navbar-nav .nav-link,
+  .lapis-navbar .navbar-nav .dropdown-toggle,
+  .lapis-navbar .dropdown-toggle.lapis-account-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    max-width: none;
+    vertical-align: middle;
+  }
+
+  .lapis-navbar .dropdown-toggle.lapis-account-toggle::after {
+    margin-left: 0;
+  }
+
+  /* In a flex container the whitespace between icon, code and caret collapses: restore the spacing. */
+  .lapis-navbar .dropdown-toggle.lapis-language-toggle {
+    gap: 0.25rem;
+  }
+}
+
+/* The navbar menus open against the right edge of their trigger and never wider than the viewport. Bootstrap marks menus in a navbar as
+   `data-bs-popper="static"` (no Popper), so only CSS can place them; `.dropdown-menu[data-bs-popper]` (0,2,0) is beaten by 0,3,0 here. */
+.lapis-navbar .lapis-account-toggle + .dropdown-menu,
+.lapis-navbar .lapis-language-toggle + .dropdown-menu {
+  right: 0;
+  left: auto;
+  max-width: calc(100vw - 1rem);
+}
+
+.lapis-navbar .dropdown-menu .dropdown-item,
+.lapis-navbar .dropdown-menu .dropdown-item-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .lapis-sidebar {
@@ -7619,6 +7661,343 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
 .lapis-table-sticky-first thead tr > :first-child {
   background-color: var(--lapis-surface-sunken);
 }
+
+/* V1.9.220: the dashboard -- status chips (V1.9.224: the tiles are gone, see "Für Sie" below). Colours only through tokens (R9). */
+.lapis-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.lapis-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .25rem .75rem;
+  border: 1px solid var(--lapis-border);
+  border-radius: 999px;
+  background-color: var(--lapis-surface-sunken);
+  color: var(--lapis-text);
+  font-size: .875rem;
+  overflow-wrap: anywhere;
+}
+
+.lapis-status-chip--muted {
+  color: var(--lapis-muted);
+}
+
+/* V1.9.224: "Für Sie" -- one card per thing that concerns the person now. The section is the container (`container-type: inline-size`), so
+   the columns follow the width of the CONTENT area (the sidebar already took its share), not of the window: one column up to 36rem, two from
+   36rem, three from 56rem. `width: 100%` because a size-contained box has no content width of its own. min-width: 0 on the card is what lets
+   the one-line reason shrink with an ellipsis instead of widening the grid. Colours only through tokens (R9). */
+.lapis-dashboard-signals-section {
+  container-type: inline-size;
+  width: 100%;
+}
+
+.lapis-dashboard-signals {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container (min-width: 36rem) {
+  .lapis-dashboard-signals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 56rem) {
+  .lapis-dashboard-signals {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.lapis-dashboard-signals__status {
+  min-height: 1.5rem;
+}
+
+.lapis-signal-card {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 0;
+  min-height: 56px;
+  padding: .75rem 1rem;
+  background-color: var(--lapis-surface);
+  border-color: var(--lapis-border);
+  color: var(--lapis-text);
+  text-decoration: none;
+}
+
+.lapis-signal-card:hover {
+  background-color: var(--lapis-accent-soft);
+  border-color: var(--lapis-border-strong);
+  color: var(--lapis-text);
+}
+
+.lapis-signal-card:focus-visible {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+/* An urgent card (priority 300) gets a left edge in the amber role colour; the word "dringend" is not needed, the edge is only a hint. */
+.lapis-signal-card--urgent {
+  border-left: 4px solid var(--lapis-role-guest);
+}
+
+.lapis-signal-card__head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-width: 0;
+}
+
+.lapis-signal-card__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lapis-signal-card__reason {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--lapis-muted);
+  font-size: .875rem;
+}
+
+/* V1.9.224: the live "(aktiv/gesamt)" after a sidebar entry. Information, not a request: muted, no background. */
+.nav-live-suffix {
+  color: var(--lapis-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* V1.9.221: the sections of the page Organisation -- a native <details> with a summary row (icon, title, one line of current values). */
+.lapis-settings-section {
+  background-color: var(--lapis-surface);
+  border-color: var(--lapis-border) !important;
+}
+
+.lapis-settings-summary {
+  display: flex;
+  align-items: center;
+  gap: .5rem .75rem;
+  min-height: 2.75rem;
+  padding: .5rem .75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.lapis-settings-summary::-webkit-details-marker {
+  display: none;
+}
+
+.lapis-settings-summary::marker {
+  content: "";
+}
+
+.lapis-settings-summary:focus-visible {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+.lapis-settings-icon {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  text-align: center;
+}
+
+.lapis-settings-title {
+  flex: 0 0 auto;
+  font-weight: 600;
+}
+
+.lapis-settings-value {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.lapis-settings-section[open] > .lapis-settings-summary {
+  border-bottom: 1px solid var(--lapis-border);
+}
+
+
+/* V1.9.222: image gallery (crowdfunding projects, auctions). Tokens only, no motion at all: a tap on a thumbnail swaps the large picture at once. */
+.lapis-gallery-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.lapis-gallery-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: 100%;
+}
+
+.lapis-gallery-item {
+  flex: 1 1 14rem;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.5rem;
+  background: var(--lapis-surface);
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.5rem;
+}
+
+.lapis-gallery-thumb {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 0.25rem;
+  background: var(--lapis-surface-sunken);
+}
+
+.lapis-gallery-cover-badge {
+  align-self: flex-start;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--lapis-accent-contrast);
+  background: var(--lapis-accent-strong);
+  border-radius: 0.75rem;
+}
+
+.lapis-gallery-card-cover {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
+  border-radius: 0.375rem;
+  background: var(--lapis-surface-sunken);
+}
+
+.lapis-gallery-view {
+  max-width: 100%;
+}
+
+.lapis-gallery-stage {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 4 / 3;
+  background: var(--lapis-surface-sunken);
+  border-radius: 0.375rem;
+}
+
+.lapis-gallery-large {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.lapis-gallery-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.lapis-gallery-strip-item {
+  width: 4.5rem;
+  max-width: 100%;
+  cursor: pointer;
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.25rem;
+}
+
+.lapis-gallery-strip-item:focus-visible {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+/* V1.9.223: pictures of a social post. Tokens only; a 4:3 box so the feed never jumps while a picture loads; no motion. */
+.lapis-social-image-box {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--lapis-surface-sunken);
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.375rem;
+}
+
+.lapis-social-image-box img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+}
+
+.lapis-social-image-box--cover img {
+  object-fit: cover;
+}
+
+.lapis-social-image-box--contain img {
+  object-fit: contain;
+}
+
+.lapis-social-image-box:focus-visible {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+.lapis-social-image-more {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--lapis-accent-contrast);
+  background: var(--lapis-accent-strong);
+  border-radius: 0.75rem;
+}
+
+.lapis-social-image-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 100%;
+}
+
+.lapis-social-dialog {
+  max-width: min(100%, 60rem);
+  padding: 0.75rem;
+  color: var(--lapis-text);
+  background: var(--lapis-surface);
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.5rem;
+}
+
+.lapis-social-dialog-image {
+  display: block;
+  max-width: 100%;
+  max-height: 90vh;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.lapis-social-dialog-caption {
+  margin: 0.5rem 0;
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   body,

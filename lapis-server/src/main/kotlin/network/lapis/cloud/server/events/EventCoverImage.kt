@@ -105,6 +105,10 @@ internal data class CoverImageLimits(
             )
         val CHAPTER_CREST = CoverImageLimits(minLongEdgePx = 64, minShortEdgePx = 64, targetLongEdgePx = 1024)
 
+        /** V1.9.222 -- a gallery picture: no minimum format (any size above one pixel), stored at most 1600 px on the long edge, never
+         * upscaled. */
+        val GALLERY_IMAGE = CoverImageLimits(minLongEdgePx = 1, minShortEdgePx = 1, targetLongEdgePx = 1600)
+
         /**
          * Welle V1.9.129 "Video-Overlays" -- a LOGO of the overlay library: long edge >= 256 px and short edge >= 64 px (a wide wordmark is
          * legitimate), stored at most 1024 px on the long edge, never upscaled. Mirrors `VideoOverlayRules`.
@@ -292,62 +296,95 @@ internal object EventCoverImageProcessor {
         limits: CoverImageLimits = CoverImageLimits.EVENT_COVER,
     ): CoverProcessingResult =
         concurrency.withPermit {
-            val readers = ImageIO.getImageReadersByFormatName(format.imageIoFormatName)
-            if (!readers.hasNext()) return@withPermit CoverProcessingResult.Undecodable
-            val reader = readers.next()
-            try {
-                val iis = MemoryCacheImageInputStream(ByteArrayInputStream(bytes))
-                reader.setInput(iis, true, true)
-
-                val width: Int
-                val height: Int
-                try {
-                    width = reader.getWidth(0)
-                    height = reader.getHeight(0)
-                } catch (e: Exception) {
-                    logger.info { "Event cover image header unreadable: ${e.message}" }
-                    return@withPermit CoverProcessingResult.Undecodable
-                }
-
-                if (width <= 0 || height <= 0) return@withPermit CoverProcessingResult.Undecodable
-                val longEdge = maxOf(width, height)
-                if (longEdge > EventCoverPolicy.MAX_EDGE_PX || width.toLong() * height.toLong() > EventCoverPolicy.MAX_PIXELS) {
-                    return@withPermit CoverProcessingResult.DimensionsTooLarge
-                }
-                // The EXIF orientation is read BEFORE the minimum check: orientations 5..8 swap width and height, which matters for any rule
-                // that looks at the width or the aspect ratio (the long/short-edge rule is symmetric and unaffected).
-                val orientation = if (format == CoverImageFormat.JPEG) readExifOrientation(bytes) else 1
-                val orientedWidth = if (orientation in 5..8) height else width
-                val orientedHeight = if (orientation in 5..8) width else height
-                if (!limits.accepts(orientedWidth = orientedWidth, orientedHeight = orientedHeight)) {
-                    return@withPermit CoverProcessingResult.DimensionsTooSmall(width = orientedWidth, height = orientedHeight)
-                }
-
-                val subsample = (longEdge / (2 * limits.targetLongEdgePx)).coerceAtLeast(1)
-                val param = reader.defaultReadParam
-                if (subsample > 1) param.setSourceSubsampling(subsample, subsample, 0, 0)
-
-                val decoded =
-                    try {
-                        reader.read(0, param)
-                    } catch (e: Exception) {
-                        logger.info { "Event cover image undecodable: ${e.message}" }
-                        return@withPermit CoverProcessingResult.Undecodable
-                    }
-
-                val oriented = applyOrientation(image = decoded, orientation = orientation)
-                val resized = downscaleToTarget(source = oriented, targetLongEdge = limits.targetLongEdgePx)
-
-                val flattened = flatten(source = resized, format = format)
-                val encoded = encode(image = flattened, format = format)
-                CoverProcessingResult.Ok(bytes = encoded, format = format, width = flattened.width, height = flattened.height)
-            } catch (e: Exception) {
-                logger.info { "Event cover image processing failed: ${e.message}" }
-                CoverProcessingResult.Undecodable
-            } finally {
-                reader.dispose()
-            }
+            processDecoded(
+                bytes = bytes,
+                readerFormatName = format.imageIoFormatName,
+                isJpegExif = format == CoverImageFormat.JPEG,
+                limits = limits,
+                outputFormatFor = { format },
+            )
         }
+
+    /**
+     * The decode / validate / downscale / re-encode pipeline of [process], WITHOUT taking the decode permit: the caller already holds
+     * it
+     * ([process] via `concurrency.withPermit`, the image gallery via [withDecodePermitOrNull]). Taking it again here would deadlock
+     * once
+     * every
+     * one of the two permits is held by a nested acquirer.
+     *
+     * [readerFormatName] selects the `ImageReader` (never ImageIO's own auto-detection); [isJpegExif] enables the EXIF orientation
+     * (JPEG
+     * input only);
+     * [outputFormatFor] picks the stored format from the final raster (always the sniffed format for covers; the gallery turns a WebP
+     * into
+     * JPEG, or PNG when the raster has an alpha channel).
+     */
+    internal fun processDecoded(
+        bytes: ByteArray,
+        readerFormatName: String,
+        isJpegExif: Boolean,
+        limits: CoverImageLimits,
+        outputFormatFor: (BufferedImage) -> CoverImageFormat,
+    ): CoverProcessingResult {
+        val readers = ImageIO.getImageReadersByFormatName(readerFormatName)
+        if (!readers.hasNext()) return CoverProcessingResult.Undecodable
+        val reader = readers.next()
+        try {
+            val iis = MemoryCacheImageInputStream(ByteArrayInputStream(bytes))
+            reader.setInput(iis, true, true)
+
+            val width: Int
+            val height: Int
+            try {
+                width = reader.getWidth(0)
+                height = reader.getHeight(0)
+            } catch (e: Exception) {
+                logger.info { "Event cover image header unreadable: ${e.message}" }
+                return CoverProcessingResult.Undecodable
+            }
+
+            if (width <= 0 || height <= 0) return CoverProcessingResult.Undecodable
+            val longEdge = maxOf(width, height)
+            if (longEdge > EventCoverPolicy.MAX_EDGE_PX || width.toLong() * height.toLong() > EventCoverPolicy.MAX_PIXELS) {
+                return CoverProcessingResult.DimensionsTooLarge
+            }
+            // The EXIF orientation is read BEFORE the minimum check: orientations 5..8 swap width and height, which matters for any
+            // rule
+            // that looks at the width or the aspect ratio (the long/short-edge rule is symmetric and unaffected).
+            val orientation = if (isJpegExif) readExifOrientation(bytes) else 1
+            val orientedWidth = if (orientation in 5..8) height else width
+            val orientedHeight = if (orientation in 5..8) width else height
+            if (!limits.accepts(orientedWidth = orientedWidth, orientedHeight = orientedHeight)) {
+                return CoverProcessingResult.DimensionsTooSmall(width = orientedWidth, height = orientedHeight)
+            }
+
+            val subsample = (longEdge / (2 * limits.targetLongEdgePx)).coerceAtLeast(1)
+            val param = reader.defaultReadParam
+            if (subsample > 1) param.setSourceSubsampling(subsample, subsample, 0, 0)
+
+            val decoded =
+                try {
+                    reader.read(0, param)
+                } catch (e: Exception) {
+                    logger.info { "Event cover image undecodable: ${e.message}" }
+                    return CoverProcessingResult.Undecodable
+                }
+
+            val oriented = applyOrientation(image = decoded, orientation = orientation)
+            val resized = downscaleToTarget(source = oriented, targetLongEdge = limits.targetLongEdgePx)
+
+            val format = outputFormatFor(resized)
+            val flattened = flatten(source = resized, format = format)
+            val encoded = encode(image = flattened, format = format)
+            return CoverProcessingResult.Ok(bytes = encoded, format = format, width = flattened.width, height = flattened.height)
+        } catch (e: Exception) {
+            logger.info { "Event cover image processing failed: ${e.message}" }
+            return CoverProcessingResult.Undecodable
+        } finally {
+            reader.dispose()
+        }
+    }
 
     /**
      * Halves repeatedly with bilinear interpolation WHILE the long edge is still more than double
@@ -399,7 +436,7 @@ internal object EventCoverImageProcessor {
     }
 
     /** Draws into a FRESH image with no residual metadata -- `TYPE_INT_RGB` for JPEG (no alpha support), `TYPE_INT_ARGB` for PNG (alpha preserved). See class KDoc step 6. */
-    private fun flatten(
+    internal fun flatten(
         source: BufferedImage,
         format: CoverImageFormat,
     ): BufferedImage {
@@ -421,7 +458,7 @@ internal object EventCoverImageProcessor {
         return target
     }
 
-    private fun encode(
+    internal fun encode(
         image: BufferedImage,
         format: CoverImageFormat,
     ): ByteArray {

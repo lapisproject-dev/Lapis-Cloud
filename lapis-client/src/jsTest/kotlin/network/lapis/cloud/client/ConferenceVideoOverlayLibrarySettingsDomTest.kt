@@ -81,7 +81,7 @@ class ConferenceVideoOverlayLibrarySettingsDomTest {
             }
             withFetchStub(respond = respond) {
                 withMountedRoot("overlay-admin-switch") { root, element ->
-                    renderConferenceDefaultsCard(root)
+                    renderConferenceVideoSettings(root)
                     awaitUntil("both switches are there") { element().switches().size >= 2 }
                     val overlay = element().switches()[1]
                     assertEquals("false", overlay.getAttribute("aria-checked"))
@@ -120,7 +120,7 @@ class ConferenceVideoOverlayLibrarySettingsDomTest {
             }
             withFetchStub(respond = respond) {
                 withMountedRoot("overlay-admin-library") { root, element ->
-                    renderConferenceDefaultsCard(root)
+                    renderConferenceVideoSettings(root)
                     awaitUntil("the library is shown") { element().textContent.orEmpty().contains("Goldrahmen") }
                     val text = element().textContent.orEmpty()
                     assertTrue(text.contains("Vereinslogo"))

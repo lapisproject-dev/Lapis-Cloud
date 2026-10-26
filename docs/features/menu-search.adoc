@@ -54,7 +54,10 @@ interpreted; the highlight is a `<mark>` built from the plain pieces.
 * Tested only in headless Chrome (unit and DOM tests). No test on a real phone, with a real screen reader, on Safari or on an Apple
   keyboard; the layout was not seen in a real browser.
 * The search words exist in German only.
-* No phase 2 (settings sections, help topics, records).
+* No phase 2 (settings sections, help topics, records). Since V1.9.221 the page Organisation has the search words of its settings (time zone, video conference, recording, member finder, tenders, member count); the sections themselves are not searched.
 * The sidebar is still built imperatively; the index follows from that code. A declarative list of menu entries is a possible later
   refactoring and is not part of this version.
 * The translations of the new texts were written by the model, not by a native speaker.
+* The live figures behind "Videokonferenz" and "Begegnungsräume" (V1.9.224, "(2/5)") are NOT searchable: the index holds the plain label registered by `sidebarLink`,
+  the figure is a separate `aria-hidden` child of the link, and `NavCountsPollerDomTest` pins that a search for "2/5" finds nothing. The dashboard no longer has tiles that share the
+  registry with the sidebar; the menu index is still filled by the sidebar build alone.

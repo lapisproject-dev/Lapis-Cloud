@@ -78,7 +78,7 @@ class EventCaptureSettingsDomTest {
             },
         ) { requests ->
             mountedForm("event-capture-settings") { root, element ->
-                renderConferenceDefaultsCard(root)
+                renderConferenceRecordingSettings(root)
                 awaitUntil("the section is shown") {
                     element().text().contains("Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben")
                 }

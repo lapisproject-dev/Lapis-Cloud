@@ -62,7 +62,7 @@ class WritePathsSingleShotDomTest {
             }
             withFetchStub(respond) { calls ->
                 mountedForm("m9-exit") { root, element ->
-                    renderAccountActions(root)
+                    renderLeaveMembership(root)
                     val trigger = element().buttonNamed("Austritt (Mitgliedschaft beenden)")
                     trigger.click()
                     awaitModal()

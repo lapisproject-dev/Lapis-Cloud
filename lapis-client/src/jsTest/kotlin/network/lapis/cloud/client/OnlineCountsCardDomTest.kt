@@ -219,7 +219,12 @@ class OnlineCountsCardDomTest {
                 listOf(AccountRole.MEMBER, AccountRole.BOARD, AccountRole.ADMIN).forEach { role ->
                     mountedForm("online-counts-dashboard-$role") { root, element ->
                         AppState.setSession(session(role))
-                        renderDashboardScreen(root, FakeRpc(mutableListOf({ counts(1, 3) })), CountingScheduler())
+                        renderDashboardScreen(
+                            root,
+                            FakeRpc(mutableListOf({ counts(1, 3) })),
+                            CountingScheduler(),
+                            DashboardSignalsRpc { emptyList() },
+                        )
                         assertEquals(if (role == AccountRole.ADMIN) 1 else 0, element().onlineTiles().size, "tiles for $role")
                     }
                 }
@@ -234,7 +239,7 @@ class OnlineCountsCardDomTest {
                     AppState.setSession(session(AccountRole.ADMIN))
                     val rpc = FakeRpc(mutableListOf({ counts(activeTotal = 5, signedInTotal = 9) }))
                     val scheduler = CountingScheduler()
-                    renderDashboardScreen(root, rpc, scheduler)
+                    renderDashboardScreen(root, rpc, scheduler, DashboardSignalsRpc { emptyList() })
 
                     fun assertOneTile(stage: String) {
                         val tiles = element().onlineTiles()
@@ -246,6 +251,7 @@ class OnlineCountsCardDomTest {
                     }
                     assertOneTile("right after the render")
                     awaitUntil("the figures appear") { element().textContent?.contains("Mitglieder 5 · Freunde 0 · Gäste 0") == true }
+                    awaitUntil("the signals line is done") { element().textContent.orEmpty().contains("Im Moment gibt es nichts Neues") }
                     assertFalse(element().textContent.orEmpty().contains("Wird geladen"), "nothing is left loading")
                     assertEquals(1, rpc.calls, "one load")
                     assertOneTile("after the first load")

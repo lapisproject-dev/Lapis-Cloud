@@ -21,10 +21,20 @@ internal object MemberFinderNav {
 
     private var loadedOnce = false
     private val listeners = mutableListOf<(Boolean) -> Unit>()
+    private val scopedListeners = mutableListOf<(Boolean) -> Unit>()
 
     /** The sidebar registers the visibility of its link here. */
     fun onChange(listener: (Boolean) -> Unit) {
         listeners += listener
+    }
+
+    /**
+     * V1.9.220 -- like [onChange], but NOT dropped by [resetListeners] (a screen that outlives a sidebar rebuild, e.g. the dashboard tiles);
+     * the returned function removes the listener again, and the screen calls it when it leaves.
+     */
+    fun onChangeScoped(listener: (Boolean) -> Unit): () -> Unit {
+        scopedListeners += listener
+        return { scopedListeners -= listener }
     }
 
     /** `buildSidebar` throws the old links away, so their listeners go too. */
@@ -56,15 +66,22 @@ internal object MemberFinderNav {
         set(state.offered)
     }
 
+    /** Test hook: sets the answer without a request (V1.9.220 golden/dashboard tests). */
+    internal fun setOfferedForTest(value: Boolean?) {
+        offered = value
+    }
+
     /** Called when the identity or the status of the session changes. */
     fun clear() {
         loadedOnce = false
         offered = null
         listeners.forEach { it(false) }
+        scopedListeners.toList().forEach { it(false) }
     }
 
     private fun set(value: Boolean) {
         offered = value
         listeners.forEach { it(value) }
+        scopedListeners.toList().forEach { it(value) }
     }
 }

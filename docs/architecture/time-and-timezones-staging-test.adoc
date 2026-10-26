@@ -28,7 +28,7 @@ staging server belongs to the operator), so every row of "Actual results" below 
 | 5 | Let the 20-minutes poll run out while watching the clock | the poll turns "beendet" at the typed-in minute, not one or two hours later
 | 6 | An event that ended 30 minutes ago | not in "Veranstaltungen" (upcoming) and not in the public list
 | 7 | Generate a Spendenbescheinigung or a Beitragsrechnung between 00:00 and 02:00 local time | the date line shows today's local date
-| 8 | As ADMIN open "Mitgliederverwaltung" and the card "Zeitzone der Organisation" | the select lists the common zones first, then all others; the live preview shows "Jetzt: ..." with the abbreviation; the note about recurring events appears for a zone other than Europe/Berlin
+| 8 | As ADMIN open "Organisation" and the section "Allgemein" (time zone) | the select lists the common zones first, then all others; the live preview shows "Jetzt: ..." with the abbreviation; the note about recurring events appears for a zone other than Europe/Berlin
 | 9 | Change the zone to Asia/Tbilisi and save | a success toast; the dashboard expiry, audit log and the preview now show UTC+4 times; an audit entry exists (old and new zone); reload keeps it
 | 10 | As BOARD and MEMBER look for the card; call the RPC directly | no card; the RPC answers "Forbidden"
 | 11 | Reset the zone to Europe/Berlin | everything is back; the iCal feed shows the same instants as in step 3

@@ -93,6 +93,11 @@ dependencies {
     // org.jsoup.* types directly.
     implementation(libs.jsoup)
 
+    // V1.9.222 Bildergalerie -- WebP decoder (the JDK has none), see gradle/libs.versions.toml for the license/security rationale.
+    // `runtimeOnly`:
+    // it is discovered through ImageIO's ServiceLoader, no `com.twelvemonkeys` type is referenced from our code.
+    runtimeOnly(libs.twelvemonkeys.imageio.webp)
+
     // V1.4.14 Wave 2 FinTS/HBCI-Live-Kontoabruf -- see gradle/libs.versions.toml for the
     // library-choice/license rationale. `implementation`, NOT `runtimeOnly`: unlike angus-mail we
     // reference `org.kapott.*` types directly (Hbci4jFinTsClient/Hbci4jRawMt940Extractor). ONLY

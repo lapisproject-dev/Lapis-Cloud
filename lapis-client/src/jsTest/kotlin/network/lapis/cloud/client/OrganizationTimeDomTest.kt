@@ -77,7 +77,7 @@ class OrganizationTimeDomTest {
                 withMountedRoot("org-time-dashboard") { root, element ->
                     renderDashboardScreen(root)
                     val text = element().textContent.orEmpty()
-                    assertTrue(text.contains("Sitzung gültig bis 02.10.2026,${NBSP}03:48${NBSP}MESZ"), "dashboard text: $text")
+                    assertTrue(text.contains("Sitzung bis 02.10.2026,${NBSP}03:48${NBSP}MESZ"), "dashboard text: $text")
                     assertFalse(text.contains("01:48"), "the UTC wall-clock must not be shown")
                 }
             }
@@ -171,7 +171,7 @@ class OrganizationTimeDomTest {
             }
             withFetchStub(respond = respond) { requests ->
                 withMountedRoot("org-time-admin") { root, element ->
-                    renderOrganizationTimeZoneCard(root)
+                    renderOrganizationTimeZoneSettings(root)
                     awaitUntil("the zone form is rendered") { element().querySelector("select") != null }
                     val select = element().querySelector("select") as HTMLSelectElement
                     val values =

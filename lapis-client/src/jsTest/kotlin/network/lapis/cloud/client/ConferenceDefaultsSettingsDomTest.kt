@@ -13,9 +13,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * V1.9.124 -- the ADMIN card "Videokonferenz": one `role="switch"` button that shows the stored instance default, saves a flip at once
+ * V1.9.124 -- the ADMIN section "Videokonferenz" (V1.9.221: a section of the page Organisation): one `role="switch"` button that shows the stored instance default, saves a flip at once
  * through its own RPC with the NEW value, follows the server's answer, and springs back when the server refuses. (That only an ADMIN sees
- * the card is the caller's `if (callerRole == AccountRole.ADMIN)` in `MemberAdministrationScreen`; the server enforces it on the call.)
+ * the card is the ADMIN-only route of the page Organisation; the server enforces it on the call.)
  */
 class ConferenceDefaultsSettingsDomTest {
     private fun test(block: suspend () -> Unit): Promise<Unit> = CoroutineScope(SupervisorJob()).promise { block() }
@@ -48,11 +48,10 @@ class ConferenceDefaultsSettingsDomTest {
             }
             withFetchStub(respond = respond) {
                 withMountedRoot("conference-defaults-flip") { root, element ->
-                    renderConferenceDefaultsCard(root)
+                    renderConferenceVideoSettings(root)
                     awaitUntil("the card is loaded") { element().querySelector("button[role=switch]") != null }
                     val button = element().switchButton()
                     assertEquals("false", button.getAttribute("aria-checked"))
-                    assertEquals("Videokonferenz", element().querySelector("h2")?.textContent?.trim())
                     val label = assertNotNull(element().querySelector("#" + button.getAttribute("aria-labelledby")))
                     assertEquals("Rauschunterdrückung vorgeben", label.textContent?.trim())
                     assertTrue(
@@ -91,7 +90,7 @@ class ConferenceDefaultsSettingsDomTest {
             }
             withFetchStub(respond = respond) {
                 withMountedRoot("conference-defaults-on") { root, element ->
-                    renderConferenceDefaultsCard(root)
+                    renderConferenceVideoSettings(root)
                     awaitUntil("the card is loaded") { element().querySelector("button[role=switch]") != null }
                     val button = element().switchButton()
                     assertEquals("true", button.getAttribute("aria-checked"))
@@ -121,7 +120,7 @@ class ConferenceDefaultsSettingsDomTest {
             }
             withFetchStub(respond = respond) {
                 withMountedRoot("conference-defaults-refused") { root, element ->
-                    renderConferenceDefaultsCard(root)
+                    renderConferenceVideoSettings(root)
                     awaitUntil("the card is loaded") { element().querySelector("button[role=switch]") != null }
                     val button = element().switchButton()
                     button.click()

@@ -7,6 +7,7 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
+import io.kvision.html.image
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
@@ -14,6 +15,7 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.AttachedImageOwnerType
 import network.lapis.cloud.shared.domain.AuctionBidDto
 import network.lapis.cloud.shared.domain.AuctionDto
 import network.lapis.cloud.shared.domain.AuctionStatus
@@ -45,6 +47,15 @@ internal fun renderAuctionCard(
         )
     }
 
+    // V1.9.222: the cover image (gallery position 0); the whole gallery sits behind the "Bilder" disclosure below and is loaded on
+    // first
+    // open.
+    auction.coverImageUrl?.let { url ->
+        card.image(url, gettext("Titelbild von %1", sanitizeUntrustedI18nText(auction.title)), className = "lapis-gallery-card-cover") {
+            setAttribute("loading", "lazy")
+            setAttribute("decoding", "async")
+        }
+    }
     card.div(sanitizeUntrustedI18nText(auction.description)) { addCssClasses("small") }
     card.div(
         gettext(
@@ -92,6 +103,20 @@ internal fun renderAuctionCard(
     }
 
     val isSeller = currentMemberId != null && auction.sellerMemberId == currentMemberId
+    // The creator can add pictures while the auction is open and has no bid; everybody else sees the gallery only if there is one.
+    val galleryEditableByMe = isSeller && auction.effectiveStatus == AuctionStatus.OPEN && auction.bidCount == 0
+    if (auction.coverImageUrl != null || galleryEditableByMe) {
+        var galleryLoaded = false
+        var galleryHost: SimplePanel? = null
+        val toggle =
+            card.disclosure(tr("Bilder"), bodyId = "lapis-auction-gallery-${auction.id}") { galleryHost = this }
+        toggle.onClick {
+            if (!galleryLoaded) {
+                galleryLoaded = true
+                galleryHost?.loadGalleryInto(AttachedImageOwnerType.AUCTION_LISTING, auction.id, auction.title)
+            }
+        }
+    }
     if (!isSeller && auction.effectiveStatus == AuctionStatus.OPEN) {
         renderBidAndBuyNowControls(card, auction, onChanged)
     }

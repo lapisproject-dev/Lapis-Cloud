@@ -1,41 +1,70 @@
 package network.lapis.cloud.client
 
-import io.kvision.core.FlexWrap
-import io.kvision.html.Autocomplete
-import io.kvision.html.ButtonStyle
-import io.kvision.html.button
+import io.kvision.html.Div
+import io.kvision.html.Icon
+import io.kvision.html.Link
+import io.kvision.html.Span
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.link
-import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
-import io.kvision.panel.vPanel
-import kotlinx.coroutines.delay
+import kotlinx.browser.document
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import network.lapis.cloud.shared.domain.AccountRole
-import network.lapis.cloud.shared.domain.MemberStatus
-import network.lapis.cloud.shared.domain.MemberStatusSets
-import network.lapis.cloud.shared.rpc.IAuthService
-import network.lapis.cloud.shared.rpc.IRegistrationService
+import network.lapis.cloud.shared.domain.DashboardPriority
+import network.lapis.cloud.shared.domain.DashboardSignalDto
+import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.rpc.IDashboardService
+import org.w3c.dom.events.Event
+
+/** A signal list that is older than this is fetched again when the tab becomes visible (V1.9.224). */
+internal const val DASHBOARD_REFRESH_MS = 60_000
 
 /**
- * Screen 3 of the V0.7.3 plan -- the real post-login landing page. Shows the logged-in member's
- * own info (from [AppState.session], populated by `IAuthService.getSessionInfo()`), navigation to
- * the other screens (Mitgliederverwaltung tile only rendered for BOARD/ADMIN -- "must not even be
- * reachable/rendered" for a plain MEMBER, per the plan), a working logout, a self-service
- * change-password action, and a self-service Austritt action gated behind a real confirmation
- * step (see [ConfirmDialog]) since it is destructive/irreversible from the member's perspective.
+ * The post-login landing page. Since V1.9.224 it answers one question -- "do I need to do anything today?" -- and shows ONLY what the menu cannot
+ * tell: status chips, for an ADMIN the "Gerade angemeldet" block, and "Für Sie", one card per thing that concerns the person right now (a missing
+ * vote, an outbid auction, an overdue contribution). The destinations themselves are the menu; the dashboard no longer repeats them as tiles.
+ * Account actions (password, membership card, leaving) live on "Meine Daten" ([Routes.DSGVO_RIGHTS]); signing out is in the account menu.
  */
 fun renderDashboardScreen(container: SimplePanel) = renderDashboardScreen(container, liveOnlineCountsRpc(), WindowOnlineCountsScheduler)
 
-/** Test seam (V1.9.218): the tile's RPC and scheduler can be replaced; the public overload keeps the route signature `(SimplePanel) -> Unit`. */
+/** The one RPC of "Für Sie", injectable so a DOM test can feed (or refuse) signals. */
+internal fun interface DashboardSignalsRpc {
+    suspend fun signals(): List<DashboardSignalDto>
+}
+
+internal fun liveDashboardSignalsRpc() = DashboardSignalsRpc { rpcService<IDashboardService>().getDashboardSignals() }
+
+/** Tab visibility and the clock of the dashboard behind a seam, so a DOM test can drive "the tab becomes visible again". */
+internal interface DashboardVisibility {
+    fun addListener(listener: (Event) -> Unit)
+
+    fun removeListener(listener: (Event) -> Unit)
+
+    fun isVisible(): Boolean
+
+    fun nowMs(): Double
+}
+
+internal object WindowDashboardVisibility : DashboardVisibility {
+    override fun addListener(listener: (Event) -> Unit) = document.addEventListener("visibilitychange", listener)
+
+    override fun removeListener(listener: (Event) -> Unit) = document.removeEventListener("visibilitychange", listener)
+
+    override fun isVisible(): Boolean = document.asDynamic().visibilityState == "visible"
+
+    override fun nowMs(): Double = js("Date.now()").unsafeCast<Double>()
+}
+
+/** Test seam (V1.9.218): the RPCs, the scheduler and the visibility can be replaced; the public overload keeps the route signature `(SimplePanel) -> Unit`. */
 internal fun renderDashboardScreen(
     container: SimplePanel,
     onlineCountsRpc: OnlineCountsRpc,
     onlineCountsScheduler: OnlineCountsScheduler,
+    signalsRpc: DashboardSignalsRpc = liveDashboardSignalsRpc(),
+    visibility: DashboardVisibility = WindowDashboardVisibility,
 ) {
     val session = AppState.session
     if (session == null) {
@@ -43,235 +72,174 @@ internal fun renderDashboardScreen(
         return
     }
 
-    val root =
-        container.pageShell(PageWidth.WIDE, spacing = 14)
+    val root = container.pageShell(PageWidth.WIDE, spacing = 14)
     // W5: constant title as in the sidebar (R35); the greeting is a data value and therefore the subtitle.
     root.pageHeader(
         tr("Dashboard"),
         subtitle = gettext("Willkommen, %1", session.displayName),
         intro = PageIntros.forRoute(Routes.DASHBOARD),
     )
-    // Zeigt sowohl MemberStatus (Kontotyp -- z.B. "Freund" statt der reinen Berechtigungsstufe) als
-    // auch AccountRole (Berechtigungsstufe): ein Freund-Konto hat technisch korrekt AccountRole.MEMBER
-    // (dieselbe Basis-Stufe wie jedes einfache Konto), aber "Rolle: MEMBER" allein liest sich fuer ein
-    // Freund-Konto wie eine volle Mitgliedschaft. session.status existiert bereits seit V0.11.0 (fuer
-    // die Navigations-Steuerung), wurde hier aber nie mit angezeigt -- reiner Anzeige-Fix, kein neues
-    // Feld noetig.
-    root.p(
-        gettext(
-            "Status: %1 · Rolle: %2 · Sitzung gültig bis %3",
-            memberStatusLabel(session.status),
-            accountRoleLabel(session.role),
-            formatSystemDateTimeWithZone(session.expiresAt),
-        ),
+
+    // Status (member status, not just the permission level: a friend account has AccountRole.MEMBER), role and the end of the session.
+    val chips = root.div(className = "lapis-status-chips")
+    chips.statusChip("fas fa-id-badge", gettext("Status: %1", memberStatusLabel(session.status)))
+    chips.statusChip("fas fa-user-shield", gettext("Rolle: %1", accountRoleLabel(session.role)))
+    chips.statusChip("fas fa-clock", gettext("Sitzung bis %1", formatSystemDateTimeWithZone(session.expiresAt)), muted = true)
+
+    // The one account hint the menu does not give as a destination of its own: where password, card and leaving are.
+    if (NavVisibility.showsDsgvoRights(session.status)) {
+        val hint = root.div(className = "small text-body-secondary lapis-dashboard-account-hint")
+        hint.add(Span(tr("Passwort, Mitgliedsausweis und Austritt:")))
+        hint.add(Span(" "))
+        hint.link(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}")
+    }
+
+    if (shouldShowOnlineCounts()) {
+        val online = root.div(className = "lapis-dashboard-online")
+        renderOnlineCountsCard(online, rpc = onlineCountsRpc, scheduler = onlineCountsScheduler)
+    }
+
+    renderSignals(root, session, signalsRpc, visibility)
+}
+
+private fun SimplePanel.statusChip(
+    icon: String,
+    text: String,
+    muted: Boolean = false,
+) {
+    val chip = Span(className = if (muted) "lapis-status-chip lapis-status-chip--muted" else "lapis-status-chip")
+    val glyph = Icon(icon)
+    glyph.setAttribute("aria-hidden", "true")
+    chip.add(glyph)
+    chip.add(Span(text))
+    add(chip)
+}
+
+/** Higher priority first, then the earlier deadline (none last), then module and reason -- the order the server sends, kept if it did not. */
+internal fun sortSignals(signals: List<DashboardSignalDto>): List<DashboardSignalDto> =
+    signals.sortedWith(
+        compareByDescending<DashboardSignalDto> { it.priority }
+            .thenBy(nullsLast()) { it.deadline }
+            .thenBy { it.moduleKey }
+            .thenBy { it.reasonKey },
     )
 
-    root.h2(tr("Bereiche")) { addCssClass("h5") }
-    val nav = root.vPanel(spacing = 6)
-    navTile(nav, tr("Beitragsübersicht"), Routes.CONTRIBUTIONS)
-    navTile(nav, tr("Dokumentenablage"), Routes.DOCUMENTS)
-    navTile(nav, tr("Kommunikation"), Routes.COMMUNICATION)
-    navTile(nav, tr("Gremien"), Routes.COMMITTEES)
-    navTile(nav, tr("Sitzungen"), Routes.MEETINGS)
-    navTile(nav, tr("Anträge"), Routes.MOTIONS)
-    // LTR-Wirtschaft UI wave: same placement/role-gating as the navbar link -- see `App.kt`
-    // `refreshNavbar` / `Routes.LTR_LEDGER` KDoc.
-    navTile(nav, tr("LTR-Konto"), Routes.LTR_LEDGER)
-    // Accounting UI wave, design decision D15: same placement/role-gating as the navbar link --
-    // see `App.kt` `refreshNavbar`.
-    if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-        navTile(nav, tr("Kontenplan & Journal"), Routes.LEDGER)
-        navTile(nav, tr("Finanzberichte"), Routes.FINANCIAL_REPORTS)
-        navTile(nav, tr("Gemeinnützigkeits-Berichte"), Routes.COMPLIANCE_REPORTS)
-        navTile(nav, tr("Kostenstellen"), Routes.COST_CENTERS)
-        navTile(nav, tr("Spender"), Routes.DONORS)
-        // Mail-merge/Postal-Dispatch UI wave: same TREASURER/BOARD/ADMIN tier/placement as the
-        // navbar link -- see `Routes.POSTAL_MAIL` KDoc.
-        navTile(nav, tr("Postversand"), Routes.POSTAL_MAIL)
-    }
-    if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-        navTile(nav, tr("Mitgliederverwaltung"), Routes.MEMBERS)
-    }
-
-    if (shouldShowOnlineCounts()) renderOnlineCountsCard(root, rpc = onlineCountsRpc, scheduler = onlineCountsScheduler)
-
-    root.h2(tr("Konto")) { addCssClass("h5") }
-    renderMemberCard(root, session.status)
-    renderChangePassword(root)
-    renderAccountActions(root)
-}
-
 /**
- * UI theme redesign wave (2026-08-20): a real Bootstrap card, replacing the previous plain
- * `btn btn-outline-primary` link stack -- see root CLAUDE.md "UI/UX-Design-Team" review. Bootstrap
- * ships no dedicated card JS component (it is pure markup/CSS convention, confirmed against the
- * KVision 9.6.0 source tree -- no `Card` class exists there either), so "real card" here means the
- * genuine `.card` > `.card-body` DOM shape rather than an ad hoc bordered `vPanel`. The whole card
- * stays clickable via Bootstrap's `.stretched-link` utility on the inner link -- `.card` itself is
- * `position: relative` by default in Bootstrap, exactly the positioned ancestor `.stretched-link`
- * needs, so no extra CSS is required here.
+ * "Für Sie". The list is mounted with a one-line "Wird geladen …" so the page does not jump; an answer after the screen has left is dropped;
+ * a failure or an empty answer ends in "Im Moment gibt es nichts Neues für Sie." (no toast, no retry loop). The list is fetched again when the
+ * tab becomes visible and the last fetch is more than a minute old. The insert hook only starts the work: widget state changes happen inside the
+ * coroutine (V1.9.218).
  */
-private fun navTile(
-    parent: SimplePanel,
-    label: String,
-    route: String,
-) {
-    val card = parent.div { addCssClasses("card") }
-    val body = card.div { addCssClasses("card-body py-2 px-3") }
-    body.link(label, url = "#$route") {
-        addCssClasses("card-title stretched-link text-decoration-none fw-semibold mb-0 d-block")
-    }
-}
-
-/** Milliseconds the card trigger stays disabled after a confirmed issue (see the click handler). */
-internal const val MEMBER_CARD_REISSUE_COOLDOWN_MS = 2500L
-
-/**
- * Welle "Digitaler Mitgliedsausweis (PDF)" -- Selbstbedienung fuer den eigenen Ausweis.
- *
- * **Warum hier und nicht in `ContributionsScreen`.** Der urspruengliche Wellen-Auftrag verwies auf
- * die Stelle, an der Rechnungs-/Spendenbescheinigungs-Downloads verlinkt sind. Die gibt es fuer ein
- * einfaches Mitglied nicht: `MailmergeHttp` ist server-seitig auf TREASURER/BOARD/ADMIN begrenzt
- * (siehe dessen KDoc, "Access note"), die Links erscheinen ausschliesslich in den
- * Vorstands-/Kassen-Ansichten. Der Ausweis ist die ERSTE echte Selbstbedienungs-PDF dieses
- * Produkts und gehoert damit in den bestehenden "Konto"-Block des Dashboards -- neben Passwort
- * aendern und Austritt -- und nicht in eine Beitragsuebersicht, mit der er fachlich nichts zu tun
- * hat.
- *
- * **Warum ein Bestaetigungsschritt vor einem blossen Download.** Jeder Download praegt einen neuen
- * Ausweis-Code und entwertet den vorherigen (`MemberCardRoutes` KDoc). Ein Knopf, der still einen
- * bereits ausgedruckten Ausweis ungueltig macht, waere genau die Art unsichtbarer Nebenwirkung,
- * gegen die die Hausregel "keine folgenreiche Aktion ohne sichtbare Ansage" steht. Der Dialog sagt
- * die Folge vorher an, nicht hinterher.
- *
- * Rendert fuer Nicht-Mitglieder (Gast/Freund/Spender/Antragsteller/Ausgetretene) GAR NICHTS -- der
- * Server lehnt deren Ausstellung ohnehin mit 409 ab (`MemberCardEligibility`), und ein Knopf fuer
- * eine serverseitig abgelehnte Aktion ist dieselbe Hausregelverletzung wie in
- * `MemberAdministrationScreen`.
- */
-
-internal fun renderMemberCard(
+private fun renderSignals(
     root: SimplePanel,
-    status: MemberStatus,
+    session: SessionInfoDto,
+    rpc: DashboardSignalsRpc,
+    visibility: DashboardVisibility,
 ) {
-    if (status !in MemberStatusSets.ORGANIZATION_MEMBER) return
-    val memberId = AppState.session?.memberId ?: return
-    val panel = root.vPanel(spacing = 6)
-    panel.p(tr("Digitaler Mitgliedsausweis"))
-    panel.div(
-        tr(
-            "Der Ausweis ist im Scheckkartenformat und traegt einen QR-Code, ueber den die Mitgliedschaft " +
-                "geprueft werden kann.",
-        ),
-    ) { addCssClasses("text-muted small") }
-    val downloadButton = panel.actionButton(ActionIcon.DOWNLOAD, tr("Mitgliedsausweis herunterladen"), style = ButtonStyle.OUTLINESECONDARY)
-    downloadButton.onClick {
-        // Audit fix M9: issuing a card INVALIDATES the previous one -- the trigger stays disabled for a moment after a confirmed issue, so a
-        // second click cannot stack a second issuing dialog on the first one's download (a second card would kill the one just downloaded).
-        if (downloadButton.disabled) return@onClick
-        confirmDialog(
-            title = tr("Neuen Mitgliedsausweis ausstellen"),
-            message =
-                tr(
-                    "Beim Herunterladen wird ein neuer Ausweis ausgestellt. Ein frueher heruntergeladener oder " +
-                        "ausgedruckter Ausweis verliert damit seine Gueltigkeit.",
-                ),
-            confirmLabel = tr("Ausstellen und herunterladen"),
-        ) {
-            runGuardedAction(downloadButton) {
-                MemberCardHttp.submitCardPdfDownload(memberId)
-                delay(MEMBER_CARD_REISSUE_COOLDOWN_MS)
+    val section = Div(className = "lapis-dashboard-signals-section")
+    section.setAttribute("aria-live", "polite")
+    section.h2(tr("Für Sie")) { addCssClass("h5") }
+    val status = Div(className = "lapis-dashboard-signals__status small text-body-secondary")
+    status.content = tr("Wird geladen …")
+    section.add(status)
+    val grid = Div(className = "lapis-dashboard-signals")
+    section.add(grid)
+
+    val context = NavContext(session = session, memberFinderOffered = null)
+    var gone = false
+    var started = false
+    var inFlight = false
+    var shown = false
+    var lastLoadMs = Double.NEGATIVE_INFINITY
+    var listener: ((Event) -> Unit)? = null
+
+    fun show(signals: List<DashboardSignalDto>) {
+        val cards = sortSignals(signals).mapNotNull { signalCard(it, context) }
+        grid.removeAll()
+        cards.forEach { grid.add(it) }
+        shown = true
+        if (cards.isEmpty()) {
+            status.content = tr("Im Moment gibt es nichts Neues für Sie.")
+            status.visible = true
+        } else {
+            status.visible = false
+        }
+    }
+
+    fun load() {
+        if (inFlight) return
+        inFlight = true
+        lastLoadMs = visibility.nowMs()
+        AppScope.launch {
+            try {
+                val signals = rpc.signals()
+                if (!gone) show(signals)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // no toast, no retry: the loading line ends as the empty sentence, an earlier list stays
+                if (!gone && !shown) show(emptyList())
+            } finally {
+                inFlight = false
             }
         }
     }
+
+    root.addWithLifecycle(
+        section,
+        onInsert = {
+            gone = false
+            if (!started) {
+                started = true
+                load()
+            }
+            if (listener == null) {
+                val l: (Event) -> Unit = {
+                    if (visibility.isVisible() && visibility.nowMs() - lastLoadMs > DASHBOARD_REFRESH_MS) load()
+                }
+                listener = l
+                visibility.addListener(l)
+            }
+        },
+        onDestroy = {
+            gone = true
+            listener?.let { visibility.removeListener(it) }
+            listener = null
+        },
+    )
 }
 
 /**
- * W6c ("W4d form migration"): `lapisForm` replacement of the previous hand-built three-field block
- * with a manual `errorBox`. Inline in the account block, not a modal -- there was never a second
- * entry point that a modal would need to reconcile with. `email` is the self-email check of
- * [FormRules.newPassword]: [network.lapis.cloud.shared.domain.SessionInfoDto] carries no email field
- * (only [Validation]'s length rule runs today), a weaker check than [RegistrationScreen]'s -- named
- * here, not silently worked around.
+ * One card: the whole card is the link. Title = the menu label of the module, one reason line (cut with an ellipsis, the full text in `title`),
+ * a count badge for more than one object. `null` (nothing drawn) for a reason this client has no text for, for parameters of the wrong shape,
+ * and for a module the person's menu does not show.
  */
-internal fun renderChangePassword(root: SimplePanel) {
-    val panel = root.vPanel(spacing = 6)
-    panel.p(tr("Passwort ändern"))
-    val email = "" // SessionInfoDto carries no email field -- see KDoc above.
-    val form = panel.lapisForm()
-    val current =
-        form.passwordField(
-            label = tr("Aktuelles Passwort"),
-            required = true,
-            autocomplete = Autocomplete.CURRENT_PASSWORD,
-            reveal = true,
-        )
-    val next =
-        form.passwordField(
-            label = gettext("Neues Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH),
-            required = true,
-            autocomplete = Autocomplete.NEW_PASSWORD,
-            reveal = true,
-            rule = { FormRules.newPassword(value = it, email = email) },
-        )
-    val confirm =
-        form.passwordField(
-            label = tr("Neues Passwort bestätigen"),
-            required = true,
-            autocomplete = Autocomplete.NEW_PASSWORD,
-            revealedBy = next,
-        )
-    form.crossFieldRule(field = confirm) { FormRules.passwordsMatch(password = next.value, confirmation = confirm.value) }
-    val save = newActionButton(ActionIcon.PASSWORD, tr("Passwort ändern"), ButtonStyle.PRIMARY)
-    val cancel = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.PRIMARY)
-    form.buttons(primary = save, cancel = cancel, enterSubmits = true)
-    cancel.onClick { listOf(current, next, confirm).forEach { it.reset() } }
-    save.onClick {
-        form.submit(save) {
-            val result = guarded { rpcService<IAuthService>().changePassword(current.value, next.value) }
-            if (result != null) {
-                notifySuccess(tr("Passwort geändert."))
-                listOf(current, next, confirm).forEach { it.reset() }
-            }
-        }
-    }
-}
+internal fun signalCard(
+    signal: DashboardSignalDto,
+    context: NavContext,
+): Link? {
+    val entry = DashboardSignalRoutes.entryFor(signal.moduleKey, context) ?: return null
+    if (!DashboardSignalRoutes.isInMenu(signal.moduleKey, context)) return null
+    val route = DashboardSignalRoutes.route(signal.moduleKey, signal.objectId) ?: return null
+    val text = DashboardSignalTexts.text(signal) ?: return null
 
-internal fun renderAccountActions(root: SimplePanel) {
-    // V1.9.75: the row may wrap on a narrow phone (two buttons with icon and text).
-    val actionRow = root.hPanel(spacing = 8, wrap = FlexWrap.WRAP)
+    val urgent = signal.priority >= DashboardPriority.URGENT
+    val card = Link(label = "", url = "#$route", className = "card lapis-signal-card" + if (urgent) " lapis-signal-card--urgent" else "")
 
-    val logoutButton = actionRow.actionButton(ActionIcon.LEAVE, tr("Abmelden"), ButtonStyle.SECONDARY)
-    logoutButton.onClick {
-        AppScope.launch {
-            AuthHttp.logout()
-            AppState.setSession(null)
-            navigateTo(Routes.LOGIN)
-        }
+    val head = Span(className = "lapis-signal-card__head")
+    val glyph = Icon(entry.icon)
+    glyph.setAttribute("aria-hidden", "true")
+    head.add(glyph)
+    head.add(Span(content = entry.label, className = "lapis-signal-card__title"))
+    if (signal.count > 1) {
+        val badge = Span(content = signal.count.toString(), className = "badge text-bg-secondary lapis-signal-card__count")
+        badge.setAttribute("role", "img")
+        badge.setAttribute("aria-label", gettext("%1 Einträge", signal.count.toString()))
+        head.add(badge)
     }
-
-    val exitButton = actionRow.button(tr("Austritt (Mitgliedschaft beenden)"), style = ButtonStyle.OUTLINEDANGER)
-    exitButton.onClick {
-        // Audit fix M9: leaving is irreversible -- while the request runs the trigger is disabled ([runGuardedAction]), so no second
-        // dialog can be opened (and confirmed) for a second `leaveMembership()`; the dialog itself is already single-shot ([ConfirmOnce]).
-        if (exitButton.disabled) return@onClick
-        confirmDialog(
-            title = tr("Austritt bestätigen"),
-            message =
-                tr(
-                    "Möchten Sie Ihre Mitgliedschaft wirklich beenden? Dies ist nicht rückgängig zu machen -- " +
-                        "Sie werden abgemeldet und können sich nicht erneut mit diesem Konto anmelden.",
-                ),
-            confirmLabel = tr("Austritt bestätigen"),
-        ) {
-            runGuardedAction(exitButton) {
-                val result = guarded { rpcService<IRegistrationService>().leaveMembership() }
-                if (result != null) {
-                    AppState.setSession(null)
-                    notifyInfo(tr("Sie sind ausgetreten."))
-                    navigateTo(Routes.LOGIN)
-                }
-            }
-        }
-    }
+    card.add(head)
+    val reason = Span(content = text, className = "lapis-signal-card__reason")
+    reason.setAttribute("title", text)
+    card.add(reason)
+    return card
 }

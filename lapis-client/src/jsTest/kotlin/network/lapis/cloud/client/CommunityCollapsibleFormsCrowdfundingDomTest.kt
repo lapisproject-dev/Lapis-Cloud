@@ -164,7 +164,7 @@ class CommunityCollapsibleFormsCrowdfundingDomTest {
         }
 
     @Test
-    fun distributionForm_sitsInTheTreasuryTitleRow_dateTypedMakesEscapeAsk_computeFoldsBackAndReloads(): Promise<Unit> =
+    fun distributionForm_sitsInTheClosedTreasuryDisclosure_dateTypedMakesEscapeAsk_computeFoldsBackAndReloads(): Promise<Unit> =
         formTest {
             AppState.setSession(session(AccountRole.TREASURER))
             val list = routeOf { rpcService<ICrowdfundingService>().listProjects() }
@@ -188,8 +188,14 @@ class CommunityCollapsibleFormsCrowdfundingDomTest {
             ) { calls ->
                 mountedForm("r36b-crowdfunding-distribution") { root, element ->
                     renderCrowdfundingScreen(root)
-                    awaitUntil("the treasury tools are shown") { element().shows("Treuhänder-Werkzeuge") }
+                    awaitUntil("the treasury tools are offered") { element().shows("Treuhänder-Werkzeuge") }
                     val screen = element()
+                    // V1.9.222: the tools sit in their own CLOSED disclosure -- the compute button exists only after it was opened
+                    assertFalse(screen.shows("Verteilung berechnen"), "closed by default")
+                    val treasuryToggle = screen.buttonNamed("Treuhänder-Werkzeuge")
+                    assertEquals("false", treasuryToggle.getAttribute("aria-expanded"))
+                    treasuryToggle.click()
+                    awaitUntil("the disclosure is open") { treasuryToggle.getAttribute("aria-expanded") == "true" }
                     val toolButton = screen.buttonNamed("Verteilung berechnen")
                     assertEquals(distributionFormId, toolButton.getAttribute("aria-controls"))
                     assertTrue(toolButton.closest(".lapis-page-header") == null, "the tool button is not in the page header")

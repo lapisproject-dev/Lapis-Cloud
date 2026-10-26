@@ -107,6 +107,7 @@ internal suspend fun loadVideoOverlayLibrary(): VideoOverlayLibraryDto? =
 internal fun renderVideoOverlaysOfferedSwitch(
     panel: SimplePanel,
     initial: Boolean,
+    onChanged: () -> Unit = {},
 ) {
     val serial = ++overlaySwitchSerial
     val labelId = "lapis-overlay-admin-label-$serial"
@@ -143,6 +144,7 @@ internal fun renderVideoOverlaysOfferedSwitch(
                         gettext("Overlays werden nicht mehr angeboten.")
                     },
                 )
+                onChanged()
             }
         }
     }

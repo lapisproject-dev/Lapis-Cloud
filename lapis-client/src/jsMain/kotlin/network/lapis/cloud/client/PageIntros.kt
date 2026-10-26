@@ -28,9 +28,8 @@ internal object PageIntros {
                 PageIntroDef(
                     "dashboard",
                     tr(
-                        "Das Dashboard zeigt Ihren Status und Ihre Rolle und führt über Kacheln in die Bereiche, " +
-                            "die für Sie freigeschaltet sind. " +
-                            "Hier ändern Sie auch Ihr Passwort.",
+                        "Das Dashboard zeigt nur, was gerade Sie betrifft: offene Abstimmungen, Gebote, Fristen. " +
+                            "Alle Bereiche erreichen Sie über das Menü.",
                     ),
                 )
             Routes.CONFERENCE ->
@@ -126,8 +125,9 @@ internal object PageIntros {
                 PageIntroDef(
                     "dsgvo-rights",
                     tr(
-                        "Hier können Sie Ihre gespeicherten Daten einsehen und exportieren sowie die Löschung beantragen. " +
-                            "Eine Löschung wird nur beantragt; über den Antrag entscheidet die Administration.",
+                        "Hier verwalten Sie Ihre Daten und Ihr Konto, etwa Passwort und Ausweis, " +
+                            "und können die Löschung beantragen oder Ihre Mitgliedschaft beenden. " +
+                            "Über einen Löschantrag entscheidet die Administration.",
                     ),
                 )
             Routes.TRAVEL_EXPENSES ->
@@ -564,6 +564,11 @@ internal object PageIntros {
                             "veröffentlichte Fassung kann nicht mehr geändert werden; jede Änderung ist eine neue Fassung.",
                     ),
                 )
+            Routes.ORGANIZATION ->
+                PageIntroDef(
+                    "organization",
+                    tr("Hier stellen Sie ein, was für die ganze Organisation gilt. Jeder Bereich öffnet sich mit einem Tipp."),
+                )
             Routes.CONFERENCE_STREAM_DESTINATIONS ->
                 PageIntroDef(
                     "stream-destinations",
@@ -698,6 +703,7 @@ internal object PageIntros {
             Routes.MEMBER_STATISTICS,
             Routes.BACKUP,
             Routes.AGREEMENT_TEXTS,
+            Routes.ORGANIZATION,
             Routes.CONFERENCE_STREAM_DESTINATIONS,
             Routes.SEPA_SETTINGS,
             Routes.TRAVEL_EXPENSE_SETTINGS,

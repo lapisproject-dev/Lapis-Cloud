@@ -53,9 +53,8 @@ class TenderDefaultsSettingsDomTest {
             }
             withFetchStub(respond = respond) { requests ->
                 withMountedRoot("tender-defaults-save") { root, element ->
-                    renderTenderDefaultsCard(root)
+                    renderTenderDefaultsSettings(root)
                     awaitUntil("the card is loaded") { element().querySelector("select") != null }
-                    assertEquals("Ausschreibungen", element().querySelector("h2")?.textContent?.trim())
                     val select = element().querySelector("select") as HTMLSelectElement
                     val values =
                         (0 until select.options.length).map {
@@ -109,7 +108,7 @@ class TenderDefaultsSettingsDomTest {
             }
             withFetchStub(respond = respond) {
                 withMountedRoot("tender-defaults-refused") { root, element ->
-                    renderTenderDefaultsCard(root)
+                    renderTenderDefaultsSettings(root)
                     awaitUntil("the card is loaded") { element().querySelector("select") != null }
                     val select = element().querySelector("select") as HTMLSelectElement
                     assertEquals("OWN_ONLY", select.value)

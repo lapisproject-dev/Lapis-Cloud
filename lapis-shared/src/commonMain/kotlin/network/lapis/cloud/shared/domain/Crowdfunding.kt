@@ -53,6 +53,8 @@ data class CrowdfundingProjectDto(
     val likeCount: Int,
     val dislikeCount: Int,
     val basketTotal: Int,
+    /** V1.9.222: delivery URL of the cover image (gallery position 0), or `null` when the project has no pictures. */
+    val coverImageUrl: String? = null,
 )
 
 /** [initialWeightLtr] must be >= the current, decayed weight of the top existing project (the entry hurdle) and <= the submitter's free LTR balance. */

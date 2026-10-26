@@ -953,8 +953,8 @@ class ClientToolbarIconTripwireTest :
             withClue("a reveal toggle with a changing name must not also set aria-pressed (the name and the state contradict)") {
                 grammar.contains("\"aria-pressed\"") shouldBe false
             }
-            val dashboard = codeLines(clientFiles().first { it.name == "DashboardScreen.kt" }.readText()).joinToString("\n")
-            dashboard.contains("ActionIcon.PASSWORD") shouldBe true
-            dashboard.contains("ActionIcon.LEAVE") shouldBe true
+            // V1.9.220: the password form moved from the dashboard to "Meine Daten"; "Abmelden" left the dashboard (it is in the account menu).
+            val password = codeLines(clientFiles().first { it.name == "AccountPasswordSection.kt" }.readText()).joinToString("\n")
+            password.contains("ActionIcon.PASSWORD") shouldBe true
         }
     })

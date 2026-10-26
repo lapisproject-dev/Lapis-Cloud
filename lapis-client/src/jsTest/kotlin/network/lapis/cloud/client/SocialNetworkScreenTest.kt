@@ -1,6 +1,10 @@
 package network.lapis.cloud.client
 
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AttachedImageOwnerType
+import network.lapis.cloud.shared.domain.GalleryLockReason
+import network.lapis.cloud.shared.domain.GalleryRules
+import network.lapis.cloud.shared.domain.GalleryUploadErrorCode
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SocialPostState
 import network.lapis.cloud.shared.domain.SocialPostVisibility
@@ -122,5 +126,37 @@ class SocialNetworkScreenTest {
         val other = SocialModerationUi.removalNoticeHeadline(isOwnPost = false)
         assertTrue(own.isNotBlank())
         assertTrue(other.isNotBlank())
+    }
+
+    // ── V1.9.223: pictures in posts ─────────────────────────────────────────────────────
+
+    @Test
+    fun socialPostImageTexts_nameTheWindow_theDailyLimit_andTheSocialMaximum() {
+        assertTrue(galleryLockText(GalleryLockReason.SOCIAL_POST_PUBLISHED).contains("nachgereicht"))
+        assertTrue(galleryLockedUploadText(AttachedImageOwnerType.SOCIAL_POST).contains("Zeit zum Nachreichen ist abgelaufen"))
+        assertTrue(
+            galleryUploadErrorText(GalleryUploadErrorCode.DAILY_LIMIT_REACHED, AttachedImageOwnerType.SOCIAL_POST)
+                .contains("${GalleryRules.SOCIAL_POST_IMAGES_PER_AUTHOR_PER_DAY} Bilder"),
+        )
+        assertEquals(
+            "Höchstens 4 Bilder.",
+            galleryUploadErrorText(GalleryUploadErrorCode.GALLERY_FULL, AttachedImageOwnerType.SOCIAL_POST),
+        )
+        assertTrue(
+            galleryUploadErrorText(GalleryUploadErrorCode.GALLERY_FULL, AttachedImageOwnerType.AUCTION_LISTING)
+                .contains("Höchstens 10 Bilder."),
+        )
+    }
+
+    @Test
+    fun socialPostGalleryRules_haveNoCoverNoOrderNoCaption_andFourPictures() {
+        val social = AttachedImageOwnerType.SOCIAL_POST
+        assertFalse(GalleryRules.supportsCoverAndOrder(social))
+        assertFalse(GalleryRules.supportsCaption(social))
+        assertEquals(4, GalleryRules.maxImagesFor(social))
+        AttachedImageOwnerType.entries.filter { it != social }.forEach {
+            assertTrue(GalleryRules.supportsCoverAndOrder(it) && GalleryRules.supportsCaption(it))
+            assertEquals(10, GalleryRules.maxImagesFor(it))
+        }
     }
 }

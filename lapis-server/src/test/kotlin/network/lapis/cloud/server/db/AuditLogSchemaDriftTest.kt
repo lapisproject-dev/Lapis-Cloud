@@ -181,6 +181,7 @@ class AuditLogSchemaDriftTest :
                             "PULPIT_RECORDING",
                             "TRAVEL_EXPENSE_DOCUMENT",
                             "TENDER",
+                            "ATTACHED_IMAGE",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

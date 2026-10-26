@@ -12,7 +12,7 @@ import io.kvision.html.Link
  * registration can never leave a phantom highlight behind.
  *
  * Vertical-Sidebar-Umbau (2026-09-08): this registry is now populated EXCLUSIVELY by `Sidebar.kt`.
- * The navbar's own account dropdown ("Mein Konto"/"Meine Daten"/"Abmelden") deliberately does NOT
+ * The navbar's own account dropdown ("Meine Daten"/"Abmelden"; V1.9.220: "Mein Konto" is gone, the dashboard is in the sidebar) deliberately does NOT
  * register here -- Jobs' review call: the navbar header is identity/session chrome, the sidebar is
  * "where am I", and only the latter gets a persistent active-route highlight.
  */

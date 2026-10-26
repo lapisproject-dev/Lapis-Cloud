@@ -1,0 +1,199 @@
+= Image gallery for crowdfunding projects, auctions and social posts (V1.9.222, V1.9.223)
+:toc:
+
+One gallery component for several objects. Wave 1 (V1.9.222) serves **crowdfunding projects** and **auction listings**; V1.9.223 adds **social posts** (see
+<<social-posts>>, migration V120 widened the `owner_type` check). The creator of the object adds up to ten pictures, orders them (the first one is the cover picture), gives
+them a caption and an alternative text, and removes them -- until the object is frozen.
+
+== What a person sees
+
+* **Create forms.** "Projekt einreichen" and "Neues Angebot" carry a gallery in *buffer mode*: the chosen pictures stay on the device with a preview. After the
+  object has been created the pictures are uploaded one after the other. The form **stays open until every picture is uploaded**: the object (and, for a project,
+  the stake; for a listing, the fee) already exists then, so a failed picture is retried ("Erneut versuchen") without creating it twice. Only a clean finish, or
+  "Fertig", folds the form back.
+* **Two buttons.** "Foto aufnehmen" opens the camera (`capture="environment"`, one picture), "Bilder auswählen" chooses several files. Both accept JPEG, PNG and WebP.
+* **Per picture.** A preview, the "Titelbild" mark on the first one, arrows up and down (the first up-arrow and the last down-arrow are `aria-disabled`, not natively
+  disabled), "Als Titelbild" from the third position on, caption and alternative text (200 characters each), and remove (asks "Bild entfernen?" first).
+  Every control names its picture (`aria-label` "Bild 3 nach oben"). Without an alternative text the picture reads "Bild N von {title}".
+* **Lists.** The auction card and the project card show the cover picture. The whole gallery sits behind a disclosure and is loaded when it is first opened, so a list
+  of many cards makes no request per card. A project card shows cover picture, title, status, weight and likes; the description, who and when, the decision, the
+  gallery and the board decision sit behind "Details". The treasurer's tools sit in their own closed disclosure; the distribution history stays open.
+* **Auction duration.** A number and a unit (hours, days, weeks; default 7 days). The bound is the server's (`AuctionDurationRules`, 2160 hours = 90 days): up to
+  2160 hours, 90 days or 12 weeks. **13 weeks and more are refused with a hint, never shortened** (2184 hours exceed the server maximum, which did not change).
+
+== Limits
+
+[cols="2,2,3",options="header"]
+|===
+|Limit |Value |Where it is enforced
+|Pictures per object |10 (a social post: 4) |`GalleryRules.maxImagesFor`, checked before the decode and again under the owner lock
+|Size of one upload |5 MB |`Content-Length` pre-check, streamed read, and again on the re-encoded result
+|Pictures of one object together |30 MB |pre-check and under the owner lock
+|Source dimensions |8000 px per edge, 40 megapixels |header check BEFORE a pixel is decoded
+|Stored size |1600 px on the long edge, never enlarged |re-encode
+|Uploads |30 per member and hour; social-post pictures additionally 20 per author and 24 hours |`FederationInboxRateLimiter`, 429 with `Retry-After` (the daily one is in memory and resets on restart)
+|RPC calls |120 writes and 600 reads per member and hour |`ServiceBusyException`
+|Caption / alternative text |200 characters |trimmed, control characters dropped, blank becomes empty; longer is refused (never cut)
+|===
+
+== When a gallery is frozen
+
+The rule lives in ONE place, `GalleryOwnerPolicy`.
+
+[cols="2,4",options="header"]
+|===
+|Owner |Frozen when
+|Auction listing |the first bid exists (`AUCTION_HAS_BIDS`), or the effective status is not OPEN, which includes an OPEN row whose `ends_at` has passed (`AUCTION_CLOSED`). A switched-off auction is a 404 for everybody.
+|Crowdfunding project |the **effective** status is not PENDING (`CROWDFUNDING_DECIDED`): approved, rejected, **and** approved by silence after the 14-day review window although the stored column still says PENDING
+|===
+
+The policy locks the owner row `FOR UPDATE` -- the very row `placeBid`, `buyNow` and `approveProject` lock -- so "no bid yet" and "still pending" cannot be overtaken by a
+concurrent write. The policy only READS the deadline: a picture upload never triggers the lazy close of an auction, no settlement comes out of it.
+
+*Moderation.* BOARD and ADMIN may **remove** a picture at any time (audited with the moderator); they cannot add, re-order or change captions. The creator, even as a board
+member, is bound by the freeze.
+
+There is no update RPC for an auction, so there is no auction edit form: the gallery of an auction is edited in the list card, while the auction has no bid.
+
+[[social-posts]]
+== Social posts (V1.9.223)
+
+A picture can be attached to a **root post** of the social network (`AttachedImageOwnerType.SOCIAL_POST`). A comment is never an owner: for a comment the upload, the list and
+the delivery answer exactly like for an unknown id (404).
+
+*Flow and the decision against a draft state.* A post is created in one step (`createPost` writes it `VISIBLE` with `published_at = now`); there is no draft state (the MCP
+drafts live in their own table). So the composer first creates the post and then uploads the buffered pictures one after the other. The server therefore accepts pictures for a
+**window of ten minutes** after `published_at`: inside it only the author may add and remove pictures, and only while the post is `VISIBLE` and not content-erased. After
+that the gallery reports `SOCIAL_POST_PUBLISHED` (frozen for the author). Re-ordering, a cover picture and a caption never exist for a post
+(`GalleryRules.supportsCoverAndOrder/supportsCaption`): `reorder` and `setCover` are always refused with `GalleryLockedException`, a caption is a `ConflictException`. The only text is
+an optional *alternative text*, which can be set **exactly once** (only while it is still empty, only inside the window) because the composer saves it after the upload; without
+one the client uses "Bild N von M zum Beitrag von {Name}". An author whose upload fails sees "Der Beitrag ist veröffentlicht, aber N Bild(er) konnten nicht hochgeladen werden" and
+can retry until the window closes.
+
+*Who sees a picture.* `GalleryOwnerPolicy.socialImagesReadable` is the one rule, and it is stricter than `SocialVisibility.isReadable`: a ROOT post, `state == VISIBLE` (not
+`HIDDEN_BY_AUTHOR`, not `REMOVED_LEGAL`), not content-erased, and readable for the viewer's member status (ACTIVE sees all three visibilities, a FRIEND `PUBLIC` and
+`MEMBERS_AND_EXTERNAL`, everybody else `PUBLIC`). Guests see nothing (the route needs a session). Unknown, invisible and comment are the same `null`, the same bare 404. The
+visibility depends on the viewer, so `GalleryOwnerPolicy.lockForWriteInTx/readInTx` take the viewer (the auction and crowdfunding branches ignore it). A social-level block or mute
+does not exist yet (only the MCP and member-finder blocks); `GalleryTripwireTest` fails the build the day a `SocialBlock`/`SocialMute` appears without the policy naming it.
+
+*Upload.* The gate for a post uses `requireLtrEligibleMembership` (ACTIVE and FRIEND, like `createPost`), the other owners keep `requireActiveMembership`. Besides the 30 uploads
+per hour an author may attach 20 pictures per 24 hours (`DAILY_LIMIT_REACHED`, 429 with `Retry-After`, checked after the read-only gate and before a byte is read). The counter is in
+memory like every limiter here, so it resets when the server restarts; pictures deleted later still count.
+
+*Delivery.* A post picture is always `Cache-Control: private, no-store` (also with a matching `v`), so a legal removal or a hidden post takes effect at once, also in the browser
+cache; the cost is that the browser fetches it again on every view. The other headers are unchanged (`nosniff`, CSP, CORP `same-origin`, `no-referrer`).
+
+*Feed and detail.* `SocialPostDto` has **no** picture field, because the same DTO feeds the public pages. The feed asks `IAttachedImageService.listSocialPostPreviews` (at most 50 ids;
+the first picture and the count per readable root post; unknown or invisible ids are simply absent) and shows ONE picture per card with a "+N" mark; the thread view shows all
+pictures in one column and opens a native `<dialog>` for the large view. The public pages (`/s`, `/s/{id}`, the sitemap), notifications, mails and MCP never touch a picture
+(`GalleryTripwireTest`, `SocialPublicRoutesTest`: the HTML is byte-identical with and without pictures).
+
+*Moderation: remove instead of hide.* BOARD and ADMIN **remove** a picture (the row is deleted, the file after the commit, the audit entry is a `VOID` with `moderatedBy`). This
+deliberately differs from "hide the picture": a hidden picture would stay stored without a purpose (data minimisation). A whole post is taken down with
+`removePostForLegalReason` (`REMOVED_LEGAL`): its pictures then stay stored (the DSA allows keeping them for the statement of reasons) but cannot be read by anybody. A post-related
+erasure request (`executeContentErasure`) deletes the pictures with the content, in the same transaction (audit entries first, the post's own entry last), the files after the commit.
+The erasure of a whole member removes the pictures through `AttachedImagePersonalData` (they belong to the uploader, and only the author can upload to a post).
+
+*Concurrency.* The lock is the `social_post` row (`FOR UPDATE`, the row `hideOwnPost` and `removePostForLegalReason` lock too), then the picture rows, then the audit entry last.
+No member lock is taken, so there is no deadlock with `lockForDebit`.
+
+== Security model
+
+* *Content.* The first 12 bytes decide (JPEG, PNG, WebP); the declared `Content-Type` and the file name are never read. SVG, GIF and everything else are 415.
+* *Re-encode.* Every picture is decoded and drawn into a FRESH raster that is encoded again: EXIF, GPS, ICC, XMP and any polyglot payload are gone. JPEG stays JPEG, PNG
+  stays PNG, a WebP becomes JPEG (PNG when it really has a transparent pixel). WebP itself is never stored. A WebP's orientation metadata is ignored (only a JPEG's EXIF
+  orientation is applied).
+* *WebP decoder.* The JDK has none; `com.twelvemonkeys.imageio:imageio-webp` (BSD-3-Clause, pure Java) was added. It is fed attacker-controlled bytes, so it runs behind the
+  same header guard and under the same process-wide decode semaphore (two permits; a wait of more than ten seconds is 503 `SERVER_BUSY`) as the other image pipelines.
+* *Size after the re-encode.* A 1600 px PNG of a photograph can exceed 5 MiB, and the backup restore refuses assets over 5 MiB. A big PNG without transparency is therefore
+  stored as JPEG; if it is still too large, or has transparency, the upload is refused (`IMAGE_TOO_LARGE`).
+* *Files.* `<storage_key>.<jpg|png>` in `attached-images/` (`LAPIS_ATTACHED_IMAGE_STORAGE_ROOT`), the key is a server UUID distinct from the row id, canonical-path check, atomic write.
+  Files are written BEFORE and deleted AFTER the transaction (Exposed repeats a block).
+* *CSRF.* A multipart POST is a "simple request" without preflight: the `Origin` / `Sec-Fetch-Site` check is the only defence and runs first.
+* *IDOR.* An unknown id, a malformed id, a picture of an owner the caller may not see, a missing file and an anonymous caller get the **identical** bare 404.
+* *Delivery.* `GET /api/images/{id}` is `inline` under a fixed name (`bild.jpg`/`bild.png`), `nosniff`, `default-src 'none'`, `Cross-Origin-Resource-Policy: same-origin`,
+  `Referrer-Policy: no-referrer`. With the current `v` tag (the first 8 characters of the `storage_key`; it reveals no time) the answer is `private, max-age=31536000, immutable`,
+  otherwise `private, no-cache`. **Limit:** a browser that already holds a picture keeps it for up to a year even if the viewer later loses the right to see it (auction switched
+  off, member left); the server enforces the right for every fresh request only. `private` keeps shared caches out.
+* *Races.* The upload route checks the gate before it reads a byte (so no decode is spent on a hopeless request) and REPEATS every check under the owner lock right before the insert.
+
+[kuml, image-gallery-upload, svg]
+----
+sequenceDiagram(name = "Upload of one gallery picture") {
+    val browser = lifeline(name = "Browser")
+    val route = lifeline(name = "AttachedImageRoutes")
+    val processor = lifeline(name = "GalleryImageProcessor")
+    val disk = lifeline(name = "AttachedImageStorage")
+    val db = lifeline(name = "Database")
+
+    message(from = browser, to = route, label = "POST /api/images/{ownerType}/{ownerId} (one file part)")
+    message(from = route, to = route, label = "origin, session, rate limit, strict ids")
+    message(from = route, to = db, label = "read-only gate: visible, creator, not frozen, room left")
+    message(from = route, to = processor, label = "sniff the first bytes, decode behind the header guard")
+    message(from = processor, to = route, label = "fresh raster, no metadata, at most 1600 px")
+    message(from = route, to = disk, label = "write <storage_key>.<jpg|png>")
+    message(from = route, to = db, label = "lock owner row, repeat the gate, insert, audit (last)")
+    message(from = route, to = disk, label = "on any refusal or exception: delete the file")
+    message(from = route, to = browser, label = "200 {id, url, position} or {error: CODE}")
+}
+----
+
+== Data
+
+[kuml, image-gallery-model, svg]
+----
+classDiagram(name = "Image gallery - attached_image and its guards") {
+    classOf(name = "AttachedImage") {
+        attribute(name = "ownerType", type = "AttachedImageOwnerType") // CROWDFUNDING_PROJECT | AUCTION_LISTING | SOCIAL_POST
+        attribute(name = "ownerId", type = "UUID") // no foreign key: one table serves several owner tables
+        attribute(name = "position", type = "Int") // 0 is the cover picture; unique per owner
+        attribute(name = "storageKey", type = "UUID") // names the file, distinct from the id
+        attribute(name = "mimeType", type = "String") // the OUTPUT type: image/jpeg or image/png
+        attribute(name = "uploadedBy", type = "UUID")
+    }
+    classOf(name = "GalleryOwnerPolicy") {
+        operation(name = "lockForWriteInTx") { returns("GalleryOwnerAccess?") }
+        operation(name = "canEdit") { returns("Boolean") }
+        operation(name = "canModerate") { returns("Boolean") }
+    }
+    classOf(name = "AttachedImageStore") {
+        operation(name = "renumberInTx") { returns("Unit") } // two-phase: 1000+i, then i
+        operation(name = "coverRefsFor") { returns("Map<Uuid, GalleryCoverRef>") } // one query per list
+        operation(name = "deleteAllForOwnerInTx") { returns("List<Pair<Uuid, String>>") } // the orphan hook
+    }
+}
+----
+
+Migration `V119__image_gallery.sql` (additive, repeatable). `owner_type` is a CHECK of the literals; `SOCIAL_POST` was added by `V120__social_post_images.sql` (V1.9.223; V119 is not edited, because V1.9.222 may already run on an
+instance and a changed checksum would break Flyway). The unique index on
+(`owner_type`, `owner_id`, `position`) is only the safety net: the service keeps the order gap-free under the owner lock. A **re-order and the closing of a gap are two-phase**
+(all affected rows to `1000 + index`, then to `index`) because a unique index is not deferrable on PostgreSQL. The model is `75-image-gallery.kuml.kts`.
+
+`AttachedImageStore` is the only code that reads or writes the table (`GalleryTripwireTest`); the DSGVO contributor goes through it as well.
+
+== Orphans
+
+There is no way to delete an auction or a crowdfunding project today, so nothing can orphan a picture through them. A social post is never hard-deleted either; its "delete" is the
+content tombstone of `executeContentErasure`, which calls the same hook (see <<social-posts>>). Three guards keep it that way:
+
+. `AttachedImageStore.deleteAllForOwnerInTx` plus `AttachedImageStorage.deleteAfterCommit` is the hook every future delete path must call in the same transaction; a tripwire fails
+  the build when a file deletes an auction or a project without calling it.
+. The start sweep `AttachedImageOrphanSweep` deletes files in `attached-images/` that no row points to, but only files named exactly `<uuid>.jpg|png`, older than 24 hours, and
+  logs only a count. There is no restore flag to consult; the age guard protects an upload in flight and a restore that is writing its rows. It runs once per start.
+. A crash between writing a file and the commit leaves such a file; the sweep removes it.
+
+== Backup and data protection
+
+* *Backup.* `attached_image` is exported with the rest of the organization data; the files (`assets/attached-images/<storage_key>.<jpg|png>`) are the fifth asset family of
+  `BACKUP_ASSET_KINDS` and are validated again on restore (strict entry name, signature of the extension, 5 MiB cap). Member photos and conference backgrounds stay excluded: they
+  are a member's private data.
+* *DSGVO.* `AttachedImagePersonalData` (section `attachedImages`) exports the metadata and the picture (base64), oldest first, never the storage key or a path. Erasure is a
+  **hard** delete of rows and files in every mode and closes the gaps of the owners. The obligation to delete outranks the freezing: an auction that already has bids simply shows
+  fewer pictures afterwards. The contributor runs in the caller's transaction, so the files are deleted inside it (like the member photo); after a rollback a row would point to a
+  missing file, which the delivery route answers with 404 and the export reports as `imageMissing`. The audit entries stay (hash chain); they carry no caption, file name or key.
+* *Audit.* `ATTACHED_IMAGE`: one `CREATE` per added and one `VOID` per removed picture (the vocabulary has no delete). Re-ordering and captions are not audited.
+
+== Not in this wave
+
+An auction edit form (there is no update RPC), pictures for comments, a delete path for auctions or projects, a gallery overlay or zoom, and a real-browser check of the new
+screens: they were tested with DOM tests in headless Chrome only.

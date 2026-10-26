@@ -68,6 +68,8 @@ data class AuctionDto(
     val createdAt: LocalDateTime,
     val endsAt: LocalDateTime,
     val settledAt: LocalDateTime?,
+    /** V1.9.222: delivery URL of the cover image (gallery position 0), or `null` when the listing has no pictures. */
+    val coverImageUrl: String? = null,
 )
 
 /**

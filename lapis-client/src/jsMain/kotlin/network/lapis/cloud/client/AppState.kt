@@ -31,6 +31,8 @@ import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
 import network.lapis.cloud.shared.rpc.EventRoomRecordingAccessLevelNotAllowedException
 import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.GalleryLockedException
+import network.lapis.cloud.shared.rpc.GalleryOrderMismatchException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
 import network.lapis.cloud.shared.rpc.MemberPhotoConsentOutdatedException
 import network.lapis.cloud.shared.rpc.MemberPhotoMissingException
@@ -171,6 +173,10 @@ internal fun typedRefusalText(e: Throwable): String? =
             conferenceEventCaptureBlockedReason(ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER)
         is ConferenceRecordingAlreadyActiveException -> tr("Es läuft bereits eine Aufzeichnung.")
         is ConferenceRoomEndedException -> tr("Diese Konferenz ist bereits beendet.")
+        // V1.9.222: the gallery of an auction with bids / a decided project is frozen; a re-order that is not a permutation of ALL
+        // pictures.
+        is GalleryLockedException -> tr("Die Bilder können nicht mehr geändert werden.")
+        is GalleryOrderMismatchException -> tr("Die Bilder wurden inzwischen geändert -- bitte die Ansicht aktualisieren.")
         else -> null
     }
 

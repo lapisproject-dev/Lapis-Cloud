@@ -7,6 +7,8 @@ import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
@@ -259,8 +261,11 @@ private fun renderConfigForm(
     config: PriceOracleConfigDto,
     onUpdated: () -> Unit,
 ) {
-    val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3 mt-2") }
-    panel.div(tr("Konfiguration bearbeiten (ADMIN)")) { addCssClass("fw-bold") }
+    // V1.9.221: the form is a closed <details>; the current configuration above it stays visible. Whether the person may edit is `canManage`.
+    val details = Tag(TAG.DETAILS, className = "border rounded mt-2")
+    details.add(Tag(TAG.SUMMARY, content = tr("Konfiguration bearbeiten"), className = "lapis-settings-summary"))
+    root.add(details)
+    val panel = details.vPanel(spacing = 6) { addCssClasses("p-3") }
 
     val anchorAssetOptions = AnchorAsset.entries.map { it.name to anchorAssetLabel(it) }
     val anchorAssetSelect =

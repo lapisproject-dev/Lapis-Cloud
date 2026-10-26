@@ -107,6 +107,7 @@ class OrganizationBackupAssetsTest :
                     eventCovers = Files.createTempDirectory("assets-src-events").toFile(),
                     articleCovers = Files.createTempDirectory("assets-src-articles").toFile(),
                     videoOverlays = Files.createTempDirectory("assets-src-overlays").toFile(),
+                    attachedImages = Files.createTempDirectory("assets-src-gallery").toFile(),
                 )
             val targetRoots =
                 BackupAssetRoots(
@@ -114,6 +115,7 @@ class OrganizationBackupAssetsTest :
                     eventCovers = Files.createTempDirectory("assets-dst-events").toFile(),
                     articleCovers = Files.createTempDirectory("assets-dst-articles").toFile(),
                     videoOverlays = Files.createTempDirectory("assets-dst-overlays").toFile(),
+                    attachedImages = Files.createTempDirectory("assets-dst-gallery").toFile(),
                 )
             val adminId = seedAdmin(sourceDb)
             val chapterSvg = Uuid.random()
@@ -297,6 +299,41 @@ class OrganizationBackupAssetsTest :
                 .readText() shouldContain "<svg"
         }
 
+        test("a gallery picture is exported under its storage_key (not its row id) and restored into the attached-images root") {
+            val env = newEnv()
+            val storageKey = Uuid.random()
+            val rowId = Uuid.random()
+            env.sourceRoots.attachedImages
+                .resolve("$storageKey.jpg")
+                .writeBytes(jpegBytes())
+            transaction(env.sourceDb) {
+                exec(
+                    "INSERT INTO attached_image (id, owner_type, owner_id, position, storage_key, mime_type, byte_size, width, height, " +
+                        "uploaded_by, created_at) VALUES ('$rowId', 'AUCTION_LISTING', '${Uuid.random()}', 0, '$storageKey', " +
+                        "'image/jpeg', 100, 64, 64, '${env.actor.memberId}', TIMESTAMP '2027-01-01 08:00:00')",
+                )
+            }
+            val bundle = export(env)
+            val names = entryNames(bundle)
+            names shouldContain "assets/attached-images/$storageKey.jpg"
+            names shouldNotContain "assets/attached-images/$rowId.jpg"
+
+            val result = restore(env, bundle)
+            result.assetsRestored shouldBe 6
+            env.targetRoots.attachedImages
+                .resolve("$storageKey.jpg")
+                .readBytes()
+                .toList() shouldBe
+                env.sourceRoots.attachedImages
+                    .resolve("$storageKey.jpg")
+                    .readBytes()
+                    .toList()
+            // never in another family's root
+            env.targetRoots.articleCovers
+                .resolve("$storageKey.jpg")
+                .exists() shouldBe false
+        }
+
         test("a crest row whose file is missing on the source does not fail the export") {
             val env = newEnv()
             env.sourceRoots.chapterCrests
@@ -469,6 +506,7 @@ class OrganizationBackupAssetsTest :
                     eventCovers = File("b"),
                     articleCovers = File("c"),
                     videoOverlays = File("d"),
+                    attachedImages = File("e"),
                 )
             BACKUP_ASSET_KINDS.map { roots.rootFor(it).path }.toSet().size shouldBe BACKUP_ASSET_KINDS.size
             shouldThrow<IllegalStateException> {

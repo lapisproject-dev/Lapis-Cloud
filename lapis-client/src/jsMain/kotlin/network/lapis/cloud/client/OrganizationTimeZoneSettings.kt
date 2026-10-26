@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
-import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -47,28 +46,33 @@ internal fun organizationZonePreview(
     at: Instant = Clock.System.now(),
 ): String = formatDateTime(at.toLocalDateTime(resolveZone(zoneId))) + NBSP + zoneAbbreviation(zoneId, at)
 
-/** Renders the settings card into [root]; the caller guarantees the viewer is an ADMIN (the server enforces it on both calls). */
-internal fun renderOrganizationTimeZoneCard(root: SimplePanel) {
-    val section = root.vPanel(spacing = 8) { addCssClasses("border rounded p-3 mt-2") }
-    section.h2(tr("Zeitzone der Organisation")) { addCssClass("h5") }
-    section.p(
+/**
+ * Renders the settings into [root] (a section of the page Organisation since V1.9.221, so no frame and no title of its own); the caller
+ * guarantees the viewer is an ADMIN (the server enforces it on both calls). [onChanged] gets the saved zone id.
+ */
+internal fun renderOrganizationTimeZoneSettings(
+    root: SimplePanel,
+    onChanged: (String) -> Unit = {},
+) {
+    root.p(
         tr(
             "Eingetragene Termine und Fristen bleiben unverändert. Systemzeitstempel und der Kalender-Feed werden " +
                 "in der neuen Zeitzone angezeigt.",
         ),
     ) { addCssClasses("text-muted small") }
-    val host = section.vPanel(spacing = 6)
+    val host = root.vPanel(spacing = 6)
     host
         .dataSection<OrganizationTimeZoneDto>(
             isEmpty = { false },
             load = { guarded { rpcService<IOrganizationTimeZoneService>().getOrganizationTimeZone() } },
-            render = { panel, dto -> renderZoneForm(panel, dto) },
+            render = { panel, dto -> renderZoneForm(panel, dto, onChanged) },
         ).reload()
 }
 
 private fun renderZoneForm(
     panel: SimplePanel,
     dto: OrganizationTimeZoneDto,
+    onChanged: (String) -> Unit,
 ) {
     val form = panel.lapisForm()
     val zoneField =
@@ -102,6 +106,7 @@ private fun renderZoneForm(
                 notifySuccess(tr("Zeitzone gespeichert."))
                 // The zone travels with the session: refreshing it re-renders every screen in the new zone.
                 refreshSessionFromServer()
+                onChanged(zoneField.value)
             }
         }
     }

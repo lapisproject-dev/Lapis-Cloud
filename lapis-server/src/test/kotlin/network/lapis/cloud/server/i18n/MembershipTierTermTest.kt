@@ -48,7 +48,7 @@ class MembershipTierTermTest :
             val msgids = messagesOf("MembershipTiersScreen.kt")
             ("Mitgliedschaftsstufen" in msgids) shouldBe true
             ("Mitgliedschaftsstufe anlegen" in msgids) shouldBe true
-            ("Mitgliedschaftsstufen" in messagesOf("Sidebar.kt")) shouldBe true
+            ("Mitgliedschaftsstufen" in messagesOf("NavRegistry.kt")) shouldBe true
             ("Mitgliedschaftsstufe" in messagesOf("ComplianceLabels.kt")) shouldBe true
         }
 

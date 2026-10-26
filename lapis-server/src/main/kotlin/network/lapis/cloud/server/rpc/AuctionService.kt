@@ -13,15 +13,20 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.gallery.AttachedImageStore
+import network.lapis.cloud.server.gallery.GalleryCoverRef
+import network.lapis.cloud.server.gallery.GalleryUrls
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AttachedImageOwnerType
 import network.lapis.cloud.shared.domain.AuctionBidDto
 import network.lapis.cloud.shared.domain.AuctionBidResultDto
 import network.lapis.cloud.shared.domain.AuctionComplianceAcknowledgmentInput
 import network.lapis.cloud.shared.domain.AuctionComplianceDisclaimerDto
 import network.lapis.cloud.shared.domain.AuctionDto
+import network.lapis.cloud.shared.domain.AuctionDurationRules
 import network.lapis.cloud.shared.domain.AuctionSettingsDto
 import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.CreateAuctionListingInput
@@ -48,10 +53,11 @@ import kotlin.uuid.Uuid
 private val LISTING_FEE_LTR = BigDecimal("0.01")
 
 /** "Aktuelle Annahme, vor Produktiveinsatz zu verifizieren" -- the minimum a new bid must clear the current second-highest bid by. */
-private val MIN_INCREMENT_LTR = BigDecimal("0.01")
+internal val MIN_INCREMENT_LTR = BigDecimal("0.01")
 
-private const val MIN_DURATION_HOURS = 1
-private const val MAX_DURATION_HOURS = 24 * 90
+// V1.9.222: the duration bounds live in lapis-shared (AuctionDurationRules) so the create form uses the very same values.
+private const val MIN_DURATION_HOURS = AuctionDurationRules.MIN_HOURS
+private const val MAX_DURATION_HOURS = AuctionDurationRules.MAX_HOURS
 
 /** DoS guard for [listAuctions]/[listMyBids]/[listMyAuctions] -- same class of cap `PoliticianService.getTopPoliticians`'s own `limit` parameter enforces. */
 private const val MAX_LIST_RESULTS = 200
@@ -375,7 +381,12 @@ class AuctionService(
             val condition: Op<Boolean>? = statusFilter?.let { AuctionTable.status eq it }
             val query = if (condition != null) AuctionTable.selectAll().where { condition } else AuctionTable.selectAll()
             val rows = query.orderBy(AuctionTable.createdAt, SortOrder.DESC).limit(MAX_LIST_RESULTS).toList()
-            rows.map { row -> rowToDto(row = row, now = now, callerId = current.memberId) }
+            val covers =
+                AttachedImageStore.coverRefsFor(
+                    type = AttachedImageOwnerType.AUCTION_LISTING,
+                    ownerIds = rows.map { it[AuctionTable.id] },
+                )
+            rows.map { row -> rowToDto(row = row, now = now, callerId = current.memberId, covers = covers) }
         }
     }
 
@@ -417,12 +428,19 @@ class AuctionService(
         requireAuctionEnabled()
         val now = nowLocalDateTime()
         return transaction {
-            AuctionTable
-                .selectAll()
-                .where { AuctionTable.sellerMemberId eq current.memberId }
-                .orderBy(AuctionTable.createdAt, SortOrder.DESC)
-                .limit(MAX_LIST_RESULTS)
-                .map { row -> rowToDto(row = row, now = now, callerId = current.memberId) }
+            val rows =
+                AuctionTable
+                    .selectAll()
+                    .where { AuctionTable.sellerMemberId eq current.memberId }
+                    .orderBy(AuctionTable.createdAt, SortOrder.DESC)
+                    .limit(MAX_LIST_RESULTS)
+                    .toList()
+            val covers =
+                AttachedImageStore.coverRefsFor(
+                    type = AttachedImageOwnerType.AUCTION_LISTING,
+                    ownerIds = rows.map { it[AuctionTable.id] },
+                )
+            rows.map { row -> rowToDto(row = row, now = now, callerId = current.memberId, covers = covers) }
         }
     }
 
@@ -758,8 +776,17 @@ class AuctionService(
         row: ResultRow,
         now: LocalDateTime,
         callerId: Uuid,
+        covers: Map<Uuid, GalleryCoverRef>? = null,
     ): AuctionDto {
         val theAuctionId = row[AuctionTable.id]
+        // V1.9.222: a list passes the covers of ALL its rows (one query); a single row looks its own up.
+        val cover =
+            (
+                covers ?: AttachedImageStore.coverRefsFor(
+                    type = AttachedImageOwnerType.AUCTION_LISTING,
+                    ownerIds = listOf(theAuctionId),
+                )
+            )[theAuctionId]
         val status = row[AuctionTable.status]
         val outcome =
             computeAuctionOutcome(
@@ -800,6 +827,7 @@ class AuctionService(
             createdAt = row[AuctionTable.createdAt],
             endsAt = row[AuctionTable.endsAt],
             settledAt = row[AuctionTable.settledAt],
+            coverImageUrl = cover?.let { GalleryUrls.imageUrl(imageId = it.imageId, storageKey = it.storageKey) },
         )
     }
 

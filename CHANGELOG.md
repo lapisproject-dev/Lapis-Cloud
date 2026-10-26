@@ -6,6 +6,173 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.41.0] — 2026-10-26
+
+Feature release on top of `[0.40.0]` (V1.9.219 to V1.9.224, six waves). Two additive migrations: **`V119`** (the image gallery, table `attached_image`) and **`V120`** (widens the owner-type check by `SOCIAL_POST`); the schema goes from `V118` to **`V120`**. One new, optional environment variable: **`LAPIS_ATTACHED_IMAGE_STORAGE_ROOT`** (unset = `attached-images/` below `LAPIS_DOCUMENT_STORAGE_ROOT`, i.e. inside the `lapis-document-storage` volume). One new runtime dependency (`com.twelvemonkeys.imageio:imageio-webp:3.12.0`, reads WebP only). No operator action beyond the usual backup and the image tag; the `attached-images/` folder must stay part of the document storage volume and of any volume backup you take yourself. **Behaviour changes first:** (1) **the dashboard no longer lists the menu as tiles**: it shows only "Für Sie" cards for what concerns the signed-in person now (outbid or won auctions, tenders closing soon, unanswered votes, elections, consensus rounds and polls, meetings within seven days, overdue or open contributions, the next registered event, decided requests, AI drafts, and for the board or the treasurer a head count); the "Schnellzugriff" row and the per-group sections of V1.9.220 are gone again; (2) **password, membership card and leaving the membership moved to "Meine Daten"** (`/dsgvo-rights`), and "Mein Konto" left the account menu; (3) **organisation-wide settings moved from the member administration to System > Organisation** (ADMIN; the old places redirect or show a pointer; the member administration keeps a read-only status line of the public member count for TREASURER, BOARD and ADMIN); (4) **"Videokonferenz" and "Begegnungsräume" show "(aktiv/gesamt)"** in the sidebar, with figures up to about 90 seconds old; (5) **an auction duration is entered as a number plus a unit** (hours, days, weeks; default 7 days; 13 weeks and more are rejected, the server maximum of 2160 hours is unchanged); (6) **pictures**: an auction gallery is frozen after the first bid or when the auction is over, a project gallery after the effective decision, social post pictures ten minutes after publishing; pictures are visible to **logged-in members only** and never appear on public pages, in mails or through MCP; (7) the navbar on phones has tap targets of at least 44 x 44 px, one common centre line and menus that stay inside the viewport. New: a **shared image gallery** for crowdfunding projects and auctions (up to 10 pictures, the first is the cover, JPEG, PNG and WebP accepted, always re-encoded on the server without metadata) and **pictures in social posts** (up to 4 per post), crowdfunding card details, the Organisation page and tidier settings pages (cost centres, auction administration, audit log, DSGVO forms, price oracle collapsed), and **backup, DSGVO export and erasure** that cover the pictures. Everything was checked with unit tests, DOM tests in headless Chrome and the H2 and PostgreSQL scenarios (the PostgreSQL lane runs only with `LAPIS_TEST_POSTGRES_URL`) and looked at once in a local browser on a test instance (the dashboard, the Organisation page and the gallery form layout only). **Not verified:** real phones and devices, Safari, a screen reader; uploads end to end (camera button, large files, WebP from real cameras) on a real instance; the dashboard signals and the sidebar counters against production data and production load; the freezing rules under concurrent bids on a real instance.
+
+### V1.9.224 -- Dashboard shows only what the menu does not; live room counters in the sidebar
+
+**BEHAVIOUR CHANGE:** the dashboard no longer shows the menu as tiles, no "Schnellzugriff" row and no per-group sections; the card "Nächste Veranstaltung" is now one of the signals (`events.nextRegistered`).
+No migration (the index test found nothing to add), one new RPC service `IDashboardService` (the LAST `registerService`; `IAttachedImageService` is second to last now), no new dependency, no new setting.
+Checked with unit, DOM (headless Chrome) and PostgreSQL tests (including an `EXPLAIN` test with sequential scans switched off); the dashboard signals were also looked at once in a local browser against a local instance with seed data; nothing was tried on a phone or on a real instance.
+
+#### Added
+
+- **"Für Sie" on the dashboard:** one card per thing that concerns the person now (outbid or won auctions, tenders closing soon, a vote / election / consensus / poll not answered yet, a meeting
+  within seven days, an overdue or open contribution, the next registered event, decided requests, AI drafts, and for the board the number of applications and for the treasurer the number of
+  overdue contributions). Server: `IDashboardService.getDashboardSignals`, one `DashboardSignalSource` per module, each in its own savepoint; only the caller's own rows (or a bare role-based
+  count, never an id); no title, name or amount of anybody else; `params` only digits or ISO dates. Sorted by priority, then deadline.
+- **"(aktiv/gesamt)" after "Videokonferenz" and "Begegnungsräume"** in the sidebar (`getNavCounts`, a poller for the whole page, once a minute while the tab is visible). Figures come from the database
+  only, up to about 90 seconds old; "gesamt" is the number of rooms open right now. Information, not a request: a muted suffix outside the label (rule R63), accessible name "Videokonferenz, 2 von 5 aktiv".
+- Cache of 20 s (signals) and 30 s (counters) per member, role and status; at most 12 uncached calls per minute and member and method (over the limit the last answer is served).
+- Tests: signal scenarios on H2 and PostgreSQL (positive and negative per source, secrets never in the JSON, a failing source is skipped), cache and limit, counters, the `EXPLAIN` index test, source-scan
+  tripwires (no media server in the counters, no id for head counts, no inline status, no member in a log line), and DOM tests for the cards, the poller and "the dashboard repeats no menu destination".
+
+#### Changed
+
+- "Gerade angemeldet" (ADMIN) moved from the "System" section to a block directly below the status chips. The explanation of the page ("Dashboard") is new.
+- `notAnEventRoom()` of `ConferenceService` is now the shared predicate `notAnEventRoomPredicate()` (the room list and the counter count the same rooms); `MIN_INCREMENT_LTR` and `DUNNING_READ_ROLES` are `internal` for reuse.
+- `ClientDataStateTripwireTest`: 193 -> 194 reads, 61 -> 62 files (`NavCountsPoller.kt`, an accepted background shape); `GalleryTripwireTest` and the registration tripwire pin the new order.
+
+#### Not done on purpose
+
+- No signal for messages, carpool or the approval queues (the menu already shows a counter), none for deadlines of elections / consensus / votes (no such column), none for "settlement open" (no such auction state).
+- The approval counters in the sidebar (`enhance`) are not moved onto the new suffix mechanism yet (open point).
+
+### V1.9.223 -- Images in social posts
+
+Migration **V120** (only widens the `attached_image.owner_type` CHECK by `SOCIAL_POST`; V119 is untouched), kUML model `75-image-gallery.kuml.kts`, one new method at the END of
+`IAttachedImageService` (`listSocialPostPreviews`), no new dependency. Checked with unit, DOM (headless Chrome) and PostgreSQL tests; nothing was looked at in a real browser, on a phone
+or on a real instance.
+
+#### Added
+
+- **Up to four pictures per root post** (5 MB each), chosen in the composer and uploaded after the post exists. A post has no draft state, so the author may add and remove pictures for
+  **ten minutes** after publishing; afterwards the gallery is frozen (`SOCIAL_POST_PUBLISHED`). Failed pictures are reported ("veröffentlicht, aber N Bild(er) ...") and can be retried.
+- No cover picture, no re-ordering and no visible caption for posts; an optional alternative text (settable once, inside the window), else "Bild N von M zum Beitrag von {Name}".
+- Feed: one picture per card with a "+N" mark (new RPC `listSocialPostPreviews`, at most 50 ids); thread view: all pictures in one column and a native `<dialog>` for the large view.
+- Visibility follows the viewer (`GalleryOwnerPolicy` takes the viewer now): root post, `VISIBLE` only (not hidden by the author, not removed for a legal reason), not content-erased.
+- Daily limit of 20 post pictures per author (`DAILY_LIMIT_REACHED`, in memory, resets on restart).
+- Tripwires: the orphan hook in `executeContentErasure`, no picture on public pages / mails / MCP, no image field in `SocialPostDto`, a future social block or mute must extend the policy.
+
+#### Changed
+
+- Post pictures are delivered with `Cache-Control: private, no-store` (other owners keep the long cache).
+- Moderation **removes** a picture (audited with `moderatedBy`) instead of hiding it; `REMOVED_LEGAL` keeps the files but makes them unreadable.
+- The upload gate admits a FRIEND for post pictures (`requireLtrEligibleMembership`, like `createPost`); auctions and projects still need an ACTIVE member.
+- A post-related erasure request (`executeContentErasure`) deletes the pictures of that post with its content.
+
+#### Limits
+
+- No pictures on comments. No social-level block or mute exists, so nothing is filtered for it. The window is 10 minutes, the alternative text can be set once.
+
+### V1.9.222 -- Image gallery for crowdfunding projects and auctions
+
+Migration **V119** (`attached_image`, additive; `audit_log_entry.entity_type` widened by `ATTACHED_IMAGE`), kUML model `75-image-gallery.kuml.kts`, a **new runtime dependency**
+`com.twelvemonkeys.imageio:imageio-webp:3.12.0` (BSD-3-Clause, pure Java, reads WebP only), a new RPC service `IAttachedImageService` (the last `registerService`, after the online counts) and
+two HTTP routes. Checked with unit, DOM (headless Chrome) and PostgreSQL tests; the form layout was looked at once in a local browser, but no picture was uploaded end to end there; nothing was tried on a phone or on a real instance.
+
+#### Added
+
+- **Gallery** for crowdfunding projects and auction listings: up to 10 pictures (5 MB each, 30 MB per object), order and cover picture (position 0), caption and alternative text, camera button
+  ("Foto aufnehmen") and file chooser. JPEG, PNG and WebP are accepted; the stored picture is always a fresh JPEG or PNG without metadata (WebP only when read).
+- **Freezing:** an auction gallery is frozen after the first bid or when the auction is over; a project gallery after the effective decision (including silence-is-approval). BOARD and ADMIN can
+  still remove a picture (audited with the moderator). The rule is one policy, `GalleryOwnerPolicy`, under the same row lock `placeBid` and `approveProject` take.
+- `coverImageUrl` on `AuctionDto` and `CrowdfundingProjectDto` (default `null`), one query per list. Cards show the cover picture; the gallery loads when its disclosure is first opened.
+- DSGVO contributor `attachedImages` (hard erasure incl. files), backup asset family `attached-images`, audit entity `ATTACHED_IMAGE`, start sweep for orphan files (older than 24 hours).
+- **Auction duration** as a number plus a unit (hours, days, weeks; default 7 days). 13 weeks and more are rejected (server maximum 2160 h, unchanged); the bound now lives in `AuctionDurationRules`.
+
+#### Changed
+
+- The crowdfunding project card shows cover picture, title, status, weight and likes; description, who and when, the decision, the gallery and the board decision moved behind a closed
+  "Details" disclosure. "Treuhänder-Werkzeuge" is a closed disclosure of its own; the distribution history stays open.
+- The create forms "Projekt einreichen" and "Neues Angebot" stay open after the object was created until every picture is uploaded (retry per picture, "Fertig").
+- `IOnlineCountsService` is second to last, `IAttachedImageService` the last `registerService`; `ConferenceTimerServiceEventGuardTripwireTest` pins the new tail.
+- `BackupAssetRoots` has a fifth root (`attachedImages`).
+
+#### Known limits
+
+- There is no update RPC for an auction, so no auction edit form: the gallery is edited in the list card while the auction has no bid.
+- `Cache-Control: private, max-age=31536000, immutable` lets a browser keep a picture after the viewer lost the right to see it (auction switched off, member left). Server side the right is enforced
+  for every fresh request; see `docs/features/image-gallery.adoc`.
+- A WebP's orientation metadata is ignored (a JPEG's EXIF orientation is applied).
+- No way to delete an auction or a project exists; the orphan hook and its tripwire are in place for the day one is added.
+
+### V1.9.221 -- Organisation page, tidier settings pages
+
+No migration (schema stays V118), client only: no RPC, no DTO, no server change. Every setting calls the RPC it called before. Checked in
+headless Chrome and once in a local browser (organisation page); nothing was looked at on real phones, in Safari or with a screen reader.
+
+#### Behaviour change
+
+- The organization-wide settings moved from the member administration to a new ADMIN page **Organisation** (`/organization`, sidebar group
+  System): time zone, public member count, video conference (noise suppression, overlays, overlay library), recording and transmission
+  (pulpit, event rooms), member finder, tenders. Five closed `<details>` sections with one summary line each; content is built on the first
+  opening; `?section=<key>` opens a section (aliases `zeitzone`, `mitgliederzahl`, `overlays`, `stream`; unknown keys are ignored).
+- `/members` keeps what must stay: the board overview of the member finder (a report, not a setting) and a **read-only status line** of the
+  public member count for TREASURER, BOARD and ADMIN, so nobody loses the information. The switch itself is ADMIN only and now on the new page.
+  The ADMIN sees a pointer with a link instead of the cards (the cards never had a route, so there is no redirect).
+
+#### Changed
+
+- Audit log: one filter row instead of two. Price oracle: the configuration form is a closed `<details>`, "(ADMIN)" removed from the text.
+  "My data": the erasure request form starts closed behind "Antrag stellen". Cost centres, auction and compliance already had collapsed
+  create forms and were left alone.
+- `renderConferenceDefaultsCard`, `renderOrganizationTimeZoneCard`, `renderTenderDefaultsCard` and `renderPublicMemberCountToggle` are gone,
+  replaced by section renderers without a frame. 15 i18n entries added, one renamed ("Konfiguration bearbeiten"), in all catalogs.
+- Docs: `docs/features/organisation-settings.adoc` (inventory, rules), feature docs point to the new place, one sentence in rule R36B.
+
+### V1.9.220 -- dashboard redesign: tiles grouped like the sidebar
+
+No migration (schema stays V118), client only: no RPC, no DTO, no server change. Seven i18n entries changed or added in all catalogs (see Changed),
+four removed. Checked in headless Chrome and once in a local browser (dashboard); nothing was looked at on real phones, in Safari or with a screen reader.
+
+#### Changed
+
+- Dashboard: a responsive grid of tiles, grouped exactly like the sidebar (one section per group, a "Schnellzugriff" row for the flat
+  entries), status/role/session as three chips, and a "Nächste Veranstaltung" card for people who have the Veranstaltungen entry (one
+  request, no toast, nothing shown when there is no event or the request fails). Tiles and sidebar are built from one list, the new
+  `NavRegistry`; a new menu item belongs there and nowhere else. `SidebarGoldenTest` pins the sidebar of every kind of person byte for byte;
+  `DashboardTilesMatchSidebarDomTest` pins the tiles against the sidebar. The tile list is no longer hand-written (the old one offered
+  only 7 to 13 destinations and was not role-complete).
+- Account actions moved to "Meine Daten" (`/dsgvo-rights`), in the order photo, public profile, MCP, e-mail, address, **password**,
+  **membership card** (download and revocation under one heading), access/export, rankings, erasure request, **leaving the membership**;
+  the administration areas follow. The text of the card revocation dialog now says "auf dieser Seite" instead of "auf der Startseite".
+- The account menu of the navbar loses "Mein Konto" (the dashboard is the first sidebar entry); "Meine Daten" and "Abmelden" stay.
+  "Abmelden" is no longer on the dashboard -- it is reachable in the account menu on every viewport.
+- `GROUP_ROUTES` is derived from the registry. Behaviour change: Bankkonten and Ehrenamtspauschalen are now part of it, so their groups
+  open on a deep link and the active highlight marks the right group (the two routes were missing before). The two sub-flow routes without
+  a sidebar link (event import, article import) keep their group.
+- Page intros of the dashboard and of "Meine Daten" rewritten for the new layout.
+
+#### Added
+
+- `NavRegistry` (routes, labels, icons, group, per-row visibility; the group gate is a separate predicate), `NavContext`, and the
+  dashboard components `NextEventRpc`, `MemberFinderNav.onChangeScoped` (a listener that survives a sidebar rebuild and is removed when the screen leaves).
+- Tests: `SidebarGoldenTest`, `NavRegistryTest`, `DashboardTilesMatchSidebarDomTest`, `DashboardNextEventDomTest`, `DashboardLayoutDomTest`
+  (one column at 375 px, three or more at 1200 px, no horizontal scroll), a navbar account-menu test.
+
+#### Removed
+
+- i18n entries "Bereiche", "Mein Konto", "Digitaler Mitgliedsausweis" and the combined "Status: %1 · Rolle: %2 · Sitzung gültig bis %3" line.
+
+#### Notes
+
+- R58 (icon-only row actions) is not applicable: the dashboard has no table rows. The tile grid adds no scroll area of its own.
+- Guests and friends also see password and leaving on "Meine Daten" (unchanged); the dashboard intro names all three.
+
+### V1.9.219 -- navbar on phones
+
+No migration (schema stays V118), client only: no RPC, no DTO, no server change, no new i18n string. Nothing was checked on real phones.
+
+#### Fixed
+
+- Navbar on phones: the account icon now shares one vertical centre line with the other icon buttons (all at least 44x44 px); the
+  account and language menus align to the right edge and stay inside the viewport (no horizontal scroll), long entries wrap. The tap
+  targets and the icon spacing are visibly different for operators. Cause: the account trigger was `inline-block` with
+  `vertical-align: bottom`. New test
+  `NavbarMobileDomTest` measures the real navbar markup at 360, 375, 390 and 1280 px.
+
 ## [0.40.0] — 2026-10-25
 
 Feature release on top of `[0.39.0]` (V1.9.207 to V1.9.218, twelve waves). One additive migration: **`V118`** (the time and method of the last sign-in on `account`); the schema goes from `V117` to **`V118`**. Two new, optional environment variables: **`LAPIS_THEME_PATH`** (a theme directory, unset by default) and **`LAPIS_SHARE_NETWORKS`** (the networks of the share bar, all by default). No operator action beyond the usual backup and the image tag. **Behaviour changes first:** (1) **the Lapis Cloud mark is the default brand mark**: an instance with a custom `LAPIS_BRAND_TITLE` and no `LAPIS_BRAND_LOGO_PATH` now shows the mark in the navbar, on the sign-in page and in the chrome of the public pages (set `LAPIS_BRAND_LOGO_PATH` to replace it; an operator logo still wins everywhere); (2) **the pages that carry a share bar** (event detail, article, post) widen their Content-Security-Policy by `script-src 'self'` when the copy-link or native-share entry is enabled, every other response keeps its policy, and the public pages now also allow `font-src 'self'`; the share bar itself is **on by default** on instances with an https base URL (`LAPIS_SHARE_NETWORKS=` switches it off); (3) **the favicon files are in the client image again**: since 0.38.0 `/favicon.ico` and the other icons answered 404 (fixed in V1.9.213); (4) the public pages now use the theme tokens, so their default look changed slightly (in dark mode the page chrome is `#0B0E12` instead of `#14181E`, the active navigation entry light grey instead of gold, primary buttons Lapis blue instead of gold); (5) the navbar is **sticky** on every viewport and carries a larger logo (32 px); (6) master tables turn into **cards below 768 px**; (7) the admin member list gets a **last sign-in column** and the dashboard an ADMIN-only tile **"Gerade angemeldet"** (head counts only). New and optional: **themes from files** (colours, corner radius and self-hosted fonts per instance, read once at startup, file based only -- there is **no administration screen** for themes, and **no font binaries are shipped**, an operator must add their own `.woff2` files and licence file), **share buttons** on three kinds of public pages, six stream presets that **prefill nothing**. Accounts that signed in before `V118` show "nie angemeldet" until their next sign-in. Everything was checked in headless Chrome and on H2 only; PostgreSQL scenarios run only with `LAPIS_TEST_POSTGRES_URL`; nothing was looked at on real phones or devices, in Safari or with a screen reader; the stream presets and the share links were not tried against the real platforms; the themes were not judged by eye on a running instance beyond the automated checks.

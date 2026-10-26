@@ -83,6 +83,8 @@ object PersonalDataRegistry {
             TenderPersonalData,
             // V1.9.156: the capture-consent proofs of event rooms (retained, no name, no clock time).
             EventCapturePersonalData,
+            // V1.9.222: pictures a member uploaded to a crowdfunding project or an auction (hard erasure, files included).
+            AttachedImagePersonalData,
         )
 
     /**

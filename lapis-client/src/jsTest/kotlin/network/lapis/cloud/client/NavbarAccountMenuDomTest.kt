@@ -8,6 +8,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -147,5 +148,20 @@ class NavbarAccountMenuDomTest {
     @Test
     fun accountTriggerLabel_sanitizes() {
         assertEquals("Ja", accountTriggerLabel(session(KV_I18N_MARKER + "Ja")))
+    }
+
+    /** V1.9.220: "Mein Konto" is gone (the dashboard is in the sidebar); "Meine Daten" and "Abmelden" remain. */
+    @Test
+    fun accountMenu_hasMeineDaten_andAbmelden_butNoMeinKonto() {
+        withNavbar("navbar-account-items", session("Maria Muster")) { element ->
+            val items =
+                element()
+                    .querySelectorAll(".dropdown-menu a.dropdown-item")
+                    .asList()
+                    .map { (it as HTMLElement).textContent.orEmpty().trim() }
+            assertTrue(items.none { it.contains("Mein Konto") }, "no 'Mein Konto' in $items")
+            assertTrue(items.any { it.contains("Meine Daten") }, "'Meine Daten' in $items")
+            assertTrue(items.any { it.contains("Abmelden") }, "'Abmelden' in $items")
+        }
     }
 }

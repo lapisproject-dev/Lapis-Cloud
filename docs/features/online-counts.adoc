@@ -3,7 +3,7 @@
 
 == Purpose
 
-The dashboard of an ADMIN shows a tile "Gerade angemeldet" with two head counts: how many people are *active right now* and how many are *signed in* at all.
+The dashboard of an ADMIN shows a block "Gerade angemeldet" (since V1.9.224 directly below the status chips, above "Für Sie") with two head counts: how many people are *active right now* and how many are *signed in* at all.
 Only counts are shown. No name, no id. Nothing new is stored, and the server writes no log line with a figure or a person.
 
 == Rules
@@ -31,7 +31,7 @@ The mapping lives in one place, `OnlineSessionCounts.groupOf`, a `when` without 
 
 == Access
 
-`IOnlineCountsService.onlineCounts` requires the ADMIN role as its first statement; BOARD does not imply it. The service is the last registered RPC service.
+`IOnlineCountsService.onlineCounts` requires the ADMIN role as its first statement; BOARD does not imply it. Since V1.9.224 it is the third to last registered RPC service (the image gallery service and then the dashboard service follow).
 The response carries `total`, `members`, `friends`, `guests` and `other` for both counts, the window (15 minutes), the session lifetime (8 hours) and
 `computedAt`, a class-A system timestamp in UTC that the client shows in the organization zone (`formatSystemTime`).
 

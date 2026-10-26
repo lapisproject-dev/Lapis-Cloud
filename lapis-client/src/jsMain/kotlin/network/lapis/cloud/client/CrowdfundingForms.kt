@@ -11,6 +11,7 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.AttachedImageOwnerType
 import network.lapis.cloud.shared.domain.CrowdfundingProjectInput
 import network.lapis.cloud.shared.rpc.ICrowdfundingService
 
@@ -18,6 +19,13 @@ import network.lapis.cloud.shared.rpc.ICrowdfundingService
  * V1.9.48 (R36B): the two create forms of the crowdfunding screen, built into the host of a collapsible create form
  * ([collapsibleCreateForm]) -- "Projekt einreichen" (page header) and "Verteilung berechnen" (title row "Treuhänder-Werkzeuge").
  * Behaviour, validation and RPCs are unchanged from before the move; only the collapse callback and the [FormSnapshot] are new.
+ *
+ * V1.9.222: the submit form carries a picture gallery ([ImageGalleryEditor], buffer mode). After `submitProject` the form STAYS OPEN
+ * until
+ * every
+ * picture is uploaded -- the project (and its stake) exists then, so a failed picture is retried without losing it; only a clean finish
+ * (or
+ * "Fertig") folds the form back.
  */
 
 internal fun renderSubmitProjectForm(
@@ -31,6 +39,23 @@ internal fun renderSubmitProjectForm(
     val titleInput = panel.text(label = tr("Titel"))
     val descriptionInput = panel.textArea(label = tr("Beschreibung"), rows = 3)
     val weightInput = panel.text(label = tr("Sichtbarkeits-Gewicht (LTR)"))
+    // The project is created before its pictures are uploaded; the form folds back only when nothing is left to upload or retry.
+    var createdId: String? = null
+    var finished = false
+    lateinit var galleryEditor: ImageGalleryEditor
+
+    fun finish() {
+        if (finished) return
+        finished = true
+        collapse?.invoke(true)
+        onCompleted()
+    }
+    galleryEditor =
+        panel.imageGalleryEditor(
+            AttachedImageOwnerType.CROWDFUNDING_PROJECT,
+            ownerTitle = { titleInput.value.orEmpty().trim() },
+            onChange = { if (createdId != null && !galleryEditor.hasFailures() && galleryEditor.pendingCount() == 0) finish() },
+        )
     // D7 (must-fix, resolved by reading CrowdfundingService.kt in full): the stake is NEVER
     // refunded -- not on rejection, not on approval, there is no release path in this codebase at
     // all (LtrLedgerEntryType.PROJECT_STAKE_RELEASE is reserved-and-unused). Stated plainly, not
@@ -49,6 +74,8 @@ internal fun renderSubmitProjectForm(
     val buttonRow = panel.hPanel(spacing = 8)
     val submitButton = buttonRow.actionButton(ActionIcon.SEND, tr("Projekt einreichen"), style = ButtonStyle.PRIMARY)
     if (collapse != null) buttonRow.add(collapseCancelButton(collapse))
+    val doneButton = newActionButton(ActionIcon.APPROVE, tr("Fertig"), ButtonStyle.PRIMARY)
+    doneButton.onClick { finish() }
 
     submitButton.onClick {
         errorBox.hide()
@@ -85,16 +112,32 @@ internal fun renderSubmitProjectForm(
                             CrowdfundingProjectInput(title = title, description = description, initialWeightLtr = weight),
                         )
                     }
-                submitButton.disabled = false
-                if (result != null) {
-                    notifySuccess(gettext("Projekt \"%1\" eingereicht.", result.title))
-                    collapse?.invoke(true)
-                    onCompleted()
+                if (result == null) {
+                    submitButton.disabled = false
+                    return@launch
+                }
+                notifySuccess(gettext("Projekt \"%1\" eingereicht.", result.title))
+                // The project exists now (the stake is booked): the button stays off so it cannot be submitted twice.
+                createdId = result.id
+                if (galleryEditor.pendingCount() == 0 || galleryEditor.uploadPending(result.id)) {
+                    finish()
+                } else {
+                    errorBox.content = tr("Projekt wurde eingereicht; einzelne Bilder fehlen noch.")
+                    errorBox.show()
+                    buttonRow.removeAll()
+                    buttonRow.add(doneButton)
                 }
             }
         }
     }
-    return FormSnapshot { listOf(titleInput.value.orEmpty(), descriptionInput.value.orEmpty(), weightInput.value.orEmpty()) }
+    return FormSnapshot {
+        listOf(
+            titleInput.value.orEmpty(),
+            descriptionInput.value.orEmpty(),
+            weightInput.value.orEmpty(),
+            galleryEditor.pendingCount().toString(),
+        )
+    }
 }
 // ================================================================================================
 // Distribution compute form

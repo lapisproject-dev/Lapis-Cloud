@@ -1740,3 +1740,10 @@ the generated Exposed tables are in `server/db/generated/`.
 * `audit_log_entry.entity_type` additionally accepts `COMMITTEE` (counts and ids of committees only).
 
 See link:../features/rule-based-committees.adoc[Rule-based committees] for the behaviour.
+
+== Image gallery (V1.9.222)
+
+`75-image-gallery.kuml.kts` models `attached_image` (migration V119): a picture of a crowdfunding project or an auction listing, addressed by (`owner_type`, `owner_id`) without a foreign
+key because one table serves several owner tables. `position` is gap-free per owner and position 0 is the cover picture; `storage_key` (a server UUID, distinct from the id) names the file;
+`mime_type` is the OUTPUT type (JPEG or PNG; a WebP upload is stored as JPEG, or PNG with transparency). `CrowdfundingProjectDto.coverImageUrl` and `AuctionDto.coverImageUrl` are filled by ONE query
+per list. The auction duration bounds moved to `AuctionDurationRules` in lapis-shared (value unchanged: 1 to 2160 hours). See link:../features/image-gallery.adoc[image-gallery.adoc].

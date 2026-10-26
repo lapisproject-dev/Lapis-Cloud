@@ -57,7 +57,7 @@ services:
     # V1.9.93: the server pulls the image CI published for a release tag instead of compiling the sources itself.
     # LAPIS_IMAGE_TAG is an exact version without the leading `v` (never `latest`); rollback = set the old value.
     # To build from source instead, add the override file: see docker-compose.build.yml.
-    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.40.0)}
+    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.41.0)}
     container_name: lapis-cloud-server
     depends_on:
       postgres:
@@ -169,6 +169,8 @@ services:
       # Themes per file (V1.9.216) -- OPTIONAL, unset by default: an absolute in-container path to a theme directory, see
       # docs/features/theming.adoc. Needs the ./theme volume below (commented out until you use it).
       LAPIS_THEME_PATH: ${LAPIS_THEME_PATH:-}
+      # Picture gallery (V1.9.222) -- OPTIONAL, empty = attached-images/ inside the document storage volume (backed up with it).
+      LAPIS_ATTACHED_IMAGE_STORAGE_ROOT: ${LAPIS_ATTACHED_IMAGE_STORAGE_ROOT:-}
       # Vorstands-Karte (V1.9.5) -- OPTIONAL, unset by default, see README.adoc "Member map
       # (optional)" and MemberMapConfig KDoc. Never fail-fast: unset/invalid/missing just means the
       # BOARD/ADMIN-only map screen shows its "no basemap configured" state.

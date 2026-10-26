@@ -6,6 +6,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import kotlin.js.Promise
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * V1.9.50 -- rule R57 on "Meine Daten": the two verb buttons of the screen itself ("Auskunftsübersicht anzeigen" = VIEW, "Löschung
@@ -32,6 +33,12 @@ class DsgvoRightsScreenActionIconsDomTest {
                         element().textContent.orEmpty().contains("Löschung beantragen")
                     }
                     assertButtonIcon(element(), "Auskunftsübersicht anzeigen", "fa-eye")
+                    // V1.9.221: the request form starts closed; its submit button exists once the opener was pressed
+                    assertTrue(element().allOf("button").none { it.textContent?.trim() == "Löschung beantragen" }, "form starts closed")
+                    element().buttonNamed("Antrag stellen").click()
+                    awaitUntil(
+                        "the erasure form is open",
+                    ) { element().allOf("button").any { it.textContent?.trim() == "Löschung beantragen" } }
                     assertButtonIcon(element(), "Löschung beantragen", "fa-paper-plane")
                 }
             }

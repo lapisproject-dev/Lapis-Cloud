@@ -47,7 +47,6 @@ import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IMemberPhotoService
 import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
 import network.lapis.cloud.shared.rpc.IMemberService
-import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IRegionalChapterService
 import network.lapis.cloud.shared.rpc.IRegistrationService
 
@@ -116,16 +115,11 @@ private fun renderMemberAdministrationSections(
     // IKeycloakLinkService's own role gate), and only in Keycloak mode -- see KeycloakLinkScreen.kt
     // class KDoc "house rule ... never offer an action the server rejects anyway".
     if (callerRole == AccountRole.ADMIN && AppState.session?.keycloakMode == true) renderKeycloakLinkSection(root)
-    // Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit": visible to TREASURER/BOARD/ADMIN alike (same read
-    // gate IOrganizationSettingsService.getOrganizationSettings already enforces server-side), but
-    // ADMIN-only to CHANGE -- see renderPublicMemberCountToggle KDoc for why this deliberately does
-    // NOT mirror renderPoliticianRankingToggle's canAdmin computation (BOARD there IS writable).
-    renderPublicMemberCountToggle(root, canAdmin = callerRole == AccountRole.ADMIN)
-    // Welle V1.9.38 "Einheitliche Zeitzonen": ADMIN-only (both RPC methods are), see OrganizationTimeZoneSettings.kt.
-    if (callerRole == AccountRole.ADMIN) renderOrganizationTimeZoneCard(root)
-    if (callerRole == AccountRole.ADMIN) renderConferenceDefaultsCard(root)
-    // V1.9.201: the pre-selected bid visibility of new tenders (ADMIN only; the server enforces it).
-    if (callerRole == AccountRole.ADMIN) renderTenderDefaultsCard(root)
+    // V1.9.221: the organization-wide settings (time zone, video conference, recording, member finder, tenders and the switch for the public
+    // member count) moved to the ADMIN page Organisation (OrganizationScreen.kt). What stays here: a pointer for the ADMIN and the READ-ONLY
+    // status line of the public member count, which TREASURER/BOARD/ADMIN alike may see (the same read gate as getOrganizationSettings).
+    if (callerRole == AccountRole.ADMIN) renderOrganizationMovedHint(root)
+    renderPublicMemberCountStatusLine(root, canAdmin = callerRole == AccountRole.ADMIN)
     // V1.9.145: the bands of the member finder per region (BOARD/ADMIN; draws nothing while the finder is off).
     if (isBoardOrAdmin) renderMemberFinderBoardCard(root)
 }
@@ -2097,109 +2091,8 @@ fun pagerLabel(
     return gettext("%1–%2 von %3", from, to, totalCount)
 }
 
-// ================================================================================================
-// Öffentliche Sichtbarkeit: showPublicMemberCount toggle (IOrganizationSettingsService)
-// ================================================================================================
-
 /**
- * Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit" -- exact same wholesale-replace pattern
- * [renderPoliticianRankingToggle] (`PoliticianScreen.kt`) established: ADMIN replaces the FULL
- * [OrganizationSettingsDto] wholesale, copying every existing field unchanged and flipping ONLY
- * `showPublicMemberCount` ([toInputWithShowPublicMemberCount]).
- *
- * **Deliberately NOT the same `canAdmin` treatment as [renderPoliticianRankingToggle]'s own caller**
- * (there, `canAdmin` covers BOARD too): `updateOrganizationSettings` replaces the ENTIRE
- * [OrganizationSettingsDto] -- IBAN, DATEV-Berater-/Mandantennummer, Konten-Zuordnung -- and giving
- * BOARD write access here (even though the *toggle itself* is harmless) would open that whole
- * surface to BOARD just to save one click. TREASURER/BOARD see the current state READ-ONLY, same
- * "cannot silently activate/deactivate a feature" tier [renderPoliticianRankingToggle] establishes
- * for its own `canAdmin == false` branch. Placed in `MemberAdministrationScreen.kt` (not
- * `PoliticianScreen.kt` or `EmbedIntegrationScreen.kt`, the latter explicitly read-only by its own
- * KDoc) -- this setting governs what a visitor of the public member-facing pages sees, closest in
- * spirit to this screen's own membership-roster concerns.
- */
-private fun renderPublicMemberCountToggle(
-    root: SimplePanel,
-    canAdmin: Boolean,
-) {
-    val section = root.vPanel(spacing = 8) { addCssClasses("border rounded p-3 mt-2") }
-    section.h2(tr("Öffentliche Sichtbarkeit")) { addCssClass("h5") }
-    section.p(
-        tr(
-            "Legt fest, ob die Zahl der aktiven Mitglieder auf der öffentlichen Startseite und der " +
-                "Transparenzseite erscheint. Beiträge und LTR-Kennzahlen bleiben davon unberührt.",
-        ),
-    ) { addCssClasses("text-muted small") }
-    val panel = section.vPanel(spacing = 6)
-    panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-
-    fun load() {
-        panel.removeAll()
-        panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val settings = guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() } ?: return@launch
-            panel.removeAll()
-            val statusRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            statusRow.div(tr("Mitgliederzahl öffentlich:")) { addCssClasses("text-muted small") }
-            statusRow.statusBadge(
-                if (settings.showPublicMemberCount) tr("Sichtbar") else tr("Verborgen"),
-                if (settings.showPublicMemberCount) "success" else "secondary",
-            )
-            if (canAdmin) {
-                val toggleButton =
-                    panel.button(
-                        if (settings.showPublicMemberCount) tr("Verbergen") else tr("Anzeigen"),
-                        style = if (settings.showPublicMemberCount) ButtonStyle.OUTLINESECONDARY else ButtonStyle.PRIMARY,
-                    )
-                toggleButton.onClick {
-                    val newValue = !settings.showPublicMemberCount
-                    confirmDialog(
-                        title = if (newValue) tr("Mitgliederzahl öffentlich anzeigen") else tr("Mitgliederzahl verbergen"),
-                        message =
-                            if (newValue) {
-                                tr(
-                                    "Die aktuelle Zahl der aktiven Mitglieder ist dann für alle Besucher ohne " +
-                                        "Anmeldung sichtbar. Die Änderung wird innerhalb weniger Minuten wirksam.",
-                                )
-                            } else {
-                                tr(
-                                    "Die Mitgliederzahl wird auf der öffentlichen Startseite und der " +
-                                        "Transparenzseite nicht mehr angezeigt. Die Änderung wird innerhalb " +
-                                        "weniger Minuten wirksam.",
-                                )
-                            },
-                        confirmLabel = if (newValue) tr("Anzeigen") else tr("Verbergen"),
-                    ) {
-                        runGuardedAction(toggleButton) {
-                            val result =
-                                guarded {
-                                    rpcService<IOrganizationSettingsService>().updateOrganizationSettings(
-                                        settings.toInputWithShowPublicMemberCount(newValue),
-                                    )
-                                }
-                            if (result != null) {
-                                notifySuccess(
-                                    if (newValue) {
-                                        tr("Mitgliederzahl wird öffentlich angezeigt.")
-                                    } else {
-                                        tr("Mitgliederzahl wird öffentlich nicht mehr angezeigt.")
-                                    },
-                                )
-                                load()
-                            }
-                        }
-                    }
-                }
-            } else {
-                panel.p(tr("Ein ADMIN kann diese Einstellung ändern.")) { addCssClasses("text-muted small") }
-            }
-        }
-    }
-    load()
-}
-
-/**
- * Wholesale-replace helper (see [renderPublicMemberCountToggle] KDoc) -- copies every field of an
+ * Wholesale-replace helper (see [renderPublicMemberCountSwitch] KDoc) -- copies every field of an
  * already-fetched [OrganizationSettingsDto] unchanged except
  * [OrganizationSettingsDto.showPublicMemberCount]. `internal` (not `private`), same visibility
  * rationale [toInputWithPoliticianRankingEnabled] KDoc gives, so a client test can cover the

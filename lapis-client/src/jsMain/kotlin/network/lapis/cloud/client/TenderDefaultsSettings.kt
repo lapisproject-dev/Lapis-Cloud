@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.html.ButtonStyle
-import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -31,22 +30,27 @@ internal fun tenderVisibilityLabel(visibility: TenderBidVisibility): String =
         TenderBidVisibility.OWN_ONLY -> gettext("Nur eigenes Angebot sichtbar")
     }
 
-/** Renders the card into [root]; the caller guarantees the viewer is an ADMIN (the server enforces it on the call). */
-internal fun renderTenderDefaultsCard(root: SimplePanel) {
-    val section = root.vPanel(spacing = 8) { addCssClasses("border rounded p-3 mt-2") }
-    section.h2(tr("Ausschreibungen")) { addCssClass("h5") }
-    val host = section.vPanel(spacing = 6)
+/**
+ * Renders the setting into [root] (a section of the page Organisation since V1.9.221, so no frame and no title of its own); the caller
+ * guarantees the viewer is an ADMIN (the server enforces it on the call). [onChanged] gets the saved visibility.
+ */
+internal fun renderTenderDefaultsSettings(
+    root: SimplePanel,
+    onChanged: (TenderBidVisibility) -> Unit = {},
+) {
+    val host = root.vPanel(spacing = 6)
     host
         .dataSection<OrganizationSettingsDto>(
             isEmpty = { false },
             load = { guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() } },
-            render = { panel, dto -> renderTenderDefaultsForm(panel, dto.tenderDefaultVisibility) },
+            render = { panel, dto -> renderTenderDefaultsForm(panel, dto.tenderDefaultVisibility, onChanged) },
         ).reload()
 }
 
 private fun renderTenderDefaultsForm(
     panel: SimplePanel,
     initial: TenderBidVisibility,
+    onChanged: (TenderBidVisibility) -> Unit,
 ) {
     var lastSaved = initial
     val form = panel.lapisForm()
@@ -79,6 +83,7 @@ private fun renderTenderDefaultsForm(
                 field.setValue(lastSaved.name)
             } else {
                 lastSaved = wanted
+                onChanged(wanted)
                 notifySuccess(tr("Gespeichert."))
             }
         }

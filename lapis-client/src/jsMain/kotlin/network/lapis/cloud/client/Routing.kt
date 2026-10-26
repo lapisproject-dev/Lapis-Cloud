@@ -311,6 +311,13 @@ object Routes {
     // `endRoom`/`removeParticipant` split.
     const val CONFERENCE_STREAM_DESTINATIONS = "/conference-stream-destinations"
 
+    /**
+     * V1.9.221 -- the ADMIN page "Organisation": the settings of the whole organization in five collapsible sections (`OrganizationScreen.kt`).
+     * Route-level [AccountRole.ADMIN] gate like [BACKUP]/[CONFERENCE_STREAM_DESTINATIONS]; the RPCs behind it enforce ADMIN again. Optional
+     * deep link `?section=<key>`.
+     */
+    const val ORGANIZATION = "/organization"
+
     // Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" -- `ISocialNetworkService`,
     // self-contained domain: Timeline lesen, Post verfassen (Inhalt + LTR-Einsatz +
     // Sichtbarkeitsstufe), eigenen Post unsichtbar machen. Role gate verified against
@@ -1109,6 +1116,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.CONFERENCE_STREAM_DESTINATIONS) {
         requireRole(routing, AccountRole.ADMIN) {
             show(Routes.CONFERENCE_STREAM_DESTINATIONS, ::renderConferenceStreamDestinationsScreen)
+        }
+    }
+    routing.kvOn(Routes.ORGANIZATION) {
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.ORGANIZATION) { container -> renderOrganizationScreen(container, hashQueryParam("section")) }
         }
     }
     routing.kvOn(Routes.SOCIAL_NETWORK) {

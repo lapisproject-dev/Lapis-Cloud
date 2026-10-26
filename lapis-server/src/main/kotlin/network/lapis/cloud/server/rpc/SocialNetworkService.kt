@@ -19,10 +19,14 @@ import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.gallery.AttachedImageStorage
+import network.lapis.cloud.server.gallery.AttachedImageStore
+import network.lapis.cloud.server.gallery.GalleryAudit
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.social.PostDraftStore
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AttachedImageOwnerType
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
@@ -82,7 +86,7 @@ private const val MAX_CONTENT_LENGTH = 5_000
 private const val MAX_TIMELINE_LIMIT = 100
 
 /** Welle V1.1.5 -- BOARD/ADMIN, Muster `ContributionService.kt`'s eigene `X_BOARD_ROLES`-Konstante. */
-private val SOCIAL_MODERATION_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
+internal val SOCIAL_MODERATION_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 
 /** `SocialPostTable.stateReason`-Spaltenbreite, Pflicht-Begründung von [SocialNetworkService.removePostForLegalReason]. */
 private const val MAX_MODERATION_REASON_LENGTH = 2_000
@@ -149,7 +153,7 @@ internal const val LEGAL_REMOVAL_FALLBACK_REASON = "Dieser Beitrag wurde aus rec
  * [requireBoostRateLimit] KDoc for why it is its OWN limiter rather than sharing
  * [createRateLimiter]'s budget the way [createComment] does.
  */
-class SocialNetworkService(
+class SocialNetworkService internal constructor(
     private val call: ApplicationCall,
     private val createRateLimiter: FederationInboxRateLimiter,
     private val readRateLimiter: FederationInboxRateLimiter,
@@ -159,6 +163,12 @@ class SocialNetworkService(
     /** Welle V1.1.5 -- `reportPost` (jeder authentifizierte Aufrufer, 5/Stunde). */
     private val reportRateLimiter: FederationInboxRateLimiter,
     private val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider(),
+    /**
+     * V1.9.223 -- where the pictures of a post live; [executeContentErasure] deletes the files AFTER the commit. `null` (tests that do
+     * not exercise pictures) skips the file delete only; the rows are removed regardless and the start-up orphan sweep removes any
+     * leftover file.
+     */
+    private val attachedImageStorage: AttachedImageStorage? = null,
 ) : ISocialNetworkService {
     override suspend fun createPost(input: SocialPostInput): SocialPostDto {
         val current = resolveCurrentMember(call)
@@ -1090,65 +1100,77 @@ class SocialNetworkService(
         requireModerationRateLimit(memberId = current.memberId)
         val id = erasureId.toSocialUuid()
         val now = DbClock.nowLocalDateTime()
-        return transaction {
-            // Sperrreihenfolge: Erasure-Zeile zuerst (serialisiert zwei gleichzeitige execute-Aufrufe
-            // auf denselben Antrag), dann die Post-Zeile.
-            val erasureRow =
-                SocialPostErasureTable
-                    .selectAll()
-                    .where { SocialPostErasureTable.id eq id }
-                    .forUpdate()
-                    .singleOrNull() ?: throw NotFoundException("SocialPostErasure $erasureId not found")
-            if (erasureRow[SocialPostErasureTable.status] != SocialPostErasureStatus.APPROVED) {
-                throw ConflictException("SocialPostErasure $erasureId is not APPROVED")
-            }
-            val postId = erasureRow[SocialPostErasureTable.postId]
-            val postRow =
-                SocialPostTable
-                    .selectAll()
-                    .where { SocialPostTable.id eq postId }
-                    .forUpdate()
-                    .singleOrNull() ?: throw NotFoundException("SocialPost $postId not found")
-            val alreadyTombstoned = postRow[SocialPostTable.contentErasedAt] != null
-            if (!alreadyTombstoned) {
-                SocialPostTable.update({ SocialPostTable.id eq postId }) {
-                    it[content] = SocialContentTombstone.ON_POST_REQUEST
-                    it[contentErasedAt] = now
-                    it[contentErasureNote] = "Post-bezogener Loeschantrag $id, Art. 17 DSGVO"
+        val removedImageKeys = mutableListOf<Uuid>()
+        val result =
+            transaction {
+                removedImageKeys.clear() // Exposed may repeat the block
+                // Sperrreihenfolge: Erasure-Zeile zuerst (serialisiert zwei gleichzeitige execute-Aufrufe
+                // auf denselben Antrag), dann die Post-Zeile.
+                val erasureRow =
+                    SocialPostErasureTable
+                        .selectAll()
+                        .where { SocialPostErasureTable.id eq id }
+                        .forUpdate()
+                        .singleOrNull() ?: throw NotFoundException("SocialPostErasure $erasureId not found")
+                if (erasureRow[SocialPostErasureTable.status] != SocialPostErasureStatus.APPROVED) {
+                    throw ConflictException("SocialPostErasure $erasureId is not APPROVED")
                 }
-            }
-            SocialPostErasureTable.update({ SocialPostErasureTable.id eq id }) {
-                it[status] = SocialPostErasureStatus.EXECUTED
-                it[executedAt] = now
-            }
-            // Als LETZTE sperrende Operation. Snapshot traegt NIEMALS content.
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.SOCIAL_POST,
-                entityId = postId,
-                action = AuditAction.UPDATE,
-                before =
-                    Json.encodeToString(
-                        SocialPostModerationSnapshot(
-                            state = postRow[SocialPostTable.state],
-                            stateReason = postRow[SocialPostTable.stateReason],
-                            visibility = postRow[SocialPostTable.visibility],
-                            contentErasedAt = postRow[SocialPostTable.contentErasedAt],
+                val postId = erasureRow[SocialPostErasureTable.postId]
+                val postRow =
+                    SocialPostTable
+                        .selectAll()
+                        .where { SocialPostTable.id eq postId }
+                        .forUpdate()
+                        .singleOrNull() ?: throw NotFoundException("SocialPost $postId not found")
+                val alreadyTombstoned = postRow[SocialPostTable.contentErasedAt] != null
+                if (!alreadyTombstoned) {
+                    SocialPostTable.update({ SocialPostTable.id eq postId }) {
+                        it[content] = SocialContentTombstone.ON_POST_REQUEST
+                        it[contentErasedAt] = now
+                        it[contentErasureNote] = "Post-bezogener Loeschantrag $id, Art. 17 DSGVO"
+                    }
+                }
+                SocialPostErasureTable.update({ SocialPostErasureTable.id eq id }) {
+                    it[status] = SocialPostErasureStatus.EXECUTED
+                    it[executedAt] = now
+                }
+                // V1.9.223 orphan hook: the pictures of the post go with its content (Art. 17). Files are deleted after the commit.
+                // Audit entries of the pictures come BEFORE the post's own entry, which stays the last one.
+                AttachedImageStore.listInTx(type = AttachedImageOwnerType.SOCIAL_POST, ownerId = postId).forEach { image ->
+                    removedImageKeys += image.storageKey
+                    GalleryAudit.recordRemoved(caller = current, row = image, moderatedBy = current.memberId)
+                }
+                AttachedImageStore.deleteAllForOwnerInTx(type = AttachedImageOwnerType.SOCIAL_POST, ownerId = postId)
+                // Als LETZTE sperrende Operation. Snapshot traegt NIEMALS content.
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.SOCIAL_POST,
+                    entityId = postId,
+                    action = AuditAction.UPDATE,
+                    before =
+                        Json.encodeToString(
+                            SocialPostModerationSnapshot(
+                                state = postRow[SocialPostTable.state],
+                                stateReason = postRow[SocialPostTable.stateReason],
+                                visibility = postRow[SocialPostTable.visibility],
+                                contentErasedAt = postRow[SocialPostTable.contentErasedAt],
+                            ),
                         ),
-                    ),
-                after =
-                    Json.encodeToString(
-                        SocialPostModerationSnapshot(
-                            state = postRow[SocialPostTable.state],
-                            stateReason = postRow[SocialPostTable.stateReason],
-                            visibility = postRow[SocialPostTable.visibility],
-                            contentErasedAt = if (alreadyTombstoned) postRow[SocialPostTable.contentErasedAt] else now,
+                    after =
+                        Json.encodeToString(
+                            SocialPostModerationSnapshot(
+                                state = postRow[SocialPostTable.state],
+                                stateReason = postRow[SocialPostTable.stateReason],
+                                visibility = postRow[SocialPostTable.visibility],
+                                contentErasedAt = if (alreadyTombstoned) postRow[SocialPostTable.contentErasedAt] else now,
+                            ),
                         ),
-                    ),
-            )
-            loadErasureDto(id)
-        }
+                )
+                loadErasureDto(id)
+            }
+        removedImageKeys.forEach { attachedImageStorage?.delete(it) }
+        return result
     }
 
     // ── Welle V1.1.5 -- oeffentlicher Entfernungshinweis fuer nicht-oeffentliche Beitraege (E-B) ──

@@ -66,7 +66,8 @@ class RestGroupFormsAuctionDomTest {
         typeInto("Titel", "Fahrrad")
         typeInto("Beschreibung", "Gut erhalten")
         typeInto("Startpreis (LTR)", "5")
-        typeInto("Laufzeit in Stunden", "24")
+        typeInto("Laufzeit", "24")
+        chooseIn("Einheit", "HOURS")
     }
 
     @Test
@@ -186,6 +187,71 @@ class RestGroupFormsAuctionDomTest {
                     awaitUntil("the form folded back") { !screen.hostOpen(formId) }
                     awaitUntil("the auctions were reloaded") { calls.toRoute(list).size > listCallsBefore }
                     assertEquals(1, screen.createButtonLabels().size, "still exactly one button")
+                }
+            }
+        }
+
+    @Test
+    fun theDuration_isANumberPlusAUnit_sevenDaysByDefault_andAnythingAboveTheServerMaximumIsRefused(): Promise<Unit> =
+        formTest {
+            AppState.setSession(member)
+            val list = routeOf { rpcService<IAuctionService>().listAuctions(null) }
+            val create =
+                routeOf { rpcService<IAuctionService>().createListing(CreateAuctionListingInput("t", "d", 1.0.toDecimal(), null, 1)) }
+            withFetchStub(
+                respond = { request ->
+                    when {
+                        !request.isRpc -> StubResponse()
+                        request.rpcRoute == list -> request.answerWith(jsonOf(ListSerializer(AuctionDto.serializer()), emptyList()))
+                        request.rpcRoute == create -> request.answerWith(jsonOf(AuctionDto.serializer(), auction("Fahrrad")))
+                        else -> request.answerWith("[]")
+                    }
+                },
+            ) { calls ->
+                mountedForm("v1922-auction-duration") { root, element ->
+                    renderAuctionScreen(root)
+                    awaitUntil("the empty list") { element().shows("Noch keine Auktionen vorhanden") }
+                    val screen = element()
+                    val host = openCreateFormHost(screen, formId)
+                    val amount = host.controlOf("Laufzeit") as HTMLInputElement
+                    assertEquals("number", amount.type)
+                    assertEquals("7", amount.value, "seven days by default")
+                    assertEquals("DAYS", (host.controlOf("Einheit") as org.w3c.dom.HTMLSelectElement).value)
+                    assertEquals("lapis-auction-duration-hint", amount.getAttribute("aria-describedby"))
+                    val hint = host.querySelector("#lapis-auction-duration-hint") as HTMLElement
+                    assertEquals("1–90 Tage", hint.textContent?.trim())
+                    assertEquals("90", amount.getAttribute("max"))
+                    host.chooseIn("Einheit", "WEEKS")
+                    awaitUntil("the hint follows the unit") { hint.textContent?.trim() == "1–12 Wochen (maximal 90 Tage)" }
+                    assertEquals("12", amount.getAttribute("max"))
+                    host.chooseIn("Einheit", "HOURS")
+                    awaitUntil("hours") { hint.textContent?.trim() == "1–2160 Stunden (maximal 90 Tage)" }
+                    host.chooseIn("Einheit", "WEEKS")
+                    host.typeInto("Titel", "Fahrrad")
+                    host.typeInto("Beschreibung", "Gut erhalten")
+                    host.typeInto("Startpreis (LTR)", "5")
+
+                    host.typeInto("Laufzeit", "13") // 2184 hours: one over the maximum, refused, never shortened
+                    host.buttonNamed("Angebot erstellen").click()
+                    awaitUntil("the refusal") { host.shows("Bitte eine Laufzeit im angegebenen Bereich wählen.") }
+                    assertTrue(hint.classList.contains("text-danger"), "the hint takes the error colour")
+                    assertTrue(document.querySelector(".modal.show") == null && calls.toRoute(create).isEmpty(), "nothing is sent")
+
+                    host.typeInto("Laufzeit", "2")
+                    host.buttonNamed("Angebot erstellen").click()
+                    awaitUntil("the confirm dialog") { document.querySelector(".modal.show") != null }
+                    assertTrue(lastOpenModal().shows("2 Wochen"), "the dialog names the chosen duration with its plural")
+                    lastOpenModal().buttonNamed("Erstellen").click()
+                    awaitUntil("the write") { calls.toRoute(create).size == 1 }
+                    assertEquals(
+                        336,
+                        calls
+                            .toRoute(create)
+                            .single()
+                            .rpcParam(0)
+                            .durationHours as Int,
+                    )
+                    awaitUntil("folded back") { !screen.hostOpen(formId) }
                 }
             }
         }

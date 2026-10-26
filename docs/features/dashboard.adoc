@@ -1,0 +1,220 @@
+= Dashboard, signals and navigation registry (V1.9.224)
+:toc:
+
+The dashboard answers one question: *do I need to do anything today?* It shows only what the menu cannot tell, and nothing the menu already offers.
+Since V1.9.224 there are no destination tiles any more (V1.9.220 had the sidebar as tiles). One new RPC service (`IDashboardService`), no
+migration (the index check below found nothing to add), no new setting, no new dependency.
+
+== What the person sees
+
+* **Three chips**: member status, role and the end of the session.
+* **A sentence with a link** to "Meine Daten" (password, membership card, leaving).
+* **"Gerade angemeldet"** (ADMIN only): the block of the online counts, directly below the chips (see link:online-counts.adoc[Signed-in users]).
+* **"Für Sie"**: one card per thing that concerns the person right now. Title = the menu label of the module, one line of reason (cut with
+  an ellipsis, the full text in `title`), a count badge only for more than one object. An urgent card (priority 300) has an amber left edge.
+  The whole card is the link. Nothing for a module the person's menu does not show.
+** While loading: one line "Wird geladen ...", no skeleton. Nothing to show or a failed request: "Im Moment gibt es nichts Neues für Sie." (no toast,
+   no retry loop; an earlier list stays when a later refresh fails). An answer after the person left the page is dropped.
+** The list is fetched when the page opens and again when the tab becomes visible and the last fetch is more than a minute old.
+* The grid follows the width of its section (a container query, not the window): one column below 36rem, two from 36rem, three from 56rem.
+
+== The signals
+
+Every row is read from the caller's own data unless the "rows" cell says otherwise. Gate = module switch, then status or role, always before the query.
+A priority of 300 is "urgent", 200 "action", 100 "information". `LIMIT` is 50 per query.
+
+[cols="2,2,3,3,1",options="header"]
+|===
+|Reason key |Gate |Query |Index used |Prio
+
+|`auction.outbid`
+|auction switch on, `ORGANIZATION_MEMBER`
+|Own bids on running auctions; the other bids of those auctions are loaded for ONE computation, `computeAuctionOutcome` (proxy bids, tie to the earlier bid) decides who leads. Outbid = leader is somebody else.
+|`idx_auction_bid_bidder`, `idx_auction_bid_auction`
+|300 if one ends within 24 h, else 200
+
+|`auction.endingSoon`
+|same
+|The same set, I lead, ends within 24 h
+|same
+|100
+
+|`auction.ownHasBids`
+|same
+|Own running auctions with at least one bid; `bids` parameter only for one auction
+|`idx_auction_seller`, `idx_auction_bid_auction`
+|100
+
+|`auction.won` / `auction.sold`
+|same
+|Winner / seller, settled within 7 days
+|`idx_auction_status`, `idx_auction_seller`
+|100
+
+|`tender.deadlineSoon`
+|`LTR_ELIGIBLE`
+|Published tenders closing within 7 days, no own bid (a withdrawn bid does not count), bidder allowed by `tenderBidderEligible`
+|`ix_tender_status_deadline`, `ix_tender_bid_bidder`
+|300 within 48 h, else 200
+
+|`tender.ownBidDecided`
+|`LTR_ELIGIBLE`
+|Own bid awarded or rejected, award within 14 days
+|`ix_tender_bid_bidder`, `uq_tender_award_tender`
+|100
+
+|`election.notVoted`
+|`ORGANIZATION_MEMBER`
+|Running elections; `ElectionOwnParticipation`: in the electorate and no vote yet (the secret-ballot tables stay apart)
+|`idx_election_status`, unique `(election_id, member_id)`
+|200
+
+|`consensus.notVoted`
+|same
+|Systemic consensus in the rating phase; `SystemicConsensusOwnParticipation` (current round)
+|`idx_systemic_consensus_status`
+|200
+
+|`survey.notAnswered`
+|same
+|Effectively open polls; `PollOwnParticipation.canRespond`
+|`idx_poll_status_created`, `uq_poll_participation_member`
+|300 within 48 h of `closes_at`, else 200; `date` parameter + deadline
+
+|`motion.voteOpen`
+|same
+|Open meritocratic votes; `VoteOwnParticipation`, loaded per meeting
+|`idx_vote_status`, `uq_vote_ballot_member`
+|200
+
+|`meeting.upcoming`
+|same
+|Planned meetings within 7 days of the committees I belong to (seats, general assembly, rule committees), confirmed by `isCommitteeEligible`
+|`idx_committee_membership_member`, `idx_meeting_committee`
+|100
+
+|`crowdfunding.ownDecided`
+|same
+|Own project approved or rejected within 14 days
+|`idx_crowdfunding_project_submitter`
+|100
+
+|`events.nextRegistered`
+|`ORGANIZATION_MEMBER`
+|My next confirmed registration within 14 days (class B date, shown as typed)
+|`idx_event_registration_member`
+|100
+
+|`contributions.overdue`
+|same
+|Own contributions overdue, in dunning or returned
+|`idx_contribution_member`
+|300
+
+|`contributions.open`
+|same
+|Own open contributions, SEPA direct debit excluded (nothing to do there); the earliest `due_date` is the `date`
+|`idx_contribution_member`
+|200
+
+|`travel.statusChanged`
+|same
+|Own report approved, rejected or paid within 14 days
+|`idx_ter_subject`
+|100
+
+|`ai.draftsWaiting`
+|MCP switch on, `LTR_ELIGIBLE`
+|Own open drafts
+|`ix_mcp_post_draft_status_changed`
+|100
+
+|`applications.open`
+|BOARD or ADMIN
+|*Rows of others, counted only*: `COUNT` of members with status APPLICATION. Never an id.
+|`idx_member_status`
+|200
+
+|`treasury.overdueNotInDunning`
+|TREASURER, BOARD, ADMIN, dunning switched on
+|*Counted only*: `COUNT` of contributions with status OVERDUE. Never an id.
+|`idx_contribution_status`
+|200
+|===
+
+*Honest differences from what one might expect*
+
+* Elections, consensus processes and votes have no scheduled end in the data model (only the actual moments `voting_closed_at` and similar), so their
+  cards are always "action", never "urgent", and carry no date. Only polls have a real deadline.
+* There is no "settlement open" state for auctions (settlement is atomic); that is why `auction.won` / `auction.sold` exist, for seven days.
+* "Dunning step due" is computed per row in Kotlin and is not a cheap query; the treasurer's signal is the count of overdue contributions instead.
+* A tender is nudged only if `tenderBidderEligible` allows the bid (it is the rule `submitBid` and the screens use). The conflict-of-interest rule
+  does not prevent a bid and is not part of it.
+
+== How a signal reaches the screen
+
+* `DashboardSignalSource` per module (`dashboard/sources/`), listed once in `DashboardSources`. The collector runs all sources in ONE transaction, each
+  in its own savepoint: a failing source costs only its own signals, and on PostgreSQL the transaction stays usable. The log line names the module key and the exception class,
+  nothing else.
+* The collector validates every signal (`params` only digits or ISO dates, an id only for a count of one, known keys, count 1..99) and sorts: priority
+  descending, earliest deadline (none last), module, reason. The client sorts identically.
+* A deadline is an ISO local date-time in the *organization wall clock*, seconds precision, whatever clock the column has (class A values are converted).
+* The server never sends a route. The signal carries a module key and (for exactly one own object) its id; the client builds the route from a fixed
+  table (`DashboardSignalRoutes`), uses the detail screen only where there is one and the id looks like a UUID, and draws the card only if the person's
+  menu shows the module.
+* All texts are chosen on the client (`DashboardSignalTexts`), singular and plural as whole messages.
+
+== Cache and limit
+
+* Signals are cached for 20 seconds, the sidebar counters for 30 seconds, per (member, role, status): a role or status change gets a new key at once.
+  A cache hit costs no database access and no budget.
+* An uncached call is limited to 12 per minute per member and method. Over the limit, the last answer (up to ten minutes old) is served; without one the
+  call is a `ConflictException` and the client shows nothing.
+* The status is read fresh from the database on every uncached call; an anonymous caller is rejected by both methods before anything else.
+
+== Sidebar counters "(aktiv/gesamt)"
+
+* "Videokonferenz" and "Begegnungsräume" show `(active/total)`. *Total* is the number of rooms that are OPEN right now, not the number that ever existed (an ended
+  room disappears from the list the same way). *Active* are those with at least one participation whose `left_at` is empty. For the conference the rooms are exactly the
+  ones `ConferenceService.listActiveRooms` lists (event rooms and encounter sessions excluded, one shared predicate). For encounter spaces, archived ones are not counted,
+  and a guest or friend counts only the spaces that admit non-members.
+* The figures come from the database only (`NavCountsQuery` has no media-server client, a tripwire pins that). A room whose last participant left a moment ago may
+  read "active" for up to about 90 seconds (cache 30 s plus the 60 s poll). A guest sees the conference as 0/0 (the conference needs an active membership).
+* The poller is one object for the whole page (`NavCountsPoller`): the sidebar is rebuilt often (language change, phone off-canvas) and every rebuild
+  replaces its bindings instead of adding timers. It asks while the tab is visible, at once when a tab that was hidden for more than a minute becomes visible, and it
+  stops at sign-out. A failure keeps the last figures; there is never a toast.
+* The suffix is a child element of the link (`aria-hidden`), never part of the label: the menu search does not index it, and the counters of the
+  approval entries that overwrite the label do not erase it. With a total of 0 nothing is shown. The accessible name is "Videokonferenz, 2 von 5 aktiv".
+
+== One list for the sidebar and the menu search
+
+`NavRegistry` holds every destination once: route, label, icon, group (or flat), the visibility predicate and, for two entries, the live suffix. The sidebar
+(`buildSidebar`) builds from it; the dashboard uses it to decide whether a card's module is in the person's menu and for the card's icon and title.
+The only live parts that stay in `Sidebar.kt` are the open-request counters (a later wave may move them to a shared mechanism with the new suffix) and the
+visibility of the member finder.
+
+`SidebarGoldenTest` pins the sidebar (route, label, icon, order, group headers) for member, member with chapter and finder, treasurer, board, admin, friend
+and guest. `DashboardHasNoMenuDuplicatesDomTest` pins that the dashboard repeats no destination of that sidebar.
+
+== Deliberately not signalled
+
+* Messages (badge in the navbar), carpool (sidebar badge), travel-expense, volunteer-allowance, contribution-relief and article approvals (the sidebar already
+  shows a counter: a second one would be a duplicate).
+* Open registration in my groups (not a cheap query), settlement of an auction (no such state), deadlines of elections, consensus and votes (no such column).
+
+== How to add a signal
+
+. Add the reason key to `DashboardReasonKeys` (and the module key to `DashboardModuleKeys` if new) in `lapis-shared`.
+. Write a `DashboardSignalSource` in `dashboard/sources/`: gate first through `SignalGates` (never `== ACTIVE` inline), then an indexed query on the caller's own rows with
+  `ORDER BY` (a unique tiebreaker) and `LIMIT`; reuse the existing rule (`computeAuctionOutcome`, the `*OwnParticipation` helpers, `isCommitteeEligible`), never rebuild it.
+  Return `emptyList()` for "not eligible", never an exception. List the source in `DashboardSources`.
+. Client: a text (singular and plural, as whole messages) in `DashboardSignalTexts`, the two catalog entries per language (`messages.pot` and the seven `messages-*.po`), the route
+  in `DashboardSignalRoutes`.
+. Tests: a positive and a negative case in `DashboardSignalScenarios` (H2 and PostgreSQL), one case that the serialized signal contains no foreign title or name, and the
+  statements are picked up by `DashboardQueryPlanPostgresTest` (extend its fixture so the new source reaches all its queries). A migration (V121) is justified only by a failure of that test.
+
+== Honest limits
+
+* Tested with unit tests, DOM tests in headless Chrome and PostgreSQL tests, plus one look in a local browser. Nothing was looked at on a real phone, with a real screen reader or on a real instance.
+* The texts of the new messages in the six non-German catalogs were written by the model, not by a native speaker.
+* The figures of the counters are a snapshot of the database, not of the media server.

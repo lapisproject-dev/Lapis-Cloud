@@ -71,7 +71,7 @@ import kotlin.uuid.Uuid
 import network.lapis.cloud.server.payment.dunning.issueDunningNotice as issueDunningNoticeInternal
 
 private val DUNNING_TREASURY_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
-private val DUNNING_READ_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
+internal val DUNNING_READ_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
 
 /** Mahngebuehr-Obergrenze -- see `V9__dunning.sql`'s `chk_dunning_level_fee_amount` and `DunningComplianceDisclaimer` KDoc. */
 private val MAX_FEE_AMOUNT = BigDecimal("25.00")

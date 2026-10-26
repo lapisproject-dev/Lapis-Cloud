@@ -4,6 +4,7 @@ import io.kvision.core.Widget
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Icon
 import io.kvision.html.Link
+import io.kvision.html.Span
 import io.kvision.html.button
 import io.kvision.html.link
 import io.kvision.i18n.gettext
@@ -124,98 +125,25 @@ const val SIDEBAR_DESKTOP_BREAKPOINT_PX = 992
 fun shouldMountSidebarEagerly(viewportWidthPx: Int): Boolean = viewportWidthPx >= SIDEBAR_DESKTOP_BREAKPOINT_PX
 
 /**
- * Route -> owning sidebar group. Single source of truth [buildSidebar] itself reads from (via
- * [sidebarGroupHeader] call sites below) -- kept here, once, so "which routes trigger forcing a
- * group open" ([sidebarGroupForRoute]) can never drift from "which routes actually render inside
- * that group" the way two independently-maintained lists could.
+ * Routes that belong to a group (opening it on a deep link, highlighting) but have no sidebar link of their own: sub-flows reached from a
+ * list screen. Not part of [NavRegistry], so the dashboard shows no tile for them.
  */
-internal val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
-    mapOf(
-        SidebarGroupId.MEMBERSHIP to
-            listOf(
-                Routes.CONTRIBUTIONS,
-                Routes.DOCUMENTS,
-                Routes.STATUTE_QA,
-                Routes.COMMUNICATION,
-                Routes.ARTICLES,
-                Routes.MY_CHAPTER,
-                Routes.CARPOOL,
-                Routes.MEMBER_FINDER,
-                Routes.DONATE,
-                Routes.DSGVO_RIGHTS,
-                Routes.TRAVEL_EXPENSES,
-                Routes.MY_VOLUNTEER_SHIFTS,
-                Routes.MY_EVENTS,
-            ),
-        SidebarGroupId.SELF_GOVERNANCE to
-            listOf(Routes.COMMITTEES, Routes.MEETINGS, Routes.MOTIONS, Routes.ELECTIONS, Routes.CONSENSUS, Routes.POLLS),
-        SidebarGroupId.ECONOMY to
-            listOf(
-                Routes.LTR_LEDGER,
-                Routes.CROWDFUNDING,
-                Routes.AUCTION,
-                Routes.POLITICIANS,
-                Routes.TENDERS,
-                Routes.SOCIAL_NETWORK,
-                Routes.AI_DRAFTS,
-            ),
-        SidebarGroupId.FINANCE to
-            listOf(
-                Routes.LEDGER,
-                Routes.OPEN_ITEMS,
-                Routes.FINANCIAL_REPORTS,
-                Routes.COMPLIANCE_REPORTS,
-                Routes.COST_CENTERS,
-                Routes.DONORS,
-                Routes.AUDIT_LOG,
-                Routes.POSTAL_MAIL,
-                Routes.PRICE_ORACLE,
-                Routes.SEPA_MANDATES,
-                Routes.SEPA_BATCHES,
-                Routes.DUNNING_CASES,
-                Routes.PAYMENT_TRANSACTIONS,
-                Routes.BANK_IMPORT,
-                Routes.MEMBERSHIP_TIERS,
-                Routes.CONTRIBUTION_RELIEF,
-                Routes.TRAVEL_EXPENSE_APPROVALS,
-                Routes.VOLUNTEER_ALLOWANCE_APPROVALS,
-            ),
-        SidebarGroupId.ADMINISTRATION to
-            listOf(
-                Routes.MEMBERS,
-                Routes.REGIONAL_CHAPTERS,
-                Routes.DSGVO_COMPLIANCE,
-                Routes.BOARD_MEMBERSHIP,
-                Routes.SOCIAL_MODERATION,
-                Routes.API_KEYS,
-                Routes.CRM,
-                Routes.EVENT_MANAGEMENT,
-                Routes.EVENT_IMPORT,
-                Routes.ARTICLE_IMPORT,
-                Routes.EVENT_CHECKIN,
-                Routes.EVENT_ROOMS,
-                Routes.CATERING,
-                Routes.EVENT_VOLUNTEERS,
-                Routes.MEMBER_ANNIVERSARIES,
-                Routes.MEMBER_HONORS,
-                Routes.MEMBER_FAMILIES,
-                Routes.MEMBER_MAP,
-                Routes.MEMBER_STATISTICS,
-            ),
-        SidebarGroupId.SYSTEM to
-            listOf(
-                Routes.BACKUP,
-                Routes.AGREEMENT_TEXTS,
-                Routes.CONFERENCE_STREAM_DESTINATIONS,
-                Routes.SEPA_SETTINGS,
-                Routes.TRAVEL_EXPENSE_SETTINGS,
-                Routes.PAYMENT_GATEWAY_SETTINGS,
-                Routes.DUNNING_SETTINGS,
-                Routes.RECEIVABLE_DUNNING_SETTINGS,
-                Routes.EMBED_INTEGRATION,
-                Routes.MAIL_DELIVERY,
-            ),
-    )
+private val GROUP_DEEP_LINK_ONLY_ROUTES: Map<SidebarGroupId, List<String>> =
+    mapOf(SidebarGroupId.ADMINISTRATION to listOf(Routes.EVENT_IMPORT, Routes.ARTICLE_IMPORT))
+
+/**
+ * Route -> owning sidebar group. Derived from [NavRegistry] (the list [buildSidebar] builds from), so "which routes trigger forcing a
+ * group open" ([sidebarGroupForRoute]) can never drift from "which routes actually render inside that group" the way two
+ * independently-maintained lists could. Since V1.9.220 this includes Bankkonten and Ehrenamtspauschalen (their groups now open on a deep link).
+ */
+internal val GROUP_ROUTES: Map<SidebarGroupId, List<String>> by lazy {
+    // Lazy on purpose: NavRegistry's initializer calls the label functions of THIS file, which would otherwise start this file's top-level
+    // initialization while NavRegistry is still being created (an initialization cycle that leaves NavRegistry undefined in Kotlin/JS).
+    NavRegistry.entries
+        .mapNotNull { entry -> entry.group?.let { it to entry.route } }
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (group, routes) -> (routes + GROUP_DEEP_LINK_ONLY_ROUTES[group].orEmpty()).distinct() }
+}
 
 /**
  * Which sidebar group [route] belongs to, `null` for Dashboard/Videokonferenz (flat top-level
@@ -254,6 +182,8 @@ fun clearSidebar(body: SimplePanel) {
     MenuSearchField.disposeCurrent()
     CommandPalette.close()
     MenuIndex.reset()
+    // V1.9.224: nobody is signed in -- no timer, no listener and no figures of the old session survive.
+    NavCountsPoller.stop()
     body.removeAll()
     body.addCssClass("lapis-sidebar-empty")
     NavHighlight.reset()
@@ -428,279 +358,25 @@ fun buildSidebar(
         }
     }
 
-    // Zwei höchstfrequente Ziele bleiben flach, wie im vorherigen `leftNav` -- siehe
-    // `App.kt`-Git-Historie, UI/UX-Design-Team-Review 2026-08-14 (Norman/Raskin).
-    nav.sidebarLink(Routes.DASHBOARD, tr("Dashboard"), "fas fa-house")
-    nav.sidebarLink(Routes.CONFERENCE, tr("Videokonferenz"), "fas fa-video")
-    // V1.9.62 Begegnungsraum -- a third flat entry on purpose: a guest has no group to find it in, and the room is a destination of its own.
-    if (NavVisibility.showsEncounterSpaces(session.status)) {
-        nav.sidebarLink(Routes.ENCOUNTER, tr("Begegnungsräume"), "fas fa-church")
+    // V1.9.220: the destinations come from [NavRegistry] (one list for the sidebar and the dashboard tiles). The member-finder row is built
+    // whenever the person MAY see it (offered = true here) and `enhance` then follows the real, asynchronously loaded answer.
+    val buildContext = NavContext(session = session, memberFinderOffered = true)
+    NavRegistry.flat(buildContext).forEach { entry ->
+        val link = nav.sidebarLink(entry.route, entry.label, entry.icon)
+        enhance(entry, link, session)
     }
-
-    // V1.9.125 "Mitfahrten": a guest or friend has no "Mitgliedschaft" group -- the carpool centre is a flat entry for them.
-    if (NavVisibility.showsCarpoolFlatLink(session.status)) {
-        val carpoolLink = nav.sidebarLink(Routes.CARPOOL, tr("Mitfahrzentrale"), "fas fa-car-side")
-        updateCarpoolSidebarCount(link = carpoolLink, isMember = false)
-    }
-
-    if (NavVisibility.showsMembershipSection(session.status)) {
-        nav.sidebarGroup(SidebarGroupId.MEMBERSHIP, tr("Mitgliedschaft"), "fas fa-id-card") { toggle ->
-            sidebarLink(Routes.CONTRIBUTIONS, tr("Beiträge"), "fas fa-coins", toggle)
-            sidebarLink(Routes.DOCUMENTS, tr("Dokumente"), "fas fa-file-lines", toggle)
-            // V1.6.1 -- optional AI assistance: shown only where the server reports it operational.
-            // A plain search-glass icon on purpose (no speech bubble/robot -- Design-Team decision).
-            if (NavVisibility.showsStatuteQa(session.status, session.aiAssistantEnabled)) {
-                sidebarLink(Routes.STATUTE_QA, tr("Fragen zur Satzung"), "fas fa-magnifying-glass", toggle)
-            }
-            sidebarLink(Routes.COMMUNICATION, tr("Kommunikation"), "fas fa-envelope", toggle)
-            // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- nur sichtbar mit
-            // aktivem "Landesvorstand"-Zugang (serverseitig berechnetes SessionInfoDto.chapterScope,
-            // siehe NavVisibility.showsChapterRoster KDoc), kein eigenes Rollen-Gate.
-            if (NavVisibility.showsChapterRoster(session.chapterScope)) {
-                sidebarLink(Routes.MY_CHAPTER, tr("Mein Landesverband"), "fas fa-users-rectangle", toggle)
-            }
-            // Welle V1.9.12 "Mitfahrzentrale" -- fa-car-side statt fa-car (Icon-Kollision
-            // vermeiden: fa-car ist bereits an TRAVEL_EXPENSES weiter unten in dieser Gruppe vergeben).
-            val carpoolLink = sidebarLink(Routes.CARPOOL, tr("Mitfahrzentrale"), "fas fa-car-side", toggle)
-            updateCarpoolSidebarCount(link = carpoolLink, isMember = true)
-            // V1.9.145 "Mitglieder-Finder" -- shown only while the server offers it (instance switch on); `fa-user-group` is free (`fa-address-book` is the contacts).
-            val finderLink = sidebarLink(Routes.MEMBER_FINDER, tr("Mitglieder-Finder"), "fas fa-user-group", toggle)
-            finderLink.visible = NavVisibility.showsMemberFinder(session.status, MemberFinderNav.offered)
-            MemberFinderNav.onChange { offered -> finderLink.visible = NavVisibility.showsMemberFinder(session.status, offered) }
-            MemberFinderNav.ensureLoaded(session)
-            // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- Design-Team-Entscheidung
-            // Q6: Gruppe "Kommunikation" (neben COMMUNICATION), nicht "Selbstverwaltung". Für
-            // BOARD/ADMIN aktualisiert sich das Label mit der Freigabe-Warteschlangen-Größe --
-            // gleiches "engerer Unter-Zweig + Sidebar-Zähler"-Muster wie CONTRIBUTION_RELIEF/
-            // TRAVEL_EXPENSE_APPROVALS weiter unten, hier aber INNERHALB derselben Gruppe (jedes
-            // Mitglied sieht den Eintrag selbst, nur BOARD/ADMIN sieht die Zahl).
-            val articlesLink = sidebarLink(Routes.ARTICLES, tr("Artikel"), "fas fa-newspaper", toggle)
-            if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-                AppScope.launch {
-                    val openCount = runCatching { rpcService<IArticleService>().listSubmittedArticles().size }.getOrNull()
-                    if (openCount != null && openCount > 0) {
-                        articlesLink.label = articlesSidebarLabel(openCount)
-                    }
-                }
-            }
-            sidebarLink(Routes.DONATE, tr("Spenden"), "fas fa-hand-holding-heart", toggle)
-            sidebarLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), "fas fa-shield-halved", toggle)
-            // Welle V1.4.11 -- Selbstbedienung, jedes Mitglied mit Mitgliedschaftsstatus kann
-            // hier einen Antrag stellen (kein Rollen-Gate innerhalb der Gruppe).
-            sidebarLink(Routes.TRAVEL_EXPENSES, tr("Reisekosten"), "fas fa-car", toggle)
-            // Welle V1.4.12 -- gleiche Grammatik wie TRAVEL_EXPENSES unmittelbar oberhalb.
-            sidebarLink(Routes.VOLUNTEER_ALLOWANCES, tr("Ehrenamtspauschalen"), "fas fa-hands-helping", toggle)
-            // Welle V1.4.3.7 -- gleiche Grammatik wie TRAVEL_EXPENSES/VOLUNTEER_ALLOWANCES: reine
-            // Selbstbedienung, kein Rollen-Gate innerhalb der Gruppe (jedes Mitglied kann sich für
-            // eine Schicht an-/abmelden).
-            sidebarLink(Routes.MY_VOLUNTEER_SHIFTS, tr("Helferschichten"), "fas fa-calendar-check", toggle)
-            // Welle V1.9.33 -- Selbstbedienung: kommende Veranstaltungen, An-/Abmeldung (die Verwaltung steht in der Gruppe Administration).
-            sidebarLink(Routes.MY_EVENTS, tr("Veranstaltungen"), "fas fa-ticket", toggle)
-        }
-    } else if (NavVisibility.showsDsgvoRights(session.status)) {
-        // Welle V1.1.4: ein FRIEND hat kein volles "Mitgliedschaft"-Dropdown, braucht aber
-        // trotzdem einen erreichbaren Betroffenenrechte-Einstieg -- siehe Routes.DSGVO_RIGHTS KDoc.
-        nav.sidebarLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), "fas fa-shield-halved")
-    }
-
-    if (NavVisibility.showsSelfGovernance(session.status)) {
-        nav.sidebarGroup(SidebarGroupId.SELF_GOVERNANCE, tr("Selbstverwaltung"), "fas fa-people-group") { toggle ->
-            sidebarLink(Routes.COMMITTEES, tr("Gremien"), "fas fa-people-group", toggle)
-            sidebarLink(Routes.MEETINGS, tr("Sitzungen"), "fas fa-calendar-days", toggle)
-            sidebarLink(Routes.MOTIONS, tr("Anträge"), "fas fa-file-signature", toggle)
-            if (NavVisibility.showsElections(session.status)) {
-                sidebarLink(Routes.ELECTIONS, tr("Wahlen"), "fas fa-check-to-slot", toggle)
-            }
-            if (NavVisibility.showsConsensus(session.status)) {
-                sidebarLink(Routes.CONSENSUS, tr("Konsensieren"), "fas fa-scale-balanced", toggle)
-            }
-            if (NavVisibility.showsPolls(session.status)) {
-                sidebarLink(Routes.POLLS, tr("Umfragen"), "fas fa-square-poll-horizontal", toggle)
+    NavRegistry.visibleGroups(buildContext).forEach { groupId ->
+        val meta = NavRegistry.groupMeta.getValue(groupId)
+        nav.sidebarGroup(groupId, meta.label, meta.icon) { toggle ->
+            NavRegistry.visibleInGroup(groupId, buildContext).forEach { entry ->
+                val link = sidebarLink(entry.route, entry.label, entry.icon, toggle)
+                enhance(entry, link, session)
             }
         }
     }
 
-    if (NavVisibility.showsEconomySection(session.status)) {
-        nav.sidebarGroup(SidebarGroupId.ECONOMY, tr("Wirtschaft"), "fas fa-coins") { toggle ->
-            if (NavVisibility.showsLtrLedger(session.status)) {
-                sidebarLink(Routes.LTR_LEDGER, tr("LTR-Konto"), "fas fa-wallet", toggle)
-            }
-            if (NavVisibility.showsMemberOnlyEconomy(session.status)) {
-                sidebarLink(Routes.CROWDFUNDING, tr("Crowdfunding"), "fas fa-hand-holding-heart", toggle)
-                sidebarLink(Routes.AUCTION, tr("Auktion"), "fas fa-gavel", toggle)
-                sidebarLink(Routes.POLITICIANS, tr("Politiker"), "fas fa-landmark", toggle)
-            }
-            // V1.9.202 -- outside the member-only block: FRIEND may bid on a tender as well.
-            if (NavVisibility.showsTenders(session.status)) {
-                sidebarLink(Routes.TENDERS, tr("Ausschreibungen"), "fas fa-handshake", toggle)
-            }
-            if (NavVisibility.showsSocialNetwork(session.status)) {
-                sidebarLink(Routes.SOCIAL_NETWORK, tr("Soziales Netzwerk"), "fas fa-comments", toggle)
-            }
-            // Welle V1.8.2b -- bound to mcpEnabled, deliberately NOT mcpWriteEnabled (see
-            // NavVisibility.showsAiDrafts KDoc). No zähler-Badge here (Design-Entscheidung) --
-            // the count lives in the SocialNetworkScreen banner instead.
-            if (NavVisibility.showsAiDrafts(session.status, session.mcpEnabled)) {
-                sidebarLink(Routes.AI_DRAFTS, tr("KI-Entwürfe"), "fas fa-wand-magic-sparkles", toggle)
-            }
-        }
-    }
-
-    // Accounting UI wave, design decision D15 -- TREASURER/BOARD/ADMIN, same tier the LEDGER route
-    // itself requires.
-    if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-        nav.sidebarGroup(SidebarGroupId.FINANCE, tr("Finanzen"), "fas fa-chart-line") { toggle ->
-            sidebarLink(Routes.LEDGER, tr("Kontenplan & Journal"), "fas fa-book", toggle)
-            // Welle V1.4.21 -- `fa-right-left` (Verrechnung/Gegenposten); in `lapis-client` noch frei.
-            sidebarLink(Routes.OPEN_ITEMS, tr("Offene Posten"), "fas fa-right-left", toggle)
-            sidebarLink(Routes.FINANCIAL_REPORTS, tr("Finanzberichte"), "fas fa-chart-pie", toggle)
-            sidebarLink(Routes.COMPLIANCE_REPORTS, tr("Gemeinnützigkeits-Berichte"), "fas fa-scale-balanced", toggle)
-            sidebarLink(Routes.COST_CENTERS, tr("Kostenstellen"), "fas fa-tags", toggle)
-            sidebarLink(Routes.DONORS, tr("Spender"), "fas fa-heart", toggle)
-            sidebarLink(Routes.AUDIT_LOG, tr("Prüfprotokoll"), "fas fa-magnifying-glass", toggle)
-            sidebarLink(Routes.POSTAL_MAIL, tr("Postversand"), "fas fa-envelope-open-text", toggle)
-            sidebarLink(Routes.PRICE_ORACLE, tr("Price-Oracle"), "fas fa-chart-simple", toggle)
-            sidebarLink(Routes.SEPA_MANDATES, tr("SEPA-Mandate"), "fas fa-file-contract", toggle)
-            sidebarLink(Routes.SEPA_BATCHES, tr("SEPA-Lastschrift"), "fas fa-money-check-dollar", toggle)
-            sidebarLink(Routes.DUNNING_CASES, tr("Mahnwesen"), "fas fa-file-invoice-dollar", toggle)
-            sidebarLink(Routes.PAYMENT_TRANSACTIONS, tr("Zahlungseingänge"), "fas fa-credit-card", toggle)
-            // Welle V1.4.14 -- direkt ueber Routes.BANK_IMPORT (Plan §11), da beide dieselbe
-            // TREASURER/BOARD/ADMIN-Rollenstufe teilen und fachlich zusammengehoeren.
-            sidebarLink(Routes.BANK_ACCOUNTS, tr("Bankkonten"), "fas fa-piggy-bank", toggle)
-            sidebarLink(Routes.BANK_IMPORT, tr("Kontoauszüge"), "fas fa-building-columns", toggle)
-            // Welle V1.9.18 -- enger gegatet als der Rest der FINANCE-Gruppe (TREASURER/ADMIN, NICHT BOARD), siehe
-            // `Routes.MEMBERSHIP_TIERS` KDoc. `fas fa-layer-group` ist frei (verifiziert per grep).
-            if (AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)) {
-                sidebarLink(Routes.MEMBERSHIP_TIERS, tr("Mitgliedschaftsstufen"), "fas fa-layer-group", toggle)
-            }
-            // Welle V1.4.10.1: enger gegatet als der Rest der FINANCE-Gruppe (BOARD/ADMIN, NICHT
-            // TREASURER) -- verifiziert gegen `IContributionReliefService.listReliefRequests`s
-            // eigenen Rollen-Check, siehe `Routes.CONTRIBUTION_RELIEF` KDoc. Gleiches
-            // "engerer Unter-Gate innerhalb der äußeren Rollenprüfung"-Muster wie ADMINISTRATION
-            // weiter unten.
-            if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-                // Icon-Kollisions-Korrektur (Plan Abschnitt 1): `fas fa-hand-holding-dollar` ist
-                // bereits an PAYMENT_GATEWAY_SETTINGS vergeben (siehe SYSTEM-Gruppe unten) --
-                // `fas fa-percent` ist frei (verifiziert per grep) und semantisch passend
-                // (Ermäßigung/Beitragssatz-Änderung).
-                val reliefLink = sidebarLink(Routes.CONTRIBUTION_RELIEF, reliefSidebarLabel(null), "fas fa-percent", toggle)
-                // Sidebar-Zähler (Jobs/Forstall-Auflage): EIN `listReliefRequests(status =
-                // REQUESTED)`-Aufruf, NUR in diesem BOARD/ADMIN-Zweig (nie für TREASURER, der 403
-                // bekäme). `runCatching`, NICHT `guarded{}` -- ein Fehlschlag hier darf niemals einen
-                // Toast beim reinen Sidebar-Aufbau auslösen (bewusste Abweichung vom `guarded{}`-
-                // Default, siehe CLAUDE.md-Plan Abschnitt 2.5). Das Label wird NACHTRÄGLICH per
-                // Coroutine überschrieben (`buildSidebar` selbst ist nicht `suspend`) -- der Link
-                // rendert zunächst ohne Zahl, genau wie jeder andere Eintrag.
-                AppScope.launch {
-                    val openCount =
-                        runCatching {
-                            rpcService<IContributionReliefService>().listReliefRequests(status = ContributionReliefStatus.REQUESTED).size
-                        }.getOrNull()
-                    if (openCount != null && openCount > 0) {
-                        reliefLink.label = reliefSidebarLabel(openCount)
-                    }
-                }
-
-                // Welle V1.4.11 -- gleiches "engerer Unter-Gate + Sidebar-Zähler"-Muster wie
-                // CONTRIBUTION_RELIEF unmittelbar oberhalb. `fas fa-route` ist frei (verifiziert
-                // per grep) und semantisch passend (Reise/Route).
-                val travelExpenseLink =
-                    sidebarLink(Routes.TRAVEL_EXPENSE_APPROVALS, travelExpenseSidebarLabel(null), "fas fa-route", toggle)
-                AppScope.launch {
-                    val openCount =
-                        runCatching {
-                            rpcService<ITravelExpenseService>().listReports(status = TravelExpenseReportStatus.REQUESTED).size
-                        }.getOrNull()
-                    if (openCount != null && openCount > 0) {
-                        travelExpenseLink.label = travelExpenseSidebarLabel(openCount)
-                    }
-                }
-
-                // Welle V1.4.12 -- gleiches "engerer Unter-Gate + Sidebar-Zähler"-Muster wie
-                // TRAVEL_EXPENSE_APPROVALS unmittelbar oberhalb. `fas fa-hand-holding-dollar` ist
-                // bereits an PAYMENT_GATEWAY_SETTINGS vergeben, `fas fa-graduation-cap`/
-                // `fas fa-hands-helping` sind an die Kategorie-Icons vergeben (VolunteerAllowanceLabels)
-                // -- `fas fa-people-carry-box` ist frei (verifiziert per grep) und semantisch passend
-                // (gegenseitige Unterstützung/Ehrenamt).
-                val volunteerAllowanceLink =
-                    sidebarLink(
-                        Routes.VOLUNTEER_ALLOWANCE_APPROVALS,
-                        volunteerAllowanceSidebarLabel(null),
-                        "fas fa-people-carry-box",
-                        toggle,
-                    )
-                AppScope.launch {
-                    val openCount =
-                        runCatching {
-                            rpcService<IVolunteerAllowanceService>().listPayments(status = VolunteerAllowancePaymentStatus.REQUESTED).size
-                        }.getOrNull()
-                    if (openCount != null && openCount > 0) {
-                        volunteerAllowanceLink.label = volunteerAllowanceSidebarLabel(openCount)
-                    }
-                }
-            }
-        }
-    }
-
-    // TREASURER/BOARD/ADMIN-Tier fuer den Gruppen-Header selbst, aber NICHT fuer jeden einzelnen
-    // Eintrag darin -- siehe `Routes.MEMBERS` KDoc (Welle V1.4.4.4: auch TREASURER).
-    if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-        nav.sidebarGroup(SidebarGroupId.ADMINISTRATION, tr("Verwaltung"), "fas fa-user-gear") { toggle ->
-            sidebarLink(Routes.MEMBERS, tr("Mitgliederverwaltung"), "fas fa-users-gear", toggle)
-            // Welle V1.9.14 -- BOARD/ADMIN (NavVisibility.showsRegionalChapterAdmin), enger als der
-            // TREASURER/BOARD/ADMIN-Gruppen-Header selbst.
-            if (NavVisibility.showsRegionalChapterAdmin(session.role)) {
-                sidebarLink(Routes.REGIONAL_CHAPTERS, tr("Gliederungsverwaltung"), "fas fa-sitemap", toggle)
-            }
-            if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-                sidebarLink(Routes.DSGVO_COMPLIANCE, tr("DSGVO-Compliance"), "fas fa-shield-halved", toggle)
-                sidebarLink(
-                    Routes.BOARD_MEMBERSHIP,
-                    tr("Vorstand & Transparenzregister"),
-                    "fas fa-landmark-flag",
-                    toggle,
-                )
-                sidebarLink(Routes.SOCIAL_MODERATION, tr("Moderation"), "fas fa-flag", toggle)
-                sidebarLink(Routes.API_KEYS, tr("API-Schlüssel"), "fas fa-key", toggle)
-                sidebarLink(Routes.CRM, tr("Kontakte & Interessenten"), "fas fa-address-book", toggle)
-                sidebarLink(Routes.EVENT_MANAGEMENT, tr("Veranstaltungen"), "fas fa-calendar-days", toggle)
-                sidebarLink(Routes.EVENT_CHECKIN, tr("Veranstaltungs-Check-in"), "fas fa-qrcode", toggle)
-                sidebarLink(Routes.EVENT_ROOMS, tr("Raumverwaltung"), "fas fa-door-open", toggle)
-                sidebarLink(Routes.CATERING, tr("Catering"), "fas fa-utensils", toggle)
-                sidebarLink(Routes.EVENT_VOLUNTEERS, tr("Helfer-Schichten"), "fas fa-clipboard-check", toggle)
-                sidebarLink(Routes.MEMBER_ANNIVERSARIES, tr("Geburtstage & Jubiläen"), "fas fa-cake-candles", toggle)
-                sidebarLink(Routes.MEMBER_HONORS, tr("Ehrungen & Auszeichnungen"), "fas fa-medal", toggle)
-                sidebarLink(Routes.MEMBER_FAMILIES, tr("Familienmitgliedschaften"), "fas fa-people-roof", toggle)
-                sidebarLink(Routes.MEMBER_MAP, tr("Mitgliederkarte"), "fas fa-map-location-dot", toggle)
-                sidebarLink(Routes.MEMBER_STATISTICS, tr("Mitgliederentwicklung"), "fas fa-chart-column", toggle)
-            }
-        }
-    }
-
-    if (AppState.hasRole(AccountRole.ADMIN)) {
-        nav.sidebarGroup(SidebarGroupId.SYSTEM, tr("System"), "fas fa-server") { toggle ->
-            sidebarLink(Routes.BACKUP, tr("Backup & Wiederherstellung"), "fas fa-database", toggle)
-            // Welle V1.9.134 -- the texts of the registration; steht neben dem Backup (ADMIN-only wie dieses). `fa-scroll` ist noch frei.
-            sidebarLink(Routes.AGREEMENT_TEXTS, tr("Vertragstexte"), "fas fa-scroll", toggle)
-            sidebarLink(Routes.CONFERENCE_STREAM_DESTINATIONS, tr("Stream-Ziele"), "fas fa-satellite-dish", toggle)
-            sidebarLink(Routes.SEPA_SETTINGS, tr("SEPA-Konfiguration"), "fas fa-building-columns", toggle)
-            // Welle V1.9.122 -- steht in SYSTEM (wie SEPA_SETTINGS); `fa-sliders` ist in `lapis-client` noch frei.
-            sidebarLink(Routes.TRAVEL_EXPENSE_SETTINGS, tr("Reisekosten-Einstellungen"), "fas fa-sliders", toggle)
-            sidebarLink(
-                Routes.PAYMENT_GATEWAY_SETTINGS,
-                tr("Zahlungs-Konfiguration"),
-                "fas fa-hand-holding-dollar",
-                toggle,
-            )
-            sidebarLink(Routes.DUNNING_SETTINGS, tr("Mahnwesen-Konfiguration"), "fas fa-scale-unbalanced", toggle)
-            // Welle V1.4.21 -- steht in SYSTEM (wie DUNNING_SETTINGS), nicht in ADMINISTRATION;
-            // `fa-bell` ist in `lapis-client` noch frei.
-            sidebarLink(Routes.RECEIVABLE_DUNNING_SETTINGS, tr("Forderungs-Mahnstufen"), "fas fa-bell", toggle)
-            sidebarLink(Routes.EMBED_INTEGRATION, tr("Website-Integration"), "fas fa-code", toggle)
-            // Welle V1.9.81 -- ADMIN-Gesundheitskarte des E-Mail-Versands; `fa-envelopes-bulk` ist in `lapis-client` noch frei.
-            sidebarLink(Routes.MAIL_DELIVERY, tr("E-Mail-Versand"), "fas fa-envelopes-bulk", toggle)
-        }
-    }
+    // V1.9.224: the live counters of "Videokonferenz" and "Begegnungsräume" -- one poller for the whole page, started once per person.
+    NavCountsPoller.start(ownerId = session.memberId)
 
     // V1.9.187: the "Hilfe und Feedback" foot of the sidebar -- the SECOND direct child of `body` (after the nav, never inside it, so the
     // link set and NavHighlight stay untouched). It scrolls with the page like the rest (R59) and its popover opens upward.
@@ -710,6 +386,72 @@ fun buildSidebar(
     // last navigation) to this freshly-built link set -- same "rebuild, then reapply" contract
     // `NavHighlight.apply()`'s own KDoc documents for `refreshNavbar`.
     NavHighlight.apply()
+}
+
+/**
+ * The live parts of a sidebar row that the registry does not describe: the open-request counters and the member-finder visibility. Keyed by
+ * the route (and, for the carpool, by flat vs. grouped).
+ */
+private fun enhance(
+    entry: NavEntry,
+    link: Link,
+    session: SessionInfoDto,
+) {
+    // V1.9.224: "(aktiv/gesamt)" as a child of the link, never part of its label (the menu search indexes the label; the counters of the
+    // approval links below overwrite the label). Hidden until the first figures arrive.
+    entry.liveSuffix?.let { suffix ->
+        val span = Span(className = "nav-live-suffix")
+        span.setAttribute("aria-hidden", "true")
+        span.visible = false
+        link.add(span)
+        NavCountsPoller.bind(suffix = suffix, span = span, link = link, label = entry.label)
+    }
+    when (entry.route) {
+        Routes.CARPOOL -> updateCarpoolSidebarCount(link = link, isMember = entry.group != null)
+        // V1.9.145 -- shown only while the server offers it (instance switch on); `fa-user-group` is free (`fa-address-book` is the contacts).
+        Routes.MEMBER_FINDER -> {
+            link.visible = NavVisibility.showsMemberFinder(session.status, MemberFinderNav.offered)
+            MemberFinderNav.onChange { offered -> link.visible = NavVisibility.showsMemberFinder(session.status, offered) }
+            MemberFinderNav.ensureLoaded(session)
+        }
+        // Welle V1.4.36 -- BOARD/ADMIN see the size of the approval queue in the label (every member sees the entry itself).
+        Routes.ARTICLES ->
+            if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
+                AppScope.launch {
+                    val openCount = runCatching { rpcService<IArticleService>().listSubmittedArticles().size }.getOrNull()
+                    if (openCount != null && openCount > 0) link.label = articlesSidebarLabel(openCount)
+                }
+            }
+        // Counters: `runCatching`, NOT `guarded{}` -- a failure while building the sidebar must never raise a toast. The label is overwritten
+        // afterwards by a coroutine (the build is not `suspend`); the link first renders without a number like every other entry.
+        Routes.CONTRIBUTION_RELIEF ->
+            AppScope.launch {
+                val openCount =
+                    runCatching {
+                        rpcService<IContributionReliefService>().listReliefRequests(status = ContributionReliefStatus.REQUESTED).size
+                    }.getOrNull()
+                if (openCount != null && openCount > 0) link.label = reliefSidebarLabel(openCount)
+            }
+        Routes.TRAVEL_EXPENSE_APPROVALS ->
+            AppScope.launch {
+                val openCount =
+                    runCatching {
+                        rpcService<ITravelExpenseService>()
+                            .listReports(
+                                status = TravelExpenseReportStatus.REQUESTED,
+                            ).size
+                    }.getOrNull()
+                if (openCount != null && openCount > 0) link.label = travelExpenseSidebarLabel(openCount)
+            }
+        Routes.VOLUNTEER_ALLOWANCE_APPROVALS ->
+            AppScope.launch {
+                val openCount =
+                    runCatching {
+                        rpcService<IVolunteerAllowanceService>().listPayments(status = VolunteerAllowancePaymentStatus.REQUESTED).size
+                    }.getOrNull()
+                if (openCount != null && openCount > 0) link.label = volunteerAllowanceSidebarLabel(openCount)
+            }
+    }
 }
 
 /**

@@ -15,12 +15,14 @@ import network.lapis.cloud.shared.domain.TenderCurrency
 import network.lapis.cloud.shared.domain.TenderDescriptionFormat
 import network.lapis.cloud.shared.domain.TenderStatus
 import network.lapis.cloud.shared.rpc.NotFoundException
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.lessEq
@@ -470,4 +472,60 @@ internal object TenderStore {
             .singleOrNull()
             ?.get(OrganizationSettingsTable.tenderDefaultVisibility)
             ?: TenderBidVisibility.HIDDEN_UNTIL_DEADLINE
+
+    /** A published tender that closes inside a window, for the dashboard signal (id, deadline, currency only). */
+    data class ClosingTender(
+        val id: Uuid,
+        val deadline: LocalDateTime,
+        val currency: TenderCurrency,
+    )
+
+    /**
+     * V1.9.224 -- PUBLISHED tenders whose deadline lies after [from] (organization wall clock, strict: a bid is valid only while `wallNow < deadline`)
+     * and not after [until], earliest first. Never writes.
+     */
+    fun closingBetween(
+        from: LocalDateTime,
+        until: LocalDateTime,
+        limit: Int,
+    ): List<ClosingTender> =
+        TenderTable
+            .select(TenderTable.id, TenderTable.deadline, TenderTable.currency)
+            .where {
+                (TenderTable.status eq TenderStatus.PUBLISHED) and (TenderTable.deadline greater from) and
+                    (TenderTable.deadline lessEq until)
+            }.orderBy(TenderTable.deadline to SortOrder.ASC, TenderTable.id to SortOrder.ASC)
+            .limit(limit)
+            .map { ClosingTender(id = it[TenderTable.id], deadline = it[TenderTable.deadline], currency = it[TenderTable.currency]) }
+
+    /** V1.9.224 -- of [tenderIds], those on which [memberId] has a bid that is not withdrawn. */
+    fun tendersWithLiveBidOf(
+        memberId: Uuid,
+        tenderIds: List<Uuid>,
+    ): Set<Uuid> =
+        TenderBidTable
+            .select(TenderBidTable.tenderId)
+            .where {
+                (TenderBidTable.bidderMemberId eq memberId) and
+                    (TenderBidTable.tenderId inList tenderIds) and
+                    (TenderBidTable.status neq TenderBidStatus.WITHDRAWN)
+            }.map { it[TenderBidTable.tenderId] }
+            .toSet()
+
+    /** V1.9.224 -- tenders on which [memberId]'s bid was awarded or rejected by an award stamped at or after [since] (class A). */
+    fun tendersDecidedForSince(
+        memberId: Uuid,
+        since: LocalDateTime,
+        limit: Int,
+    ): List<Uuid> =
+        TenderBidTable
+            .join(TenderAwardTable, JoinType.INNER, additionalConstraint = { TenderBidTable.tenderId eq TenderAwardTable.tenderId })
+            .select(TenderBidTable.tenderId)
+            .where {
+                (TenderBidTable.bidderMemberId eq memberId) and
+                    (TenderBidTable.status inList listOf(TenderBidStatus.AWARDED, TenderBidStatus.REJECTED)) and
+                    (TenderAwardTable.awardedAt greaterEq since)
+            }.orderBy(TenderBidTable.tenderId to SortOrder.ASC)
+            .limit(limit)
+            .map { it[TenderBidTable.tenderId] }
 }

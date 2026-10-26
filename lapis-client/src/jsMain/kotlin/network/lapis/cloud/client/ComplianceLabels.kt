@@ -195,6 +195,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.TENDER -> gettext("Ausschreibung")
         // V1.9.204 -- one entry per CSV export of an event's registrations; row count and format only.
         AuditEntityType.EVENT_REGISTRATION_EXPORT -> gettext("Export der Anmeldungen")
+        // V1.9.222 -- a picture added to / removed from the gallery of a crowdfunding project or an auction.
+        AuditEntityType.ATTACHED_IMAGE -> gettext("Galeriebild")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -320,6 +322,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.TRAVEL_EXPENSE_DOCUMENT -> "secondary"
         AuditEntityType.TENDER -> "secondary"
         AuditEntityType.EVENT_REGISTRATION_EXPORT -> "warning"
+        AuditEntityType.ATTACHED_IMAGE -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

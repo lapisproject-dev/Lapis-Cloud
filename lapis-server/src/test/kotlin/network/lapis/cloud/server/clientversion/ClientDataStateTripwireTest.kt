@@ -129,9 +129,23 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * Welle V1.9.206 "Finanz-Einrichtung" adds THREE reads (185 -> 188, same 58 files): `LedgerScreen.kt` loads `getFinanceSetupStatus()` once before the tabs
  * exist (a failure leaves the default tab), and `PaymentGatewaySettingsScreen.kt` reads it for its one-line status and for the pre-check of "aktivieren".
  * The setup tab itself uses `dataErrorState`. The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
+ * Welle V1.9.220 "Dashboard neu gestalten" adds ONE read in ONE file (58 -> 59 files, 188 -> 189): `DashboardScreen.kt`'s "Nächste Veranstaltung" card asks
+ * `listEvents(` once (page of one). The accepted background-badge shape: the card is mounted empty and hidden, a failure or no event shows nothing and
+ * never a toast, so there is no loading/empty/error state to present; an answer after the page left is dropped.
+ * Welle V1.9.221 "Seite Organisation" adds TWO reads in ONE new file (59 -> 60 files, 189 -> 191): `OrganizationScreen.kt` reads `getOrganizationSettings(` and
+ * `getOrganizationTimeZone(` once for the summary lines of its closed sections. The accepted background shape: the lines start empty, a failed read leaves them
+ * empty and toasts through `guarded` at most, and the sections below load their own content through `dataSection` when opened.
+ * Welle V1.9.223 "Bilder im Sozialen Netzwerk" adds TWO reads in ONE new file (60 -> 61 files, 191 -> 193): `SocialPostImages.kt` asks
+ * `listSocialPostPreviews(` once per page of the feed (the first picture and the count per card) and `list(` once per root post in the thread view. The accepted
+ * background shape: a failure is swallowed on purpose (a post without a loaded picture is simply a post without a picture, a toast per card would be noise), so
+ * there is no loading/empty/error state to present.
+ * Welle V1.9.224 "Dashboard zeigt nur Hinweise" adds ONE read in ONE new file (61 -> 62 files, 193 -> 194): `NavCountsPoller.kt` asks `getNavCounts()` once a minute
+ * for the "(aktiv/gesamt)" after two sidebar entries. The accepted background-badge shape (same as the approval counters of `Sidebar.kt`): a failure keeps the last
+ * figures or shows nothing and never toasts, so there is no loading/error state to present. `DashboardScreen.kt` swaps its `listEvents(` read for
+ * `getDashboardSignals(` (net zero); its "Für Sie" block has its own loading line, empty sentence and quiet failure.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 188
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 58
+private const val READ_OUTSIDE_STATE_REGION_MAX = 194
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 62
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

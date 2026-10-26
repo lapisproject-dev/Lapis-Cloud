@@ -87,6 +87,7 @@ import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.conference.StreamPoller
 import network.lapis.cloud.server.contribution.ContributionReliefRedactionPoller
 import network.lapis.cloud.server.crypto.SecretBox
+import network.lapis.cloud.server.dashboard.DashboardCaches
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
@@ -130,6 +131,9 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.federation.OidcSigningKeyProvisioner
 import network.lapis.cloud.server.federation.TrustAnchorSigningKeyProvisioner
+import network.lapis.cloud.server.gallery.AttachedImageOrphanSweep
+import network.lapis.cloud.server.gallery.AttachedImageService
+import network.lapis.cloud.server.gallery.AttachedImageStorage
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.keycloak.KeycloakMemberProvisioner
 import network.lapis.cloud.server.keycloak.KeycloakOidcMetadata
@@ -218,6 +222,7 @@ import network.lapis.cloud.server.routes.mobileWebviewBridgeEnabled
 import network.lapis.cloud.server.routes.registerArticleCoverRoutes
 import network.lapis.cloud.server.routes.registerArticleImportImageRoutes
 import network.lapis.cloud.server.routes.registerArticlePublicRoutes
+import network.lapis.cloud.server.routes.registerAttachedImageRoutes
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerBankStatementRoutes
@@ -301,6 +306,8 @@ import network.lapis.cloud.server.rpc.ContributionReliefService
 import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.CrmService
 import network.lapis.cloud.server.rpc.CrowdfundingService
+import network.lapis.cloud.server.rpc.DASHBOARD_RATE_MAX
+import network.lapis.cloud.server.rpc.DashboardService
 import network.lapis.cloud.server.rpc.DirectMessageService
 import network.lapis.cloud.server.rpc.DisabledAiAssistantService
 import network.lapis.cloud.server.rpc.DisabledMcpAccessService
@@ -377,6 +384,7 @@ import network.lapis.cloud.server.webhook.WebhookDeliveryPoller
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.Greeting
 import network.lapis.cloud.shared.domain.AccountingExportProvider
+import network.lapis.cloud.shared.domain.GalleryRules
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -387,6 +395,7 @@ import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IApiKeyService
 import network.lapis.cloud.shared.rpc.IArticleImportService
 import network.lapis.cloud.shared.rpc.IArticleService
+import network.lapis.cloud.shared.rpc.IAttachedImageService
 import network.lapis.cloud.shared.rpc.IAuctionService
 import network.lapis.cloud.shared.rpc.IAuditLogService
 import network.lapis.cloud.shared.rpc.IAuthService
@@ -411,6 +420,7 @@ import network.lapis.cloud.shared.rpc.IContributionReliefService
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.ICrmService
 import network.lapis.cloud.shared.rpc.ICrowdfundingService
+import network.lapis.cloud.shared.rpc.IDashboardService
 import network.lapis.cloud.shared.rpc.IDirectMessageService
 import network.lapis.cloud.shared.rpc.IDocumentService
 import network.lapis.cloud.shared.rpc.IDsgvoComplianceService
@@ -586,6 +596,16 @@ internal fun Application.module(
     val videoOverlayStorageRoot =
         File(System.getenv("LAPIS_VIDEO_OVERLAY_STORAGE_ROOT") ?: documentStorageRoot.resolve("video-overlays").path)
     val videoOverlayStorage = VideoOverlayStorage(videoOverlayStorageRoot)
+
+    // Welle V1.9.222 "Bildergalerie" -- the gallery pictures of crowdfunding projects and auctions. Same durable volume as
+    // documentStorageRoot, own
+    // "attached-images/" subdirectory, own env override LAPIS_ATTACHED_IMAGE_STORAGE_ROOT. File name = server storage_key UUID + fixed
+    // format enum,
+    // never client input. AttachedImageStorage.fromEnvironment is the single place the root is derived (the DSGVO contributor calls it
+    // too).
+    // Organization data: part of the admin backup (BackupAssetRoots below). The start sweep removes files no row points to any more.
+    val attachedImageStorage = AttachedImageStorage.fromEnvironment(documentStorageRoot = documentStorageRoot)
+    AttachedImageOrphanSweep.startInBackground(attachedImageStorage)
 
     // V0.7.3 Basis-Mehrseiten-UI: same-origin static serving of the KVision/Kotlin-JS client
     // bundle, replacing the previous "separate origin, no CORS story" gap (see lapis-client's
@@ -1463,6 +1483,10 @@ internal fun Application.module(
     monitor.subscribe(ApplicationStopping) { memberFinderPoller.stop() }
     // One limiter for the whole process (the service is constructed per request).
     val memberFinderRateLimiter = MemberFinderRateLimiter()
+    // V1.9.224 dashboard: one cache pair and one limiter per method for the whole process (the service is constructed per request).
+    val dashboardCaches = DashboardCaches()
+    val dashboardSignalsRateLimiter = FederationInboxRateLimiter(maxRequests = DASHBOARD_RATE_MAX, window = 1.minutes)
+    val dashboardNavCountsRateLimiter = FederationInboxRateLimiter(maxRequests = DASHBOARD_RATE_MAX, window = 1.minutes)
 
     // Welle V1.9.56 -- always on: expires overdue address changes, applies confirmed path B0/C changes once their 72 hour
     // warning period elapsed, purges old resolved rows. Idempotent (status guard under the member lock).
@@ -1766,6 +1790,19 @@ internal fun Application.module(
     val memberPublicProfileModerationRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 60.minutes)
     val chapterCrestUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 60.minutes)
     val chapterCrestPublicReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
+
+    // V1.9.222 "Bildergalerie" -- own budgets: 30 uploads per member and hour, 120 RPC writes and 600 RPC reads per member and hour,
+    // and
+    // the
+    // (authenticated, per member; per IP when anonymous) delivery budget. Never shared with another route family.
+    val attachedImageUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes)
+    val attachedImageWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 60.minutes)
+    val attachedImageListRateLimiter = FederationInboxRateLimiter(maxRequests = 600, window = 60.minutes)
+    val attachedImageReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
+
+    // V1.9.223 -- the author's daily budget for pictures attached to social posts (in memory, resets on restart).
+    val attachedImageSocialDailyLimiter =
+        FederationInboxRateLimiter(maxRequests = GalleryRules.SOCIAL_POST_IMAGES_PER_AUTHOR_PER_DAY, window = 24.hours)
 
     // V1.9.129 "Video-Overlays" -- ADMIN upload budget per actor, and the (authenticated, per member) delivery budget.
     val videoOverlayUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 60.minutes)
@@ -2398,6 +2435,7 @@ internal fun Application.module(
                 boostRateLimiter = socialBoostRateLimiter,
                 moderationRateLimiter = socialModerationRateLimiter,
                 reportRateLimiter = socialReportRateLimiter,
+                attachedImageStorage = attachedImageStorage,
             )
         }
         registerService(IAuthService::class) { call ->
@@ -2737,17 +2775,41 @@ internal fun Application.module(
                 recordingInfrastructureAvailable = conferenceRecordingConfig.enabled && conferenceConfig.enabled,
             )
         }
-        // V1.9.144 optional member finder. Since V1.9.215 the online counts at the very end are the LAST registerService, the tenders second to last (Kilua numbers routes by declaration order).
+        // V1.9.144 optional member finder. Since V1.9.224 the dashboard at the very end is the LAST registerService, the image gallery
+        // second to last, the online counts third to last, the tenders fourth to last (Kilua numbers routes by declaration order).
         registerService(IMemberFinderService::class) { call ->
             MemberFinderService(call = call, rateLimiter = memberFinderRateLimiter)
         }
-        // V1.9.201 tenders. Since V1.9.215 second to last (Kilua numbers routes by declaration order).
+        // V1.9.201 tenders. Since V1.9.224 fourth to last (Kilua numbers routes by declaration order).
         registerService(ITenderService::class) { call ->
             TenderService(call = call, previewRateLimiter = tenderDescriptionPreviewRateLimiter)
         }
-        // V1.9.215 online counts (admin dashboard tile). MUST stay the LAST registerService (Kilua numbers routes by declaration order).
+        // V1.9.215 online counts (admin dashboard tile). Third to last since V1.9.224 (the dashboard is the LAST registerService;
+        // Kilua numbers routes by declaration order).
         registerService(IOnlineCountsService::class) { call ->
             OnlineCountsService(call = call)
+        }
+        // V1.9.222 image gallery. Second to last since V1.9.224 (the dashboard is the LAST registerService; Kilua numbers routes by
+        // declaration order).
+        registerService(IAttachedImageService::class) { call ->
+            AttachedImageService(
+                call = call,
+                storage = attachedImageStorage,
+                writeRateLimiter = attachedImageWriteRateLimiter,
+                readRateLimiter = attachedImageListRateLimiter,
+            )
+        }
+        // V1.9.224 dashboard signals and sidebar counters. THIS is the LAST registerService (after IAttachedImageService; Kilua numbers
+        // routes by declaration order). The conference switch and the MCP switch are process configuration, the others are read per call.
+        registerService(IDashboardService::class) { call ->
+            DashboardService(
+                call = call,
+                caches = dashboardCaches,
+                signalsRateLimiter = dashboardSignalsRateLimiter,
+                navCountsRateLimiter = dashboardNavCountsRateLimiter,
+                conferenceEnabled = conferenceConfig.enabled,
+                mcpEnabled = mcpConfig.isOperational,
+            )
         }
     }
 
@@ -2807,6 +2869,7 @@ internal fun Application.module(
                     eventCovers = eventCoverStorageRoot,
                     articleCovers = articleCoverStorageRoot,
                     videoOverlays = videoOverlayStorageRoot,
+                    attachedImages = attachedImageStorage.canonicalRoot,
                 ),
         )
         registerAuthRoutes(
@@ -3054,6 +3117,16 @@ internal fun Application.module(
             baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             uploadRateLimiter = videoOverlayUploadRateLimiter,
             readRateLimiter = videoOverlayReadRateLimiter,
+        )
+        // Welle V1.9.222 "Bildergalerie" -- private upload + same-origin delivery of the gallery pictures. Always on; literal routes
+        // under
+        // /api/images.
+        registerAttachedImageRoutes(
+            storage = attachedImageStorage,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            uploadRateLimiter = attachedImageUploadRateLimiter,
+            readRateLimiter = attachedImageReadRateLimiter,
+            socialDailyLimiter = attachedImageSocialDailyLimiter,
         )
         // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- literal routes (/aktuelles/*,
         // /api/articles/*), always-on (NOT gated behind LAPIS_EMBED_ENABLED -- see

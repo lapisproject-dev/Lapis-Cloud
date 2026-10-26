@@ -161,7 +161,7 @@ Client only: no migration, no server change, no new RPC. Four screens, six forms
 | `CrmContactsScreen` | "Kontakt anlegen" | page header | `lapis-create-crm-contact`
 | `CrmContactsScreen` (detail of a contact) | "Interaktion erfassen" | title row "Interaktionsverlauf" | `lapis-create-crm-interaction-<n>` (a counter, never a contact id: several details can be open)
 | `CrowdfundingScreen` | "Projekt einreichen" | page header | `lapis-create-crowdfunding-project`
-| `CrowdfundingScreen` (treasury tools, TREASURER/BOARD/ADMIN) | "Verteilung berechnen" | title row "Treuhänder-Werkzeuge" | `lapis-create-crowdfunding-distribution`
+| `CrowdfundingScreen` (treasury tools, TREASURER/BOARD/ADMIN) | "Verteilung berechnen" | inside the CLOSED disclosure "Treuhänder-Werkzeuge" (since V1.9.222; open it first) | `lapis-create-crowdfunding-distribution`
 | `MemberAdministrationScreen` (BOARD/ADMIN) | "Mitglied direkt anlegen" | page header | `lapis-create-member-direct`
 | `RegionalChaptersScreen` (ADMIN) | "Landesverband anlegen" | page header | `lapis-create-regional-chapter`
 |===
@@ -393,3 +393,9 @@ Tests: `LtrLedgerAccountDisclosureDomTest`. Checked in headless Chrome only.
 * The journal form loads its accounts, cost centers, members and donors when the page is built; a newly created account appears there only after the page is reloaded (unchanged behaviour).
 * The board appointment keeps its section title and caption ("Manuelle Eintragung") where it was, below the roster, because the caption explains
   the administrative path; the form opens right beneath it, not under the page header.
+
+== V1.9.222: forms with pictures
+
+The two create forms "Projekt einreichen" and "Neues Angebot" carry an image gallery in buffer mode (see link:../features/image-gallery.adoc[image-gallery.adoc]). After the object has been
+created the form **stays open until every picture is uploaded** and folds back only on a clean finish or on "Fertig"; the fingerprint of the form includes the number of chosen
+pictures, so "Abbrechen" asks before it throws them away. The auction duration is a number plus a unit (default 7 days); the bound is the server's `AuctionDurationRules`.
