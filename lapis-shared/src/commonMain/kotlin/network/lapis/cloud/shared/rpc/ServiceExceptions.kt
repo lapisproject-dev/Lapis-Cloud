@@ -59,6 +59,17 @@ class ConflictException(
     override val message: String,
 ) : AbstractServiceException()
 
+/**
+ * V1.9.233 -- a direct message could not be sent because of its ATTACHMENTS (an id that is unknown, foreign, expired, already sent or
+ * addressed to someone else, too many or too large files, a duplicate name). A distinct type because Kilua RPC transmits only the
+ * exception TYPE (see [MemberEmailInUseException]): a plain [ConflictException] would also cover a bad body, a send to oneself or a
+ * recipient who can no longer receive messages, and the client could not tell "upload the files again" from those.
+ */
+@RpcServiceException
+class DirectMessageAttachmentsUnavailableException(
+    override val message: String = "Attachments are not available",
+) : AbstractServiceException()
+
 @RpcServiceException
 class BadRequestException(
     override val message: String,
@@ -827,4 +838,154 @@ class GalleryLockedException(
 @RpcServiceException
 class GalleryOrderMismatchException(
     override val message: String = "The order does not match the pictures of the gallery",
+) : AbstractServiceException()
+
+/** V1.9.225 -- distinct type. The organisation is not a political party; the party report is not available. */
+@RpcServiceException
+class PartyReportNotEnabledException(
+    override val message: String = "The party report is only available to political parties",
+) : AbstractServiceException()
+
+/** V1.9.225 -- distinct type. The sheet was changed by somebody else since it was loaded. */
+@RpcServiceException
+class PartyReportRevisionConflictException(
+    override val message: String = "The report sheet was changed in the meantime",
+) : AbstractServiceException()
+
+/** V1.9.225 -- distinct type. Year, unit, position or amount of a party-report call is not valid. */
+@RpcServiceException
+class PartyReportInvalidInputException(
+    override val message: String = "Invalid input for the party report",
+) : AbstractServiceException()
+
+/** V1.9.225 -- distinct type. A regional chapter with party-report values (or an empty sheet) cannot be deleted. */
+@RpcServiceException
+class RegionalChapterHasPartyReportValuesException(
+    override val message: String = "Regional chapter has party report values",
+) : AbstractServiceException()
+
+/** V1.9.226 -- distinct type. LupaBB rejected the stored or given credentials (user, password or API key). */
+@RpcServiceException
+class LupaBbAuthRejectedException(
+    override val message: String = "LupaBB rejected the credentials",
+) : AbstractServiceException()
+
+/** V1.9.226 -- distinct type. LupaBB could not be reached or answered with a server error or a timeout. */
+@RpcServiceException
+class LupaBbUnavailableException(
+    override val message: String = "LupaBB is not reachable",
+) : AbstractServiceException()
+
+/** V1.9.226 -- distinct type. LupaBB answered with something this version does not understand. */
+@RpcServiceException
+class LupaBbUnexpectedResponseException(
+    override val message: String = "LupaBB sent an unexpected response",
+) : AbstractServiceException()
+
+/** V1.9.226 -- distinct type. The LupaBB data set exceeds a size limit of the sync. */
+@RpcServiceException
+class LupaBbLimitExceededException(
+    override val message: String = "The LupaBB data set exceeds the limits of the sync",
+) : AbstractServiceException()
+
+/** V1.9.226 -- distinct type. A sync is running already. */
+@RpcServiceException
+class LupaBbSyncBusyException(
+    override val message: String = "A LupaBB sync is already running",
+) : AbstractServiceException()
+
+/** V1.9.226 -- distinct type. LupaBB was queried less than a minute ago. */
+@RpcServiceException
+class LupaBbSyncRateLimitedException(
+    override val message: String = "LupaBB was queried a moment ago; try again in a minute",
+) : AbstractServiceException()
+
+/** V1.9.226 -- distinct type. The preview is unknown, expired, used or belongs to somebody else. */
+@RpcServiceException
+class LupaBbPreviewExpiredException(
+    override val message: String = "The preview is no longer valid",
+) : AbstractServiceException()
+
+/** V1.9.226 -- distinct type. No credentials are stored. */
+@RpcServiceException
+class LupaBbCredentialsMissingException(
+    override val message: String = "No LupaBB credentials are stored",
+) : AbstractServiceException()
+
+/** V1.9.226 -- distinct type. The server has no encryption key, so credentials cannot be stored. */
+@RpcServiceException
+class LupaBbEncryptionKeyMissingException(
+    override val message: String = "The server has no secret encryption key",
+) : AbstractServiceException()
+
+// ---- V1.9.227 "Sitzung in der Videokonferenz": Kilua RPC transports only the exception TYPE, so each refusal has its own type. ----
+
+/** The Sitzung already has a linked Veranstaltung. */
+@RpcServiceException
+class MeetingAlreadyLinkedException(
+    override val message: String = "Meeting already linked to an event",
+) : AbstractServiceException()
+
+/** The Veranstaltung is already linked to a Sitzung. */
+@RpcServiceException
+class EventAlreadyLinkedException(
+    override val message: String = "Event already linked to a meeting",
+) : AbstractServiceException()
+
+/** The Sitzung cannot be announced / aligned: it is cancelled, held or in the past. */
+@RpcServiceException
+class MeetingNotAnnounceableException(
+    override val message: String = "Meeting cannot be announced",
+) : AbstractServiceException()
+
+/** The Sitzung is an in-person meeting without a location (or an online one on a server without video conferences). */
+@RpcServiceException
+class MeetingLocationMissingException(
+    override val message: String = "Meeting has no location",
+) : AbstractServiceException()
+
+/** The link is not the one the caller saw (dissolved or replaced meanwhile). */
+@RpcServiceException
+class MeetingEventLinkStaleException(
+    override val message: String = "Link changed meanwhile",
+) : AbstractServiceException()
+
+/** The Veranstaltung cannot be linked: cancelled, or an instance of a running series. */
+@RpcServiceException
+class EventNotLinkableException(
+    override val message: String = "Event cannot be linked",
+) : AbstractServiceException()
+
+// ---- V1.9.229: an officer of a Sitzung manages that Sitzung's event, within limits. Each refusal has its own type (Kilua RPC transports the type). ----
+
+/** An officer tried to make an event public or to touch an already public one -- that stays with the board. */
+@RpcServiceException
+class MeetingEventVisibilityReservedException(
+    override val message: String = "Only the board may make an event public or change a public one",
+) : AbstractServiceException()
+
+/** An officer tried to change a field reserved to the board (fee, capacity, room, public URL, ...). */
+@RpcServiceException
+class MeetingEventFieldReservedException(
+    override val message: String = "This field is changed by the board",
+) : AbstractServiceException()
+
+/** An officer tried to cancel an event with a fee. */
+@RpcServiceException
+class MeetingEventCancelReservedException(
+    override val message: String = "Only the board cancels a paid event",
+) : AbstractServiceException()
+
+// ---- V1.9.234: deleting a mailing list. Each refusal has its own type (Kilua RPC transports the type, not the text). ----
+
+/** A DYNAMIC (automatic / mandatory) list can never be deleted -- enforced on the server. */
+@RpcServiceException
+class MailingListNotDeletableException(
+    override val message: String = "Automatic mailing lists cannot be deleted",
+) : AbstractServiceException()
+
+/** The list has a message in QUEUED state (being sent); deleting must wait until the send is finished. */
+@RpcServiceException
+class MailingListSendingInProgressException(
+    override val message: String = "The mailing list is being sent",
 ) : AbstractServiceException()

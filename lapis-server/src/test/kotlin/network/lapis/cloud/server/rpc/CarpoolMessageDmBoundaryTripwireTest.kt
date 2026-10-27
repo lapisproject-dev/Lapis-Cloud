@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -27,5 +28,18 @@ class CarpoolMessageDmBoundaryTripwireTest :
 
         test("the passenger gate is not used by the direct-message code") {
             listOf("requireCarpoolPassengerMembership", "CARPOOL_PASSENGER", "CarpoolMessages").forEach { (it in source) shouldBe false }
+        }
+
+        test("V1.9.233: the other direct-message senders (carpool, member finder, event registration) stay WITHOUT attachments") {
+            val names = setOf("CarpoolService.kt", "MemberFinderService.kt", "EventRegistrationMessageNotifier.kt")
+            val files = serverMain.walkTopDown().filter { it.isFile && it.name in names }.toList()
+            // looked up by file name, so a move cannot silently disable the check
+            files.map { it.name }.toSet() shouldBe names
+            files.forEach { file ->
+                val text = file.readText()
+                listOf("DirectMessageAttachmentStore", "sendDirectMessageWithAttachments", "attachPendingInTx").forEach { token ->
+                    withClue("${file.name} must not use $token") { (token in text) shouldBe false }
+                }
+            }
         }
     })

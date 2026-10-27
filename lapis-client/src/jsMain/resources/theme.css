@@ -2822,6 +2822,8 @@ html .form-select.is-invalid:focus {
 .lapis-ssel-option .lapis-flag-spacer { align-self: center; }
 .lapis-nationality-chips .lapis-chip { min-height: 2rem; }
 .lapis-nationality-chips .lapis-chip .lapis-chip-remove { padding: 0 .25rem; }
+/* V1.9.230: without chips the list is empty but its `mb-2` still pushed the select 8px down, so "Staatsangehörigkeit" sat lower than "Land" in a form row. */
+.lapis-nationality-chips:empty { margin-bottom: 0 !important; }
 .lapis-legacy-hint { overflow-wrap: anywhere; }
 @media (pointer: coarse) {
   .lapis-ssel { --lapis-ssel-h: 44px; }
@@ -7998,6 +8000,97 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   margin: 0.5rem 0;
 }
 
+/* V1.9.225 "Rechenschaftsbericht (PartG)": the save bar sticks to the bottom of the scrolling page while values are being entered. It sits in the
+   page's scroll surface (not fixed above the dock) and has no transition and no animation (R54). Tokens only, no colour literals (R9). */
+.lapis-partg-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--bs-border-color);
+  background: var(--lapis-surface);
+}
+
+/* V1.9.226 "LupaBB-Abgleich": the field comparison of a record ("Feld | bisher | neu"). The old value is muted and struck through, the new one is
+   plain; tokens only, no colour literals (R9), no transition (R54). */
+.lapis-lupabb-diff {
+  width: 100%;
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+}
+
+.lapis-lupabb-diff th,
+.lapis-lupabb-diff td {
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--bs-border-color);
+  overflow-wrap: anywhere;
+}
+
+.lapis-lupabb-diff-old {
+  color: var(--lapis-muted);
+  text-decoration: line-through;
+}
+
+.lapis-lupabb-changed {
+  color: var(--bs-primary);
+  font-weight: 600;
+}
+
+/* V1.9.227 Sitzung <-> Veranstaltung link (MeetingEventLinkUi.kt): a quiet block under the facts, tokens only (R54: above the reduced-motion block). */
+.lapis-meeting-event-link {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.375rem;
+  background: var(--lapis-surface);
+}
+
+.lapis-link-difference {
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--bs-primary);
+  background: var(--lapis-surface-sunken);
+  color: var(--bs-body-color);
+  font-size: 0.875rem;
+}
+
+
+/* V1.9.232: attachments of a mailing message -- the name column may shrink and truncate, the size and the actions stay in one line. */
+.lapis-mailing-attachments td:first-child {
+  max-width: 24rem;
+  vertical-align: middle;
+}
+
+.lapis-mailing-attachments td,
+.lapis-mailing-attachments th {
+  vertical-align: middle;
+}
+
+/* V1.9.233: attachments of a direct message -- the composer's list of chosen files and the files under a message. The name may shrink and
+   truncate (min-width: 0), size and the remove button wrap below it on a phone. Tokens only. */
+.lapis-dm-composer-attachments,
+.lapis-dm-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+}
+
+.lapis-dm-composer-attachments > li,
+.lapis-dm-attachments > li {
+  min-width: 0;
+}
+
+.lapis-dm-composer-attachments > li > .text-truncate,
+.lapis-dm-attachments > li > .text-truncate {
+  min-width: 0;
+  max-width: 100%;
+}
 
 @media (prefers-reduced-motion: reduce) {
   body,

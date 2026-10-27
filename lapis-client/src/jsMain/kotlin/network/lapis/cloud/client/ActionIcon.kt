@@ -13,6 +13,9 @@ enum class ActionIcon(
 ) {
     /** Refresh a view; V1.9.75: also "generate a fresh value" (the temporary password's "Neu erzeugen"). */
     REFRESH("fas fa-arrows-rotate"),
+
+    /** V1.9.226: link one record to one member ("Mit diesem Mitglied verknüpfen" in the LupaBB sync). Assigned to this purpose only. */
+    LINK("fas fa-link"),
     EDIT("fas fa-pen"),
     DELETE("fas fa-trash"),
 
@@ -30,6 +33,9 @@ enum class ActionIcon(
     FILTER("fas fa-filter"),
     DOWNLOAD("fas fa-download"),
     UPLOAD("fas fa-upload"),
+
+    /** V1.9.233: attach a file to a message ("Datei anhängen" in the direct-message composer); NOT [UPLOAD] (a file goes to the server as such). */
+    ATTACH("fas fa-paperclip"),
     COPY("fas fa-copy"),
     PRINT("fas fa-print"),
     VIEW("fas fa-eye"),
@@ -48,8 +54,17 @@ enum class ActionIcon(
     /** Change who may see an object (visibility / access level). NOT [LOCK] (reserved). */
     ACCESS("fas fa-user-lock"),
 
-    /** V1.9.75: change one's own password / set a member's password. NOT [LOCK] (reserved), NOT [ACCESS]. */
+    /**
+     * V1.9.75: change one's own password / set a member's password. NOT [LOCK] (reserved), NOT [ACCESS]. V1.9.235: also the status
+     * marker "signed in with a password" in the member roster -- the same thing, the password.
+     */
     PASSWORD("fas fa-key"),
+
+    /** V1.9.235: status marker "signed in through the central sign-in" (roster, last sign-in column); never an action. */
+    SIGN_IN_CENTRAL("fas fa-building-lock"),
+
+    /** V1.9.235: status marker "signed in through a partner server" (roster, last sign-in column); never an action. */
+    SIGN_IN_PARTNER("fas fa-circle-nodes"),
     EXPORT("fas fa-file-export"),
 
     /** V1.9.94: the encounter room's device picker (microphone, camera, speaker); in the room used for that purpose only. */

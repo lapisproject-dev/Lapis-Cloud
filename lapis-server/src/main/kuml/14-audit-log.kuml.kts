@@ -222,11 +222,20 @@ classDiagram(name = "AuditLog") {
         literal(name = "VIDEO_OVERLAY") // Welle V1.9.129 "Video-Overlays" -- VideoOverlayRoutes/VideoOverlayService write one entry per upload/rename/move/delete of a library element: kind, name, pixel size, byte size -- never the access token, the hash or bytes; 13 chars, fits within VARCHAR(29)
         literal(name = "AGREEMENT_TEXT") // Welle V1.9.134 "Vertragstexte" -- AgreementTextAdminService writes one entry per draft save (CREATE/UPDATE) and one POST per publication: event, kind, version label, hash, character count, validity date -- never the text; 14 chars, fits within VARCHAR(29)
         literal(name = "PULPIT_RECORDING") // Welle V1.9.143 "Kanzel-Aufzeichnung" -- PulpitRecordingService/PulpitRecordingCoordinator write one entry per start, stop, automatic stop and deletion: event, reason code, text hashes -- never a participant count, a path, a text or the identity of anybody but the acting person; 16 chars, fits within VARCHAR(29)
+        literal(name = "EVENT_CAPTURE") // (re-added in V1.9.227: the model had drifted from the enum)
         literal(name = "TRAVEL_EXPENSE_DOCUMENT") // Welle V1.9.199 "Reisekosten-Unterlagen" -- TravelExpenseDocumentRoutes writes one entry per upload, rename and removal (VOID): title, MIME type, byte size -- never the file content, name or path; 23 chars, fits within VARCHAR(29)
         literal(name = "TENDER") // Welle V1.9.201 "Ausschreibungen" -- TenderService writes one entry per publication, award-motion registration, award, acceptance and cancellation: event, enums and ids only -- never a title, a name, a price or a justification; 6 chars, fits within VARCHAR(29)
+        literal(name = "EVENT_REGISTRATION_EXPORT") // (re-added in V1.9.227: the model had drifted from the enum)
         // Welle V1.9.222 "Bildergalerie" -- AttachedImageService/AttachedImageRoutes write one CREATE per added and one VOID per removed picture
         // (re-ordering and captions write none); ids, enums and byte size only -- never a caption, a file name or a storage key; 14 chars.
         literal(name = "ATTACHED_IMAGE")
+        // Welle V1.9.227 "Sitzung in der Videokonferenz" -- the Sitzung <-> Veranstaltung link: ANNOUNCED / LINKED (CREATE), UNLINKED (VOID),
+        // ALIGNED (UPDATE); ids and enums only -- never a title or a text; 18 chars. PARTG_* / LUPABB_* (V1.9.225/226) had been missing here and are added with this wave.
+        literal(name = "PARTG_REPORT_SHEET")
+        literal(name = "PARTG_REPORT_POSITION")
+        literal(name = "LUPABB_SYNC_RUN")
+        literal(name = "LUPABB_SYNC_CONFIG")
+        literal(name = "MEETING_EVENT_LINK")
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

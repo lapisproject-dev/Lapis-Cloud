@@ -35,6 +35,10 @@ class PrivilegedPeerActionTripwireTest :
                 "network/lapis/cloud/server/rpc/MemberService.kt",
                 "network/lapis/cloud/server/rpc/DsgvoService.kt",
                 "network/lapis/cloud/server/rpc/KeycloakLinkService.kt",
+                // V1.9.226 LupaBB sync (ADMIN only): its only sink, the record-by-record update, sits in a function that takes
+                // PeerGuard.lockFactsAfterMemberLock; a member with a management role or the acting administrator is never changed beyond the
+                // person-number link (the plan marks it ADMIN_ROLE_MANUAL, the fingerprint covers the role under the member row lock).
+                "network/lapis/cloud/server/lupabb/LupaBbApplier.kt",
             )
 
         // Keys are "path" (the whole file) or "path#function" (that function only), relative to src/main/kotlin -> why an unguarded sink

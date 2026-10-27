@@ -50,14 +50,14 @@ class RestGroupFormsMailingListDomTest {
             withFetchStub(respond = { request -> if (request.isRpc) request.answerWith("[]") else StubResponse() }) {
                 AppState.setSession(session(AccountRole.MEMBER))
                 mountedForm("r49-mailing-member") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root)
                     awaitUntil("the self-service section") { element().shows("Mailinglisten") }
                     assertFalse(element().shows("Mailinglisten verwalten"))
                     assertEquals(emptyList(), element().createButtonLabels())
                 }
                 AppState.setSession(session(AccountRole.BOARD))
                 mountedForm("r49-mailing-board") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root, "#/mailing-lists?tab=manage")
                     awaitUntil("the admin section") { element().createButtonLabels() == listOf("Neue Mailingliste") }
                     assertFalse(element().hostOpen(formId), "collapsed")
                     val host = openCreateForm(element(), formId)
@@ -74,7 +74,7 @@ class RestGroupFormsMailingListDomTest {
             AppState.setSession(session(AccountRole.ADMIN))
             withFetchStub(respond = { request -> if (request.isRpc) request.answerWith("[]") else StubResponse() }) {
                 mountedForm("r49-mailing-typed") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root, "#/mailing-lists?tab=manage")
                     awaitUntil("the admin section") { element().createButtonLabels() == listOf("Neue Mailingliste") }
                     val host = openCreateForm(element(), formId)
                     host.typeInto("Name", "Vorstand")
@@ -109,15 +109,20 @@ class RestGroupFormsMailingListDomTest {
                 },
             ) { calls ->
                 mountedForm("r49-mailing-save") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root)
                     awaitUntil("the old list in the self-service section") { element().shows("Altliste") }
+                    element().buttonNamed("Verwalten").click() // the board tab (built lazily)
+                    awaitUntil("the admin section") { element().createButtonLabels() == listOf("Neue Mailingliste") }
                     val host = openCreateForm(element(), formId)
                     host.typeInto("Name", "Vorstand")
                     val before = calls.toRoute(lists).size
                     host.buttonNamed("Anlegen").click()
                     awaitUntil("the create call") { calls.toRoute(create).size == 1 }
                     awaitUntil("the form folded back") { !element().hostOpen(formId) }
-                    awaitUntil("both places reloaded the lists") { calls.toRoute(lists).size >= before + 2 }
+                    awaitUntil("the subscription table was reloaded and lists the new list") {
+                        element().allOf("tbody").any { it.shows("Vorstand") }
+                    }
+                    assertTrue(calls.toRoute(lists).size > before, "at least one reload after the save")
                     awaitUntil("the new list is pre-selected in the manage selector") {
                         (element().controlOf("Mailingliste") as? HTMLSelectElement)?.value == "new-1"
                     }

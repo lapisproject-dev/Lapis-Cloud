@@ -373,6 +373,14 @@ class LegalHtmlTest :
                     "ltrLedger",
                     "peerTransfer",
                     "priceOracleConversions",
+                    // V1.9.225: the party accountability report keeps only WHO changed WHICH figure (board members, never an amount in the export);
+                    // it is bookkeeping data of the organisation covered by the accounting umbrella bullet. No legal text was changed without
+                    // review: if the privacy page should name it, add a keyword entry above instead.
+                    "partyReport",
+                    // V1.9.226: the LupaBB sync moves the MASTER DATA of members (names, address, status) that the "Stammdaten" bullet of the
+                    // member administration already names; the processing is the organisation's own, manual and ADMIN-only. The privacy page
+                    // is a legal text and was NOT changed without review: if it should name the sync, add a keyword entry above instead.
+                    "lupabbSync",
                 )
 
             PersonalDataRegistry.contributors.forEach { contributor ->

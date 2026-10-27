@@ -211,7 +211,7 @@ and the scanner did not know), thirteen forms:
 | `DsgvoComplianceScreen` (ADMIN) | "Neue TOM" | title row of the view | `dsgvo-tom-create`
 | `DsgvoComplianceScreen` (BOARD/ADMIN) | "Neue DSFA" | title row of the view | `dsgvo-dsfa-create`
 | `DsgvoComplianceScreen` (BOARD/ADMIN) | "Datenpanne melden" | title row of the view | `dsgvo-breach-create`
-| `CommunicationScreen` (BOARD/ADMIN) | "Neue Mailingliste" | title row "Mailinglisten verwalten" | `mailing-list-create`
+| `MailingListsScreen`, tab "Verwalten" (BOARD/ADMIN; V1.9.231, was `CommunicationScreen`) | "Neue Mailingliste" | title row "Mailinglisten verwalten" | `mailing-list-create`
 | `TravelExpenseScreen` | "Neuer Reisekostenantrag" | page header, only without an open draft | `travel-expense-create`
 | `VolunteerAllowanceScreen` | "Neue Zahlung beantragen" | page header, only without an open draft | `volunteer-allowance-create`
 | `DunningSettingsScreen` (ADMIN) | "Neue Mahnstufe" | title row "Mahnstufen" | `dunning-level-create`

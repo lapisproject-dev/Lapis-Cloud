@@ -32,6 +32,11 @@ class CommitteeSeatLifecycleTripwireTest :
                 "network/lapis/cloud/server/rpc/RegistrationService.kt" to
                     (2 to "leaveMembership and rejectApplication end seats; the other writers there create or promote members"),
                 "network/lapis/cloud/server/bootstrap/MemberCsvImport.kt" to (0 to "inserts new members only: a new member has no seats"),
+                "network/lapis/cloud/server/lupabb/LupaBbApplier.kt" to
+                    (
+                        0 to
+                            "V1.9.226: inserts new members only; the status of an existing member changes through MemberRoleStatusMutations (which ends the seats)"
+                    ),
                 "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt" to (0 to "creates the first admin: no seats"),
                 "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt" to (0 to "creates a guest: no seats"),
                 "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt" to (0 to "just-in-time creation: no seats"),

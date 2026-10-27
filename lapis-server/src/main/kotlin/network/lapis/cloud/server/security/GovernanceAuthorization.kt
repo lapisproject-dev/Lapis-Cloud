@@ -113,7 +113,12 @@ fun CurrentMember.canSubmitMotion(targetCommitteeId: Uuid): Boolean {
 private fun CurrentMember.hasCommitteeRole(
     committeeId: Uuid,
     vararg roles: CommitteeRole,
-): Boolean {
+): Boolean = activeRoles(committeeId = committeeId, roles = roles.toList()).isNotEmpty()
+
+private fun CurrentMember.activeRoles(
+    committeeId: Uuid,
+    roles: List<CommitteeRole>,
+): List<CommitteeRole> {
     val today = OrganizationTimeZone.today()
     return transaction {
         CommitteeMembershipTable
@@ -121,12 +126,53 @@ private fun CurrentMember.hasCommitteeRole(
             .where {
                 (CommitteeMembershipTable.committeeId eq committeeId) and
                     (CommitteeMembershipTable.memberId eq memberId) and
-                    (CommitteeMembershipTable.role inList roles.toList()) and
+                    (CommitteeMembershipTable.role inList roles) and
                     (CommitteeMembershipTable.since lessEq today) and
                     (
                         CommitteeMembershipTable.until.isNull() or
                             (CommitteeMembershipTable.until greaterEq today)
                     )
-            }.count() > 0
+            }.map { it[CommitteeMembershipTable.role] }
     }
 }
+
+/**
+ * V1.9.229 -- the recording office (Vorsitz, stellvertretender Vorsitz, Schriftfuehrung, Geschaeftsfuehrung) this member holds on [committeeId]
+ * TODAY, or `null`. Seat based ONLY: unlike [canRecordForMeeting] there is no BOARD/ADMIN branch, so the result says what an officer's own seat
+ * grants. With several offices the most senior one (lowest [CommitteeRole] ordinal) wins -- sorted here, not in SQL, so it is deterministic.
+ */
+fun CurrentMember.activeRecordingRole(committeeId: Uuid): CommitteeRole? =
+    activeRoles(committeeId = committeeId, roles = COMMITTEE_RECORDING_ROLES.toList()).minByOrNull { it.ordinal }
+
+/** V1.9.229 -- what the caller may do with one event; see [meetingEventGrant]. */
+sealed interface MeetingEventGrant {
+    /** BOARD/ADMIN: everything, as before. */
+    data object Full : MeetingEventGrant
+
+    /** An officer of the committee whose Sitzung [meetingId] the event announces: the limited officer rights. */
+    data class Officer(
+        val meetingId: Uuid,
+        val committeeId: Uuid,
+        val officerRole: CommitteeRole,
+    ) : MeetingEventGrant
+
+    data object None : MeetingEventGrant
+}
+
+/**
+ * V1.9.229 -- THE rule: BOARD/ADMIN manage every event (same set as `EVENT_MANAGE_ROLES`; deliberately NOT TREASURER); otherwise only an officer
+ * seat on the committee of the Sitzung the event is linked to grants anything. A pure decision over already-read ids -- callers on a write path
+ * read them from LOCKED rows, never from client input. No lock, no cache.
+ */
+fun CurrentMember.meetingEventGrant(
+    eventMeetingId: Uuid?,
+    meetingCommitteeId: Uuid?,
+): MeetingEventGrant =
+    when {
+        isPrivileged -> MeetingEventGrant.Full
+        eventMeetingId == null || meetingCommitteeId == null -> MeetingEventGrant.None
+        else ->
+            activeRecordingRole(meetingCommitteeId)?.let {
+                MeetingEventGrant.Officer(meetingId = eventMeetingId, committeeId = meetingCommitteeId, officerRole = it)
+            } ?: MeetingEventGrant.None
+    }

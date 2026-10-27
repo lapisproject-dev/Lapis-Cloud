@@ -44,10 +44,16 @@ import network.lapis.cloud.server.events.series.RecurrenceExpander
 import network.lapis.cloud.server.events.series.RecurrenceRuleBuilder
 import network.lapis.cloud.server.events.series.RecurrenceSentence
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkAudit
+import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkOperations
+import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkStore
+import network.lapis.cloud.server.governance.meetingevent.MeetingEventOfficerAccess
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.htmlEscape
 import network.lapis.cloud.server.mail.outbox.OutboundMail
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
+import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.security.MeetingEventGrant
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -69,6 +75,7 @@ import network.lapis.cloud.shared.domain.EventEncounterSpaceOptionDto
 import network.lapis.cloud.shared.domain.EventGuestParticipantDto
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventInvoiceRequestDto
+import network.lapis.cloud.shared.domain.EventManageScope
 import network.lapis.cloud.shared.domain.EventOnlineJoinResultDto
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventOnlineOutcome
@@ -86,6 +93,7 @@ import network.lapis.cloud.shared.domain.EventSeriesEditScope
 import network.lapis.cloud.shared.domain.EventSeriesImpactDto
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
+import network.lapis.cloud.shared.domain.MeetingEventLinkAuditKind
 import network.lapis.cloud.shared.domain.OpenItemDirection
 import network.lapis.cloud.shared.domain.OpenItemSnapshot
 import network.lapis.cloud.shared.domain.OpenItemStatus
@@ -95,6 +103,7 @@ import network.lapis.cloud.shared.domain.SeriesPreviewDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.EventCaptureChangeLockedException
+import network.lapis.cloud.shared.rpc.EventNotLinkableException
 import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -209,7 +218,16 @@ class EventService(
                     offset = query.offset,
                     slug = query.slug,
                 )
-            val dtos = rows.map { row -> row.toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl) }
+            val dtos =
+                rows.map { row ->
+                    row
+                        .toEventDto(
+                            now = now,
+                            memberId = current.memberId,
+                            baseUrl = baseUrl,
+                        ).withLinkedMeeting(row = row, current = current, now = now)
+                        .copy(manageScope = if (isManager) EventManageScope.FULL else EventManageScope.NONE)
+                }
             EventPageDto(rows = dtos, totalCount = total, limit = query.limit.coerceIn(1, 200), offset = query.offset.coerceAtLeast(0))
         }
     }
@@ -220,10 +238,24 @@ class EventService(
         val now = DbClock.nowLocalDateTime()
         return transaction {
             val row = EventStore.getEventOrThrow(id.toEventUuid())
-            if (!isManager && row[EventTable.status] != EventStatus.PUBLISHED) {
+            // V1.9.229: an officer of the announced Sitzung's committee reads (and manages) that event, DRAFT or not.
+            val scope =
+                when {
+                    isManager -> EventManageScope.FULL
+                    MeetingEventOfficerAccess.grantFor(current = current, eventRow = row) is MeetingEventGrant.Officer ->
+                        EventManageScope.MEETING_OFFICER
+                    else -> EventManageScope.NONE
+                }
+            if (scope == EventManageScope.NONE && row[EventTable.status] != EventStatus.PUBLISHED) {
                 throw NotFoundException("Event $id not found")
             }
-            row.toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
+            row
+                .toEventDto(
+                    now = now,
+                    memberId = current.memberId,
+                    baseUrl = baseUrl,
+                ).withLinkedMeeting(row = row, current = current, now = now)
+                .copy(manageScope = scope)
         }
     }
 
@@ -286,116 +318,185 @@ class EventService(
         input: EventInput,
     ): EventDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(*EVENT_MANAGE_ROLES)
+        val isManager = current.role in EVENT_MANAGE_ROLES
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
         val eventId = id.toEventUuid()
         val normalized = EventPolicy.normalizedOnline(input)
         return transaction {
-            // Row lock, FIRST operation (Review MINOR fix, same discipline `cancelEvent` already
-            // established): without it, a concurrent `EventRegistrationSubmission.submit`/
-            // `registerSelf` holding `EventCapacityGuard.withEventLock`'s lock on this SAME row could
-            // insert a fresh registration with the OLD fee between this transaction's un-locked
-            // `hasNonInactiveRegistration` read below and its own commit -- letting the fee change
-            // through even though a registration at the old fee now exists underneath it.
-            val existing = EventStore.lockEventForUpdate(eventId) ?: throw NotFoundException("Event $eventId not found")
-            // Review MAJOR fix: `validate` used to run BEFORE this lock, with no way to tell "startsAt
-            // genuinely moved into the past" apart from "startsAt already was, and still is, in the
-            // past" -- see `EventPolicy.validate` KDoc. Passing the currently-stored `startsAt` here
-            // (only obtainable once `existing` is loaded) makes that distinction possible.
-            EventPolicy.validate(
-                input = normalized,
-                wallNow = OrganizationTimeZone.wallNowOf(now),
-                existingStartsAt = existing[EventTable.startsAt],
-            )
-            // Switching an event TO a Lapis online kind needs conferencing on this server; an event that already has one may still be edited.
-            if (normalized.onlineKind != existing[EventTable.onlineKind]) requireLapisOnlineAvailable(kind = normalized.onlineKind)
-            val encounterSpaceId = resolveEncounterSpace(input = normalized, existing = existing)
-            val hasActiveRegistrations = EventStore.hasNonInactiveRegistration(eventId)
-            val feeChanged =
-                normalized.feeAmount.compareTo(existing[EventTable.feeAmount]) != 0 ||
-                    normalized.feeCurrency != existing[EventTable.feeCurrency]
-            if (hasActiveRegistrations && feeChanged) {
-                throw ConflictException(
-                    "Die Teilnahmegebühr kann nicht mehr geändert werden -- es bestehen bereits Anmeldungen für diese Veranstaltung.",
+            if (isManager) {
+                // Row lock, FIRST operation (Review MINOR fix, same discipline `cancelEvent` already
+                // established): without it, a concurrent `EventRegistrationSubmission.submit`/
+                // `registerSelf` holding `EventCapacityGuard.withEventLock`'s lock on this SAME row could
+                // insert a fresh registration with the OLD fee between this transaction's un-locked
+                // `hasNonInactiveRegistration` read below and its own commit -- letting the fee change
+                // through even though a registration at the old fee now exists underneath it.
+                val existing = EventStore.lockEventForUpdate(eventId) ?: throw NotFoundException("Event $eventId not found")
+                val updated =
+                    applyEventUpdate(current = current, eventId = eventId, existing = existing, normalized = normalized, now = now)
+                updated
+                    .toEventDto(
+                        now = now,
+                        memberId = current.memberId,
+                        baseUrl = baseUrl,
+                    ).withLinkedMeeting(row = updated, current = current, now = now)
+                    .copy(manageScope = EventManageScope.FULL)
+            } else {
+                // V1.9.229: an officer of the Sitzung's committee edits the basics of THE event announcing it (allow-list, see the access object).
+                val locked = MeetingEventOfficerAccess.lockForOfficer(current = current, eventId = eventId)
+                val changed = MeetingEventOfficerAccess.checkOfficerUpdate(existing = locked.event, normalized = normalized)
+                val updated =
+                    applyEventUpdate(current = current, eventId = eventId, existing = locked.event, normalized = normalized, now = now)
+                MeetingEventLinkAudit.record(
+                    actor = current,
+                    kind = MeetingEventLinkAuditKind.OFFICER_UPDATED,
+                    meetingId = locked.grant.meetingId,
+                    eventId = eventId,
+                    changedFields = changed,
+                    officerRole = locked.grant.officerRole,
                 )
+                updated
+                    .toEventDto(
+                        now = now,
+                        memberId = current.memberId,
+                        baseUrl = baseUrl,
+                    ).withLinkedMeeting(row = updated, current = current, now = now)
+                    .copy(manageScope = EventManageScope.MEETING_OFFICER)
             }
-            val roomId = normalized.roomId?.toEventUuid()
-            // Room-collision check, AFTER EventPolicy.validate, BEFORE the update -- see
-            // EventRoomCollisionGuard KDoc. The `event` row lock above is already held (this
-            // function's very first operation) -- locking the room row here, AFTER it, follows the
-            // same lock ordering every other multi-lock path in this class establishes (never
-            // acquire a narrower-scoped lock before the wider one it nests inside).
-            if (roomId != null) {
-                EventRoomCollisionGuard.assertNoOverlap(
-                    roomId = roomId,
-                    startsAt = normalized.startsAt,
-                    endsAt = normalized.endsAt,
-                    excludingEventId = eventId,
-                )
-            }
-            EventStore.updateEvent(
-                id = eventId,
-                title = normalized.title.trim(),
-                description = normalized.description.trim(),
-                locationText = normalized.locationText?.trim()?.takeIf { it.isNotBlank() },
-                onlineUrl = normalized.onlineUrl?.trim()?.takeIf { it.isNotBlank() },
-                startsAt = normalized.startsAt,
-                endsAt = normalized.endsAt,
-                capacity = normalized.capacity,
-                feeAmount = if (feeChanged) normalized.feeAmount else null,
-                feeCurrency = if (feeChanged) normalized.feeCurrency else null,
-                visibility = normalized.visibility,
-                registrationClosesAt = normalized.registrationClosesAt,
-                roomId = roomId,
-                summary = EventPolicy.normalizedSummary(normalized.summary),
-                coverImageAlt = EventPolicy.normalizedCoverImageAlt(normalized.coverImageAlt),
-                onlineUrlPublic = normalized.onlineUrlPublic,
-                onlineKind = normalized.onlineKind,
-                encounterSpaceId = encounterSpaceId,
-            )
-            // V1.9.113: keep the event's conference in step (veto while it runs, window follows a rescheduling).
-            EventOnlineLifecycle.onEventSaved(
-                eventId = eventId,
-                kind = normalized.onlineKind,
-                startsAt = normalized.startsAt,
-                endsAt = normalized.endsAt,
-                previousVisibility = existing[EventTable.visibility],
-                newVisibility = normalized.visibility,
-                previousRegistrationClosesAt = existing[EventTable.registrationClosesAt],
-                newRegistrationClosesAt = normalized.registrationClosesAt,
-            )
-            // V1.9.156: switching an event away from a Lapis conference withdraws its capture release (EventOnlineLifecycle). The audit trail of the release
-            // (EVENT_CAPTURE) must show that, like every other change of it. AuditLogRecorder.record is the LAST lock-taking operation of the transaction.
-            val updated = EventStore.getEventOrThrow(eventId)
-            if (existing[EventTable.captureAllowed] && !updated[EventTable.captureAllowed]) {
-                AuditLogRecorder.record(
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    entityType = AuditEntityType.EVENT_CAPTURE,
-                    entityId = eventId,
-                    action = AuditAction.UPDATE,
-                    before = "{\"eventId\":\"$eventId\",\"captureAllowed\":true}",
-                    after = "{\"eventId\":\"$eventId\",\"captureAllowed\":false}",
-                )
-            }
-            updated.toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
         }
+    }
+
+    /** The shared body of `updateEvent` (board AND officer path): [existing] is the event row, already locked by the caller. Returns the fresh row. */
+    private fun applyEventUpdate(
+        current: CurrentMember,
+        eventId: Uuid,
+        existing: ResultRow,
+        normalized: EventInput,
+        now: LocalDateTime,
+    ): ResultRow {
+        // Review MAJOR fix: `validate` used to run BEFORE this lock, with no way to tell "startsAt
+        // genuinely moved into the past" apart from "startsAt already was, and still is, in the
+        // past" -- see `EventPolicy.validate` KDoc. Passing the currently-stored `startsAt` here
+        // (only obtainable once `existing` is loaded) makes that distinction possible.
+        EventPolicy.validate(
+            input = normalized,
+            wallNow = OrganizationTimeZone.wallNowOf(now),
+            existingStartsAt = existing[EventTable.startsAt],
+        )
+        // Switching an event TO a Lapis online kind needs conferencing on this server; an event that already has one may still be edited.
+        if (normalized.onlineKind != existing[EventTable.onlineKind]) requireLapisOnlineAvailable(kind = normalized.onlineKind)
+        val encounterSpaceId = resolveEncounterSpace(input = normalized, existing = existing)
+        val hasActiveRegistrations = EventStore.hasNonInactiveRegistration(eventId)
+        val feeChanged =
+            normalized.feeAmount.compareTo(existing[EventTable.feeAmount]) != 0 ||
+                normalized.feeCurrency != existing[EventTable.feeCurrency]
+        if (hasActiveRegistrations && feeChanged) {
+            throw ConflictException(
+                "Die Teilnahmegebühr kann nicht mehr geändert werden -- es bestehen bereits Anmeldungen für diese Veranstaltung.",
+            )
+        }
+        val roomId = normalized.roomId?.toEventUuid()
+        // Room-collision check, AFTER EventPolicy.validate, BEFORE the update -- see
+        // EventRoomCollisionGuard KDoc. The `event` row lock above is already held (this
+        // function's very first operation) -- locking the room row here, AFTER it, follows the
+        // same lock ordering every other multi-lock path in this class establishes (never
+        // acquire a narrower-scoped lock before the wider one it nests inside).
+        if (roomId != null) {
+            EventRoomCollisionGuard.assertNoOverlap(
+                roomId = roomId,
+                startsAt = normalized.startsAt,
+                endsAt = normalized.endsAt,
+                excludingEventId = eventId,
+            )
+        }
+        EventStore.updateEvent(
+            id = eventId,
+            title = normalized.title.trim(),
+            description = normalized.description.trim(),
+            locationText = normalized.locationText?.trim()?.takeIf { it.isNotBlank() },
+            onlineUrl = normalized.onlineUrl?.trim()?.takeIf { it.isNotBlank() },
+            startsAt = normalized.startsAt,
+            endsAt = normalized.endsAt,
+            capacity = normalized.capacity,
+            feeAmount = if (feeChanged) normalized.feeAmount else null,
+            feeCurrency = if (feeChanged) normalized.feeCurrency else null,
+            visibility = normalized.visibility,
+            registrationClosesAt = normalized.registrationClosesAt,
+            roomId = roomId,
+            summary = EventPolicy.normalizedSummary(normalized.summary),
+            coverImageAlt = EventPolicy.normalizedCoverImageAlt(normalized.coverImageAlt),
+            onlineUrlPublic = normalized.onlineUrlPublic,
+            onlineKind = normalized.onlineKind,
+            encounterSpaceId = encounterSpaceId,
+        )
+        // V1.9.113: keep the event's conference in step (veto while it runs, window follows a rescheduling).
+        EventOnlineLifecycle.onEventSaved(
+            eventId = eventId,
+            kind = normalized.onlineKind,
+            startsAt = normalized.startsAt,
+            endsAt = normalized.endsAt,
+            previousVisibility = existing[EventTable.visibility],
+            newVisibility = normalized.visibility,
+            previousRegistrationClosesAt = existing[EventTable.registrationClosesAt],
+            newRegistrationClosesAt = normalized.registrationClosesAt,
+        )
+        // V1.9.156: switching an event away from a Lapis conference withdraws its capture release (EventOnlineLifecycle). The audit trail of the release
+        // (EVENT_CAPTURE) must show that, like every other change of it. AuditLogRecorder.record is the LAST lock-taking operation of the transaction.
+        val updated = EventStore.getEventOrThrow(eventId)
+        if (existing[EventTable.captureAllowed] && !updated[EventTable.captureAllowed]) {
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.EVENT_CAPTURE,
+                entityId = eventId,
+                action = AuditAction.UPDATE,
+                before = "{\"eventId\":\"$eventId\",\"captureAllowed\":true}",
+                after = "{\"eventId\":\"$eventId\",\"captureAllowed\":false}",
+            )
+        }
+        return updated
     }
 
     override suspend fun publishEvent(id: String): EventDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(*EVENT_MANAGE_ROLES)
+        val isManager = current.role in EVENT_MANAGE_ROLES
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
         val eventId = id.toEventUuid()
         return transaction {
-            val existing = EventStore.getEventOrThrow(eventId)
+            val grant: MeetingEventGrant.Officer?
+            val existing: ResultRow
+            if (isManager) {
+                grant = null
+                existing = EventStore.getEventOrThrow(eventId)
+            } else {
+                // V1.9.229: an officer publishes the DRAFT announcing their Sitzung -- to MEMBERS only (a public event stays with the board).
+                val locked = MeetingEventOfficerAccess.lockForOfficer(current = current, eventId = eventId)
+                grant = locked.grant
+                existing = locked.event
+            }
             if (existing[EventTable.status] != EventStatus.DRAFT) {
                 throw ConflictException("Nur Veranstaltungen im Status Entwurf können veröffentlicht werden.")
             }
+            if (grant != null) MeetingEventOfficerAccess.requireMembersOnly(existing)
             EventStore.setStatus(id = eventId, status = EventStatus.PUBLISHED, cancelledAt = null)
-            EventStore.getEventOrThrow(eventId).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
+            if (grant != null) {
+                MeetingEventLinkAudit.record(
+                    actor = current,
+                    kind = MeetingEventLinkAuditKind.OFFICER_PUBLISHED,
+                    meetingId = grant.meetingId,
+                    eventId = eventId,
+                    officerRole = grant.officerRole,
+                )
+            }
+            val published = EventStore.getEventOrThrow(eventId)
+            published
+                .toEventDto(
+                    now = now,
+                    memberId = current.memberId,
+                    baseUrl = baseUrl,
+                ).withLinkedMeeting(row = published, current = current, now = now)
+                .copy(manageScope = if (grant == null) EventManageScope.FULL else EventManageScope.MEETING_OFFICER)
         }
     }
 
@@ -404,61 +505,92 @@ class EventService(
         reason: String,
     ): EventDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(*EVENT_MANAGE_ROLES)
+        val isManager = current.role in EVENT_MANAGE_ROLES
         requireWithinRate(current.memberId)
         if (reason.isBlank()) throw BadRequestException("Begründung ist erforderlich.")
         val now = DbClock.nowLocalDateTime()
         val eventId = id.toEventUuid()
         val (dto, notices) =
             transaction {
-                // Row lock, FIRST operation (Review MAJOR fix): without it, a concurrent
-                // `EventRegistrationSubmission.submit` that already passed its own pre-lock
-                // `isRegistrationOpen` check (event still PUBLISHED at that point) could acquire
-                // `EventCapacityGuard.withEventLock`'s lock on THIS row right after this transaction
-                // commits and insert a fresh registration against an event that is, by then, already
-                // CANCELLED -- see `EventRegistrationSubmission.submit`'s own in-lock re-check, which
-                // this lock is what makes effective (that re-check would otherwise race this exact
-                // `setStatus` call).
-                val existing = EventStore.lockEventForUpdate(eventId) ?: throw NotFoundException("Event $eventId not found")
-                if (existing[EventTable.status] == EventStatus.CANCELLED) {
-                    throw ConflictException("Diese Veranstaltung ist bereits abgesagt.")
+                if (isManager) {
+                    val existing = EventStore.lockEventForUpdate(eventId) ?: throw NotFoundException("Event $eventId not found")
+                    applyEventCancel(current = current, eventId = eventId, existing = existing, now = now, beforeLifecycle = {})
+                } else {
+                    // V1.9.229: an officer may cancel the FREE, members-only event of their own Sitzung (the board decides on a public or a paid one).
+                    val locked = MeetingEventOfficerAccess.lockForOfficer(current = current, eventId = eventId)
+                    val existing = locked.event
+                    if (existing[EventTable.status] == EventStatus.CANCELLED) {
+                        throw ConflictException("Diese Veranstaltung ist bereits abgesagt.")
+                    }
+                    MeetingEventOfficerAccess.requireMembersOnly(existing)
+                    MeetingEventOfficerAccess.requireFreeForCancel(existing)
+                    if (existing[EventTable.seriesId] != null && !existing[EventTable.seriesDetached]) throw EventNotLinkableException()
+                    applyEventCancel(current = current, eventId = eventId, existing = existing, now = now) {
+                        MeetingEventLinkAudit.record(
+                            actor = current,
+                            kind = MeetingEventLinkAuditKind.OFFICER_CANCELLED,
+                            meetingId = locked.grant.meetingId,
+                            eventId = eventId,
+                            officerRole = locked.grant.officerRole,
+                        )
+                    }
                 }
-                EventStore.setStatus(id = eventId, status = EventStatus.CANCELLED, cancelledAt = now)
-                val activeRegistrations =
-                    EventStore.listByEvent(eventId = eventId).filter { row ->
-                        row[EventRegistrationTable.status] !in EventRegistrationStatusSets.INACTIVE
-                    }
-                activeRegistrations.forEach { row -> EventStore.cancelRegistration(id = row[EventRegistrationTable.id], now = now) }
-                // Resolve every recipient's mail address/display name to a plain, transaction-free
-                // value HERE, while the transaction is still open (Review CRITICAL fix): the mail
-                // loop below runs AFTER this `transaction {}` block returns (by design -- see
-                // `EventCapacityGuard` KDoc "MailDispatcher.enqueue must never run inside an open
-                // transaction"), but `EventStore.memberEmailOrNull`/`.memberDisplayNameOrNull` run
-                // their OWN fresh Exposed queries (unlike a `ResultRow` field access, which reads an
-                // already-fetched value) and therefore throw `IllegalStateException("No transaction
-                // in context.")` if called outside one. The previous code called them from inside
-                // `mailEventCancelled` AFTER the transaction had already committed -- every
-                // MEMBER-registrant cancellation notice (and every mail queued after the first such
-                // member, member or guest) was silently lost, and the whole RPC call surfaced as an
-                // uncaught 500 despite the cancellation itself having already committed.
-                val notices =
-                    activeRegistrations.mapNotNull { row ->
-                        val memberId = row[EventRegistrationTable.memberId]
-                        val to = if (memberId != null) EventStore.memberEmailOrNull(memberId) else row[EventRegistrationTable.guestEmail]
-                        val name =
-                            if (memberId != null) {
-                                EventStore.memberDisplayNameOrNull(memberId) ?: ""
-                            } else {
-                                row[EventRegistrationTable.guestName] ?: ""
-                            }
-                        to?.let { EventCancellationNotice(to = it, recipientName = name) }
-                    }
-                val fresh = EventStore.getEventOrThrow(eventId).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
-                fresh to notices
             }
         mailEventCancelledAll(notices = notices, eventTitle = dto.title, reason = reason)
         endConferencesBestEffort(listOf(eventId))
-        return dto
+        return dto.copy(manageScope = if (isManager) EventManageScope.FULL else EventManageScope.MEETING_OFFICER)
+    }
+
+    /**
+     * The shared body of `cancelEvent` (board AND officer path): [existing] is the event row, already locked by the caller; [beforeLifecycle]
+     * runs after the registration rows are locked and before the link is dissolved (the officer audit entry goes there).
+     */
+    private fun applyEventCancel(
+        current: CurrentMember,
+        eventId: Uuid,
+        existing: ResultRow,
+        now: LocalDateTime,
+        beforeLifecycle: () -> Unit,
+    ): Pair<EventDto, List<EventCancellationNotice>> {
+        if (existing[EventTable.status] == EventStatus.CANCELLED) {
+            throw ConflictException("Diese Veranstaltung ist bereits abgesagt.")
+        }
+        EventStore.setStatus(id = eventId, status = EventStatus.CANCELLED, cancelledAt = now)
+        val activeRegistrations =
+            EventStore.listByEvent(eventId = eventId).filter { row ->
+                row[EventRegistrationTable.status] !in EventRegistrationStatusSets.INACTIVE
+            }
+        activeRegistrations.forEach { row -> EventStore.cancelRegistration(id = row[EventRegistrationTable.id], now = now) }
+        // V1.9.227: a cancelled event no longer announces a Sitzung -- dissolve the link here (the Sitzung stays untouched).
+        // Deliberately AFTER the registration rows are locked: the audit entry locks the chain state and must be the LAST locking step.
+        beforeLifecycle()
+        MeetingEventLinkOperations.Lifecycle.onEventCancelled(actor = current, eventId = eventId)
+        // Resolve every recipient's mail address/display name to a plain, transaction-free
+        // value HERE, while the transaction is still open (Review CRITICAL fix): the mail
+        // loop below runs AFTER this `transaction {}` block returns (by design -- see
+        // `EventCapacityGuard` KDoc "MailDispatcher.enqueue must never run inside an open
+        // transaction"), but `EventStore.memberEmailOrNull`/`.memberDisplayNameOrNull` run
+        // their OWN fresh Exposed queries (unlike a `ResultRow` field access, which reads an
+        // already-fetched value) and therefore throw `IllegalStateException("No transaction
+        // in context.")` if called outside one. The previous code called them from inside
+        // `mailEventCancelled` AFTER the transaction had already committed -- every
+        // MEMBER-registrant cancellation notice (and every mail queued after the first such
+        // member, member or guest) was silently lost, and the whole RPC call surfaced as an
+        // uncaught 500 despite the cancellation itself having already committed.
+        val notices =
+            activeRegistrations.mapNotNull { row ->
+                val memberId = row[EventRegistrationTable.memberId]
+                val to = if (memberId != null) EventStore.memberEmailOrNull(memberId) else row[EventRegistrationTable.guestEmail]
+                val name =
+                    if (memberId != null) {
+                        EventStore.memberDisplayNameOrNull(memberId) ?: ""
+                    } else {
+                        row[EventRegistrationTable.guestName] ?: ""
+                    }
+                to?.let { EventCancellationNotice(to = it, recipientName = name) }
+            }
+        val fresh = EventStore.getEventOrThrow(eventId).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
+        return fresh to notices
     }
 
     override suspend fun listRegistrations(eventId: String): List<EventRegistrationDto> {
@@ -991,6 +1123,12 @@ class EventService(
             transaction {
                 val (_, scopePlan, seriesId, title) = computeSeriesImpact(id = id, scope = scope)
                 val result = EventSeriesMaterializer.deleteOrCancel(scope = scope, scopePlan = scopePlan, seriesId = seriesId, now = now)
+                // V1.9.227: a cancelled (not a hard-deleted -- that row is gone, the FK is ON DELETE SET NULL) occurrence dissolves a Sitzung link.
+                result.affectedEventIds.forEach { affectedId ->
+                    if (EventStore.getEventOrNull(affectedId)?.get(EventTable.status) == EventStatus.CANCELLED) {
+                        MeetingEventLinkOperations.Lifecycle.onEventCancelled(actor = current, eventId = affectedId)
+                    }
+                }
                 SeriesCancelOutcome(
                     dto =
                         EventSeriesEditResultDto(
@@ -1565,6 +1703,22 @@ class EventService(
             logger.error { "Event cancellation mails could not be queued (${t::class.simpleName}): ${notices.size} notice(s) lost" }
         }
     }
+}
+
+/**
+ * V1.9.227: adds the Sitzung link to the event page's DTO, for BOARD/ADMIN and the officers of that Sitzung's committee only (the member view
+ * of events shows nothing of it). Never part of a public output.
+ */
+private fun EventDto.withLinkedMeeting(
+    row: ResultRow,
+    current: CurrentMember,
+    now: LocalDateTime,
+): EventDto {
+    if (row[EventTable.meetingId] == null) return this
+    val ref =
+        MeetingEventLinkStore.linkedMeetingRef(eventRow = row, caller = current, wallNow = OrganizationTimeZone.wallNowOf(now))
+            ?: return this
+    return copy(linkedMeeting = ref)
 }
 
 private fun String.toEventUuid(): Uuid = runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }

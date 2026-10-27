@@ -52,6 +52,8 @@ class OrganizationSchemaCatalogTest :
                     "member_finder_request",
                     "member_finder_block",
                     "member_finder_region_band",
+                    // Welle V1.9.226 -- the sealed LupaBB credentials (bound to this instance's key) and the run guard
+                    "lupabb_sync_config",
                 )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false

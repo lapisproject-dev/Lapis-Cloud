@@ -458,7 +458,7 @@ class MemberFinderScreenDomTest {
                 assertEquals(FinderIds.CONNECTION, call.rpcParam(0) as String)
                 assertEquals("Guten Tag!", call.rpcParam(1) as String)
                 awaitUntil("the message") {
-                    element.live().text() == "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
+                    element.live().text() == "Nachricht gesendet. Die Unterhaltung finden Sie unter Nachrichten."
                 }
 
                 element.buttonNamed("Verbindung blockieren").click()

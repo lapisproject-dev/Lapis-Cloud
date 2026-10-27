@@ -820,6 +820,7 @@ private fun Route.registerBoundaryTestRoutes() {
                 deliveryWorker = noOpMailingDeliveryWorker(),
                 deliveryMode = MailingDeliveryMode.LOG,
                 branding = MailBranding.notConfigured(),
+                attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
             )
         call.respondText(service.listMailingLists().size.toString())
     }
@@ -830,6 +831,7 @@ private fun Route.registerBoundaryTestRoutes() {
                 deliveryWorker = noOpMailingDeliveryWorker(),
                 deliveryMode = MailingDeliveryMode.LOG,
                 branding = MailBranding.notConfigured(),
+                attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
             )
         val q = call.request.queryParameters
         service.subscribe(mailingListId = q["mailingListId"]!!)
@@ -842,6 +844,7 @@ private fun Route.registerBoundaryTestRoutes() {
                 deliveryWorker = noOpMailingDeliveryWorker(),
                 deliveryMode = MailingDeliveryMode.LOG,
                 branding = MailBranding.notConfigured(),
+                attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
             )
         val q = call.request.queryParameters
         service.unsubscribe(mailingListId = q["mailingListId"]!!)

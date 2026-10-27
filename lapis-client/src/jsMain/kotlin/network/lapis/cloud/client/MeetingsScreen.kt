@@ -437,6 +437,7 @@ private suspend fun buildMeetingDetail(
             }
 
         renderMeetingMeta(panel, detail.meeting, canManage, onChanged)
+        renderMeetingEventLink(panel, detail.meeting, canManage, onChanged)
         renderEinladungSection(panel, detail.meeting, canManage, isBoardOrAdmin, audience)
         renderAgendaSection(panel, detail, canManage, audience, onChanged)
         renderAttendanceSection(panel, detail, canManage, audience, onChanged)

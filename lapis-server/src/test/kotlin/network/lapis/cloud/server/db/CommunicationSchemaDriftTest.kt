@@ -6,12 +6,15 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
+import network.lapis.cloud.server.db.generated.DirectMessageAttachmentTable
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
 import network.lapis.cloud.server.db.generated.MailingLinkClickTable
 import network.lapis.cloud.server.db.generated.MailingListOptOutTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
+import network.lapis.cloud.server.db.generated.MailingMessageAttachmentTable
 import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -42,7 +45,7 @@ class CommunicationSchemaDriftTest :
         /** Resolves an `ErmForeignKey.targetEntityId` back to its entity name within [model]. */
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the eight communication entities plus the Member stub") {
+        test("model declares exactly the ten communication entities plus the Member stub") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -52,9 +55,138 @@ class CommunicationSchemaDriftTest :
                     "mailing_message",
                     "mailing_delivery_log",
                     "mailing_message_link",
+                    "mailing_message_attachment",
                     "mailing_link_click",
                     "direct_message",
+                    "direct_message_attachment",
                 )
+        }
+
+        test("V1.9.232: mailing_message_attachment table shape matches the real migrated schema, FKs and unique indexes included") {
+            val entity = model.entities.single { it.name == "mailing_message_attachment" }
+            val real = transaction { introspectCommunicationTable("mailing_message_attachment") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") { real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+            real.foreignKeys["mailing_message_id"] shouldBe "mailing_message"
+            real.foreignKeys["uploaded_by"] shouldBe "member"
+            model.entityNameOf(entity.attributeByName("mailing_message_id")?.foreignKey?.targetEntityId ?: "") shouldBe "mailing_message"
+            model.entityNameOf(entity.attributeByName("uploaded_by")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+            // (mailing_message_id, name_key) is the only multi-column unique index; storage_key is a single-column one.
+            real.compositeUniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("mailing_message_id", "name_key"))
+        }
+
+        test("V1.9.232: the nullable columns of mailing_message_attachment are exactly text_charset and file_deleted_at") {
+            val real = transaction { introspectCommunicationTable("mailing_message_attachment") }
+            real.columns.filterValues { it.nullable }.keys shouldBe setOf("text_charset", "file_deleted_at")
+        }
+
+        test("V1.9.232: mailing_message_attachment entity column-name set matches the hand-written MailingMessageAttachmentTable 1:1") {
+            model.entities
+                .single { it.name == "mailing_message_attachment" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder MailingMessageAttachmentTable.columns.map { it.name }
+        }
+
+        test("V1.9.232: the DB refuses a file over 10 MiB, an empty file, an unlisted MIME type and an unknown charset") {
+            fun attempt(
+                size: Long,
+                mime: String,
+                charset: String?,
+            ): String {
+                val memberId = java.util.UUID.randomUUID()
+                val listId = java.util.UUID.randomUUID()
+                val messageId = java.util.UUID.randomUUID()
+                return runCatching {
+                    transaction {
+                        exec(
+                            "INSERT INTO member (id, display_name, email, status, joined_at) VALUES ('$memberId', 'X', 'x-$memberId@example.org', 'ACTIVE', DATE '2020-01-01')",
+                        )
+                        exec("INSERT INTO mailing_list (id, name, created_by) VALUES ('$listId', 'L', '$memberId')")
+                        exec(
+                            "INSERT INTO mailing_message (id, subject, body_text, sent_by, status, mailing_list_id) " +
+                                "VALUES ('$messageId', 's', 't', '$memberId', 'DRAFT', '$listId')",
+                        )
+                        exec(
+                            "INSERT INTO mailing_message_attachment (id, mailing_message_id, storage_key, original_filename, name_key, " +
+                                "mime_type, text_charset, size_bytes, sha256, uploaded_by, uploaded_at) VALUES " +
+                                "('${java.util.UUID.randomUUID()}', " +
+                                "'$messageId', 'k-$messageId', 'n', 'n', '$mime', ${charset?.let {
+                                    "'$it'"
+                                } ?: "NULL"}, $size, 'h', '$memberId', " +
+                                "CURRENT_TIMESTAMP)",
+                        )
+                        // Nothing of this probe may stay in the shared test database (the accepted case would otherwise commit).
+                        rollback()
+                    }
+                }.exceptionOrNull()?.message.orEmpty()
+            }
+            attempt(10_485_761L, "application/pdf", null) shouldContain "chk_mma_size"
+            attempt(0L, "application/pdf", null) shouldContain "chk_mma_size"
+            attempt(10L, "image/svg+xml", null) shouldContain "chk_mma_mime"
+            attempt(10L, "text/html", null) shouldContain "chk_mma_mime"
+            attempt(10L, "text/plain", "ISO-8859-1") shouldContain "chk_mma_charset"
+            attempt(10_485_760L, "text/plain", "windows-1252") shouldBe ""
+        }
+
+        test("V1.9.233: direct_message_attachment table shape matches the real migrated schema, FKs and the unique storage key included") {
+            val entity = model.entities.single { it.name == "direct_message_attachment" }
+            val real = transaction { introspectCommunicationTable("direct_message_attachment") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") { real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+            real.foreignKeys["message_id"] shouldBe "direct_message"
+            real.foreignKeys["uploader_id"] shouldBe "member"
+            real.foreignKeys["recipient_id"] shouldBe "member"
+            model.entityNameOf(entity.attributeByName("message_id")?.foreignKey?.targetEntityId ?: "") shouldBe "direct_message"
+            model.entityNameOf(entity.attributeByName("uploader_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+            model.entityNameOf(entity.attributeByName("recipient_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+            // NULL message_id == pending upload; text_charset only for txt/csv.
+            real.columns.filterValues { it.nullable }.keys shouldBe setOf("message_id", "text_charset")
+            real.compositeUniqueConstraints shouldBe emptyList()
+        }
+
+        test("V1.9.233: direct_message_attachment entity column-name set matches the hand-written DirectMessageAttachmentTable 1:1") {
+            model.entities
+                .single { it.name == "direct_message_attachment" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder DirectMessageAttachmentTable.columns.map { it.name }
+        }
+
+        test("V1.9.233: the DB refuses a direct-message file over 10 MiB, an empty file, an unlisted MIME type and an unknown charset") {
+            fun attempt(
+                size: Long,
+                mime: String,
+                charset: String?,
+            ): String {
+                val memberId = java.util.UUID.randomUUID()
+                val otherId = java.util.UUID.randomUUID()
+                return runCatching {
+                    transaction {
+                        exec(
+                            "INSERT INTO member (id, display_name, email, status, joined_at) VALUES ('$memberId', 'X', 'x-$memberId@example.org', 'ACTIVE', DATE '2020-01-01')",
+                        )
+                        exec(
+                            "INSERT INTO member (id, display_name, email, status, joined_at) VALUES ('$otherId', 'Y', 'y-$otherId@example.org', 'ACTIVE', DATE '2020-01-01')",
+                        )
+                        exec(
+                            "INSERT INTO direct_message_attachment (id, message_id, uploader_id, recipient_id, storage_key, " +
+                                "original_filename, name_key, mime_type, text_charset, size_bytes, sha256, created_at) VALUES " +
+                                "('${java.util.UUID.randomUUID()}', NULL, '$memberId', '$otherId', 'k-$memberId', 'n', 'n', '$mime', " +
+                                "${charset?.let { "'$it'" } ?: "NULL"}, $size, 'h', CURRENT_TIMESTAMP)",
+                        )
+                        rollback()
+                    }
+                }.exceptionOrNull()?.message.orEmpty()
+            }
+            attempt(10_485_761L, "application/pdf", null) shouldContain "chk_dma_size"
+            attempt(0L, "application/pdf", null) shouldContain "chk_dma_size"
+            attempt(10L, "image/svg+xml", null) shouldContain "chk_dma_mime"
+            attempt(10L, "text/html", null) shouldContain "chk_dma_mime"
+            attempt(10L, "text/plain", "ISO-8859-1") shouldContain "chk_dma_charset"
+            attempt(10_485_760L, "text/plain", "windows-1252") shouldBe ""
         }
 
         // ── (1) Model vs. real H2-migrated schema ───────────────────────────────

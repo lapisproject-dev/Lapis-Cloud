@@ -598,6 +598,15 @@ fun decodeAuditSnapshot(
             // V1.9.222 -- AttachedImageSnapshot (owner, position, size, MIME type; never a caption or a key), raw-text display like the
             // other backend-written snapshots.
             AuditEntityType.ATTACHED_IMAGE -> null
+            // V1.9.225 -- PartgValueAuditSnapshot / PartgImportAuditSnapshot / PartgPositionHintSnapshot (year, unit key, position code, cents;
+            // never a file name beyond the shortened import entry), raw-text display like the other backend-written snapshots.
+            AuditEntityType.PARTG_REPORT_SHEET -> null
+            AuditEntityType.PARTG_REPORT_POSITION -> null
+            // V1.9.226 -- LupaBbSyncRunSnapshot / LupaBbConfigSnapshot: counters, a data hash, an event name; raw-text display.
+            AuditEntityType.LUPABB_SYNC_RUN -> null
+            AuditEntityType.LUPABB_SYNC_CONFIG -> null
+            // V1.9.227 -- MeetingEventLinkSnapshot: ids and enums only; raw-text display.
+            AuditEntityType.MEETING_EVENT_LINK -> null
         }
     }.getOrNull()
 

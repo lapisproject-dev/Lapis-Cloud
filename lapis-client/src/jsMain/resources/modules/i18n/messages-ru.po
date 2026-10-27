@@ -6497,11 +6497,6 @@ msgstr "Проверить цепочку"
 msgid "Ketten-Integrität prüfen"
 msgstr "Проверить целостность цепочки"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:51
-#: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:118
-msgid "Kommunikation"
-msgstr "Коммуникация"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:153
 msgid "Konfiguration"
 msgstr "Конфигурация"
@@ -16919,10 +16914,6 @@ msgstr "%1 свободных мест"
 msgid "Eintrag wurde gelöscht."
 msgstr "Запись удалена."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:237
-msgid "Nachricht wurde gesendet. Antworten finden Sie im Postfach unter Kommunikation."
-msgstr "Сообщение отправлено. Ответы можно найти во входящих в разделе «Коммуникация»."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:269
 msgid "Eintrag bearbeiten"
 msgstr "Редактировать запись"
@@ -19526,12 +19517,6 @@ msgstr "Возврат зафиксирован вне Lapis Cloud"
 
 msgid "Nachrichten, %1 ungelesen"
 msgstr "Сообщения, непрочитанных: %1"
-
-msgid "Gespräche"
-msgstr "Беседы"
-
-msgid "Noch keine Gespräche."
-msgstr "Бесед пока нет."
 
 msgid "%1 neu"
 msgstr "%1 новых"
@@ -24785,9 +24770,6 @@ msgstr "Связь заблокирована."
 msgid "Ihre Nachricht"
 msgstr "Ваше сообщение"
 
-msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
-msgstr "Сообщение отправлено. Беседу вы найдёте в разделе «Коммуникация»."
-
 msgid "Anfrage senden"
 msgstr "Отправить запрос"
 
@@ -25409,9 +25391,6 @@ msgstr "Здесь вы найдёте документы вашей орган�
 
 msgid "Sie stellen Fragen zur Satzung; die Antwort entsteht per KI aus den dafür freigegebenen Dokumenten. Dazu stimmen Sie einmal zu, die Zustimmung können Sie widerrufen."
 msgstr "Вы задаёте вопросы по уставу; ответ формирует ИИ на основе документов, выбранных для этой цели. Вы соглашаетесь один раз и можете отозвать согласие."
-
-msgid "Hier verwalten Sie Ihre Mailinglisten, schreiben Direktnachrichten und lesen Ihr Postfach. Vorstand und Administration legen zusätzlich Mailinglisten an und verschicken Nachrichten an sie."
-msgstr "Здесь вы управляете своими списками рассылки, пишете личные сообщения и читаете почтовый ящик. Правление и администрация дополнительно создают списки рассылки и отправляют им сообщения."
 
 msgid "Hier sehen Sie die aktiven Mitglieder Ihres Landesverbands und können nach Name oder E-Mail suchen. Der Zugang gilt nur, solange Ihr Amt im Landesverband aktiv ist."
 msgstr "Здесь вы видите активных участников своего регионального отделения и можете искать по имени или e-mail. Доступ действует только пока ваша должность в региональном отделении активна."
@@ -27325,3 +27304,1004 @@ msgstr "Активных: %1 из %2"
 
 msgid "Das Dashboard zeigt nur, was gerade Sie betrifft: offene Abstimmungen, Gebote, Fristen. Alle Bereiche erreichen Sie über das Menü."
 msgstr "Панель управления показывает только то, что касается вас сейчас: открытые голосования, ставки, сроки. Все разделы доступны через меню."
+
+msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar."
+msgstr "Отчёт о финансировании доступен только политическим партиям."
+
+msgid "Die Werte wurden inzwischen von jemand anderem geändert -- bitte laden Sie das Blatt neu."
+msgstr "Значения тем временем изменил другой пользователь -- перезагрузите лист."
+
+msgid "Jahr, Gliederung oder Betrag sind ungültig."
+msgstr "Год, подразделение или сумма недопустимы."
+
+msgid "Für diesen Landesverband sind Werte im Rechenschaftsbericht erfasst. Er kann nicht gelöscht werden."
+msgstr "Для этого регионального отделения в отчёте о финансировании внесены значения. Его нельзя удалить."
+
+msgid "Rechenschaftsbericht (Wert)"
+msgstr "Отчёт о финансировании (значение)"
+
+msgid "Rechenschaftsbericht (Positionshinweis)"
+msgstr "Отчёт о финансировании (примечание к позиции)"
+
+msgid "Rechenschaftsbericht (PartG)"
+msgstr "Отчёт о финансировании (PartG)"
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
+msgstr "Здесь вы вносите по каждому подразделению и году доходы, расходы и имущество для отчёта о финансировании вручную или из шаблона Excel. Готовый отчёт эта страница пока не создаёт."
+
+msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
+msgstr "Членские взносы и аналогичные регулярные взносы"
+
+msgid "Mandatsträgerbeiträge und ähnliche regelmäßige Beiträge"
+msgstr "Взносы лиц, занимающих мандат, и аналогичные регулярные взносы"
+
+msgid "Spenden von natürlichen Personen"
+msgstr "Пожертвования физических лиц"
+
+msgid "Spenden von juristischen Personen"
+msgstr "Пожертвования юридических лиц"
+
+msgid "Einnahmen aus Unternehmenstätigkeit"
+msgstr "Доходы от предпринимательской деятельности"
+
+msgid "Einnahmen aus Beteiligungen"
+msgstr "Доходы от участия в капитале"
+
+msgid "Einnahmen aus sonstigem Vermögen"
+msgstr "Доходы от прочего имущества"
+
+msgid "Einnahmen aus Veranstaltungen, Vertrieb von Druckschriften und Veröffentlichungen und sonstiger mit Einnahmen verbundener Tätigkeit"
+msgstr "Доходы от мероприятий, продажи печатных изданий и публикаций и иной деятельности, приносящей доход"
+
+msgid "Staatliche Mittel"
+msgstr "Государственные средства"
+
+msgid "Sonstige Einnahmen"
+msgstr "Прочие доходы"
+
+msgid "Zuschüsse von Gliederungen"
+msgstr "Субсидии от подразделений"
+
+msgid "Gesamteinnahmen"
+msgstr "Всего доходов"
+
+msgid "Ausgaben für Personal"
+msgstr "Расходы на персонал"
+
+msgid "Ausgaben des laufenden Geschäftsbetriebs"
+msgstr "Расходы текущей деятельности"
+
+msgid "Ausgaben für allgemeine politische Arbeit"
+msgstr "Расходы на общую политическую работу"
+
+msgid "Ausgaben für Wahlkämpfe"
+msgstr "Расходы на избирательные кампании"
+
+msgid "Ausgaben für die Vermögensverwaltung einschließlich sich ergebender Zinsen"
+msgstr "Расходы на управление имуществом, включая возникающие проценты"
+
+msgid "Sonstige Zinsen"
+msgstr "Прочие проценты"
+
+msgid "Ausgaben aus Unternehmenstätigkeit"
+msgstr "Расходы от предпринимательской деятельности"
+
+msgid "Sonstige Ausgaben"
+msgstr "Прочие расходы"
+
+msgid "Ausgaben für Sachaufwand insgesamt"
+msgstr "Всего материальных расходов"
+
+msgid "Zuschüsse an Gliederungen"
+msgstr "Субсидии подразделениям"
+
+msgid "Gesamtausgaben"
+msgstr "Всего расходов"
+
+msgid "Überschuss bzw. Defizit"
+msgstr "Профицит или дефицит"
+
+msgid "Haus- und Grundvermögen"
+msgstr "Недвижимое имущество"
+
+msgid "Geschäftsstellenausstattung"
+msgstr "Оснащение офисов"
+
+msgid "Beteiligungen an Unternehmen"
+msgstr "Доли участия в предприятиях"
+
+msgid "Sonstige Finanzanlagen"
+msgstr "Прочие финансовые вложения"
+
+msgid "Forderungen an Gliederungen"
+msgstr "Требования к подразделениям"
+
+msgid "Forderungen aus der staatlichen Teilfinanzierung"
+msgstr "Требования по частичному государственному финансированию"
+
+msgid "Geldbestände"
+msgstr "Денежные средства"
+
+msgid "Sonstige Vermögensgegenstände"
+msgstr "Прочие активы"
+
+msgid "Summe der Besitzposten"
+msgstr "Итого активов"
+
+msgid "Rückstellungen für Pensionsverpflichtungen"
+msgstr "Резервы на пенсионные обязательства"
+
+msgid "Sonstige Rückstellungen"
+msgstr "Прочие резервы"
+
+msgid "Rückzahlungsverpflichtungen aus der staatlichen Teilfinanzierung"
+msgstr "Обязательства по возврату частичного государственного финансирования"
+
+msgid "Verbindlichkeiten gegenüber Gebietsverbänden"
+msgstr "Обязательства перед территориальными подразделениями"
+
+msgid "Verbindlichkeiten gegenüber Kreditinstituten"
+msgstr "Обязательства перед кредитными организациями"
+
+msgid "Verbindlichkeiten gegenüber sonstigen Darlehensgebern"
+msgstr "Обязательства перед прочими кредиторами"
+
+msgid "Sonstige Verbindlichkeiten"
+msgstr "Прочие обязательства"
+
+msgid "Summe der Schuldposten"
+msgstr "Итого пассивов"
+
+msgid "Reinvermögen (Besitzposten abzüglich Schuldposten)"
+msgstr "Чистое имущество (активы за вычетом пассивов)"
+
+msgid "bisher"
+msgstr "было"
+
+msgid "neu"
+msgstr "стало"
+
+msgid "Excel-Datei importieren: %1, %2"
+msgstr "Импорт файла Excel: %1, %2"
+
+msgid "Wählen Sie die ausgefüllte Vorlage (.xlsx, höchstens 2 MB). Leere Zellen verändern nichts."
+msgstr "Выберите заполненный шаблон (.xlsx, не более 2 МБ). Пустые ячейки ничего не меняют."
+
+msgid "Excel-Datei"
+msgstr "Файл Excel"
+
+msgid "Die Datei kann nicht übernommen werden:"
+msgstr "Файл нельзя импортировать:"
+
+msgid "Zeile %1"
+msgstr "Строка %1"
+
+msgid "Spalte %1"
+msgstr "Столбец %1"
+
+msgid "Die Datei enthält keine Änderungen gegenüber dem gespeicherten Stand."
+msgstr "В файле нет изменений по сравнению с сохранённым состоянием."
+
+msgid "%1 Werte würden übernommen:"
+msgstr "Будет импортировано значений: %1"
+
+msgid "Rechnungsjahr %1"
+msgstr "Отчётный год %1"
+
+msgid "Vorjahr %1"
+msgstr "Предыдущий год %1"
+
+msgid "ƒ = der Wert stammt aus einer Formel; übernommen wird das in der Datei gespeicherte Ergebnis."
+msgstr "ƒ = значение получено из формулы; импортируется результат, сохранённый в файле."
+
+msgid "Bitte wählen Sie zuerst eine Datei."
+msgstr "Сначала выберите файл."
+
+msgid "Die Datei ist zu groß (höchstens 2 MB)."
+msgstr "Файл слишком большой (не более 2 МБ)."
+
+msgid "%1 Werte übernommen."
+msgstr "Импортировано значений: %1"
+
+msgid "Bitte keinen negativen Betrag eingeben."
+msgstr "Не вводите отрицательную сумму."
+
+msgid "Der Betrag ist zu groß."
+msgstr "Сумма слишком велика."
+
+msgid "Bitte einen Betrag wie 1.234,56 eingeben."
+msgstr "Введите сумму в виде 1.234,56."
+
+msgid "Gliederung"
+msgstr "Подразделение"
+
+msgid "Stand"
+msgstr "Состояние"
+
+msgid "Reinvermögen"
+msgstr "Чистое имущество"
+
+msgid "Nicht erfasst"
+msgstr "Не внесено"
+
+msgid "Teilweise (%1 von %2)"
+msgstr "Частично (%1 из %2)"
+
+msgid "Vollständig"
+msgstr "Полностью"
+
+msgid "Keine Gliederungen vorhanden."
+msgstr "Подразделений нет."
+
+msgid "Werte erfassen"
+msgstr "Ввести значения"
+
+msgid "Vorlage herunterladen"
+msgstr "Скачать шаблон"
+
+msgid "Excel-Datei importieren"
+msgstr "Импортировать файл Excel"
+
+msgid "Gesetz"
+msgstr "Закон"
+
+msgid "Hinweis der Organisation"
+msgstr "Примечание организации"
+
+msgid "Die Positionen und ihre Reihenfolge sind gesetzlich vorgegeben (§ 24 PartG) und nicht änderbar. Zu jeder Position können Sie einen eigenen Hinweis hinterlegen, der bei der Erfassung angezeigt wird."
+msgstr "Позиции и их порядок установлены законом (§ 24 PartG) и не подлежат изменению. К каждой позиции можно сохранить собственное примечание, которое показывается при вводе."
+
+msgid "Eingabe"
+msgstr "Ввод"
+
+msgid "Hinweis ändern"
+msgstr "Изменить примечание"
+
+msgid "Hinweis zu \"%1\""
+msgstr "Примечание к \"%1\""
+
+msgid "Hinweis (höchstens 500 Zeichen)"
+msgstr "Примечание (не более 500 символов)"
+
+msgid "Der Hinweis ist zu lang."
+msgstr "Примечание слишком длинное."
+
+msgid "Hinweis gespeichert."
+msgstr "Примечание сохранено."
+
+msgid "Rechenschaftsbericht nach Parteiengesetz"
+msgstr "Отчёт о финансировании по закону о партиях"
+
+msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
+msgstr "Отчёт о финансировании доступен только политическим партиям. Настройка находится в данных организации."
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
+msgstr "Здесь вы вносите данные для отчёта о финансировании. Это вспомогательное средство, а не юридическая консультация: сам отчёт и его проверка аудитором появятся на следующем этапе."
+
+msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
+msgstr "Вы ввели значения, которые ещё не сохранены. Если вы сейчас перейдёте, они будут потеряны."
+
+msgid "Bereich"
+msgstr "Раздел"
+
+msgid "Rechnungsjahr"
+msgstr "Отчётный год"
+
+msgid "Leere Felder im Rechnungsjahr mit 0 füllen"
+msgstr "Заполнить пустые поля отчётного года нулями"
+
+msgid "Leere Felder mit 0 füllen?"
+msgstr "Заполнить пустые поля нулями?"
+
+msgid "Alle leeren Felder des Rechnungsjahres %1 werden mit 0,00 € gefüllt. Das Vorjahr bleibt unverändert."
+msgstr "Все пустые поля отчётного года %1 будут заполнены значением 0,00 €. Предыдущий год останется без изменений."
+
+msgid "Mit 0 füllen"
+msgstr "Заполнить нулями"
+
+msgid "nicht erfasst"
+msgstr "не внесено"
+
+msgid "Bitte korrigieren Sie zuerst die markierten Felder."
+msgstr "Сначала исправьте отмеченные поля."
+
+msgid "%1 Werte gespeichert."
+msgstr "Сохранено значений: %1"
+
+msgid "Das Speichern ist nicht gelungen, oder das Blatt wurde inzwischen von jemand anderem geändert. Mit \"Neu laden\" sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr "Не удалось сохранить, или лист тем временем изменил другой пользователь. Кнопка \"Перезагрузить\" покажет актуальное состояние; ваши данные будут потеряны."
+
+msgid "%1 Änderungen"
+msgstr "Изменений: %1"
+
+msgid "Die Datei ist keine Excel-Datei (.xlsx)."
+msgstr "Файл не является файлом Excel (.xlsx)."
+
+msgid "Diese Excel-Datei ist anders aufgebaut als erwartet und kann nicht gelesen werden."
+msgstr "Этот файл Excel устроен иначе, чем ожидалось, и не может быть прочитан."
+
+msgid "Dateien mit Makros werden nicht angenommen."
+msgstr "Файлы с макросами не принимаются."
+
+msgid "Die Datei ist zu groß oder zu umfangreich."
+msgstr "Файл слишком большой или слишком объёмный."
+
+msgid "Das ist nicht die Vorlage dieser Version. Bitte laden Sie die Vorlage neu herunter."
+msgstr "Это не шаблон этой версии. Скачайте шаблон заново."
+
+msgid "Die Datei gehört zu einer anderen Gliederung oder einem anderen Jahr."
+msgstr "Файл относится к другому подразделению или другому году."
+
+msgid "Diese Kennung gibt es nicht."
+msgstr "Такого идентификатора нет."
+
+msgid "Diese Kennung kommt mehrfach vor."
+msgstr "Этот идентификатор встречается несколько раз."
+
+msgid "Negative Beträge sind nicht möglich."
+msgstr "Отрицательные суммы невозможны."
+
+msgid "Hier steht kein gültiger Betrag."
+msgstr "Здесь нет допустимой суммы."
+
+msgid "Höchstens zwei Nachkommastellen sind möglich."
+msgstr "Допускается не более двух знаков после запятой."
+
+msgid "Hier steht ein Datum statt eines Betrags."
+msgstr "Здесь дата вместо суммы."
+
+msgid "Die Formel hat noch kein Ergebnis. Bitte speichern Sie die Datei in Excel erneut."
+msgstr "У формулы ещё нет результата. Сохраните файл в Excel заново."
+
+msgid "Diese Zelle enthält einen Fehlerwert."
+msgstr "Эта ячейка содержит значение ошибки."
+
+msgid "Unterhalb von Zeile 500 steht Inhalt, der nicht gelesen wird."
+msgstr "Ниже строки 500 есть содержимое, которое не читается."
+
+msgid "Es gibt weitere Fehler. Bitte beheben Sie zuerst die genannten."
+msgstr "Есть и другие ошибки. Сначала исправьте перечисленные."
+
+msgid "Die Datei ist beschädigt oder widersprüchlich aufgebaut."
+msgstr "Файл повреждён или имеет противоречивую структуру."
+
+msgid "Der Rechenschaftsbericht ist für diese Organisation nicht verfügbar."
+msgstr "Отчёт о финансировании недоступен для этой организации."
+
+msgid "Die Vorschau ist abgelaufen. Bitte laden Sie die Datei erneut hoch."
+msgstr "Предварительный просмотр устарел. Загрузите файл заново."
+
+msgid "Die Werte wurden inzwischen geändert. Bitte laden Sie die Datei erneut hoch."
+msgstr "Значения тем временем изменились. Загрузите файл заново."
+
+msgid "Die Verbindung ist fehlgeschlagen. Bitte versuchen Sie es erneut."
+msgstr "Не удалось установить соединение. Повторите попытку."
+
+msgid "Bundesverband"
+msgstr "Федеральное объединение"
+
+msgid "Landesverband %1"
+msgstr "Региональное отделение %1"
+
+msgid "Nachgeordnete Gebietsverbände in %1 (zusammengefasst)"
+msgstr "Нижестоящие территориальные подразделения в %1 (сводно)"
+
+msgid "Personennummer"
+msgstr "Номер лица"
+
+msgid "Anzeigename"
+msgstr "Отображаемое имя"
+
+msgid "Namenszusatz"
+msgstr "Приставка к имени"
+
+msgid "Firma"
+msgstr "Организация"
+
+msgid "Personentyp"
+msgstr "Тип лица"
+
+msgid "Adresszusatz"
+msgstr "Дополнение к адресу"
+
+msgid "Mobil"
+msgstr "Мобильный"
+
+msgid "Markierung \"nicht mehr in LupaBB\""
+msgstr "Пометка «больше нет в LupaBB»"
+
+msgid "Neu"
+msgstr "Новый"
+
+msgid "Unverändert"
+msgstr "Без изменений"
+
+msgid "Unklare Zuordnung"
+msgstr "Неоднозначное соответствие"
+
+msgid "Nicht mehr in LupaBB"
+msgstr "Больше нет в LupaBB"
+
+msgid "Handlungsbedarf"
+msgstr "Требует действий"
+
+msgid "In LupaBB ist keine E-Mail-Adresse hinterlegt."
+msgstr "В LupaBB не указан адрес электронной почты."
+
+msgid "Die E-Mail-Adresse in LupaBB ist ungültig."
+msgstr "Адрес электронной почты в LupaBB недействителен."
+
+msgid "Ein Datum in LupaBB ist ungültig."
+msgstr "Дата в LupaBB недействительна."
+
+msgid "Ein Feld in LupaBB ist zu lang."
+msgstr "Поле в LupaBB слишком длинное."
+
+msgid "Ein Feld in LupaBB enthält ein unzulässiges Steuerzeichen."
+msgstr "Поле в LupaBB содержит недопустимый управляющий символ."
+
+msgid "Die Personennummer ist ungültig."
+msgstr "Номер лица недействителен."
+
+msgid "Die Personennummer kommt in LupaBB mehrfach vor."
+msgstr "Номер лица встречается в LupaBB несколько раз."
+
+msgid "In LupaBB ist weder ein Name noch eine Firma hinterlegt."
+msgstr "В LupaBB не указаны ни имя, ни организация."
+
+msgid "Der Status aus LupaBB ist unbekannt."
+msgstr "Статус из LupaBB неизвестен."
+
+msgid "Der Datensatz ist in LupaBB storniert."
+msgstr "Запись в LupaBB аннулирована."
+
+msgid "Das Mitglied wurde in Lapis Cloud anonymisiert."
+msgstr "Участник анонимизирован в Lapis Cloud."
+
+msgid "Die Person wurde in Lapis Cloud datenschutzrechtlich gelöscht."
+msgstr "Лицо удалено в Lapis Cloud в соответствии с законом о защите данных."
+
+msgid "Mitglied mit Verwaltungsrolle: bitte von Hand abgleichen."
+msgstr "Участник с административной ролью: сверьте вручную."
+
+msgid "Dieser Statuswechsel ist in Lapis Cloud nicht erlaubt."
+msgstr "Такая смена статуса в Lapis Cloud не допускается."
+
+msgid "Ein aktives Mitglied braucht einen Landesverband."
+msgstr "Активному участнику нужно региональное отделение."
+
+msgid "Die E-Mail-Adresse in LupaBB weicht ab. Änderung bitte über die E-Mail-Änderung."
+msgstr "Адрес электронной почты в LupaBB отличается. Измените его через смену адреса электронной почты."
+
+msgid "Die E-Mail-Adresse gehört einem Mitglied, das schon mit einer anderen Person verknüpft ist."
+msgstr "Адрес электронной почты принадлежит участнику, уже связанному с другим лицом."
+
+msgid "Die E-Mail-Adresse passt, der Name nicht."
+msgstr "Адрес электронной почты совпадает, имя — нет."
+
+msgid "Es kommen mehrere Mitglieder in Frage."
+msgstr "Подходит несколько участников."
+
+msgid "Das Land lässt sich nicht eindeutig zuordnen und bleibt unverändert."
+msgstr "Страну нельзя определить однозначно, она остаётся без изменений."
+
+msgid "Diesen Landesverband gibt es in Lapis Cloud nicht."
+msgstr "Такого регионального отделения в Lapis Cloud нет."
+
+msgid "Die E-Mail-Adresse wurde inzwischen einem anderen Mitglied zugeordnet."
+msgstr "Адрес электронной почты тем временем закреплён за другим участником."
+
+msgid "Die Personennummer wurde inzwischen einem anderen Mitglied zugeordnet."
+msgstr "Номер лица тем временем закреплён за другим участником."
+
+msgid "Das Mitglied wurde seit der Vorschau geändert."
+msgstr "Участник изменён после предпросмотра."
+
+msgid "Der Datensatz konnte nicht gespeichert werden."
+msgstr "Запись не удалось сохранить."
+
+msgid "Verknüpft: wird beim nächsten Abgleich übernommen."
+msgstr "Связано: будет применено при следующей синхронизации."
+
+msgid "Das Mitglied kommt in LupaBB nicht mehr vor. Es wird nur markiert, nicht gelöscht."
+msgstr "Участника больше нет в LupaBB. Он будет только помечен, но не удалён."
+
+msgid "Das Mitglied ist in LupaBB wieder aufgetaucht, die Markierung entfällt."
+msgstr "Участник снова появился в LupaBB, пометка снимается."
+
+msgid "Das Mitglied war als verstorben geführt und wird wieder aktiviert bzw. umgestuft."
+msgstr "Участник числился умершим и будет вновь активирован или переведён в другой статус."
+
+msgid "LupaBB liefert die Landesverbände nicht mit den Mitgliedern. Die Zuordnung zu Landesverbänden bleibt unverändert."
+msgstr "LupaBB не передаёт региональные отделения вместе с участниками. Привязка к региональным отделениям остаётся без изменений."
+
+msgid "Natürliche Person"
+msgstr "Физическое лицо"
+
+msgid "Juristische Person"
+msgstr "Юридическое лицо"
+
+msgid "%1 neue und %2 geänderte Datensätze übernehmen"
+msgstr "Применить %1 новых и %2 изменённых записей"
+
+msgid "Benutzername"
+msgstr "Имя пользователя"
+
+msgid "Prüfen und speichern"
+msgstr "Проверить и сохранить"
+
+msgid "Die Zugangsdaten wurden geprüft und gespeichert."
+msgstr "Учётные данные проверены и сохранены."
+
+msgid "Zugangsdaten"
+msgstr "Учётные данные"
+
+msgid "Auf diesem Server ist kein Geheimnis-Schlüssel eingerichtet. Zugangsdaten können deshalb nicht gespeichert werden."
+msgstr "На этом сервере не настроен секретный ключ, поэтому учётные данные сохранить нельзя."
+
+msgid "Zugangsdaten sind hinterlegt."
+msgstr "Учётные данные сохранены."
+
+msgid "Gespeichert am %1."
+msgstr "Сохранено %1."
+
+msgid "Gespeichert von"
+msgstr "Сохранил(а)"
+
+msgid "Zugangsdaten ersetzen"
+msgstr "Заменить учётные данные"
+
+msgid "Zugangsdaten entfernen"
+msgstr "Удалить учётные данные"
+
+msgid "Zugangsdaten entfernen?"
+msgstr "Удалить учётные данные?"
+
+msgid "Danach ist kein Abgleich mehr möglich, bis Sie neue Zugangsdaten eingeben."
+msgstr "После этого синхронизация невозможна, пока вы не введёте новые учётные данные."
+
+msgid "Die Zugangsdaten wurden entfernt."
+msgstr "Учётные данные удалены."
+
+msgid "Benutzername, Passwort und API-Schlüssel erhalten Sie von der Verwaltung von LupaBB. Sie werden verschlüsselt gespeichert und nie wieder angezeigt."
+msgstr "Имя пользователя, пароль и ключ API вы получите от администрации LupaBB. Они хранятся в зашифрованном виде и больше не показываются."
+
+msgid "Abgleich"
+msgstr "Синхронизация"
+
+msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert."
+msgstr "Синхронизация только читает данные из LupaBB. Она никого не удаляет и не деактивирует, не создаёт учётные записи для входа и не отправляет письма. Адрес электронной почты существующих участников остаётся без изменений."
+
+msgid "Letzter Lauf am %1: %2 angelegt, %3 aktualisiert, %4 Fehler."
+msgstr "Последний запуск %1: создано %2, обновлено %3, ошибок %4."
+
+msgid "Vorschau laden"
+msgstr "Загрузить предпросмотр"
+
+msgid "Vorschau neu laden"
+msgstr "Загрузить предпросмотр заново"
+
+msgid "Bitte zuerst die Zugangsdaten eingeben."
+msgstr "Сначала введите учётные данные."
+
+msgid "Die Vorschau ist abgelaufen. Bitte laden Sie sie neu."
+msgstr "Предпросмотр устарел. Загрузите его заново."
+
+msgid "%1 neu · %2 geändert · %3 unverändert · %4 unklar · %5 übersprungen · %6 Fehler · %7 nicht mehr in LupaBB"
+msgstr "%1 новых · %2 изменено · %3 без изменений · %4 неоднозначных · %5 пропущено · %6 ошибок · %7 больше нет в LupaBB"
+
+msgid "Datensätze filtern"
+msgstr "Фильтр записей"
+
+msgid "Keine Datensätze in dieser Ansicht."
+msgstr "В этом представлении нет записей."
+
+msgid "Weitere laden"
+msgstr "Загрузить ещё"
+
+msgid "Statuswechsel übernehmen?"
+msgstr "Применить смену статуса?"
+
+msgid "Der Abgleich ändert bei %1 Mitgliedern den Status."
+msgstr "Синхронизация меняет статус у %1 участников."
+
+msgid "Bei %1 davon hat das Folgen für die Mitgliedschaft (Austritt, Tod oder Rückstufung)."
+msgstr "У %1 из них это влияет на членство (выход, смерть или понижение статуса)."
+
+msgid "Der Abgleich wurde übernommen."
+msgstr "Синхронизация применена."
+
+msgid "%1 angelegt · %2 aktualisiert · %3 unverändert · %4 übersprungen · %5 unklar · %6 Fehler · %7 als nicht mehr in LupaBB markiert"
+msgstr "%1 создано · %2 обновлено · %3 без изменений · %4 пропущено · %5 неоднозначных · %6 ошибок · %7 помечено как отсутствующие в LupaBB"
+
+msgid "Nicht gespeichert:"
+msgstr "Не сохранено:"
+
+msgid "Person %1"
+msgstr "Лицо %1"
+
+msgid "Einordnung"
+msgstr "Классификация"
+
+msgid "Einzelheiten"
+msgstr "Подробности"
+
+msgid "Kandidat"
+msgstr "Кандидат"
+
+msgid "%1 Felder im Vergleich"
+msgstr "Сравниваемых полей: %1"
+
+msgid "Feld"
+msgstr "Поле"
+
+msgid "Mit diesem Mitglied verknüpfen"
+msgstr "Связать с этим участником"
+
+msgid "Mit diesem Mitglied verknüpfen?"
+msgstr "Связать с этим участником?"
+
+msgid "Die Personennummer aus LupaBB wird diesem Mitglied zugeordnet. Die Daten werden beim nächsten Abgleich übernommen."
+msgstr "Номер лица из LupaBB закрепляется за этим участником. Данные будут применены при следующей синхронизации."
+
+msgid "Das Mitglied wurde verknüpft."
+msgstr "Участник связан."
+
+msgid "LupaBB-Abgleich"
+msgstr "Синхронизация с LupaBB"
+
+msgid "Mitglieder-Stammdaten aus LupaBB in die Mitgliederverwaltung übernehmen. Ein Lauf wird von Hand gestartet."
+msgstr "Перенос основных данных участников из LupaBB в управление участниками. Запуск выполняется вручную."
+
+msgid "Zur Mitgliederverwaltung"
+msgstr "К управлению участниками"
+
+msgid "LupaBB hat die Zugangsdaten abgelehnt. Bitte prüfen Sie Benutzername, Passwort und API-Schlüssel."
+msgstr "LupaBB отклонил учётные данные. Проверьте имя пользователя, пароль и ключ API."
+
+msgid "LupaBB ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut."
+msgstr "LupaBB сейчас недоступен. Повторите попытку позже."
+
+msgid "LupaBB hat eine unerwartete Antwort geschickt. Es wurde nichts geändert."
+msgstr "LupaBB прислал неожиданный ответ. Ничего не изменено."
+
+msgid "Die Datenmenge aus LupaBB übersteigt die Grenzen des Abgleichs. Es wurde nichts geändert."
+msgstr "Объём данных из LupaBB превышает пределы синхронизации. Ничего не изменено."
+
+msgid "Es läuft bereits ein Abgleich. Bitte warten Sie, bis er beendet ist."
+msgstr "Синхронизация уже выполняется. Дождитесь её завершения."
+
+msgid "LupaBB wurde eben erst abgefragt. Bitte warten Sie eine Minute."
+msgstr "LupaBB только что опрашивался. Подождите минуту."
+
+msgid "Die Vorschau ist nicht mehr gültig. Bitte laden Sie sie neu."
+msgstr "Предпросмотр больше не действителен. Загрузите его заново."
+
+msgid "Es sind keine LupaBB-Zugangsdaten hinterlegt oder sie sind nicht lesbar. Bitte geben Sie sie neu ein."
+msgstr "Учётные данные LupaBB не сохранены или не читаются. Введите их заново."
+
+msgid "Auf diesem Server ist kein Geheimnis-Schlüssel eingerichtet. Zugangsdaten können nicht gespeichert werden."
+msgstr "На этом сервере не настроен секретный ключ. Учётные данные сохранить нельзя."
+
+msgid "LupaBB-Abgleich (Lauf)"
+msgstr "Синхронизация с LupaBB (запуск)"
+
+msgid "LupaBB-Zugangsdaten"
+msgstr "Учётные данные LupaBB"
+
+msgid "Mit LupaBB abgleichen"
+msgstr "Синхронизировать с LupaBB"
+
+msgid "Mit LupaBB verknüpft (Personennummer %1)."
+msgstr "Связано с LupaBB (номер лица %1)."
+
+msgid "Der letzte Abgleich fand dieses Mitglied nicht mehr in LupaBB (seit %1)."
+msgstr "Последняя синхронизация больше не нашла этого участника в LupaBB (с %1)."
+
+msgid "Sitzung und Veranstaltung (Verknüpfung)"
+msgstr "Заседание и мероприятие (связь)"
+
+msgid "Diese Sitzung ist bereits mit einer Veranstaltung verknüpft."
+msgstr "Это заседание уже связано с мероприятием."
+
+msgid "Diese Veranstaltung gehört bereits zu einer Sitzung."
+msgstr "Это мероприятие уже относится к заседанию."
+
+msgid "Diese Sitzung kann nicht angekündigt werden. Sie ist abgesagt, schon gehalten oder liegt in der Vergangenheit."
+msgstr "Это заседание нельзя анонсировать. Оно отменено, уже состоялось или относится к прошлому."
+
+msgid "Für die Ankündigung fehlt der Ort der Sitzung."
+msgstr "Для анонса не указано место заседания."
+
+msgid "Die Verknüpfung hat sich inzwischen geändert. Bitte laden Sie die Ansicht neu."
+msgstr "Связь тем временем изменилась. Обновите страницу."
+
+msgid "Diese Veranstaltung kann nicht verknüpft werden. Sie ist abgesagt oder Teil einer laufenden Serie."
+msgstr "Это мероприятие нельзя связать. Оно отменено или входит в текущую серию."
+
+msgid "Eine abgesagte Sitzung kann nicht angekündigt werden."
+msgstr "Отменённое заседание нельзя анонсировать."
+
+msgid "Eine bereits durchgeführte Sitzung kann nicht mehr angekündigt werden."
+msgstr "Уже состоявшееся заседание больше нельзя анонсировать."
+
+msgid "Für die Ankündigung einer Präsenzsitzung fehlt der Ort."
+msgstr "Для анонса очного заседания нужно указать место."
+
+msgid "Angekündigt als:"
+msgstr "Анонсировано как:"
+
+msgid "Entwurf, noch nicht veröffentlicht."
+msgstr "Черновик, ещё не опубликован."
+
+msgid "Zur Sitzung"
+msgstr "К заседанию"
+
+msgid "Sichtbar nur für Mitglieder. Öffentlich machen kann der Vorstand."
+msgstr "Видно только членам. Сделать публичным может только правление."
+
+msgid "Absagen kann bei einer kostenpflichtigen oder öffentlichen Veranstaltung nur der Vorstand."
+msgstr "Отменить платное или публичное мероприятие может только правление."
+
+msgid "Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar. Alle Mitglieder sehen sie, nicht nur die Mitglieder des Gremiums. Die Tagesordnung wird nicht angezeigt."
+msgstr "Это мероприятие будет опубликовано и станет видно членам, которые смогут записаться. Его увидят все члены, а не только члены органа. Повестка дня не отображается."
+
+msgid "Öffentlich machen kann nur der Vorstand."
+msgstr "Сделать это публичным может только правление."
+
+msgid "Dieses Feld ändert der Vorstand."
+msgstr "Это поле изменяет правление."
+
+msgid "Eine kostenpflichtige Veranstaltung sagt der Vorstand ab."
+msgstr "Платное мероприятие отменяет правление."
+
+msgid "Der Online-Link ist öffentlich. Ändern kann ihn der Vorstand."
+msgstr "Онлайн-ссылка публична. Изменить её может только правление."
+
+msgid "Als Veranstaltung ankündigen"
+msgstr "Анонсировать как мероприятие"
+
+msgid "Verknüpfung lösen"
+msgstr "Разорвать связь"
+
+msgid "Verknüpfung gelöst. Sitzung und Veranstaltung bleiben erhalten."
+msgstr "Связь разорвана. Заседание и мероприятие сохранены."
+
+msgid "Sitzung: %1 · Veranstaltung: %2"
+msgstr "Заседание: %1 · Мероприятие: %2"
+
+msgid "Ort der Sitzung: %1 · Ort der Veranstaltung: %2"
+msgstr "Место заседания: %1 · Место мероприятия: %2"
+
+msgid "kein Ort"
+msgstr "место не указано"
+
+msgid "Termin der Veranstaltung an die Sitzung angleichen"
+msgstr "Привести срок мероприятия в соответствие с заседанием"
+
+msgid "Die Veranstaltung wurde an die Sitzung angeglichen."
+msgstr "Мероприятие приведено в соответствие с заседанием."
+
+msgid "Sitzung verknüpfen"
+msgstr "Связать с заседанием"
+
+msgid "Gehört zur Sitzung: %1, %2"
+msgstr "Относится к заседанию: %1, %2"
+
+msgid "Der Ort der Sitzung weicht vom Ort der Veranstaltung ab."
+msgstr "Место заседания отличается от места мероприятия."
+
+msgid "Online-Teilnahme ist unterschiedlich eingestellt."
+msgstr "Участие онлайн настроено по-разному."
+
+msgid "Angleichen kann die Sitzungsleitung auf der Seite der Sitzung."
+msgstr "Привести их в соответствие можно на странице заседания."
+
+msgid "Sitzungen werden geladen…"
+msgstr "Загрузка заседаний…"
+
+
+msgid "Es gibt keine Sitzung, die verknüpft werden kann."
+msgstr "Нет заседания, которое можно связать."
+
+msgid "%1, %2 – %3"
+msgstr "%1, %2 – %3"
+
+msgid "Sitzung verknüpft."
+msgstr "Заседание связано."
+
+msgid "Gespräch"
+msgstr "Беседа"
+
+msgid "Abonniert"
+msgstr "Подписка оформлена"
+
+msgid "Meine Abonnements"
+msgstr "Мои подписки"
+
+msgid "Bereiche der Mailinglisten"
+msgstr "Разделы списков рассылки"
+
+msgid "Ihre persönlichen Gespräche an einem Ort."
+msgstr "Ваши личные беседы в одном месте."
+
+msgid "Hier abonnieren Sie Mailinglisten oder bestellen sie ab. Vorstand und Administration verwalten die Listen und verschicken Nachrichten."
+msgstr "Здесь вы подписываетесь на списки рассылки или отписываетесь от них. Правление и администрация управляют списками и рассылают сообщения."
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Nachrichten."
+msgstr "Сообщение отправлено. Беседу вы найдёте в разделе «Сообщения»."
+
+msgid "Nachricht wurde gesendet. Antworten finden Sie unter Nachrichten."
+msgstr "Сообщение отправлено. Ответы вы найдёте в разделе «Сообщения»."
+
+msgid "Liste"
+msgstr "Список"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge"
+msgstr "Вложения"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Keine Anhänge."
+msgstr "Вложений нет."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Nach dem Senden können Anhänge nicht mehr geändert werden."
+msgstr "После отправки вложения изменить нельзя."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Datei gelöscht"
+msgstr "Файл удалён"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Dateien anhängen"
+msgstr "Прикрепить файлы"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Höchstens %1 Anhänge pro Nachricht."
+msgstr "Не более %1 вложений на сообщение."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Es sind nur noch %1 Anhänge möglich; die übrigen Dateien wurden nicht übernommen."
+msgstr "Можно добавить ещё только %1 вложений; остальные файлы не добавлены."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Lapis prüft Anhänge nicht auf Viren. Bitte laden Sie nur Dateien hoch, denen Sie vertrauen."
+msgstr "Lapis не проверяет вложения на вирусы. Загружайте только файлы, которым вы доверяете."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "%1 von 5 Dateien, zusammen %2 von 20 MB."
+msgstr "%1 из 5 файлов, всего %2 из 20 МБ."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Erlaubt sind PDF, Bilder (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT und CSV: höchstens 5 Dateien, 10 MB pro Datei, zusammen 20 MB."
+msgstr "Разрешены: PDF, изображения (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT и CSV: не более 5 файлов, 10 МБ на файл, всего 20 МБ."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge gehen an alle Empfänger dieser Nachricht. Lapis löscht die Dateien 180 Tage nach dem Senden."
+msgstr "Вложения получат все адресаты этого сообщения. Lapis удаляет файлы через 180 дней после отправки."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ hat ein nicht unterstütztes Format. Erlaubt sind PDF, Bilder (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT und CSV."
+msgstr "«%1» имеет неподдерживаемый формат. Разрешены PDF, изображения (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT и CSV."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Mit „%1“ wären die Anhänge zusammen größer als 20 MB."
+msgstr "С «%1» вложения вместе превысили бы 20 МБ."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Ein Anhang mit dem Namen „%1“ ist schon vorhanden."
+msgstr "Вложение с именем «%1» уже есть."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ passt nicht zu ihrer Dateiendung oder ist beschädigt oder verschlüsselt."
+msgstr "«%1» не соответствует расширению файла либо повреждён или зашифрован."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ enthält Makros oder eingebettete Objekte und wird nicht angenommen."
+msgstr "«%1» содержит макросы или встроенные объекты и не принимается."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ hat keinen gültigen Dateinamen."
+msgstr "У «%1» недопустимое имя файла."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Die Nachricht ist kein Entwurf mehr. Anhänge können nicht mehr geändert werden."
+msgstr "Сообщение больше не черновик. Вложения изменить нельзя."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge fügen Sie nach dem Speichern beim Entwurf hinzu."
+msgstr "Вложения добавляются к черновику после сохранения."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "%1 Anhang hinzugefügt."
+msgid_plural "%1 Anhänge hinzugefügt."
+msgstr[0] "Добавлено %1 вложение."
+msgstr[1] "Добавлено %1 вложения."
+msgstr[2] "Добавлено %1 вложений."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Mit %1 Anhang (%2)."
+msgid_plural "Mit %1 Anhängen (%2)."
+msgstr[0] "С %1 вложением (%2)."
+msgstr[1] "С %1 вложениями (%2)."
+msgstr[2] "С %1 вложениями (%2)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Datei anhängen"
+msgstr "Прикрепить файл"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bis zu 5 Dateien, je höchstens 10 MB, zusammen höchstens 20 MB."
+msgstr "До 5 файлов, каждый не более 10 МБ, всего не более 20 МБ."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Anhänge sieht nur Ihr Gesprächspartner. Lapis prüft Dateien nicht auf Viren."
+msgstr "Вложения видит только ваш собеседник. Lapis не проверяет файлы на вирусы."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Lapis prüft Anhänge nicht auf Viren."
+msgstr "Lapis не проверяет вложения на вирусы."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bitte warten, bis alle Dateien hochgeladen sind."
+msgstr "Подождите, пока все файлы будут загружены."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bitte entfernen Sie fehlgeschlagene Dateien."
+msgstr "Удалите файлы, которые не удалось загрузить."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Diesem Mitglied können Sie keine Dateien schicken."
+msgstr "Вы не можете отправлять файлы этому участнику."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Sie haben zu viele noch nicht gesendete Dateien. Bitte senden oder entfernen Sie zuerst welche."
+msgstr "У вас слишком много ещё не отправленных файлов. Сначала отправьте или удалите некоторые."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Anhänge konnten nicht gesendet werden. Bitte laden Sie die Dateien erneut hoch."
+msgstr "Вложения не удалось отправить. Загрузите файлы заново."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste löschen"
+msgstr "Удалить список рассылки"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste löschen?"
+msgstr "Удалить список рассылки?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Die Mailingliste „%1“ wird gelöscht."
+msgstr "Список рассылки «%1» будет удалён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "%1 Abonnent wird ausgetragen."
+msgid_plural "%1 Abonnenten werden ausgetragen."
+msgstr[0] "%1 подписчик будет отписан."
+msgstr[1] "%1 подписчика будут отписаны."
+msgstr[2] "%1 подписчиков будут отписаны."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Entwürfe dieser Liste werden mit ihren Anhängen gelöscht."
+msgstr "Черновики этого списка удаляются вместе с вложениями."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Bereits versendete Nachrichten bleiben als Nachweis erhalten."
+msgstr "Уже отправленные сообщения сохраняются как подтверждение."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Das kann nicht rückgängig gemacht werden."
+msgstr "Это действие нельзя отменить."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste gelöscht."
+msgstr "Список рассылки удалён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Automatische Mailinglisten können nicht gelöscht werden."
+msgstr "Автоматические списки рассылки удалить нельзя."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Diese Mailingliste wird gerade versendet. Bitte löschen Sie sie erst, wenn der Versand abgeschlossen ist."
+msgstr "Этот список рассылки сейчас отправляется. Удалите его только после завершения отправки."

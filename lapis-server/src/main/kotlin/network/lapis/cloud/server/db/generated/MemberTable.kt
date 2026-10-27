@@ -72,6 +72,11 @@ public object MemberTable : Table("member") {
     // See 00-foundation.kuml.kts / 58-regional-chapter.kuml.kts.
     public val regionalChapterId: Column<Uuid?> = optReference("regional_chapter_id", RegionalChapterTable.id)
 
+    // Welle V1.9.226 "LupaBB-Abgleich" -- the person number of the linked LupaBB record (unique) and the day the last sync did not find the
+    // member there any more. Only the lupabb package and the LupaBB personal-data contributor write them. See 00-foundation.kuml.kts.
+    public val lupabbPersonNumber: Column<Long?> = long("lupabb_person_number").nullable().uniqueIndex()
+    public val lupabbMissingSince: Column<LocalDate?> = date("lupabb_missing_since").nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 3 check constraint(s) declared on this entity are not

@@ -6498,11 +6498,6 @@ msgstr "Sprawdź łańcuch"
 msgid "Ketten-Integrität prüfen"
 msgstr "Sprawdź integralność łańcucha"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:51
-#: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:118
-msgid "Kommunikation"
-msgstr "Komunikacja"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:153
 msgid "Konfiguration"
 msgstr "Konfiguracja"
@@ -16929,10 +16924,6 @@ msgstr "%1 wolnych miejsc"
 msgid "Eintrag wurde gelöscht."
 msgstr "Wpis został usunięty."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:237
-msgid "Nachricht wurde gesendet. Antworten finden Sie im Postfach unter Kommunikation."
-msgstr "Wiadomość została wysłana. Odpowiedzi znajdziesz w skrzynce odbiorczej w sekcji Komunikacja."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:269
 msgid "Eintrag bearbeiten"
 msgstr "Edytuj wpis"
@@ -19536,12 +19527,6 @@ msgstr "Zwrot odnotowany poza Lapis Cloud"
 
 msgid "Nachrichten, %1 ungelesen"
 msgstr "Wiadomości, nieprzeczytane: %1"
-
-msgid "Gespräche"
-msgstr "Rozmowy"
-
-msgid "Noch keine Gespräche."
-msgstr "Brak rozmów."
 
 msgid "%1 neu"
 msgstr "%1 nowych"
@@ -24795,9 +24780,6 @@ msgstr "Połączenie zablokowane."
 msgid "Ihre Nachricht"
 msgstr "Twoja wiadomość"
 
-msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
-msgstr "Wiadomość wysłana. Rozmowę znajdziesz w sekcji Komunikacja."
-
 msgid "Anfrage senden"
 msgstr "Wyślij zapytanie"
 
@@ -25419,9 +25401,6 @@ msgstr "Tutaj znajdziesz dokumenty swojej organizacji w folderach. To, które fo
 
 msgid "Sie stellen Fragen zur Satzung; die Antwort entsteht per KI aus den dafür freigegebenen Dokumenten. Dazu stimmen Sie einmal zu, die Zustimmung können Sie widerrufen."
 msgstr "Zadajesz pytania dotyczące statutu; odpowiedź generuje AI na podstawie dokumentów udostępnionych w tym celu. Zgadzasz się na to jednorazowo i możesz tę zgodę cofnąć."
-
-msgid "Hier verwalten Sie Ihre Mailinglisten, schreiben Direktnachrichten und lesen Ihr Postfach. Vorstand und Administration legen zusätzlich Mailinglisten an und verschicken Nachrichten an sie."
-msgstr "Tutaj zarządzasz swoimi listami mailingowymi, piszesz wiadomości bezpośrednie i czytasz swoją skrzynkę pocztową. Zarząd i administracja dodatkowo tworzą listy mailingowe i wysyłają do nich wiadomości."
 
 msgid "Hier sehen Sie die aktiven Mitglieder Ihres Landesverbands und können nach Name oder E-Mail suchen. Der Zugang gilt nur, solange Ihr Amt im Landesverband aktiv ist."
 msgstr "Tutaj widzisz aktywnych członków swojego oddziału regionalnego i możesz szukać po imieniu i nazwisku lub e-mailu. Dostęp obowiązuje tylko wtedy, gdy Twoja funkcja w oddziale regionalnym jest aktywna."
@@ -27335,3 +27314,1004 @@ msgstr "Aktywne: %1 z %2"
 
 msgid "Das Dashboard zeigt nur, was gerade Sie betrifft: offene Abstimmungen, Gebote, Fristen. Alle Bereiche erreichen Sie über das Menü."
 msgstr "Panel pokazuje tylko to, co dotyczy Cię w tej chwili: otwarte głosowania, oferty, terminy. Do wszystkich obszarów dojdziesz przez menu."
+
+msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar."
+msgstr "Sprawozdanie finansowe jest dostępne tylko dla partii politycznych."
+
+msgid "Die Werte wurden inzwischen von jemand anderem geändert -- bitte laden Sie das Blatt neu."
+msgstr "Wartości zostały w międzyczasie zmienione przez kogoś innego -- proszę ponownie wczytać arkusz."
+
+msgid "Jahr, Gliederung oder Betrag sind ungültig."
+msgstr "Rok, jednostka lub kwota są nieprawidłowe."
+
+msgid "Für diesen Landesverband sind Werte im Rechenschaftsbericht erfasst. Er kann nicht gelöscht werden."
+msgstr "Dla tego oddziału regionalnego zapisano wartości w sprawozdaniu finansowym. Nie można go usunąć."
+
+msgid "Rechenschaftsbericht (Wert)"
+msgstr "Sprawozdanie finansowe (wartość)"
+
+msgid "Rechenschaftsbericht (Positionshinweis)"
+msgstr "Sprawozdanie finansowe (uwaga do pozycji)"
+
+msgid "Rechenschaftsbericht (PartG)"
+msgstr "Sprawozdanie finansowe (PartG)"
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
+msgstr "Tutaj wprowadzają Państwo dla każdej jednostki i roku przychody, wydatki i majątek do sprawozdania finansowego, ręcznie lub z szablonu Excel. Ta strona nie tworzy jeszcze gotowego sprawozdania."
+
+msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
+msgstr "Składki członkowskie i podobne regularne wpłaty"
+
+msgid "Mandatsträgerbeiträge und ähnliche regelmäßige Beiträge"
+msgstr "Wpłaty osób sprawujących mandat i podobne regularne wpłaty"
+
+msgid "Spenden von natürlichen Personen"
+msgstr "Darowizny od osób fizycznych"
+
+msgid "Spenden von juristischen Personen"
+msgstr "Darowizny od osób prawnych"
+
+msgid "Einnahmen aus Unternehmenstätigkeit"
+msgstr "Przychody z działalności gospodarczej"
+
+msgid "Einnahmen aus Beteiligungen"
+msgstr "Przychody z udziałów"
+
+msgid "Einnahmen aus sonstigem Vermögen"
+msgstr "Przychody z pozostałego majątku"
+
+msgid "Einnahmen aus Veranstaltungen, Vertrieb von Druckschriften und Veröffentlichungen und sonstiger mit Einnahmen verbundener Tätigkeit"
+msgstr "Przychody z wydarzeń, sprzedaży druków i publikacji oraz innej działalności przynoszącej przychody"
+
+msgid "Staatliche Mittel"
+msgstr "Środki państwowe"
+
+msgid "Sonstige Einnahmen"
+msgstr "Pozostałe przychody"
+
+msgid "Zuschüsse von Gliederungen"
+msgstr "Dotacje od jednostek"
+
+msgid "Gesamteinnahmen"
+msgstr "Przychody ogółem"
+
+msgid "Ausgaben für Personal"
+msgstr "Wydatki na personel"
+
+msgid "Ausgaben des laufenden Geschäftsbetriebs"
+msgstr "Wydatki bieżącej działalności"
+
+msgid "Ausgaben für allgemeine politische Arbeit"
+msgstr "Wydatki na ogólną pracę polityczną"
+
+msgid "Ausgaben für Wahlkämpfe"
+msgstr "Wydatki na kampanie wyborcze"
+
+msgid "Ausgaben für die Vermögensverwaltung einschließlich sich ergebender Zinsen"
+msgstr "Wydatki na zarządzanie majątkiem, w tym wynikające z tego odsetki"
+
+msgid "Sonstige Zinsen"
+msgstr "Pozostałe odsetki"
+
+msgid "Ausgaben aus Unternehmenstätigkeit"
+msgstr "Wydatki z działalności gospodarczej"
+
+msgid "Sonstige Ausgaben"
+msgstr "Pozostałe wydatki"
+
+msgid "Ausgaben für Sachaufwand insgesamt"
+msgstr "Wydatki rzeczowe ogółem"
+
+msgid "Zuschüsse an Gliederungen"
+msgstr "Dotacje dla jednostek"
+
+msgid "Gesamtausgaben"
+msgstr "Wydatki ogółem"
+
+msgid "Überschuss bzw. Defizit"
+msgstr "Nadwyżka lub deficyt"
+
+msgid "Haus- und Grundvermögen"
+msgstr "Nieruchomości"
+
+msgid "Geschäftsstellenausstattung"
+msgstr "Wyposażenie biur"
+
+msgid "Beteiligungen an Unternehmen"
+msgstr "Udziały w przedsiębiorstwach"
+
+msgid "Sonstige Finanzanlagen"
+msgstr "Pozostałe aktywa finansowe"
+
+msgid "Forderungen an Gliederungen"
+msgstr "Należności od jednostek"
+
+msgid "Forderungen aus der staatlichen Teilfinanzierung"
+msgstr "Należności z częściowego finansowania państwowego"
+
+msgid "Geldbestände"
+msgstr "Środki pieniężne"
+
+msgid "Sonstige Vermögensgegenstände"
+msgstr "Pozostałe składniki majątku"
+
+msgid "Summe der Besitzposten"
+msgstr "Suma aktywów"
+
+msgid "Rückstellungen für Pensionsverpflichtungen"
+msgstr "Rezerwy na zobowiązania emerytalne"
+
+msgid "Sonstige Rückstellungen"
+msgstr "Pozostałe rezerwy"
+
+msgid "Rückzahlungsverpflichtungen aus der staatlichen Teilfinanzierung"
+msgstr "Zobowiązania do zwrotu z częściowego finansowania państwowego"
+
+msgid "Verbindlichkeiten gegenüber Gebietsverbänden"
+msgstr "Zobowiązania wobec jednostek terytorialnych"
+
+msgid "Verbindlichkeiten gegenüber Kreditinstituten"
+msgstr "Zobowiązania wobec instytucji kredytowych"
+
+msgid "Verbindlichkeiten gegenüber sonstigen Darlehensgebern"
+msgstr "Zobowiązania wobec pozostałych pożyczkodawców"
+
+msgid "Sonstige Verbindlichkeiten"
+msgstr "Pozostałe zobowiązania"
+
+msgid "Summe der Schuldposten"
+msgstr "Suma pasywów"
+
+msgid "Reinvermögen (Besitzposten abzüglich Schuldposten)"
+msgstr "Majątek netto (aktywa pomniejszone o pasywa)"
+
+msgid "bisher"
+msgstr "dotychczas"
+
+msgid "neu"
+msgstr "nowa"
+
+msgid "Excel-Datei importieren: %1, %2"
+msgstr "Importuj plik Excel: %1, %2"
+
+msgid "Wählen Sie die ausgefüllte Vorlage (.xlsx, höchstens 2 MB). Leere Zellen verändern nichts."
+msgstr "Proszę wybrać wypełniony szablon (.xlsx, najwyżej 2 MB). Puste komórki niczego nie zmieniają."
+
+msgid "Excel-Datei"
+msgstr "Plik Excel"
+
+msgid "Die Datei kann nicht übernommen werden:"
+msgstr "Nie można zaimportować pliku:"
+
+msgid "Zeile %1"
+msgstr "Wiersz %1"
+
+msgid "Spalte %1"
+msgstr "Kolumna %1"
+
+msgid "Die Datei enthält keine Änderungen gegenüber dem gespeicherten Stand."
+msgstr "Plik nie zawiera zmian w stosunku do zapisanego stanu."
+
+msgid "%1 Werte würden übernommen:"
+msgstr "Zostałoby zaimportowanych wartości: %1"
+
+msgid "Rechnungsjahr %1"
+msgstr "Rok sprawozdawczy %1"
+
+msgid "Vorjahr %1"
+msgstr "Rok poprzedni %1"
+
+msgid "ƒ = der Wert stammt aus einer Formel; übernommen wird das in der Datei gespeicherte Ergebnis."
+msgstr "ƒ = wartość pochodzi z formuły; importowany jest wynik zapisany w pliku."
+
+msgid "Bitte wählen Sie zuerst eine Datei."
+msgstr "Proszę najpierw wybrać plik."
+
+msgid "Die Datei ist zu groß (höchstens 2 MB)."
+msgstr "Plik jest za duży (najwyżej 2 MB)."
+
+msgid "%1 Werte übernommen."
+msgstr "Zaimportowano wartości: %1"
+
+msgid "Bitte keinen negativen Betrag eingeben."
+msgstr "Proszę nie wpisywać kwoty ujemnej."
+
+msgid "Der Betrag ist zu groß."
+msgstr "Kwota jest za duża."
+
+msgid "Bitte einen Betrag wie 1.234,56 eingeben."
+msgstr "Proszę wpisać kwotę w postaci 1.234,56."
+
+msgid "Gliederung"
+msgstr "Jednostka"
+
+msgid "Stand"
+msgstr "Stan"
+
+msgid "Reinvermögen"
+msgstr "Majątek netto"
+
+msgid "Nicht erfasst"
+msgstr "Nie wprowadzono"
+
+msgid "Teilweise (%1 von %2)"
+msgstr "Częściowo (%1 z %2)"
+
+msgid "Vollständig"
+msgstr "Kompletne"
+
+msgid "Keine Gliederungen vorhanden."
+msgstr "Brak jednostek."
+
+msgid "Werte erfassen"
+msgstr "Wprowadź wartości"
+
+msgid "Vorlage herunterladen"
+msgstr "Pobierz szablon"
+
+msgid "Excel-Datei importieren"
+msgstr "Importuj plik Excel"
+
+msgid "Gesetz"
+msgstr "Ustawa"
+
+msgid "Hinweis der Organisation"
+msgstr "Uwaga organizacji"
+
+msgid "Die Positionen und ihre Reihenfolge sind gesetzlich vorgegeben (§ 24 PartG) und nicht änderbar. Zu jeder Position können Sie einen eigenen Hinweis hinterlegen, der bei der Erfassung angezeigt wird."
+msgstr "Pozycje i ich kolejność są ustalone ustawowo (art. 24 PartG) i nie można ich zmieniać. Do każdej pozycji można zapisać własną uwagę, wyświetlaną podczas wprowadzania."
+
+msgid "Eingabe"
+msgstr "Wprowadzanie"
+
+msgid "Hinweis ändern"
+msgstr "Zmień uwagę"
+
+msgid "Hinweis zu \"%1\""
+msgstr "Uwaga do \"%1\""
+
+msgid "Hinweis (höchstens 500 Zeichen)"
+msgstr "Uwaga (najwyżej 500 znaków)"
+
+msgid "Der Hinweis ist zu lang."
+msgstr "Uwaga jest za długa."
+
+msgid "Hinweis gespeichert."
+msgstr "Uwaga zapisana."
+
+msgid "Rechenschaftsbericht nach Parteiengesetz"
+msgstr "Sprawozdanie finansowe według ustawy o partiach"
+
+msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
+msgstr "Sprawozdanie finansowe jest dostępne tylko dla partii politycznych. Ustawienie znajdą Państwo w danych organizacji."
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
+msgstr "Tutaj wprowadzają Państwo dane do sprawozdania finansowego. To pomoc w pracy, a nie porada prawna: samo sprawozdanie i jego badanie przez biegłego rewidenta nastąpią w późniejszym kroku."
+
+msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
+msgstr "Wprowadzili Państwo wartości, które nie zostały jeszcze zapisane. Jeśli teraz Państwo przejdą, zostaną utracone."
+
+msgid "Bereich"
+msgstr "Sekcja"
+
+msgid "Rechnungsjahr"
+msgstr "Rok sprawozdawczy"
+
+msgid "Leere Felder im Rechnungsjahr mit 0 füllen"
+msgstr "Wypełnij zerem puste pola roku sprawozdawczego"
+
+msgid "Leere Felder mit 0 füllen?"
+msgstr "Wypełnić puste pola zerem?"
+
+msgid "Alle leeren Felder des Rechnungsjahres %1 werden mit 0,00 € gefüllt. Das Vorjahr bleibt unverändert."
+msgstr "Wszystkie puste pola roku sprawozdawczego %1 zostaną wypełnione kwotą 0,00 €. Rok poprzedni pozostanie bez zmian."
+
+msgid "Mit 0 füllen"
+msgstr "Wypełnij zerem"
+
+msgid "nicht erfasst"
+msgstr "nie wprowadzono"
+
+msgid "Bitte korrigieren Sie zuerst die markierten Felder."
+msgstr "Proszę najpierw poprawić zaznaczone pola."
+
+msgid "%1 Werte gespeichert."
+msgstr "Zapisano wartości: %1"
+
+msgid "Das Speichern ist nicht gelungen, oder das Blatt wurde inzwischen von jemand anderem geändert. Mit \"Neu laden\" sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr "Zapis się nie powiódł lub arkusz został w międzyczasie zmieniony przez kogoś innego. Przyciskiem \"Wczytaj ponownie\" zobaczą Państwo aktualny stan; wprowadzone dane zostaną utracone."
+
+msgid "%1 Änderungen"
+msgstr "Zmian: %1"
+
+msgid "Die Datei ist keine Excel-Datei (.xlsx)."
+msgstr "Plik nie jest plikiem Excel (.xlsx)."
+
+msgid "Diese Excel-Datei ist anders aufgebaut als erwartet und kann nicht gelesen werden."
+msgstr "Ten plik Excel ma inną budowę niż oczekiwano i nie można go odczytać."
+
+msgid "Dateien mit Makros werden nicht angenommen."
+msgstr "Pliki z makrami nie są akceptowane."
+
+msgid "Die Datei ist zu groß oder zu umfangreich."
+msgstr "Plik jest za duży lub za obszerny."
+
+msgid "Das ist nicht die Vorlage dieser Version. Bitte laden Sie die Vorlage neu herunter."
+msgstr "To nie jest szablon tej wersji. Proszę ponownie pobrać szablon."
+
+msgid "Die Datei gehört zu einer anderen Gliederung oder einem anderen Jahr."
+msgstr "Plik należy do innej jednostki lub innego roku."
+
+msgid "Diese Kennung gibt es nicht."
+msgstr "Taki identyfikator nie istnieje."
+
+msgid "Diese Kennung kommt mehrfach vor."
+msgstr "Ten identyfikator występuje wielokrotnie."
+
+msgid "Negative Beträge sind nicht möglich."
+msgstr "Kwoty ujemne nie są możliwe."
+
+msgid "Hier steht kein gültiger Betrag."
+msgstr "Nie ma tu prawidłowej kwoty."
+
+msgid "Höchstens zwei Nachkommastellen sind möglich."
+msgstr "Możliwe są najwyżej dwa miejsca po przecinku."
+
+msgid "Hier steht ein Datum statt eines Betrags."
+msgstr "Jest tu data zamiast kwoty."
+
+msgid "Die Formel hat noch kein Ergebnis. Bitte speichern Sie die Datei in Excel erneut."
+msgstr "Formuła nie ma jeszcze wyniku. Proszę ponownie zapisać plik w programie Excel."
+
+msgid "Diese Zelle enthält einen Fehlerwert."
+msgstr "Ta komórka zawiera wartość błędu."
+
+msgid "Unterhalb von Zeile 500 steht Inhalt, der nicht gelesen wird."
+msgstr "Poniżej wiersza 500 znajduje się treść, która nie jest odczytywana."
+
+msgid "Es gibt weitere Fehler. Bitte beheben Sie zuerst die genannten."
+msgstr "Są kolejne błędy. Proszę najpierw poprawić wymienione."
+
+msgid "Die Datei ist beschädigt oder widersprüchlich aufgebaut."
+msgstr "Plik jest uszkodzony lub ma sprzeczną budowę."
+
+msgid "Der Rechenschaftsbericht ist für diese Organisation nicht verfügbar."
+msgstr "Sprawozdanie finansowe nie jest dostępne dla tej organizacji."
+
+msgid "Die Vorschau ist abgelaufen. Bitte laden Sie die Datei erneut hoch."
+msgstr "Podgląd wygasł. Proszę ponownie przesłać plik."
+
+msgid "Die Werte wurden inzwischen geändert. Bitte laden Sie die Datei erneut hoch."
+msgstr "Wartości zostały w międzyczasie zmienione. Proszę ponownie przesłać plik."
+
+msgid "Die Verbindung ist fehlgeschlagen. Bitte versuchen Sie es erneut."
+msgstr "Połączenie się nie powiodło. Proszę spróbować ponownie."
+
+msgid "Bundesverband"
+msgstr "Związek federalny"
+
+msgid "Landesverband %1"
+msgstr "Oddział regionalny %1"
+
+msgid "Nachgeordnete Gebietsverbände in %1 (zusammengefasst)"
+msgstr "Podległe jednostki terytorialne w %1 (łącznie)"
+
+msgid "Personennummer"
+msgstr "Numer osoby"
+
+msgid "Anzeigename"
+msgstr "Nazwa wyświetlana"
+
+msgid "Namenszusatz"
+msgstr "Dodatek do nazwiska"
+
+msgid "Firma"
+msgstr "Firma"
+
+msgid "Personentyp"
+msgstr "Typ osoby"
+
+msgid "Adresszusatz"
+msgstr "Dodatek adresowy"
+
+msgid "Mobil"
+msgstr "Komórka"
+
+msgid "Markierung \"nicht mehr in LupaBB\""
+msgstr "Oznaczenie „nie ma już w LupaBB”"
+
+msgid "Neu"
+msgstr "Nowy"
+
+msgid "Unverändert"
+msgstr "Bez zmian"
+
+msgid "Unklare Zuordnung"
+msgstr "Niejasne dopasowanie"
+
+msgid "Nicht mehr in LupaBB"
+msgstr "Nie ma już w LupaBB"
+
+msgid "Handlungsbedarf"
+msgstr "Wymaga działania"
+
+msgid "In LupaBB ist keine E-Mail-Adresse hinterlegt."
+msgstr "W LupaBB nie zapisano adresu e-mail."
+
+msgid "Die E-Mail-Adresse in LupaBB ist ungültig."
+msgstr "Adres e-mail w LupaBB jest nieprawidłowy."
+
+msgid "Ein Datum in LupaBB ist ungültig."
+msgstr "Data w LupaBB jest nieprawidłowa."
+
+msgid "Ein Feld in LupaBB ist zu lang."
+msgstr "Pole w LupaBB jest za długie."
+
+msgid "Ein Feld in LupaBB enthält ein unzulässiges Steuerzeichen."
+msgstr "Pole w LupaBB zawiera niedozwolony znak sterujący."
+
+msgid "Die Personennummer ist ungültig."
+msgstr "Numer osoby jest nieprawidłowy."
+
+msgid "Die Personennummer kommt in LupaBB mehrfach vor."
+msgstr "Numer osoby występuje w LupaBB wielokrotnie."
+
+msgid "In LupaBB ist weder ein Name noch eine Firma hinterlegt."
+msgstr "W LupaBB nie ma ani nazwiska, ani firmy."
+
+msgid "Der Status aus LupaBB ist unbekannt."
+msgstr "Status z LupaBB jest nieznany."
+
+msgid "Der Datensatz ist in LupaBB storniert."
+msgstr "Rekord jest w LupaBB anulowany."
+
+msgid "Das Mitglied wurde in Lapis Cloud anonymisiert."
+msgstr "Członek został zanonimizowany w Lapis Cloud."
+
+msgid "Die Person wurde in Lapis Cloud datenschutzrechtlich gelöscht."
+msgstr "Osoba została usunięta w Lapis Cloud na podstawie przepisów o ochronie danych."
+
+msgid "Mitglied mit Verwaltungsrolle: bitte von Hand abgleichen."
+msgstr "Członek z rolą administracyjną: proszę uzgodnić ręcznie."
+
+msgid "Dieser Statuswechsel ist in Lapis Cloud nicht erlaubt."
+msgstr "Ta zmiana statusu nie jest dozwolona w Lapis Cloud."
+
+msgid "Ein aktives Mitglied braucht einen Landesverband."
+msgstr "Aktywny członek potrzebuje oddziału regionalnego."
+
+msgid "Die E-Mail-Adresse in LupaBB weicht ab. Änderung bitte über die E-Mail-Änderung."
+msgstr "Adres e-mail w LupaBB jest inny. Proszę zmienić go przez zmianę adresu e-mail."
+
+msgid "Die E-Mail-Adresse gehört einem Mitglied, das schon mit einer anderen Person verknüpft ist."
+msgstr "Adres e-mail należy do członka, który jest już powiązany z inną osobą."
+
+msgid "Die E-Mail-Adresse passt, der Name nicht."
+msgstr "Adres e-mail pasuje, nazwisko nie."
+
+msgid "Es kommen mehrere Mitglieder in Frage."
+msgstr "Wchodzi w grę kilku członków."
+
+msgid "Das Land lässt sich nicht eindeutig zuordnen und bleibt unverändert."
+msgstr "Kraju nie można jednoznacznie przypisać, pozostaje bez zmian."
+
+msgid "Diesen Landesverband gibt es in Lapis Cloud nicht."
+msgstr "Taki oddział regionalny nie istnieje w Lapis Cloud."
+
+msgid "Die E-Mail-Adresse wurde inzwischen einem anderen Mitglied zugeordnet."
+msgstr "Adres e-mail został w międzyczasie przypisany innemu członkowi."
+
+msgid "Die Personennummer wurde inzwischen einem anderen Mitglied zugeordnet."
+msgstr "Numer osoby został w międzyczasie przypisany innemu członkowi."
+
+msgid "Das Mitglied wurde seit der Vorschau geändert."
+msgstr "Członek został zmieniony od czasu podglądu."
+
+msgid "Der Datensatz konnte nicht gespeichert werden."
+msgstr "Nie udało się zapisać rekordu."
+
+msgid "Verknüpft: wird beim nächsten Abgleich übernommen."
+msgstr "Powiązano: zostanie uwzględnione przy następnej synchronizacji."
+
+msgid "Das Mitglied kommt in LupaBB nicht mehr vor. Es wird nur markiert, nicht gelöscht."
+msgstr "Członka nie ma już w LupaBB. Zostanie tylko oznaczony, nie usunięty."
+
+msgid "Das Mitglied ist in LupaBB wieder aufgetaucht, die Markierung entfällt."
+msgstr "Członek znów pojawił się w LupaBB, oznaczenie zostanie usunięte."
+
+msgid "Das Mitglied war als verstorben geführt und wird wieder aktiviert bzw. umgestuft."
+msgstr "Członek figurował jako zmarły i zostanie ponownie aktywowany lub przeklasyfikowany."
+
+msgid "LupaBB liefert die Landesverbände nicht mit den Mitgliedern. Die Zuordnung zu Landesverbänden bleibt unverändert."
+msgstr "LupaBB nie przekazuje oddziałów regionalnych wraz z członkami. Przypisanie do oddziałów pozostaje bez zmian."
+
+msgid "Natürliche Person"
+msgstr "Osoba fizyczna"
+
+msgid "Juristische Person"
+msgstr "Osoba prawna"
+
+msgid "%1 neue und %2 geänderte Datensätze übernehmen"
+msgstr "Zastosuj %1 nowych i %2 zmienionych rekordów"
+
+msgid "Benutzername"
+msgstr "Nazwa użytkownika"
+
+msgid "Prüfen und speichern"
+msgstr "Sprawdź i zapisz"
+
+msgid "Die Zugangsdaten wurden geprüft und gespeichert."
+msgstr "Dane dostępowe zostały sprawdzone i zapisane."
+
+msgid "Zugangsdaten"
+msgstr "Dane dostępowe"
+
+msgid "Auf diesem Server ist kein Geheimnis-Schlüssel eingerichtet. Zugangsdaten können deshalb nicht gespeichert werden."
+msgstr "Na tym serwerze nie skonfigurowano klucza tajnego, dlatego nie można zapisać danych dostępowych."
+
+msgid "Zugangsdaten sind hinterlegt."
+msgstr "Dane dostępowe są zapisane."
+
+msgid "Gespeichert am %1."
+msgstr "Zapisano %1."
+
+msgid "Gespeichert von"
+msgstr "Zapisał(a)"
+
+msgid "Zugangsdaten ersetzen"
+msgstr "Zastąp dane dostępowe"
+
+msgid "Zugangsdaten entfernen"
+msgstr "Usuń dane dostępowe"
+
+msgid "Zugangsdaten entfernen?"
+msgstr "Usunąć dane dostępowe?"
+
+msgid "Danach ist kein Abgleich mehr möglich, bis Sie neue Zugangsdaten eingeben."
+msgstr "Potem synchronizacja nie będzie możliwa, dopóki nie wpiszą Państwo nowych danych dostępowych."
+
+msgid "Die Zugangsdaten wurden entfernt."
+msgstr "Dane dostępowe zostały usunięte."
+
+msgid "Benutzername, Passwort und API-Schlüssel erhalten Sie von der Verwaltung von LupaBB. Sie werden verschlüsselt gespeichert und nie wieder angezeigt."
+msgstr "Nazwę użytkownika, hasło i klucz API otrzymają Państwo od administracji LupaBB. Są zapisywane w postaci zaszyfrowanej i nigdy więcej nie są wyświetlane."
+
+msgid "Abgleich"
+msgstr "Synchronizacja"
+
+msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert."
+msgstr "Synchronizacja tylko odczytuje dane z LupaBB. Nikogo nie usuwa ani nie dezaktywuje, nie tworzy kont logowania i nie wysyła wiadomości e-mail. Adres e-mail istniejących członków pozostaje bez zmian."
+
+msgid "Letzter Lauf am %1: %2 angelegt, %3 aktualisiert, %4 Fehler."
+msgstr "Ostatnie uruchomienie %1: %2 utworzono, %3 zaktualizowano, %4 błędów."
+
+msgid "Vorschau laden"
+msgstr "Wczytaj podgląd"
+
+msgid "Vorschau neu laden"
+msgstr "Wczytaj podgląd ponownie"
+
+msgid "Bitte zuerst die Zugangsdaten eingeben."
+msgstr "Proszę najpierw wpisać dane dostępowe."
+
+msgid "Die Vorschau ist abgelaufen. Bitte laden Sie sie neu."
+msgstr "Podgląd wygasł. Proszę wczytać go ponownie."
+
+msgid "%1 neu · %2 geändert · %3 unverändert · %4 unklar · %5 übersprungen · %6 Fehler · %7 nicht mehr in LupaBB"
+msgstr "%1 nowych · %2 zmienionych · %3 bez zmian · %4 niejasnych · %5 pominiętych · %6 błędów · %7 nie ma już w LupaBB"
+
+msgid "Datensätze filtern"
+msgstr "Filtruj rekordy"
+
+msgid "Keine Datensätze in dieser Ansicht."
+msgstr "Brak rekordów w tym widoku."
+
+msgid "Weitere laden"
+msgstr "Wczytaj więcej"
+
+msgid "Statuswechsel übernehmen?"
+msgstr "Zastosować zmiany statusu?"
+
+msgid "Der Abgleich ändert bei %1 Mitgliedern den Status."
+msgstr "Synchronizacja zmienia status %1 członków."
+
+msgid "Bei %1 davon hat das Folgen für die Mitgliedschaft (Austritt, Tod oder Rückstufung)."
+msgstr "W przypadku %1 z nich ma to skutki dla członkostwa (wystąpienie, śmierć lub zmiana na niższy status)."
+
+msgid "Der Abgleich wurde übernommen."
+msgstr "Synchronizacja została zastosowana."
+
+msgid "%1 angelegt · %2 aktualisiert · %3 unverändert · %4 übersprungen · %5 unklar · %6 Fehler · %7 als nicht mehr in LupaBB markiert"
+msgstr "%1 utworzono · %2 zaktualizowano · %3 bez zmian · %4 pominięto · %5 niejasnych · %6 błędów · %7 oznaczono jako nieobecnych w LupaBB"
+
+msgid "Nicht gespeichert:"
+msgstr "Nie zapisano:"
+
+msgid "Person %1"
+msgstr "Osoba %1"
+
+msgid "Einordnung"
+msgstr "Klasyfikacja"
+
+msgid "Einzelheiten"
+msgstr "Szczegóły"
+
+msgid "Kandidat"
+msgstr "Kandydat"
+
+msgid "%1 Felder im Vergleich"
+msgstr "%1 porównywanych pól"
+
+msgid "Feld"
+msgstr "Pole"
+
+msgid "Mit diesem Mitglied verknüpfen"
+msgstr "Powiąż z tym członkiem"
+
+msgid "Mit diesem Mitglied verknüpfen?"
+msgstr "Powiązać z tym członkiem?"
+
+msgid "Die Personennummer aus LupaBB wird diesem Mitglied zugeordnet. Die Daten werden beim nächsten Abgleich übernommen."
+msgstr "Numer osoby z LupaBB zostanie przypisany temu członkowi. Dane zostaną zastosowane przy następnej synchronizacji."
+
+msgid "Das Mitglied wurde verknüpft."
+msgstr "Członek został powiązany."
+
+msgid "LupaBB-Abgleich"
+msgstr "Synchronizacja z LupaBB"
+
+msgid "Mitglieder-Stammdaten aus LupaBB in die Mitgliederverwaltung übernehmen. Ein Lauf wird von Hand gestartet."
+msgstr "Przejmij dane podstawowe członków z LupaBB do zarządzania członkami. Uruchomienie następuje ręcznie."
+
+msgid "Zur Mitgliederverwaltung"
+msgstr "Do zarządzania członkami"
+
+msgid "LupaBB hat die Zugangsdaten abgelehnt. Bitte prüfen Sie Benutzername, Passwort und API-Schlüssel."
+msgstr "LupaBB odrzuciło dane dostępowe. Proszę sprawdzić nazwę użytkownika, hasło i klucz API."
+
+msgid "LupaBB ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut."
+msgstr "LupaBB jest w tej chwili niedostępne. Proszę spróbować później."
+
+msgid "LupaBB hat eine unerwartete Antwort geschickt. Es wurde nichts geändert."
+msgstr "LupaBB przesłało nieoczekiwaną odpowiedź. Nic nie zmieniono."
+
+msgid "Die Datenmenge aus LupaBB übersteigt die Grenzen des Abgleichs. Es wurde nichts geändert."
+msgstr "Ilość danych z LupaBB przekracza limity synchronizacji. Nic nie zmieniono."
+
+msgid "Es läuft bereits ein Abgleich. Bitte warten Sie, bis er beendet ist."
+msgstr "Synchronizacja już trwa. Proszę poczekać na jej zakończenie."
+
+msgid "LupaBB wurde eben erst abgefragt. Bitte warten Sie eine Minute."
+msgstr "LupaBB zostało właśnie odpytane. Proszę poczekać minutę."
+
+msgid "Die Vorschau ist nicht mehr gültig. Bitte laden Sie sie neu."
+msgstr "Podgląd nie jest już ważny. Proszę wczytać go ponownie."
+
+msgid "Es sind keine LupaBB-Zugangsdaten hinterlegt oder sie sind nicht lesbar. Bitte geben Sie sie neu ein."
+msgstr "Brak zapisanych danych dostępowych do LupaBB lub nie można ich odczytać. Proszę wpisać je ponownie."
+
+msgid "Auf diesem Server ist kein Geheimnis-Schlüssel eingerichtet. Zugangsdaten können nicht gespeichert werden."
+msgstr "Na tym serwerze nie skonfigurowano klucza tajnego. Nie można zapisać danych dostępowych."
+
+msgid "LupaBB-Abgleich (Lauf)"
+msgstr "Synchronizacja z LupaBB (uruchomienie)"
+
+msgid "LupaBB-Zugangsdaten"
+msgstr "Dane dostępowe LupaBB"
+
+msgid "Mit LupaBB abgleichen"
+msgstr "Synchronizuj z LupaBB"
+
+msgid "Mit LupaBB verknüpft (Personennummer %1)."
+msgstr "Powiązano z LupaBB (numer osoby %1)."
+
+msgid "Der letzte Abgleich fand dieses Mitglied nicht mehr in LupaBB (seit %1)."
+msgstr "Ostatnia synchronizacja nie znalazła już tego członka w LupaBB (od %1)."
+
+msgid "Sitzung und Veranstaltung (Verknüpfung)"
+msgstr "Posiedzenie i wydarzenie (powiązanie)"
+
+msgid "Diese Sitzung ist bereits mit einer Veranstaltung verknüpft."
+msgstr "To posiedzenie jest już powiązane z wydarzeniem."
+
+msgid "Diese Veranstaltung gehört bereits zu einer Sitzung."
+msgstr "To wydarzenie należy już do posiedzenia."
+
+msgid "Diese Sitzung kann nicht angekündigt werden. Sie ist abgesagt, schon gehalten oder liegt in der Vergangenheit."
+msgstr "Tego posiedzenia nie można ogłosić. Jest odwołane, już się odbyło lub leży w przeszłości."
+
+msgid "Für die Ankündigung fehlt der Ort der Sitzung."
+msgstr "Do ogłoszenia brakuje miejsca posiedzenia."
+
+msgid "Die Verknüpfung hat sich inzwischen geändert. Bitte laden Sie die Ansicht neu."
+msgstr "Powiązanie zmieniło się w międzyczasie. Odśwież widok."
+
+msgid "Diese Veranstaltung kann nicht verknüpft werden. Sie ist abgesagt oder Teil einer laufenden Serie."
+msgstr "Tego wydarzenia nie można powiązać. Jest odwołane lub należy do trwającej serii."
+
+msgid "Eine abgesagte Sitzung kann nicht angekündigt werden."
+msgstr "Odwołanego posiedzenia nie można ogłosić."
+
+msgid "Eine bereits durchgeführte Sitzung kann nicht mehr angekündigt werden."
+msgstr "Posiedzenia, które już się odbyło, nie można już ogłosić."
+
+msgid "Für die Ankündigung einer Präsenzsitzung fehlt der Ort."
+msgstr "Posiedzenie stacjonarne wymaga podania miejsca, aby je ogłosić."
+
+msgid "Angekündigt als:"
+msgstr "Ogłoszone jako:"
+
+msgid "Entwurf, noch nicht veröffentlicht."
+msgstr "Wersja robocza, jeszcze nie opublikowana."
+
+msgid "Zur Sitzung"
+msgstr "Do posiedzenia"
+
+msgid "Sichtbar nur für Mitglieder. Öffentlich machen kann der Vorstand."
+msgstr "Widoczne tylko dla członków. Upublicznić może je tylko zarząd."
+
+msgid "Absagen kann bei einer kostenpflichtigen oder öffentlichen Veranstaltung nur der Vorstand."
+msgstr "Tylko zarząd może odwołać wydarzenie płatne lub publiczne."
+
+msgid "Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar. Alle Mitglieder sehen sie, nicht nur die Mitglieder des Gremiums. Die Tagesordnung wird nicht angezeigt."
+msgstr "To wydarzenie zostanie opublikowane i będzie widoczne dla członków, którzy będą mogli się zapisać. Zobaczą je wszyscy członkowie, nie tylko członkowie gremium. Porządek obrad nie jest wyświetlany."
+
+msgid "Öffentlich machen kann nur der Vorstand."
+msgstr "Upublicznić to może tylko zarząd."
+
+msgid "Dieses Feld ändert der Vorstand."
+msgstr "To pole zmienia zarząd."
+
+msgid "Eine kostenpflichtige Veranstaltung sagt der Vorstand ab."
+msgstr "Płatne wydarzenie odwołuje zarząd."
+
+msgid "Der Online-Link ist öffentlich. Ändern kann ihn der Vorstand."
+msgstr "Link online jest publiczny. Zmienić go może tylko zarząd."
+
+msgid "Als Veranstaltung ankündigen"
+msgstr "Ogłoś jako wydarzenie"
+
+msgid "Verknüpfung lösen"
+msgstr "Usuń powiązanie"
+
+msgid "Verknüpfung gelöst. Sitzung und Veranstaltung bleiben erhalten."
+msgstr "Powiązanie usunięto. Posiedzenie i wydarzenie pozostają."
+
+msgid "Sitzung: %1 · Veranstaltung: %2"
+msgstr "Posiedzenie: %1 · Wydarzenie: %2"
+
+msgid "Ort der Sitzung: %1 · Ort der Veranstaltung: %2"
+msgstr "Miejsce posiedzenia: %1 · Miejsce wydarzenia: %2"
+
+msgid "kein Ort"
+msgstr "brak miejsca"
+
+msgid "Termin der Veranstaltung an die Sitzung angleichen"
+msgstr "Dopasuj termin wydarzenia do posiedzenia"
+
+msgid "Die Veranstaltung wurde an die Sitzung angeglichen."
+msgstr "Wydarzenie dopasowano do posiedzenia."
+
+msgid "Sitzung verknüpfen"
+msgstr "Powiąż posiedzenie"
+
+msgid "Gehört zur Sitzung: %1, %2"
+msgstr "Należy do posiedzenia: %1, %2"
+
+msgid "Der Ort der Sitzung weicht vom Ort der Veranstaltung ab."
+msgstr "Miejsce posiedzenia różni się od miejsca wydarzenia."
+
+msgid "Online-Teilnahme ist unterschiedlich eingestellt."
+msgstr "Udział online jest ustawiony inaczej."
+
+msgid "Angleichen kann die Sitzungsleitung auf der Seite der Sitzung."
+msgstr "Prowadzący posiedzenie może je dopasować na stronie posiedzenia."
+
+msgid "Sitzungen werden geladen…"
+msgstr "Ładowanie posiedzeń…"
+
+
+msgid "Es gibt keine Sitzung, die verknüpft werden kann."
+msgstr "Nie ma posiedzenia, które można powiązać."
+
+msgid "%1, %2 – %3"
+msgstr "%1, %2 – %3"
+
+msgid "Sitzung verknüpft."
+msgstr "Posiedzenie powiązano."
+
+msgid "Gespräch"
+msgstr "Rozmowa"
+
+msgid "Abonniert"
+msgstr "Subskrybowane"
+
+msgid "Meine Abonnements"
+msgstr "Moje subskrypcje"
+
+msgid "Bereiche der Mailinglisten"
+msgstr "Sekcje list mailingowych"
+
+msgid "Ihre persönlichen Gespräche an einem Ort."
+msgstr "Twoje osobiste rozmowy w jednym miejscu."
+
+msgid "Hier abonnieren Sie Mailinglisten oder bestellen sie ab. Vorstand und Administration verwalten die Listen und verschicken Nachrichten."
+msgstr "Tutaj zapisujesz się na listy mailingowe lub z nich rezygnujesz. Zarząd i administracja zarządzają listami i wysyłają wiadomości."
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Nachrichten."
+msgstr "Wiadomość wysłana. Rozmowę znajdziesz w sekcji Wiadomości."
+
+msgid "Nachricht wurde gesendet. Antworten finden Sie unter Nachrichten."
+msgstr "Wiadomość została wysłana. Odpowiedzi znajdziesz w sekcji Wiadomości."
+
+msgid "Liste"
+msgstr "Lista"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge"
+msgstr "Załączniki"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Keine Anhänge."
+msgstr "Brak załączników."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Nach dem Senden können Anhänge nicht mehr geändert werden."
+msgstr "Po wysłaniu nie można już zmieniać załączników."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Datei gelöscht"
+msgstr "Plik usunięty"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Dateien anhängen"
+msgstr "Dołącz pliki"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Höchstens %1 Anhänge pro Nachricht."
+msgstr "Co najwyżej %1 załączników na wiadomość."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Es sind nur noch %1 Anhänge möglich; die übrigen Dateien wurden nicht übernommen."
+msgstr "Można dodać jeszcze tylko %1 załączników; pozostałe pliki nie zostały dodane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Lapis prüft Anhänge nicht auf Viren. Bitte laden Sie nur Dateien hoch, denen Sie vertrauen."
+msgstr "Lapis nie skanuje załączników pod kątem wirusów. Prosimy przesyłać tylko zaufane pliki."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "%1 von 5 Dateien, zusammen %2 von 20 MB."
+msgstr "%1 z 5 plików, łącznie %2 z 20 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Erlaubt sind PDF, Bilder (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT und CSV: höchstens 5 Dateien, 10 MB pro Datei, zusammen 20 MB."
+msgstr "Dozwolone: PDF, obrazy (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT i CSV: co najwyżej 5 plików, 10 MB na plik, łącznie 20 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge gehen an alle Empfänger dieser Nachricht. Lapis löscht die Dateien 180 Tage nach dem Senden."
+msgstr "Załączniki trafiają do wszystkich odbiorców tej wiadomości. Lapis usuwa pliki 180 dni po wysłaniu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ hat ein nicht unterstütztes Format. Erlaubt sind PDF, Bilder (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT und CSV."
+msgstr "„%1” ma nieobsługiwany format. Dozwolone są PDF, obrazy (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT i CSV."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Mit „%1“ wären die Anhänge zusammen größer als 20 MB."
+msgstr "Z „%1” załączniki miałyby łącznie ponad 20 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Ein Anhang mit dem Namen „%1“ ist schon vorhanden."
+msgstr "Załącznik o nazwie „%1” już istnieje."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ passt nicht zu ihrer Dateiendung oder ist beschädigt oder verschlüsselt."
+msgstr "„%1” nie pasuje do swojego rozszerzenia albo jest uszkodzony lub zaszyfrowany."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ enthält Makros oder eingebettete Objekte und wird nicht angenommen."
+msgstr "„%1” zawiera makra lub osadzone obiekty i nie zostanie przyjęty."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ hat keinen gültigen Dateinamen."
+msgstr "„%1” nie ma prawidłowej nazwy pliku."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Die Nachricht ist kein Entwurf mehr. Anhänge können nicht mehr geändert werden."
+msgstr "Wiadomość nie jest już wersją roboczą. Nie można już zmieniać załączników."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge fügen Sie nach dem Speichern beim Entwurf hinzu."
+msgstr "Załączniki dodaje się do wersji roboczej po jej zapisaniu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "%1 Anhang hinzugefügt."
+msgid_plural "%1 Anhänge hinzugefügt."
+msgstr[0] "Dodano %1 załącznik."
+msgstr[1] "Dodano %1 załączniki."
+msgstr[2] "Dodano %1 załączników."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Mit %1 Anhang (%2)."
+msgid_plural "Mit %1 Anhängen (%2)."
+msgstr[0] "Z %1 załącznikiem (%2)."
+msgstr[1] "Z %1 załącznikami (%2)."
+msgstr[2] "Z %1 załącznikami (%2)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Datei anhängen"
+msgstr "Dołącz plik"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bis zu 5 Dateien, je höchstens 10 MB, zusammen höchstens 20 MB."
+msgstr "Do 5 plików, każdy do 10 MB, razem do 20 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Anhänge sieht nur Ihr Gesprächspartner. Lapis prüft Dateien nicht auf Viren."
+msgstr "Załączniki widzi tylko rozmówca. Lapis nie skanuje plików pod kątem wirusów."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Lapis prüft Anhänge nicht auf Viren."
+msgstr "Lapis nie skanuje załączników pod kątem wirusów."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bitte warten, bis alle Dateien hochgeladen sind."
+msgstr "Prosimy poczekać, aż wszystkie pliki zostaną przesłane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bitte entfernen Sie fehlgeschlagene Dateien."
+msgstr "Prosimy usunąć pliki, których nie udało się przesłać."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Diesem Mitglied können Sie keine Dateien schicken."
+msgstr "Nie można wysyłać plików do tego członka."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Sie haben zu viele noch nicht gesendete Dateien. Bitte senden oder entfernen Sie zuerst welche."
+msgstr "Zbyt wiele niewysłanych plików. Prosimy najpierw wysłać lub usunąć kilka z nich."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Anhänge konnten nicht gesendet werden. Bitte laden Sie die Dateien erneut hoch."
+msgstr "Nie udało się wysłać załączników. Prosimy przesłać pliki ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste löschen"
+msgstr "Usuń listę mailingową"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste löschen?"
+msgstr "Usunąć listę mailingową?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Die Mailingliste „%1“ wird gelöscht."
+msgstr "Lista mailingowa „%1” zostanie usunięta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "%1 Abonnent wird ausgetragen."
+msgid_plural "%1 Abonnenten werden ausgetragen."
+msgstr[0] "%1 subskrybent zostanie wypisany."
+msgstr[1] "%1 subskrybentów zostanie wypisanych."
+msgstr[2] "%1 subskrybentów zostanie wypisanych."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Entwürfe dieser Liste werden mit ihren Anhängen gelöscht."
+msgstr "Wersje robocze tej listy zostaną usunięte wraz z załącznikami."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Bereits versendete Nachrichten bleiben als Nachweis erhalten."
+msgstr "Wysłane już wiadomości pozostają jako dowód."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Das kann nicht rückgängig gemacht werden."
+msgstr "Tej operacji nie można cofnąć."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste gelöscht."
+msgstr "Lista mailingowa usunięta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Automatische Mailinglisten können nicht gelöscht werden."
+msgstr "Automatycznych list mailingowych nie można usunąć."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Diese Mailingliste wird gerade versendet. Bitte löschen Sie sie erst, wenn der Versand abgeschlossen ist."
+msgstr "Ta lista mailingowa jest właśnie wysyłana. Proszę usunąć ją dopiero po zakończeniu wysyłki."

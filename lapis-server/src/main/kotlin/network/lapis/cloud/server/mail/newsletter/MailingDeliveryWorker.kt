@@ -11,6 +11,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
@@ -23,6 +24,7 @@ import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.mail.MailAttachment
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailFailureKind
 import network.lapis.cloud.server.mail.MailSendOutcome
@@ -62,6 +64,8 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import java.io.File
+import java.security.MessageDigest
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -136,6 +140,11 @@ class MailingDeliveryWorker(
     /** Longest single sleep while waiting for budget / a deferral to pass; the state is re-evaluated at least this often. */
     private val maxWait: Duration = DEFAULT_MAX_WAIT,
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
+    /**
+     * V1.9.232 -- root the attachment storage keys resolve against (the document storage root). `null` == no attachment storage: a
+     * message WITH attachments then fails closed ([ATTACHMENT_INTEGRITY_ERROR_CLASS]) instead of going out without them.
+     */
+    private val attachmentStorageRoot: File? = null,
 ) {
     /** Wake-up signal only (V1.9.81): the queue itself is the database (`QUEUED` messages in `queued_at` order), so it can never be "full". */
     private val wake = Channel<Unit>(Channel.CONFLATED)
@@ -250,6 +259,11 @@ class MailingDeliveryWorker(
         val plan = loadSendPlanWithRetry(messageId)
         if (plan == null) {
             logger.error { "processMessage: mailing message $messageId no longer exists, skipping" }
+            return
+        }
+        // V1.9.232: never send a mail without the attachments it announces. Checked at EVERY start, including a resume after a restart.
+        if (!attachmentsIntact(plan)) {
+            failForAttachmentIntegrity(messageId)
             return
         }
         if (plan.dynamic && !resolveRecipientsWithRetry(messageId)) return
@@ -370,6 +384,9 @@ class MailingDeliveryWorker(
                     ?: return@transaction false
             if (message[MailingMessageTable.status] != MailingMessageStatus.QUEUED) return@transaction false
             if (message[MailingMessageTable.recipientsResolvedAt] != null) return@transaction true
+            // V1.9.234: deliberately WITHOUT deleted_at filter -- a QUEUED message can never belong to a deleted list (deleteMailingList
+            // refuses while a message is QUEUED, and sendMailingMessage locks the live list row before DRAFT -> QUEUED), and a SENT/FAILED
+            // message keeps pointing at its archived list. Filtering here could only strand a QUEUED message.
             val list =
                 MailingListTable.selectAll().where { MailingListTable.id eq message[MailingMessageTable.mailingListId] }.singleOrNull()
                     ?: return@transaction false
@@ -509,12 +526,13 @@ class MailingDeliveryWorker(
                     when (
                         val outcome =
                             try {
-                                withTimeout(perSendTimeout) {
-                                    transport.send(
+                                withTimeout(perSendTimeout + attachmentSendAllowance(plan.attachmentBytes)) {
+                                    transport.sendWithAttachments(
                                         to = email,
                                         subject = renderedMail.subject,
                                         plainTextBody = renderedMail.plainText,
                                         htmlBody = renderedMail.html,
+                                        attachments = plan.mailAttachments,
                                     )
                                 }
                             } catch (e: TimeoutCancellationException) {
@@ -734,7 +752,13 @@ class MailingDeliveryWorker(
         val dynamic: Boolean,
         /** V1.9.111 -- mandatory list: visible notice in subject/banner/footer, no opt-out. */
         val mandatory: Boolean,
-    )
+        /** V1.9.232 -- the stored attachments in upload order (empty for a plain message). */
+        val attachments: List<StoredMailingAttachment> = emptyList(),
+        /** V1.9.232 -- the same attachments as transport objects (resolved against the storage root). */
+        val mailAttachments: List<MailAttachment> = emptyList(),
+    ) {
+        val attachmentBytes: Long get() = attachments.sumOf { it.sizeBytes }
+    }
 
     private data class RecipientContext(
         val email: String?,
@@ -748,6 +772,7 @@ class MailingDeliveryWorker(
             val message =
                 MailingMessageTable.selectAll().where { MailingMessageTable.id eq messageId }.singleOrNull() ?: return@transaction null
             val sanitized = message[MailingMessageTable.bodyHtml]?.let { MailingHtmlSanitizer.sanitize(it) }
+            val stored = MailingAttachmentStore.sendableForMessage(messageId)
             val list =
                 MailingListTable
                     .selectAll()
@@ -761,8 +786,81 @@ class MailingDeliveryWorker(
                 linkIndexByUrl = if (sanitized != null) MailingTrackingData.linkIndexByUrl(messageId) else emptyMap(),
                 dynamic = list?.get(MailingListTable.kind) == MailingListKind.DYNAMIC,
                 mandatory = list?.get(MailingListTable.mandatory) == true,
+                attachments = stored,
+                mailAttachments = stored.mapNotNull { toMailAttachment(it) },
             )
         }
+
+    private fun toMailAttachment(stored: StoredMailingAttachment): MailAttachment? {
+        val file = resolveAttachmentFile(stored) ?: return null
+        val contentType = stored.textCharset?.let { "${stored.mimeType}; charset=$it" } ?: stored.mimeType
+        return MailAttachment(fileName = stored.fileName, contentType = contentType, file = file, sizeBytes = stored.sizeBytes)
+    }
+
+    /** The storage key against the root; `null` if there is no root or the key would leave it (a hand-edited row). */
+    private fun resolveAttachmentFile(stored: StoredMailingAttachment): File? {
+        val root = attachmentStorageRoot?.canonicalFile ?: return null
+        if (stored.storageKey.isBlank() || File(stored.storageKey).isAbsolute) return null
+        val candidate = root.resolve(stored.storageKey).canonicalFile
+        return if (candidate.path.startsWith(root.path + File.separator)) candidate else null
+    }
+
+    /**
+     * V1.9.232 -- every attachment must still exist with the recorded size and SHA-256 and must not have been removed by retention.
+     * Runs off the event loop (hashing up to 20 MiB). A plan without attachments is trivially intact.
+     */
+    private suspend fun attachmentsIntact(plan: SendPlan): Boolean {
+        if (plan.attachments.isEmpty()) return true
+        return withContext(Dispatchers.IO) {
+            plan.attachments.all { stored ->
+                val file = resolveAttachmentFile(stored)
+                stored.fileDeletedAt == null &&
+                    file != null &&
+                    file.isFile &&
+                    file.length() == stored.sizeBytes &&
+                    sha256Of(file) == stored.sha256
+            }
+        }
+    }
+
+    private fun sha256Of(file: File): String? =
+        try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read == -1) break
+                    digest.update(buffer, 0, read)
+                }
+            }
+            digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+        } catch (_: Exception) {
+            null
+        }
+
+    /** Closes a message whose attachments are missing/tampered: no mail is sent, the open rows and the message become `FAILED`. */
+    private fun failForAttachmentIntegrity(messageId: Uuid) {
+        val now = DbClock.nowLocalDateTime()
+        transaction {
+            MailingDeliveryLogTable.update({
+                (MailingDeliveryLogTable.mailingMessageId eq messageId) and
+                    (MailingDeliveryLogTable.deliveryStatus eq DeliveryStatus.PENDING)
+            }) {
+                it[deliveryStatus] = DeliveryStatus.FAILED
+                it[deliveredAt] = now
+            }
+            MailingMessageTable.update(
+                { (MailingMessageTable.id eq messageId) and (MailingMessageTable.status eq MailingMessageStatus.QUEUED) },
+            ) {
+                it[status] = MailingMessageStatus.FAILED
+                it[sentAt] = now
+            }
+        }
+        logger.error {
+            "Mailing message not sent, attachments missing or changed: errorClass=$ATTACHMENT_INTEGRITY_ERROR_CLASS messageId=$messageId"
+        }
+    }
 
     /**
      * Reads the recipient's address and CURRENT tracking consent, and -- when at least one consent
@@ -906,6 +1004,23 @@ class MailingDeliveryWorker(
         val DEFAULT_MAX_WAIT: Duration = 60.seconds
         private val MIN_WAIT: Duration = 10.milliseconds
         private const val LOAD_PLAN_ATTEMPTS = 3
+
+        /** Closed vocabulary token of the log line written when a message is refused because of its attachments. */
+        const val ATTACHMENT_INTEGRITY_ERROR_CLASS = "ATTACHMENT_INTEGRITY"
+
+        private const val ASSUMED_UPLOAD_BYTES_PER_SECOND = 256L * 1024
+        private val MAX_ATTACHMENT_ALLOWANCE: Duration = 10.minutes
+
+        /**
+         * V1.9.232 -- extra time per send for the attachment bytes: the Base64 size (x4/3) at an assumed 256 KiB/s, at most 10 minutes.
+         * Without it a 28 MB mail would hit the 60 second per-send timeout, which counts as `deliveryUncertain` (never retried, FAILED).
+         */
+        internal fun attachmentSendAllowance(attachmentBytes: Long): Duration {
+            if (attachmentBytes <= 0L) return Duration.ZERO
+            val encodedBytes = attachmentBytes / 3 * 4 + 4
+            val seconds = encodedBytes / ASSUMED_UPLOAD_BYTES_PER_SECOND + 1
+            return minOf(seconds.seconds, MAX_ATTACHMENT_ALLOWANCE)
+        }
 
         /** Retries after a clear 4xx / connection failure, waited before retry N+1 (N = attempts so far). At most [MAX_RETRIES] retries. */
         val RETRY_BACKOFF: List<Duration> = listOf(5.minutes, 15.minutes, 60.minutes)

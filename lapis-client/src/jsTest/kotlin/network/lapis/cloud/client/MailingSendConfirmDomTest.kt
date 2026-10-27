@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.panel.vPanel
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.MailingAttachmentDto
 import network.lapis.cloud.shared.domain.MailingMessageDto
 import network.lapis.cloud.shared.domain.MailingMessageStatus
 import network.lapis.cloud.shared.domain.MailingSendEstimateDto
@@ -43,6 +44,7 @@ class MailingSendConfirmDomTest {
     private fun scenario(
         id: String,
         estimate: MailingSendEstimateDto,
+        message: MailingMessageDto = draft(),
         check: suspend (modalText: String, sendCalls: () -> Int, estimateCalls: () -> Int) -> Unit,
     ): Promise<Unit> =
         formTest {
@@ -62,7 +64,7 @@ class MailingSendConfirmDomTest {
                 },
             ) { calls ->
                 mountedForm(id) { root, element ->
-                    renderMailingMessageRow(root.vPanel(), draft(), "Mitgliederliste", onChanged = {})
+                    renderMailingMessageRow(root.vPanel(), message, "Mitgliederliste", onChanged = {})
                     element().buttonNamed("Senden").click()
                     awaitUntil("the estimate was requested") { calls.count { it.isRpc && it.rpcRoute == estimateRoute } == 1 }
                     awaitUntil("the confirmation is open") { document_modalText().contains("Nachricht senden") }
@@ -119,5 +121,39 @@ class MailingSendConfirmDomTest {
             awaitUntil("the send RPC was sent") { sendCalls() == 1 }
             kotlinx.coroutines.delay(100)
             assertEquals(1, sendCalls())
+        }
+
+    @Test
+    fun withoutAttachments_theConfirmationHasNoAttachmentLine(): Promise<Unit> =
+        scenario("msc-noatt", MailingSendEstimateDto(3, null, 1, false)) { text, _, _ ->
+            assertFalse(text.contains("Mit 1 Anhang"), text)
+            assertFalse(text.contains("Anhängen ("), text)
+        }
+
+    @Test
+    fun withOneAttachment_theConfirmationNamesCountAndSize_inTheSingular(): Promise<Unit> =
+        scenario(
+            "msc-att1",
+            MailingSendEstimateDto(3, null, 1, false),
+            draft().copy(attachments = listOf(MailingAttachmentDto("a1", "Einladung.pdf", "application/pdf", 2048, true))),
+        ) { text, _, _ ->
+            assertTrue(text.contains("Mit 1 Anhang (2 KB)."), text)
+        }
+
+    @Test
+    fun withSeveralAttachments_theConfirmationNamesCountAndTotalSize_inThePlural(): Promise<Unit> =
+        scenario(
+            "msc-att3",
+            MailingSendEstimateDto(3, null, 1, false),
+            draft().copy(
+                attachments =
+                    listOf(
+                        MailingAttachmentDto("a1", "a.pdf", "application/pdf", 1024 * 1024, true),
+                        MailingAttachmentDto("a2", "b.pdf", "application/pdf", 1024 * 1024, true),
+                        MailingAttachmentDto("a3", "c.pdf", "application/pdf", 1024 * 1024, true),
+                    ),
+            ),
+        ) { text, _, _ ->
+            assertTrue(text.contains("Mit 3 Anhängen (3,0 MB)."), text)
         }
 }

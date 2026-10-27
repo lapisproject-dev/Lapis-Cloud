@@ -32,6 +32,8 @@ class MemberEmailWriteTripwireTest :
                 "network/lapis/cloud/server/rpc/RegistrationService.kt" to
                     "application / FRIEND self-registration / direct creation of a NEW member",
                 "network/lapis/cloud/server/bootstrap/MemberCsvImport.kt" to "CSV import creates NEW members",
+                "network/lapis/cloud/server/lupabb/LupaBbApplier.kt" to
+                    "V1.9.226 LupaBB sync creates NEW members (the address of an existing member is never written; LupaBbSyncAccessTripwireTest)",
                 "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt" to "first-admin bootstrap creates a NEW member",
                 "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt" to "OIDC guest creates a NEW synthetic-address member",
                 "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt" to

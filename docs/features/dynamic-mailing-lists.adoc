@@ -6,9 +6,18 @@ A mailing list can now be **automatic**: instead of members subscribing by hand,
 moment the message is *sent*, not when the list is written. A list can also be **mandatory** (association notices such as the invitation to
 the general meeting): nobody can opt out of it. Manual lists work exactly as before.
 
+== The "Mailinglisten" screen (V1.9.231)
+
+Route `/mailing-lists`. A member sees one table of all lists (columns Liste / Status / Aktionen): the name with the subscriber count, the badge
+"Abonniert", and icon-only actions with tooltip and accessible name (Abonnieren / Abbestellen, and "Einstellungen" for a subscribed list, which
+opens the tracking switches under the name). An automatic list shows its badges, the reason it reaches the member and the opt-out as an icon action
+in the same table. BOARD and ADMIN additionally get a tab bar with "Meine Abonnements" and "Verwalten" (`?tab=manage`); everyone else gets no tab
+bar and `?tab=manage` falls back to the subscriptions without a message. The tab gate is cosmetic: every board call stays gated on the server
+(`BOARD_ROLES`). The board tab is built on first use; returning to the subscriptions reloads them.
+
 == What a board member sees
 
-In "Kommunikation" -> "Mailinglisten verwalten" -> "Neue Mailingliste" a segmented choice sits at the top: **Manuell** (the default, the old
+In "Mailinglisten" -> tab "Verwalten" (BOARD/ADMIN only; V1.9.231 split this out of the former "Kommunikation" screen) -> "Mailinglisten verwalten" -> "Neue Mailingliste" a segmented choice sits at the top: **Manuell** (the default, the old
 form) or **Automatisch (nach Regel)**. The type of a list can never be changed afterwards, and the form says so.
 
 For an automatic list the rule builder appears:
@@ -158,6 +167,12 @@ show the very same subject), a framed banner (`role="note"`, also the first line
 unsubscribe link -- and contains none. Creating one, changing its rule and sending to it need BOARD or ADMIN (the send checks it explicitly, in
 addition to the general send right). The flag cannot be changed after creation, and an opt-out is refused (`BadRequestException`) -- but only
 for a caller the rule includes; everybody else gets the same generic not-found as for a list that does not exist.
+
+== Not deletable (V1.9.234)
+
+An automatic or mandatory list cannot be deleted: `deleteMailingList` refuses it (`MailingListNotDeletableException`) and a CHECK on `mailing_list`
+(`deleted_at IS NULL OR kind = 'MANUAL'`) pins it in the database too. The list detail shows the reason instead of the delete button. See
+link:supermailer.adoc[SuperMailer].
 
 == No enumeration
 

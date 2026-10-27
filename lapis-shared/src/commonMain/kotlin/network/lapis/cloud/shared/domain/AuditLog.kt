@@ -530,6 +530,38 @@ enum class AuditEntityType {
      * `VARCHAR(29)`. Appended LAST, additive only.
      */
     ATTACHED_IMAGE,
+
+    /**
+     * Welle V1.9.225 "Rechenschaftsbericht (PartG), R1" -- `PartyReportService.saveSheet` and the Excel import write one entry per changed
+     * value (`CREATE`, `UPDATE`, or `VOID` when a value is deleted), `entityId` = the `partg_report_sheet` row's id, snapshot =
+     * [PartgValueAuditSnapshot]. The import writes ONE more collective `UPDATE` entry ([PartgImportAuditSnapshot]: SHA-256 of the file, the
+     * shortened file name, the number of changes). 18 chars, fits `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    PARTG_REPORT_SHEET,
+
+    /**
+     * Welle V1.9.225 -- `PartyReportService.updatePositionHint` writes one `UPDATE` entry per changed hint, `entityId` = the
+     * `partg_report_position` row's id, snapshot = [PartgPositionHintSnapshot]. 21 chars, fits `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    PARTG_REPORT_POSITION,
+
+    /**
+     * Welle V1.9.226 -- one collective `CREATE` entry per applied LupaBB sync (`entityId` = the run id), snapshot = [LupaBbSyncRunSnapshot]:
+     * counters and the data hash only. 15 chars, fits `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    LUPABB_SYNC_RUN,
+
+    /**
+     * Welle V1.9.226 -- credentials of the LupaBB API set / replaced / removed (`entityId` = the fixed config id), snapshot =
+     * [LupaBbConfigSnapshot]: the event and the key transport, never a value. 18 chars, fits `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    LUPABB_SYNC_CONFIG,
+
+    /**
+     * Welle V1.9.227 -- a Sitzung <-> Veranstaltung link was announced / created / dissolved / aligned (`entityId` = the meeting id),
+     * snapshot = [MeetingEventLinkSnapshot]: ids and enums only, never a title or a text. 18 chars, fits `VARCHAR(29)`. Appended LAST.
+     */
+    MEETING_EVENT_LINK,
 }
 
 /** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */
@@ -995,6 +1027,13 @@ data class MemberChangeSnapshot(
      * older rows decode unchanged.
      */
     val keycloakIdp: KeycloakIdpAuditFacts? = null,
+    /**
+     * Welle V1.9.226 "LupaBB-Abgleich" -- fixed field keys (see [LupaBbField]) the sync wrote on this member row; NEVER a value, a name,
+     * an address or the person number. Default `null`: older rows decode unchanged.
+     */
+    val lupabbFields: List<String>? = null,
+    /** Welle V1.9.226 -- `true` when the sync (or the manual link) set the LupaBB person number of this member. No number. */
+    val lupabbLinked: Boolean? = null,
 )
 
 /**
@@ -1343,6 +1382,22 @@ data class MailingListRuleSnapshot(
 )
 
 /**
+ * Welle V1.9.234 -- before-snapshot of a deleted mailing list ([AuditEntityType.MAILING_LIST], `VOID`). Counts and enums only -- never a
+ * list name (free text, may be personal), an e-mail address or a subscriber's member id; the archived list row stays reachable via the
+ * audit entry's entity id.
+ */
+@Serializable
+data class MailingListDeletionSnapshot(
+    val kind: MailingListKind,
+    val removedSubscriptions: Int,
+    val removedOptOuts: Int,
+    val removedDrafts: Int,
+    val removedAttachments: Int,
+    /** SENT + FAILED messages that stay as evidence. */
+    val retainedSentMessages: Int,
+)
+
+/**
  * Welle V1.9.111 -- after-snapshot of the recipient resolution of a message to a DYNAMIC list ([AuditEntityType.MAILING_MESSAGE], `POST`).
  * The recipient COUNT, never who.
  */
@@ -1378,4 +1433,52 @@ data class StandardChartAppliedSnapshot(
     val chartVersion: String,
     val created: List<String>,
     val skipped: List<String>,
+)
+
+/** Welle V1.9.226 -- after-snapshot of an [AuditEntityType.LUPABB_SYNC_RUN] entry: counters and the SHA-256 of the normalised data. */
+@Serializable
+data class LupaBbSyncRunSnapshot(
+    val created: Int,
+    val updated: Int,
+    val unchanged: Int,
+    val skipped: Int,
+    val ambiguous: Int,
+    val errors: Int,
+    val missing: Int,
+    val dataSha256: String,
+)
+
+/** Welle V1.9.226 -- what happened to the stored LupaBB credentials. */
+@Serializable
+enum class LupaBbConfigEvent { SET, REPLACED, REMOVED }
+
+/** Welle V1.9.226 -- snapshot of an [AuditEntityType.LUPABB_SYNC_CONFIG] entry. NEVER a user name, password or key. */
+@Serializable
+data class LupaBbConfigSnapshot(
+    val event: LupaBbConfigEvent,
+    val apiKeyTransport: String?,
+)
+
+/** Welle V1.9.227 -- what happened to a Sitzung <-> Veranstaltung link (the `kind` of a [MeetingEventLinkSnapshot]). */
+@Serializable
+enum class MeetingEventLinkAuditKind { ANNOUNCED, LINKED, UNLINKED, ALIGNED, OFFICER_UPDATED, OFFICER_PUBLISHED, OFFICER_CANCELLED }
+
+/** Welle V1.9.227 -- why a link was dissolved. */
+@Serializable
+enum class MeetingEventUnlinkReason { MANUAL, MEETING_CANCELLED, EVENT_CANCELLED }
+
+/** Welle V1.9.227 -- the event fields an alignment overwrote. */
+@Serializable
+enum class MeetingEventField { STARTS_AT, ENDS_AT, LOCATION, TITLE, DESCRIPTION, ONLINE_KIND, ONLINE_URL }
+
+/** Welle V1.9.227 -- snapshot of an [AuditEntityType.MEETING_EVENT_LINK] entry. Ids and enums only. */
+@Serializable
+data class MeetingEventLinkSnapshot(
+    val kind: MeetingEventLinkAuditKind,
+    val meetingId: String,
+    val eventId: String,
+    val reason: MeetingEventUnlinkReason? = null,
+    val changedFields: List<MeetingEventField> = emptyList(),
+    /** V1.9.229 -- the seat the acting officer held (OFFICER_* kinds, and ALIGNED by a non-board officer); null for BOARD/ADMIN actions. */
+    val officerRole: CommitteeRole? = null,
 )

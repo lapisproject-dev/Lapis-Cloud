@@ -15,6 +15,7 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.FederationConfig
+import network.lapis.cloud.server.partg.PartgReportStore
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -36,6 +37,7 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IRegionalChapterService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RegionalChapterHasPartyReportValuesException
 import network.lapis.cloud.shared.rpc.RegionalChapterInUseException
 import network.lapis.cloud.shared.rpc.RegionalChapterLimitReachedException
 import network.lapis.cloud.shared.rpc.RegionalChapterNameTakenException
@@ -246,6 +248,9 @@ class RegionalChapterService internal constructor(
                     .where { (RegionalChapterOfficerTable.regionalChapterId eq id) and (RegionalChapterOfficerTable.revokedAt.isNull()) }
                     .count()
             if (activeOfficerCount > 0) throw RegionalChapterInUseException()
+            // V1.9.225: report sheets of this chapter (even an empty header) block the delete with their own typed refusal; checked up front so
+            // no foreign key violation poisons the PostgreSQL transaction.
+            if (PartgReportStore.hasValuesForChapter(id)) throw RegionalChapterHasPartyReportValuesException()
 
             // Only revoked officer grants can remain at this point (their history stays in the
             // audit log) -- delete them so a later chapter of the SAME name is not haunted by

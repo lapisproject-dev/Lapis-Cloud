@@ -66,6 +66,7 @@ class NavRegistryTest {
         assertTrue(Routes.BANK_ACCOUNTS in GROUP_ROUTES.getValue(SidebarGroupId.FINANCE))
         assertTrue(Routes.VOLUNTEER_ALLOWANCES in GROUP_ROUTES.getValue(SidebarGroupId.MEMBERSHIP))
         assertTrue(Routes.EVENT_IMPORT in GROUP_ROUTES.getValue(SidebarGroupId.ADMINISTRATION))
+        assertTrue(Routes.MEMBER_LUPABB_SYNC in GROUP_ROUTES.getValue(SidebarGroupId.ADMINISTRATION))
         assertEquals(Routes.CONTRIBUTIONS, GROUP_ROUTES.getValue(SidebarGroupId.MEMBERSHIP).first())
         assertEquals(Routes.LEDGER, GROUP_ROUTES.getValue(SidebarGroupId.FINANCE).first())
     }

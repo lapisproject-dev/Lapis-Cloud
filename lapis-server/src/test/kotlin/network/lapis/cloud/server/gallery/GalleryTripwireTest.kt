@@ -64,15 +64,19 @@ class GalleryTripwireTest :
             offenders.shouldBeEmpty()
         }
 
-        test("the gallery RPC service is the second to last registerService of Application.kt (the dashboard of V1.9.224 follows it)") {
+        test(
+            "the gallery RPC service is the fourth to last registerService of Application.kt (the dashboard, the party report and the LupaBB sync follow it)",
+        ) {
             val code = SourceScan.blank(File(SourceScan.mainRoot(), "network/lapis/cloud/server/Application.kt").readText())
             val registrations =
                 Regex("""registerService\(""")
                     .findAll(code)
                     .map { it.range.first }
                     .toList()
-            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(IAttachedImageService::class)")
-            registrations.last() shouldBe code.indexOf("registerService(IDashboardService::class)")
+            registrations[registrations.size - 4] shouldBe code.indexOf("registerService(IAttachedImageService::class)")
+            registrations[registrations.size - 3] shouldBe code.indexOf("registerService(IDashboardService::class)")
+            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(IPartyReportService::class)")
+            registrations.last() shouldBe code.indexOf("registerService(ILupaBbSyncService::class)")
         }
 
         // ── V1.9.223: pictures in social posts ──────────────────────────────────────────────

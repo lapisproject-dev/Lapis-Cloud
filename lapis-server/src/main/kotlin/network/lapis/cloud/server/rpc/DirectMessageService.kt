@@ -5,12 +5,16 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.messaging.DirectMessageAttachmentStore
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.shared.domain.AttachmentRules
+import network.lapis.cloud.shared.domain.DirectMessageAttachmentDto
 import network.lapis.cloud.shared.domain.DirectMessageCursorDto
 import network.lapis.cloud.shared.domain.DirectMessageDto
 import network.lapis.cloud.shared.domain.DirectMessagePageDto
 import network.lapis.cloud.shared.domain.DirectMessagePartnerDto
 import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.DirectMessageAttachmentsUnavailableException
 import network.lapis.cloud.shared.rpc.IDirectMessageService
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -75,6 +79,46 @@ class DirectMessageService(
         }
     }
 
+    override suspend fun sendDirectMessageWithAttachments(
+        recipientId: String,
+        body: String,
+        attachmentIds: List<String>,
+    ): DirectMessageDto {
+        val current = resolveCurrentMember(call)
+        // Every problem with the attachment list answers with the SAME exception: no hint which id, no existence oracle.
+        val unavailable = DirectMessageAttachmentsUnavailableException()
+        val ids =
+            attachmentIds.map { raw -> runCatching { Uuid.parse(raw) }.getOrElse { throw unavailable } }.also { parsed ->
+                if (parsed.size > AttachmentRules.MAX_FILES || parsed.size != parsed.toSet().size) throw unavailable
+            }
+        val recipient = Uuid.parse(recipientId)
+        return transaction {
+            // The member-row lock serializes this send against the same member's uploads (they take the same lock first).
+            requireActiveMembership(memberId = current.memberId, forUpdate = true)
+            val dto = insertDirectMessage(senderId = current.memberId, recipientId = recipient, body = body)
+            if (ids.isEmpty()) return@transaction dto
+            // A null result rolls the whole transaction back: the message is not created either.
+            val attached =
+                DirectMessageAttachmentStore.attachPendingInTx(
+                    ids = ids,
+                    uploader = current.memberId,
+                    recipient = recipient,
+                    messageId = Uuid.parse(dto.id),
+                ) ?: throw unavailable
+            dto.copy(
+                attachments =
+                    attached.map {
+                        DirectMessageAttachmentDto(
+                            id = it.id.toString(),
+                            fileName = it.fileName,
+                            mimeType = it.mimeType,
+                            sizeBytes = it.sizeBytes,
+                        )
+                    },
+            )
+        }
+    }
+
     override suspend fun listInbox(): List<DirectMessageDto> {
         val current = resolveCurrentMember(call)
         return transaction {
@@ -83,6 +127,7 @@ class DirectMessageService(
                 .where { DirectMessageTable.recipientId eq current.memberId }
                 .orderBy(DirectMessageTable.sentAt, SortOrder.DESC)
                 .map { it.toDirectMessageDto() }
+                .withAttachments()
         }
     }
 
@@ -98,6 +143,7 @@ class DirectMessageService(
                 }.orderBy(DirectMessageTable.sentAt, SortOrder.DESC)
                 .limit(MAX_CONVERSATION_MESSAGES)
                 .map { it.toDirectMessageDto() }
+                .withAttachments()
         }
     }
 
@@ -214,6 +260,7 @@ class DirectMessageService(
                     }.orderBy(DirectMessageTable.sentAt to SortOrder.DESC, DirectMessageTable.id to SortOrder.DESC)
                     .limit(n + 1)
                     .map { it.toDirectMessageDto() }
+                    .withAttachments()
             val page = rows.take(n)
             DirectMessagePageDto(
                 messages = page,
@@ -239,6 +286,14 @@ class DirectMessageService(
                 it[readAt] = now
             }
         }
+    }
+
+    /** V1.9.233 -- fills [DirectMessageDto.attachments] for a whole page with ONE query (no N+1). Inside the caller's transaction. */
+    private fun List<DirectMessageDto>.withAttachments(): List<DirectMessageDto> {
+        if (isEmpty()) return this
+        val byMessage = DirectMessageAttachmentStore.listForMessages(map { Uuid.parse(it.id) })
+        if (byMessage.isEmpty()) return this
+        return map { message -> byMessage[Uuid.parse(message.id)]?.let { message.copy(attachments = it) } ?: message }
     }
 
     private fun laterOf(

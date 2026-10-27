@@ -21,12 +21,14 @@ import network.lapis.cloud.shared.rpc.EmailChangeNotAllowedException
 import network.lapis.cloud.shared.rpc.EmailChangePendingNotFoundException
 import network.lapis.cloud.shared.rpc.EmailChangeRateLimitedException
 import network.lapis.cloud.shared.rpc.EmailChangeRepeatMismatchException
+import network.lapis.cloud.shared.rpc.EventAlreadyLinkedException
 import network.lapis.cloud.shared.rpc.EventCaptureBusyException
 import network.lapis.cloud.shared.rpc.EventCaptureChangeLockedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
 import network.lapis.cloud.shared.rpc.EventCaptureOperatorNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.EventCaptureTextMissingException
+import network.lapis.cloud.shared.rpc.EventNotLinkableException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
 import network.lapis.cloud.shared.rpc.EventRoomRecordingAccessLevelNotAllowedException
@@ -34,6 +36,24 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.GalleryLockedException
 import network.lapis.cloud.shared.rpc.GalleryOrderMismatchException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
+import network.lapis.cloud.shared.rpc.LupaBbAuthRejectedException
+import network.lapis.cloud.shared.rpc.LupaBbCredentialsMissingException
+import network.lapis.cloud.shared.rpc.LupaBbEncryptionKeyMissingException
+import network.lapis.cloud.shared.rpc.LupaBbLimitExceededException
+import network.lapis.cloud.shared.rpc.LupaBbPreviewExpiredException
+import network.lapis.cloud.shared.rpc.LupaBbSyncBusyException
+import network.lapis.cloud.shared.rpc.LupaBbSyncRateLimitedException
+import network.lapis.cloud.shared.rpc.LupaBbUnavailableException
+import network.lapis.cloud.shared.rpc.LupaBbUnexpectedResponseException
+import network.lapis.cloud.shared.rpc.MailingListNotDeletableException
+import network.lapis.cloud.shared.rpc.MailingListSendingInProgressException
+import network.lapis.cloud.shared.rpc.MeetingAlreadyLinkedException
+import network.lapis.cloud.shared.rpc.MeetingEventCancelReservedException
+import network.lapis.cloud.shared.rpc.MeetingEventFieldReservedException
+import network.lapis.cloud.shared.rpc.MeetingEventLinkStaleException
+import network.lapis.cloud.shared.rpc.MeetingEventVisibilityReservedException
+import network.lapis.cloud.shared.rpc.MeetingLocationMissingException
+import network.lapis.cloud.shared.rpc.MeetingNotAnnounceableException
 import network.lapis.cloud.shared.rpc.MemberPhotoConsentOutdatedException
 import network.lapis.cloud.shared.rpc.MemberPhotoMissingException
 import network.lapis.cloud.shared.rpc.MemberPhotoNotEligibleException
@@ -44,6 +64,9 @@ import network.lapis.cloud.shared.rpc.MemberPublicBioNotEligibleException
 import network.lapis.cloud.shared.rpc.MemberPublicBioRateLimitedException
 import network.lapis.cloud.shared.rpc.MemberPublicBioValidationException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.PartyReportInvalidInputException
+import network.lapis.cloud.shared.rpc.PartyReportNotEnabledException
+import network.lapis.cloud.shared.rpc.PartyReportRevisionConflictException
 import network.lapis.cloud.shared.rpc.RateLimitedException
 import network.lapis.cloud.shared.rpc.RecordingRawFilesMissingException
 import network.lapis.cloud.shared.rpc.RecordingRecomputeInProgressException
@@ -52,6 +75,7 @@ import network.lapis.cloud.shared.rpc.RecordingRecomputeNotAllowedException
 import network.lapis.cloud.shared.rpc.RecordingRecomputeRateLimitedException
 import network.lapis.cloud.shared.rpc.RecordingRetryNotAllowedException
 import network.lapis.cloud.shared.rpc.RecordingRetryRateLimitedException
+import network.lapis.cloud.shared.rpc.RegionalChapterHasPartyReportValuesException
 import network.lapis.cloud.shared.rpc.SearchRateLimitedException
 import network.lapis.cloud.shared.rpc.ServiceBusyException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -177,6 +201,49 @@ internal fun typedRefusalText(e: Throwable): String? =
         // pictures.
         is GalleryLockedException -> tr("Die Bilder können nicht mehr geändert werden.")
         is GalleryOrderMismatchException -> tr("Die Bilder wurden inzwischen geändert -- bitte die Ansicht aktualisieren.")
+        // V1.9.225 party report: the fixed texts of its typed refusals (Kilua RPC transmits only the exception type).
+        is PartyReportNotEnabledException -> tr("Der Rechenschaftsbericht ist nur für politische Parteien verfügbar.")
+        is PartyReportRevisionConflictException ->
+            tr("Die Werte wurden inzwischen von jemand anderem geändert -- bitte laden Sie das Blatt neu.")
+        is PartyReportInvalidInputException -> tr("Jahr, Gliederung oder Betrag sind ungültig.")
+        is RegionalChapterHasPartyReportValuesException ->
+            tr("Für diesen Landesverband sind Werte im Rechenschaftsbericht erfasst. Er kann nicht gelöscht werden.")
+        // V1.9.226 LupaBB sync: the fixed texts of its typed refusals.
+        is LupaBbAuthRejectedException ->
+            tr(
+                "LupaBB hat die Zugangsdaten abgelehnt. Bitte prüfen Sie Benutzername, Passwort und API-Schlüssel.",
+            )
+        is LupaBbUnavailableException -> tr("LupaBB ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut.")
+        is LupaBbUnexpectedResponseException -> tr("LupaBB hat eine unerwartete Antwort geschickt. Es wurde nichts geändert.")
+        is LupaBbLimitExceededException -> tr("Die Datenmenge aus LupaBB übersteigt die Grenzen des Abgleichs. Es wurde nichts geändert.")
+        is LupaBbSyncBusyException -> tr("Es läuft bereits ein Abgleich. Bitte warten Sie, bis er beendet ist.")
+        is LupaBbSyncRateLimitedException -> tr("LupaBB wurde eben erst abgefragt. Bitte warten Sie eine Minute.")
+        is LupaBbPreviewExpiredException -> tr("Die Vorschau ist nicht mehr gültig. Bitte laden Sie sie neu.")
+        is LupaBbCredentialsMissingException ->
+            tr(
+                "Es sind keine LupaBB-Zugangsdaten hinterlegt oder sie sind nicht lesbar. Bitte geben Sie sie neu ein.",
+            )
+        is LupaBbEncryptionKeyMissingException ->
+            tr(
+                "Auf diesem Server ist kein Geheimnis-Schlüssel eingerichtet. Zugangsdaten können nicht gespeichert werden.",
+            )
+        // V1.9.227 Sitzung <-> Veranstaltung: the fixed texts of its typed refusals.
+        is MeetingAlreadyLinkedException -> tr("Diese Sitzung ist bereits mit einer Veranstaltung verknüpft.")
+        is EventAlreadyLinkedException -> tr("Diese Veranstaltung gehört bereits zu einer Sitzung.")
+        is MeetingNotAnnounceableException ->
+            tr("Diese Sitzung kann nicht angekündigt werden. Sie ist abgesagt, schon gehalten oder liegt in der Vergangenheit.")
+        is MeetingLocationMissingException -> tr("Für die Ankündigung fehlt der Ort der Sitzung.")
+        is MeetingEventLinkStaleException -> tr("Die Verknüpfung hat sich inzwischen geändert. Bitte laden Sie die Ansicht neu.")
+        is EventNotLinkableException ->
+            tr("Diese Veranstaltung kann nicht verknüpft werden. Sie ist abgesagt oder Teil einer laufenden Serie.")
+        // V1.9.229: what an officer of a Sitzung may not do with its event.
+        is MeetingEventVisibilityReservedException -> tr("Öffentlich machen kann nur der Vorstand.")
+        is MeetingEventFieldReservedException -> tr("Dieses Feld ändert der Vorstand.")
+        is MeetingEventCancelReservedException -> tr("Eine kostenpflichtige Veranstaltung sagt der Vorstand ab.")
+        // V1.9.234: deleting a mailing list -- the fixed texts of its typed refusals.
+        is MailingListNotDeletableException -> tr("Automatische Mailinglisten können nicht gelöscht werden.")
+        is MailingListSendingInProgressException ->
+            tr("Diese Mailingliste wird gerade versendet. Bitte löschen Sie sie erst, wenn der Versand abgeschlossen ist.")
         else -> null
     }
 

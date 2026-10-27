@@ -164,6 +164,8 @@ ktor-server-partial-content     = { module = "io.ktor:ktor-server-partial-conten
 ktor-server-forwarded-header    = { module = "io.ktor:ktor-server-forwarded-header", version.ref = "ktor" }
 ktor-server-auto-head-response  = { module = "io.ktor:ktor-server-auto-head-response", version.ref = "ktor" }
 ktor-server-status-pages        = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
+# V1.9.226: test-only. The fake LupaBB server of the sync tests answers with a real HTTP Digest challenge (qop=auth).
+ktor-server-auth                 = { module = "io.ktor:ktor-server-auth", version.ref = "ktor" }
 ktor-server-test-host           = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 # V0.4.2 Letterxpress postal-mail dispatch: first outbound-HTTP-client need in this repo (every
 # prior `ktor-server-*` entry above is inbound/server-side only). ktor-client-content-negotiation
@@ -172,6 +174,9 @@ ktor-server-test-host           = { module = "io.ktor:ktor-server-test-host", ve
 # ktor-serialization-kotlinx-json (already declared above) is shared by both client and server.
 ktor-client-core                = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio                  = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+# V1.9.226 LupaBB sync: the HTTP Digest authentication of the LupaBB API. A first-party Ktor module of the same version line as
+# ktor-client-core/cio above, so no new vendor and no further transitive dependency.
+ktor-client-auth                 = { module = "io.ktor:ktor-client-auth", version.ref = "ktor" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 # Test-only: LetterxpressPostalMailProviderTest exercises LetterxpressPostalMailProvider against a
 # fake/mocked HTTP responder, never the real Letterxpress API (unreachable from this sandbox and,

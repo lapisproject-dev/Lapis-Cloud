@@ -5920,11 +5920,6 @@ msgstr ""
 msgid "Ketten-Integrität prüfen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:51
-#: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:118
-msgid "Kommunikation"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:153
 msgid "Konfiguration"
 msgstr ""
@@ -16106,10 +16101,6 @@ msgstr ""
 msgid "Eintrag wurde gelöscht."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:237
-msgid "Nachricht wurde gesendet. Antworten finden Sie im Postfach unter Kommunikation."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:269
 msgid "Eintrag bearbeiten"
 msgstr ""
@@ -18711,12 +18702,6 @@ msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
 msgstr ""
 
 msgid "Nachrichten, %1 ungelesen"
-msgstr ""
-
-msgid "Gespräche"
-msgstr ""
-
-msgid "Noch keine Gespräche."
 msgstr ""
 
 msgid "%1 neu"
@@ -23947,9 +23932,6 @@ msgstr ""
 msgid "Ihre Nachricht"
 msgstr ""
 
-msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
-msgstr ""
-
 msgid "Anfrage senden"
 msgstr ""
 
@@ -24570,9 +24552,6 @@ msgid "Hier finden Sie die Dokumente Ihrer Organisation in Ordnern. Welche Ordne
 msgstr ""
 
 msgid "Sie stellen Fragen zur Satzung; die Antwort entsteht per KI aus den dafür freigegebenen Dokumenten. Dazu stimmen Sie einmal zu, die Zustimmung können Sie widerrufen."
-msgstr ""
-
-msgid "Hier verwalten Sie Ihre Mailinglisten, schreiben Direktnachrichten und lesen Ihr Postfach. Vorstand und Administration legen zusätzlich Mailinglisten an und verschicken Nachrichten an sie."
 msgstr ""
 
 msgid "Hier sehen Sie die aktiven Mitglieder Ihres Landesverbands und können nach Name oder E-Mail suchen. Der Zugang gilt nur, solange Ihr Amt im Landesverband aktiv ist."
@@ -26480,4 +26459,1233 @@ msgid "%1 von %2 aktiv"
 msgstr ""
 
 msgid "Das Dashboard zeigt nur, was gerade Sie betrifft: offene Abstimmungen, Gebote, Fristen. Alle Bereiche erreichen Sie über das Menü."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Die Werte wurden inzwischen von jemand anderem geändert -- bitte laden Sie das Blatt neu."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Jahr, Gliederung oder Betrag sind ungültig."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Für diesen Landesverband sind Werte im Rechenschaftsbericht erfasst. Er kann nicht gelöscht werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Rechenschaftsbericht (Wert)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Rechenschaftsbericht (Positionshinweis)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:1
+msgid "Rechenschaftsbericht (PartG)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Mandatsträgerbeiträge und ähnliche regelmäßige Beiträge"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Spenden von natürlichen Personen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Spenden von juristischen Personen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Einnahmen aus Unternehmenstätigkeit"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Einnahmen aus Beteiligungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Einnahmen aus sonstigem Vermögen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
+msgid "Einnahmen aus Veranstaltungen, Vertrieb von Druckschriften und Veröffentlichungen und sonstiger mit Einnahmen verbundener Tätigkeit"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Staatliche Mittel"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Sonstige Einnahmen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Zuschüsse von Gliederungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Gesamteinnahmen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Ausgaben für Personal"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Ausgaben des laufenden Geschäftsbetriebs"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Ausgaben für allgemeine politische Arbeit"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Ausgaben für Wahlkämpfe"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Ausgaben für die Vermögensverwaltung einschließlich sich ergebender Zinsen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Sonstige Zinsen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Ausgaben aus Unternehmenstätigkeit"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Sonstige Ausgaben"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Ausgaben für Sachaufwand insgesamt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Zuschüsse an Gliederungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Gesamtausgaben"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Überschuss bzw. Defizit"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Haus- und Grundvermögen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Geschäftsstellenausstattung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Beteiligungen an Unternehmen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Sonstige Finanzanlagen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Forderungen an Gliederungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Forderungen aus der staatlichen Teilfinanzierung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Geldbestände"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Sonstige Vermögensgegenstände"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Summe der Besitzposten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Rückstellungen für Pensionsverpflichtungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Sonstige Rückstellungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Rückzahlungsverpflichtungen aus der staatlichen Teilfinanzierung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Verbindlichkeiten gegenüber Gebietsverbänden"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Verbindlichkeiten gegenüber Kreditinstituten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Verbindlichkeiten gegenüber sonstigen Darlehensgebern"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Sonstige Verbindlichkeiten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Summe der Schuldposten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Reinvermögen (Besitzposten abzüglich Schuldposten)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:1
+msgid "bisher"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "neu"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Excel-Datei importieren: %1, %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Wählen Sie die ausgefüllte Vorlage (.xlsx, höchstens 2 MB). Leere Zellen verändern nichts."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Excel-Datei"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Die Datei kann nicht übernommen werden:"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Zeile %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Spalte %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Die Datei enthält keine Änderungen gegenüber dem gespeicherten Stand."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "%1 Werte würden übernommen:"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Rechnungsjahr %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Vorjahr %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "ƒ = der Wert stammt aus einer Formel; übernommen wird das in der Datei gespeicherte Ergebnis."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Bitte wählen Sie zuerst eine Datei."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Die Datei ist zu groß (höchstens 2 MB)."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "%1 Werte übernommen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:1
+msgid "Bitte keinen negativen Betrag eingeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:1
+msgid "Der Betrag ist zu groß."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:1
+msgid "Bitte einen Betrag wie 1.234,56 eingeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Gliederung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PageIntros.kt:1
+msgid "Stand"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
+msgid "Reinvermögen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:1
+msgid "Nicht erfasst"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:1
+msgid "Teilweise (%1 von %2)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:1
+msgid "Vollständig"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:1
+msgid "Keine Gliederungen vorhanden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:1
+msgid "Werte erfassen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:1
+msgid "Vorlage herunterladen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Excel-Datei importieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:1
+msgid "Gesetz"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:1
+msgid "Hinweis der Organisation"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
+msgid "Die Positionen und ihre Reihenfolge sind gesetzlich vorgegeben (§ 24 PartG) und nicht änderbar. Zu jeder Position können Sie einen eigenen Hinweis hinterlegen, der bei der Erfassung angezeigt wird."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Eingabe"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:1
+msgid "Hinweis ändern"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:1
+msgid "Hinweis zu \"%1\""
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:1
+msgid "Hinweis (höchstens 500 Zeichen)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:1
+msgid "Der Hinweis ist zu lang."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:1
+msgid "Hinweis gespeichert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
+msgid "Rechenschaftsbericht nach Parteiengesetz"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
+msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
+msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:1
+msgid "Bereich"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:1
+msgid "Rechnungsjahr"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSheetEditor.kt:1
+msgid "Leere Felder im Rechnungsjahr mit 0 füllen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSheetEditor.kt:1
+msgid "Leere Felder mit 0 füllen?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSheetEditor.kt:1
+msgid "Alle leeren Felder des Rechnungsjahres %1 werden mit 0,00 € gefüllt. Das Vorjahr bleibt unverändert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSheetEditor.kt:1
+msgid "Mit 0 füllen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSheetEditor.kt:1
+msgid "nicht erfasst"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSheetEditor.kt:1
+msgid "Bitte korrigieren Sie zuerst die markierten Felder."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSheetEditor.kt:1
+msgid "%1 Werte gespeichert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
+msgid "Das Speichern ist nicht gelungen, oder das Blatt wurde inzwischen von jemand anderem geändert. Mit \"Neu laden\" sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSheetEditor.kt:1
+msgid "%1 Änderungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Die Datei ist keine Excel-Datei (.xlsx)."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Diese Excel-Datei ist anders aufgebaut als erwartet und kann nicht gelesen werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Dateien mit Makros werden nicht angenommen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Die Datei ist zu groß oder zu umfangreich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Das ist nicht die Vorlage dieser Version. Bitte laden Sie die Vorlage neu herunter."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Die Datei gehört zu einer anderen Gliederung oder einem anderen Jahr."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Diese Kennung gibt es nicht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Diese Kennung kommt mehrfach vor."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Negative Beträge sind nicht möglich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Hier steht kein gültiger Betrag."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Höchstens zwei Nachkommastellen sind möglich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Hier steht ein Datum statt eines Betrags."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Die Formel hat noch kein Ergebnis. Bitte speichern Sie die Datei in Excel erneut."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Diese Zelle enthält einen Fehlerwert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Unterhalb von Zeile 500 steht Inhalt, der nicht gelesen wird."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Es gibt weitere Fehler. Bitte beheben Sie zuerst die genannten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Die Datei ist beschädigt oder widersprüchlich aufgebaut."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Der Rechenschaftsbericht ist für diese Organisation nicht verfügbar."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Die Vorschau ist abgelaufen. Bitte laden Sie die Datei erneut hoch."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Die Werte wurden inzwischen geändert. Bitte laden Sie die Datei erneut hoch."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Die Verbindung ist fehlgeschlagen. Bitte versuchen Sie es erneut."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Bundesverband"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Landesverband %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTexts.kt:1
+msgid "Nachgeordnete Gebietsverbände in %1 (zusammengefasst)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:21
+msgid "Personennummer"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:22
+msgid "Anzeigename"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:26
+msgid "Namenszusatz"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:27
+msgid "Firma"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:28
+msgid "Personentyp"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:30
+msgid "Adresszusatz"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:37
+msgid "Mobil"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:40
+msgid "Markierung \"nicht mehr in LupaBB\""
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:45
+msgid "Neu"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:47
+msgid "Unverändert"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:48
+msgid "Unklare Zuordnung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:51
+msgid "Nicht mehr in LupaBB"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:84
+msgid "Handlungsbedarf"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:101
+msgid "In LupaBB ist keine E-Mail-Adresse hinterlegt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:102
+msgid "Die E-Mail-Adresse in LupaBB ist ungültig."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:103
+msgid "Ein Datum in LupaBB ist ungültig."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:104
+msgid "Ein Feld in LupaBB ist zu lang."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:105
+msgid "Ein Feld in LupaBB enthält ein unzulässiges Steuerzeichen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:106
+msgid "Die Personennummer ist ungültig."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:107
+msgid "Die Personennummer kommt in LupaBB mehrfach vor."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:108
+msgid "In LupaBB ist weder ein Name noch eine Firma hinterlegt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:109
+msgid "Der Status aus LupaBB ist unbekannt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:110
+msgid "Der Datensatz ist in LupaBB storniert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:111
+msgid "Das Mitglied wurde in Lapis Cloud anonymisiert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:112
+msgid "Die Person wurde in Lapis Cloud datenschutzrechtlich gelöscht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:113
+msgid "Mitglied mit Verwaltungsrolle: bitte von Hand abgleichen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:114
+msgid "Dieser Statuswechsel ist in Lapis Cloud nicht erlaubt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:115
+msgid "Ein aktives Mitglied braucht einen Landesverband."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:117
+msgid "Die E-Mail-Adresse in LupaBB weicht ab. Änderung bitte über die E-Mail-Änderung."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:118
+msgid "Die E-Mail-Adresse gehört einem Mitglied, das schon mit einer anderen Person verknüpft ist."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:119
+msgid "Die E-Mail-Adresse passt, der Name nicht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:120
+msgid "Es kommen mehrere Mitglieder in Frage."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:121
+msgid "Das Land lässt sich nicht eindeutig zuordnen und bleibt unverändert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:122
+msgid "Diesen Landesverband gibt es in Lapis Cloud nicht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:123
+msgid "Die E-Mail-Adresse wurde inzwischen einem anderen Mitglied zugeordnet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:124
+msgid "Die Personennummer wurde inzwischen einem anderen Mitglied zugeordnet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:125
+msgid "Das Mitglied wurde seit der Vorschau geändert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:126
+msgid "Der Datensatz konnte nicht gespeichert werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:127
+msgid "Verknüpft: wird beim nächsten Abgleich übernommen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:128
+msgid "Das Mitglied kommt in LupaBB nicht mehr vor. Es wird nur markiert, nicht gelöscht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:129
+msgid "Das Mitglied ist in LupaBB wieder aufgetaucht, die Markierung entfällt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:130
+msgid "Das Mitglied war als verstorben geführt und wird wieder aktiviert bzw. umgestuft."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:136
+msgid "LupaBB liefert die Landesverbände nicht mit den Mitgliedern. Die Zuordnung zu Landesverbänden bleibt unverändert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:149
+msgid "Natürliche Person"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncTexts.kt:150
+msgid "Juristische Person"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncLogic.kt:23
+msgid "%1 neue und %2 geänderte Datensätze übernehmen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:35
+msgid "Benutzername"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:39
+msgid "Prüfen und speichern"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:62
+msgid "Die Zugangsdaten wurden geprüft und gespeichert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:72
+msgid "Zugangsdaten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:75
+msgid "Auf diesem Server ist kein Geheimnis-Schlüssel eingerichtet. Zugangsdaten können deshalb nicht gespeichert werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:84
+msgid "Zugangsdaten sind hinterlegt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:85
+msgid "Gespeichert am %1."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:90
+msgid "Gespeichert von"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:96
+msgid "Zugangsdaten ersetzen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:102
+msgid "Zugangsdaten entfernen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:105
+msgid "Zugangsdaten entfernen?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:106
+msgid "Danach ist kein Abgleich mehr möglich, bis Sie neue Zugangsdaten eingeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:113
+msgid "Die Zugangsdaten wurden entfernt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncCredentialsSection.kt:122
+msgid "Benutzername, Passwort und API-Schlüssel erhalten Sie von der Verwaltung von LupaBB. Sie werden verschlüsselt gespeichert und nie wieder angezeigt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:48
+msgid "Abgleich"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:50
+msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:57
+msgid "Letzter Lauf am %1: %2 angelegt, %3 aktualisiert, %4 Fehler."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:68
+msgid "Vorschau laden"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:68
+msgid "Vorschau neu laden"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:72
+msgid "Bitte zuerst die Zugangsdaten eingeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:75
+msgid "Die Vorschau ist abgelaufen. Bitte laden Sie sie neu."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:131
+msgid "%1 neu · %2 geändert · %3 unverändert · %4 unklar · %5 übersprungen · %6 Fehler · %7 nicht mehr in LupaBB"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:149
+msgid "Datensätze filtern"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:156
+msgid "Keine Datensätze in dieser Ansicht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:164
+msgid "Weitere laden"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:178
+msgid "Statuswechsel übernehmen?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:179
+msgid "Der Abgleich ändert bei %1 Mitgliedern den Status."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:183
+msgid "Bei %1 davon hat das Folgen für die Mitgliedschaft (Austritt, Tod oder Rückstufung)."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:216
+msgid "Der Abgleich wurde übernommen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:225
+msgid "%1 angelegt · %2 aktualisiert · %3 unverändert · %4 übersprungen · %5 unklar · %6 Fehler · %7 als nicht mehr in LupaBB markiert"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:240
+msgid "Nicht gespeichert:"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:243
+msgid "Person %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:257
+msgid "Einordnung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:266
+msgid "Einzelheiten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:286
+msgid "Kandidat"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:293
+msgid "%1 Felder im Vergleich"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:297
+msgid "Feld"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:319
+msgid "Mit diesem Mitglied verknüpfen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:324
+msgid "Mit diesem Mitglied verknüpfen?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:325
+msgid "Die Personennummer aus LupaBB wird diesem Mitglied zugeordnet. Die Daten werden beim nächsten Abgleich übernommen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:352
+msgid "Das Mitglied wurde verknüpft."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncScreen.kt:20
+msgid "LupaBB-Abgleich"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncScreen.kt:21
+msgid "Mitglieder-Stammdaten aus LupaBB in die Mitgliederverwaltung übernehmen. Ein Lauf wird von Hand gestartet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncScreen.kt:23
+msgid "Zur Mitgliederverwaltung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:201
+msgid "LupaBB hat die Zugangsdaten abgelehnt. Bitte prüfen Sie Benutzername, Passwort und API-Schlüssel."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:202
+msgid "LupaBB ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:203
+msgid "LupaBB hat eine unerwartete Antwort geschickt. Es wurde nichts geändert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:204
+msgid "Die Datenmenge aus LupaBB übersteigt die Grenzen des Abgleichs. Es wurde nichts geändert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:205
+msgid "Es läuft bereits ein Abgleich. Bitte warten Sie, bis er beendet ist."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:206
+msgid "LupaBB wurde eben erst abgefragt. Bitte warten Sie eine Minute."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:207
+msgid "Die Vorschau ist nicht mehr gültig. Bitte laden Sie sie neu."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:208
+msgid "Es sind keine LupaBB-Zugangsdaten hinterlegt oder sie sind nicht lesbar. Bitte geben Sie sie neu ein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:209
+msgid "Auf diesem Server ist kein Geheimnis-Schlüssel eingerichtet. Zugangsdaten können nicht gespeichert werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:204
+msgid "LupaBB-Abgleich (Lauf)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:205
+msgid "LupaBB-Zugangsdaten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:117
+msgid "Mit LupaBB abgleichen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1219
+msgid "Mit LupaBB verknüpft (Personennummer %1)."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1222
+msgid "Der letzte Abgleich fand dieses Mitglied nicht mehr in LupaBB (seit %1)."
+msgstr ""
+
+msgid "Sitzung und Veranstaltung (Verknüpfung)"
+msgstr ""
+
+msgid "Diese Sitzung ist bereits mit einer Veranstaltung verknüpft."
+msgstr ""
+
+msgid "Diese Veranstaltung gehört bereits zu einer Sitzung."
+msgstr ""
+
+msgid "Diese Sitzung kann nicht angekündigt werden. Sie ist abgesagt, schon gehalten oder liegt in der Vergangenheit."
+msgstr ""
+
+msgid "Für die Ankündigung fehlt der Ort der Sitzung."
+msgstr ""
+
+msgid "Die Verknüpfung hat sich inzwischen geändert. Bitte laden Sie die Ansicht neu."
+msgstr ""
+
+msgid "Diese Veranstaltung kann nicht verknüpft werden. Sie ist abgesagt oder Teil einer laufenden Serie."
+msgstr ""
+
+msgid "Eine abgesagte Sitzung kann nicht angekündigt werden."
+msgstr ""
+
+msgid "Eine bereits durchgeführte Sitzung kann nicht mehr angekündigt werden."
+msgstr ""
+
+msgid "Für die Ankündigung einer Präsenzsitzung fehlt der Ort."
+msgstr ""
+
+msgid "Angekündigt als:"
+msgstr ""
+
+msgid "Entwurf, noch nicht veröffentlicht."
+msgstr ""
+
+msgid "Zur Sitzung"
+msgstr ""
+
+msgid "Sichtbar nur für Mitglieder. Öffentlich machen kann der Vorstand."
+msgstr ""
+
+msgid "Absagen kann bei einer kostenpflichtigen oder öffentlichen Veranstaltung nur der Vorstand."
+msgstr ""
+
+msgid "Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar. Alle Mitglieder sehen sie, nicht nur die Mitglieder des Gremiums. Die Tagesordnung wird nicht angezeigt."
+msgstr ""
+
+msgid "Öffentlich machen kann nur der Vorstand."
+msgstr ""
+
+msgid "Dieses Feld ändert der Vorstand."
+msgstr ""
+
+msgid "Eine kostenpflichtige Veranstaltung sagt der Vorstand ab."
+msgstr ""
+
+msgid "Der Online-Link ist öffentlich. Ändern kann ihn der Vorstand."
+msgstr ""
+
+msgid "Als Veranstaltung ankündigen"
+msgstr ""
+
+msgid "Verknüpfung lösen"
+msgstr ""
+
+msgid "Verknüpfung gelöst. Sitzung und Veranstaltung bleiben erhalten."
+msgstr ""
+
+msgid "Sitzung: %1 · Veranstaltung: %2"
+msgstr ""
+
+msgid "Ort der Sitzung: %1 · Ort der Veranstaltung: %2"
+msgstr ""
+
+msgid "kein Ort"
+msgstr ""
+
+msgid "Termin der Veranstaltung an die Sitzung angleichen"
+msgstr ""
+
+msgid "Die Veranstaltung wurde an die Sitzung angeglichen."
+msgstr ""
+
+msgid "Sitzung verknüpfen"
+msgstr ""
+
+msgid "Gehört zur Sitzung: %1, %2"
+msgstr ""
+
+msgid "Der Ort der Sitzung weicht vom Ort der Veranstaltung ab."
+msgstr ""
+
+msgid "Online-Teilnahme ist unterschiedlich eingestellt."
+msgstr ""
+
+msgid "Angleichen kann die Sitzungsleitung auf der Seite der Sitzung."
+msgstr ""
+
+msgid "Sitzungen werden geladen…"
+msgstr ""
+
+
+msgid "Es gibt keine Sitzung, die verknüpft werden kann."
+msgstr ""
+
+msgid "%1, %2 – %3"
+msgstr ""
+
+msgid "Sitzung verknüpft."
+msgstr ""
+
+msgid "Gespräch"
+msgstr ""
+
+msgid "Abonniert"
+msgstr ""
+
+msgid "Meine Abonnements"
+msgstr ""
+
+msgid "Bereiche der Mailinglisten"
+msgstr ""
+
+msgid "Ihre persönlichen Gespräche an einem Ort."
+msgstr ""
+
+msgid "Hier abonnieren Sie Mailinglisten oder bestellen sie ab. Vorstand und Administration verwalten die Listen und verschicken Nachrichten."
+msgstr ""
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Nachrichten."
+msgstr ""
+
+msgid "Nachricht wurde gesendet. Antworten finden Sie unter Nachrichten."
+msgstr ""
+
+msgid "Liste"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Keine Anhänge."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Nach dem Senden können Anhänge nicht mehr geändert werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Datei gelöscht"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Dateien anhängen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Höchstens %1 Anhänge pro Nachricht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Es sind nur noch %1 Anhänge möglich; die übrigen Dateien wurden nicht übernommen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Lapis prüft Anhänge nicht auf Viren. Bitte laden Sie nur Dateien hoch, denen Sie vertrauen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "%1 von 5 Dateien, zusammen %2 von 20 MB."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Erlaubt sind PDF, Bilder (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT und CSV: höchstens 5 Dateien, 10 MB pro Datei, zusammen 20 MB."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge gehen an alle Empfänger dieser Nachricht. Lapis löscht die Dateien 180 Tage nach dem Senden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ hat ein nicht unterstütztes Format. Erlaubt sind PDF, Bilder (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT und CSV."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Mit „%1“ wären die Anhänge zusammen größer als 20 MB."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Ein Anhang mit dem Namen „%1“ ist schon vorhanden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ passt nicht zu ihrer Dateiendung oder ist beschädigt oder verschlüsselt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ enthält Makros oder eingebettete Objekte und wird nicht angenommen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ hat keinen gültigen Dateinamen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Die Nachricht ist kein Entwurf mehr. Anhänge können nicht mehr geändert werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge fügen Sie nach dem Speichern beim Entwurf hinzu."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "%1 Anhang hinzugefügt."
+msgid_plural "%1 Anhänge hinzugefügt."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Mit %1 Anhang (%2)."
+msgid_plural "Mit %1 Anhängen (%2)."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Datei anhängen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bis zu 5 Dateien, je höchstens 10 MB, zusammen höchstens 20 MB."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Anhänge sieht nur Ihr Gesprächspartner. Lapis prüft Dateien nicht auf Viren."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Lapis prüft Anhänge nicht auf Viren."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bitte warten, bis alle Dateien hochgeladen sind."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bitte entfernen Sie fehlgeschlagene Dateien."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Diesem Mitglied können Sie keine Dateien schicken."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Sie haben zu viele noch nicht gesendete Dateien. Bitte senden oder entfernen Sie zuerst welche."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Anhänge konnten nicht gesendet werden. Bitte laden Sie die Dateien erneut hoch."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste löschen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste löschen?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Die Mailingliste „%1“ wird gelöscht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "%1 Abonnent wird ausgetragen."
+msgid_plural "%1 Abonnenten werden ausgetragen."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Entwürfe dieser Liste werden mit ihren Anhängen gelöscht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Bereits versendete Nachrichten bleiben als Nachweis erhalten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Das kann nicht rückgängig gemacht werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste gelöscht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Automatische Mailinglisten können nicht gelöscht werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Diese Mailingliste wird gerade versendet. Bitte löschen Sie sie erst, wenn der Versand abgeschlossen ist."
 msgstr ""

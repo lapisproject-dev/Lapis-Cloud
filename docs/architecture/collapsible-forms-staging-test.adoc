@@ -114,7 +114,7 @@ auction, one stream destination, one travel-expense request, a name with a catal
 . "DSGVO-Compliance" as ADMIN: each of the four views has its button in its title row. Type in one field of each form and press Escape: the dialog appears (try the
   last field of each form). Type in the AVV form and click "TOM": the dialog appears; "Weiter bearbeiten" stays in AVV. As BOARD: only "Neue DSFA" and "Datenpanne
   melden" exist. Edit a row: the inline form, no cancel button.
-. "Kommunikation" as BOARD: "Neue Mailingliste" in the title row "Mailinglisten verwalten". Save: the new list is selected in the manage selector. As MEMBER:
+. "Mailinglisten", tab "Verwalten" as BOARD: "Neue Mailingliste" in the title row "Mailinglisten verwalten". Save: the new list is selected in the manage selector. As MEMBER:
   no admin section. The list detail ("Verwalten") is unchanged.
 . "Reisekosten" and "Ehrenamtspauschalen" as MEMBER: with no draft one button in the header; with a draft none. Type in the form, withdraw a request in the list:
   the text survives the reload; if the withdrawal produces a draft, the dialog appears for a changed form.

@@ -82,6 +82,14 @@ private val OIDC_SIGNING_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f7"
  */
 private val TRUST_ANCHOR_SIGNING_KEY_SEED_ID = "00000000-0000-0000-0000-0000000000f8"
 
+/**
+ * V1.9.225: tables Flyway seeds with a FIXED SET of rows (not one singleton). Such a table counts as "not fresh" only when a row deviates from the
+ * seed; the value is the SQL predicate that selects those deviating rows. `partg_report_position` holds the 42 legally fixed positions (fixed
+ * ids, so the restore's UPDATE-by-primary-key upsert simply overwrites them); only an organisation hint (`org_hint`) is data of the target.
+ */
+private val SEEDED_ROW_SETS_NON_SEED_PREDICATE: Map<String, String> =
+    mapOf("partg_report_position" to "\"org_hint\" IS NOT NULL")
+
 /** Tables that Flyway itself seeds exactly one singleton row into (or, for `federation_actor_key`/`oidc_signing_key`/`trust_anchor_signing_key`, a row provisioned at first boot instead -- see those entries' own comments) -- see [OrganizationRestoreService.findNonSeedRows]. */
 private val SEEDED_SINGLETON_ROWS: Map<String, Pair<String, String>> =
     mapOf(
@@ -440,8 +448,11 @@ class OrganizationRestoreService(
         val connection = tx.rawConnection()
         for (table in tables) {
             val seed = SEEDED_SINGLETON_ROWS[table.tableName]
+            val seededSetPredicate = SEEDED_ROW_SETS_NON_SEED_PREDICATE[table.tableName]
             val sql =
-                if (seed != null) {
+                if (seededSetPredicate != null) {
+                    "SELECT COUNT(*) FROM \"${table.tableName}\" WHERE $seededSetPredicate"
+                } else if (seed != null) {
                     "SELECT COUNT(*) FROM \"${table.tableName}\" WHERE \"${seed.first}\" <> ?"
                 } else {
                     "SELECT COUNT(*) FROM \"${table.tableName}\""

@@ -32,6 +32,12 @@ object OrganizationSchemaCatalog {
     val EXCLUDED_TABLES: Map<String, String> =
         mapOf(
             "flyway_schema_history" to "Flyway migration bookkeeping, not organizational data.",
+            "lupabb_sync_config" to
+                "Welle V1.9.226. The sealed LupaBB API credentials plus the run guard of the sync. " +
+                "The ciphertext is bound to THIS instance's " +
+                "LAPIS_SECRET_ENCRYPTION_KEY (a restore elsewhere could not open it) and a credential does not belong in a backup file; " +
+                "after a restore the ADMIN enters the credentials again. The run log (lupabb_sync_run), the profile side table and the " +
+                "erasure suppression list ARE backed up (the suppression list must survive a restore, see docs/features/lupabb-sync.adoc).",
             "conference_background_image" to
                 "Welle V1.9.4. Private, non-organizational data (a member's own uploaded video-" +
                 "conference background photo) -- the ADMIN-only whole-organization backup must " +

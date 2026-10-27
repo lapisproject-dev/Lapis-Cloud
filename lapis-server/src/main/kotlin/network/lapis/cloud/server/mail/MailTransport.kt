@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.mail
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.io.File
 
 private val logger = KotlinLogging.logger {}
 
@@ -96,6 +97,18 @@ internal fun maskEmailForLogging(address: String): String {
 }
 
 /**
+ * V1.9.232 -- one real MIME attachment of a bulk mail: the bytes stay on disk ([file]) and are streamed into the message when it is
+ * written, never read into the heap. [contentType] is the SERVER-chosen type (with `; charset=...` for text), [fileName] the sanitized
+ * display name. [sizeBytes] is what the database recorded (the worker checked the file against it before the first recipient).
+ */
+data class MailAttachment(
+    val fileName: String,
+    val contentType: String,
+    val file: File,
+    val sizeBytes: Long,
+)
+
+/**
  * Abstraction over "send exactly one email, right now". [MailDispatcher] is the only caller for
  * the single-recipient transactional mailers in this codebase ([SmtpPasswordResetMailer]/
  * [SmtpFriendVerificationMailer] never call a [MailTransport] directly, see [MailDispatcher] KDoc
@@ -119,6 +132,28 @@ interface MailTransport {
         plainTextBody: String,
         htmlBody: String,
     ): MailSendOutcome
+
+    /**
+     * V1.9.232 -- [send] plus real MIME attachments. The default FAILS CLOSED: a transport that does not know about attachments never
+     * silently drops one (the mail would go out without the invitation it announces). With no attachments it is exactly [send], so every
+     * existing transport/fake keeps compiling and behaving as before. **Never throws**, like [send].
+     */
+    suspend fun sendWithAttachments(
+        to: String,
+        subject: String,
+        plainTextBody: String,
+        htmlBody: String,
+        attachments: List<MailAttachment>,
+    ): MailSendOutcome =
+        if (attachments.isEmpty()) {
+            send(to = to, subject = subject, plainTextBody = plainTextBody, htmlBody = htmlBody)
+        } else {
+            MailSendOutcome.Failed(
+                sanitizedErrorMessage = "attachments not supported",
+                kind = MailFailureKind.PERMANENT,
+                errorClass = "ATTACHMENTS_UNSUPPORTED",
+            )
+        }
 }
 
 /**
@@ -137,6 +172,20 @@ class NoOpMailTransport : MailTransport {
         htmlBody: String,
     ): MailSendOutcome {
         logger.info { "Mail an ${maskEmailForLogging(to)} ('$subject') würde gesendet -- kein SMTP konfiguriert ($LOG_HINT)." }
+        return MailSendOutcome.Skipped
+    }
+
+    override suspend fun sendWithAttachments(
+        to: String,
+        subject: String,
+        plainTextBody: String,
+        htmlBody: String,
+        attachments: List<MailAttachment>,
+    ): MailSendOutcome {
+        logger.info {
+            "Mail an ${maskEmailForLogging(to)} ('$subject', ${attachments.size} Anhang/Anhänge) würde gesendet -- " +
+                "kein SMTP konfiguriert ($LOG_HINT)."
+        }
         return MailSendOutcome.Skipped
     }
 

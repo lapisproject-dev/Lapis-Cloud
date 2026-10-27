@@ -19,7 +19,7 @@ posting stays a plain bulletin-board entry (nobody rides along on a search).
 
 The sidebar entry "Mitfahrzentrale" sits in the existing `MEMBERSHIP` group and carries no
 dedicated `NavVisibility` predicate of its own -- it falls under that group's existing
-`showsMembershipSection` gate, the same way "Kommunikation" does, per this codebase's convention
+`showsMembershipSection` gate, the same way "Nachrichten" (formerly "Kommunikation") does, per this codebase's convention
 that a route without a DIFFERING visibility rule does not get a bespoke predicate.
 
 NOTE: V1.9.186 renamed the centre in the user interface to "Mitfahrzentrale" (client only). Identifiers, the route and the RPC names keep
@@ -127,12 +127,12 @@ that validates the posting is not expired and not the caller's own.
 
 Rather than build a bespoke carpool-messaging system, `contactAuthor` sends a normal
 `DirectMessageDto` through the pre-existing direct-message mechanism -- the reply lands in the
-recipient's ordinary "Kommunikation" mailbox alongside every other direct message they have. This
+recipient's ordinary "Kommunikation" mailbox (since V1.9.231 "Nachrichten") alongside every other direct message they have. This
 reuse surfaced two real gaps in that pre-existing mechanism, both closed as part of this wave
 rather than deferred:
 
 * **No client UI had ever existed for direct messages.** `DirectMessageService.sendDirectMessage`
-  was reachable only via RPC/raw HTTP before this wave; the "Kommunikation" screen showed nothing
+  was reachable only via RPC/raw HTTP before this wave; the "Kommunikation" screen (since V1.9.231 "Nachrichten" and "Mailinglisten") showed nothing
   more than a raw unread-count badge. `contactAuthor` needed a real reply surface, so the
   Kommunikation screen was extended from a bare counter into an actual message list with an inline
   reply form -- carpooling is the first feature in this codebase to give direct messages a client
@@ -383,4 +383,4 @@ kept anywhere, deliberately simpler than the direct-message case rather than mir
 * No moderation/reporting path specific to carpool postings beyond what already exists for direct
   messages in general. The ride messages (V1.9.139) cannot be reported at all: there is no report path except for social posts.
 
-Since V1.9.34 the "Kommunikation" mailbox also offers the conversation history below each message and an unread counter in the sidebar; see `direct-messages.adoc`.
+Since V1.9.34 the mailbox (since V1.9.231 "Nachrichten", formerly part of "Kommunikation") also offers the conversation history below each message and an unread counter in the sidebar; see `direct-messages.adoc`.

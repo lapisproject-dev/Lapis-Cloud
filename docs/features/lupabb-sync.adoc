@@ -1,0 +1,127 @@
+= LupaBB member master-data sync (V1.9.226)
+:toc:
+
+A manual, one-way comparison of the members of Lapis Cloud with the data of **LupaBB** (the member administration of the former PZB). It is started by an **ADMIN** from the
+member administration ("Mit LupaBB abgleichen"), runs on request only (**no cron job**, no background job) and moves the *master data* only: no payments, no donations.
+
+NOTE: The `[kuml]` blocks of the architecture page are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== What the sync never does
+
+* It **never deletes or deactivates** a member. A member that LupaBB no longer lists gets a hint (`member.lupabb_missing_since`), nothing else.
+* It **never creates a sign-in account** and **never sends a mail or a notice** (the status change goes through the central path *without* the peer notification).
+* It **never writes the e-mail address of an existing member.** Since V1.9.56 the address is the sign-in and password-reset identity; a foreign system must not rewrite it
+  (account takeover). A difference only shows as the remark "E-Mail-Adresse in LupaBB weicht ab" in the preview. The address is used only to *find* and to *create* members.
+* It **never changes the core data of a member with a management role** (BOARD, TREASURER, ADMIN) or of the acting administrator: only the person-number link, the "missing" hint and the LupaBB
+  side-table profile (title, affix, company, telephone numbers, ...) are written. Differences in name, address, date of birth, status, country and chapter are shown with the remark
+  "bitte von Hand abgleichen" (a record with nothing left to write lands in the error class), so the peer protection (V1.9.57) and the ban on changing oneself cannot be bypassed.
+* It **never takes over** gender (data minimisation), nationality, payments or donations.
+* It **never moves a member from one regional chapter to another**; a chapter is assigned only where none is set.
+
+== Flow
+
+. The ADMIN enters user name, password and API key of LupaBB once. "Prüfen und speichern" makes **one** request to LupaBB and stores the values (AES-256-GCM, bound to the config row) only
+  if that worked. The values are never shown again, never logged and not part of the organisation backup.
+. "Vorschau laden" fetches the whole data set (at most once a minute) and compares it with the members. **Nothing is written.** The result is held in memory for 15 minutes under a single-use token;
+  the rows come page by page (filter: needs action, new, changed, unchanged, unclear, skipped, error, no longer in LupaBB, all).
+. Ambiguous records can be linked by hand to one of at most five candidates ("Mit diesem Mitglied verknüpfen"); that sets only the person number. The data is taken over by the next sync.
+. "Übernehmen" writes the preview record by record, each in its own transaction. A dialog appears only when a status will change. A failing record is counted with a fixed code and does not stop the run.
+. One collective audit entry (`LUPABB_SYNC_RUN`: counters and the SHA-256 of the data) and one entry per written member (field *keys* only, no values) are written.
+
+== Matching
+
+The first rule that applies wins.
+
+. The LupaBB person number is on a member: that member (an anonymised member is skipped).
+. The person number is on the erasure suppression list: skipped ("In Lapis Cloud datenschutzrechtlich gelöscht").
+. A member without a person number whose CSV-import reference (`member.external_reference`, the LupaBB "Personennummer" of the former import) is a plain number equal to the person number:
+  that member (`CHANGED`, the link is a field difference). Several such members: **ambiguous**; never a new member.
+. Exactly one member with the same e-mail address **and** the same name and no person number yet: linked (`CHANGED`, the link is a field difference).
+  The name is compared normalised (case, blanks and punctuation ignored, title and affix ignored); "Vorname Nachname" and "Nachname, Vorname" are equal.
+. Any other member with the same e-mail address or the same name and no person number: **ambiguous** (an administrator decides; the candidates are shown with name and e-mail address).
+  If the e-mail address belongs to a member that is linked to another person already, no candidate is offered.
+. Nobody: a **new** member (needs a valid e-mail address; with the regional-chapter duty on, an `ACTIVE` member also needs a chapter).
+
+The display name is *derived*: natural person "Titel Vorname Nachname Namenszusatz", legal person the company. Title, affix, company, person type, telephone numbers, address supplement and post box
+live in the side table `member_lupabb_profile`.
+
+== Status mapping
+
+|===
+| LupaBB | Lapis Cloud
+
+| Mitglied | ACTIVE
+| Neumitglied | ACTIVE
+| in Aufnahme | APPLICATION
+| Förderer | FRIEND
+| Spender | DONOR
+| Nur Zahler | DONOR
+| verstorben | DECEASED
+| Widerrufen | WITHDRAWN
+| Gekündigt | WITHDRAWN
+| Ausgeschlossen | WITHDRAWN
+| Ablehnung | REJECTED
+| Storniert | skipped
+|===
+
+An unknown label is skipped as well. Lapis Cloud has no `EXCLUDED` status, so "Ausgeschlossen" becomes `WITHDRAWN`. For an existing member the change must be allowed by the transition table
+of the member administration (`MemberStatusTransitions`: `ACTIVE`, `WITHDRAWN`, `DONOR`, `DECEASED` among each other); anything else is an error of that record. Leaving `DECEASED` is allowed for the acting
+administrator and counted in the confirmation dialog. `DECEASED` is taken over *without* a date of death.
+
+== Field authority
+
+LupaBB is the master for the fields below, in **both directions**: a value that LupaBB sends empty clears the Lapis value. Everything else stays as Lapis keeps it (membership tier, role,
+notes, contribution data, photo, public bio, ...).
+
+|===
+| Field | Where | Note
+
+| Display name | `member.display_name` | derived, see above
+| Given name, family name, title, affix, company, person type, phone, mobile, address supplement, post box | `member_lupabb_profile` | side table
+| Street (with house number), postal code, city | `member.street`, `postal_code`, `city` |
+| Country | `member.country_code` | only a clear match; an unclear label leaves the value and shows a remark
+| Date of birth | `member.date_of_birth` | `0000-00-00` and blank are "no date"
+| Regional chapter | `member.regional_chapter_id` | only if LupaBB sends it, only where none is set, only for an assignable status
+| Status | `member.status` | see the table above
+| Person number | `member.lupabb_person_number` | unique
+| E-mail address | -- | **never written** to an existing member
+|===
+
+== Limits
+
+|===
+| Limit | Value
+
+| Connect / request / socket timeout | 10 s / 30 s / 30 s
+| Whole fetch | 5 minutes
+| One response | 5 MiB (checked against `Content-Length` and while reading)
+| Pages | 200
+| Records | 20,000
+| Fetch rate | one per minute (compare-and-set on the config row)
+| A run holds the guard | at most 10 minutes (stale claims are free)
+| "Prüfen und speichern" | 5 per 10 minutes and administrator
+| Preview | 15 minutes, single use, bound to the administrator
+|===
+
+The host is fixed (`LupaBbEndpoint.PRODUCTION`); there is no setting, no redirect is followed, only GET is used.
+
+== Data protection (GDPR)
+
+* **Legal basis:** the organisation's own member administration (Art. 6 (1) (b) and (f) GDPR; party membership is data of a special category, Art. 9 (2) (d)). The data processing agreement with LupaBB exists already.
+* **Data minimisation:** no gender, no nationality, no payments; names, address and telephone numbers only as far as the member administration needs them.
+* **No personal data in logs, errors or audit entries.** The audit trail names the field *keys* and counters only. The typed errors carry fixed texts and no cause.
+* **Erasure (Art. 17):** the profile row is deleted, person number and "missing" hint are cleared, and the HMAC-SHA256 of the person number (key derived from `LAPIS_SECRET_ENCRYPTION_KEY`) is put on the
+  suppression list `lupabb_sync_suppression`, so the next sync does not create the person again. The list is part of the backup; the credentials row is not (a restore elsewhere cannot open it).
+  A CSV-imported member that was never linked contributes its numeric `external_reference` (the person number) in the same way.
+  Persons erased *before* this wave have no suppression entry.
+* **Export (Art. 15):** person number, "missing" day, the profile and the runs/credentials the person set up.
+
+[[not-verified]]
+== Not verified
+
+* **Nothing ran against the real LupaBB.** No test account was available; all tests use a fake server on the loopback interface (real HTTP Digest, both key transports, hostile answers).
+* **How the API key travels is unconfirmed.** The old PZB sent it as the query parameter `X-API-KEY`. The sync tries the header first and, if LupaBB refuses, the query parameter, and remembers what worked
+  (`lupabb_sync_config.api_key_transport`).
+* **The regional chapter of a member is not part of the payload the PZB read.** The sync reads an optional `landesverband` id if LupaBB ever sends it; otherwise the chapter stays untouched and the preview says so.
+  The joining date of new members is the day of the sync unless LupaBB sends an optional `eintritt`.
+* The status mapping of "Neumitglied" (`ACTIVE`) and "Ausgeschlossen" (`WITHDRAWN`) is a decision still to be confirmed by the board.

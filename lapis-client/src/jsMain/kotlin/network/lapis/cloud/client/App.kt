@@ -378,8 +378,12 @@ class App : Application() {
             //    (mobile: it never does, and is now gone before the user's first real tap can reach
             //    it; desktop: it catches exactly that one boot-time auto-show, same as before).
             lateinit var cancelInitialAutoShow: (Event) -> Unit
+            // Language-switch fix (V1.9.228): the guard stays armed for the whole session instead of only for the boot call. A language
+            // change restarts the KVision root, which re-inserts the sidebar and runs `Offcanvas.afterInsert()` -> Bootstrap `show()` again;
+            // with the guard gone that second `show.bs.offcanvas` created the real dark backdrop over the page (grey page, and a click on it
+            // hid the menu). The viewport check keeps the mobile drawer untouched: there Bootstrap's own show/backdrop is wanted.
             cancelInitialAutoShow = { event ->
-                if (event.target == sidebar.getElement()) {
+                if (shouldCancelSidebarShow(event.target == sidebar.getElement(), window.innerWidth)) {
                     event.preventDefault()
                 }
             }
@@ -496,7 +500,7 @@ class App : Application() {
             // `refreshNavbar` below): that first tap could otherwise become the "first `show.bs.
             // offcanvas` event ever" the old self-removing handler was waiting to match, silently
             // cancelling the very open the user just asked for.
-            document.removeEventListener("show.bs.offcanvas", cancelInitialAutoShow)
+            // V1.9.228: `cancelInitialAutoShow` is NOT removed here any more (see its definition above) -- it stays armed on desktop widths.
             lapisAttribution()
 
             initNotifications()
@@ -761,7 +765,7 @@ fun main() {
     // hash-fragment update -- `location.hash` changes, but no `Routing.kvOn(...)` handler ever
     // fires, so the visible screen never changes. Verified end-to-end in a real browser against
     // both the production and development webpack bundles: every nav-link/tile click (Beiträge,
-    // Dokumente, Kommunikation, Mitgliederverwaltung, the Dashboard "Bereiche" tiles) silently did
+    // Dokumente, Nachrichten, Mailinglisten, Mitgliederverwaltung, the Dashboard "Bereiche" tiles) silently did
     // nothing -- only the explicit, programmatic `routing.navigate(...)` call sites (post-login,
     // post-logout, the boot-time `/` resolve, `guarded()`'s session-expiry redirect) worked, because
     // those bypass link-hijacking entirely. Setting this flag globally, once, before any `Link` is

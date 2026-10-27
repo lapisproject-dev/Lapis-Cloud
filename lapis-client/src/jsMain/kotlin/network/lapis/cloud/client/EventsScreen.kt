@@ -249,6 +249,12 @@ internal fun publishEventDialog(
                 "Diese Veranstaltung wird veröffentlicht und ist danach öffentlich " +
                     "(auch für nicht angemeldete Besucher) sichtbar und anmeldbar.",
             )
+        } else if (event.linkedMeeting != null) {
+            // V1.9.229: the announcement of a Sitzung -- say who will see it (every member, not just the committee) and what stays private.
+            tr(
+                "Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar. " +
+                    "Alle Mitglieder sehen sie, nicht nur die Mitglieder des Gremiums. Die Tagesordnung wird nicht angezeigt.",
+            )
         } else {
             tr("Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar.")
         }

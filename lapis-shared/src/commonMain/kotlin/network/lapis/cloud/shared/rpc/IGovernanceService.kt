@@ -14,6 +14,7 @@ import network.lapis.cloud.shared.domain.CommitteeMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipMode
 import network.lapis.cloud.shared.domain.CommitteeModeChangeImpactDto
 import network.lapis.cloud.shared.domain.CommitteeRulePreviewDto
+import network.lapis.cloud.shared.domain.LinkedEventRef
 import network.lapis.cloud.shared.domain.MeetingDetailDto
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingInput
@@ -341,4 +342,34 @@ interface IGovernanceService {
      * `memberDisplayName` are exposed like every other DTO in this interface for now.
      */
     suspend fun listVoteBallots(voteId: String): List<VoteBallotDto>
+
+    // ---- V1.9.227 "Sitzung in der Videokonferenz": Sitzung <-> Veranstaltung, 1:1, optional (appended LAST, registration order unchanged) ----
+
+    /**
+     * Announces a PLANNED, not-yet-past Sitzung as a new Veranstaltung and links the two. The event is ALWAYS a DRAFT and MEMBERS_ONLY
+     * (this call publishes nothing; since V1.9.229 the officer publishes it afterwards through `EventService.publishEvent`), and its description is a fixed
+     * sentence -- never the agenda. Requires `canRecordForMeeting` of the Sitzung's committee.
+     */
+    suspend fun announceMeetingAsEvent(meetingId: String): LinkedEventRef
+
+    /** Links an existing, readable Veranstaltung to a Sitzung (both must be free). BOARD/ADMIN only since V1.9.229 (linking is a rights key). */
+    suspend fun linkMeetingToEvent(
+        meetingId: String,
+        eventId: String,
+    ): LinkedEventRef
+
+    /** Dissolves the link; both ids guard against a stale view. Nothing is deleted. Requires `canRecordForMeeting`. */
+    suspend fun unlinkMeetingEvent(
+        meetingId: String,
+        eventId: String,
+    )
+
+    /** Sets the event's start, end and location to the Sitzung's (only while the Sitzung is not in the past). Requires `canRecordForMeeting`. */
+    suspend fun alignEventToMeeting(
+        meetingId: String,
+        eventId: String,
+    ): LinkedEventRef
+
+    /** The Sitzungen the caller may link to this (readable) event: not cancelled, not yet linked. BOARD/ADMIN only since V1.9.229. Capped at 200. */
+    suspend fun listLinkableMeetings(eventId: String): List<MeetingDto>
 }

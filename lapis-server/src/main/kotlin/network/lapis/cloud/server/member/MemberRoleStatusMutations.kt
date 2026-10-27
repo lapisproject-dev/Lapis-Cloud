@@ -146,6 +146,8 @@ internal object MemberRoleStatusMutations {
         now: LocalDateTime,
         regionalChapterEnforced: Boolean,
         peerFacts: PeerActionAuditFacts?,
+        // Welle V1.9.226: the LupaBB sync records its changes under its own source; every other caller keeps LIVE.
+        historySource: MemberStatusHistorySource = MemberStatusHistorySource.LIVE,
     ): StatusChangeOutcome {
         val fromStatus = row[MemberTable.status]
         // Letzter-Admin-Schutz, race-safe (Security fix 2026-08-27, MEDIUM) -- a login-blocking status revokes an ADMIN's
@@ -175,7 +177,7 @@ internal object MemberRoleStatusMutations {
             memberId = targetId,
             newStatus = newStatus,
             now = now,
-            source = MemberStatusHistorySource.LIVE,
+            source = historySource,
         )
         val newDateOfDeath = if (newStatus == MemberStatus.DECEASED) dateOfDeath else null
 

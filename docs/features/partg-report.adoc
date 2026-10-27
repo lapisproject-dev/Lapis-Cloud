@@ -1,0 +1,82 @@
+= Party accountability report: positions, entry and Excel import (V1.9.225, wave R1)
+:toc:
+
+NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+Wave R1 of the accountability report under the German Parties Act (section 24 PartG). It stores the **figures** of the report per reporting unit and year, typed in by
+hand or imported from an Excel file. It does **not** create a report and **not** a PDF: that is wave R2. Nothing on the page promises a finished report.
+
+*This is a working aid, not legal advice.* The position list, the labels and the unit levels have not yet been checked against the official sample of the Bundestag
+and the statute text, and the auditor has not seen the result (see <<not-verified>>).
+
+== Who sees it
+
+* Only an organisation with the setting *political party* (`isPoliticalParty`), and there only the roles **BOARD** and **ADMIN**. A treasurer does not see it.
+* The server checks the **role first** and the organisation switch second, on every RPC method and every HTTP route. The gate itself therefore reveals nothing to a person below the board
+  (they get "forbidden", never "not enabled"). The fact is not secret otherwise: the session info (`politicalParty`) is sent to every logged-in member. Switching the setting off keeps all stored values; they are readable again after
+  switching it on.
+* Sidebar: group *Finanzen*, entry *Rechenschaftsbericht (PartG)*, route `/rechenschaftsbericht`.
+
+== What a person does
+
+Three tabs, and a year picker (default: last year; 2001 up to the current year).
+
+*Übersicht*:: one row per reporting unit (the federal level, each regional chapter, and the *summary* of its subordinate regional units), with a fill state
+("Nicht erfasst", "Teilweise (n von 35)", "Vollständig"), the totals for income, expenses and net assets, and three icon actions: enter values, download the Excel
+template, import an Excel file.
+*Werte erfassen*:: the 42 positions in the order of the statute. 35 are typed in, 7 are sums shown live (total income, material expenses, total expenses, surplus or
+deficit, total assets, total liabilities, net assets). Every typed-in position has a field for the report year **and** one for the year before.
+*Positionen*:: the fixed catalogue with the statute reference and the organisation's own hint per position (up to 500 characters, plain text), shown during entry.
+
+=== 0 is not the same as empty
+
+An empty field means *not entered*; **0,00** is a value ("entered as zero"). "Leere Felder im Rechnungsjahr mit 0 füllen" asks first and fills only the empty fields of the
+report year, never the year before. Deleting a field's content deletes the stored value.
+
+=== The year before
+
+The column "Vorjahr" is stored in **its own year** (with its own revision). That is how last year's figures arrive in the system although the instance did not exist
+then, and how the "year before" column of a later report is filled.
+
+== Excel import
+
+1. Download the template of the unit and year (`partg-r1-1`): a protected sheet without a password, only the value cells unlocked, sum rows as formulas.
+2. Fill it in Excel or LibreOffice. Empty cells change nothing.
+3. *Excel-Datei importieren*: choose the file, *Prüfen* shows every change (old and new value) and every error (row, column, a fixed text per error code),
+   *Übernehmen* writes **everything or nothing**. It is not possible while errors exist.
+
+A file for another unit or year is refused (`TARGET_MISMATCH`), never taken over. Formulas are **not evaluated**: a typed-in cell with a formula takes the result stored in
+the file and is marked in the preview; a formula without a stored result is an error. Macro files, files above 2 MB, and files with more than 500 rows of content are refused.
+
+[kuml, partg-import-flow, svg]
+----
+sequenceDiagram(name = "Excel import: preview, then apply (V1.9.225)") {
+    val person = participant(name = "Board member")
+    val server = participant(name = "Lapis Cloud")
+    val db = participant(name = "Database")
+
+    message(from = person, to = server, text = "POST import/preview (year, unit, file of at most 2 MB)")
+    message(from = server, to = server, text = "read the file, collect errors, evaluate no formula")
+    message(from = server, to = person, text = "errors: no token / clean: changes and a single-use token (15 minutes)")
+    message(from = person, to = server, text = "POST import/apply (token, revisions of both years)")
+    message(from = server, to = db, text = "one transaction: lock chapter and sheets, compare revisions, write all values")
+    message(from = server, to = db, text = "audit last: one entry per value and one collective entry")
+    message(from = server, to = person, text = "number of values taken over")
+}
+----
+
+== What R1 does not do
+
+* No report, no PDF, no XLSX export of a finished report (R2).
+* No mapping from the ledger accounts to the positions, no consolidation, no auditor access, no workflow (R4 to R6).
+* Subordinate regional units are **one summary row per regional chapter**, not the individual district associations. Whether that is enough for the report of 2025 is an
+  open question (the auditor picks at least ten individual subordinate units, section 29 PartG).
+* A pending import preview lives **in memory**: a restart of the server drops it and the person uploads the file again.
+
+[[not-verified]]
+== Not verified
+
+* The list of positions, their labels and the unit levels against the official Bundestag sample and the statute text.
+* The template in real Excel and LibreOffice (opening, sheet protection, formulas, saving again and importing again). The reader is tested with hand-built files in the shapes
+  both programs write (shared strings, missing cell references, formula results of type `str`).
+* Acceptance by the auditor.

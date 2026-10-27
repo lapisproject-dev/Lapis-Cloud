@@ -168,6 +168,12 @@ class AuthService internal constructor(
                                     ?.get(OrganizationSettingsTable.country),
                             ) as? LegacyCountryDictionary.Resolution.Recognised
                         )?.codes?.singleOrNull(),
+                    politicalParty =
+                        OrganizationSettingsTable
+                            .selectAll()
+                            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                            .singleOrNull()
+                            ?.get(OrganizationSettingsTable.isPoliticalParty) ?: false,
                 )
             }
         val displayName = sessionExtras.displayName
@@ -197,6 +203,7 @@ class AuthService internal constructor(
             chapterScope = sessionExtras.chapterScope,
             organizationTimeZone = OrganizationTimeZone.current().id,
             organizationCountryCode = sessionExtras.organizationCountryCode,
+            politicalParty = sessionExtras.politicalParty,
         )
     }
 }
@@ -209,4 +216,5 @@ private data class SessionExtras(
     val chapterScope: RegionalChapterRefDto?,
     val regionalChaptersExist: Boolean,
     val organizationCountryCode: String?,
+    val politicalParty: Boolean,
 )

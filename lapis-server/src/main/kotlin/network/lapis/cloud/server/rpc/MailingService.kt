@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -26,6 +27,7 @@ import network.lapis.cloud.server.mail.budget.BudgetDecision
 import network.lapis.cloud.server.mail.budget.MailBudgetStore
 import network.lapis.cloud.server.mail.budget.MailLane
 import network.lapis.cloud.server.mail.isValidMailboxAddress
+import network.lapis.cloud.server.mail.newsletter.MailingAttachmentStore
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mail.newsletter.MailingHtmlSanitizer
 import network.lapis.cloud.server.mail.newsletter.MailingMailRenderer
@@ -41,14 +43,17 @@ import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AttachmentRules
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.DynamicListExplanationDto
+import network.lapis.cloud.shared.domain.MailingAttachmentDto
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MailingEta
 import network.lapis.cloud.shared.domain.MailingHtmlPolicy
 import network.lapis.cloud.shared.domain.MailingLinkStatsDto
+import network.lapis.cloud.shared.domain.MailingListDeletionSnapshot
 import network.lapis.cloud.shared.domain.MailingListDto
 import network.lapis.cloud.shared.domain.MailingListKind
 import network.lapis.cloud.shared.domain.MailingListRuleSnapshot
@@ -79,12 +84,16 @@ import network.lapis.cloud.shared.domain.rules.matches
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IMailingService
+import network.lapis.cloud.shared.rpc.MailingListNotDeletableException
+import network.lapis.cloud.shared.rpc.MailingListSendingInProgressException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
@@ -97,9 +106,12 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
+
+private val logger = KotlinLogging.logger {}
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 
@@ -137,6 +149,8 @@ class MailingService(
     private val deliveryWorker: MailingDeliveryWorker,
     private val deliveryMode: MailingDeliveryMode,
     private val branding: MailBranding,
+    /** V1.9.234 -- root of the attachment files (same as registerMailingAttachmentRoutes); only for deleting draft files after commit. */
+    private val attachmentStorageRoot: File,
     /** V1.9.81 -- the hourly send budget, for the confirmation estimate and the progress display (no budget = no throttling). */
     private val budget: MailBudgetStore = MailBudgetStore(null),
     /** V1.9.81 -- the worker's minimum gap between two recipients, an input of the estimate. */
@@ -149,7 +163,13 @@ class MailingService(
             requireActiveMembership(memberId = current.memberId)
             val isBoard = current.role in BOARD_ROLES
             val today = OrganizationTimeZone.today()
-            val rows = MailingListTable.selectAll().toList()
+            // V1.9.234: archived (deleted) lists are never listed. Stable order: name, then id.
+            val rows =
+                MailingListTable
+                    .selectAll()
+                    .where { MailingListTable.deletedAt.isNull() }
+                    .orderBy(MailingListTable.name to SortOrder.ASC, MailingListTable.id to SortOrder.ASC)
+                    .toList()
             val hasDynamic = rows.any { it[MailingListTable.kind] == MailingListKind.DYNAMIC }
             // Loaded ONCE for all dynamic lists (no per-list queries): the caller's own facts, for the board every ACTIVE member, the
             // committee/tier names for the explanations, and the opt-outs (all of them for the board, the caller's own otherwise).
@@ -238,6 +258,7 @@ class MailingService(
                 action = AuditAction.CREATE,
                 after = ruleSnapshotJson(kind = MailingListKind.MANUAL, mandatory = false, ruleJson = null),
             )
+            // V1.9.234: no deleted_at filter -- the list was created in this very transaction.
             MailingListTable
                 .selectAll()
                 .where { MailingListTable.id eq id }
@@ -306,7 +327,7 @@ class MailingService(
             val row =
                 MailingListTable
                     .selectAll()
-                    .where { MailingListTable.id eq listId }
+                    .where { (MailingListTable.id eq listId) and MailingListTable.deletedAt.isNull() }
                     .forUpdate()
                     .singleOrNull()
                     ?: throw NotFoundException("MailingList $mailingListId not found")
@@ -354,7 +375,7 @@ class MailingService(
                 } else {
                     MailingListTable
                         .selectAll()
-                        .where { MailingListTable.id eq listId }
+                        .where { (MailingListTable.id eq listId) and MailingListTable.deletedAt.isNull() }
                         .singleOrNull()
                         ?.get(MailingListTable.mandatory)
                         ?: throw NotFoundException("MailingList $mailingListId not found")
@@ -410,13 +431,103 @@ class MailingService(
         }
     }
 
+    override suspend fun deleteMailingList(mailingListId: String) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        val listId = parseListIdOrNotFound(mailingListId)
+        val now = DbClock.nowLocalDateTime()
+        val removedKeys: List<String> =
+            transaction {
+                // Lock order everywhere: LIST row -> MESSAGE rows -> audit chain (last). Never a member row.
+                val row =
+                    MailingListTable
+                        .selectAll()
+                        .where { (MailingListTable.id eq listId) and MailingListTable.deletedAt.isNull() }
+                        .forUpdate()
+                        .singleOrNull()
+                        ?: throw NotFoundException("MailingList $mailingListId not found")
+                if (row[MailingListTable.kind] != MailingListKind.MANUAL) throw MailingListNotDeletableException()
+                val queued =
+                    MailingMessageTable
+                        .selectAll()
+                        .where {
+                            (MailingMessageTable.mailingListId eq listId) and (MailingMessageTable.status eq MailingMessageStatus.QUEUED)
+                        }.count()
+                if (queued > 0) throw MailingListSendingInProgressException()
+                // Lock the drafts (serializes against the attachment upload route, which locks the MESSAGE row), in a fixed order.
+                val draftIds =
+                    MailingMessageTable
+                        .select(MailingMessageTable.id)
+                        .where {
+                            (MailingMessageTable.mailingListId eq listId) and (MailingMessageTable.status eq MailingMessageStatus.DRAFT)
+                        }.orderBy(MailingMessageTable.id to SortOrder.ASC)
+                        .forUpdate()
+                        .map { it[MailingMessageTable.id] }
+                if (draftIds.isNotEmpty()) {
+                    // Defence in depth: delivery rows / frozen links only exist from QUEUED on; refuse instead of a FK violation.
+                    val hasEvidence =
+                        !MailingDeliveryLogTable.selectAll().where { MailingDeliveryLogTable.mailingMessageId inList draftIds }.empty() ||
+                            !MailingMessageLinkTable.selectAll().where { MailingMessageLinkTable.mailingMessageId inList draftIds }.empty()
+                    if (hasEvidence) throw ConflictException("Ein Entwurf dieser Liste hat bereits Zustelldaten.")
+                }
+                val keys = draftIds.flatMap { MailingAttachmentStore.deleteAllForMessageInTx(it) }
+                val removedDrafts =
+                    if (draftIds.isEmpty()) {
+                        0
+                    } else {
+                        MailingMessageTable.deleteWhere {
+                            (MailingMessageTable.id inList draftIds) and (MailingMessageTable.status eq MailingMessageStatus.DRAFT)
+                        }
+                    }
+                val removedSubs = MailingListSubscriptionTable.deleteWhere { MailingListSubscriptionTable.mailingListId eq listId }
+                // Opt-outs only exist for DYNAMIC lists in practice; removed anyway because soft delete does not cascade.
+                val removedOptOuts = MailingListOptOutTable.deleteWhere { MailingListOptOutTable.mailingListId eq listId }
+                val retained =
+                    MailingMessageTable
+                        .selectAll()
+                        .where {
+                            (MailingMessageTable.mailingListId eq listId) and
+                                (MailingMessageTable.status inList listOf(MailingMessageStatus.SENT, MailingMessageStatus.FAILED))
+                        }.count()
+                        .toInt()
+                MailingListTable.update({ MailingListTable.id eq listId }) {
+                    it[deletedAt] = now
+                    it[deletedBy] = current.memberId
+                }
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.MAILING_LIST,
+                    entityId = listId,
+                    action = AuditAction.VOID,
+                    before =
+                        Json.encodeToString(
+                            MailingListDeletionSnapshot.serializer(),
+                            MailingListDeletionSnapshot(
+                                kind = row[MailingListTable.kind],
+                                removedSubscriptions = removedSubs,
+                                removedOptOuts = removedOptOuts,
+                                removedDrafts = removedDrafts,
+                                removedAttachments = keys.size,
+                                retainedSentMessages = retained,
+                            ),
+                        ),
+                    occurredAt = now,
+                )
+                keys
+            }
+        // AFTER commit only -- no file-system effect inside transaction {}.
+        MailingAttachmentStore.deleteFilesAfterCommit(root = attachmentStorageRoot, keys = removedKeys)
+        logger.info { "Mailing list $listId deleted: ${removedKeys.size} draft attachment file(s) removed" }
+    }
+
     override suspend fun subscribe(mailingListId: String) {
         val current = resolveCurrentMember(call)
         val listId = Uuid.parse(mailingListId)
         val now = DbClock.nowLocalDateTime()
         transaction {
             requireActiveMembership(memberId = current.memberId)
-            requireManualListOrNotFound(listId)
+            requireManualListOrNotFound(listId = listId, lock = true)
             val existing =
                 MailingListSubscriptionTable
                     .selectAll()
@@ -452,7 +563,7 @@ class MailingService(
         val now = DbClock.nowLocalDateTime()
         transaction {
             requireActiveMembership(memberId = current.memberId)
-            requireManualListOrNotFound(listId)
+            requireManualListOrNotFound(listId = listId)
             val existing =
                 MailingListSubscriptionTable
                     .selectAll()
@@ -505,7 +616,7 @@ class MailingService(
         val now = DbClock.nowLocalDateTime()
         return transaction {
             requireActiveMembership(memberId = current.memberId)
-            requireManualListOrNotFound(listId)
+            requireManualListOrNotFound(listId = listId, lock = true)
             val existing =
                 MailingListSubscriptionTable
                     .selectAll()
@@ -599,16 +710,12 @@ class MailingService(
     ) {
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
-        val listId = Uuid.parse(mailingListId)
+        val listId = parseListIdOrNotFound(mailingListId)
         val targetMemberId = Uuid.parse(memberId)
         val now = DbClock.nowLocalDateTime()
         transaction {
-            val kind =
-                MailingListTable
-                    .selectAll()
-                    .where { MailingListTable.id eq listId }
-                    .singleOrNull()
-                    ?.get(MailingListTable.kind)
+            // V1.9.234: a deleted list answers NotFound; the row lock serializes against deleteMailingList.
+            val kind = requireLiveMailingList(listId = listId, lock = true)[MailingListTable.kind]
             if (kind == MailingListKind.DYNAMIC) throw ConflictException("Automatische Listen haben keine festen Abonnenten.")
             val existing =
                 MailingListSubscriptionTable
@@ -631,15 +738,10 @@ class MailingService(
     override suspend fun listSubscribers(mailingListId: String): List<MailingListSubscriptionDto> {
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
-        val listId = Uuid.parse(mailingListId)
+        val listId = parseListIdOrNotFound(mailingListId)
         return transaction {
             // A DYNAMIC list has no stored subscribers; its recipients are computed at send time and never listed by name.
-            val kind =
-                MailingListTable
-                    .selectAll()
-                    .where { MailingListTable.id eq listId }
-                    .singleOrNull()
-                    ?.get(MailingListTable.kind)
+            val kind = requireLiveMailingList(listId = listId)[MailingListTable.kind]
             if (kind == MailingListKind.DYNAMIC) {
                 emptyList()
             } else {
@@ -665,7 +767,7 @@ class MailingService(
             throw BadRequestException("Nachricht zu lang (max. ${MailingHtmlPolicy.MAX_TEXT_CHARS} Zeichen Text).")
         }
         return transaction {
-            requireMailingListExists(mailingListId)
+            requireLiveMailingList(listId = parseListIdOrNotFound(mailingListId), lock = true)
             val id = Uuid.random()
             MailingMessageTable.insert {
                 it[MailingMessageTable.id] = id
@@ -696,7 +798,7 @@ class MailingService(
         // .derive are pure/CPU-only, no reason to hold a DB transaction open across them.
         val sanitized = MailingHtmlSanitizer.sanitize(bodyHtml)
         return transaction {
-            requireMailingListExists(mailingListId)
+            requireLiveMailingList(listId = parseListIdOrNotFound(mailingListId), lock = true)
             val id = Uuid.random()
             MailingMessageTable.insert {
                 it[MailingMessageTable.id] = id
@@ -724,6 +826,7 @@ class MailingService(
                 val row = MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
                 row to
                     row?.let {
+                        // V1.9.234: no deleted_at filter -- message-bound lookup: a SENT/FAILED message keeps its archived list.
                         MailingListTable
                             .selectAll()
                             .where { MailingListTable.id eq it[MailingMessageTable.mailingListId] }
@@ -771,9 +874,13 @@ class MailingService(
     override suspend fun listMailingMessages(mailingListId: String): List<MailingMessageDto> {
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
-        val listId = Uuid.parse(mailingListId)
+        val listId = parseListIdOrNotFound(mailingListId)
         return transaction {
-            MailingMessageTable.selectAll().where { MailingMessageTable.mailingListId eq listId }.map { it.toMailingMessageDto() }
+            requireLiveMailingList(listId = listId)
+            val rows = MailingMessageTable.selectAll().where { MailingMessageTable.mailingListId eq listId }.toList()
+            // V1.9.232: the attachments of ALL messages in ONE query (no N+1).
+            val attachments = MailingAttachmentStore.listForMessages(rows.map { it[MailingMessageTable.id] })
+            rows.map { it.toMailingMessageDto(attachments[it[MailingMessageTable.id]].orEmpty()) }
         }
     }
 
@@ -879,6 +986,16 @@ class MailingService(
         // the deterministic "QUEUED, always" IMailingService.sendMailingMessage's KDoc promises.
         val queuedSnapshot =
             transaction {
+                // V1.9.234: lock the LIST row first (same order as deleteMailingList: list -> message) and refuse a deleted list, so a
+                // QUEUED message can never end up on a list that is being / was deleted.
+                val listIdOfMessage =
+                    MailingMessageTable
+                        .select(MailingMessageTable.mailingListId)
+                        .where { MailingMessageTable.id eq id }
+                        .singleOrNull()
+                        ?.get(MailingMessageTable.mailingListId)
+                        ?: throw NotFoundException("MailingMessage $messageId not found")
+                requireLiveMailingList(listId = listIdOfMessage, lock = true)
                 // Bounded, idempotent conditional transition -- see class KDoc. A second call on an
                 // already-QUEUED/SENT/FAILED message updates 0 rows and throws below, rather than
                 // silently re-queuing (the pre-V1.9.7 bug this fixes: a repeat click used to write a
@@ -895,6 +1012,11 @@ class MailingService(
                     if (!exists) throw NotFoundException("MailingMessage $messageId not found")
                     throw ConflictException("MailingMessage $messageId was already sent or queued")
                 }
+                // V1.9.232: defence in depth -- the upload route enforces these under the same row lock; a violation here rolls back.
+                val (attachmentCount, attachmentBytes) = MailingAttachmentStore.countAndTotalBytes(id)
+                if (attachmentCount > AttachmentRules.MAX_FILES || attachmentBytes > AttachmentRules.MAX_TOTAL_BYTES) {
+                    throw ConflictException("Die Anhänge dieser Nachricht überschreiten die zulässigen Grenzen.")
+                }
                 val queuedRow = MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.single()
                 val listId = queuedRow[MailingMessageTable.mailingListId]
                 // Welle V1.9.15 -- freeze the message's trackable links NOW (DRAFT -> QUEUED): the
@@ -907,6 +1029,7 @@ class MailingService(
                 // D3 (plan): only ACTIVE, non-anonymized, non-deceased members with a still-active
                 // subscription. Members who fall out of this filter get no delivery-log row at all --
                 // see IMailingService.sendMailingMessage KDoc. ONE shared function with the send estimate.
+                // V1.9.234: no deleted_at filter -- the list row was locked live a few lines above.
                 val listRow = MailingListTable.selectAll().where { MailingListTable.id eq listId }.single()
                 val dynamic = listRow[MailingListTable.kind] == MailingListKind.DYNAMIC
                 // Defence in depth: a mandatory list can only ever be sent by Board/Admin (BOARD_ROLES already says so; this line keeps
@@ -949,7 +1072,7 @@ class MailingService(
                     .selectAll()
                     .where { MailingMessageTable.id eq id }
                     .single()
-                    .toMailingMessageDto()
+                    .toMailingMessageDto(MailingAttachmentStore.listForMessage(id))
             }
         // Handed off AFTER the queuing transaction committed. Review fix (finding #2, W-SuperMailer
         // round 1): MailingDeliveryWorker.enqueue can throw ConflictException if its own bounded
@@ -993,6 +1116,7 @@ class MailingService(
                 val message =
                     MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("MailingMessage $messageId not found")
+                // V1.9.234: no deleted_at filter -- message-bound lookup: a SENT/FAILED message keeps its archived list.
                 val listRow =
                     MailingListTable
                         .selectAll()
@@ -1043,6 +1167,7 @@ class MailingService(
                 val message =
                     MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("MailingMessage $messageId not found")
+                // V1.9.234: no deleted_at filter -- message-bound lookup: a SENT/FAILED message keeps its archived list.
                 val dynamic =
                     MailingListTable
                         .selectAll()
@@ -1170,10 +1295,17 @@ internal fun eligibleRecipientIds(listId: Uuid): List<Uuid> =
                 (MemberTable.dateOfDeath.isNull())
         }.map { it[MailingListSubscriptionTable.memberId] }
 
-private fun requireMailingListExists(mailingListId: String) {
-    val listId = Uuid.parse(mailingListId)
-    val exists = MailingListTable.selectAll().where { MailingListTable.id eq listId }.count() > 0
-    if (!exists) throw NotFoundException("MailingList $mailingListId not found")
+/**
+ * V1.9.234 -- the live (not deleted) list row, or [NotFoundException]. With [lock] the row is taken `FOR UPDATE`: the lock order of every
+ * path touching a list is LIST row -> MESSAGE rows -> audit chain, so a write that depends on the list being alive (draft, send,
+ * subscribe) serializes against [MailingService.deleteMailingList].
+ */
+private fun requireLiveMailingList(
+    listId: Uuid,
+    lock: Boolean = false,
+): ResultRow {
+    val query = MailingListTable.selectAll().where { (MailingListTable.id eq listId) and MailingListTable.deletedAt.isNull() }
+    return (if (lock) query.forUpdate() else query).singleOrNull() ?: throw NotFoundException("MailingList $listId not found")
 }
 
 /** Trims, rejects blank/too-long/control-character subjects -- see plan §5.7. */
@@ -1224,7 +1356,7 @@ private fun ResultRow.toMailingListSubscriptionDto(): MailingListSubscriptionDto
         unsubscribedAt = this[MailingListSubscriptionTable.unsubscribedAt],
     )
 
-private fun ResultRow.toMailingMessageDto(): MailingMessageDto =
+private fun ResultRow.toMailingMessageDto(attachments: List<MailingAttachmentDto> = emptyList()): MailingMessageDto =
     MailingMessageDto(
         id = this[MailingMessageTable.id].toString(),
         mailingListId = this[MailingMessageTable.mailingListId].toString(),
@@ -1234,6 +1366,7 @@ private fun ResultRow.toMailingMessageDto(): MailingMessageDto =
         sentBy = this[MailingMessageTable.sentBy].toString(),
         sentAt = this[MailingMessageTable.sentAt],
         status = this[MailingMessageTable.status],
+        attachments = attachments,
     )
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
@@ -1286,14 +1419,13 @@ private fun parseListIdOrNotFound(mailingListId: String): Uuid =
     runCatching { Uuid.parse(mailingListId) }.getOrNull() ?: throw NotFoundException("MailingList $mailingListId not found")
 
 /** Self-service paths of MANUAL lists: a DYNAMIC list answers exactly like a list that does not exist (no way to probe its rule). */
-private fun requireManualListOrNotFound(listId: Uuid) {
-    val kind =
-        MailingListTable
-            .selectAll()
-            .where { MailingListTable.id eq listId }
-            .singleOrNull()
-            ?.get(MailingListTable.kind)
-    if (kind == MailingListKind.DYNAMIC) throw NotFoundException("MailingList $listId not found")
+private fun requireManualListOrNotFound(
+    listId: Uuid,
+    lock: Boolean = false,
+) {
+    // V1.9.234: unknown and deleted lists answer exactly like a DYNAMIC one.
+    val kind = runCatching { requireLiveMailingList(listId = listId, lock = lock)[MailingListTable.kind] }.getOrNull()
+    if (kind != MailingListKind.MANUAL) throw NotFoundException("MailingList $listId not found")
 }
 
 /**
@@ -1307,7 +1439,12 @@ private fun requireIncludedDynamicList(
     mailingListId: String,
 ) {
     fun notFound(): Nothing = throw NotFoundException("MailingList $mailingListId not found")
-    val row = MailingListTable.selectAll().where { MailingListTable.id eq listId }.singleOrNull() ?: notFound()
+    val row =
+        MailingListTable
+            .selectAll()
+            .where { (MailingListTable.id eq listId) and MailingListTable.deletedAt.isNull() }
+            .singleOrNull()
+            ?: notFound()
     if (row[MailingListTable.kind] != MailingListKind.DYNAMIC) notFound()
     val rule = storedRuleOrNull(row) ?: notFound()
     val today = OrganizationTimeZone.today()
@@ -1393,7 +1530,7 @@ private fun boardDtoOf(
     current: CurrentMember,
 ): MailingListDto {
     val today = OrganizationTimeZone.today()
-    val row = MailingListTable.selectAll().where { MailingListTable.id eq id }.single()
+    val row = MailingListTable.selectAll().where { (MailingListTable.id eq id) and MailingListTable.deletedAt.isNull() }.single()
     val optedOut =
         MailingListOptOutTable
             .selectAll()

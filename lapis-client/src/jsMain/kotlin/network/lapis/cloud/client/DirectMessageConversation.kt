@@ -3,8 +3,13 @@ package network.lapis.cloud.client
 import io.kvision.core.onClick
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Link
+import io.kvision.html.TAG
 import io.kvision.html.button
 import io.kvision.html.div
+import io.kvision.html.span
+import io.kvision.html.tag
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.VPanel
@@ -206,4 +211,30 @@ private fun renderConversationMessage(
     }
     entry.div(formatSystemDateTime(message.sentAt)) { addCssClasses("text-muted small") }
     entry.untrustedDiv(message.body)
+    if (message.attachments.isNotEmpty()) renderMessageAttachments(entry, message, receivedFromOther = message.senderId != selfMemberId)
+}
+
+/**
+ * V1.9.233 -- the files of one message under its text: type icon (decorative), a real download link (R58 exception, named in the
+ * guideline: the server answers `Content-Disposition: attachment`) whose URL carries ONLY the id, and the size. A message RECEIVED from
+ * the other person carries the one-line virus hint. File names are untrusted text. A deleted attachment leaves no placeholder.
+ */
+private fun renderMessageAttachments(
+    entry: SimplePanel,
+    message: DirectMessageDto,
+    receivedFromOther: Boolean,
+) {
+    val list = entry.tag(TAG.UL, className = "lapis-dm-attachments list-unstyled mb-0")
+    message.attachments.forEach { attachment ->
+        val item = list.tag(TAG.LI, className = "d-flex flex-wrap align-items-center gap-2")
+        item.tag(TAG.I, className = fileTypeIcon(attachment.mimeType)) { setAttribute("aria-hidden", "true") }
+        val label = sanitizeUntrustedI18nText(attachment.fileName)
+        val link = Link(label = label, url = DirectMessageHttp.downloadUrl(attachment.id), className = "text-truncate")
+        item.add(link)
+        link.setAttribute("rel", "noopener")
+        link.title = label
+        link.setAttribute("aria-label", resolvedAttributeText(gettext("„%1“ herunterladen", label)))
+        item.span(formatFileSize(attachment.sizeBytes), className = "text-muted small")
+    }
+    if (receivedFromOther) entry.div(tr("Lapis prüft Anhänge nicht auf Viren.")) { addCssClasses("text-muted small") }
 }

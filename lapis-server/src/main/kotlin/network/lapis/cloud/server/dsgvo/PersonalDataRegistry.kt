@@ -22,6 +22,9 @@ object PersonalDataRegistry {
         listOf(
             // FIRST on purpose: erasure anonymizes member.email, and this contributor finds open mail by the member's address.
             MailOutboxPersonalData,
+            // V1.9.226: BEFORE the Foundation contributor on purpose -- it reads the LupaBB person number of the member row (to put it on the
+            // erasure suppression list) before that row is anonymised.
+            LupaBbPersonalData,
             FoundationPersonalData,
             ContributionPersonalData,
             DocumentPersonalData,
@@ -85,6 +88,7 @@ object PersonalDataRegistry {
             EventCapturePersonalData,
             // V1.9.222: pictures a member uploaded to a crowdfunding project or an auction (hard erasure, files included).
             AttachedImagePersonalData,
+            PartgReportPersonalData,
         )
 
     /**

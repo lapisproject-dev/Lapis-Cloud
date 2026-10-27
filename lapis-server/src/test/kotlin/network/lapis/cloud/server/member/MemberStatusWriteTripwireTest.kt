@@ -34,6 +34,8 @@ class MemberStatusWriteTripwireTest :
                             "registerFriend, applyForMembership"
                     ),
                 "network/lapis/cloud/server/bootstrap/MemberCsvImport.kt" to (1 to "CSV import (source IMPORT)"),
+                "network/lapis/cloud/server/lupabb/LupaBbApplier.kt" to
+                    (1 to "LupaBB sync, insert of a NEW member (source LUPABB_SYNC); a status CHANGE goes through applyStatusChangeLocked"),
                 "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt" to (1 to "first-admin bootstrap"),
                 "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt" to (1 to "OIDC guest creation"),
                 "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt" to

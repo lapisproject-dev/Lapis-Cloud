@@ -163,6 +163,8 @@ classDiagram(name = "Foundation") {
 
     val member = classOf(name = "Member") {
         stereotype("Entity") { "tableName" to "member"; "kotlinObjectName" to "MemberTable" }
+        // V1.9.226 LupaBB-Abgleich: one LupaBB person is linked to at most one member (NULL = not linked; NULLs never collide).
+        stereotype("Index") { "columns" to listOf("lupabb_person_number"); "unique" to true; "name" to "uq_member_lupabb_person_number" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -301,6 +303,16 @@ classDiagram(name = "Foundation") {
         attribute(name = "regionalChapterId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "regional_chapter_id"; "fkEntity" to "RegionalChapter" }
+        }
+        // V1.9.226 "LupaBB-Abgleich" -- see 77-lupabb-sync.kuml.kts and V122. The person number of the linked LupaBB record, and the day on
+        // which the last sync did not find the member there any more (a hint only: the sync never deletes or deactivates anybody).
+        attribute(name = "lupabbPersonNumber", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "lupabb_person_number" }
+        }
+        attribute(name = "lupabbMissingSince", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "lupabb_missing_since" }
         }
     }
 

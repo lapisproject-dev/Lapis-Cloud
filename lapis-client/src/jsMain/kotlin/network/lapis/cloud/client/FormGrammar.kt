@@ -1056,6 +1056,12 @@ class LapisField internal constructor(
 
     fun focus() = focusAndReveal(inputWidget)
 
+    /** V1.9.231: focuses the control as soon as it is in the document (for a field of a form that is built now but rendered a moment later). */
+    fun focusWhenInserted() {
+        val widget = inputWidget ?: return
+        widget.addAfterInsertHook { focusAndReveal(widget) }
+    }
+
     /**
      * Blendet ein Textfeld samt Label, Hinweis- und Fehlerslot ein oder aus (bei [AbstractText] liegen alle im Wrapper) --
      * für ein Feld, das nur bei einer bestimmten Auswahl gilt (Sterbedatum bei Zielstatus "Verstorben"). Für `select` und

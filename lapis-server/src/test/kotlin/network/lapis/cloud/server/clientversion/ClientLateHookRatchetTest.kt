@@ -41,6 +41,13 @@ private fun isCommentLine(line: String): Boolean = line.trimStart().let { it.sta
 private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
     mapOf(
         "KvisionLifecycle.kt" to (2 to "the helper itself: registers, then adds"),
+        "FormGrammar.kt" to
+            (
+                1 to
+                    "LapisField.focusWhenInserted (V1.9.231): registers the focus hook on the field's input BEFORE the form is " +
+                    "rendered; the conversation reply form is rebuilt by every reload and must hand the focus to its new, empty field " +
+                    "(DirectMessagePartnerListDomTest pins the reply flow)"
+            ),
         "MasterDetail.kt" to
             (
                 3 to

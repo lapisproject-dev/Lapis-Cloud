@@ -10,6 +10,7 @@ import io.kvision.html.InputType
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.html.icon
 import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.html.span
@@ -71,6 +72,13 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
     val callerRole = AppState.session?.role
     val isBoardOrAdmin = callerRole == AccountRole.BOARD || callerRole == AccountRole.ADMIN
     val createHost = if (isBoardOrAdmin) root.vPanel(spacing = 6) else null
+    // V1.9.226 "LupaBB-Abgleich": ADMIN only (the server gates every call of the sync service on the role as well). A secondary action in its own
+    // row under the header -- the action slot of the header holds exactly ONE button, "Mitglied direkt anlegen" (R36).
+    if (callerRole == AccountRole.ADMIN) {
+        root.buttonRow().actionButton(ActionIcon.REFRESH, tr("Mit LupaBB abgleichen"), style = ButtonStyle.OUTLINESECONDARY) {
+            onClick { navigateTo(Routes.MEMBER_LUPABB_SYNC) }
+        }
+    }
     // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- loaded once, BEFORE any
     // of the sections below, and threaded through as a plain parameter (never
     // `session.regionalChaptersExist`, see plan §1 P5: that session flag is stale until the next
@@ -793,13 +801,25 @@ private fun rosterColumns(
                     title = tr("Land"),
                     cell = { container, row ->
                         val code = row.countryCode
-                        if (code != null) {
-                            container.countryFlag(code)
-                            container.cellText(countryDisplayName(code, I18n.language))
-                        } else {
-                            container.cellText("—", "text-body-secondary").apply {
-                                setAttribute("role", "img")
-                                setAttribute("aria-label", gettext("Keine Angabe"))
+                        when {
+                            code == null ->
+                                container.cellText("—", "text-body-secondary").apply {
+                                    setAttribute("role", "img")
+                                    setAttribute("aria-label", gettext("Keine Angabe"))
+                                }
+                            CountryFlag.hasFlag(code) -> {
+                                // V1.9.235: flag + ISO code; the full name is the tooltip and the accessible name.
+                                val name = countryDisplayName(code, I18n.language)
+                                container.countryFlag(code)?.title = name
+                                container.cellText(code.uppercase()).apply {
+                                    setAttribute("role", "img")
+                                    setAttribute("aria-label", resolvedAttributeText(name))
+                                    title = name
+                                }
+                            }
+                            else -> {
+                                container.add(flagSpacer())
+                                container.cellText(countryDisplayName(code, I18n.language))
                             }
                         }
                     },
@@ -837,12 +857,12 @@ internal fun loginMethodLabel(method: LoginMethod): String =
         LoginMethod.OIDC_FEDERATION -> gettext("Partner-Server")
     }
 
-/** V1.9.212 -- live-translated (`tr`) label of a [LoginMethod]; only ever the WHOLE text of its own widget, never composed. */
-internal fun loginMethodTr(method: LoginMethod): String =
+/** V1.9.235 -- the status icon of a [LoginMethod]; exhaustive on purpose (no `else`): a new method must break the build here. */
+internal fun loginMethodIcon(method: LoginMethod): ActionIcon =
     when (method) {
-        LoginMethod.PASSWORD -> tr("Passwort")
-        LoginMethod.KEYCLOAK -> tr("Zentrale Anmeldung")
-        LoginMethod.OIDC_FEDERATION -> tr("Partner-Server")
+        LoginMethod.PASSWORD -> ActionIcon.PASSWORD
+        LoginMethod.KEYCLOAK -> ActionIcon.SIGN_IN_CENTRAL
+        LoginMethod.OIDC_FEDERATION -> ActionIcon.SIGN_IN_PARTNER
     }
 
 /** V1.9.212 -- plain text of the cell (tests, export fallback): "24.10.2026, 20:11 · Passwort"; `null` = never signed in. */
@@ -856,8 +876,9 @@ internal fun lastLoginPlainText(
 }
 
 /**
- * V1.9.212 -- renders the cell on one line: the date through the live-resolving span, the method as a muted word. Tokens
- * stand alone as a widget's whole text (V1.9.207 composed one into a template and leaked the raw ISO string).
+ * V1.9.212 -- renders the cell on one line: the date through the live-resolving span. V1.9.235: the method follows as a muted icon
+ * with tooltip and accessible name (no text). Tokens stand alone as a widget's whole text (V1.9.207 composed one into a template and
+ * leaked the raw ISO string).
  */
 internal fun Container.lastLoginCell(
     at: LocalDateTime?,
@@ -869,8 +890,12 @@ internal fun Container.lastLoginCell(
     }
     systemDateTimeSpan(at)
     if (method != null) {
-        cellText(" · ", "text-body-secondary")
-        cellText(loginMethodTr(method), "text-body-secondary")
+        val label = loginMethodLabel(method)
+        icon("${loginMethodIcon(method).css} fa-fw text-body-secondary ms-2") {
+            setAttribute("role", "img")
+            setAttribute("aria-label", label)
+            title = label
+        }
     }
 }
 
@@ -1207,6 +1232,16 @@ internal fun openMemberEditorDialog(
     // Feld; die sechs handgebauten `text-danger`-Boxen sind entfallen, Serverfehler meldet `memberAdminGuarded`.
 
     // ── Stammdaten ──
+    // V1.9.226: ADMIN only (the server sends the two values to nobody else): the link to the LupaBB record and the "missing" hint.
+    row.lupabbPersonNumber?.let { number ->
+        modal.div(gettext("Mit LupaBB verknüpft (Personennummer %1).", number)) { addCssClasses("text-muted small") }
+    }
+    row.lupabbMissingSince?.let { since ->
+        modal.div(gettext("Der letzte Abgleich fand dieses Mitglied nicht mehr in LupaBB (seit %1).", formatDate(since))) {
+            addCssClasses("alert alert-warning small")
+            setAttribute("role", "note")
+        }
+    }
     if (canEditCoreDataOf(callerRole, row)) {
         modal.h2(tr("Stammdaten")) { addCssClass("h6") }
         val form = modal.lapisForm(legendGroup)

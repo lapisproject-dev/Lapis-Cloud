@@ -41,6 +41,14 @@ bookmarked and shared. The pattern is described in `docs/architecture/ui-ux-guid
 ** There is no answer "Enthaltung" in the meritocratic vote: the server counts every winner other than `NO` as adopted, so an abstention that wins would adopt the
    motion. Own answers are possible under "Erweitert" and carry that warning.
 
+== The event of a Sitzung (V1.9.227, V1.9.229)
+
+On the Sitzung page a chair, deputy chair, general secretary, secretary or managing director of the committee (and BOARD/ADMIN) can announce the Sitzung as an
+event. The event is a draft visible to members only. Since V1.9.229 these officers also open it (`/events/:id`, a reduced view), change its title, description,
+start, end, place and online kind, **publish it to the members** (button "Veröffentlichen" on the Sitzung page; the confirmation says that all members see it,
+not only the committee, and that the agenda is not shown) and cancel it while it is free. Fee, capacity, room, public visibility and the public link stay with
+the board, as does linking an existing event. Details and the rule: `docs/architecture/governance-committees.adoc`, section "Meeting <-> event link".
+
 == What is not done
 
 Member counts need one request per committee (a server batch RPC would be the honest fix); the "more than half" quorum option is a later server wave;

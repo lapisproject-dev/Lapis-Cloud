@@ -16,6 +16,33 @@ import kotlin.uuid.Uuid
 
 internal const val DIRECT_MESSAGE_MAX_BODY_LENGTH = 10_000
 
+/** Why [directMessageRecipientRefusal] refused a recipient. The upload route maps ALL of them to one uniform answer (no existence oracle). */
+internal enum class DirectMessageRecipientRefusal { SELF, NOT_FOUND, NOT_RECEIVABLE }
+
+/**
+ * V1.9.233 -- the recipient rule of [insertDirectMessage], extracted unchanged so the attachment upload route applies EXACTLY the same
+ * rule: `null` means the sender may write to the recipient; otherwise the reason. The recipient must exist, be an organization member
+ * ([MemberStatusSets.ORGANIZATION_MEMBER]) and not be anonymized; writing to oneself is refused. Inside a transaction.
+ */
+internal fun directMessageRecipientRefusal(
+    senderId: Uuid,
+    recipientId: Uuid,
+): DirectMessageRecipientRefusal? {
+    if (senderId == recipientId) return DirectMessageRecipientRefusal.SELF
+    val recipientRow =
+        MemberTable
+            .selectAll()
+            .where { MemberTable.id eq recipientId }
+            .singleOrNull()
+            ?: return DirectMessageRecipientRefusal.NOT_FOUND
+    if (recipientRow[MemberTable.anonymizedAt] != null ||
+        recipientRow[MemberTable.status] !in MemberStatusSets.ORGANIZATION_MEMBER
+    ) {
+        return DirectMessageRecipientRefusal.NOT_RECEIVABLE
+    }
+    return null
+}
+
 /**
  * Gemeinsamer Einfügepfad für [DirectMessageService.sendDirectMessage] UND
  * [CarpoolService.contactAuthor] -- aus `DirectMessageService.sendDirectMessage` extrahiert
@@ -44,17 +71,11 @@ internal fun insertDirectMessage(
     if (trimmed.isEmpty() || trimmed.length > DIRECT_MESSAGE_MAX_BODY_LENGTH) {
         throw ConflictException("Message body must be 1-$DIRECT_MESSAGE_MAX_BODY_LENGTH characters")
     }
-    if (senderId == recipientId) throw ConflictException("Cannot send a direct message to yourself")
-    val recipientRow =
-        MemberTable
-            .selectAll()
-            .where { MemberTable.id eq recipientId }
-            .singleOrNull()
-            ?: throw NotFoundException("Member $recipientId not found")
-    if (recipientRow[MemberTable.anonymizedAt] != null ||
-        recipientRow[MemberTable.status] !in MemberStatusSets.ORGANIZATION_MEMBER
-    ) {
-        throw ConflictException("Recipient cannot receive direct messages")
+    when (directMessageRecipientRefusal(senderId = senderId, recipientId = recipientId)) {
+        DirectMessageRecipientRefusal.SELF -> throw ConflictException("Cannot send a direct message to yourself")
+        DirectMessageRecipientRefusal.NOT_FOUND -> throw NotFoundException("Member $recipientId not found")
+        DirectMessageRecipientRefusal.NOT_RECEIVABLE -> throw ConflictException("Recipient cannot receive direct messages")
+        null -> Unit
     }
     val id = Uuid.random()
     val now = DbClock.nowLocalDateTime()

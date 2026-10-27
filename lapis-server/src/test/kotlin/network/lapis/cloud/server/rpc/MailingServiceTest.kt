@@ -217,6 +217,7 @@ class MailingServiceTest :
                                 deliveryWorker = worker ?: noOpWorker(mode),
                                 deliveryMode = mode,
                                 branding = MailBranding.notConfigured(),
+                                attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 budget = budget,
                                 sendDelay = 250.milliseconds,
                                 sendDisplayRateLimiter = limiter ?: FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),

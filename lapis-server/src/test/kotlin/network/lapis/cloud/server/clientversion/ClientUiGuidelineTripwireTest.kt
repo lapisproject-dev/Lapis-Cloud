@@ -745,7 +745,8 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
  * raw `text(` date/time fields (the event form's three, the shift forms, the CRM, GDPR, contribution, honor and filter dates)
  * became `localDateInput`/`localDateTimeInput`/`dateRangeFilter` calls, which are not `text(` calls any more. Only ever lowered.
  */
-private const val R24_REMAINING_MAX = 122 // V1.9.222: +2, caption and alt-text inputs of ImageGalleryEditor (no LapisForm owns them)
+private const val R24_REMAINING_MAX = 127 // +2 V1.9.222 (gallery inputs), +1 V1.9.225 (party-report hint dialog),
+// +4 V1.9.229 (officer event form: title, description, place, link)
 
 private fun r24Findings(file: File): List<String> = labelledFieldFindings(file.readText()).minusMultiset(R24_JUSTIFIED[file.name].orEmpty())
 
@@ -916,7 +917,7 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
  * a checkbox whose value feeds `setEventCaptureAllowed` after the event is saved -- a genuine field, not a filter, so it cannot be justified). The new consent screen
  * (`EventCaptureConsent.kt`) and the guest page were built with the form grammar and add nothing here. 71 -> 72.
  */
-private const val R24B_REMAINING_MAX = 73 // V1.9.222: +1, the unit select of the auction duration
+private const val R24B_REMAINING_MAX = 75 // +1 V1.9.222 (auction unit), +2 V1.9.225 (party-report filters)
 
 private fun r24bFindings(file: File): List<String> =
     labelledSelectFindings(file.readText()).minusMultiset(R24B_JUSTIFIED[file.name].orEmpty())

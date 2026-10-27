@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 70 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 77 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -79,7 +79,9 @@ class DomainModelMergerTest :
             // Welle V1.9.156 "Aufzeichnung in Veranstaltungsraeumen" -- now 74 with the addition of 73-event-capture.kuml.kts.
             // Welle V1.9.201 "Ausschreibungen" -- now 75 with the addition of 74-tender.kuml.kts.
             // Welle V1.9.222 "Bildergalerie" -- now 76 with the addition of 75-image-gallery.kuml.kts.
-            scriptFiles shouldHaveSize 76
+            // Welle V1.9.225 "Rechenschaftsbericht (PartG)" -- now 77 with the addition of 76-partg-report.kuml.kts.
+            // Welle V1.9.226 "LupaBB-Abgleich" -- now 78 with the addition of 77-lupabb-sync.kuml.kts.
+            scriptFiles shouldHaveSize 78
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -567,7 +569,15 @@ class DomainModelMergerTest :
             // Welle V1.9.222 "Bildergalerie" -- ONE new real table (attached_image) plus an id-only Member stub (dedups into the real
             // entity) --
             // net +1 (213 -> 214).
-            val distinctTableNames = 214
+            // Welle V1.9.225 "Rechenschaftsbericht (PartG)" -- THREE new real tables (partg_report_position, partg_report_sheet,
+            // partg_report_value); the Member and RegionalChapter stubs dedup into the real entities, net +3 (214 -> 217).
+            // 77-lupabb-sync.kuml.kts (V1.9.226) adds FOUR real tables (member_lupabb_profile, lupabb_sync_config, lupabb_sync_run,
+            // lupabb_sync_suppression); its Member stub dedups into the real entity, net +4 (217 -> 221).
+            // 03-communication.kuml.kts (V1.9.232) adds ONE real table (mailing_message_attachment); its Member and MailingMessage stubs
+            // dedup into the real entities, net +1 (221 -> 222).
+            // 03-communication.kuml.kts (V1.9.233) adds ONE real table (direct_message_attachment); its Member and DirectMessage references
+            // dedup into the real entities, net +1 (222 -> 223).
+            val distinctTableNames = 223
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -603,6 +613,8 @@ class DomainModelMergerTest :
                     "MailingMessageTable.kt",
                     "MailingDeliveryLogTable.kt",
                     "MailingMessageLinkTable.kt",
+                    "MailingMessageAttachmentTable.kt",
+                    "DirectMessageAttachmentTable.kt",
                     "MailingLinkClickTable.kt",
                     "DirectMessageTable.kt",
                     "ErasureRequestTable.kt",
@@ -941,6 +953,15 @@ class DomainModelMergerTest :
                     "TenderAcceptanceTable.kt",
                     // Welle V1.9.222 "Bildergalerie" -- ONE new real table, no new stub.
                     "AttachedImageTable.kt",
+                    // Welle V1.9.225 "Rechenschaftsbericht (PartG)" -- THREE new real tables; Member and RegionalChapter are stubs.
+                    "PartgReportPositionTable.kt",
+                    "PartgReportSheetTable.kt",
+                    "PartgReportValueTable.kt",
+                    // Welle V1.9.226 "LupaBB-Abgleich" -- FOUR new real tables; Member is a stub (its two new columns are in 00-foundation).
+                    "MemberLupaBbProfileTable.kt",
+                    "LupaBbSyncConfigTable.kt",
+                    "LupaBbSyncRunTable.kt",
+                    "LupaBbSyncSuppressionTable.kt",
                 )
         }
 

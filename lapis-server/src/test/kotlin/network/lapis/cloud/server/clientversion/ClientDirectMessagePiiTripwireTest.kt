@@ -25,6 +25,9 @@ private val PII_FILES =
         "NavbarUnreadIndicator.kt",
         "DirectMessagePartnerList.kt",
         "DirectMessageReplyForm.kt",
+        // V1.9.233
+        "DirectMessageComposerAttachments.kt",
+        "DirectMessageHttp.kt",
     )
 private val NO_TIMER_FILES =
     listOf(
@@ -33,6 +36,9 @@ private val NO_TIMER_FILES =
         "NavbarUnreadIndicator.kt",
         "DirectMessagePartnerList.kt",
         "DirectMessageReplyForm.kt",
+        // V1.9.233
+        "DirectMessageComposerAttachments.kt",
+        "DirectMessageHttp.kt",
     )
 
 private val SOURCES =
@@ -45,7 +51,8 @@ private fun codeLines(file: File): List<String> =
 private fun sourceOf(name: String): File = SOURCES.walkTopDown().first { it.isFile && it.name == name }
 
 private val FORBIDDEN_API = Regex("""\bconsole\.|\blocalStorage\b|\bsessionStorage\b|\.message\b""")
-private val PII_FIELDS = "body|senderDisplayName|recipientDisplayName|recordedByDisplayName|otherDisplayName|partnerDisplayName|displayName"
+private val PII_FIELDS =
+    "body|senderDisplayName|recipientDisplayName|recordedByDisplayName|otherDisplayName|partnerDisplayName|displayName|fileName|fileLabel"
 private val SINK = Regex("""(?:notify\w*|toast\w*|navigateTo|document\.title|window\.location|history\.).*\b(?:$PII_FIELDS)\b""")
 private val TIMER =
     Regex("""\bsetInterval\b|\bsetTimeout\b|window\.setTimeout\b|window\.setInterval\b|\brequestAnimationFrame\b|\bdelay\(""")
@@ -93,8 +100,11 @@ class ClientDirectMessagePiiTripwireTest :
 
         test("the navbar envelope links to a fixed section target without any id or personal field") {
             val lines = codeLines(sourceOf("NavbarUnreadIndicator.kt"))
-            val target = lines.filter { it.contains("section=") }
+            // V1.9.231: the target is the plain route (no parameter at all)
+            lines.any { it.contains("section=") } shouldBe false
+            val target = lines.filter { it.contains("setAttribute(\"href\"") }
             target.size shouldBe 1
+            target.single().contains("Routes.MESSAGES") shouldBe true
             target.single().contains("memberId") shouldBe false
             lines.filter { SINK.containsMatchIn(it) } shouldBe emptyList()
         }
@@ -109,6 +119,7 @@ class ClientDirectMessagePiiTripwireTest :
             SINK.containsMatchIn("""notifyError(dto.body)""") shouldBe true
             SINK.containsMatchIn("""navigateTo("/m/" + message.recipientDisplayName)""") shouldBe true
             SINK.containsMatchIn("""notifySuccess(tr("Antwort wurde gesendet."))""") shouldBe false
+            SINK.containsMatchIn("""notifyError(attachmentRefusalText(code, draft.fileLabel))""") shouldBe true
             TIMER.containsMatchIn("""window.setTimeout({ refresh() }, 5000)""") shouldBe true
             TIMER.containsMatchIn("""delay(1000)""") shouldBe true
             TIMER.containsMatchIn("""UnreadMessages.refresh()""") shouldBe false

@@ -79,7 +79,7 @@ class DynamicMailingListBuilderDomTest {
             AppState.setSession(session(AccountRole.BOARD))
             withFetchStub(respond = { request -> if (request.isRpc) request.answerWith("[]") else StubResponse() }) {
                 mountedForm("dyn-kind") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root, "#/mailing-lists?tab=manage")
                     awaitUntil("the admin section") { element().createButtonLabels() == listOf("Neue Mailingliste") }
                     val host = openCreateForm(element(), formId)
                     assertFalse(host.shows("Vorlagen"), "manual is the default: no builder")
@@ -103,7 +103,7 @@ class DynamicMailingListBuilderDomTest {
             AppState.setSession(session(AccountRole.BOARD))
             withFetchStub(respond = { request -> if (request.isRpc) request.answerWith("[]") else StubResponse() }) {
                 mountedForm("dyn-rows") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root, "#/mailing-lists?tab=manage")
                     awaitUntil("the admin section") { element().createButtonLabels() == listOf("Neue Mailingliste") }
                     val host = openCreateForm(element(), formId)
                     host.buttonNamed("Automatisch (nach Regel)").click()
@@ -144,7 +144,7 @@ class DynamicMailingListBuilderDomTest {
                 },
             ) { calls ->
                 mountedForm("dyn-debounce") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root, "#/mailing-lists?tab=manage")
                     awaitUntil("the admin section") { element().createButtonLabels() == listOf("Neue Mailingliste") }
                     val host = openCreateForm(element(), formId)
                     host.buttonNamed("Automatisch (nach Regel)").click()
@@ -190,7 +190,7 @@ class DynamicMailingListBuilderDomTest {
                 },
             ) {
                 mountedForm("dyn-stale") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root, "#/mailing-lists?tab=manage")
                     awaitUntil("the admin section") { element().createButtonLabels() == listOf("Neue Mailingliste") }
                     val host = openCreateForm(element(), formId)
                     host.buttonNamed("Automatisch (nach Regel)").click()
@@ -228,7 +228,7 @@ class DynamicMailingListBuilderDomTest {
                 },
             ) { calls ->
                 mountedForm("dyn-create") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root, "#/mailing-lists?tab=manage")
                     awaitUntil("the admin section") { element().createButtonLabels() == listOf("Neue Mailingliste") }
                     val host = openCreateForm(element(), formId)
                     host.buttonNamed("Automatisch (nach Regel)").click()
@@ -256,7 +256,7 @@ class DynamicMailingListBuilderDomTest {
             val create = routeOf { rpcService<IMailingService>().createDynamicMailingList("n", null, "{}", false) }
             withFetchStub(respond = { request -> if (request.isRpc) request.answerWith("[]") else StubResponse() }) { calls ->
                 mountedForm("dyn-incomplete") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root, "#/mailing-lists?tab=manage")
                     awaitUntil("the admin section") { element().createButtonLabels() == listOf("Neue Mailingliste") }
                     val host = openCreateForm(element(), formId)
                     host.buttonNamed("Automatisch (nach Regel)").click()
@@ -293,7 +293,7 @@ class DynamicMailingListBuilderDomTest {
                 },
             ) { calls ->
                 mountedForm("dyn-self") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root)
                     awaitUntil("the lists") { element().shows("Rundbrief") && element().shows("Einladungen") }
                     assertEquals(3, element().allOf(".badge").count { it.textContent?.trim() == "Automatisch" })
                     assertEquals(1, element().allOf(".badge").count { it.textContent?.trim() == "Pflichtliste" })
@@ -301,13 +301,13 @@ class DynamicMailingListBuilderDomTest {
                     assertTrue(element().shows("Pflichtliste: keine Abmeldung möglich"))
                     assertEquals(
                         1,
-                        element().allOf("button").count { it.textContent?.trim() == "Von der Liste abmelden" },
+                        element().allOf("button").count { it.getAttribute("aria-label") == "Von der Liste abmelden" },
                         "only the normal list",
                     )
-                    assertEquals(1, element().allOf("button").count { it.textContent?.trim() == "Wieder anmelden" })
+                    assertEquals(1, element().allOf("button").count { it.getAttribute("aria-label") == "Wieder anmelden" })
                     assertFalse(element().shows("Abonnenten)"), "no subscriber count for an automatic list")
                     assertFalse(element().shows("Öffnungen zählen"), "no tracking switches for an automatic list")
-                    element().buttonNamed("Von der Liste abmelden").click()
+                    element().iconButtonNamed("Von der Liste abmelden").click()
                     awaitUntil("the opt-out call") { calls.toRoute(optOut).size == 1 }
                     assertEquals("l-normal", calls.singleCall(optOut).rpcParam(0) as String)
                 }

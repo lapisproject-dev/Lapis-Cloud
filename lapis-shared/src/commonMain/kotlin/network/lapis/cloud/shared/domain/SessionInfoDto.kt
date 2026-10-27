@@ -93,4 +93,9 @@ data class SessionInfoDto(
      * the text names no single country). The country lists pin this country on top. Defaulted for old/new client and server compatibility.
      */
     val organizationCountryCode: String? = null,
+    /**
+     * Welle V1.9.225 -- `OrganizationSettings.isPoliticalParty` of this server. Only decides whether the client OFFERS the "Rechenschaftsbericht
+     * (PartG)" navigation entry; the server enforces the switch and the role on every call. Defaulted for old/new client and server compatibility.
+     */
+    val politicalParty: Boolean = false,
 )

@@ -300,6 +300,36 @@ data class MeetingDto(
     val minuteTakerDisplayName: String?,
     val protocolDocumentId: String?,
     val createdAt: LocalDateTime,
+    /** V1.9.227 -- the Veranstaltung announcing this Sitzung (1:1, optional). Filled only by the authenticated governance RPC, never by the public API. */
+    val linkedEvent: LinkedEventRef? = null,
+)
+
+/**
+ * V1.9.227 -- the Veranstaltung announcing a Sitzung. For a caller who may not open it (a DRAFT, non-manager) [title] is the neutral
+ * placeholder and [canOpen] is `false`. [difference] is server-computed.
+ */
+@Serializable
+data class LinkedEventRef(
+    val eventId: String,
+    val title: String,
+    val status: EventStatus,
+    val startsAt: LocalDateTime,
+    val endsAt: LocalDateTime,
+    val locationText: String?,
+    val onlineKind: EventOnlineKind,
+    val canOpen: Boolean,
+    val difference: MeetingEventDifference? = null,
+    /** V1.9.229 -- the caller may publish this DRAFT (MEMBERS_ONLY) event: BOARD/ADMIN, or an officer of this Sitzung's committee. */
+    val canPublish: Boolean = false,
+)
+
+/** V1.9.227 -- where a Sitzung and its Veranstaltung disagree; [alignable] iff the event may be set to the Sitzung's date and place AND the caller may do it (BOARD/ADMIN, or -- for a not yet public event -- an officer of the Sitzung's committee). */
+@Serializable
+data class MeetingEventDifference(
+    val startsAtDiffers: Boolean,
+    val locationDiffers: Boolean,
+    val onlineDiffers: Boolean,
+    val alignable: Boolean,
 )
 
 @Serializable

@@ -175,4 +175,13 @@ interface IMailingService {
 
     /** Welle V1.9.111 -- undoes [optOutOfDynamicList]. Same visibility rules, idempotent. */
     suspend fun revokeOptOut(mailingListId: String)
+
+    /**
+     * Welle V1.9.234 -- BOARD/ADMIN: deletes a MANUAL mailing list (soft delete: the list row stays archived with deleted_at/deleted_by,
+     * because sent/failed messages, delivery logs, links and clicks keep referencing it as evidence). Removed for good: all subscriptions,
+     * all opt-outs, all DRAFT messages with their attachments (rows now, files after commit). No restore.
+     * Refusals: unknown/invalid/already deleted id -> NotFoundException; DYNAMIC list -> MailingListNotDeletableException;
+     * a QUEUED message of the list -> MailingListSendingInProgressException; non-board caller -> ForbiddenException.
+     */
+    suspend fun deleteMailingList(mailingListId: String)
 }

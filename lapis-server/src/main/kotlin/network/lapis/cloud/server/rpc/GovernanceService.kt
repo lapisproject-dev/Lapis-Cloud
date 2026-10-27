@@ -23,7 +23,10 @@ import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.events.EventOnlineServices
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkOperations
+import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkStore
 import network.lapis.cloud.server.routes.PUBLIC_API_MOTION_STATUSES
 import network.lapis.cloud.server.rules.RuleReferences
 import network.lapis.cloud.server.security.CurrentMember
@@ -56,6 +59,7 @@ import network.lapis.cloud.shared.domain.CommitteeRulePreviewDto
 import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.CommitteeSeatChangeKind
 import network.lapis.cloud.shared.domain.CommitteeType
+import network.lapis.cloud.shared.domain.LinkedEventRef
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.MeetingDetailDto
@@ -141,6 +145,9 @@ private val COMMITTEE_CANDIDATE_SEARCH_RATE_LIMITER = FederationInboxRateLimiter
 private val COMMITTEE_RULE_PREVIEW_RATE_LIMITER = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 private val COMMITTEE_ELIGIBLE_COUNT_RATE_LIMITER = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
 
+/** V1.9.227 -- the five Sitzung <-> Veranstaltung link operations share one per-actor budget. */
+private val MEETING_EVENT_LINK_RATE_LIMITER = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+
 /** Meritokratische Voteen (V0.2.3): server-side floor, never trusted from a client. */
 private val MIN_STAKE_LTR: BigDecimal = BigDecimal("0.01")
 private val ZERO_LTR: BigDecimal = BigDecimal.ZERO.setScale(2)
@@ -183,7 +190,13 @@ class GovernanceService(
     private val candidateSearchRateLimiter: FederationInboxRateLimiter = COMMITTEE_CANDIDATE_SEARCH_RATE_LIMITER,
     private val rulePreviewRateLimiter: FederationInboxRateLimiter = COMMITTEE_RULE_PREVIEW_RATE_LIMITER,
     private val eligibleCountRateLimiter: FederationInboxRateLimiter = COMMITTEE_ELIGIBLE_COUNT_RATE_LIMITER,
+    // V1.9.227 -- only needed to know whether an announced online Sitzung may use a Lapis video conference; the default keeps older constructions working.
+    eventOnline: EventOnlineServices = EventOnlineServices.DISABLED,
+    meetingEventLinkRateLimiter: FederationInboxRateLimiter = MEETING_EVENT_LINK_RATE_LIMITER,
 ) : IGovernanceService {
+    private val meetingEventLinks =
+        MeetingEventLinkOperations(conferencesEnabled = { eventOnline.conferencesEnabled }, rateLimiter = meetingEventLinkRateLimiter)
+
     override suspend fun listCommittees(activeOnly: Boolean): List<CommitteeDto> {
         val current = resolveCurrentMember(call)
         // V1.3.1 -- delegates to GovernanceReads (see that object's KDoc); byte-identical behavior,
@@ -616,18 +629,23 @@ class GovernanceService(
         committeeId: String?,
         status: MeetingStatus?,
     ): List<MeetingDto> {
-        resolveCurrentMember(call)
+        val current = resolveCurrentMember(call)
         val gId = committeeId?.toCommitteeUuid()
         // V1.3.1 -- delegates to GovernanceReads, byte-identical behavior (resolveMemberNames stays
         // at its default `true` for this RPC call site).
-        return transaction { GovernanceReads.listMeetings(committeeId = gId, status = status) }
+        return transaction {
+            withLinkedEvents(
+                current = current,
+                meetings = GovernanceReads.listMeetings(committeeId = gId, status = status),
+            )
+        }
     }
 
     override suspend fun getMeetingDetail(meetingId: String): MeetingDetailDto {
-        resolveCurrentMember(call)
+        val current = resolveCurrentMember(call)
         val sId = meetingId.toMeetingUuid()
         return transaction {
-            val meeting = loadMeeting(sId)
+            val meeting = withLinkedEvents(current = current, meetings = listOf(loadMeeting(sId))).single()
             MeetingDetailDto(
                 meeting = meeting,
                 agenda = loadAgenda(sId),
@@ -689,7 +707,11 @@ class GovernanceService(
             if (status == MeetingStatus.HELD && previousStatus != MeetingStatus.HELD) {
                 WebhookEventPublisher.publish(eventType = WebhookEventType.MEETING_HELD, entityId = sId, occurredAt = nowLocalDateTime())
             }
-            loadMeeting(sId)
+            // V1.9.227: a cancelled Sitzung no longer announces anything -- the link is dissolved in the same transaction (the event stays).
+            if (status == MeetingStatus.CANCELLED && previousStatus != MeetingStatus.CANCELLED) {
+                MeetingEventLinkOperations.Lifecycle.onMeetingCancelled(actor = current, meetingId = sId)
+            }
+            withLinkedEvents(current = current, meetings = listOf(loadMeeting(sId))).single()
         }
     }
 
@@ -1762,6 +1784,58 @@ class GovernanceService(
             this[VoteEligibleVoterTable.voteId] = voteId
             this[VoteEligibleVoterTable.memberId] = memberId
         }
+    }
+
+    // ---- V1.9.227 "Sitzung in der Videokonferenz": Sitzung <-> Veranstaltung (see MeetingEventLinkOperations) ----
+
+    override suspend fun announceMeetingAsEvent(meetingId: String): LinkedEventRef =
+        meetingEventLinks.announce(current = resolveCurrentMember(call), meetingId = meetingId.toMeetingUuid())
+
+    override suspend fun linkMeetingToEvent(
+        meetingId: String,
+        eventId: String,
+    ): LinkedEventRef =
+        meetingEventLinks.link(
+            current = resolveCurrentMember(call),
+            meetingId = meetingId.toMeetingUuid(),
+            eventId = eventId.toMeetingUuid(),
+        )
+
+    override suspend fun unlinkMeetingEvent(
+        meetingId: String,
+        eventId: String,
+    ) = meetingEventLinks.unlink(
+        current = resolveCurrentMember(call),
+        meetingId = meetingId.toMeetingUuid(),
+        eventId = eventId.toMeetingUuid(),
+    )
+
+    override suspend fun alignEventToMeeting(
+        meetingId: String,
+        eventId: String,
+    ): LinkedEventRef =
+        meetingEventLinks.align(
+            current = resolveCurrentMember(call),
+            meetingId = meetingId.toMeetingUuid(),
+            eventId = eventId.toMeetingUuid(),
+        )
+
+    override suspend fun listLinkableMeetings(eventId: String): List<MeetingDto> =
+        meetingEventLinks.listLinkable(current = resolveCurrentMember(call), eventId = eventId.toMeetingUuid())
+
+    /** Adds the Veranstaltung link to authenticated reads; the public API path (`GovernanceReads`) never does. Inside a transaction. */
+    private fun withLinkedEvents(
+        current: CurrentMember,
+        meetings: List<MeetingDto>,
+    ): List<MeetingDto> {
+        val refs =
+            MeetingEventLinkStore.linkedEventRefs(
+                meetings = meetings,
+                caller = current,
+                wallNow = OrganizationTimeZone.wallNowOf(DbClock.nowLocalDateTime()),
+            )
+        if (refs.isEmpty()) return meetings
+        return meetings.map { meeting -> refs[meeting.id]?.let { meeting.copy(linkedEvent = it) } ?: meeting }
     }
 
     private fun loadMeeting(id: Uuid): MeetingDto =

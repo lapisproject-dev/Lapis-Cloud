@@ -11,6 +11,7 @@
 // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- hand-edited, `onlineKind`/`encounterSpaceId` columns added, see
 // 39-events.kuml.kts file header addendum.
 // Welle V1.9.156 "Aufzeichnung in Veranstaltungsräumen" -- hand-edited, `captureAllowed` column added, see 39-events.kuml.kts file header addendum.
+// Welle V1.9.227 "Sitzung in der Videokonferenz" -- hand-edited, `meetingId` column added, see 39-events.kuml.kts file header addendum.
 
 package network.lapis.cloud.server.db.generated
 
@@ -76,6 +77,9 @@ public object EventTable : Table("event") {
 
     // V1.9.156 addendum -- see 39-events.kuml.kts file header and 73-event-capture.kuml.kts.
     public val captureAllowed: Column<Boolean> = bool("capture_allowed").default(false)
+
+    // V1.9.227 addendum -- see 39-events.kuml.kts file header. No `.references()` (the seriesId posture; the FK lives in V123 only).
+    public val meetingId: Column<Uuid?> = uuid("meeting_id").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

@@ -26,8 +26,8 @@ import network.lapis.cloud.shared.rpc.ICarpoolService
  * Erstell-/Bearbeiten-Formular (seit V1.9.50 das eingeklappte Erstell-Formular der Titelzeile, R36B
  * -- "Bearbeiten"/"Duplizieren" öffnen dasselbe, vorbefüllte Formular; sieben Felder passen bequem in die Seite).
  * Kontaktaufnahme läuft über [ICarpoolService.contactAuthor] -- kein eigenes
- * Carpool-Nachrichtensystem, die Antwort landet im ganz normalen Postfach unter Kommunikation
- * (siehe `CommunicationScreen.renderInbox`).
+ * Carpool-Nachrichtensystem, die Antwort landet im ganz normalen Posteingang unter Nachrichten
+ * (siehe `MessagesScreen`).
  *
  * **V1.9.125 "Mitfahrten"**: ACTIVE, GUEST und FRIEND sehen diese Seite (die Passagier-Allowlist von [ICarpoolService]). Mitglieder behalten
  * alles oben Beschriebene und bekommen "Meine Mitfahrten" sowie die Mitfahrerverwaltung an eigenen Angeboten; Gäste und Freunde sehen nur
@@ -372,7 +372,7 @@ private fun renderCarpoolContactForm(
         form.submit(sendButton) {
             val result = guarded { rpcService<ICarpoolService>().contactAuthor(posting.id, messageField.value.trim()) }
             if (result != null) {
-                notifySuccess(tr("Nachricht wurde gesendet. Antworten finden Sie im Postfach unter Kommunikation."))
+                notifySuccess(tr("Nachricht wurde gesendet. Antworten finden Sie unter Nachrichten."))
                 row.remove(panel)
                 onClosed()
             }

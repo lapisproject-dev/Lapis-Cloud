@@ -165,6 +165,35 @@ data class EventDto(
     val onlineWindowClosesAt: LocalDateTime? = null,
     /** V1.9.156 -- the organizer allowed recording / live streaming in this event's room. Not secret; it only says "may be recorded". */
     val captureAllowed: Boolean = false,
+    /** V1.9.227 -- the governance Sitzung this event announces (1:1, optional). Never part of any public output. */
+    val linkedMeeting: LinkedMeetingRef? = null,
+    /**
+     * V1.9.229 -- how the caller may manage THIS event. Server-set; the default is the fail-closed [EventManageScope.NONE] so a client talking to an
+     * older server never shows a management screen to a plain member.
+     */
+    val manageScope: EventManageScope = EventManageScope.NONE,
+)
+
+/**
+ * V1.9.229 -- the caller's management right on one event: [FULL] = BOARD/ADMIN, [MEETING_OFFICER] = an officer (Vorsitz, Schriftfuehrung, ...) of the
+ * committee whose Sitzung the event announces (edit the basics, publish to members, cancel a free event), [NONE] = read-only member view.
+ */
+@Serializable
+enum class EventManageScope { FULL, MEETING_OFFICER, NONE }
+
+/**
+ * V1.9.227 -- the Sitzung an event announces, for the event page. [meetingId] is nullable for forward compatibility only: today every member may
+ * read a Sitzung, so the server always sets it (a caller without read access would get no ref at all). [canManageLink] mirrors `canRecordForMeeting` of the Sitzung's committee. [difference] is
+ * server-computed.
+ */
+@Serializable
+data class LinkedMeetingRef(
+    val meetingId: String?,
+    val committeeName: String,
+    val scheduledAt: LocalDateTime,
+    val status: MeetingStatus,
+    val canManageLink: Boolean,
+    val difference: MeetingEventDifference? = null,
 )
 
 /** V1.9.113 -- one selectable encounter space in the event form's picker (BOARD/ADMIN). */

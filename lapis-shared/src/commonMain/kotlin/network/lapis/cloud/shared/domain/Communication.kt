@@ -113,6 +113,19 @@ data class MailingMessageDto(
     val sentBy: String,
     val sentAt: LocalDateTime?,
     val status: MailingMessageStatus,
+    /** V1.9.232 -- attachments in upload order. LAST property with a default, so older clients/servers keep deserialising. */
+    val attachments: List<MailingAttachmentDto> = emptyList(),
+)
+
+/** V1.9.232 -- one attachment of a mailing message (metadata only; the bytes travel over the dedicated HTTP routes). */
+@Serializable
+data class MailingAttachmentDto(
+    val id: String,
+    val fileName: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    /** `false` once the retention job removed the file (the metadata row stays). */
+    val fileAvailable: Boolean,
 )
 
 /**
@@ -156,6 +169,17 @@ data class DirectMessageDto(
     val body: String,
     val sentAt: LocalDateTime,
     val readAt: LocalDateTime?,
+    /** V1.9.233 -- files attached to this message, upload order; empty for every message sent without. Always the LAST parameter, with a default. */
+    val attachments: List<DirectMessageAttachmentDto> = emptyList(),
+)
+
+/** V1.9.233 -- one file attached to a direct message. Download via `GET /api/direct-messages/attachments/{id}/download` (only the id travels). */
+@Serializable
+data class DirectMessageAttachmentDto(
+    val id: String,
+    val fileName: String,
+    val mimeType: String,
+    val sizeBytes: Long,
 )
 
 /** V1.9.36 -- one conversation partner of the caller: name, last activity and unread count; never any message text. */

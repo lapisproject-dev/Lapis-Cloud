@@ -680,6 +680,7 @@ private fun Route.registerDeniedMailingTestRoutes() {
             deliveryWorker = noOpMailingDeliveryWorker(),
             deliveryMode = MailingDeliveryMode.LOG,
             branding = MailBranding.notConfigured(),
+            attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
         )
     get("/test/list-mailing-lists") {
         service(call).listMailingLists()

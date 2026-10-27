@@ -186,6 +186,14 @@ the row is skipped. A message stays `QUEUED` while it runs -- `mailing_message.s
 * ADMIN only: the card "E-Mail-Versand" (`IMailDeliveryStatusService`) shows budget use, queue depth, the oldest waiting age and failures/expiries of the last
   7 days per purpose -- counts and the closed purpose vocabulary only.
 
+=== Attachments (V1.9.232)
+
+The outbox stays unchanged: attachments exist only on the bulk path of mailing lists. `MailingDeliveryWorker` calls `MailTransport.sendWithAttachments` directly (never
+through the outbox or `MailDispatcher`); its default implementation fails closed. Because a mail with attachments takes longer to hand over, the per-send timeout of 60
+seconds is extended by the transfer time of the Base64-encoded bytes at an assumed 256 KiB/s, capped at 10 minutes -- otherwise the timeout would count as a delivery of
+unknown outcome (`deliveryUncertain`, never retried). The relay must accept about 1.37 times the attachment size:
+`message_size_limit` of at least 30,000,000 bytes. See link:mailing-newsletter.adoc#attachments[Mailing newsletter, Attachments].
+
 == Failure classification
 
 `JakartaMailTransport.classify` walks the cause chain and `MessagingException.nextException`. Angus is a `runtimeOnly` dependency (licence decision of 2026-08-21), so the

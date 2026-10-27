@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventDto
 import network.lapis.cloud.shared.domain.EventInput
+import network.lapis.cloud.shared.domain.EventManageScope
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
@@ -62,6 +63,7 @@ class EventPublicFieldsFormDomTest {
         feeEditable = true,
         ownRegistrationStatus = null,
         publicUrl = null,
+        manageScope = EventManageScope.FULL,
         coverImageUrl = coverImageUrl,
         coverImageAlt = coverImageAlt,
         imported = imported,

@@ -1615,6 +1615,8 @@ security model this short summary points at.
   server-generated, `mime_type` always derived from magic bytes rather than the client's declared
   `Content-Type`.
 * **`travel_expense_attachment`** (V113) -- one report-level file per row (FK to the report, not to a line); same file metadata as the receipt, at most 10 per report.
+* **`mailing_message_attachment`** (V124, V1.9.232) -- one attachment of a mailing message (FK to `mailing_message`); the file lives on disk under a server-generated `storage_key`, the row keeps the display name, a case-insensitive `name_key` (unique per message), the server-chosen MIME type (CHECK-listed), `text_charset` for txt/csv, size (at most 10 MiB), SHA-256, uploader and `uploaded_at`; `file_deleted_at` is set when the retention job removed the file 180 days after sending. See link:mailing-newsletter.adoc#attachments[Mailing newsletter, Attachments].
+* **`direct_message_attachment`** (V125, V1.9.233) -- one file attached to a direct message. `message_id` (FK to `direct_message`) is NULL while the upload is *pending* (owned by `uploader_id`, addressed to `recipient_id`, both FKs to `member`); it is assigned when the uploader sends. The file lives on disk under a server-generated `storage_key` (`dm/{uploaderId}/{attachmentId}.bin`); the row keeps the display name, a case-insensitive `name_key`, the server-chosen MIME type (CHECK-listed, identical to `mailing_message_attachment`), `text_charset` for txt/csv, size (at most 10 MiB), SHA-256 and `created_at`. No `ON DELETE CASCADE`: rows and files are deleted in code. See `direct-messages.adoc`.
 * **`travel_expense_document`** (V114) -- one organisation-wide file per row (title, sniffed MIME type PDF/XLSX/XLS, storage key on disk, nullable uploader FK with `ON DELETE SET NULL`); at most 10 rows, enforced under a lock on the settings row, not by a constraint. V114 also adds `organization_settings.travel_contact_hint_format`.
 
 `organization_settings` gains three columns: `travel_expense_account_id` (a sixth ledger-account
@@ -1747,3 +1749,21 @@ See link:../features/rule-based-committees.adoc[Rule-based committees] for the b
 key because one table serves several owner tables. `position` is gap-free per owner and position 0 is the cover picture; `storage_key` (a server UUID, distinct from the id) names the file;
 `mime_type` is the OUTPUT type (JPEG or PNG; a WebP upload is stored as JPEG, or PNG with transparency). `CrowdfundingProjectDto.coverImageUrl` and `AuctionDto.coverImageUrl` are filled by ONE query
 per list. The auction duration bounds moved to `AuctionDurationRules` in lapis-shared (value unchanged: 1 to 2160 hours). See link:../features/image-gallery.adoc[image-gallery.adoc].
+
+`76-partg-report.kuml.kts` models the party accountability report (migration V121, V1.9.225): `partg_report_position` (the 42 statutory positions, seeded, fixed ids), `partg_report_sheet`
+(one header per fiscal year and reporting unit, with the revision; `regional_chapter_id` refers to `regional_chapter`, `unit_key` is `FEDERAL`, `STATE:<id>` or `SUB:<id>`) and
+`partg_report_value` (cents per sheet and typed-in position). The report is only offered when `organization_settings.is_political_party` is set. The two foreign keys onto the natural
+key `code` and the CHECKs exist only in SQL (see the model's header). See link:partg-report.adoc[partg-report.adoc].
+
+`77-lupabb-sync.kuml.kts` models the LupaBB member master-data sync (migration V122, V1.9.226): `member_lupabb_profile` (the LupaBB-only person data, primary key `member_id`), `lupabb_sync_config`
+(one row: the sealed credentials and the run guard), `lupabb_sync_run` (the log of applied runs, counters only) and `lupabb_sync_suppression` (the HMAC of the person number of every erased person). The two
+new columns of `member` (`lupabb_person_number`, unique, and `lupabb_missing_since`) are modelled in `00-foundation.kuml.kts`. The CHECKs and the widened audit/status-history constraints exist only in SQL
+(see the model's header). See link:lupabb-sync.adoc[lupabb-sync.adoc].
+
+== `event.meeting_id` (V1.9.227)
+
+`event` gains the nullable column `meeting_id` (FK `meeting(id)` `ON DELETE SET NULL`, unique index `ux_event_meeting_id`): the optional 1:1 link between
+a governance Sitzung and the Veranstaltung announcing it. Modelled in `39-events.kuml.kts` (the column) and `14-audit-log.kuml.kts` (the audit entity
+type `MEETING_EVENT_LINK`); the FK and `ON DELETE SET NULL` are SQL-only. See link:governance-committees.adoc[governance-committees.adoc], section
+"Meeting <-> event link".
+

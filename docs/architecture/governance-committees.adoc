@@ -244,6 +244,75 @@ committee, so the two cannot form a cycle. `openVote` locks the motion first and
 locks the target committee after the motion. `CommitteeSeatLifecycle.endSeatsForRuleMode` is the second (and last) writer of a non-null `auto_end_reason`
 (reason `RULE_MODE`); the notice band of V1.9.102 deliberately does not list these ends -- they are a board decision, not a surprise.
 
+== Meeting <-> event link (V1.9.227, "Sitzung in der Videokonferenz", wave A)
+
+A Sitzung ("meeting") may be announced by exactly one Veranstaltung ("event"), and an event may announce exactly one Sitzung (1:1, both optional).
+The link is the nullable column `event.meeting_id` (`V123`, unique index `ux_event_meeting_id`, FK `ON DELETE SET NULL`). It has **one writer**: the
+package `network.lapis.cloud.server.governance.meetingevent` (`MeetingEventLinkStore`; `MeetingEventLinkWriterTripwireTest` pins that).
+Since V1.9.229 an officer also manages that event (see below).
+
+[kuml, meeting-event-link, svg]
+----
+sequenceDiagram(name = "Announce a Sitzung as an event (V1.9.227)") {
+    val officer = participant(name = "Chair / secretary (no board role)")
+    val service = participant(name = "IGovernanceService.announceMeetingAsEvent")
+    val meeting = participant(name = "meeting row (FOR UPDATE)")
+    val event = participant(name = "event row")
+    val audit = participant(name = "Audit log (last)")
+
+    message(from = officer, to = service, text = "meetingId only -- no field of the event can be chosen")
+    message(from = service, to = meeting, text = "lock, then canRecordForMeeting(committee of the LOCKED row)")
+    message(from = service, to = service, text = "PLANNED and not in the past; no event linked yet; place present for in-person")
+    message(from = service, to = event, text = "INSERT: DRAFT, MEMBERS_ONLY, fixed description, start + 2 h; meeting_id = meeting")
+    message(from = service, to = audit, text = "MEETING_EVENT_LINK / ANNOUNCED (ids and enums only)")
+}
+----
+
+.Who may do what (V1.9.229)
+[cols="2,3", options="header"]
+|===
+| Action | Right
+| Announce, unlink, align (`IGovernanceService`) | `canRecordForMeeting(committee)`: BOARD/ADMIN, or chair, deputy chair, general secretary, secretary, managing director **of that committee**. Align by an officer: not for a PUBLIC event
+| Link an existing event, list the linkable Sitzungen | **BOARD/ADMIN only** (a link would otherwise be a rights key: link a foreign public event, then edit it)
+| Read the link on the Sitzung page | every member; an unpublished event shows only the neutral title "Veranstaltung (Entwurf)", no data, no link
+| Read the link on the event page | BOARD/ADMIN and the officers of that Sitzung's committee; the member view of events shows nothing of it
+| Open, edit, publish, cancel THE event of the officer's own Sitzung (`EventService.getEvent/updateEvent/publishEvent/cancelEvent`) | BOARD/ADMIN, or an officer holding a recording office (seat based, as of today) in the committee of the Sitzung the event is linked to -- within the limits below
+| Every other event method (registrations, check-in, refunds, series, rooms, capture, create, delete, ...) | BOARD/ADMIN only, unchanged
+|===
+
+*The officer rule (V1.9.229).* `CurrentMember.meetingEventGrant(eventMeetingId, meetingCommitteeId)` is the one decision: BOARD/ADMIN -> `Full`; otherwise an
+active recording seat (`activeRecordingRole`, lowest `CommitteeRole` ordinal wins, seat based -- no BOARD/ADMIN branch) in the committee of the Sitzung the event is
+linked to -> `Officer`; otherwise `None`. On a write path the ids come from the **locked** rows (`MeetingEventOfficerAccess.lockForOfficer`: unlocked read of
+`event.meeting_id`, Sitzung `FOR UPDATE`, event `FOR UPDATE`, `meeting_id` unchanged?, then the seat check), never from the client. Every refusal of that lookup
+(unknown id, no link, link changed meanwhile, foreign committee, office ended) is the same `NotFoundException` an unknown id gets.
+
+*What an officer may change* (`MeetingEventOfficerAccess.checkOfficerUpdate`): title, description, start, end, place, the online kind (not `LAPIS_ENCOUNTER`
+unless already set) and the external link (unless the board made it public). Visibility must stay `MEMBERS_ONLY`; capacity, fee (compared with `compareTo`,
+scale-insensitive), currency, registration deadline, room, summary, cover alt text, the public-link flag and the encounter space are compared with the stored
+values and refused with `MeetingEventFieldReservedException`. `publishEvent` needs a DRAFT with `MEMBERS_ONLY`; `cancelEvent` needs a free (`fee == 0`)
+`MEMBERS_ONLY` event that is not an instance of a running series (`MeetingEventCancelReservedException` for a paid one). An event that is already `PUBLIC`
+(linked by the board) is read-only for an officer: edit, publish, cancel and align end with `MeetingEventVisibilityReservedException`. `getEvent` returns
+`EventDto.manageScope` (`FULL` / `MEETING_OFFICER` / `NONE`, default `NONE`); the officer path never loads registrations, guests or the room list.
+
+*Audit.* `MEETING_EVENT_LINK` / `UPDATE` with kind `OFFICER_UPDATED` (with the changed field names -- never a text), `OFFICER_PUBLISHED` or `OFFICER_CANCELLED` (followed
+by `UNLINKED`), plus the `officerRole` seat; `ALIGNED` by a non-board officer carries `officerRole` too. BOARD/ADMIN edits of an event write no entry (as before).
+
+*Lock order* (every operation, officer path included): the Sitzung row `FOR UPDATE`, then the event row `FOR UPDATE` (then room / conference, registrations), the audit entry
+last. The BOARD/ADMIN path of `cancelEvent` locks the event row only (its link update touches the event only), so the two cannot deadlock. Cancelling a Sitzung (`updateMeetingStatus` -> `CANCELLED`) or an event (`cancelEvent`, `cancelSeriesEvent`) dissolves
+the link in the same transaction (`UNLINKED`, reason `MEETING_CANCELLED` / `EVENT_CANCELLED`); `HELD` keeps it. Nothing else is deleted.
+
+*Rooms.* The link does not touch any conference room. An online event gets its own room on the first join (`EventConferenceProvisioner`), and an event
+room is never bound to a Sitzung (`EventConferenceGuard`, V1.9.113). Which room is "the" room of a Sitzung is decided by the next wave.
+
+*Difference.* `MeetingEventDifferenceCalc` compares start (to the minute), place (trimmed, case-insensitive) and online/offline. "Align" copies the
+Sitzung's start (the event keeps its own duration) and place to the event; it is refused for a Sitzung in the past because the event rules reject a start
+in the past. The online setting is never aligned. A Sitzung has no end of its own: an announced event is 2 hours long. The description is a fixed sentence
+and never contains the agenda, a title or a note of the Sitzung.
+
+*Not covered.* There is no "committee" audience: the announcement is `MEMBERS_ONLY`, visible to every member once published. Aligning does not notify
+registered people (neither does `updateEvent`). Events of a running series cannot be linked. Hard-deleting a series occurrence leaves no audit entry
+(the row is gone; the FK sets nothing anywhere else).
+
 == Known limitations
 
 * *Inclusive end date.* `until` is inclusive everywhere in the eligibility code (`CommitteeEligibility`). A person whose seat ended automatically on

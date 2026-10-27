@@ -3,9 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.form.check.CheckBox
 import io.kvision.form.select.select
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -13,10 +11,7 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.table.row
-import kotlinx.browser.window
 import kotlinx.coroutines.launch
-import network.lapis.cloud.shared.domain.AccountRole
-import network.lapis.cloud.shared.domain.DirectMessageDto
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MailingHtmlPolicy
 import network.lapis.cloud.shared.domain.MailingListDto
@@ -24,120 +19,12 @@ import network.lapis.cloud.shared.domain.MailingListKind
 import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageStatsDto
 import network.lapis.cloud.shared.domain.MailingMessageStatus
-import network.lapis.cloud.shared.rpc.IDirectMessageService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMemberService
 
-/**
- * Carries forward the Mailinglisten/Postfach functionality the pre-V0.7.3 demo already exercised
- * (`listMailingLists`/`subscribe`/`unsubscribe`; the unread pill has lived in the navbar since V1.9.36, see [UnreadMessages]) -- exactly the same calls, just
- * re-hosted under real session auth instead of the removed "acting as" switcher. See V0.7.3 plan
- * "Open Question 3" for why this self-service tier was carried forward as-is rather than either
- * expanded or removed at the time.
- *
- * Mail-merge/Postal-Dispatch UI wave, design decision D1: appends an ADMIN/BOARD-only mailing-list
- * *admin-authoring* section below these self-service sections -- `createMailingList`/
- * `adminSubscribeMember`/`listSubscribers`/`createDraftMessage`/`listMailingMessages`/
- * `sendMailingMessage`, all verified `BOARD_ROLES`-gated server-side (`MailingService.kt`). Exact
- * `DsgvoRightsScreen.kt` D10 idiom -- additive, never a second tab, never exclusive: self-service
- * always renders first and unconditionally, the admin block is appended only when
- * [AppState.hasRole] BOARD/ADMIN. `Routes.COMMUNICATION` stays `requireAuth` at the route level
- * (every member still needs this screen for their own self-service); the narrower BOARD/ADMIN tier
- * is gated inside the screen, same posture as `DSGVO_RIGHTS`.
- */
-fun renderCommunicationScreen(container: SimplePanel) {
-    val root =
-        container.pageShell(PageWidth.WIDE, spacing = 14)
-    root.pageHeader(tr("Kommunikation"), intro = PageIntros.forRoute(Routes.COMMUNICATION))
-
-    val refreshMailingLists = renderMailingLists(root)
-    // V1.9.36: the conversation partners load FIRST; the inbox is built only after that (it marks everything read on load).
-    val inboxHost = SimplePanel()
-    renderDirectMessagePartnerList(
-        root,
-        onFirstLoadSettled = { renderInbox(inboxHost) },
-        focusHeading = parseHashQueryParam(window.location.hash, "section") == MESSAGES_SECTION,
-    )
-    root.add(inboxHost)
-
-    if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-        renderMailingListAdminSection(root, refreshMailingLists)
-    }
-}
-
-// ================================================================================================
-// Self-service tier -- any authenticated member: list/subscribe/unsubscribe, own inbox unread count
-// ================================================================================================
-
-/**
- * Returns the section's own refresh closure so the D1 admin-authoring block below can trigger a
- * re-render of this self-service list after `createMailingList` -- same "two panels, one refresh
- * trigger" wiring `LedgerScreen.kt`'s `refreshJournalFn` establishes for the equivalent dependency.
- */
-private fun renderMailingLists(root: SimplePanel): () -> Unit {
-    root.h2(tr("Mailinglisten")) { addCssClass("h5") }
-    val panel = root.vPanel(spacing = 4)
-
-    fun refresh() {
-        panel.removeAll()
-        AppScope.launch {
-            val lists = guarded { rpcService<IMailingService>().listMailingLists() } ?: return@launch
-            if (lists.isEmpty()) {
-                panel.p(tr("Noch keine Mailinglisten."))
-                return@launch
-            }
-            lists.forEach { list ->
-                // V1.9.111: an automatic list has no subscriber count and no tracking switches -- its own row.
-                if (list.kind == MailingListKind.DYNAMIC) {
-                    renderDynamicSelfServiceRow(panel, list, ::refresh)
-                    return@forEach
-                }
-                val row = panel.hPanel(spacing = 8) { addCssClass("align-items-center") }
-                // Security audit follow-up (untrusted-text sanitization gaps): list.name is member-/admin-editable
-                // free text composed into a gettext(...) string before it reaches widget content -- sanitize the
-                // whole composed result before KVision can resolve a forged marker on render.
-                row.div(sanitizeUntrustedI18nText(gettext("%1 (%2 Abonnenten)", list.name, list.subscriberCount))) {
-                    addCssClass("flex-grow-1")
-                }
-                val toggleButton = row.button(if (list.isSubscribedByCurrentMember) tr("Abbestellen") else tr("Abonnieren"))
-                toggleButton.onClick {
-                    AppScope.launch {
-                        val result =
-                            guarded {
-                                if (list.isSubscribedByCurrentMember) {
-                                    rpcService<IMailingService>().unsubscribe(list.id)
-                                } else {
-                                    rpcService<IMailingService>().subscribe(list.id)
-                                }
-                            }
-                        if (result != null) refresh()
-                    }
-                }
-                if (list.isSubscribedByCurrentMember) {
-                    lateinit var switches: TrackingConsentSwitches
-                    switches =
-                        renderTrackingConsentSwitches(panel, list) { open, click ->
-                            switches.setBusy(true)
-                            val gaveConsent =
-                                (open && list.currentMemberOpenTrackingConsentedAt == null) ||
-                                    (click && list.currentMemberClickTrackingConsentedAt == null)
-                            runGuardedAction(null) {
-                                val saved = guarded { rpcService<IMailingService>().setTrackingConsent(list.id, open, click) }
-                                if (saved != null) {
-                                    notifySuccess(if (gaveConsent) tr("Einwilligung gespeichert.") else tr("Einwilligung widerrufen."))
-                                }
-                                // Re-render from the server state either way: on success it carries the new timestamps,
-                                // on failure it puts the switches back to what is actually stored.
-                                refresh()
-                            }
-                        }
-                }
-            }
-        }
-    }
-    refresh()
-    return ::refresh
-}
+// V1.9.231 -- the former single "Kommunikation" screen is split: the member's conversations live in `MessagesScreen.kt`, the mailing-list
+// subscriptions and the board's authoring tier in `MailingListsScreen.kt`. This file keeps the building blocks of the mailing-list tier
+// (tracking switches, the authoring section, the detail panel, the statistics panel) and the pure helpers (`CommunicationScreenTest`).
 
 /** The two opt-in switches under one subscribed list -- see [renderTrackingConsentSwitches]. */
 internal class TrackingConsentSwitches(
@@ -207,59 +94,13 @@ internal fun renderTrackingConsentSwitches(
     return TrackingConsentSwitches(form, openField, clickField)
 }
 
-/**
- * Welle V1.9.12 "Mitfahrzentrale", Design-Team-Pflichtteil: aus dem reinen Unread-Zähler wird
- * eine echte Liste, weil die Mitfahrzentrale-Kontaktnachrichten hier eintreffen (Postfach-
- * Erweiterung statt neuem Bereich). `message.body`/`senderDisplayName` sind Freitext eines anderen
- * Mitglieds -- IMMER über [untrustedDiv]/[sanitizeUntrustedI18nText] gerendert, nie roh (gleiche
- * Pflicht wie `list.name`/`message.subject` weiter unten in dieser Datei).
- */
-private fun renderInbox(root: SimplePanel) {
-    root.h2(tr("Postfach")) { addCssClass("h5") }
-    val panel = root.vPanel(spacing = 8)
-
-    fun refresh() {
-        panel.removeAll()
-        AppScope.launch {
-            val messages = guarded { rpcService<IDirectMessageService>().listInbox() } ?: return@launch
-            if (messages.isEmpty()) {
-                panel.p(tr("Noch keine Nachrichten."))
-                markReadThenRefreshCounter(emptyList())
-                return@launch
-            }
-            messages.forEach { message -> renderInboxMessageRow(panel, message, ::refresh) }
-            markReadThenRefreshCounter(messages.filter { it.readAt == null }.map { it.id })
-        }
-    }
-    refresh()
-}
-
-private fun renderInboxMessageRow(
-    panel: SimplePanel,
-    message: DirectMessageDto,
-    onChanged: () -> Unit,
-) {
-    val unread = message.readAt == null
-    val row = panel.vPanel(spacing = 4) { addCssClasses(if (unread) "border border-primary rounded p-2" else "border rounded p-2") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClass("align-items-center") }
-    headerRow.untrustedDiv(message.senderDisplayName, className = "flex-grow-1 fw-bold")
-    if (unread) headerRow.statusBadge(tr("Ungelesen"), "primary")
-    headerRow.div(formatSystemDateTime(message.sentAt)) { addCssClasses("text-muted small") }
-    row.untrustedDiv(message.body)
-    row.conversationDisclosure(message.senderId, message.senderDisplayName)
-    // Als gelesen markieren geschieht gebündelt in `renderInbox.refresh()` (markReadThenRefreshCounter), damit der
-    // Ungelesen-Zähler erst NACH den Markierungen und nur einmal neu geladen wird.
-
-    row.directMessageReplyForm(message.senderId, onChanged)
-}
-
 // ================================================================================================
 // D1: admin-authoring tier -- BOARD/ADMIN only: create lists, force-subscribe members, compose and
-// send messages. Never touched by a plain MEMBER -- the whole section is gated at the call site in
-// [renderCommunicationScreen], not per-widget here.
+// send messages. Never touched by a plain MEMBER -- the whole section is gated at the call site (the "Verwalten" tab of
+// `renderMailingListsScreen`, which is not even built for a plain member), not per-widget here. The server stays the authority.
 // ================================================================================================
 
-private fun renderMailingListAdminSection(
+internal fun renderMailingListAdminSection(
     root: SimplePanel,
     refreshSelfService: () -> Unit,
 ) {
@@ -301,7 +142,7 @@ private fun renderManageListSelector(
     root.div(tr("Liste verwalten")) { addCssClasses("fw-bold mt-2") }
     val row = root.lapisToolbar()
     val listSelect = row.select(options = emptyList(), label = tr("Mailingliste"))
-    val manageButton = row.button(tr("Verwalten"), style = ButtonStyle.OUTLINESECONDARY)
+    val manageButton = row.actionButton(ActionIcon.VIEW, tr("Öffnen"), ButtonStyle.OUTLINESECONDARY)
     val detailPanel = root.vPanel(spacing = 10)
 
     var lists: List<MailingListDto> = emptyList()
@@ -330,7 +171,11 @@ private fun renderManageListSelector(
 
     manageButton.onClick {
         val selected = lists.find { it.id == listSelect.value } ?: return@onClick
-        renderMailingListDetail(detailPanel, selected, refreshSelfService)
+        // V1.9.234: after a deletion the detail is emptied and the selector reloaded (the deleted list is gone from the server's answer).
+        renderMailingListDetail(detailPanel, selected, refreshSelfService, onDeleted = {
+            detailPanel.removeAll()
+            refresh(null)
+        })
     }
 
     return ::refresh
@@ -345,25 +190,34 @@ internal fun renderMailingListDetail(
     panel: SimplePanel,
     list: MailingListDto,
     refreshSelfService: () -> Unit,
+    onDeleted: () -> Unit = {},
 ) {
     panel.removeAll()
     val detail = panel.vPanel(spacing = 10) { addCssClasses("border rounded p-3") }
     // Security audit W6b follow-up round 3 (major finding A): mailing list name/description are admin-editable
     // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
-    detail.div(sanitizeUntrustedI18nText(list.name)) { addCssClass("fw-bold") }
+    val header = detail.hPanel(spacing = 8) { addCssClasses("justify-content-between align-items-start") }
+    header.div(sanitizeUntrustedI18nText(list.name)) { addCssClass("fw-bold") }
+    // V1.9.234: only a MANUAL list can be deleted; an automatic one gets the reason instead of the button.
+    if (list.kind == MailingListKind.MANUAL) {
+        header.tableActionButton(ActionIcon.DELETE, tr("Mailingliste löschen"), ButtonStyle.OUTLINEDANGER).onClick {
+            confirmDeleteMailingList(list, refreshSelfService, onDeleted)
+        }
+    }
     list.description?.takeIf { it.isNotBlank() }?.let { description ->
         detail.div(sanitizeUntrustedI18nText(description)) { addCssClasses("text-muted small") }
     }
 
     val dynamic = list.kind == MailingListKind.DYNAMIC
     if (dynamic) {
+        detail.div(tr("Automatische Mailinglisten können nicht gelöscht werden.")) { addCssClasses("text-muted small") }
         // V1.9.111: nobody is subscribed by hand -- the rule decides at send time. After a saved rule both list panels are refreshed
         // and this detail is built again from the server's current state.
         renderDynamicListAdminBlock(detail, list) {
             refreshSelfService()
             AppScope.launch {
                 val updated = guarded { rpcService<IMailingService>().listMailingLists() }?.firstOrNull { it.id == list.id }
-                if (updated != null) renderMailingListDetail(panel, updated, refreshSelfService)
+                if (updated != null) renderMailingListDetail(panel, updated, refreshSelfService, onDeleted)
             }
         }
     }
@@ -371,6 +225,39 @@ internal fun renderMailingListDetail(
     // ---- Abonnenten
     if (!dynamic) renderManualSubscriberSection(detail, list, refreshSelfService)
     renderMailingMessagesSection(detail, list)
+}
+
+/**
+ * V1.9.234 -- the confirmation before a MANUAL list is deleted, then the RPC. The server decides everything (an automatic list, a send in
+ * progress, a missing right): the client checks nothing beforehand and shows the typed refusal text of [guarded].
+ */
+internal fun confirmDeleteMailingList(
+    list: MailingListDto,
+    refreshSelfService: () -> Unit,
+    onDeleted: () -> Unit,
+) {
+    confirmDialog(
+        title = tr("Mailingliste löschen?"),
+        message = gettext("Die Mailingliste „%1“ wird gelöscht.", sanitizeUntrustedI18nText(list.name)),
+        extraLines =
+            listOf(
+                ngettext("%1 Abonnent wird ausgetragen.", "%1 Abonnenten werden ausgetragen.", list.subscriberCount, list.subscriberCount),
+                tr("Entwürfe dieser Liste werden mit ihren Anhängen gelöscht."),
+                tr("Bereits versendete Nachrichten bleiben als Nachweis erhalten."),
+            ),
+        dangerNote = tr("Das kann nicht rückgängig gemacht werden."),
+        confirmLabel = tr("Löschen"),
+        confirmIcon = ActionIcon.DELETE,
+        confirmStyle = ButtonStyle.DANGER,
+        focusCancel = true,
+    ) {
+        AppScope.launch {
+            guarded { rpcService<IMailingService>().deleteMailingList(list.id) } ?: return@launch
+            notifySuccess(tr("Mailingliste gelöscht."))
+            onDeleted()
+            refreshSelfService()
+        }
+    }
 }
 
 /** The manual part of the detail (V1.9.111: split out of [renderMailingListDetail]): subscribers and "Mitglied hinzufügen". */
@@ -474,6 +361,8 @@ private fun renderMailingMessagesSection(
     }
     val draftButton = newActionButton(ActionIcon.SAVE, tr("Als Entwurf speichern"), ButtonStyle.OUTLINEPRIMARY)
     composeForm.buttons(primary = draftButton)
+    // V1.9.232: attachments belong to the saved draft (the message needs an id first).
+    composePanel.div(tr("Anhänge fügen Sie nach dem Speichern beim Entwurf hinzu.")) { addCssClasses("text-muted small") }
     // Welle V1.9.7 "SuperMailer" D4: the honesty caption only makes sense in LOG delivery mode --
     // in SMTP mode, sendMailingMessage now genuinely calls a real transport (MailingDeliveryWorker),
     // so showing the old "this is only a log entry" text would be actively misleading. Fetched

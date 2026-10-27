@@ -21,7 +21,9 @@ object MenuSearchKeywords {
             Routes.CONTRIBUTIONS to listOf("mitgliedsbeitrag", "beitrag", "zahlung", "rechnung", "gebühr", "zahlen"),
             Routes.DOCUMENTS to listOf("datei", "unterlagen", "satzung", "ablage", "pdf"),
             Routes.STATUTE_QA to listOf("satzung", "ki", "assistent", "frage", "regeln"),
-            Routes.COMMUNICATION to listOf("nachricht", "mail", "email", "rundschreiben", "brief", "postfach", "newsletter"),
+            Routes.MESSAGES to listOf("nachricht", "postfach", "gespräch", "direktnachricht", "antwort", "ungelesen"),
+            Routes.MAILING_LISTS to
+                listOf("mailingliste", "newsletter", "rundschreiben", "abonnement", "abo", "verteiler", "mail", "email", "brief"),
             Routes.ARTICLES to listOf("nachrichten", "news", "blog", "text", "veröffentlichung", "beitrag"),
             Routes.MY_CHAPTER to listOf("gliederung", "landesvorstand", "kreisverband", "region"),
             Routes.MEMBER_FINDER to listOf("mitglieder suchen", "kontakt", "verzeichnis", "finden", "adressbuch"),
@@ -60,6 +62,7 @@ object MenuSearchKeywords {
             Routes.OPEN_ITEMS to listOf("forderung", "verbindlichkeit", "verrechnung", "ausgleich", "zahlungsabgleich"),
             Routes.FINANCIAL_REPORTS to listOf("bilanz", "jahresabschluss", "auswertung", "bericht", "einnahmen", "ausgaben"),
             Routes.COMPLIANCE_REPORTS to listOf("gemeinnützig", "steuer", "spendenbescheinigung", "finanzamt"),
+            Routes.PARTY_REPORT to listOf("parteiengesetz", "rechenschaft", "partg", "bundestag", "partei"),
             Routes.COST_CENTERS to listOf("kostenträger", "budget", "projektkosten"),
             Routes.DONORS to listOf("spende", "zuwendungsbestätigung", "bescheinigung", "förderer"),
             Routes.AUDIT_LOG to listOf("audit", "protokoll", "änderungen", "historie", "gobd", "log", "nachvollziehen"),
@@ -75,7 +78,19 @@ object MenuSearchKeywords {
             Routes.CONTRIBUTION_RELIEF to listOf("ermäßigung", "befreiung", "härtefall", "antrag", "reduzierter beitrag"),
             Routes.TRAVEL_EXPENSE_APPROVALS to listOf("genehmigung", "freigabe", "spesen", "prüfen"),
             Routes.VOLUNTEER_ALLOWANCE_APPROVALS to listOf("genehmigung", "freigabe", "pauschale", "ehrenamt"),
-            Routes.MEMBERS to listOf("mitglied", "stammdaten", "adresse", "eintritt", "austritt", "aufnahme", "beitritt", "personen"),
+            Routes.MEMBERS to
+                listOf(
+                    "mitglied",
+                    "stammdaten",
+                    "adresse",
+                    "eintritt",
+                    "austritt",
+                    "aufnahme",
+                    "beitritt",
+                    "personen",
+                    "lupabb",
+                    "abgleich",
+                ),
             Routes.REGIONAL_CHAPTERS to listOf("landesverband", "kreisverband", "verband", "gliederung", "region", "bezirk"),
             Routes.DSGVO_COMPLIANCE to listOf("datenschutz", "auskunft", "löschung", "löschfristen", "verarbeitung", "dsgvo", "anfragen"),
             Routes.BOARD_MEMBERSHIP to listOf("vorstand", "transparenzregister", "amtszeit", "vertretung", "geschäftsführung"),
@@ -123,5 +138,6 @@ object MenuSearchKeywords {
         mapOf(
             Routes.EVENT_IMPORT to "no sidebar link: reachable only from the event management screen, so there is nothing to find",
             Routes.ARTICLE_IMPORT to "no sidebar link: reachable only from the articles screen, so there is nothing to find",
+            Routes.MEMBER_LUPABB_SYNC to "no sidebar link: reachable only from the member administration (its search words include lupabb)",
         )
 }

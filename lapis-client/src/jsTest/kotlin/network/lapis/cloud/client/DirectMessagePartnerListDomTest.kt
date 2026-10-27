@@ -109,7 +109,7 @@ class DirectMessagePartnerListDomTest {
         rpc: FakePartnerRpc,
         thread: DirectMessageConversationRpc = FakeThreadRpc(),
         crossinline onSettled: () -> Unit = {},
-        noinline replySend: suspend (String, String) -> DirectMessageDto = { _, _ -> error("no reply expected") },
+        noinline replySend: suspend (String, String, List<String>) -> DirectMessageDto = { _, _, _ -> error("no reply expected") },
         crossinline block: suspend (() -> HTMLElement) -> Unit,
     ): Promise<Unit> =
         formTest {
@@ -132,8 +132,8 @@ class DirectMessagePartnerListDomTest {
     @Test
     fun noPartners_showsTheEmptyText(): Promise<Unit> =
         withList("pl-empty", FakePartnerRpc()) { el ->
-            awaitUntil("empty") { el().textContent.orEmpty().contains("Noch keine Gespräche.") }
-            assertEquals("Gespräche", el().allOf("h2").first().textContent)
+            awaitUntil("empty") { el().textContent.orEmpty().contains("Noch keine Nachrichten.") }
+            assertEquals("Nachrichten", el().allOf("h2").first().textContent)
         }
 
     @Test
@@ -150,6 +150,10 @@ class DirectMessagePartnerListDomTest {
             assertTrue(el().buttonNamed("Ole Voss").className.contains("fw-bold"))
             assertFalse(el().buttonNamed("Zoe").className.contains("fw-bold"))
             assertTrue(text.contains("09:05") || text.contains("9:05"), "last activity time is shown")
+            // V1.9.231: every row carries its type as icon AND word
+            assertEquals(3, el().allOf("i.fa-comments").size, "one type icon per row")
+            assertTrue(el().allOf("i.fa-comments").all { it.getAttribute("aria-hidden") == "true" }, "the icon is decoration")
+            assertEquals(3, el().allOf("span").count { it.textContent?.trim() == "Gespräch" }, "the word is visible")
         }
     }
 
@@ -278,7 +282,7 @@ class DirectMessagePartnerListDomTest {
             "pl-reply-ok",
             rpc,
             thread,
-            replySend = { to, body ->
+            replySend = { to, body, _ ->
                 sent += to to body
                 sentMessage(body)
             },
@@ -306,7 +310,7 @@ class DirectMessagePartnerListDomTest {
             "pl-reply-fail",
             rpc,
             thread,
-            replySend = { _, _ ->
+            replySend = { _, _, _ ->
                 attempts++
                 throw ForbiddenException("secret-server-text")
             },

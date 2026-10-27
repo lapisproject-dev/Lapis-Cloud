@@ -88,6 +88,9 @@ internal fun renderMailingMessageRow(
         row.mailingSendProgress(message.id, onFinished = onChanged)
     }
 
+    // V1.9.232: attachments of the message (editable in a draft, read-only with download afterwards).
+    renderMailingAttachments(row, message, onChanged)
+
     if (message.status == MailingMessageStatus.DRAFT) {
         val sendButton = row.actionButton(ActionIcon.SEND, tr("Senden"), style = ButtonStyle.OUTLINEDANGER)
         sendButton.onClick {
@@ -138,6 +141,7 @@ private fun confirmMailingSend(
         confirmLabel = if (dynamic) gettext("An %1 Empfänger senden", estimate.recipientCount) else tr("Senden"),
         extraLines =
             mailingSendSummaryLines(estimate) +
+                listOfNotNull(mailingSendAttachmentsLine(message.attachments)) +
                 if (mandatory) {
                     listOf(sanitizeUntrustedI18nText(gettext("Pflichtmitteilung: Die Empfänger können diese Nachricht nicht abbestellen.")))
                 } else {

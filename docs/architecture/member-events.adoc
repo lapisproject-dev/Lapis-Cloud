@@ -8,6 +8,9 @@ lets a member register, register and pay, join the waitlist, withdraw and (V1.9.
 BOARD/ADMIN (`/event-management`, group "Administration") gained the section "Offene Erstattungen" (V1.9.35, see below). Registration and
 withdrawal (`IEventService.registerSelf`, `cancelOwnRegistration`) are unchanged.
 
+V1.9.229: `getEvent`, `updateEvent`, `publishEvent` and `cancelEvent` are also open to an officer of the committee whose Sitzung the event announces (`EventDto.manageScope =
+MEETING_OFFICER`, limited allow-list, audited); every other management method stays BOARD/ADMIN (`EVENT_MANAGE_ROLES`). See `governance-committees.adoc`, "Meeting <-> event link".
+
 == What is shown
 
 * `listEvents(status = PUBLISHED, includePast = false, limit = 50)`, filtered again in the client (`status == PUBLISHED` and

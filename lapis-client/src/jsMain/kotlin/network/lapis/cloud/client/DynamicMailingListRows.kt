@@ -8,6 +8,8 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.Row
+import io.kvision.table.cell
 import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.MailingListDto
 import network.lapis.cloud.shared.domain.MailingListKind
@@ -33,27 +35,32 @@ internal fun Container.mailingListBadges(list: MailingListDto) {
 }
 
 /**
- * The self-service row of an automatic list: name and badges, WHY the list reaches the caller, and the opt-out switch. No count and no
- * tracking switches (an automatic list is never tracked). A mandatory list only says that it cannot be left; a board member the rule does
- * not include sees the description of the whole rule and no switch.
+ * The cells of an automatic list in the subscription table (V1.9.231: a table row instead of a free-standing row): name, badges and WHY
+ * the list reaches the caller; the status; and the opt-out as an icon action. No count and no tracking switches (an automatic list is never
+ * tracked). A mandatory list only says that it cannot be left; a board member the rule does not include sees the description of the whole
+ * rule and no action.
  */
-internal fun renderDynamicSelfServiceRow(
-    panel: SimplePanel,
+internal fun renderDynamicSelfServiceCells(
+    row: Row,
     list: MailingListDto,
     refresh: () -> Unit,
 ) {
     val reachesCaller = list.isSubscribedByCurrentMember || list.currentMemberOptedOutAt != null
-    val box = panel.vPanel(spacing = 2)
-    val row = box.hPanel(spacing = 8) { addCssClass("align-items-center") }
-    row.div(sanitizeUntrustedI18nText(list.name)) { addCssClass("flex-grow-1") }
-    row.mailingListBadges(list)
+    val nameCell = row.cell()
+    val head = nameCell.hPanel(spacing = 8) { addCssClass("align-items-center") }
+    head.div(sanitizeUntrustedI18nText(list.name)) { addCssClass("fw-bold") }
+    head.mailingListBadges(list)
     list.ruleExplanation?.let { explanation ->
-        box.div(sanitizeUntrustedI18nText(explainRule(explanation, forMember = reachesCaller))) { addCssClasses("text-muted small") }
+        nameCell.div(sanitizeUntrustedI18nText(explainRule(explanation, forMember = reachesCaller))) { addCssClasses("text-muted small") }
     }
+    if (list.mandatory && reachesCaller) nameCell.div(tr("Pflichtliste: keine Abmeldung möglich")) { addCssClasses("text-muted small") }
+    row.cell { if (list.isSubscribedByCurrentMember) statusBadge(tr("Abonniert"), "success") }
+    val actionsCell = row.cell { addCssClasses("text-end text-nowrap") }
+    val actions = actionsCell.tableActionGroup().apply { addCssClass("justify-content-end") }
     when {
-        list.mandatory && reachesCaller -> box.div(tr("Pflichtliste: keine Abmeldung möglich")) { addCssClasses("text-muted small") }
+        list.mandatory && reachesCaller -> Unit
         list.isSubscribedByCurrentMember -> {
-            val optOut = box.actionButton(ActionIcon.REVOKE, tr("Von der Liste abmelden"), ButtonStyle.OUTLINESECONDARY)
+            val optOut = actions.tableActionButton(ActionIcon.REVOKE, tr("Von der Liste abmelden"))
             optOut.onClick {
                 runGuardedAction(optOut) {
                     val done = guarded { rpcService<IMailingService>().optOutOfDynamicList(list.id) }
@@ -62,7 +69,7 @@ internal fun renderDynamicSelfServiceRow(
             }
         }
         list.currentMemberOptedOutAt != null -> {
-            val back = box.actionButton(ActionIcon.UNDO, tr("Wieder anmelden"), ButtonStyle.OUTLINEPRIMARY)
+            val back = actions.tableActionButton(ActionIcon.UNDO, tr("Wieder anmelden"), ButtonStyle.OUTLINEPRIMARY)
             back.onClick {
                 runGuardedAction(back) {
                     val done = guarded { rpcService<IMailingService>().revokeOptOut(list.id) }

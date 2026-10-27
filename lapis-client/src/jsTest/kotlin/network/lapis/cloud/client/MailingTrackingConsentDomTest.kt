@@ -131,9 +131,12 @@ class MailingTrackingConsentDomTest {
                 },
             ) { calls ->
                 mountedForm("mtc-screen") { root, element ->
-                    renderCommunicationScreen(root)
+                    renderMailingListsScreen(root)
                     awaitUntil("lists rendered") { element().textContent.orEmpty().contains("Liste sub") }
-                    assertEquals(2, element().checkboxes().size, "switches only under the subscribed list (two switches, one list)")
+                    assertEquals(0, element().checkboxes().size, "the switches stay closed until the settings button is pressed")
+                    assertEquals(1, element().allOf("button[aria-label='Einstellungen']").size, "settings only for the subscribed list")
+                    element().iconButtonNamed("Einstellungen").click()
+                    awaitUntil("switches open") { element().checkboxes().size == 2 }
                     element().checkboxes()[0].click()
                     awaitUntil("the consent RPC was sent") { calls.count { it.isRpc && it.rpcRoute == consentRoute } == 1 }
                     val request = calls.single { it.isRpc && it.rpcRoute == consentRoute }

@@ -6,9 +6,251 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.42.0] — 2026-10-27
+
+Feature release on top of `[0.41.0]` (V1.9.225 to V1.9.235, eleven numbered waves; V1.9.228 and V1.9.230 are small fixes, plus one unnumbered fix, the event JSON-LD, and one build setting). Six additive migrations: **`V121`** (party accountability report: positions, sheets, values), **`V122`** (LupaBB sync tables), **`V123`** (link between a Sitzung and an event), **`V124`** (mailing message attachments), **`V125`** (direct message attachments) and **`V126`** (soft delete of mailing lists); the schema goes from `V120` to **`V126`**. **No new environment variable.** One new runtime dependency (`io.ktor:ktor-client-auth`, HTTP Digest for the LupaBB client; the test-only `ktor-server-auth` is not shipped). Two new RPC services (`IPartyReportService`, `ILupaBbSyncService`, now the last two `registerService` calls) and appended methods on `IGovernanceService`, `IMailingService` and `IDirectMessageService`. **Behaviour changes first:** (1) **the sidebar entry "Kommunikation" is gone**: it is replaced by "Nachrichten" (`/messages`, one list of conversations) and "Mailinglisten" (`/mailing-lists`, with a "Verwalten" tab for the board and administrators); the old address `/communication` redirects to `/messages`; (2) **loading the message page no longer marks every message as read**: a message stays unread, and counted, until its conversation is opened; (3) **a chair, deputy chair, general secretary, secretary or managing director of a committee can open, edit, publish and cancel the event that announces a Sitzung of that committee without a board role** (limited fields, audited); linking an existing event to a Sitzung and the list of linkable Sitzungen are BOARD/ADMIN only; the route `/events/:id` now only needs a sign-in and the server decides; cancelling a Sitzung or its event dissolves the link between them (V1.9.227; a held Sitzung keeps it); (4) **mailing lists created by hand can be deleted** by the board and administrators (a soft delete: subscriptions, opt-outs and drafts are removed, sent messages and their delivery log are kept, there is no restore; automatic and mandatory lists are protected); `subscribe`, `unsubscribe` and `setTrackingConsent` now answer `NotFoundException` for an unknown list id; (5) **attachments**: the mailing attachment download now also sends `Content-Security-Policy: default-src 'none'; sandbox`; mailing messages (drafts, board) and direct messages (replies, all members) can carry up to 5 files, 10 MiB each, 20 MiB in total; **there is no virus scanner**, mailing attachments are deleted 180 days after sending, sent direct message attachments have no retention period; a relay that is to carry them needs `message_size_limit >= 30000000` (Postfix default 10,240,000); (6) the member administration shows the country as flag plus code and the last sign-in method as a symbol (export unchanged); (7) the language switch on a desktop width no longer leaves a dark backdrop over the page, and "Staatsangehörigkeit" is aligned with "Land des Wohnsitzes" in forms. New: the **party accountability report, wave R1** (the 42 statutory positions, entry per unit and year, Excel template and import; **no report and no PDF yet**; only for an organisation with the setting political party, BOARD and ADMIN), a **manual LupaBB member master-data sync** (ADMIN; credentials sealed with `LAPIS_SECRET_ENCRYPTION_KEY`, which must already be set), and **Sitzung to event** linking. No operator action beyond the usual backup and the image tag, except the mail relay limit above if you want attachments to go through and `LAPIS_SECRET_ENCRYPTION_KEY` if you want to use the LupaBB sync. The Kotlin daemon heap was raised from 5g to 7g (`gradle.properties`, build machines only, `compileTestKotlinJs` ran out of heap). Everything was checked with unit tests, DOM tests in headless Chrome and the H2 scenarios; PostgreSQL-lane tests exist for V1.9.225, V1.9.226, V1.9.227, V1.9.232, V1.9.233 and V1.9.234 and run only with `LAPIS_TEST_POSTGRES_URL`; a few layout points were measured once in a local browser (language switch, nationality alignment). **Not verified:** real phones and devices, Safari, a screen reader; the LupaBB sync against the real LupaBB (no account, the API key transport and two status mappings are unconfirmed); the PartG positions, labels and unit levels against the official Bundestag sample, and the Excel template in real Excel and LibreOffice; mailing attachments against a real SMTP relay and real mailboxes (Outlook, Gmail, Thunderbird); direct message attachments in a real browser or in the Lapis-Cloud-Mobile WebView; the Sitzung-event link and the officer rights in a click-through on a real instance; the event JSON-LD against the real Google Search Console.
+
+### V1.9.235 -- Mitgliederverwaltung: Land und letzte Anmeldung als Symbole
+
+Client-only. No migration, no RPC change, no new i18n strings.
+
+#### Changed
+
+- Spalte "Land": Flagge und Ländercode (z. B. `DE`); der volle Name steht im Tooltip und als Name für Screenreader. Länder ohne Flagge (z. B. `XS`) zeigen weiter den Namen, ein fehlendes Land weiter den Strich "—".
+- Spalte "Letzte Anmeldung": nach dem Datum folgt die Anmeldemethode als Symbol (Schlüssel, Gebäude mit Schloss, Knotennetz) mit Tooltip und Screenreader-Name statt als Text. Der Export bleibt Text.
+- `ActionIcon`: `SIGN_IN_CENTRAL` und `SIGN_IN_PARTNER` als Statusmarker; `PASSWORD` dient hier zugleich als Marker "mit Passwort angemeldet".
+
+### V1.9.234 -- Mailinglisten löschen
+
+Additive. **One migration** (`V126__mailing_list_soft_delete.sql`; V125 and earlier are untouched), **one new RPC method** appended at the END of `IMailingService`
+(`deleteMailingList`), two new typed exceptions (`MailingListNotDeletableException`, `MailingListSendingInProgressException`).
+
+#### Added
+
+- Vorstand und Administration können manuell angelegte Mailinglisten löschen (Papierkorb-Schaltfläche im Detail der Liste, mit Bestätigung, Fokus auf "Abbrechen"). Automatische Listen und Pflichtlisten
+  sind serverseitig und in der Datenbank geschützt (Hinweis statt Schaltfläche); eine Liste, die gerade versendet wird, kann erst nach dem Versand gelöscht werden. Abonnements, Opt-outs und Entwürfe samt
+  Anhängen und Dateien werden entfernt; bereits versendete Nachrichten bleiben mit Zustellprotokoll als Nachweis erhalten, die Liste selbst wird archiviert (`mailing_list.deleted_at`/`deleted_by`).
+  Kein Wiederherstellen. Eintrag im Audit-Log (`VOID`, nur Anzahlen, kein Listenname). Versand und Löschung derselben Liste laufen nie gleichzeitig durch: genau eine gewinnt.
+- Die Auswahl der Mailinglisten ist jetzt nach Name und Id sortiert; Listen mit gleichem Namen bleiben in stabiler Reihenfolge.
+- Behavioural tightening: `subscribe`, `unsubscribe` and `setTrackingConsent` now answer `NotFoundException` for an unknown list id (before, an unknown id fell through to a foreign-key error).
+
+Tested on H2 and on the PostgreSQL lane (`MailingListDeleteTest`, `MailingListDeletePostgresTest`, including the delete/send and delete/upload races), plus structural tripwires and client DOM tests.
+
+### V1.9.233 -- Dateianhänge an Direktnachrichten
+
+Additive. **One migration** (`V125__direct_message_attachment.sql`; V124 and earlier are untouched), **one new RPC method** appended at the END of `IDirectMessageService`
+(`sendDirectMessageWithAttachments`; the `registerService` order is unchanged), one new DTO field (`DirectMessageDto.attachments`, last, with a default) and four HTTP routes (upload, list pending, delete pending, download).
+
+#### Added
+
+- **Attachments on direct messages** (the reply form of the conversation view): up to **5 files, 10 MiB each, 20 MiB in total** per message. A file is first uploaded as *pending*
+  (`POST /api/direct-messages/attachments`, form field `recipientId` first) and travels with the message as its id; the send is atomic and any problem with an id fails the whole send
+  with one uniform error. The message text stays mandatory. Download: `GET /api/direct-messages/attachments/{id}/download` -- only the sender and the recipient of the message
+  (the uploader while pending); **no BOARD/ADMIN access**; unknown, foreign, malformed ids and inactive callers get the same 404. Always `Content-Disposition: attachment`.
+- Limits of pending files: 5 / 20 MiB per sender and recipient, 20 / 80 MiB per sender; checked before the file is streamed and again under the sender's member-row lock.
+  Pending files not sent within 24 h are deleted by an hourly poller (so they live at most about 25 h).
+- Client: "Datei anhängen" next to "Antworten" (new `ActionIcon.ATTACH`), a list of the chosen files with status and a remove button, send disabled while a file uploads or a failed one
+  is listed, links to the files under each message (the URL carries only the id), the hint "Lapis prüft Anhänge nicht auf Viren." under received messages. Pending files survive closing a
+  conversation, the reload of the list, a page reload and leaving and re-entering the screen: a new route `GET /api/direct-messages/attachments/pending?recipientId=` lists the caller's own
+  pending uploads for ONE partner and the composer shows them again (as uploaded, removable). While a send runs the list is frozen (no attaching, no removing, "Antworten" stays disabled), and
+  after a send only the files that were sent leave the list. A send refused because of its files raises the dedicated `DirectMessageAttachmentsUnavailableException` (Kilua transmits only the
+  type); a bad body, a send to oneself or an unreceivable recipient stay a plain `ConflictException`, and the composer then keeps its files. Translations in all seven catalogs.
+- `listInbox`/`listConversation` read the attachments in chunks of 1000 message ids (no bind-parameter limit for a very large inbox).
+- DSGVO: Art. 15 export of the attachment metadata; erasure deletes pending uploads in every mode and all own uploads (rows and files) under `HARD_DELETE_WHERE_UNCONSTRAINED`.
+  Organization backup: the new table is a blob table (row and file).
+
+#### Changed
+
+- **One rule set for mailing and direct-message attachments** (refactor without behaviour change): `MailingAttachmentRules`/`MailingAttachmentErrorCode`/`MailingAttachmentSniffer`/
+  `MailingAttachmentZip` and the name cleaning became `AttachmentRules`/`AttachmentErrorCode`/`AttachmentSniffer`/`AttachmentZip`/`sanitizeAttachmentName` (server package
+  `network.lapis.cloud.server.attachments`); the upload classification, the error mapping and the download response moved into `AttachmentUploadSupport`. Wire names of the codes are unchanged;
+  `RECIPIENT_UNAVAILABLE` and `PENDING_LIMIT` are new (direct messages only). The mailing download now also sends `Content-Security-Policy: default-src 'none'; sandbox`.
+- `insertDirectMessage` now uses `directMessageRecipientRefusal` (extracted, same rule, same exceptions).
+- `streamSingleTravelExpenseFile` got an optional `preFileGate` (default `null`, existing callers unchanged).
+
+#### Limits and known gaps
+
+- Carpool contact, the member finder and the event-registration messages carry **no** attachments (a tripwire pins it). A message without text is still not possible.
+- No virus scan; PDF JavaScript and image polyglots are not detected.
+- Sent attachments have **no retention period**. No code path deletes a direct message: "deleted with the message" only happens through the DSGVO erasure (rows and files of own uploads under
+  `HARD_DELETE_WHERE_UNCONSTRAINED`; in the default mode sent files stay with the recipient, like the texts).
+- No `ON DELETE CASCADE` on the new table (repo convention): rows and files are deleted in code.
+- There is no overall quota of sent attachments per sender over time (only the rate limits) -- open question for a later wave.
+
+#### Not verified
+
+- Not tried in a real browser or against a staging server; not tried on a phone or in the Lapis-Cloud-Mobile WebView (a download with `Content-Disposition: attachment` may behave differently there).
+- Real files from Microsoft Office (only LibreOffice-made test files and synthetic fixtures); memory use under load.
+
+### V1.9.232 -- Anhänge an Mailing-Nachrichten
+
+Additive. **One migration** (`V124__mailing_message_attachment.sql`; V123 is untouched), **no new RPC method** (`IMailingService` and the `registerService` order are unchanged), one new DTO
+field (`MailingMessageDto.attachments`, last, with a default) and three HTTP routes.
+
+#### Added
+
+- **Attachments on mailing-list messages** (manual and automatic lists): the board adds up to **5 files, 10 MiB each, 20 MiB in total** (binary) to a *draft*; every recipient receives them as real
+  MIME attachments (`multipart/mixed` around the unchanged `multipart/alternative`, name as RFC 2231 parameter, Base64 streamed from disk, never held in the heap). Types: PDF, PNG/JPEG/GIF/WebP,
+  docx/xlsx/pptx, odt/ods/odp, txt/csv -- by extension AND by content (magic bytes; bounded ZIP parse for Office/OpenDocument; text checked for control characters, binary magic numbers and markup).
+  The MIME type in the mail is the server's, never the client's.
+- Routes `POST /api/mailing/messages/{id}/attachments`, `DELETE /api/mailing/attachments/{id}`, `GET /api/mailing/attachments/{id}/download`: BOARD/ADMIN only (checked before existence and status),
+  same-origin check on upload/delete, own rate limit, JSON error bodies with a fixed `code`, locking on the message row so parallel uploads and a concurrent send cannot slip past the limits.
+- The worker checks that every file exists with the recorded size and SHA-256 **before the first recipient**; otherwise nothing is sent and the message becomes `FAILED` (`ATTACHMENT_INTEGRITY`). The per-send
+  timeout grows with the attachment size (at most +10 minutes); `MailTransport.sendWithAttachments` fails closed.
+- **Retention:** the files are deleted 180 days after sending (same daily job as the tracking retention); the metadata stays and the board view shows "Datei gelöscht".
+- Board view: an "Anhänge" section per message (editable in a draft, download afterwards), the compose form says where attachments are added, the send confirmation names count and size.
+- Backup (blob table), DSGVO export (own uploads) and erasure (rows retained, like `sent_by`) cover the new table. Seven languages for all new texts.
+
+#### Not done / not verified
+
+- **Not verified against a real SMTP relay or real mailboxes** (Outlook, Gmail, Thunderbird): the MIME structure is covered by parse-back tests only.
+- **No virus scanner.** Not detected: macros or JavaScript inside a PDF, image polyglots, ODF encryption outside the manifest. Office files with macros, ActiveX or embedded objects are refused (strict).
+- **Operator action:** Base64 makes 20 MiB about 28 MB on the wire; the relay needs `message_size_limit >= 30000000` (Postfix default 10,240,000).
+- Direct messages and system mails (`mail_outbox`) have no attachments. **Members cannot download** attachments; they receive them in their mail only.
+- Drafts that are never sent keep their files (there is no draft deletion today); choosing already stored files in the compose form is a follow-up.
+- No live check in a browser; the screens are covered by DOM tests only.
+
+### V1.9.231 -- "Kommunikation" becomes "Nachrichten" and "Mailinglisten"
+
+Client only. **No migration**, no new RPC method, no server change.
+
+#### Changed
+
+- The sidebar entry **"Kommunikation" is replaced by two entries**: "Nachrichten" (`/messages`) and "Mailinglisten" (`/mailing-lists`). The old address `/communication` (bookmarks, old mails) redirects to `/messages` without a history entry; the target is fixed.
+- **Nachrichten:** one list of conversations (one row per partner). The separate "Postfach" section, which listed the same messages again, is gone. Each row shows the chat icon and the word "Gespräch". The reply button has the send icon; after a send the field is empty and keeps the focus.
+- **Behaviour change:** loading the page no longer marks every message as read. A message stays unread (and counted) until its conversation is **opened**.
+- **Mailinglisten:** a table with the columns Liste / Status / Aktionen. Subscribe, unsubscribe, the tracking settings and the opt-out of automatic lists are icon-only actions with tooltip and accessible name. Board members and administrators get a second tab, "Verwalten", with the former authoring section; everyone else sees no tab, and `?tab=manage` quietly shows the subscriptions. The manage selector's button is now "Öffnen" with an icon.
+- The unread pill is shown again on the sidebar entry "Nachrichten" (the navbar envelope stays; both read the same count). The envelope now links to `#/messages`.
+- The hint after contacting a member or a carpool author now points to "Nachrichten".
+
+#### Not done / not verified
+
+- **Circular letters (Rundschreiben) are not in the message list.** A member cannot read the sent messages of their lists (`listMailingMessages` is board-only); a read-only call for received letters is a later wave. The intro text therefore only promises conversations.
+- No live check in a browser against real data and no check on a phone or in Safari; the layout is covered by DOM tests only.
+
+### V1.9.229 -- Officers manage the event of their own Sitzung
+
+Additive. **No migration** (the audit entity type `MEETING_EVENT_LINK` and the `UPDATE` action exist since `V123`; the new kinds and fields live in the JSON snapshot), **no new RPC method**,
+three typed exceptions, two new DTO fields (`EventDto.manageScope`, `LinkedEventRef.canPublish`). The route `/events/:id` now only needs a sign-in (it was BOARD/ADMIN); the server decides.
+
+#### Changed
+
+- A **chair, deputy chair, general secretary, secretary or managing director** (seat held today) of a committee can now **open, edit, publish (to members) and cancel (when free)** the event that announces a
+  Sitzung of that committee, without a board role. The right comes from the event's own link and the committee of the linked Sitzung, read from the locked rows; every other case answers exactly like an unknown id.
+- What an officer may edit: title, description, start, end, place, online kind (video conference or external link) and the link itself. Fee, capacity, room, registration deadline, summary,
+  cover text, visibility, the public-link flag and the encounter space stay with the board (`MeetingEventFieldReservedException`); `PUBLIC` visibility and a paid cancellation have their own refusals
+  (`MeetingEventVisibilityReservedException`, `MeetingEventCancelReservedException`).
+- The Sitzung page shows "Veröffentlichen" for whoever may publish; the confirmation says that **all members** see the event, not only the committee, and that the agenda is not shown.
+- **Linking an existing event to a Sitzung and the list of linkable Sitzungen are now BOARD/ADMIN only** (V1.9.227 allowed officers any published event). Otherwise a link would be a rights key: link a
+  foreign public event, then edit or cancel it. An officer can still announce, unlink and align.
+- An event that is already `PUBLIC` (linked by the board) is read-only for an officer: edit, publish, cancel and align are refused.
+
+#### Added
+
+- Audit: `OFFICER_UPDATED` (changed field names only), `OFFICER_PUBLISHED`, `OFFICER_CANCELLED` (followed by `UNLINKED`), each with the officer's seat; `ALIGNED` by an officer carries the seat too.
+- `EventDto.manageScope` (`FULL` / `MEETING_OFFICER` / `NONE`, default `NONE` so an older server never opens a management screen for a member). A member who opens `/events/:id` is sent to the member events.
+
+#### Honest limits
+
+- There is no way to take a published event back to a draft; cancelling dissolves the link and the officer loses access.
+- Only the board links existing events, cancels paid or public events, and changes public ones. This is stricter than the request and comes from the rights-key reasoning above; it needs the owner's confirmation.
+- There was no audit for editing or publishing events before; BOARD/ADMIN edits still write none. Only the officer path is audited.
+- No "committee" audience: the published event is visible to all members.
+- The officer form is a small separate form (it reuses the validation and the `updateEvent` call of the board form), so the two forms can drift apart; the server allow-list is what holds.
+- Checked by automated tests (H2, server and headless-Chrome DOM tests); the PostgreSQL lane and a click-through in a real browser are listed in the wave report, not here.
+
+### V1.9.227 -- Sitzung <-> Veranstaltung (wave A of "Sitzung in der Videokonferenz")
+
+Additive. One migration, **`V123`** (`event.meeting_id`, unique, FK `ON DELETE SET NULL`; the audit CHECK widened by `MEETING_EVENT_LINK`), five new methods at the END of
+`IGovernanceService`, six typed exceptions, **no new route, no new service, no action by the operator**.
+
+#### Added
+
+- A Sitzung can be **announced as a Veranstaltung** ("Als Veranstaltung ankündigen") by BOARD/ADMIN and by the officers of that committee (chair, deputy chair, general secretary, secretary,
+  managing director). The event is always a **DRAFT with `MEMBERS_ONLY`** visibility, titled "<committee>: Sitzung am <date>", 2 hours long, with a fixed description that never contains the agenda.
+  An existing event can be **linked** to a Sitzung ("Sitzung verknüpfen" on the event page; BOARD/ADMIN only since V1.9.229), the link **dissolved** (nothing is deleted), and the event's start and place **aligned** to the Sitzung.
+- The Sitzung page and the event page show the link and, where they disagree, the differences in start, place and online setting.
+- Audit: one `MEETING_EVENT_LINK` entry per action (announced, linked, unlinked, aligned), ids and enums only.
+- Cancelling a Sitzung or an event dissolves the link in the same step; a held Sitzung keeps it.
+
+#### Honest limits
+
+- There is **no "committee" audience**: the announcement is visible to **all members** once it is published.
+- The **conference room of a Sitzung is not reused**: an online event gets its own room on the first join. Which room is the room of a Sitzung is left to the next wave.
+- *Superseded by V1.9.229:* officers manage the event of their own Sitzung; linking an existing event is BOARD/ADMIN only.
+- Aligning does **not notify** registered people (as `updateEvent` does not), and a Sitzung in the past cannot be aligned or announced.
+- An online Sitzung on a server **without video conferences** is announced as an event with a place, and refused without one. The fixed description is German (stored data), not translated.
+- Events that belong to a running series cannot be linked.
+- Verified by automated tests only (H2 and PostgreSQL); **not clicked through in a browser**.
+
+### V1.9.226 -- LupaBB member master-data sync (manual, ADMIN)
+
+Additive. One migration, **`V122`** (two columns on `member`, `member_lupabb_profile`, `lupabb_sync_config`, `lupabb_sync_run`, `lupabb_sync_suppression`, the audit CHECK widened by `LUPABB_SYNC_RUN` and
+`LUPABB_SYNC_CONFIG`, the status-history CHECKs widened by `LUPABB_SYNC`), one new RPC service `ILupaBbSyncService` (the LAST `registerService`; `IPartyReportService` is second to last now), **one new dependency**
+(`io.ktor:ktor-client-auth`, the HTTP Digest authentication; test-only `io.ktor:ktor-server-auth` for the fake server), **no action by the operator** except `LAPIS_SECRET_ENCRYPTION_KEY` (already required for sealed secrets).
+
+#### Added
+
+- **Manual sync with LupaBB** (the member administration of the former PZB): an ADMIN enters user name, password and API key (sealed, never shown, never logged, not in the backup), loads a **preview**
+  (nothing is written), decides ambiguous records by hand and applies. No cron job. Page `/members/lupabb-sync`, button "Mit LupaBB abgleichen" on the member administration.
+- Person number as the key (`member.lupabb_person_number`, unique); LupaBB-only data (title, affix, company, telephone numbers, ...) in the side table `member_lupabb_profile`; the display name is derived.
+- Matching: person number, then e-mail **and** name, ambiguous records are decided by an administrator ("Mit diesem Mitglied verknüpfen"); status mapping of the twelve LupaBB labels; per-record transactions with a
+  fingerprint check (`CHANGED_SINCE_PREVIEW`); one collective audit entry per run and one per written member (field keys only).
+- Hardened client: fixed host, no redirects, timeouts, 5 MiB per answer, 200 pages, 20,000 records, one fetch per minute (compare-and-set guard with fencing), every exception translated **without a cause**.
+- Erasure: the HMAC of the person number goes on a suppression list so that a person erased under Art. 17 GDPR is not created again.
+- Documentation: `docs/features/lupabb-sync.adoc`, `docs/architecture/lupabb-sync.adoc`, the `LupaBB-Abgleich (V1.9.226)` section of `CLAUDE.md`.
+
+#### Never done by the sync
+
+Deleting or deactivating a member, creating an account, sending a mail or a notice, writing the e-mail address of an existing member, changing the core data of a member with a management role (only the person-number link, the "missing" hint and the side-table profile are written),
+moving a member between regional chapters, taking over gender or nationality.
+
+#### Deviations from the plan, and open points
+
+- A record of a member with a management role (or the acting administrator) keeps its core fields, status and chapter for **every** difference (the safer superset); the person-number link, the "missing" hint and the side-table profile are still written, the rest is marked for manual handling.
+- A not yet linked member whose CSV-import `external_reference` is the LupaBB person number is matched (never created twice) and, when erased, its number goes on the suppression list.
+- A new `FRIEND` gets `friend_since`; a missing `pagination` object is `UNEXPECTED_RESPONSE`; two ADMINs saving the credentials at once no longer end in a 500.
+- The regional chapter is assigned only where none is set; a chapter that LupaBB names but Lapis Cloud does not have is a remark.
+- `lupabb_sync_config.id` is an `INTEGER` with `CHECK (id = 1)` (the model has no `SMALLINT`).
+- **Not verified:** nothing ran against the real LupaBB (no account); the way the API key travels (header first, then query parameter, the working one is remembered) and the optional `landesverband` / `eintritt`
+  fields are unconfirmed. "Neumitglied" is `ACTIVE`, "Ausgeschlossen" is `WITHDRAWN` (no `EXCLUDED` status exists) -- both decisions are to be confirmed.
+
+### V1.9.225 -- Party accountability report, wave R1: positions, entry per unit and year, Excel import and template
+
+Additive. One migration, **`V121`** (`partg_report_position` seeded with the 42 statutory positions, `partg_report_sheet`, `partg_report_value`, and the audit CHECK widened by two entity types), one new RPC service
+`IPartyReportService` (the LAST `registerService`; `IDashboardService` is second to last now), **no new dependency**, **no action by the operator**. Only for an organisation with the setting *political party*, only for BOARD and ADMIN.
+**This wave creates no report and no PDF** (that is wave R2); the page says so.
+
+#### Added
+
+- **Positions and entry:** the 42 positions of the income, expense and asset accounts (section 24 PartG), 35 typed in and 7 computed live with the same function on client and server. Per reporting unit (federal level, each regional chapter,
+  the *summary* of its subordinate units) and year, with a column for the year before that is stored in its own year. Empty means *not entered*, 0 is a value ("Leere Felder im Rechnungsjahr mit 0 füllen" asks first).
+  Optimistic locking per sheet; a sheet that two people create at once ends in one winner and a conflict for the other.
+- **Excel template and import** without a spreadsheet library: protected template (`partg-r1-1`, no password), two-step import (preview with every change and error, then apply: all or nothing, single-use token, revisions checked twice).
+  Hardened reader: 2 MB, ZIP limits, no macros, no DTD or external entity, formulas never evaluated, IEEE doubles rounded when the deviation is below 1e-6, dates refused. The ZIP container reader is a **copy adapted from the article
+  import's reader** (the security logic now exists twice; both files must be fixed together).
+- Position hints of the organisation (500 characters), the audit trail (one entry per value, one collective import entry with the SHA-256 and the shortened file name), backup, and the GDPR export "changed by you" (no amounts; erasure retains,
+  sections 24 and 19a PartG). A regional chapter with report values cannot be deleted (typed refusal).
+- Documentation: `docs/features/partg-report.adoc`, `docs/architecture/partg-report.adoc`, `domain-model.adoc`, `finance-setup.adoc`, the `[Rechenschaftsbericht (V1.9.225)]` section of `CLAUDE.md`.
+
+#### Changed
+
+- `SessionInfoDto.politicalParty` (appended, default `false`). The audit entity types `PARTG_REPORT_SHEET` and `PARTG_REPORT_POSITION` were appended. The ratchets R24 (+1) and R24B (+2) were raised for the filters and the one-field hint dialog of the new page.
+
+#### Deviations from the plan, and open points
+
+- The catalogue has **42** rows (35 typed in + 7 computed), not 43: the plan's table adds up to 42. The overview therefore reads "n von 35".
+- The column of the value source is `value_source` (a property named `source` collides with Exposed's `ColumnSet.source`). Positions and sheets got a `UUID` id for the audit log; values hang off `sheet_id`.
+- The report year must be 2001 or later (the year before stays inside the `2000..2100` CHECK).
+- **Not verified:** the position list, the labels and the unit levels against the official Bundestag sample and the statute text; the template in real Excel and LibreOffice (opening, sheet protection, formulas, saving and importing again);
+  acceptance by the auditor; a real browser or device (the DOM tests ran in headless Chrome only). Subordinate units are one summary row per chapter, not the individual district associations.
+- Not legal advice.
+
 ### Fixed
 
-- Event page JSON-LD: added `organizer`, `performer` (both the operating organization, as the data model has no speaker field and the creating member is never published), `offers` (real fee, currency, availability, `validThrough`; omitted for ended events and closed registration) and an always-present `image` (cover, raster logo, else `/apple-touch-icon.png`) to address Search Console warnings. `og:image` is unchanged. **Not verified** against the real Google Search Console or the Rich Results Test, and not checked that `/apple-touch-icon.png` is served in production; only unit and integration tests.
+- **V1.9.230:** Registration and profile forms: "Staatsangehörigkeit" no longer sits 8 px lower than "Land des Wohnsitzes" in the same row. The empty chip list of the nationality field kept its bottom margin and pushed the select down; it now has none while it is empty. Checked by measuring both controls in a local browser; not in Safari or on a real phone.
+- **V1.9.228:** Language switch on a desktop width: the page no longer turns grey under an invisible layer, and the menu no longer disappears when that layer is clicked away. The switch restarts the KVision root, which re-inserted the sidebar offcanvas and let Bootstrap add its dark backdrop again; the guard that cancels Bootstrap's own show on desktop (it existed only for the boot call) now stays armed for the whole session. On phone widths the drawer and its backdrop are unchanged. Checked in a local browser (three switches on desktop, drawer and switches at 375 px) and with a unit test of the decision; not checked in Safari or on a real phone.
+- Event page JSON-LD (no wave number, commit `901ec5b8`): added `organizer`, `performer` (both the operating organization, as the data model has no speaker field and the creating member is never published), `offers` (real fee, currency, availability, `validThrough`; omitted for ended events and closed registration) and an always-present `image` (cover, raster logo, else `/apple-touch-icon.png`) to address Search Console warnings. `og:image` is unchanged. **Not verified** against the real Google Search Console or the Rich Results Test, and not checked that `/apple-touch-icon.png` is served in production; only unit and integration tests.
 
 ## [0.41.0] — 2026-10-26
 

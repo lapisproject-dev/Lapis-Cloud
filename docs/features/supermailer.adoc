@@ -40,6 +40,33 @@ configuration -- the server refuses to start in `smtp` mode otherwise.
 V1.9.111 added automatic (rule-based) and mandatory lists whose recipients are resolved by the worker at send time; see
 link:dynamic-mailing-lists.adoc[Dynamic and mandatory mailing lists].
 
+== Deleting a mailing list (V1.9.234)
+
+A BOARD or ADMIN member can delete a *manual* mailing list (trash button in the list detail, behind a confirmation whose focus rests on "Abbrechen").
+`IMailingService.deleteMailingList` is a **soft delete**: migration `V126__mailing_list_soft_delete.sql` adds `mailing_list.deleted_at` (UTC, class A) and
+`deleted_by` (FK to `member`); both are set together (CHECK) and only on a `MANUAL` list (CHECK). The row stays because sent and failed messages, their
+delivery log, links and clicks keep pointing at it as evidence.
+
+Removed for good, in one transaction: all subscriptions, all opt-outs (normally none on a manual list; removed anyway because a soft delete does not
+cascade), all `DRAFT` messages with their attachment rows. The attachment *files* are removed after the commit
+(`MailingAttachmentStore.deleteFilesAfterCommit`) -- a rolled-back deletion never loses a file. Kept: `SENT` and `FAILED` messages with delivery log, links and
+clicks, and their attachments. There is no restore.
+
+Refusals, each with its own exception type because Kilua RPC transports only the type: an unknown, malformed or already deleted id is a
+`NotFoundException`; an automatic or mandatory list is a `MailingListNotDeletableException`; a list with a `QUEUED` message is a
+`MailingListSendingInProgressException` (delete after the send has finished); a caller below BOARD gets `ForbiddenException` before any list lookup.
+
+A deleted list is invisible everywhere: `listMailingLists`, `subscribe`, `unsubscribe`, `setTrackingConsent`, `adminSubscribeMember`, `listSubscribers`,
+`listMailingMessages`, `createDraftMessage`, `createDraftMessageHtml` and `sendMailingMessage` answer `NotFoundException`. The delivery worker deliberately
+does not filter: a `QUEUED` message can never belong to a deleted list.
+
+Lock order, in every path: list row, then message rows (in id order), then the audit chain. `sendMailingMessage` and the draft RPCs lock the live list row
+first, so a delete and a send of the same list race to exactly one winner (never a `QUEUED` message on a deleted list); the delete locks the draft rows, so
+it serializes against an attachment upload and finds the new attachment instead of orphaning it.
+
+The audit entry is `VOID` on `MAILING_LIST` with a before-snapshot of counts and the kind (`MailingListDeletionSnapshot`) -- no list name (free text),
+no address, no member id. The data export of the deleting member names the archived list (`deletedAt`, `deletedByMe`).
+
 == What doesn't work yet
 
 Click and open counting has not yet been exercised end to end with a real delivered mail. Already saved drafts are not editable (no update RPC). The 200-link limit counts all links, not

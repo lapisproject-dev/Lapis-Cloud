@@ -4,7 +4,10 @@ import io.kvision.core.onClick
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.H2
+import io.kvision.html.TAG
 import io.kvision.html.div
+import io.kvision.html.span
+import io.kvision.html.tag
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -36,11 +39,10 @@ internal const val PARTNER_LIST_HEADING_ID = "lapis-dm-partners-heading"
 internal fun unreadPartnerBadge(n: Int): String = gettext("%1 neu", if (n >= 100) "99+" else n)
 
 /**
- * Welle V1.9.36 -- "Gespräche": everyone the viewer has exchanged messages with, newest activity first, with name, last-activity time
+ * Welle V1.9.36 (V1.9.231: heading "Nachrichten", type marker) -- everyone the viewer has exchanged messages with, newest activity first, with name, last-activity time
  * and an unread count -- never a message text. Opening a row shows the conversation ([conversationView]) and a reply form below it;
- * only one conversation is open at a time. The list loads FIRST ([onFirstLoadSettled] runs after its first load, success or failure):
- * the screen builds the inbox only then, because the inbox marks everything read on load and the "n neu" hint would otherwise
- * already be empty. The heading is the target of `?section=messages` (focusable, `tabindex=-1`; [focusHeading] takes the focus on insert).
+ * only one conversation is open at a time. Only OPENING a conversation marks its messages read (V1.9.231: the old
+ * inbox that marked everything read on load is gone), so the "n neu" hint stays until then. The heading is the target of `?section=messages` (focusable, `tabindex=-1`; [focusHeading] takes the focus on insert).
  */
 internal fun renderDirectMessagePartnerList(
     root: SimplePanel,
@@ -48,11 +50,12 @@ internal fun renderDirectMessagePartnerList(
     conversationRpc: DirectMessageConversationRpc = liveDirectMessageConversationRpc(),
     onFirstLoadSettled: () -> Unit = {},
     focusHeading: Boolean = false,
-    replySend: suspend (String, String) -> DirectMessageDto = { recipient, body ->
-        rpcService<IDirectMessageService>().sendDirectMessage(recipient, body)
+    replySend: suspend (String, String, List<String>) -> DirectMessageDto = { recipient, body, attachmentIds ->
+        rpcService<IDirectMessageService>().sendDirectMessageWithAttachments(recipient, body, attachmentIds)
     },
+    attachmentHttp: DirectMessageAttachmentHttp = DirectMessageHttp,
 ) {
-    val heading = H2(content = tr("Gespräche"), className = "h5")
+    val heading = H2(content = tr("Nachrichten"), className = "h5")
     heading.setAttribute("id", PARTNER_LIST_HEADING_ID)
     heading.setAttribute("tabindex", "-1")
     // Inserted AFTER the page title's own focus hook (document order), so `?section=messages` wins the focus.
@@ -63,10 +66,14 @@ internal fun renderDirectMessagePartnerList(
     var firstSettled = false
     var openPartnerId: String? = null
     val reloadedAfterMark = mutableSetOf<String>()
+    val focusReplyAfterReload = ReplyFocusRequest()
+    // V1.9.233: the composer's attachments live HERE, per partner -- a reload of the list rebuilds the form, and pending uploads must
+    // survive that; after a page reload / navigation the state is rebuilt from the server's pending list (syncWithServer).
+    val composerAttachments = mutableMapOf<String, DmComposerAttachments>()
     lateinit var section: DataSection
     section =
         root.dataSection<List<DirectMessagePartnerDto>>(
-            emptyText = tr("Noch keine Gespräche."),
+            emptyText = tr("Noch keine Nachrichten."),
             isEmpty = { it.isEmpty() },
             onSettled = {
                 if (!firstSettled) {
@@ -86,12 +93,29 @@ internal fun renderDirectMessagePartnerList(
                     openPartnerId = { openPartnerId },
                     setOpenPartnerId = { openPartnerId = it },
                     reloadedAfterMark = reloadedAfterMark,
+                    focusReplyAfterReload = focusReplyAfterReload,
                     reload = { section.reload() },
                     replySend = replySend,
+                    attachmentsFor = { id ->
+                        // A first build (also after a page reload) asks the server for pending uploads this page has lost track of.
+                        composerAttachments.getOrPut(id) { DmComposerAttachments(id, attachmentHttp).also { it.syncWithServer() } }
+                    },
                 )
             },
         )
     section.reload()
+}
+
+/** The type marker of an inbox row: the [ActionIcon.CHAT] glyph (decorative) and the visible word "Gespräch". */
+internal fun SimplePanel.conversationTypeMarker() {
+    val marker = hPanel(spacing = 4) { addCssClasses("align-items-center text-muted small flex-shrink-0") }
+    marker.tag(TAG.I, className = ActionIcon.CHAT.css) { setAttribute("aria-hidden", "true") }
+    marker.span(tr("Gespräch"))
+}
+
+/** The partner whose reply field takes the focus after the next reload (a send rebuilds the list and with it the form). */
+private class ReplyFocusRequest {
+    var value: String? = null
 }
 
 private class PartnerRow(
@@ -106,8 +130,10 @@ private fun renderPartnerRows(
     openPartnerId: () -> String?,
     setOpenPartnerId: (String?) -> Unit,
     reloadedAfterMark: MutableSet<String>,
+    focusReplyAfterReload: ReplyFocusRequest,
     reload: () -> Unit,
-    replySend: suspend (String, String) -> DirectMessageDto,
+    replySend: suspend (String, String, List<String>) -> DirectMessageDto,
+    attachmentsFor: (String) -> DmComposerAttachments,
 ) {
     val rows = mutableMapOf<String, PartnerRow>()
     val list = panel.vPanel(spacing = 6)
@@ -129,10 +155,26 @@ private fun renderPartnerRows(
             // One reload per open conversation: a reopened view after that reload must not trigger the next one, whatever it sees.
             onMarked = { if (reloadedAfterMark.add(partner.partnerId)) reload() },
         )
-        row.body.directMessageReplyForm(recipientId = partner.partnerId, onSent = reload, send = replySend)
+        val replyField =
+            row.body.directMessageReplyForm(
+                recipientId = partner.partnerId,
+                onSent = {
+                    focusReplyAfterReload.value = partner.partnerId
+                    reload()
+                },
+                attachments = attachmentsFor(partner.partnerId),
+                send = replySend,
+            )
+        // A send reloads the list, which rebuilds this form: the focus goes back to the new, empty field (after the DOM was patched).
+        if (focusReplyAfterReload.value == partner.partnerId) {
+            focusReplyAfterReload.value = null
+            replyField.focusWhenInserted()
+        }
     }
 
-    partners.forEach { partner ->
+    // Newest activity first; equal times resolve by id so the order never flickers between reloads.
+    val ordered = sortInboxRows(partners.map(::ConversationRow)).filterIsInstance<ConversationRow>().map { it.partner }
+    ordered.forEach { partner ->
         val unread = partner.unreadCount > 0
         val card = list.vPanel(spacing = 4) { addCssClasses(if (unread) "border border-primary rounded p-2" else "border rounded p-2") }
         val head = card.hPanel(spacing = 8) { addCssClass("align-items-center") }
@@ -141,6 +183,8 @@ private fun renderPartnerRows(
         if (unread) toggle.addCssClass("fw-bold")
         toggle.setAttribute("aria-expanded", "false")
         head.add(toggle)
+        // V1.9.231: the row type, always icon AND word (never the icon alone). Circular letters get their own type in a later wave.
+        head.conversationTypeMarker()
         head.div(formatSystemDateTime(partner.lastActivityAt)) { addCssClasses("text-muted small") }
         if (unread) head.statusBadge(unreadPartnerBadge(partner.unreadCount), "primary")
         val body = card.vPanel(spacing = 6)

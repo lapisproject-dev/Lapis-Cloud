@@ -16,7 +16,7 @@ import network.lapis.cloud.shared.domain.RegionalChapterRefDto
  * predicates, because a FRIEND is now [MemberStatusSets.LTR_ELIGIBLE] and should see the PARTS of
  * "Mitgliedschaft"/"Wirtschaft" that actually work for them ("Meine Daten", "LTR-Konto", "Soziales
  * Netzwerk"), while everything else that would still be a guaranteed-to-fail RPC call
- * (Governance/Crowdfunding/Auktion/Politiker/Beiträge/Dokumente/Kommunikation) stays hidden.
+ * (Governance/Crowdfunding/Auktion/Politiker/Beiträge/Dokumente/Nachrichten/Mailinglisten) stays hidden.
  */
 object NavVisibility {
     /** "Selbstverwaltung" (Gremien/Sitzungen/Anträge) -- unverändert ORGANIZATION_MEMBER-exklusiv. */
@@ -68,7 +68,7 @@ object NavVisibility {
     /** The flat sidebar entry of the carpool centre: for everybody who sees it but has no "Mitgliedschaft" group to find it in. */
     fun showsCarpoolFlatLink(status: MemberStatus): Boolean = showsCarpool(status) && !showsMembershipSection(status)
 
-    /** "Mitgliedschaft"-Dropdown als Ganzes (Beiträge/Dokumente/Kommunikation/Meine Daten). */
+    /** "Mitgliedschaft"-Dropdown als Ganzes (Beiträge/Dokumente/Nachrichten/Mailinglisten/Meine Daten). */
     fun showsMembershipSection(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
 
     /**
@@ -96,6 +96,13 @@ object NavVisibility {
      * member-only block of the economy group.
      */
     fun showsTenders(status: MemberStatus): Boolean = status in MemberStatusSets.LTR_ELIGIBLE
+
+    /**
+     * "Rechenschaftsbericht (PartG)" (V1.9.225) -- BOARD and ADMIN of an organisation that is a political party. The server enforces both on every
+     * call (role first, then the switch); this only decides whether the sidebar offers the door.
+     */
+    fun showsPartyReport(session: network.lapis.cloud.shared.domain.SessionInfoDto?): Boolean =
+        session != null && session.politicalParty && session.role in setOf(AccountRole.BOARD, AccountRole.ADMIN)
 
     /** Crowdfunding/Auktion/Politiker -- bleiben ORGANIZATION_MEMBER-exklusiv. */
     fun showsMemberOnlyEconomy(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER

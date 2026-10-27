@@ -607,7 +607,7 @@ private class ParticipationView(
                     // The answer carries both ids of the conversation; it is dropped on purpose.
                     val delivered = act { service.contactConnection(connectionId, text) }
                     if (delivered != null) {
-                        val sentence = tr("Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation.")
+                        val sentence = tr("Nachricht gesendet. Die Unterhaltung finden Sie unter Nachrichten.")
                         page.announce(sentence)
                         notifySuccess(sentence)
                     }

@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.routing.Routing
+import kotlinx.browser.window
 import network.lapis.cloud.client.encounter.renderEncounterServiceView
 import network.lapis.cloud.client.encounter.renderEncounterSpaceScreen
 import network.lapis.cloud.shared.auth.safeReturnTo
@@ -32,6 +33,15 @@ object Routes {
     // V1.6.1 -- optional AI assistance (default OFF server-side); `requireAuth` like DOCUMENTS, the
     // server-side gates (feature switch, organization-member status, own opt-in) are the authority.
     const val STATUTE_QA = "/statute-qa"
+
+    /**
+     * V1.9.231 -- the former "Kommunikation" screen is split in two. `requireAuth` like the old route: the member tier is for everyone,
+     * the board tier of [MAILING_LISTS] is gated inside the screen and (authoritatively) on the server.
+     */
+    const val MESSAGES = "/messages"
+    const val MAILING_LISTS = "/mailing-lists"
+
+    /** V1.9.231 -- legacy alias (bookmarks, old mails): redirects to [MESSAGES]; has no sidebar entry of its own. */
     const val COMMUNICATION = "/communication"
 
     // Welle V1.9.12 "Mitfahrzentrale" -- `requireAuth` wie CONTRIBUTIONS/DOCUMENTS/COMMUNICATION:
@@ -96,6 +106,10 @@ object Routes {
     // read-only (`getFourSphereIncomeStatement`/`getUseOfFundsStatement` are both
     // `ACCOUNTING_READ_ROLES`, same TREASURER/BOARD/ADMIN tier as [LEDGER]/[FINANCIAL_REPORTS]).
     const val COMPLIANCE_REPORTS = "/compliance-reports"
+
+    // V1.9.225 "Rechenschaftsbericht (PartG), R1" -- BOARD and ADMIN of a political party (SessionInfoDto.politicalParty); the server checks the
+    // role first and the organisation switch second on every call. The page itself says "nicht verfügbar" for a direct link on a non-party.
+    const val PARTY_REPORT = "/rechenschaftsbericht"
 
     // Screen 4 of 5 -- Kostenstellen CRUD (`createCostCenter`/`deactivateCostCenter`, both
     // `TREASURY_ROLES`) + report (`listCostCenters`/`getCostCenterReport`, both
@@ -498,6 +512,10 @@ object Routes {
     // als Sekundärlinks verlinkt (kein parametrisiertes Sub-Routing in dieser Welle).
     const val EVENT_MANAGEMENT = "/events"
 
+    // V1.9.226 "LupaBB-Abgleich" -- ADMIN only (`ILupaBbSyncService` requires the role on every call). Reached from the button "Mit LupaBB
+    // abgleichen" on [MEMBERS]; no sidebar entry of its own. A sub-path of [MEMBERS], so the "Mitgliederverwaltung" link stays highlighted.
+    const val MEMBER_LUPABB_SYNC = "/members/lupabb-sync"
+
     // Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" -- BOARD/ADMIN, `IEventImportService` calls
     // `current.requireRole(BOARD, ADMIN)` first in both methods. Reached from a secondary button on [EVENT_MANAGEMENT].
     const val EVENT_IMPORT = "/events/import"
@@ -886,8 +904,21 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.STATUTE_QA) {
         requireAuth(routing) { show(Routes.STATUTE_QA, ::renderStatuteQaScreen) }
     }
+    routing.kvOn(Routes.MESSAGES) { params ->
+        val hash = routeHashOfMatch(Routes.MESSAGES, params.asDynamic().queryString as? String)
+        requireAuth(routing) { show(Routes.MESSAGES) { container -> renderMessagesScreen(container, hash) } }
+    }
+    routing.kvOn(Routes.MAILING_LISTS) { params ->
+        val hash = routeHashOfMatch(Routes.MAILING_LISTS, params.asDynamic().queryString as? String)
+        requireAuth(routing) { show(Routes.MAILING_LISTS) { container -> renderMailingListsScreen(container, hash) } }
+    }
+    // V1.9.231 -- legacy alias: a FIXED target (never taken from a parameter, so no open redirect). The address is replaced in place
+    // (`replaceState`, no history entry, no `hashchange`), so the Back button never lands on the alias again.
     routing.kvOn(Routes.COMMUNICATION) {
-        requireAuth(routing) { show(Routes.COMMUNICATION, ::renderCommunicationScreen) }
+        requireAuth(routing) {
+            runCatching { window.history.replaceState(null, "", "#${Routes.MESSAGES}") }
+            show(Routes.MESSAGES) { container -> renderMessagesScreen(container, "#${Routes.MESSAGES}") }
+        }
     }
     routing.kvOn(Routes.CARPOOL) {
         requireAuth(routing) { show(Routes.CARPOOL, ::renderCarpoolScreen) }
@@ -999,6 +1030,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.COMPLIANCE_REPORTS) {
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.COMPLIANCE_REPORTS, ::renderNonprofitComplianceReportsScreen)
+        }
+    }
+    routing.kvOn(Routes.PARTY_REPORT) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.PARTY_REPORT, ::renderPartyReportScreen)
         }
     }
     routing.kvOn(Routes.COST_CENTERS) {
@@ -1239,6 +1275,11 @@ fun initRouting(pageContainer: SimplePanel) {
             show(Routes.CRM, ::renderCrmContactsScreen)
         }
     }
+    routing.kvOn(Routes.MEMBER_LUPABB_SYNC) {
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.MEMBER_LUPABB_SYNC, ::renderLupaSyncScreen)
+        }
+    }
     routing.kvOn(Routes.EVENT_MANAGEMENT) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.EVENT_MANAGEMENT, ::renderEventsScreen)
@@ -1250,9 +1291,11 @@ fun initRouting(pageContainer: SimplePanel) {
         }
     }
     // V1.9.204: AFTER the literal /events/import. The handler guards the literal once more, should the router ever try this one first.
+    // V1.9.229: signed in is enough -- the server decides (manageScope): BOARD/ADMIN manage, an officer of the announced Sitzung's committee
+    // gets the limited view, everybody else is sent on to the member events.
     routing.kvOn(Routes.EVENT_DETAIL) { params ->
         val id = params.asDynamic().data.id as? String
-        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+        requireAuth(routing) {
             when {
                 id.isNullOrBlank() -> routing.navigate(Routes.EVENT_MANAGEMENT)
                 id == "import" -> routing.navigate(Routes.EVENT_IMPORT)

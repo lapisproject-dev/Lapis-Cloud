@@ -143,8 +143,10 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * for the "(aktiv/gesamt)" after two sidebar entries. The accepted background-badge shape (same as the approval counters of `Sidebar.kt`): a failure keeps the last
  * figures or shows nothing and never toasts, so there is no loading/error state to present. `DashboardScreen.kt` swaps its `listEvents(` read for
  * `getDashboardSignals(` (net zero); its "Für Sie" block has its own loading line, empty sentence and quiet failure.
+ * Welle V1.9.231 splits `CommunicationScreen.kt`: its self-service list read moves into `MailingListsScreen.kt` (now inside a `dataSection`, so a state
+ * region), and the `listInbox(` read of the removed "Postfach" is gone (194 -> 192, files unchanged).
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 194
+private const val READ_OUTSIDE_STATE_REGION_MAX = 192
 private const val FILES_OUTSIDE_STATE_REGION_MAX = 62
 
 /**

@@ -197,6 +197,14 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.EVENT_REGISTRATION_EXPORT -> gettext("Export der Anmeldungen")
         // V1.9.222 -- a picture added to / removed from the gallery of a crowdfunding project or an auction.
         AuditEntityType.ATTACHED_IMAGE -> gettext("Galeriebild")
+        // V1.9.225 -- a value of the party report entered, changed or removed (also by Excel import), and the hint of a position.
+        AuditEntityType.PARTG_REPORT_SHEET -> gettext("Rechenschaftsbericht (Wert)")
+        AuditEntityType.PARTG_REPORT_POSITION -> gettext("Rechenschaftsbericht (Positionshinweis)")
+        // V1.9.226 -- a LupaBB sync run (counters only) and the stored LupaBB credentials (never a value).
+        AuditEntityType.LUPABB_SYNC_RUN -> gettext("LupaBB-Abgleich (Lauf)")
+        AuditEntityType.LUPABB_SYNC_CONFIG -> gettext("LupaBB-Zugangsdaten")
+        // V1.9.227 -- the link between a Sitzung and the Veranstaltung announcing it.
+        AuditEntityType.MEETING_EVENT_LINK -> gettext("Sitzung und Veranstaltung (Verknüpfung)")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -323,6 +331,11 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.TENDER -> "secondary"
         AuditEntityType.EVENT_REGISTRATION_EXPORT -> "warning"
         AuditEntityType.ATTACHED_IMAGE -> "secondary"
+        AuditEntityType.PARTG_REPORT_SHEET -> "primary"
+        AuditEntityType.PARTG_REPORT_POSITION -> "secondary"
+        AuditEntityType.LUPABB_SYNC_RUN -> "primary"
+        AuditEntityType.LUPABB_SYNC_CONFIG -> "secondary"
+        AuditEntityType.MEETING_EVENT_LINK -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

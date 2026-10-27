@@ -35,6 +35,8 @@ internal sealed interface StreamedTravelExpenseFile {
         val mimeType: String,
         /** Text form fields (name -> value) read while streaming; empty unless the caller asked for them (`maxFormFields > 0`). */
         val formFields: Map<String, String> = emptyMap(),
+        /** V1.9.232: the client-supplied name exactly as received (for callers with their own, stricter sanitizer); never a path. */
+        val rawFileName: String = "",
     ) : StreamedTravelExpenseFile
 
     /** 413 */
@@ -110,6 +112,13 @@ internal suspend fun ApplicationCall.streamSingleTravelExpenseFile(
     classify: (File, ByteArray, Int) -> FileClassification = DEFAULT_TRAVEL_EXPENSE_CLASSIFIER,
     /** Number of text form fields to collect (0 == ignore them all, the receipt/attachment behaviour). */
     maxFormFields: Int = 0,
+    /**
+     * V1.9.233 -- called with the form fields collected SO FAR the moment the first file part arrives, BEFORE one byte of the file is
+     * written (so a request that is refused anyway never streams up to [maxBytes] to disk). `false` aborts: the outcome is
+     * [StreamedTravelExpenseFile.InvalidFormFields] and the caller knows its own reason. The caller must therefore send its form
+     * fields BEFORE the file part. `null` (the default, every existing caller) does nothing.
+     */
+    preFileGate: ((Map<String, String>) -> Boolean)? = null,
 ): StreamedTravelExpenseFile {
     targetFile.parentFile.mkdirs()
     var uploadedFileName: String? = null
@@ -121,13 +130,24 @@ internal suspend fun ApplicationCall.streamSingleTravelExpenseFile(
     var fileItemCount = 0
     val formFields = linkedMapOf<String, String>()
     var invalidFormFields = false
+    var gateRefused = false
 
     try {
         receiveMultipart().forEachPart { part ->
+            if (gateRefused) {
+                // The gate said no: nothing more is stored; the rest of the body is only drained (an abort mid-body can stall the client).
+                part.release()
+                return@forEachPart
+            }
             when (part) {
                 is PartData.FileItem -> {
                     fileItemCount++
                     if (fileItemCount == 1) {
+                        if (preFileGate != null && !preFileGate(formFields)) {
+                            gateRefused = true
+                            part.release()
+                            return@forEachPart
+                        }
                         uploadedFileName = part.originalFileName ?: fallbackName
                         targetFile.outputStream().use { out ->
                             val channel: ByteReadChannel = part.provider()
@@ -188,6 +208,10 @@ internal suspend fun ApplicationCall.streamSingleTravelExpenseFile(
         targetFile.delete()
         return StreamedTravelExpenseFile.MultipleFileParts
     }
+    if (gateRefused) {
+        targetFile.delete()
+        return StreamedTravelExpenseFile.InvalidFormFields
+    }
     val fileName = uploadedFileName
     if (fileName == null) {
         targetFile.delete()
@@ -222,6 +246,7 @@ internal suspend fun ApplicationCall.streamSingleTravelExpenseFile(
         sha256 = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) },
         mimeType = mimeType,
         formFields = formFields,
+        rawFileName = fileName,
     )
 }
 

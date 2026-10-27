@@ -193,6 +193,10 @@ internal fun HTMLElement.allOf(selector: String): List<HTMLElement> =
 internal fun HTMLElement.buttonNamed(text: String): HTMLElement =
     assertNotNull(allOf("button").firstOrNull { it.textContent?.trim() == text }, "no button '$text'")
 
+/** An icon-only button (R58): it has no text, its accessible name is the `aria-label`. */
+internal fun HTMLElement.iconButtonNamed(name: String): HTMLElement =
+    assertNotNull(allOf("button").firstOrNull { it.getAttribute("aria-label") == name }, "no icon button '$name'")
+
 internal fun lastOpenModal(): HTMLElement {
     val modals = document.querySelectorAll(".modal")
     return assertNotNull(modals.item(modals.length - 1) as? HTMLElement, "no modal")

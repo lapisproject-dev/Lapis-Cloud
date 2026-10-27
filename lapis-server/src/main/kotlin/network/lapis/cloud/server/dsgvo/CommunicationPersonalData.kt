@@ -3,15 +3,19 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.db.generated.DirectMessageAttachmentTable
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
 import network.lapis.cloud.server.db.generated.MailingLinkClickTable
 import network.lapis.cloud.server.db.generated.MailingListOptOutTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
+import network.lapis.cloud.server.db.generated.MailingMessageAttachmentTable
 import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
+import network.lapis.cloud.server.messaging.DirectMessageAttachmentStore
 import network.lapis.cloud.shared.domain.ErasureMode
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.or
@@ -19,7 +23,12 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import java.io.File
 import kotlin.uuid.Uuid
+
+/** Same root `Application.module` computes for `documentStorageRoot`; re-derived like in `TravelExpensePersonalData` (no storage root reaches a contributor). */
+private val dmAttachmentStorageRoot: File
+    get() = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
 
 /**
  * Owns mailing lists/subscriptions/messages/delivery log plus direct messages.
@@ -35,6 +44,19 @@ import kotlin.uuid.Uuid
  * content (target URLs), no member FK, and is deliberately NOT a covered table.
  *
  * **V1.9.111**: [MailingListOptOutTable] (a member's opt-out of a dynamic list) is exported and hard-deleted with the member.
+ *
+ * **V1.9.232**: [MailingMessageAttachmentTable] (attachments of mailing messages) is exported per uploader (name, type, size, instant) and
+ * RETAINED on erasure exactly like [MailingMessageTable] (`sent_by`): the attachment is part of the communication other members received
+ * (the mail they hold contains the file); the file itself is deleted by the retention job 180 days after sending.
+ *
+ * **V1.9.233**: [DirectMessageAttachmentTable] (files attached to direct messages). Export (Art. 15): name, type, size, instant and the
+ * direction (SENT/RECEIVED/PENDING) of every attachment the subject uploaded or received -- never the file and never the storage key,
+ * consistent with the direct-message export that also contains received texts. Erasure: the subject's PENDING uploads are deleted in
+ * every mode (no value for anybody else); under [ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED] ALL attachments the subject uploaded are
+ * deleted too -- rows AND files, alongside the redaction of the sent texts -- while in the default mode the sent attachments stay with
+ * the recipient for the same reason the texts do. Received attachments stay (they are the sender's data). The files are removed inside
+ * the transaction (a contributor has no after-commit hook; a rollback leaves a row without file, which downloads as 404 and is cleaned
+ * up by a repeated erasure).
  *
  * **Erasure**: [MailingListSubscriptionTable] and [MailingDeliveryLogTable] rows have no
  * retention duty and are hard-deleted regardless of [ErasureMode]. [MailingListTable] (creator)
@@ -55,9 +77,11 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
             MailingListSubscriptionTable,
             MailingListOptOutTable,
             MailingMessageTable,
+            MailingMessageAttachmentTable,
             MailingDeliveryLogTable,
             MailingLinkClickTable,
             DirectMessageTable,
+            DirectMessageAttachmentTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -65,12 +89,16 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
             putJsonArray("createdMailingLists") {
                 MailingListTable
                     .selectAll()
-                    .where { MailingListTable.createdBy eq memberId }
+                    // V1.9.234: also the lists this member deleted (archived rows keep deleted_by).
+                    .where { (MailingListTable.createdBy eq memberId) or (MailingListTable.deletedBy eq memberId) }
+                    .orderBy(MailingListTable.id to SortOrder.ASC)
                     .forEach { row ->
                         add(
                             buildJsonObject {
                                 put("id", row[MailingListTable.id].toString())
                                 put("name", row[MailingListTable.name])
+                                row[MailingListTable.deletedAt]?.let { put("deletedAt", it.toString()) }
+                                put("deletedByMe", row[MailingListTable.deletedBy] == memberId)
                             },
                         )
                     }
@@ -163,6 +191,23 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
                         )
                     }
             }
+            // V1.9.232 -- attachments this member uploaded to mailing messages: name, type, size and instant (never the file itself).
+            putJsonArray("uploadedMailingAttachments") {
+                MailingMessageAttachmentTable
+                    .selectAll()
+                    .where { MailingMessageAttachmentTable.uploadedBy eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("messageId", row[MailingMessageAttachmentTable.mailingMessageId].toString())
+                                put("fileName", row[MailingMessageAttachmentTable.originalFilename])
+                                put("mimeType", row[MailingMessageAttachmentTable.mimeType])
+                                put("sizeBytes", row[MailingMessageAttachmentTable.sizeBytes])
+                                put("uploadedAt", row[MailingMessageAttachmentTable.uploadedAt].toString())
+                            },
+                        )
+                    }
+            }
             putJsonArray("directMessages") {
                 DirectMessageTable
                     .selectAll()
@@ -180,12 +225,46 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
                         )
                     }
             }
+            // V1.9.233 -- attachments the subject uploaded (SENT / PENDING) or received (RECEIVED): metadata only, never the file or its key.
+            putJsonArray("directMessageAttachments") {
+                DirectMessageAttachmentTable
+                    .selectAll()
+                    .where {
+                        (DirectMessageAttachmentTable.uploaderId eq memberId) or (DirectMessageAttachmentTable.recipientId eq memberId)
+                    }.forEach { row ->
+                        val sentByMe = row[DirectMessageAttachmentTable.uploaderId] == memberId
+                        val pending = row[DirectMessageAttachmentTable.messageId] == null
+                        // A pending file addressed to the subject is not visible to it yet (and not its data): skipped.
+                        if (pending && !sentByMe) return@forEach
+                        add(
+                            buildJsonObject {
+                                put(
+                                    "direction",
+                                    if (pending) {
+                                        "PENDING"
+                                    } else if (sentByMe) {
+                                        "SENT"
+                                    } else {
+                                        "RECEIVED"
+                                    },
+                                )
+                                put("messageId", row[DirectMessageAttachmentTable.messageId]?.toString())
+                                put("fileName", row[DirectMessageAttachmentTable.originalFilename])
+                                put("mimeType", row[DirectMessageAttachmentTable.mimeType])
+                                put("sizeBytes", row[DirectMessageAttachmentTable.sizeBytes])
+                                put("createdAt", row[DirectMessageAttachmentTable.createdAt].toString())
+                            },
+                        )
+                    }
+            }
         }
 
     override fun eraseMember(
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {
+        // V1.9.234: archived (deleted) lists are retained like live ones -- they are the evidence for the messages already sent;
+        // deleted_by is not anonymized separately because the member row itself is anonymized, exactly as for created_by.
         val listsRetained = MailingListTable.selectAll().where { MailingListTable.createdBy eq memberId }.count()
         val subscriptionsDeleted = MailingListSubscriptionTable.deleteWhere { MailingListSubscriptionTable.memberId eq memberId }
         val optOutsDeleted = MailingListOptOutTable.deleteWhere { MailingListOptOutTable.memberId eq memberId }
@@ -199,10 +278,32 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
         val clicksDeleted = MailingLinkClickTable.deleteWhere { mailingDeliveryLogId inSubQuery ownDeliveryIds }
         val deliveryLogDeleted = MailingDeliveryLogTable.deleteWhere { MailingDeliveryLogTable.memberId eq memberId }
         val messagesRetained = MailingMessageTable.selectAll().where { MailingMessageTable.sentBy eq memberId }.count()
+        val attachmentsRetained =
+            MailingMessageAttachmentTable
+                .selectAll()
+                .where { MailingMessageAttachmentTable.uploadedBy eq memberId }
+                .count()
 
         val sentCount = DirectMessageTable.selectAll().where { DirectMessageTable.senderId eq memberId }.count()
         val receivedCount = DirectMessageTable.selectAll().where { DirectMessageTable.recipientId eq memberId }.count()
         var sentRedacted = 0
+        // V1.9.233 -- attachments: pending uploads always; every upload of the subject under HARD_DELETE. Rows first (FK), then files.
+        val uploadedBefore = DirectMessageAttachmentTable.selectAll().where { DirectMessageAttachmentTable.uploaderId eq memberId }.count()
+        val pendingKeys = DirectMessageAttachmentStore.deletePendingForUploaderInTx(memberId)
+        val sentKeys =
+            if (mode ==
+                ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED
+            ) {
+                DirectMessageAttachmentStore.deleteAllUploadedByInTx(memberId)
+            } else {
+                emptyList()
+            }
+        val attachmentKeys = pendingKeys + sentKeys
+        if (attachmentKeys.isNotEmpty()) {
+            DirectMessageAttachmentStore.deleteFiles(root = dmAttachmentStorageRoot, keys = attachmentKeys)
+        }
+        val dmAttachmentsDeleted = attachmentKeys.size
+        val dmAttachmentsRetained = (uploadedBefore - dmAttachmentsDeleted).toInt()
         if (mode == ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED) {
             sentRedacted =
                 DirectMessageTable.update({ DirectMessageTable.senderId eq memberId }) {
@@ -223,8 +324,23 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
                 rowsRetained = messagesRetained.toInt(),
                 retentionReason = "Von anderen Mitgliedern empfangene Organisationskommunikation",
             ),
+            TableErasureOutcome(
+                table = "mailing_message_attachment",
+                rowsRetained = attachmentsRetained.toInt(),
+                retentionReason =
+                    "Teil der von anderen Mitgliedern empfangenen Organisationskommunikation (wie mailing_message.sent_by); " +
+                        "die Dateien werden ohnehin nach der Aufbewahrungsfrist des Versands gelöscht",
+            ),
             TableErasureOutcome(table = "mailing_link_click", rowsDeleted = clicksDeleted),
             TableErasureOutcome(table = "mailing_delivery_log", rowsDeleted = deliveryLogDeleted),
+            TableErasureOutcome(
+                table = "direct_message_attachment",
+                rowsDeleted = dmAttachmentsDeleted,
+                rowsRetained = dmAttachmentsRetained,
+                retentionReason =
+                    "Gesendete Anhaenge bleiben bei der Gegenpartei (wie die Textkoerper); nur unter " +
+                        "HARD_DELETE_WHERE_UNCONSTRAINED werden die selbst hochgeladenen Dateien samt Zeilen geloescht",
+            ),
             TableErasureOutcome(
                 table = "direct_message",
                 rowsAnonymized = sentRedacted,

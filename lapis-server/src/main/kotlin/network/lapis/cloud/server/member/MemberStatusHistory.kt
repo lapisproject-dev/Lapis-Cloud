@@ -39,6 +39,9 @@ enum class MemberStatusHistorySource {
 
     /** V72 backfill: assumed (no evidence of an earlier status). */
     BACKFILL_ASSUMED,
+
+    /** Welle V1.9.226: a member created or changed by the manual LupaBB master-data sync (`network.lapis.cloud.server.lupabb`). */
+    LUPABB_SYNC,
 }
 
 /**
@@ -71,9 +74,10 @@ object MemberStatusHistory {
             source == MemberStatusHistorySource.LIVE ||
                 source == MemberStatusHistorySource.IMPORT ||
                 source == MemberStatusHistorySource.SEED ||
-                source == MemberStatusHistorySource.KEYCLOAK_JIT,
+                source == MemberStatusHistorySource.KEYCLOAK_JIT ||
+                source == MemberStatusHistorySource.LUPABB_SYNC,
         ) {
-            "only LIVE, IMPORT, SEED and KEYCLOAK_JIT rows are written at runtime"
+            "only LIVE, IMPORT, SEED, KEYCLOAK_JIT and LUPABB_SYNC rows are written at runtime"
         }
         val latest =
             MemberStatusHistoryTable

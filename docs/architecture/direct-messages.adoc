@@ -5,17 +5,31 @@
 
 == Scope
 
-Direct messages are one-to-one messages between active members (`IDirectMessageService`). The client shows them on the screen "Kommunikation"
-(`CommunicationScreen.kt`, section "Postfach"). V1.9.12 added the list and the reply form (carpool contact messages arrive here); V1.9.34 adds
+Direct messages are one-to-one messages between active members (`IDirectMessageService`). The client shows them on the screen "Nachrichten"
+(`MessagesScreen.kt`, route `/messages`). V1.9.12 added the list and the reply form (carpool contact messages arrive here); V1.9.34 adds
 the conversation history and the unread counter. The server changed in one place only: `listConversation` is capped (see below). No migration.
 
-== Inbox
+NOTE: **V1.9.231 split the former "Kommunikation" screen** into "Nachrichten" (this document) and "Mailinglisten" (`MailingListsScreen.kt`, route
+`/mailing-lists`, see `features/dynamic-mailing-lists.adoc`). The separate "Postfach" section is gone: it listed the same messages as the
+conversation list once more, by message instead of by partner. There is now ONE list, one row per conversation partner (`DirectMessagePartnerList.kt`),
+each row marked with the chat icon and the word "Gespräch". Only *opening* a conversation marks it read (`conversationView`, once per open
+conversation); loading the screen no longer marks everything read, so a message stays unread (and counted in the navbar and sidebar pills) until its
+conversation is opened. The old address `/communication` redirects to `/messages` (fixed target, address replaced in place without a history entry).
+Mailing-list letters are not part of the list yet: a member cannot read the sent messages of their lists (`IMailingService.listMailingMessages` is
+board-only); a read-only call for the member's own received letters is the planned next step. After a reply is sent the field is emptied and the
+focus returns to the new, empty field.
+
+== Inbox (superseded by V1.9.231)
+
+NOTE: **Superseded.** The separate "Postfach" section and the batch marking described here are gone (see the NOTE at the top): loading the screen no longer marks anything read; only opening a conversation does. The text below is the V1.9.34 state, kept for history.
 
 `listInbox()` returns the messages addressed to the caller. After the list is rendered, all unread ones are marked read in one batch
 (`markReadThenRefreshCounter`): one coroutine marks them one after another and only then refreshes the sidebar counter exactly once. This
 order matters -- refreshing before the marks landed would leave "(3)" in the sidebar, and one refresh per message would be N calls.
 
-== Conversation history
+== Conversation history (V1.9.34; the entry point changed in V1.9.231)
+
+NOTE: Since V1.9.231 there is no inbox row to expand: a conversation is opened from the conversation list (`conversationView`), and the "Verlauf anzeigen" disclosure below an inbox message no longer exists. The cap, the ordering and the error state below still apply to the conversation view; unread messages are marked read when the conversation is opened, not by a batch after the list loads.
 
 Below every inbox message the link-button "Verlauf anzeigen" opens the whole conversation with that member (`conversationDisclosure`):
 
@@ -78,12 +92,89 @@ marked through the ids of that page; and one atomic statement replaces N single 
 === Navbar counter
 
 The unread count is shown as a pill on an envelope in the navbar (`NavbarUnreadIndicator.kt`), visible on every width and with a collapsed
-sidebar, only for members who see the COMMUNICATION link. It links to `#/communication?section=messages` (no id, no personal data); the screen
-then focuses the "Gespräche" heading. `UnreadMessages` is one state with a registry of displays keyed by name (the navbar is rebuilt on every
+sidebar, only for members who see the MESSAGES link. It links to `#/messages` (V1.9.231; before: `#/communication?section=messages`; no id, no personal data;
+`?section=messages` is still honoured and focuses the list heading). `UnreadMessages` is one state with a registry of displays keyed by name (the navbar is rebuilt on every
 `refreshNavbar`; the new display replaces the old under the same key). Triggers: registration, every route change (unthrottled), a mark-read
 or reply, and **tab return** (`visibilitychange`/`focus`, installed once) throttled by a timestamp comparison to one refresh per 30 seconds
-(`TAB_RETURN_REFRESH_THROTTLE_MS`). Still no timer, no polling, no websocket. The sidebar link "Kommunikation" carries no number any more. The pill is not
+(`TAB_RETURN_REFRESH_THROTTLE_MS`). Still no timer, no polling, no websocket. V1.9.231 brings the number back on the sidebar entry "Nachrichten" as a second display of the same count (`bindSidebarUnread`, key
+`sidebar-messages`; a child span, never part of the label, so the menu search is unaffected; accessible name as the envelope's). The pill is not
 an `aria-live` region and not animated; its accessible name is "Nachrichten, n ungelesen".
+
+== Attachments (V1.9.233)
+
+A reply can carry up to **5 files, 10 MiB each, 20 MiB in total** (binary, like the mailing attachments). The rule set is the SAME code as for mailing messages
+(`AttachmentRules`, `AttachmentSniffer`, `AttachmentZip`, `sanitizeAttachmentName`, `classifyAttachmentUpload` -- extracted in this wave, not copied;
+`AttachmentRulesSingleSourceTripwireTest` pins it): PDF, PNG/JPEG/GIF/WebP, docx/xlsx/pptx, odt/ods/odp, txt/csv, checked by extension AND by content, the MIME type
+being the server's. The message text stays mandatory; there is no message without text.
+
+=== Pending, then sent
+
+An upload is first *pending*: a `direct_message_attachment` row with `message_id` NULL, owned by the uploader and addressed to ONE recipient
+(`POST /api/direct-messages/attachments`, multipart: the form field `recipientId` first, then the file). It becomes part of a message only through
+`IDirectMessageService.sendDirectMessageWithAttachments(recipientId, body, attachmentIds)` (new, last method of the interface; there is one method for
+"new message" and "reply" because they are the same operation on the server). The send is atomic: message insert and assignment of the files run in one
+transaction under the sender's member-row lock; ANY problem with an id (unknown, foreign, already sent, addressed to someone else, expired, duplicate, more than 5)
+fails the WHOLE send with one uniform `DirectMessageAttachmentsUnavailableException` (a dedicated type: Kilua RPC transmits only the exception type, and a plain `ConflictException` also covers a bad body, a send to oneself and an unreceivable recipient) -- no message is created and the caller learns nothing about which id was wrong.
+
+[source,kuml,name="dm-attachment-flow"]
+----
+sequenceDiagram(name = "Direct message -- attachment, pending to sent") {
+    val sender = lifeline(name = "Sender (browser)")
+    val routes = lifeline(name = "DirectMessageAttachmentRoutes")
+    val db = lifeline(name = "PostgreSQL (direct_message_attachment)")
+    val service = lifeline(name = "DirectMessageService")
+    val recipient = lifeline(name = "Recipient (browser)")
+    val poller = lifeline(name = "DirectMessageAttachmentPendingPoller")
+
+    message(from = sender, to = routes, label = "POST attachment: recipientId field, then the file (same origin, active member)")
+    message(from = routes, to = db, label = "gate BEFORE the file stream: recipient receivable? pending limits free?")
+    message(from = routes, to = db, label = "lock sender member row; re-check limits and name; INSERT row (message_id NULL)")
+    message(from = sender, to = service, label = "sendDirectMessageWithAttachments(recipient, text, ids)")
+    message(from = service, to = db, label = "lock member row; INSERT message; UPDATE pending rows of THIS sender and recipient SET message_id (all or nothing)")
+    message(from = recipient, to = routes, label = "GET download: only sender or recipient of the message; uniform 404 otherwise")
+    message(from = poller, to = db, label = "hourly: DELETE pending rows older than 24 h, then their files")
+}
+----
+
+A rebuilt composer (page reload, navigation) finds its pending files again through `GET /api/direct-messages/attachments/pending?recipientId=` (own uploads for ONE
+partner, upload order, `Cache-Control: no-store`; `401` / `403` / `400 NO_FILE` for a missing or malformed partner). Without it, invisible pending files would still count
+against the limits and the duplicate-name check for up to about 25 hours. The client freezes the list while a send runs and removes only the sent ids afterwards.
+
+=== Who may do what
+
+[cols="2,3,3,3",options="header"]
+|===
+| Action | Uploader (sender) | Recipient | Anyone else (incl. BOARD/ADMIN)
+| Upload | active member, recipient receivable by the rule of `sendDirectMessage` | -- | no
+| Delete | only while pending, own upload | no | no
+| Download | pending: yes; sent: yes | sent: yes, pending: no | no -- the same 404 as for an unknown id
+|===
+
+There is no role in any predicate (`DirectMessageAttachmentRoutes` and the store never read a role; tripwire). Unknown id, foreign id, malformed id, inactive caller
+and a missing file all answer the same `404 {"code":"NOT_FOUND"}` with the same body and `Cache-Control: no-store`; `401` (not signed in) and `429` (rate limit) do not
+depend on the id either. A recipient who is unknown, inactive, anonymized or the caller itself yields one `RECIPIENT_UNAVAILABLE` -- no existence oracle. Downloads are
+always `Content-Disposition: attachment` (also PDF and images), `nosniff`, `private, no-store`, `Cross-Origin-Resource-Policy: same-origin` and
+`Content-Security-Policy: default-src 'none'; sandbox`; the file name is never part of a URL and never logged.
+
+=== Limits and lifetime of pending files
+
+Per sender and recipient: at most 5 pending files and 20 MiB. Per sender over all recipients: at most 20 pending files and 80 MiB (`PENDING_LIMIT`). Both are checked
+twice: fail-fast before the file is streamed (so a refused request never writes 10 MiB to disk) and authoritatively inside the insert transaction under the
+sender's member-row lock. A pending file that is not sent within 24 hours is removed by an hourly poller, so it lives at most about 25 hours (the 24 h poller of
+the mailing retention would have allowed up to 48 h). A sent attachment has no retention period.
+
+=== Deletion
+
+There is no `ON DELETE CASCADE` (repo convention; a cascade could not delete the files either). Rows and files are deleted in code. Today NO code path deletes a direct message;
+"deleted with the message" therefore only happens through the DSGVO erasure (`CommunicationPersonalData`): the sender's pending uploads are deleted in every mode,
+and under `HARD_DELETE_WHERE_UNCONSTRAINED` every file the person uploaded (rows and files) is deleted together with the redaction of the sent texts. In the default mode
+sent attachments stay with the recipient, as the texts do; received attachments always stay. The export (Art. 15) lists name, type, size, instant and direction
+(SENT/RECEIVED/PENDING) -- never the file or its storage key. The organization backup carries the rows and the files (`BLOB_TABLES`).
+
+=== Not covered
+
+Carpool contact (`CarpoolService.contactAuthor`), the member finder and the event-registration notifier keep calling `insertDirectMessage` and carry no files
+(`CarpoolMessageDmBoundaryTripwireTest`). There is no virus scan; PDF JavaScript and image polyglots are not detected -- the client says so ("Lapis prüft Anhänge nicht auf Viren.").
 
 == Personal data
 
@@ -99,6 +190,7 @@ Message text and the names of both sides are personal data. In the new files the
 * (V1.9.36) At most 100 conversations in the list, at most 1000 messages per conversation in the client. No message preview in the list.
 * (V1.9.36) A reply to a partner who is no longer an active member is refused by the server; the form shows one general sentence.
 * (V1.9.36) No real-time push: the pill refreshes on navigation and on tab return.
+* (V1.9.233) Attachments exist for direct messages SENT FROM the conversation view's reply form only; carpool contact, member finder and event-registration messages carry none (see "Attachments" below). A message always needs text. There is no virus scan and no retention period for sent files.
 * Not tested against real data or a staging server (see `direct-messages-quorum-declarations-staging-test.adoc`, not executed).
 
 See also the contact routing of the carpool board in `carpool.adoc`.

@@ -1,0 +1,60 @@
+= LupaBB member master-data sync: architecture (V1.9.226)
+:toc:
+
+NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+See link:../features/lupabb-sync.adoc[the feature description] for what an administrator sees. This page records how it is built and why.
+
+== Sequence
+
+[kuml, lupabb-sync-sequence, svg]
+----
+sequenceDiagram(name = "LupaBB sync: preview and apply") {
+    val admin = participant(name = "Administrator")
+    val server = participant(name = "Lapis Cloud")
+    val lupabb = participant(name = "LupaBB API")
+
+    message(from = admin, to = server, text = "verifyAndSaveCredentials: one probe, sealed storage")
+    message(from = admin, to = server, text = "loadPreview")
+    message(from = server, to = lupabb, text = "GET lookups and pages (Digest + API key, outside any transaction)")
+    message(from = server, to = admin, text = "token + counters; rows by getPreviewPage")
+    message(from = admin, to = server, text = "applyPreview(token)")
+    message(from = server, to = server, text = "per record: row lock, fingerprint check, write, audit")
+    message(from = server, to = admin, text = "counters + failure codes")
+}
+----
+
+== Hardening of the client
+
+* Fixed host ([`LupaBbEndpoint.PRODUCTION`]); the only other accepted shape is a loopback address for the tests. The host is read from the *parsed* URL (a prefix check would let `http://localhost:80@evil/` through).
+* `followRedirects = false`, `expectSuccess = false`, GET only, `Accept-Encoding: identity`, no ContentEncoding plugin, **no Ktor `Logging` plugin**; `logback.xml` floors `io.ktor.client` at INFO.
+* Timeouts 10/30/30 s per request, 5 minutes for the whole fetch (`withTimeout`), 5 MiB per body (read against the cap), 200 pages, 20,000 records.
+* **Every Ktor/IO exception becomes a `LupaBbFetchException(code)` without a cause.** Such an exception carries the request URL, and with the query transport the API key; the RPC layer logs the message
+  and the cause chain of every exception. The typed RPC exceptions are fixed texts, too.
+* The wire payload is read by hand from the JSON tree (PHP backends send numbers quoted or not); an unexpected type is `UNEXPECTED_RESPONSE` without the text of a decoder error.
+* An empty answer while members are linked is `UNEXPECTED_RESPONSE`: never "everybody left LupaBB".
+
+== Token, guard, fencing
+
+* The preview token is 32 random bytes; only its SHA-256 is kept, compared in constant time. It belongs to one administrator, lives 15 minutes on the monotonic clock, at most two previews exist.
+* The run guard is a compare-and-set on `lupabb_sync_config` (`running_since`, `run_claim`, `last_fetch_started_at`): it works across server processes. Release is fenced (only the holder of the current
+  claim can release it); a claim older than 10 minutes is free. The guard is never held inside a database transaction together with HTTP.
+* The apply step takes the claim, then the token, so a busy guard does not burn the preview.
+
+== Writing
+
+* One transaction per record. The member row is locked `FOR UPDATE` first; the Lapis side is re-read and hashed (`LapisMember.fingerprint`, covering fields, status, chapter, link, hint and the *account role*).
+  A different hash than in the preview is `CHANGED_SINCE_PREVIEW`, so a role granted after the preview stops a status change.
+* The status goes through `MemberRoleStatusMutations.applyStatusChangeLocked` (last-admin protection, regional-chapter rule, committee seats, mandates, photo/bio publication, member finder, history, audit) with the
+  history source `LUPABB_SYNC`; the peer notification and every mail are *not* part of that function and are not called. The sessions of a member whose new status blocks the login are revoked after the commit.
+* A new member is inserted under a savepoint; a unique violation (e-mail or person number taken meanwhile) becomes a fixed code, the transaction stays usable (PostgreSQL aborts it otherwise).
+* Audit entries carry field keys and counters only (`MemberChangeSnapshot.lupabbFields`, `LupaBbSyncRunSnapshot`), never a value, a name or a person number.
+
+== Tables
+
+See `77-lupabb-sync.kuml.kts` and `V122__lupabb_sync.sql`: `member.lupabb_person_number` (unique), `member.lupabb_missing_since`, `member_lupabb_profile`, `lupabb_sync_config` (one row),
+`lupabb_sync_run`, `lupabb_sync_suppression`. `lupabb_sync_config` is excluded from the organisation backup; the other three are backed up.
+
+== Why a person number link and not `external_reference`
+
+`external_reference` (CSV import) is free text of another source; the person number needs a unique index and a numeric check. The two stay separate.

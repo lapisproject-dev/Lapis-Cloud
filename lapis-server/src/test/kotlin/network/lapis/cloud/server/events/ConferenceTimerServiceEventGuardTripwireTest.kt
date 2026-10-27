@@ -81,7 +81,7 @@ class ConferenceTimerServiceEventGuardTripwireTest :
 
         test(
             "the tail of the registrations in Application.kt is pinned: timer, agreement texts, pulpit recording, member finder, " +
-                "the tenders, the online counts, the image gallery, then the dashboard (Kilua numbers routes by declaration order)",
+                "the tenders, the online counts, the image gallery, the dashboard, the party report, then the LupaBB sync (Kilua numbers routes by declaration order)",
         ) {
             val code = SourceScan.blank(EncounterSourceScan.mainFile("Application.kt").readText())
             val registrations = Regex("""registerService\(""").findAll(code).map { it.range.first }.toList()
@@ -93,6 +93,8 @@ class ConferenceTimerServiceEventGuardTripwireTest :
             val onlineCounts = code.indexOf("registerService(IOnlineCountsService::class)")
             val attachedImages = code.indexOf("registerService(IAttachedImageService::class)")
             val dashboard = code.indexOf("registerService(IDashboardService::class)")
+            val partyReport = code.indexOf("registerService(IPartyReportService::class)")
+            val lupaBbSync = code.indexOf("registerService(ILupaBbSyncService::class)")
             (timer >= 0) shouldBe true
             (agreementTexts > timer) shouldBe true
             (pulpitRecording > agreementTexts) shouldBe true
@@ -101,16 +103,21 @@ class ConferenceTimerServiceEventGuardTripwireTest :
             (onlineCounts > tenders) shouldBe true
             (attachedImages > onlineCounts) shouldBe true
             (dashboard > attachedImages) shouldBe true
-            // a new service is always appended (V1.9.224: the dashboard after the image gallery): the timer stays eighth to last, the
-            // agreement texts seventh to last, the pulpit recording sixth to last, the member finder fifth to last, the tenders fourth to
-            // last, the online counts third to last, the image gallery second to last, the dashboard last
-            registrations[registrations.size - 8] shouldBe timer
-            registrations[registrations.size - 7] shouldBe agreementTexts
-            registrations[registrations.size - 6] shouldBe pulpitRecording
-            registrations[registrations.size - 5] shouldBe memberFinder
-            registrations[registrations.size - 4] shouldBe tenders
-            registrations[registrations.size - 3] shouldBe onlineCounts
-            registrations[registrations.size - 2] shouldBe attachedImages
-            registrations.last() shouldBe dashboard
+            (partyReport > dashboard) shouldBe true
+            (lupaBbSync > partyReport) shouldBe true
+            // a new service is always appended (V1.9.226: the LupaBB sync after the party report): the timer stays tenth to last, the
+            // agreement texts ninth to last, the pulpit recording eighth to last, the member finder seventh to last, the tenders sixth to
+            // last, the online counts fifth to last, the image gallery fourth to last, the dashboard third to last, the party report second
+            // to last, the LupaBB sync last
+            registrations[registrations.size - 10] shouldBe timer
+            registrations[registrations.size - 9] shouldBe agreementTexts
+            registrations[registrations.size - 8] shouldBe pulpitRecording
+            registrations[registrations.size - 7] shouldBe memberFinder
+            registrations[registrations.size - 6] shouldBe tenders
+            registrations[registrations.size - 5] shouldBe onlineCounts
+            registrations[registrations.size - 4] shouldBe attachedImages
+            registrations[registrations.size - 3] shouldBe dashboard
+            registrations[registrations.size - 2] shouldBe partyReport
+            registrations.last() shouldBe lupaBbSync
         }
     })

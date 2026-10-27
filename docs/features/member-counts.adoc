@@ -9,7 +9,7 @@ what is not done: `docs/architecture/member-status-history.adoc`.
 == Last sign-in column (V1.9.207)
 
 The administration member list has the column "Letzte Anmeldung" (time in the organization zone and the method: password, central sign-in or partner
-server; "nie angemeldet" while nothing is recorded). The date is formatted in the organization zone and the user's locale without seconds or zone abbreviation, followed by the method, for example `24.10.2026, 20:11 · Passwort`. It is sortable (ascending: never signed in first). It exists for ADMIN only: the server returns `null` for
+server; "nie angemeldet" while nothing is recorded). The date is formatted in the organization zone and the user's locale without seconds or zone abbreviation, followed by the method as an icon with a tooltip and an accessible name (password, central sign-in, partner server); the export keeps the text form, for example `24.10.2026, 20:11 · Passwort`. It is sortable (ascending: never signed in first). It exists for ADMIN only: the server returns `null` for
 everybody else and falls back to the name sort. The stamp is set by the three login routes from migration V118 on; accounts that signed in earlier show "nie
 angemeldet" until their next sign-in (no backfill, the method of an old session would be guessed). Data model: `docs/architecture/dsgvo.adoc`, visibility rule:
 `docs/architecture/admin-peer-protection.adoc`.

@@ -100,3 +100,8 @@ and the enable button answers an incomplete mapping with a message and a link in
 * The chart is a proposal and not verified against the official DATEV SKR42; there is no automatic basic chart when an organization is created.
 * Account type names in tables ("Aktivkonto" and so on) are unchanged and still technical.
 * The DOM tests run in headless Chrome only; no run against staging.
+
+== Accountability report of a political party
+
+An organisation that is a political party additionally finds *Rechenschaftsbericht (PartG)* in the finance group (board and administration only). It stores the figures of the
+report per unit and year, typed in or imported from Excel; it is not yet tied to the ledger accounts. See link:partg-report.adoc[Party accountability report].

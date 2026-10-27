@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.mail
 
+import jakarta.activation.DataHandler
+import jakarta.activation.DataSource
 import jakarta.mail.AuthenticationFailedException
 import jakarta.mail.Authenticator
 import jakarta.mail.Message
@@ -13,6 +15,11 @@ import jakarta.mail.internet.MimeMessage
 import jakarta.mail.internet.MimeMultipart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -44,6 +51,33 @@ class JakartaMailTransport(
         subject: String,
         plainTextBody: String,
         htmlBody: String,
+    ): MailSendOutcome = deliver(to = to, subject = subject, plainTextBody = plainTextBody, htmlBody = htmlBody, attachments = emptyList())
+
+    /**
+     * V1.9.232 -- with attachments the message is `multipart/mixed` > [`multipart/alternative` (plain, html), attachment, ...]; without
+     * any it is byte-for-byte the previous `multipart/alternative` message. The attachment bytes are streamed from disk
+     * ([FileAttachmentDataSource]) and `Content-Transfer-Encoding: base64` is set explicitly, otherwise `saveChanges()` would scan the
+     * whole file to choose an encoding.
+     */
+    override suspend fun sendWithAttachments(
+        to: String,
+        subject: String,
+        plainTextBody: String,
+        htmlBody: String,
+        attachments: List<MailAttachment>,
+    ): MailSendOutcome {
+        if (attachments.any { containsLineBreak(it.fileName) || containsLineBreak(it.contentType) }) {
+            return MailSendOutcome.Failed(sanitizedErrorMessage = "attachment name/type contains a line break")
+        }
+        return deliver(to = to, subject = subject, plainTextBody = plainTextBody, htmlBody = htmlBody, attachments = attachments)
+    }
+
+    private suspend fun deliver(
+        to: String,
+        subject: String,
+        plainTextBody: String,
+        htmlBody: String,
+        attachments: List<MailAttachment>,
     ): MailSendOutcome {
         // Header-injection guard BEFORE any connection attempt (stolperfalle-adjacent: this is the
         // mail-specific twin of the `\r`/`\n` check SmtpConfig.load already applies to the FROM
@@ -63,6 +97,7 @@ class JakartaMailTransport(
                         subject = subject,
                         plainTextBody = plainTextBody,
                         htmlBody = htmlBody,
+                        attachments = attachments,
                     )
                 // Populates the real MIME headers (Content-Type, Date, ...) from the parts/content
                 // set above -- MimeMessage/MimeBodyPart.getContentType() reads ONLY the header, not
@@ -90,6 +125,7 @@ class JakartaMailTransport(
         subject: String,
         plainTextBody: String,
         htmlBody: String,
+        attachments: List<MailAttachment>,
     ): MimeMessage {
         val message = MimeMessage(session)
         message.setFrom(InternetAddress(config.fromAddress, config.fromDisplayName, "UTF-8"))
@@ -110,7 +146,28 @@ class JakartaMailTransport(
         val multipart = MimeMultipart("alternative")
         multipart.addBodyPart(plainPart)
         multipart.addBodyPart(htmlPart)
-        message.setContent(multipart)
+        if (attachments.isEmpty()) {
+            message.setContent(multipart)
+            return message
+        }
+        // V1.9.232: multipart/mixed > [multipart/alternative, attachment, ...] in upload order.
+        val bodyPart = MimeBodyPart()
+        bodyPart.setContent(multipart)
+        val mixed = MimeMultipart("mixed")
+        mixed.addBodyPart(bodyPart)
+        for (attachment in attachments) {
+            val part = MimeBodyPart()
+            part.dataHandler =
+                DataHandler(
+                    FileAttachmentDataSource(file = attachment.file, contentType = attachment.contentType, name = attachment.fileName),
+                )
+            // RFC 2231 for a non-ASCII name (mail.mime.encodeparameters, see createSession); disposition `attachment`.
+            part.fileName = attachment.fileName
+            part.disposition = MimeBodyPart.ATTACHMENT
+            part.setHeader("Content-Transfer-Encoding", "base64")
+            mixed.addBodyPart(part)
+        }
+        message.setContent(mixed)
         return message
     }
 
@@ -217,6 +274,9 @@ class JakartaMailTransport(
             // flip in a future Angus minor version would otherwise be a MITM hole.
             props["mail.smtp.ssl.checkserveridentity"] = "true"
             props["mail.smtp.ssl.protocols"] = "TLSv1.2 TLSv1.3"
+            // V1.9.232: attachment file names are encoded as RFC 2231 parameters (filename*=utf-8''...), explicit, not the library default.
+            props["mail.mime.encodeparameters"] = "true"
+            props["mail.mime.encodefilename"] = "false"
 
             when (config.transportSecurity) {
                 SmtpTransportSecurity.IMPLICIT_TLS -> {
@@ -244,4 +304,23 @@ class JakartaMailTransport(
             return Session.getInstance(props, authenticator)
         }
     }
+}
+
+/**
+ * V1.9.232 -- a [DataSource] over a file on disk. Every [getInputStream] opens a NEW stream, so the bytes are read lazily, in chunks,
+ * while the message is written; nothing is held in the heap. The content type is the server-chosen one (no `FileDataSource`, which
+ * would derive `application/octet-stream` from the `.bin` storage name).
+ */
+internal class FileAttachmentDataSource(
+    private val file: File,
+    private val contentType: String,
+    private val name: String,
+) : DataSource {
+    override fun getInputStream(): InputStream = FileInputStream(file)
+
+    override fun getOutputStream(): OutputStream = throw IOException("read-only data source")
+
+    override fun getContentType(): String = contentType
+
+    override fun getName(): String = name
 }

@@ -13,6 +13,7 @@ import kotlin.js.Promise
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** Welle V1.9.36 -- the reply form: a send refreshes the unread counter and calls onSent; a failure keeps the text and calls onFailed only. */
 class DirectMessageReplyFormDomTest {
@@ -61,7 +62,7 @@ class DirectMessageReplyFormDomTest {
                         recipientId = "p1",
                         onSent = { onSent++ },
                         onFailed = { onFailed++ },
-                        send = { to, body ->
+                        send = { to, body, _ ->
                             sent += to to body
                             message(body)
                         },
@@ -73,6 +74,11 @@ class DirectMessageReplyFormDomTest {
                 awaitUntil("counter refreshed") { counterCalls >= 2 }
                 assertEquals("p1" to "Hallo", sent.single())
                 assertEquals(0, onFailed)
+                assertEquals("", (element().controlOf("Antwort") as HTMLTextAreaElement).value, "the field is empty after a send")
+                assertTrue(
+                    element().buttonNamed("Antworten").querySelector("i.fa-paper-plane") != null,
+                    "the reply button carries the send icon",
+                )
             }
         }
 
@@ -94,7 +100,7 @@ class DirectMessageReplyFormDomTest {
                         recipientId = "p1",
                         onSent = { onSent++ },
                         onFailed = { onFailed++ },
-                        send = { _, _ -> throw ForbiddenException("secret-server-text") },
+                        send = { _, _, _ -> throw ForbiddenException("secret-server-text") },
                     )
                 }
                 element().typeInto("Antwort", "Meine Antwort")

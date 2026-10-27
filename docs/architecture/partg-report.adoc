@@ -1,0 +1,94 @@
+= Party accountability report, R1: architecture (V1.9.225)
+:toc:
+
+NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+See link:../features/partg-report.adoc[the feature description] for what a person sees. This page records how it is built and why.
+
+== Model
+
+[kuml, partg-report-model, svg]
+----
+classDiagram(name = "PartgReportModel") {
+    classOf(name = "partg_report_position") {
+        attribute(name = "code", type = "String")
+        attribute(name = "section", type = "String")
+        attribute(name = "kind", type = "String")
+        attribute(name = "org_hint", type = "String")
+    }
+    classOf(name = "partg_report_sheet") {
+        attribute(name = "fiscal_year", type = "Int")
+        attribute(name = "unit_key", type = "String")
+        attribute(name = "regional_chapter_id", type = "UUID")
+        attribute(name = "revision", type = "Long")
+    }
+    classOf(name = "partg_report_value") {
+        attribute(name = "position_code", type = "String")
+        attribute(name = "amount_cents", type = "Long")
+        attribute(name = "value_source", type = "String")
+    }
+}
+----
+
+* `partg_report_position`: the 42 statutory positions, seeded by `V121__partg_report.sql` with fixed ids; only `org_hint` changes. 35 `LEAF`, 7 `SUM`. `PartgPositions` (lapis-shared)
+  is the same catalogue in code; `PartgPositionsSeedTest` pins database and code against each other.
+* `partg_report_sheet`: one header per (fiscal year, `unit_key`); carries the revision (optimistic locking) and is the audit entity. `unit_key` is `FEDERAL`, `STATE:<chapter uuid>` or
+  `SUB:<chapter uuid>`; `chk_partg_sheet_unit_consistency` keeps it equal to level and chapter, with the UUID text in lower case on H2 and PostgreSQL (`PartgReportMigrationScenarios`, both lanes).
+* `partg_report_value`: cents (`0 .. 99999999999999`), one per sheet and `LEAF` position. A missing row is "not entered". That a value may only point to a `LEAF` position is not
+  expressible without a trigger; the service enforces it and `PartyReportSaveScenarios` pins it.
+* The column is `value_source`, not `source`: `source` collides with `ColumnSet.source` of Exposed.
+* The foreign keys onto the natural key `code` need a UNIQUE *constraint* (H2 does not accept a unique index as a target).
+* Deviations from the first design, all technical: an `id` column on positions (the audit log needs a UUID entity id), `sheet_id` in the values instead of year and unit per row, and the
+  catalogue has 42 rows (35 + 7), not 43.
+* The migration is `V121`. V120 is released and not edited. While the wave is unreleased V121 may be corrected in place on the feature branch; after the release every change is a new migration.
+
+== Access and write path
+
+* `requirePartyReportAccess(call)` is the first statement of every RPC method and every route handler (`PartyReportAccessTripwireTest`): role BOARD/ADMIN, then `isPoliticalParty`.
+* `PartgReportStore` is the only reader and writer of the three tables (`PartgReportStoreTripwireTest`; the exception is `PartgReportPersonalData`, which lists who changed what).
+* One write path, `PartgSheetWriter`, for the RPC `saveSheet` and the import apply route: one transaction; **lock order** regional chapter row, then the sheet of the older year, then the
+  sheet of the younger year (`deleteChapter` locks the chapter row first as well, so neither can deadlock the other); the revisions are compared under the lock; the values are applied; the
+  audit entries are written last (one per effective value, plus one collective entry for an import with the SHA-256 and the shortened file name); no external effect in the transaction.
+* Creating a sheet that a parallel caller creates too: the insert runs under a savepoint, a unique violation is the only SQL error that is caught (PostgreSQL aborts the whole
+  transaction after any other), then the winner's row is locked and its revision decides.
+* `deleteChapter` refuses with the typed `RegionalChapterHasPartyReportValuesException` as soon as any sheet (even an empty header) of the chapter exists, before any delete runs.
+* Writes are limited to 60 per member and minute. Nothing is logged except counts; no amount, no hint, no file name.
+* Backup: all three tables are in the generic backup. The restore treats `partg_report_position` as a *seeded set* (fresh unless an `org_hint` exists) and overwrites the 42 rows by id.
+* DSGVO: `PartgReportPersonalData` exports "changed by you" without amounts; erasure retains everything (sections 24 and 19a PartG, ten years).
+
+== The XLSX reader (no spreadsheet library)
+
+No Apache POI: a general spreadsheet library is a large attack surface for a file that is only ever read as a fixed template. The reader is small and strict.
+
+[cols="2,3",options="header"]
+|===
+|Limit |Value
+|Upload |2 MB, counted while streaming
+|ZIP entries / entry / total / ratio |64 / 8 MB / 20 MB / 100
+|Names |printable ASCII, `/` separated; no `..`, no leading `/`, no backslash, no duplicate, no encrypted entry, no symlink
+|Macros |any `xl/vbaProject.bin` or a `macroEnabled`/`vbaProject` content type is refused
+|XML |StAX, DTD off, no external entities, a DTD or entity event rejects the file; at most 200,000 elements per file
+|Cells |only columns A to E, rows up to 500 (content below is an error), text up to 200 characters, at most 5,000 shared strings
+|First sheet |found through `workbook.xml` and its relationships; the target must be `xl/worksheets/sheet<1-3 digits>.xml`
+|Numbers |`BigDecimal`, rounded to two places when the deviation is below 1e-6 (Excel stores IEEE doubles), else `TOO_MANY_DECIMALS`
+|Dates |detected through the number format of the cell style and refused
+|Errors |at most 50, then one marker
+|===
+
+The ZIP container reader (`OoxmlZipReader`) is **derived from the article import's `ArticleImportZipReader`**. The plan preferred extracting one shared reader; the article reader is fused with
+its slug classification and its localized reasons, so the parser core was copied and adapted instead. **The security logic therefore exists twice**; a fix to the central-directory
+parsing, the local-header cross check, the overlap check or the bounded inflater has to be applied to both files.
+
+The template writer produces a deterministic file (fixed ZIP time). Organisation and unit names are written as `inlineStr`, never as `<f>`; invalid XML characters are removed.
+
+== The preview store
+
+`PartgImportPreviewStore` keeps the parsed changes between "Prüfen" and "Übernehmen" in memory only: one entry per member, 64 in total (the oldest falls out), 15 minutes on the monotonic clock,
+a token of 32 random bytes of which only the SHA-256 is kept and compared in constant time, single use whatever the outcome (a foreign member's guess burns the token). A restart drops
+all previews. Apply checks the revisions twice: against the preview and again under the lock.
+
+== Client
+
+Route `Routes.PARTY_REPORT`, guarded by `NavVisibility.showsPartyReport(session)` (`SessionInfoDto.politicalParty`, appended at the end with a default). `PartgSheetDraft` holds the
+typed-in state without the DOM (blank means not entered, 0 is a value); the live sums use the shared `PartgPositions.sums`, so client and server cannot compute differently. Labels
+come from `partgLabel`, one literal `tr(...)` per code. The browser's own question appears when the tab is closed with unsaved values; a change of year, unit or tab asks first.

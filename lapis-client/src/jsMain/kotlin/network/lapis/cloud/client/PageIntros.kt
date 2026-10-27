@@ -80,12 +80,17 @@ internal object PageIntros {
                             "Dazu stimmen Sie einmal zu, die Zustimmung können Sie widerrufen.",
                     ),
                 )
-            Routes.COMMUNICATION ->
+            Routes.MESSAGES ->
                 PageIntroDef(
-                    "communication",
+                    "messages",
+                    tr("Ihre persönlichen Gespräche an einem Ort."),
+                )
+            Routes.MAILING_LISTS ->
+                PageIntroDef(
+                    "mailing-lists",
                     tr(
-                        "Hier verwalten Sie Ihre Mailinglisten, schreiben Direktnachrichten und lesen Ihr Postfach. " +
-                            "Vorstand und Administration legen zusätzlich Mailinglisten an und verschicken Nachrichten an sie.",
+                        "Hier abonnieren Sie Mailinglisten oder bestellen sie ab. " +
+                            "Vorstand und Administration verwalten die Listen und verschicken Nachrichten.",
                     ),
                 )
             Routes.MY_CHAPTER ->
@@ -298,6 +303,15 @@ internal object PageIntros {
                     tr(
                         "Hier sehen Sie die Vier-Sphären-Rechnung, die Mittelverwendung und die USt-Voranmeldung als " +
                             "Vorschau.",
+                    ),
+                )
+            Routes.PARTY_REPORT ->
+                PageIntroDef(
+                    "party-report",
+                    tr(
+                        "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den " +
+                            "Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese " +
+                            "Seite noch nicht.",
                     ),
                 )
             Routes.COST_CENTERS ->
@@ -642,7 +656,8 @@ internal object PageIntros {
             Routes.CONTRIBUTIONS,
             Routes.DOCUMENTS,
             Routes.STATUTE_QA,
-            Routes.COMMUNICATION,
+            Routes.MESSAGES,
+            Routes.MAILING_LISTS,
             Routes.MY_CHAPTER,
             Routes.MEMBER_FINDER,
             Routes.ARTICLES,
@@ -669,6 +684,7 @@ internal object PageIntros {
             Routes.OPEN_ITEMS,
             Routes.FINANCIAL_REPORTS,
             Routes.COMPLIANCE_REPORTS,
+            Routes.PARTY_REPORT,
             Routes.COST_CENTERS,
             Routes.DONORS,
             Routes.AUDIT_LOG,

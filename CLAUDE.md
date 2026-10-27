@@ -325,7 +325,7 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 
 - **Sichtbarkeit nur über `TenderVisibilityPolicy`**; keine andere Stelle entscheidet über Modus, Frist oder Rolle, um ein fremdes Angebot oder einen Zähler zu zeigen. Reads schreiben nie (Status wird berechnet), nur erfolgreiche Schreibwege persistieren `CLOSED`.
 - **Befangenheit nur über `TenderConflicts`** (jede Angebotszeile zählt, auch zurückgezogene). Die Governance-Haken subtrahieren die Menge, rufen `eligibleMemberIds` nicht erneut auf.
-- **Sperrreihenfolge:** Antrag -> Ausschreibung -> Angebote -> Mitglied (`forMemberUpdate`) -> Audit zuletzt. `ITenderService` ist seit V1.9.224 die viertletzte `registerService` (danach `IOnlineCountsService`, `IAttachedImageService`, zuletzt `IDashboardService`); neue Methoden ans Ende.
+- **Sperrreihenfolge:** Antrag -> Ausschreibung -> Angebote -> Mitglied (`forMemberUpdate`) -> Audit zuletzt. `ITenderService` ist seit V1.9.226 die sechstletzte `registerService` (danach `IOnlineCountsService`, `IAttachedImageService`, `IDashboardService`, `IPartyReportService`, zuletzt `ILupaBbSyncService`); neue Methoden ans Ende.
 - **EUR ist unerreichbar**, es wird nichts gebucht (`TenderAccessTripwireTest`: kein `LtrLedger*`, kein Balance-Provider). `tender*`-Tabellen nur in `TenderStore`/`TenderPersonalData` abfragen.
 
 ## Themes per Datei (V1.9.216)
@@ -346,7 +346,7 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 - **Alle Prüfungen des Uploads werden unter der Besitzersperre wiederholt** (`GalleryUploadGate.commitInTx`, TOCTOU); der Vorab-Check dient nur dazu, keinen Decode an eine aussichtslose Anfrage zu verschwenden.
 - **Ausgabe ist nie WebP, nie größer als 5 MiB** (der Backup-Restore verweigert größere Dateien): ein großes PNG ohne Transparenz wird JPEG. `CoverImageFormat` bekommt kein WEBP-Literal.
 - **Fehlerantworten der Upload-Route sind JSON mit festem Code** (`GalleryUploadErrorCode`), nie Freitext; Antworten für unbekannt, unsichtbar, fehlende Datei und anonym sind byte-gleich. Die Auslieferung setzt `Cross-Origin-Resource-Policy: same-origin` und `private`, **nicht** `respondCoverFile` (öffentliche Titelbilder, `cross-origin`).
-- **`IAttachedImageService` ist seit V1.9.224 die vorletzte `registerService`** (die letzte ist `IDashboardService`); neue Methoden ans Ende, nie dazwischen. Pinned von `ConferenceTimerServiceEventGuardTripwireTest` und `GalleryTripwireTest`.
+- **`IAttachedImageService` ist seit V1.9.226 die viertletzte `registerService`** (danach `IDashboardService`, `IPartyReportService`, zuletzt `ILupaBbSyncService`); neue Methoden ans Ende, nie dazwischen. Pinned von `ConferenceTimerServiceEventGuardTripwireTest` und `GalleryTripwireTest`.
 - **Im Log nur IDs und Zahlen** (`GalleryTripwireTest`): keine Beschriftung, kein `storage_key`, kein Pfad.
 - **Soziale Beiträge als Besitzer (V1.9.223, `SOCIAL_POST`, Migration V120):** nur Wurzelbeiträge. Sichtbarkeit steht in `socialImagesReadable` (strenger als `SocialVisibility.isReadable`: `VISIBLE`, nicht gelöscht), die Policy bekommt deshalb den Betrachter. Kein Entwurfszustand: der Autor darf 10 Minuten nach `published_at` Bilder anhängen/entfernen (`SOCIAL_POST_PUBLISHED`); Umsortieren, Titelbild und Bildunterschrift gibt es nie, der Alternativtext ist einmal setzbar. Auslieferung `private, no-store`. Moderation **entfernt** (kein Verstecken).
 - **`executeContentErasure` ruft `deleteAllForOwnerInTx`** (Bild-Audit vor dem Post-Audit, Dateien nach dem Commit). `SocialPostDto` bekommt nie ein Bildfeld: öffentliche Seiten, Mails und MCP kennen keine Bilder (`GalleryTripwireTest`). Neue Methode `listSocialPostPreviews` steht am Ende von `IAttachedImageService`.
@@ -355,7 +355,7 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 
 - **Nur Zählwerte** (`OnlineCountsDto`): keine IDs, keine Namen, nichts Neues gespeichert, keine Logzeile mit Zahlen. Nur ADMIN (`requireRole(ADMIN)` als erste Anweisung).
 - **`OnlineSessionCounts.groupOf` ist die einzige Zuordnung Status -> Gruppe**, ein `when` ohne `else`; Zählregeln stehen im KDoc (gleicher Join wie `SessionStore.resolve`).
-- **`IOnlineCountsService` ist seit V1.9.224 die drittletzte `registerService`** (danach `IAttachedImageService`, zuletzt `IDashboardService`; Kilua nummeriert nach Deklarationsreihenfolge); neue Methoden ans Ende, nie dazwischen. Pinned von `ConferenceTimerServiceEventGuardTripwireTest`.
+- **`IOnlineCountsService` ist seit V1.9.226 die fünftletzte `registerService`** (danach `IAttachedImageService`, `IDashboardService`, `IPartyReportService`, zuletzt `ILupaBbSyncService`; Kilua nummeriert nach Deklarationsreihenfolge); neue Methoden ans Ende, nie dazwischen. Pinned von `ConferenceTimerServiceEventGuardTripwireTest`.
 
 ## Dashboard-Signale und Menüzähler (V1.9.224)
 
@@ -364,7 +364,7 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 - **Gates nur über `SignalGates`/`MemberStatusSets`** (Spiegel von `NavVisibility`), nie inline `== ACTIVE`. Neue Auszählung bestehender Logik (Auktion: `computeAuctionOutcome`; Beteiligung: `*OwnParticipation`; Gremium: `isCommitteeEligible`) wird **aufgerufen, nicht nachgebaut**.
 - **Eine fehlerhafte Quelle kostet nur ihre Signale** (Savepoint je Quelle, Log nur Modulschlüssel und Exception-Klasse). Jede neue Abfrage muss indiziert sein: `DashboardQueryPlanPostgresTest` erklärt alle Statements mit `enable_seqscan = off`.
 - **`NavCountsQuery` kennt kein LiveKit** (Tripwire): die Zähler "(aktiv/gesamt)" kommen aus der Datenbank und sind bis zu ca. 90 s alt. "Gesamt" heißt "gerade offen".
-- **`IDashboardService` ist die letzte `registerService`** (nach `IAttachedImageService`); neue Methoden ans Ende, nie dazwischen. Cache 20 s/30 s je (Mitglied, Rolle, Status), 12 ungecachte Aufrufe pro Minute je Methode.
+- **`IDashboardService` ist seit V1.9.226 die drittletzte `registerService`** (danach `IPartyReportService`, zuletzt `ILupaBbSyncService`); neue Methoden ans Ende, nie dazwischen. Cache 20 s/30 s je (Mitglied, Rolle, Status), 12 ungecachte Aufrufe pro Minute je Methode.
 
 ## Staging-Seed Teil 2 (V1.9.205)
 
@@ -375,3 +375,38 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 - **Die Kontenzuordnung hat genau einen Ort:** Reiter "Einrichtung" von "Kontenplan & Journal" (`FinanceSetupTab`). Andere Seiten zeigen nur eine Statuszeile mit Link. Deep-Links nutzen eine Hash-Query: `#/ledger?tab=einrichtung&step=bank` (ein zweites `#` gibt es im Hash-Routing nicht); ein Tabwechsel ruft `history.replaceState`, nie `location.hash =`.
 - **Welche Konten ein Schritt anbietet und wann die Einrichtung vollständig ist, entscheidet nur `FinanceSetup.kt` in `lapis-shared`** (`accepts`, `financeSetupStatusOf`); Client, `getFinanceSetupStatus` und die Sperre in `enablePaymentGateway` rufen dieselbe Funktion (`FinanceSetupParityTest`). Das Gebührenkonto ist nie Pflicht.
 - **`createStandardChart` ist idempotent und schreibt höchstens einen aggregierten `ORGANIZATION_SETTINGS`/`UPDATE`-Eintrag.** Der Kontenplan ist ein Vorschlag (Steuerberatung bestätigt); die Sphäre liegt nie am Konto.
+
+## Rechenschaftsbericht (V1.9.225)
+
+Welle R1 des PartG-Rechenschaftsberichts: Positionsmodell, Direkterfassung und Excel-Import je Einheit und Jahr. Es entsteht **kein Bericht und kein PDF** (R2). Siehe `docs/features/partg-report.adoc` und `docs/architecture/partg-report.adoc`.
+
+- **Store-Monopol:** `PartgReportStore` ist der einzige Leser/Schreiber von `partg_report_position`/`_sheet`/`_value` (Ausnahme `PartgReportPersonalData`); `PartgReportStoreTripwireTest`. Eine Wertzeile darf nur auf eine `LEAF`-Position zeigen, das erzwingt der Service (kein Trigger).
+- **Zugriff:** `requirePartyReportAccess(call)` ist die erste Anweisung jeder RPC-Methode und jedes Route-Handlers: erst Rolle BOARD/ADMIN, dann `isPoliticalParty` (sonst `PartyReportNotEnabledException`); `PartyReportAccessTripwireTest`. Ein Nicht-Vorstand erfährt so nie, ob die Organisation eine Partei ist.
+- **Schreibweg:** nur `PartgSheetWriter` (RPC `saveSheet` und Import-Apply). Sperrreihenfolge Landesverband -> Kopfzeile des älteren Jahres -> Kopfzeile des jüngeren Jahres, Revisionen unter der Sperre prüfen, Audit zuletzt. Neue Kopfzeile unter Savepoint, nur die Unique-Verletzung wird gefangen.
+- **Registrierung:** `IPartyReportService` ist seit V1.9.226 die vorletzte `registerService` (nach `IDashboardService`, vor `ILupaBbSyncService`); neue Methoden ans Ende. Pins: `ConferenceTimerServiceEventGuardTripwireTest`, `GalleryTripwireTest`.
+- **XLSX:** eigener Leser/Schreiber ohne Bibliothek (`partg/xlsx/`). `OoxmlZipReader` ist eine **angepasste Kopie** des `ArticleImportZipReader`: die Sicherheitslogik existiert doppelt, Korrekturen immer in beiden Dateien. Formeln werden nie ausgewertet. Import-Vorschauen liegen nur im Speicher (`PartgImportPreviewStore`, ein Neustart löscht sie).
+- **Spalte `value_source`**, nicht `source` (Kollision mit Exposeds `ColumnSet.source`). `partg_report_position.code` ist ein UNIQUE-*Constraint* (H2 nimmt als FK-Ziel keinen Unique-Index). V121 darf bis zum Release auf dem Feature-Branch korrigiert werden, danach nur noch per neuer Migration.
+- **Backup:** `partg_report_position` ist eine geseedete Menge (frisch, solange kein `org_hint` gesetzt ist); der Restore überschreibt die 42 Zeilen per Id.
+- **Ehrlichkeit:** kein Knopf und kein Text verspricht einen fertigen Bericht (`PartyReportScreenDomTest`). Positionsliste, Bezeichnungen und Gliederungsebenen sind noch nicht gegen das Bundestags-Muster und den Gesetzestext geprüft.
+
+## LupaBB-Abgleich (V1.9.226)
+
+Manueller, einseitiger Stammdatenabgleich der Mitglieder mit LupaBB (ADMIN, kein Cron). Siehe `docs/features/lupabb-sync.adoc` und `docs/architecture/lupabb-sync.adoc`.
+
+- **Zugriff:** `resolveCurrentMember(call).requireRole(AccountRole.ADMIN)` ist die erste Anweisung jeder RPC-Methode von `LupaBbSyncService`; `LupaBbSyncAccessTripwireTest`.
+- **Store-Monopol:** `lupabb_sync_config` nur `LupaBbCredentialStore`/`LupaBbRunGuard` (+ `LupaBbPersonalData`), `member_lupabb_profile` nur Loader/Applier, `lupabb_sync_suppression` nur `LupaBbSuppression`; `LupaBbStoreTripwireTest`.
+- **Einzige URL:** `LupaBbEndpoint.PRODUCTION`; der Host steht nur in `LupaBbEndpoint.kt`, kein Redirect, nur GET; `LupaBbEndpointTripwireTest`. Die Test-Naht ist der `internal`-Konstruktor, der nur Loopback-`http` zusätzlich zulässt (Host aus der **geparsten** URL, kein Prefix-Check).
+- **Ausnahmen ohne Ursache:** jede Ktor-/IO-Ausnahme wird zu `LupaBbFetchException(code)` **ohne `cause`** (sie trägt die URL, bei Query-Transport den API-Schlüssel); kein `logger.warn(e)` im Paket, `LupaBbLogPrivacyTripwireTest`, `LupaBbNoSecretLeakTest`. `io.ktor.client` bleibt in `logback.xml` auf INFO.
+- **Statuswechsel** nur über `MemberRoleStatusMutations.applyStatusChangeLocked(..., historySource = LUPABB_SYNC)`; weder Mail noch Benachrichtigung. Die E-Mail eines bestehenden Mitglieds wird **nie** geschrieben (Konto-Übernahme).
+- **Registrierung:** `ILupaBbSyncService` ist die letzte `registerService` (nach `IPartyReportService`); neue Methoden ans Ende. Pins: `ConferenceTimerServiceEventGuardTripwireTest`, `GalleryTripwireTest`.
+- **DSGVO:** `LupaBbPersonalData` steht VOR `FoundationPersonalData` (liest die Personennummer vor der Anonymisierung und legt den HMAC auf die Sperrliste). `lupabb_sync_config` ist vom Backup ausgenommen (an den Schlüssel gebunden), Lauf-Log, Profil und Sperrliste werden gesichert.
+- **Ehrlichkeit:** nichts lief gegen das echte LupaBB; Übertragung des API-Schlüssels (Header zuerst, dann Query) und die optionalen Felder `landesverband`/`eintritt` sind unbestätigt. V122 darf bis zum Release auf dem Feature-Branch korrigiert werden.
+
+## Sitzung <-> Veranstaltung (V1.9.227)
+
+- `event.meeting_id` (V123) ist die optionale 1:1-Verknüpfung. **Einziger Schreiber** ist das Paket `server/governance/meetingevent` (`MeetingEventLinkStore`); `EventStore.insertEvent/updateEvent` erwähnen die Spalte nie (`MeetingEventLinkWriterTripwireTest`). Eine Bearbeitung der Veranstaltung kann die Verknüpfung also nicht verschieben.
+- **Sperrreihenfolge** in jeder Operation (`MeetingEventLinkOperations`): Sitzungszeile `FOR UPDATE` -> Veranstaltungszeile `FOR UPDATE` -> Audit zuletzt. `cancelEvent` sperrt nur die Veranstaltung. Recht und Gremium werden aus der **gesperrten** Zeile gelesen.
+- Brücken-Regel: Vorsitz/Schriftführung dürfen nur einen **DRAFT mit `MEMBERS_ONLY`** erzeugen (die Signaturen tragen nur Ids), nicht öffnen, veröffentlichen oder ändern. Lese-Rechte auf Veranstaltungen wurden nicht erweitert.
+- Die fünf Methoden (`announceMeetingAsEvent`, `linkMeetingToEvent`, `unlinkMeetingEvent`, `alignEventToMeeting`, `listLinkableMeetings`) stehen **am Ende** von `IGovernanceService`; die Registrierung bleibt `GovernanceService(call, eventOnline)`. Audit: ein Entity-Typ `MEETING_EVENT_LINK`, die Art steht im Snapshot (`kind`).
+- Absagen (Sitzung `CANCELLED`, `cancelEvent`, `cancelSeriesEvent`) lösen die Verknüpfung im selben Schritt (`MeetingEventLinkOperations.Lifecycle`). `HELD` behält sie.
+- **Kein Raum wird wiederverwendet:** `conference_room.meeting_id` und `EventConferenceGuard` bleiben unberührt; die Veranstaltung bekommt ihren Raum erst beim ersten Beitritt. Öffentliche Ausgaben (`EventPublicRoutes`, ICS, Embed, JSON-LD) kennen die Verknüpfung nicht (`MeetingEventLinkNoLeakTest`); `MeetingDto.linkedEvent` füllt nur der authentifizierte RPC, nie die öffentliche API.

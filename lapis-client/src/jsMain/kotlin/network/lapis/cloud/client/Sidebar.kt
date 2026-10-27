@@ -125,11 +125,21 @@ const val SIDEBAR_DESKTOP_BREAKPOINT_PX = 992
 fun shouldMountSidebarEagerly(viewportWidthPx: Int): Boolean = viewportWidthPx >= SIDEBAR_DESKTOP_BREAKPOINT_PX
 
 /**
+ * V1.9.228 -- whether a `show.bs.offcanvas` event of the sidebar must be cancelled: on a desktop width the sidebar is permanently visible
+ * (KVision mounts it itself), so Bootstrap's own `show()` -- which adds the dark full-viewport backdrop -- is never wanted. This also covers
+ * the re-insert a language switch causes (it restarts the KVision root). Below the breakpoint the drawer is the real thing and is left alone.
+ */
+fun shouldCancelSidebarShow(
+    isSidebarTarget: Boolean,
+    viewportWidthPx: Int,
+): Boolean = isSidebarTarget && shouldMountSidebarEagerly(viewportWidthPx)
+
+/**
  * Routes that belong to a group (opening it on a deep link, highlighting) but have no sidebar link of their own: sub-flows reached from a
  * list screen. Not part of [NavRegistry], so the dashboard shows no tile for them.
  */
 private val GROUP_DEEP_LINK_ONLY_ROUTES: Map<SidebarGroupId, List<String>> =
-    mapOf(SidebarGroupId.ADMINISTRATION to listOf(Routes.EVENT_IMPORT, Routes.ARTICLE_IMPORT))
+    mapOf(SidebarGroupId.ADMINISTRATION to listOf(Routes.EVENT_IMPORT, Routes.ARTICLE_IMPORT, Routes.MEMBER_LUPABB_SYNC))
 
 /**
  * Route -> owning sidebar group. Derived from [NavRegistry] (the list [buildSidebar] builds from), so "which routes trigger forcing a
@@ -184,6 +194,7 @@ fun clearSidebar(body: SimplePanel) {
     MenuIndex.reset()
     // V1.9.224: nobody is signed in -- no timer, no listener and no figures of the old session survive.
     NavCountsPoller.stop()
+    UnreadMessages.unregister(SIDEBAR_UNREAD_DISPLAY_KEY)
     body.removeAll()
     body.addCssClass("lapis-sidebar-empty")
     NavHighlight.reset()
@@ -217,6 +228,8 @@ fun buildSidebar(
     MenuSearchField.disposeCurrent()
     CommandPalette.close()
     MenuIndex.reset()
+    // V1.9.231: the old "Nachrichten" link goes away with this build (and the new one re-registers only if the entry is shown).
+    UnreadMessages.unregister(SIDEBAR_UNREAD_DISPLAY_KEY)
     body.removeAll()
     // Review-Fund 2026-09-08 (Finding 2, HOCH): counterpart to `clearSidebar`'s own
     // `addCssClass("lapis-sidebar-empty")` -- this build IS populating the sidebar, so drop the
@@ -407,6 +420,8 @@ private fun enhance(
         NavCountsPoller.bind(suffix = suffix, span = span, link = link, label = entry.label)
     }
     when (entry.route) {
+        // V1.9.231 -- the unread pill on "Nachrichten"; the same single count source as the navbar envelope.
+        Routes.MESSAGES -> bindSidebarUnread(link = link)
         Routes.CARPOOL -> updateCarpoolSidebarCount(link = link, isMember = entry.group != null)
         // V1.9.145 -- shown only while the server offers it (instance switch on); `fa-user-group` is free (`fa-address-book` is the contacts).
         Routes.MEMBER_FINDER -> {
@@ -495,3 +510,36 @@ internal fun volunteerAllowanceSidebarLabel(openCount: Int?): String =
         openCount >= 200 -> gettext("Ehrenamtspauschalen-Freigaben (%1)", "200+")
         else -> gettext("Ehrenamtspauschalen-Freigaben (%1)", openCount)
     }
+
+/** The key under which the "Nachrichten" sidebar entry registers with [UnreadMessages] (the navbar envelope uses its own key). */
+internal const val SIDEBAR_UNREAD_DISPLAY_KEY = "sidebar-messages"
+
+/**
+ * V1.9.231 -- the unread pill on the sidebar entry [link]. It is a child span (never part of the label: the menu search indexes the label),
+ * `aria-hidden`; the link carries the information as its accessible name ("Nachrichten, 3 ungelesen"). 0 or an unknown count: no pill and
+ * the link keeps its plain name. The count itself comes from [UnreadMessages] -- same figure, same refresh path as the navbar envelope.
+ */
+internal fun bindSidebarUnread(
+    link: Link,
+    key: String = SIDEBAR_UNREAD_DISPLAY_KEY,
+) {
+    val span = Span(className = "nav-live-suffix")
+    span.setAttribute("aria-hidden", "true")
+    span.visible = false
+    link.add(span)
+    UnreadMessages.register(key) { count ->
+        val text = unreadPillText(count)
+        if (text == null) {
+            span.content = ""
+            span.visible = false
+            link.removeAttribute("aria-label")
+            link.removeAttribute("title")
+        } else {
+            span.content = " ($text)"
+            span.visible = true
+            val name = navbarUnreadAccessibleName(count)
+            link.setAttribute("aria-label", name)
+            link.setAttribute("title", name)
+        }
+    }
+}

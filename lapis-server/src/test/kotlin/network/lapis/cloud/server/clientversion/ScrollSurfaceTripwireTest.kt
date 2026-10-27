@@ -321,6 +321,9 @@ class ScrollSurfaceTripwireTest :
                     // V1.9.211 (R62): the first column of a wide report table sticks to the left edge of its OWN scroll frame
                     // (.table-responsive, an existing scroller); a cell is no scroller, so the ledger of scrollers is unchanged.
                     ".lapis-table-sticky-first tr > :first-child",
+                    // V1.9.225: the save bar of the party report entry sticks to the bottom edge of the page while values are being typed in;
+                    // it is a plain block (no overflow, no max-height), so it is no scroller either.
+                    ".lapis-partg-savebar",
                 )
             for (selector in listOf(".lapis-encounter-dock", ".lapis-room-bar-dock")) {
                 val dock = sticky.single { it.selector == selector }

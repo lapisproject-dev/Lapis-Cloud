@@ -167,6 +167,15 @@ classDiagram(name = "Communication") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "rule_updated_at" }
         }
+        // Welle V1.9.234 (V126): soft delete, MANUAL lists only (CHECK-pinned). Every list query except the delivery worker filters on deleted_at.
+        attribute(name = "deletedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "deleted_at" }
+        }
+        attribute(name = "deletedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "deleted_by"; "fkEntity" to "Member" }
+        }
     }
 
     // Welle V1.9.111 -- a member's opt-out of a DYNAMIC (non-mandatory) list. mailing_list_id is ON DELETE CASCADE in the real schema.
@@ -416,6 +425,62 @@ classDiagram(name = "Communication") {
         target { multiplicity("0..*"); role = "mailingMessageId" }
     }
 
+    // V1.9.232 (V124): attachments on mailing messages. The file lives on disk (server-generated storage_key, never derived from the
+    // client file name); the row keeps display metadata, the server-chosen MIME type, size and SHA-256. uploaded_by is a real FK ->
+    // member (pinned via «Column».fkEntity, see the file header); mailing_message_id comes from the association below.
+    val mailingMessageAttachment = classOf(name = "MailingMessageAttachment") {
+        stereotype("Entity") { "tableName" to "mailing_message_attachment"; "kotlinObjectName" to "MailingMessageAttachmentTable" }
+        stereotype("Index") { "columns" to listOf("mailing_message_id"); "name" to "idx_mma_message" }
+        stereotype("Index") { "columns" to listOf("storage_key"); "unique" to true; "name" to "uq_mma_storage_key" }
+        stereotype("Index") { "columns" to listOf("mailing_message_id", "name_key"); "unique" to true; "name" to "uq_mma_message_name" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "storageKey", type = "String") {
+            stereotype("Column") { "columnName" to "storage_key"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "originalFilename", type = "String") {
+            stereotype("Column") { "columnName" to "original_filename"; "sqlType" to "VARCHAR(120)" }
+        }
+        // NFC + lowercase of the sanitized name: the case-insensitive duplicate check (backstop unique index).
+        attribute(name = "nameKey", type = "String") {
+            stereotype("Column") { "columnName" to "name_key"; "sqlType" to "VARCHAR(120)" }
+        }
+        attribute(name = "mimeType", type = "String") {
+            stereotype("Column") { "columnName" to "mime_type"; "sqlType" to "VARCHAR(100)" }
+        }
+        // Only txt/csv: 'UTF-8' | 'windows-1252'.
+        attribute(name = "textCharset", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "text_charset"; "sqlType" to "VARCHAR(16)" }
+        }
+        attribute(name = "sizeBytes", type = "Long") {
+            stereotype("Column") { "columnName" to "size_bytes" }
+        }
+        attribute(name = "sha256", type = "String") {
+            stereotype("Column") { "columnName" to "sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "uploadedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "uploaded_by"; "fkEntity" to "Member" }
+        }
+        // Class A (server clock).
+        attribute(name = "uploadedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "uploaded_at" }
+        }
+        // Class A: set by the retention job once the file was removed; the metadata row stays.
+        attribute(name = "fileDeletedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "file_deleted_at" }
+        }
+    }
+
+    association(source = mailingMessage, target = mailingMessageAttachment, id = "assoc-mailing-message-attachment") {
+        source { multiplicity("1") }
+        target { multiplicity("0..*"); role = "mailingMessageId" }
+    }
+
     // Welle V1.9.7 "SuperMailer", Grundlage für Teil B. One row per (delivery, linkIndex) that has
     // been clicked at least once by that one recipient -- see MailingTrackingData.recordClick KDoc
     // (Folge-Welle). `linkIndex` refers to the SAME index space as mailing_message_link.link_index
@@ -483,6 +548,60 @@ classDiagram(name = "Communication") {
         attribute(name = "readAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "read_at" }
+        }
+    }
+
+    // V1.9.233 -- attachments on direct messages (V125). message_id is NULL while the upload is pending (owned by uploader_id, addressed
+    // to recipient_id); it is assigned when the uploader sends. All three FKs are plain «Column» attributes with fkEntity (same reason as
+    // direct_message.sender_id/recipient_id above). No ON DELETE CASCADE (repo convention): rows and files are deleted in code.
+    val directMessageAttachment = classOf(name = "DirectMessageAttachment") {
+        stereotype("Entity") { "tableName" to "direct_message_attachment"; "kotlinObjectName" to "DirectMessageAttachmentTable" }
+        stereotype("Index") { "columns" to listOf("storage_key"); "unique" to true; "name" to "uq_dma_storage_key" }
+        stereotype("Index") { "columns" to listOf("message_id", "created_at", "id"); "name" to "idx_dma_message" }
+        stereotype("Index") { "columns" to listOf("uploader_id", "recipient_id", "message_id"); "name" to "idx_dma_uploader" }
+        stereotype("Index") { "columns" to listOf("created_at"); "name" to "idx_dma_created" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        // NULL == pending upload.
+        attribute(name = "messageId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "message_id"; "fkEntity" to "DirectMessage" }
+        }
+        attribute(name = "uploaderId", type = "UUID") {
+            stereotype("Column") { "columnName" to "uploader_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "recipientId", type = "UUID") {
+            stereotype("Column") { "columnName" to "recipient_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "storageKey", type = "String") {
+            stereotype("Column") { "columnName" to "storage_key"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "originalFilename", type = "String") {
+            stereotype("Column") { "columnName" to "original_filename"; "sqlType" to "VARCHAR(120)" }
+        }
+        attribute(name = "nameKey", type = "String") {
+            stereotype("Column") { "columnName" to "name_key"; "sqlType" to "VARCHAR(120)" }
+        }
+        attribute(name = "mimeType", type = "String") {
+            stereotype("Column") { "columnName" to "mime_type"; "sqlType" to "VARCHAR(100)" }
+        }
+        // Only txt/csv: 'UTF-8' | 'windows-1252'.
+        attribute(name = "textCharset", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "text_charset"; "sqlType" to "VARCHAR(16)" }
+        }
+        attribute(name = "sizeBytes", type = "Long") {
+            stereotype("Column") { "columnName" to "size_bytes" }
+        }
+        attribute(name = "sha256", type = "String") {
+            stereotype("Column") { "columnName" to "sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+        // Class A (server clock).
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
         }
     }
 }

@@ -35,4 +35,11 @@ class SidebarViewportTest {
     fun typicalMobileWidth_doesNotMountEagerly() {
         assertFalse(shouldMountSidebarEagerly(375))
     }
+
+    @Test
+    fun theSidebarShowIsCancelledOnDesktopOnlyAndOnlyForTheSidebar() {
+        assertTrue(shouldCancelSidebarShow(isSidebarTarget = true, viewportWidthPx = 1280))
+        assertFalse(shouldCancelSidebarShow(isSidebarTarget = true, viewportWidthPx = 375))
+        assertFalse(shouldCancelSidebarShow(isSidebarTarget = false, viewportWidthPx = 1280))
+    }
 }

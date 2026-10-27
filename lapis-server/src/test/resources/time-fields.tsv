@@ -870,6 +870,7 @@ dto:EventImportPreviewRowDto.startsAt	B	EventImporter: naive wall-clock typed in
 dto:EventImportPreviewRowDto.endsAt	B	EventImporter: naive wall-clock typed in the import payload, never converted
 dto:MailingListDto.currentMemberOptedOutAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MailingListTable.ruleUpdatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingListTable.deletedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MailingListOptOutTable.optedOutAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MailingMessageTable.recipientsResolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MemberFacts.joinedOn	D	MemberFactsLoader: member.joined_at, a calendar DATE compared with OrganizationTimeZone.today() (never a timestamp, never converted)
@@ -948,3 +949,25 @@ col:TenderAcceptanceTable.decidedAt	A	stamped by the server clock (DbClock/Serve
 dto:OnlineCountsDto.computedAt	A	stamped by the server clock (DbClock) in OnlineCountsService; sent as UTC
 dto:AttachedImageDto.createdAt	A	AttachedImageService/AttachedImageRoutes.upload: stamped by ServerClock
 col:AttachedImageTable.createdAt	A	AttachedImageService/AttachedImageRoutes.upload: stamped by ServerClock
+dto:PartgOverviewRowDto.updatedAt	A	stamped by the server clock (ServerClock.now()) when a value of the sheet changed; stored and sent as UTC
+col:PartgReportPositionTable.orgHintUpdatedAt	A	PartyReportService.updatePositionHint: stamped by ServerClock.now()
+col:PartgReportSheetTable.updatedAt	A	PartgSheetWriter: stamped by ServerClock.now()
+col:PartgReportValueTable.updatedAt	A	PartgSheetWriter: stamped by ServerClock.now()
+dto:LupaBbSyncStatusDto.setAt	A	when the credentials were stored: ServerClock.now()
+dto:LupaBbLastRunDto.finishedAt	A	end of the applied run: ServerClock.now()
+dto:LupaBbPreviewSummaryDto.expiresAt	A	end of the preview time to live, derived from the server clock
+dto:MemberAdminRowDto.lupabbMissingSince	D	calendar date (LocalDate); never converted
+col:MemberTable.lupabbMissingSince	D	calendar date (LocalDate) in the organisation zone (OrganizationTimeZone.today()); never converted
+col:MemberLupaBbProfileTable.lastSyncedAt	A	LupaBbApplier: stamped by ServerClock.now()
+col:LupaBbSyncConfigTable.setAt	A	LupaBbCredentialStore: stamped by ServerClock.now()
+col:LupaBbSyncConfigTable.runningSince	A	LupaBbRunGuard: stamped by ServerClock.now()
+col:LupaBbSyncConfigTable.lastFetchStartedAt	A	LupaBbRunGuard: stamped by ServerClock.now()
+col:LupaBbSyncRunTable.startedAt	A	LupaBbApplier: stamped by ServerClock.now()
+col:LupaBbSyncRunTable.finishedAt	A	LupaBbApplier: stamped by ServerClock.now()
+col:LupaBbSyncSuppressionTable.createdAt	A	LupaBbSuppression: stamped by ServerClock.now()
+dto:LinkedMeetingRef.scheduledAt	B	copied unconverted from meeting.scheduled_at (class B, typed in the meeting form); V1.9.227 Sitzung-Veranstaltung link
+dto:LinkedEventRef.startsAt	B	copied unconverted from event.starts_at (class B, typed in the event form); V1.9.227 Sitzung-Veranstaltung link
+dto:LinkedEventRef.endsAt	B	copied unconverted from event.ends_at (class B, typed in the event form); V1.9.227 Sitzung-Veranstaltung link
+col:MailingMessageAttachmentTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingMessageAttachmentTable.fileDeletedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DirectMessageAttachmentTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

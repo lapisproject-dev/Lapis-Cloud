@@ -122,7 +122,8 @@ internal object NavRegistry {
                     NavVisibility.showsStatuteQa(it.session.status, it.session.aiAssistantEnabled)
                 },
             )
-            add(entry(Routes.COMMUNICATION, tr("Kommunikation"), "fas fa-envelope", m))
+            add(entry(Routes.MESSAGES, tr("Nachrichten"), "fas fa-envelope", m))
+            add(entry(Routes.MAILING_LISTS, tr("Mailinglisten"), "fas fa-envelopes-bulk", m))
             add(
                 entry(Routes.MY_CHAPTER, tr("Mein Landesverband"), "fas fa-users-rectangle", m) {
                     NavVisibility.showsChapterRoster(it.session.chapterScope)
@@ -188,6 +189,11 @@ internal object NavRegistry {
             add(entry(Routes.OPEN_ITEMS, tr("Offene Posten"), "fas fa-right-left", f))
             add(entry(Routes.FINANCIAL_REPORTS, tr("Finanzberichte"), "fas fa-chart-pie", f))
             add(entry(Routes.COMPLIANCE_REPORTS, tr("Gemeinnützigkeits-Berichte"), "fas fa-scale-balanced", f))
+            add(
+                entry(Routes.PARTY_REPORT, tr("Rechenschaftsbericht (PartG)"), "fas fa-file-signature", f) {
+                    NavVisibility.showsPartyReport(it.session)
+                },
+            )
             add(entry(Routes.COST_CENTERS, tr("Kostenstellen"), "fas fa-tags", f))
             add(entry(Routes.DONORS, tr("Spender"), "fas fa-heart", f))
             add(entry(Routes.AUDIT_LOG, tr("Prüfprotokoll"), "fas fa-magnifying-glass", f))

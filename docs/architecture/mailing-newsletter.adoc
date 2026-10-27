@@ -130,6 +130,97 @@ inline CHECK of `V1__baseline.sql` is dropped by its generated H2 name inside `V
 `.click_tracked` / `.first_opened_at` / `.open_count`; and the tables `mailing_message_link` (frozen
 link targets) and `mailing_link_click` (per delivery and link). Since V1.9.15 all of it is written.
 
+[[attachments]]
+== Attachments (V1.9.232)
+
+Mailing-list messages (manual and automatic lists alike) can carry attachments. Every recipient receives them as real MIME attachments of the mail.
+
+*In scope:* attachments on mailing messages; upload, delete and download through dedicated HTTP routes (file bytes do not travel over Kilua RPC); the list in
+`listMailingMessages` (`MailingMessageDto.attachments`, a new LAST field with a default); real attachments in every recipient mail.
+
+*Not in scope:* direct messages (in-app only, no mail), system mails through `mail_outbox` (the outbox schema is unchanged, attachments exist only on the bulk path),
+a member view or download links in the mail, choosing files that are already stored in the compose form (a follow-up). `IMailingService` has **no new method** and the
+`registerService` order of `Application.kt` is unchanged.
+
+.Limits (binary MiB, enforced on the server, mirrored in the client)
+[cols="1,3"]
+|===
+|Files per message |5
+|Size per file |10 MiB (10,485,760 bytes)
+|Total per message |20 MiB (20,971,520 bytes)
+|Display name |at most 120 characters, unique per message ignoring case (NFC + `lowercase(Locale.ROOT)`)
+|===
+
+.Type matrix (the extension must be on the list AND the content must match; the client `Content-Type` is never read)
+[cols="1,2,3"]
+|===
+|Extensions |Server-chosen MIME type |Content check
+
+|`pdf` |`application/pdf` |`%PDF-` at offset 0. An encrypted PDF is accepted; macros or JavaScript inside a PDF are not detected.
+|`png`, `jpg`, `jpeg`, `gif`, `webp` |`image/png`, `image/jpeg`, `image/gif`, `image/webp` |Magic bytes; WebP needs `RIFF????WEBP` with a RIFF length that fits the file. Image polyglots are not detected.
+|`docx`, `xlsx`, `pptx` |the OOXML types |A bounded ZIP parse (own central-directory reader, no `ZipFile`): the main part (`word/document.xml`, `xl/workbook.xml`, `ppt/presentation.xml`) must exist, `[Content_Types].xml` is inflated with a cap. `vbaProject.bin`, `activeX/`, `embeddings/`, `macrosheets/`, a binary main part or a `macroEnabled` content type are refused (`MACRO_OR_EMBEDDED`) -- strict: a docx with an embedded Excel chart is refused too. Encrypted entries are refused.
+|`odt`, `ods`, `odp` |the OpenDocument types |The first local entry is `mimetype`, STORED, with exactly the type of the extension; `content.xml` and `META-INF/manifest.xml` exist; `Basic/` and `Scripts/` are macros; `encryption-data` in the manifest is refused (encryption is detected only through the manifest).
+|`txt`, `csv` |`text/plain`, `text/csv` |No NUL and no C0 control character except TAB/LF/CR/FF; no known binary magic number; no HTML/SVG/XML markup in the first 512 bytes. Valid UTF-8 (BOM allowed) is stored with charset `UTF-8`, otherwise `windows-1252` unless one of its undefined bytes occurs.
+|===
+
+Everything else (exe, zip, html, svg, js, a name without extension) is `TYPE_NOT_ALLOWED`. Error bodies are `{"code": "..."}` with a fixed code, never free text.
+
+*Routes* (`MailingAttachmentRoutes`): `POST /api/mailing/messages/{messageId}/attachments`, `DELETE /api/mailing/attachments/{attachmentId}`,
+`GET /api/mailing/attachments/{attachmentId}/download`. BOARD/ADMIN only, checked before existence and status (no state oracle); upload and delete require a same-origin
+request; uploads have their own per-member rate limiter (30 per minute). Upload and delete work in `DRAFT` only. The pre-check is a fail-fast; the authoritative check
+(existence, `DRAFT`, count, total, duplicate name) runs inside the insert transaction under `forUpdate()` on the *message row* -- the row that `sendMailingMessage`'s
+conditional `DRAFT -> QUEUED` update locks too -- so neither parallel uploads nor a concurrent send can slip past; an upload is either part of what the send sees or
+refused with `NOT_DRAFT`. Download: the stored server type (plus charset), `Content-Disposition: attachment` (RFC 5987), `nosniff`, `private, no-store`,
+`Cross-Origin-Resource-Policy: same-origin`. The storage key is `mailing/{messageId}/{attachmentId}.bin`, always generated on the server. Logs never contain a file name or key.
+
+.Sending a mail with attachments
+[source,kuml,name="mailing-attachment-send"]
+----
+sequenceDiagram(name = "Mailing send -- attachments") {
+    val board = lifeline(name = "Board member")
+    val routes = lifeline(name = "MailingAttachmentRoutes")
+    val db = lifeline(name = "PostgreSQL (mailing_message_attachment)")
+    val worker = lifeline(name = "MailingDeliveryWorker")
+    val transport = lifeline(name = "JakartaMailTransport")
+
+    message(from = board, to = routes, label = "POST attachment (DRAFT only, same origin, BOARD/ADMIN)")
+    message(from = routes, to = db, label = "SELECT message FOR UPDATE; re-check DRAFT, count, total, name; INSERT row")
+    message(from = board, to = routes, label = "sendMailingMessage -> conditional DRAFT to QUEUED (same row lock)")
+    message(from = worker, to = db, label = "load attachments; check file exists, size and SHA-256 BEFORE the first recipient")
+    message(from = worker, to = transport, label = "sendWithAttachments(to, subject, plain, html, attachments) per recipient")
+    message(from = transport, to = worker, label = "multipart/mixed > [multipart/alternative, attachment ...], base64 streamed from disk")
+}
+----
+
+*One rule set for two features (V1.9.233).* The limits, the type whitelist, the content sniffer (`AttachmentSniffer`, `AttachmentZip`), the name cleaning and the upload classification are shared with the attachments of direct messages (`AttachmentRules`, `classifyAttachmentUpload`; see `direct-messages.adoc`). Only the storage, the routes and the authorization differ. The refusal codes keep their wire names; `NOT_DRAFT` is mailing-only.
+
+*Mail structure.* With attachments the message is `multipart/mixed` containing first the unchanged `multipart/alternative` (plain before html) and then one body part per
+attachment, in upload order: server MIME type, `Content-Disposition: attachment`, the name as an RFC 2231 parameter, and `Content-Transfer-Encoding: base64` set
+explicitly (otherwise Jakarta Mail would scan the whole file to choose an encoding). The bytes are streamed from disk (`FileAttachmentDataSource`), never held in the
+heap. Without attachments the message is byte-for-byte the previous one. `MailTransport.sendWithAttachments` fails closed by default (`ATTACHMENTS_UNSUPPORTED`): a
+transport that does not know attachments never drops one silently.
+
+*Integrity.* At every start of a message (including a resume after a restart) the worker checks that every attachment still exists with the recorded size and SHA-256 and
+was not removed by retention. If not, nothing is sent: the open rows and the message become `FAILED` (log token `ATTACHMENT_INTEGRITY`, message id only). LOG mode checks
+too, but does not send.
+
+*Relay size and volume.* Base64 makes 20 MiB about 28 MB on the wire (factor about 1.37). The operator must raise the relay limit (Postfix `message_size_limit`, default
+10,240,000 bytes) to at least 30,000,000. A mail with attachments also costs transfer time and relay quota: 1,000 recipients with 20 MiB each are about 28 GB of outgoing
+traffic. The hourly mail budget counts mails, not bytes. The per-send timeout is extended by the transfer time of the encoded bytes at an assumed 256 KiB/s (at most 10
+minutes), otherwise a large mail would hit the 60 second timeout, which counts as a delivery of unknown outcome and is never retried.
+
+*Retention.* The files are deleted 180 days after sending (`MailingHtmlPolicy.RETENTION_DAYS`, the period of the tracking retention) by the same daily job
+(`MailingTrackingRetentionPoller`) for messages in `SENT`/`FAILED`; the metadata row (name, size, hash) stays and gets `file_deleted_at`, so the board view shows "Datei
+gelöscht". Drafts that are never sent keep their files (there is no draft deletion today). `MailingAttachmentStore.deleteAllForMessageInTx` is the hook for any future
+deletion of a message; a tripwire test requires every `MailingMessageTable.deleteWhere` to call it.
+
+*Data protection.* The table is covered by the communication contributor: the uploader sees their own uploads (name, type, size, instant) in the export; the rows are
+retained on erasure like `mailing_message.sent_by` (the attachment is part of the communication other members received). The table is a blob table of the organization backup;
+rows whose file was removed travel as plain metadata.
+
+*Known gaps (not detected / not verified):* no virus scanner (the UI says so); macros or JavaScript in PDFs, image polyglots and ODF encryption outside the manifest are not detected; not
+verified against a real SMTP relay or real mailboxes (Outlook, Gmail, Thunderbird); members cannot download attachments (they only receive them in their mail).
+
 [[tracking]]
 == Click and open tracking (V1.9.15)
 

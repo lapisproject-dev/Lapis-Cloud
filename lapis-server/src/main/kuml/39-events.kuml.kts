@@ -217,6 +217,9 @@
 // **Welle V1.9.156 "Aufzeichnung in Veranstaltungsräumen" addendum** (`V110__event_capture.sql`) adds one `event` column: `captureAllowed`
 // (Boolean, default false -- the release of recording / live streaming of this event's room; frozen while the room is active). The proof of
 // acknowledgment is its own entity in `73-event-capture.kuml.kts`.
+// **Welle V1.9.227 "Sitzung in der Videokonferenz" addendum** (`V123__event_meeting_link.sql`) adds one `event` column: `meetingId` (nullable,
+// the optional 1:1 link to the governance `meeting` the event announces). The unique index is a plain one (NULLs never collide); the FK
+// (`ON DELETE SET NULL`) is SQL-only, the `seriesId` precedent. Written ONLY by `network.lapis.cloud.server.governance.meetingevent`.
 //
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
@@ -337,6 +340,7 @@ classDiagram(name = "Events") {
     val event = classOf(name = "Event") {
         stereotype("Entity") { "tableName" to "event"; "kotlinObjectName" to "EventTable" }
         stereotype("Index") { "columns" to listOf("slug"); "name" to "uq_event_slug"; "unique" to true }
+        stereotype("Index") { "columns" to listOf("meeting_id"); "name" to "ux_event_meeting_id"; "unique" to true }
         stereotype("Index") { "columns" to listOf("status", "starts_at"); "name" to "idx_event_status_starts_at" }
         stereotype("Index") {
             "columns" to listOf("series_id", "series_original_start")
@@ -486,6 +490,11 @@ classDiagram(name = "Events") {
         attribute(name = "captureAllowed", type = "Boolean") {
             defaultValue = "false"
             stereotype("Column") { "columnName" to "capture_allowed" }
+        }
+        // V1.9.227 addendum (see file header). FK to meeting is SQL-only (ON DELETE SET NULL); written only by MeetingEventLinkStore.
+        attribute(name = "meetingId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "meeting_id" }
         }
     }
 

@@ -27,6 +27,12 @@ public object MailingListTable : Table("mailing_list") {
     /** Welle V1.9.111: UTC stamp (class A) of the last rule change. */
     public val ruleUpdatedAt: Column<LocalDateTime?> = datetime("rule_updated_at").nullable()
 
+    /** Welle V1.9.234 (V126): UTC stamp (class A) of the soft delete; NULL = live list. MANUAL lists only (CHECK-pinned). */
+    public val deletedAt: Column<LocalDateTime?> = datetime("deleted_at").nullable()
+
+    /** Welle V1.9.234 (V126): the BOARD/ADMIN member who deleted the list; set together with deleted_at (CHECK-pinned). */
+    public val deletedBy: Column<Uuid?> = reference("deleted_by", MemberTable.id).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 3 check constraint(s) declared on this entity are not

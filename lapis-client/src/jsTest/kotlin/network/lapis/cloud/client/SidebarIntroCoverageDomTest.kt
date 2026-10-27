@@ -57,6 +57,8 @@ class SidebarIntroCoverageDomTest {
     private val noIntro: Map<String, String> =
         mapOf(
             Routes.EVENT_IMPORT to "no sidebar link; reachable only from the event management screen (a sub-flow, not a view of its own)",
+            Routes.MEMBER_LUPABB_SYNC to
+                "no sidebar link; reachable only from the member administration (a sub-flow, not a view of its own)",
             Routes.ARTICLE_IMPORT to "no sidebar link; reachable only from the articles screen (a sub-flow, not a view of its own)",
         )
 
@@ -147,7 +149,7 @@ class SidebarIntroCoverageDomTest {
             assertTrue(intro.viewKey.matches(Regex("[a-z]+(-[a-z]+)*")), "view key of $route is a code constant: ${intro.viewKey}")
         }
         assertEquals(PageIntros.routes.size, PageIntros.routes.toSet().size, "no route twice")
-        assertEquals(77, PageIntros.routes.size, "23 views of Part 1 plus 54 of Part 2")
+        assertEquals(79, PageIntros.routes.size, "23 views of Part 1 plus 56 of Part 2")
         val keys = PageIntros.routes.map { PageIntros.forRoute(it)!!.viewKey }
         assertEquals(keys.size, keys.toSet().size, "every view has its own storage key")
         assertEquals("travel-expenses", PageIntros.forRoute(Routes.TRAVEL_EXPENSES)?.helpTopic)

@@ -164,6 +164,14 @@ correctly, covered by `EventPersonalData` for its member-FK side (`coveredTableN
 self-service Auskunft/Löschung path for guests, plus an automatic retention limit for
 `guest_name`/`guest_email` (Art. 5(1)(e) DSGVO), is deferred to a follow-up wave.
 
+== Direct-message attachments (`direct_message_attachment`, Welle V1.9.233)
+
+`CommunicationPersonalData` also covers `direct_message_attachment`.
+
+* *Export (Art. 15):* every attachment the subject uploaded or received as part of a sent message, with `direction` (SENT/RECEIVED/PENDING), `messageId`, `fileName`, `mimeType`, `sizeBytes` and `createdAt`. Never the file, never the `storage_key` or the hash. A pending upload addressed to the subject is not listed (not visible to it yet).
+* *Erasure:* the subject's pending uploads are deleted in every `ErasureMode` (row and file; nobody else has a use for them). Under `HARD_DELETE_WHERE_UNCONSTRAINED` ALL attachments the subject uploaded are deleted (rows and files), in addition to the redaction of the sent texts. In the default mode sent attachments stay with the recipient for the same reason the texts do; received attachments of other people stay in every mode.
+* The files are removed inside the erasure transaction (a contributor has no after-commit hook). If the transaction rolls back, a row may be left without its file: the download then answers 404 and a repeated erasure cleans up.
+
 == Member honors (`member_honor`, Welle V1.4.4.3)
 
 `MemberHonorPersonalData` is an ordinary `MemberPersonalDataContributor` covering `member_honor`

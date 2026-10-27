@@ -5,6 +5,7 @@ import java.security.GeneralSecurityException
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
+import javax.crypto.Mac
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
@@ -130,7 +131,27 @@ class SecretBox(
         }
     }
 
+    /**
+     * Welle V1.9.226 -- a keyed, domain-separated HMAC-SHA256 (lower case hex) of [data], for a value that must be MATCHED later but never
+     * stored in clear (the LupaBB erasure suppression list keeps the HMAC of a person number). The HMAC key is derived from this box's key
+     * and [purpose] (`HMAC(key, "lapis:hmac:" + purpose)`), so the AES key itself is never used as an HMAC key and two purposes never share
+     * one. A fresh [Mac] per call (not thread-safe). Deterministic for one key; a different `LAPIS_SECRET_ENCRYPTION_KEY` yields other values.
+     */
+    fun hmacSha256Hex(
+        purpose: String,
+        data: String,
+    ): String {
+        val derivationMac = Mac.getInstance(HMAC_ALGORITHM)
+        derivationMac.init(SecretKeySpec(key, HMAC_ALGORITHM))
+        val derivedKey = derivationMac.doFinal("lapis:hmac:$purpose".toByteArray(Charsets.UTF_8))
+        val mac = Mac.getInstance(HMAC_ALGORITHM)
+        mac.init(SecretKeySpec(derivedKey, HMAC_ALGORITHM))
+        return mac.doFinal(data.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    }
+
     companion object {
+        private const val HMAC_ALGORITHM = "HmacSHA256"
+
         /** AES-256 -- see class KDoc. Also the width [network.lapis.cloud.server.conference.ConferenceStreamingConfig.load] validates `LAPIS_SECRET_ENCRYPTION_KEY` against after base64-decoding. */
         const val KEY_SIZE_BYTES = 32
 

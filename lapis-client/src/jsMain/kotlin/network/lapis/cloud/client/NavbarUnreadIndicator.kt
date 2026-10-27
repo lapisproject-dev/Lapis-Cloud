@@ -23,8 +23,8 @@ internal fun navbarUnreadAccessibleName(count: Int?): String =
 
 /**
  * Welle V1.9.36 -- the envelope with the unread pill in the navbar (always visible, also on a phone and with a collapsed sidebar).
- * Shown only where the sidebar shows the COMMUNICATION link (organization members; an inactive member's `unreadCount` is rejected
- * anyway). It goes to `#/communication?section=messages` -- a parameter free of personal data. No `aria-live` (the pill is not
+ * Shown only where the sidebar shows the MESSAGES link (organization members; an inactive member's `unreadCount` is rejected
+ * anyway). It goes to `#/messages` (V1.9.231: no parameter at all). No `aria-live` (the pill is not
  * announced on every refresh), no animation.
  */
 internal fun Nav.navbarUnreadIndicator(session: SessionInfoDto) {
@@ -35,7 +35,7 @@ internal fun Nav.navbarUnreadIndicator(session: SessionInfoDto) {
     // A plain anchor `Tag`, not `navLink`: a `Link` renders no child widgets and has no rich label, and the pill must sit inside the
     // anchor. The markup contains nothing but fixed classes and [unreadPillText] (digits and "+"), so nothing foreign reaches the HTML.
     val link = Tag(TAG.A, rich = true, className = "nav-link lapis-navbar-unread")
-    link.setAttribute("href", "#${Routes.COMMUNICATION}?section=$MESSAGES_SECTION")
+    link.setAttribute("href", "#${Routes.MESSAGES}")
     add(link)
     UnreadMessages.register(NAVBAR_UNREAD_DISPLAY_KEY) { count ->
         val text = unreadPillText(count)

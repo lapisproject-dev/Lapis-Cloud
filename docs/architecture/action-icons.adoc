@@ -14,7 +14,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `ActionIcon` | Icon | Used for
 | `REFRESH` | `fa-arrows-rotate` | Aktualisieren, Neu laden, Erneut versuchen, Nachbuchen; V1.9.75: also "generate a fresh value" ("Neu erzeugen" of the temporary password)
 | `EDIT` | `fa-pen` | Bearbeiten, Umbenennen
-| `DELETE` | `fa-trash` | Löschen (always `OUTLINEDANGER`); V1.9.192: also "remove agenda item" in the meeting agenda table (icon-only, named after the item)
+| `DELETE` | `fa-trash` | Löschen (always `OUTLINEDANGER`); V1.9.192: also "remove agenda item" in the meeting agenda table (icon-only, named after the item); V1.9.234: "Mailingliste löschen" in the header of a manual mailing list's detail (icon-only `tableActionButton`)
 | `REMOVE` | `fa-circle-minus` | Entfernen, Zuordnung aufheben: detach, the object itself survives; V1.9.192: also "end membership" in a committee roster (icon-only, named after person and committee)
 | `SAVE` | `fa-floppy-disk` | Speichern (the check mark belongs to `APPROVE`)
 | `CANCEL`, `CLOSE`, `CLEAR` | `fa-xmark` | Abbrechen, Schließen, Suche leeren

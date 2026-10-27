@@ -213,6 +213,7 @@ class DsgvoServiceTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             val list = service.createMailingList(name = "DSGVO-Testliste", description = null)
                             call.respondText(list.id)
@@ -224,6 +225,7 @@ class DsgvoServiceTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             service.subscribe(call.parameters["listId"]!!)
                             call.respondText("ok")
@@ -235,6 +237,7 @@ class DsgvoServiceTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             val message =
                                 service.createDraftMessage(
@@ -251,6 +254,7 @@ class DsgvoServiceTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             service.sendMailingMessage(call.parameters["messageId"]!!)
                             call.respondText("ok")
@@ -486,6 +490,7 @@ class DsgvoServiceTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             val list = service.createMailingList(name = "DSGVO-Loesch-Testliste", description = null)
                             call.respondText(list.id)
@@ -497,6 +502,7 @@ class DsgvoServiceTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             service.subscribe(call.parameters["listId"]!!)
                             call.respondText("ok")

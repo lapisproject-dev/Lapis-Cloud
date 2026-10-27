@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.content.negotiation)
+    // V1.9.226 LupaBB sync: HTTP Digest (first-party Ktor module, same version line as the client above)
+    implementation(libs.ktor.client.auth)
 
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
@@ -136,6 +138,7 @@ dependencies {
     runtimeOnly(libs.h2)
 
     testImplementation(libs.ktor.server.test.host)
+    testImplementation(libs.ktor.server.auth)
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotest.property)

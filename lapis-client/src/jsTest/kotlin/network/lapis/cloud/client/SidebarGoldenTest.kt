@@ -110,7 +110,8 @@ class SidebarGoldenTest {
                       /contributions|Beiträge|fas fa-coins
                       /documents|Dokumente|fas fa-file-lines
                       /statute-qa|Fragen zur Satzung|fas fa-magnifying-glass
-                      /communication|Kommunikation|fas fa-envelope
+                      /messages|Nachrichten|fas fa-envelope
+                      /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
@@ -144,7 +145,8 @@ class SidebarGoldenTest {
                       /contributions|Beiträge|fas fa-coins
                       /documents|Dokumente|fas fa-file-lines
                       /statute-qa|Fragen zur Satzung|fas fa-magnifying-glass
-                      /communication|Kommunikation|fas fa-envelope
+                      /messages|Nachrichten|fas fa-envelope
+                      /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /my-chapter|Mein Landesverband|fas fa-users-rectangle
                       /carpool|Mitfahrzentrale|fas fa-car-side
                       /member-finder|Mitglieder-Finder|fas fa-user-group
@@ -180,7 +182,8 @@ class SidebarGoldenTest {
                       /contributions|Beiträge|fas fa-coins
                       /documents|Dokumente|fas fa-file-lines
                       /statute-qa|Fragen zur Satzung|fas fa-magnifying-glass
-                      /communication|Kommunikation|fas fa-envelope
+                      /messages|Nachrichten|fas fa-envelope
+                      /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
@@ -214,7 +217,8 @@ class SidebarGoldenTest {
                       /contributions|Beiträge|fas fa-coins
                       /documents|Dokumente|fas fa-file-lines
                       /statute-qa|Fragen zur Satzung|fas fa-magnifying-glass
-                      /communication|Kommunikation|fas fa-envelope
+                      /messages|Nachrichten|fas fa-envelope
+                      /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
@@ -267,7 +271,8 @@ class SidebarGoldenTest {
                       /contributions|Beiträge|fas fa-coins
                       /documents|Dokumente|fas fa-file-lines
                       /statute-qa|Fragen zur Satzung|fas fa-magnifying-glass
-                      /communication|Kommunikation|fas fa-envelope
+                      /messages|Nachrichten|fas fa-envelope
+                      /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
@@ -338,7 +343,8 @@ class SidebarGoldenTest {
                       /contributions|Beiträge|fas fa-coins
                       /documents|Dokumente|fas fa-file-lines
                       /statute-qa|Fragen zur Satzung|fas fa-magnifying-glass
-                      /communication|Kommunikation|fas fa-envelope
+                      /messages|Nachrichten|fas fa-envelope
+                      /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart

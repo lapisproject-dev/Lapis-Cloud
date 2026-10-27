@@ -1981,6 +1981,9 @@ private fun ResultRow.toMemberAdminRowDto(
         // LEFT JOIN account: a member without an account yields null for both (nullable columns, no `!!`).
         lastLoginAt = if (includeLastLogin) this.getOrNull(AccountTable.lastLoginAt) else null,
         lastLoginMethod = if (includeLastLogin) this.getOrNull(AccountTable.lastLoginMethod) else null,
+        // V1.9.226 -- the LupaBB link, ADMIN only like the sign-in data (includeLastLogin is exactly the ADMIN gate)
+        lupabbPersonNumber = if (includeLastLogin) this[MemberTable.lupabbPersonNumber] else null,
+        lupabbMissingSince = if (includeLastLogin) this[MemberTable.lupabbMissingSince] else null,
     )
 
 /** V1.9.141 -- see [toMemberAdminRowDto] `countryViewer`. `null` for non-privileged viewers and for peer-masked rows. */

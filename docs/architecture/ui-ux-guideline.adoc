@@ -1981,7 +1981,7 @@ keeps all three free of console output, browser storage, `.message` and toasts t
 
 * **Green only for "accepted" / "succeeded".** A precondition is not a result: the meetings quorum badge is `secondary` when reached and
   `warning` when not (never `success`/`danger`), with one sentence that explains the word. See `domain-model.adoc`, "Quorum display is informational".
-* **Counters in a sidebar label use "(n)" and cap at "(99+)".** The unread-messages counter on "Kommunikation" follows the grammar of the other
+* **Counters in a sidebar label use "(n)" and cap at "(99+)".** The unread-messages counter on "Nachrichten" (formerly "Kommunikation") follows the grammar of the other
   sidebar counters (`null`/0 = plain label) but caps at 99, and it refreshes on events only (sidebar build, route change, mark-read/reply) -- never on a timer. See `direct-messages.adoc`.
 
 == V1.9.35 -- Pattern: a logged read in two steps
@@ -2721,6 +2721,15 @@ Two small patterns from this wave:
   icon-only button carries `aria-expanded` and an `aria-label` naming person and verb; the text is set as element text (`untrustedDiv`), never as HTML.
 * **Export link in the section header**: a text link ("Alle Anmeldungen als CSV") on the right of the section header, always the WHOLE list whatever
   the filter shows. The filter is a `segmentedRadioGroup` over loaded rows (no second request).
+
+== Nachrichten and Mailinglisten (V1.9.231)
+
+Client only, no migration. The screen "Kommunikation" (self-service lists, "Postfach", "Gespräche" and the board's authoring section on one page) is split:
+
+* **Nachrichten** (`/messages`): one list of conversations. Every row carries its type as icon *and* word (chat icon plus "Gespräch"; never the icon alone), so a later row type (circular letter) can be told apart. Sorted newest first, ties broken by type, then id (`sortInboxRows`). The reply button has the send icon (R57), the field is emptied after a send and takes the focus back.
+* **Mailinglisten** (`/mailing-lists`): a table (R62) with a status *column* ("Abonniert" badge) instead of a button that changes its meaning, and icon-only row actions (R58). The board's authoring section is the tab "Verwalten", built only for BOARD/ADMIN; the manage selector's "Verwalten" button became the "Öffnen" button with the eye icon.
+* **Sidebar:** two entries replace "Kommunikation"; "Nachrichten" shows the unread pill again (a child span, so the label and the menu search stay untouched). `/communication` redirects to `/messages`.
+* **Exception kept:** the conversation row's partner name is a link-style button (it opens the conversation and carries `aria-expanded`); it is not a row action.
 
 == Menu search (V1.9.203)
 

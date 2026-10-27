@@ -6508,11 +6508,6 @@ msgstr "Keten controleren"
 msgid "Ketten-Integrität prüfen"
 msgstr "Ketenintegriteit controleren"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:51
-#: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:118
-msgid "Kommunikation"
-msgstr "Communicatie"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:153
 msgid "Konfiguration"
 msgstr "Configuratie"
@@ -16972,10 +16967,6 @@ msgstr "%1 vrije plaatsen"
 msgid "Eintrag wurde gelöscht."
 msgstr "Vermelding is verwijderd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:237
-msgid "Nachricht wurde gesendet. Antworten finden Sie im Postfach unter Kommunikation."
-msgstr "Bericht is verzonden. Antwoorden vindt u in de inbox onder Communicatie."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:269
 msgid "Eintrag bearbeiten"
 msgstr "Vermelding bewerken"
@@ -19578,12 +19569,6 @@ msgstr "Terugbetaling buiten Lapis Cloud om vastgelegd"
 
 msgid "Nachrichten, %1 ungelesen"
 msgstr "Berichten, %1 ongelezen"
-
-msgid "Gespräche"
-msgstr "Gesprekken"
-
-msgid "Noch keine Gespräche."
-msgstr "Nog geen gesprekken."
 
 msgid "%1 neu"
 msgstr "%1 nieuw"
@@ -24829,9 +24814,6 @@ msgstr "Verbinding geblokkeerd."
 msgid "Ihre Nachricht"
 msgstr "Uw bericht"
 
-msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
-msgstr "Bericht verzonden. U vindt het gesprek onder Communicatie."
-
 msgid "Anfrage senden"
 msgstr "Verzoek versturen"
 
@@ -25453,9 +25435,6 @@ msgstr "Hier vindt u de documenten van uw organisatie in mappen. Welke mappen en
 
 msgid "Sie stellen Fragen zur Satzung; die Antwort entsteht per KI aus den dafür freigegebenen Dokumenten. Dazu stimmen Sie einmal zu, die Zustimmung können Sie widerrufen."
 msgstr "U stelt vragen over de statuten; het antwoord wordt door AI gegenereerd uit de daarvoor vrijgegeven documenten. Hiervoor geeft u eenmalig toestemming, die u kunt intrekken."
-
-msgid "Hier verwalten Sie Ihre Mailinglisten, schreiben Direktnachrichten und lesen Ihr Postfach. Vorstand und Administration legen zusätzlich Mailinglisten an und verschicken Nachrichten an sie."
-msgstr "Hier beheert u uw mailinglijsten, schrijft u directe berichten en leest u uw postvak. Het bestuur en de administratie maken bovendien mailinglijsten aan en versturen er berichten naar."
 
 msgid "Hier sehen Sie die aktiven Mitglieder Ihres Landesverbands und können nach Name oder E-Mail suchen. Der Zugang gilt nur, solange Ihr Amt im Landesverband aktiv ist."
 msgstr "Hier ziet u de actieve leden van uw regionale afdeling en kunt u zoeken op naam of e-mail. De toegang geldt alleen zolang uw functie in de regionale afdeling actief is."
@@ -27363,3 +27342,1001 @@ msgstr "%1 van %2 actief"
 
 msgid "Das Dashboard zeigt nur, was gerade Sie betrifft: offene Abstimmungen, Gebote, Fristen. Alle Bereiche erreichen Sie über das Menü."
 msgstr "Het dashboard toont alleen wat u nu aangaat: openstaande stemmingen, biedingen, termijnen. Alle onderdelen bereikt u via het menu."
+
+msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar."
+msgstr "Het verantwoordingsverslag is alleen beschikbaar voor politieke partijen."
+
+msgid "Die Werte wurden inzwischen von jemand anderem geändert -- bitte laden Sie das Blatt neu."
+msgstr "De waarden zijn intussen door iemand anders gewijzigd -- laad het blad opnieuw."
+
+msgid "Jahr, Gliederung oder Betrag sind ungültig."
+msgstr "Het jaar, de eenheid of het bedrag is ongeldig."
+
+msgid "Für diesen Landesverband sind Werte im Rechenschaftsbericht erfasst. Er kann nicht gelöscht werden."
+msgstr "Voor deze regionale afdeling zijn waarden in het verantwoordingsverslag vastgelegd. Ze kan niet worden verwijderd."
+
+msgid "Rechenschaftsbericht (Wert)"
+msgstr "Verantwoordingsverslag (waarde)"
+
+msgid "Rechenschaftsbericht (Positionshinweis)"
+msgstr "Verantwoordingsverslag (opmerking bij post)"
+
+msgid "Rechenschaftsbericht (PartG)"
+msgstr "Verantwoordingsverslag (PartG)"
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
+msgstr "Hier legt u per eenheid en jaar de inkomsten, uitgaven en het vermogen voor het verantwoordingsverslag vast, handmatig of uit een Excel-sjabloon. Een afgerond verslag maakt deze pagina nog niet."
+
+msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
+msgstr "Ledenbijdragen en soortgelijke regelmatige bijdragen"
+
+msgid "Mandatsträgerbeiträge und ähnliche regelmäßige Beiträge"
+msgstr "Bijdragen van mandaathouders en soortgelijke regelmatige bijdragen"
+
+msgid "Spenden von natürlichen Personen"
+msgstr "Donaties van natuurlijke personen"
+
+msgid "Spenden von juristischen Personen"
+msgstr "Donaties van rechtspersonen"
+
+msgid "Einnahmen aus Unternehmenstätigkeit"
+msgstr "Inkomsten uit ondernemingsactiviteiten"
+
+msgid "Einnahmen aus Beteiligungen"
+msgstr "Inkomsten uit deelnemingen"
+
+msgid "Einnahmen aus sonstigem Vermögen"
+msgstr "Inkomsten uit overig vermogen"
+
+msgid "Einnahmen aus Veranstaltungen, Vertrieb von Druckschriften und Veröffentlichungen und sonstiger mit Einnahmen verbundener Tätigkeit"
+msgstr "Inkomsten uit evenementen, verkoop van drukwerk en publicaties en andere activiteiten die inkomsten opleveren"
+
+msgid "Staatliche Mittel"
+msgstr "Overheidsmiddelen"
+
+msgid "Sonstige Einnahmen"
+msgstr "Overige inkomsten"
+
+msgid "Zuschüsse von Gliederungen"
+msgstr "Subsidies van eenheden"
+
+msgid "Gesamteinnahmen"
+msgstr "Totale inkomsten"
+
+msgid "Ausgaben für Personal"
+msgstr "Personeelskosten"
+
+msgid "Ausgaben des laufenden Geschäftsbetriebs"
+msgstr "Uitgaven van de lopende bedrijfsvoering"
+
+msgid "Ausgaben für allgemeine politische Arbeit"
+msgstr "Uitgaven voor algemeen politiek werk"
+
+msgid "Ausgaben für Wahlkämpfe"
+msgstr "Uitgaven voor verkiezingscampagnes"
+
+msgid "Ausgaben für die Vermögensverwaltung einschließlich sich ergebender Zinsen"
+msgstr "Uitgaven voor vermogensbeheer, inclusief daaruit voortvloeiende rente"
+
+msgid "Sonstige Zinsen"
+msgstr "Overige rente"
+
+msgid "Ausgaben aus Unternehmenstätigkeit"
+msgstr "Uitgaven uit ondernemingsactiviteiten"
+
+msgid "Sonstige Ausgaben"
+msgstr "Overige uitgaven"
+
+msgid "Ausgaben für Sachaufwand insgesamt"
+msgstr "Totaal uitgaven voor materiële kosten"
+
+msgid "Zuschüsse an Gliederungen"
+msgstr "Subsidies aan eenheden"
+
+msgid "Gesamtausgaben"
+msgstr "Totale uitgaven"
+
+msgid "Überschuss bzw. Defizit"
+msgstr "Overschot of tekort"
+
+msgid "Haus- und Grundvermögen"
+msgstr "Onroerend goed"
+
+msgid "Geschäftsstellenausstattung"
+msgstr "Kantooruitrusting"
+
+msgid "Beteiligungen an Unternehmen"
+msgstr "Deelnemingen in ondernemingen"
+
+msgid "Sonstige Finanzanlagen"
+msgstr "Overige financiële vaste activa"
+
+msgid "Forderungen an Gliederungen"
+msgstr "Vorderingen op eenheden"
+
+msgid "Forderungen aus der staatlichen Teilfinanzierung"
+msgstr "Vorderingen uit de gedeeltelijke overheidsfinanciering"
+
+msgid "Geldbestände"
+msgstr "Kas- en banksaldi"
+
+msgid "Sonstige Vermögensgegenstände"
+msgstr "Overige activa"
+
+msgid "Summe der Besitzposten"
+msgstr "Totaal van de activaposten"
+
+msgid "Rückstellungen für Pensionsverpflichtungen"
+msgstr "Voorzieningen voor pensioenverplichtingen"
+
+msgid "Sonstige Rückstellungen"
+msgstr "Overige voorzieningen"
+
+msgid "Rückzahlungsverpflichtungen aus der staatlichen Teilfinanzierung"
+msgstr "Terugbetalingsverplichtingen uit de gedeeltelijke overheidsfinanciering"
+
+msgid "Verbindlichkeiten gegenüber Gebietsverbänden"
+msgstr "Schulden aan regionale eenheden"
+
+msgid "Verbindlichkeiten gegenüber Kreditinstituten"
+msgstr "Schulden aan kredietinstellingen"
+
+msgid "Verbindlichkeiten gegenüber sonstigen Darlehensgebern"
+msgstr "Schulden aan overige geldschieters"
+
+msgid "Sonstige Verbindlichkeiten"
+msgstr "Overige schulden"
+
+msgid "Summe der Schuldposten"
+msgstr "Totaal van de passivaposten"
+
+msgid "Reinvermögen (Besitzposten abzüglich Schuldposten)"
+msgstr "Nettovermogen (activaposten min passivaposten)"
+
+msgid "bisher"
+msgstr "tot nu toe"
+
+msgid "neu"
+msgstr "nieuw"
+
+msgid "Excel-Datei importieren: %1, %2"
+msgstr "Excel-bestand importeren: %1, %2"
+
+msgid "Wählen Sie die ausgefüllte Vorlage (.xlsx, höchstens 2 MB). Leere Zellen verändern nichts."
+msgstr "Kies het ingevulde sjabloon (.xlsx, hoogstens 2 MB). Lege cellen wijzigen niets."
+
+msgid "Excel-Datei"
+msgstr "Excel-bestand"
+
+msgid "Die Datei kann nicht übernommen werden:"
+msgstr "Het bestand kan niet worden overgenomen:"
+
+msgid "Zeile %1"
+msgstr "Rij %1"
+
+msgid "Spalte %1"
+msgstr "Kolom %1"
+
+msgid "Die Datei enthält keine Änderungen gegenüber dem gespeicherten Stand."
+msgstr "Het bestand bevat geen wijzigingen ten opzichte van de opgeslagen stand."
+
+msgid "%1 Werte würden übernommen:"
+msgstr "%1 waarden zouden worden overgenomen:"
+
+msgid "Rechnungsjahr %1"
+msgstr "Rekeningjaar %1"
+
+msgid "Vorjahr %1"
+msgstr "Voorgaand jaar %1"
+
+msgid "ƒ = der Wert stammt aus einer Formel; übernommen wird das in der Datei gespeicherte Ergebnis."
+msgstr "ƒ = de waarde komt uit een formule; het in het bestand opgeslagen resultaat wordt overgenomen."
+
+msgid "Bitte wählen Sie zuerst eine Datei."
+msgstr "Kies eerst een bestand."
+
+msgid "Die Datei ist zu groß (höchstens 2 MB)."
+msgstr "Het bestand is te groot (hoogstens 2 MB)."
+
+msgid "%1 Werte übernommen."
+msgstr "%1 waarden overgenomen."
+
+msgid "Bitte keinen negativen Betrag eingeben."
+msgstr "Voer geen negatief bedrag in."
+
+msgid "Der Betrag ist zu groß."
+msgstr "Het bedrag is te groot."
+
+msgid "Bitte einen Betrag wie 1.234,56 eingeben."
+msgstr "Voer een bedrag in zoals 1.234,56."
+
+msgid "Gliederung"
+msgstr "Eenheid"
+
+msgid "Stand"
+msgstr "Stand"
+
+msgid "Reinvermögen"
+msgstr "Nettovermogen"
+
+msgid "Nicht erfasst"
+msgstr "Niet ingevoerd"
+
+msgid "Teilweise (%1 von %2)"
+msgstr "Gedeeltelijk (%1 van %2)"
+
+msgid "Vollständig"
+msgstr "Volledig"
+
+msgid "Keine Gliederungen vorhanden."
+msgstr "Er zijn geen eenheden."
+
+msgid "Werte erfassen"
+msgstr "Waarden invoeren"
+
+msgid "Vorlage herunterladen"
+msgstr "Sjabloon downloaden"
+
+msgid "Excel-Datei importieren"
+msgstr "Excel-bestand importeren"
+
+msgid "Gesetz"
+msgstr "Wet"
+
+msgid "Hinweis der Organisation"
+msgstr "Opmerking van de organisatie"
+
+msgid "Die Positionen und ihre Reihenfolge sind gesetzlich vorgegeben (§ 24 PartG) und nicht änderbar. Zu jeder Position können Sie einen eigenen Hinweis hinterlegen, der bei der Erfassung angezeigt wird."
+msgstr "De posten en hun volgorde liggen wettelijk vast (artikel 24 PartG) en kunnen niet worden gewijzigd. Bij elke post kunt u een eigen opmerking opslaan, die bij het invoeren wordt getoond."
+
+msgid "Eingabe"
+msgstr "Invoer"
+
+msgid "Hinweis ändern"
+msgstr "Opmerking wijzigen"
+
+msgid "Hinweis zu \"%1\""
+msgstr "Opmerking bij \"%1\""
+
+msgid "Hinweis (höchstens 500 Zeichen)"
+msgstr "Opmerking (hoogstens 500 tekens)"
+
+msgid "Der Hinweis ist zu lang."
+msgstr "De opmerking is te lang."
+
+msgid "Hinweis gespeichert."
+msgstr "Opmerking opgeslagen."
+
+msgid "Rechenschaftsbericht nach Parteiengesetz"
+msgstr "Verantwoordingsverslag volgens de Partijenwet"
+
+msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
+msgstr "Het verantwoordingsverslag is alleen beschikbaar voor politieke partijen. De instelling vindt u in de organisatiegegevens."
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
+msgstr "Hier voert u de cijfers voor het verantwoordingsverslag in. Dit is een werkhulp, geen juridisch advies: het verslag zelf en de controle door de accountant volgen in een latere stap."
+
+msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
+msgstr "U hebt waarden ingevoerd die nog niet zijn opgeslagen. Als u nu wisselt, gaan ze verloren."
+
+msgid "Bereich"
+msgstr "Onderdeel"
+
+msgid "Rechnungsjahr"
+msgstr "Rekeningjaar"
+
+msgid "Leere Felder im Rechnungsjahr mit 0 füllen"
+msgstr "Lege velden van het rekeningjaar met 0 vullen"
+
+msgid "Leere Felder mit 0 füllen?"
+msgstr "Lege velden met 0 vullen?"
+
+msgid "Alle leeren Felder des Rechnungsjahres %1 werden mit 0,00 € gefüllt. Das Vorjahr bleibt unverändert."
+msgstr "Alle lege velden van rekeningjaar %1 worden met 0,00 € gevuld. Het voorgaande jaar blijft ongewijzigd."
+
+msgid "Mit 0 füllen"
+msgstr "Met 0 vullen"
+
+msgid "nicht erfasst"
+msgstr "niet ingevoerd"
+
+msgid "Bitte korrigieren Sie zuerst die markierten Felder."
+msgstr "Corrigeer eerst de gemarkeerde velden."
+
+msgid "%1 Werte gespeichert."
+msgstr "%1 waarden opgeslagen."
+
+msgid "Das Speichern ist nicht gelungen, oder das Blatt wurde inzwischen von jemand anderem geändert. Mit \"Neu laden\" sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr "Opslaan is niet gelukt, of het blad is intussen door iemand anders gewijzigd. Met \"Opnieuw laden\" ziet u de actuele stand; uw invoer gaat daarbij verloren."
+
+msgid "%1 Änderungen"
+msgstr "%1 wijzigingen"
+
+msgid "Die Datei ist keine Excel-Datei (.xlsx)."
+msgstr "Het bestand is geen Excel-bestand (.xlsx)."
+
+msgid "Diese Excel-Datei ist anders aufgebaut als erwartet und kann nicht gelesen werden."
+msgstr "Dit Excel-bestand is anders opgebouwd dan verwacht en kan niet worden gelezen."
+
+msgid "Dateien mit Makros werden nicht angenommen."
+msgstr "Bestanden met macro's worden niet geaccepteerd."
+
+msgid "Die Datei ist zu groß oder zu umfangreich."
+msgstr "Het bestand is te groot of te uitgebreid."
+
+msgid "Das ist nicht die Vorlage dieser Version. Bitte laden Sie die Vorlage neu herunter."
+msgstr "Dit is niet het sjabloon van deze versie. Download het sjabloon opnieuw."
+
+msgid "Die Datei gehört zu einer anderen Gliederung oder einem anderen Jahr."
+msgstr "Het bestand hoort bij een andere eenheid of een ander jaar."
+
+msgid "Diese Kennung gibt es nicht."
+msgstr "Deze code bestaat niet."
+
+msgid "Diese Kennung kommt mehrfach vor."
+msgstr "Deze code komt meermaals voor."
+
+msgid "Negative Beträge sind nicht möglich."
+msgstr "Negatieve bedragen zijn niet mogelijk."
+
+msgid "Hier steht kein gültiger Betrag."
+msgstr "Hier staat geen geldig bedrag."
+
+msgid "Höchstens zwei Nachkommastellen sind möglich."
+msgstr "Hoogstens twee decimalen zijn mogelijk."
+
+msgid "Hier steht ein Datum statt eines Betrags."
+msgstr "Hier staat een datum in plaats van een bedrag."
+
+msgid "Die Formel hat noch kein Ergebnis. Bitte speichern Sie die Datei in Excel erneut."
+msgstr "De formule heeft nog geen resultaat. Sla het bestand opnieuw op in Excel."
+
+msgid "Diese Zelle enthält einen Fehlerwert."
+msgstr "Deze cel bevat een foutwaarde."
+
+msgid "Unterhalb von Zeile 500 steht Inhalt, der nicht gelesen wird."
+msgstr "Onder rij 500 staat inhoud die niet wordt gelezen."
+
+msgid "Es gibt weitere Fehler. Bitte beheben Sie zuerst die genannten."
+msgstr "Er zijn nog meer fouten. Los eerst de genoemde op."
+
+msgid "Die Datei ist beschädigt oder widersprüchlich aufgebaut."
+msgstr "Het bestand is beschadigd of tegenstrijdig opgebouwd."
+
+msgid "Der Rechenschaftsbericht ist für diese Organisation nicht verfügbar."
+msgstr "Het verantwoordingsverslag is niet beschikbaar voor deze organisatie."
+
+msgid "Die Vorschau ist abgelaufen. Bitte laden Sie die Datei erneut hoch."
+msgstr "De voorvertoning is verlopen. Upload het bestand opnieuw."
+
+msgid "Die Werte wurden inzwischen geändert. Bitte laden Sie die Datei erneut hoch."
+msgstr "De waarden zijn intussen gewijzigd. Upload het bestand opnieuw."
+
+msgid "Die Verbindung ist fehlgeschlagen. Bitte versuchen Sie es erneut."
+msgstr "De verbinding is mislukt. Probeer het opnieuw."
+
+msgid "Bundesverband"
+msgstr "Bondsvereniging"
+
+msgid "Landesverband %1"
+msgstr "Regionale afdeling %1"
+
+msgid "Nachgeordnete Gebietsverbände in %1 (zusammengefasst)"
+msgstr "Ondergeschikte regionale eenheden in %1 (samengevoegd)"
+
+msgid "Personennummer"
+msgstr "Persoonsnummer"
+
+msgid "Anzeigename"
+msgstr "Weergavenaam"
+
+msgid "Namenszusatz"
+msgstr "Naamtoevoeging"
+
+msgid "Firma"
+msgstr "Bedrijf"
+
+msgid "Personentyp"
+msgstr "Persoonstype"
+
+msgid "Adresszusatz"
+msgstr "Adresaanvulling"
+
+msgid "Mobil"
+msgstr "Mobiel"
+
+msgid "Markierung \"nicht mehr in LupaBB\""
+msgstr "Markering \"niet meer in LupaBB\""
+
+msgid "Neu"
+msgstr "Nieuw"
+
+msgid "Unverändert"
+msgstr "Ongewijzigd"
+
+msgid "Unklare Zuordnung"
+msgstr "Onduidelijke koppeling"
+
+msgid "Nicht mehr in LupaBB"
+msgstr "Niet meer in LupaBB"
+
+msgid "Handlungsbedarf"
+msgstr "Actie nodig"
+
+msgid "In LupaBB ist keine E-Mail-Adresse hinterlegt."
+msgstr "In LupaBB is geen e-mailadres opgeslagen."
+
+msgid "Die E-Mail-Adresse in LupaBB ist ungültig."
+msgstr "Het e-mailadres in LupaBB is ongeldig."
+
+msgid "Ein Datum in LupaBB ist ungültig."
+msgstr "Een datum in LupaBB is ongeldig."
+
+msgid "Ein Feld in LupaBB ist zu lang."
+msgstr "Een veld in LupaBB is te lang."
+
+msgid "Ein Feld in LupaBB enthält ein unzulässiges Steuerzeichen."
+msgstr "Een veld in LupaBB bevat een niet-toegestaan stuurteken."
+
+msgid "Die Personennummer ist ungültig."
+msgstr "Het persoonsnummer is ongeldig."
+
+msgid "Die Personennummer kommt in LupaBB mehrfach vor."
+msgstr "Het persoonsnummer komt meerdere keren voor in LupaBB."
+
+msgid "In LupaBB ist weder ein Name noch eine Firma hinterlegt."
+msgstr "In LupaBB is noch een naam noch een bedrijf opgeslagen."
+
+msgid "Der Status aus LupaBB ist unbekannt."
+msgstr "De status uit LupaBB is onbekend."
+
+msgid "Der Datensatz ist in LupaBB storniert."
+msgstr "Het record is in LupaBB geannuleerd."
+
+msgid "Das Mitglied wurde in Lapis Cloud anonymisiert."
+msgstr "Het lid is in Lapis Cloud geanonimiseerd."
+
+msgid "Die Person wurde in Lapis Cloud datenschutzrechtlich gelöscht."
+msgstr "De persoon is in Lapis Cloud op grond van de gegevensbescherming gewist."
+
+msgid "Mitglied mit Verwaltungsrolle: bitte von Hand abgleichen."
+msgstr "Lid met een beheerrol: handmatig afstemmen."
+
+msgid "Dieser Statuswechsel ist in Lapis Cloud nicht erlaubt."
+msgstr "Deze statuswijziging is in Lapis Cloud niet toegestaan."
+
+msgid "Ein aktives Mitglied braucht einen Landesverband."
+msgstr "Een actief lid heeft een regionale afdeling nodig."
+
+msgid "Die E-Mail-Adresse in LupaBB weicht ab. Änderung bitte über die E-Mail-Änderung."
+msgstr "Het e-mailadres in LupaBB wijkt af. Wijzig het via de e-mailwijziging."
+
+msgid "Die E-Mail-Adresse gehört einem Mitglied, das schon mit einer anderen Person verknüpft ist."
+msgstr "Het e-mailadres hoort bij een lid dat al aan een andere persoon is gekoppeld."
+
+msgid "Die E-Mail-Adresse passt, der Name nicht."
+msgstr "Het e-mailadres komt overeen, de naam niet."
+
+msgid "Es kommen mehrere Mitglieder in Frage."
+msgstr "Er komen meerdere leden in aanmerking."
+
+msgid "Das Land lässt sich nicht eindeutig zuordnen und bleibt unverändert."
+msgstr "Het land kan niet eenduidig worden toegewezen en blijft ongewijzigd."
+
+msgid "Diesen Landesverband gibt es in Lapis Cloud nicht."
+msgstr "Deze regionale afdeling bestaat niet in Lapis Cloud."
+
+msgid "Die E-Mail-Adresse wurde inzwischen einem anderen Mitglied zugeordnet."
+msgstr "Het e-mailadres is intussen aan een ander lid toegewezen."
+
+msgid "Die Personennummer wurde inzwischen einem anderen Mitglied zugeordnet."
+msgstr "Het persoonsnummer is intussen aan een ander lid toegewezen."
+
+msgid "Das Mitglied wurde seit der Vorschau geändert."
+msgstr "Het lid is sinds het voorbeeld gewijzigd."
+
+msgid "Der Datensatz konnte nicht gespeichert werden."
+msgstr "Het record kon niet worden opgeslagen."
+
+msgid "Verknüpft: wird beim nächsten Abgleich übernommen."
+msgstr "Gekoppeld: wordt bij de volgende synchronisatie overgenomen."
+
+msgid "Das Mitglied kommt in LupaBB nicht mehr vor. Es wird nur markiert, nicht gelöscht."
+msgstr "Het lid komt niet meer voor in LupaBB. Het lid wordt alleen gemarkeerd, niet verwijderd."
+
+msgid "Das Mitglied ist in LupaBB wieder aufgetaucht, die Markierung entfällt."
+msgstr "Het lid is weer opgedoken in LupaBB; de markering vervalt."
+
+msgid "Das Mitglied war als verstorben geführt und wird wieder aktiviert bzw. umgestuft."
+msgstr "Het lid stond als overleden geregistreerd en wordt opnieuw geactiveerd of anders ingedeeld."
+
+msgid "LupaBB liefert die Landesverbände nicht mit den Mitgliedern. Die Zuordnung zu Landesverbänden bleibt unverändert."
+msgstr "LupaBB levert de regionale afdelingen niet mee met de leden. De indeling bij regionale afdelingen blijft ongewijzigd."
+
+msgid "Natürliche Person"
+msgstr "Natuurlijk persoon"
+
+msgid "Juristische Person"
+msgstr "Rechtspersoon"
+
+msgid "%1 neue und %2 geänderte Datensätze übernehmen"
+msgstr "%1 nieuwe en %2 gewijzigde records overnemen"
+
+msgid "Benutzername"
+msgstr "Gebruikersnaam"
+
+msgid "Prüfen und speichern"
+msgstr "Controleren en opslaan"
+
+msgid "Die Zugangsdaten wurden geprüft und gespeichert."
+msgstr "De toegangsgegevens zijn gecontroleerd en opgeslagen."
+
+msgid "Zugangsdaten"
+msgstr "Toegangsgegevens"
+
+msgid "Auf diesem Server ist kein Geheimnis-Schlüssel eingerichtet. Zugangsdaten können deshalb nicht gespeichert werden."
+msgstr "Op deze server is geen geheime sleutel ingesteld, daarom kunnen toegangsgegevens niet worden opgeslagen."
+
+msgid "Zugangsdaten sind hinterlegt."
+msgstr "Toegangsgegevens zijn opgeslagen."
+
+msgid "Gespeichert am %1."
+msgstr "Opgeslagen op %1."
+
+msgid "Gespeichert von"
+msgstr "Opgeslagen door"
+
+msgid "Zugangsdaten ersetzen"
+msgstr "Toegangsgegevens vervangen"
+
+msgid "Zugangsdaten entfernen"
+msgstr "Toegangsgegevens verwijderen"
+
+msgid "Zugangsdaten entfernen?"
+msgstr "Toegangsgegevens verwijderen?"
+
+msgid "Danach ist kein Abgleich mehr möglich, bis Sie neue Zugangsdaten eingeben."
+msgstr "Daarna is synchroniseren niet meer mogelijk totdat u nieuwe toegangsgegevens invoert."
+
+msgid "Die Zugangsdaten wurden entfernt."
+msgstr "De toegangsgegevens zijn verwijderd."
+
+msgid "Benutzername, Passwort und API-Schlüssel erhalten Sie von der Verwaltung von LupaBB. Sie werden verschlüsselt gespeichert und nie wieder angezeigt."
+msgstr "De gebruikersnaam, het wachtwoord en de API-sleutel krijgt u van het beheer van LupaBB. Ze worden versleuteld opgeslagen en nooit meer getoond."
+
+msgid "Abgleich"
+msgstr "Synchronisatie"
+
+msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert."
+msgstr "De synchronisatie leest alleen uit LupaBB. Ze verwijdert en deactiveert niemand, maakt geen inlogaccounts aan en verstuurt geen e-mails. Het e-mailadres van bestaande leden blijft ongewijzigd."
+
+msgid "Letzter Lauf am %1: %2 angelegt, %3 aktualisiert, %4 Fehler."
+msgstr "Laatste run op %1: %2 aangemaakt, %3 bijgewerkt, %4 fouten."
+
+msgid "Vorschau laden"
+msgstr "Voorbeeld laden"
+
+msgid "Vorschau neu laden"
+msgstr "Voorbeeld opnieuw laden"
+
+msgid "Bitte zuerst die Zugangsdaten eingeben."
+msgstr "Voer eerst de toegangsgegevens in."
+
+msgid "Die Vorschau ist abgelaufen. Bitte laden Sie sie neu."
+msgstr "Het voorbeeld is verlopen. Laad het opnieuw."
+
+msgid "%1 neu · %2 geändert · %3 unverändert · %4 unklar · %5 übersprungen · %6 Fehler · %7 nicht mehr in LupaBB"
+msgstr "%1 nieuw · %2 gewijzigd · %3 ongewijzigd · %4 onduidelijk · %5 overgeslagen · %6 fouten · %7 niet meer in LupaBB"
+
+msgid "Datensätze filtern"
+msgstr "Records filteren"
+
+msgid "Keine Datensätze in dieser Ansicht."
+msgstr "Geen records in deze weergave."
+
+msgid "Weitere laden"
+msgstr "Meer laden"
+
+msgid "Statuswechsel übernehmen?"
+msgstr "Statuswijzigingen overnemen?"
+
+msgid "Der Abgleich ändert bei %1 Mitgliedern den Status."
+msgstr "De synchronisatie wijzigt de status van %1 leden."
+
+msgid "Bei %1 davon hat das Folgen für die Mitgliedschaft (Austritt, Tod oder Rückstufung)."
+msgstr "Voor %1 van hen heeft dit gevolgen voor het lidmaatschap (uittreding, overlijden of terugplaatsing)."
+
+msgid "Der Abgleich wurde übernommen."
+msgstr "De synchronisatie is overgenomen."
+
+msgid "%1 angelegt · %2 aktualisiert · %3 unverändert · %4 übersprungen · %5 unklar · %6 Fehler · %7 als nicht mehr in LupaBB markiert"
+msgstr "%1 aangemaakt · %2 bijgewerkt · %3 ongewijzigd · %4 overgeslagen · %5 onduidelijk · %6 fouten · %7 gemarkeerd als niet meer in LupaBB"
+
+msgid "Nicht gespeichert:"
+msgstr "Niet opgeslagen:"
+
+msgid "Person %1"
+msgstr "Persoon %1"
+
+msgid "Einordnung"
+msgstr "Indeling"
+
+msgid "Einzelheiten"
+msgstr "Details"
+
+msgid "Kandidat"
+msgstr "Kandidaat"
+
+msgid "%1 Felder im Vergleich"
+msgstr "%1 velden vergeleken"
+
+msgid "Feld"
+msgstr "Veld"
+
+msgid "Mit diesem Mitglied verknüpfen"
+msgstr "Aan dit lid koppelen"
+
+msgid "Mit diesem Mitglied verknüpfen?"
+msgstr "Aan dit lid koppelen?"
+
+msgid "Die Personennummer aus LupaBB wird diesem Mitglied zugeordnet. Die Daten werden beim nächsten Abgleich übernommen."
+msgstr "Het persoonsnummer uit LupaBB wordt aan dit lid toegewezen. De gegevens worden bij de volgende synchronisatie overgenomen."
+
+msgid "Das Mitglied wurde verknüpft."
+msgstr "Het lid is gekoppeld."
+
+msgid "LupaBB-Abgleich"
+msgstr "LupaBB-synchronisatie"
+
+msgid "Mitglieder-Stammdaten aus LupaBB in die Mitgliederverwaltung übernehmen. Ein Lauf wird von Hand gestartet."
+msgstr "Stamgegevens van leden uit LupaBB overnemen in het ledenbeheer. Een run wordt handmatig gestart."
+
+msgid "Zur Mitgliederverwaltung"
+msgstr "Naar het ledenbeheer"
+
+msgid "LupaBB hat die Zugangsdaten abgelehnt. Bitte prüfen Sie Benutzername, Passwort und API-Schlüssel."
+msgstr "LupaBB heeft de toegangsgegevens geweigerd. Controleer gebruikersnaam, wachtwoord en API-sleutel."
+
+msgid "LupaBB ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut."
+msgstr "LupaBB is op dit moment niet bereikbaar. Probeer het later opnieuw."
+
+msgid "LupaBB hat eine unerwartete Antwort geschickt. Es wurde nichts geändert."
+msgstr "LupaBB stuurde een onverwacht antwoord. Er is niets gewijzigd."
+
+msgid "Die Datenmenge aus LupaBB übersteigt die Grenzen des Abgleichs. Es wurde nichts geändert."
+msgstr "De hoeveelheid gegevens uit LupaBB overschrijdt de grenzen van de synchronisatie. Er is niets gewijzigd."
+
+msgid "Es läuft bereits ein Abgleich. Bitte warten Sie, bis er beendet ist."
+msgstr "Er loopt al een synchronisatie. Wacht tot die is afgelopen."
+
+msgid "LupaBB wurde eben erst abgefragt. Bitte warten Sie eine Minute."
+msgstr "LupaBB is net pas bevraagd. Wacht een minuut."
+
+msgid "Die Vorschau ist nicht mehr gültig. Bitte laden Sie sie neu."
+msgstr "Het voorbeeld is niet meer geldig. Laad het opnieuw."
+
+msgid "Es sind keine LupaBB-Zugangsdaten hinterlegt oder sie sind nicht lesbar. Bitte geben Sie sie neu ein."
+msgstr "Er zijn geen LupaBB-toegangsgegevens opgeslagen of ze zijn onleesbaar. Voer ze opnieuw in."
+
+msgid "Auf diesem Server ist kein Geheimnis-Schlüssel eingerichtet. Zugangsdaten können nicht gespeichert werden."
+msgstr "Op deze server is geen geheime sleutel ingesteld. Toegangsgegevens kunnen niet worden opgeslagen."
+
+msgid "LupaBB-Abgleich (Lauf)"
+msgstr "LupaBB-synchronisatie (run)"
+
+msgid "LupaBB-Zugangsdaten"
+msgstr "LupaBB-toegangsgegevens"
+
+msgid "Mit LupaBB abgleichen"
+msgstr "Synchroniseren met LupaBB"
+
+msgid "Mit LupaBB verknüpft (Personennummer %1)."
+msgstr "Gekoppeld aan LupaBB (persoonsnummer %1)."
+
+msgid "Der letzte Abgleich fand dieses Mitglied nicht mehr in LupaBB (seit %1)."
+msgstr "De laatste synchronisatie vond dit lid niet meer in LupaBB (sinds %1)."
+
+msgid "Sitzung und Veranstaltung (Verknüpfung)"
+msgstr "Vergadering en evenement (koppeling)"
+
+msgid "Diese Sitzung ist bereits mit einer Veranstaltung verknüpft."
+msgstr "Deze vergadering is al aan een evenement gekoppeld."
+
+msgid "Diese Veranstaltung gehört bereits zu einer Sitzung."
+msgstr "Dit evenement hoort al bij een vergadering."
+
+msgid "Diese Sitzung kann nicht angekündigt werden. Sie ist abgesagt, schon gehalten oder liegt in der Vergangenheit."
+msgstr "Deze vergadering kan niet worden aangekondigd. Ze is geannuleerd, al gehouden of ligt in het verleden."
+
+msgid "Für die Ankündigung fehlt der Ort der Sitzung."
+msgstr "Voor de aankondiging ontbreekt de locatie van de vergadering."
+
+msgid "Die Verknüpfung hat sich inzwischen geändert. Bitte laden Sie die Ansicht neu."
+msgstr "De koppeling is intussen gewijzigd. Laad de weergave opnieuw."
+
+msgid "Diese Veranstaltung kann nicht verknüpft werden. Sie ist abgesagt oder Teil einer laufenden Serie."
+msgstr "Dit evenement kan niet worden gekoppeld. Het is geannuleerd of maakt deel uit van een lopende reeks."
+
+msgid "Eine abgesagte Sitzung kann nicht angekündigt werden."
+msgstr "Een geannuleerde vergadering kan niet worden aangekondigd."
+
+msgid "Eine bereits durchgeführte Sitzung kann nicht mehr angekündigt werden."
+msgstr "Een vergadering die al is gehouden kan niet meer worden aangekondigd."
+
+msgid "Für die Ankündigung einer Präsenzsitzung fehlt der Ort."
+msgstr "Een vergadering ter plaatse heeft een locatie nodig om te worden aangekondigd."
+
+msgid "Angekündigt als:"
+msgstr "Aangekondigd als:"
+
+msgid "Entwurf, noch nicht veröffentlicht."
+msgstr "Concept, nog niet gepubliceerd."
+
+msgid "Zur Sitzung"
+msgstr "Naar de vergadering"
+
+msgid "Sichtbar nur für Mitglieder. Öffentlich machen kann der Vorstand."
+msgstr "Alleen zichtbaar voor leden. Alleen het bestuur kan het openbaar maken."
+
+msgid "Absagen kann bei einer kostenpflichtigen oder öffentlichen Veranstaltung nur der Vorstand."
+msgstr "Alleen het bestuur kan een betaald of openbaar evenement afgelasten."
+
+msgid "Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar. Alle Mitglieder sehen sie, nicht nur die Mitglieder des Gremiums. Die Tagesordnung wird nicht angezeigt."
+msgstr "Dit evenement wordt gepubliceerd en is daarna zichtbaar voor leden, die zich kunnen aanmelden. Alle leden zien het, niet alleen de leden van het orgaan. De agenda wordt niet getoond."
+
+msgid "Öffentlich machen kann nur der Vorstand."
+msgstr "Alleen het bestuur kan dit openbaar maken."
+
+msgid "Dieses Feld ändert der Vorstand."
+msgstr "Dit veld wordt door het bestuur gewijzigd."
+
+msgid "Eine kostenpflichtige Veranstaltung sagt der Vorstand ab."
+msgstr "Een betaald evenement wordt door het bestuur afgelast."
+
+msgid "Der Online-Link ist öffentlich. Ändern kann ihn der Vorstand."
+msgstr "De onlinelink is openbaar. Alleen het bestuur kan hem wijzigen."
+
+msgid "Als Veranstaltung ankündigen"
+msgstr "Aankondigen als evenement"
+
+msgid "Verknüpfung lösen"
+msgstr "Koppeling opheffen"
+
+msgid "Verknüpfung gelöst. Sitzung und Veranstaltung bleiben erhalten."
+msgstr "Koppeling opgeheven. Vergadering en evenement blijven bestaan."
+
+msgid "Sitzung: %1 · Veranstaltung: %2"
+msgstr "Vergadering: %1 · Evenement: %2"
+
+msgid "Ort der Sitzung: %1 · Ort der Veranstaltung: %2"
+msgstr "Locatie vergadering: %1 · Locatie evenement: %2"
+
+msgid "kein Ort"
+msgstr "geen locatie"
+
+msgid "Termin der Veranstaltung an die Sitzung angleichen"
+msgstr "Evenementdatum aan de vergadering aanpassen"
+
+msgid "Die Veranstaltung wurde an die Sitzung angeglichen."
+msgstr "Het evenement is aan de vergadering aangepast."
+
+msgid "Sitzung verknüpfen"
+msgstr "Vergadering koppelen"
+
+msgid "Gehört zur Sitzung: %1, %2"
+msgstr "Hoort bij de vergadering: %1, %2"
+
+msgid "Der Ort der Sitzung weicht vom Ort der Veranstaltung ab."
+msgstr "De locatie van de vergadering wijkt af van die van het evenement."
+
+msgid "Online-Teilnahme ist unterschiedlich eingestellt."
+msgstr "Online deelname is verschillend ingesteld."
+
+msgid "Angleichen kann die Sitzungsleitung auf der Seite der Sitzung."
+msgstr "De vergaderleiding kan dit aanpassen op de pagina van de vergadering."
+
+msgid "Sitzungen werden geladen…"
+msgstr "Vergaderingen worden geladen…"
+
+
+msgid "Es gibt keine Sitzung, die verknüpft werden kann."
+msgstr "Er is geen vergadering die gekoppeld kan worden."
+
+msgid "%1, %2 – %3"
+msgstr "%1, %2 – %3"
+
+msgid "Sitzung verknüpft."
+msgstr "Vergadering gekoppeld."
+
+msgid "Gespräch"
+msgstr "Gesprek"
+
+msgid "Abonniert"
+msgstr "Geabonneerd"
+
+msgid "Meine Abonnements"
+msgstr "Mijn abonnementen"
+
+msgid "Bereiche der Mailinglisten"
+msgstr "Onderdelen van de mailinglijsten"
+
+msgid "Ihre persönlichen Gespräche an einem Ort."
+msgstr "Uw persoonlijke gesprekken op één plek."
+
+msgid "Hier abonnieren Sie Mailinglisten oder bestellen sie ab. Vorstand und Administration verwalten die Listen und verschicken Nachrichten."
+msgstr "Hier meldt u zich aan voor mailinglijsten of af. Het bestuur en de administratie beheren de lijsten en versturen berichten."
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Nachrichten."
+msgstr "Bericht verzonden. U vindt het gesprek onder Berichten."
+
+msgid "Nachricht wurde gesendet. Antworten finden Sie unter Nachrichten."
+msgstr "Het bericht is verzonden. Antwoorden vindt u onder Berichten."
+
+msgid "Liste"
+msgstr "Lijst"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge"
+msgstr "Bijlagen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Keine Anhänge."
+msgstr "Geen bijlagen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Nach dem Senden können Anhänge nicht mehr geändert werden."
+msgstr "Na het verzenden kunnen bijlagen niet meer worden gewijzigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Datei gelöscht"
+msgstr "Bestand verwijderd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Dateien anhängen"
+msgstr "Bestanden bijvoegen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Höchstens %1 Anhänge pro Nachricht."
+msgstr "Maximaal %1 bijlagen per bericht."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Es sind nur noch %1 Anhänge möglich; die übrigen Dateien wurden nicht übernommen."
+msgstr "Er zijn nog maar %1 bijlagen mogelijk; de overige bestanden zijn niet toegevoegd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Lapis prüft Anhänge nicht auf Viren. Bitte laden Sie nur Dateien hoch, denen Sie vertrauen."
+msgstr "Lapis controleert bijlagen niet op virussen. Upload alleen bestanden die u vertrouwt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "%1 von 5 Dateien, zusammen %2 von 20 MB."
+msgstr "%1 van 5 bestanden, samen %2 van 20 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Erlaubt sind PDF, Bilder (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT und CSV: höchstens 5 Dateien, 10 MB pro Datei, zusammen 20 MB."
+msgstr "Toegestaan: PDF, afbeeldingen (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT en CSV: maximaal 5 bestanden, 10 MB per bestand, samen 20 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge gehen an alle Empfänger dieser Nachricht. Lapis löscht die Dateien 180 Tage nach dem Senden."
+msgstr "Bijlagen gaan naar alle ontvangers van dit bericht. Lapis verwijdert de bestanden 180 dagen na het verzenden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ hat ein nicht unterstütztes Format. Erlaubt sind PDF, Bilder (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT und CSV."
+msgstr "„%1” heeft een niet-ondersteund formaat. Toegestaan zijn PDF, afbeeldingen (PNG, JPEG, GIF, WebP), Word, Excel, PowerPoint, OpenDocument, TXT en CSV."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Mit „%1“ wären die Anhänge zusammen größer als 20 MB."
+msgstr "Met „%1” zouden de bijlagen samen groter zijn dan 20 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Ein Anhang mit dem Namen „%1“ ist schon vorhanden."
+msgstr "Er bestaat al een bijlage met de naam „%1”."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ passt nicht zu ihrer Dateiendung oder ist beschädigt oder verschlüsselt."
+msgstr "„%1” komt niet overeen met de bestandsextensie of is beschadigd of versleuteld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ enthält Makros oder eingebettete Objekte und wird nicht angenommen."
+msgstr "„%1” bevat macro's of ingesloten objecten en wordt niet geaccepteerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "„%1“ hat keinen gültigen Dateinamen."
+msgstr "„%1” heeft geen geldige bestandsnaam."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Die Nachricht ist kein Entwurf mehr. Anhänge können nicht mehr geändert werden."
+msgstr "Het bericht is geen concept meer. Bijlagen kunnen niet meer worden gewijzigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Anhänge fügen Sie nach dem Speichern beim Entwurf hinzu."
+msgstr "Bijlagen voegt u na het opslaan aan het concept toe."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "%1 Anhang hinzugefügt."
+msgid_plural "%1 Anhänge hinzugefügt."
+msgstr[0] "%1 bijlage toegevoegd."
+msgstr[1] "%1 bijlagen toegevoegd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt
+msgid "Mit %1 Anhang (%2)."
+msgid_plural "Mit %1 Anhängen (%2)."
+msgstr[0] "Met %1 bijlage (%2)."
+msgstr[1] "Met %1 bijlagen (%2)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Datei anhängen"
+msgstr "Bestand toevoegen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bis zu 5 Dateien, je höchstens 10 MB, zusammen höchstens 20 MB."
+msgstr "Maximaal 5 bestanden, elk maximaal 10 MB, samen maximaal 20 MB."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Anhänge sieht nur Ihr Gesprächspartner. Lapis prüft Dateien nicht auf Viren."
+msgstr "Alleen uw gesprekspartner kan bijlagen zien. Lapis controleert bestanden niet op virussen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Lapis prüft Anhänge nicht auf Viren."
+msgstr "Lapis controleert bijlagen niet op virussen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bitte warten, bis alle Dateien hochgeladen sind."
+msgstr "Wacht tot alle bestanden zijn geüpload."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Bitte entfernen Sie fehlgeschlagene Dateien."
+msgstr "Verwijder mislukte bestanden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Diesem Mitglied können Sie keine Dateien schicken."
+msgstr "U kunt geen bestanden naar dit lid sturen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Sie haben zu viele noch nicht gesendete Dateien. Bitte senden oder entfernen Sie zuerst welche."
+msgstr "U hebt te veel bestanden die nog niet zijn verzonden. Verstuur of verwijder eerst enkele."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposerAttachments.kt
+msgid "Anhänge konnten nicht gesendet werden. Bitte laden Sie die Dateien erneut hoch."
+msgstr "De bijlagen konden niet worden verzonden. Upload de bestanden opnieuw."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste löschen"
+msgstr "Mailinglijst verwijderen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste löschen?"
+msgstr "Mailinglijst verwijderen?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Die Mailingliste „%1“ wird gelöscht."
+msgstr "De mailinglijst “%1” wordt verwijderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "%1 Abonnent wird ausgetragen."
+msgid_plural "%1 Abonnenten werden ausgetragen."
+msgstr[0] "%1 abonnee wordt uitgeschreven."
+msgstr[1] "%1 abonnees worden uitgeschreven."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Entwürfe dieser Liste werden mit ihren Anhängen gelöscht."
+msgstr "Concepten van deze lijst worden samen met hun bijlagen verwijderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Bereits versendete Nachrichten bleiben als Nachweis erhalten."
+msgstr "Reeds verzonden berichten blijven bewaard als bewijs."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Das kann nicht rückgängig gemacht werden."
+msgstr "Dit kan niet ongedaan worden gemaakt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Mailingliste gelöscht."
+msgstr "Mailinglijst verwijderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Automatische Mailinglisten können nicht gelöscht werden."
+msgstr "Automatische mailinglijsten kunnen niet worden verwijderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Diese Mailingliste wird gerade versendet. Bitte löschen Sie sie erst, wenn der Versand abgeschlossen ist."
+msgstr "Deze mailinglijst wordt op dit moment verzonden. Verwijder haar pas wanneer het verzenden is voltooid."

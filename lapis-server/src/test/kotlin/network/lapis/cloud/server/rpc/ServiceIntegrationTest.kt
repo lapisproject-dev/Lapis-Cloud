@@ -192,6 +192,7 @@ class ServiceIntegrationTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             val list = service.createMailingList(name = "Newsletter", description = "Test-Liste")
                             call.respondText(list.id)
@@ -203,6 +204,7 @@ class ServiceIntegrationTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             service.subscribe(call.parameters["listId"]!!)
                             call.respondText("ok")
@@ -214,6 +216,7 @@ class ServiceIntegrationTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             val lists = service.listMailingLists()
                             val target = lists.first()
@@ -762,6 +765,7 @@ class ServiceIntegrationTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             val list = service.createMailingList(name = "Rundschreiben", description = null)
                             call.respondText(list.id)
@@ -773,6 +777,7 @@ class ServiceIntegrationTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             val message =
                                 service.createDraftMessage(
@@ -789,6 +794,7 @@ class ServiceIntegrationTest :
                                     deliveryWorker = noOpMailingDeliveryWorker(),
                                     deliveryMode = MailingDeliveryMode.LOG,
                                     branding = MailBranding.notConfigured(),
+                                    attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 )
                             val message = service.sendMailingMessage(call.parameters["messageId"]!!)
                             call.respondText(message.status.name)

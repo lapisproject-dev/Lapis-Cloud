@@ -141,6 +141,8 @@ import network.lapis.cloud.server.keycloak.KeycloakProfileSync
 import network.lapis.cloud.server.keycloak.KeycloakStartupCheck
 import network.lapis.cloud.server.legal.LegalConfig
 import network.lapis.cloud.server.legal.LegalStartupCheck
+import network.lapis.cloud.server.lupabb.LupaBbSuppression
+import network.lapis.cloud.server.lupabb.LupaBbSyncRuntime
 import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.ArticleReviewNotificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
@@ -194,9 +196,11 @@ import network.lapis.cloud.server.membermap.PlaceSearchIndex
 import network.lapis.cloud.server.membermap.PmtilesBasemap
 import network.lapis.cloud.server.membermap.PostalCodeCentroidIndex
 import network.lapis.cloud.server.memberphoto.MemberPhotoStorage
+import network.lapis.cloud.server.messaging.DirectMessageAttachmentPendingPoller
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningPoller
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningService
+import network.lapis.cloud.server.partg.PartgImportPreviewStore
 import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
 import network.lapis.cloud.server.payment.bankstatement.BankStatementImportService
 import network.lapis.cloud.server.payment.dunning.DunningConfig
@@ -233,6 +237,7 @@ import network.lapis.cloud.server.routes.registerConferenceBackgroundRoutes
 import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerCrmRoutes
 import network.lapis.cloud.server.routes.registerDatevRoutes
+import network.lapis.cloud.server.routes.registerDirectMessageAttachmentRoutes
 import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerDunningRoutes
@@ -245,6 +250,7 @@ import network.lapis.cloud.server.routes.registerEventRegistrationCsvRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerKeycloakAuthRoutes
 import network.lapis.cloud.server.routes.registerLegalRoutes
+import network.lapis.cloud.server.routes.registerMailingAttachmentRoutes
 import network.lapis.cloud.server.routes.registerMailingTrackingRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerMcpRoutes
@@ -255,6 +261,7 @@ import network.lapis.cloud.server.routes.registerMemberPhotoRoutes
 import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
 import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
+import network.lapis.cloud.server.routes.registerPartgReportRoutes
 import network.lapis.cloud.server.routes.registerPaypalWebhookRoutes
 import network.lapis.cloud.server.routes.registerPrivilegedActionRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
@@ -325,6 +332,7 @@ import network.lapis.cloud.server.rpc.FederationService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.KeycloakLinkService
 import network.lapis.cloud.server.rpc.LtrLedgerService
+import network.lapis.cloud.server.rpc.LupaBbSyncService
 import network.lapis.cloud.server.rpc.MailDeliveryStatusService
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.McpAccessService
@@ -343,6 +351,7 @@ import network.lapis.cloud.server.rpc.OnlineCountsService
 import network.lapis.cloud.server.rpc.OpenItemService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
 import network.lapis.cloud.server.rpc.OrganizationTimeZoneService
+import network.lapis.cloud.server.rpc.PartyReportService
 import network.lapis.cloud.server.rpc.PaymentGatewayService
 import network.lapis.cloud.server.rpc.PeerTransferService
 import network.lapis.cloud.server.rpc.PingService
@@ -436,6 +445,7 @@ import network.lapis.cloud.shared.rpc.IFederationService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IKeycloakLinkService
 import network.lapis.cloud.shared.rpc.ILtrLedgerService
+import network.lapis.cloud.shared.rpc.ILupaBbSyncService
 import network.lapis.cloud.shared.rpc.IMailDeliveryStatusService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMcpAccessService
@@ -453,6 +463,7 @@ import network.lapis.cloud.shared.rpc.IOnlineCountsService
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IOrganizationTimeZoneService
+import network.lapis.cloud.shared.rpc.IPartyReportService
 import network.lapis.cloud.shared.rpc.IPaymentGatewayService
 import network.lapis.cloud.shared.rpc.IPeerTransferService
 import network.lapis.cloud.shared.rpc.IPingService
@@ -886,6 +897,7 @@ internal fun Application.module(
             baseUrl = mailBranding.publicBaseUrl.trimEnd('/'),
             sendDelay = mailingSendDelay,
             budget = mailBudgetStore,
+            attachmentStorageRoot = documentStorageRoot,
         )
     // D2 (plan) -- close out anything an earlier process instance left mid-send BEFORE this
     // instance serves any request, see MailingDeliveryWorker.recoverInterrupted KDoc.
@@ -1416,6 +1428,11 @@ internal fun Application.module(
     // while still bounding a single member's sustained flood to a small multiple of every other
     // write-capable upload route's own 10/min budget in this file.
     val travelExpenseReceiptUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    // V1.9.232: upload budget of the mailing-message attachment route (per member).
+    val mailingAttachmentUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    // V1.9.233: upload and download budgets of the direct-message attachment routes (per member).
+    val directMessageAttachmentUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+    val directMessageAttachmentDownloadRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
     // V1.9.199: ONE shared budget for the travel-expense contact-hint Markdown preview (the RPC service is created per call).
     val travelContactHintPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     // V1.9.202: budget of ITenderService.previewTenderDescription, one shared instance (the service is created per call).
@@ -1576,7 +1593,11 @@ internal fun Application.module(
     monitor.subscribe(ApplicationStopping) { conferenceTimerReconciler.stop() }
 
     // Welle V1.9.15 -- erases raw mailing open/click events after MailingHtmlPolicy.RETENTION_DAYS.
-    val mailingTrackingRetentionPoller = MailingTrackingRetentionPoller()
+    // V1.9.233 -- hourly: pending (never sent) direct-message uploads are gone after about 25 h at the latest.
+    val directMessageAttachmentPendingPoller = DirectMessageAttachmentPendingPoller(storageRoot = documentStorageRoot)
+    directMessageAttachmentPendingPoller.start()
+    monitor.subscribe(ApplicationStopping) { directMessageAttachmentPendingPoller.stop() }
+    val mailingTrackingRetentionPoller = MailingTrackingRetentionPoller(attachmentStorageRoot = documentStorageRoot)
     mailingTrackingRetentionPoller.start()
     monitor.subscribe(ApplicationStopping) { mailingTrackingRetentionPoller.stop() }
 
@@ -1797,6 +1818,15 @@ internal fun Application.module(
     // (authenticated, per member; per IP when anonymous) delivery budget. Never shared with another route family.
     val attachedImageUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes)
     val attachedImageWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 60.minutes)
+    // V1.9.225 party report: 60 writes per member and minute (RPC) -- one limiter for save and hint.
+    val partgReportWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+    // V1.9.226 LupaBB sync: the process wide state (key, preview store, credential rate limiter). The same key as the other sealed secrets;
+    // without LAPIS_SECRET_ENCRYPTION_KEY the sync cannot store credentials and therefore cannot run.
+    val lupaBbSyncRuntime = LupaBbSyncRuntime(secretBox = bankStatementSecretBox)
+    LupaBbSuppression.configure(bankStatementSecretBox)
+    // V1.9.225 party report Excel import: 10 previews/applies per minute and client address.
+    val partgReportImportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val partgImportPreviewStore = PartgImportPreviewStore()
     val attachedImageListRateLimiter = FederationInboxRateLimiter(maxRequests = 600, window = 60.minutes)
     val attachedImageReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
 
@@ -2322,6 +2352,7 @@ internal fun Application.module(
                 deliveryWorker = mailingDeliveryWorker,
                 deliveryMode = mailingDeliveryMode,
                 branding = mailBranding,
+                attachmentStorageRoot = documentStorageRoot,
                 budget = mailBudgetStore,
                 sendDelay = mailingSendDelay,
             )
@@ -2357,7 +2388,7 @@ internal fun Application.module(
                 consentRevokeRateLimiter = publicRankingConsentRevokeRateLimiter,
             )
         }
-        registerService(IGovernanceService::class) { call -> GovernanceService(call = call) }
+        registerService(IGovernanceService::class) { call -> GovernanceService(call = call, eventOnline = eventOnline) }
         registerService(IElectionService::class) { call -> ElectionService(call = call, streamGuard = secretBallotStreamGuard) }
         registerService(IPollService::class) { call -> PollService(call = call) }
         registerService(
@@ -2799,8 +2830,8 @@ internal fun Application.module(
                 readRateLimiter = attachedImageListRateLimiter,
             )
         }
-        // V1.9.224 dashboard signals and sidebar counters. THIS is the LAST registerService (after IAttachedImageService; Kilua numbers
-        // routes by declaration order). The conference switch and the MCP switch are process configuration, the others are read per call.
+        // V1.9.224 dashboard signals and sidebar counters. Second to last since V1.9.225 (the party report is the LAST registerService;
+        // Kilua numbers routes by declaration order). The conference switch and the MCP switch are process configuration, the others are read per call.
         registerService(IDashboardService::class) { call ->
             DashboardService(
                 call = call,
@@ -2810,6 +2841,16 @@ internal fun Application.module(
                 conferenceEnabled = conferenceConfig.enabled,
                 mcpEnabled = mcpConfig.isOperational,
             )
+        }
+        // V1.9.225 party report (PartG), R1. Second to last since V1.9.226 (the LupaBB sync is the LAST registerService; Kilua numbers
+        // routes by declaration order). New methods of the interface go to its end, never in between.
+        registerService(IPartyReportService::class) { call ->
+            PartyReportService(call = call, writeRateLimiter = partgReportWriteRateLimiter)
+        }
+        // V1.9.226 LupaBB member master-data sync (ADMIN, manual). THIS is the LAST registerService (after IPartyReportService; Kilua numbers
+        // routes by declaration order). New methods of the interface go to its end, never in between.
+        registerService(ILupaBbSyncService::class) { call ->
+            LupaBbSyncService(call = call, runtime = lupaBbSyncRuntime)
         }
     }
 
@@ -2824,6 +2865,19 @@ internal fun Application.module(
         }
         registerDocumentRoutes(documentStorageRoot)
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
+        // V1.9.232: attachments on mailing messages; its own upload budget (per member), BOARD/ADMIN only.
+        registerMailingAttachmentRoutes(
+            storageRoot = documentStorageRoot,
+            rateLimiter = mailingAttachmentUploadRateLimiter,
+            canonicalOrigin = FederationConfig.publicBaseUrl.trimEnd('/'),
+        )
+        // V1.9.233: attachments on direct messages (pending upload -> sent with the message); active members only.
+        registerDirectMessageAttachmentRoutes(
+            storageRoot = documentStorageRoot,
+            uploadLimiter = directMessageAttachmentUploadRateLimiter,
+            downloadLimiter = directMessageAttachmentDownloadRateLimiter,
+            canonicalOrigin = FederationConfig.publicBaseUrl.trimEnd('/'),
+        )
         // V1.9.198: report-level attachments; deliberately the SAME limiter instance (one upload budget).
         registerTravelExpenseAttachmentRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
         // V1.9.199: organisation-wide documents; deliberately the SAME upload budget as receipts/attachments.
@@ -2855,6 +2909,8 @@ internal fun Application.module(
         registerSepaRoutes(documentStorageRoot = documentStorageRoot, sepaConfig = sepaConfig)
         // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)".
         registerBankStatementRoutes(secretBox = bankStatementSecretBox, rateLimiter = bankStatementUploadRateLimiter)
+        // V1.9.225: party report template download and Excel import (preview + apply); previews live in memory only.
+        registerPartgReportRoutes(previewStore = partgImportPreviewStore, rateLimiter = partgReportImportRateLimiter)
         registerDunningRoutes(storageRoot = documentStorageRoot, previewRateLimiter = dunningPreviewRateLimiter)
         // Welle V1.4.5.2 "DATEV-Format-Export".
         registerDatevRoutes(exportRateLimiter = datevExportRateLimiter)

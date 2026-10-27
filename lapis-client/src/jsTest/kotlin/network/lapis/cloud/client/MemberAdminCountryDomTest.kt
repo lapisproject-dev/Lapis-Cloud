@@ -91,6 +91,10 @@ class MemberAdminCountryDomTest {
                         renderMemberAdministrationScreen(root)
                         awaitUntil("the roster rows") { element().textContent.orEmpty().contains("Paula Polen") }
                         assertTrue(element().allOf("img.lapis-flag[src\$='/pl.svg']").isNotEmpty(), "the flag of Poland")
+                        val code = element().allOf("[role=img][aria-label='Polen']").first()
+                        assertEquals("PL", code.textContent.orEmpty().trim())
+                        assertEquals("Polen", code.getAttribute("title"))
+                        assertEquals("Polen", element().allOf("img.lapis-flag[src\$='/pl.svg']").first().getAttribute("title"))
                         assertTrue(
                             element().allOf("img.lapis-flag").all { it.getAttribute("aria-hidden") == "true" },
                             "flags are decorative",
@@ -118,6 +122,51 @@ class MemberAdminCountryDomTest {
                             }
                         // The filter exists next to the other filters.
                         assertTrue(element().allOf("label").any { it.textContent.orEmpty().trim() == "Land" }, "the filter label")
+                    }
+                }
+            } finally {
+                document.removeEventListener("error", swallowImageError, true)
+            }
+        }
+
+    @Test
+    fun flaglessCodesKeepTheName_andAHostileValueStaysText(): Promise<Unit> =
+        test {
+            AppState.setSession(session(AccountRole.BOARD))
+            val swallowImageError: (Event) -> Unit = { it.stopImmediatePropagation() }
+            document.addEventListener("error", swallowImageError, true)
+            try {
+                val listRoute =
+                    routeOf { rpcService<IMemberService>().listMembersForAdministration(MemberAdminQuery(search = null, limit = 25)) }
+                val page =
+                    pageJson(
+                        row("m-xs", "Stella Staatenlos", "XS"),
+                        row("m-ge", "Gela Georgien", "GE"),
+                        row("m-bad", "Bert Boese", "<script>x</script>"),
+                    )
+                withFetchStub(respond = { request ->
+                    when {
+                        !request.isRpc -> StubResponse()
+                        request.rpcRoute == listRoute -> rpcResult(request.json.id as Int, page)
+                        else -> rpcResult(request.json.id as Int, "[]")
+                    }
+                }) {
+                    mountedForm("roster-country-flagless") { root, element ->
+                        renderMemberAdministrationScreen(root)
+                        awaitUntil("the roster rows") { element().textContent.orEmpty().contains("Stella Staatenlos") }
+                        assertEquals(
+                            "GE",
+                            element()
+                                .allOf("[role=img][aria-label='Georgien']")
+                                .first()
+                                .textContent
+                                .orEmpty()
+                                .trim(),
+                        )
+                        assertTrue(element().allOf("img.lapis-flag[src\$='/xs.svg']").isEmpty(), "no flag for XS")
+                        assertTrue(element().allOf(".lapis-flag-spacer").isNotEmpty(), "a spacer keeps the names aligned")
+                        assertTrue(element().allOf("script").isEmpty(), "a hostile value never becomes an element")
+                        assertTrue(element().allOf("img.lapis-flag").all { !(it.getAttribute("src").orEmpty().contains("<")) })
                     }
                 }
             } finally {

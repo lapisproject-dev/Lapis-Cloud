@@ -70,15 +70,47 @@ class MemberAdminLastLoginUiTest {
     }
 
     @Test
-    fun cell_rendersResolvedTextWithoutRawIsoOrMarker() {
-        withMountedRoot("last-login-cell-test") { root, element ->
-            root.lastLoginCell(summer, LoginMethod.PASSWORD)
-            val spans = element().querySelectorAll("span")
-            val text = (0 until spans.length).joinToString("") { spans.item(it)?.textContent.orEmpty() }
-            assertEquals("24.10.2026,${nbsp}20:11 · Passwort", text)
-            assertFalse(RAW_ISO_DATE_TIME.containsMatchIn(text), text)
-            assertFalse(text.contains(KV_I18N_MARKER) || text.contains(I18N_VALUE_SENTINEL), text)
-            assertTrue(element().querySelectorAll(".text-body-secondary").length >= 1)
+    fun cell_rendersDateThenAnIconPerMethod() {
+        mapOf(
+            LoginMethod.PASSWORD to Triple("fa-key", "Passwort", ActionIcon.PASSWORD),
+            LoginMethod.KEYCLOAK to Triple("fa-building-lock", "Zentrale Anmeldung", ActionIcon.SIGN_IN_CENTRAL),
+            LoginMethod.OIDC_FEDERATION to Triple("fa-circle-nodes", "Partner-Server", ActionIcon.SIGN_IN_PARTNER),
+        ).forEach { (method, expected) ->
+            val (faClass, label, icon) = expected
+            assertEquals(icon, loginMethodIcon(method))
+            withMountedRoot("last-login-cell-test-${method.name}") { root, element ->
+                root.lastLoginCell(summer, method)
+                val text = element().textContent.orEmpty()
+                assertEquals("24.10.2026,${nbsp}20:11", text.trim())
+                assertFalse(text.contains("·"), text)
+                assertFalse(RAW_ISO_DATE_TIME.containsMatchIn(text), text)
+                assertFalse(text.contains(KV_I18N_MARKER) || text.contains(I18N_VALUE_SENTINEL), text)
+                val marker = element().querySelector(".$faClass")!!
+                assertEquals("img", marker.getAttribute("role"))
+                assertEquals(label, marker.getAttribute("aria-label"))
+                assertEquals(label, marker.getAttribute("title"))
+                assertFalse(marker.getAttribute("aria-label").orEmpty().contains(KV_I18N_MARKER))
+                // Date first, icon after it.
+                val children = element().children
+                val dateIndex =
+                    (0 until children.length).first {
+                        children
+                            .item(it)!!
+                            .textContent
+                            .orEmpty()
+                            .contains("24.10.2026")
+                    }
+                assertTrue(dateIndex < (0 until children.length).first { children.item(it) === marker })
+            }
+        }
+    }
+
+    @Test
+    fun cell_withoutAMethodShowsOnlyTheDate() {
+        withMountedRoot("last-login-cell-nomethod-test") { root, element ->
+            root.lastLoginCell(summer, null)
+            assertEquals("24.10.2026,${nbsp}20:11", element().textContent.orEmpty().trim())
+            assertNull(element().querySelector("[role=img]"))
         }
     }
 

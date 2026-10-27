@@ -26,6 +26,8 @@ class CountryCodeAccessTripwireTest :
                 "network/lapis/cloud/server/dsgvo/FoundationPersonalData.kt" to
                     "Art. 15 export and Art. 17 anonymisation of the member row",
                 "network/lapis/cloud/server/bootstrap/MemberCsvImport.kt" to "operator console: inserts NEW members",
+                "network/lapis/cloud/server/lupabb/LupaBbMemberLoader.kt" to
+                    "V1.9.226: reads the country code for the LupaBB comparison (ADMIN only, never leaves the server except as a code in the preview)",
                 "network/lapis/cloud/server/db/StagingSeedData.kt" to "staging seed, NEW members in an empty database",
                 "network/lapis/cloud/server/rpc/MemberService.kt" to "peer-guarded writes; the caller's own / privileged projections",
                 "network/lapis/cloud/server/rpc/BoardMemberMapService.kt" to "aggregate counts only, no value leaves",
@@ -46,6 +48,8 @@ class CountryCodeAccessTripwireTest :
                 "network/lapis/cloud/server/member/CountryLegacyMappingEngine.kt" to "reconciliation",
                 "network/lapis/cloud/server/dsgvo/MemberNationalityPersonalData.kt" to "erasure",
                 "network/lapis/cloud/server/bootstrap/MemberCsvImport.kt" to "import of NEW members",
+                "network/lapis/cloud/server/lupabb/LupaBbApplier.kt" to
+                    "V1.9.226 LupaBB sync: new members and record-by-record updates under the member row lock; members with a management role are never changed",
             )
 
         fun relative(file: File): String = file.relativeTo(SourceScan.mainRoot()).path.replace(File.separatorChar, '/')

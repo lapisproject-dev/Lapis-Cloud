@@ -132,6 +132,7 @@ class DynamicMailingListServiceTest :
                                 deliveryWorker = worker,
                                 deliveryMode = MailingDeliveryMode.LOG,
                                 branding = MailBranding.notConfigured(),
+                                attachmentStorageRoot = TEST_ATTACHMENT_ROOT,
                                 sendDelay = 250.milliseconds,
                                 sendDisplayRateLimiter = limiter,
                             )

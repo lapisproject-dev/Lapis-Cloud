@@ -64,7 +64,7 @@ class NavbarUnreadIndicatorDomTest {
     fun anActiveMember_seesTheEnvelope_linkingToTheMessagesSection_withoutAnId(): Promise<Unit> =
         withNavbar("nbu-visible", session(), { 0 }) { el, _ ->
             val link = assertNotNull(el().envelope())
-            assertEquals("#/communication?section=messages", link.getAttribute("href"))
+            assertEquals("#/messages", link.getAttribute("href"))
             assertFalse(link.getAttribute("href").orEmpty().contains("m-1"))
         }
 

@@ -13,8 +13,10 @@ import network.lapis.cloud.shared.domain.rules.MemberRuleCodec
 import network.lapis.cloud.shared.domain.rules.RuleCondition
 import network.lapis.cloud.shared.domain.rules.RuleContext
 import network.lapis.cloud.shared.rpc.BadRequestException
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
 
@@ -123,7 +125,8 @@ internal object RuleReferences {
         val fromMailingLists =
             MailingListTable
                 .selectAll()
-                .where { MailingListTable.kind eq MailingListKind.DYNAMIC }
+                // V1.9.234: DYNAMIC lists are never deleted (server rule + CHECK); the filter is defence in depth only.
+                .where { (MailingListTable.kind eq MailingListKind.DYNAMIC) and MailingListTable.deletedAt.isNull() }
                 .count { references(text = it[MailingListTable.ruleJson], context = RuleContext.MAILING) }
         return fromCommittees + fromMailingLists
     }

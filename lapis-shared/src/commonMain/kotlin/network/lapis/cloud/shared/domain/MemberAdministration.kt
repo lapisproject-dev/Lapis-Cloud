@@ -92,6 +92,13 @@ data class MemberAdminRowDto(
      */
     val lastLoginAt: LocalDateTime? = null,
     val lastLoginMethod: LoginMethod? = null,
+    /**
+     * Welle V1.9.226 -- the LupaBB person number the member is linked to (ADMIN only, `null` for every other caller and for a member that is
+     * not linked). Drives the hint line in the edit dialog.
+     */
+    val lupabbPersonNumber: Long? = null,
+    /** Welle V1.9.226 -- since when the last sync did not find the member in LupaBB any more (Klasse D date; ADMIN only). */
+    val lupabbMissingSince: LocalDate? = null,
 )
 
 /** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */

@@ -27,7 +27,14 @@ private const val JDBC_FETCH_SIZE = 500
  * generalize, not the column lookup itself.
  */
 private val BLOB_TABLES: Set<String> =
-    setOf("document_version", "travel_expense_receipt", "travel_expense_attachment", "travel_expense_document")
+    setOf(
+        "document_version",
+        "travel_expense_receipt",
+        "travel_expense_attachment",
+        "travel_expense_document",
+        "mailing_message_attachment",
+        "direct_message_attachment",
+    )
 private const val STORAGE_KEY_COLUMN = "storage_key"
 
 /**

@@ -49,6 +49,8 @@ class NavRouteMatchTest {
         assertTrue(NavRouteMatch.isActive("/events/e-1", Routes.EVENT_MANAGEMENT))
         assertTrue(NavRouteMatch.isActive(Routes.EVENT_DETAIL, Routes.EVENT_MANAGEMENT))
         assertTrue(NavRouteMatch.isActive(Routes.EVENT_IMPORT, Routes.EVENT_MANAGEMENT))
+        // V1.9.226: the LupaBB sync is a sub-path of the member administration
+        assertTrue(NavRouteMatch.isActive(Routes.MEMBER_LUPABB_SYNC, Routes.MEMBERS))
         assertFalse(NavRouteMatch.isActive("/event-checkin", Routes.EVENT_MANAGEMENT))
         assertFalse(NavRouteMatch.isActive("/events/e-1", Routes.EVENT_CHECKIN))
         // the import route is registered before the id route, and both are distinct literals
