@@ -3,8 +3,11 @@
 package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ProtocolApprovalResult
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.datetime.datetime
 
 public object AgendaItemTable : Table("agenda_item") {
     public val id: Column<Uuid> = uuid("id")
@@ -13,6 +16,13 @@ public object AgendaItemTable : Table("agenda_item") {
     public val description: Column<String?> = varchar("description", 4000).nullable()
     public val presenterMemberId: Column<Uuid?> = optReference("presenter_member_id", MemberTable.id)
     public val meetingId: Column<Uuid> = reference("meeting_id", MeetingTable.id)
+    // Welle V1.9.240 -- hand-edited (V130__meeting_protocol_versions.sql): the item that approves the Protokoll of the previous Sitzung.
+    public val protocolApprovalSourceMeetingId: Column<Uuid?> = optReference("protocol_approval_source_meeting_id", MeetingTable.id)
+    public val protocolApprovalResult: Column<ProtocolApprovalResult?> =
+        enumerationByName<ProtocolApprovalResult>("protocol_approval_result", 25).nullable()
+    public val protocolApprovalVersionNo: Column<Int?> = integer("protocol_approval_version_no").nullable()
+    public val approvalRecordedBy: Column<Uuid?> = optReference("approval_recorded_by", MemberTable.id)
+    public val approvalRecordedAt: Column<LocalDateTime?> = datetime("approval_recorded_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

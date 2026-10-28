@@ -418,3 +418,17 @@ An option that cannot work in a room is not offered, or it is `aria-disabled` wi
 * *Record and stream buttons.* `aria-disabled` plus one reason line under the bar when the instance switch is off or the organizers did not release the event (see `event-capture.adoc`). The twins in the "Mehr" sheet mirror the state.
 * *Guest access, invitation, session binding, rename.* They do not exist for an event room (the event page owns them); the "Mehr" sheet shows a footer instead. Breakout rooms and the room settings stay.
 * *Typed refusals.* `ConferenceRecordingAlreadyActiveException` (a second moderator was faster; the client reloads the state) and `ConferenceRoomEndedException` replace the generic conflict for these two cases.
+
+== Sitzung panel (V1.9.236)
+
+A room that is bound to a Sitzung has a "Sitzung" toggle in the control bar, directly after "Abstimmen" (a twin of it sits in the "Mehr" sheet when the bar
+is narrow). The toggle exists only for a member who has a seat in the Sitzung's committee (or leads the Sitzung); everybody else, and every room without a
+Sitzung, shows nothing. The panel is **not** part of the roster / chat / voting panel reducer: it opens and closes by itself, and when it opens on a phone or in
+fullscreen the roster, chat and voting panel make room (a voting booth or a receipt is never closed for it) and the other way round. It reads the room every 5 s
+while it is open and the Sitzung is open, every 15 s otherwise, every 30 s in a hidden tab, and **not at all while it is closed**. Contents and rules:
+`committees-and-meetings.adoc`, section "Running a Sitzung in a conference room".
+Since V1.9.238 it also lists the motions of the current agenda item, shows a banner while a vote of the Sitzung runs (with a button that opens the "Abstimmen" panel) and shows resolutions; see "Motions and resolutions in the Sitzung panel" there and `conference-voting.adoc`.
+
+Since V1.9.239 the panel has two tabs, "Sitzung" and "Protokoll". The draft of the Protokoll is read (every 10 s, every 30 s in a hidden tab) only while the "Protokoll" tab of an open panel is the visible one, so the
+Sitzung polling above is unchanged; see `committees-and-meetings.adoc`, section "The Protokoll draft".
+Since V1.9.240 the "Protokoll" tab also carries the finalising: the newest version with its state, "Protokoll fertigstellen ...", "Bestätigen", "Korrektur anlegen ..." and the PDF; see "Finalising the Protokoll".

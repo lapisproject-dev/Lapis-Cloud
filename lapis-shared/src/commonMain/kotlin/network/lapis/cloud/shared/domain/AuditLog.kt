@@ -562,7 +562,26 @@ enum class AuditEntityType {
      * snapshot = [MeetingEventLinkSnapshot]: ids and enums only, never a title or a text. 18 chars, fits `VARCHAR(29)`. Appended LAST.
      */
     MEETING_EVENT_LINK,
+
+    /**
+     * Welle V1.9.236 -- a Sitzung was opened in its conference room, its quorum established, its agenda item moved or the connected
+     * participants adopted into the attendance (`entityId` = the meeting id), snapshot = [MeetingSessionAuditSnapshot]: ids, enums and
+     * counts only, never a name. 15 chars, fits `VARCHAR(29)`. Appended LAST.
+     */
+    MEETING_SESSION,
+
+    /**
+     * Welle V1.9.237 -- a message was sent to every current member of a committee (`entityId` = the committee id), snapshot =
+     * [DirectMessageGroupSendSnapshot]: the delivered count only, never a text, a name or a recipient. 25 chars, fits `VARCHAR(29)`. Appended LAST.
+     */
+    DIRECT_MESSAGE_GROUP_SEND,
 }
+
+/** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */
+@Serializable
+data class DirectMessageGroupSendSnapshot(
+    val deliveredCount: Int,
+)
 
 /** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */
 @Serializable
@@ -1481,4 +1500,65 @@ data class MeetingEventLinkSnapshot(
     val changedFields: List<MeetingEventField> = emptyList(),
     /** V1.9.229 -- the seat the acting officer held (OFFICER_* kinds, and ALIGNED by a non-board officer); null for BOARD/ADMIN actions. */
     val officerRole: CommitteeRole? = null,
+)
+
+/** Welle V1.9.236 -- what happened in a Sitzung run in its conference room (the `kind` of a [MeetingSessionAuditSnapshot]). */
+@Serializable
+enum class MeetingSessionAuditKind {
+    OPENED,
+    QUORUM_ESTABLISHED,
+    AGENDA_MOVED,
+    ATTENDANCE_ADOPTED,
+    MOTION_ATTACHED,
+    MOTION_VOTE_OPENED,
+
+    /** V1.9.239 -- the Protokoll draft of the Sitzung was created / a text saved / a task added / a task removed. Appended at the END. */
+    PROTOCOL_DRAFT_CREATED,
+    PROTOCOL_BLOCK_UPDATED,
+    PROTOCOL_TASK_ADDED,
+    PROTOCOL_TASK_REMOVED,
+
+    /** V1.9.240 -- the Protokoll was finalised / confirmed / archived as PDF / a correction was started / a version superseded. Appended at the END. */
+    PROTOCOL_FINALISED,
+    PROTOCOL_CONFIRMED,
+    PROTOCOL_PDF_ARCHIVED,
+    PROTOCOL_CORRECTION_STARTED,
+    PROTOCOL_VERSION_SUPERSEDED,
+    PROTOCOL_APPROVAL_ITEM_INSERTED,
+    PROTOCOL_APPROVAL_RECORDED,
+    PROTOCOL_TASK_STATUS_CHANGED,
+}
+
+/** Welle V1.9.236 -- snapshot of an [AuditEntityType.MEETING_SESSION] entry. Ids, enums and counts only -- never a name. */
+@Serializable
+data class MeetingSessionAuditSnapshot(
+    val kind: MeetingSessionAuditKind,
+    val meetingId: String,
+    val fromAgendaItemId: String? = null,
+    val toAgendaItemId: String? = null,
+    val present: Int? = null,
+    val required: Int? = null,
+    val eligible: Int? = null,
+    val overridden: Boolean? = null,
+    val adoptedCount: Int? = null,
+    /** V1.9.238 -- ids, a flag and a count only (MOTION_ATTACHED / MOTION_VOTE_OPENED). */
+    val motionId: String? = null,
+    val electionId: String? = null,
+    val secret: Boolean? = null,
+    val electionBoardSize: Int? = null,
+    /** V1.9.239 -- ids and a version number only (PROTOCOL_*): never the text, never a name, never a due date. */
+    val protocolDraftId: String? = null,
+    val agendaItemId: String? = null,
+    val protocolTaskId: String? = null,
+    val blockVersion: Long? = null,
+    /** V1.9.240 -- ids, enums, numbers and the content hash only (PROTOCOL_*): never a text, never a name. */
+    val protocolVersionId: String? = null,
+    val protocolVersionNo: Int? = null,
+    val contentSha256: String? = null,
+    val confirmationRole: String? = null,
+    val approvalResult: String? = null,
+    val protocolTaskKey: String? = null,
+    val documentId: String? = null,
+    val sourceMeetingId: String? = null,
+    val taskDone: Boolean? = null,
 )

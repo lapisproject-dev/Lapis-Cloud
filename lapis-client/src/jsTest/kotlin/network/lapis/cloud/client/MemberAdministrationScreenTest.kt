@@ -385,6 +385,19 @@ class MemberAdministrationScreenTest {
     }
 
     @Test
+    fun statusChangeConsequence_neverLeaksTheKvisionI18nMarker() {
+        // Joined sentences must come from gettext(): a tr() marker is only resolved at the very start of a widget's content.
+        MemberStatus.entries.forEach { target ->
+            listOf(true, false).forEach { account ->
+                val text = statusChangeConsequence(MemberStatus.ACTIVE, target, hasAccount = account)
+                assertFalse(text.contains("###KvI18nS###"), "$target/$account: $text")
+            }
+        }
+        val back = statusChangeConsequence(MemberStatus.DONOR, MemberStatus.ACTIVE, hasAccount = true)
+        assertFalse(back.contains("###KvI18nS###"), back)
+    }
+
+    @Test
     fun statusChangeConsequence_toDonorAndRejected_nameTheAutomaticEndOfCommitteeTerms() {
         val donor = statusChangeConsequence(MemberStatus.ACTIVE, MemberStatus.DONOR, hasAccount = true)
         assertTrue(donor.contains(seatEndSentence), donor)

@@ -14,6 +14,8 @@ import network.lapis.cloud.shared.domain.CommitteeMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipMode
 import network.lapis.cloud.shared.domain.CommitteeModeChangeImpactDto
 import network.lapis.cloud.shared.domain.CommitteeRulePreviewDto
+import network.lapis.cloud.shared.domain.ConferenceMeetingStateAnswer
+import network.lapis.cloud.shared.domain.ConferenceMeetingStateDto
 import network.lapis.cloud.shared.domain.LinkedEventRef
 import network.lapis.cloud.shared.domain.MeetingDetailDto
 import network.lapis.cloud.shared.domain.MeetingDto
@@ -29,6 +31,7 @@ import network.lapis.cloud.shared.domain.ProtocolDraftDto
 import network.lapis.cloud.shared.domain.QuorumResultDto
 import network.lapis.cloud.shared.domain.ResolutionDto
 import network.lapis.cloud.shared.domain.ResolutionInput
+import network.lapis.cloud.shared.domain.SessionAttendanceInput
 import network.lapis.cloud.shared.domain.VoteBallotDto
 import network.lapis.cloud.shared.domain.VoteBallotInput
 import network.lapis.cloud.shared.domain.VoteDto
@@ -372,4 +375,72 @@ interface IGovernanceService {
 
     /** The Sitzungen the caller may link to this (readable) event: not cancelled, not yet linked. BOARD/ADMIN only since V1.9.229. Capped at 200. */
     suspend fun listLinkableMeetings(eventId: String): List<MeetingDto>
+
+    // ---- V1.9.236 "Sitzungsmodus im Konferenzraum" (appended LAST, registration order unchanged) ----
+
+    /**
+     * The state of the Sitzung bound to the conference room [roomId], seen by the caller: the lead gets the roster and the live quorum, the
+     * minute taker the roster, a participant only the agenda and the established quorum. `null` when the room is unknown, not bound to a
+     * Sitzung, or conferencing is switched off (the answer then carries `state = null`) -- and also when the caller has no seat in the Sitzung's committee (the same `null`, so a
+     * stranger cannot tell the cases apart). The mutations answer all of those with one and the same not-found.
+     */
+    suspend fun getConferenceMeetingState(roomId: String): ConferenceMeetingStateAnswer
+
+    /** Opens a `PLANNED`, not yet opened Sitzung (sets the first agenda item as current). LEAD only. */
+    suspend fun openConferenceMeeting(
+        roomId: String,
+        meetingId: String,
+    ): ConferenceMeetingStateDto
+
+    /** Sets (or, with `status = null`, clears) one attendance entry according to the committee's rule. LEAD or MINUTES, OPEN phase only. */
+    suspend fun setConferenceAttendance(
+        roomId: String,
+        meetingId: String,
+        input: SessionAttendanceInput,
+    ): ConferenceMeetingStateDto
+
+    /** Adopts everyone connected to the room who is on the roster and has no entry yet as `PRESENT`; returns how many were added. */
+    suspend fun adoptConnectedAttendance(
+        roomId: String,
+        meetingId: String,
+    ): Int
+
+    /** Writes the quorum calculation down. A "not met" result needs [acknowledgeNotMet]. LEAD only, OPEN phase only; repeatable. */
+    suspend fun establishConferenceQuorum(
+        roomId: String,
+        meetingId: String,
+        acknowledgeNotMet: Boolean,
+    ): ConferenceMeetingStateDto
+
+    /** Moves the current agenda item; [fromAgendaItemId] guards against a stale view. LEAD only, OPEN phase only. */
+    suspend fun moveConferenceAgenda(
+        roomId: String,
+        meetingId: String,
+        fromAgendaItemId: String?,
+        toAgendaItemId: String,
+    ): ConferenceMeetingStateDto
+
+    /**
+     * V1.9.238 -- attaches a REVIEWED/POSTPONED main motion of the Sitzung's committee to the CURRENT agenda item. LEAD that may record for the
+     * committee, OPEN phase only; [expectedAgendaItemId] guards against a stale view.
+     */
+    suspend fun attachConferenceMotion(
+        roomId: String,
+        meetingId: String,
+        motionId: String,
+        expectedAgendaItemId: String,
+    ): ConferenceMeetingStateDto
+
+    /**
+     * V1.9.238 -- opens a YES_NO vote on a motion of the current agenda item: election, election board (at least three of the roster) and
+     * opening in ONE transaction. Closing, approving and tallying run through [IElectionService]. LEAD that may record for the committee.
+     */
+    suspend fun openConferenceMotionVote(
+        roomId: String,
+        meetingId: String,
+        motionId: String,
+        expectedAgendaItemId: String,
+        secret: Boolean,
+        electionBoardMemberIds: List<String>,
+    ): ConferenceMeetingStateDto
 }

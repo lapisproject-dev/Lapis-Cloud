@@ -81,7 +81,8 @@ class DomainModelMergerTest :
             // Welle V1.9.222 "Bildergalerie" -- now 76 with the addition of 75-image-gallery.kuml.kts.
             // Welle V1.9.225 "Rechenschaftsbericht (PartG)" -- now 77 with the addition of 76-partg-report.kuml.kts.
             // Welle V1.9.226 "LupaBB-Abgleich" -- now 78 with the addition of 77-lupabb-sync.kuml.kts.
-            scriptFiles shouldHaveSize 78
+            // Welle V1.9.237 "Neue Nachricht" -- now 79 with the addition of 78-direct-message-block.kuml.kts.
+            scriptFiles shouldHaveSize 79
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -577,7 +578,12 @@ class DomainModelMergerTest :
             // dedup into the real entities, net +1 (221 -> 222).
             // 03-communication.kuml.kts (V1.9.233) adds ONE real table (direct_message_attachment); its Member and DirectMessage references
             // dedup into the real entities, net +1 (222 -> 223).
-            val distinctTableNames = 223
+            // 78-direct-message-block.kuml.kts (V1.9.237) adds ONE real table (direct_message_block); its Member stub dedups, net +1 (223 -> 224).
+            // 05-governance.kuml.kts (V1.9.239) adds THREE real tables (protocol_draft, protocol_draft_block, protocol_draft_task); no new stub,
+            // net +3 (224 -> 227).
+            // 05-governance.kuml.kts (V1.9.240) adds FOUR real tables (protocol_version, protocol_version_confirmation, protocol_version_task,
+            // protocol_task_status); its new DocumentVersion stub dedups into the real entity, net +4 (227 -> 231).
+            val distinctTableNames = 231
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -962,6 +968,17 @@ class DomainModelMergerTest :
                     "LupaBbSyncConfigTable.kt",
                     "LupaBbSyncRunTable.kt",
                     "LupaBbSyncSuppressionTable.kt",
+                    // Welle V1.9.237 "Neue Nachricht" -- ONE new real table; Member is a stub (its new column is in 00-foundation).
+                    "DirectMessageBlockTable.kt",
+                    // Welle V1.9.239 "Protokollentwurf in der Sitzung" -- THREE new real tables inside 05-governance.kuml.kts, no new stub.
+                    "ProtocolDraftTable.kt",
+                    "ProtocolDraftBlockTable.kt",
+                    "ProtocolDraftTaskTable.kt",
+                    // Welle V1.9.240 "Protokoll fertigstellen" -- FOUR new real tables inside 05-governance.kuml.kts; DocumentVersion is a stub.
+                    "ProtocolVersionTable.kt",
+                    "ProtocolVersionConfirmationTable.kt",
+                    "ProtocolVersionTaskTable.kt",
+                    "ProtocolTaskStatusTable.kt",
                 )
         }
 

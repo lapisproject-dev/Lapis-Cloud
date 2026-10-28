@@ -205,6 +205,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.LUPABB_SYNC_CONFIG -> gettext("LupaBB-Zugangsdaten")
         // V1.9.227 -- the link between a Sitzung and the Veranstaltung announcing it.
         AuditEntityType.MEETING_EVENT_LINK -> gettext("Sitzung und Veranstaltung (Verknüpfung)")
+        AuditEntityType.MEETING_SESSION -> gettext("Sitzung im Konferenzraum")
+        AuditEntityType.DIRECT_MESSAGE_GROUP_SEND -> gettext("Gruppennachricht")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -336,6 +338,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.LUPABB_SYNC_RUN -> "primary"
         AuditEntityType.LUPABB_SYNC_CONFIG -> "secondary"
         AuditEntityType.MEETING_EVENT_LINK -> "secondary"
+        AuditEntityType.MEETING_SESSION -> "secondary"
+        AuditEntityType.DIRECT_MESSAGE_GROUP_SEND -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

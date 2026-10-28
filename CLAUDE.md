@@ -410,3 +410,13 @@ Manueller, einseitiger Stammdatenabgleich der Mitglieder mit LupaBB (ADMIN, kein
 - Die fünf Methoden (`announceMeetingAsEvent`, `linkMeetingToEvent`, `unlinkMeetingEvent`, `alignEventToMeeting`, `listLinkableMeetings`) stehen **am Ende** von `IGovernanceService`; die Registrierung bleibt `GovernanceService(call, eventOnline)`. Audit: ein Entity-Typ `MEETING_EVENT_LINK`, die Art steht im Snapshot (`kind`).
 - Absagen (Sitzung `CANCELLED`, `cancelEvent`, `cancelSeriesEvent`) lösen die Verknüpfung im selben Schritt (`MeetingEventLinkOperations.Lifecycle`). `HELD` behält sie.
 - **Kein Raum wird wiederverwendet:** `conference_room.meeting_id` und `EventConferenceGuard` bleiben unberührt; die Veranstaltung bekommt ihren Raum erst beim ersten Beitritt. Öffentliche Ausgaben (`EventPublicRoutes`, ICS, Embed, JSON-LD) kennen die Verknüpfung nicht (`MeetingEventLinkNoLeakTest`); `MeetingDto.linkedEvent` füllt nur der authentifizierte RPC, nie die öffentliche API.
+
+## Neue Nachricht (V1.9.237)
+
+- **Eine einheitliche Ablehnung:** ein Empfänger, der nicht angeschrieben werden kann (unbekannt, fehlerhafte Id, kein Mitglied, anonymisiert, gesperrt), ist IMMER `DirectMessageRecipientUnavailableException` -- nie eine Id im Text, nie
+  `NotFound`/`Conflict` mit Unterscheidung. Die Regel steht in `directMessageRecipientRefusal` (`rpc/DirectMessaging.kt`) und gilt für alle fünf Eingänge; nicht umgehen, nicht kopieren.
+- `DirectMessageBlockStore` ist der EINZIGE Schreiber von `direct_message_block` (außer dem DSGVO-Beitragsleistenden); die Tabelle ist nicht `member_finder_block` und bleibt im Backup.
+- Der `DirectMessageRateLimiter` wird NIE innerhalb von `transaction {}` aufgerufen (Exposed wiederholt den Block bei SQLException und würde doppelt zählen); `DirectMessageComposeTripwireTest` prüft das.
+- Neue Methoden von `IDirectMessageService` werden nur AM ENDE angehängt (Kilua nummeriert nach Reihenfolge).
+- Gruppen-Mitgliedschaft nie nachbauen: `eligibleMemberIds`/`isCommitteeEligible` (deckt manuelle UND Regel-Gremien ab). Gruppennachricht: Audit zuletzt, nur Anzahl im Snapshot.
+- Detail: `docs/architecture/direct-messages.adoc`, Abschnitt "Composing a new message".

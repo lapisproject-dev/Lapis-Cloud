@@ -286,7 +286,7 @@ private class VersionCommitRefused : RuntimeException("version commit refused", 
  *    and switches `currentVersionId` to it.
  *
  * That last switch is the atomic replacement: a reader sees the old version until the commit and the new one after it, never a mix.
- * The previous version row and blob stay (the document history). [fence] receives the new version's id and its size in bytes; [finalize]
+ * [link] runs after the insert (a foreign key may point at the new version row). The previous version row and blob stay (the document history). [fence] receives the new version's id and its size in bytes; [finalize]
  * runs last inside the same transaction (the audit entry, see `AuditLogRecorder`'s deadlock-avoidance contract).
  *
  * Returns the new version's id, or `null` when the fence or the document refused (nothing changed, no blob left behind).
@@ -300,6 +300,8 @@ fun archiveNewVersionOfFile(
     uploadedBy: Uuid,
     changeNote: String,
     fence: (versionId: Uuid, sizeBytes: Long) -> Boolean,
+    /** Runs AFTER the version row exists (so it may reference it by a foreign key); `false` rolls everything back and returns `null`. */
+    link: (documentVersionId: Uuid) -> Boolean = { true },
     finalize: () -> Unit = {},
 ): Uuid? {
     val now = DbClock.nowLocalDateTime()
@@ -362,6 +364,7 @@ fun archiveNewVersionOfFile(
             DocumentTable.update({ DocumentTable.id eq documentId }) {
                 it[currentVersionId] = versionId
             }
+            if (!link(versionId)) throw VersionCommitRefused()
             // The caller's last step (the audit entry): it takes the audit chain's lock and must therefore be the LAST lock-taking operation.
             finalize()
         }

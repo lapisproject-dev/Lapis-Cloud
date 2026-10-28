@@ -56,10 +56,18 @@ private val CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
  * encode with `?` before measuring/rendering, so document generation always succeeds even if a
  * glyph is lost.
  */
-internal class LetterPdfBuilder {
+internal class LetterPdfBuilder(
+    /** V1.9.240 -- the most pages a document may have; starting one more throws [PdfLimitExceeded] (bounded work for user-sized content). */
+    private val maxPages: Int = Int.MAX_VALUE,
+    /** V1.9.240 -- a point in time after which any further text throws [PdfLimitExceeded]. `null` = no limit. */
+    private val deadline: java.time.Instant? = null,
+    /** V1.9.240 -- the most bytes the finished document may have. */
+    private val maxBytes: Int = Int.MAX_VALUE,
+) {
     private val document = PDDocument()
     private val regularFont: PDFont = PDType1Font(Standard14Fonts.FontName.HELVETICA)
     private val boldFont: PDFont = PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD)
+    private val monoFont: PDFont = PDType1Font(Standard14Fonts.FontName.COURIER)
 
     private var page: PDPage = PDPage(PDRectangle.A4)
     private var contentStream: PDPageContentStream = PDPageContentStream(document, page)
@@ -71,6 +79,7 @@ internal class LetterPdfBuilder {
 
     /** Starts a fresh page -- called automatically by [ensureSpace] on overflow, but also exposed directly. */
     fun newPage() {
+        if (document.numberOfPages >= maxPages) throw PdfLimitExceeded("page limit")
         contentStream.close()
         page = PDPage(PDRectangle.A4)
         document.addPage(page)
@@ -237,17 +246,52 @@ internal class LetterPdfBuilder {
         writeLineAt(text = sanitized, font = regularFont, size = BODY_FONT_SIZE, x = x)
     }
 
-    /** Closes the current content stream and serializes the whole document. Terminal -- do not reuse the builder after this. */
+    /** V1.9.240 -- a body-size heading (bold, [BODY_FONT_SIZE]) for the sub-sections of a long document. */
+    fun subHeading(text: String) {
+        ensureSpace(LINE_HEIGHT * 2)
+        writeLine(text = sanitizeForFont(text = text, font = boldFont), font = boldFont, size = BODY_FONT_SIZE)
+    }
+
+    /** V1.9.240 -- one fixed-width line (Courier), for a hash. Not wrapped: the caller keeps it within the line. */
+    fun monospaceLine(text: String) {
+        ensureSpace(LINE_HEIGHT)
+        writeLine(text = sanitizeForFont(text = text, font = monoFont), font = monoFont, size = BODY_FONT_SIZE)
+    }
+
+    /** V1.9.240 -- vertical space of [lines] lines. */
+    fun gap(lines: Float = 1f) {
+        cursorY -= LINE_HEIGHT * lines
+    }
+
+    /** Sets the document title and producer in the info dictionary (metadata only; no JavaScript, no form, no action). */
+    fun info(title: String) {
+        val info = document.documentInformation
+        info.title = sanitizeForFont(text = title, font = regularFont)
+        info.producer = "Lapis Cloud"
+    }
+
+    /** Releases the document without saving it -- for a builder that is abandoned (e.g. [PdfLimitExceeded]); safe to call twice. */
+    fun closeQuietly() {
+        runCatching { contentStream.close() }
+        runCatching { document.close() }
+    }
+
+    /**
+     * Closes the current content stream and serializes the whole document (a full save, never incremental, no encryption). Terminal -- do not
+     * reuse the builder after this. Throws [PdfLimitExceeded] if the result exceeds [maxBytes].
+     */
     fun toByteArray(): ByteArray {
         contentStream.close()
         val out = ByteArrayOutputStream()
         document.save(out)
         document.close()
+        if (out.size() > maxBytes) throw PdfLimitExceeded("size limit")
         return out.toByteArray()
     }
 
     /** Starts a new page if [requiredHeight] would not fit above [MARGIN_BOTTOM] at the current [cursorY]. */
     private fun ensureSpace(requiredHeight: Float) {
+        checkDeadline()
         if (cursorY - requiredHeight < MARGIN_BOTTOM) {
             newPage()
         }
@@ -265,12 +309,23 @@ internal class LetterPdfBuilder {
         size: Float,
         x: Float,
     ) {
+        checkDeadline()
         contentStream.beginText()
         contentStream.setFont(font, size)
         contentStream.newLineAtOffset(x, cursorY)
         contentStream.showText(text)
         contentStream.endText()
         cursorY -= LINE_HEIGHT
+    }
+
+    private fun checkDeadline() {
+        if (deadline != null &&
+            java.time.Instant
+                .now()
+                .isAfter(deadline)
+        ) {
+            throw PdfLimitExceeded("time limit")
+        }
     }
 
     /**
@@ -286,6 +341,7 @@ internal class LetterPdfBuilder {
         font: PDFont,
     ): String =
         text
+            .replace("\t", "  ")
             .map { ch ->
                 try {
                     font.encode(ch.toString())
@@ -329,3 +385,8 @@ internal class LetterPdfBuilder {
         return lines
     }
 }
+
+/** V1.9.240 -- a generated document grew beyond its page, size or time budget; the work was stopped. Carries no content. */
+internal class PdfLimitExceeded(
+    reason: String,
+) : RuntimeException(reason, null, false, false)

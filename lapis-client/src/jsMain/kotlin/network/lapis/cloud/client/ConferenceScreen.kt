@@ -67,6 +67,7 @@ import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInp
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
+import network.lapis.cloud.shared.domain.ConferenceMeetingStateDto
 import network.lapis.cloud.shared.domain.ConferenceReaction
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
@@ -89,6 +90,8 @@ import network.lapis.cloud.shared.domain.EventGuestNoticeCapture
 import network.lapis.cloud.shared.domain.EventOnlineJoinResultDto
 import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.MeetingDto
+import network.lapis.cloud.shared.domain.MeetingSessionPhase
+import network.lapis.cloud.shared.domain.MeetingSessionRole
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -1643,6 +1646,16 @@ private fun enterCall(
     val votingMember = conferenceIsVotingMember(AppState.session)
     val votingToggle = if (votingMember) centre.conferenceVotingToggle() else null
     var voteController: ConferenceVotePollController? = null
+    // V1.9.236 "Sitzungsmodus im Konferenzraum" -- the toggle next to "Abstimmen" (hidden until the server says there is a Sitzung for this
+    // person), its panel and poll controller live in `ConferenceMeetingPanel.kt` / `ConferenceMeetingPollController.kt`; they are wired after the
+    // vote controller below. The three forward references are assigned there.
+    val meetingToggle = if (votingMember) centre.conferenceMeetingToggle() else null
+    var meetingController: ConferenceMeetingPollController? = null
+    var meetingPanelOpen = false
+    var setMeetingPanelOpen: (Boolean) -> Unit = {}
+    var meetingPaint: () -> Unit = {}
+    // V1.9.238 -- "Jetzt abstimmen" in the Sitzung panel opens the voting panel (assigned below, once yieldMeetingSheet exists)
+    var openVotingPanelFromMeeting: () -> Unit = {}
     // V1.2.10 -- Badge-DOM für Teilnehmer-/Ungelesen-Zähler, einmalig erzeugt (theme.css's
     // `.lapis-conference-controls-row .btn` trägt `position: relative`, damit dieses absolut
     // positionierte `<span>` sich an seinem Button ausrichtet). Sichtbarkeit/Inhalt werden
@@ -1747,6 +1760,7 @@ private fun enterCall(
     val reactTwin = twin(reactButton) { it.actionButton(ActionIcon.REACT, tr("Reaktion")) }
     val rosterTwin = twin(rosterToggleButton) { it.actionButton(ActionIcon.PEOPLE, tr("Teilnehmende")) }
     val voteTwin = twin(votingToggle?.button) { it.button(tr("Abstimmen"), style = ButtonStyle.OUTLINESECONDARY) }
+    val meetingTwin = twin(meetingToggle?.button) { it.button(tr("Sitzungsmodus"), style = ButtonStyle.OUTLINESECONDARY) }
     // V1.9.72 -- "Für alle beenden" moves into the sheet LAST (overflow order) and stands LAST in it, set apart by a rule and the danger
     // colour (theme.css `.lapis-conference-twin-end`); its click goes through the primary control, so there is one confirmation path.
     val endTwin = twin(exitGroup.endButton) { it.conferenceEndForAllTwin() }
@@ -2274,6 +2288,7 @@ private fun enterCall(
                     voteBoundFromServer = null
                     updateVoteBindingHint()
                     voteController?.refreshNow()
+                    meetingController?.refreshNow()
                     if (boundMeetingId == null) unassignMeetingButton.hide() else unassignMeetingButton.show()
                     notifySuccess(if (boundMeetingId != null) tr("Sitzung zugeordnet.") else tr("Zuordnung aufgehoben."))
                 }
@@ -4188,6 +4203,7 @@ private fun enterCall(
                     add(OverflowSlot(ConferenceControlSlot.ROSTER, rosterToggleButton, rosterTwin, mirrorPressed = true))
                     add(OverflowSlot(ConferenceControlSlot.CHAT, chatToggleButton, null))
                     votingToggle?.let { add(OverflowSlot(ConferenceControlSlot.VOTE, it.button, voteTwin, mirrorPressed = true)) }
+                    meetingToggle?.let { add(OverflowSlot(ConferenceControlSlot.MEETING, it.button, meetingTwin, mirrorPressed = true)) }
                     add(OverflowSlot(ConferenceControlSlot.VIEW, viewButton, viewTwin))
                     moderation?.let {
                         add(OverflowSlot(ConferenceControlSlot.RECORD, it.recordButton, recordTwin))
@@ -4300,6 +4316,7 @@ private fun enterCall(
             pressed = votingOpen,
             visible = votingOpen || (voteState?.bound ?: (boundMeetingId != null)),
         )
+        meetingPaint()
         votingHandle?.panel?.let { panel ->
             panel.toggleCssClass("lapis-conference-rail-voting-major", railLayout.votingShare == ConferenceVotingRailShare.MAJOR_60)
             panel.toggleCssClass("lapis-conference-rail-voting-min", railLayout.votingShare == ConferenceVotingRailShare.MIN_40)
@@ -4441,6 +4458,8 @@ private fun enterCall(
         ConferenceVotePollController(
             roomId = room.id,
             onUpdate = { update ->
+                // V1.9.236 -- a moderator re-bound the room to another Sitzung (or removed the binding): the Sitzung panel asks again
+                if (update.state.bound != voteBoundFromServer) meetingController?.refreshNow()
                 voteBoundFromServer = update.state.bound
                 updateVoteBindingHint()
                 votingHandle?.apply(update)
@@ -4467,9 +4486,82 @@ private fun enterCall(
         applyPanelVisibility()
     }
     narrowQuery.addEventListener("change", narrowListener)
+    // V1.9.236 -- the Sitzung panel. It is a panel of its own (not part of the roster/chat/vote reducer above): on a narrow screen it is a bottom
+    // sheet like the others, so opening it closes the chat and the voting panel (unless a booth/receipt lock holds it), and opening one of them
+    // closes it again (`yieldMeetingSheet`).
+    var meetingState: ConferenceMeetingStateDto? = null
+    val meetingHandle =
+        if (votingMember) {
+            renderConferenceMeetingPanel(
+                parent = videoArea,
+                roomId = room.id,
+                onCloseRequested = { setMeetingPanelOpen(false) },
+                onFreshState = { fresh ->
+                    meetingState = fresh
+                    meetingController?.adopt(fresh)
+                    meetingPaint()
+                },
+                onStaleState = { meetingController?.refreshNow() },
+                onOpenVotingPanel = { openVotingPanelFromMeeting() },
+            )
+        } else {
+            null
+        }
+    meetingPaint = {
+        meetingToggle?.update(visible = meetingState != null, pressed = meetingPanelOpen)
+        meetingHandle?.setOpen(meetingPanelOpen && meetingState != null)
+    }
+    setMeetingPanelOpen = { open ->
+        if (open != meetingPanelOpen) {
+            if (open && (narrowQuery.matches || panelState.fullscreen)) {
+                // a sheet on a sheet (or a second panel on the fullscreen rail) would hide one of them: the roster, the chat and the voting panel
+                // make room (a booth/receipt lock is never overridden)
+                if (panelState.rosterVisible()) panelState = conferencePanelReduce(panelState, ConferencePanelEvent.RosterToggled)
+                if (panelState.chatVisible()) panelState = conferencePanelReduce(panelState, ConferencePanelEvent.ChatToggled)
+                if (panelState.votingVisible() && panelState.votingLock == ConferenceVotingLock.NONE) {
+                    panelState = conferencePanelReduce(panelState, ConferencePanelEvent.VotingToggled)
+                }
+            }
+            meetingPanelOpen = open
+            applyPanelVisibility()
+            meetingController?.panelOpenChanged()
+        }
+    }
+    meetingController =
+        if (votingMember) {
+            ConferenceMeetingPollController(
+                roomId = room.id,
+                fetch = { ConferenceMeetingRpc().getState(it) },
+                isPanelOpen = { meetingPanelOpen },
+                onUpdate = { state ->
+                    meetingState = state
+                    meetingHandle?.apply(state)
+                    // the lead's panel opens itself once per room when the Sitzung is waiting to be opened (never on a narrow screen)
+                    if (state != null &&
+                        state.callerRole == MeetingSessionRole.LEAD &&
+                        state.phase == MeetingSessionPhase.NOT_OPENED &&
+                        !meetingPanelOpen &&
+                        !narrowQuery.matches &&
+                        ConferenceMeetingAutoOpen.claim(room.id)
+                    ) {
+                        setMeetingPanelOpen(true)
+                    } else {
+                        applyPanelVisibility()
+                    }
+                },
+                onFailure = { failures -> meetingHandle?.applyFailure(failures) },
+            )
+        } else {
+            null
+        }
+    meetingToggle?.button?.onClick {
+        setMeetingPanelOpen(!meetingPanelOpen)
+    }
     val voteRegistration =
         ConferenceVoteRuntime.register {
             voteController?.stop()
+            meetingController?.stop()
+            meetingHandle?.dispose?.invoke()
             votingHandle?.dispose?.invoke()
             narrowQuery.removeEventListener("change", narrowListener)
         }
@@ -6219,6 +6311,7 @@ private fun enterCall(
         transition(ConferenceConnectionEvent.ConnectSucceeded)
         // V1.9.25 -- the ballots of the room (see `voteController`)
         voteController?.start()
+        meetingController?.start()
         // Wave 5 -- see refreshGuestHomeservers KDoc "called once right after connect succeeds".
         refreshGuestHomeservers()
         // V1.9.127 -- the raised hands: a person who joins late (or reloads) reads the queue once; afterwards the broadcasts keep it current
@@ -6419,15 +6512,32 @@ private fun enterCall(
 
     // V1.2.9 Vollbildmodus -- getrieben vom Panel-State-Reducer statt einem losen Boolean-Flag,
     // damit Normalmodus- und Vollbild-Sichtbarkeit unabhängig voneinander geführt werden (D4/D5).
+    // V1.9.236 -- on a narrow screen (bottom sheets) and in fullscreen (one rail) the roster, chat and voting panel and the Sitzung panel share
+    // the same edge: one at a time
+    fun yieldMeetingSheet() {
+        if ((narrowQuery.matches || panelState.fullscreen) && meetingPanelOpen) setMeetingPanelOpen(false)
+    }
+    // V1.9.238 -- only when the voting panel is closed (it opens itself for a new ballot on a wide screen); on a narrow screen the Sitzung sheet yields
+    openVotingPanelFromMeeting = {
+        if (!panelState.votingVisible()) {
+            yieldMeetingSheet()
+            panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.VotingToggled)
+            applyPanelVisibility()
+        }
+        voteController?.refreshNow()
+    }
     rosterToggleButton.onClick {
+        yieldMeetingSheet()
         panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.RosterToggled)
         applyPanelVisibility()
     }
     chatToggleButton.onClick {
+        yieldMeetingSheet()
         panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.ChatToggled)
         applyPanelVisibility()
     }
     votingToggle?.button?.onClick {
+        yieldMeetingSheet()
         panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.VotingToggled)
         applyPanelVisibility()
         // a fresh look when the member opens the panel

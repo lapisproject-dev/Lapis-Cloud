@@ -269,6 +269,7 @@ dto:MeetingDto.calledAt	A	stamped by the server clock (DbClock/ServerClock) or d
 dto:MeetingDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MeetingInput.scheduledAt	B	GovernanceService.createMeeting: input.scheduledAt typed in the meeting form; only its date is used
 dto:AttendanceDto.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SessionResolutionDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ResolutionDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ProtocolDraftDto.generatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MotionDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
@@ -971,3 +972,39 @@ dto:LinkedEventRef.endsAt	B	copied unconverted from event.ends_at (class B, type
 col:MailingMessageAttachmentTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MailingMessageAttachmentTable.fileDeletedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:DirectMessageAttachmentTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MeetingTable.openedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.236 Sitzungsmodus
+col:MeetingTable.quorumEstablishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.236 Sitzungsmodus
+dto:ConferenceMeetingStateDto.openedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.236 Sitzungsmodus
+dto:EstablishedQuorumDto.at	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.236 Sitzungsmodus
+dto:DirectMessageGroupSendResultDto.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DirectMessageBlockDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DirectMessageBlockTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MeetingProtocolDraftDto.serverNow	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+dto:ProtocolHeaderDto.scheduledAt	B	the wall-clock typed in the meeting form (MeetingTable.scheduledAt), shown as stored; V1.9.239 Protokollentwurf
+dto:ProtocolHeaderDto.openedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+dto:ProtocolHeaderDto.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+dto:ProtocolQuorumDto.establishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+dto:ProtocolAgendaItemDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+dto:ProtocolResolutionDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+dto:ProtocolTaskDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+dto:ProtocolTaskDto.dueDate	D	calendar date of a task (the deadline), never converted; V1.9.239 Protokollentwurf
+dto:ProtocolTaskInput.dueDate	D	calendar date of a task (the deadline), never converted; V1.9.239 Protokollentwurf
+dto:ProtocolBlockSaveResultDto.currentUpdatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+col:ProtocolDraftTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+col:ProtocolDraftTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+col:ProtocolDraftBlockTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+col:ProtocolDraftTaskTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.239 Protokollentwurf
+col:ProtocolDraftTaskTable.dueDate	D	calendar date of a task (the deadline), never converted; V1.9.239 Protokollentwurf
+dto:ProtocolConfirmationDto.confirmedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
+dto:ProtocolVersionDto.finalisedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
+dto:ProtocolApprovalDto.sourceMeetingDate	D	calendar date of the Sitzung (never converted); V1.9.240 Protokoll fertigstellen
+dto:ProtocolApprovalDto.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
+dto:MyProtocolTaskDto.meetingDate	D	calendar date of the Sitzung (never converted); V1.9.240 Protokoll fertigstellen
+dto:MyProtocolTaskDto.dueDate	D	calendar date of a task (the deadline), never converted; V1.9.240 Protokoll fertigstellen
+dto:MyProtocolTaskDto.doneAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
+col:ProtocolVersionTable.finalisedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
+col:ProtocolVersionConfirmationTable.confirmedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
+col:ProtocolVersionTaskTable.dueDate	D	calendar date of a task (the deadline), never converted; V1.9.240 Protokoll fertigstellen
+col:ProtocolTaskStatusTable.doneAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
+col:ProtocolTaskStatusTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
+col:AgendaItemTable.approvalRecordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen

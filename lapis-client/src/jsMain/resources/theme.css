@@ -8092,6 +8092,224 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   max-width: 100%;
 }
 
+/* V1.9.236 "Sitzungsmodus im Konferenzraum" -- the Sitzung panel. Its box (normal flow, the fullscreen rail on the right, the bottom sheet below
+   768px) is the one of the voting panel: the panel carries `lapis-conference-voting` too, so no new scroll surface exists (ScrollSurfaceTripwireTest).
+   Only the content is styled here, with tokens, no colour literal. State is never colour alone: every state has a symbol and a word. */
+.conference-meeting-figures {
+  font-variant-numeric: tabular-nums;
+}
+
+.conference-meeting-agenda-list {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.conference-meeting-agenda-current {
+  font-weight: 600;
+}
+
+.conference-meeting-roster,
+.conference-meeting-guests {
+  margin: 0;
+  padding: 0;
+}
+
+.conference-meeting-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--lapis-border);
+}
+
+.conference-meeting-name {
+  flex: 1 1 8rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.conference-meeting-standin {
+  flex: 1 0 100%;
+}
+
+/* V1.9.237 "Neue Nachricht": segment control, recipient chip and initials avatar. Colour tokens only; no transition (R54). */
+.lapis-dm-segment {
+  display: inline-flex;
+  flex-wrap: wrap;
+}
+
+.lapis-dm-segment .btn[aria-checked="true"] {
+  background: var(--lapis-accent);
+  border-color: var(--lapis-accent);
+  color: var(--lapis-accent-contrast);
+}
+
+.lapis-dm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 1rem;
+  background: var(--lapis-accent-soft);
+  color: var(--lapis-text);
+  overflow-wrap: anywhere;
+}
+
+.lapis-dm-avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--lapis-accent);
+  color: var(--lapis-accent-contrast);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.lapis-dm-hit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+/* V1.9.238 "Beschluesse aus Abstimmungen im Konferenzraum" -- motion cards, resolution card and the banner of a running vote in the Sitzung panel.
+   Colour tokens only, no transition, no new scroll surface (R54). A narrow screen (the guideline's one breakpoint, 768px) gets full-width buttons. */
+.conference-meeting-banner {
+  padding: 0.5rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-left-width: 0.25rem;
+  border-radius: 0.375rem;
+  background: var(--lapis-accent-soft);
+  color: var(--lapis-text);
+  overflow-wrap: anywhere;
+}
+
+.conference-meeting-motion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--lapis-border);
+  overflow-wrap: anywhere;
+}
+
+.conference-meeting-motion-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.conference-meeting-motion-text.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+
+.conference-meeting-motion-text-full {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.conference-meeting-resolution {
+  padding: 0.5rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 0.375rem;
+  background: var(--lapis-accent-soft);
+  color: var(--lapis-text);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767.98px) {
+  .conference-meeting-banner .btn,
+  .conference-meeting-motion .btn:not(.btn-link) {
+    width: 100%;
+  }
+}
+
+/* V1.9.239 "Protokollentwurf in der Sitzung" -- the Protokoll tab of the Sitzung panel. It lives inside the existing panel box, so no new scroll surface
+   exists (ScrollSurfaceTripwireTest). Colour tokens only, no transition (R54). State is never colour alone: the parts taken from the Sitzung carry a
+   lock symbol AND the words "Aus der Sitzung übernommen", a conflict carries a sentence. Free text is plain text: line breaks are kept, nothing is
+   interpreted. */
+.conference-meeting-tab.active {
+  background: var(--lapis-accent);
+  border-color: var(--lapis-accent);
+  color: var(--lapis-accent-contrast);
+}
+
+.protocol-draft {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.protocol-system-part {
+  padding: 0.5rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 0.375rem;
+  background: var(--lapis-accent-soft);
+  color: var(--lapis-text);
+}
+
+.protocol-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.protocol-plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.protocol-textarea textarea {
+  max-width: 100%;
+  resize: vertical;
+}
+
+.protocol-conflict {
+  border-left-width: 0.25rem;
+}
+
+.protocol-conflict-body {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 0.375rem;
+  background: var(--lapis-accent-soft);
+  color: var(--lapis-text);
+}
+
+.protocol-toolbar {
+  margin-top: 0.25rem;
+}
+
+.protocol-task-form {
+  max-width: 100%;
+}
+
+.protocol-tasks > li {
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--lapis-border);
+}
+
+@media (max-width: 767.98px) {
+  .protocol-menu .btn {
+    width: 100%;
+    text-align: start;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   body,
   .lapis-conference-background-preview,

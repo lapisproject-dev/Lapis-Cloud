@@ -145,9 +145,19 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * `getDashboardSignals(` (net zero); its "Für Sie" block has its own loading line, empty sentence and quiet failure.
  * Welle V1.9.231 splits `CommunicationScreen.kt`: its self-service list read moves into `MailingListsScreen.kt` (now inside a `dataSection`, so a state
  * region), and the `listInbox(` read of the removed "Postfach" is gone (194 -> 192, files unchanged).
+ * Welle V1.9.236 "Sitzungsmodus" adds ONE read in ONE new file (62 -> 63 files, 192 -> 193): `ConferenceMeetingRpc.kt` holds the `getConferenceMeetingState(` poll of
+ * the Sitzung panel (`ConferenceMeetingPollController`). The accepted background-poll shape (same as the vote panel's `getRoomVotingState`): a failed poll is
+ * counted, never shown as an error (a calm "Status wird aktualisiert" line after three misses), so there is no loading/error block to present.
+ * Welle V1.9.240 "Protokoll fertigstellen" adds THREE reads in TWO new files (63 -> 65 files, 193 -> 196): `ConferenceProtocolFinalSection.kt` holds the
+ * `getMeetingProtocolVersions(` read of the finalising section (it is a supplementary block of the Protokoll tab and of the Sitzung page: when the Sitzung is not
+ * visible to the caller or the read fails, the block simply hides itself and an earlier reading stays -- there is no loading/error state to present, and a toast
+ * per reload would be noise) and the on-demand `previewMeetingProtocol(` behind "Protokoll fertigstellen ..." (a one-shot, stateless dry run inside
+ * `runGuardedAction`, a failure toasts through `guarded`: the accepted shape of the other `preview*` reads); `MyProtocolTasksSection.kt` holds the
+ * `getMyProtocolTasks(` read of "Meine Aufgaben aus Protokollen" (the section is mounted hidden and appears only when there are tasks; a person without tasks
+ * and a failed read look the same on purpose -- the accepted background shape of the badge reads).
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 192
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 62
+private const val READ_OUTSIDE_STATE_REGION_MAX = 196
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 65
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

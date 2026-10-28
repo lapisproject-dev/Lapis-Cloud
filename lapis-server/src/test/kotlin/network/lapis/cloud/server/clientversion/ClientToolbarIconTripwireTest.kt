@@ -251,6 +251,8 @@ private val R57_LEDGER: Map<String, LedgerEntry> =
         "S2:VolunteerAllowanceDeclarationsCard.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S2:WebhookDeliveryLogPanel.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S2:ConferenceNotesController.kt" to LedgerEntry(count = 1, reason = REASON_DIALOG),
+        // V1.9.238: "Mehr anzeigen" / "Weniger anzeigen" of a motion text (aria-expanded)
+        "S2:ConferenceMeetingMotions.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
         "S3:App.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_2),
         "S3:ClientVersionWatcher.kt" to LedgerEntry(count = 1, reason = REASON_CLASSNAME),
         "S3:ConferenceBackgroundSection.kt" to LedgerEntry(count = 2, reason = REASON_DOMAIN_ICON_3),
@@ -539,6 +541,8 @@ class ClientToolbarIconTripwireTest :
                             "conferenceDockBarControls" to 4,
                             "conferenceViewButton" to 1,
                             "conferenceReactButton" to 1,
+                            // V1.9.236: the "Sitzung" toggle next to "Abstimmen"
+                            "conferenceMeetingButton" to 1,
                             "conferenceHandControl" to 1,
                             // V1.9.184: the settings gear alone in the start zone
                             "conferenceSettingsButton" to 1,

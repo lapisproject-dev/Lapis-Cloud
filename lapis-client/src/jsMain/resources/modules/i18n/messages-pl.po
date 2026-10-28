@@ -28315,3 +28315,726 @@ msgstr "Automatycznych list mailingowych nie można usunąć."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
 msgid "Diese Mailingliste wird gerade versendet. Bitte löschen Sie sie erst, wenn der Versand abgeschlossen ist."
 msgstr "Ta lista mailingowa jest właśnie wysyłana. Proszę usunąć ją dopiero po zakończeniu wysyłki."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Sitzung schließen"
+msgstr "Zamknij posiedzenie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Nächster Schritt: Sitzung eröffnen"
+msgstr "Następny krok: otwórz posiedzenie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Nächster Schritt: Verbundene übernehmen"
+msgstr "Następny krok: przejmij połączonych"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Nächster Schritt: Beschlussfähigkeit feststellen"
+msgstr "Następny krok: stwierdź kworum"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Nächster Schritt: Nächster Tagesordnungspunkt"
+msgstr "Następny krok: następny punkt porządku obrad"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Nicht eröffnet"
+msgstr "Nie otwarte"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Eröffnet um %1"
+msgstr "Otwarte o %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Sitzung eröffnen"
+msgstr "Otwórz posiedzenie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Beschlussfähigkeit"
+msgstr "Kworum"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "%1 von %2 anwesend · beschlussfähig ab %3"
+msgstr "%1 z %2 obecnych · kworum od %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Beschlussfähig"
+msgstr "Kworum osiągnięte"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Es fehlen noch %1."
+msgstr "Brakuje jeszcze %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Festgestellt um %1 (%2 von %3)"
+msgstr "Stwierdzone o %1 (%2 z %3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Festgestellt, obwohl die Berechnung „nicht beschlussfähig“ ergab."
+msgstr "Stwierdzone, mimo że obliczenie wykazało „brak kworum”."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Seit der Feststellung geändert"
+msgstr "Zmienione od czasu stwierdzenia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Noch nicht festgestellt"
+msgstr "Jeszcze nie stwierdzone"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Beschlussfähigkeit feststellen"
+msgstr "Stwierdź kworum"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Laut Berechnung nicht beschlussfähig (%1 von %2, ab %3). Trotzdem feststellen? Das wird so festgehalten."
+msgstr "Według obliczenia brak kworum (%1 z %2, od %3). Mimo to stwierdzić? Zostanie to tak odnotowane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Trotzdem feststellen"
+msgstr "Mimo to stwierdź"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Keine Tagesordnung hinterlegt."
+msgstr "Brak porządku obrad."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Die Tagesordnung wurde inzwischen weitergeschaltet."
+msgstr "Porządek obrad został w międzyczasie przesunięty."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Vorheriger Punkt"
+msgstr "Poprzedni punkt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Nächster Punkt"
+msgstr "Następny punkt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Vertretung"
+msgstr "Zastępstwo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Im Raum verbunden"
+msgstr "Połączony z pokojem"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Anwesenheit: %1"
+msgstr "Obecność: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Vertreten durch"
+msgstr "Reprezentowany przez"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Die Anwesenheit der Mitgliederversammlung wird hier nicht geführt. Beschlussfähigkeit und Tagesordnung gelten wie angezeigt."
+msgstr "Obecność na zgromadzeniu członków nie jest tutaj prowadzona. Kworum i porządek obrad obowiązują zgodnie z wyświetleniem."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Die Anwesenheit kann geführt werden, sobald die Sitzung eröffnet ist."
+msgstr "Obecność można prowadzić, gdy posiedzenie zostanie otwarte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Alle Verbundenen übernehmen (%1)"
+msgstr "Przejmij wszystkich połączonych (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "+%1 weitere Verbundene"
+msgstr "+%1 innych połączonych"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Gast entfernen"
+msgstr "Usuń gościa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Gast suchen"
+msgstr "Szukaj gościa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Gast hinzufügen"
+msgstr "Dodaj gościa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Die Sitzung ist eröffnet."
+msgstr "Posiedzenie jest otwarte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
+msgid "Sitzung im Konferenzraum"
+msgstr "Posiedzenie w pokoju konferencyjnym"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt
+msgid "Sitzungsmodus"
+msgstr "Tryb posiedzenia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "Neue Nachricht"
+msgstr "Nowa wiadomość"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "An eine Person"
+msgstr "Do osoby"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "An eine Gruppe"
+msgstr "Do grupy"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "Name des Mitglieds"
+msgstr "Imię i nazwisko członka"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "Mindestens 3 Zeichen"
+msgstr "Co najmniej 3 znaki"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "bereits im Gespräch"
+msgstr "już w rozmowie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "Empfänger entfernen"
+msgstr "Usuń odbiorcę"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "Sie gehören keiner Gruppe an, an die Sie schreiben können."
+msgstr "Nie należy Pan/Pani do żadnej grupy, do której można pisać."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "Gruppe"
+msgstr "Grupa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "Anhänge sind bei Gruppennachrichten nicht möglich."
+msgstr "Załączniki nie są możliwe w wiadomościach grupowych."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "An Gruppe senden"
+msgstr "Wyślij do grupy"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "Mitglieder: %1"
+msgstr "Członkowie: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Mitglieder: %2)."
+msgstr "Wiadomość zostanie wysłana osobno do każdego członka grupy „%1” (członków: %2)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
+msgid "An die Gruppe „%1“ gesendet."
+msgstr "Wysłano do grupy „%1”."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageDiscoverabilitySection.kt
+msgid "Auffindbarkeit"
+msgstr "Możliwość znalezienia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageDiscoverabilitySection.kt
+msgid "Wenn Sie das ausschalten, erscheinen Sie nicht in der Namenssuche für neue Nachrichten. Wer Ihre Kennung kennt, kann Ihnen weiterhin schreiben."
+msgstr "Po wyłączeniu nie pojawia się Pan/Pani w wyszukiwaniu po nazwie przy nowych wiadomościach. Kto zna Pana/Pani identyfikator, nadal może pisać."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageDiscoverabilitySection.kt
+msgid "In der Empfängersuche für neue Nachrichten erscheinen"
+msgstr "Pojawiać się w wyszukiwaniu odbiorców nowych wiadomości"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageDiscoverabilitySection.kt
+msgid "Blockierte Personen"
+msgstr "Zablokowane osoby"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageDiscoverabilitySection.kt
+msgid "Sie haben niemanden blockiert."
+msgstr "Nikogo Pan/Pani nie zablokował(a)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageDiscoverabilitySection.kt
+msgid "Aufheben"
+msgstr "Odblokuj"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageDiscoverabilitySection.kt
+msgid "Die Sperre wurde aufgehoben."
+msgstr "Blokada została zdjęta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessagePartnerList.kt
+msgid "Blockieren"
+msgstr "Zablokuj"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessagePartnerList.kt
+msgid "Diese Person kann Ihnen danach nicht mehr schreiben. Sie können die Sperre unten auf dieser Seite wieder aufheben."
+msgstr "Ta osoba nie będzie mogła już do Pana/Pani pisać. Blokadę można zdjąć niżej na tej stronie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessagePartnerList.kt
+msgid "Die Person wurde blockiert."
+msgstr "Osoba została zablokowana."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageReplyForm.kt
+msgid "Nachricht wurde gesendet."
+msgstr "Wiadomość wysłana."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Diese Person kann nicht angeschrieben werden."
+msgstr "Do tej osoby nie można pisać."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Diese Gruppe ist nicht verfügbar."
+msgstr "Ta grupa jest niedostępna."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Diese Gruppe ist für eine Nachricht zu groß."
+msgstr "Ta grupa jest zbyt duża na jedną wiadomość."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Zu viele Nachrichten in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Zbyt wiele wiadomości w krótkim czasie. Proszę spróbować później."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
+msgid "Gruppennachricht"
+msgstr "Wiadomość grupowa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Abstimmung geschlossen: %1"
+msgstr "Głosowanie zamknięte: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Abstimmung läuft: %1"
+msgstr "Głosowanie trwa: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "%1 von %2 abgegeben"
+msgstr "Oddano %1 z %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Auszählung: %1 von %2 Freigaben"
+msgstr "Przeliczenie: %1 z %2 zatwierdzeń"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Im Panel „Abstimmen“ auszählen"
+msgstr "Przelicz głosy w panelu „Głosowanie”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Jetzt abstimmen"
+msgstr "Głosuj teraz"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "Po zamknięciu nie można oddać kolejnych głosów."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Anträge: %1 · Beschlüsse: %2"
+msgstr "Wnioski: %1 · Uchwały: %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Anträge zu diesem Punkt"
+msgstr "Wnioski w tym punkcie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Zu diesem Punkt liegen keine Anträge vor."
+msgstr "Brak wniosków w tym punkcie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Antrag zuordnen"
+msgstr "Przypisz wniosek"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Abstimmung geschlossen, Auszählung steht aus"
+msgstr "Głosowanie zamknięte, przeliczenie oczekuje"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Beschlossen"
+msgstr "Uchwalono"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Vertagt"
+msgstr "Odroczono"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Auf der Tagesordnung"
+msgstr "W porządku obrad"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Es läuft bereits eine Abstimmung."
+msgstr "Głosowanie już trwa."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Beschluss %1"
+msgstr "Uchwała %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Zahlen nicht angezeigt (zu wenige Stimmen)"
+msgstr "Liczby nie są wyświetlane (zbyt mało głosów)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Ja %1 · Nein %2 · Enthaltung %3"
+msgstr "Tak %1 · Nie %2 · Wstrzymało się %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "beschlussfähig"
+msgstr "kworum obecne"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "nicht beschlussfähig"
+msgstr "brak kworum w tym momencie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Stimmengleichheit"
+msgstr "Równa liczba głosów"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Der Beschluss übernimmt diesen Wortlaut unverändert."
+msgstr "Uchwała przejmuje to brzmienie bez zmian."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Geheime Abstimmung"
+msgstr "Głosowanie tajne"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Bei weniger als 5 Stimmen werden die Zahlen nicht angezeigt."
+msgstr "Przy mniej niż 5 głosach liczby nie są wyświetlane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Das Gremium ist derzeit nicht beschlussfähig (%1 von %2 anwesend, nötig %3). Der Beschluss wird so vermerkt."
+msgstr "Organ nie ma obecnie kworum (obecnych %1 z %2, potrzeba %3). Uchwała zostanie tak odnotowana."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Die Beschlussfähigkeit wurde noch nicht festgestellt."
+msgstr "Kworum nie zostało jeszcze stwierdzone."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Auszählung durch (mindestens 3)"
+msgstr "Przeliczenie przez (co najmniej 3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Bitte wählen Sie mindestens 3 Personen."
+msgstr "Proszę wybrać co najmniej 3 osoby."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt
+msgid "Antrag „%1“ diesem Punkt zuordnen?"
+msgstr "Przypisać wniosek „%1” do tego punktu?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt
+msgid "Der Tagesordnungspunkt hat sich inzwischen geändert."
+msgstr "Punkt porządku obrad uległ w międzyczasie zmianie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Die Sitzung wird eröffnet."
+msgstr "Posiedzenie zostaje otwarte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Die Beschlussfähigkeit wird festgestellt."
+msgstr "Stwierdza się kworum."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Es gibt keine Wortmeldungen."
+msgstr "Nikt nie zgłosił się do głosu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Die Beratung wird abgeschlossen."
+msgstr "Dyskusja zostaje zamknięta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Der Punkt wird vertagt."
+msgstr "Punkt zostaje odroczony."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Die Sitzung wird geschlossen."
+msgstr "Posiedzenie zostaje zamknięte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Das Protokoll wird aktualisiert …"
+msgstr "Protokół jest aktualizowany …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Das Protokoll wird geladen …"
+msgstr "Protokół jest wczytywany …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Aus der Sitzung übernommen"
+msgstr "Przejęte z posiedzenia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Abwesend"
+msgstr "Nieobecny"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Beschlussfähigkeit: noch nicht festgestellt"
+msgstr "Kworum: jeszcze nie stwierdzono"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Beschlussfähigkeit festgestellt um %1 (%2 von %3 anwesend)"
+msgstr "Kworum stwierdzono o %1 (obecnych: %2 z %3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Geheime Abstimmung – nur Summen"
+msgstr "Głosowanie tajne – tylko sumy"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Geheime Abstimmung – Zahlen zurückgehalten"
+msgstr "Głosowanie tajne – liczby wstrzymane"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Ohne Tagesordnungspunkt"
+msgstr "Bez punktu porządku obrad"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Schluss"
+msgstr "Zakończenie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Aufgaben insgesamt: %1"
+msgstr "Zadania łącznie: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Der Abschnitt ist voll."
+msgstr "Sekcja jest pełna."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Gespeichert um %1"
+msgstr "Zapisano o %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Inzwischen geändert – bitte zusammenführen"
+msgstr "Zmieniono w międzyczasie – proszę scalić"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Aufgabe hinzufügen"
+msgstr "Dodaj zadanie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Wer"
+msgstr "Kto"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Was"
+msgstr "Co"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Bis wann (optional)"
+msgstr "Do kiedy (opcjonalnie)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Erscheint nach Fertigstellung bei der Person unter „Für Sie“."
+msgstr "Po zakończeniu pojawi się to u tej osoby w sekcji „Dla Ciebie”."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Bitte eine Person aus dem Gremium wählen."
+msgstr "Proszę wybrać osobę z gremium."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Bitte beschreiben Sie die Aufgabe."
+msgstr "Proszę opisać zadanie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Die Beschreibung ist zu lang."
+msgstr "Opis jest za długi."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Die Frist liegt vor der Sitzung."
+msgstr "Termin przypada przed posiedzeniem."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Aufgabe hinzugefügt."
+msgstr "Dodano zadanie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Aufgaben"
+msgstr "Zadania"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "bis %1"
+msgstr "do %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Aufgabe entfernen"
+msgstr "Usuń zadanie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Aufgabe entfernt."
+msgstr "Zadanie usunięte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Neuere Fassung"
+msgstr "Nowsza wersja"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Fassung %1"
+msgstr "Wersja %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Protokolltext: %1"
+msgstr "Treść protokołu: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Beschluss einfügen"
+msgstr "Wstaw uchwałę"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Beschluss %1: %2 – siehe unten."
+msgstr "Uchwała %1: %2 – patrz poniżej."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Zu diesem Punkt gibt es noch keinen Beschluss."
+msgstr "Do tego punktu nie ma jeszcze uchwały."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Textbaustein ▾"
+msgstr "Fragment tekstu ▾"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Textbaustein"
+msgstr "Fragment tekstu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Zeitmarke"
+msgstr "Znacznik czasu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Entwurf – nur für Mitglieder des Gremiums sichtbar. Noch nicht fertiggestellt."
+msgstr "Wersja robocza – widoczna tylko dla członków gremium. Jeszcze niezakończona."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt
+msgid "Entwurf – nur für Mitglieder des Gremiums sichtbar. Noch nicht fertiggestellt. Nur lesen."
+msgstr "Wersja robocza – widoczna tylko dla członków gremium. Jeszcze niezakończona. Tylko odczyt."
+
+msgid "Sitzungsleitung und Protokollführung"
+msgstr "Przewodniczenie i protokołowanie"
+
+msgid "wartet auf Bestätigung"
+msgstr "oczekuje na potwierdzenie"
+
+msgid "bestätigt"
+msgstr "potwierdzona"
+
+msgid "ersetzt"
+msgstr "zastąpiona"
+
+msgid "genehmigt"
+msgstr "zatwierdzony"
+
+msgid "mit Korrekturen genehmigt"
+msgstr "zatwierdzony z poprawkami"
+
+msgid "nicht genehmigt"
+msgstr "niezatwierdzony"
+
+msgid "Fassungen des Protokolls"
+msgstr "Wersje protokołu"
+
+msgid "Prüfsumme kopiert."
+msgstr "Skopiowano sumę kontrolną."
+
+msgid "%1 Tagesordnungspunkte ohne Verlauf"
+msgstr "%1 punktów porządku obrad bez przebiegu"
+
+msgid "Protokoll fertigstellen"
+msgstr "Sfinalizuj protokół"
+
+msgid "Damit bestätigen Sie das Protokoll als %1. Danach kann niemand mehr etwas ändern. Korrekturen sind nur als neue Fassung mit Vermerk möglich."
+msgstr "Tym potwierdzają Państwo protokół jako %1. Potem nikt nie może niczego zmienić. Poprawki są możliwe tylko jako nowa wersja z adnotacją."
+
+msgid "Fertigstellen und bestätigen"
+msgstr "Sfinalizuj i potwierdź"
+
+msgid "Das Protokoll ist fertiggestellt."
+msgstr "Protokół został sfinalizowany."
+
+msgid "Das Protokoll wurde inzwischen geändert. Bitte prüfen Sie es erneut."
+msgstr "Protokół został w międzyczasie zmieniony. Proszę sprawdzić go ponownie."
+
+msgid "Es gibt noch keinen Verlauf und keinen Beschluss."
+msgstr "Nie ma jeszcze przebiegu ani uchwały."
+
+msgid "Die Sitzung wurde noch nicht eröffnet."
+msgstr "Posiedzenie nie zostało jeszcze otwarte."
+
+msgid "Das Protokoll ist zu umfangreich für ein PDF."
+msgstr "Protokół jest zbyt obszerny dla pliku PDF."
+
+msgid "Das Protokoll ist bereits fertiggestellt."
+msgstr "Protokół został już sfinalizowany."
+
+msgid "Das Protokoll kann gerade nicht fertiggestellt werden."
+msgstr "Protokół nie może być teraz sfinalizowany."
+
+msgid "Bestätigt."
+msgstr "Potwierdzono."
+
+msgid "Das PDF konnte noch nicht erstellt werden. Bitte versuchen Sie es erneut."
+msgstr "Nie udało się jeszcze utworzyć pliku PDF. Proszę spróbować ponownie."
+
+msgid "Diese Fassung wartet nicht mehr auf Ihre Bestätigung."
+msgstr "Ta wersja nie oczekuje już na Państwa potwierdzenie."
+
+msgid "Was wird korrigiert?"
+msgstr "Co jest poprawiane?"
+
+msgid "%1 / %2 Zeichen (mindestens %3)"
+msgstr "%1 / %2 znaków (co najmniej %3)"
+
+msgid "Korrektur anlegen"
+msgstr "Utwórz poprawkę"
+
+msgid "Die Korrektur wurde angelegt. Das Protokoll kann wieder bearbeitet werden."
+msgstr "Poprawka została utworzona. Protokół można ponownie edytować."
+
+msgid "Frühere Fassungen ausblenden"
+msgstr "Ukryj wcześniejsze wersje"
+
+msgid "Frühere Fassungen anzeigen"
+msgstr "Pokaż wcześniejsze wersje"
+
+msgid "Vermerk"
+msgstr "Adnotacja"
+
+msgid "PDF herunterladen"
+msgstr "Pobierz PDF"
+
+msgid "Noch keine Fassung fertiggestellt."
+msgstr "Nie sfinalizowano jeszcze żadnej wersji."
+
+msgid "Bestätigung von %1 ausstehend"
+msgstr "Oczekuje na potwierdzenie: %1"
+
+msgid "PDF wird erstellt …"
+msgstr "Plik PDF jest tworzony …"
+
+msgid "Prüfsumme vollständig kopieren"
+msgstr "Skopiuj pełną sumę kontrolną"
+
+msgid "Protokoll fertigstellen …"
+msgstr "Sfinalizuj protokół …"
+
+msgid "Korrektur anlegen …"
+msgstr "Utwórz poprawkę …"
+
+msgid "Genehmigung des Protokolls der Sitzung vom %1"
+msgstr "Zatwierdzenie protokołu z posiedzenia z dnia %1"
+
+msgid "Eine korrigierte Fassung steht noch aus."
+msgstr "Poprawiona wersja jest jeszcze oczekiwana."
+
+msgid "Ergebnis wählen"
+msgstr "Wybierz wynik"
+
+msgid "Genehmigung des Protokolls"
+msgstr "Zatwierdzenie protokołu"
+
+msgid "Meine Aufgaben aus Protokollen"
+msgstr "Moje zadania z protokołów"
+
+msgid "Aufgabe"
+msgstr "Zadanie"
+
+
+msgid "überfällig"
+msgstr "zaległe"
+
+msgid "Wieder öffnen"
+msgstr "Otwórz ponownie"
+
+msgid "%1 Aufgaben aus Protokollen sind überfällig"
+msgstr "%1 zadań z protokołów jest zaległych"
+
+msgid "Eine Aufgabe aus Protokollen ist überfällig"
+msgstr "Jedno zadanie z protokołów jest zaległe"
+
+msgid "%1 offene Aufgaben aus Protokollen"
+msgstr "%1 otwartych zadań z protokołów"
+
+msgid "Eine offene Aufgabe aus Protokollen"
+msgstr "Jedno otwarte zadanie z protokołów"
+
+msgid "Fassung %1 – fertiggestellt. Nur lesen."
+msgstr "Wersja %1 – sfinalizowana. Tylko odczyt."

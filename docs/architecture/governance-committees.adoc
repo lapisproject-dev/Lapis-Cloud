@@ -299,7 +299,7 @@ by `UNLINKED`), plus the `officerRole` seat; `ALIGNED` by a non-board officer ca
 
 *Lock order* (every operation, officer path included): the Sitzung row `FOR UPDATE`, then the event row `FOR UPDATE` (then room / conference, registrations), the audit entry
 last. The BOARD/ADMIN path of `cancelEvent` locks the event row only (its link update touches the event only), so the two cannot deadlock. Cancelling a Sitzung (`updateMeetingStatus` -> `CANCELLED`) or an event (`cancelEvent`, `cancelSeriesEvent`) dissolves
-the link in the same transaction (`UNLINKED`, reason `MEETING_CANCELLED` / `EVENT_CANCELLED`); `HELD` keeps it. Nothing else is deleted.
+the link in the same transaction (`UNLINKED`, reason `MEETING_CANCELLED` / `EVENT_CANCELLED`); `HELD` keeps it. Nothing else is deleted, except an unused Protokoll approval item on the cancelled Sitzung (see _Approval item_).
 
 *Rooms.* The link does not touch any conference room. An online event gets its own room on the first join (`EventConferenceProvisioner`), and an event
 room is never bound to a Sitzung (`EventConferenceGuard`, V1.9.113). Which room is "the" room of a Sitzung is decided by the next wave.
@@ -312,6 +312,257 @@ and never contains the agenda, a title or a note of the Sitzung.
 *Not covered.* There is no "committee" audience: the announcement is `MEMBERS_ONLY`, visible to every member once published. Aligning does not notify
 registered people (neither does `updateEvent`). Events of a running series cannot be linked. Hard-deleting a series occurrence leaves no audit entry
 (the row is gone; the FK sets nothing anywhere else).
+
+== Sitzung in the conference room (V1.9.236, "Sitzungsmodus", wave B)
+
+A Sitzung bound to a conference room (`conference_room.meeting_id`) can be run from that room. The code is the package
+`network.lapis.cloud.server.governance.session`; `GovernanceService` only delegates. Migration `V127__meeting_conference_session.sql` is additive and repeatable
+(V1 and V126 are untouched).
+
+.Stored (all on `meeting`, written only by the package above)
+[cols="2,3", options="header"]
+|===
+| Column | Meaning
+| `opened_at` | the moment the lead opened the Sitzung; the phase is **derived** (`meetingSessionPhase`): `HELD`/`CANCELLED` -> CLOSED, `PLANNED` + no `opened_at` -> NOT_OPENED, else OPEN
+| `quorum_established_at`, `quorum_present_count`, `quorum_required_count`, `quorum_eligible_count` | the quorum as established: all NULL or all set (`chk_meeting_quorum_counts`)
+| `quorum_overridden` | established although the calculation said "not met"
+| `current_agenda_item_id` | the agenda item being treated. **No foreign key**: `meeting` <-> `agenda_item` would be a reference cycle and the organization backup restores in FK order and refuses cycles (`OrganizationSchemaCatalog.restoreOrder`). `GovernanceService.removeAgendaItem` clears a marker that points at the removed item, and every reader treats a marker that is not an item of the Sitzung as "none"
+|===
+
+`attendance.status` gains `GUEST` (the unnamed inline CHECK of V1 is dropped by its PostgreSQL name `attendance_status_check` and by its generated H2 name, deterministic
+because V1 is frozen; `AttendanceStatusMigrationScenarios` pins the result on both engines). `audit_log_entry.entity_type` gains `MEETING_SESSION`.
+
+[kuml, meeting-session, svg]
+----
+sequenceDiagram(name = "Establish the quorum in the conference room (V1.9.236)") {
+    val lead = participant(name = "Lead (chair / recording office / BOARD)")
+    val service = participant(name = "IGovernanceService.establishConferenceQuorum")
+    val access = participant(name = "MeetingSessionAccess")
+    val meeting = participant(name = "meeting row (FOR UPDATE)")
+    val audit = participant(name = "Audit log (last)")
+
+    message(from = lead, to = service, text = "roomId, meetingId, acknowledgeNotMet")
+    message(from = service, to = access, text = "room -> bound Sitzung; meetingId must match; role from the LOCKED row")
+    message(from = access, to = meeting, text = "lock; LEAD? PARTICIPANT -> Forbidden, no seat -> NotFound (same text as an unknown room)")
+    message(from = service, to = service, text = "phase OPEN, room not ended; computeQuorum (the same calculation the votes use)")
+    message(from = service, to = meeting, text = "UPDATE quorum_* and quorum_overridden = not met (refused without acknowledgement)")
+    message(from = service, to = audit, text = "MEETING_SESSION / QUORUM_ESTABLISHED (counts only)")
+}
+----
+
+*Access.* `MeetingSessionAccess.resolve` is the one place that turns `(roomId, expectedMeetingId)` into a context. An unknown room, a room without a Sitzung, an
+encounter or event room, a Sitzung other than the one the client names (the room was re-bound meanwhile) and a caller without a seat are one and the same
+`null` (read) or `NotFoundException` (mutation). Roles use only existing predicates (`canRecordForMeeting`, the minute taker, `canSubmitMotion`); there are no
+new rights keys. BOARD/ADMIN without a seat are LEAD, as they are for `recordAttendance`. A PARTICIPANT never mutates (`ForbiddenException`); MINUTES may only set
+attendance and adopt.
+
+.Who may call what
+[cols="2,1,1,1", options="header"]
+|===
+| RPC | LEAD | MINUTES | PARTICIPANT
+| `getConferenceMeetingState` | roster, live quorum, hint | roster, live quorum | agenda, phase, established line only
+| `openConferenceMeeting`, `establishConferenceQuorum`, `moveConferenceAgenda` | yes | Forbidden | Forbidden
+| `setConferenceAttendance`, `adoptConnectedAttendance` | yes | yes | Forbidden
+|===
+
+*State machine.* Every mutation but `open` needs OPEN; CLOSED is read-only; an ended room is read-only; opening twice is a conflict. `establish` before the
+opening is a conflict ("open the meeting first").
+
+*The rule per committee type.* `CommitteeAttendanceRules.forType`: `NameListAttendanceRule` for the executive board, working groups, commissions and others,
+`UnsupportedAttendanceRule` for the general assembly. The roster is `frozenOrLiveElectorate(...)` -- the very set `computeQuorum` counts, so what is shown and
+what is calculated cannot drift (after the first vote of the Sitzung was opened this is the **frozen** circle). The rule validates: roster statuses only for people
+on the roster; `GUEST` only for an active member outside the circle (never a federation guest); `REPRESENTED` needs a stand-in who is on the roster, is not the person
+and is not represented themselves; no chains; "open" (status `null`) deletes the entry unless somebody stands in for that person. No refusal carries a name.
+
+*Who is connected.* `CachedConferenceConnectedMembers` asks LiveKit for the participants of the room (10 s cache, at most 256 rooms, a failure is an empty set and is
+not cached; the log line carries the exception class only). It is asked **outside** any transaction and **only** for LEAD/MINUTES. Identities that are member ids and on the
+roster are "connected"; the other member ids are only counted; identities that are not UUIDs (egress, bots) are ignored.
+
+*Adoption.* `adoptConnectedAttendance` inserts `PRESENT` for roster members who are connected and have no entry, under the Sitzung lock; a unique violation (the old
+`recordAttendance` takes no Sitzung lock) is skipped under a savepoint, never thrown. It never overwrites an entry.
+
+*Locks and audit.* Every mutation locks the Sitzung row `FOR UPDATE` first and writes the audit entry last. `MEETING_SESSION` entries (`entityId` = the meeting id)
+exist for OPENED, QUORUM_ESTABLISHED, AGENDA_MOVED and ATTENDANCE_ADOPTED; the snapshot (`MeetingSessionAuditSnapshot`) holds ids, enums and counts only. Single attendance
+changes are **not** audited: a member id is personal data and the chain is append-only. Reads are limited to 40, mutations to 60 requests a minute and member.
+
+*Not verified.* The behaviour with several live participants, real browsers and phones, a screen reader, and the LiveKit cache against a real LiveKit server.
+
+== Motions and resolutions in the Sitzung panel (V1.9.238, wave C)
+
+Two operations append to `IGovernanceService` (after `moveConferenceAgenda`, `registerService` order unchanged): `attachConferenceMotion(roomId, meetingId, motionId, expectedAgendaItemId)` and
+`openConferenceMotionVote(roomId, meetingId, motionId, expectedAgendaItemId, secret, electionBoardMemberIds)`. Code: `MeetingSessionMotionOperations` (writes), `MeetingSessionMotionReads`
+(the motion block of `ConferenceMeetingStateDto`), and `ElectionOpening.kt`, which holds the bodies of `ElectionService.openElection`, `appointElectionBoard` and `openVoting` **unchanged**
+so the Sitzung can run all three in ONE transaction. **No migration** (all columns exist); V127 is not touched.
+
+*Access.* LEAD **and** `canRecordForMeeting(committee)`, exactly what `scheduleMotion` / `openElection` require. LEAD alone is not enough: the Sitzung chair without a recording office is LEAD
+for the panel (so `canManageMotions` is false and the buttons are absent) but gets `ForbiddenException`. A motion that is unknown, of another committee, or of another Sitzung is
+the same `NotFoundException` as a stranger's request (no confirmation that it exists).
+
+*Locks.* Sitzung row -> motion -> election and its electorate snapshot -> `conference_room` (secret vote only) -> audit entry last. Only this package and the meeting-event operations lock the Sitzung row
+(`MeetingTable ... forUpdate`, checked by search), neither locks a motion afterwards, so no path takes motion -> Sitzung. `MOTION_VOTE_OPENED` is written after the stream-pause entries of
+`markPausingForSecretBallot`; both are pure audit steps. The LiveKit stop (`quiesceStreamsForMeeting`) runs after the commit. `GovernanceService` takes the stream guard as an optional constructor parameter; **without
+one a secret vote is refused** (fail closed), `Application` passes the real guard (pinned by `MeetingSessionRpcWiringTest`).
+
+*Rules.* The vote is `YES_NO`, `tallyThreshold` 2 (fixed), simple majority; at least 3 and at most 25 distinct board members, all on the roster of the Sitzung, the caller among them unless privileged
+(otherwise nobody with the right could close it). Only one decision at a time: opening is refused while an election of the Sitzung is in PREPARATION..CLOSED (a closed one must be counted first), a
+meritocratic vote is OPEN or a systemic consensus is in COLLECTION/RATING/CLOSED; `moveConferenceAgenda` is refused while a vote or consensus is **running** (open). The rule is one-sided: `openVote`
+on the motion page, `openElection` in the election view and `SystemicConsensusService` do not check against a running Sitzung vote.
+
+*Timing of the quorum (F7).* `computeQuorum` runs at the **count** (`tally`), not when the vote is closed. N comes from the electorate frozen by `openVoting`; the number of present people is the live
+attendance at the count. The resolution stores only the boolean `quorum_met`; the numbers are not kept (a later recomputation would use today's attendance), so the resolution card shows the word only.
+
+*Privacy.* A secret vote is never counted for display: `ballotCount` / `eligibleCount` are null for every role, also for an administrator; for an open vote only LEAD/MINUTES get them. Resolution figures
+come through `toResolutionDtos`, so below the minimum participation they are withheld (`figuresWithheld`). The audit snapshot holds the Sitzung, motion, election and item ids, the `secret` flag and the
+board size, never a name, a title, a text or an answer.
+
+*Known limitations.* A motion cannot be detached from an item. `removeAgendaItem` of an item that holds an attached motion hits the foreign key `motion.agenda_item_id` (no `ON DELETE`) -- as before.
+`updateMeetingStatus(HELD)` with an open vote is not prevented; counting still writes the resolution. The "Abstimmen" panel still shows "Stimmen bisher" for a secret vote, and still opens itself for a new
+ballot on a wide screen. A chair without a recording office cannot attach or open (see Access). *Not verified:* live operation with several participants, real browsers and phones, and the legal validity of the results.
+
+== Protocol draft in the Sitzung (V1.9.239, wave D1)
+
+A new RPC service `IProtocolDraftService` is the LAST `registerService` of `Application.kt` (after `ILupaBbSyncService`; Kilua numbers routes by declaration order, new methods go to its end). Four methods:
+`getMeetingProtocolDraft`, `saveMeetingProtocolBlock`, `addMeetingProtocolTask`, `removeMeetingProtocolTask`. Code: `MeetingProtocolDraftOperations` (everything), `MeetingProtocolText` (the sanitiser),
+`ProtocolDraftService` (authenticates and delegates). DTOs are named `MeetingProtocol*` / `Protocol*` because `ProtocolDraftDto` (the older "generate a draft" result of `IGovernanceService`) already exists.
+
+[kuml, protocol-draft-save, svg]
+----
+sequenceDiagram(name = "Save the text of an agenda item (V1.9.239)") {
+    val writer = participant(name = "Lead or minute taker")
+    val service = participant(name = "IProtocolDraftService.saveMeetingProtocolBlock")
+    val access = participant(name = "MeetingSessionAccess.requireMeeting")
+    val meeting = participant(name = "meeting row (FOR UPDATE)")
+    val block = participant(name = "protocol_draft_block")
+    val audit = participant(name = "Audit log (last)")
+
+    message(from = writer, to = service, text = "meetingId, agendaItemId, expectedVersion, body")
+    message(from = service, to = access, text = "no role or unknown id -> the same NotFound; PARTICIPANT -> Forbidden")
+    message(from = access, to = meeting, text = "lock; opened, not cancelled, draft not LOCKED -> else Conflict")
+    message(from = service, to = service, text = "sanitize (plain text), length after cleaning <= 8000")
+    message(from = service, to = block, text = "insert version 1 (expected 0) or UPDATE ... WHERE version = expected; no row -> saved = false with the current text")
+    message(from = service, to = audit, text = "MEETING_SESSION / PROTOCOL_BLOCK_UPDATED (ids and version only)")
+}
+----
+
+*Schema.* Migration `V129__meeting_protocol_draft.sql` (additive and repeatable, no `CASCADE`; V1, V127 and V128 are untouched): `protocol_draft` (one per Sitzung, `phase` DRAFT/LOCKED), `protocol_draft_block`
+(`VARCHAR(8000)` text per agenda item, `version`, unique per `(draft, item)`) and `protocol_draft_task`. A block has **no `updated_by`**: who wrote is in the audit log, so the table holds less personal data. The
+model is part of `05-governance.kuml.kts`. A new migration was chosen over changing V127/V128 because those are on `master` and a database that already ran them would see a changed checksum.
+
+*Access.* Through the Sitzung (`MeetingSessionAccess.requireMeeting`), **not** through the conference room, so the minute taker can finish after the room ended. The role is the same `roleOf` as in the
+panel. Whatever the caller must not see -- an unknown or malformed id, a Sitzung without a role for the caller, a room guest, a federation guest -- is the same `NotFoundException`, raised before anything is read.
+Every role reads; writing needs LEAD or MINUTES (`ForbiddenException` otherwise, and then no row and no audit entry exist).
+
+[cols="2,1,1,1"]
+|===
+| Operation | PARTICIPANT | MINUTES | LEAD
+
+| read the draft | yes | yes | yes
+| save text, add or remove a task | no | yes | yes
+|===
+
+*State.* `NOT_OPENED`: read-only. `OPEN` and `HELD`: writable while `phase = DRAFT`. `CANCELLED` after the opening: read-only. `LOCKED` (set when the Protokoll is finalised, V1.9.240): every write is refused. Writing in `HELD` is a
+deliberate exception to "CLOSED is read-only" of the conference room: the Protokoll is often finished after the Sitzung. A read **never** creates, writes or locks anything; the draft row is created by the
+first write (in a savepoint, so a concurrent creator is tolerated).
+
+*Derived at read.* Header, attendance, quorum and resolutions are not copied into the draft; they are derived from the stored rows whenever it is read. Until the draft is finalised that is acceptable; the snapshot of V1.9.240 (wave D2) is taken exactly at the transition DRAFT -> LOCKED, after which the snapshot is shown instead. Attendance comes from the attendance table only (confirmed entries), never from the raw "connected" suggestions of
+the room. Resolutions are listed per agenda item (`resolution.agenda_item_id`), the rest under "Ohne Tagesordnungspunkt". **No ballot data is ever read:** the only thing taken from the election side is the
+flag `election.secret`; the resolution DTO carries counts and the flag `secretBallot`, no person.
+
+*Text.* Plain text only, 8,000 characters per agenda item, 500 per task, at most 50 tasks per draft. `sanitizeProtocolText` normalises line breaks, removes C0/C1 controls (except newline and tab), bidirectional
+controls, zero-width characters, line and paragraph separators and unpaired surrogates, and never escapes or interprets anything. The length is counted in UTF-16 units after cleaning: H2 measures
+`VARCHAR(n)` in UTF-16 units, PostgreSQL in code points, so the unit count is the one bound that fits both (a character outside the BMP costs two).
+
+*Concurrency.* Writes lock the Sitzung row `FOR UPDATE` first. A text names the version it was based on; version 0 means "no text yet". A lost race is an ordinary answer (`saved = false` with the current text and
+version), not an exception; an unchanged text makes no update, no new version and no audit entry. Tasks go only to a person of the committee roster (for the general assembly: people recorded as present or
+represented).
+
+*Audit.* Four kinds on the existing entity type `MEETING_SESSION` (appended at the END of `MeetingSessionAuditKind`): `PROTOCOL_DRAFT_CREATED`, `PROTOCOL_BLOCK_UPDATED`, `PROTOCOL_TASK_ADDED`,
+`PROTOCOL_TASK_REMOVED` (the last one is recorded as `VOID`). The snapshot holds ids and a block version only -- never a text, a name or a due date. The audit entry is the last lock-taking step. Reads are
+limited to 60, writes to 30 requests a minute per member and Sitzung.
+
+*DSGVO.* `protocol_draft_task` is covered by `GovernancePersonalData`: the export lists the tasks given to the member (the free texts are not attributed to a person and not exported); erasure retains the rows
+with the documented reason (committee record), like the other governance tables.
+
+*Relation to the older API.* `IGovernanceService.generateProtocolDraft`, `getMeetingDetail` and `getAttendance` still return attendance and resolutions to **every** signed-in member. The new draft's
+confidentiality ("only members of the committee") does not extend to them; changing them would change `MeetingsScreen`, so it is not done in this wave and is an open decision.
+
+*Not in this wave (delivered by V1.9.240, wave D2):* PDF, finalising, the snapshot, the approval agenda item and the push of tasks to "Für Sie". *Still open:* the end time of the Sitzung (not recorded anywhere yet, shown as a dash).
+`removeAgendaItem` refuses an item with Protokoll text or a task; an empty block goes with the item.
+
+*Not verified.* Live operation with several participants, real browsers and phones, and the legal validity of a Protokoll.
+
+== Finalising the Protokoll (V1.9.240, wave D2)
+
+A second RPC service `IMeetingProtocolService` is the LAST `registerService` of `Application.kt` (after `IProtocolDraftService`; new methods go to its end). Eight methods:
+`previewMeetingProtocol`, `getMeetingProtocolVersions`, `finaliseMeetingProtocol`, `confirmMeetingProtocolVersion`, `startMeetingProtocolCorrection`, `recordProtocolApproval`, `getMyProtocolTasks`,
+`setMyProtocolTaskDone`. The PDF is served by `GET /api/meeting-protocol/{versionId}/pdf` (`MeetingProtocolRoutes`). Code: `MeetingProtocolOperations` (all rules), `ProtocolSnapshot` (canonical content and hash),
+`ProtocolVersionStore` (the only writer of the version tables), `ProtocolPdfArchiver` (PDF and document, outside any transaction), `ProtocolApprovalItems` (the approval agenda item),
+`MeetingProtocolPdfGenerator` and `ProtocolPdfTexts` (PDF), `MeetingSessionAccess.rolesOf` (all roles of the caller).
+
+[source,kuml,name="protocol-version-states"]
+----
+stateDiagram(name = "Protokoll version") {
+    val start = initialState()
+    val awaiting = state(name = "AWAITING_CONFIRMATION")
+    val confirmed = state(name = "CONFIRMED")
+    val superseded = state(name = "SUPERSEDED")
+
+    transition(source = start, target = awaiting) { trigger = "finalise (hash matches, version number = max + 1)" }
+    transition(source = awaiting, target = confirmed) { trigger = "every required role confirmed" }
+    transition(source = awaiting, target = superseded) { trigger = "a correction is started (nobody is left to confirm)" }
+    transition(source = confirmed, target = confirmed) { trigger = "PDF archived afterwards (conditional update of pdf_document_version_id)" }
+}
+----
+
+*Schema.* Migration `V130__meeting_protocol_versions.sql` (additive and repeatable, no `CASCADE`; V1 to V129 untouched -- V129 is on `master` and a changed checksum would break Flyway):
+`protocol_version` (canonical JSON `content_json`, `content_sha256`, `status`, `confirmation_mode`, `pdf_document_version_id`), `protocol_version_confirmation` (one row per version and role),
+`protocol_version_task` (tasks of a version with a stable `task_key`) and `protocol_task_status` (done-state, kept OUTSIDE the immutable version). Further columns: `protocol_draft.correction_*`,
+`protocol_draft_task.task_key`, `agenda_item.protocol_approval_*`, `meeting.protocol_approval_source_meeting_id` and `organization_settings.protocol_confirmation_mode`.
+The tombstone `meeting.protocol_approval_source_meeting_id` has **no foreign key**: `meeting -> meeting` would be a reference cycle the organisation backup cannot restore (same reason as `current_agenda_item_id`).
+
+*Append-only, and why there is no trigger.* The repository has no database-trigger or `REVOKE` pattern (one role, Flyway runs as it, and a trigger would differ between H2 and PostgreSQL). The guarantee is
+therefore: `ProtocolVersionStore` is the only file that writes the version tables (`ProtocolVersionStoreTripwireTest` fails otherwise), a version row is inserted once, and afterwards only `status` and
+`pdf_document_version_id` change, each by a *conditional* update (`WHERE status = AWAITING_CONFIRMATION`, `WHERE pdf_document_version_id IS NULL AND status = CONFIRMED`). There is no delete and no upsert.
+Any later change of `content_json` would no longer match `content_sha256`, so tampering is detectable. The generic document routes refuse new versions on a Protokoll document (409).
+
+*Content and hash.* `ProtocolSnapshotV1` has a fixed field order (declaration order) and is serialised without whitespace; every string is NFC-normalised. The hash is
+`sha256("lapis-protocol-v1\n" + json)` over UTF-8. The content holds header, attendance, quorum, per item the text, the resolutions (figures only through `toResolutionDtos()`, i.e. with the k-anonymity
+filter), the tasks (by name, **not** by member id) and the approval; **not** the done-state, the confirmations, `serverNow` or `finalisedAt`. Preview and finalising derive the content from the same code, so the
+hash the lead saw is the hash that is checked (`STALE` otherwise). Finalising needs the hash the caller saw: a text changed in between cannot be confirmed by mistake.
+
+*Roles.* LEAD (chair, recording office, BOARD/ADMIN) and MINUTES (the minute taker) may finalise and confirm; a person holding both confirms both at once and gets two rows. If the Sitzung has no minute
+taker, LEAD alone is enough (`minutes_required = false`, printed as "Protokollführung: nicht besetzt"). If a minute taker is named but gone, a correction may be started from `AWAITING_CONFIRMATION`
+(the waiting version becomes `SUPERSEDED` and gets no PDF) -- otherwise the version would wait forever.
+
+*Order of work.* Lock order is always `meeting` -> `protocol_draft` -> version rows; the approval item (which locks another Sitzung) is inserted before the audit entry, which takes the chain lock last.
+No external effect runs inside a transaction: the PDF is rendered and written AFTER the commit (`ProtocolPdfArchiver`), then ONE short transaction creates the `document_version`, links the PDF to the
+protocol version (conditional) and writes the audit entry; if the link changes no row, everything rolls back. The only work in the finalising transaction is a pure page-limit probe (no confirmation page,
+one page short, at most 20 s), so a Protokoll that would later not fit is refused at finalising and not at confirmation. A confirmed version whose PDF failed stays confirmed; LEAD or MINUTES retry by
+confirming again (the single way to build a missing PDF; an existing PDF is never rebuilt).
+
+*PDF.* PDFBox, saved whole (no incremental save, no encryption, no form, no JavaScript, no open action, no external resource), so a later PAdES signature can be appended as an incremental update without
+touching the bytes (`MeetingProtocolPdfTest` proves it with a dummy signer). Limits: 200 pages, 10 MB, 20 s. Texts are German only (`ProtocolPdfTexts`: stable keys, a `lang` hook; server PDFs are not
+translated, like every other server PDF). Characters outside Latin-1 (Cyrillic, Georgian) print as `?` -- the hash is unaffected, it covers the content, not the PDF. The last page lists the confirmations
+(organisation wall-clock) and the full hash in Courier, and says it is a simple electronic confirmation, not a qualified signature.
+
+*Approval item.* "Genehmigung des Protokolls der Sitzung vom ..." is put on the next Sitzung of the committee exactly once per source Protokoll, whichever happens first: the Sitzung is created after the
+confirmation (`GovernanceService.createMeeting`) or the Protokoll is confirmed after the Sitzung exists (`onConfirmed`). The tombstone (UNIQUE) and the item are written in one savepoint; position 1 if free,
+otherwise behind the existing items. A manually removed item is not offered again. Cancelling the Sitzung that carries an unused item (not opened, no result, no Protokoll text, task, resolution or motion) releases the item and the tombstone, and the Protokoll is offered again to the next Sitzung that is not cancelled (`ProtocolApprovalItems.onMeetingCancelled`; it locks that other Sitzung, so it runs before any audit write). An item with a result or in an opened Sitzung cannot be removed. The lead records the result (`APPROVED`,
+`APPROVED_WITH_CORRECTIONS`, `NOT_APPROVED`) while the Sitzung is open and its own draft is not locked; "Korrekturfassung ausstehend" is derived (result with corrections and no newer version of the source).
+
+*Tasks.* A task keeps its `task_key` across versions. `getMyProtocolTasks` returns only the caller's tasks of the newest CONFIRMED version of each Protokoll; `setMyProtocolTaskDone` accepts only such a
+task of the caller (else the same not-found). The dashboard shows two reasons (`meeting.protocolTaskOverdue`, URGENT; `meeting.protocolTaskOpen`, ACTION within seven days else INFO) with a count and the earliest
+deadline -- never a text and never an object id (the click goes to the list on the Sitzungen page).
+
+*Audit.* Eight kinds on `MEETING_SESSION`, appended at the END of `MeetingSessionAuditKind`: `PROTOCOL_FINALISED` (carries the hash), `PROTOCOL_CONFIRMED`, `PROTOCOL_PDF_ARCHIVED`,
+`PROTOCOL_CORRECTION_STARTED`, `PROTOCOL_VERSION_SUPERSEDED`, `PROTOCOL_APPROVAL_ITEM_INSERTED`, `PROTOCOL_APPROVAL_RECORDED`, `PROTOCOL_TASK_STATUS_CHANGED`. Snapshots hold ids, enums and numbers only; no log
+line carries a text, a name or a hash.
+
+*DSGVO.* The four tables are covered. Export: own confirmations, finalised versions (ids), own tasks, own done-states. Erasure deletes `protocol_task_status`; versions, confirmations and version tasks are the
+committee's immutable record and stay (retention like documents, Art. 17(3) GDPR; the member row is anonymised). **Names inside the stored snapshot and the PDF are text and are NOT anonymised.**
+
+*Not in this wave.* PAdES or a qualified signature (the mode column is only a hook), the AI draft (wave E), translated PDF texts, a Unicode font. *Not verified.* Live operation with several people, real
+browsers and phones, how the PDF looks in real viewers, and the legal validity of the confirmation.
 
 == Known limitations
 

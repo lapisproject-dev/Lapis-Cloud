@@ -4,6 +4,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import network.lapis.cloud.server.db.generated.DirectMessageAttachmentTable
+import network.lapis.cloud.server.db.generated.DirectMessageBlockTable
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
 import network.lapis.cloud.server.db.generated.MailingLinkClickTable
@@ -13,6 +14,7 @@ import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MailingMessageAttachmentTable
 import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
+import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.messaging.DirectMessageAttachmentStore
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -82,10 +84,30 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
             MailingLinkClickTable,
             DirectMessageTable,
             DirectMessageAttachmentTable,
+            DirectMessageBlockTable,
         )
 
     override fun exportMember(memberId: Uuid) =
         buildJsonObject {
+            // V1.9.237 -- the member's own setting for the recipient search of "Neue Nachricht".
+            MemberTable.selectAll().where { MemberTable.id eq memberId }.singleOrNull()?.let {
+                put("recipientSearchVisible", it[MemberTable.dmDiscoverable])
+            }
+            // V1.9.237 -- only the blocks the member SET. Blocks against the member are not exported (that would reveal who blocked them).
+            putJsonArray("directMessageBlocksSet") {
+                DirectMessageBlockTable
+                    .selectAll()
+                    .where { DirectMessageBlockTable.blockerMemberId eq memberId }
+                    .orderBy(DirectMessageBlockTable.createdAt to SortOrder.ASC, DirectMessageBlockTable.id to SortOrder.ASC)
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("blockedMemberId", row[DirectMessageBlockTable.blockedMemberId].toString())
+                                put("createdAt", row[DirectMessageBlockTable.createdAt].toString())
+                            },
+                        )
+                    }
+            }
             putJsonArray("createdMailingLists") {
                 MailingListTable
                     .selectAll()
@@ -284,6 +306,11 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
                 .where { MailingMessageAttachmentTable.uploadedBy eq memberId }
                 .count()
 
+        // V1.9.237 -- blocks on BOTH sides go with the member (a block is about the person, nobody else has an interest in it).
+        val blocksDeleted =
+            DirectMessageBlockTable.deleteWhere {
+                (DirectMessageBlockTable.blockerMemberId eq memberId) or (DirectMessageBlockTable.blockedMemberId eq memberId)
+            }
         val sentCount = DirectMessageTable.selectAll().where { DirectMessageTable.senderId eq memberId }.count()
         val receivedCount = DirectMessageTable.selectAll().where { DirectMessageTable.recipientId eq memberId }.count()
         var sentRedacted = 0
@@ -333,6 +360,7 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
             ),
             TableErasureOutcome(table = "mailing_link_click", rowsDeleted = clicksDeleted),
             TableErasureOutcome(table = "mailing_delivery_log", rowsDeleted = deliveryLogDeleted),
+            TableErasureOutcome(table = "direct_message_block", rowsDeleted = blocksDeleted),
             TableErasureOutcome(
                 table = "direct_message_attachment",
                 rowsDeleted = dmAttachmentsDeleted,

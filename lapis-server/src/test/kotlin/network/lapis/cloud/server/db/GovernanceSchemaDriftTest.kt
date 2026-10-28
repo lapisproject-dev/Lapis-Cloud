@@ -45,7 +45,9 @@ class GovernanceSchemaDriftTest :
         /** Resolves an `ErmForeignKey.targetEntityId` back to its entity name within [model]. */
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the seven governance entities plus the Member and Document stubs") {
+        test(
+            "model declares exactly the governance entities (V1.9.239: plus the three Protokoll draft tables) plus the Member and Document stubs",
+        ) {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -57,6 +59,14 @@ class GovernanceSchemaDriftTest :
                     "attendance",
                     "resolution",
                     "motion",
+                    "protocol_draft",
+                    "protocol_draft_block",
+                    "protocol_draft_task",
+                    "document_version",
+                    "protocol_version",
+                    "protocol_version_confirmation",
+                    "protocol_version_task",
+                    "protocol_task_status",
                 )
         }
 
@@ -403,7 +413,7 @@ class GovernanceSchemaDriftTest :
             status?.type shouldBe
                 ErmDataType.Enum(
                     name = "AttendanceStatus",
-                    values = listOf("PRESENT", "EXCUSED", "UNEXCUSED", "REPRESENTED"),
+                    values = listOf("PRESENT", "EXCUSED", "UNEXCUSED", "REPRESENTED", "GUEST"),
                     externalFqName = "network.lapis.cloud.shared.domain.AttendanceStatus",
                 )
         }

@@ -117,6 +117,15 @@ classDiagram(name = "Governance") {
         }
     }
 
+    // V1.9.240: id-only DocumentVersion stub, only for protocol_version.pdf_document_version_id's «Column».fkEntity target.
+    val documentVersion = classOf(name = "DocumentVersion") {
+        stereotype("Entity") { "tableName" to "document_version"; "kotlinObjectName" to "DocumentVersionTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
     val committeeType = enumOf(name = "CommitteeType") {
         literal(name = "EXECUTIVE_BOARD")
         literal(name = "WORKING_GROUP")
@@ -152,6 +161,12 @@ classDiagram(name = "Governance") {
         literal(name = "RULE")
     }
 
+    val protocolApprovalResult = enumOf(name = "ProtocolApprovalResult") {
+        literal(name = "APPROVED")
+        literal(name = "APPROVED_WITH_CORRECTIONS")
+        literal(name = "NOT_APPROVED")
+    }
+
     val meetingsFormat = enumOf(name = "MeetingFormat") {
         literal(name = "IN_PERSON")
         literal(name = "ONLINE")
@@ -169,6 +184,7 @@ classDiagram(name = "Governance") {
         literal(name = "EXCUSED")
         literal(name = "UNEXCUSED")
         literal(name = "REPRESENTED")
+        literal(name = "GUEST") // V1.9.236: a person outside the electorate sitting in; never counted by the quorum
     }
 
     val resolutionStatus = enumOf(name = "ResolutionStatus") {
@@ -344,6 +360,45 @@ classDiagram(name = "Governance") {
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
         }
+        // ---- V1.9.236 "Sitzungsmodus im Konferenzraum" (V127__meeting_conference_session.sql) -- written ONLY by governance/session ----
+        // The moment the lead opened the Sitzung in its conference room (NULL = not opened; the phase is derived from status + this).
+        attribute(name = "openedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "opened_at" }
+        }
+        // The quorum as established by the lead: moment + the three numbers of that moment (all NULL or all set, chk_meeting_quorum_counts).
+        attribute(name = "quorumEstablishedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "quorum_established_at" }
+        }
+        attribute(name = "quorumPresentCount", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "quorum_present_count" }
+        }
+        attribute(name = "quorumRequiredCount", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "quorum_required_count" }
+        }
+        attribute(name = "quorumEligibleCount", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "quorum_eligible_count" }
+        }
+        // true when the lead established the quorum although the calculation said "not met" (acknowledged).
+        attribute(name = "quorumOverridden", type = "Boolean") {
+            stereotype("Column") { "columnName" to "quorum_overridden" }
+        }
+        // The agenda item currently being treated. Deliberately NO foreign key (meeting <-> agenda_item would be a cycle the organization
+        // backup cannot restore); integrity is kept in code (see V127__meeting_conference_session.sql).
+        attribute(name = "currentAgendaItemId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "current_agenda_item_id" }
+        }
+        // V1.9.240 (V130): tombstone "the Protokoll of that Sitzung was already put on this Sitzung's agenda" (UNIQUE). Like current_agenda_item_id
+        // NO foreign key (meeting -> meeting is a cycle the backup cannot restore).
+        attribute(name = "protocolApprovalSourceMeetingId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "protocol_approval_source_meeting_id" }
+        }
     }
 
     // meeting.committee_id -> committee (id): association-derived default matches.
@@ -382,6 +437,31 @@ classDiagram(name = "Governance") {
         attribute(name = "presenterMemberId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "presenter_member_id"; "fkEntity" to "Member" }
+        }
+        // V1.9.240 (V130): the item that approves the Protokoll of the previous Sitzung, and the result recorded for it.
+        attribute(name = "protocolApprovalSourceMeetingId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "protocol_approval_source_meeting_id"; "fkEntity" to "Meeting" }
+        }
+        attribute(name = "protocolApprovalResult", type = protocolApprovalResult) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "protocol_approval_result"
+                "sqlType" to "VARCHAR(25)"
+                "enumType" to "network.lapis.cloud.shared.domain.ProtocolApprovalResult"
+            }
+        }
+        attribute(name = "protocolApprovalVersionNo", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "protocol_approval_version_no" }
+        }
+        attribute(name = "approvalRecordedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "approval_recorded_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "approvalRecordedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "approval_recorded_at" }
         }
     }
 
@@ -613,5 +693,267 @@ classDiagram(name = "Governance") {
     association(source = resolution, target = motion, id = "assoc-resolution-motion") {
         source { multiplicity("0..1") }
         target { multiplicity("0..*"); role = "resolutionId" }
+    }
+
+    // ---- V1.9.239 "Protokollentwurf in der Sitzung" (Welle D1), migration V129__meeting_protocol_draft.sql ----
+    // protocol_draft (one per Sitzung, created by the first WRITE), protocol_draft_block (the plain text of one agenda item, versioned for
+    // optimistic concurrency -- NO updated_by on purpose, the audit log says who wrote) and protocol_draft_task (a task noted in the draft).
+    // The foreign keys are pinned with «Column».fkEntity, the same way agenda_item.presenter_member_id is. Plain SQL CHECKs (phase,
+    // version >= 0) and the unique constraints are in V129 (not expressible in the ERM profile). No CASCADE anywhere.
+    val protocolDraftPhase = enumOf(name = "ProtocolDraftPhase") {
+        literal(name = "DRAFT")
+        literal(name = "LOCKED") // hook for the finalisation of a later wave; D1 never writes it
+    }
+
+    val protocolDraft = classOf(name = "ProtocolDraft") {
+        stereotype("Entity") { "tableName" to "protocol_draft"; "kotlinObjectName" to "ProtocolDraftTable" }
+        stereotype("Index") { "columns" to listOf("meeting_id"); "unique" to true; "name" to "uq_protocol_draft_meeting" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "meetingId", type = "UUID") {
+            stereotype("Column") { "columnName" to "meeting_id"; "fkEntity" to "Meeting" }
+        }
+        attribute(name = "phase", type = protocolDraftPhase) {
+            stereotype("Column") {
+                "columnName" to "phase"
+                "sqlType" to "VARCHAR(6)"
+                "enumType" to "network.lapis.cloud.shared.domain.ProtocolDraftPhase"
+            }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        // V1.9.240 (V130): the draft is a correction of that version, with the note that says what is corrected.
+        attribute(name = "correctionOfVersionNo", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "correction_of_version_no" }
+        }
+        attribute(name = "correctionNote", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "correction_note"; "sqlType" to "VARCHAR(4000)" }
+        }
+    }
+
+    val protocolDraftBlock = classOf(name = "ProtocolDraftBlock") {
+        stereotype("Entity") { "tableName" to "protocol_draft_block"; "kotlinObjectName" to "ProtocolDraftBlockTable" }
+        stereotype("Index") {
+            "columns" to listOf("draft_id", "agenda_item_id")
+            "unique" to true
+            "name" to "uq_protocol_draft_block_item"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "draftId", type = "UUID") {
+            stereotype("Column") { "columnName" to "draft_id"; "fkEntity" to "ProtocolDraft" }
+        }
+        attribute(name = "agendaItemId", type = "UUID") {
+            stereotype("Column") { "columnName" to "agenda_item_id"; "fkEntity" to "AgendaItem" }
+        }
+        attribute(name = "body", type = "String") {
+            stereotype("Column") { "columnName" to "body"; "sqlType" to "VARCHAR(8000)" }
+        }
+        attribute(name = "version", type = "Long") {
+            stereotype("Column") { "columnName" to "version" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+    }
+
+    val protocolDraftTask = classOf(name = "ProtocolDraftTask") {
+        stereotype("Entity") { "tableName" to "protocol_draft_task"; "kotlinObjectName" to "ProtocolDraftTaskTable" }
+        stereotype("Index") { "columns" to listOf("draft_id"); "name" to "idx_protocol_draft_task_draft" }
+        stereotype("Index") { "columns" to listOf("assignee_member_id"); "name" to "idx_protocol_draft_task_assignee" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "draftId", type = "UUID") {
+            stereotype("Column") { "columnName" to "draft_id"; "fkEntity" to "ProtocolDraft" }
+        }
+        attribute(name = "agendaItemId", type = "UUID") {
+            stereotype("Column") { "columnName" to "agenda_item_id"; "fkEntity" to "AgendaItem" }
+        }
+        attribute(name = "assigneeMemberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "assignee_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "description", type = "String") {
+            stereotype("Column") { "columnName" to "description"; "sqlType" to "VARCHAR(500)" }
+        }
+        attribute(name = "dueDate", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "due_date" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        // V1.9.240 (V130): the stable key of the task across versions (NULL until the task is first finalised).
+        attribute(name = "taskKey", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "task_key" }
+        }
+    }
+
+    // ---- V1.9.240 "Protokoll fertigstellen" (Welle D2), migration V130__meeting_protocol_versions.sql ----
+    // The finalised, immutable versions of the Protokoll of a Sitzung and everything around them. UNIQUE constraints and CHECKs are in V130.
+    val protocolVersionStatus = enumOf(name = "ProtocolVersionStatus") {
+        literal(name = "AWAITING_CONFIRMATION")
+        literal(name = "CONFIRMED")
+        literal(name = "SUPERSEDED")
+    }
+
+    val protocolConfirmationMode = enumOf(name = "ProtocolConfirmationMode") {
+        literal(name = "APP_CONFIRMATION")
+        literal(name = "PLATFORM_SEAL")
+        literal(name = "QES")
+    }
+
+    val protocolConfirmationRole = enumOf(name = "ProtocolConfirmationRole") {
+        literal(name = "LEAD")
+        literal(name = "MINUTES")
+    }
+
+    val protocolVersion = classOf(name = "ProtocolVersion") {
+        stereotype("Entity") { "tableName" to "protocol_version"; "kotlinObjectName" to "ProtocolVersionTable" }
+        stereotype("Index") { "columns" to listOf("meeting_id", "version_no"); "unique" to true; "name" to "uq_protocol_version_meeting_no" }
+        stereotype("Index") { "columns" to listOf("finalised_by"); "name" to "idx_protocol_version_finalised_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "meetingId", type = "UUID") {
+            stereotype("Column") { "columnName" to "meeting_id"; "fkEntity" to "Meeting" }
+        }
+        attribute(name = "versionNo", type = "Int") {
+            stereotype("Column") { "columnName" to "version_no" }
+        }
+        attribute(name = "contentJson", type = "String") {
+            stereotype("Column") { "columnName" to "content_json"; "sqlType" to "TEXT" }
+        }
+        attribute(name = "contentSha256", type = "String") {
+            stereotype("Column") { "columnName" to "content_sha256"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "correctionNote", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "correction_note"; "sqlType" to "VARCHAR(4000)" }
+        }
+        attribute(name = "finalisedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "finalised_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "finalisedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "finalised_at" }
+        }
+        attribute(name = "confirmationMode", type = protocolConfirmationMode) {
+            stereotype("Column") {
+                "columnName" to "confirmation_mode"
+                "sqlType" to "VARCHAR(16)"
+                "enumType" to "network.lapis.cloud.shared.domain.ProtocolConfirmationMode"
+            }
+        }
+        attribute(name = "minutesRequired", type = "Boolean") {
+            stereotype("Column") { "columnName" to "minutes_required" }
+        }
+        attribute(name = "status", type = protocolVersionStatus) {
+            stereotype("Column") {
+                "columnName" to "status"
+                "sqlType" to "VARCHAR(21)"
+                "enumType" to "network.lapis.cloud.shared.domain.ProtocolVersionStatus"
+            }
+        }
+        attribute(name = "pdfDocumentVersionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "pdf_document_version_id"; "fkEntity" to "DocumentVersion" }
+        }
+    }
+
+    val protocolVersionConfirmation = classOf(name = "ProtocolVersionConfirmation") {
+        stereotype("Entity") {
+            "tableName" to "protocol_version_confirmation"
+            "kotlinObjectName" to "ProtocolVersionConfirmationTable"
+        }
+        stereotype("Index") { "columns" to listOf("version_id", "role"); "unique" to true; "name" to "uq_protocol_confirmation_role" }
+        stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_protocol_confirmation_member" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "versionId", type = "UUID") {
+            stereotype("Column") { "columnName" to "version_id"; "fkEntity" to "ProtocolVersion" }
+        }
+        attribute(name = "memberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "role", type = protocolConfirmationRole) {
+            stereotype("Column") {
+                "columnName" to "role"
+                "sqlType" to "VARCHAR(7)"
+                "enumType" to "network.lapis.cloud.shared.domain.ProtocolConfirmationRole"
+            }
+        }
+        attribute(name = "confirmedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "confirmed_at" }
+        }
+    }
+
+    val protocolVersionTask = classOf(name = "ProtocolVersionTask") {
+        stereotype("Entity") { "tableName" to "protocol_version_task"; "kotlinObjectName" to "ProtocolVersionTaskTable" }
+        stereotype("Index") { "columns" to listOf("version_id", "task_key"); "unique" to true; "name" to "uq_protocol_version_task_key" }
+        stereotype("Index") { "columns" to listOf("assignee_member_id"); "name" to "idx_protocol_version_task_assignee" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "versionId", type = "UUID") {
+            stereotype("Column") { "columnName" to "version_id"; "fkEntity" to "ProtocolVersion" }
+        }
+        attribute(name = "taskKey", type = "UUID") {
+            stereotype("Column") { "columnName" to "task_key" }
+        }
+        attribute(name = "assigneeMemberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "assignee_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "dueDate", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "due_date" }
+        }
+        attribute(name = "description", type = "String") {
+            stereotype("Column") { "columnName" to "description"; "sqlType" to "VARCHAR(500)" }
+        }
+    }
+
+    val protocolTaskStatus = classOf(name = "ProtocolTaskStatus") {
+        stereotype("Entity") { "tableName" to "protocol_task_status"; "kotlinObjectName" to "ProtocolTaskStatusTable" }
+        stereotype("Index") { "columns" to listOf("assignee_member_id"); "name" to "idx_protocol_task_status_assignee" }
+
+        attribute(name = "taskKey", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "task_key" }
+        }
+        attribute(name = "meetingId", type = "UUID") {
+            stereotype("Column") { "columnName" to "meeting_id"; "fkEntity" to "Meeting" }
+        }
+        attribute(name = "assigneeMemberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "assignee_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "doneAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "done_at" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
     }
 }

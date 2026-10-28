@@ -48,6 +48,9 @@ enum class ActionIcon(
     AWARD("fas fa-trophy"),
     REJECT("fas fa-circle-xmark"),
     SEND("fas fa-paper-plane"),
+
+    /** V1.9.237: "Neue Nachricht" (write a new message to a person or a group). Assigned to this purpose only. */
+    COMPOSE("fas fa-pen-to-square"),
     REVOKE("fas fa-ban"),
     LOCK("fas fa-lock"),
 
@@ -247,6 +250,25 @@ enum class ActionIcon(
      * verb as in the encounter room). A button only; the reactions themselves are shown as emoji on the tiles.
      */
     REACT("fas fa-face-smile"),
+
+    /** V1.9.236 -- the "Sitzung" toggle of the conference bar (the Sitzung panel). */
+    MEETING_SESSION("fas fa-clipboard-list"),
+
+    /** V1.9.238 -- open a vote on a motion of the Sitzung ("Abstimmung eröffnen", "Jetzt abstimmen"). Assigned to this purpose only. */
+    OPEN_MOTION_VOTE("fas fa-check-to-slot"),
+
+    /** V1.9.238 -- attach a motion to the current agenda item of the Sitzung ("Antrag zuordnen"). Assigned to this purpose only. */
+    ATTACH_MOTION("fas fa-file-circle-plus"),
+
+    /**
+     * V1.9.239 -- the Protokoll draft of the Sitzung panel: the "Protokoll" tab ([PROTOCOL]), insert a resolution ([INSERT_RESOLUTION]), note a task
+     * ([ADD_TASK]), insert a building block ([TEXT_SNIPPET]) and insert the time ([TIME_MARK]). Each is assigned to this purpose only.
+     */
+    PROTOCOL("fas fa-file-lines"),
+    INSERT_RESOLUTION("fas fa-gavel"),
+    ADD_TASK("fas fa-list-check"),
+    TEXT_SNIPPET("fas fa-paragraph"),
+    TIME_MARK("fas fa-clock"),
 
     /**
      * V1.9.129 "Video-Overlays": move an element of the overlay library one place up or down (admin card of the video conference). Only used

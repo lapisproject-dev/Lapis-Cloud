@@ -81,7 +81,7 @@ class ConferenceTimerServiceEventGuardTripwireTest :
 
         test(
             "the tail of the registrations in Application.kt is pinned: timer, agreement texts, pulpit recording, member finder, " +
-                "the tenders, the online counts, the image gallery, the dashboard, the party report, then the LupaBB sync (Kilua numbers routes by declaration order)",
+                "the tenders, the online counts, the image gallery, the dashboard, the party report, the LupaBB sync, then the Protokoll draft (Kilua numbers routes by declaration order)",
         ) {
             val code = SourceScan.blank(EncounterSourceScan.mainFile("Application.kt").readText())
             val registrations = Regex("""registerService\(""").findAll(code).map { it.range.first }.toList()
@@ -95,6 +95,8 @@ class ConferenceTimerServiceEventGuardTripwireTest :
             val dashboard = code.indexOf("registerService(IDashboardService::class)")
             val partyReport = code.indexOf("registerService(IPartyReportService::class)")
             val lupaBbSync = code.indexOf("registerService(ILupaBbSyncService::class)")
+            val protocolDraft = code.indexOf("registerService(IProtocolDraftService::class)")
+            val meetingProtocol = code.indexOf("registerService(IMeetingProtocolService::class)")
             (timer >= 0) shouldBe true
             (agreementTexts > timer) shouldBe true
             (pulpitRecording > agreementTexts) shouldBe true
@@ -105,19 +107,23 @@ class ConferenceTimerServiceEventGuardTripwireTest :
             (dashboard > attachedImages) shouldBe true
             (partyReport > dashboard) shouldBe true
             (lupaBbSync > partyReport) shouldBe true
-            // a new service is always appended (V1.9.226: the LupaBB sync after the party report): the timer stays tenth to last, the
-            // agreement texts ninth to last, the pulpit recording eighth to last, the member finder seventh to last, the tenders sixth to
-            // last, the online counts fifth to last, the image gallery fourth to last, the dashboard third to last, the party report second
-            // to last, the LupaBB sync last
-            registrations[registrations.size - 10] shouldBe timer
-            registrations[registrations.size - 9] shouldBe agreementTexts
-            registrations[registrations.size - 8] shouldBe pulpitRecording
-            registrations[registrations.size - 7] shouldBe memberFinder
-            registrations[registrations.size - 6] shouldBe tenders
-            registrations[registrations.size - 5] shouldBe onlineCounts
-            registrations[registrations.size - 4] shouldBe attachedImages
-            registrations[registrations.size - 3] shouldBe dashboard
-            registrations[registrations.size - 2] shouldBe partyReport
-            registrations.last() shouldBe lupaBbSync
+            (protocolDraft > lupaBbSync) shouldBe true
+            (meetingProtocol > protocolDraft) shouldBe true
+            // a new service is always appended (V1.9.240: the Protokoll finalising after the Protokoll draft): the timer stays twelfth to last, the
+            // agreement texts tenth to last, the pulpit recording ninth to last, the member finder eighth to last, the tenders seventh to
+            // last, the online counts sixth to last, the image gallery fifth to last, the dashboard fourth to last, the party report third
+            // to last, the LupaBB sync second to last, the Protokoll draft second to last, the Protokoll finalising last
+            registrations[registrations.size - 12] shouldBe timer
+            registrations[registrations.size - 11] shouldBe agreementTexts
+            registrations[registrations.size - 10] shouldBe pulpitRecording
+            registrations[registrations.size - 9] shouldBe memberFinder
+            registrations[registrations.size - 8] shouldBe tenders
+            registrations[registrations.size - 7] shouldBe onlineCounts
+            registrations[registrations.size - 6] shouldBe attachedImages
+            registrations[registrations.size - 5] shouldBe dashboard
+            registrations[registrations.size - 4] shouldBe partyReport
+            registrations[registrations.size - 3] shouldBe lupaBbSync
+            registrations[registrations.size - 2] shouldBe protocolDraft
+            registrations.last() shouldBe meetingProtocol
         }
     })

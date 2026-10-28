@@ -15,6 +15,22 @@ For a meritocratic vote, a first bid, opening a Yes/No vote and closing it work 
 changed bid, custom options and aborting stay on the motion page. See
 `docs/architecture/conference-voting.adoc`.
 
+The quorum of the Sitzung, its agenda and the attendance are kept in the neighbouring "Sitzung" panel (V1.9.236, see `committees-and-meetings.adoc`); the quorum
+the votes count against is the same calculation (`computeQuorum`) that panel shows.
+
+== Votes on motions from the Sitzung panel (V1.9.238)
+
+The "Sitzung" panel can open a Yes/No vote on a motion of the current agenda item in one step (election, counting committee and opening in ONE transaction); the
+count still happens in the "Abstimmen" panel: closing, the two approvals and counting are the existing buttons. A running vote is announced in a banner at the top of the
+Sitzung panel to everybody ("Abstimmung läuft: ...", "Jetzt abstimmen"), the banner is a polite live region.
+
+* The Sitzung panel shows **no counter for a secret vote**, for nobody (not for the lead, not for an administrator); for an open vote only the lead and the minute taker see
+  "n von m abgegeben". The existing "Abstimmen" panel still shows "Stimmen bisher" also for secret votes (known deviation, left unchanged in this wave).
+* The "Abstimmen" panel opens itself for a newly opened ballot on a wide screen (existing behaviour, also outside a Sitzung); the Sitzung panel does not change that.
+* The quorum on the resolution is computed at the **count** from the electorate frozen when the vote was opened and the attendance at that moment.
+* "Only one decision at a time" holds in one direction only: the Sitzung panel checks against elections, meritocratic votes and systemic consensus of the Sitzung, but
+  `openVote` on the motion page, `openElection` and systemic consensus do not check against a running Sitzung vote.
+
 == What doesn't work yet
 
 The staging test (`docs/architecture/conference-voting-staging-test.adoc`) was written but not run,

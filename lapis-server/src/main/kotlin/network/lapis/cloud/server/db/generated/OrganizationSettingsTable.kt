@@ -7,6 +7,7 @@ import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.PaymentProvider
+import network.lapis.cloud.shared.domain.ProtocolConfirmationMode
 import network.lapis.cloud.shared.domain.TenderBidVisibility
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -108,6 +109,10 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.9.201 -- hand-edited, see 11-organization-settings.kuml.kts.
     public val tenderDefaultVisibility: Column<TenderBidVisibility> =
         enumerationByName<TenderBidVisibility>("tender_default_visibility", 21).default(TenderBidVisibility.HIDDEN_UNTIL_DEADLINE)
+
+    // Welle V1.9.240 -- hand-edited, see 11-organization-settings.kuml.kts (V130). NOT part of the generic update write-set.
+    public val protocolConfirmationMode: Column<ProtocolConfirmationMode> =
+        enumerationByName<ProtocolConfirmationMode>("protocol_confirmation_mode", 16).default(ProtocolConfirmationMode.APP_CONFIRMATION)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

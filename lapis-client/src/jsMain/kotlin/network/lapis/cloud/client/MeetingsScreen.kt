@@ -48,6 +48,7 @@ import network.lapis.cloud.shared.domain.MemberPickPageDto
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.domain.PostalInvitationDispatchInput
+import network.lapis.cloud.shared.domain.ProtocolApprovalResult
 import network.lapis.cloud.shared.domain.ProtocolDraftDto
 import network.lapis.cloud.shared.domain.QuorumResultDto
 import network.lapis.cloud.shared.domain.ResolutionDto
@@ -116,6 +117,9 @@ fun renderMeetingsScreen(container: SimplePanel) {
     val header = root.pageHeader(tr("Sitzungen"), intro = PageIntros.forRoute(Routes.MEETINGS))
     // V1.9.40 (R36B): the create form is collapsed; its button sits in the title row and the form opens right under the header.
     val createHost = root.vPanel(spacing = 6)
+
+    // V1.9.240: my tasks from confirmed Protokolle (only shown when there are any)
+    renderMyProtocolTasks(root)
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.lapisToolbar()
@@ -1074,6 +1078,18 @@ internal fun renderAgendaTable(
             val titleCell = HeaderCell(scope = Scope.ROW) { addCssClasses("fw-normal lapis-agenda-title") }
             add(titleCell)
             titleCell.untrustedDiv(item.title)
+            item.protocolApproval?.result?.let {
+                titleCell.statusBadge(
+                    protocolApprovalLabel(it),
+                    if (it ==
+                        ProtocolApprovalResult.NOT_APPROVED
+                    ) {
+                        "danger"
+                    } else {
+                        "success"
+                    },
+                )
+            }
             if (!item.description.isNullOrBlank()) titleCell.untrustedDiv(item.description!!, className = "small text-muted")
             item.presenterDisplayName?.let { presenter -> titleCell.untrustedDiv(presenter, className = "small text-muted d-sm-none") }
             textCell(item.presenterDisplayName.orEmpty()) { addCssClasses("d-none d-sm-table-cell lapis-agenda-title") }
@@ -1263,7 +1279,7 @@ internal fun renderGeneralAssemblyAttendanceForm(
     val search = committeeCandidateSearch(committeeId)
     val memberField = form.remoteMemberPickerField(label = tr("Mitglied"), search = search, required = true)
     val memberPicker = memberField.control as RemoteMemberPicker
-    val statusOptions = AttendanceStatus.entries.map { it.name to attendanceStatusLabel(it) }
+    val statusOptions = AttendanceStatus.entries.filter { it != AttendanceStatus.GUEST }.map { it.name to attendanceStatusLabel(it) }
     val statusField =
         form.selectField(
             label = tr("Status"),
@@ -1347,7 +1363,7 @@ internal fun renderAttendanceRecordingForm(
         return FormSnapshot { emptyList() }
     }
     val existingByMember = existingAttendance.associateBy { it.memberId }
-    val statusOptions = AttendanceStatus.entries.map { it.name to attendanceStatusLabel(it) }
+    val statusOptions = AttendanceStatus.entries.filter { it != AttendanceStatus.GUEST }.map { it.name to attendanceStatusLabel(it) }
     val representedOptions = listOf("" to gettext("-- keine --")) + untrustedOptions(eligibleMembers.map { it.id to it.displayName })
 
     eligibleMembers.forEach { member ->
@@ -1556,6 +1572,8 @@ private fun renderProtocolSection(
     meetingId: String,
 ) {
     panel.h2(tr("Protokoll")) { addCssClass("h5") }
+    // V1.9.240: finalise / confirm / correct and the PDF -- also here, because the second confirmation and the reading happen after the room ended
+    renderProtocolFinalSection(parent = panel, meetingId = meetingId)
     val actionRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val generateButton = actionRow.button(tr("Protokollentwurf erzeugen"), style = ButtonStyle.OUTLINESECONDARY)
     actionRow.div(tr("Sichtbar für alle Mitglieder.")) { addCssClasses("text-muted small") }
@@ -1727,6 +1745,7 @@ fun attendanceStatusLabel(status: AttendanceStatus): String =
         AttendanceStatus.EXCUSED -> gettext("Entschuldigt")
         AttendanceStatus.UNEXCUSED -> gettext("Unentschuldigt")
         AttendanceStatus.REPRESENTED -> gettext("Vertreten")
+        AttendanceStatus.GUEST -> gettext("Gast")
     }
 
 fun attendanceStatusColor(status: AttendanceStatus): String =
@@ -1735,6 +1754,7 @@ fun attendanceStatusColor(status: AttendanceStatus): String =
         AttendanceStatus.EXCUSED -> "warning"
         AttendanceStatus.UNEXCUSED -> "danger"
         AttendanceStatus.REPRESENTED -> "info"
+        AttendanceStatus.GUEST -> "secondary"
     }
 
 fun resolutionStatusLabel(status: ResolutionStatus): String =

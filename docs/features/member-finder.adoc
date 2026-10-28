@@ -56,6 +56,9 @@ Who may use it: ACTIVE, not anonymized members only. Guests, friends, applicants
 * **Nothing audited, nothing logged.** Opt-in, opt-out, requests and blocks are *not* written to the audit log (it cannot be erased), and no log line names a member, a region or a note.
 * **No e-mail.** The finder sends no notification mail (it would leave an additional trace at the mail provider).
 
+NOTE: (V1.9.237) A finder block also stops direct messages in either direction, but it disappears when the instance switch goes off. Blocks set on the Nachrichten page are stored separately
+(`direct_message_block`, see `architecture/direct-messages.adoc`) and are not touched by the finder switch.
+
 == Switching the instance switch off
 
 Switching off (ADMIN) deletes all requests, all blocks and all bands and ends every effective consent with a system withdrawal (`INSTANCE_OFF`). The consent *events* stay as proof, but

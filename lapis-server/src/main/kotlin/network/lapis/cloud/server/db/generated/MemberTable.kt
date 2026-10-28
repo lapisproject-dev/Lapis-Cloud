@@ -77,6 +77,9 @@ public object MemberTable : Table("member") {
     public val lupabbPersonNumber: Column<Long?> = long("lupabb_person_number").nullable().uniqueIndex()
     public val lupabbMissingSince: Column<LocalDate?> = date("lupabb_missing_since").nullable()
 
+    // Welle V1.9.237 "Neue Nachricht" -- whether the member shows up in the name search for new messages (default true). See 78-direct-message-block.kuml.kts.
+    public val dmDiscoverable: Column<Boolean> = bool("dm_discoverable").default(true)
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 3 check constraint(s) declared on this entity are not

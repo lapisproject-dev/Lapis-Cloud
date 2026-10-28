@@ -220,6 +220,9 @@ tasks.register<JavaExec>("importMembersFromCsv") {
 // Settings shared by `test` and `postgresTest` -- kept in ONE place so the two lanes cannot drift.
 fun Test.configureLapisTestJvm() {
     useJUnitPlatform()
+    // Gradle's default test-worker heap is 512 MB. The suite (11k+ tests, one in-memory H2 per fork) outgrew it: the
+    // PartgXlsxReaderHostileTest zip-bomb spec died with an OutOfMemoryError in the full run (V1.9.239) while it passed alone.
+    maxHeapSize = "1g"
     // V0.7.1 Authentifizierung -- the ONLY place that sets this JVM system property. Read once by
     // network.lapis.cloud.server.security.AuthTestMode at class-init time to gate the legacy
     // X-Member-Id trusted-header fallback (see that object's KDoc "Two independent locks"). A real

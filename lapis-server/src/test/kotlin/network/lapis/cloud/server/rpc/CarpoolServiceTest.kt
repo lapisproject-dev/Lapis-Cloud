@@ -35,6 +35,7 @@ import network.lapis.cloud.shared.domain.CarpoolPostingInput
 import network.lapis.cloud.shared.domain.CarpoolPostingType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.DirectMessageRecipientUnavailableException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -124,6 +125,10 @@ class CarpoolServiceTest :
             exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
             exception<NotFoundException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.NotFound) }
             exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+            // V1.9.237: an unavailable recipient is one uniform typed refusal (no longer a Conflict / NotFound that echoes an id).
+            exception<DirectMessageRecipientUnavailableException> { call, cause ->
+                call.respondText(cause.message, status = HttpStatusCode.UnprocessableEntity)
+            }
         }
 
         fun validInput(
@@ -465,7 +470,8 @@ class CarpoolServiceTest :
                 }
                 val guest = createTestMember(email = "carpool-dm-guest-${Uuid.random()}@example.org", status = MemberStatus.GUEST)
                 val response = client.post("/test/send/$guest") { header("X-Member-Id", MEMBER_ID) }
-                response.status shouldBe HttpStatusCode.Conflict
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                response.bodyAsText() shouldBe "This recipient is not available"
             }
         }
     })

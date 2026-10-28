@@ -12,6 +12,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.dashboard.DashboardFixtures.SECRET
+import network.lapis.cloud.server.governance.session.ProtocolVersionStore
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
@@ -365,6 +366,109 @@ abstract class DashboardSignalScenarios(
                     DashboardFixtures.committee(type = CommitteeType.GENERAL_ASSEMBLY, meetingAt = at(day = 14))
                     val signal = collect(dashboardContext(memberId = me)).reason(DashboardReasonKeys.MEETING_UPCOMING)
                     (signal != null && signal.count >= 1) shouldBe true
+                }
+            }
+        }
+
+        context("protocol tasks (V1.9.240)") {
+            fun confirmedVersionWithTask(
+                assignee: Uuid,
+                due: LocalDate?,
+                versionNo: Int = 1,
+                meetingId: Uuid,
+                taskKey: Uuid = Uuid.random(),
+                done: Boolean = false,
+            ): Uuid {
+                val versionId =
+                    ProtocolVersionStore.insertVersion(
+                        meetingId = meetingId,
+                        versionNo = versionNo,
+                        contentJson = "{}",
+                        contentSha256 = "a".repeat(64),
+                        correctionNote = null,
+                        finalisedBy = assignee,
+                        finalisedAt = DASHBOARD_NOW,
+                        mode = network.lapis.cloud.shared.domain.ProtocolConfirmationMode.APP_CONFIRMATION,
+                        minutesRequired = false,
+                    )!!
+                ProtocolVersionStore.insertVersionTask(
+                    versionId = versionId,
+                    taskKey = taskKey,
+                    assigneeMemberId = assignee,
+                    dueDate = due,
+                    description = "$SECRET-Aufgabe",
+                )
+                ProtocolVersionStore.markConfirmed(versionId)
+                if (done) {
+                    ProtocolVersionStore.setTaskDone(
+                        taskKey = taskKey,
+                        meetingId = meetingId,
+                        assigneeMemberId = assignee,
+                        doneAt = DASHBOARD_NOW,
+                        now = DASHBOARD_NOW,
+                    )
+                }
+                return versionId
+            }
+
+            test(
+                "overdue is urgent, due within seven days is an action, later or undated is info; no text and no object id leave the source",
+            ) {
+                rolledBack {
+                    val me = DashboardFixtures.member()
+                    val other = DashboardFixtures.member()
+                    val (committee, meeting) = DashboardFixtures.committee(meetingAt = at(day = 1))
+                    confirmedVersionWithTask(assignee = me, due = LocalDate(2030, 6, 5), meetingId = meeting!!)
+                    val m2 = DashboardFixtures.meeting(committeeId = committee, at = at(day = 2))
+                    confirmedVersionWithTask(assignee = me, due = LocalDate(2030, 6, 14), meetingId = m2)
+                    val m3 = DashboardFixtures.meeting(committeeId = committee, at = at(day = 3))
+                    confirmedVersionWithTask(assignee = me, due = null, meetingId = m3)
+                    confirmedVersionWithTask(
+                        assignee = other,
+                        due = LocalDate(2030, 6, 1),
+                        meetingId = DashboardFixtures.meeting(committeeId = committee, at = at(day = 4)),
+                    )
+                    val signals = collect(dashboardContext(memberId = me))
+                    val overdue = signals.reason(DashboardReasonKeys.MEETING_PROTOCOL_TASK_OVERDUE)!!
+                    overdue.count shouldBe 1
+                    overdue.priority shouldBe DashboardPriority.URGENT
+                    overdue.objectId shouldBe null
+                    overdue.deadline shouldBe "2030-06-05T23:59:59"
+                    val open = signals.reason(DashboardReasonKeys.MEETING_PROTOCOL_TASK_OPEN)!!
+                    open.count shouldBe 2
+                    open.priority shouldBe DashboardPriority.ACTION
+                    open.objectId shouldBe null
+                    Json.encodeToString(ListSerializer(DashboardSignalDto.serializer()), signals) shouldNotContain SECRET
+                    // the other person's overdue task is theirs alone
+                    collect(
+                        dashboardContext(memberId = DashboardFixtures.member()),
+                    ).reason(DashboardReasonKeys.MEETING_PROTOCOL_TASK_OVERDUE) shouldBe
+                        null
+                }
+            }
+
+            test("a done task and a task of an older version give no signal") {
+                rolledBack {
+                    val me = DashboardFixtures.member()
+                    val (_, meeting) = DashboardFixtures.committee(meetingAt = at(day = 1))
+                    confirmedVersionWithTask(assignee = me, due = LocalDate(2030, 6, 1), meetingId = meeting!!, done = true)
+                    // version 2 of the same Sitzung is confirmed and no longer holds the task of version 1
+                    val v2 =
+                        ProtocolVersionStore.insertVersion(
+                            meetingId = meeting,
+                            versionNo = 2,
+                            contentJson = "{}",
+                            contentSha256 = "b".repeat(64),
+                            correctionNote = null,
+                            finalisedBy = me,
+                            finalisedAt = DASHBOARD_NOW,
+                            mode = network.lapis.cloud.shared.domain.ProtocolConfirmationMode.APP_CONFIRMATION,
+                            minutesRequired = false,
+                        )!!
+                    ProtocolVersionStore.markConfirmed(v2)
+                    val signals = collect(dashboardContext(memberId = me))
+                    signals.reason(DashboardReasonKeys.MEETING_PROTOCOL_TASK_OVERDUE) shouldBe null
+                    signals.reason(DashboardReasonKeys.MEETING_PROTOCOL_TASK_OPEN) shouldBe null
                 }
             }
         }

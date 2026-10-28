@@ -33,6 +33,8 @@ class ConferenceControlBarTest {
             add(ConferenceControlSlot.ROSTER)
             add(ConferenceControlSlot.CHAT)
             if (vote) add(ConferenceControlSlot.VOTE)
+            // V1.9.236: the Sitzung toggle sits after "Abstimmen" and moves right after it
+            if (vote) add(ConferenceControlSlot.MEETING)
             // V1.9.115: "Ansicht" is the first control to move into the sheet
             add(ConferenceControlSlot.VIEW)
             if (moderator) {

@@ -9,6 +9,28 @@ import network.lapis.cloud.shared.domain.DirectMessageDto
 import network.lapis.cloud.shared.rpc.DirectMessageAttachmentsUnavailableException
 import network.lapis.cloud.shared.rpc.IDirectMessageService
 
+/** V1.9.237 -- the three words of the form that differ between a reply and a new message (the form itself is the same). */
+internal class DirectMessageFormTexts(
+    val fieldLabel: () -> String,
+    val buttonLabel: () -> String,
+    val sentText: () -> String,
+) {
+    companion object {
+        val REPLY =
+            DirectMessageFormTexts(
+                fieldLabel = { tr("Antwort") },
+                buttonLabel = { tr("Antworten") },
+                sentText = { tr("Antwort wurde gesendet.") },
+            )
+        val NEW_MESSAGE =
+            DirectMessageFormTexts(
+                fieldLabel = { tr("Nachricht") },
+                buttonLabel = { tr("Senden") },
+                sentText = { tr("Nachricht wurde gesendet.") },
+            )
+    }
+}
+
 /**
  * Welle V1.9.36 -- the reply form below a message or a conversation (extracted from `CommunicationScreen`'s inbox row, unchanged in
  * behavior). A successful send toasts, refreshes the unread pill, EMPTIES the field (V1.9.231) and calls [onSent]. Returns the reply field (the caller may hand it the focus). A failed one (e.g. the partner is no longer an
@@ -29,11 +51,12 @@ internal fun SimplePanel.directMessageReplyForm(
     send: suspend (String, String, List<String>) -> DirectMessageDto = { recipient, body, attachmentIds ->
         rpcService<IDirectMessageService>().sendDirectMessageWithAttachments(recipient, body, attachmentIds)
     },
+    texts: DirectMessageFormTexts = DirectMessageFormTexts.REPLY,
 ): LapisField {
     val replyForm = lapisForm()
-    val replyField = replyForm.textAreaField(label = tr("Antwort"), rows = 2, required = true)
+    val replyField = replyForm.textAreaField(label = texts.fieldLabel(), rows = 2, required = true)
     val attachmentHost = replyForm.panel.simplePanel()
-    val replyButton = newActionButton(ActionIcon.SEND, tr("Antworten"), ButtonStyle.OUTLINEPRIMARY)
+    val replyButton = newActionButton(ActionIcon.SEND, texts.buttonLabel(), ButtonStyle.OUTLINEPRIMARY)
     val hint = attachmentHost.dmComposerBlockHintHost()
 
     fun refreshSendState() {
@@ -66,7 +89,7 @@ internal fun SimplePanel.directMessageReplyForm(
                     notifyError(tr("Anhänge konnten nicht gesendet werden. Bitte laden Sie die Dateien erneut hoch."))
                     onFailed()
                 } else if (result != null) {
-                    notifySuccess(tr("Antwort wurde gesendet."))
+                    notifySuccess(texts.sentText())
                     UnreadMessages.refresh()
                     // V1.9.231: the field is empty after a send (the form stays open for the next reply); a failed send keeps the text.
                     replyField.reset()

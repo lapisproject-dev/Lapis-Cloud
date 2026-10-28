@@ -19,12 +19,15 @@ class CommitteeElectorateTripwireTest :
                     (2 to "the definition and frozenOrLiveElectorate's live fallback"),
                 "network/lapis/cloud/server/rpc/GovernanceService.kt" to
                     (2 to "castVoteBallot for a vote WITHOUT the marker (opened before V1.9.112) and freezeVoteElectorate itself"),
-                "network/lapis/cloud/server/rpc/ElectionService.kt" to (1 to "openVoting: the election's own snapshot is taken here"),
+                // V1.9.238: the body of openVoting moved unchanged from ElectionService.kt to ElectionOpening.kt (openVotingLocked)
+                "network/lapis/cloud/server/rpc/ElectionOpening.kt" to (1 to "openVotingLocked: the election's own snapshot is taken here"),
                 "network/lapis/cloud/server/rpc/SystemicConsensusService.kt" to
                     (1 to "snapshotEligibility: the consensus' own snapshot is taken here"),
                 "network/lapis/cloud/server/rpc/SystemicConsensusReads.kt" to
                     (1 to "the live preview of a consensus that has no snapshot yet"),
                 "network/lapis/cloud/server/db/StagingSeedGovernance.kt" to (1 to "staging seed: writes an election snapshot"),
+                "network/lapis/cloud/server/messaging/DirectMessageGroups.kt" to
+                    (1 to "the recipients of a group message: whoever sits in the committee TODAY (a message, not a decision)"),
                 "network/lapis/cloud/server/routes/MailmergeRoutes.kt" to
                     (1 to "the invitation audience of a rule committee (a letter list, not a decision)"),
             )

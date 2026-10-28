@@ -9,6 +9,11 @@ import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.db.generated.ProtocolDraftTaskTable
+import network.lapis.cloud.server.db.generated.ProtocolTaskStatusTable
+import network.lapis.cloud.server.db.generated.ProtocolVersionConfirmationTable
+import network.lapis.cloud.server.db.generated.ProtocolVersionTable
+import network.lapis.cloud.server.db.generated.ProtocolVersionTaskTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
@@ -17,6 +22,7 @@ import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
@@ -58,10 +64,78 @@ object GovernancePersonalData : MemberPersonalDataContributor {
             VoteTable,
             VoteBallotTable,
             VoteEligibleVoterTable,
+            // V1.9.239 -- tasks noted in the Protokoll draft of a Sitzung (assignee_member_id).
+            ProtocolDraftTaskTable,
+            // V1.9.240 -- the finalised Protokoll: who finalised / confirmed a version, the tasks of a version, the done-state of a task.
+            ProtocolVersionTable,
+            ProtocolVersionConfirmationTable,
+            ProtocolVersionTaskTable,
+            ProtocolTaskStatusTable,
         )
 
     override fun exportMember(memberId: Uuid) =
         buildJsonObject {
+            // V1.9.240 -- ids, roles, numbers and the person's OWN task texts; never another person's data.
+            putJsonArray("protocolConfirmations") {
+                (ProtocolVersionConfirmationTable innerJoin ProtocolVersionTable)
+                    .selectAll()
+                    .where { ProtocolVersionConfirmationTable.memberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("versionId", row[ProtocolVersionTable.id].toString())
+                                put("meetingId", row[ProtocolVersionTable.meetingId].toString())
+                                put("versionNo", row[ProtocolVersionTable.versionNo])
+                                put("role", row[ProtocolVersionConfirmationTable.role].name)
+                                put("confirmedAt", row[ProtocolVersionConfirmationTable.confirmedAt].toString())
+                            },
+                        )
+                    }
+            }
+            putJsonArray("protocolsFinalised") {
+                ProtocolVersionTable
+                    .selectAll()
+                    .where { ProtocolVersionTable.finalisedBy eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("versionId", row[ProtocolVersionTable.id].toString())
+                                put("meetingId", row[ProtocolVersionTable.meetingId].toString())
+                                put("versionNo", row[ProtocolVersionTable.versionNo])
+                            },
+                        )
+                    }
+            }
+            putJsonArray("protocolVersionTasks") {
+                (ProtocolVersionTaskTable innerJoin ProtocolVersionTable)
+                    .selectAll()
+                    .where { ProtocolVersionTaskTable.assigneeMemberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("taskKey", row[ProtocolVersionTaskTable.taskKey].toString())
+                                put("meetingId", row[ProtocolVersionTable.meetingId].toString())
+                                put("versionNo", row[ProtocolVersionTable.versionNo])
+                                put("description", row[ProtocolVersionTaskTable.description])
+                                put("dueDate", row[ProtocolVersionTaskTable.dueDate]?.toString())
+                            },
+                        )
+                    }
+            }
+            putJsonArray("protocolTaskStatus") {
+                ProtocolTaskStatusTable
+                    .selectAll()
+                    .where { ProtocolTaskStatusTable.assigneeMemberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("taskKey", row[ProtocolTaskStatusTable.taskKey].toString())
+                                put("done", row[ProtocolTaskStatusTable.doneAt] != null)
+                                put("doneAt", row[ProtocolTaskStatusTable.doneAt]?.toString())
+                            },
+                        )
+                    }
+            }
             putJsonArray("committeeMemberships") {
                 (CommitteeMembershipTable innerJoin CommitteeTable)
                     .selectAll()
@@ -200,6 +274,24 @@ object GovernancePersonalData : MemberPersonalDataContributor {
                         )
                     }
             }
+            // V1.9.239 -- tasks that were given to this member in the Protokoll draft of a Sitzung (the free texts of the draft are not
+            // attributed to a person and are therefore not part of the export).
+            putJsonArray("protocolTasksAssigned") {
+                (ProtocolDraftTaskTable innerJoin AgendaItemTable)
+                    .selectAll()
+                    .where { ProtocolDraftTaskTable.assigneeMemberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("id", row[ProtocolDraftTaskTable.id].toString())
+                                put("meetingId", row[AgendaItemTable.meetingId].toString())
+                                put("agendaItemTitle", row[AgendaItemTable.title])
+                                put("description", row[ProtocolDraftTaskTable.description])
+                                put("dueDate", row[ProtocolDraftTaskTable.dueDate]?.toString())
+                            },
+                        )
+                    }
+            }
         }
 
     override fun eraseMember(
@@ -239,7 +331,40 @@ object GovernancePersonalData : MemberPersonalDataContributor {
 
         val voteEligibleVoterCount = VoteEligibleVoterTable.selectAll().where { VoteEligibleVoterTable.memberId eq memberId }.count()
 
+        val protocolTaskCount = ProtocolDraftTaskTable.selectAll().where { ProtocolDraftTaskTable.assigneeMemberId eq memberId }.count()
+
+        // V1.9.240: the done-state of a person's tasks is deleted for real; the finalised versions, confirmations and version tasks are the
+        // committee's immutable record and stay (the member row they point to is anonymised).
+        val taskStatusCount = ProtocolTaskStatusTable.selectAll().where { ProtocolTaskStatusTable.assigneeMemberId eq memberId }.count()
+        ProtocolTaskStatusTable.deleteWhere { ProtocolTaskStatusTable.assigneeMemberId eq memberId }
+        val finalisedCount = ProtocolVersionTable.selectAll().where { ProtocolVersionTable.finalisedBy eq memberId }.count()
+        val confirmationCount =
+            ProtocolVersionConfirmationTable.selectAll().where { ProtocolVersionConfirmationTable.memberId eq memberId }.count()
+        val versionTaskCount = ProtocolVersionTaskTable.selectAll().where { ProtocolVersionTaskTable.assigneeMemberId eq memberId }.count()
+        val retentionReason =
+            "Part of the immutable Protokoll of a committee, retained like documents (Art. 17(3) GDPR); the member row it points to is " +
+                "anonymised. The names inside the stored snapshot and the PDF are text and are NOT anonymised."
+
         return listOf(
+            TableErasureOutcome(
+                table = "protocol_version",
+                rowsRetained = finalisedCount.toInt(),
+                retentionReason = retentionReason,
+            ),
+            TableErasureOutcome(
+                table = "protocol_version_confirmation",
+                rowsRetained = confirmationCount.toInt(),
+                retentionReason = retentionReason,
+            ),
+            TableErasureOutcome(
+                table = "protocol_version_task",
+                rowsRetained = versionTaskCount.toInt(),
+                retentionReason = retentionReason,
+            ),
+            TableErasureOutcome(
+                table = "protocol_task_status",
+                rowsDeleted = taskStatusCount.toInt(),
+            ),
             TableErasureOutcome(
                 table = "committee_membership",
                 rowsRetained = membershipCount.toInt(),
@@ -298,6 +423,13 @@ object GovernancePersonalData : MemberPersonalDataContributor {
                 table = "vote_eligible_voter",
                 rowsRetained = voteEligibleVoterCount.toInt(),
                 retentionReason = "Frozen electorate of a Vote (quorum denominator), like election_eligible_voter.",
+            ),
+            TableErasureOutcome(
+                table = "protocol_draft_task",
+                rowsRetained = protocolTaskCount.toInt(),
+                retentionReason =
+                    "A task noted in the Protokoll draft of a Sitzung is part of the committee's records (who was to do what), " +
+                        "retained like the other committee records; the member row it points to is anonymised. The rows stay.",
             ),
         )
     }

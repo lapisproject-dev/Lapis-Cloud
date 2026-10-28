@@ -49,6 +49,98 @@ start, end, place and online kind, **publish it to the members** (button "Veröf
 not only the committee, and that the agenda is not shown) and cancel it while it is free. Fee, capacity, room, public visibility and the public link stay with
 the board, as does linking an existing event. Details and the rule: `docs/architecture/governance-committees.adoc`, section "Meeting <-> event link".
 
+== Running a Sitzung in a conference room (V1.9.236, wave B)
+
+A conference room that is bound to a Sitzung (the "Sitzung zuordnen" row of the room) gets a second panel next to "Abstimmen": **"Sitzung"**. It is a
+panel of its own: the toggle appears in the control bar (and as a twin in the "Mehr" sheet) as soon as the server says there is a Sitzung for you in this
+room; on a phone it is a bottom sheet like the voting panel. The panel has four sections one under the other.
+
+* **Head.** The phase -- "Nicht eröffnet", "Eröffnet um <time>", "Abgeschlossen" -- and, for the lead, the next step ("Nächster Schritt: ..."). The phase is
+  derived, nothing is stored for it: a `HELD` or `CANCELLED` Sitzung is closed, a `PLANNED` one is not opened until the lead presses "Sitzung eröffnen".
+  Opening sets the first agenda item as the current one. A lead's panel opens itself once per room while the Sitzung waits to be opened (never on a phone).
+* **Beschlussfähigkeit.** For the lead and the minute taker the live calculation ("5 von 12 anwesend · beschlussfähig ab 6", with a symbol and a word, never
+  colour alone). The lead writes it down with "Beschlussfähigkeit feststellen": the moment and the three numbers are stored. If the calculation says
+  "not met" the lead is asked first ("Trotzdem feststellen?") and the Sitzung records that the quorum was established **against** the calculation
+  (`quorum_overridden`). Establishing again overwrites the line (every time is audited). Everybody else sees only the established line, or "Noch nicht
+  festgestellt"; if the live number moved since, the lead sees "Seit der Feststellung geändert".
+* **Tagesordnung.** An ordered list; the current item is marked (`aria-current="step"`, a caret and bold, not colour). The lead moves it with "Vorheriger
+  Punkt" / "Nächster Punkt" (a jump to any item is possible through the RPC). If somebody else moved it first, the client shows "Die Tagesordnung wurde inzwischen
+  weitergeschaltet." and reads again. An empty agenda says so.
+* **Anwesenheit** (lead and minute taker only). One line per person of the circle with a status ("offen", Anwesend, Entschuldigt, Unentschuldigt, Vertretung);
+  "Vertretung" asks "Vertreten durch". "Alle Verbundenen übernehmen (n)" marks everyone who is connected to the room and has no entry yet as present (it never
+  overwrites an entry); "+n weitere Verbundene" counts connected people who are not on the roster. The lead can add a **guest** (a member of the organization outside
+  the circle, status `GUEST`); a guest never counts for the quorum.
+
+*Who is who.* LEAD: the chair of the Sitzung, a recording office of the committee, BOARD/ADMIN (the same set that may call `recordAttendance`). MINUTES: the
+minute taker of the Sitzung. PARTICIPANT: anybody seated in the committee or, for the general assembly, an active member. A participant gets no name, no
+roster and no live figure. Federation guests, room guests and friends get nothing at all.
+
+*The rule per kind of committee.* How the attendance is kept is an exchangeable rule (`CommitteeAttendanceRule`): the executive board, working groups,
+commissions and other committees use a **name list** (the circle that the quorum counts: after the first vote has been opened this is the frozen circle of
+that vote, see "Rule-based committees and the frozen electorate"); the **general assembly** keeps its attendance elsewhere (its circle is the whole
+membership) and the panel says so.
+
+Details, locks and the audit entries: `docs/architecture/governance-committees.adoc`, section "Sitzung in the conference room".
+
+== Motions and resolutions in the Sitzung panel (V1.9.238, wave C)
+
+The agenda section of the "Sitzung" panel shows the motions of the **current** agenda item and, for every other item, only the numbers ("Anträge: n . Beschlüsse: m").
+
+* **Attach a motion.** The lead ("Antrag zuordnen") picks a main motion of the Sitzung's committee that is `REVIEWED` or `POSTPONED` and attaches it to the current item
+  of the open Sitzung. Motions that were already scheduled (also to this very item), withdrawn, resolved or merely submitted, and amendments (they follow their main
+  motion through the normal scheduling), are refused. There is **no way to detach** a motion again in this wave.
+* **Open a vote.** "Abstimmung eröffnen" on a scheduled motion opens a Yes/No vote with a simple majority (50 percent, abstentions do not count). The dialog shows the
+  wording that the resolution will take over **unchanged** (the text is frozen while a vote runs: no amendment can be submitted, `currentText` does not change), a switch
+  "Geheime Abstimmung" (off by default; below 5 ballots the figures are withheld), a warning when the quorum is not met or not yet established (opening is allowed, the
+  resolution then says "nicht beschlussfähig"), and the **counting committee** ("Auszählung durch", at least three of the roster; the present people are ticked, the caller
+  is always in it unless an administrator opens).
+* **Close, approve, count.** The vote can only be closed, approved (two approvals) and counted by the counting committee (or BOARD/ADMIN) -- the Sitzung lead alone cannot.
+  The lead closes in the banner ("Abstimmung schließen"); approving and counting use the existing buttons of the "Abstimmen" panel ("Im Panel Abstimmen auszählen").
+  "Automatic" therefore means: nobody types the resolution, the count writes it, with the number, the wording, the agenda item and whether the committee was quorate at the count.
+* **Only one decision at a time.** While a vote of the Sitzung is open or closed but not yet counted, no second one can be opened here, and the agenda cannot be moved on
+  while one is **open**. A tied vote (`POSTPONED`) leaves the motion attachable again.
+* **Who.** Attaching and opening need LEAD **and** the right to record for the committee (the rights that `scheduleMotion` / `openElection` already require, no new right).
+  A chair without a recording office sees the panel as LEAD but no buttons (`canManageMotions` is false).
+
+Known gaps: a motion cannot be detached from an item; `removeAgendaItem` of an item with an attached motion fails on the foreign key (as before); ending a Sitzung while a vote is
+open is not prevented (counting still writes the resolution).
+
+== The Protokoll draft (V1.9.239, wave D1)
+
+The "Sitzung" panel has a second tab, "Protokoll", for every role of the Sitzung. It shows the draft of the Protokoll: header (committee, date, format, place, begin, chair, minute taker), the confirmed
+attendance (present, excused, absent, represented by, guests), the quorum as the lead established it, and per agenda item the resolutions of the Sitzung and the text written so far. Everything the system filled in
+sits in a marked box ("Aus der Sitzung übernommen") that nobody edits. A resolution of a secret election shows its sums only and says so.
+
+* **Who writes.** The lead (chair, or BOARD/ADMIN, or a recording office) and the minute taker. Everybody else reads the same view without fields or tools.
+* **Text.** Plain text only, up to 8,000 characters per agenda item. It is saved when you leave the field and with "Speichern", never while typing. If somebody saved in the meantime, your text stays as you typed it, the newer
+  text appears read-only above it with "Inzwischen geändert – bitte zusammenführen", and saving again overwrites knowingly. There is no automatic merge.
+* **Tools** under the active item: "Beschluss einfügen" (inserts "Beschluss <number>: <title> – siehe unten." at the cursor), "Aufgabe hinzufügen" (who, what, until when -- only people of the committee; up to
+  50 tasks, 500 characters each), "Textbaustein" (six fixed sentences) and "Zeitmarke" (inserts the server time as `[HH:MM] `).
+* **When.** After the Sitzung was opened; also after it was held, until the Protokoll is finalised (V1.9.240). A cancelled or not yet opened Sitzung can be read, not written.
+* **Items.** An agenda item that carries Protokoll text or a task cannot be removed.
+
+*Since V1.9.240:* finalising, the PDF, corrections, the approval agenda item and the task list exist -- see "Finalising the Protokoll". The older meeting page (`generateProtocolDraft`) is unchanged and still shows attendance and
+resolutions to every signed-in member. *Not verified:* live operation with several participants, real browsers and phones, and the legal validity of a Protokoll.
+
+== Finalising the Protokoll (V1.9.240, wave D2)
+
+When the Sitzung is open, the chair (or the minute taker) can finish the Protokoll: "Protokoll fertigstellen ..." in the "Protokoll" tab of the panel -- and on the Sitzung's own page, because the second
+confirmation and the reading usually happen after the room ended. A dialog states what you confirm ("Damit bestätigen Sie das Protokoll als Sitzungsleitung ...") and how many agenda items have no record.
+
+* **Two confirmations.** The chair and the minute taker each confirm once. Whoever finalises confirms for their own role; the other role sees "Bestätigen". If one person is both, one click is enough; if the Sitzung
+  has no minute taker, the chair alone is enough.
+* **Then nothing changes.** The text, the resolutions, the attendance and the tasks of that version are fixed; the checksum (first twelve characters, "Vollständig kopieren" for all 64) and the PDF
+  ("PDF herunterladen") are shown. All members of the committee can download the PDF.
+* **Corrections** are a new version: "Korrektur anlegen" asks "Was wird korrigiert?" (20 to 1,000 characters), reopens the text for editing and the new version carries the note. Earlier versions stay readable
+  under "Frühere Fassungen". If the other person never confirms, a correction can also be started from a version that is still waiting.
+* **Approval.** The next Sitzung of the committee gets the agenda item "Genehmigung des Protokolls der Sitzung vom ..." once. The chair records "genehmigt", "mit Korrekturen genehmigt" or
+  "nicht genehmigt"; the result appears as a badge in the agenda.
+* **Tasks.** Under "Meine Aufgaben aus Protokollen" on the Sitzungen page everybody sees the tasks given to them in confirmed Protokolle and can tick them off; overdue and open tasks also appear on the
+  dashboard. A task dropped by a correction disappears.
+
+This is a simple electronic confirmation in Lapis Cloud, **not** a qualified signature. The PDF is German only, and characters outside Latin-1 (Cyrillic, Georgian) print as "?"; the checksum is not affected.
+*Not verified:* live operation with several people, real browsers and phones, the PDF in real viewers, and the legal validity of the confirmation.
+
 == What is not done
 
 Member counts need one request per committee (a server batch RPC would be the honest fix); the "more than half" quorum option is a later server wave;

@@ -92,6 +92,15 @@ class DirectMessageAttachmentStoreTripwireTest :
                     "listConversationPage",
                     "markConversationRead",
                     "sendDirectMessageWithAttachments",
+                    // V1.9.237 "Neue Nachricht" -- appended in this order.
+                    "searchMessageRecipients",
+                    "listMessageGroups",
+                    "sendGroupMessage",
+                    "blockMessageSender",
+                    "getRecipientSearchVisibility",
+                    "setRecipientSearchVisibility",
+                    "listMessageBlocks",
+                    "unblockMessageSender",
                 )
         }
 

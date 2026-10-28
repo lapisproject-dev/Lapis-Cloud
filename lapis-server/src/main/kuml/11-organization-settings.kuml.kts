@@ -583,5 +583,12 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "HIDDEN_UNTIL_DEADLINE"
             stereotype("Column") { "columnName" to "tender_default_visibility"; "sqlType" to "VARCHAR(21)" }
         }
+        // Welle V1.9.240 "Protokoll fertigstellen" (V130__meeting_protocol_versions.sql). How a finalised Protokoll is confirmed
+        // (APP_CONFIRMATION | PLATFORM_SEAL | QES), NOT NULL, default APP_CONFIRMATION. Only APP_CONFIRMATION is ever used; the other two are hooks.
+        // NOT part of the generic updateOrganizationSettings write-set and not in OrganizationSettingsDto.
+        attribute(name = "protocolConfirmationMode", type = "String") {
+            defaultValue = "APP_CONFIRMATION"
+            stereotype("Column") { "columnName" to "protocol_confirmation_mode"; "sqlType" to "VARCHAR(16)" }
+        }
     }
 }

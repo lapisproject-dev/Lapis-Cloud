@@ -314,6 +314,10 @@ classDiagram(name = "Foundation") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "lupabb_missing_since" }
         }
+        // V1.9.237 "Neue Nachricht" -- see 78-direct-message-block.kuml.kts and V128. FALSE hides the member from the NAME search for new messages.
+        attribute(name = "dmDiscoverable", type = "Boolean") {
+            stereotype("Column") { "columnName" to "dm_discoverable" }
+        }
     }
 
     association(source = membershipTier, target = member, id = "assoc-member-membership-tier") {

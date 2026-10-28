@@ -104,7 +104,15 @@ enum class MeetingFormat { IN_PERSON, ONLINE, HYBRID }
 enum class MeetingStatus { PLANNED, HELD, CANCELLED }
 
 @Serializable
-enum class AttendanceStatus { PRESENT, EXCUSED, UNEXCUSED, REPRESENTED }
+enum class AttendanceStatus {
+    PRESENT,
+    EXCUSED,
+    UNEXCUSED,
+    REPRESENTED,
+
+    /** V1.9.236 -- a person outside the electorate who sits in on the Sitzung. Never counted by the quorum. Appended LAST. */
+    GUEST,
+}
 
 @Serializable
 enum class ResolutionStatus { ADOPTED, REJECTED, POSTPONED }
@@ -352,6 +360,8 @@ data class AgendaItemDto(
     val description: String?,
     val presenterMemberId: String?,
     val presenterDisplayName: String?,
+    /** V1.9.240 -- set only on the "approve the Protokoll of the last Sitzung" item; `null` on every other item. */
+    val protocolApproval: ProtocolApprovalDto? = null,
 )
 
 @Serializable

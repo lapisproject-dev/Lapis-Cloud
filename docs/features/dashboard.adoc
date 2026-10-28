@@ -93,6 +93,18 @@ A priority of 300 is "urgent", 200 "action", 100 "information". `LIMIT` is 50 pe
 |`idx_committee_membership_member`, `idx_meeting_committee`
 |100
 
+|`meeting.protocolTaskOverdue`
+|same
+|Own tasks of the newest CONFIRMED version of a Protokoll that are not done and past their due date; count, earliest due date, never a text or an object id
+|`idx_protocol_version_task_assignee`
+|300
+
+|`meeting.protocolTaskOpen`
+|same
+|The other open own tasks of confirmed Protokolle; 200 if one is due within 7 days, else 100
+|`idx_protocol_version_task_assignee`
+|200 / 100
+
 |`crowdfunding.ownDecided`
 |same
 |Own project approved or rejected within 14 days

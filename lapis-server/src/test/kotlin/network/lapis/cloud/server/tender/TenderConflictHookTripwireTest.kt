@@ -56,7 +56,17 @@ class TenderConflictHookTripwireTest :
         }
 
         test("an election and a systemic consensus refuse the award motion of a tender") {
-            ("requireNotTenderAwardMotion(aId)" in bodyOf(code("ElectionService.kt"), "openElection")) shouldBe true
+            // V1.9.238: the body of openElection moved UNCHANGED to ElectionOpening.kt (openElectionLocked); ElectionService.openElection delegates to it
+            ("openElectionLocked(" in bodyOf(code("ElectionService.kt"), "openElection")) shouldBe true
+            val opening = code("ElectionOpening.kt")
+            // the refusal lives in requireElectionPathAvailable, which openElectionLocked calls (and the Sitzung mode's attach shares)
+            val locked = opening.substringAfter("fun openElectionLocked(").substringBefore("fun appointElectionBoardLocked(")
+            ("requireElectionPathAvailable(" in locked) shouldBe true
+            (
+                "requireNotTenderAwardMotion(motionId)" in
+                    opening.substringAfter("fun requireElectionPathAvailable(").substringBefore("fun openElectionLocked(")
+            ) shouldBe
+                true
             ("requireNotTenderAwardMotion(aId)" in bodyOf(code("SystemicConsensusService.kt"), "openSystemicConsensus")) shouldBe true
         }
 

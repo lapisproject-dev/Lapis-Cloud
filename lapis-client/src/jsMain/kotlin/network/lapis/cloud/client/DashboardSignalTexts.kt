@@ -61,6 +61,14 @@ internal object DashboardSignalTexts {
                     gettext("Eine Abstimmung läuft, Sie haben noch nicht abgestimmt")
                 }
             DashboardReasonKeys.MEETING_UPCOMING -> meetingUpcoming(many, n, date)
+            DashboardReasonKeys.MEETING_PROTOCOL_TASK_OVERDUE ->
+                if (many) {
+                    gettext("%1 Aufgaben aus Protokollen sind überfällig", n)
+                } else {
+                    gettext("Eine Aufgabe aus Protokollen ist überfällig")
+                }
+            DashboardReasonKeys.MEETING_PROTOCOL_TASK_OPEN ->
+                if (many) gettext("%1 offene Aufgaben aus Protokollen", n) else gettext("Eine offene Aufgabe aus Protokollen")
             DashboardReasonKeys.CROWDFUNDING_OWN_DECIDED ->
                 if (many) {
                     gettext("Über %1 Ihrer Crowdfunding-Projekte wurde entschieden", n)

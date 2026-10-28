@@ -70,6 +70,16 @@ class DirectMessageAttachmentsUnavailableException(
     override val message: String = "Attachments are not available",
 ) : AbstractServiceException()
 
+/**
+ * V1.9.236 -- the agenda marker of a running meeting was moved by someone else between the caller's reading and its move. A distinct
+ * type because Kilua RPC transmits only the exception TYPE (see [MemberEmailInUseException]): the client could not tell this stale-view
+ * case from any other [ConflictException] by inspecting the message, which is always empty on the JS side.
+ */
+@RpcServiceException
+class AgendaMovedMeanwhileException(
+    override val message: String = "agenda moved meanwhile",
+) : AbstractServiceException()
+
 @RpcServiceException
 class BadRequestException(
     override val message: String,
@@ -988,4 +998,30 @@ class MailingListNotDeletableException(
 @RpcServiceException
 class MailingListSendingInProgressException(
     override val message: String = "The mailing list is being sent",
+) : AbstractServiceException()
+
+// ---- V1.9.237: "Neue Nachricht". Fixed texts, never an id or a name (no existence oracle). Kilua RPC transports the type, not the text. ----
+
+/** The recipient cannot be written to: unknown, malformed, not an organization member, anonymized or blocked -- ALL answered identically. */
+@RpcServiceException
+class DirectMessageRecipientUnavailableException(
+    override val message: String = "This recipient is not available",
+) : AbstractServiceException()
+
+/** The group is unknown, inactive, not addressable or not one of the caller's groups -- ALL answered identically. */
+@RpcServiceException
+class DirectMessageGroupUnavailableException(
+    override val message: String = "This group is not available",
+) : AbstractServiceException()
+
+/** The group has more recipients than one send may reach ([network.lapis.cloud.shared.domain.DirectMessageRules.MAX_RECIPIENTS_PER_SEND]). */
+@RpcServiceException
+class DirectMessageGroupTooLargeException(
+    override val message: String = "This group is too large for one message",
+) : AbstractServiceException()
+
+/** Too many messages or searches in a short time. */
+@RpcServiceException
+class DirectMessageRateLimitedException(
+    override val message: String = "Too many messages in a short time",
 ) : AbstractServiceException()

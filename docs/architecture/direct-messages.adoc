@@ -176,6 +176,71 @@ sent attachments stay with the recipient, as the texts do; received attachments 
 Carpool contact (`CarpoolService.contactAuthor`), the member finder and the event-registration notifier keep calling `insertDirectMessage` and carry no files
 (`CarpoolMessageDmBoundaryTripwireTest`). There is no virus scan; PDF JavaScript and image polyglots are not detected -- the client says so ("Lapis prüft Anhänge nicht auf Viren.").
 
+== Composing a new message (V1.9.237 "Neue Nachricht")
+
+The Nachrichten page gets a header action "Neue Nachricht" (`MessagesScreen.kt`, `DirectMessageComposeView.kt`). The page has no right-hand pane, so the compose view *replaces
+the list area* (in memory; `?view=new` opens it directly and is kept with `replaceState`, no id ever goes into the address). Back is "Zur Liste".
+
+=== Person
+
+A name search (`searchMessageRecipients`): at least 3 and at most 60 characters after trimming (anything else answers an empty list, never an error and never an echo), a 300 ms debounce
+on the client and no call below 3 characters. Only `display_name` is searched, case-insensitive, with `%`/`_` escaped (`containsLikePattern`; without it `%%%` would list the whole membership).
+At most 10 hits, ordered by name then id. Excluded: the caller, non-members, anonymized members, members who switched "Auffindbarkeit" off (`member.dm_discoverable`, default true), and everybody
+blocked in either direction (direct-message block or finder block). A hidden member looks exactly like a name that does not exist. `hasConversation` marks people the caller already
+exchanged messages with. After choosing, a chip and the same form as a reply appear, including attachments; changing the recipient discards the drafts (pending uploads are bound to
+the recipient).
+
+=== Group
+
+`listMessageGroups` returns the committees the caller may write to: active, not the general assembly, and either the caller is a member *today* or the caller is BOARD/ADMIN. Membership is never
+rebuilt: `eligibleMemberIds` / `isCommitteeEligible` cover manual committees (seat rows with `since`/`until`) *and* rule committees (no seat rows). A rule that no longer parses hides
+the committee; it neither breaks the list nor leaks as an error. `sendGroupMessage` writes **one individual message per current member** (ACTIVE, not anonymized, the sender
+excluded), text only, in one transaction with one shared `sentAt`. More than 50 recipients (`DirectMessageRules.MAX_RECIPIENTS_PER_SEND`) is refused with nothing written.
+A recipient who blocked the sender is skipped silently and the sender sees the same confirmation (`memberCount` of the list does not subtract blocks, the result carries no count).
+
+Lock order of the send: the sender's member row (`forMemberUpdate`, serializes two parallel group sends), recipients in ascending id order, the audit entry LAST (`AuditLogRecorder` locks the chain-state row).
+The group rule and the recipients are read again under the lock.
+
+=== One answer for every refusal (no oracle)
+
+An unknown, malformed, non-member, anonymized or blocked recipient is ONE `DirectMessageRecipientUnavailableException` with a fixed text and no id. Before V1.9.237 an unknown id
+answered `NotFoundException("Member <id> not found")` and an unreceivable one a `ConflictException`, which let a caller probe membership. The rule lives in
+`directMessageRecipientRefusal` and runs for all five entry points: `sendDirectMessage`, `sendDirectMessageWithAttachments` (and the upload route), `CarpoolService.contactAuthor`,
+`MemberFinderService.contactConnection` and the event-registration notifier. The member lookup and both block lookups always run, so the amount of work is the same for every reason.
+Writing to oneself stays a `ConflictException`. **Behaviour change:** callers that used to see NotFound/Conflict for the recipient now get the typed exception (mapped centrally in
+`AppState.typedRefusalText`). The event-registration notifier swallows every exception (it logs only the class name), so a block also suppresses the registration message to the event
+creator -- the e-mail notice still goes out.
+
+=== Blocking
+
+"Blockieren" in the header of an open conversation (plain text button, inline confirmation "Abbrechen" / "Blockieren"). `blockMessageSender` is idempotent, an unknown or malformed id is a silent no-op
+(always `Unit`), and nothing tells the blocked person. The blocked person can no longer write to the blocker and the blocker cannot write to them (a block hides the pair from each other).
+Lifting: "Blockierte Personen" at the end of the page (`listMessageBlocks` / `unblockMessageSender`, own blocks only; a foreign or unknown id is a uniform `NotFoundException`). A name is shown only
+where a conversation exists, otherwise a neutral "Mitglied": a block that came from a finder request must not reveal an identity.
+
+*Why a table of its own and not `member_finder_block`.* The finder table is emptied when the finder switch goes off, can only be managed while the switch is on, carries no names and belongs to the Art. 9
+finder data (excluded from the backup, nothing audited). A direct-message block must survive all of that. `direct_message_block` (V128) is written only by `DirectMessageBlockStore`
+(`DirectMessageComposeTripwireTest`). The DM rule *additionally* respects finder blocks in either direction (read only), but they disappear when the finder switch goes off.
+
+=== Limits
+
+`DirectMessageRateLimiter` (in process, bounded map, **resets on restart and is per JVM**): 30 sends per 10 minutes and 150 recipients per hour per member (a group of 50 counts as 50), 60 searches per
+minute, 30 blocks per hour. A check records the attempt when it allows it, so a send that the recipient rule refuses afterwards still counts; a refused attempt is not recorded. It is never called
+inside a `transaction {}` (Exposed retries the block on an SQLException and would count twice). Carpool and finder keep their own limiters; the event notifier is a system path and exempt.
+
+=== Audit, backup, DSGVO
+
+* Audit: only `DIRECT_MESSAGE_GROUP_SEND` (`entityId` = the committee id, snapshot `{"deliveredCount":n}`, no text, name or recipient). Blocks and the visibility switch are *not* audited -- the audit chain
+  cannot be erased, so a block between two people would survive an erasure request (same rule as the finder).
+* Backup: `direct_message_block` stays *in* the organization backup (it is not in `EXCLUDED_TABLES`). Direct messages are backed up too; a restore without the blocks would silently lift the protection.
+* DSGVO (`CommunicationPersonalData`): the export lists the blocks the member *set* (and the visibility), never blocks against the member; erasure deletes the blocks on both sides.
+* The direct-message path sends no e-mail, so the mail relay is not involved.
+
+=== Not in this wave
+
+Several recipients at once, a group label, group attachments, writing to the whole organisation, reporting a message, telling same-named members apart in the search (the list shows the name
+and "bereits im Gespräch" only), persistent limits.
+
 == Personal data
 
 Message text and the names of both sides are personal data. In the new files they reach the screen only through `untrustedDiv`/`textCell`/

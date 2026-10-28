@@ -236,6 +236,10 @@ classDiagram(name = "AuditLog") {
         literal(name = "LUPABB_SYNC_RUN")
         literal(name = "LUPABB_SYNC_CONFIG")
         literal(name = "MEETING_EVENT_LINK")
+        // Welle V1.9.236 "Sitzungsmodus im Konferenzraum" -- opened / quorum established / agenda moved / attendance adopted; ids, enums and counts only; 15 chars.
+        literal(name = "MEETING_SESSION")
+        // Welle V1.9.237 "Neue Nachricht" -- one entry per group message (entityId = the committee id, snapshot = the delivered count only); 25 chars.
+        literal(name = "DIRECT_MESSAGE_GROUP_SEND")
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

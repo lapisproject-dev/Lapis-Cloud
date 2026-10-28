@@ -189,6 +189,8 @@ class AuditLogSchemaDriftTest :
                             "LUPABB_SYNC_RUN",
                             "LUPABB_SYNC_CONFIG",
                             "MEETING_EVENT_LINK",
+                            "MEETING_SESSION",
+                            "DIRECT_MESSAGE_GROUP_SEND",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

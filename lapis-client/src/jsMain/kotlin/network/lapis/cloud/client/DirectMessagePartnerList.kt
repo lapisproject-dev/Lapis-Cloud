@@ -12,7 +12,9 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
+import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.DirectMessageDto
 import network.lapis.cloud.shared.domain.DirectMessagePartnerDto
 import network.lapis.cloud.shared.rpc.IDirectMessageService
@@ -54,6 +56,8 @@ internal fun renderDirectMessagePartnerList(
         rpcService<IDirectMessageService>().sendDirectMessageWithAttachments(recipient, body, attachmentIds)
     },
     attachmentHttp: DirectMessageAttachmentHttp = DirectMessageHttp,
+    openPartnerOnLoad: String? = null,
+    blockSender: suspend (String) -> Unit = { rpcService<IDirectMessageService>().blockMessageSender(it) },
 ) {
     val heading = H2(content = tr("Nachrichten"), className = "h5")
     heading.setAttribute("id", PARTNER_LIST_HEADING_ID)
@@ -64,7 +68,8 @@ internal fun renderDirectMessagePartnerList(
         onInsert = { vnode -> if (focusHeading) focusAndScrollIntoView(vnode.elm as? HTMLElement) },
     )
     var firstSettled = false
-    var openPartnerId: String? = null
+    // V1.9.237: after "Neue Nachricht" the conversation just written is open on arrival (in-memory state; no id travels in the URL).
+    var openPartnerId: String? = openPartnerOnLoad
     val reloadedAfterMark = mutableSetOf<String>()
     val focusReplyAfterReload = ReplyFocusRequest()
     // V1.9.233: the composer's attachments live HERE, per partner -- a reload of the list rebuilds the form, and pending uploads must
@@ -95,6 +100,7 @@ internal fun renderDirectMessagePartnerList(
                     reloadedAfterMark = reloadedAfterMark,
                     focusReplyAfterReload = focusReplyAfterReload,
                     reload = { section.reload() },
+                    blockSender = blockSender,
                     replySend = replySend,
                     attachmentsFor = { id ->
                         // A first build (also after a page reload) asks the server for pending uploads this page has lost track of.
@@ -132,6 +138,7 @@ private fun renderPartnerRows(
     reloadedAfterMark: MutableSet<String>,
     focusReplyAfterReload: ReplyFocusRequest,
     reload: () -> Unit,
+    blockSender: suspend (String) -> Unit,
     replySend: suspend (String, String, List<String>) -> DirectMessageDto,
     attachmentsFor: (String) -> DmComposerAttachments,
 ) {
@@ -148,6 +155,13 @@ private fun renderPartnerRows(
     fun open(partner: DirectMessagePartnerDto) {
         val row = rows[partner.partnerId] ?: return
         row.toggle.setAttribute("aria-expanded", "true")
+        row.body.blockControl(
+            block = { guarded { blockSender(partner.partnerId) } != null },
+            onBlocked = {
+                setOpenPartnerId(null)
+                reload()
+            },
+        )
         row.body.conversationView(
             otherMemberId = partner.partnerId,
             knownUnread = partner.unreadCount,
@@ -210,4 +224,49 @@ private fun focusAndScrollIntoView(element: HTMLElement?) {
     if (element == null) return
     element.focus()
     element.asDynamic().scrollIntoView(js("({ block: 'start', behavior: 'auto' })"))
+}
+
+/**
+ * V1.9.237 -- "Blockieren" in the header of an open conversation: a plain text button (no warning colour), then an inline confirmation in the
+ * R27 order -- "Abbrechen" on the left, "Blockieren" on the right. A blocked person can no longer write to the viewer (the server answers them
+ * with the same sentence as for an unknown recipient). Lifting is on this page under "Blockierte Personen".
+ */
+internal fun SimplePanel.blockControl(
+    block: suspend () -> Boolean,
+    onBlocked: () -> Unit,
+) {
+    val host = simplePanel()
+    lateinit var showButton: () -> Unit
+    showButton = {
+        host.removeAll()
+        val open = Button(tr("Blockieren"), style = ButtonStyle.LINK)
+        open.addCssClasses("p-0 ms-auto")
+        open.setAttribute("type", "button")
+        open.onClick {
+            host.removeAll()
+            host
+                .div(
+                    tr(
+                        "Diese Person kann Ihnen danach nicht mehr schreiben. Sie können die Sperre unten auf dieser Seite wieder aufheben.",
+                    ),
+                    className = "text-muted small mb-1",
+                ).setAttribute("role", "status")
+            val cancel = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.OUTLINESECONDARY, small = true)
+            val confirm = newActionButton(ActionIcon.REMOVE, tr("Blockieren"), ButtonStyle.OUTLINEPRIMARY, small = true)
+            cancel.onClick { showButton() }
+            confirm.onClick {
+                AppScope.launch {
+                    if (block()) {
+                        notifySuccess(tr("Die Person wurde blockiert."))
+                        onBlocked()
+                    }
+                }
+            }
+            val buttons = host.hPanel(spacing = 8)
+            buttons.add(cancel)
+            buttons.add(confirm)
+        }
+        host.add(open)
+    }
+    showButton()
 }

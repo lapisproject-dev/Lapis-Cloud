@@ -38,6 +38,9 @@ internal enum class ConferenceControlSlot {
     ROSTER,
     CHAT,
     VOTE,
+
+    /** V1.9.236 -- the Sitzung panel (agenda, quorum, attendance); only built for a member of the organization. */
+    MEETING,
     VIEW,
     RECORD,
     STREAM,
@@ -56,7 +59,7 @@ internal fun conferenceControlGroup(slot: ConferenceControlSlot): Int =
         ConferenceControlSlot.SETTINGS -> 0
         ConferenceControlSlot.MIC, ConferenceControlSlot.CAMERA, ConferenceControlSlot.SCREEN -> 1
         ConferenceControlSlot.HAND, ConferenceControlSlot.REACT -> 2
-        ConferenceControlSlot.ROSTER, ConferenceControlSlot.CHAT, ConferenceControlSlot.VOTE -> 3
+        ConferenceControlSlot.ROSTER, ConferenceControlSlot.CHAT, ConferenceControlSlot.VOTE, ConferenceControlSlot.MEETING -> 3
         ConferenceControlSlot.VIEW -> 4
         ConferenceControlSlot.RECORD, ConferenceControlSlot.STREAM -> 5
         ConferenceControlSlot.MORE -> 6
@@ -82,6 +85,7 @@ internal val CONFERENCE_OVERFLOW_ORDER: List<ConferenceControlSlot> =
         ConferenceControlSlot.VIEW,
         ConferenceControlSlot.REACT,
         ConferenceControlSlot.VOTE,
+        ConferenceControlSlot.MEETING,
         ConferenceControlSlot.SCREEN,
         ConferenceControlSlot.ROSTER,
         ConferenceControlSlot.STREAM,
@@ -279,6 +283,9 @@ internal fun Container.conferenceControlButton(
 
 /** V1.9.115: the "Ansicht" button of the bar (gallery / speaker large / pin / screen share large) -- built by the bar's own icon-only factory. */
 internal fun Container.conferenceViewButton(): Button = conferenceControlButton(ActionIcon.VIEW_GALLERY, tr("Ansicht"))
+
+/** V1.9.236: the "Sitzung" toggle of the bar (opens the Sitzung panel) -- built by the bar's own icon-only factory. */
+internal fun Container.conferenceMeetingButton(): Button = conferenceControlButton(ActionIcon.MEETING_SESSION, tr("Sitzungsmodus"))
 
 /** V1.9.127: the "Reaktion" button of the bar (opens the menu of the five reactions) -- built by the bar's own icon-only factory. */
 internal fun Container.conferenceReactButton(): Button = conferenceControlButton(ActionIcon.REACT, tr("Reaktion"))

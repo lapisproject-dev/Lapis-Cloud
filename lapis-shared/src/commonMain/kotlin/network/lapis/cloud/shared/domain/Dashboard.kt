@@ -98,6 +98,8 @@ object DashboardReasonKeys {
     const val SURVEY_NOT_ANSWERED = "survey.notAnswered"
     const val MOTION_VOTE_OPEN = "motion.voteOpen"
     const val MEETING_UPCOMING = "meeting.upcoming"
+    const val MEETING_PROTOCOL_TASK_OVERDUE = "meeting.protocolTaskOverdue"
+    const val MEETING_PROTOCOL_TASK_OPEN = "meeting.protocolTaskOpen"
     const val CROWDFUNDING_OWN_DECIDED = "crowdfunding.ownDecided"
     const val EVENTS_NEXT_REGISTERED = "events.nextRegistered"
     const val CONTRIBUTIONS_OVERDUE = "contributions.overdue"
@@ -121,6 +123,8 @@ object DashboardReasonKeys {
             SURVEY_NOT_ANSWERED,
             MOTION_VOTE_OPEN,
             MEETING_UPCOMING,
+            MEETING_PROTOCOL_TASK_OVERDUE,
+            MEETING_PROTOCOL_TASK_OPEN,
             CROWDFUNDING_OWN_DECIDED,
             EVENTS_NEXT_REGISTERED,
             CONTRIBUTIONS_OVERDUE,

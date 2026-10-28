@@ -607,6 +607,10 @@ fun decodeAuditSnapshot(
             AuditEntityType.LUPABB_SYNC_CONFIG -> null
             // V1.9.227 -- MeetingEventLinkSnapshot: ids and enums only; raw-text display.
             AuditEntityType.MEETING_EVENT_LINK -> null
+            // V1.9.236 -- MeetingSessionAuditSnapshot: ids, enums and counts only; raw-text display.
+            AuditEntityType.MEETING_SESSION -> null
+            // V1.9.237 -- DirectMessageGroupSendSnapshot: the delivered count only; raw-text display.
+            AuditEntityType.DIRECT_MESSAGE_GROUP_SEND -> null
         }
     }.getOrNull()
 

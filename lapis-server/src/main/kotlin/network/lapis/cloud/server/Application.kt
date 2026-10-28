@@ -60,9 +60,11 @@ import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
 import network.lapis.cloud.server.carpool.SmtpCarpoolNoticeMailer
 import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.clientversion.ClientShell
+import network.lapis.cloud.server.conference.CachedConferenceConnectedMembers
 import network.lapis.cloud.server.conference.ConferenceAudioGrantState
 import network.lapis.cloud.server.conference.ConferenceAudioPolicyReconciler
 import network.lapis.cloud.server.conference.ConferenceConfig
+import network.lapis.cloud.server.conference.ConferenceConnectedMembers
 import network.lapis.cloud.server.conference.ConferenceHandQueueReconciler
 import network.lapis.cloud.server.conference.ConferenceHandQueueState
 import network.lapis.cloud.server.conference.ConferenceNotesState
@@ -197,6 +199,7 @@ import network.lapis.cloud.server.membermap.PmtilesBasemap
 import network.lapis.cloud.server.membermap.PostalCodeCentroidIndex
 import network.lapis.cloud.server.memberphoto.MemberPhotoStorage
 import network.lapis.cloud.server.messaging.DirectMessageAttachmentPendingPoller
+import network.lapis.cloud.server.messaging.DirectMessageRateLimiter
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningPoller
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningService
@@ -254,6 +257,7 @@ import network.lapis.cloud.server.routes.registerMailingAttachmentRoutes
 import network.lapis.cloud.server.routes.registerMailingTrackingRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerMcpRoutes
+import network.lapis.cloud.server.routes.registerMeetingProtocolRoutes
 import network.lapis.cloud.server.routes.registerMemberCardPublicRoutes
 import network.lapis.cloud.server.routes.registerMemberCardRoutes
 import network.lapis.cloud.server.routes.registerMemberMapRoutes
@@ -336,6 +340,7 @@ import network.lapis.cloud.server.rpc.LupaBbSyncService
 import network.lapis.cloud.server.rpc.MailDeliveryStatusService
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.McpAccessService
+import network.lapis.cloud.server.rpc.MeetingProtocolService
 import network.lapis.cloud.server.rpc.MemberAnniversaryService
 import network.lapis.cloud.server.rpc.MemberEmailChangeService
 import network.lapis.cloud.server.rpc.MemberFamilyService
@@ -360,6 +365,7 @@ import network.lapis.cloud.server.rpc.PollService
 import network.lapis.cloud.server.rpc.PostalMailService
 import network.lapis.cloud.server.rpc.PriceOracleService
 import network.lapis.cloud.server.rpc.PrivilegedActionRpcService
+import network.lapis.cloud.server.rpc.ProtocolDraftService
 import network.lapis.cloud.server.rpc.PulpitRecordingService
 import network.lapis.cloud.server.rpc.RegionalChapterEnforcementConfig
 import network.lapis.cloud.server.rpc.RegionalChapterService
@@ -449,6 +455,7 @@ import network.lapis.cloud.shared.rpc.ILupaBbSyncService
 import network.lapis.cloud.shared.rpc.IMailDeliveryStatusService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMcpAccessService
+import network.lapis.cloud.shared.rpc.IMeetingProtocolService
 import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
 import network.lapis.cloud.shared.rpc.IMemberEmailChangeService
 import network.lapis.cloud.shared.rpc.IMemberFamilyService
@@ -472,6 +479,7 @@ import network.lapis.cloud.shared.rpc.IPollService
 import network.lapis.cloud.shared.rpc.IPostalMailService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import network.lapis.cloud.shared.rpc.IPrivilegedActionService
+import network.lapis.cloud.shared.rpc.IProtocolDraftService
 import network.lapis.cloud.shared.rpc.IPulpitRecordingService
 import network.lapis.cloud.shared.rpc.IReceivableDunningService
 import network.lapis.cloud.shared.rpc.IRegionalChapterService
@@ -1755,6 +1763,8 @@ internal fun Application.module(
     // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- module-scoped singletons (EventService is built per RPC call, so a
     // per-construction limiter would be empty on every request). The conference states are the SAME instances the conference services
     // use, so closing an event room clears the real whiteboard / notes / released-microphone state.
+    // V1.9.236 -- one process-wide cache of who is connected to which room (registerService builds a service per call, a per-call cache would never hit).
+    val conferenceConnectedMembers: ConferenceConnectedMembers = CachedConferenceConnectedMembers(liveKit = liveKitAdminClient)
     val eventOnline =
         EventOnlineServices.create(
             config = conferenceConfig,
@@ -2361,7 +2371,9 @@ internal fun Application.module(
         registerService(IMailDeliveryStatusService::class) { call ->
             MailDeliveryStatusService(call = call, budget = mailBudgetStore, outboxEnabled = mailOutbox != null)
         }
-        registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
+        // Welle V1.9.237 "Neue Nachricht" -- ONE limiter for the whole application (the services are built per call); resets on restart.
+        val directMessageRateLimiter = DirectMessageRateLimiter()
+        registerService(IDirectMessageService::class) { call -> DirectMessageService(call = call, rateLimiter = directMessageRateLimiter) }
         registerService(ICarpoolService::class) { call -> CarpoolService(call = call, deps = carpoolDeps) }
         // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)".
         registerService(IRegionalChapterService::class) { call ->
@@ -2388,7 +2400,14 @@ internal fun Application.module(
                 consentRevokeRateLimiter = publicRankingConsentRevokeRateLimiter,
             )
         }
-        registerService(IGovernanceService::class) { call -> GovernanceService(call = call, eventOnline = eventOnline) }
+        registerService(IGovernanceService::class) { call ->
+            GovernanceService(
+                call = call,
+                eventOnline = eventOnline,
+                connectedMembers = conferenceConnectedMembers,
+                secretBallotStreamGuard = secretBallotStreamGuard,
+            )
+        }
         registerService(IElectionService::class) { call -> ElectionService(call = call, streamGuard = secretBallotStreamGuard) }
         registerService(IPollService::class) { call -> PollService(call = call) }
         registerService(
@@ -2847,10 +2866,20 @@ internal fun Application.module(
         registerService(IPartyReportService::class) { call ->
             PartyReportService(call = call, writeRateLimiter = partgReportWriteRateLimiter)
         }
-        // V1.9.226 LupaBB member master-data sync (ADMIN, manual). THIS is the LAST registerService (after IPartyReportService; Kilua numbers
-        // routes by declaration order). New methods of the interface go to its end, never in between.
+        // V1.9.226 LupaBB member master-data sync (ADMIN, manual). Second to last since V1.9.239 (the Protokoll draft is the LAST
+        // registerService; Kilua numbers routes by declaration order). New methods of the interface go to its end, never in between.
         registerService(ILupaBbSyncService::class) { call ->
             LupaBbSyncService(call = call, runtime = lupaBbSyncRuntime)
+        }
+        // V1.9.239 Protokoll draft of a Sitzung (Welle D1). Second to last registerService (Kilua numbers routes by declaration order).
+        // New methods of the interface go to its end, never in between.
+        registerService(IProtocolDraftService::class) { call ->
+            ProtocolDraftService(call = call)
+        }
+        // V1.9.240 Protokoll fertigstellen (Welle D2). THIS is the LAST registerService (after IProtocolDraftService). New methods of the
+        // interface go to its end, never in between.
+        registerService(IMeetingProtocolService::class) { call ->
+            MeetingProtocolService(call = call, storageRoot = documentStorageRoot)
         }
     }
 
@@ -2864,6 +2893,7 @@ internal fun Application.module(
             call.respondText(Greeting.message())
         }
         registerDocumentRoutes(documentStorageRoot)
+        registerMeetingProtocolRoutes(documentStorageRoot)
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
         // V1.9.232: attachments on mailing messages; its own upload budget (per member), BOARD/ADMIN only.
         registerMailingAttachmentRoutes(

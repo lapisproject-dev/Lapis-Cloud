@@ -6,6 +6,193 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.43.0] — 2026-10-28
+
+Feature release on top of `[0.42.0]` (V1.9.236 to V1.9.240, five numbered waves, plus a build setting and a client fix). Four additive migrations: **`V127`** (Sitzung in the conference room: opening, quorum and current agenda item on `meeting`, attendance status `GUEST`), **`V128`** ("Neue Nachricht": `member.dm_discoverable`, table `direct_message_block`), **`V129`** (Protokoll draft: `protocol_draft`, `protocol_draft_block`, `protocol_draft_task`) and **`V130`** (finalised Protokoll versions, their confirmations and tasks); the schema goes from `V126` to **`V130`**. **No new environment variable and no new dependency.** Two new RPC services (`IProtocolDraftService`, four methods, and `IMeetingProtocolService`, eight methods; now the last two `registerService` calls, `IMeetingProtocolService` last), appended methods on `IGovernanceService` (six in V1.9.236, two in V1.9.238) and `IDirectMessageService` (eight), and one new route `GET /api/meeting-protocol/{versionId}/pdf`. **Behaviour changes first:** (1) **a recipient who cannot be written to** (unknown, malformed id, not a member, anonymized, blocked) is now ONE `DirectMessageRecipientUnavailableException` without an id, on all five entry points (direct message, attachment send and upload route, carpool contact, finder contact, event-registration notifier); before, an unknown id answered `NotFoundException("Member <id> not found")` and an unreceivable one `ConflictException`, a membership oracle; (2) **a finder block now also blocks direct messages**, in both directions; the event-registration notifier then stays silent (the e-mail notice still goes out); (3) **every active member is findable in the recipient search of "Neue Nachricht" by default**, also existing members (`dm_discoverable` defaults to true); the member switches it off at the end of the Nachrichten page; (4) **a conference room bound to a Sitzung gets a "Sitzung" panel** (opening, attendance, quorum, agenda guidance, motions per agenda item, the Protokoll); the chair establishes the quorum, the app does not judge statutes; (5) **the result of a vote in the room becomes a resolution automatically**, through the existing counting path (secret votes keep their guarantees: sums only, withheld below the anonymity threshold); (6) **a finalised Protokoll is locked**: the draft shows the snapshot, `removeAgendaItem` refuses items that carry Protokoll text or a task, and the generic document routes refuse a new version of a Protokoll document (409); corrections are a new version with a note; (7) **the next Sitzung of a committee gets the agenda item "Genehmigung des Protokolls der Sitzung vom ..."** automatically. New: the Sitzung panel and the quorum (V1.9.236), motions and resolutions from votes (V1.9.238), the Protokoll draft with pre-filled header, attendance, quorum and resolutions (V1.9.239), finalising with a PDF, a SHA-256 hash and a confirmation page, tasks under "Für Sie" (V1.9.240), and "Neue Nachricht" to a person or a committee with blocking and a rate limiter (V1.9.237). Also: the Gradle test worker heap is raised to 1 GB (`maxHeapSize`; the zip-bomb spec died with an `OutOfMemoryError` in the full run), and the status dialog of the member administration no longer shows the raw `###KvI18nS###` marker (it joined several `tr()` sentences; they come from `gettext()` now). **Known limitations:** the Protokoll confirmation is a **simple electronic confirmation, not a qualified signature and not PAdES**; the PDF texts are German only and characters outside Latin-1 print as `?`; names inside a stored snapshot and the PDF are **not** anonymised when a member is erased; `getMeetingDetail`, `getAttendance` and `generateProtocolDraft` of `IGovernanceService` still show attendance and resolutions to every signed-in member (the "committee members only" rule of the new draft does not extend to them); there is **no virus scanner** for direct message attachments (unchanged). Operator actions: the usual backup and the image tag; nothing else. **Not verified:** operation with several live participants in a real room (opening, attendance, quorum, votes, the Protokoll), real browsers and phones, Safari, a screen reader, a real LiveKit server for the stream pause of a secret vote, how the PDF looks in real viewers, the legal validity of the resolutions and of the Protokoll confirmation, "Neue Nachricht" with several real users and on a staging server; the tests run on H2, in headless Chrome and, for the schema, the order and the races, on the PostgreSQL lane (`LAPIS_TEST_POSTGRES_URL`) with throwaway members.
+
+### V1.9.240 -- Finalising the Protokoll (wave D2)
+
+Additive on the wire. **One migration** (`V130__meeting_protocol_versions.sql`; V1 to V129 are untouched -- V129 is on `master` and a changed checksum would break Flyway, no `flywayRepair` is needed):
+`protocol_version`, `protocol_version_confirmation`, `protocol_version_task`, `protocol_task_status` and further columns on `protocol_draft`, `protocol_draft_task`, `meeting`, `agenda_item` and
+`organization_settings`. **One new RPC service**, `IMeetingProtocolService` (eight methods), registered LAST in `Application.kt` after `IProtocolDraftService`; one new route
+`GET /api/meeting-protocol/{versionId}/pdf`; eight audit kinds appended at the END of `MeetingSessionAuditKind`; two dashboard reasons.
+
+#### Added
+
+- "Protokoll fertigstellen": the chair or the minute taker finalises the draft after checking the checksum they saw; the chair and the minute taker each confirm once (one person holding both confirms both at once;
+  without a minute taker the chair alone is enough). The result is an immutable version with a canonical JSON snapshot and a SHA-256 hash (`lapis-protocol-v1`).
+- A PDF per confirmed version (one Protokoll document per Sitzung, one document version per confirmed version, access "ADMIN_ONLY" in the document module; members of the committee download it through
+  the Protokoll route). The last page lists the confirmations and the full hash.
+- Corrections as a new version with a note (20 to 1,000 characters); a waiting version can be superseded when the other confirmation never comes.
+- The agenda item "Genehmigung des Protokolls der Sitzung vom ..." on the next Sitzung (exactly once per Protokoll, whichever happens first), with the recorded result.
+- "Meine Aufgaben aus Protokollen" on the Sitzungen page and two dashboard reasons (overdue, open); a protocol card on the Sitzung's own page.
+- DSGVO: export of own confirmations, finalised versions, tasks and done-states; erasure deletes the done-states and retains the immutable record with the documented reason.
+
+#### Changed
+
+- Once finalised, the draft is locked: the read model shows the snapshot, not the live rows. `removeAgendaItem` refuses an item of a locked draft and an approval item that has a result or whose Sitzung was opened.
+- The generic document routes refuse a new version on a Protokoll document (409).
+- Cancelling a Sitzung releases an unused approval item (not opened, no result, no text, task, resolution or motion) and its tombstone, and offers the Protokoll to the next Sitzung that is not cancelled. The other Sitzung is locked before any audit entry is written.
+- A late PDF retry is only accepted for the newest confirmed version, so an older version never becomes the newest document version. The version field `correctionPending` is now `pdfPending` (it means "PDF missing").
+- The PDF of a second and later version is linked after its document version row exists (the link used to run first and hit the foreign key).
+- `LetterPdfBuilder` can bound pages, size and time (defaults unchanged for every other PDF) and prints Courier lines; tabs print as two spaces.
+
+#### Not in this wave
+
+The AI draft (wave E), a qualified or PAdES signature (the confirmation mode is only a hook; the PDF is saved whole so a signature can be appended later), translated PDF texts and a Unicode font.
+
+#### Known limitations
+
+- It is a **simple electronic confirmation**, not a qualified signature, and not PAdES.
+- The PDF texts exist in German only; characters outside Latin-1 (Cyrillic, Georgian) print as `?` in the PDF. The checksum covers the content, not the PDF, and is not affected.
+- Names inside the stored snapshot and the PDF are text and are **not** anonymised on erasure of a member.
+- There is no database trigger: immutability rests on a single writer class, conditional updates, a tripwire test and the hash.
+- The finalising transaction runs a pure page-limit probe (up to 20 s) while it holds the Sitzung row; a very long Protokoll can make other writes to that Sitzung wait.
+- A soft-deleted Protokoll document is replaced by a new one at the next archiving; the old PDF files stay on disk.
+
+#### Not verified
+
+Live operation with several people, real browsers and phones, how the PDF looks in real viewers, and the legal validity of the confirmation. The tests run on H2 (and the PostgreSQL lane where configured) with
+throwaway members.
+
+### V1.9.239 -- Protocol draft in the Sitzung (wave D1)
+
+Additive on the wire. **One migration** (`V129__meeting_protocol_draft.sql`; V1, V127 and V128 are untouched, no `flywayRepair` is needed): the tables `protocol_draft`, `protocol_draft_block` and
+`protocol_draft_task`. **One new RPC service**, `IProtocolDraftService` (four methods), registered LAST in `Application.kt` after `ILupaBbSyncService`; four audit kinds appended at the END of
+`MeetingSessionAuditKind` on the existing entity type `MEETING_SESSION`.
+
+#### Added
+
+- A "Protokoll" tab in the "Sitzung" panel for every role of the Sitzung: header, confirmed attendance, quorum and the resolutions per agenda item are filled in from the Sitzung (marked "Aus der Sitzung übernommen"),
+  the lead and the minute taker write the plain text of each item. Saved on leaving the field and with "Speichern"; a lost race keeps your text and shows the newer one read-only above it.
+- Tools: "Beschluss einfügen", "Aufgabe hinzufügen" (tasks for people of the committee), "Textbaustein" (six sentences), "Zeitmarke" (server time).
+- Access goes through the Sitzung, not the room: the Protokoll can be finished after the conference room ended. Reading never writes anything.
+- Resolutions of a secret election show sums only; no ballot and no voter is ever read.
+- DSGVO: the export lists the tasks given to a member; erasure retains them as committee records.
+
+#### Changed
+
+- `removeAgendaItem` refuses an item that carries Protokoll text or a task (an empty block is removed with the item).
+- The length limit counts UTF-16 units after cleaning (H2 and PostgreSQL count `VARCHAR(n)` differently; the unit count fits both).
+
+#### Not in this wave
+
+PDF, finalising, a snapshot, an approval agenda item, and tasks under "Für Sie" (wave D2). The end time of the Sitzung is not recorded (shown as a dash). A cancelled Sitzung that had been opened is read-only.
+`generateProtocolDraft`, `getMeetingDetail` and `getAttendance` of `IGovernanceService` still show attendance and resolutions to every signed-in member; the new draft's "committee members only" does not extend to them.
+
+#### Not verified
+
+Live operation with several participants, real browsers and phones, and the legal validity of a Protokoll. The tests run on H2 and the PostgreSQL lane with throwaway members.
+
+### V1.9.238 -- Resolutions from votes in the conference room, motions per agenda item (wave C)
+
+Additive on the wire. **No migration** (V127 and V128 are untouched). **Two new methods** appended at the END of `IGovernanceService` (`attachConferenceMotion`, `openConferenceMotionVote`);
+`ConferenceMeetingStateDto` gets four fields with defaults (`agendaMotions`, `runningMotionVote`, `canManageMotions`, `attachableMotions`); two audit kinds (`MOTION_ATTACHED`, `MOTION_VOTE_OPENED`).
+
+#### Added
+
+- In the "Sitzung" panel: the motions of the current agenda item (title, state as a word, wording clamped to three lines with "Mehr anzeigen"), "Antrag zuordnen" and "Abstimmung eröffnen" for the lead,
+  a banner for a running vote with "Jetzt abstimmen" (opens the "Abstimmen" panel) and "Abstimmung schließen", and the resolution card (result as a word, a tie as "Stimmengleichheit", the figures or the note that they are
+  withheld, quorum word and time).
+- "Abstimmung eröffnen" creates the Yes/No election, the counting committee (at least three of the roster) and the opening in ONE transaction; closing, the two approvals and counting stay with the counting committee in the
+  "Abstimmen" panel. The count writes the resolution, nobody types it.
+- Only one decision at a time in a Sitzung; the agenda cannot be moved on while a vote is open.
+
+#### Changed
+
+- `ElectionService.openElection`, `appointElectionBoard` and `openVoting` delegate to `ElectionOpening.kt` (bodies moved unchanged; their tests are the safety net).
+- `GovernanceService` takes an optional `secretBallotStreamGuard`; without it a secret Sitzung vote is refused.
+
+#### Not in this wave
+
+Detaching a motion from an item; quorum figures on the resolution (only the word is stored); a simplified vote without a counting committee; the one-sidedness of "one decision at a time" (the motion page, the election view
+and systemic consensus do not check against a running Sitzung vote); the "Stimmen bisher" counter of the "Abstimmen" panel for secret votes and its automatic opening are unchanged; a Sitzung chair without a recording office sees no buttons.
+
+#### Not verified
+
+Live operation with several participants, real browsers and phones, a screen reader, a real LiveKit room for the stream pause of a secret vote, and the legal validity of the results. The tests run on H2 and the PostgreSQL lane with throwaway members.
+
+### V1.9.237 -- Neue Nachricht (person or group), blocking, discoverability
+
+Additive on the wire, **with one behaviour change** (see "Changed"). **One migration** (`V128__direct_message_compose.sql`; V1 and V127 are untouched, no `flywayRepair` is needed): `member.dm_discoverable`
+(default true, also for existing members), table `direct_message_block`, and the audit entity type `DIRECT_MESSAGE_GROUP_SEND`. **Eight new methods** appended at the END of `IDirectMessageService`
+(`searchMessageRecipients`, `listMessageGroups`, `sendGroupMessage`, `blockMessageSender`, `getRecipientSearchVisibility`, `setRecipientSearchVisibility`, `listMessageBlocks`, `unblockMessageSender`;
+the `registerService` order is unchanged), four new typed exceptions, no new RPC service.
+
+#### Added
+
+- "Neue Nachricht" on the Nachrichten page: a name search (3 to 60 characters, 300 ms debounce, at most 10 hits) with a chip for the chosen person and the usual form including attachments, or a committee
+  as the recipient (one individual text message per current member, at most 50 recipients, no attachments). Works for manual and rule committees; BOARD/ADMIN may write to every active committee except the general assembly.
+- "Blockieren" in an open conversation, "Blockierte Personen" (with "Aufheben") and the setting "In der Empfängersuche für neue Nachrichten erscheinen" at the end of the page.
+- `DirectMessageRateLimiter`: 30 sends per 10 minutes, 150 recipients per hour, 60 searches per minute, 30 blocks per hour (per member, in process).
+- Audit entry `DIRECT_MESSAGE_GROUP_SEND` per group send: committee id and delivered count only. Blocks and the visibility switch are deliberately not audited.
+- DSGVO: export of the blocks a member set and of the visibility; erasure deletes blocks on both sides. `direct_message_block` stays in the organization backup.
+
+#### Changed
+
+- **Behaviour change:** a recipient who cannot be written to (unknown, malformed id, not a member, anonymized, blocked) is now ONE `DirectMessageRecipientUnavailableException` without an id. Before, an unknown id
+  answered `NotFoundException("Member <id> not found")` and an unreceivable one `ConflictException` -- a membership oracle. It applies to all five entry points (direct message, attachment send and upload route,
+  carpool contact, finder contact, event-registration notifier). Writing to oneself stays a `ConflictException`.
+- A finder block (either direction) now also blocks direct messages. The event-registration notifier stays silent on a block: the registration message to the event creator is not written (the e-mail notice still goes out).
+- `DirectMessageService` takes the rate limiter as a second constructor parameter (default: a fresh one; the application shares one instance).
+
+#### Not in this wave
+
+Several recipients at once, group label, group attachments, writing to the whole organisation, reporting a message, telling same-named members apart in the search, persistent (restart-proof) limits.
+Carpool and finder keep their own limiters; the event notifier is exempt.
+
+#### Not verified
+
+Behaviour with several real users, real browsers and phones, and a staging server. The tests run on H2 (and the PostgreSQL lane for the schema, the order and the double block) with throwaway members. The direct-message
+path sends no e-mail, so the mail relay is not involved.
+
+#### Deviations from the plan (and why)
+
+- `docs/features/direct-messages.adoc` does not exist; the section "Composing a new message" is in `docs/architecture/direct-messages.adoc` (the document that already covers the feature).
+- `DirectMessageBlockDto` carries `createdAt` (a system timestamp) instead of `createdOn`, and an EMPTY `displayName` for a person without a conversation (the client shows "Mitglied"), so the server sends no UI text.
+- `sendDirectMessageWithAttachments` has no separate membership-gate transaction before the limiter (its transaction must stay ONE, first step the member-row lock; a tripwire pins that): the limiter is charged first and a
+  non-member is refused inside the transaction.
+
+### V1.9.236 -- Sitzung im Konferenzraum (Welle B)
+
+Additive. **One migration** (`V127__meeting_conference_session.sql`; V1 and V126 are untouched, no `flywayRepair` is needed), **six new methods** appended at the END of `IGovernanceService`
+(`getConferenceMeetingState`, `openConferenceMeeting`, `setConferenceAttendance`, `adoptConnectedAttendance`, `establishConferenceQuorum`, `moveConferenceAgenda`; the `registerService` order is unchanged),
+a new `AttendanceStatus.GUEST`, a new audit entity type `MEETING_SESSION` and one new client toggle.
+
+#### Added
+
+- A conference room bound to a Sitzung gets a "Sitzung" panel next to "Abstimmen": phase (derived, nothing stored), opening, the quorum as a live calculation and as an established line (establishing against the calculation needs an acknowledgement and is recorded), the agenda with a current item, and the attendance with a stand-in, "adopt everyone connected" and guests. Roles: LEAD (chair, recording office, BOARD/ADMIN), MINUTES (minute taker), PARTICIPANT (sees no name, no roster, no live figure).
+- Exchangeable attendance rule per committee type (`CommitteeAttendanceRule`): a name list for the executive board, working groups, commissions and others; the general assembly keeps its attendance elsewhere and the panel says so.
+- `meeting.opened_at`, `quorum_established_at`, `quorum_present_count`, `quorum_required_count`, `quorum_eligible_count`, `quorum_overridden`, `current_agenda_item_id`; `attendance.status` accepts `GUEST` (a guest never counts for the quorum); `audit_log_entry` accepts `MEETING_SESSION` (opened, quorum established, agenda moved, attendance adopted -- ids and counts only).
+- A 10-second cache of "who is connected to the room" (`CachedConferenceConnectedMembers`), asked outside any transaction and only for the lead and the minute taker.
+- The toggle ("Sitzungsmodus", `ActionIcon.MEETING_SESSION`) takes part in the control bar overflow (`ConferenceControlSlot.MEETING`, directly after "Abstimmen").
+
+#### Changed
+
+- `MeetingsScreen` and the protocol draft know the status "Gast".
+- `GovernanceService.recordAttendance` writes through the shared `AttendanceWriter` (same behaviour).
+- `GovernanceService.removeAgendaItem` clears `meeting.current_agenda_item_id` when it points at the removed item.
+
+#### Deviations from the plan (and why)
+
+- **`meeting.current_agenda_item_id` has no foreign key.** The planned FK `ON DELETE SET NULL` closes a `meeting` <-> `agenda_item` cycle, and the organization backup (`OrganizationSchemaCatalog.restoreOrder`) refuses cycles (`OrganizationBackupRoundTripTest` failed with it). Integrity is kept in code instead (see above).
+- `getConferenceMeetingState` returns `ConferenceMeetingStateAnswer(state)` instead of a nullable `ConferenceMeetingStateDto?`: Kilua RPC cannot generate a client call for a nullable return type. `ConferenceMeetingStateDto` also carries the `committeeId` (an id, for the guest search).
+- The agenda buttons are "Vorheriger Punkt" / "Nächster Punkt" (not "Zurück" / "Weiter"): `ClientBackButtonTripwireTest` forbids a bare "Zurück" label and `ActionIcon.BACK` outside the navigation helper.
+- The panel is not part of the roster / chat / voting reducer (`ConferencePanelState`); it opens and closes itself and shares the voting panel's geometry (`lapis-conference-voting`), so no new scroll surface exists. On a phone and in fullscreen the other panels make room.
+- The guest search ("Gast hinzufügen") reuses `searchCommitteeCandidates`, which needs `canRecordForMeeting`: the button is offered to the lead only. The server lets MINUTES set a guest.
+- The roster `ORDER BY` uses the display name (the column the DTO shows), then the id.
+
+#### Verification
+
+H2: the new server tests (`governance/session`, 42 tests), the migration scenarios on H2, the updated drift tests, the backup round trip and the time-field registry. PostgreSQL lane (a throwaway container): the migration chain V1..V127, `AttendanceStatusMigrationPostgresTest` and `MeetingSessionPostgresTest` (two simultaneous openings, two simultaneous adoptions). Client: 24 DOM / unit tests in headless Chrome (`ConferenceMeetingPollControllerTest`, `ConferenceMeetingPanelDomTest`).
+
+**Not verified:** the behaviour with several live participants, real browsers and phones (the bottom sheet, the overflow of the bar), a screen reader, a real LiveKit server behind the cache. The roster of a Sitzung whose circle was frozen by a vote is the same function the quorum uses, but there is no test with a frozen vote.
+
+### Build and client fixes (no wave number)
+
+- `lapis-server/build.gradle.kts`: the test worker heap is set to 1 GB (`maxHeapSize`), the Gradle default of 512 MB was outgrown by the suite (`PartgXlsxReaderHostileTest` failed with an `OutOfMemoryError` in the full run, and passed alone). Build machines only, no effect on the image.
+- `statusChangeConsequence` (status dialog of the member administration): the sentences are resolved with `gettext()`; a `tr()` marker joined behind another sentence showed as `###KvI18nS###` (seen for the status "Spender").
+
 ## [0.42.0] — 2026-10-27
 
 Feature release on top of `[0.41.0]` (V1.9.225 to V1.9.235, eleven numbered waves; V1.9.228 and V1.9.230 are small fixes, plus one unnumbered fix, the event JSON-LD, and one build setting). Six additive migrations: **`V121`** (party accountability report: positions, sheets, values), **`V122`** (LupaBB sync tables), **`V123`** (link between a Sitzung and an event), **`V124`** (mailing message attachments), **`V125`** (direct message attachments) and **`V126`** (soft delete of mailing lists); the schema goes from `V120` to **`V126`**. **No new environment variable.** One new runtime dependency (`io.ktor:ktor-client-auth`, HTTP Digest for the LupaBB client; the test-only `ktor-server-auth` is not shipped). Two new RPC services (`IPartyReportService`, `ILupaBbSyncService`, now the last two `registerService` calls) and appended methods on `IGovernanceService`, `IMailingService` and `IDirectMessageService`. **Behaviour changes first:** (1) **the sidebar entry "Kommunikation" is gone**: it is replaced by "Nachrichten" (`/messages`, one list of conversations) and "Mailinglisten" (`/mailing-lists`, with a "Verwalten" tab for the board and administrators); the old address `/communication` redirects to `/messages`; (2) **loading the message page no longer marks every message as read**: a message stays unread, and counted, until its conversation is opened; (3) **a chair, deputy chair, general secretary, secretary or managing director of a committee can open, edit, publish and cancel the event that announces a Sitzung of that committee without a board role** (limited fields, audited); linking an existing event to a Sitzung and the list of linkable Sitzungen are BOARD/ADMIN only; the route `/events/:id` now only needs a sign-in and the server decides; cancelling a Sitzung or its event dissolves the link between them (V1.9.227; a held Sitzung keeps it); (4) **mailing lists created by hand can be deleted** by the board and administrators (a soft delete: subscriptions, opt-outs and drafts are removed, sent messages and their delivery log are kept, there is no restore; automatic and mandatory lists are protected); `subscribe`, `unsubscribe` and `setTrackingConsent` now answer `NotFoundException` for an unknown list id; (5) **attachments**: the mailing attachment download now also sends `Content-Security-Policy: default-src 'none'; sandbox`; mailing messages (drafts, board) and direct messages (replies, all members) can carry up to 5 files, 10 MiB each, 20 MiB in total; **there is no virus scanner**, mailing attachments are deleted 180 days after sending, sent direct message attachments have no retention period; a relay that is to carry them needs `message_size_limit >= 30000000` (Postfix default 10,240,000); (6) the member administration shows the country as flag plus code and the last sign-in method as a symbol (export unchanged); (7) the language switch on a desktop width no longer leaves a dark backdrop over the page, and "Staatsangehörigkeit" is aligned with "Land des Wohnsitzes" in forms. New: the **party accountability report, wave R1** (the 42 statutory positions, entry per unit and year, Excel template and import; **no report and no PDF yet**; only for an organisation with the setting political party, BOARD and ADMIN), a **manual LupaBB member master-data sync** (ADMIN; credentials sealed with `LAPIS_SECRET_ENCRYPTION_KEY`, which must already be set), and **Sitzung to event** linking. No operator action beyond the usual backup and the image tag, except the mail relay limit above if you want attachments to go through and `LAPIS_SECRET_ENCRYPTION_KEY` if you want to use the LupaBB sync. The Kotlin daemon heap was raised from 5g to 7g (`gradle.properties`, build machines only, `compileTestKotlinJs` ran out of heap). Everything was checked with unit tests, DOM tests in headless Chrome and the H2 scenarios; PostgreSQL-lane tests exist for V1.9.225, V1.9.226, V1.9.227, V1.9.232, V1.9.233 and V1.9.234 and run only with `LAPIS_TEST_POSTGRES_URL`; a few layout points were measured once in a local browser (language switch, nationality alignment). **Not verified:** real phones and devices, Safari, a screen reader; the LupaBB sync against the real LupaBB (no account, the API key transport and two status mappings are unconfirmed); the PartG positions, labels and unit levels against the official Bundestag sample, and the Excel template in real Excel and LibreOffice; mailing attachments against a real SMTP relay and real mailboxes (Outlook, Gmail, Thunderbird); direct message attachments in a real browser or in the Lapis-Cloud-Mobile WebView; the Sitzung-event link and the officer rights in a click-through on a real instance; the event JSON-LD against the real Google Search Console.

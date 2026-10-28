@@ -1,6 +1,8 @@
 package network.lapis.cloud.server.dashboard.sources
 
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.plus
 import network.lapis.cloud.server.dashboard.DashboardSignalSource
 import network.lapis.cloud.server.dashboard.SignalContext
@@ -9,6 +11,8 @@ import network.lapis.cloud.server.dashboard.signal
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MeetingTable
+import network.lapis.cloud.server.db.generated.ProtocolTaskStatusTable
+import network.lapis.cloud.server.governance.session.ProtocolVersionStore
 import network.lapis.cloud.server.rpc.isCommitteeEligible
 import network.lapis.cloud.shared.domain.CommitteeMembershipMode
 import network.lapis.cloud.shared.domain.CommitteeType
@@ -44,6 +48,42 @@ internal object MeetingSignals : DashboardSignalSource {
 
     override fun collect(ctx: SignalContext): List<DashboardSignalDto> {
         if (!SignalGates.showsSelfGovernance(ctx.status)) return emptyList()
+        return upcomingSignals(ctx) + protocolTaskSignals(ctx)
+    }
+
+    /**
+     * V1.9.240 -- my open tasks from CONFIRMED Protokolle. Only the caller's OWN tasks (indexed by assignee), only counts and dates leave the
+     * source: no task text, no Sitzung id (`objectId` stays null on purpose -- the click goes to the list "Meine Aufgaben aus Protokollen",
+     * which lives on the Sitzungen page, not to one Sitzung). Overdue is URGENT; due within seven days ACTION; the rest INFO.
+     */
+    private fun protocolTaskSignals(ctx: SignalContext): List<DashboardSignalDto> {
+        val open =
+            ProtocolVersionStore
+                .tasksOf(memberId = ctx.memberId, limit = MAX_TASKS)
+                .filter { (_, status) -> status?.get(ProtocolTaskStatusTable.doneAt) == null }
+                .map { it.first }
+        val overdue = open.filter { it.dueDate != null && it.dueDate < ctx.today }
+        val rest = open - overdue.toSet()
+        val soon = rest.any { it.dueDate != null && it.dueDate <= ctx.today.plus(WINDOW_DAYS, DateTimeUnit.DAY) }
+        return listOfNotNull(
+            signal(
+                module = moduleKey,
+                reason = DashboardReasonKeys.MEETING_PROTOCOL_TASK_OVERDUE,
+                count = overdue.size,
+                priority = DashboardPriority.URGENT,
+                deadlineWall = overdue.mapNotNull { it.dueDate }.minOrNull()?.let { LocalDateTime(it, END_OF_DAY) },
+            ),
+            signal(
+                module = moduleKey,
+                reason = DashboardReasonKeys.MEETING_PROTOCOL_TASK_OPEN,
+                count = rest.size,
+                priority = if (soon) DashboardPriority.ACTION else DashboardPriority.INFO,
+                deadlineWall = rest.mapNotNull { it.dueDate }.minOrNull()?.let { LocalDateTime(it, END_OF_DAY) },
+            ),
+        )
+    }
+
+    private fun upcomingSignals(ctx: SignalContext): List<DashboardSignalDto> {
         val mySeats =
             CommitteeMembershipTable
                 .select(CommitteeMembershipTable.committeeId)
@@ -102,4 +142,6 @@ internal object MeetingSignals : DashboardSignalSource {
     }
 
     private const val WINDOW_DAYS = 7
+    private const val MAX_TASKS = 200
+    private val END_OF_DAY = LocalTime(23, 59, 59)
 }

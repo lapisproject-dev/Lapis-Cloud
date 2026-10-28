@@ -28,6 +28,11 @@ private val PII_FILES =
         // V1.9.233
         "DirectMessageComposerAttachments.kt",
         "DirectMessageHttp.kt",
+        // V1.9.237: the search term, the typed text and file names never reach a log, a storage, an address or a toast. (Not in NO_TIMER_FILES:
+        // the name search debounces with ONE setTimeout per keystroke burst -- a timeout, never a polling timer.)
+        "DirectMessageComposeView.kt",
+        "DirectMessageDiscoverabilitySection.kt",
+        "MessagesScreen.kt",
     )
 private val NO_TIMER_FILES =
     listOf(

@@ -20,6 +20,7 @@ import network.lapis.cloud.server.ai.kb.KnowledgeIndexer
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
+import network.lapis.cloud.server.governance.session.ProtocolVersionStore
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.canAccessDocumentAtLevel
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -98,6 +99,11 @@ fun Route.registerDocumentRoutes(storageRoot: File) {
         }
         if (current.role !in ESCALATED_ROLES) {
             call.respond(HttpStatusCode.Forbidden, "Only Board/Treasurer/Admin may upload document versions")
+            return@post
+        }
+        // V1.9.240: the PDF of a finalised Protokoll is evidence -- its versions are written only by the Protokoll archiver, never uploaded.
+        if (transaction { ProtocolVersionStore.isProtocolDocument(documentId) }) {
+            call.respond(HttpStatusCode.Conflict, "A Protokoll document cannot get an uploaded version")
             return@post
         }
         if (!current.canAccessDocumentAtLevel(documentRow[DocumentTable.accessLevel])) {

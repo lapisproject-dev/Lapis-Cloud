@@ -5,6 +5,9 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import network.lapis.cloud.server.conference.ConferenceConnectedMembers
+import network.lapis.cloud.server.conference.DisabledConferenceConnectedMembers
+import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.containsLikePattern
 import network.lapis.cloud.server.db.generated.AgendaItemTable
@@ -16,6 +19,9 @@ import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.db.generated.ProtocolDraftBlockTable
+import network.lapis.cloud.server.db.generated.ProtocolDraftTable
+import network.lapis.cloud.server.db.generated.ProtocolDraftTaskTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
@@ -27,6 +33,11 @@ import network.lapis.cloud.server.events.EventOnlineServices
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkOperations
 import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkStore
+import network.lapis.cloud.server.governance.session.AttendanceWriter
+import network.lapis.cloud.server.governance.session.MeetingSessionAudit
+import network.lapis.cloud.server.governance.session.MeetingSessionMotionOperations
+import network.lapis.cloud.server.governance.session.MeetingSessionOperations
+import network.lapis.cloud.server.governance.session.ProtocolApprovalItems
 import network.lapis.cloud.server.routes.PUBLIC_API_MOTION_STATUSES
 import network.lapis.cloud.server.rules.RuleReferences
 import network.lapis.cloud.server.security.CurrentMember
@@ -59,6 +70,8 @@ import network.lapis.cloud.shared.domain.CommitteeRulePreviewDto
 import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.CommitteeSeatChangeKind
 import network.lapis.cloud.shared.domain.CommitteeType
+import network.lapis.cloud.shared.domain.ConferenceMeetingStateAnswer
+import network.lapis.cloud.shared.domain.ConferenceMeetingStateDto
 import network.lapis.cloud.shared.domain.LinkedEventRef
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
@@ -76,11 +89,13 @@ import network.lapis.cloud.shared.domain.MotionResolutionInput
 import network.lapis.cloud.shared.domain.MotionReviewDecision
 import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.ProtocolDraftDto
+import network.lapis.cloud.shared.domain.ProtocolDraftPhase
 import network.lapis.cloud.shared.domain.QuorumResultDto
 import network.lapis.cloud.shared.domain.ResolutionDto
 import network.lapis.cloud.shared.domain.ResolutionInput
 import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionStatus
+import network.lapis.cloud.shared.domain.SessionAttendanceInput
 import network.lapis.cloud.shared.domain.VacantMandatoryRoleDto
 import network.lapis.cloud.shared.domain.VoteBallotDto
 import network.lapis.cloud.shared.domain.VoteBallotInput
@@ -193,9 +208,16 @@ class GovernanceService(
     // V1.9.227 -- only needed to know whether an announced online Sitzung may use a Lapis video conference; the default keeps older constructions working.
     eventOnline: EventOnlineServices = EventOnlineServices.DISABLED,
     meetingEventLinkRateLimiter: FederationInboxRateLimiter = MEETING_EVENT_LINK_RATE_LIMITER,
+    // V1.9.236 -- who is connected to a room (LiveKit, cached); the process-wide instance is built in Application.kt. The default shows nobody connected.
+    connectedMembers: ConferenceConnectedMembers = DisabledConferenceConnectedMembers,
+    // V1.9.238 -- needed to open a SECRET vote of a Sitzung; null = secret votes are refused (fail closed), never silently allowed.
+    secretBallotStreamGuard: SecretBallotStreamGuard? = null,
 ) : IGovernanceService {
     private val meetingEventLinks =
         MeetingEventLinkOperations(conferencesEnabled = { eventOnline.conferencesEnabled }, rateLimiter = meetingEventLinkRateLimiter)
+    private val meetingSessions =
+        MeetingSessionOperations(conferencesEnabled = { eventOnline.conferencesEnabled }, connectedMembers = connectedMembers)
+    private val meetingSessionMotions = MeetingSessionMotionOperations(base = meetingSessions, streamGuard = secretBallotStreamGuard)
 
     override suspend fun listCommittees(activeOnly: Boolean): List<CommitteeDto> {
         val current = resolveCurrentMember(call)
@@ -686,6 +708,9 @@ class GovernanceService(
                 it[createdAt] = now
             }
             WebhookEventPublisher.publish(eventType = WebhookEventType.MEETING_CREATED, entityId = id, occurredAt = now)
+            // V1.9.240: when the committee has a confirmed Protokoll nobody approved yet, the new Sitzung gets the approval item. The audit
+            // entries come LAST (the chain lock).
+            ProtocolApprovalItems.onMeetingCreated(id).forEach { MeetingSessionAudit.record(actor = current, snapshot = it) }
             loadMeeting(id)
         }
     }
@@ -707,9 +732,13 @@ class GovernanceService(
             if (status == MeetingStatus.HELD && previousStatus != MeetingStatus.HELD) {
                 WebhookEventPublisher.publish(eventType = WebhookEventType.MEETING_HELD, entityId = sId, occurredAt = nowLocalDateTime())
             }
-            // V1.9.227: a cancelled Sitzung no longer announces anything -- the link is dissolved in the same transaction (the event stays).
             if (status == MeetingStatus.CANCELLED && previousStatus != MeetingStatus.CANCELLED) {
+                // V1.9.240: an approval item on the cancelled Sitzung is released so the Protokoll is offered to the next one. This locks ANOTHER
+                // Sitzung (FOR UPDATE), so it runs before every audit write -- an audit entry takes the global chain lock and must be the LAST lock.
+                val approvalAudits = ProtocolApprovalItems.onMeetingCancelled(sId)
+                // V1.9.227: a cancelled Sitzung no longer announces anything -- the link is dissolved in the same transaction (the event stays).
                 MeetingEventLinkOperations.Lifecycle.onMeetingCancelled(actor = current, meetingId = sId)
+                approvalAudits.forEach { MeetingSessionAudit.record(actor = current, snapshot = it) }
             }
             withLinkedEvents(current = current, meetings = listOf(loadMeeting(sId))).single()
         }
@@ -737,6 +766,40 @@ class GovernanceService(
                     ?: throw NotFoundException("AgendaItem $id not found")
             val committeeId = requireMeetingCommitteeId(row[AgendaItemTable.meetingId])
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            // V1.9.240: a finalised Protokoll must not lose an item (its snapshot names the items); an approval item that was opened or got its
+            // result is a record. The Sitzung row is locked for the check, the same order every Protokoll operation uses.
+            val meetingRow =
+                MeetingTable
+                    .selectAll()
+                    .where { MeetingTable.id eq row[AgendaItemTable.meetingId] }
+                    .forUpdate()
+                    .single()
+            if (ProtocolDraftTable
+                    .selectAll()
+                    .where {
+                        (ProtocolDraftTable.meetingId eq row[AgendaItemTable.meetingId]) and
+                            (ProtocolDraftTable.phase eq ProtocolDraftPhase.LOCKED)
+                    }.count() > 0
+            ) {
+                throw ConflictException("Das Protokoll ist fertiggestellt; der Tagesordnungspunkt kann nicht mehr entfernt werden.")
+            }
+            if (ProtocolApprovalItems.isProtected(item = row, meeting = meetingRow)) {
+                throw ConflictException("Zu diesem Punkt gibt es schon ein Ergebnis oder die Sitzung wurde eröffnet.")
+            }
+            // V1.9.236: meeting.current_agenda_item_id has no foreign key (it would close a cycle the backup cannot restore) -- clear it here.
+            MeetingTable.update({ MeetingTable.currentAgendaItemId eq topId }) { it[currentAgendaItemId] = null }
+            // V1.9.239: the Protokoll draft points at the item (foreign keys). Written text or a task keeps the item; an EMPTY block goes with it.
+            if (ProtocolDraftTaskTable.selectAll().where { ProtocolDraftTaskTable.agendaItemId eq topId }.count() > 0 ||
+                ProtocolDraftBlockTable
+                    .selectAll()
+                    .where { (ProtocolDraftBlockTable.agendaItemId eq topId) and (ProtocolDraftBlockTable.body neq "") }
+                    .count() > 0
+            ) {
+                throw ConflictException("Zu diesem Punkt gibt es schon Protokolltext oder Aufgaben.")
+            }
+            // Only EMPTY blocks: a text saved between the check above and this delete (READ COMMITTED) is never deleted silently -- the
+            // foreign key refuses the item delete instead and the whole transaction fails.
+            ProtocolDraftBlockTable.deleteWhere { (ProtocolDraftBlockTable.agendaItemId eq topId) and (ProtocolDraftBlockTable.body eq "") }
             AgendaItemTable.deleteWhere { AgendaItemTable.id eq topId }
         }
     }
@@ -751,35 +814,15 @@ class GovernanceService(
         return transaction {
             val committeeId = requireMeetingCommitteeId(sId)
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
-            val now = nowLocalDateTime()
-            val existing =
-                AttendanceTable
-                    .selectAll()
-                    .where { (AttendanceTable.meetingId eq sId) and (AttendanceTable.memberId eq memberId) }
-                    .singleOrNull()
             val id =
-                if (existing == null) {
-                    val newId = Uuid.random()
-                    AttendanceTable.insert {
-                        it[AttendanceTable.id] = newId
-                        it[AttendanceTable.meetingId] = sId
-                        it[AttendanceTable.memberId] = memberId
-                        it[status] = input.status
-                        it[representedByMemberId] = input.representedByMemberId?.let(Uuid::parse)
-                        it[note] = input.note
-                        it[recordedAt] = now
-                    }
-                    newId
-                } else {
-                    val existingId = existing[AttendanceTable.id]
-                    AttendanceTable.update({ AttendanceTable.id eq existingId }) {
-                        it[status] = input.status
-                        it[representedByMemberId] = input.representedByMemberId?.let(Uuid::parse)
-                        it[note] = input.note
-                        it[recordedAt] = now
-                    }
-                    existingId
-                }
+                AttendanceWriter.upsert(
+                    meetingId = sId,
+                    memberId = memberId,
+                    status = input.status,
+                    representedBy = input.representedByMemberId?.let(Uuid::parse),
+                    note = input.note,
+                    now = nowLocalDateTime(),
+                )
             AttendanceTable
                 .selectAll()
                 .where { AttendanceTable.id eq id }
@@ -1823,6 +1866,99 @@ class GovernanceService(
     override suspend fun listLinkableMeetings(eventId: String): List<MeetingDto> =
         meetingEventLinks.listLinkable(current = resolveCurrentMember(call), eventId = eventId.toMeetingUuid())
 
+    // ---- V1.9.236 "Sitzungsmodus im Konferenzraum" (see MeetingSessionOperations) ----
+
+    override suspend fun getConferenceMeetingState(roomId: String): ConferenceMeetingStateAnswer =
+        ConferenceMeetingStateAnswer(
+            state = meetingSessions.getState(current = resolveCurrentMember(call), roomId = runCatching { Uuid.parse(roomId) }.getOrNull()),
+        )
+
+    override suspend fun openConferenceMeeting(
+        roomId: String,
+        meetingId: String,
+    ): ConferenceMeetingStateDto =
+        meetingSessions.open(current = resolveCurrentMember(call), roomId = roomId.toMeetingUuid(), meetingId = meetingId.toMeetingUuid())
+
+    override suspend fun setConferenceAttendance(
+        roomId: String,
+        meetingId: String,
+        input: SessionAttendanceInput,
+    ): ConferenceMeetingStateDto =
+        meetingSessions.setAttendance(
+            current = resolveCurrentMember(call),
+            roomId = roomId.toMeetingUuid(),
+            meetingId = meetingId.toMeetingUuid(),
+            input = input,
+        )
+
+    override suspend fun adoptConnectedAttendance(
+        roomId: String,
+        meetingId: String,
+    ): Int =
+        meetingSessions.adoptConnected(
+            current = resolveCurrentMember(call),
+            roomId = roomId.toMeetingUuid(),
+            meetingId = meetingId.toMeetingUuid(),
+        )
+
+    override suspend fun establishConferenceQuorum(
+        roomId: String,
+        meetingId: String,
+        acknowledgeNotMet: Boolean,
+    ): ConferenceMeetingStateDto =
+        meetingSessions.establishQuorum(
+            current = resolveCurrentMember(call),
+            roomId = roomId.toMeetingUuid(),
+            meetingId = meetingId.toMeetingUuid(),
+            acknowledgeNotMet = acknowledgeNotMet,
+        )
+
+    override suspend fun moveConferenceAgenda(
+        roomId: String,
+        meetingId: String,
+        fromAgendaItemId: String?,
+        toAgendaItemId: String,
+    ): ConferenceMeetingStateDto =
+        meetingSessions.moveAgenda(
+            current = resolveCurrentMember(call),
+            roomId = roomId.toMeetingUuid(),
+            meetingId = meetingId.toMeetingUuid(),
+            fromAgendaItemId = fromAgendaItemId,
+            toAgendaItemId = toAgendaItemId,
+        )
+
+    override suspend fun attachConferenceMotion(
+        roomId: String,
+        meetingId: String,
+        motionId: String,
+        expectedAgendaItemId: String,
+    ): ConferenceMeetingStateDto =
+        meetingSessionMotions.attach(
+            current = resolveCurrentMember(call),
+            roomId = roomId.toMeetingUuid(),
+            meetingId = meetingId.toMeetingUuid(),
+            motionId = motionId,
+            expectedAgendaItemId = expectedAgendaItemId,
+        )
+
+    override suspend fun openConferenceMotionVote(
+        roomId: String,
+        meetingId: String,
+        motionId: String,
+        expectedAgendaItemId: String,
+        secret: Boolean,
+        electionBoardMemberIds: List<String>,
+    ): ConferenceMeetingStateDto =
+        meetingSessionMotions.openVote(
+            current = resolveCurrentMember(call),
+            roomId = roomId.toMeetingUuid(),
+            meetingId = meetingId.toMeetingUuid(),
+            motionId = motionId,
+            expectedAgendaItemId = expectedAgendaItemId,
+            secret = secret,
+            boardMemberIds = electionBoardMemberIds,
+        )
+
     /** Adds the Veranstaltung link to authenticated reads; the public API path (`GovernanceReads`) never does. Inside a transaction. */
     private fun withLinkedEvents(
         current: CurrentMember,
@@ -2088,6 +2224,7 @@ internal fun ResultRow.toAgendaItemDto(): AgendaItemDto =
         description = this[AgendaItemTable.description],
         presenterMemberId = this[AgendaItemTable.presenterMemberId]?.toString(),
         presenterDisplayName = memberDisplayName(this[AgendaItemTable.presenterMemberId]),
+        protocolApproval = ProtocolApprovalItems.dto(item = this, editable = false),
     )
 
 /** V1.3.1 -- hoisted to top-level, `internal`, see [memberDisplayName] KDoc for the reasoning. */

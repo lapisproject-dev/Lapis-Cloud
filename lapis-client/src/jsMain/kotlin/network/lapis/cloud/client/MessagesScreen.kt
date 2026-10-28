@@ -1,10 +1,14 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.onClick
+import io.kvision.html.ButtonStyle
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
+import io.kvision.panel.simplePanel
 import kotlinx.browser.window
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.DirectMessagePartnerDto
+import network.lapis.cloud.shared.rpc.IDirectMessageService
 
 /**
  * V1.9.231 -- "Nachrichten": the member's personal conversations in ONE list (the former "Gespräche" list and the separate "Postfach",
@@ -21,13 +25,84 @@ import network.lapis.cloud.shared.domain.DirectMessagePartnerDto
 fun renderMessagesScreen(
     container: SimplePanel,
     deepLinkHash: String = window.location.hash,
+) = renderMessagesScreen(container, deepLinkHash, MessagesScreenDependencies())
+
+/** Everything the Nachrichten page talks to -- replaceable in a DOM test. */
+internal class MessagesScreenDependencies(
+    val listRpc: DirectMessagePartnerListRpc = liveDirectMessagePartnerListRpc(),
+    val conversationRpc: DirectMessageConversationRpc = liveDirectMessageConversationRpc(),
+    val composeRpc: DirectMessageComposeRpc = liveDirectMessageComposeRpc(),
+    val discoverabilityRpc: DirectMessageDiscoverabilityRpc = liveDirectMessageDiscoverabilityRpc(),
+    val blockSender: suspend (String) -> Unit = { rpcService<IDirectMessageService>().blockMessageSender(it) },
+    val attachmentHttp: DirectMessageAttachmentHttp = DirectMessageHttp,
+)
+
+/** `?view=new` on [Routes.MESSAGES]: the compose view. The URL carries no id -- who the message goes to is never in the address. */
+internal const val MESSAGES_VIEW_PARAM = "view"
+internal const val MESSAGES_VIEW_NEW = "new"
+
+/**
+ * V1.9.237 -- the page switches between two views IN MEMORY: the list (default) and "Neue Nachricht", which replaces the list area (there is no
+ * right-hand pane). `?view=new` opens the compose view directly and is kept in the address with `replaceState` (reload-safe, no history entry).
+ * After a message to a person the list opens with that conversation; after a group message the list simply returns.
+ */
+internal fun renderMessagesScreen(
+    container: SimplePanel,
+    deepLinkHash: String,
+    deps: MessagesScreenDependencies,
 ) {
     val root = container.pageShell(PageWidth.WIDE, spacing = 14)
-    root.pageHeader(tr("Nachrichten"), intro = PageIntros.forRoute(Routes.MESSAGES))
-    renderDirectMessagePartnerList(
-        root,
-        focusHeading = parseHashQueryParam(deepLinkHash, "section") == MESSAGES_SECTION,
+    lateinit var showList: (String?) -> Unit
+    lateinit var showCompose: () -> Unit
+    root.pageHeader(
+        tr("Nachrichten"),
+        intro = PageIntros.forRoute(Routes.MESSAGES),
+        primaryAction = {
+            actionGroup {
+                add(
+                    newActionButton(
+                        ActionIcon.COMPOSE,
+                        tr("Neue Nachricht"),
+                        ButtonStyle.OUTLINEPRIMARY,
+                    ).also { it.onClick { showCompose() } },
+                )
+            }
+        },
     )
+    val host = root.simplePanel()
+    val focusHeading = parseHashQueryParam(deepLinkHash, "section") == MESSAGES_SECTION
+
+    fun replaceHash(hash: String) {
+        runCatching { window.history.replaceState(null, "", hash) }
+    }
+    showList = { openPartnerId ->
+        replaceHash("#${Routes.MESSAGES}")
+        host.removeAll()
+        val panel = host.simplePanel()
+        renderDirectMessagePartnerList(
+            panel,
+            rpc = deps.listRpc,
+            conversationRpc = deps.conversationRpc,
+            focusHeading = focusHeading && openPartnerId == null,
+            attachmentHttp = deps.attachmentHttp,
+            openPartnerOnLoad = openPartnerId,
+            blockSender = deps.blockSender,
+        )
+        renderDirectMessageDiscoverabilitySection(panel, deps.discoverabilityRpc)
+    }
+    showCompose = {
+        replaceHash("#${Routes.MESSAGES}?$MESSAGES_VIEW_PARAM=$MESSAGES_VIEW_NEW")
+        host.removeAll()
+        val panel = host.simplePanel()
+        panel.directMessageComposeView(
+            rpc = deps.composeRpc,
+            attachmentHttp = deps.attachmentHttp,
+            onSentToPerson = { partnerId -> showList(partnerId) },
+            onSentToGroup = { showList(null) },
+            onBack = { showList(null) },
+        )
+    }
+    if (parseHashQueryParam(deepLinkHash, MESSAGES_VIEW_PARAM) == MESSAGES_VIEW_NEW) showCompose() else showList(null)
 }
 
 /** One row of the message list. [typeRank] orders the types when two rows share a time (conversation before circular letter). */

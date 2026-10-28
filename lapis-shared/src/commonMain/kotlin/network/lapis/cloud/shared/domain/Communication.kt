@@ -206,6 +206,46 @@ data class DirectMessagePageDto(
     val nextCursor: DirectMessageCursorDto?,
 )
 
+/** V1.9.237 -- one hit of the recipient search for a new message. [hasConversation]: the caller already exchanged messages with this member. */
+@Serializable
+data class DirectMessageRecipientDto(
+    val memberId: String,
+    val displayName: String,
+    val hasConversation: Boolean,
+)
+
+/** V1.9.237 -- one committee the caller may write to. [memberCount] is the number of recipients (the caller excluded), blocks not subtracted. */
+@Serializable
+data class DirectMessageGroupDto(
+    val committeeId: String,
+    val name: String,
+    val memberCount: Int,
+)
+
+/** V1.9.237 -- confirmation of a group message. Deliberately carries NO count of delivered messages (blocked recipients stay invisible). */
+@Serializable
+data class DirectMessageGroupSendResultDto(
+    val committeeName: String,
+    val sentAt: LocalDateTime,
+)
+
+/** V1.9.237 -- one block the caller set. [displayName] is EMPTY unless a conversation with that member exists (the client shows a neutral label). */
+@Serializable
+data class DirectMessageBlockDto(
+    val blockId: String,
+    val displayName: String,
+    val createdAt: LocalDateTime,
+)
+
+/** V1.9.237 -- limits of "Neue Nachricht". */
+object DirectMessageRules {
+    const val MAX_RECIPIENTS_PER_SEND = 50
+    const val RECIPIENT_QUERY_MIN = 3
+    const val RECIPIENT_QUERY_MAX = 60
+    const val MAX_RECIPIENT_SEARCH_RESULTS = 10
+    const val MAX_LISTED_BLOCKS = 200
+}
+
 /**
  * Welle V1.9.15 -- per-link aggregate of [MailingMessageStatsDto]. [uniqueRecipients]/[totalClicks]
  * are `null` when the click cohort is below

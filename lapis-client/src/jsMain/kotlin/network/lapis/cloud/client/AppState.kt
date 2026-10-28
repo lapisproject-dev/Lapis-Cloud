@@ -15,6 +15,10 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
 import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.DirectMessageGroupTooLargeException
+import network.lapis.cloud.shared.rpc.DirectMessageGroupUnavailableException
+import network.lapis.cloud.shared.rpc.DirectMessageRateLimitedException
+import network.lapis.cloud.shared.rpc.DirectMessageRecipientUnavailableException
 import network.lapis.cloud.shared.rpc.EmailChangeAlreadyCurrentException
 import network.lapis.cloud.shared.rpc.EmailChangeMailUnavailableException
 import network.lapis.cloud.shared.rpc.EmailChangeNotAllowedException
@@ -244,6 +248,11 @@ internal fun typedRefusalText(e: Throwable): String? =
         is MailingListNotDeletableException -> tr("Automatische Mailinglisten können nicht gelöscht werden.")
         is MailingListSendingInProgressException ->
             tr("Diese Mailingliste wird gerade versendet. Bitte löschen Sie sie erst, wenn der Versand abgeschlossen ist.")
+        // V1.9.237 "Neue Nachricht": the fixed texts of its typed refusals. One text per type, never a hint WHY a recipient is unavailable.
+        is DirectMessageRecipientUnavailableException -> tr("Diese Person kann nicht angeschrieben werden.")
+        is DirectMessageGroupUnavailableException -> tr("Diese Gruppe ist nicht verfügbar.")
+        is DirectMessageGroupTooLargeException -> tr("Diese Gruppe ist für eine Nachricht zu groß.")
+        is DirectMessageRateLimitedException -> tr("Zu viele Nachrichten in kurzer Zeit. Bitte versuchen Sie es später erneut.")
         else -> null
     }
 

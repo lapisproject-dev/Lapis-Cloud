@@ -24,6 +24,16 @@ public object MeetingTable : Table("meeting") {
     public val protocolDocumentId: Column<Uuid?> = optReference("protocol_document_id", DocumentTable.id)
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val committeeId: Column<Uuid> = reference("committee_id", CommitteeTable.id)
+    // Welle V1.9.236 "Sitzungsmodus im Konferenzraum" -- hand-edited (V127__meeting_conference_session.sql), see 05-governance.kuml.kts. `currentAgendaItemId` has no DB foreign key (it would close a meeting <-> agenda_item cycle the backup cannot restore).
+    public val openedAt: Column<LocalDateTime?> = datetime("opened_at").nullable()
+    public val quorumEstablishedAt: Column<LocalDateTime?> = datetime("quorum_established_at").nullable()
+    public val quorumPresentCount: Column<Int?> = integer("quorum_present_count").nullable()
+    public val quorumRequiredCount: Column<Int?> = integer("quorum_required_count").nullable()
+    public val quorumEligibleCount: Column<Int?> = integer("quorum_eligible_count").nullable()
+    public val quorumOverridden: Column<Boolean> = bool("quorum_overridden").default(false)
+    public val currentAgendaItemId: Column<Uuid?> = uuid("current_agenda_item_id").nullable()
+    // Welle V1.9.240 -- hand-edited (V130__meeting_protocol_versions.sql). Tombstone: the Protokoll of that Sitzung was already put on this Sitzung's agenda. No DB foreign key (meeting -> meeting is a cycle the backup cannot restore).
+    public val protocolApprovalSourceMeetingId: Column<Uuid?> = uuid("protocol_approval_source_meeting_id").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
