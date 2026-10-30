@@ -224,15 +224,27 @@ class DirectMessageComposeViewDomTest {
             awaitUntil("groups") { el().textContent.orEmpty().contains("Vorstand") }
             assertEquals("true", el().buttonNamed("An eine Gruppe").getAttribute("aria-checked"))
             assertTrue(el().textContent.orEmpty().contains("Anhänge sind bei Gruppennachrichten nicht möglich."))
-            assertTrue(el().textContent.orEmpty().contains("Mitglieder: 3"))
+            assertTrue(el().textContent.orEmpty().contains("Empfänger: 3"))
+            assertFalse(el().textContent.orEmpty().contains("Mitglieder:"), "the count is labelled as recipients")
             val send = el().buttonNamed("An Gruppe senden")
             assertTrue(send.hasAttribute("disabled"), "nothing to send to before a group is chosen")
-            val radios = el().allOf("[role=radiogroup] [role=radio]").filter { it.textContent.orEmpty().contains("Mitglieder:") }
+            val radios = el().allOf("[role=radiogroup] [role=radio]").filter { it.textContent.orEmpty().contains("Empfänger:") }
             assertEquals(2, radios.size)
+            assertTrue(
+                radios.all { r ->
+                    r.allOf("span").any {
+                        it.getAttribute("title") ==
+                            "Ohne Sie selbst, ohne ausgeschiedene und inaktive Mitglieder"
+                    }
+                },
+                "the count explains itself",
+            )
             radios.first { it.textContent.orEmpty().contains("Vorstand") }.click()
             assertEquals(listOf("true", "false"), radios.map { it.getAttribute("aria-checked") })
             val summary = el().allOf("[role=status]").first { it.textContent.orEmpty().contains("Gruppe") }
             assertTrue(summary.textContent.orEmpty().contains("Vorstand") && summary.textContent.orEmpty().contains("3"))
+            assertTrue(summary.textContent.orEmpty().contains("(Empfänger: 3)"), summary.textContent.orEmpty())
+            assertFalse(summary.textContent.orEmpty().contains("Mitglieder:"))
             assertFalse(el().buttonNamed("An Gruppe senden").hasAttribute("disabled"))
             (el().controlOf("Nachricht") as HTMLTextAreaElement).let {
                 it.value = " Sitzung verschoben "

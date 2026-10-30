@@ -239,12 +239,15 @@ private fun SimplePanel.groupComposeSection(
                 radio.setAttribute("aria-checked", "false")
                 radio.span(nameInitials(name), className = "lapis-dm-avatar") { setAttribute("aria-hidden", "true") }
                 radio.span(name)
-                radio.span(gettext("Mitglieder: %1", group.memberCount), className = "text-muted small ms-auto")
+                // V1.9.242: the number is the recipients (the sender is not counted), not the size of the committee
+                radio.span(gettext("Empfänger: %1", group.memberCount), className = "text-muted small ms-auto") {
+                    title = gettext("Ohne Sie selbst, ohne ausgeschiedene und inaktive Mitglieder")
+                }
                 radio.onClick {
                     selected = group
                     radios.forEach { (id, button) -> button.setAttribute("aria-checked", (id == group.committeeId).toString()) }
                     summary.content =
-                        gettext("Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Mitglieder: %2).", name, group.memberCount)
+                        gettext("Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Empfänger: %2).", name, group.memberCount)
                     send.disabled = false
                 }
                 radios[group.committeeId] = radio

@@ -103,8 +103,9 @@ internal class MeetingProtocolOperations(
             val ctx = MeetingSessionAccess.requireMeeting(current = current, meetingId = id, lock = false)
             val callerRoles = confirmationRolesOf(ctx)
             val draft = draftOps.draftRow(id)
-            val blocked = blockedReason(ctx = ctx, draft = draft)
             val live = draftOps.buildLiveDraft(ctx)
+            // An empty draft can never be finalised; say so up front instead of letting the dialog open and fail on confirm.
+            val blocked = blockedReason(ctx = ctx, draft = draft) ?: ProtocolFinaliseOutcome.EMPTY.takeIf { isEmptyDraft(live) }
             val nextNo = ProtocolVersionStore.maxVersionNo(id) + 1
             val minutesRequired = ctx.meetingRow[MeetingTable.minuteTakerMemberId] != null
             val hash =
@@ -194,6 +195,12 @@ internal class MeetingProtocolOperations(
 
     // ---- finalise ----
 
+    /** True when nothing would go into a Protokoll: no item has a course, and there is no resolution anywhere. */
+    private fun isEmptyDraft(live: MeetingProtocolDraftDto): Boolean =
+        live.items.all { it.body.isBlank() } &&
+            live.items.all { it.resolutions.isEmpty() } &&
+            live.unassignedResolutions.isEmpty()
+
     fun finalise(
         current: CurrentMember,
         meetingId: String,
@@ -213,10 +220,7 @@ internal class MeetingProtocolOperations(
                 }
                 if (mode() != ProtocolConfirmationMode.APP_CONFIRMATION) throw ConflictException("confirmation mode not available")
                 val live = draftOps.buildLiveDraft(ctx)
-                if (live.items.all { it.body.isBlank() } &&
-                    live.items.all { it.resolutions.isEmpty() } &&
-                    live.unassignedResolutions.isEmpty()
-                ) {
+                if (isEmptyDraft(live)) {
                     return@transaction FinaliseTx(
                         outcome = ProtocolFinaliseOutcome.EMPTY,
                         versionId = null,

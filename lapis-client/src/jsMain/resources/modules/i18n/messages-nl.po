@@ -28534,14 +28534,6 @@ msgid "An Gruppe senden"
 msgstr "Naar groep verzenden"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
-msgid "Mitglieder: %1"
-msgstr "Leden: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
-msgid "Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Mitglieder: %2)."
-msgstr "Uw bericht gaat afzonderlijk naar elk lid van de groep „%1” (leden: %2)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
 msgid "An die Gruppe „%1“ gesendet."
 msgstr "Verzonden naar de groep „%1”."
 
@@ -28958,9 +28950,6 @@ msgstr "De notulen zijn definitief."
 msgid "Das Protokoll wurde inzwischen geändert. Bitte prüfen Sie es erneut."
 msgstr "De notulen zijn inmiddels gewijzigd. Controleer ze opnieuw."
 
-msgid "Es gibt noch keinen Verlauf und keinen Beschluss."
-msgstr "Er is nog geen verloop en geen besluit."
-
 msgid "Die Sitzung wurde noch nicht eröffnet."
 msgstr "De vergadering is nog niet geopend."
 
@@ -29063,3 +29052,21 @@ msgstr "Eén open taak uit notulen"
 
 msgid "Fassung %1 – fertiggestellt. Nur lesen."
 msgstr "Versie %1 – definitief. Alleen lezen."
+
+msgid "Es ist noch nichts eingetragen: Kein Tagesordnungspunkt hat einen Verlauf, und es gibt keinen Beschluss."
+msgstr "Er is nog niets ingevoerd: geen agendapunt heeft een verloop en er is geen besluit."
+
+msgid "Zum Entwurf"
+msgstr "Naar het concept"
+
+msgid "Sitzungen werden geladen …"
+msgstr "Vergaderingen worden geladen …"
+
+msgid "Empfänger: %1"
+msgstr "Ontvangers: %1"
+
+msgid "Ohne Sie selbst, ohne ausgeschiedene und inaktive Mitglieder"
+msgstr "Zonder uzelf, zonder vertrokken en inactieve leden"
+
+msgid "Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Empfänger: %2)."
+msgstr "Uw bericht gaat afzonderlijk naar elk lid van de groep „%1” (ontvangers: %2)."

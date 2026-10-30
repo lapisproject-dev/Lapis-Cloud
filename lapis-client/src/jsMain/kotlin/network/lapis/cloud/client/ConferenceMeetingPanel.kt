@@ -5,6 +5,8 @@ import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
+import io.kvision.html.Icon
+import io.kvision.html.Span
 import io.kvision.html.TAG
 import io.kvision.html.Tag
 import io.kvision.html.div
@@ -49,6 +51,10 @@ internal class ConferenceMeetingPanelHandle(
     val isOpen: () -> Boolean,
     val dispose: () -> Unit,
 )
+
+/** The roster as the attendance section's slice sees it: who is in the room (`connected`) is patched in place and does not rebuild the section. */
+private fun attendanceRosterSlice(state: ConferenceMeetingStateDto): List<SessionRosterEntryDto> =
+    state.roster.map { it.copy(connected = false) }
 
 // `lapis-conference-voting` gives the panel the geometry of the voting panel (flow / fullscreen rail / bottom sheet) without a new scroll surface
 private const val PANEL_CSS = "border rounded p-2 lapis-conference-voting conference-meeting-panel"
@@ -119,6 +125,21 @@ internal fun renderConferenceMeetingPanel(
     var quorumSlice: Any? = null
     var agendaSlice: Any? = null
     var attendanceSlice: Any? = null
+    // V1.9.242: a section is never rebuilt while a control in it has the focus or a pointer is down in it (see SectionGuard); the drawing waits
+    // and uses the NEWEST state when it finally runs.
+    var latestState: ConferenceMeetingStateDto? = null
+    var forceAttendanceRedraw = false
+    val guards = SectionGuards()
+    lateinit var renderBanner: (ConferenceMeetingStateDto) -> Unit
+    lateinit var renderHead: (ConferenceMeetingStateDto) -> Unit
+    lateinit var renderQuorum: (ConferenceMeetingStateDto) -> Unit
+    lateinit var renderAgenda: (ConferenceMeetingStateDto) -> Unit
+    lateinit var renderAttendance: (ConferenceMeetingStateDto) -> Unit
+    val bannerGuard = guards.add(SectionGuard({ bannerSection.getElement() }) { latestState?.let { renderBanner(it) } })
+    val headGuard = guards.add(SectionGuard({ headSection.getElement() }) { latestState?.let { renderHead(it) } })
+    val quorumGuard = guards.add(SectionGuard({ quorumSection.getElement() }) { latestState?.let { renderQuorum(it) } })
+    val agendaGuard = guards.add(SectionGuard({ agendaSection.getElement() }) { latestState?.let { renderAgenda(it) } })
+    val attendanceGuard = guards.add(SectionGuard({ attendanceSection.getElement() }) { latestState?.let { renderAttendance(it) } })
     var protocolTabActive = false
     var protocolHandle: ProtocolDraftSectionHandle? = null
     var protocolFinalHandle: ProtocolFinalHandle? = null
@@ -149,6 +170,7 @@ internal fun renderConferenceMeetingPanel(
                     meetingId = state.meetingId,
                     rpc = protocolFinalRpc,
                     onChanged = { protocolHandle?.refreshNow?.invoke() },
+                    onJumpToDraft = { protocolHandle?.focusFirstField?.invoke() },
                 )
             protocolHandle =
                 renderConferenceProtocolDraftSection(
@@ -162,13 +184,30 @@ internal fun renderConferenceMeetingPanel(
         if (hasState && protocolTabActive) protocolFinalHandle?.reload?.invoke()
     }
 
+    /** Forgets every waiting drawing and makes the next state draw those sections again (their slices no longer describe the DOM). */
+    fun dropPending() {
+        if (bannerGuard.pending) bannerSlice = null
+        if (headGuard.pending) headSlice = null
+        if (quorumGuard.pending) quorumSlice = null
+        if (agendaGuard.pending) agendaSlice = null
+        if (attendanceGuard.pending) attendanceSlice = null
+        guards.dropAll()
+    }
+
+    // switching the tab hides the section, so nothing in it is in use any more: a waiting drawing is done at once instead of being lost
+    fun flushPending() {
+        guards.flushAll()
+    }
+
     sessionTab.onClick {
         protocolTabActive = false
         paintTabs()
+        flushPending()
     }
     protocolTab.onClick {
         protocolTabActive = true
         paintTabs()
+        flushPending()
     }
 
     fun showNote(text: String?) {
@@ -213,7 +252,10 @@ internal fun renderConferenceMeetingPanel(
             } else {
                 if (movedOn) showNote(gettext("Der Tagesordnungspunkt hat sich inzwischen geändert."))
                 // a rejected change leaves the displayed controls (a <select>) on the refused value: draw them again
+                // (this redraw is forced past the guard: the select that was just used is the focused one, and a deferred drawing would
+                // leave the refused value on display)
                 attendanceSlice = null
+                forceAttendanceRedraw = true
                 onStaleState()
             }
         }
@@ -235,7 +277,7 @@ internal fun renderConferenceMeetingPanel(
             MeetingSessionNextStep.NONE, null -> null
         }
 
-    fun renderHead(state: ConferenceMeetingStateDto) {
+    fun drawHead(state: ConferenceMeetingStateDto) {
         headSection.removeAll()
         headSection.untrustedDiv(state.meetingTitle, className = "fw-semibold")
         headSection.div(className = "conference-meeting-phase") {
@@ -275,7 +317,7 @@ internal fun renderConferenceMeetingPanel(
         }
     }
 
-    fun renderQuorum(state: ConferenceMeetingStateDto) {
+    fun drawQuorum(state: ConferenceMeetingStateDto) {
         quorumSection.removeAll()
         quorumSection.h3(tr("Beschlussfähigkeit")) { addCssClasses("h6 mb-0") }
         val live = state.liveQuorum
@@ -348,7 +390,7 @@ internal fun renderConferenceMeetingPanel(
         }
     }
 
-    fun renderAgenda(state: ConferenceMeetingStateDto) {
+    fun drawAgenda(state: ConferenceMeetingStateDto) {
         agendaSection.removeAll()
         agendaSection.h3(tr("Tagesordnung")) { addCssClasses("h6 mb-0") }
         if (state.agenda.isEmpty()) {
@@ -447,6 +489,43 @@ internal fun renderConferenceMeetingPanel(
             AttendanceStatus.REPRESENTED.name to gettext("Vertretung"),
         )
 
+    /** The name cell of a roster row with the marker that shows who is in the room; patched in place when only that marker changes. */
+    class RosterName(
+        val span: Span,
+        var marker: Pair<Icon, Span>? = null,
+    )
+
+    val rosterNames = mutableMapOf<String, RosterName>()
+
+    fun setConnected(
+        name: RosterName,
+        connected: Boolean,
+    ) {
+        if (connected == (name.marker != null)) return
+        if (connected) {
+            val icon =
+                Icon("fas fa-wifi").apply {
+                    setAttribute("aria-hidden", "true")
+                    addCssClass("me-1")
+                }
+            val hidden = Span(tr("Im Raum verbunden"), className = "visually-hidden")
+            name.span.add(0, icon)
+            name.span.add(1, hidden)
+            name.marker = icon to hidden
+        } else {
+            name.marker?.let {
+                name.span.remove(it.first)
+                name.span.remove(it.second)
+            }
+            name.marker = null
+        }
+    }
+
+    /** V1.9.242 -- a join or leave in the room changes only the marker of one row: nothing else of the roster is touched. */
+    fun patchConnected(state: ConferenceMeetingStateDto) {
+        state.roster.forEach { entry -> rosterNames[entry.memberId]?.let { setConnected(it, entry.connected) } }
+    }
+
     fun renderRosterRow(
         list: Tag,
         state: ConferenceMeetingStateDto,
@@ -455,16 +534,10 @@ internal fun renderConferenceMeetingPanel(
     ) {
         val li = Tag(TAG.LI, className = "conference-meeting-row")
         list.add(li)
-        li.span(className = "conference-meeting-name") {
-            if (entry.connected) {
-                icon("fas fa-wifi") {
-                    setAttribute("aria-hidden", "true")
-                    addCssClass("me-1")
-                }
-                span(tr("Im Raum verbunden")) { addCssClass("visually-hidden") }
-            }
-            untrustedSpan(entry.displayName)
-        }
+        val nameSpan = li.span(className = "conference-meeting-name") { untrustedSpan(entry.displayName) }
+        val rosterName = RosterName(nameSpan)
+        setConnected(rosterName, entry.connected)
+        rosterNames[entry.memberId] = rosterName
         val select = Select(options = statusOptions(), value = entry.status?.name.orEmpty())
         // the name goes on the real <select>, not on the form-group wrapper around it
         select.input.setAttribute("aria-label", gettext("Anwesenheit: %1", sanitizeUntrustedI18nText(entry.displayName)))
@@ -505,8 +578,9 @@ internal fun renderConferenceMeetingPanel(
         }
     }
 
-    fun renderAttendance(state: ConferenceMeetingStateDto) {
+    fun drawAttendance(state: ConferenceMeetingStateDto) {
         attendanceSection.removeAll()
+        rosterNames.clear()
         if (state.callerRole == MeetingSessionRole.PARTICIPANT) return
         attendanceSection.h3(tr("Anwesenheit")) { addCssClasses("h6 mb-0") }
         if (state.ruleKind == AttendanceRuleKind.UNSUPPORTED) {
@@ -583,10 +657,17 @@ internal fun renderConferenceMeetingPanel(
         }
     }
 
+    renderBanner = { renderRunningVoteBanner(bannerSection, it, motionActions) }
+    renderHead = ::drawHead
+    renderQuorum = ::drawQuorum
+    renderAgenda = ::drawAgenda
+    renderAttendance = ::drawAttendance
+
     applyState = { state ->
         if (!disposed) {
             val before = current
             current = state
+            latestState = state ?: latestState
             refreshHint.hide()
             if (state != null && protocolHandle != null && protocolMeetingId != state.meetingId) {
                 // the room was bound to another Sitzung: the old draft view goes, a new one is built when its tab is shown
@@ -596,6 +677,7 @@ internal fun renderConferenceMeetingPanel(
                 protocolHost.removeAll()
             }
             if (state == null) {
+                dropPending()
                 body.hide()
                 paintTabs()
             } else {
@@ -616,26 +698,41 @@ internal fun renderConferenceMeetingPanel(
                     )
                 val newBanner = listOf(state.runningMotionVote, state.canManageMotions, state.phase)
                 val newAttendance =
-                    listOf(state.roster, state.guests, state.adoptableCount, state.extraConnectedCount, state.ruleKind, state.phase, role)
+                    listOf(
+                        attendanceRosterSlice(state),
+                        state.guests,
+                        state.adoptableCount,
+                        state.extraConnectedCount,
+                        state.ruleKind,
+                        state.phase,
+                        role,
+                    )
                 if (newBanner != bannerSlice) {
                     bannerSlice = newBanner
-                    renderRunningVoteBanner(bannerSection, state, motionActions)
+                    bannerGuard.requestRender()
                 }
                 if (newHead != headSlice) {
                     headSlice = newHead
-                    renderHead(state)
+                    headGuard.requestRender()
                 }
                 if (newQuorum != quorumSlice) {
                     quorumSlice = newQuorum
-                    renderQuorum(state)
+                    quorumGuard.requestRender()
                 }
                 if (newAgenda != agendaSlice) {
                     agendaSlice = newAgenda
-                    renderAgenda(state)
+                    agendaGuard.requestRender()
                 }
                 if (newAttendance != attendanceSlice) {
                     attendanceSlice = newAttendance
-                    renderAttendance(state)
+                    if (forceAttendanceRedraw) {
+                        forceAttendanceRedraw = false
+                        attendanceGuard.renderNow()
+                    } else {
+                        attendanceGuard.requestRender()
+                    }
+                } else if (!attendanceGuard.pending) {
+                    patchConnected(state)
                 }
                 if (before != null && before.phase != state.phase && state.phase == MeetingSessionPhase.OPEN) {
                     announce(gettext("Die Sitzung ist eröffnet."))
@@ -656,6 +753,7 @@ internal fun renderConferenceMeetingPanel(
         isOpen = { open },
         dispose = {
             disposed = true
+            guards.dispose()
             protocolHandle?.dispose?.invoke()
         },
     )

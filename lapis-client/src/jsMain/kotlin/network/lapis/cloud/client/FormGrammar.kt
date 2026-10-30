@@ -1196,6 +1196,29 @@ private fun focusAndReveal(widget: Widget?) {
 }
 
 /**
+ * V1.9.242 -- the visible loading state of a button whose click first has to fetch something: disabled, `aria-busy`, a spinner in place of the
+ * icon and [busyText] instead of the label. The button keeps its place in the layout (only its content changes); [idleText] comes back when
+ * [busy] is false. The spin stops by itself under `prefers-reduced-motion` (Font Awesome's own rule, see `theme.css`). Call it with `false`
+ * in a `finally` so no path (failure, empty answer) leaves the button busy.
+ */
+internal fun Button.showBusy(
+    busy: Boolean,
+    busyText: String,
+    idleText: String,
+) {
+    disabled = busy
+    if (busy) {
+        setAttribute("aria-busy", "true")
+        icon = "fas fa-spinner fa-spin"
+        text = busyText
+    } else {
+        removeAttribute("aria-busy")
+        icon = null
+        text = idleText
+    }
+}
+
+/**
  * S4: Doppelklick-Schutz. `guarded {}` wirft [kotlinx.coroutines.CancellationException] weiter -- ein
  * `button.disabled = false` NACH dem `guarded`-Aufruf liefe bei einem Abbruch nie. Deshalb immer
  * try/finally (Muster `LedgerScreen.saveButton`).

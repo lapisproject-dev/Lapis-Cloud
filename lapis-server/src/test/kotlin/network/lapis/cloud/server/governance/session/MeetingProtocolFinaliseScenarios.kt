@@ -164,6 +164,36 @@ abstract class MeetingProtocolFinaliseScenarios(
             versionRows(s.meetingId) shouldHaveSize 1
         }
 
+        test("the preview of an empty draft says EMPTY and cannot be finalised; a body text lifts it; the other blocked reasons win") {
+            val s = fx.scene()
+            val f = finalOps()
+            // NOT_OPENED wins over EMPTY: the Sitzung is not open and the draft is empty as well.
+            val notOpened = f.preview(current = s.lead, meetingId = s.id())
+            notOpened.blockedReason shouldBe ProtocolFinaliseOutcome.NOT_OPENED
+            notOpened.canFinalise shouldBe false
+            runBlocking { s.ops.open(current = s.lead, roomId = s.roomId, meetingId = s.meetingId) }
+            val empty = f.preview(current = s.lead, meetingId = s.id())
+            empty.blockedReason shouldBe ProtocolFinaliseOutcome.EMPTY
+            empty.canFinalise shouldBe false
+            // The server stays the authority: finalising an empty draft is still refused.
+            f.finalise(current = s.lead, meetingId = s.id(), expectedContentSha256 = empty.contentSha256).outcome shouldBe
+                ProtocolFinaliseOutcome.EMPTY
+            fx.protocolOps().saveBlock(
+                current = s.lead,
+                meetingId = s.id(),
+                agendaItemId = s.agenda[0].toString(),
+                expectedVersion = 0,
+                body = "MSX Text fuer die Vorschau",
+            )
+            val filled = f.preview(current = s.lead, meetingId = s.id())
+            filled.blockedReason shouldBe null
+            filled.canFinalise shouldBe true
+            val result = f.finalise(current = s.lead, meetingId = s.id(), expectedContentSha256 = filled.contentSha256)
+            result.outcome shouldBe ProtocolFinaliseOutcome.FINALISED
+            // ALREADY_FINALISED wins over any content check.
+            f.preview(current = s.lead, meetingId = s.id()).blockedReason shouldBe ProtocolFinaliseOutcome.ALREADY_FINALISED
+        }
+
         test("two parallel finalise calls with the same hash produce exactly one version") {
             val s = fx.scene()
             val f = finalOps()

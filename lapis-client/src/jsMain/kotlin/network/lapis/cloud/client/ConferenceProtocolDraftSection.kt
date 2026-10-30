@@ -202,6 +202,8 @@ internal class ProtocolDraftSectionHandle(
     val controller: ProtocolDraftController,
     val setActive: (Boolean) -> Unit,
     val refreshNow: () -> Unit,
+    // V1.9.242 -- "Zum Entwurf": the first text field of the draft takes the focus (nothing happens when the draft has none, e.g. a reader's view)
+    val focusFirstField: () -> Unit,
     val dispose: () -> Unit,
 )
 
@@ -977,6 +979,11 @@ internal fun renderConferenceProtocolDraftSection(
             }
         },
         refreshNow = { reload() },
+        focusFirstField = {
+            val area = root.getElement()?.querySelector("textarea") as? HTMLTextAreaElement
+            area?.scrollIntoView()
+            area?.focus()
+        },
         dispose = {
             disposed = true
             timer?.let { scheduler.cancel(it) }

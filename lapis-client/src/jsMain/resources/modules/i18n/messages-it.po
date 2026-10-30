@@ -28537,14 +28537,6 @@ msgid "An Gruppe senden"
 msgstr "Invia al gruppo"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
-msgid "Mitglieder: %1"
-msgstr "Membri: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
-msgid "Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Mitglieder: %2)."
-msgstr "Il suo messaggio viene inviato singolarmente a ogni membro del gruppo «%1» (membri: %2)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessageComposeView.kt
 msgid "An die Gruppe „%1“ gesendet."
 msgstr "Inviato al gruppo «%1»."
 
@@ -28961,9 +28953,6 @@ msgstr "Il verbale è finalizzato."
 msgid "Das Protokoll wurde inzwischen geändert. Bitte prüfen Sie es erneut."
 msgstr "Nel frattempo il verbale è stato modificato. Lo controlli di nuovo."
 
-msgid "Es gibt noch keinen Verlauf und keinen Beschluss."
-msgstr "Non ci sono ancora né svolgimento né delibera."
-
 msgid "Die Sitzung wurde noch nicht eröffnet."
 msgstr "La riunione non è ancora stata aperta."
 
@@ -29066,3 +29055,21 @@ msgstr "Un compito aperto dai verbali"
 
 msgid "Fassung %1 – fertiggestellt. Nur lesen."
 msgstr "Versione %1 – finalizzata. Sola lettura."
+
+msgid "Es ist noch nichts eingetragen: Kein Tagesordnungspunkt hat einen Verlauf, und es gibt keinen Beschluss."
+msgstr "Non è ancora stato inserito nulla: nessun punto all'ordine del giorno ha uno svolgimento e non c'è alcuna delibera."
+
+msgid "Zum Entwurf"
+msgstr "Alla bozza"
+
+msgid "Sitzungen werden geladen …"
+msgstr "Caricamento delle sedute …"
+
+msgid "Empfänger: %1"
+msgstr "Destinatari: %1"
+
+msgid "Ohne Sie selbst, ohne ausgeschiedene und inaktive Mitglieder"
+msgstr "Senza di lei, senza i membri usciti e quelli inattivi"
+
+msgid "Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Empfänger: %2)."
+msgstr "Il suo messaggio viene inviato singolarmente a ogni membro del gruppo «%1» (destinatari: %2)."

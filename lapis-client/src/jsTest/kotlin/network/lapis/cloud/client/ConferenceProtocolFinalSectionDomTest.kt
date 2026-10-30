@@ -67,6 +67,9 @@ class ConferenceProtocolFinalSectionDomTest {
         val confirmed = mutableListOf<String>()
         val corrections = mutableListOf<String>()
         var finaliseOutcome = ProtocolFinaliseOutcome.FINALISED
+        var blocked: ProtocolFinaliseOutcome? = null
+        var jumps = 0
+        var withJump = true
     }
 
     private suspend fun <T> withSection(
@@ -76,7 +79,16 @@ class ConferenceProtocolFinalSectionDomTest {
         val rpc =
             MeetingProtocolRpc(
                 preview = { _ ->
-                    MeetingProtocolPreviewDto("m1", 1, "f".repeat(64), 1, true, null, setOf(ProtocolConfirmationRole.LEAD), true)
+                    MeetingProtocolPreviewDto(
+                        "m1",
+                        1,
+                        "f".repeat(64),
+                        1,
+                        calls.blocked == null,
+                        calls.blocked,
+                        setOf(ProtocolConfirmationRole.LEAD),
+                        true,
+                    )
                 },
                 versions = { _ -> calls.versions!! },
                 finalise = { _, h ->
@@ -90,7 +102,12 @@ class ConferenceProtocolFinalSectionDomTest {
                 correct = { _, note -> calls.corrections += note },
             )
         return mountedForm("protocol-final") { root: Root, element ->
-            renderProtocolFinalSection(parent = root, meetingId = "m1", rpc = rpc)
+            renderProtocolFinalSection(
+                parent = root,
+                meetingId = "m1",
+                rpc = rpc,
+                onJumpToDraft = if (calls.withJump) ({ calls.jumps++ }) else null,
+            )
             block(element())
         }
     }
@@ -182,6 +199,60 @@ class ConferenceProtocolFinalSectionDomTest {
                 awaitUntil("confirmed") { el.text().contains("PDF wird erstellt") }
                 el.button("Erneut versuchen").click()
                 awaitUntil("retry sent") { calls.confirmed == listOf("v1") }
+            }
+        }
+
+    private suspend fun openBlockedDialog(
+        calls: Calls,
+        fragment: String,
+        block: suspend (HTMLElement) -> Unit,
+    ) {
+        calls.versions = versions(setOf(ProtocolConfirmationRole.LEAD), emptyList())
+        withSection(calls) { el ->
+            awaitUntil("the section") { el.buttons().any { it.contains("Protokoll fertigstellen") } }
+            el.button("Protokoll fertigstellen …").click()
+            awaitDialogText(fragment)
+            block(el)
+        }
+    }
+
+    @Test
+    fun anEmptyProtokoll_explainsItself_hasNoConfirmButton_andJumpsToTheDraft(): Promise<Unit> =
+        formTest {
+            val calls = Calls().also { it.blocked = ProtocolFinaliseOutcome.EMPTY }
+            openBlockedDialog(calls, "Es ist noch nichts eingetragen") { _ ->
+                val labels = lastOpenModal().allOf("button").map { it.text() }
+                assertFalse(labels.any { it.contains("Fertigstellen und bestätigen") }, "no confirm button: $labels")
+                assertTrue(labels.any { it.contains("Schließen") }, "$labels")
+                assertTrue(labels.any { it.contains("Zum Entwurf") }, "$labels")
+                assertTrue(calls.finalised.isEmpty())
+                confirmDialogButton("Zum Entwurf").click()
+                awaitUntil("the jump") { calls.jumps == 1 }
+            }
+        }
+
+    @Test
+    fun aNotOpenedSitzung_showsOnlyClose(): Promise<Unit> =
+        formTest {
+            val calls = Calls().also { it.blocked = ProtocolFinaliseOutcome.NOT_OPENED }
+            openBlockedDialog(calls, "Die Sitzung wurde noch nicht eröffnet.") { _ ->
+                val labels = lastOpenModal().allOf("button").map { it.text() }.filter { it.isNotBlank() }
+                assertFalse(labels.any { it.contains("Zum Entwurf") }, "$labels")
+                assertFalse(labels.any { it.contains("Fertigstellen und bestätigen") }, "$labels")
+                assertTrue(labels.any { it.contains("Schließen") }, "$labels")
+            }
+        }
+
+    @Test
+    fun anEmptyProtokoll_withoutADraftOnThePage_offersNoJump(): Promise<Unit> =
+        formTest {
+            val calls =
+                Calls().also {
+                    it.blocked = ProtocolFinaliseOutcome.EMPTY
+                    it.withJump = false
+                }
+            openBlockedDialog(calls, "Es ist noch nichts eingetragen") { _ ->
+                assertFalse(lastOpenModal().allOf("button").any { it.text().contains("Zum Entwurf") })
             }
         }
 

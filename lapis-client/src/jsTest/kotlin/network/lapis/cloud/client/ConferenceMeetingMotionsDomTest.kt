@@ -386,4 +386,28 @@ class ConferenceMeetingMotionsDomTest {
                 assertFalse(el.has("Abstimmung eröffnen"))
             }
         }
+
+    // V1.9.242 -- checked, not changed: "Anträge zu diesem Punkt" lists only motions attached to the CURRENT item; an attachable motion is
+    // offered in the dialog of "Antrag zuordnen" and nowhere else.
+    @Test
+    fun underTheCurrentItem_onlyAttachedMotionsOfThatItemAreListed_theAttachableOneIsOnlyInTheDialog(): Promise<Unit> =
+        formTest {
+            withPanel(Calls()) { el, handle ->
+                handle.apply(
+                    state(
+                        motions =
+                            listOf(
+                                motion(id = "m1", item = "a1"),
+                                motion(id = "m2", item = "a2").copy(title = "Anderer Punkt"),
+                            ),
+                        attachable = listOf(SessionMotionRefDto("m9", "Lose Anfrage", MotionStatus.REVIEWED)),
+                    ),
+                )
+                awaitUntil("motion card") { el.text().contains("Fahrrad kaufen") }
+                assertFalse(el.text().contains("Anderer Punkt"), "a motion of another item is not listed under the current one")
+                assertFalse(el.text().contains("Lose Anfrage"), "an attachable motion is not listed under the item")
+                el.button("Antrag zuordnen").click()
+                awaitUntil("dialog") { lastOpenModal().text().contains("Antrag „Lose Anfrage“ diesem Punkt zuordnen?") }
+            }
+        }
 }

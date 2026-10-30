@@ -140,6 +140,11 @@ confirmation and the reading usually happen after the room ended. A dialog state
 * **Tasks.** Under "Meine Aufgaben aus Protokollen" on the Sitzungen page everybody sees the tasks given to them in confirmed Protokolle and can tick them off; overdue and open tasks also appear on the
   dashboard. A task dropped by a correction disappears.
 
+*Since V1.9.242:* when nothing is entered yet (no agenda item has a course, and there is no resolution), "Protokoll fertigstellen ..." no longer opens the confirmation. The dialog states "Es ist noch nichts eingetragen: ..." and offers
+"Schließen" and, in the panel, "Zum Entwurf", which puts the focus into the first text field of the draft. There is no confirm button at all (not even a disabled one). The server decides: the preview reports `blockedReason = EMPTY`
+and `canFinalise = false`, and `finalise` still answers EMPTY if the content disappears between preview and confirmation. A Sitzung that is not opened, or a Protokoll that is already finalised, shows its own sentence in the same
+dialog. The Sitzung's own page shows only "Schließen" (it has no draft to jump to).
+
 This is a simple electronic confirmation in Lapis Cloud, **not** a qualified signature. The PDF is German only, and characters outside Latin-1 (Cyrillic, Georgian) print as "?"; the checksum is not affected.
 *Not verified:* live operation with several people, real browsers and phones, the PDF in real viewers, and the legal validity of the confirmation.
 

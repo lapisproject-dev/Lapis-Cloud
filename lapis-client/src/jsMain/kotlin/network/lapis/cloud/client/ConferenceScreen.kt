@@ -2295,16 +2295,24 @@ private fun enterCall(
             }
         }
 
+        // V1.9.242: the list of planned Sitzungen is fetched first; the button shows that it is working and ignores a second (queued) click
+        var loadingMeetings = false
         assignMeetingButton.onClick {
-            assignMeetingButton.disabled = true
+            if (loadingMeetings) return@onClick
+            loadingMeetings = true
+            assignMeetingButton.showBusy(true, busyText = gettext("Sitzungen werden geladen …"), idleText = gettext("Sitzung zuordnen"))
             AppScope.launch {
-                val meetings = guarded { rpcService<IGovernanceService>().listMeetings(status = MeetingStatus.PLANNED) }
-                assignMeetingButton.disabled = false
-                if (meetings.isNullOrEmpty()) {
-                    notifyError(tr("Keine geplanten Sitzungen vorhanden."))
-                    return@launch
+                try {
+                    val meetings = guarded { rpcService<IGovernanceService>().listMeetings(status = MeetingStatus.PLANNED) }
+                    if (meetings.isNullOrEmpty()) {
+                        notifyError(tr("Keine geplanten Sitzungen vorhanden."))
+                        return@launch
+                    }
+                    assignMeetingDialog(meetings) { meetingId -> applyMeetingBinding(meetingId) }
+                } finally {
+                    loadingMeetings = false
+                    assignMeetingButton.showBusy(false, busyText = "", idleText = gettext("Sitzung zuordnen"))
                 }
-                assignMeetingDialog(meetings) { meetingId -> applyMeetingBinding(meetingId) }
             }
         }
 

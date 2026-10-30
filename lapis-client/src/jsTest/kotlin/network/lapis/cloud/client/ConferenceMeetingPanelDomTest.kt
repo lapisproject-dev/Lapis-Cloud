@@ -202,6 +202,13 @@ class ConferenceMeetingPanelDomTest {
                 el.buttonText("Beschlussfähigkeit feststellen").click()
                 awaitUntil("the dialog") { lastOpenModal().text().contains("Laut Berechnung nicht beschlussfähig (1 von 3, ab 2)") }
                 assertEquals(listOf(false), calls.establish, "nothing is sent before the answer")
+                // V1.9.242 -- checked, not changed: the question is the only gate (no hard block), and the safe answer has the focus
+                awaitUntil("cancel focused") {
+                    kotlinx.browser.document.activeElement
+                        ?.textContent
+                        .orEmpty()
+                        .trim() == "Abbrechen"
+                }
                 lastOpenModal().buttonText("Trotzdem feststellen").click()
                 awaitUntil("acknowledged") { calls.establish == listOf(false, true) }
             }
@@ -417,6 +424,200 @@ class ConferenceMeetingPanelDomTest {
                 awaitUntil("select reset") {
                     (el.querySelector("select[aria-label='Anwesenheit: Person C']") as? org.w3c.dom.HTMLSelectElement)?.value == ""
                 }
+            }
+        }
+
+    // ---- V1.9.242: a section is not rebuilt under a focused control or a pressed pointer ----
+
+    private fun rosterOf(
+        names: List<String> = listOf("Person A", "Person B", "Person C"),
+        connected: Set<Int> = setOf(0),
+        statuses: List<AttendanceStatus?> = listOf(AttendanceStatus.PRESENT, AttendanceStatus.PRESENT, null),
+    ) = names.mapIndexed { i, n -> SessionRosterEntryDto("p$i", n, statuses[i], connected = i in connected) }
+
+    private fun selectOf(
+        el: HTMLElement,
+        name: String,
+    ) = assertNotNull(
+        el.querySelector("select[aria-label='Anwesenheit: $name']") as? org.w3c.dom.HTMLSelectElement,
+        "no select for $name",
+    )
+
+    /** A real focus move away plus the event a browser would send; the guard flushes on the next tick. */
+    private fun leave(select: org.w3c.dom.HTMLSelectElement) {
+        select.blur()
+        select.dispatchEvent(
+            org.w3c.dom.events
+                .FocusEvent(
+                    "focusout",
+                    org.w3c.dom.events
+                        .FocusEventInit(bubbles = true),
+                ),
+        )
+    }
+
+    @Test
+    fun anUnchangedPayload_keepsEverySectionsNodes(): Promise<Unit> =
+        formTest {
+            withPanel(Calls()) { el, handle ->
+                handle.apply(state())
+                awaitUntil("rows") { el.allOf(".conference-meeting-row").size == 3 }
+                val sections = listOf("quorum", "agenda", "attendance", "head")
+                val before = sections.map { el.querySelector(".conference-meeting-$it")?.firstElementChild }
+                val select = selectOf(el, "Person C")
+                handle.apply(state())
+                handle.apply(state())
+                val after = sections.map { el.querySelector(".conference-meeting-$it")?.firstElementChild }
+                sections.indices.forEach { assertSame(before[it], after[it], "section ${sections[it]} was rebuilt") }
+                assertSame(select, selectOf(el, "Person C"))
+            }
+        }
+
+    @Test
+    fun aFocusedSelect_survivesAPollThatOnlyChangesWhoIsInTheRoom(): Promise<Unit> =
+        formTest {
+            withPanel(Calls()) { el, handle ->
+                handle.apply(state(entries = rosterOf()))
+                awaitUntil("rows") { el.allOf(".conference-meeting-row").size == 3 }
+                val select = selectOf(el, "Person C")
+                select.focus()
+                assertSame(select, kotlinx.browser.document.activeElement)
+                handle.apply(state(entries = rosterOf(connected = setOf(1))))
+                assertSame(select, selectOf(el, "Person C"), "the select node is the same")
+                assertSame(select, kotlinx.browser.document.activeElement, "and it keeps the focus")
+                assertFalse(el.allOf(".conference-meeting-row")[0].text().contains("Im Raum verbunden"), "A left the room")
+                assertTrue(el.allOf(".conference-meeting-row")[1].text().contains("Im Raum verbunden"), "B joined")
+            }
+        }
+
+    @Test
+    fun theConnectedMarker_isPatchedInPlace_withoutTouchingTheSelect(): Promise<Unit> =
+        formTest {
+            withPanel(Calls()) { el, handle ->
+                handle.apply(state(entries = rosterOf()))
+                awaitUntil("rows") { el.allOf(".conference-meeting-row").size == 3 }
+                val select = selectOf(el, "Person A")
+                val row = el.allOf(".conference-meeting-row")[0]
+                assertTrue(row.querySelector(".fa-wifi") != null)
+                handle.apply(state(entries = rosterOf(connected = emptySet())))
+                assertNull(row.querySelector(".fa-wifi"), "icon gone")
+                assertFalse(row.text().contains("Im Raum verbunden"), "and its text")
+                handle.apply(state(entries = rosterOf(connected = setOf(0, 2))))
+                assertTrue(row.querySelector(".fa-wifi") != null, "icon back")
+                assertTrue(el.allOf(".conference-meeting-row")[2].text().contains("Im Raum verbunden"))
+                assertSame(select, selectOf(el, "Person A"))
+                assertSame(row, el.allOf(".conference-meeting-row")[0], "the row itself was not rebuilt")
+            }
+        }
+
+    @Test
+    fun aChangeUnderAFocusedControl_waitsForTheFocusToLeave(): Promise<Unit> =
+        formTest {
+            withPanel(Calls()) { el, handle ->
+                handle.apply(state(entries = rosterOf()))
+                awaitUntil("rows") { el.allOf(".conference-meeting-row").size == 3 }
+                val select = selectOf(el, "Person C")
+                select.focus()
+                handle.apply(state(entries = rosterOf(names = listOf("Person A", "Neuer Name", "Person C"))))
+                assertSame(select, selectOf(el, "Person C"))
+                assertFalse(el.text().contains("Neuer Name"), "not drawn while the select has the focus")
+                leave(select)
+                awaitUntil("drawn after the focus left") { el.text().contains("Neuer Name") }
+            }
+        }
+
+    @Test
+    fun twoDeferredStates_onlyTheNewestIsDrawn(): Promise<Unit> =
+        formTest {
+            withPanel(Calls()) { el, handle ->
+                handle.apply(state(entries = rosterOf()))
+                awaitUntil("rows") { el.allOf(".conference-meeting-row").size == 3 }
+                val select = selectOf(el, "Person C")
+                select.focus()
+                handle.apply(state(entries = rosterOf(names = listOf("Person A", "Zwischenstand", "Person C"))))
+                handle.apply(state(entries = rosterOf(names = listOf("Person A", "Endstand", "Person C"))))
+                leave(select)
+                awaitUntil("newest drawn") { el.text().contains("Endstand") }
+                assertFalse(el.text().contains("Zwischenstand"))
+            }
+        }
+
+    @Test
+    fun aPressedPointer_keepsTheNode_andTheClickStillLandsOnIt(): Promise<Unit> =
+        formTest {
+            val calls = Calls()
+            withPanel(calls) { el, handle ->
+                handle.apply(state(current = "a1"))
+                awaitUntil("buttons") { el.hasButtonText("Nächster Punkt") }
+                val button = el.buttonText("Nächster Punkt")
+                calls.next = state(current = "a2")
+                button.dispatchEvent(
+                    org.w3c.dom.events
+                        .Event("pointerdown"),
+                )
+                // a poll arrives while the pointer is down: the agenda would be rebuilt
+                handle.apply(state(current = "a2"))
+                assertTrue(button.isConnected, "the pressed button is still in the document")
+                button.dispatchEvent(
+                    org.w3c.dom.events
+                        .Event("pointerup"),
+                )
+                button.click() // the click that follows pointerup, before the guard's next tick
+                awaitUntil("click handled on the original node") { calls.moves == listOf<Pair<String?, String>>("a1" to "a2") }
+                awaitUntil("drawn after the click") { el.allOf("ol li")[1].getAttribute("aria-current") == "step" }
+            }
+        }
+
+    @Test
+    fun aLostPointerUp_neverBlocksDrawingForGood(): Promise<Unit> =
+        formTest {
+            withPanel(Calls()) { el, handle ->
+                handle.apply(state(current = "a1"))
+                awaitUntil("buttons") { el.hasButtonText("Nächster Punkt") }
+                el.buttonText("Nächster Punkt").dispatchEvent(
+                    org.w3c.dom.events
+                        .Event("pointerdown"),
+                )
+                handle.apply(state(current = "a2"))
+                assertEquals("step", el.allOf("ol li")[0].getAttribute("aria-current"), "deferred while the pointer is down")
+                // no pointerup ever comes: the safety timer releases the guard
+                awaitUntil("released by the safety timer") { el.allOf("ol li")[1].getAttribute("aria-current") == "step" }
+            }
+        }
+
+    @Test
+    fun aRefusedChange_isDrawnAgainEvenWithTheFocusInsideTheSection(): Promise<Unit> =
+        formTest {
+            val calls = Calls().also { it.attendanceConflict = true }
+            withPanel(calls) { el, handle ->
+                handle.apply(state())
+                awaitUntil("rows") { el.allOf(".conference-meeting-row").size == 3 }
+                val select = selectOf(el, "Person C")
+                select.focus()
+                select.value = AttendanceStatus.PRESENT.name
+                select.dispatchEvent(
+                    org.w3c.dom.events
+                        .Event("change"),
+                )
+                awaitUntil("refused") { calls.stale == 1 }
+                handle.apply(state())
+                awaitUntil("select reset under the focus") { selectOf(el, "Person C").value == "" }
+            }
+        }
+
+    @Test
+    fun afterDispose_aWaitingDrawingNeverHappens(): Promise<Unit> =
+        formTest {
+            withPanel(Calls()) { el, handle ->
+                handle.apply(state(entries = rosterOf()))
+                awaitUntil("rows") { el.allOf(".conference-meeting-row").size == 3 }
+                val select = selectOf(el, "Person C")
+                select.focus()
+                handle.apply(state(entries = rosterOf(names = listOf("Person A", "Nach Dispose", "Person C"))))
+                handle.dispose()
+                leave(select)
+                kotlinx.coroutines.delay(100)
+                assertFalse(el.text().contains("Nach Dispose"))
             }
         }
 }

@@ -432,3 +432,7 @@ Since V1.9.238 it also lists the motions of the current agenda item, shows a ban
 Since V1.9.239 the panel has two tabs, "Sitzung" and "Protokoll". The draft of the Protokoll is read (every 10 s, every 30 s in a hidden tab) only while the "Protokoll" tab of an open panel is the visible one, so the
 Sitzung polling above is unchanged; see `committees-and-meetings.adoc`, section "The Protokoll draft".
 Since V1.9.240 the "Protokoll" tab also carries the finalising: the newest version with its state, "Protokoll fertigstellen ...", "Bestätigen", "Korrektur anlegen ..." and the PDF; see "Finalising the Protokoll".
+Since V1.9.242 the panel no longer rebuilds a section while a control in it has the focus (an open status list, the stand-in search) or a pointer is pressed inside it; the newest state is drawn as soon as the focus
+leaves or the pointer is released, so a click is not lost to a poll. Who is in the room is patched in place (the small marker of a row). A join or leave still changes the counters "Alle Verbundenen übernehmen (n)" and
+"+n weitere Verbundene", which redraws the attendance section after the interaction -- this is not a diff engine. In the room menu, "Sitzung zuordnen" shows a spinner and "Sitzungen werden geladen ..." while the list of planned
+Sitzungen is fetched and ignores a second click.

@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.242 -- Small fixes to the Sitzung panel and to finalising a Protokoll
+
+**No migration**, no new RPC method, no new DTO field (`MeetingProtocolPreviewDto` is unchanged; `blockedReason` now also carries `EMPTY`).
+
+- **Finalising an empty Protokoll explains itself.** The preview now reports `blockedReason = EMPTY` / `canFinalise = false` when no agenda item has a course and there is no resolution (the other blocked reasons keep priority). The client opens a dialog
+  with one sentence and "Schließen" (plus "Zum Entwurf" in the panel, which focuses the first text field of the draft) instead of a confirm dialog that could only fail, and no longer shows the generic toast. `finalise` still refuses EMPTY on the server.
+- **The panel no longer rebuilds a section under a hand.** Banner, head, quorum, agenda and attendance wait while a control inside has the focus or a pointer is pressed in it, and draw the newest state afterwards (focus leaves, or the tick after the
+  click). Who is connected is patched in place instead of rebuilding the roster. Honest limit: a join or leave in the room also changes the two counters of the attendance section, so that section is still redrawn once the interaction is over;
+  this is not a diff engine. A refused attendance change still redraws the select at once.
+- **"Sitzung zuordnen" shows a loading state** (spinner, "Sitzungen werden geladen ...", `aria-busy`) and ignores a second click while the list is fetched.
+- **The group label reads "Empfänger"** (the count excludes the sender and anyone who is not an active current member), with an explanatory tooltip; the summary sentence says "(Empfänger: n)". Changed msgids in all seven catalogues.
+- **Checked, unchanged:** "Anträge zu diesem Punkt" lists only motions attached to the current item (attachable motions appear only in the "Antrag zuordnen" dialog); the "nicht beschlussfähig" quorum confirmation exists, has the focus on "Abbrechen",
+  and the record keeps the real counts with `overridden = true`. Tests added for both.
+
 ### V1.9.241 -- Attendance, quorum and Protokoll draft of a Sitzung only for the committee
 
 **Behaviour change first:** the attendance, the quorum and the Protokoll draft of a Sitzung are visible only to people with a role in it (chair/recording office/BOARD/ADMIN, minute taker, committee seat; for the general assembly every active member). `getAttendance`, `checkQuorum` and `generateProtocolDraft` answer everyone else with the same not-found as for an unknown id (`getAttendance` of an unknown id was an empty list before). `getMeetingDetail` returns an empty attendance, `quorum = null` and `attendanceVisible = false`. The agenda, the resolutions and the list of Sitzungen stay visible to every signed-in member. This replaces the "every signed-in member" limitation of `[0.43.0]`.

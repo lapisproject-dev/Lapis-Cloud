@@ -13,6 +13,7 @@ import io.kvision.html.link
 import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
+import io.kvision.modal.Modal
 import io.kvision.panel.vPanel
 import io.kvision.table.HeaderCell
 import io.kvision.table.Scope
@@ -101,6 +102,16 @@ private fun protocolStatusColor(status: ProtocolVersionStatus): String =
         ProtocolVersionStatus.SUPERSEDED -> "secondary"
     }
 
+/** The one sentence for a reason that stops finalising; shared by the dialog of the preview and the answer of the finalise call. */
+private fun blockedSentence(reason: ProtocolFinaliseOutcome?): String =
+    when (reason) {
+        ProtocolFinaliseOutcome.EMPTY ->
+            gettext("Es ist noch nichts eingetragen: Kein Tagesordnungspunkt hat einen Verlauf, und es gibt keinen Beschluss.")
+        ProtocolFinaliseOutcome.NOT_OPENED -> gettext("Die Sitzung wurde noch nicht eröffnet.")
+        ProtocolFinaliseOutcome.ALREADY_FINALISED -> gettext("Das Protokoll ist bereits fertiggestellt.")
+        else -> gettext("Das Protokoll kann gerade nicht fertiggestellt werden.")
+    }
+
 /**
  * V1.9.240 -- finalising, confirming and correcting the Protokoll of a Sitzung: the newest version with its state, the buttons the caller's roles
  * allow, the history of all versions and the correction form. Used in the "Protokoll" tab of the sitting panel AND on the Sitzung's own page (the
@@ -113,6 +124,9 @@ internal fun renderProtocolFinalSection(
     meetingId: String,
     rpc: MeetingProtocolRpc = MeetingProtocolRpc(),
     onChanged: () -> Unit = {},
+    // V1.9.242: "Zum Entwurf" of the dialog that explains an empty Protokoll; the panel moves the focus into the draft. Without a draft on the page
+    // (the Sitzung's own page) the default does nothing and the button is not offered.
+    onJumpToDraft: (() -> Unit)? = null,
 ): ProtocolFinalHandle {
     val root = Div(className = "protocol-final")
     parent.add(root)
@@ -180,21 +194,45 @@ internal fun renderProtocolFinalSection(
                     }
                     ProtocolFinaliseOutcome.STALE ->
                         notifyWarning(tr("Das Protokoll wurde inzwischen geändert. Bitte prüfen Sie es erneut."))
-                    ProtocolFinaliseOutcome.EMPTY -> notifyWarning(tr("Es gibt noch keinen Verlauf und keinen Beschluss."))
-                    ProtocolFinaliseOutcome.NOT_OPENED -> notifyWarning(tr("Die Sitzung wurde noch nicht eröffnet."))
+                    // EMPTY after a preview that said otherwise is a race: somebody removed the last content in between.
+                    ProtocolFinaliseOutcome.EMPTY,
+                    ProtocolFinaliseOutcome.NOT_OPENED,
+                    ProtocolFinaliseOutcome.ALREADY_FINALISED,
+                    -> notifyWarning(blockedSentence(result.outcome))
                     ProtocolFinaliseOutcome.PDF_LIMIT -> notifyWarning(tr("Das Protokoll ist zu umfangreich für ein PDF."))
-                    ProtocolFinaliseOutcome.ALREADY_FINALISED -> notifyWarning(tr("Das Protokoll ist bereits fertiggestellt."))
                 }
                 changed()
             }
         }
     }
 
+    /**
+     * V1.9.242 -- why finalising is not possible right now, in one sentence, with no confirm button at all (not even a disabled one). Only an empty
+     * Protokoll offers a way on: "Zum Entwurf" (when the page has a draft to jump to).
+     */
+    fun blockedDialog(preview: MeetingProtocolPreviewDto) {
+        val reason = preview.blockedReason
+        val modal = Modal(caption = tr("Protokoll fertigstellen"))
+        modal.div(blockedSentence(reason))
+        val close = newActionButton(ActionIcon.CANCEL, tr("Schließen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+        modal.addButton(close)
+        val jump = onJumpToDraft
+        if (reason == ProtocolFinaliseOutcome.EMPTY && jump != null) {
+            val toDraft = Button(tr("Zum Entwurf"), style = ButtonStyle.PRIMARY)
+            toDraft.onClick {
+                modal.hide()
+                jump()
+            }
+            modal.addButton(toDraft)
+        }
+        modal.show()
+    }
+
     fun startFinalise(button: Button) {
         runGuardedAction(button) {
             val preview = guarded { rpc.preview(meetingId) } ?: return@runGuardedAction
             if (!preview.canFinalise) {
-                notifyWarning(tr("Das Protokoll kann gerade nicht fertiggestellt werden."))
+                blockedDialog(preview)
                 return@runGuardedAction
             }
             finaliseDialog(preview)
