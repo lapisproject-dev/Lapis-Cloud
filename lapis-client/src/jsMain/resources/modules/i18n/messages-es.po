@@ -8631,8 +8631,8 @@ msgid "Sichtbar für ADMIN."
 msgstr "Visible para ADMIN."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:906
-msgid "Sichtbar für alle Mitglieder."
-msgstr "Visible para todos los miembros."
+msgid "Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."
+msgstr "La asistencia y el borrador del acta solo son visibles para los miembros del órgano."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:229
 msgid "Sichtbar für BOARD/ADMIN."

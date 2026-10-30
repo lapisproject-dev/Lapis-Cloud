@@ -181,6 +181,61 @@ class MeetingsMasterDetailDomTest {
         }
 
     @Test
+    fun detail_withoutARoleInTheSitzung_showsOnlyTheHint_noQuorum_noProtocolButton(): Promise<Unit> =
+        formTest {
+            AppState.setSession(session(AccountRole.MEMBER))
+            val hint = "Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."
+            val detail = routeOf { rpcService<IGovernanceService>().getMeetingDetail("m") }
+            val committees = routeOf { rpcService<IGovernanceService>().listCommittees(false) }
+            val hidden =
+                detailOf(emptyList()).copy(attendance = emptyList(), quorum = null, attendanceVisible = false)
+            withFetchStub(
+                respond = { req ->
+                    when {
+                        !req.isRpc -> StubResponse()
+                        req.rpcRoute == detail -> req.answerWith(jsonOf(MeetingDetailDto.serializer(), hidden))
+                        req.rpcRoute == committees -> req.answerWith(jsonOf(ListSerializer(CommitteeDto.serializer()), listOf(committee)))
+                        else -> req.answerWith("[]")
+                    }
+                },
+            ) { _ ->
+                mountedForm("meeting-detail-hidden") { root, element ->
+                    renderMeetingDetailScreen(root, "m-1")
+                    awaitUntil("the hint") { element().shows(hint) }
+                    assertTrue(element().allOf("button").none { it.textContent.orEmpty().contains("Protokollentwurf erzeugen") })
+                    assertTrue(element().allOf("button").none { it.textContent.orEmpty().contains("Anwesenheit erfassen") })
+                    assertFalse(element().shows("Was bedeutet Quorum?"), "no quorum row")
+                    assertTrue(element().allOf(".protocol-final").isEmpty(), "no final protocol section")
+                }
+            }
+        }
+
+    @Test
+    fun detail_withARoleInTheSitzung_showsTheQuorumAndTheProtocolButton(): Promise<Unit> =
+        formTest {
+            AppState.setSession(session(AccountRole.BOARD))
+            val detail = routeOf { rpcService<IGovernanceService>().getMeetingDetail("m") }
+            val committees = routeOf { rpcService<IGovernanceService>().listCommittees(false) }
+            withFetchStub(
+                respond = { req ->
+                    when {
+                        !req.isRpc -> StubResponse()
+                        req.rpcRoute == detail -> req.answerWith(jsonOf(MeetingDetailDto.serializer(), detailOf(emptyList())))
+                        req.rpcRoute == committees -> req.answerWith(jsonOf(ListSerializer(CommitteeDto.serializer()), listOf(committee)))
+                        else -> req.answerWith("[]")
+                    }
+                },
+            ) { _ ->
+                mountedForm("meeting-detail-visible") { root, element ->
+                    renderMeetingDetailScreen(root, "m-1")
+                    element().awaitButton("Protokollentwurf erzeugen")
+                    // the same sentence now sits next to the button (it says who sees the draft); the quorum row is there too
+                    assertTrue(element().shows("Was bedeutet Quorum?"), "the quorum row is shown")
+                }
+            }
+        }
+
+    @Test
     fun detail_unknownId_leavesAHint_notABlankPage(): Promise<Unit> =
         formTest {
             AppState.setSession(session(AccountRole.MEMBER))

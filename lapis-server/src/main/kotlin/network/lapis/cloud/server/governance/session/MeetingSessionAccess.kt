@@ -68,6 +68,7 @@ internal object MeetingSessionAccess {
         val meeting = (if (lock) query.forUpdate() else query).singleOrNull() ?: return null
         val committee =
             CommitteeTable.selectAll().where { CommitteeTable.id eq meeting[MeetingTable.committeeId] }.singleOrNull() ?: return null
+        if (!MeetingAttendanceVisibility.canSeeAttendance(current = current, meeting = meeting)) return null
         val role = roleOf(current = current, meeting = meeting) ?: return null
         return SessionContext(roomRow = room, meetingRow = meeting, committeeRow = committee, role = role)
     }
@@ -92,6 +93,7 @@ internal object MeetingSessionAccess {
     ): MeetingContext? {
         val query = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }
         val meeting = (if (lock) query.forUpdate() else query).singleOrNull() ?: return null
+        if (!MeetingAttendanceVisibility.canSeeAttendance(current = current, meeting = meeting)) return null
         val role = roleOf(current = current, meeting = meeting) ?: return null
         val committee =
             CommitteeTable.selectAll().where { CommitteeTable.id eq meeting[MeetingTable.committeeId] }.singleOrNull() ?: return null

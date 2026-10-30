@@ -8743,8 +8743,8 @@ msgid "Sichtbar für ADMIN."
 msgstr "Zichtbaar voor ADMIN."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1560
-msgid "Sichtbar für alle Mitglieder."
-msgstr "Zichtbaar voor alle leden."
+msgid "Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."
+msgstr "De aanwezigheid en het conceptverslag zijn alleen zichtbaar voor de leden van het orgaan."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:228
 msgid "Sichtbar für BOARD/ADMIN."

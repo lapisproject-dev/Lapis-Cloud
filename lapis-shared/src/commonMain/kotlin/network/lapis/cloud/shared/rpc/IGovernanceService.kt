@@ -41,8 +41,11 @@ import network.lapis.cloud.shared.domain.VoteStatus
 /**
  * Committee and meeting management (V0.2.1): Committees/working groups, memberships within them,
  * meetings with agenda/attendance/quorum, and a resolution book. Reads
- * (listCommittees/getMeetingDetail/listResolutions/etc.) are open to any authenticated member —
- * a deliberate simplification versus [network.lapis.cloud.shared.domain.DocumentAccessLevel]'s
+ * (listCommittees/listMeetings/listResolutions/etc.) are open to any authenticated member —
+ * V1.9.241: EXCEPT the attendance, the quorum and the Protokoll draft of a Sitzung (getAttendance, checkQuorum,
+ * generateProtocolDraft and those parts of getMeetingDetail): they need a role in that Sitzung (chair/recording office/BOARD/ADMIN,
+ * minute taker, committee seat; for the general assembly every active member). Everyone else gets the same not-found as for an
+ * unknown id (getMeetingDetail: empty attendance, null quorum, attendanceVisible = false). Otherwise a deliberate simplification versus [network.lapis.cloud.shared.domain.DocumentAccessLevel]'s
  * three-tier model, to keep this wave's scope bounded; worth revisiting if some Committees need
  * confidentiality. Write operations that manage a specific Committee's meetings/agenda/attendance/
  * resolutions require that Committee's leadership role (CHAIR/DEPUTY_CHAIR/SECRETARY) or
@@ -177,6 +180,7 @@ interface IGovernanceService {
         status: MeetingStatus? = null,
     ): List<MeetingDto>
 
+    /** V1.9.241: attendance and quorum only for people with a role in the Sitzung (see [MeetingDetailDto.attendanceVisible]). */
     suspend fun getMeetingDetail(meetingId: String): MeetingDetailDto
 
     /** Role: Committee-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin (see class KDoc). */
@@ -203,8 +207,10 @@ interface IGovernanceService {
         input: AttendanceInput,
     ): AttendanceDto
 
+    /** V1.9.241: needs a role in the Sitzung; everyone else (and an unknown id) gets the same not-found. */
     suspend fun getAttendance(meetingId: String): List<AttendanceDto>
 
+    /** V1.9.241: needs a role in the Sitzung; everyone else (and an unknown id) gets the same not-found. */
     suspend fun checkQuorum(meetingId: String): QuorumResultDto
 
     /** Role: Committee-Vorsitz/-Stellv./Schriftfuehrung/Board/Admin. */
@@ -218,6 +224,7 @@ interface IGovernanceService {
         meetingId: String? = null,
     ): List<ResolutionDto>
 
+    /** V1.9.241: needs a role in the Sitzung; everyone else (and an unknown id) gets the same not-found. */
     suspend fun generateProtocolDraft(meetingId: String): ProtocolDraftDto
 
     /**

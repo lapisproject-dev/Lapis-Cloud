@@ -483,8 +483,9 @@ limited to 60, writes to 30 requests a minute per member and Sitzung.
 *DSGVO.* `protocol_draft_task` is covered by `GovernancePersonalData`: the export lists the tasks given to the member (the free texts are not attributed to a person and not exported); erasure retains the rows
 with the documented reason (committee record), like the other governance tables.
 
-*Relation to the older API.* `IGovernanceService.generateProtocolDraft`, `getMeetingDetail` and `getAttendance` still return attendance and resolutions to **every** signed-in member. The new draft's
-confidentiality ("only members of the committee") does not extend to them; changing them would change `MeetingsScreen`, so it is not done in this wave and is an open decision.
+*Relation to the older API.* Since V1.9.241 `IGovernanceService.generateProtocolDraft`, `checkQuorum`, `getAttendance` and the attendance and quorum of `getMeetingDetail` follow the same rule as the new draft:
+`MeetingAttendanceVisibility.canSeeAttendance` is true exactly when the caller has a role in the Sitzung (`MeetingSessionAccess.rolesOf` is not empty). Everyone else gets the same not-found as for an unknown id;
+`getMeetingDetail` returns an empty attendance, `quorum = null` and `attendanceVisible = false`. The agenda, the resolutions (`ResolutionDto` in full) and `listMeetings` stay open to every signed-in member.
 
 *Not in this wave (delivered by V1.9.240, wave D2):* PDF, finalising, the snapshot, the approval agenda item and the push of tasks to "Für Sie". *Still open:* the end time of the Sitzung (not recorded anywhere yet, shown as a dash).
 `removeAgendaItem` refuses an item with Protokoll text or a task; an empty block goes with the item.

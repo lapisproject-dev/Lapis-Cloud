@@ -119,8 +119,10 @@ sits in a marked box ("Aus der Sitzung übernommen") that nobody edits. A resolu
 * **When.** After the Sitzung was opened; also after it was held, until the Protokoll is finalised (V1.9.240). A cancelled or not yet opened Sitzung can be read, not written.
 * **Items.** An agenda item that carries Protokoll text or a task cannot be removed.
 
-*Since V1.9.240:* finalising, the PDF, corrections, the approval agenda item and the task list exist -- see "Finalising the Protokoll". The older meeting page (`generateProtocolDraft`) is unchanged and still shows attendance and
-resolutions to every signed-in member. *Not verified:* live operation with several participants, real browsers and phones, and the legal validity of a Protokoll.
+*Since V1.9.240:* finalising, the PDF, corrections, the approval agenda item and the task list exist -- see "Finalising the Protokoll". *Since V1.9.241:* the older meeting page follows the same rule: the attendance, the quorum and
+the Protokoll draft (`getMeetingDetail`, `getAttendance`, `checkQuorum`, `generateProtocolDraft`) are visible only to people with a role in the Sitzung (chair/recording office/BOARD/ADMIN, minute taker, committee seat; for the
+general assembly every active member). Everyone else gets the same not-found as for an unknown id; `getMeetingDetail` returns an empty attendance, no quorum and `attendanceVisible = false`, and the page shows one hint. The agenda,
+the resolutions and the list of Sitzungen stay visible to every signed-in member. *Not verified:* live operation with several participants, real browsers and phones, and the legal validity of a Protokoll.
 
 == Finalising the Protokoll (V1.9.240, wave D2)
 

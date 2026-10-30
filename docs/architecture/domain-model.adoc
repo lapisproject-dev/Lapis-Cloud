@@ -1724,6 +1724,9 @@ Since V1.9.182 that sentence is always visible only in the protocol preview. On 
 attendance list is behind "Anwesende anzeigen" and the recording form behind "Anwesenheit erfassen" (see `collapsible-forms.adoc`, V1.9.182).
 Display only: the quorum computation is unchanged.
 
+Since V1.9.241 the quorum row and the attendance list are shown only to people with a role in the Sitzung (`MeetingDetailDto.attendanceVisible`; `quorum` is `null` exactly when it is false). Everyone else sees one hint
+in the attendance section and in the "Protokoll" section instead, and no "Protokollentwurf erzeugen" button.
+
 == V1.9.112 -- Rule-based committees and the frozen electorate of a vote
 
 Migration `V92__committee_rule.sql` (additive; `V1` ... `V91` are untouched). Models: `05-governance.kuml.kts`, `06-vote.kuml.kts`, `14-audit-log.kuml.kts`;

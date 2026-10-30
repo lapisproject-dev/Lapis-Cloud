@@ -57,6 +57,7 @@ import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionStatus
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IPostalMailService
+import network.lapis.cloud.shared.rpc.NotFoundException
 
 /**
  * Governance UI wave, screen 2 of 3 -- "Sitzungen" (Meetings: agenda, attendance, quorum,
@@ -76,11 +77,11 @@ import network.lapis.cloud.shared.rpc.IPostalMailService
  * privileged control on this screen goes through, fed by that Committee's own active roster
  * (`listCommitteeMembers(committeeId, activeOnly = true)`).
  *
- * Read-only reach (`listMeetings`/`getMeetingDetail`/`getAttendance`/`checkQuorum`/
- * `listResolutions`/`generateProtocolDraft`) requires no role at all server-side -- every
- * authenticated member can browse every Committee's meetings and generate its protocol draft.
- * The "Protokoll" section reflects this plainly rather than inventing a client-side-only
- * restriction the backend doesn't enforce (design decision D4) -- see [renderProtocolSection].
+ * Read-only reach: `listMeetings`/`listResolutions` and the agenda/resolutions of `getMeetingDetail` stay open to every
+ * authenticated member. V1.9.241: the attendance, the quorum and the Protokoll draft (`getAttendance`/`checkQuorum`/
+ * `generateProtocolDraft`, and those parts of `getMeetingDetail`) are visible only to people with a role in the Sitzung
+ * (`MeetingDetailDto.attendanceVisible`); everybody else sees one hint instead -- see [renderAttendanceSection] and
+ * [renderProtocolSection].
  *
  * Attendance/agenda-presenter member pickers (design: "per-eligible-member status recording"):
  * for any Committee EXCEPT the General Assembly, they are sourced from that Committee's active roster
@@ -446,7 +447,7 @@ private suspend fun buildMeetingDetail(
         renderAgendaSection(panel, detail, canManage, audience, onChanged)
         renderAttendanceSection(panel, detail, canManage, audience, onChanged)
         renderResolutionSection(panel, detail, canManage, onChanged)
-        renderProtocolSection(panel, detail.meeting.id)
+        renderProtocolSection(panel, detail.meeting.id, detail.attendanceVisible)
     }
 }
 
@@ -1201,13 +1202,21 @@ internal fun renderAttendanceSection(
     onChanged: () -> Unit,
 ) {
     panel.h2(tr("Anwesenheit")) { addCssClass("h5") }
+    val quorum = detail.quorum
+    if (!detail.attendanceVisible || quorum == null) {
+        // V1.9.241: no role in the Sitzung -- no badge, no list, no recording form (even if canManage were true), only the hint.
+        panel.div(
+            tr("Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."),
+        ) { addCssClasses("text-muted small") }
+        return
+    }
     // V1.9.182: quorum badge + "x von y anwesend" first, the explanation behind "Was bedeutet Quorum?", the list behind "Anwesende anzeigen",
     // the recording form behind one button. The assembly's form is built later than the rows, but each row's "Bearbeiten" must fill it:
     // the callback is registered when the form is built (the controller opens it first).
     var prefill: ((AttendanceDto) -> Unit)? = null
     var controller: CollapsibleCreateFormController<Nothing>? = null
     val editable = canManage && audience is MeetingAudience.Derived
-    renderQuorumRow(panel, detail.quorum, explanationCollapsed = true)
+    renderQuorumRow(panel, quorum, explanationCollapsed = true)
 
     if (detail.attendance.isEmpty()) {
         panel.p(tr("Noch keine Anwesenheit erfasst."))
@@ -1558,11 +1567,9 @@ internal fun renderRecordResolutionForm(
 }
 
 /**
- * "Protokoll" -- design decision D5: an always-visible "Protokollentwurf erzeugen" button (no
- * privilege gate, matching `generateProtocolDraft` having none server-side either -- design
- * decision D4, `"Sichtbar für alle Mitglieder."` stated plainly rather than the UI inventing a
- * restriction the backend doesn't enforce) plus, once generated, an in-app inline preview and a
- * "Drucken" button. No client-generated downloadable Blob this wave -- deliberately deferred per
+ * "Protokoll" -- design decision D5: a "Protokollentwurf erzeugen" button plus, once generated, an in-app inline preview and a
+ * "Drucken" button. V1.9.241: the draft carries the attendance and the quorum, so it is built only when [attendanceVisible]
+ * (the caller has a role in the Sitzung); otherwise just the hint, no button (hidden, not disabled). No client-generated downloadable Blob this wave -- deliberately deferred per
  * D5, browser print / "Save as PDF" covers the interim need; a real download deserves a real
  * filename/`Content-Disposition`, which the future Serienbrief-/PDF-Engine (V0.4) will provide
  * via `DocumentHttp`'s pattern, not a second parallel Blob mechanism invented here.
@@ -1570,18 +1577,45 @@ internal fun renderRecordResolutionForm(
 private fun renderProtocolSection(
     panel: SimplePanel,
     meetingId: String,
+    attendanceVisible: Boolean,
 ) {
     panel.h2(tr("Protokoll")) { addCssClass("h5") }
+    if (!attendanceVisible) {
+        panel.div(
+            tr("Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."),
+        ) { addCssClasses("text-muted small") }
+        return
+    }
     // V1.9.240: finalise / confirm / correct and the PDF -- also here, because the second confirmation and the reading happen after the room ended
     renderProtocolFinalSection(parent = panel, meetingId = meetingId)
     val actionRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val generateButton = actionRow.button(tr("Protokollentwurf erzeugen"), style = ButtonStyle.OUTLINESECONDARY)
-    actionRow.div(tr("Sichtbar für alle Mitglieder.")) { addCssClasses("text-muted small") }
+    actionRow.div(
+        tr("Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."),
+    ) { addCssClasses("text-muted small") }
     val previewPanel = panel.vPanel(spacing = 8)
 
     generateButton.onClick {
         AppScope.launch {
-            val draft = guarded { rpcService<IGovernanceService>().generateProtocolDraft(meetingId) } ?: return@launch
+            // NotFound = the role was lost meanwhile (or the Sitzung is gone): the hint instead of a generic error toast.
+            var hidden = false
+            val draft =
+                guarded {
+                    try {
+                        rpcService<IGovernanceService>().generateProtocolDraft(meetingId)
+                    } catch (e: NotFoundException) {
+                        hidden = true
+                        null
+                    }
+                }
+            if (hidden) {
+                previewPanel.removeAll()
+                previewPanel.div(
+                    tr("Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."),
+                ) { addCssClasses("text-muted small") }
+                return@launch
+            }
+            if (draft == null) return@launch
             renderProtocolPreview(previewPanel, draft)
         }
     }

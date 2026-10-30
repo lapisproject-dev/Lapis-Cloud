@@ -34,6 +34,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkOperations
 import network.lapis.cloud.server.governance.meetingevent.MeetingEventLinkStore
 import network.lapis.cloud.server.governance.session.AttendanceWriter
+import network.lapis.cloud.server.governance.session.MeetingAttendanceVisibility
 import network.lapis.cloud.server.governance.session.MeetingSessionAudit
 import network.lapis.cloud.server.governance.session.MeetingSessionMotionOperations
 import network.lapis.cloud.server.governance.session.MeetingSessionOperations
@@ -178,13 +179,16 @@ private const val MAX_ABSTIMMUNG_OPTIONS = 50
 private const val MAX_OPTION_LABEL_LENGTH = 200
 
 /**
- * Committee and meeting management (V0.2.1). Reads (`listCommittees`/`getMeetingDetail`/
- * `listResolutions`/etc.) only require a resolvable [network.lapis.cloud.server.security
+ * Committee and meeting management (V0.2.1). Reads (`listCommittees`/`listResolutions`/
+ * etc.) only require a resolvable [network.lapis.cloud.server.security
  * .CurrentMember] (any authenticated member) — see [IGovernanceService] KDoc for why this is a
  * deliberate simplification versus [network.lapis.cloud.shared.domain.DocumentAccessLevel]'s
  * tiered model. Writes that manage a specific Committee's meetings/agenda/attendance/resolutions
  * require that Committee's leadership role or global BOARD/ADMIN, checked via
  * [network.lapis.cloud.server.security.canRecordForMeeting] (see `GovernanceAuthorization.kt`).
+ * V1.9.241: the attendance, the quorum and the Protokoll draft of a Sitzung (`getMeetingDetail`'s attendance/quorum,
+ * `getAttendance`, `checkQuorum`, `generateProtocolDraft`) are the exception: they need a role in the Sitzung
+ * ([MeetingAttendanceVisibility]); everyone else gets the same not-found as for an unknown id.
  *
  * Member display names for the multiple-FK-to-member tables ([MeetingTable] has three: called
  * by/chair/minute-taker; [AttendanceTable] has two: attendee/proxy) are resolved via
@@ -667,18 +671,25 @@ class GovernanceService(
         val current = resolveCurrentMember(call)
         val sId = meetingId.toMeetingUuid()
         return transaction {
-            val meeting = withLinkedEvents(current = current, meetings = listOf(loadMeeting(sId))).single()
+            val row = loadMeetingRow(sId)
+            val meeting = withLinkedEvents(current = current, meetings = listOf(row.toMeetingDto())).single()
+            val visible = MeetingAttendanceVisibility.canSeeAttendance(current = current, meeting = row)
             MeetingDetailDto(
                 meeting = meeting,
                 agenda = loadAgenda(sId),
-                attendance = loadAttendance(sId),
+                attendance = if (visible) loadAttendance(sId) else emptyList(),
                 resolutions = loadResolutions(sId),
                 quorum =
-                    computeQuorum(
-                        meetingId = sId,
-                        committeeId = meeting.committeeId.toCommitteeUuid(),
-                        scheduledDate = meeting.scheduledAt.date,
-                    ),
+                    if (visible) {
+                        computeQuorum(
+                            meetingId = sId,
+                            committeeId = meeting.committeeId.toCommitteeUuid(),
+                            scheduledDate = meeting.scheduledAt.date,
+                        )
+                    } else {
+                        null
+                    },
+                attendanceVisible = visible,
             )
         }
     }
@@ -832,15 +843,19 @@ class GovernanceService(
     }
 
     override suspend fun getAttendance(meetingId: String): List<AttendanceDto> {
-        resolveCurrentMember(call)
+        val current = resolveCurrentMember(call)
         val sId = meetingId.toMeetingUuid()
-        return transaction { loadAttendance(sId) }
+        return transaction {
+            MeetingAttendanceVisibility.requireVisibleMeetingRow(current = current, meetingId = sId)
+            loadAttendance(sId)
+        }
     }
 
     override suspend fun checkQuorum(meetingId: String): QuorumResultDto {
-        resolveCurrentMember(call)
+        val current = resolveCurrentMember(call)
         val sId = meetingId.toMeetingUuid()
         return transaction {
+            MeetingAttendanceVisibility.requireVisibleMeetingRow(current = current, meetingId = sId)
             val meeting = loadMeeting(sId)
             computeQuorum(meetingId = sId, committeeId = meeting.committeeId.toCommitteeUuid(), scheduledDate = meeting.scheduledAt.date)
         }
@@ -902,9 +917,10 @@ class GovernanceService(
     }
 
     override suspend fun generateProtocolDraft(meetingId: String): ProtocolDraftDto {
-        resolveCurrentMember(call)
+        val current = resolveCurrentMember(call)
         val sId = meetingId.toMeetingUuid()
         return transaction {
+            MeetingAttendanceVisibility.requireVisibleMeetingRow(current = current, meetingId = sId)
             val meeting = loadMeeting(sId)
             ProtocolDraftDto(
                 meeting = meeting,
@@ -1974,13 +1990,15 @@ class GovernanceService(
         return meetings.map { meeting -> refs[meeting.id]?.let { meeting.copy(linkedEvent = it) } ?: meeting }
     }
 
-    private fun loadMeeting(id: Uuid): MeetingDto =
+    private fun loadMeeting(id: Uuid): MeetingDto = loadMeetingRow(id).toMeetingDto()
+
+    /** The joined Sitzung + committee row (carries `committeeId`, `chairMemberId`, `minuteTakerMemberId`). */
+    private fun loadMeetingRow(id: Uuid): ResultRow =
         (MeetingTable innerJoin CommitteeTable)
             .selectAll()
             .where { MeetingTable.id eq id }
             .singleOrNull()
-            ?.toMeetingDto()
-            ?: throw NotFoundException("Meeting $id not found")
+            ?: throw NotFoundException(MeetingAttendanceVisibility.notFoundMessage(id))
 
     private fun requireMeetingCommitteeId(meetingId: Uuid): Uuid =
         MeetingTable

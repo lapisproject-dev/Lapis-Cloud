@@ -456,7 +456,10 @@ data class MeetingDetailDto(
     val agenda: List<AgendaItemDto>,
     val attendance: List<AttendanceDto>,
     val resolutions: List<ResolutionDto>,
-    val quorum: QuorumResultDto,
+    /** V1.9.241 -- `null` exactly when [attendanceVisible] is false (the caller has no role in the Sitzung). */
+    val quorum: QuorumResultDto?,
+    /** V1.9.241 -- false: attendance and quorum are withheld (empty / null); only people with a role in the Sitzung see them. */
+    val attendanceVisible: Boolean = true,
 )
 
 /**
