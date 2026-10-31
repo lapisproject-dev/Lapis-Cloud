@@ -70,6 +70,11 @@ object ThemeTokens {
             ContrastPair(fg = "accent-strong", bg = "surface", min = 4.5, blocking = true),
             ContrastPair(fg = "invalid", bg = "surface", min = 4.5, blocking = true),
             ContrastPair(fg = "border-strong", bg = "surface", min = 3.0, blocking = false),
+            // V1.9.247: pairs the public pages use since they follow the tokens; advisory first so an existing theme is never rejected
+            ContrastPair(fg = "accent", bg = "bg", min = 4.5, blocking = false),
+            ContrastPair(fg = "accent", bg = "surface-sunken", min = 4.5, blocking = false),
+            ContrastPair(fg = "accent-strong", bg = "accent-soft", min = 4.5, blocking = false),
+            ContrastPair(fg = "bg", bg = "invalid", min = 4.5, blocking = false),
         )
 }
 

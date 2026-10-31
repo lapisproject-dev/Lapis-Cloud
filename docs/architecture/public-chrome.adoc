@@ -118,6 +118,13 @@ Colours are SVG presentation attributes, never `style=`, so the CSP stays unchan
 does not jump between logo and mark. The `.chrome-brand` and `.chrome-mark` rules (spacing) live in the shared public
 stylesheet; the SVG itself is sized by its attributes.
 
+== Focus, current page and links (V1.9.247)
+
+One global `:focus-visible` ring in the theme accent (2px, offset 2px); inside the header bar the ring uses `nav-text`. The current
+page marker (`aria-current="page"`) is `nav-text` with a 3px underline. Content links are underlined and use the accent; hover uses
+`accent-strong`. The former gold is removed from the public stylesheet, the Lapis mark lives in the logo. See
+xref:ui-ux-guideline.adoc#_public_pages_and_theme_tokens_v1_9_247[Public pages and theme tokens].
+
 == Branding threading: `ResolvedBranding`, not `brandTitle: String`
 
 `registerSocialPublicRoutes`/`registerPublicTransparencyRoutes`/`registerPublicLandingRoutes`

@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.247 -- Public pages follow the theme tokens
+
+**Visible change on every instance.** The shared stylesheet of the public pages (`/`, `/s`, `/transparenz`, articles, events, board and chapter pages, sign-in and consent pages, legal texts, embeds) took its colours from fixed values (`#888`, translucent greys, gold `#C9A227`) and set no background or text colour. It now uses the theme tokens only.
+
+- **Light mode almost unchanged, dark mode correct for the first time**: the page ground, text, secondary text, borders, cards, inputs and the avatar come from `bg`, `text`, `muted`, `border`, `surface` and `surface-sunken`; before, dark mode only switched `color-scheme`.
+- **Gold is gone**: focus ring, hint callouts, the legal-incomplete block and the AI badge use the theme accent (`accent`, `accent-soft`, `accent-strong`). With the default theme this is blue instead of gold.
+- **The primary button `.cta-primary` is now a filled accent button** (before: light grey fill); the secondary button is an accent outline. Links are underlined in the accent colour, hover uses `accent-strong`; the current page marker in the header is 3px.
+- **Errors** use `invalid` (embed error, invalid input edge, danger button, error callout). The success callout keeps a green edge (`#2e7d32`, edge only).
+- **Three allow-listed literals remain**: `#fff` (QR code ground), `#2e7d32` and, in dark mode, `#4caf50` (success edge only). `PublicCssColourAllowListTest` forbids every other hex literal and `rgba(`.
+- **Validator**: four new advisory contrast pairs (`accent` on `bg`, `accent` on `surface-sunken`, `accent-strong` on `accent-soft`, `bg` on `invalid`); they only warn, no theme is rejected.
+- Tests: link order (page stylesheet before `/theme.css`) for all public renderers, no inline `style`, contrast of the default colours for the pairs the pages use. No migration, no new texts.
+
 ### V1.9.246 -- Actions, wave A1: planning core
 
 **New module "Aktionen".** Members propose actions (information stand, posters, signatures, rally, action day, door-to-door, online), a responsible group (1 to 10 persons) plans them, members report progress and say "I come", the result is recorded. **Additive migration V133 (V131/V132 are not edited), nine tables `activism_*`, two columns of `organization_settings`, four audit entity types, `IActivismService` (37 methods) as the last `registerService`.**

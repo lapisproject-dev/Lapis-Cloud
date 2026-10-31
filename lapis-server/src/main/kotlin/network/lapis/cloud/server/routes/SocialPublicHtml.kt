@@ -87,16 +87,19 @@ internal object SocialPublicHtml {
     const val STYLESHEET: String =
         """
         :root { color-scheme: light dark; }
-        body { font-family: var(--lapis-font-body); max-width: 42rem; margin: 0 auto; padding: 1.5rem; line-height: 1.55; }
+        body { font-family: var(--lapis-font-body); max-width: 42rem; margin: 0 auto; padding: 1.5rem; line-height: 1.55; background: var(--lapis-bg); color: var(--lapis-text); }
         header, footer { margin-bottom: 1.5rem; }
-        footer { margin-top: 2rem; font-size: 0.85rem; color: #888; }
-        article { border-bottom: 1px solid rgba(128, 128, 128, 0.3); padding: 1rem 0; }
+        footer { margin-top: 2rem; font-size: 0.85rem; color: var(--lapis-muted); }
+        article { border-bottom: 1px solid var(--lapis-border); padding: 1rem 0; }
         article h2 { margin: 0 0 0.25rem 0; font-size: 1.05rem; }
         article p { margin: 0.35rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-        .meta { color: #888; font-size: 0.85rem; }
-        .notice { color: #888; font-size: 0.85rem; font-style: italic; }
+        .meta { color: var(--lapis-muted); font-size: 0.85rem; }
+        .notice { color: var(--lapis-muted); font-size: 0.85rem; font-style: italic; }
         nav { display: flex; justify-content: space-between; margin-top: 1.5rem; gap: 1rem; }
-        a { color: inherit; }
+        a { color: var(--lapis-accent); text-decoration: underline; }
+        a:hover { color: var(--lapis-accent-strong); }
+        article h2 a, h2 a, .person-name a, .rank-name a { color: inherit; }
+        :focus-visible { outline: 2px solid var(--lapis-accent); outline-offset: 2px; }
         .hp { position: absolute; left: -9999px; top: -9999px; }
 
         /* V1.3.0 "Öffentliche Transparenz-Startseite" (/transparenz) -- shares this stylesheet, see
@@ -105,23 +108,23 @@ internal object SocialPublicHtml {
         .stats { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0.5rem 0 1rem 0; }
         .stat { min-width: 8rem; }
         .stat-value { font-size: 1.4rem; font-weight: 600; }
-        .stat-label { color: #888; font-size: 0.85rem; }
+        .stat-label { color: var(--lapis-muted); font-size: 0.85rem; }
         .rank-top { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0; }
         .rank-num { font-size: 1.3rem; font-weight: 700; width: 1.6rem; text-align: right; }
         .mono {
             display: inline-flex; align-items: center; justify-content: center;
             width: 2rem; height: 2rem; border-radius: 50%;
-            background: rgba(128, 128, 128, 0.2); font-size: 0.75rem; font-weight: 600;
+            background: var(--lapis-accent-soft); color: var(--lapis-accent-strong); font-size: 0.75rem; font-weight: 600;
         }
         .rank-name { font-weight: 600; }
-        .rank-amount { margin-left: auto; color: #888; }
+        .rank-amount { margin-left: auto; color: var(--lapis-muted); }
         .rank-list { padding-left: 1.6rem; }
         .rank-list li { padding: 0.2rem 0; }
-        .section-note { color: #888; font-size: 0.8rem; font-style: italic; }
+        .section-note { color: var(--lapis-muted); font-size: 0.8rem; font-style: italic; }
 
         /* V1.9.243 "Eine Serie, ein Eintrag" -- the repeat mark on /veranstaltungen (CSS-only tooltip from data-tip, never title=;
            the mark is aria-hidden because the same sentence is printed in the row below it) and the series block of the detail page. */
-        .series-mark { position: relative; display: inline-block; vertical-align: middle; margin-left: 0.4rem; color: #888; line-height: 0; }
+        .series-mark { position: relative; display: inline-block; vertical-align: middle; margin-left: 0.4rem; color: var(--lapis-muted); line-height: 0; }
         .series-mark svg { display: block; }
         .series-mark::after {
             content: attr(data-tip); position: absolute; bottom: calc(100% + 0.3rem); left: 0; z-index: 2;
@@ -139,7 +142,7 @@ internal object SocialPublicHtml {
            dark value from ThemeCssRenderer) and the origin line under it. The arrow is aria-hidden, "(externe Seite)" is the text for assistive
            technology. No animation. */
         .public-event--partner { border-left: 3px solid var(--lapis-accent); padding-left: 0.5rem; }
-        .public-event-partner { margin: 0; font-size: 0.875em; color: #888; overflow-wrap: anywhere; }
+        .public-event-partner { margin: 0; font-size: 0.875em; color: var(--lapis-muted); overflow-wrap: anywhere; }
         .visually-hidden {
             position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
             clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
@@ -151,7 +154,7 @@ internal object SocialPublicHtml {
         .event-series li { padding: 0.15rem 0; overflow-wrap: anywhere; }
         .event-series summary { cursor: pointer; margin: 0.4rem 0; }
         .event-tag {
-            display: inline-block; margin-left: 0.4rem; padding: 0 0.4rem; border: 1px solid rgba(128, 128, 128, 0.5);
+            display: inline-block; margin-left: 0.4rem; padding: 0 0.4rem; border: 1px solid var(--lapis-border-strong);
             border-radius: 0.3rem; font-size: 0.75rem; text-transform: lowercase; color: var(--lapis-accent);
         }
 
@@ -161,8 +164,8 @@ internal object SocialPublicHtml {
         .embed-page { max-width: 22rem; margin: 3rem auto; }
         .embed-field { margin-bottom: 0.9rem; }
         .embed-field label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; }
-        .embed-field input { width: 100%; padding: 0.5rem; box-sizing: border-box; }
-        .embed-error { color: #b00020; font-size: 0.85rem; min-height: 1.2rem; }
+        .embed-field input { width: 100%; padding: 0.5rem; box-sizing: border-box; background: var(--lapis-surface); color: var(--lapis-text); }
+        .embed-error { color: var(--lapis-invalid); font-size: 0.85rem; min-height: 1.2rem; }
         .embed-submit { width: 100%; padding: 0.6rem; margin-top: 0.4rem; }
 
         /* Welle V1.4.6 "Öffentliche Startseite" (/) -- shares this stylesheet, same reasoning as
@@ -171,12 +174,14 @@ internal object SocialPublicHtml {
            .hero is handled by the "body.has-chrome > .hero" rule further below, alongside main
            and footer -- see the maintenance rule attached there (V1.4.7). */
         .hero { margin-bottom: 2rem; }
-        .hero p { color: #888; }
+        .hero p { color: var(--lapis-muted); }
         .cta {
             display: inline-block; padding: 0.55rem 1.1rem; margin-right: 0.6rem;
-            border: 1px solid currentColor; border-radius: 0.35rem; text-decoration: none;
+            border: 1px solid var(--lapis-accent); border-radius: 0.35rem; text-decoration: none; color: var(--lapis-accent);
         }
-        .cta-primary { background: rgba(128, 128, 128, 0.15); font-weight: 600; }
+        .cta:hover { color: var(--lapis-accent-strong); }
+        .cta-primary { background: var(--lapis-accent); color: var(--lapis-accent-contrast); border-color: var(--lapis-accent); font-weight: 600; }
+        .cta-primary:hover { background: var(--lapis-accent-strong); border-color: var(--lapis-accent-strong); color: var(--lapis-accent-contrast); }
 
         /* Welle "Einheitlicher Kopfbereich + Sprachumschalter" -- der gemeinsame Kopfbereich aller
            drei öffentlichen Seiten (/, /s, /transparenz), siehe PublicChrome class KDoc. Farbwerte
@@ -215,6 +220,8 @@ internal object SocialPublicHtml {
             display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
         }
         .chrome a { color: var(--lapis-nav-text); text-decoration: none; }
+        .chrome a:hover { color: var(--lapis-nav-text); }
+        .chrome :focus-visible { outline-color: var(--lapis-nav-text); }
         .chrome-logo { max-height: 22px; width: auto; vertical-align: middle; }
         .chrome-brand { display: inline-flex; align-items: center; gap: 0.5rem; }
         .chrome-mark { display: inline-flex; line-height: 0; }
@@ -227,7 +234,7 @@ internal object SocialPublicHtml {
         .chrome-nav { display: flex; gap: 0.25rem; margin: 0; }
         .chrome-nav a {
             position: relative; display: inline-flex; align-items: center; justify-content: center;
-            width: 2.75rem; height: 2.75rem; padding: 0; border-bottom: 2px solid transparent;
+            width: 2.75rem; height: 2.75rem; padding: 0; border-bottom: 3px solid transparent;
         }
         .chrome-nav a[aria-current="page"] { color: var(--lapis-nav-text); border-bottom-color: var(--lapis-nav-text); }
         .chrome-nav a::before {
@@ -342,11 +349,10 @@ internal object SocialPublicHtml {
         /* V1.4.7 "Rechtstexte" (/impressum, /datenschutz) -- shares this stylesheet, same reasoning
            as every block above: no second stylesheet, no inline <style>, see
            network.lapis.cloud.server.routes.LegalHtml class KDoc. */
-        .lang-note { color: #888; font-size: 0.85rem; margin-bottom: 1.5rem; }
-        /* #C9A227 is the same gold accent already used for aria-current in the chrome block above
-           (Z. 161/200) -- no new, freshly invented hex value, same discipline as that block. */
+        .lang-note { color: var(--lapis-muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+        /* V1.9.247: the hint block uses the theme accent (soft ground, accent edge) instead of the former fixed gold. */
         .legal-incomplete {
-            border-left: 3px solid #C9A227; background: rgba(201, 162, 39, 0.08);
+            border-left: 3px solid var(--lapis-accent); background: var(--lapis-accent-soft); color: var(--lapis-text);
             padding: 0.8rem 1rem; margin: 1rem 0;
         }
 
@@ -354,11 +360,10 @@ internal object SocialPublicHtml {
            "lapis-ai-badge">` since this wave's own commit, but no rule for that class ever existed
            anywhere in this stylesheet: the disclosure text was visible (a plain, unstyled inline text
            node), just never actually looking like a badge, despite the class name promising exactly
-           that. #C9A227 is the same gold accent .chrome-lang/.legal-incomplete above already use --
-           no new hex value invented for this. */
+           that. V1.9.247: border and text now come from the theme accent tokens. */
         .lapis-ai-badge {
             display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
-            border: 1px solid #C9A227; color: #C9A227; font-size: 0.75rem; font-weight: 600;
+            border: 1px solid var(--lapis-accent); color: var(--lapis-accent-strong); font-size: 0.75rem; font-weight: 600;
         }
 
         /* Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- shares this stylesheet, see
@@ -368,13 +373,12 @@ internal object SocialPublicHtml {
            via object-fit, matches the admin-side upload card's own preview box. */
         .event-cover {
             display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin-bottom: 1.5rem; max-height: 22rem;
-            border-radius: 0.75rem; border: 1px solid rgba(128, 128, 128, 0.3);
+            border-radius: 0.75rem; border: 1px solid var(--lapis-border);
         }
 
         /* Welle V1.9.128 "Veranstaltungsseite: Kopfbereich, Layout, ?embed=1" -- shares this stylesheet, see
-           network.lapis.cloud.server.routes.EventPublicHtml class KDoc. Same palette as the chrome (#C9A227 gold,
-           #14181E ink) and the same semi-transparent greys as every block above, so light and dark mode both work
-           without a second set of colours. NO inline style anywhere (CSP `style-src 'self'`). */
+           network.lapis.cloud.server.routes.EventPublicHtml class KDoc. V1.9.247: colours come from the theme tokens only (--lapis-*), so light
+           and dark mode both work without a second set of colours. NO inline style anywhere (CSP `style-src 'self'`). */
         body.has-chrome.event-wide > main,
         body.has-chrome.event-wide > footer { max-width: 56rem; }
         body.event-wide .chrome-inner { max-width: 56rem; }
@@ -382,18 +386,18 @@ internal object SocialPublicHtml {
         .event-facts {
             display: grid; grid-template-columns: max-content 1fr; gap: 0.6rem 1.5rem;
             margin: 0 0 1.5rem 0; padding: 1rem 1.25rem;
-            border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.75rem; background: rgba(128, 128, 128, 0.06);
+            border: 1px solid var(--lapis-border); border-radius: 0.75rem; background: var(--lapis-surface-sunken);
         }
         .event-facts dt { font-weight: 600; color: inherit; }
         .event-facts dd { margin: 0; overflow-wrap: anywhere; }
         .event-callout {
-            margin: 0 0 1.5rem 0; padding: 0.8rem 1rem; border-left: 4px solid #C9A227; border-radius: 0.35rem;
-            background: rgba(201, 162, 39, 0.12);
+            margin: 0 0 1.5rem 0; padding: 0.8rem 1rem; border-left: 4px solid var(--lapis-accent); border-radius: 0.35rem;
+            background: var(--lapis-accent-soft); color: var(--lapis-text);
         }
-        .event-callout--waitlist { border-left-color: #888; background: rgba(128, 128, 128, 0.08); }
+        .event-callout--waitlist { border-left-color: var(--lapis-border-strong); background: var(--lapis-surface-sunken); }
         .event-card {
             margin: 0 0 1.75rem 0; padding: 1.25rem 1.5rem; max-width: 34rem;
-            border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.75rem; background: rgba(128, 128, 128, 0.06);
+            border: 1px solid var(--lapis-border); border-radius: 0.75rem; background: var(--lapis-surface-sunken);
         }
         .event-card h2 { margin: 0 0 1rem 0; font-size: 1.25rem; }
         .event-card p { margin-top: 0; }
@@ -401,24 +405,25 @@ internal object SocialPublicHtml {
         .event-field { margin-bottom: 1rem; }
         .event-field label { display: block; margin-bottom: 0.3rem; font-size: 0.95rem; font-weight: 600; }
         .event-field input, .event-field textarea {
-            display: block; width: 100%; box-sizing: border-box; padding: 0.65rem 0.75rem; font: inherit; color: inherit;
-            background: transparent; border: 1px solid rgba(128, 128, 128, 0.6); border-radius: 0.4rem;
+            display: block; width: 100%; box-sizing: border-box; padding: 0.65rem 0.75rem; font: inherit; color: var(--lapis-text);
+            background: var(--lapis-surface); border: 1px solid var(--lapis-border-strong); border-radius: 0.4rem;
         }
         .event-field textarea { resize: vertical; }
-        .event-field input:focus-visible, .event-field textarea:focus-visible { outline: 2px solid #C9A227; outline-offset: 1px; }
-        .event-field input:user-invalid, .event-field textarea:user-invalid { border-color: #b00020; }
+        .event-field input:user-invalid, .event-field textarea:user-invalid { border-color: var(--lapis-invalid); }
         .event-submit {
             display: block; width: 100%; box-sizing: border-box; padding: 0.75rem 1.1rem; font: inherit; font-weight: 600;
             text-align: center; text-decoration: none; cursor: pointer;
             border: 0; border-radius: 0.4rem; background: var(--lapis-accent); color: var(--lapis-accent-contrast);
         }
-        .event-submit:hover { filter: brightness(1.08); }
+        .event-submit:hover { filter: brightness(1.08); color: var(--lapis-accent-contrast); }
         .event-submit:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-        .event-submit--danger { background: #b00020; color: #fff; }
+        .event-submit--danger { background: var(--lapis-invalid); color: var(--lapis-bg); }
+        .event-submit--danger:hover { color: var(--lapis-bg); }
         .event-hint { margin: 0.75rem 0 0 0; font-size: 0.9rem; color: inherit; }
         .event-card form { margin: 0; }
         .event-description { max-width: 44rem; margin: 0 0 2rem 0; overflow-wrap: anywhere; }
         .event-qr { margin: 1.5rem 0 0.75rem 0; text-align: center; }
+        /* QR code: always white ground (scannability / quiet zone), independent of the theme. Allow-listed literal. */
         .event-qr img { max-width: 100%; height: auto; padding: 0.5rem; background: #fff; border-radius: 0.5rem; }
         .event-ticket-code { text-align: center; font-family: ui-monospace, monospace; font-size: 1.2rem; letter-spacing: 0.08em; }
         .embed-page.event-embed { max-width: 36rem; margin: 1.5rem auto; padding: 0 1rem; }
@@ -436,7 +441,7 @@ internal object SocialPublicHtml {
            keep both copies synchronised, see that file's own comment. */
         .lapis-article-cover { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; margin-bottom: 1rem; }
         .lapis-article-cover--thumb { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
-        .lapis-article-meta { color: #888; font-size: 0.85rem; }
+        .lapis-article-meta { color: var(--lapis-muted); font-size: 0.85rem; }
         .lapis-article-lead { font-size: 1.1rem; font-weight: 500; }
         .lapis-article-body { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
         .lapis-article-body h2, .lapis-article-body h3, .lapis-article-body h4 { margin: 1.2rem 0 0.4rem 0; }
@@ -462,26 +467,30 @@ internal object SocialPublicHtml {
         }
 
         /* V1.9.135 Anmelde-/Einwilligungsseiten (AuthPageHtml) */
-        .auth-card { max-width: 36rem; margin: 2.5rem auto; padding: 1.5rem; border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.5rem; background: rgba(128, 128, 128, 0.06); }
+        .auth-card { max-width: 36rem; margin: 2.5rem auto; padding: 1.5rem; border: 1px solid var(--lapis-border); border-radius: 0.5rem; background: var(--lapis-surface-sunken); }
         .auth-card h1 { font-size: 1.4rem; margin-top: 0; overflow-wrap: anywhere; }
         .auth-field { margin-bottom: 1rem; }
         .auth-field label { display: block; margin-bottom: 0.3rem; font-weight: 600; }
         .auth-field input {
-            display: block; width: 100%; box-sizing: border-box; padding: 0.55rem 0.75rem; font: inherit; color: inherit;
-            background: transparent; border: 1px solid rgba(128, 128, 128, 0.6); border-radius: 0.4rem;
+            display: block; width: 100%; box-sizing: border-box; padding: 0.55rem 0.75rem; font: inherit; color: var(--lapis-text);
+            background: var(--lapis-surface); border: 1px solid var(--lapis-border-strong); border-radius: 0.4rem;
         }
-        .auth-field input:focus-visible { outline: 2px solid #C9A227; outline-offset: 1px; }
         .auth-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.2rem; }
         .auth-primary, .auth-secondary {
             display: inline-block; box-sizing: border-box; padding: 0.6rem 1.2rem; font: inherit; font-weight: 600;
             text-align: center; text-decoration: none; cursor: pointer; border-radius: 0.35rem;
         }
         .auth-primary { background: var(--lapis-accent); color: var(--lapis-accent-contrast); border: 1px solid var(--lapis-accent); }
-        .auth-secondary { background: transparent; color: inherit; border: 1px solid currentColor; }
+        .auth-primary:hover { background: var(--lapis-accent-strong); border-color: var(--lapis-accent-strong); color: var(--lapis-accent-contrast); }
+        .auth-secondary { background: transparent; color: var(--lapis-accent); border: 1px solid var(--lapis-accent); }
+        .auth-secondary:hover { color: var(--lapis-accent-strong); border-color: var(--lapis-accent-strong); }
         .auth-primary:focus-visible, .auth-secondary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-        .auth-callout { margin: 0 0 1rem 0; padding: 0.8rem 1rem; border-left: 4px solid #C9A227; border-radius: 0.35rem; background: rgba(201, 162, 39, 0.12); }
-        .auth-callout--error { border-left-color: #b00020; background: rgba(176, 0, 32, 0.08); }
-        .auth-callout--success { border-left-color: #2e7d32; background: rgba(46, 125, 50, 0.10); }
+        .auth-callout { margin: 0 0 1rem 0; padding: 0.8rem 1rem; border-left: 4px solid var(--lapis-accent); border-radius: 0.35rem; background: var(--lapis-accent-soft); color: var(--lapis-text); }
+        .auth-callout--error { border-left-color: var(--lapis-invalid); background: var(--lapis-surface-sunken); }
+        /* #2e7d32 (light) and #4caf50 (dark, below): status edge only (non-text contrast), never a text or fill colour. Allow-listed literal. */
+        .auth-callout--success { border-left-color: #2e7d32; background: var(--lapis-surface-sunken); }
+        /* #2e7d32 reaches only 2.85:1 on the dark sunken surface; #4caf50 clears 3:1 there. Public pages follow the OS (no data-theme). */
+        @media (prefers-color-scheme: dark) { .auth-callout--success { border-left-color: #4caf50; } }
         .auth-facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: 0 0 1rem 0; }
         .auth-facts dt { font-weight: 600; }
         .auth-facts dd { margin: 0; overflow-wrap: anywhere; }
@@ -494,8 +503,7 @@ internal object SocialPublicHtml {
 
         /* Welle V1.9.20 "Öffentliche Seiten" (/vorstand, /politiker, /landesverbaende) -- shares this
            stylesheet, see network.lapis.cloud.server.routes.PublicProfilesHtml class KDoc. Colours
-           only from values already used above (no new hex literals except the crest tile's light
-           ground, which is the chrome's own text colour). The avatar has a FIXED size, so a missing
+           only from the theme tokens (V1.9.247). The avatar has a FIXED size, so a missing
            photo never shifts the layout. */
         .person-grid {
             list-style: none; margin: 1rem 0; padding: 0; display: grid;
@@ -503,15 +511,15 @@ internal object SocialPublicHtml {
         }
         .person-card {
             display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.25rem;
-            padding: 1rem 0.75rem; border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.5rem;
+            padding: 1rem 0.75rem; border: 1px solid var(--lapis-border); border-radius: 0.5rem; background: var(--lapis-surface);
         }
         .avatar { display: block; width: 6rem; height: 6rem; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
         .avatar-initials {
             display: inline-flex; align-items: center; justify-content: center;
-            background: rgba(128, 128, 128, 0.2); font-size: 1.75rem; font-weight: 600;
+            background: var(--lapis-accent-soft); color: var(--lapis-accent-strong); font-size: 1.75rem; font-weight: 600;
         }
         .avatar-silhouette {
-            background-color: rgba(128, 128, 128, 0.35);
+            background-color: var(--lapis-border-strong);
             -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
             -webkit-mask-position: center; mask-position: center;
             -webkit-mask-size: 60%; mask-size: 60%;
@@ -521,17 +529,17 @@ internal object SocialPublicHtml {
             mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.5' r='3.5'/%3E%3Cpath d='M5 21c0-4 3.1-6.5 7-6.5s7 2.5 7 6.5z'/%3E%3C/svg%3E");
         }
         .person-name { margin: 0.4rem 0 0 0; font-size: 1.05rem; overflow-wrap: anywhere; }
-        .person-role { margin: 0; color: #888; font-size: 0.85rem; overflow-wrap: anywhere; }
+        .person-role { margin: 0; color: var(--lapis-muted); font-size: 0.85rem; overflow-wrap: anywhere; }
         .person-card .bio { margin: 0.5rem 0 0 0; font-size: 0.9rem; text-align: left; white-space: pre-line; overflow-wrap: anywhere; }
         .chapter-card { flex-direction: row; text-align: left; align-items: flex-start; gap: 0.9rem; }
         .chapter-card .chapter-text { min-width: 0; }
         .crest-tile {
             display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-            width: 4rem; height: 4rem; border-radius: 0.4rem; background: #EDEAE3;
+            width: 4rem; height: 4rem; border-radius: 0.4rem; background: var(--lapis-surface-sunken);
         }
         .crest-image { display: block; width: 100%; height: 100%; object-fit: contain; }
         .crest-placeholder {
-            display: block; width: 2rem; height: 2rem; background-color: #14181E;
+            display: block; width: 2rem; height: 2rem; background-color: var(--lapis-muted);
             -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
             -webkit-mask-position: center; mask-position: center;
             -webkit-mask-size: contain; mask-size: contain;
@@ -541,6 +549,7 @@ internal object SocialPublicHtml {
         .profiles-link { margin: 0.75rem 0 0 0; }
         .share { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--lapis-border); }
         .share h2 { font-size: 0.95rem; margin: 0 0 0.5rem 0; }
+        .share-list a { text-decoration: none; }
         .share-list { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
         .share-item[hidden] { display: none; }
         .share-list a, .share-list button { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; padding: 0; border: 0; border-radius: 0.5rem; background: transparent; color: var(--lapis-muted); cursor: pointer; text-decoration: none; }

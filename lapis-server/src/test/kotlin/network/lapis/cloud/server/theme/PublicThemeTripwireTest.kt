@@ -71,7 +71,21 @@ class PublicThemeTripwireTest :
             rule(".auth-primary") shouldContain "var(--lapis-accent)"
             rule(".auth-primary") shouldContain "var(--lapis-accent-contrast)"
             rule(".event-submit") shouldContain "var(--lapis-accent)"
+            rule("body") shouldContain "var(--lapis-bg)"
+            rule("body") shouldContain "var(--lapis-text)"
+            rule(".hero p") shouldContain "var(--lapis-muted)"
+            rule(".meta") shouldContain "var(--lapis-muted)"
+            rule(".event-submit--danger") shouldContain "var(--lapis-invalid)"
+            rule(".event-submit--danger") shouldContain "var(--lapis-bg)"
+            rule(".avatar-initials") shouldContain "var(--lapis-accent-soft)"
+            rule(".avatar-initials") shouldContain "var(--lapis-accent-strong)"
+            rule(".cta-primary") shouldContain "var(--lapis-accent-contrast)"
             css.contains("var(--lapis-nav,") shouldBe false
             css.contains(Regex("""var\(--lapis-[a-z-]+\s*,""")) shouldBe false
+        }
+        test("the former fixed grey and gold literals are gone from the shared stylesheet") {
+            val css = SocialPublicHtml.STYLESHEET.lowercase()
+            css.contains("#888") shouldBe false
+            css.contains("#c9a227") shouldBe false
         }
     })

@@ -170,7 +170,7 @@ internal object PublicLandingHtml {
      * stattdessen ein `<img alt="...">`, und der Organisationsname taucht auf der GESAMTEN Seite an
      * KEINER sichtbaren Text-Stelle mehr auf -- nur im `alt`-Attribut, das Screenreadern vorbehalten
      * ist. Der `<h1>` zeigt jetzt [branding.title], der Marken-Claim rutscht als `<p>` eine Ebene
-     * tiefer (bestehende `.hero p { color: #888; }`-Regel deckt ihn bereits ab, kein neues CSS
+     * tiefer (bestehende `.hero p { color: var(--lapis-muted); }`-Regel deckt ihn bereits ab, kein neues CSS
      * nötig) -- "Mitglied werden" bleibt unverändert als primärer CTA im Hero.
      */
     private fun FlowContent.renderHero(

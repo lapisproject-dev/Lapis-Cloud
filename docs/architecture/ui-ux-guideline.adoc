@@ -53,6 +53,44 @@ An operator theme (`LAPIS_THEME_PATH`, see link:../features/theming.adoc[Themes 
 and the Bootstrap corner radius, all through CSS custom properties. New UI therefore uses `var(--lapis-...)` tokens exclusively and never colour literals,
 otherwise it cannot be themed and looks wrong next to a themed shell. The tripwire R9 remains the authority for client code.
 
+== Public pages and theme tokens (V1.9.247)
+
+The server-rendered public pages (landing, social, transparency, articles, events, profiles, legal texts, sign-in and consent pages, embeds)
+share one stylesheet, `SocialPublicHtml.STYLESHEET`, served as `/s/assets/style.css` and followed by the generated `/theme.css`. Since V1.9.247
+that stylesheet takes every colour from the theme tokens, so a theme restyles these pages and the dark mode (`prefers-color-scheme`, no
+`data-theme` on public pages) works for the first time.
+
+[cols="2,5",options="header"]
+|===
+|Token |Use on public pages
+|`bg`, `text` |Page ground and body text
+|`muted` |Secondary text: footer, meta lines, notes, roles
+|`border`, `border-strong` |Card edges; input edges, tag and silhouette fills
+|`surface` |Inputs, person cards
+|`surface-sunken` |Cards, fact lists, error and success callout grounds, crest tile
+|`accent` |Links, outline of the secondary button, focus ring, callout edge, filled primary button
+|`accent-strong` |Link hover, badge text, text on `accent-soft`
+|`accent-soft` |Hint and callout ground, initials avatar
+|`accent-contrast` |Text on a filled `accent`
+|`invalid` |Error text and edge, danger button
+|`nav-text` |Focus ring and current marker inside the header bar
+|===
+
+Rules:
+
+* No colour literal and no `rgba(` in the stylesheet. Exactly three literals are allowed, each with its reason, enforced by
+  `PublicCssColourAllowListTest`: `#fff` as the QR code ground (scannability, quiet zone) and `#2e7d32` (dark mode: `#4caf50`, because the former reaches only 2.85:1 on the dark surface) as the edge of the success callout
+  (non-text contrast only).
+* No `var(--lapis-x, #fallback)` fallbacks. The protection is the link order test: the page stylesheet is followed by `/theme.css` in every
+  public head (`publicStylesheetLinks()`).
+* Not covered by this rule, by design: SVG presentation attributes (`EventTicketSvg`, `LapisCloudMarkHtml`) and mails (`MailingMailRenderer`,
+  inline styles instead of a stylesheet).
+* The former fixed gold (focus ring, callouts, badges) is gone: those parts use the theme accent. The Lapis mark lives in the logo.
+* Links are underlined and use `accent`; headings that are links and the chrome keep their own colour. The primary button
+  (`.cta-primary`) is a filled `accent` button.
+* Contrast: the blocking validator pairs plus four advisory pairs added in V1.9.247 (`accent` on `bg`, `accent` on `surface-sunken`,
+  `accent-strong` on `accent-soft`, `bg` on `invalid`). They only warn, so no existing theme is rejected.
+
 == Navigation registry (V1.9.220) and the dashboard (V1.9.224)
 
 The menu entries come exclusively from `NavRegistry`; a new menu item belongs in the registry and nowhere else (plus an enhancement in
