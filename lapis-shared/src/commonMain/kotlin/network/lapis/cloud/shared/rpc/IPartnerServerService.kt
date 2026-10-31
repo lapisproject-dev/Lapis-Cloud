@@ -1,9 +1,11 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerBlockDto
 import network.lapis.cloud.shared.domain.PartnerBlockResultDto
 import network.lapis.cloud.shared.domain.PartnerProbeResultDto
+import network.lapis.cloud.shared.domain.PartnerRecursionSettingsDto
 import network.lapis.cloud.shared.domain.PartnerServerOverviewDto
 
 /**
@@ -38,4 +40,16 @@ interface IPartnerServerService {
     suspend fun removeBlock(id: String)
 
     suspend fun setPartnerListHidden(hidden: Boolean)
+
+    /** V1.9.245 "P2": the recursion switch, the depth (1..3) and the summary of the last run. */
+    suspend fun getPartnerRecursionSettings(): PartnerRecursionSettingsDto
+
+    /** [depth] outside 1..3 is a bad request. */
+    suspend fun setPartnerRecursionSettings(
+        enabled: Boolean,
+        depth: Int,
+    )
+
+    /** The servers reached through the direct partners (at most 200, sorted by hop and host). */
+    suspend fun listDiscoveredPartnerServers(): List<DiscoveredPartnerServerDto>
 }

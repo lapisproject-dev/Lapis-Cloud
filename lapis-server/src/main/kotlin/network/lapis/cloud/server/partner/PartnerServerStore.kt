@@ -65,7 +65,9 @@ internal sealed interface PartnerInsertResult {
 }
 
 /**
- * V1.9.244 -- THE ONLY writer of `partner_server`, `partner_event`, `partner_blocklist` and of the two partner columns of `organization_settings`.
+ * V1.9.244 -- THE writer of `partner_server`, `partner_blocklist`, the events of the DIRECT partners (`partner_event.hops = 1`) and the two
+ * partner columns of `organization_settings`. Since V1.9.245 [PartnerDiscoveryStore] is the second (and last) writer: it owns
+ * `partner_discovered_server`, the events with `hops > 1` and the `partner_recursion_*` columns.
  * Every function needs an open `transaction {}`; none of them touches the network (a fetch inside a transaction would be repeated by Exposed on
  * an SQLException). Time values are class A (UTC) `LocalDateTime`s handed in by the caller.
  */
@@ -146,7 +148,7 @@ internal object PartnerServerStore {
      * FIRST and reads the block list afterwards; [addBlock] inserts the pattern and then locks the matching rows. Whichever side comes second waits
      * for the other, so a fetch result can never be written back after the block that was set while the request was on the wire.
      */
-    private fun lockPartner(id: Uuid): PartnerRow? =
+    internal fun lockPartner(id: Uuid): PartnerRow? =
         PartnerServerTable
             .selectAll()
             .where { PartnerServerTable.id eq id }
@@ -178,8 +180,10 @@ internal object PartnerServerStore {
     ): Int =
         PartnerEventTable
             .selectAll()
-            .where { (PartnerEventTable.partnerServerId eq partnerId) and (PartnerEventTable.expiresAt greater now) }
-            .count()
+            .where {
+                (PartnerEventTable.partnerServerId eq partnerId) and (PartnerEventTable.hops eq 1.toShort()) and
+                    (PartnerEventTable.expiresAt greater now)
+            }.count()
             .toInt()
 
     /** Active, due partners that are not blocked -- the blocked ones only get a later `next_fetch_at` so they do not reappear every minute. */
@@ -244,7 +248,9 @@ internal object PartnerServerStore {
                     it[PartnerServerTable.etag] = etag
                     it[remotePartnersJson] = parsed.partnersJson
                 }
-                replaceEvents(partnerId = id, parsed = parsed, now = now)
+                // The direct partner wins: a discovered row with the same host or announced id must go first (unique (remote_server_id, remote_event_id)).
+                PartnerDiscoveryStore.deleteDiscoveredForHostOrId(host = host, remoteServerId = parsed.remoteServerId)
+                replaceEvents(partnerId = id, host = host, parsed = parsed, now = now)
             }
             PartnerInsertResult.Inserted(id)
         } catch (e: Exception) {
@@ -258,24 +264,30 @@ internal object PartnerServerStore {
         }
     }
 
-    private fun boundServerIdHost(remoteServerId: Uuid): String? =
+    internal fun boundServerIdHost(remoteServerId: Uuid): String? =
         PartnerServerTable
             .selectAll()
             .where { PartnerServerTable.remoteServerId eq remoteServerId }
             .singleOrNull()
             ?.get(PartnerServerTable.host)
 
+    /** Replaces the events of the DIRECT partner only (`hops = 1`); the events of its sub-tree are never touched here. */
     private fun replaceEvents(
         partnerId: Uuid,
+        host: String,
         parsed: PartnerParseResult.Ok,
         now: LocalDateTime,
     ) {
-        PartnerEventTable.deleteWhere { PartnerEventTable.partnerServerId eq partnerId }
+        PartnerEventTable.deleteWhere { (PartnerEventTable.partnerServerId eq partnerId) and (PartnerEventTable.hops eq 1.toShort()) }
         val expires = now.plusHoursKt(CACHE_TTL_HOURS)
         if (parsed.events.isEmpty()) return
         PartnerEventTable.batchInsert(parsed.events) { ev ->
             this[PartnerEventTable.id] = Uuid.random()
             this[PartnerEventTable.partnerServerId] = partnerId
+            this[PartnerEventTable.discoveredServerId] = null
+            this[PartnerEventTable.hops] = 1.toShort()
+            this[PartnerEventTable.originHost] = host
+            this[PartnerEventTable.viaHosts] = null
             this[PartnerEventTable.remoteServerId] = parsed.remoteServerId
             this[PartnerEventTable.remoteEventId] = ev.id
             this[PartnerEventTable.title] = ev.title
@@ -309,7 +321,8 @@ internal object PartnerServerStore {
             applyFetchFailure(id = id, error = PartnerFetchErrorCode.SERVER_ID_TAKEN, now = now)
             return false
         }
-        replaceEvents(partnerId = id, parsed = parsed, now = now)
+        PartnerDiscoveryStore.deleteDiscoveredForHostOrId(host = row.host, remoteServerId = parsed.remoteServerId)
+        replaceEvents(partnerId = id, host = row.host, parsed = parsed, now = now)
         PartnerServerTable.update({ PartnerServerTable.id eq id }) {
             it[remoteServerId] = parsed.remoteServerId
             it[remoteName] = parsed.remoteName
@@ -332,7 +345,9 @@ internal object PartnerServerStore {
     ) {
         val row = lockPartner(id) ?: return
         if (PartnerBlocklistPattern.isBlocked(host = row.host, patterns = blockPatterns())) return
-        PartnerEventTable.update({ PartnerEventTable.partnerServerId eq id }) { it[expiresAt] = now.plusHoursKt(CACHE_TTL_HOURS) }
+        PartnerEventTable.update({ (PartnerEventTable.partnerServerId eq id) and (PartnerEventTable.hops eq 1.toShort()) }) {
+            it[expiresAt] = now.plusHoursKt(CACHE_TTL_HOURS)
+        }
         PartnerServerTable.update({ PartnerServerTable.id eq id }) {
             it[lastFetchAt] = now
             it[lastStatus] = PartnerFetchStatus.OK
@@ -375,6 +390,7 @@ internal object PartnerServerStore {
 
     fun remove(id: Uuid): PartnerRow? {
         val row = findPartner(id) ?: return null
+        // The events of the whole sub-tree and the discovered rows follow by ON DELETE CASCADE (V132).
         PartnerEventTable.deleteWhere { PartnerEventTable.partnerServerId eq id }
         PartnerServerTable.deleteWhere { PartnerServerTable.id eq id }
         return row
@@ -424,6 +440,8 @@ internal object PartnerServerStore {
                 it[PartnerServerTable.etag] = null
             }
         }
+        // Lock order: partner_server (above), then partner_discovered_server and partner_event (here).
+        PartnerDiscoveryStore.purgeForBlock(pattern)
         return block to (existing == null && raced == null)
     }
 
@@ -438,17 +456,18 @@ internal object PartnerServerStore {
         val affected =
             PartnerEventTable
                 .select(PartnerEventTable.partnerServerId)
-                .where { PartnerEventTable.expiresAt less now }
+                .where { (PartnerEventTable.expiresAt less now) and (PartnerEventTable.hops eq 1.toShort()) }
                 .withDistinct()
                 .map { it[PartnerEventTable.partnerServerId] }
         if (affected.isEmpty()) return 0
-        val deleted = PartnerEventTable.deleteWhere { PartnerEventTable.expiresAt less now }
+        // Only the direct partners' events; the expired events of the sub-tree are PartnerDiscoveryStore.housekeeping's.
+        val deleted = PartnerEventTable.deleteWhere { (PartnerEventTable.expiresAt less now) and (PartnerEventTable.hops eq 1.toShort()) }
         // The cache of these partners is (partly) gone: drop the ETag so the next fetch is unconditional, and fix the counter.
         affected.forEach { pid ->
             val remaining =
                 PartnerEventTable
                     .selectAll()
-                    .where { PartnerEventTable.partnerServerId eq pid }
+                    .where { (PartnerEventTable.partnerServerId eq pid) and (PartnerEventTable.hops eq 1.toShort()) }
                     .count()
                     .toInt()
             PartnerServerTable.update({ PartnerServerTable.id eq pid }) {
@@ -458,6 +477,19 @@ internal object PartnerServerStore {
         }
         return deleted
     }
+
+    /**
+     * The hosts of the stored partner list of a DIRECT partner, every one re-validated. With [PartnerDiscoveryStore.loadRunSnapshot] the only
+     * place that reads `remote_partners_json` of `partner_server` (pinned by `PartnerServerTripwireTest`).
+     */
+    fun remotePartnerHosts(id: Uuid): List<String> =
+        PartnerFeedParser.partnerHostsOf(
+            PartnerServerTable
+                .select(PartnerServerTable.remotePartnersJson)
+                .where { PartnerServerTable.id eq id }
+                .singleOrNull()
+                ?.get(PartnerServerTable.remotePartnersJson),
+        )
 
     // ── scheduling ──────────────────────────────────────────────────────────────
 
@@ -490,5 +522,3 @@ internal object PartnerServerStore {
 
     private fun cachedSalt(): String = ensureServerId().toString()
 }
-
-private fun LocalDateTime.plusHoursKt(hours: Long): LocalDateTime = toJavaLocalDateTime().plusHours(hours).toKotlinLocalDateTime()

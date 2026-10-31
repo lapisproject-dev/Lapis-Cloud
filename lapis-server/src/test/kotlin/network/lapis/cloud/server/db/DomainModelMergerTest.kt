@@ -585,7 +585,8 @@ class DomainModelMergerTest :
             // 05-governance.kuml.kts (V1.9.240) adds FOUR real tables (protocol_version, protocol_version_confirmation, protocol_version_task,
             // protocol_task_status); its new DocumentVersion stub dedups into the real entity, net +4 (227 -> 231).
             // 79-partner-servers.kuml.kts (V1.9.244) adds THREE real tables (partner_server, partner_event, partner_blocklist); no stub, net +3 (231 -> 234).
-            val distinctTableNames = 234
+            // 79-partner-servers.kuml.kts (V1.9.245) adds ONE real table (partner_discovered_server); its PartnerServer reference dedups, net +1 (234 -> 235).
+            val distinctTableNames = 235
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -984,6 +985,7 @@ class DomainModelMergerTest :
                     "PartnerServerTable.kt",
                     "PartnerEventTable.kt",
                     "PartnerBlocklistTable.kt",
+                    "PartnerDiscoveredServerTable.kt",
                 )
         }
 

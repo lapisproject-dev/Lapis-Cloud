@@ -6,6 +6,22 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.245 -- Partner servers, wave P2: partners of partners, provenance, filter
+
+**Behaviour change first:** the recursion is **on by default** (depth 2), `/veranstaltungen` now also lists the cached events of the partners (and of their partners) next to the own ones, and every such entry names its origin.
+`/veranstaltung.ics` is unchanged without a parameter (own events only); the partner events are available as `/veranstaltung.ics?quelle=alle`. Partner events appear on the public pages only, **not** in the member area.
+
+**Additive migration V132 (V131 is not edited), no new environment variable, no new dependency, three RPC methods appended to `IPartnerServerService`.**
+
+- **Recursion.** `PartnerRecursionRunner` (only called by the poller, once an hour, 5-minute budget) walks the stored partner lists breadth first, 1 to 3 additional levels. Bounds: 20 hosts per list, 15 per direct partner, 40 per run, 100 events per reached server, 2000 in total, 60/200 stored servers. Every host passes the same checks as a direct partner (address rules, block list and visited set before DNS, `checkWebhookUrl`, IP pinning, https:443, no redirects).
+- **Provenance and identity.** `partner_event` gains `discovered_server_id`, `hops`, `origin_host`, `via_hosts`; the unique key becomes `(remote_server_id, remote_event_id)`; the new table `partner_discovered_server` (cache, excluded from the backup) holds the reached servers. A server id is bound to one host across both tables; the direct partner wins; a second claim is the new code `SERVER_ID_CONFLICT`.
+- **Block list.** Hides the host and everything reached through it, at read time on the public pages (and by a counter that empties the 30 s memo) and by deleting rows and events in the block's own transaction.
+- **Public pages.** Origin line ("Partnerserver: ..."), source filter `?quelle=alle|eigene` (an unknown value redirects), external links with `rel="noopener noreferrer external"`, no referrer, no new tab; partner series as one entry; `?quelle=alle` in the iCal feed (no repeat rule for partner series).
+- **Admin page.** Switch, depth, the last run in words and numbers, the list of reached servers with a "Sperren" button, "Über diesen Partner: n Server, m Veranstaltungen".
+- **Audit.** `RECURSION_ENABLED`, `RECURSION_DISABLED`, `RECURSION_DEPTH_CHANGED` on `PARTNER_SERVER`.
+- **Residual risk (documented).** A partner can make this server ask a few arbitrary public hosts for the feed path once per hour (reflector); bounded, back-off, switch.
+- **Not verified:** against a real second or third server over the internet (simulated network of several servers only); the Postgres lane ran the partner scenarios and the V131 -> V132 upgrade.
+
 ### V1.9.244 -- Partner servers, wave P1: public event feed and direct partners
 
 **Additive migration V131, no new environment variable, no new dependency.** Direct partners only; the partner events are **not displayed yet** (wave P2).

@@ -56,6 +56,8 @@ class OrganizationSchemaCatalogTest :
                     "lupabb_sync_config",
                     // Welle V1.9.244 -- the refilled cache of the partner servers' public events
                     "partner_event",
+                    // Welle V1.9.245 -- the servers reached through the partners (a rediscoverable cache)
+                    "partner_discovered_server",
                 )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false

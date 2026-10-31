@@ -1,7 +1,9 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
+import io.kvision.core.onEvent
 import io.kvision.form.check.checkBox
+import io.kvision.form.select.select
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Span
 import io.kvision.html.TAG
@@ -14,7 +16,9 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
+import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerBlockDto
+import network.lapis.cloud.shared.domain.PartnerRecursionSettingsDto
 import network.lapis.cloud.shared.domain.PartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerServerOverviewDto
 import network.lapis.cloud.shared.rpc.IPartnerServerService
@@ -37,23 +41,37 @@ fun renderPartnerServersScreen(container: SimplePanel) {
     var savedMessage: String? = null
     lateinit var data: DataSection
     data =
-        root.dataSection<PartnerServerOverviewDto>(
+        root.dataSection<PartnerPageData>(
             isEmpty = { false },
-            load = { guarded { rpcService<IPartnerServerService>().list() } },
-            render = { panel, overview ->
-                renderPartnerServers(panel, overview, savedMessage, onSaved = { savedMessage = it }) { data.reload() }
+            load = {
+                val service = rpcService<IPartnerServerService>()
+                val overview = guarded { service.list() }
+                val recursion = overview?.let { guarded { service.getPartnerRecursionSettings() } }
+                val discovered = recursion?.let { guarded { service.listDiscoveredPartnerServers() } }
+                if (overview != null && recursion != null && discovered != null) PartnerPageData(overview, recursion, discovered) else null
+            },
+            render = { panel, page ->
+                renderPartnerServers(panel, page, savedMessage, onSaved = { savedMessage = it }) { data.reload() }
             },
         )
     data.reload()
 }
 
+/** Everything the page shows, loaded together. */
+private data class PartnerPageData(
+    val overview: PartnerServerOverviewDto,
+    val recursion: PartnerRecursionSettingsDto,
+    val discovered: List<DiscoveredPartnerServerDto>,
+)
+
 private fun renderPartnerServers(
     panel: SimplePanel,
-    overview: PartnerServerOverviewDto,
+    page: PartnerPageData,
     savedMessage: String?,
     onSaved: (String?) -> Unit,
     reload: () -> Unit,
 ) {
+    val overview = page.overview
     renderAddForm(panel, savedMessage, onSaved, reload)
     panel.h2(tr("Eingetragene Partner")) { addCssClasses("h5 mt-3") }
     if (overview.partners.isEmpty()) {
@@ -62,6 +80,7 @@ private fun renderPartnerServers(
     val list = panel.div { setAttribute("role", "list") }
     overview.partners.forEach { renderPartnerRow(list, it, reload) }
     renderHiddenSwitch(panel, overview.partnerListHidden, reload)
+    renderRecursion(panel, page.recursion, page.discovered, reload)
     renderBlocklist(panel, overview.blocklist, reload)
 }
 
@@ -134,6 +153,7 @@ private fun renderPartnerRow(
     } else {
         partner.lastFetchAt?.let { info.div(gettext("Letzter Abruf: %1", formatSystemDateTime(it)), className = "text-muted small") }
         info.div(gettext("Veranstaltungen: %1", partner.eventCount), className = "text-muted small")
+        PartnerServersLogic.viaThisPartner(partner)?.let { info.div(it, className = "text-muted small partner-via") }
         partner.lastError?.let { info.div(PartnerServersTexts.fetchError(it), className = "text-danger small") }
     }
     val actions = head.div { addCssClasses("d-flex align-items-center gap-2") }
@@ -181,6 +201,94 @@ private fun renderHiddenSwitch(
             reload()
         }
     }
+}
+
+/** "Partner von Partnern": the switch, the depth, the state of the last run and the servers that were reached. */
+private fun renderRecursion(
+    panel: SimplePanel,
+    settings: PartnerRecursionSettingsDto,
+    discovered: List<DiscoveredPartnerServerDto>,
+    reload: () -> Unit,
+) {
+    panel.h2(tr("Partner von Partnern")) { addCssClasses("h5 mt-4") }
+    val box = panel.vPanel(spacing = 2)
+    val recursionToggle = box.checkBox(value = settings.enabled, label = tr("Auch Partner der Partner einbeziehen"))
+    box.div(
+        tr("Dann holt dieser Server stündlich auch die Veranstaltungen der Partner Ihrer Partner ab, bis zur gewählten Stufe."),
+        className = "text-muted small",
+    )
+    val depthOptions = (1..3).map { it.toString() to it.toString() }
+    val depth = box.select(options = depthOptions, value = settings.depth.toString(), label = tr("Zusätzliche Stufen"))
+    depth.disabled = !PartnerServersLogic.depthSelectEnabled(settings.enabled)
+
+    fun save() {
+        recursionToggle.disabled = true
+        depth.disabled = true
+        val wantedDepth = depth.value?.toIntOrNull() ?: settings.depth
+        runGuardedAction(button = null) {
+            guarded { rpcService<IPartnerServerService>().setPartnerRecursionSettings(recursionToggle.value == true, wantedDepth) }
+            reload()
+        }
+    }
+    recursionToggle.onClick { save() }
+    // `subscribe` would call back at once with the current value (a reload loop); the DOM change event fires only on a choice by the person.
+    depth.onEvent { change = { save() } }
+
+    val status =
+        panel.div(PartnerServersLogic.runStatus(settings), className = "small mt-2") {
+            setAttribute("role", "status")
+        }
+    settings.summary?.let { summary ->
+        val lines = PartnerServersLogic.summaryLines(summary)
+        if (lines.isNotEmpty()) {
+            val list = panel.div(className = "small text-muted") { setAttribute("role", "list") }
+            lines.forEach { line -> list.div(line) { setAttribute("role", "listitem") } }
+        }
+    }
+    status.setAttribute("aria-live", "polite")
+
+    panel.h2(tr("Erreichte Server")) { addCssClasses("h6 mt-3") }
+    if (discovered.isEmpty()) {
+        panel.p(tr("Noch keine weiteren Server erreicht.")) { addCssClasses("text-muted small") }
+        return
+    }
+    val list = panel.div { setAttribute("role", "list") }
+    discovered.forEach { renderDiscoveredRow(list, it, reload) }
+}
+
+private fun renderDiscoveredRow(
+    list: Container,
+    server: DiscoveredPartnerServerDto,
+    reload: () -> Unit,
+) {
+    val row =
+        list.div {
+            addCssClasses("partner-row partner-discovered border-bottom py-2")
+            setAttribute("role", "listitem")
+        }
+    val head = row.div { addCssClasses("d-flex flex-wrap align-items-start gap-2") }
+    val info = head.div { addCssClass("flex-grow-1") }
+    info.untrustedDiv(server.name ?: server.host, className = "fw-bold")
+    if (server.name != null) info.untrustedSpan(server.host, className = "font-monospace small text-muted")
+    info.div(className = "small text-muted") {
+        span(PartnerServersLogic.levelText(server.hops))
+        span(" · ")
+        span(gettext("Veranstaltungen: %1", server.eventCount))
+    }
+    info.untrustedDiv(PartnerServersLogic.chainText(server.viaChain), className = "small text-muted partner-chain")
+    info.div(
+        PartnerServersLogic.discoveredStatus(server),
+        className = "small ${if (server.lastError != null) "text-danger" else "text-muted"}",
+    )
+    head.actionButton(ActionIcon.REVOKE, tr("Sperren"), small = true) {
+        onClick {
+            runGuardedAction(button = this) {
+                guarded { rpcService<IPartnerServerService>().addBlock(server.host) }
+                reload()
+            }
+        }
+    }
+    row.setAttribute("aria-label", server.host)
 }
 
 private fun renderBlocklist(

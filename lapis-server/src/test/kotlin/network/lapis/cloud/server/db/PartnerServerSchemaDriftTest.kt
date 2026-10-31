@@ -8,6 +8,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PartnerBlocklistTable
+import network.lapis.cloud.server.db.generated.PartnerDiscoveredServerTable
 import network.lapis.cloud.server.db.generated.PartnerEventTable
 import network.lapis.cloud.server.db.generated.PartnerServerTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -30,8 +31,9 @@ class PartnerServerSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("the model declares exactly the three partner tables") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("partner_server", "partner_event", "partner_blocklist")
+        test("the model declares exactly the four partner tables") {
+            model.entities.map { it.name }.toSet() shouldBe
+                setOf("partner_server", "partner_event", "partner_discovered_server", "partner_blocklist")
         }
 
         fun check(
@@ -59,7 +61,21 @@ class PartnerServerSchemaDriftTest :
         }
 
         test("partner_event matches the migrated schema and its Exposed object 1:1, with the FK to partner_server") {
-            check("partner_event", PartnerEventTable.columns.map { it.name }, mapOf("partner_server_id" to "partner_server"), setOf("id"))
+            check(
+                "partner_event",
+                PartnerEventTable.columns.map { it.name },
+                mapOf("partner_server_id" to "partner_server", "discovered_server_id" to "partner_discovered_server"),
+                setOf("id"),
+            )
+        }
+
+        test("partner_discovered_server matches the migrated schema and its Exposed object 1:1, rooted at partner_server") {
+            check(
+                "partner_discovered_server",
+                PartnerDiscoveredServerTable.columns.map { it.name },
+                mapOf("root_partner_server_id" to "partner_server"),
+                setOf("id"),
+            )
         }
 
         test("partner_blocklist matches the migrated schema and its Exposed object 1:1") {
@@ -74,9 +90,24 @@ class PartnerServerSchemaDriftTest :
             real.columns.getValue("partner_list_hidden").nullable shouldBe false
             real.columns.getValue("partner_server_id").nullable shouldBe true
             OrganizationSettingsTable.columns.map { it.name }.containsAll(listOf("partner_list_hidden", "partner_server_id")) shouldBe true
+            listOf(
+                "partner_recursion_enabled",
+                "partner_recursion_depth",
+                "partner_recursion_last_run_at",
+                "partner_recursion_last_summary",
+            ).forEach { column ->
+                withClue("column $column") {
+                    settings.attributes.any { it.name == column } shouldBe true
+                    real.columns.containsKey(column) shouldBe true
+                    OrganizationSettingsTable.columns.any { it.name == column } shouldBe true
+                }
+            }
+            real.columns.getValue("partner_recursion_enabled").nullable shouldBe false
+            real.columns.getValue("partner_recursion_depth").nullable shouldBe false
+            real.columns.getValue("partner_recursion_last_run_at").nullable shouldBe true
         }
 
-        test("host and server id are unique on partner_server; the event id is unique PER PARTNER ROW") {
+        test("host and server id are unique on partner_server; a foreign event exists once per announced server id and event id (V132)") {
             val server = transaction { introspectPartnerTable("partner_server") }.uniqueConstraints
             server.contains(setOf("host")) shouldBe true
             server.contains(setOf("remote_server_id")) shouldBe true
@@ -84,8 +115,11 @@ class PartnerServerSchemaDriftTest :
                 introspectPartnerTable(
                     "partner_event",
                 )
-            }.uniqueConstraints.contains(setOf("partner_server_id", "remote_event_id")) shouldBe
+            }.uniqueConstraints.contains(setOf("remote_server_id", "remote_event_id")) shouldBe
                 true
+            val discovered = transaction { introspectPartnerTable("partner_discovered_server") }.uniqueConstraints
+            discovered.contains(setOf("host")) shouldBe true
+            discovered.contains(setOf("remote_server_id")) shouldBe true
             transaction { introspectPartnerTable("partner_blocklist") }.uniqueConstraints.contains(setOf("pattern")) shouldBe true
         }
 

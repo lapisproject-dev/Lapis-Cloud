@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.ProtocolConfirmationMode
@@ -12,6 +13,7 @@ import network.lapis.cloud.shared.domain.TenderBidVisibility
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.date
+import org.jetbrains.exposed.v1.datetime.datetime
 
 public object OrganizationSettingsTable : Table("organization_settings") {
     public val id: Column<Uuid> = uuid("id")
@@ -117,6 +119,11 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.9.244 -- hand-edited, see 11-organization-settings.kuml.kts (V131). Written ONLY by PartnerServerStore; NOT part of the generic update write-set.
     public val partnerListHidden: Column<Boolean> = bool("partner_list_hidden").default(false)
     public val partnerServerId: Column<Uuid?> = uuid("partner_server_id").nullable()
+    // Welle V1.9.245 -- hand-edited (V132). Written ONLY by PartnerDiscoveryStore; NOT part of the generic update write-set.
+    public val partnerRecursionEnabled: Column<Boolean> = bool("partner_recursion_enabled").default(true)
+    public val partnerRecursionDepth: Column<Short> = short("partner_recursion_depth").default(2.toShort())
+    public val partnerRecursionLastRunAt: Column<LocalDateTime?> = datetime("partner_recursion_last_run_at").nullable()
+    public val partnerRecursionLastSummary: Column<String?> = varchar("partner_recursion_last_summary", 2000).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

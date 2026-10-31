@@ -888,6 +888,9 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
             listOf(
                 "val active = actions.checkBox(value = partner.active, label = tr(\"Aktiv\"))",
                 "val toggle = box.checkBox(value = hidden, label = tr(\"Eigene Partnerliste im Feed ausblenden\"))",
+                // Welle V1.9.245 "Partnerserver P2" -- the same IMMEDIATE SWITCHES reason: the recursion switch and its depth save themselves on change.
+                "val recursionToggle = box.checkBox(value = settings.enabled, label = tr(\"Auch Partner der Partner einbeziehen\"))",
+                "val depth = box.select(options = depthOptions, value = settings.depth.toString(), label = tr(\"Zusätzliche Stufen\"))",
             ),
     )
 

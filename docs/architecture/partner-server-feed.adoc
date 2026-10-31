@@ -1,4 +1,4 @@
-= Partner server feed (V1.9.244)
+= Partner server feed (V1.9.244, recursion V1.9.245)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -84,7 +84,7 @@ classDiagram(name = "Partner servers -- tables") {
         attribute(name = "last_error", type = "String") // a code, never a text
         attribute(name = "consecutive_failures", type = "Int")
         attribute(name = "next_fetch_at", type = "LocalDateTime") // UTC
-        attribute(name = "remote_partners_json", type = "String") // stored, never followed
+        attribute(name = "remote_partners_json", type = "String") // hosts are re-validated when read (P2)
     }
     val event = classOf(name = "partner_event") {
         attribute(name = "id", type = "UUID")
@@ -101,9 +101,78 @@ classDiagram(name = "Partner servers -- tables") {
 }
 ----
 
-*Why `UNIQUE(partner_server_id, remote_event_id)` and not `(remote_server_id, remote_event_id)`.* The server id is announced by the partner itself. With the second key a malicious partner B could claim the server id of
-partner A and overwrite A's cached events. The key is the partner *row*; additionally `UNIQUE(partner_server.remote_server_id)` binds an announced id to exactly one host (first seen wins; a changed id or a second host
-claiming it is refused). Event de-duplication across partners in P2 uses `(server id, event id)` *after* this binding.
+*Unique keys.* In P1 the event was unique per partner *row* (`partner_server_id, remote_event_id`): the server id is announced by the partner itself, and with the other key a malicious partner B could claim the server id of
+partner A and overwrite A's cached events. From V132 (P2) the key is `(remote_server_id, remote_event_id)`, and that is safe only because an announced server id is bound to **exactly one host across both tables**: `UNIQUE` on
+`partner_server.remote_server_id` and on `partner_discovered_server.remote_server_id`, plus the same check in code across the two tables. **The direct partner wins:** adding a direct partner deletes a discovered row with the same host
+or id first, so the new unique constraint can never fire against it. A claim of an already bound id by another host is a conflict (`SERVER_ID_CONFLICT`): the server is neither stored nor followed.
+
+== Recursion (V1.9.245)
+
+[kuml, partner-recursion-bfs, svg]
+----
+activityDiagram(name = "Partner recursion: one run") {
+    val start = initialNode()
+    val snapshot = action(name = "Snapshot: settings, block list, roots; visited = own host/id + ALL direct partners")
+    edge(from = start, to = snapshot)
+    val level = action(name = "Next level: 20 hosts per server, block list, visited host, caps 15 per root / 40 per run")
+    edge(from = snapshot, to = level)
+    val fetch = action(name = "Fetch the admitted hosts (4 in parallel, outside any transaction, 5 min budget)")
+    edge(from = level, to = fetch)
+    val idCheck = decision(name = "server id already visited (own, direct partner, other server)?")
+    edge(from = fetch, to = idCheck)
+    val conflict = action(name = "SERVER_ID_CONFLICT: not stored, not followed")
+    edge(from = idCheck, to = conflict, guard = "yes")
+    val write = action(name = "Write one server: lock ROOT, re-check block list for host and chain, caps, events")
+    edge(from = idCheck, to = write, guard = "no")
+    val more = decision(name = "list not hidden and depth not reached?")
+    edge(from = write, to = more)
+    edge(from = more, to = level, guard = "yes: next level")
+    val summary = action(name = "Store the summary (numbers only)")
+    edge(from = more, to = summary, guard = "no")
+    edge(from = conflict, to = summary)
+    edge(from = summary, to = finalNode())
+}
+----
+
+[kuml, partner-server-model-v132, svg]
+----
+classDiagram(name = "Partner servers -- V132") {
+    val server = classOf(name = "partner_server") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "host", type = "String")
+        attribute(name = "remote_server_id", type = "UUID")
+    }
+    val discovered = classOf(name = "partner_discovered_server") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "host", type = "String") // unique
+        attribute(name = "remote_server_id", type = "UUID") // unique
+        attribute(name = "root_partner_server_id", type = "UUID") // the direct partner it was reached through
+        attribute(name = "hops", type = "Int") // 2..4
+        attribute(name = "via_hosts", type = "String") // chain, nearest first
+    }
+    val event = classOf(name = "partner_event") {
+        attribute(name = "partner_server_id", type = "UUID") // the ROOT
+        attribute(name = "discovered_server_id", type = "UUID")
+        attribute(name = "hops", type = "Int") // 1 = the direct partner itself
+        attribute(name = "origin_host", type = "String")
+        attribute(name = "via_hosts", type = "String")
+    }
+    association(source = server, target = discovered) { target { multiplicity("0..*"); role = "reached through (CASCADE)" } }
+    association(source = discovered, target = event) { target { multiplicity("0..*"); role = "events (CASCADE)" } }
+    association(source = server, target = event) { target { multiplicity("0..*"); role = "events of the sub-tree (root)" } }
+}
+----
+
+*Walk.* Breadth first, level by level. In a FIXED order: parents sorted by `(root host, host)`, per parent the hosts sorted and cut to 20, then the block list (before any DNS), then the visited set (first root in the sort order
+wins a host that two roots reach), then the caps with candidates ordered by `(last fetch NULLS FIRST, root host, host)`. A host refused by a cap stays visited, so it cannot slip in on a longer path in the same run.
+A shorter path found later overwrites chain, level and root of the row **and of its events**. Time classes: `partner_event.starts_at`/`ends_at` are UTC instants (class A); the own `event` times are wall-clock (class B); they are
+converted, never compared directly.
+
+*Lock order (deadlock-free).* `partner_server` first, then -- only where a storage cap is counted -- the single `organization_settings` row (so four parallel writers cannot overshoot the caps), then `partner_discovered_server`, then `partner_event`. `PartnerDiscoveryStore` locks the ROOT partner row first and re-checks the block list for the host **and every host of
+its chain** under that lock, exactly like the direct fetch; `addBlock` locks all partner rows, then deletes matching rows and events (`purgeForBlock`) in the same transaction.
+
+*Reading for display.* `PartnerEventDisplay` applies visibility at read time (root active, origin and chain not blocked, recursion on, level within the current depth) and re-validates the link target (https, own host of the origin,
+no user info, port 443). `PartnerDisplayEpoch` is bumped by every change that alters what may be shown; it is part of the memo key of `/veranstaltungen`.
 
 == Limits
 
@@ -121,6 +190,13 @@ claiming it is refused). Event de-duplication across partners in P2 uses `(serve
 | Probe rate limit (admin form) | 10 per minute and admin
 | Back-off | 1, 2, 4, 8, 16, 24 h (capped)
 | Cache lifetime | 6 h after the last success
+| Recursion: hosts taken from one list / per direct partner / per run | 20 / 15 / 40
+| Recursion: run interval / jitter / time budget / parallel | 60 min / up to 300 s / 5 min / 4
+| Events per reached server / reached events in total | 100 / 2000
+| Stored reached servers per direct partner / in total | 60 / 200 (a stale row, not reached for 24 h, makes room)
+| Reached server not reached for | 7 days, then deleted
+| Depth | 1 to 3 additional levels (default 2)
+| Public page: partner events / per origin | 50 / 10
 |===
 
 == Security chain
@@ -132,9 +208,19 @@ claiming it is refused). Event de-duplication across partners in P2 uses `(serve
 . *Text.* `ForeignText` NFC-normalises, removes control and bidi characters, collapses blanks and cuts by code points; HTML is never interpreted. The client sets foreign text only through its `untrusted*` helpers.
 . *URLs.* An event URL must be https and its host must be **exactly the partner's own host**: a partner can only link to itself.
 . *Logs* carry the host and a code, never a body and never an address.
+. *Recursion, SSRF per level.* Hosts from a partner list pass `PartnerHost.normalize` (no IP literals, no local names, a dot is required), then the block list and the visited set -- all before DNS -- and then the same fetcher
+  (`checkWebhookUrl`, IP pinning, https:443, no redirects). The path is the fixed feed path; nothing from a feed flows into the URL.
+. *Amplification.* The bounds above cap what a malicious partner can cause; a list of 5000 hosts costs at most 20 candidates, 15 fetches per direct partner and 40 per run (`PartnerRecursionAmplificationTest`).
+. *Reflector (residual risk).* A partner may list any public host. Every server that follows its partner's partners then asks that host once per hour for `GET /api/public/partner-feed/v1`. A host that is not a Lapis server answers
+  with an error and goes into back-off up to 24 h and is deleted after 7 days without success -- but the requests happen. This is accepted and documented, not hidden; the switch turns the recursion off.
+. *Identity.* A server id is bound to one host; a second claim is a conflict. The direct partner wins over a discovered server.
+. *Foreign text* on the public pages goes only through `kotlinx.html`'s escaping API (never `unsafe`), names are cut to 60 characters, the link is re-validated and carries `rel="noopener noreferrer external"` and no referrer; in the
+  calendar feed control characters are dropped and `icsEscape` applies.
+. *Logs* of the recursion carry numbers only; a host appears at most on DEBUG, never a body or an address.
 . *Resources.* One client per request (`use {}`), the poller stops with the application, a block is checked again inside the transaction that writes a fetch result (no write-back after `addBlock`).
 
 == Pins
 
 `IPartnerServerService` is the **last** `registerService`; its methods keep their order (Kilua numbers routes by declaration order). `PartnerServerTripwireTest` pins the ADMIN gate, the construction of the fetcher, and
-that the partner list of a partner is never read back to fetch from.
+that the stored partner list is read back only by the two stores and the parser, that only `PartnerFeedPoller` references `PartnerRecursionRunner`, that only the two stores write the partner tables, that the feed builder and the embed
+feed never touch the cache, and that only `PublicPartnerEventHtml` carries the external-link `rel`. The three recursion methods are at the END of the interface.

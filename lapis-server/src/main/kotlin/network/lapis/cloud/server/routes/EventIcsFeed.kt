@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.series.RecurrenceExpander
+import network.lapis.cloud.server.partner.PartnerEventView
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.EventStatus
@@ -156,6 +157,7 @@ internal object EventIcsFeed {
         brandTitle: String,
         seriesData: Map<Uuid, SeriesRenderData> = emptyMap(),
         orgZone: TimeZone = OrganizationTimeZone.current(),
+        partnerEvents: List<PartnerEventView> = emptyList(),
     ): String {
         val host = baseUrl.substringAfter("://")
         // DTSTAMP is a class-A system timestamp (UTC): formatted as-is, never converted. (Before V1.9.38 this
@@ -199,9 +201,43 @@ internal object EventIcsFeed {
                 appendSingleVevent(sb = sb, row = row, host = host, dtstamp = dtstamp, baseUrl = baseUrl, orgZone = orgZone)
             }
         }
+        // V1.9.245: events of partner servers (only on request, `?quelle=alle`); the total stays within MAX_EVENTS, own events first.
+        partnerEvents.take((MAX_EVENTS - rows.size).coerceAtLeast(0)).forEach {
+            appendPartnerVevent(sb = sb, view = it, host = host, dtstamp = dtstamp)
+        }
         sb.append("END:VCALENDAR\r\n")
         return sb.toString()
     }
+
+    /**
+     * A FOREIGN event. Everything from the partner is plain text: control characters are dropped and [icsEscape] applies (no line injection).
+     * A partner series appears as ONE `VEVENT` for its next occurrence, WITHOUT an RRULE -- the feed carries a sentence, not a rule (documented).
+     * `URL` is the re-validated link (https, the origin's own host, no blanks), `UID` is scoped by the announced server id.
+     */
+    private fun appendPartnerVevent(
+        sb: StringBuilder,
+        view: PartnerEventView,
+        host: String,
+        dtstamp: String,
+    ) {
+        sb.append("BEGIN:VEVENT\r\n")
+        sb.append(foldLine("UID:partner-${view.remoteServerId}-${icsSafeUid(view.remoteEventId)}@$host"))
+        sb.append(foldLine("DTSTAMP:$dtstamp"))
+        sb.append(foldLine("DTSTART:${icsUtcFromSystem(view.startsAtUtc)}"))
+        sb.append(foldLine("DTEND:${icsUtcFromSystem(view.endsAtUtc)}"))
+        sb.append(foldLine("SUMMARY:${icsEscape(icsPlain(view.title))}"))
+        val description = icsPlain(partnerMarkLine(view)) + (view.summary?.let { "\n" + icsPlain(it) } ?: "")
+        sb.append(foldLine("DESCRIPTION:${icsEscape(description)}"))
+        view.place?.takeIf { it.isNotBlank() }?.let { sb.append(foldLine("LOCATION:${icsEscape(icsPlain(it))}")) }
+        sb.append(foldLine("URL:${icsPlain(view.url)}"))
+        sb.append("CATEGORIES:Partnerserver\r\n")
+        sb.append("STATUS:CONFIRMED\r\n")
+        sb.append("END:VEVENT\r\n")
+    }
+
+    private fun icsPlain(raw: String): String = raw.filterNot { it.isISOControl() && it != '\n' }.replace("\r", "")
+
+    private fun icsSafeUid(raw: String): String = raw.filter { it.isLetterOrDigit() || it in "._:-" }
 
     private fun appendSingleVevent(
         sb: StringBuilder,

@@ -1018,3 +1018,10 @@ col:PartnerEventTable.endsAt	A	remote feed instant (ISO-8601 with offset), conve
 col:PartnerEventTable.fetchedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PartnerEventTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PartnerBlocklistTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerDiscoveredServerTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerDiscoveredServerTable.lastReachedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerDiscoveredServerTable.lastFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerDiscoveredServerTable.nextFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OrganizationSettingsTable.partnerRecursionLastRunAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartnerRecursionSettingsDto.lastRunAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DiscoveredPartnerServerDto.lastFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

@@ -1,4 +1,4 @@
-// Welle V1.9.244 "Partnerserver P1" -- hand-edited, see 79-partner-servers.kuml.kts file header.
+// Welle V1.9.244 "Partnerserver P1" / V1.9.245 "P2" (provenance columns) -- hand-edited, see 79-partner-servers.kuml.kts file header.
 
 package network.lapis.cloud.server.db.generated
 
@@ -24,6 +24,10 @@ public object PartnerEventTable : Table("partner_event") {
     public val url: Column<String> = varchar("url", 500)
     public val fetchedAt: Column<LocalDateTime> = datetime("fetched_at")
     public val expiresAt: Column<LocalDateTime> = datetime("expires_at")
+    public val discoveredServerId: Column<Uuid?> = optReference("discovered_server_id", PartnerDiscoveredServerTable.id)
+    public val hops: Column<Short> = short("hops").default(1.toShort())
+    public val originHost: Column<String> = varchar("origin_host", 253)
+    public val viaHosts: Column<String?> = varchar("via_hosts", 800).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

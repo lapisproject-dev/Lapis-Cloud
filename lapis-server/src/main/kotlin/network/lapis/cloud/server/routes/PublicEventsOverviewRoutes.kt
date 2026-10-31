@@ -12,6 +12,9 @@ import network.lapis.cloud.server.events.series.PublicSeriesSummary
 import network.lapis.cloud.server.events.series.SeriesOccurrenceRef
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.partner.PartnerDisplayEpoch
+import network.lapis.cloud.server.partner.PartnerEventDisplay
+import network.lapis.cloud.server.partner.PartnerEventView
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -28,6 +31,13 @@ private const val MAX_EVENTS = 50
 
 /** Same short, memoized-render TTL as [PublicLandingRoutes] -- see that file's own KDoc "Body memoization" for the full rationale. */
 private val EVENTS_OVERVIEW_CACHE_TTL = 30.seconds
+
+/** The memo key: the language, the source filter and the display epoch (bumped by every block / activation change, V1.9.245). */
+private data class EventsOverviewKey(
+    val lang: PublicLanguage,
+    val source: PublicOverviewHtml.EventSource,
+    val epoch: Long,
+)
 
 private data class CachedEventsOverviewBody(
     val body: String,
@@ -51,7 +61,7 @@ fun Route.registerPublicEventsOverviewRoutes(
     navAvailability: PublicNavAvailabilityProvider,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
-    val cachedBody = ConcurrentHashMap<PublicLanguage, CachedEventsOverviewBody>()
+    val cachedBody = ConcurrentHashMap<EventsOverviewKey, CachedEventsOverviewBody>()
 
     get("/veranstaltungen") {
         call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
@@ -59,10 +69,28 @@ fun Route.registerPublicEventsOverviewRoutes(
                 call.respondPublicTooManyRequests(baseUrl = baseUrl, branding = branding, lang = call.resolvePublicLanguage())
                 return@withPublicErrorHandling
             }
-            if (!call.hasOnlyAllowedQueryParams(allowed = setOf("lang")) || call.publicLangNeedsCanonicalization()) {
+            // V1.9.245: `?quelle=alle|eigene`. An unknown or repeated value -- and the redundant `alle` -- redirects to the URL WITHOUT `quelle` ("all"), so every content has one URL.
+            val sourceParam = call.request.queryParameters.getAll("quelle")
+            val source =
+                when (sourceParam?.singleOrNull()) {
+                    "eigene" -> PublicOverviewHtml.EventSource.OWN
+                    else -> PublicOverviewHtml.EventSource.ALL
+                }
+            val sourceValid = sourceParam == null || (sourceParam.size == 1 && sourceParam[0] == "eigene")
+            if (!call.hasOnlyAllowedQueryParams(allowed = setOf("lang", "quelle")) ||
+                call.publicLangNeedsCanonicalization() ||
+                !sourceValid
+            ) {
+                val path =
+                    if (sourceValid &&
+                        source == PublicOverviewHtml.EventSource.OWN
+                    ) {
+                        "/veranstaltungen?quelle=eigene"
+                    } else {
+                        "/veranstaltungen"
+                    }
                 call.respondPublicCanonicalRedirect(
-                    canonicalUrl =
-                        PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/veranstaltungen", lang = call.resolvePublicLanguage()),
+                    canonicalUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = path, lang = call.resolvePublicLanguage()),
                 )
                 return@withPublicErrorHandling
             }
@@ -70,6 +98,7 @@ fun Route.registerPublicEventsOverviewRoutes(
             val body =
                 renderCachedEventsBody(
                     cachedBody = cachedBody,
+                    source = source,
                     lang = lang,
                     baseUrl = baseUrl,
                     branding = branding,
@@ -86,25 +115,45 @@ fun Route.registerPublicEventsOverviewRoutes(
 }
 
 private fun renderCachedEventsBody(
-    cachedBody: ConcurrentHashMap<PublicLanguage, CachedEventsOverviewBody>,
+    cachedBody: ConcurrentHashMap<EventsOverviewKey, CachedEventsOverviewBody>,
+    source: PublicOverviewHtml.EventSource,
     lang: PublicLanguage,
     baseUrl: String,
     branding: ResolvedBranding,
     navAvailability: PublicNavAvailabilityProvider,
 ): String {
     val now = Clock.System.now()
-    cachedBody[lang]?.let { cached -> if (cached.expiresAt > now) return cached.body }
+    val epoch = PartnerDisplayEpoch.current()
+    val key = EventsOverviewKey(lang = lang, source = source, epoch = epoch)
+    cachedBody[key]?.let { cached -> if (cached.expiresAt > now) return cached.body }
     val nav = navAvailability.current()
+    var partnerEvents: List<PartnerEventView> = emptyList()
     val items =
         transaction {
             val dbNow = DbClock.nowLocalDateTime()
             val wallNow = OrganizationTimeZone.wallNowOf(dbNow)
             val rows = PublicSeriesQueries.loadOverviewRepresentatives(wallNow = wallNow, limit = MAX_EVENTS)
             val stats = PublicSeriesQueries.loadSeriesStats(seriesIds = rows.mapNotNull { it[EventTable.seriesId] }, wallNow = wallNow)
+            if (source == PublicOverviewHtml.EventSource.ALL) {
+                partnerEvents = PartnerEventDisplay.loadVisible(nowUtc = dbNow, orgZone = OrganizationTimeZone.current())
+            }
             rows.mapNotNull { row -> row.toEventItem(stats) }
         }
-    val body = PublicOverviewHtml.eventsPage(items = items, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
-    cachedBody[lang] = CachedEventsOverviewBody(body = body, expiresAt = now + EVENTS_OVERVIEW_CACHE_TTL)
+    val body =
+        PublicOverviewHtml.eventsPage(
+            items = items,
+            baseUrl = baseUrl,
+            branding = branding,
+            lang = lang,
+            nav = nav,
+            partnerEvents = partnerEvents,
+            source = source,
+            // The filter only appears when it has something to filter: foreign events exist, or the visitor already chose.
+            showFilter = partnerEvents.isNotEmpty() || source == PublicOverviewHtml.EventSource.OWN,
+        )
+    // Entries of an older epoch can never be hit again: drop them so the map stays small.
+    cachedBody.keys.removeIf { it.epoch != epoch }
+    cachedBody[key] = CachedEventsOverviewBody(body = body, expiresAt = now + EVENTS_OVERVIEW_CACHE_TTL)
     return body
 }
 

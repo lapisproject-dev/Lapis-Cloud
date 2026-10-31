@@ -29216,3 +29216,57 @@ msgstr "Partnerservers beheren"
 msgid "Partnerserver-Sperrliste"
 msgstr "Blokkeerlijst van partnerservers"
 
+
+msgid "Partner von Partnern"
+msgstr "Partners van partners"
+
+msgid "Auch Partner der Partner einbeziehen"
+msgstr "Ook de partners van partners meenemen"
+
+msgid "Dann holt dieser Server stündlich auch die Veranstaltungen der Partner Ihrer Partner ab, bis zur gewählten Stufe."
+msgstr "Deze server haalt dan elk uur ook de evenementen van de partners van uw partners op, tot het gekozen niveau."
+
+msgid "Zusätzliche Stufen"
+msgstr "Extra niveaus"
+
+msgid "Noch kein Lauf"
+msgstr "Nog geen run"
+
+msgid "Letzter Lauf: %1 · %2 Server · %3 Veranstaltungen"
+msgstr "Laatste run: %1 · %2 servers · %3 evenementen"
+
+msgid "Stufe %1: %2 Server, %3 Veranstaltungen"
+msgstr "Niveau %1: %2 servers, %3 evenementen"
+
+msgid "Sperrliste: %1"
+msgstr "Blokkeerlijst: %1"
+
+msgid "Ausgeblendete Partnerliste: %1"
+msgstr "Verborgen partnerlijst: %1"
+
+msgid "Bereits besucht: %1"
+msgstr "Al bezocht: %1"
+
+msgid "Obergrenze erreicht: %1"
+msgstr "Limiet bereikt: %1"
+
+msgid "Kennungskonflikt: %1"
+msgstr "Conflict met identificatie: %1"
+
+msgid "Zeitbudget erreicht, Rest im nächsten Lauf"
+msgstr "Tijdbudget bereikt, de rest volgt in de volgende run"
+
+msgid "Erreichte Server"
+msgstr "Bereikte servers"
+
+msgid "Noch keine weiteren Server erreicht."
+msgstr "Nog geen verdere servers bereikt."
+
+msgid "über %1"
+msgstr "via %1"
+
+msgid "Über diesen Partner: %1 Server, %2 Veranstaltungen"
+msgstr "Via deze partner: %1 servers, %2 evenementen"
+
+msgid "Kennung bereits vergeben"
+msgstr "Identificatie al in gebruik"

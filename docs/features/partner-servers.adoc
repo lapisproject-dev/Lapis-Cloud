@@ -1,8 +1,9 @@
-= Partner servers (V1.9.244, wave P1)
+= Partner servers (V1.9.244 wave P1, V1.9.245 wave P2)
 :toc:
 
 Lapis Cloud servers can be connected as **partners**. In wave P1 a server fetches the *public events* of the servers an administrator has entered. The partners have to set nothing up: every Lapis Cloud
-server already publishes the feed. **Nothing is shown to visitors yet** -- P1 only collects the data (the display on `/veranstaltungen`, with duplicate merging, is wave P2).
+server already publishes the feed. Wave P1 collected the data of the *direct* partners; **wave P2 (V1.9.245)** follows the partner lists of those partners
+(partners of partners, up to three additional levels) and **shows the cached events on the public pages** with their origin.
 
 NOTE: The `[kuml]` blocks of the architecture page are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
@@ -37,19 +38,47 @@ A failed fetch is retried after 1, 2, 4, 8, 16 and then 24 hours; the cached eve
 
 Limits: 5 s to connect, 10 s for the whole request including the body, 512 KiB, no redirects, `application/json` only, at most 200 events per partner, at most 100 entries of the partner's own partner list.
 
+== Wave P2: partners of partners, origin and filter
+
+*Behaviour change first.* The recursion is **on by default** (depth 2), and `/veranstaltungen` now lists the cached events of partners next to the own ones by default. `/veranstaltung.ics` is unchanged without a parameter.
+
+* **Switch and depth.** *Organisation > Partnerserver > Partner von Partnern*: "Auch Partner der Partner einbeziehen" (default on) and "Zusätzliche Stufen" (1 to 3, default 2). Level 1 is a direct partner, level 2 a partner of a
+  direct partner, and so on. Switching off hides every event of level 2 and deeper at once and the next poller tick deletes them; lowering the depth does the same for the levels that are now too deep.
+* **When it runs.** Once an hour (plus a fixed per-server offset of up to five minutes), after the direct partners, by the same poller, through the same fetcher (https on port 443 only, address guard and IP pinning, no redirects, 512 KiB, 10 s).
+  A run takes at most five minutes; what is left follows in the next run.
+* **What it follows.** The stored partner list of every active, not blocked direct partner, breadth first. A host is contacted at most once per run; this server itself and every direct partner (also a paused one) count as already visited.
+  A partner that hides its list is not followed further; its own events are still shown.
+* **Bounds.** At most 20 hosts are taken from one server's list, 15 per direct partner and 40 per run; at most 100 events per reached server and 2000 in total; at most 60 stored servers per direct partner and 200 in total.
+  Servers not fetched for a while come first, so the caps rotate over the runs.
+* **Where the origin is shown.** Every foreign event on `/veranstaltungen` carries a line "Partnerserver: Name" (direct partner) or "Partnerserver: Name (host) · über Name" (reached through a partner). The link opens the origin's own page,
+  with `rel="noopener noreferrer external"`, no referrer, no new tab, and the words "(externe Seite)" for assistive technology; the arrow is decoration only.
+* **Filter.** `/veranstaltungen?quelle=eigene` lists only this server's events (`noindex`); `?quelle=alle` and no parameter list both. The two links "Alle" and "Nur eigene" appear only when there is something to filter. An unknown or
+  repeated value redirects to the plain URL. A recurring partner event is one entry with the sentence "Reihe: ...".
+* **Calendar feed.** `/veranstaltung.ics?quelle=alle` additionally contains the partner events (own first, at most 500 entries, at most 50 partner entries and 10 per origin, `CATEGORIES:Partnerserver`, the origin line in `DESCRIPTION`).
+  Without the parameter -- or with any other value -- the feed is exactly the own events, as before. A partner series is one entry for its next date, **without** a repeat rule.
+* **Block list.** A pattern hides the host itself *and* everything that was reached through it. A block takes effect on the public page at once (read-time filter plus a counter that empties the 30-second server-side memo) and the
+  cached events and servers are deleted in the same transaction. Browsers and proxies may keep the page for the `max-age` of five minutes.
+* **Not shown elsewhere.** The member area (`EventsScreen`) lists this server's own events only. The partner events are never passed on in our own partner feed or in the embed feed.
+* **Admin page.** Switch, depth, the state of the last run in words and numbers, the list of reached servers (name and host as plain text, level, chain "über a -> b", events, state) with a "Sperren" button, and per direct partner
+  the line "Über diesen Partner: n Server, m Veranstaltungen".
+
 == Honest limits
 
-* **Direct partners only.** The partner list of a partner is stored (read-only, for wave P2) but never followed: a partner cannot make this server fetch from a third host.
+* **A partner cannot make this server fetch from just any host -- but it can make it ask a few.** Within the bounds above a partner can list hosts that are not Lapis servers; each is asked once per hour for the feed path (see the
+  reflector note in the architecture page). The switch turns this off.
 * **A server id is bound to one host.** The first id a host announces is kept; a later different id is the error "meldet eine andere Kennung", and a second host claiming an already bound id is refused.
   This is what stops a malicious partner from overwriting the cached events of another one.
 * **Staging and backup.** The own server id lives in `organization_settings` and is part of the backup. A staging instance restored from a production backup has the *same* id as production: the two then
   refuse each other as "this server itself". Accepted in P1; a later "create a new id" action is possible.
-* The partner events cache (`partner_event`) is **not** part of the backup (a refilled cache of foreign data); the partner list and the block list are.
+* The partner events cache (`partner_event`) and the reached servers (`partner_discovered_server`) are **not** part of the backup (refilled caches of foreign data); the partner list, the block list and the recursion settings are.
+* **Partner series in the calendar feed** are one entry without a repeat rule: the feed carries a sentence, not a rule.
+* **No subscribe link.** The overview page has no link to the calendar feed (it had none before); `?quelle=alle` is for people who build the subscription address themselves.
+* **HTTP cache.** `Cache-Control: public, max-age=300` is unchanged, so a browser or proxy may show a blocked event for up to five minutes.
 * Event texts are in the partner's language. The repeat sentence comes as the partner wrote it.
-* Not verified: a fetch against a real second server over the internet (all tests run on a simulated network); PostgreSQL behaviour is covered by the `postgresTest` lane.
+* **Not verified:** a fetch against a real second or third server over the internet -- all tests run on a simulated network of several servers. PostgreSQL behaviour is covered by the `postgresTest` lane.
 
 == Outlook
 
-P2 shows the cached events on `/veranstaltungen`, merging an event that two partners announce (same server id and event id). P3 may add partners of partners. Both need their own review.
+Merging an event that two partners announce is not needed so far: an event (announced server id plus event id) is stored once, whichever path reaches it first. Further extensions need their own review.
 
 See link:../architecture/partner-server-feed.adoc[the architecture page] for the contract, the limits and the security chain.

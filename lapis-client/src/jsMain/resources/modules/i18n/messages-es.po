@@ -29001,3 +29001,57 @@ msgstr "Gestionar servidores asociados"
 msgid "Partnerserver-Sperrliste"
 msgstr "Lista de bloqueo de servidores asociados"
 
+
+msgid "Partner von Partnern"
+msgstr "Socios de socios"
+
+msgid "Auch Partner der Partner einbeziehen"
+msgstr "Incluir también a los socios de los socios"
+
+msgid "Dann holt dieser Server stündlich auch die Veranstaltungen der Partner Ihrer Partner ab, bis zur gewählten Stufe."
+msgstr "Entonces este servidor también obtiene cada hora los eventos de los socios de sus socios, hasta el nivel elegido."
+
+msgid "Zusätzliche Stufen"
+msgstr "Niveles adicionales"
+
+msgid "Noch kein Lauf"
+msgstr "Aún ninguna ejecución"
+
+msgid "Letzter Lauf: %1 · %2 Server · %3 Veranstaltungen"
+msgstr "Última ejecución: %1 · %2 servidores · %3 eventos"
+
+msgid "Stufe %1: %2 Server, %3 Veranstaltungen"
+msgstr "Nivel %1: %2 servidores, %3 eventos"
+
+msgid "Sperrliste: %1"
+msgstr "Lista de bloqueo: %1"
+
+msgid "Ausgeblendete Partnerliste: %1"
+msgstr "Lista de socios oculta: %1"
+
+msgid "Bereits besucht: %1"
+msgstr "Ya visitado: %1"
+
+msgid "Obergrenze erreicht: %1"
+msgstr "Límite alcanzado: %1"
+
+msgid "Kennungskonflikt: %1"
+msgstr "Conflicto de identificador: %1"
+
+msgid "Zeitbudget erreicht, Rest im nächsten Lauf"
+msgstr "Presupuesto de tiempo alcanzado, el resto en la próxima ejecución"
+
+msgid "Erreichte Server"
+msgstr "Servidores alcanzados"
+
+msgid "Noch keine weiteren Server erreicht."
+msgstr "Aún no se han alcanzado más servidores."
+
+msgid "über %1"
+msgstr "a través de %1"
+
+msgid "Über diesen Partner: %1 Server, %2 Veranstaltungen"
+msgstr "A través de este socio: %1 servidores, %2 eventos"
+
+msgid "Kennung bereits vergeben"
+msgstr "Identificador ya asignado"

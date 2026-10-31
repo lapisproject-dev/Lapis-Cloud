@@ -134,6 +134,17 @@ internal object SocialPublicHtml {
         }
         @media (prefers-reduced-motion: reduce) { .series-mark::after { transition: none; } }
         .series-note { display: block; }
+
+        /* V1.9.245 "Partnerserver P2" -- an event of a partner server on /veranstaltungen: a quiet accent edge (--lapis-accent has a light and a
+           dark value from ThemeCssRenderer) and the origin line under it. The arrow is aria-hidden, "(externe Seite)" is the text for assistive
+           technology. No animation. */
+        .public-event--partner { border-left: 3px solid var(--lapis-accent); padding-left: 0.5rem; }
+        .public-event-partner { margin: 0; font-size: 0.875em; color: #888; overflow-wrap: anywhere; }
+        .visually-hidden {
+            position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+            clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
+        .event-source-filter a[aria-current="page"] { font-weight: 700; text-decoration: none; }
         .event-series { margin: 0 0 2rem 0; max-width: 44rem; }
         .event-series h2 { margin: 0 0 0.4rem 0; font-size: 1.25rem; }
         .event-series ol { margin: 0.5rem 0; padding-left: 1.6rem; }

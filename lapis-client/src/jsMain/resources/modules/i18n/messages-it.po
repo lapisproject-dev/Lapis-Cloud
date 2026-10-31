@@ -29219,3 +29219,57 @@ msgstr "Gestisci i server partner"
 msgid "Partnerserver-Sperrliste"
 msgstr "Elenco di blocco dei server partner"
 
+
+msgid "Partner von Partnern"
+msgstr "Partner dei partner"
+
+msgid "Auch Partner der Partner einbeziehen"
+msgstr "Includi anche i partner dei partner"
+
+msgid "Dann holt dieser Server stündlich auch die Veranstaltungen der Partner Ihrer Partner ab, bis zur gewählten Stufe."
+msgstr "Questo server preleva allora ogni ora anche gli eventi dei partner dei vostri partner, fino al livello scelto."
+
+msgid "Zusätzliche Stufen"
+msgstr "Livelli aggiuntivi"
+
+msgid "Noch kein Lauf"
+msgstr "Ancora nessuna esecuzione"
+
+msgid "Letzter Lauf: %1 · %2 Server · %3 Veranstaltungen"
+msgstr "Ultima esecuzione: %1 · %2 server · %3 eventi"
+
+msgid "Stufe %1: %2 Server, %3 Veranstaltungen"
+msgstr "Livello %1: %2 server, %3 eventi"
+
+msgid "Sperrliste: %1"
+msgstr "Elenco di blocco: %1"
+
+msgid "Ausgeblendete Partnerliste: %1"
+msgstr "Elenco dei partner nascosto: %1"
+
+msgid "Bereits besucht: %1"
+msgstr "Già visitato: %1"
+
+msgid "Obergrenze erreicht: %1"
+msgstr "Limite raggiunto: %1"
+
+msgid "Kennungskonflikt: %1"
+msgstr "Conflitto di identificativo: %1"
+
+msgid "Zeitbudget erreicht, Rest im nächsten Lauf"
+msgstr "Budget di tempo raggiunto, il resto alla prossima esecuzione"
+
+msgid "Erreichte Server"
+msgstr "Server raggiunti"
+
+msgid "Noch keine weiteren Server erreicht."
+msgstr "Nessun altro server raggiunto finora."
+
+msgid "über %1"
+msgstr "tramite %1"
+
+msgid "Über diesen Partner: %1 Server, %2 Veranstaltungen"
+msgstr "Tramite questo partner: %1 server, %2 eventi"
+
+msgid "Kennung bereits vergeben"
+msgstr "Identificativo già assegnato"

@@ -29170,3 +29170,57 @@ msgstr "Manage partner servers"
 msgid "Partnerserver-Sperrliste"
 msgstr "Partner server blocklist"
 
+
+msgid "Partner von Partnern"
+msgstr "Partners of partners"
+
+msgid "Auch Partner der Partner einbeziehen"
+msgstr "Include the partners of partners"
+
+msgid "Dann holt dieser Server stündlich auch die Veranstaltungen der Partner Ihrer Partner ab, bis zur gewählten Stufe."
+msgstr "This server then also fetches the events of your partners' partners every hour, up to the chosen level."
+
+msgid "Zusätzliche Stufen"
+msgstr "Additional levels"
+
+msgid "Noch kein Lauf"
+msgstr "No run yet"
+
+msgid "Letzter Lauf: %1 · %2 Server · %3 Veranstaltungen"
+msgstr "Last run: %1 · %2 servers · %3 events"
+
+msgid "Stufe %1: %2 Server, %3 Veranstaltungen"
+msgstr "Level %1: %2 servers, %3 events"
+
+msgid "Sperrliste: %1"
+msgstr "Blocklist: %1"
+
+msgid "Ausgeblendete Partnerliste: %1"
+msgstr "Hidden partner list: %1"
+
+msgid "Bereits besucht: %1"
+msgstr "Already visited: %1"
+
+msgid "Obergrenze erreicht: %1"
+msgstr "Limit reached: %1"
+
+msgid "Kennungskonflikt: %1"
+msgstr "Identifier conflict: %1"
+
+msgid "Zeitbudget erreicht, Rest im nächsten Lauf"
+msgstr "Time budget reached, the rest follows in the next run"
+
+msgid "Erreichte Server"
+msgstr "Servers reached"
+
+msgid "Noch keine weiteren Server erreicht."
+msgstr "No further servers reached yet."
+
+msgid "über %1"
+msgstr "via %1"
+
+msgid "Über diesen Partner: %1 Server, %2 Veranstaltungen"
+msgstr "Through this partner: %1 servers, %2 events"
+
+msgid "Kennung bereits vergeben"
+msgstr "Identifier already taken"

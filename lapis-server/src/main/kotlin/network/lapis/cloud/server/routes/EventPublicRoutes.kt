@@ -43,6 +43,7 @@ import network.lapis.cloud.server.events.mailPromotion
 import network.lapis.cloud.server.events.series.PublicSeriesSummary
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.partner.PartnerEventDisplay
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.pdf.EventTicketPdfGenerator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
@@ -219,17 +220,34 @@ internal fun Route.registerEventPublicRoutes(
             // needs its own DB reads (EventStore/EventSeriesTable), so it runs in the SAME
             // transaction as `loadUpcomingPublicPublished` (see EventIcsFeed KDoc "Nicht gestreamt"
             // -- `render` itself stays entirely outside any transaction).
-            val (rows, seriesData) =
+            // V1.9.245: partner events only on request (`?quelle=alle`); without the parameter, and for any other value, the feed is the
+            // unchanged own-events feed (no redirect: calendar clients must not stumble).
+            val withPartners = call.request.queryParameters["quelle"] == "alle"
+            val feedData =
                 transaction {
                     val loadedRows = EventIcsFeed.loadUpcomingPublicPublished(wallNow = OrganizationTimeZone.wallNowOf(now))
                     val loadedSeriesData =
                         EventIcsFeed.loadSeriesRenderData(loadedRows.mapNotNull { it[EventTable.seriesId] })
-                    loadedRows to loadedSeriesData
+                    val partner =
+                        if (withPartners) {
+                            PartnerEventDisplay.loadVisible(nowUtc = now, orgZone = OrganizationTimeZone.current())
+                        } else {
+                            emptyList()
+                        }
+                    Triple(loadedRows, loadedSeriesData, partner)
                 }
+            val (rows, seriesData, partnerEvents) = feedData
             if (rows.size >= EventIcsFeed.MAX_EVENTS) {
                 logger.warn { "Public iCal feed truncated at ${EventIcsFeed.MAX_EVENTS} events -- consider raising the cap." }
             }
-            val body = EventIcsFeed.render(rows = rows, baseUrl = baseUrl, brandTitle = branding.title, seriesData = seriesData)
+            val body =
+                EventIcsFeed.render(
+                    rows = rows,
+                    baseUrl = baseUrl,
+                    brandTitle = branding.title,
+                    seriesData = seriesData,
+                    partnerEvents = partnerEvents,
+                )
             call.response.header(
                 HttpHeaders.ContentDisposition,
                 ContentDisposition.Inline

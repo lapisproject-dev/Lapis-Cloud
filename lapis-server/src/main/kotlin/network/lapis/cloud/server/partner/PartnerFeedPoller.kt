@@ -29,7 +29,8 @@ private val logger = KotlinLogging.logger {}
  *
  * A tick purges expired cache rows, takes at most [PartnerServerStore.DUE_LIMIT] due partners (blocked hosts are filtered out BEFORE any DNS or
  * network access), fetches at most [MAX_PARALLEL] of them at once, and applies each result in its own short transaction. It contacts ONLY hosts
- * of `partner_server` -- the partners' own partner lists are stored, never followed (no recursion in P1). Operating assumption (as for the other
+ * of `partner_server`, and (V1.9.245) after them, at most once an hour, [PartnerRecursionRunner] walks the partner lists of those partners
+ * breadth-first within hard bounds. The runner reuses THIS poller's fetcher (never builds its own). Operating assumption (as for the other
  * pollers): exactly one server instance runs it.
  *
  * Never started from a request path; the one fetch that a request causes is `PartnerServerService.probeAndSave`.
@@ -38,6 +39,7 @@ internal class PartnerFeedPoller(
     private val fetcher: PartnerFeedFetcher = PartnerFeedFetcher(),
     private val tickInterval: Duration = 60.seconds,
     private val clock: () -> LocalDateTime = { ServerClock.now() },
+    private val recursion: PartnerRecursionRunner = PartnerRecursionRunner(fetcher = fetcher),
 ) {
     companion object {
         const val MAX_PARALLEL = 4
@@ -67,26 +69,37 @@ internal class PartnerFeedPoller(
     suspend fun tick() {
         try {
             val now = clock()
-            transaction { PartnerServerStore.purgeExpired(now) }
-            val due = transaction { PartnerServerStore.dueForFetch(now = now) }
-            if (due.isEmpty()) return
-            val ownServerId = transaction { PartnerServerStore.ensureServerId() }
-            val instant = ServerClock.systemToInstant(now)
-            val permits = Semaphore(MAX_PARALLEL)
-            coroutineScope {
-                due
-                    .map { row ->
-                        async(Dispatchers.IO) {
-                            permits.withPermit {
-                                fetchOneSafely(row = row, ownServerId = ownServerId, instant = instant, now = now)
-                            }
-                        }
-                    }.awaitAll()
+            transaction {
+                PartnerServerStore.purgeExpired(now)
+                PartnerDiscoveryStore.housekeeping(now = now, settings = PartnerDiscoveryStore.recursionSettings())
             }
+            val due = transaction { PartnerServerStore.dueForFetch(now = now) }
+            if (due.isNotEmpty()) fetchDue(due = due, now = now)
+            // The recursion runs even when no direct partner was due; it decides for itself whether an hour has passed.
+            recursion.runIfDue()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
             logger.warn(e) { "PartnerFeedPoller: tick failed" }
+        }
+    }
+
+    private suspend fun fetchDue(
+        due: List<PartnerRow>,
+        now: LocalDateTime,
+    ) {
+        val ownServerId = transaction { PartnerServerStore.ensureServerId() }
+        val instant = ServerClock.systemToInstant(now)
+        val permits = Semaphore(MAX_PARALLEL)
+        coroutineScope {
+            due
+                .map { row ->
+                    async(Dispatchers.IO) {
+                        permits.withPermit {
+                            fetchOneSafely(row = row, ownServerId = ownServerId, instant = instant, now = now)
+                        }
+                    }
+                }.awaitAll()
         }
     }
 

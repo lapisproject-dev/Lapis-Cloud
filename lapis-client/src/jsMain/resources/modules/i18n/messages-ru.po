@@ -29181,3 +29181,57 @@ msgstr "Управление серверами-партнёрами"
 msgid "Partnerserver-Sperrliste"
 msgstr "Список блокировки серверов-партнёров"
 
+
+msgid "Partner von Partnern"
+msgstr "Партнёры партнёров"
+
+msgid "Auch Partner der Partner einbeziehen"
+msgstr "Учитывать также партнёров партнёров"
+
+msgid "Dann holt dieser Server stündlich auch die Veranstaltungen der Partner Ihrer Partner ab, bis zur gewählten Stufe."
+msgstr "Тогда этот сервер ежечасно получает также мероприятия партнёров ваших партнёров до выбранного уровня."
+
+msgid "Zusätzliche Stufen"
+msgstr "Дополнительные уровни"
+
+msgid "Noch kein Lauf"
+msgstr "Запусков ещё не было"
+
+msgid "Letzter Lauf: %1 · %2 Server · %3 Veranstaltungen"
+msgstr "Последний запуск: %1 · серверов: %2 · мероприятий: %3"
+
+msgid "Stufe %1: %2 Server, %3 Veranstaltungen"
+msgstr "Уровень %1: серверов: %2, мероприятий: %3"
+
+msgid "Sperrliste: %1"
+msgstr "Список блокировки: %1"
+
+msgid "Ausgeblendete Partnerliste: %1"
+msgstr "Скрытый список партнёров: %1"
+
+msgid "Bereits besucht: %1"
+msgstr "Уже посещено: %1"
+
+msgid "Obergrenze erreicht: %1"
+msgstr "Достигнут предел: %1"
+
+msgid "Kennungskonflikt: %1"
+msgstr "Конфликт идентификатора: %1"
+
+msgid "Zeitbudget erreicht, Rest im nächsten Lauf"
+msgstr "Лимит времени исчерпан, остальное — при следующем запуске"
+
+msgid "Erreichte Server"
+msgstr "Достигнутые серверы"
+
+msgid "Noch keine weiteren Server erreicht."
+msgstr "Других серверов пока не достигнуто."
+
+msgid "über %1"
+msgstr "через %1"
+
+msgid "Über diesen Partner: %1 Server, %2 Veranstaltungen"
+msgstr "Через этого партнёра: серверов: %1, мероприятий: %2"
+
+msgid "Kennung bereits vergeben"
+msgstr "Идентификатор уже занят"

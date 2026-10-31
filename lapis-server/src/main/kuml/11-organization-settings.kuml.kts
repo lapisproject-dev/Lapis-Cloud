@@ -601,5 +601,24 @@ classDiagram(name = "OrganizationSettings") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "partner_server_id" }
         }
+        // Welle V1.9.245 "Partnerserver P2" (V132__partner_recursion.sql). The recursion switch (default TRUE), the number of additional levels
+        // (1..3, default 2, CHECK in V132) and the bookkeeping of the last run. NOT part of the generic update write-set and not in
+        // OrganizationSettingsDto: written ONLY by PartnerDiscoveryStore.
+        attribute(name = "partnerRecursionEnabled", type = "Boolean") {
+            defaultValue = "TRUE"
+            stereotype("Column") { "columnName" to "partner_recursion_enabled" }
+        }
+        attribute(name = "partnerRecursionDepth", type = "Int") {
+            defaultValue = "2"
+            stereotype("Column") { "columnName" to "partner_recursion_depth"; "sqlType" to "SMALLINT" }
+        }
+        attribute(name = "partnerRecursionLastRunAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "partner_recursion_last_run_at" }
+        }
+        attribute(name = "partnerRecursionLastSummary", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "partner_recursion_last_summary"; "sqlType" to "VARCHAR(2000)" }
+        }
     }
 }

@@ -29237,3 +29237,57 @@ msgstr "Gérer les serveurs partenaires"
 msgid "Partnerserver-Sperrliste"
 msgstr "Liste de blocage des serveurs partenaires"
 
+
+msgid "Partner von Partnern"
+msgstr "Partenaires des partenaires"
+
+msgid "Auch Partner der Partner einbeziehen"
+msgstr "Inclure aussi les partenaires des partenaires"
+
+msgid "Dann holt dieser Server stündlich auch die Veranstaltungen der Partner Ihrer Partner ab, bis zur gewählten Stufe."
+msgstr "Ce serveur récupère alors chaque heure aussi les événements des partenaires de vos partenaires, jusqu'au niveau choisi."
+
+msgid "Zusätzliche Stufen"
+msgstr "Niveaux supplémentaires"
+
+msgid "Noch kein Lauf"
+msgstr "Pas encore d'exécution"
+
+msgid "Letzter Lauf: %1 · %2 Server · %3 Veranstaltungen"
+msgstr "Dernière exécution : %1 · %2 serveurs · %3 événements"
+
+msgid "Stufe %1: %2 Server, %3 Veranstaltungen"
+msgstr "Niveau %1 : %2 serveurs, %3 événements"
+
+msgid "Sperrliste: %1"
+msgstr "Liste de blocage : %1"
+
+msgid "Ausgeblendete Partnerliste: %1"
+msgstr "Liste de partenaires masquée : %1"
+
+msgid "Bereits besucht: %1"
+msgstr "Déjà visité : %1"
+
+msgid "Obergrenze erreicht: %1"
+msgstr "Limite atteinte : %1"
+
+msgid "Kennungskonflikt: %1"
+msgstr "Conflit d'identifiant : %1"
+
+msgid "Zeitbudget erreicht, Rest im nächsten Lauf"
+msgstr "Budget de temps atteint, le reste à la prochaine exécution"
+
+msgid "Erreichte Server"
+msgstr "Serveurs atteints"
+
+msgid "Noch keine weiteren Server erreicht."
+msgstr "Aucun autre serveur atteint pour l'instant."
+
+msgid "über %1"
+msgstr "via %1"
+
+msgid "Über diesen Partner: %1 Server, %2 Veranstaltungen"
+msgstr "Via ce partenaire : %1 serveurs, %2 événements"
+
+msgid "Kennung bereits vergeben"
+msgstr "Identifiant déjà attribué"

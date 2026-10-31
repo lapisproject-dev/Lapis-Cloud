@@ -28565,3 +28565,57 @@ msgstr ""
 msgid "Partnerserver-Sperrliste"
 msgstr ""
 
+
+msgid "Partner von Partnern"
+msgstr ""
+
+msgid "Auch Partner der Partner einbeziehen"
+msgstr ""
+
+msgid "Dann holt dieser Server stündlich auch die Veranstaltungen der Partner Ihrer Partner ab, bis zur gewählten Stufe."
+msgstr ""
+
+msgid "Zusätzliche Stufen"
+msgstr ""
+
+msgid "Noch kein Lauf"
+msgstr ""
+
+msgid "Letzter Lauf: %1 · %2 Server · %3 Veranstaltungen"
+msgstr ""
+
+msgid "Stufe %1: %2 Server, %3 Veranstaltungen"
+msgstr ""
+
+msgid "Sperrliste: %1"
+msgstr ""
+
+msgid "Ausgeblendete Partnerliste: %1"
+msgstr ""
+
+msgid "Bereits besucht: %1"
+msgstr ""
+
+msgid "Obergrenze erreicht: %1"
+msgstr ""
+
+msgid "Kennungskonflikt: %1"
+msgstr ""
+
+msgid "Zeitbudget erreicht, Rest im nächsten Lauf"
+msgstr ""
+
+msgid "Erreichte Server"
+msgstr ""
+
+msgid "Noch keine weiteren Server erreicht."
+msgstr ""
+
+msgid "über %1"
+msgstr ""
+
+msgid "Über diesen Partner: %1 Server, %2 Veranstaltungen"
+msgstr ""
+
+msgid "Kennung bereits vergeben"
+msgstr ""

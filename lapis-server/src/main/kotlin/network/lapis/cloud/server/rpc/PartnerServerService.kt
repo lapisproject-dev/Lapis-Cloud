@@ -10,6 +10,8 @@ import network.lapis.cloud.server.partner.BlockRow
 import network.lapis.cloud.server.partner.ForeignText
 import network.lapis.cloud.server.partner.PartnerAddressParse
 import network.lapis.cloud.server.partner.PartnerBlocklistPattern
+import network.lapis.cloud.server.partner.PartnerDiscoveryStore
+import network.lapis.cloud.server.partner.PartnerDisplayEpoch
 import network.lapis.cloud.server.partner.PartnerFeedFetcher
 import network.lapis.cloud.server.partner.PartnerFetchOutcome
 import network.lapis.cloud.server.partner.PartnerHost
@@ -23,12 +25,15 @@ import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerAuditKind
 import network.lapis.cloud.shared.domain.PartnerAuditSnapshot
 import network.lapis.cloud.shared.domain.PartnerBlockDto
 import network.lapis.cloud.shared.domain.PartnerBlockResultDto
 import network.lapis.cloud.shared.domain.PartnerFetchErrorCode
 import network.lapis.cloud.shared.domain.PartnerProbeResultDto
+import network.lapis.cloud.shared.domain.PartnerRecursionSettingsDto
+import network.lapis.cloud.shared.domain.PartnerRecursionSummaryDto
 import network.lapis.cloud.shared.domain.PartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerServerOverviewDto
 import network.lapis.cloud.shared.rpc.BadRequestException
@@ -176,6 +181,7 @@ internal class PartnerServerService(
                 )
             }
         }
+        PartnerDisplayEpoch.bump()
     }
 
     override suspend fun remove(id: String) {
@@ -195,6 +201,7 @@ internal class PartnerServerService(
                 now = now,
             )
         }
+        PartnerDisplayEpoch.bump()
     }
 
     override suspend fun listBlocklist(): List<PartnerBlockDto> {
@@ -207,21 +214,25 @@ internal class PartnerServerService(
         current.requireRole(AccountRole.ADMIN)
         val canonical = PartnerBlocklistPattern.parse(pattern) ?: return PartnerBlockResultDto(block = null, invalid = true)
         val now = clock()
-        return transaction {
-            val (block, created) = PartnerServerStore.addBlock(pattern = canonical, now = now)
-            if (created) {
-                audit(
-                    actor = current,
-                    entityType = AuditEntityType.PARTNER_BLOCKLIST,
-                    entityId = block.id,
-                    action = AuditAction.CREATE,
-                    kind = PartnerAuditKind.BLOCK_ADDED,
-                    subject = canonical,
-                    now = now,
-                )
+        val result =
+            transaction {
+                val (block, created) = PartnerServerStore.addBlock(pattern = canonical, now = now)
+                if (created) {
+                    audit(
+                        actor = current,
+                        entityType = AuditEntityType.PARTNER_BLOCKLIST,
+                        entityId = block.id,
+                        action = AuditAction.CREATE,
+                        kind = PartnerAuditKind.BLOCK_ADDED,
+                        subject = canonical,
+                        now = now,
+                    )
+                }
+                PartnerBlockResultDto(block = block.toDto(), invalid = false)
             }
-            PartnerBlockResultDto(block = block.toDto(), invalid = false)
-        }
+        // After the commit: the memoised public page is rebuilt from the state that includes the block.
+        PartnerDisplayEpoch.bump()
+        return result
     }
 
     override suspend fun removeBlock(id: String) {
@@ -241,6 +252,7 @@ internal class PartnerServerService(
                 now = now,
             )
         }
+        PartnerDisplayEpoch.bump()
     }
 
     override suspend fun setPartnerListHidden(hidden: Boolean) {
@@ -264,13 +276,93 @@ internal class PartnerServerService(
         }
     }
 
+    override suspend fun getPartnerRecursionSettings(): PartnerRecursionSettingsDto {
+        resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
+        return transaction {
+            val settings = PartnerDiscoveryStore.recursionSettings()
+            PartnerRecursionSettingsDto(
+                enabled = settings.enabled,
+                depth = settings.depth,
+                lastRunAt = settings.lastRunAt,
+                summary =
+                    settings.summaryJson?.let {
+                        runCatching { SUMMARY_JSON.decodeFromString(PartnerRecursionSummaryDto.serializer(), it) }.getOrNull()
+                    },
+            )
+        }
+    }
+
+    override suspend fun setPartnerRecursionSettings(
+        enabled: Boolean,
+        depth: Int,
+    ) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        if (depth !in PARTNER_RECURSION_MIN_DEPTH..PARTNER_RECURSION_MAX_DEPTH) throw BadRequestException("Invalid depth")
+        val now = clock()
+        transaction {
+            val before = PartnerDiscoveryStore.recursionSettings()
+            PartnerDiscoveryStore.setRecursionSettings(enabled = enabled, depth = depth)
+            if (before.enabled != enabled) {
+                val kind = if (enabled) PartnerAuditKind.RECURSION_ENABLED else PartnerAuditKind.RECURSION_DISABLED
+                audit(
+                    actor = current,
+                    entityType = AuditEntityType.PARTNER_SERVER,
+                    entityId = ORGANIZATION_SETTINGS_ID,
+                    action = AuditAction.UPDATE,
+                    kind = kind,
+                    subject = depth.toString(),
+                    now = now,
+                )
+            }
+            if (before.depth != depth) {
+                audit(
+                    actor = current,
+                    entityType = AuditEntityType.PARTNER_SERVER,
+                    entityId = ORGANIZATION_SETTINGS_ID,
+                    action = AuditAction.UPDATE,
+                    kind = PartnerAuditKind.RECURSION_DEPTH_CHANGED,
+                    subject = depth.toString(),
+                    now = now,
+                )
+            }
+        }
+        PartnerDisplayEpoch.bump()
+    }
+
+    override suspend fun listDiscoveredPartnerServers(): List<DiscoveredPartnerServerDto> {
+        resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
+        return transaction {
+            val roots = PartnerServerStore.listPartners().associateBy { it.id }
+            PartnerDiscoveryStore.listForAdmin().mapNotNull { row ->
+                val root = roots[row.rootPartnerId] ?: return@mapNotNull null
+                DiscoveredPartnerServerDto(
+                    host = row.host,
+                    name = row.remoteName,
+                    hops = row.hops,
+                    viaChain = row.via,
+                    rootPartnerId = root.id.toString(),
+                    rootName = root.displayName ?: root.remoteName ?: root.host,
+                    eventCount = row.eventCount,
+                    lastStatus = row.lastStatus,
+                    lastError = row.lastError?.let { code -> PartnerFetchErrorCode.entries.firstOrNull { it.name == code } },
+                    lastFetchAt = row.lastFetchAt,
+                )
+            }
+        }
+    }
+
     private fun overviewInTx(): PartnerServerOverviewDto {
         val blocks = PartnerServerStore.listBlocklist()
         val patterns = blocks.map { it.pattern }
+        val counts = PartnerDiscoveryStore.countsByRoot()
         return PartnerServerOverviewDto(
             partners =
                 PartnerServerStore.listPartners().map {
-                    it.toDto(blocked = PartnerBlocklistPattern.isBlocked(host = it.host, patterns = patterns))
+                    val (servers, events) = counts[it.id] ?: (0 to 0)
+                    it
+                        .toDto(blocked = PartnerBlocklistPattern.isBlocked(host = it.host, patterns = patterns))
+                        .copy(discoveredServerCount = servers, discoveredEventCount = events)
                 },
             blocklist = blocks.map { it.toDto() },
             partnerListHidden = PartnerServerStore.isPartnerListHidden(),
@@ -299,6 +391,10 @@ internal class PartnerServerService(
 
     private fun parseId(raw: String): Uuid = runCatching { Uuid.parse(raw) }.getOrElse { throw BadRequestException("Invalid id") }
 }
+
+private val SUMMARY_JSON = Json { ignoreUnknownKeys = true }
+private const val PARTNER_RECURSION_MIN_DEPTH = 1
+private const val PARTNER_RECURSION_MAX_DEPTH = 3
 
 private fun BlockRow.toDto() = PartnerBlockDto(id = id.toString(), pattern = pattern)
 

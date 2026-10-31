@@ -5,6 +5,8 @@ import network.lapis.cloud.shared.domain.PartnerAddressRejectionCode
 import network.lapis.cloud.shared.domain.PartnerFetchErrorCode
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
 import network.lapis.cloud.shared.domain.PartnerProbeResultDto
+import network.lapis.cloud.shared.domain.PartnerRecursionSettingsDto
+import network.lapis.cloud.shared.domain.PartnerRecursionSummaryDto
 import network.lapis.cloud.shared.domain.PartnerServerDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -102,5 +104,62 @@ class PartnerServersLogicTest {
     fun theSavedSentenceNamesTheHostAndTheCount() {
         val text = PartnerServersTexts.saved("partner.beispiel.de", 12)
         assertTrue(text.contains("partner.beispiel.de") && text.contains("12"))
+    }
+
+    @Test
+    fun theDepthSelectFollowsTheSwitch() {
+        assertTrue(PartnerServersLogic.depthSelectEnabled(true))
+        assertFalse(PartnerServersLogic.depthSelectEnabled(false))
+    }
+
+    @Test
+    fun theChainReadsNearestFirst_andALevelHasItsNumber() {
+        assertEquals("über a.beispiel.de → b.beispiel.de", PartnerServersLogic.chainText(listOf("a.beispiel.de", "b.beispiel.de")))
+        assertEquals("Stufe 3", PartnerServersLogic.levelText(3))
+    }
+
+    @Test
+    fun theSummaryListsEveryWalkedLevelAndOnlyTheNonZeroCounters() {
+        val quiet = PartnerRecursionSummaryDto(reachedByHop = listOf(2, 0), eventsByHop = listOf(5, 0))
+        assertEquals(
+            listOf("Stufe 2: 2 Server, 5 Veranstaltungen", "Stufe 3: 0 Server, 0 Veranstaltungen"),
+            PartnerServersLogic.summaryLines(quiet),
+        )
+        val busy =
+            PartnerRecursionSummaryDto(
+                reachedByHop = listOf(1),
+                eventsByHop = listOf(1),
+                skippedBlocked = 1,
+                skippedHiddenList = 2,
+                skippedVisited = 3,
+                skippedCap = 4,
+                serverIdConflicts = 5,
+                errors = 6,
+                aborted = true,
+            )
+        val lines = PartnerServersLogic.summaryLines(busy)
+        assertEquals(8, lines.size)
+        assertEquals(lines.size, lines.toSet().size)
+        assertTrue(lines.last().startsWith("Zeitbudget erreicht"))
+    }
+
+    @Test
+    fun theRunStatusSaysWhenThereWasNoRunAndTotalsOtherwise() {
+        assertEquals("Noch kein Lauf", PartnerServersLogic.runStatus(PartnerRecursionSettingsDto(true, 2, null, null)))
+        val summary = PartnerRecursionSummaryDto(reachedByHop = listOf(2, 1), eventsByHop = listOf(4, 3))
+        val status = PartnerServersLogic.runStatus(PartnerRecursionSettingsDto(true, 2, LocalDateTime(2026, 11, 5, 10, 0), summary))
+        assertTrue(status.contains("3 Server · 7 Veranstaltungen"))
+    }
+
+    @Test
+    fun theConflictCodeHasItsSentence() {
+        assertEquals("Kennung bereits vergeben", PartnerServersTexts.fetchError(PartnerFetchErrorCode.SERVER_ID_CONFLICT))
+    }
+
+    @Test
+    fun theViaThisPartnerLineAppearsOnlyWhenSomethingWasReached() {
+        assertEquals(null, PartnerServersLogic.viaThisPartner(partner()))
+        val with = partner().copy(discoveredServerCount = 2, discoveredEventCount = 9)
+        assertEquals("Über diesen Partner: 2 Server, 9 Veranstaltungen", PartnerServersLogic.viaThisPartner(with))
     }
 }

@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.routes
 
 import kotlinx.datetime.LocalDateTime
+import kotlinx.html.UL
 import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.h1
@@ -10,6 +11,7 @@ import kotlinx.html.li
 import kotlinx.html.link
 import kotlinx.html.main
 import kotlinx.html.meta
+import kotlinx.html.nav
 import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.stream.createHTML
@@ -17,6 +19,7 @@ import kotlinx.html.title
 import kotlinx.html.ul
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.events.series.SeriesTeaser
+import network.lapis.cloud.server.partner.PartnerEventView
 import network.lapis.cloud.server.theme.publicStylesheetLinks
 
 /**
@@ -94,14 +97,21 @@ internal object PublicOverviewHtml {
         }
     }
 
+    /** Which events `GET /veranstaltungen` lists (V1.9.245): everything (default) or only this server's own. */
+    enum class EventSource { ALL, OWN }
+
     fun eventsPage(
         items: List<EventItem>,
         baseUrl: String,
         branding: ResolvedBranding,
         lang: PublicLanguage,
         nav: PublicNavAvailability,
+        partnerEvents: List<PartnerEventView> = emptyList(),
+        source: EventSource = EventSource.ALL,
+        showFilter: Boolean = false,
     ): String {
         val strings = PublicChrome.stringsFor(lang)
+        val entries = mergedEntries(items = items, partnerEvents = partnerEvents)
         return skeleton(
             baseUrl = baseUrl,
             branding = branding,
@@ -110,53 +120,116 @@ internal object PublicOverviewHtml {
             heading = strings.navEvents,
             active = PublicChrome.NavTarget.EVENTS,
             nav = nav,
+            robots = if (source == EventSource.OWN) "noindex,follow" else "index,follow",
         ) {
-            if (items.isEmpty()) {
-                p { +strings.eventsEmpty }
+            if (showFilter) sourceFilter(baseUrl = baseUrl, lang = lang, source = source)
+            if (entries.isEmpty()) {
+                p { +(if (source == EventSource.OWN) "Derzeit keine eigenen Veranstaltungen." else strings.eventsEmpty) }
             } else {
                 ul(classes = "rank-list") {
                     attributes["lang"] = "de"
-                    items.forEach { item ->
-                        li {
-                            a(
-                                href =
-                                    PublicChrome.languageUrl(
-                                        baseUrl = baseUrl,
-                                        currentPath = "/veranstaltung/${item.slug}",
-                                        lang = lang,
-                                    ),
-                            ) {
-                                attributes["hreflang"] = "de"
-                                +item.title
-                            }
-                            val series = item.series
-                            if (series != null) {
-                                repeatMark(tip = series.repeatSentence.replaceFirstChar { it.uppercase() })
-                            }
-                            span(classes = "section-note") {
-                                +" · ${germanDate(item.startsAt)}, ${germanTime(item.startsAt)} Uhr"
-                            }
-                            if (series != null) {
-                                span(classes = "section-note series-note") {
-                                    +"${series.repeatSentence.replaceFirstChar { it.uppercase() }} · "
-                                    if (series.upcomingCount > 1) {
-                                        a(
-                                            href =
-                                                PublicChrome.languageUrl(
-                                                    baseUrl = baseUrl,
-                                                    currentPath = "/veranstaltung/${item.slug}",
-                                                    lang = lang,
-                                                ) + "#weitere-termine",
-                                        ) {
-                                            attributes["hreflang"] = "de"
-                                            +"Alle Termine (${series.upcomingCount})"
-                                        }
-                                    } else {
-                                        +"Letzter Termin dieser Serie"
-                                    }
-                                }
-                            }
+                    entries.forEach { entry ->
+                        when (entry) {
+                            is OverviewEntry.Partner -> partnerEventItem(entry.view)
+                            is OverviewEntry.Own -> ownEventItem(item = entry.item, baseUrl = baseUrl, lang = lang)
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    /** One entry of the merged list: an own event (or series) or a foreign event. */
+    internal sealed interface OverviewEntry {
+        val start: LocalDateTime
+
+        data class Own(
+            val item: EventItem,
+        ) : OverviewEntry {
+            override val start: LocalDateTime get() = item.startsAt
+        }
+
+        data class Partner(
+            val view: PartnerEventView,
+        ) : OverviewEntry {
+            override val start: LocalDateTime get() = view.startsAtWall
+        }
+    }
+
+    /** Sorted by `(start, own before partner, origin host, event id)`; the sort is stable, so own events keep their own order. */
+    internal fun mergedEntries(
+        items: List<EventItem>,
+        partnerEvents: List<PartnerEventView>,
+    ): List<OverviewEntry> =
+        (items.map { OverviewEntry.Own(it) } + partnerEvents.map { OverviewEntry.Partner(it) }).sortedWith(
+            compareBy<OverviewEntry>(
+                { it.start },
+                { if (it is OverviewEntry.Partner) 1 else 0 },
+                { (it as? OverviewEntry.Partner)?.view?.originHost ?: "" },
+                { (it as? OverviewEntry.Partner)?.view?.remoteEventId ?: "" },
+            ),
+        )
+
+    private fun kotlinx.html.FlowContent.sourceFilter(
+        baseUrl: String,
+        lang: PublicLanguage,
+        source: EventSource,
+    ) {
+        nav(classes = "jump event-source-filter") {
+            attributes["aria-label"] = "Herkunft der Veranstaltungen"
+            attributes["lang"] = "de"
+            a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/veranstaltungen", lang = lang)) {
+                if (source == EventSource.ALL) attributes["aria-current"] = "page"
+                +"Alle"
+            }
+            a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/veranstaltungen?quelle=eigene", lang = lang)) {
+                if (source == EventSource.OWN) attributes["aria-current"] = "page"
+                +"Nur eigene"
+            }
+        }
+    }
+
+    private fun UL.ownEventItem(
+        item: EventItem,
+        baseUrl: String,
+        lang: PublicLanguage,
+    ) {
+        li {
+            a(
+                href =
+                    PublicChrome.languageUrl(
+                        baseUrl = baseUrl,
+                        currentPath = "/veranstaltung/${item.slug}",
+                        lang = lang,
+                    ),
+            ) {
+                attributes["hreflang"] = "de"
+                +item.title
+            }
+            val series = item.series
+            if (series != null) {
+                repeatMark(tip = series.repeatSentence.replaceFirstChar { it.uppercase() })
+            }
+            span(classes = "section-note") {
+                +" · ${germanDate(item.startsAt)}, ${germanTime(item.startsAt)} Uhr"
+            }
+            if (series != null) {
+                span(classes = "section-note series-note") {
+                    +"${series.repeatSentence.replaceFirstChar { it.uppercase() }} · "
+                    if (series.upcomingCount > 1) {
+                        a(
+                            href =
+                                PublicChrome.languageUrl(
+                                    baseUrl = baseUrl,
+                                    currentPath = "/veranstaltung/${item.slug}",
+                                    lang = lang,
+                                ) + "#weitere-termine",
+                        ) {
+                            attributes["hreflang"] = "de"
+                            +"Alle Termine (${series.upcomingCount})"
+                        }
+                    } else {
+                        +"Letzter Termin dieser Serie"
                     }
                 }
             }

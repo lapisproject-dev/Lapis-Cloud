@@ -25,4 +25,17 @@ internal object ForeignText {
             }
         return cut.ifEmpty { null }
     }
+
+    /**
+     * Display shortening of an ALREADY CLEANED name: cut to [maxChars] code points (never half a surrogate pair) with a trailing ellipsis.
+     * Used for names in the public lists; the full text stays in the database.
+     */
+    fun ellipsize(
+        text: String,
+        maxChars: Int,
+    ): String {
+        require(maxChars >= 1) { "maxChars must be positive" }
+        if (text.codePointCount(0, text.length) <= maxChars) return text
+        return text.substring(0, text.offsetByCodePoints(0, maxChars)).trimEnd() + "\u2026"
+    }
 }

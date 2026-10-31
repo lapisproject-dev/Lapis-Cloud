@@ -15,7 +15,6 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
-import network.lapis.cloud.server.db.generated.PartnerBlocklistTable
 import network.lapis.cloud.server.db.generated.PartnerEventTable
 import network.lapis.cloud.server.db.generated.PartnerServerTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -33,7 +32,6 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RateLimitedException
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -137,7 +135,7 @@ class PartnerServerServiceScenarioTest :
             partnerRows().shouldBeEmpty()
         }
 
-        test("every one of the eight methods refuses a MEMBER and a BOARD member") {
+        test("every one of the eleven methods refuses a MEMBER and a BOARD member") {
             val member = fx.member(role = AccountRole.MEMBER)
             val board = fx.member(role = AccountRole.BOARD)
             val fetcher = fakeFetcher { json(body = feedJson()) }
@@ -153,6 +151,9 @@ class PartnerServerServiceScenarioTest :
                         { it.addBlock("x.de") },
                         { it.removeBlock(id) },
                         { it.setPartnerListHidden(true) },
+                        { it.getPartnerRecursionSettings() },
+                        { it.setPartnerRecursionSettings(enabled = false, depth = 2) },
+                        { it.listDiscoveredPartnerServers() },
                     ).forEach { action ->
                         asAdmin(who, fetcher) { action(it) }.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>()
                     }
@@ -252,6 +253,63 @@ class PartnerServerServiceScenarioTest :
             eventRows() shouldHaveSize 4
         }
 
+        test("the recursion settings: defaults, a change is stored, depth 0 and 4 are bad requests, the audit names the right kinds") {
+            val admin = fx.member(role = AccountRole.ADMIN)
+            val fetcher = fakeFetcher { json(body = feedJson()) }
+            val mark = fx.auditMark()
+            withServiceCaller {
+                val initial = asAdmin(admin, fetcher) { it.getPartnerRecursionSettings() }.getOrThrow()
+                initial.enabled shouldBe true
+                initial.depth shouldBe 2
+                initial.lastRunAt.shouldBeNull()
+                initial.summary.shouldBeNull()
+                asAdmin(admin, fetcher) { it.setPartnerRecursionSettings(enabled = true, depth = 0) }
+                    .exceptionOrNull()
+                    .shouldBeInstanceOf<BadRequestException>()
+                asAdmin(admin, fetcher) { it.setPartnerRecursionSettings(enabled = true, depth = 4) }
+                    .exceptionOrNull()
+                    .shouldBeInstanceOf<BadRequestException>()
+                asAdmin(admin, fetcher) { it.setPartnerRecursionSettings(enabled = true, depth = 2) }.getOrThrow() // no change -> no audit
+                asAdmin(admin, fetcher) { it.setPartnerRecursionSettings(enabled = true, depth = 3) }.getOrThrow()
+                asAdmin(admin, fetcher) { it.setPartnerRecursionSettings(enabled = false, depth = 3) }.getOrThrow()
+                asAdmin(admin, fetcher) {
+                    it.setPartnerRecursionSettings(enabled = true, depth = 1)
+                }.getOrThrow() // switched on AND depth changed -> two entries
+                val now = asAdmin(admin, fetcher) { it.getPartnerRecursionSettings() }.getOrThrow()
+                now.enabled shouldBe true
+                now.depth shouldBe 1
+            }
+            val entries = fx.auditSince(mark = mark, type = AuditEntityType.PARTNER_SERVER)
+            val kinds = entries.map { it[AuditLogEntryTable.afterSnapshot].orEmpty() }
+            kinds shouldHaveSize 4
+            kinds.count { it.contains("RECURSION_DEPTH_CHANGED") } shouldBe 2
+            kinds.count { it.contains("RECURSION_DISABLED") } shouldBe 1
+            kinds.count { it.contains("RECURSION_ENABLED") } shouldBe 1
+            fx.chainProblemSince(mark).shouldBeNull()
+            transaction { PartnerDiscoveryStore.recursionSettings().depth } shouldBe 1
+        }
+
+        test("the discovered servers are listed with their chain and counted per direct partner") {
+            val admin = fx.member(role = AccountRole.ADMIN)
+            val world = FakeWorld()
+            addDirectPartner(host = "a.beispiel.de", partners = listOf("b.beispiel.de"), displayName = "Alpha", now = NOW)
+            world.serve(host = "b.beispiel.de", name = "Bravo", partners = listOf("c.beispiel.de"))
+            world.serve(host = "c.beispiel.de")
+            runnerFor(world = world, now = { NOW }).run()
+            withServiceCaller {
+                val fetcher = fakeFetcher { json(body = feedJson()) }
+                val list = asAdmin(admin, fetcher) { it.listDiscoveredPartnerServers() }.getOrThrow()
+                list.map { it.host to it.hops } shouldBe listOf("b.beispiel.de" to 2, "c.beispiel.de" to 3)
+                list[1].viaChain shouldBe listOf("a.beispiel.de", "b.beispiel.de")
+                list[0].rootName shouldBe "Alpha"
+                val overview = asAdmin(admin, fetcher) { it.list() }.getOrThrow()
+                overview.partners.single().discoveredServerCount shouldBe 2
+                overview.partners.single().discoveredEventCount shouldBe 2
+                val settings = asAdmin(admin, fetcher) { it.getPartnerRecursionSettings() }.getOrThrow()
+                settings.summary.shouldNotBeNull().reachedByHop shouldBe listOf(1, 1)
+            }
+        }
+
         test(
             "the audit log records adds, switches, removals, blocks and the list switch -- hosts and patterns only, and the chain is intact",
         ) {
@@ -292,6 +350,8 @@ class PartnerServerServiceScenarioTest :
                 asAdmin(admin, fetcher) { it.probeAndSave(address = "partner.beispiel.de", displayName = null) }.getOrThrow().saved shouldBe
                     true
             }
+            // The recursion has its own scenarios; this test pins the P1 behaviour of the direct fetch, so the partner list is not followed here.
+            transaction { PartnerDiscoveryStore.setRecursionSettings(enabled = false, depth = 2) }
             var clockNow = NOW
             val poller = PartnerFeedPoller(fetcher = fetcher, clock = { clockNow })
 
@@ -429,10 +489,6 @@ class PartnerServerServiceScenarioTest :
     })
 
 private fun wipe() {
-    transaction {
-        PartnerEventTable.deleteAll()
-        PartnerServerTable.deleteAll()
-        PartnerBlocklistTable.deleteAll()
-        OrganizationSettingsTable.update { it[partnerListHidden] = false }
-    }
+    wipePartnerTables()
+    transaction { OrganizationSettingsTable.update { it[partnerListHidden] = false } }
 }

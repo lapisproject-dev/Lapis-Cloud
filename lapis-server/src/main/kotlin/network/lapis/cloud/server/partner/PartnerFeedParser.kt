@@ -40,9 +40,11 @@ internal sealed interface PartnerParseResult {
         val remoteServerId: Uuid,
         val remoteName: String?,
         val events: List<ParsedPartnerEvent>,
-        /** The partner's own partner list as compact JSON for a later wave; stored, never interpreted or fetched. `null` when hidden or empty. */
+        /** The partner's own partner list as compact JSON; stored, and since V1.9.245 read back (as hosts, re-validated) by the recursion. `null` when hidden or empty. */
         val partnersJson: String?,
         val droppedEvents: Int,
+        /** V1.9.245: the partner left its partner list out of its feed (`partnersHidden`); its children are not followed. */
+        val partnersHidden: Boolean = false,
     ) : PartnerParseResult
 
     data class Invalid(
@@ -112,7 +114,25 @@ internal object PartnerFeedParser {
             events = kept,
             partnersJson = if (feed.partnersHidden) null else partnersJsonOf(feed.partners),
             droppedEvents = dropped,
+            partnersHidden = feed.partnersHidden,
         )
+    }
+
+    /**
+     * V1.9.245 -- the hosts of a stored (already cleaned) partner list. Every host goes through [PartnerHost.normalizeHostOnly] AGAIN: what is
+     * stored is a cache of foreign data and is never trusted blindly. At most [MAX_REMOTE_PARTNERS] hosts; an unreadable value yields no hosts.
+     */
+    fun partnerHostsOf(json: String?): List<String> {
+        if (json.isNullOrBlank() || json.length > MAX_PARTNERS_JSON_BYTES) return emptyList()
+        val list =
+            runCatching { PARTNER_FEED_JSON.decodeFromString(ListSerializer(PartnerFeedPartner.serializer()), json) }.getOrNull()
+                ?: return emptyList()
+        return list
+            .asSequence()
+            .mapNotNull { PartnerHost.normalizeHostOnly(it.host) }
+            .distinct()
+            .take(MAX_REMOTE_PARTNERS)
+            .toList()
     }
 
     private fun invalid() = PartnerParseResult.Invalid(PartnerFetchErrorCode.INVALID_FEED)

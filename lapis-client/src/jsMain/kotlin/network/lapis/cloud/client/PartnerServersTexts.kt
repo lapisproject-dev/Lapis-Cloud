@@ -46,6 +46,7 @@ internal object PartnerServersTexts {
             PartnerFetchErrorCode.UNREACHABLE -> gettext("Der Server ist nicht erreichbar.")
             PartnerFetchErrorCode.TLS -> gettext("Das Sicherheitszertifikat des Servers ist nicht gültig.")
             PartnerFetchErrorCode.DUPLICATE -> gettext("Dieser Server ist schon eingetragen.")
+            PartnerFetchErrorCode.SERVER_ID_CONFLICT -> gettext("Kennung bereits vergeben")
         }
 
     /** The sentence under the form after a failed "Prüfen und speichern"; the address wins over the fetch error. */

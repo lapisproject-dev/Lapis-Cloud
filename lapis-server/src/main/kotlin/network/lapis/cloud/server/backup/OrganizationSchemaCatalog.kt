@@ -111,6 +111,10 @@ object OrganizationSchemaCatalog {
                 "Welle V1.9.244. Cache of the public events of the partner servers, refilled hourly by the PartnerFeedPoller. " +
                 "Restoring stale foreign data would show outdated events; partner_server and partner_blocklist ARE backed up " +
                 "(see docs/features/partner-servers.adoc).",
+            "partner_discovered_server" to
+                "Welle V1.9.245. Servers reached THROUGH the direct partners (hop >= 2) -- a pure cache of foreign data that the " +
+                "PartnerFeedPoller rediscovers within a few runs from the backed-up partner_server rows. Restoring stale foreign " +
+                "hosts would only make the first run fetch outdated paths (see docs/features/partner-servers.adoc).",
         )
 
     data class ColumnMetadata(
