@@ -29270,3 +29270,318 @@ msgstr "Via deze partner: %1 servers, %2 evenementen"
 
 msgid "Kennung bereits vergeben"
 msgstr "Identificatie al in gebruik"
+
+msgid "%1 Personen kommen"
+msgstr "%1 personen komen"
+
+msgid "%1 bis %2: %3 von %4 Plätzen besetzt"
+msgstr "%1 tot %2: %3 van %4 plaatsen bezet"
+
+msgid "%1 gemeldet, davon %2 bestätigt"
+msgstr "%1 gemeld, waarvan %2 bevestigd"
+
+msgid "%1 von %2 %3"
+msgstr "%1 van %2 %3"
+
+msgid "Abgelehnt: %1"
+msgstr "Afgewezen: %1"
+
+msgid "Aktion bearbeiten"
+msgstr "Actie bewerken"
+
+msgid "Aktion öffnen"
+msgstr "Actie openen"
+
+msgid "Aktionen sind Vorhaben der Organisation, zum Beispiel ein Infostand oder Plakatieren. Sie können Ideen anlegen, Fortschritt melden und zusagen."
+msgstr "Acties zijn plannen van de organisatie, bijvoorbeeld een infostand of affiches plakken. U kunt ideeën indienen, voortgang melden en toezeggen."
+
+msgid "Aktionsbeitrag"
+msgstr "Bijdrage aan een actie"
+
+msgid "Aktionstag"
+msgstr "Actiedag"
+
+msgid "Alle Meldungen"
+msgstr "Alle meldingen"
+
+msgid "Art der Aktion"
+msgstr "Soort actie"
+
+msgid "Auf Standardtext zurücksetzen"
+msgstr "Terugzetten naar de standaardtekst"
+
+msgid "Beteiligte"
+msgstr "Deelnemers"
+
+msgid "Beteiligte: %1"
+msgstr "Deelnemers: %1"
+
+msgid "Bitte beachten Sie die Regeln der genutzten Plattform und den Datenschutz."
+msgstr "Houd rekening met de regels van het gebruikte platform en met de gegevensbescherming."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 1.000.000 ein."
+msgstr "Voer een geheel getal tussen 1 en 1.000.000 in."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 10.000 ein."
+msgstr "Voer een geheel getal tussen 1 en 10.000 in."
+
+msgid "Bitte klären Sie vorab selbst, ob die Versammlung angezeigt oder angemeldet werden muss und bis wann."
+msgstr "Zoek vooraf zelf uit of de bijeenkomst moet worden aangemeld of geregistreerd en tot wanneer."
+
+msgid "Bitte klären Sie vorab selbst, ob für Ihre Aktion Regeln oder Genehmigungen gelten."
+msgstr "Zoek vooraf zelf uit of er voor uw actie regels of vergunningen gelden."
+
+msgid "Bitte klären Sie vorab selbst, ob für das Sammeln von Unterschriften eine Erlaubnis nötig ist und was dabei gilt."
+msgstr "Zoek vooraf zelf uit of voor het verzamelen van handtekeningen een vergunning nodig is en wat daarvoor geldt."
+
+msgid "Bitte klären Sie vorab selbst, ob für den Infostand eine Erlaubnis oder Anmeldung nötig ist."
+msgstr "Zoek vooraf zelf uit of voor de infostand een vergunning of aanmelding nodig is."
+
+msgid "Bitte klären Sie vorab selbst, ob für die einzelnen Teile des Aktionstags eine Erlaubnis nötig ist."
+msgstr "Zoek vooraf zelf uit of voor de afzonderlijke onderdelen van de actiedag een vergunning nodig is."
+
+msgid "Bitte klären Sie vorab selbst, was bei Gesprächen an der Haustür gilt, und beachten Sie den Datenschutz."
+msgstr "Zoek vooraf zelf uit wat er geldt voor gesprekken aan de voordeur en let op de gegevensbescherming."
+
+msgid "Bitte klären Sie vorab selbst, wo und wie lange plakatiert werden darf und ob eine Erlaubnis nötig ist."
+msgstr "Zoek vooraf zelf uit waar en hoelang er geplakt mag worden en of een vergunning nodig is."
+
+msgid "Bitte schreiben Sie keine Namen oder Angaben über andere Personen in diese Aktion. Alle Mitglieder können sie lesen."
+msgstr "Schrijf geen namen of gegevens over andere personen in deze actie. Alle leden kunnen haar lezen."
+
+msgid "Bitte schreiben Sie zwischen %1 und %2 Zeichen."
+msgstr "Schrijf tussen %1 en %2 tekens."
+
+msgid "Danke. Die Meldung wurde weitergegeben."
+msgstr "Dank u. De melding is doorgegeven."
+
+msgid "Das Limit für diese Aktion ist erreicht. Bitte versuchen Sie es später erneut."
+msgstr "De limiet voor deze actie is bereikt. Probeer het later opnieuw."
+
+msgid "Das geht nur, solange die Aktion läuft (Ergebnis: sobald sie abgeschlossen ist)."
+msgstr "Dit kan alleen zolang de actie loopt (het resultaat: zodra ze is afgerond)."
+
+msgid "Der Text ist zu lang."
+msgstr "De tekst is te lang."
+
+msgid "Der Titel ist zu lang."
+msgstr "De titel is te lang."
+
+msgid "Deutschland"
+msgstr "Duitsland"
+
+msgid "Die Aktion wurde inzwischen geändert -- bitte laden Sie die Ansicht neu."
+msgstr "De actie is intussen gewijzigd -- laad het scherm opnieuw."
+
+msgid "Dieser Statuswechsel ist nicht möglich."
+msgstr "Deze statuswijziging is niet mogelijk."
+
+msgid "Eigener Hinweis zu den Regeln"
+msgstr "Eigen opmerking over de regels"
+
+msgid "Eine Aktion hat mindestens eine und höchstens zehn verantwortliche Personen."
+msgstr "Een actie heeft minstens één en hoogstens tien verantwoordelijke personen."
+
+msgid "Eine Idee kann nicht von der Person freigegeben werden, die sie angelegt hat."
+msgstr "Een idee kan niet worden goedgekeurd door de persoon die het heeft aangemaakt."
+
+msgid "Eine ganze Zahl, zum Beispiel 500."
+msgstr "Een geheel getal, bijvoorbeeld 500."
+
+msgid "Einstellungen der Aktionen"
+msgstr "Instellingen van de acties"
+
+msgid "Einstellungen und Meldungen"
+msgstr "Instellingen en meldingen"
+
+msgid "Einstellungen zu den Aktionen"
+msgstr "Instellingen voor de acties"
+
+msgid "Ergebnis speichern"
+msgstr "Resultaat opslaan"
+
+msgid "Fortschritt"
+msgstr "Voortgang"
+
+msgid "Fortschritt melden"
+msgstr "Voortgang melden"
+
+msgid "Gebiet (optional)"
+msgstr "Gebied (optioneel)"
+
+msgid "Gemeldete Aktionen"
+msgstr "Gemelde acties"
+
+msgid "Gemeldete Mengen müssen bestätigt werden"
+msgstr "Gemelde hoeveelheden moeten worden bevestigd"
+
+msgid "Georgien"
+msgstr "Georgië"
+
+msgid "Haustürgespräche"
+msgstr "Gesprekken aan de deur"
+
+msgid "Hier legen Sie die Hinweistexte je Land und Art fest und schalten die Freigabe von Ideen ein."
+msgstr "Hier stelt u de teksten met aanwijzingen per land en soort in en schakelt de goedkeuring van ideeën in."
+
+msgid "Hinweis zu den Regeln"
+msgstr "Opmerking over de regels"
+
+msgid "Hinweistexte"
+msgstr "Teksten met aanwijzingen"
+
+msgid "Hinweistexte, Freigabe von Ideen, Meldungen"
+msgstr "Teksten met aanwijzingen, goedkeuring van ideeën, meldingen"
+
+msgid "Ich komme"
+msgstr "Ik kom"
+
+msgid "Idee"
+msgstr "Idee"
+
+msgid "Ideen müssen von einer zweiten Person freigegeben werden"
+msgstr "Ideeën moeten door een tweede persoon worden goedgekeurd"
+
+msgid "Im Dokumentenbereich öffnen"
+msgstr "Openen in het documentengedeelte"
+
+msgid "Infostand"
+msgstr "Infostand"
+
+msgid "Keine Rechtsberatung."
+msgstr "Geen juridisch advies."
+
+msgid "Keine offenen Meldungen."
+msgstr "Geen openstaande meldingen."
+
+msgid "Kundgebung oder Demonstration"
+msgstr "Bijeenkomst of demonstratie"
+
+msgid "Land speichern"
+msgstr "Land opslaan"
+
+msgid "Leer lassen für den Standardtext."
+msgstr "Laat leeg voor de standaardtekst."
+
+msgid "Liechtenstein"
+msgstr "Liechtenstein"
+
+msgid "Luxemburg"
+msgstr "Luxemburg"
+
+msgid "Material"
+msgstr "Materiaal"
+
+msgid "Meine Meldungen"
+msgstr "Mijn meldingen"
+
+msgid "Meldung erledigen"
+msgstr "Melding afhandelen"
+
+msgid "Meldung zu einer Aktion"
+msgstr "Melding over een actie"
+
+msgid "Menge: %1"
+msgstr "Hoeveelheid: %1"
+
+msgid "Mit Fortschritt (Menge melden)"
+msgstr "Met voortgang (hoeveelheid melden)"
+
+msgid "Mit Termin"
+msgstr "Met datum"
+
+msgid "Mit Zusage (Ich komme)"
+msgstr "Met toezegging (Ik kom)"
+
+msgid "Mitmachen"
+msgstr "Meedoen"
+
+msgid "Nach Gebiet"
+msgstr "Per gebied"
+
+msgid "Neue Aktion"
+msgstr "Nieuwe actie"
+
+msgid "Neue Aufgabe"
+msgstr "Nieuwe taak"
+
+msgid "Nicht nachvollziehbar"
+msgstr "Niet navolgbaar"
+
+msgid "Noch keine Aktionen. Legen Sie eine Idee an."
+msgstr "Nog geen acties. Maak een idee aan."
+
+msgid "Online-Aktion"
+msgstr "Online actie"
+
+msgid "Plakatieren"
+msgstr "Affiches plakken"
+
+msgid "Schichten der Veranstaltung"
+msgstr "Diensten van het evenement"
+
+msgid "Setzen auf: %1"
+msgstr "Zetten op: %1"
+
+msgid "Sie haben diese Aktion bereits gemeldet. Die Meldung wird geprüft."
+msgstr "U hebt deze actie al gemeld. De melding wordt beoordeeld."
+
+msgid "Textbaustein hinzufügen"
+msgstr "Tekstblok toevoegen"
+
+msgid "Textbausteine"
+msgstr "Tekstblokken"
+
+msgid "Titel des Textbausteins"
+msgstr "Titel van het tekstblok"
+
+msgid "Unterschriftensammlung"
+msgstr "Handtekeningenactie"
+
+msgid "Verantwortlich"
+msgstr "Verantwoordelijk"
+
+msgid "Vorstand oder Administration"
+msgstr "Bestuur of beheer"
+
+msgid "Wann und wo"
+msgstr "Wanneer en waar"
+
+msgid "Wartet auf Freigabe"
+msgstr "Wacht op goedkeuring"
+
+msgid "Warum melden Sie diese Aktion?"
+msgstr "Waarom meldt u deze actie?"
+
+msgid "Was ist herausgekommen?"
+msgstr "Wat is er uitgekomen?"
+
+msgid "Weniger als %1 Personen haben zugesagt"
+msgstr "Minder dan %1 personen hebben toegezegd"
+
+msgid "Ziel"
+msgstr "Doel"
+
+msgid "Ziel und Fortschritt"
+msgstr "Doel en voortgang"
+
+msgid "Zielmenge"
+msgstr "Doelhoeveelheid"
+
+msgid "Zu den Aktionen"
+msgstr "Naar de acties"
+
+msgid "Zum Beispiel Plakate oder Unterschriften."
+msgstr "Bijvoorbeeld affiches of handtekeningen."
+
+msgid "Zurückgezogen: %1"
+msgstr "Ingetrokken: %1"
+
+msgid "Meldung zurücknehmen"
+msgstr "Mijn voortgangsmelding intrekken"
+
+msgid "Ohne Gebiet"
+msgstr "Zonder gebied"
+
+msgid "Zur Aktion"
+msgstr "Naar de actie"

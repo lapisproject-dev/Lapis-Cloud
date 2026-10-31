@@ -29224,3 +29224,318 @@ msgstr "Through this partner: %1 servers, %2 events"
 
 msgid "Kennung bereits vergeben"
 msgstr "Identifier already taken"
+
+msgid "%1 Personen kommen"
+msgstr "%1 people are coming"
+
+msgid "%1 bis %2: %3 von %4 Plätzen besetzt"
+msgstr "%1 to %2: %3 of %4 places filled"
+
+msgid "%1 gemeldet, davon %2 bestätigt"
+msgstr "%1 reported, of which %2 confirmed"
+
+msgid "%1 von %2 %3"
+msgstr "%1 of %2 %3"
+
+msgid "Abgelehnt: %1"
+msgstr "Rejected: %1"
+
+msgid "Aktion bearbeiten"
+msgstr "Edit action"
+
+msgid "Aktion öffnen"
+msgstr "Open action"
+
+msgid "Aktionen sind Vorhaben der Organisation, zum Beispiel ein Infostand oder Plakatieren. Sie können Ideen anlegen, Fortschritt melden und zusagen."
+msgstr "Actions are undertakings of the organisation, for example an information stand or putting up posters. You can create ideas, report progress and say you are coming."
+
+msgid "Aktionsbeitrag"
+msgstr "Action contribution"
+
+msgid "Aktionstag"
+msgstr "Action day"
+
+msgid "Alle Meldungen"
+msgstr "All reports"
+
+msgid "Art der Aktion"
+msgstr "Kind of action"
+
+msgid "Auf Standardtext zurücksetzen"
+msgstr "Reset to the standard text"
+
+msgid "Beteiligte"
+msgstr "Participants"
+
+msgid "Beteiligte: %1"
+msgstr "Participants: %1"
+
+msgid "Bitte beachten Sie die Regeln der genutzten Plattform und den Datenschutz."
+msgstr "Please observe the rules of the platform used and data protection."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 1.000.000 ein."
+msgstr "Please enter a whole number between 1 and 1,000,000."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 10.000 ein."
+msgstr "Please enter a whole number between 1 and 10,000."
+
+msgid "Bitte klären Sie vorab selbst, ob die Versammlung angezeigt oder angemeldet werden muss und bis wann."
+msgstr "Please find out beforehand whether the assembly must be notified or registered, and by when."
+
+msgid "Bitte klären Sie vorab selbst, ob für Ihre Aktion Regeln oder Genehmigungen gelten."
+msgstr "Please find out beforehand whether rules or permits apply to your action."
+
+msgid "Bitte klären Sie vorab selbst, ob für das Sammeln von Unterschriften eine Erlaubnis nötig ist und was dabei gilt."
+msgstr "Please find out beforehand whether collecting signatures needs a permit and what rules apply."
+
+msgid "Bitte klären Sie vorab selbst, ob für den Infostand eine Erlaubnis oder Anmeldung nötig ist."
+msgstr "Please find out beforehand whether the information stand needs a permit or registration."
+
+msgid "Bitte klären Sie vorab selbst, ob für die einzelnen Teile des Aktionstags eine Erlaubnis nötig ist."
+msgstr "Please find out beforehand whether the individual parts of the action day need a permit."
+
+msgid "Bitte klären Sie vorab selbst, was bei Gesprächen an der Haustür gilt, und beachten Sie den Datenschutz."
+msgstr "Please find out beforehand what applies to talks at the front door, and observe data protection."
+
+msgid "Bitte klären Sie vorab selbst, wo und wie lange plakatiert werden darf und ob eine Erlaubnis nötig ist."
+msgstr "Please find out beforehand where and for how long posters may be put up and whether a permit is needed."
+
+msgid "Bitte schreiben Sie keine Namen oder Angaben über andere Personen in diese Aktion. Alle Mitglieder können sie lesen."
+msgstr "Please do not write names or details about other people in this action. All members can read it."
+
+msgid "Bitte schreiben Sie zwischen %1 und %2 Zeichen."
+msgstr "Please write between %1 and %2 characters."
+
+msgid "Danke. Die Meldung wurde weitergegeben."
+msgstr "Thank you. The report has been passed on."
+
+msgid "Das Limit für diese Aktion ist erreicht. Bitte versuchen Sie es später erneut."
+msgstr "The limit for this action has been reached. Please try again later."
+
+msgid "Das geht nur, solange die Aktion läuft (Ergebnis: sobald sie abgeschlossen ist)."
+msgstr "This is only possible while the action is running (the result: once it is completed)."
+
+msgid "Der Text ist zu lang."
+msgstr "The text is too long."
+
+msgid "Der Titel ist zu lang."
+msgstr "The title is too long."
+
+msgid "Deutschland"
+msgstr "Germany"
+
+msgid "Die Aktion wurde inzwischen geändert -- bitte laden Sie die Ansicht neu."
+msgstr "The action has been changed in the meantime -- please reload the view."
+
+msgid "Dieser Statuswechsel ist nicht möglich."
+msgstr "This status change is not possible."
+
+msgid "Eigener Hinweis zu den Regeln"
+msgstr "Own note on the rules"
+
+msgid "Eine Aktion hat mindestens eine und höchstens zehn verantwortliche Personen."
+msgstr "An action has at least one and at most ten responsible persons."
+
+msgid "Eine Idee kann nicht von der Person freigegeben werden, die sie angelegt hat."
+msgstr "An idea cannot be approved by the person who created it."
+
+msgid "Eine ganze Zahl, zum Beispiel 500."
+msgstr "A whole number, for example 500."
+
+msgid "Einstellungen der Aktionen"
+msgstr "Settings of the actions"
+
+msgid "Einstellungen und Meldungen"
+msgstr "Settings and reports"
+
+msgid "Einstellungen zu den Aktionen"
+msgstr "Settings for the actions"
+
+msgid "Ergebnis speichern"
+msgstr "Save result"
+
+msgid "Fortschritt"
+msgstr "Progress"
+
+msgid "Fortschritt melden"
+msgstr "Report progress"
+
+msgid "Gebiet (optional)"
+msgstr "Area (optional)"
+
+msgid "Gemeldete Aktionen"
+msgstr "Reported actions"
+
+msgid "Gemeldete Mengen müssen bestätigt werden"
+msgstr "Reported quantities must be confirmed"
+
+msgid "Georgien"
+msgstr "Georgia"
+
+msgid "Haustürgespräche"
+msgstr "Door-to-door talks"
+
+msgid "Hier legen Sie die Hinweistexte je Land und Art fest und schalten die Freigabe von Ideen ein."
+msgstr "Here you set the notice texts per country and kind and switch on the approval of ideas."
+
+msgid "Hinweis zu den Regeln"
+msgstr "Note on the rules"
+
+msgid "Hinweistexte"
+msgstr "Notice texts"
+
+msgid "Hinweistexte, Freigabe von Ideen, Meldungen"
+msgstr "Notice texts, approval of ideas, reports"
+
+msgid "Ich komme"
+msgstr "I am coming"
+
+msgid "Idee"
+msgstr "Idea"
+
+msgid "Ideen müssen von einer zweiten Person freigegeben werden"
+msgstr "Ideas must be approved by a second person"
+
+msgid "Im Dokumentenbereich öffnen"
+msgstr "Open in the documents area"
+
+msgid "Infostand"
+msgstr "Information stand"
+
+msgid "Keine Rechtsberatung."
+msgstr "No legal advice."
+
+msgid "Keine offenen Meldungen."
+msgstr "No open reports."
+
+msgid "Kundgebung oder Demonstration"
+msgstr "Rally or demonstration"
+
+msgid "Land speichern"
+msgstr "Save country"
+
+msgid "Leer lassen für den Standardtext."
+msgstr "Leave empty for the standard text."
+
+msgid "Liechtenstein"
+msgstr "Liechtenstein"
+
+msgid "Luxemburg"
+msgstr "Luxembourg"
+
+msgid "Material"
+msgstr "Material"
+
+msgid "Meine Meldungen"
+msgstr "My reports"
+
+msgid "Meldung erledigen"
+msgstr "Resolve report"
+
+msgid "Meldung zu einer Aktion"
+msgstr "Report about an action"
+
+msgid "Menge: %1"
+msgstr "Quantity: %1"
+
+msgid "Mit Fortschritt (Menge melden)"
+msgstr "With progress (report a quantity)"
+
+msgid "Mit Termin"
+msgstr "With a date"
+
+msgid "Mit Zusage (Ich komme)"
+msgstr "With confirmation (I am coming)"
+
+msgid "Mitmachen"
+msgstr "Take part"
+
+msgid "Nach Gebiet"
+msgstr "By area"
+
+msgid "Neue Aktion"
+msgstr "New action"
+
+msgid "Neue Aufgabe"
+msgstr "New task"
+
+msgid "Nicht nachvollziehbar"
+msgstr "Not comprehensible"
+
+msgid "Noch keine Aktionen. Legen Sie eine Idee an."
+msgstr "No actions yet. Create an idea."
+
+msgid "Online-Aktion"
+msgstr "Online action"
+
+msgid "Plakatieren"
+msgstr "Putting up posters"
+
+msgid "Schichten der Veranstaltung"
+msgstr "Shifts of the event"
+
+msgid "Setzen auf: %1"
+msgstr "Set to: %1"
+
+msgid "Sie haben diese Aktion bereits gemeldet. Die Meldung wird geprüft."
+msgstr "You have already reported this action. The report is being reviewed."
+
+msgid "Textbaustein hinzufügen"
+msgstr "Add text block"
+
+msgid "Textbausteine"
+msgstr "Text blocks"
+
+msgid "Titel des Textbausteins"
+msgstr "Title of the text block"
+
+msgid "Unterschriftensammlung"
+msgstr "Signature collection"
+
+msgid "Verantwortlich"
+msgstr "Responsible"
+
+msgid "Vorstand oder Administration"
+msgstr "Board or administration"
+
+msgid "Wann und wo"
+msgstr "When and where"
+
+msgid "Wartet auf Freigabe"
+msgstr "Awaiting approval"
+
+msgid "Warum melden Sie diese Aktion?"
+msgstr "Why are you reporting this action?"
+
+msgid "Was ist herausgekommen?"
+msgstr "What came out of it?"
+
+msgid "Weniger als %1 Personen haben zugesagt"
+msgstr "Fewer than %1 people have said they are coming"
+
+msgid "Ziel"
+msgstr "Goal"
+
+msgid "Ziel und Fortschritt"
+msgstr "Goal and progress"
+
+msgid "Zielmenge"
+msgstr "Target quantity"
+
+msgid "Zu den Aktionen"
+msgstr "To the actions"
+
+msgid "Zum Beispiel Plakate oder Unterschriften."
+msgstr "For example posters or signatures."
+
+msgid "Zurückgezogen: %1"
+msgstr "Withdrawn: %1"
+
+msgid "Meldung zurücknehmen"
+msgstr "Take back my report"
+
+msgid "Ohne Gebiet"
+msgstr "No area"
+
+msgid "Zur Aktion"
+msgstr "To the action"

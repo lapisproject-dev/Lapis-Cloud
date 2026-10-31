@@ -6,6 +6,13 @@ import kotlinx.coroutines.CancellationException
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceEventCaptureState
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.rpc.ActivismInvalidTransitionException
+import network.lapis.cloud.shared.rpc.ActivismLimitReachedException
+import network.lapis.cloud.shared.rpc.ActivismNotRunningException
+import network.lapis.cloud.shared.rpc.ActivismReportOpenException
+import network.lapis.cloud.shared.rpc.ActivismResponsibleLimitException
+import network.lapis.cloud.shared.rpc.ActivismRevisionConflictException
+import network.lapis.cloud.shared.rpc.ActivismSelfApprovalException
 import network.lapis.cloud.shared.rpc.AgreementTextDraftChangedException
 import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
@@ -253,6 +260,14 @@ internal fun typedRefusalText(e: Throwable): String? =
         is DirectMessageGroupUnavailableException -> tr("Diese Gruppe ist nicht verfügbar.")
         is DirectMessageGroupTooLargeException -> tr("Diese Gruppe ist für eine Nachricht zu groß.")
         is DirectMessageRateLimitedException -> tr("Zu viele Nachrichten in kurzer Zeit. Bitte versuchen Sie es später erneut.")
+        // V1.9.246 "Aktionen": the fixed texts of its typed refusals.
+        is ActivismLimitReachedException -> tr("Das Limit für diese Aktion ist erreicht. Bitte versuchen Sie es später erneut.")
+        is ActivismNotRunningException -> tr("Das geht nur, solange die Aktion läuft (Ergebnis: sobald sie abgeschlossen ist).")
+        is ActivismSelfApprovalException -> tr("Eine Idee kann nicht von der Person freigegeben werden, die sie angelegt hat.")
+        is ActivismRevisionConflictException -> tr("Die Aktion wurde inzwischen geändert -- bitte laden Sie die Ansicht neu.")
+        is ActivismReportOpenException -> tr("Sie haben diese Aktion bereits gemeldet. Die Meldung wird geprüft.")
+        is ActivismResponsibleLimitException -> tr("Eine Aktion hat mindestens eine und höchstens zehn verantwortliche Personen.")
+        is ActivismInvalidTransitionException -> tr("Dieser Statuswechsel ist nicht möglich.")
         else -> null
     }
 

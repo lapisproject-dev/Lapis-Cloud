@@ -83,7 +83,8 @@ class DomainModelMergerTest :
             // Welle V1.9.226 "LupaBB-Abgleich" -- now 78 with the addition of 77-lupabb-sync.kuml.kts.
             // Welle V1.9.237 "Neue Nachricht" -- now 79 with the addition of 78-direct-message-block.kuml.kts.
             // Welle V1.9.244 "Partnerserver P1" -- now 80 with the addition of 79-partner-servers.kuml.kts.
-            scriptFiles shouldHaveSize 80
+            // Welle V1.9.246 "Aktionen A1" -- now 81 with the addition of 80-activism.kuml.kts.
+            scriptFiles shouldHaveSize 81
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -586,7 +587,9 @@ class DomainModelMergerTest :
             // protocol_task_status); its new DocumentVersion stub dedups into the real entity, net +4 (227 -> 231).
             // 79-partner-servers.kuml.kts (V1.9.244) adds THREE real tables (partner_server, partner_event, partner_blocklist); no stub, net +3 (231 -> 234).
             // 79-partner-servers.kuml.kts (V1.9.245) adds ONE real table (partner_discovered_server); its PartnerServer reference dedups, net +1 (234 -> 235).
-            val distinctTableNames = 235
+            // 80-activism.kuml.kts (V1.9.246) adds NINE real tables (activism_action, _responsible, _task, _text_block, _material_document,
+            // _contribution, _signal, _report, _notice_text); the Member, CostCenter, Event and Document stubs dedup into the real entities, net +9 (235 -> 244).
+            val distinctTableNames = 244
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -986,6 +989,16 @@ class DomainModelMergerTest :
                     "PartnerEventTable.kt",
                     "PartnerBlocklistTable.kt",
                     "PartnerDiscoveredServerTable.kt",
+                    // Welle V1.9.246 "Aktionen A1" -- NINE new real tables; the cross-domain references are stubs.
+                    "ActivismActionTable.kt",
+                    "ActivismResponsibleTable.kt",
+                    "ActivismTaskTable.kt",
+                    "ActivismTextBlockTable.kt",
+                    "ActivismMaterialDocumentTable.kt",
+                    "ActivismContributionTable.kt",
+                    "ActivismSignalTable.kt",
+                    "ActivismReportTable.kt",
+                    "ActivismNoticeTextTable.kt",
                 )
         }
 

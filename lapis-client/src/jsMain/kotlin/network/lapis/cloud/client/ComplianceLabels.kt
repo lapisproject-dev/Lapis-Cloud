@@ -209,6 +209,10 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.DIRECT_MESSAGE_GROUP_SEND -> gettext("Gruppennachricht")
         AuditEntityType.PARTNER_SERVER -> gettext("Partnerserver")
         AuditEntityType.PARTNER_BLOCKLIST -> gettext("Partnerserver-Sperrliste")
+        AuditEntityType.ACTIVISM_ACTION -> gettext("Aktion")
+        AuditEntityType.ACTIVISM_CONTRIBUTION -> gettext("Aktionsbeitrag")
+        AuditEntityType.ACTIVISM_REPORT -> gettext("Meldung zu einer Aktion")
+        AuditEntityType.ACTIVISM_SETTINGS -> gettext("Einstellungen der Aktionen")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -344,6 +348,10 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.DIRECT_MESSAGE_GROUP_SEND -> "secondary"
         AuditEntityType.PARTNER_SERVER -> "secondary"
         AuditEntityType.PARTNER_BLOCKLIST -> "secondary"
+        AuditEntityType.ACTIVISM_ACTION -> "secondary"
+        AuditEntityType.ACTIVISM_CONTRIBUTION -> "secondary"
+        AuditEntityType.ACTIVISM_REPORT -> "secondary"
+        AuditEntityType.ACTIVISM_SETTINGS -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

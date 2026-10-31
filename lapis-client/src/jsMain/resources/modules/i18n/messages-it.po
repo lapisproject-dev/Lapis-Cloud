@@ -29273,3 +29273,318 @@ msgstr "Tramite questo partner: %1 server, %2 eventi"
 
 msgid "Kennung bereits vergeben"
 msgstr "Identificativo già assegnato"
+
+msgid "%1 Personen kommen"
+msgstr "%1 persone vengono"
+
+msgid "%1 bis %2: %3 von %4 Plätzen besetzt"
+msgstr "%1 – %2: %3 posti su %4 occupati"
+
+msgid "%1 gemeldet, davon %2 bestätigt"
+msgstr "%1 segnalati, di cui %2 confermati"
+
+msgid "%1 von %2 %3"
+msgstr "%1 di %2 %3"
+
+msgid "Abgelehnt: %1"
+msgstr "Rifiutato: %1"
+
+msgid "Aktion bearbeiten"
+msgstr "Modifica azione"
+
+msgid "Aktion öffnen"
+msgstr "Apri azione"
+
+msgid "Aktionen sind Vorhaben der Organisation, zum Beispiel ein Infostand oder Plakatieren. Sie können Ideen anlegen, Fortschritt melden und zusagen."
+msgstr "Le azioni sono iniziative dell’organizzazione, ad esempio un banchetto informativo o l’affissione di manifesti. Può proporre idee, segnalare i progressi e confermare la sua presenza."
+
+msgid "Aktionsbeitrag"
+msgstr "Contributo a un’azione"
+
+msgid "Aktionstag"
+msgstr "Giornata d’azione"
+
+msgid "Alle Meldungen"
+msgstr "Tutte le segnalazioni"
+
+msgid "Art der Aktion"
+msgstr "Tipo di azione"
+
+msgid "Auf Standardtext zurücksetzen"
+msgstr "Ripristina il testo standard"
+
+msgid "Beteiligte"
+msgstr "Partecipanti"
+
+msgid "Beteiligte: %1"
+msgstr "Partecipanti: %1"
+
+msgid "Bitte beachten Sie die Regeln der genutzten Plattform und den Datenschutz."
+msgstr "Rispetti le regole della piattaforma utilizzata e la protezione dei dati."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 1.000.000 ein."
+msgstr "Inserisca un numero intero tra 1 e 1.000.000."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 10.000 ein."
+msgstr "Inserisca un numero intero tra 1 e 10.000."
+
+msgid "Bitte klären Sie vorab selbst, ob die Versammlung angezeigt oder angemeldet werden muss und bis wann."
+msgstr "Verifichi in anticipo se la riunione deve essere comunicata o registrata e entro quando."
+
+msgid "Bitte klären Sie vorab selbst, ob für Ihre Aktion Regeln oder Genehmigungen gelten."
+msgstr "Verifichi in anticipo se per la sua azione valgono regole o autorizzazioni."
+
+msgid "Bitte klären Sie vorab selbst, ob für das Sammeln von Unterschriften eine Erlaubnis nötig ist und was dabei gilt."
+msgstr "Verifichi in anticipo se per la raccolta di firme serve un’autorizzazione e quali regole valgono."
+
+msgid "Bitte klären Sie vorab selbst, ob für den Infostand eine Erlaubnis oder Anmeldung nötig ist."
+msgstr "Verifichi in anticipo se per il banchetto informativo serve un’autorizzazione o una registrazione."
+
+msgid "Bitte klären Sie vorab selbst, ob für die einzelnen Teile des Aktionstags eine Erlaubnis nötig ist."
+msgstr "Verifichi in anticipo se le singole parti della giornata d’azione richiedono un’autorizzazione."
+
+msgid "Bitte klären Sie vorab selbst, was bei Gesprächen an der Haustür gilt, und beachten Sie den Datenschutz."
+msgstr "Verifichi in anticipo che cosa vale per le conversazioni porta a porta e rispetti la protezione dei dati."
+
+msgid "Bitte klären Sie vorab selbst, wo und wie lange plakatiert werden darf und ob eine Erlaubnis nötig ist."
+msgstr "Verifichi in anticipo dove e per quanto tempo si possono affiggere manifesti e se serve un’autorizzazione."
+
+msgid "Bitte schreiben Sie keine Namen oder Angaben über andere Personen in diese Aktion. Alle Mitglieder können sie lesen."
+msgstr "Non scriva nomi o dati di altre persone in questa azione. Tutti i membri possono leggerla."
+
+msgid "Bitte schreiben Sie zwischen %1 und %2 Zeichen."
+msgstr "Scriva tra %1 e %2 caratteri."
+
+msgid "Danke. Die Meldung wurde weitergegeben."
+msgstr "Grazie. La segnalazione è stata inoltrata."
+
+msgid "Das Limit für diese Aktion ist erreicht. Bitte versuchen Sie es später erneut."
+msgstr "Il limite per questa azione è stato raggiunto. Riprovi più tardi."
+
+msgid "Das geht nur, solange die Aktion läuft (Ergebnis: sobald sie abgeschlossen ist)."
+msgstr "Questo è possibile solo finché l’azione è in corso (il risultato: a azione conclusa)."
+
+msgid "Der Text ist zu lang."
+msgstr "Il testo è troppo lungo."
+
+msgid "Der Titel ist zu lang."
+msgstr "Il titolo è troppo lungo."
+
+msgid "Deutschland"
+msgstr "Germania"
+
+msgid "Die Aktion wurde inzwischen geändert -- bitte laden Sie die Ansicht neu."
+msgstr "L’azione è stata nel frattempo modificata -- ricarichi la vista."
+
+msgid "Dieser Statuswechsel ist nicht möglich."
+msgstr "Questo cambio di stato non è possibile."
+
+msgid "Eigener Hinweis zu den Regeln"
+msgstr "Nota propria sulle regole"
+
+msgid "Eine Aktion hat mindestens eine und höchstens zehn verantwortliche Personen."
+msgstr "Un’azione ha almeno una e al massimo dieci persone responsabili."
+
+msgid "Eine Idee kann nicht von der Person freigegeben werden, die sie angelegt hat."
+msgstr "Un’idea non può essere approvata dalla persona che l’ha creata."
+
+msgid "Eine ganze Zahl, zum Beispiel 500."
+msgstr "Un numero intero, ad esempio 500."
+
+msgid "Einstellungen der Aktionen"
+msgstr "Impostazioni delle azioni"
+
+msgid "Einstellungen und Meldungen"
+msgstr "Impostazioni e segnalazioni"
+
+msgid "Einstellungen zu den Aktionen"
+msgstr "Impostazioni per le azioni"
+
+msgid "Ergebnis speichern"
+msgstr "Salva risultato"
+
+msgid "Fortschritt"
+msgstr "Avanzamento"
+
+msgid "Fortschritt melden"
+msgstr "Segnala l’avanzamento"
+
+msgid "Gebiet (optional)"
+msgstr "Zona (facoltativa)"
+
+msgid "Gemeldete Aktionen"
+msgstr "Azioni segnalate"
+
+msgid "Gemeldete Mengen müssen bestätigt werden"
+msgstr "Le quantità segnalate devono essere confermate"
+
+msgid "Georgien"
+msgstr "Georgia"
+
+msgid "Haustürgespräche"
+msgstr "Conversazioni porta a porta"
+
+msgid "Hier legen Sie die Hinweistexte je Land und Art fest und schalten die Freigabe von Ideen ein."
+msgstr "Qui imposta i testi di avviso per paese e tipo e attiva l’approvazione delle idee."
+
+msgid "Hinweis zu den Regeln"
+msgstr "Nota sulle regole"
+
+msgid "Hinweistexte"
+msgstr "Testi di avviso"
+
+msgid "Hinweistexte, Freigabe von Ideen, Meldungen"
+msgstr "Testi di avviso, approvazione delle idee, segnalazioni"
+
+msgid "Ich komme"
+msgstr "Vengo"
+
+msgid "Idee"
+msgstr "Idea"
+
+msgid "Ideen müssen von einer zweiten Person freigegeben werden"
+msgstr "Le idee devono essere approvate da una seconda persona"
+
+msgid "Im Dokumentenbereich öffnen"
+msgstr "Apri nell’area documenti"
+
+msgid "Infostand"
+msgstr "Banchetto informativo"
+
+msgid "Keine Rechtsberatung."
+msgstr "Non è consulenza legale."
+
+msgid "Keine offenen Meldungen."
+msgstr "Nessuna segnalazione aperta."
+
+msgid "Kundgebung oder Demonstration"
+msgstr "Comizio o manifestazione"
+
+msgid "Land speichern"
+msgstr "Salva paese"
+
+msgid "Leer lassen für den Standardtext."
+msgstr "Lasci vuoto per il testo standard."
+
+msgid "Liechtenstein"
+msgstr "Liechtenstein"
+
+msgid "Luxemburg"
+msgstr "Lussemburgo"
+
+msgid "Material"
+msgstr "Materiale"
+
+msgid "Meine Meldungen"
+msgstr "Le mie segnalazioni"
+
+msgid "Meldung erledigen"
+msgstr "Chiudi segnalazione"
+
+msgid "Meldung zu einer Aktion"
+msgstr "Segnalazione su un’azione"
+
+msgid "Menge: %1"
+msgstr "Quantità: %1"
+
+msgid "Mit Fortschritt (Menge melden)"
+msgstr "Con avanzamento (segnalare una quantità)"
+
+msgid "Mit Termin"
+msgstr "Con data"
+
+msgid "Mit Zusage (Ich komme)"
+msgstr "Con conferma (Vengo)"
+
+msgid "Mitmachen"
+msgstr "Partecipa"
+
+msgid "Nach Gebiet"
+msgstr "Per zona"
+
+msgid "Neue Aktion"
+msgstr "Nuova azione"
+
+msgid "Neue Aufgabe"
+msgstr "Nuovo compito"
+
+msgid "Nicht nachvollziehbar"
+msgstr "Non comprensibile"
+
+msgid "Noch keine Aktionen. Legen Sie eine Idee an."
+msgstr "Ancora nessuna azione. Crei un’idea."
+
+msgid "Online-Aktion"
+msgstr "Azione online"
+
+msgid "Plakatieren"
+msgstr "Affissione di manifesti"
+
+msgid "Schichten der Veranstaltung"
+msgstr "Turni dell’evento"
+
+msgid "Setzen auf: %1"
+msgstr "Imposta su: %1"
+
+msgid "Sie haben diese Aktion bereits gemeldet. Die Meldung wird geprüft."
+msgstr "Ha già segnalato questa azione. La segnalazione è in esame."
+
+msgid "Textbaustein hinzufügen"
+msgstr "Aggiungi blocco di testo"
+
+msgid "Textbausteine"
+msgstr "Blocchi di testo"
+
+msgid "Titel des Textbausteins"
+msgstr "Titolo del blocco di testo"
+
+msgid "Unterschriftensammlung"
+msgstr "Raccolta di firme"
+
+msgid "Verantwortlich"
+msgstr "Responsabile"
+
+msgid "Vorstand oder Administration"
+msgstr "Consiglio direttivo o amministrazione"
+
+msgid "Wann und wo"
+msgstr "Quando e dove"
+
+msgid "Wartet auf Freigabe"
+msgstr "In attesa di approvazione"
+
+msgid "Warum melden Sie diese Aktion?"
+msgstr "Perché segnala questa azione?"
+
+msgid "Was ist herausgekommen?"
+msgstr "Che cosa ne è risultato?"
+
+msgid "Weniger als %1 Personen haben zugesagt"
+msgstr "Meno di %1 persone hanno confermato la presenza"
+
+msgid "Ziel"
+msgstr "Obiettivo"
+
+msgid "Ziel und Fortschritt"
+msgstr "Obiettivo e avanzamento"
+
+msgid "Zielmenge"
+msgstr "Quantità obiettivo"
+
+msgid "Zu den Aktionen"
+msgstr "Alle azioni"
+
+msgid "Zum Beispiel Plakate oder Unterschriften."
+msgstr "Ad esempio manifesti o firme."
+
+msgid "Zurückgezogen: %1"
+msgstr "Ritirata: %1"
+
+msgid "Meldung zurücknehmen"
+msgstr "Annulla la mia segnalazione di avanzamento"
+
+msgid "Ohne Gebiet"
+msgstr "Senza zona"
+
+msgid "Zur Aktion"
+msgstr "All’azione"

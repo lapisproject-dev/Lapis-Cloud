@@ -193,6 +193,10 @@ class AuditLogSchemaDriftTest :
                             "DIRECT_MESSAGE_GROUP_SEND",
                             "PARTNER_SERVER",
                             "PARTNER_BLOCKLIST",
+                            "ACTIVISM_ACTION",
+                            "ACTIVISM_CONTRIBUTION",
+                            "ACTIVISM_REPORT",
+                            "ACTIVISM_SETTINGS",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

@@ -127,6 +127,7 @@ class SidebarGoldenTest {
                       /elections|Wahlen|fas fa-check-to-slot
                       /consensus|Konsensieren|fas fa-scale-balanced
                       /polls|Umfragen|fas fa-square-poll-horizontal
+                      /activism|Aktionen|fas fa-bullhorn
                     # Wirtschaft
                       /ltr-ledger|LTR-Konto|fas fa-wallet
                       /crowdfunding|Crowdfunding|fas fa-hand-holding-heart
@@ -164,6 +165,7 @@ class SidebarGoldenTest {
                       /elections|Wahlen|fas fa-check-to-slot
                       /consensus|Konsensieren|fas fa-scale-balanced
                       /polls|Umfragen|fas fa-square-poll-horizontal
+                      /activism|Aktionen|fas fa-bullhorn
                     # Wirtschaft
                       /ltr-ledger|LTR-Konto|fas fa-wallet
                       /crowdfunding|Crowdfunding|fas fa-hand-holding-heart
@@ -199,6 +201,7 @@ class SidebarGoldenTest {
                       /elections|Wahlen|fas fa-check-to-slot
                       /consensus|Konsensieren|fas fa-scale-balanced
                       /polls|Umfragen|fas fa-square-poll-horizontal
+                      /activism|Aktionen|fas fa-bullhorn
                     # Wirtschaft
                       /ltr-ledger|LTR-Konto|fas fa-wallet
                       /crowdfunding|Crowdfunding|fas fa-hand-holding-heart
@@ -234,6 +237,7 @@ class SidebarGoldenTest {
                       /elections|Wahlen|fas fa-check-to-slot
                       /consensus|Konsensieren|fas fa-scale-balanced
                       /polls|Umfragen|fas fa-square-poll-horizontal
+                      /activism|Aktionen|fas fa-bullhorn
                     # Wirtschaft
                       /ltr-ledger|LTR-Konto|fas fa-wallet
                       /crowdfunding|Crowdfunding|fas fa-hand-holding-heart
@@ -288,6 +292,7 @@ class SidebarGoldenTest {
                       /elections|Wahlen|fas fa-check-to-slot
                       /consensus|Konsensieren|fas fa-scale-balanced
                       /polls|Umfragen|fas fa-square-poll-horizontal
+                      /activism|Aktionen|fas fa-bullhorn
                     # Wirtschaft
                       /ltr-ledger|LTR-Konto|fas fa-wallet
                       /crowdfunding|Crowdfunding|fas fa-hand-holding-heart
@@ -360,6 +365,7 @@ class SidebarGoldenTest {
                       /elections|Wahlen|fas fa-check-to-slot
                       /consensus|Konsensieren|fas fa-scale-balanced
                       /polls|Umfragen|fas fa-square-poll-horizontal
+                      /activism|Aktionen|fas fa-bullhorn
                     # Wirtschaft
                       /ltr-ledger|LTR-Konto|fas fa-wallet
                       /crowdfunding|Crowdfunding|fas fa-hand-holding-heart

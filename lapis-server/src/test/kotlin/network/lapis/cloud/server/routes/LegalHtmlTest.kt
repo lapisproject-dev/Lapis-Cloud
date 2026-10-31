@@ -311,6 +311,8 @@ class LegalHtmlTest :
                     "communication" to "interne Kommunikation",
                     "carpool" to "Mitfahrerzentrale",
                     "polls" to "Umfragen",
+                    // V1.9.246 -- the actions: responsible persons, reported quantities and the bare "I come" signals.
+                    "activism" to "Aktionen (Planung von Vorhaben der Organisation)",
                     // V1.9.147 -- the conditional finder paragraph exists now (rendered with memberFinderEnabled = true above).
                     "memberFinder" to "Mitglieder-Finder",
                     "governance" to "Gremien",

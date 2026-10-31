@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.246 -- Actions, wave A1: planning core
+
+**New module "Aktionen".** Members propose actions (information stand, posters, signatures, rally, action day, door-to-door, online), a responsible group (1 to 10 persons) plans them, members report progress and say "I come", the result is recorded. **Additive migration V133 (V131/V132 are not edited), nine tables `activism_*`, two columns of `organization_settings`, four audit entity types, `IActivismService` (37 methods) as the last `registerService`.**
+
+- **Lifecycle.** IDEA -> PLANNED -> RUNNING -> COMPLETED, plus AWAITING_REVIEW (operator switch "Ideen müssen freigegeben werden", approval by a manager other than the creator) and WITHDRAWN (manager, reason, closes open reports; restorable). Rights: MEMBER, RESPONSIBLE, MANAGER (BOARD or ADMIN) from one resolver; an invisible action answers like an unknown one.
+- **Forms.** Appointment, progress (goal, unit, optional confirmation, 24-hour edit window, 30 per member and action and day, area sums without names), "Ich komme" (number only from 5, never a list of persons, no time column, not audited, not in the backup).
+- **Also.** Checklist, text blocks with copy button, links to existing documents (filtered by what the viewer may read), cost centre and event links (managers; shift numbers without names), reports to the operator (no reporter name), notice texts per kind and country with the line "Keine Rechtsberatung.".
+- **Missing on purpose.** No LTR remuneration (planned for wave A5), no public page, no federation of actions, no upload inside an action, no content filter of any kind.
+- **Data protection.** Audit holds ids, enums, counts and the length and hash of texts, never free text; DSGVO contributor for export and erasure.
+- **Not verified:** with several real users; the Postgres lane ran the store scenarios (races, savepoint).
+
 ### V1.9.245 -- Partner servers, wave P2: partners of partners, provenance, filter
 
 **Behaviour change first:** the recursion is **on by default** (depth 2), `/veranstaltungen` now also lists the cached events of the partners (and of their partners) next to the own ones, and every such entry names its origin.

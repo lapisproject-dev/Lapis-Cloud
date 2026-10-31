@@ -8324,6 +8324,19 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   }
 }
 
+/* V1.9.246 "Aktionen A1": texts keep their line breaks; the progress bar is a native <progress> (no inline style, no transition). */
+.lapis-pre-line {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.lapis-progress {
+  width: 100%;
+  max-width: 32rem;
+  height: 0.75rem;
+  accent-color: var(--lapis-accent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   body,
   .lapis-conference-background-preview,

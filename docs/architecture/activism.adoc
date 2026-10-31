@@ -1,0 +1,101 @@
+= Actions: architecture (V1.9.246 wave A1)
+:toc:
+
+NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+See link:../features/activism.adoc[the feature description] for what a person sees. This page records the structure, the locks and the data-protection decisions.
+
+== Tables
+
+Association tables carry a surrogate `id` and a UNIQUE pair because the ERM profile has no composite primary key. `activism_signal` deliberately has no time, text or photo column.
+
+[kuml, activism-model, svg]
+----
+classDiagram(name = "Actions -- tables") {
+    val action = classOf(name = "activism_action") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "title", type = "String")
+        attribute(name = "kind", type = "String")
+        attribute(name = "status", type = "String")
+        attribute(name = "revision", type = "Int")
+    }
+    val responsible = classOf(name = "activism_responsible") {
+        attribute(name = "action_id", type = "UUID")
+        attribute(name = "member_id", type = "UUID")
+    }
+    val task = classOf(name = "activism_task") {
+        attribute(name = "position", type = "Int")
+        attribute(name = "text", type = "String")
+    }
+    val block = classOf(name = "activism_text_block") {
+        attribute(name = "position", type = "Int")
+        attribute(name = "body", type = "String")
+    }
+    val material = classOf(name = "activism_material_document") {
+        attribute(name = "document_id", type = "UUID")
+    }
+    val contribution = classOf(name = "activism_contribution") {
+        attribute(name = "quantity", type = "Int")
+        attribute(name = "status", type = "String")
+    }
+    val signal = classOf(name = "activism_signal") {
+        attribute(name = "member_id", type = "UUID")
+    }
+    val report = classOf(name = "activism_report") {
+        attribute(name = "reason", type = "String")
+        attribute(name = "status", type = "String")
+    }
+    val notice = classOf(name = "activism_notice_text") {
+        attribute(name = "country_code", type = "String")
+        attribute(name = "kind", type = "String")
+    }
+    association(from = action, to = responsible)
+    association(from = action, to = task)
+    association(from = action, to = block)
+    association(from = action, to = material)
+    association(from = action, to = contribution)
+    association(from = action, to = signal)
+    association(from = action, to = report)
+}
+----
+
+== Status machine
+
+The single definition is `ActivismTransitions` in `lapis-shared`; the service and the client both use it.
+
+[kuml, activism-status, svg]
+----
+stateDiagram(name = "Status of an action") {
+    val idea = state(name = "IDEA")
+    val review = state(name = "AWAITING_REVIEW")
+    val planned = state(name = "PLANNED")
+    val running = state(name = "RUNNING")
+    val completed = state(name = "COMPLETED")
+    val withdrawn = state(name = "WITHDRAWN")
+    transition(from = idea, to = planned, label = "manager, switch off")
+    transition(from = idea, to = review, label = "submit, switch on")
+    transition(from = review, to = planned, label = "approve (not the creator)")
+    transition(from = review, to = idea, label = "reject with reason")
+    transition(from = planned, to = running, label = "responsible")
+    transition(from = running, to = completed, label = "responsible")
+    transition(from = completed, to = running, label = "manager")
+    transition(from = idea, to = withdrawn, label = "manager")
+    transition(from = planned, to = withdrawn, label = "manager")
+    transition(from = running, to = withdrawn, label = "manager")
+    transition(from = withdrawn, to = idea, label = "restore")
+}
+----
+
+== Locks and concurrency
+
+Every write takes the `activism_action` row `FOR UPDATE` first, then child rows, then (settings setters only) the settings row, and the audit chain row last. No member row is locked. The per-action caps (30 contributions per member, one open report per member) are counted *under the action lock*, so parallel requests cannot slip past them; the Postgres lane runs 40 parallel contribution reports and expects exactly 30. The 5-reports-per-24-hours cap counts across all actions of the reporter while only one action row is locked, so it is a soft cap: parallel reports on different actions can exceed it slightly. The in-process throttle (`ActivismRateLimiter`) runs before the transaction and never inside it. A unique violation (signal pair) is caught under a savepoint, so PostgreSQL does not abort the transaction.
+
+== Single owners (pinned by `ActivismTripwireTest`)
+
+* `ActivismStore` is the only reader and writer of the `activism_*` tables and the two settings columns; `ActivismSignalStore` is the only code that touches `activism_signal` and has no function returning the persons behind a signal. Exceptions: `ActivismPersonalData` and `OrganizationSchemaCatalog`.
+* `ActivismAccessPolicy` is the only rights resolver; the service names no account role.
+* The package contains no LTR reference and no content filter.
+
+== Open decisions with their defaults
+
+F1 FRIEND/GUEST do not take part (extension point `ACTIVISM_PARTICIPANT`); F2 material is linked, not uploaded; F3 no second approval after changes; F4 the operator does not see who reported; F5 signals are not in the backup; F6 area sums are shown even for one contributing person; F7 "per day" is a rolling 24 hours; F8 BOARD and ADMIN are the operator, TREASURER is not.

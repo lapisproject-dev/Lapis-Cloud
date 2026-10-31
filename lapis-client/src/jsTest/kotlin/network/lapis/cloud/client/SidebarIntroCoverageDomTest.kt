@@ -149,7 +149,7 @@ class SidebarIntroCoverageDomTest {
             assertTrue(intro.viewKey.matches(Regex("[a-z]+(-[a-z]+)*")), "view key of $route is a code constant: ${intro.viewKey}")
         }
         assertEquals(PageIntros.routes.size, PageIntros.routes.toSet().size, "no route twice")
-        assertEquals(79, PageIntros.routes.size, "23 views of Part 1 plus 56 of Part 2")
+        assertEquals(80, PageIntros.routes.size, "23 views of Part 1 plus 57 of Part 2")
         val keys = PageIntros.routes.map { PageIntros.forRoute(it)!!.viewKey }
         assertEquals(keys.size, keys.toSet().size, "every view has its own storage key")
         assertEquals("travel-expenses", PageIntros.forRoute(Routes.TRAVEL_EXPENSES)?.helpTopic)

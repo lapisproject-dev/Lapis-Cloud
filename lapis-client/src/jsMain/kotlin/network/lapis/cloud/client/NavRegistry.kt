@@ -151,6 +151,7 @@ internal object NavRegistry {
             add(entry(Routes.ELECTIONS, tr("Wahlen"), "fas fa-check-to-slot", s) { NavVisibility.showsElections(it.session.status) })
             add(entry(Routes.CONSENSUS, tr("Konsensieren"), "fas fa-scale-balanced", s) { NavVisibility.showsConsensus(it.session.status) })
             add(entry(Routes.POLLS, tr("Umfragen"), "fas fa-square-poll-horizontal", s) { NavVisibility.showsPolls(it.session.status) })
+            add(entry(Routes.ACTIVISM, tr("Aktionen"), "fas fa-bullhorn", s) { NavVisibility.showsActivism(it.session.status) })
 
             // ── Wirtschaft ───
             val e = SidebarGroupId.ECONOMY

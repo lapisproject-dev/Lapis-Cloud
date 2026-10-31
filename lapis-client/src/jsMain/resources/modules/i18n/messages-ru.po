@@ -29235,3 +29235,318 @@ msgstr "Через этого партнёра: серверов: %1, мероп
 
 msgid "Kennung bereits vergeben"
 msgstr "Идентификатор уже занят"
+
+msgid "%1 Personen kommen"
+msgstr "%1 человек придёт"
+
+msgid "%1 bis %2: %3 von %4 Plätzen besetzt"
+msgstr "%1 – %2: занято %3 из %4 мест"
+
+msgid "%1 gemeldet, davon %2 bestätigt"
+msgstr "%1 сообщено, из них %2 подтверждено"
+
+msgid "%1 von %2 %3"
+msgstr "%1 из %2 %3"
+
+msgid "Abgelehnt: %1"
+msgstr "Отклонено: %1"
+
+msgid "Aktion bearbeiten"
+msgstr "Изменить акцию"
+
+msgid "Aktion öffnen"
+msgstr "Открыть акцию"
+
+msgid "Aktionen sind Vorhaben der Organisation, zum Beispiel ein Infostand oder Plakatieren. Sie können Ideen anlegen, Fortschritt melden und zusagen."
+msgstr "Акции — это начинания организации, например информационный стенд или расклейка плакатов. Вы можете предлагать идеи, сообщать о ходе работ и подтверждать участие."
+
+msgid "Aktionsbeitrag"
+msgstr "Вклад в акцию"
+
+msgid "Aktionstag"
+msgstr "День акции"
+
+msgid "Alle Meldungen"
+msgstr "Все сообщения"
+
+msgid "Art der Aktion"
+msgstr "Тип акции"
+
+msgid "Auf Standardtext zurücksetzen"
+msgstr "Сбросить на стандартный текст"
+
+msgid "Beteiligte"
+msgstr "Участники"
+
+msgid "Beteiligte: %1"
+msgstr "Участники: %1"
+
+msgid "Bitte beachten Sie die Regeln der genutzten Plattform und den Datenschutz."
+msgstr "Соблюдайте правила используемой платформы и требования защиты данных."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 1.000.000 ein."
+msgstr "Введите целое число от 1 до 1 000 000."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 10.000 ein."
+msgstr "Введите целое число от 1 до 10 000."
+
+msgid "Bitte klären Sie vorab selbst, ob die Versammlung angezeigt oder angemeldet werden muss und bis wann."
+msgstr "Заранее выясните сами, нужно ли уведомлять о собрании или регистрировать его и в какой срок."
+
+msgid "Bitte klären Sie vorab selbst, ob für Ihre Aktion Regeln oder Genehmigungen gelten."
+msgstr "Заранее выясните сами, действуют ли для вашей акции правила или требуются разрешения."
+
+msgid "Bitte klären Sie vorab selbst, ob für das Sammeln von Unterschriften eine Erlaubnis nötig ist und was dabei gilt."
+msgstr "Заранее выясните сами, нужно ли разрешение на сбор подписей и какие правила действуют."
+
+msgid "Bitte klären Sie vorab selbst, ob für den Infostand eine Erlaubnis oder Anmeldung nötig ist."
+msgstr "Заранее выясните сами, нужно ли разрешение или уведомление для информационного стенда."
+
+msgid "Bitte klären Sie vorab selbst, ob für die einzelnen Teile des Aktionstags eine Erlaubnis nötig ist."
+msgstr "Заранее выясните сами, нужно ли разрешение для отдельных частей дня акции."
+
+msgid "Bitte klären Sie vorab selbst, was bei Gesprächen an der Haustür gilt, und beachten Sie den Datenschutz."
+msgstr "Заранее выясните сами, что действует при разговорах у двери, и соблюдайте защиту данных."
+
+msgid "Bitte klären Sie vorab selbst, wo und wie lange plakatiert werden darf und ob eine Erlaubnis nötig ist."
+msgstr "Заранее выясните сами, где и как долго разрешено расклеивать плакаты и нужно ли разрешение."
+
+msgid "Bitte schreiben Sie keine Namen oder Angaben über andere Personen in diese Aktion. Alle Mitglieder können sie lesen."
+msgstr "Не указывайте в этой акции имена и данные других людей. Её могут прочитать все участники."
+
+msgid "Bitte schreiben Sie zwischen %1 und %2 Zeichen."
+msgstr "Напишите от %1 до %2 символов."
+
+msgid "Danke. Die Meldung wurde weitergegeben."
+msgstr "Спасибо. Сообщение передано."
+
+msgid "Das Limit für diese Aktion ist erreicht. Bitte versuchen Sie es später erneut."
+msgstr "Достигнут лимит для этой акции. Повторите попытку позже."
+
+msgid "Das geht nur, solange die Aktion läuft (Ergebnis: sobald sie abgeschlossen ist)."
+msgstr "Это возможно только пока акция идёт (результат — после её завершения)."
+
+msgid "Der Text ist zu lang."
+msgstr "Текст слишком длинный."
+
+msgid "Der Titel ist zu lang."
+msgstr "Заголовок слишком длинный."
+
+msgid "Deutschland"
+msgstr "Германия"
+
+msgid "Die Aktion wurde inzwischen geändert -- bitte laden Sie die Ansicht neu."
+msgstr "Акция уже была изменена — перезагрузите страницу."
+
+msgid "Dieser Statuswechsel ist nicht möglich."
+msgstr "Такая смена статуса невозможна."
+
+msgid "Eigener Hinweis zu den Regeln"
+msgstr "Собственное примечание о правилах"
+
+msgid "Eine Aktion hat mindestens eine und höchstens zehn verantwortliche Personen."
+msgstr "У акции должно быть от одного до десяти ответственных лиц."
+
+msgid "Eine Idee kann nicht von der Person freigegeben werden, die sie angelegt hat."
+msgstr "Идею не может утвердить тот, кто её создал."
+
+msgid "Eine ganze Zahl, zum Beispiel 500."
+msgstr "Целое число, например 500."
+
+msgid "Einstellungen der Aktionen"
+msgstr "Настройки акций"
+
+msgid "Einstellungen und Meldungen"
+msgstr "Настройки и сообщения"
+
+msgid "Einstellungen zu den Aktionen"
+msgstr "Настройки акций"
+
+msgid "Ergebnis speichern"
+msgstr "Сохранить результат"
+
+msgid "Fortschritt"
+msgstr "Ход работ"
+
+msgid "Fortschritt melden"
+msgstr "Сообщить о ходе работ"
+
+msgid "Gebiet (optional)"
+msgstr "Район (необязательно)"
+
+msgid "Gemeldete Aktionen"
+msgstr "Акции, на которые поступили жалобы"
+
+msgid "Gemeldete Mengen müssen bestätigt werden"
+msgstr "Сообщённые количества должны быть подтверждены"
+
+msgid "Georgien"
+msgstr "Грузия"
+
+msgid "Haustürgespräche"
+msgstr "Беседы у двери"
+
+msgid "Hier legen Sie die Hinweistexte je Land und Art fest und schalten die Freigabe von Ideen ein."
+msgstr "Здесь вы задаёте тексты примечаний для страны и типа акции и включаете утверждение идей."
+
+msgid "Hinweis zu den Regeln"
+msgstr "Примечание о правилах"
+
+msgid "Hinweistexte"
+msgstr "Тексты примечаний"
+
+msgid "Hinweistexte, Freigabe von Ideen, Meldungen"
+msgstr "Тексты примечаний, утверждение идей, сообщения"
+
+msgid "Ich komme"
+msgstr "Я приду"
+
+msgid "Idee"
+msgstr "Идея"
+
+msgid "Ideen müssen von einer zweiten Person freigegeben werden"
+msgstr "Идеи должен утверждать второй человек"
+
+msgid "Im Dokumentenbereich öffnen"
+msgstr "Открыть в разделе документов"
+
+msgid "Infostand"
+msgstr "Информационный стенд"
+
+msgid "Keine Rechtsberatung."
+msgstr "Это не юридическая консультация."
+
+msgid "Keine offenen Meldungen."
+msgstr "Открытых сообщений нет."
+
+msgid "Kundgebung oder Demonstration"
+msgstr "Митинг или демонстрация"
+
+msgid "Land speichern"
+msgstr "Сохранить страну"
+
+msgid "Leer lassen für den Standardtext."
+msgstr "Оставьте пустым для стандартного текста."
+
+msgid "Liechtenstein"
+msgstr "Лихтенштейн"
+
+msgid "Luxemburg"
+msgstr "Люксембург"
+
+msgid "Material"
+msgstr "Материалы"
+
+msgid "Meine Meldungen"
+msgstr "Мои сообщения"
+
+msgid "Meldung erledigen"
+msgstr "Закрыть сообщение"
+
+msgid "Meldung zu einer Aktion"
+msgstr "Сообщение об акции"
+
+msgid "Menge: %1"
+msgstr "Количество: %1"
+
+msgid "Mit Fortschritt (Menge melden)"
+msgstr "С отслеживанием хода (сообщать количество)"
+
+msgid "Mit Termin"
+msgstr "С датой"
+
+msgid "Mit Zusage (Ich komme)"
+msgstr "С подтверждением (Я приду)"
+
+msgid "Mitmachen"
+msgstr "Участвовать"
+
+msgid "Nach Gebiet"
+msgstr "По районам"
+
+msgid "Neue Aktion"
+msgstr "Новая акция"
+
+msgid "Neue Aufgabe"
+msgstr "Новая задача"
+
+msgid "Nicht nachvollziehbar"
+msgstr "Непонятно"
+
+msgid "Noch keine Aktionen. Legen Sie eine Idee an."
+msgstr "Акций пока нет. Предложите идею."
+
+msgid "Online-Aktion"
+msgstr "Онлайн-акция"
+
+msgid "Plakatieren"
+msgstr "Расклейка плакатов"
+
+msgid "Schichten der Veranstaltung"
+msgstr "Смены мероприятия"
+
+msgid "Setzen auf: %1"
+msgstr "Установить: %1"
+
+msgid "Sie haben diese Aktion bereits gemeldet. Die Meldung wird geprüft."
+msgstr "Вы уже сообщили об этой акции. Сообщение проверяется."
+
+msgid "Textbaustein hinzufügen"
+msgstr "Добавить текстовый блок"
+
+msgid "Textbausteine"
+msgstr "Текстовые блоки"
+
+msgid "Titel des Textbausteins"
+msgstr "Заголовок текстового блока"
+
+msgid "Unterschriftensammlung"
+msgstr "Сбор подписей"
+
+msgid "Verantwortlich"
+msgstr "Ответственный"
+
+msgid "Vorstand oder Administration"
+msgstr "Правление или администрация"
+
+msgid "Wann und wo"
+msgstr "Когда и где"
+
+msgid "Wartet auf Freigabe"
+msgstr "Ожидает утверждения"
+
+msgid "Warum melden Sie diese Aktion?"
+msgstr "Почему вы сообщаете об этой акции?"
+
+msgid "Was ist herausgekommen?"
+msgstr "Каков результат?"
+
+msgid "Weniger als %1 Personen haben zugesagt"
+msgstr "Менее %1 человек подтвердили участие"
+
+msgid "Ziel"
+msgstr "Цель"
+
+msgid "Ziel und Fortschritt"
+msgstr "Цель и ход работ"
+
+msgid "Zielmenge"
+msgstr "Целевое количество"
+
+msgid "Zu den Aktionen"
+msgstr "К акциям"
+
+msgid "Zum Beispiel Plakate oder Unterschriften."
+msgstr "Например, плакаты или подписи."
+
+msgid "Zurückgezogen: %1"
+msgstr "Отозвано: %1"
+
+msgid "Meldung zurücknehmen"
+msgstr "Отозвать моё сообщение о ходе работ"
+
+msgid "Ohne Gebiet"
+msgstr "Без района"
+
+msgid "Zur Aktion"
+msgstr "К акции"

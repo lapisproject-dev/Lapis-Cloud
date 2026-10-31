@@ -1025,3 +1025,47 @@ class DirectMessageGroupTooLargeException(
 class DirectMessageRateLimitedException(
     override val message: String = "Too many messages in a short time",
 ) : AbstractServiceException()
+
+// ---- V1.9.246: "Aktionen A1". Fixed texts, never an id, a name or a title. Kilua RPC transports the type, not the text. ----
+
+/** A permanent limit of the activism module was reached (contributions per day, reports per day, a second open report, list lengths). */
+@RpcServiceException
+class ActivismLimitReachedException(
+    override val message: String = "A limit of the action module was reached",
+) : AbstractServiceException()
+
+/** The call needs the action to be running (contribution, signal) or completed (result) and it is not. */
+@RpcServiceException
+class ActivismNotRunningException(
+    override val message: String = "The action is not in the required state",
+) : AbstractServiceException()
+
+/** An idea cannot be approved by the person who created it. */
+@RpcServiceException
+class ActivismSelfApprovalException(
+    override val message: String = "An action cannot be approved by its creator",
+) : AbstractServiceException()
+
+/** The action was changed meanwhile ([network.lapis.cloud.shared.domain.ActivismActionDetailDto.revision] no longer matches). */
+@RpcServiceException
+class ActivismRevisionConflictException(
+    override val message: String = "The action was changed meanwhile",
+) : AbstractServiceException()
+
+/** The caller already has an open report for this action. */
+@RpcServiceException
+class ActivismReportOpenException(
+    override val message: String = "There is already an open report",
+) : AbstractServiceException()
+
+/** An action has 1 to 10 responsible persons. */
+@RpcServiceException
+class ActivismResponsibleLimitException(
+    override val message: String = "An action needs 1 to 10 responsible persons",
+) : AbstractServiceException()
+
+/** The requested status change is not allowed from the current status (or not for the caller's role). */
+@RpcServiceException
+class ActivismInvalidTransitionException(
+    override val message: String = "This status change is not allowed",
+) : AbstractServiceException()

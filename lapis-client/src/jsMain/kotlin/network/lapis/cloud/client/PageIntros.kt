@@ -225,6 +225,14 @@ internal object PageIntros {
                             "Ihre Antwort ist anonym, das Ergebnis sehen Sie erst nach dem Ende der Umfrage.",
                     ),
                 )
+            Routes.ACTIVISM ->
+                PageIntroDef(
+                    "activism",
+                    tr(
+                        "Aktionen sind Vorhaben der Organisation, zum Beispiel ein Infostand oder Plakatieren. " +
+                            "Sie können Ideen anlegen, Fortschritt melden und zusagen.",
+                    ),
+                )
             Routes.LTR_LEDGER ->
                 PageIntroDef(
                     "ltr-ledger",
@@ -673,6 +681,7 @@ internal object PageIntros {
             Routes.ELECTIONS,
             Routes.CONSENSUS,
             Routes.POLLS,
+            Routes.ACTIVISM,
             Routes.LTR_LEDGER,
             Routes.CROWDFUNDING,
             Routes.AUCTION,

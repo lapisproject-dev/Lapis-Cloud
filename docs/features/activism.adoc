@@ -1,0 +1,62 @@
+= Actions (V1.9.246 wave A1: planning core)
+:toc:
+
+An **action** is an undertaking of the organisation: an information stand, putting up posters, collecting signatures, a rally, an action day, door-to-door talks, an online action.
+Wave A1 is the *planning core*: members propose ideas, a responsible group plans them, members report progress and say "I come", and the result is recorded.
+
+NOTE: What is *not* in this wave: no LTR remuneration (planned for wave A5), no public page, no federation of actions between servers, no upload inside an action.
+
+== Who may do what
+
+Everything requires a member whose status is in `MemberStatusSets.ACTIVISM_PARTICIPANT` (today: active members; FRIEND, GUEST and APPLICATION are refused). Per action there are three roles:
+
+[cols="1,3",options="header"]
+|===
+|Role |Rights
+|MEMBER |Sees actions from PLANNED on; reports progress and signals while the action is RUNNING; withdraws their own report within 24 hours; reports an action to the operator
+|RESPONSIBLE (1 to 10 persons per action; the creator at first) |Edits the action, moves it between PLANNED, RUNNING and COMPLETED, confirms or rejects reported contributions, keeps the checklist, the text blocks and the material, records the result; sees the idea while it is IDEA or AWAITING_REVIEW
+|MANAGER (account role BOARD or ADMIN; a TREASURER is *not* a manager) |Everything above, plus: moves an IDEA to PLANNED (or approves it), sets the responsible persons, the cost centre and the event, withdraws and restores actions, writes the notice texts, switches the approval rule, resolves reports
+|===
+
+An action the person must not see answers exactly like an unknown id (`NotFoundException("Not found")`): there is no way to find out that an idea exists.
+
+== The life of an action
+
+An idea starts as IDEA. With the operator's switch **"Ideen müssen freigegeben werden"** off, a manager plans it directly. With the switch on, a responsible person submits it (AWAITING_REVIEW) and a manager *other than its creator* approves (or rejects it with a reason, back to IDEA). From PLANNED on at least one form must be ticked. COMPLETED back to RUNNING is a manager decision. A manager can withdraw an action from any status (reason of 10 to 500 characters); this closes its open reports. A withdrawn action can be restored as an IDEA.
+
+== The three optional forms
+
+* **Termin** -- start and end (organisation wall clock) and the place.
+* **Fortschritt** -- a goal quantity with a unit; members report "I put up 40 posters" (1 to 10,000, optional area and note). The operator of the action may require confirmation by a responsible person. The page shows `X gemeldet, davon Y bestätigt`; a rejected report does not count. A member may change or withdraw a report within 24 hours while it is still unconfirmed.
+* **Ich komme** -- a bare signal. The number appears only from **5** signals ("weniger als 5" below); there is never a list of persons.
+
+== Limits
+
+* 30 contributions per member and action in a rolling 24 hours (counted in the database under the action lock, so a restart does not reset it); 5 reports per member in 24 hours; one open report per member and action.
+* In-process throttles: 20 contributions or signals per minute, 10 report attempts per hour, 30 candidate searches per minute.
+* 100 checklist entries, 30 text blocks, 30 linked documents, 10 responsible persons.
+* Every text is plain text (no HTML, no Markdown) with NFC normalisation and control and bidi characters removed; over-long text is rejected, not cut.
+
+== Rules notice, no legal advice
+
+The detail page shows a notice that depends on the kind of action and the country chosen by the operator. The operator writes the text per kind (up to 2,000 characters); without a text the page shows a neutral translated standard sentence. Below it always stands **"Keine Rechtsberatung."** The module does *not* judge texts: above "Speichern" is a static reminder not to write names or details about other people, with no check, no tick box and no block.
+
+== Material
+
+Material is a *link to an existing document* (the document module does the upload and the rights). Linking needs read access to the document; when the page is read, documents the *viewer* may not read are left out.
+
+== Data protection
+
+* **Signals** (`activism_signal`) carry no time, no text and no photo, are never audited, are excluded from the backup and are counted only for members who are currently participants. The residual risk of a difference attack (the count jumps from 4 to 5 and the fifth person knows the four others take part) is accepted and documented.
+* **Area sums** are shown without names; an area with one contributing person is indirectly identifiable (accepted).
+* The audit log records ids, enums, counts and the length and SHA-256 of a text, never free text. A report is not audited when it is made, so the reporting person is not recorded in the log.
+* The report list for the operator shows **no name** of the reporting person.
+* DSGVO: export of the own actions, contributions, signals, reports and tasks; erasure deletes signals and responsible rows and anonymises the other member columns (a contribution keeps its quantity for the counter).
+
+== Where to find it
+
+Sidebar group *Selbstverwaltung*, entry *Aktionen* (`/activism`); settings and reports for BOARD and ADMIN at `/activism/settings` (also linked from the section *Aktionen* of the page *Organisation*). RPC: `IActivismService` (the last `registerService`, 37 methods). Schema: migration V133, model `80-activism.kuml.kts`. Architecture: link:../architecture/activism.adoc[activism architecture].
+
+== Not verified
+
+Not tried against a real second user group in production; the Postgres lane ran the store scenarios (races of the caps, unique pair of a signal under a savepoint). The links to documents and the shifts of a linked event use the existing readers and were tested on H2.

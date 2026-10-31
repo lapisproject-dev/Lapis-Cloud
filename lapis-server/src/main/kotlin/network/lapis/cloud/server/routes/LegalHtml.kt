@@ -424,6 +424,14 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Aktionen (Planung von Vorhaben der Organisation) — Art. 6 Abs. 1 lit. f DSGVO. Gespeichert wird, " +
+                        "wer für eine Aktion verantwortlich ist, welche Mengen ein Mitglied meldet und dass ein Mitglied " +
+                        "seine Teilnahme zugesagt hat; Zusagen werden nie einzeln angezeigt, sondern erst ab fünf Personen " +
+                        "als Zahl, und sie sind nicht Teil der Datensicherung. Ein Mitglied kann jede eigene Zusage jederzeit widerrufen."
+                )
+            }
+            li {
+                +(
                     "Öffentlich einsehbare Beiträge im integrierten sozialen Netzwerk (sofern aktiv genutzt) — " +
                         "Art. 6 Abs. 1 lit. b DSGVO; die Veröffentlichung erfolgt durch das Mitglied selbst."
                 )

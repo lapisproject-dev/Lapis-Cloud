@@ -111,6 +111,11 @@ object OrganizationSchemaCatalog {
                 "Welle V1.9.244. Cache of the public events of the partner servers, refilled hourly by the PartnerFeedPoller. " +
                 "Restoring stale foreign data would show outdated events; partner_server and partner_blocklist ARE backed up " +
                 "(see docs/features/partner-servers.adoc).",
+            "activism_signal" to
+                "Welle V1.9.246. A bare \"I would take part\" of a member for an action: political and therefore Art. 9 DSGVO relevant, " +
+                "and only ever shown as an aggregate (>= 5). The ADMIN-only whole-organization backup must not become a way to read who " +
+                "signalled; after a restore the counter starts at zero and members signal again. Same precedent as member_finder " +
+                "(see docs/features/activism.adoc).",
             "partner_discovered_server" to
                 "Welle V1.9.245. Servers reached THROUGH the direct partners (hop >= 2) -- a pure cache of foreign data that the " +
                 "PartnerFeedPoller rediscovers within a few runs from the backed-up partner_server rows. Restoring stale foreign " +

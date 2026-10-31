@@ -571,6 +571,11 @@ private val R24_MIGRATED: Set<String> =
         // `form.submit`; the other writes (Aktiv, Entfernen, Entsperren, the list switch) go through `runGuardedAction`. The two checkboxes are
         // IMMEDIATE SWITCHES, justified in R24B_JUSTIFIED.
         "PartnerServersScreen.kt",
+        // Welle V1.9.246 "Aktionen A1": born on the form grammar -- every form is a `lapisForm` whose write goes through `form.submit`; the other writes go
+        // through `runGuardedAction`. The checkboxes are IMMEDIATE SWITCHES or filters, justified in R24B_JUSTIFIED.
+        "ActivismFormScreen.kt",
+        "ActivismDetailScreen.kt",
+        "ActivismNoticeSettingsScreen.kt",
         // Welle V1.9.12 "Mitfahrzentrale": every labelled text field (Von/Nach/Abfahrtsdatum/
         // Abfahrtszeit/Freie Plätze/Notiz in the create/edit form, Nachricht in the contact form)
         // goes through `lapisForm`'s `textField`/`textAreaField`/`selectField` from the start --
@@ -585,6 +590,8 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         // The factories themselves (`textField`/`passwordField`/`textAreaField`/`selectField`/`checkField` call the raw widget):
         // strict too, with the five raw calls justified below -- a sixth raw call in there is a finding, not a silent one.
         "FormGrammar.kt",
+        // Welle V1.9.246 "Aktionen A1": the list holds only the status filter chips (justified below, R24B_JUSTIFIED) and navigation buttons -- no form.
+        "ActivismScreen.kt",
         "PaymentGatewaySettingsScreen.kt",
         "EmbedIntegrationScreen.kt",
         // W4b: only filters / a selector (justified below), or no field at all (PostalMailScreen: two bespoke confirm modals).
@@ -891,6 +898,20 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
                 // Welle V1.9.245 "Partnerserver P2" -- the same IMMEDIATE SWITCHES reason: the recursion switch and its depth save themselves on change.
                 "val recursionToggle = box.checkBox(value = settings.enabled, label = tr(\"Auch Partner der Partner einbeziehen\"))",
                 "val depth = box.select(options = depthOptions, value = settings.depth.toString(), label = tr(\"Zusätzliche Stufen\"))",
+            ),
+        // Welle V1.9.246 "Aktionen A1" -- FILTER_IS_NOT_A_FORM: the status chips narrow the list, never submitted.
+        "ActivismScreen.kt" to listOf("val box = chips.checkBox(value = status in selected, label = ActivismTexts.status(status))"),
+        // Welle V1.9.246 "Aktionen A1" -- IMMEDIATE SWITCHES: "Ich komme" and the "Erledigt" box of a task save themselves on change (one RPC call each,
+        // then the page reloads) -- no surrounding form, no submit button.
+        "ActivismDetailScreen.kt" to
+            listOf(
+                "val box = panel.checkBox(value = d.signal.mine, label = tr(\"Ich komme\"))",
+                "val box = row.checkBox(value = task.done, label = tr(\"Erledigt\"))",
+            ),
+        // Welle V1.9.246 "Aktionen A1" -- IMMEDIATE SWITCH: the approval rule for ideas saves itself on change.
+        "ActivismNoticeSettingsScreen.kt" to
+            listOf(
+                "val review = panel.checkBox(value = settings.reviewRequired, label = tr(\"Ideen müssen von einer zweiten Person freigegeben werden\"))",
             ),
     )
 

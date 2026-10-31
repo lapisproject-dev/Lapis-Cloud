@@ -88,6 +88,13 @@ object Routes {
 
     /** V1.9.31 "Umfragen" (non-binding opinion polls): list and detail. The id in the path is not a secret; an answer never appears in a URL. */
     const val POLLS = "/polls"
+
+    /** V1.9.246 "Aktionen A1": the list, the create form, the operator's settings, the detail page and the edit form (the longer paths are registered first). */
+    const val ACTIVISM = "/activism"
+    const val ACTIVISM_NEW = "/activism/new"
+    const val ACTIVISM_SETTINGS = "/activism/settings"
+    const val ACTIVISM_DETAIL = "/activism/:id"
+    const val ACTIVISM_EDIT = "/activism/:id/edit"
     const val POLL_DETAIL = "/polls/:id"
 
     // Accounting UI wave: unlike Governance, every single `IAccountingService` method requires at
@@ -1006,6 +1013,41 @@ fun initRouting(pageContainer: SimplePanel) {
                 show(Routes.CONSENSUS_DETAIL) { container -> renderConsensusScreen(container, id) }
             }
         }
+    }
+    routing.kvOn(Routes.ACTIVISM_NEW) {
+        requireAuth(routing) { show(Routes.ACTIVISM_NEW) { container -> renderActivismFormScreen(container) } }
+    }
+    routing.kvOn(Routes.ACTIVISM_SETTINGS) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.ACTIVISM_SETTINGS, ::renderActivismNoticeSettingsScreen)
+        }
+    }
+    routing.kvOn(Routes.ACTIVISM_EDIT) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(
+                    Routes.ACTIVISM,
+                )
+            } else {
+                show(Routes.ACTIVISM_EDIT) { c -> renderActivismFormScreen(c, id) }
+            }
+        }
+    }
+    routing.kvOn(Routes.ACTIVISM_DETAIL) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(
+                    Routes.ACTIVISM,
+                )
+            } else {
+                show(Routes.ACTIVISM_DETAIL) { c -> renderActivismDetailScreen(c, id) }
+            }
+        }
+    }
+    routing.kvOn(Routes.ACTIVISM) {
+        requireAuth(routing) { show(Routes.ACTIVISM, ::renderActivismScreen) }
     }
     routing.kvOn(Routes.POLLS) {
         requireAuth(routing) { show(Routes.POLLS) { container -> renderPollScreen(container) } }

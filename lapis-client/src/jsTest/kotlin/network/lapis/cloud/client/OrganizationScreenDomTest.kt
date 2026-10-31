@@ -133,6 +133,7 @@ class OrganizationScreenDomTest {
                         "org-mitglieder-finder",
                         "org-ausschreibungen",
                         "org-partnerserver",
+                        "org-aktionen",
                     ),
                     page.sections().map { it.getAttribute("id") },
                 )
@@ -144,6 +145,8 @@ class OrganizationScreenDomTest {
                 assertTrue(page.summaryOf("ausschreibungen").contains("Verdeckt bis zur Frist"))
                 // V1.9.244: a static summary, no RPC of its own
                 assertEquals("Befreundete Lapis-Server, Sperrliste", page.summaryOf("partnerserver"))
+                // V1.9.246: a static summary, no RPC of its own
+                assertEquals("Hinweistexte, Freigabe von Ideen, Meldungen", page.summaryOf("aktionen"))
                 // nothing is built before a section is opened: no switch, no select, only the one read for the summaries
                 assertNull(page.querySelector("button[role=switch]"))
                 assertNull(page.querySelector("select"))

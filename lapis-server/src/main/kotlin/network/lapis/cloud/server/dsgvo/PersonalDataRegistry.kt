@@ -89,6 +89,8 @@ object PersonalDataRegistry {
             // V1.9.222: pictures a member uploaded to a crowdfunding project or an auction (hard erasure, files included).
             AttachedImagePersonalData,
             PartgReportPersonalData,
+            // V1.9.246: actions (responsible persons, contributions, signals, reports, tasks).
+            ActivismPersonalData,
         )
 
     /**

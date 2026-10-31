@@ -585,6 +585,21 @@ enum class AuditEntityType {
 
     /** Welle V1.9.244 -- a block pattern was set or lifted (`entityId` = the block id), snapshot = [PartnerAuditSnapshot]. 17 chars. Appended LAST. */
     PARTNER_BLOCKLIST,
+
+    /**
+     * Welle V1.9.246 "Aktionen A1" -- an action was created, changed, approved, withdrawn, restored or got a result (`entityId` = the action id),
+     * snapshot = [ActivismAuditSnapshot]: ids, enums and numbers only, never free text. 15 chars. Appended LAST.
+     */
+    ACTIVISM_ACTION,
+
+    /** Welle V1.9.246 -- a contribution was confirmed or rejected by a responsible person (`entityId` = the contribution id). 21 chars. Appended LAST. */
+    ACTIVISM_CONTRIBUTION,
+
+    /** Welle V1.9.246 -- a report was resolved (`entityId` = the report id); the creation of a report is NOT audited. 15 chars. Appended LAST. */
+    ACTIVISM_REPORT,
+
+    /** Welle V1.9.246 -- the operator's notice texts, notice country or review switch changed (`entityId` = the settings singleton). 17 chars. Appended LAST. */
+    ACTIVISM_SETTINGS,
 }
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */

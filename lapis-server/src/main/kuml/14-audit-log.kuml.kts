@@ -244,6 +244,12 @@ classDiagram(name = "AuditLog") {
         // (hosts and patterns only, never a name from a foreign feed); 14 and 17 chars.
         literal(name = "PARTNER_SERVER")
         literal(name = "PARTNER_BLOCKLIST")
+        // Welle V1.9.246 "Aktionen A1" -- an action, a confirmed / rejected contribution, a resolved report, the operator's notice settings (ids, enums,
+        // counts and the length + hash of texts only, never free text); max 21 chars. Signals are NEVER audited.
+        literal(name = "ACTIVISM_ACTION")
+        literal(name = "ACTIVISM_CONTRIBUTION")
+        literal(name = "ACTIVISM_REPORT")
+        literal(name = "ACTIVISM_SETTINGS")
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

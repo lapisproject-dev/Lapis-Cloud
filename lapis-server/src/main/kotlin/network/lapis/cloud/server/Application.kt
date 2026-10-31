@@ -40,6 +40,7 @@ import network.lapis.cloud.server.accounting.export.lexoffice.LexofficeRateLimit
 import network.lapis.cloud.server.accounting.export.sevdesk.SevDeskAdapter
 import network.lapis.cloud.server.accounting.export.sevdesk.SevDeskApiClient
 import network.lapis.cloud.server.accounting.export.sevdesk.SevDeskRateLimiter
+import network.lapis.cloud.server.activism.ActivismRateLimiter
 import network.lapis.cloud.server.ai.audit.DbAiCallAuditRecorder
 import network.lapis.cloud.server.ai.config.AiConfig
 import network.lapis.cloud.server.ai.config.AiStartupCheck
@@ -290,6 +291,7 @@ import network.lapis.cloud.server.routes.registerVideoOverlayRoutes
 import network.lapis.cloud.server.routes.respondPublicCanonicalRedirect
 import network.lapis.cloud.server.rpc.AccountingExportService
 import network.lapis.cloud.server.rpc.AccountingService
+import network.lapis.cloud.server.rpc.ActivismService
 import network.lapis.cloud.server.rpc.AgreementTextAdminService
 import network.lapis.cloud.server.rpc.AiAssistantService
 import network.lapis.cloud.server.rpc.ApiKeyService
@@ -408,6 +410,7 @@ import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingExportService
 import network.lapis.cloud.shared.rpc.IAccountingService
+import network.lapis.cloud.shared.rpc.IActivismService
 import network.lapis.cloud.shared.rpc.IAgreementTextAdminService
 import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IApiKeyService
@@ -1712,6 +1715,7 @@ internal fun Application.module(
     monitor.subscribe(ApplicationStopping) { partnerFeedPoller.stop() }
     val partnerFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val partnerProbeRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val activismRateLimiter = ActivismRateLimiter()
     val webhookConfigureRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val webhookSecretRotateRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     // D2 -- deliberately its own, tighter budget: a synchronous diagnostic call must not share the
@@ -2892,10 +2896,15 @@ internal fun Application.module(
         registerService(IMeetingProtocolService::class) { call ->
             MeetingProtocolService(call = call, storageRoot = documentStorageRoot)
         }
-        // V1.9.244 Partnerserver P1 (ADMIN). THIS is the LAST registerService (after IMeetingProtocolService). New methods of the interface go to
-        // its end, never in between.
+        // V1.9.244 Partnerserver P1 (ADMIN). Second to last since V1.9.246 (the activism module is the LAST registerService). New methods of the
+        // interface go to its end, never in between.
         registerService(IPartnerServerService::class) { call ->
             PartnerServerService(call = call, probeRateLimiter = partnerProbeRateLimiter)
+        }
+        // V1.9.246 Aktionen A1. THIS is the LAST registerService (after IPartnerServerService). New methods of the interface go to its end,
+        // never in between.
+        registerService(IActivismService::class) { call ->
+            ActivismService(call = call, limiter = activismRateLimiter)
         }
     }
 

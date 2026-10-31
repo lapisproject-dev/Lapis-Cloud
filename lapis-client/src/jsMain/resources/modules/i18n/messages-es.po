@@ -29055,3 +29055,318 @@ msgstr "A través de este socio: %1 servidores, %2 eventos"
 
 msgid "Kennung bereits vergeben"
 msgstr "Identificador ya asignado"
+
+msgid "%1 Personen kommen"
+msgstr "%1 personas vienen"
+
+msgid "%1 bis %2: %3 von %4 Plätzen besetzt"
+msgstr "%1 a %2: %3 de %4 plazas ocupadas"
+
+msgid "%1 gemeldet, davon %2 bestätigt"
+msgstr "%1 notificados, de ellos %2 confirmados"
+
+msgid "%1 von %2 %3"
+msgstr "%1 de %2 %3"
+
+msgid "Abgelehnt: %1"
+msgstr "Rechazado: %1"
+
+msgid "Aktion bearbeiten"
+msgstr "Editar acción"
+
+msgid "Aktion öffnen"
+msgstr "Abrir acción"
+
+msgid "Aktionen sind Vorhaben der Organisation, zum Beispiel ein Infostand oder Plakatieren. Sie können Ideen anlegen, Fortschritt melden und zusagen."
+msgstr "Las acciones son iniciativas de la organización, por ejemplo un puesto informativo o pegar carteles. Puede crear ideas, notificar avances y confirmar su asistencia."
+
+msgid "Aktionsbeitrag"
+msgstr "Aportación a una acción"
+
+msgid "Aktionstag"
+msgstr "Jornada de acción"
+
+msgid "Alle Meldungen"
+msgstr "Todos los avisos"
+
+msgid "Art der Aktion"
+msgstr "Tipo de acción"
+
+msgid "Auf Standardtext zurücksetzen"
+msgstr "Restablecer el texto estándar"
+
+msgid "Beteiligte"
+msgstr "Participantes"
+
+msgid "Beteiligte: %1"
+msgstr "Participantes: %1"
+
+msgid "Bitte beachten Sie die Regeln der genutzten Plattform und den Datenschutz."
+msgstr "Tenga en cuenta las normas de la plataforma utilizada y la protección de datos."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 1.000.000 ein."
+msgstr "Introduzca un número entero entre 1 y 1.000.000."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 10.000 ein."
+msgstr "Introduzca un número entero entre 1 y 10.000."
+
+msgid "Bitte klären Sie vorab selbst, ob die Versammlung angezeigt oder angemeldet werden muss und bis wann."
+msgstr "Aclare previamente si la reunión debe comunicarse o registrarse y con qué plazo."
+
+msgid "Bitte klären Sie vorab selbst, ob für Ihre Aktion Regeln oder Genehmigungen gelten."
+msgstr "Aclare previamente si para su acción rigen normas o permisos."
+
+msgid "Bitte klären Sie vorab selbst, ob für das Sammeln von Unterschriften eine Erlaubnis nötig ist und was dabei gilt."
+msgstr "Aclare previamente si la recogida de firmas necesita permiso y qué normas se aplican."
+
+msgid "Bitte klären Sie vorab selbst, ob für den Infostand eine Erlaubnis oder Anmeldung nötig ist."
+msgstr "Aclare previamente si el puesto informativo necesita permiso o registro."
+
+msgid "Bitte klären Sie vorab selbst, ob für die einzelnen Teile des Aktionstags eine Erlaubnis nötig ist."
+msgstr "Aclare previamente si cada parte de la jornada de acción necesita permiso."
+
+msgid "Bitte klären Sie vorab selbst, was bei Gesprächen an der Haustür gilt, und beachten Sie den Datenschutz."
+msgstr "Aclare previamente qué rige para las conversaciones a pie de puerta y respete la protección de datos."
+
+msgid "Bitte klären Sie vorab selbst, wo und wie lange plakatiert werden darf und ob eine Erlaubnis nötig ist."
+msgstr "Aclare previamente dónde y durante cuánto tiempo se pueden pegar carteles y si hace falta permiso."
+
+msgid "Bitte schreiben Sie keine Namen oder Angaben über andere Personen in diese Aktion. Alle Mitglieder können sie lesen."
+msgstr "No escriba nombres ni datos de otras personas en esta acción. Todos los miembros pueden leerla."
+
+msgid "Bitte schreiben Sie zwischen %1 und %2 Zeichen."
+msgstr "Escriba entre %1 y %2 caracteres."
+
+msgid "Danke. Die Meldung wurde weitergegeben."
+msgstr "Gracias. El aviso se ha transmitido."
+
+msgid "Das Limit für diese Aktion ist erreicht. Bitte versuchen Sie es später erneut."
+msgstr "Se ha alcanzado el límite de esta acción. Inténtelo de nuevo más tarde."
+
+msgid "Das geht nur, solange die Aktion läuft (Ergebnis: sobald sie abgeschlossen ist)."
+msgstr "Esto solo es posible mientras la acción está en curso (el resultado: una vez completada)."
+
+msgid "Der Text ist zu lang."
+msgstr "El texto es demasiado largo."
+
+msgid "Der Titel ist zu lang."
+msgstr "El título es demasiado largo."
+
+msgid "Deutschland"
+msgstr "Alemania"
+
+msgid "Die Aktion wurde inzwischen geändert -- bitte laden Sie die Ansicht neu."
+msgstr "La acción se ha modificado entretanto -- recargue la vista."
+
+msgid "Dieser Statuswechsel ist nicht möglich."
+msgstr "Este cambio de estado no es posible."
+
+msgid "Eigener Hinweis zu den Regeln"
+msgstr "Nota propia sobre las normas"
+
+msgid "Eine Aktion hat mindestens eine und höchstens zehn verantwortliche Personen."
+msgstr "Una acción tiene como mínimo una y como máximo diez personas responsables."
+
+msgid "Eine Idee kann nicht von der Person freigegeben werden, die sie angelegt hat."
+msgstr "Una idea no puede ser aprobada por la persona que la creó."
+
+msgid "Eine ganze Zahl, zum Beispiel 500."
+msgstr "Un número entero, por ejemplo 500."
+
+msgid "Einstellungen der Aktionen"
+msgstr "Ajustes de las acciones"
+
+msgid "Einstellungen und Meldungen"
+msgstr "Ajustes y avisos"
+
+msgid "Einstellungen zu den Aktionen"
+msgstr "Ajustes de las acciones"
+
+msgid "Ergebnis speichern"
+msgstr "Guardar resultado"
+
+msgid "Fortschritt"
+msgstr "Avance"
+
+msgid "Fortschritt melden"
+msgstr "Notificar avance"
+
+msgid "Gebiet (optional)"
+msgstr "Zona (opcional)"
+
+msgid "Gemeldete Aktionen"
+msgstr "Acciones notificadas"
+
+msgid "Gemeldete Mengen müssen bestätigt werden"
+msgstr "Las cantidades notificadas deben confirmarse"
+
+msgid "Georgien"
+msgstr "Georgia"
+
+msgid "Haustürgespräche"
+msgstr "Conversaciones puerta a puerta"
+
+msgid "Hier legen Sie die Hinweistexte je Land und Art fest und schalten die Freigabe von Ideen ein."
+msgstr "Aquí define los textos de aviso por país y tipo y activa la aprobación de ideas."
+
+msgid "Hinweis zu den Regeln"
+msgstr "Nota sobre las normas"
+
+msgid "Hinweistexte"
+msgstr "Textos de aviso"
+
+msgid "Hinweistexte, Freigabe von Ideen, Meldungen"
+msgstr "Textos de aviso, aprobación de ideas, avisos"
+
+msgid "Ich komme"
+msgstr "Voy a ir"
+
+msgid "Idee"
+msgstr "Idea"
+
+msgid "Ideen müssen von einer zweiten Person freigegeben werden"
+msgstr "Las ideas deben ser aprobadas por una segunda persona"
+
+msgid "Im Dokumentenbereich öffnen"
+msgstr "Abrir en el área de documentos"
+
+msgid "Infostand"
+msgstr "Puesto informativo"
+
+msgid "Keine Rechtsberatung."
+msgstr "No es asesoramiento jurídico."
+
+msgid "Keine offenen Meldungen."
+msgstr "No hay avisos abiertos."
+
+msgid "Kundgebung oder Demonstration"
+msgstr "Mitin o manifestación"
+
+msgid "Land speichern"
+msgstr "Guardar país"
+
+msgid "Leer lassen für den Standardtext."
+msgstr "Déjelo vacío para el texto estándar."
+
+msgid "Liechtenstein"
+msgstr "Liechtenstein"
+
+msgid "Luxemburg"
+msgstr "Luxemburgo"
+
+msgid "Material"
+msgstr "Material"
+
+msgid "Meine Meldungen"
+msgstr "Mis avisos"
+
+msgid "Meldung erledigen"
+msgstr "Resolver aviso"
+
+msgid "Meldung zu einer Aktion"
+msgstr "Aviso sobre una acción"
+
+msgid "Menge: %1"
+msgstr "Cantidad: %1"
+
+msgid "Mit Fortschritt (Menge melden)"
+msgstr "Con avance (notificar una cantidad)"
+
+msgid "Mit Termin"
+msgstr "Con fecha"
+
+msgid "Mit Zusage (Ich komme)"
+msgstr "Con confirmación (Voy a ir)"
+
+msgid "Mitmachen"
+msgstr "Participar"
+
+msgid "Nach Gebiet"
+msgstr "Por zona"
+
+msgid "Neue Aktion"
+msgstr "Nueva acción"
+
+msgid "Neue Aufgabe"
+msgstr "Nueva tarea"
+
+msgid "Nicht nachvollziehbar"
+msgstr "No es comprensible"
+
+msgid "Noch keine Aktionen. Legen Sie eine Idee an."
+msgstr "Todavía no hay acciones. Cree una idea."
+
+msgid "Online-Aktion"
+msgstr "Acción en línea"
+
+msgid "Plakatieren"
+msgstr "Pegar carteles"
+
+msgid "Schichten der Veranstaltung"
+msgstr "Turnos del evento"
+
+msgid "Setzen auf: %1"
+msgstr "Cambiar a: %1"
+
+msgid "Sie haben diese Aktion bereits gemeldet. Die Meldung wird geprüft."
+msgstr "Ya ha avisado sobre esta acción. El aviso se está revisando."
+
+msgid "Textbaustein hinzufügen"
+msgstr "Añadir bloque de texto"
+
+msgid "Textbausteine"
+msgstr "Bloques de texto"
+
+msgid "Titel des Textbausteins"
+msgstr "Título del bloque de texto"
+
+msgid "Unterschriftensammlung"
+msgstr "Recogida de firmas"
+
+msgid "Verantwortlich"
+msgstr "Responsable"
+
+msgid "Vorstand oder Administration"
+msgstr "Junta directiva o administración"
+
+msgid "Wann und wo"
+msgstr "Cuándo y dónde"
+
+msgid "Wartet auf Freigabe"
+msgstr "Pendiente de aprobación"
+
+msgid "Warum melden Sie diese Aktion?"
+msgstr "¿Por qué avisa sobre esta acción?"
+
+msgid "Was ist herausgekommen?"
+msgstr "¿Qué ha resultado?"
+
+msgid "Weniger als %1 Personen haben zugesagt"
+msgstr "Menos de %1 personas han confirmado su asistencia"
+
+msgid "Ziel"
+msgstr "Objetivo"
+
+msgid "Ziel und Fortschritt"
+msgstr "Objetivo y avance"
+
+msgid "Zielmenge"
+msgstr "Cantidad objetivo"
+
+msgid "Zu den Aktionen"
+msgstr "A las acciones"
+
+msgid "Zum Beispiel Plakate oder Unterschriften."
+msgstr "Por ejemplo carteles o firmas."
+
+msgid "Zurückgezogen: %1"
+msgstr "Retirada: %1"
+
+msgid "Meldung zurücknehmen"
+msgstr "Retirar mi aviso de progreso"
+
+msgid "Ohne Gebiet"
+msgstr "Sin zona"
+
+msgid "Zur Aktion"
+msgstr "A la acción"

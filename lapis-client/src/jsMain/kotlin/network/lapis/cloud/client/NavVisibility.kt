@@ -38,6 +38,9 @@ object NavVisibility {
     /** "Umfragen" (V1.9.31) -- the audience of the server's read gate for ordinary members: ACTIVE only (the same set as [showsSelfGovernance]). */
     fun showsPolls(status: MemberStatus): Boolean = showsSelfGovernance(status)
 
+    /** "Aktionen" (V1.9.246) -- the audience of the server's gate: `MemberStatusSets.ACTIVISM_PARTICIPANT` (today ACTIVE only). */
+    fun showsActivism(status: MemberStatus): Boolean = status in MemberStatusSets.ACTIVISM_PARTICIPANT
+
     /**
      * "Begegnungsräume" (V1.9.62) -- the audience of `IEncounterSpaceService.listSpaces`: ACTIVE, GUEST and FRIEND
      * ([MemberStatusSets.CONFERENCE_ELIGIBLE], the same set as the video conference). A guest sees only the rooms that admit guests; the

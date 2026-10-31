@@ -71,6 +71,12 @@ object MemberStatusSets {
     val ORGANIZATION_MEMBER: Set<MemberStatus> = setOf(MemberStatus.ACTIVE)
 
     /**
+     * V1.9.246 "Aktionen A1" -- may see, report to, signal for and propose actions. Today exactly [ORGANIZATION_MEMBER]; this is THE extension point
+     * should FRIEND or GUEST ever be allowed to take part (open question F1). Used ONLY by the activism files (`ActivismTripwireTest`).
+     */
+    val ACTIVISM_PARTICIPANT: Set<MemberStatus> = ORGANIZATION_MEMBER
+
+    /**
      * Authenticated, but NOT a member of this organization. The positive counterpart of the
      * historical `isGuest` denylist -- every "members only" gate tests [ORGANIZATION_MEMBER]
      * instead of this set directly.

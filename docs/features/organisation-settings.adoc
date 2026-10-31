@@ -2,7 +2,7 @@
 :toc:
 
 The settings that apply to the whole organization used to sit as separate cards at the bottom of the member administration. Since V1.9.221 they live on one
-page, *Organisation* (`/organization`, sidebar group System, ADMIN only), in five collapsible sections (a sixth, *Partnerserver*, was added in V1.9.244: one button to `/organization/partner-servers`, see link:partner-servers.adoc[partner servers]). Client only: no migration (schema stays V118), no new
+page, *Organisation* (`/organization`, sidebar group System, ADMIN only), in five collapsible sections (a sixth, *Partnerserver*, was added in V1.9.244: one button to `/organization/partner-servers`, see link:partner-servers.adoc[partner servers]; a seventh, *Aktionen*, in V1.9.246: one button to `/activism/settings`, see link:activism.adoc[actions]). Client only: no migration (schema stays V118), no new
 RPC, no DTO change. Every switch and form calls the RPC it called before; the server still enforces ADMIN on each of them.
 
 == Sections
@@ -15,6 +15,7 @@ RPC, no DTO change. Every switch and form calls the RPC it called before; the se
 |Recording & transmission (`aufzeichnung`) |Pulpit recording, recording and live streaming in event rooms, link to the stream destinations |Pulpit recording and events: on/off
 |Member finder (`mitglieder-finder`) |Switch of the member finder (operator notice dialog) |on/off
 |Tenders (`ausschreibungen`) |Default bid visibility of new tenders |The chosen visibility
+|Actions (`aktionen`, V1.9.246) |Button "Einstellungen zu den Aktionen" to the settings page of the actions (notice texts per kind and country, approval of ideas, reports) |Static text, no request
 |Partner servers (`partnerserver`, V1.9.244) |Button "Partnerserver verwalten" to the partner page (add, pause, remove partners; block list; hide the own partner list) |Static text, no request
 |===
 

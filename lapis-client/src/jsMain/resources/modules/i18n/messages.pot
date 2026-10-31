@@ -28619,3 +28619,318 @@ msgstr ""
 
 msgid "Kennung bereits vergeben"
 msgstr ""
+
+msgid "%1 Personen kommen"
+msgstr ""
+
+msgid "%1 bis %2: %3 von %4 Plätzen besetzt"
+msgstr ""
+
+msgid "%1 gemeldet, davon %2 bestätigt"
+msgstr ""
+
+msgid "%1 von %2 %3"
+msgstr ""
+
+msgid "Abgelehnt: %1"
+msgstr ""
+
+msgid "Aktion bearbeiten"
+msgstr ""
+
+msgid "Aktion öffnen"
+msgstr ""
+
+msgid "Aktionen sind Vorhaben der Organisation, zum Beispiel ein Infostand oder Plakatieren. Sie können Ideen anlegen, Fortschritt melden und zusagen."
+msgstr ""
+
+msgid "Aktionsbeitrag"
+msgstr ""
+
+msgid "Aktionstag"
+msgstr ""
+
+msgid "Alle Meldungen"
+msgstr ""
+
+msgid "Art der Aktion"
+msgstr ""
+
+msgid "Auf Standardtext zurücksetzen"
+msgstr ""
+
+msgid "Beteiligte"
+msgstr ""
+
+msgid "Beteiligte: %1"
+msgstr ""
+
+msgid "Bitte beachten Sie die Regeln der genutzten Plattform und den Datenschutz."
+msgstr ""
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 1.000.000 ein."
+msgstr ""
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 10.000 ein."
+msgstr ""
+
+msgid "Bitte klären Sie vorab selbst, ob die Versammlung angezeigt oder angemeldet werden muss und bis wann."
+msgstr ""
+
+msgid "Bitte klären Sie vorab selbst, ob für Ihre Aktion Regeln oder Genehmigungen gelten."
+msgstr ""
+
+msgid "Bitte klären Sie vorab selbst, ob für das Sammeln von Unterschriften eine Erlaubnis nötig ist und was dabei gilt."
+msgstr ""
+
+msgid "Bitte klären Sie vorab selbst, ob für den Infostand eine Erlaubnis oder Anmeldung nötig ist."
+msgstr ""
+
+msgid "Bitte klären Sie vorab selbst, ob für die einzelnen Teile des Aktionstags eine Erlaubnis nötig ist."
+msgstr ""
+
+msgid "Bitte klären Sie vorab selbst, was bei Gesprächen an der Haustür gilt, und beachten Sie den Datenschutz."
+msgstr ""
+
+msgid "Bitte klären Sie vorab selbst, wo und wie lange plakatiert werden darf und ob eine Erlaubnis nötig ist."
+msgstr ""
+
+msgid "Bitte schreiben Sie keine Namen oder Angaben über andere Personen in diese Aktion. Alle Mitglieder können sie lesen."
+msgstr ""
+
+msgid "Bitte schreiben Sie zwischen %1 und %2 Zeichen."
+msgstr ""
+
+msgid "Danke. Die Meldung wurde weitergegeben."
+msgstr ""
+
+msgid "Das Limit für diese Aktion ist erreicht. Bitte versuchen Sie es später erneut."
+msgstr ""
+
+msgid "Das geht nur, solange die Aktion läuft (Ergebnis: sobald sie abgeschlossen ist)."
+msgstr ""
+
+msgid "Der Text ist zu lang."
+msgstr ""
+
+msgid "Der Titel ist zu lang."
+msgstr ""
+
+msgid "Deutschland"
+msgstr ""
+
+msgid "Die Aktion wurde inzwischen geändert -- bitte laden Sie die Ansicht neu."
+msgstr ""
+
+msgid "Dieser Statuswechsel ist nicht möglich."
+msgstr ""
+
+msgid "Eigener Hinweis zu den Regeln"
+msgstr ""
+
+msgid "Eine Aktion hat mindestens eine und höchstens zehn verantwortliche Personen."
+msgstr ""
+
+msgid "Eine Idee kann nicht von der Person freigegeben werden, die sie angelegt hat."
+msgstr ""
+
+msgid "Eine ganze Zahl, zum Beispiel 500."
+msgstr ""
+
+msgid "Einstellungen der Aktionen"
+msgstr ""
+
+msgid "Einstellungen und Meldungen"
+msgstr ""
+
+msgid "Einstellungen zu den Aktionen"
+msgstr ""
+
+msgid "Ergebnis speichern"
+msgstr ""
+
+msgid "Fortschritt"
+msgstr ""
+
+msgid "Fortschritt melden"
+msgstr ""
+
+msgid "Gebiet (optional)"
+msgstr ""
+
+msgid "Gemeldete Aktionen"
+msgstr ""
+
+msgid "Gemeldete Mengen müssen bestätigt werden"
+msgstr ""
+
+msgid "Georgien"
+msgstr ""
+
+msgid "Haustürgespräche"
+msgstr ""
+
+msgid "Hier legen Sie die Hinweistexte je Land und Art fest und schalten die Freigabe von Ideen ein."
+msgstr ""
+
+msgid "Hinweis zu den Regeln"
+msgstr ""
+
+msgid "Hinweistexte"
+msgstr ""
+
+msgid "Hinweistexte, Freigabe von Ideen, Meldungen"
+msgstr ""
+
+msgid "Ich komme"
+msgstr ""
+
+msgid "Idee"
+msgstr ""
+
+msgid "Ideen müssen von einer zweiten Person freigegeben werden"
+msgstr ""
+
+msgid "Im Dokumentenbereich öffnen"
+msgstr ""
+
+msgid "Infostand"
+msgstr ""
+
+msgid "Keine Rechtsberatung."
+msgstr ""
+
+msgid "Keine offenen Meldungen."
+msgstr ""
+
+msgid "Kundgebung oder Demonstration"
+msgstr ""
+
+msgid "Land speichern"
+msgstr ""
+
+msgid "Leer lassen für den Standardtext."
+msgstr ""
+
+msgid "Liechtenstein"
+msgstr ""
+
+msgid "Luxemburg"
+msgstr ""
+
+msgid "Material"
+msgstr ""
+
+msgid "Meine Meldungen"
+msgstr ""
+
+msgid "Meldung erledigen"
+msgstr ""
+
+msgid "Meldung zu einer Aktion"
+msgstr ""
+
+msgid "Menge: %1"
+msgstr ""
+
+msgid "Mit Fortschritt (Menge melden)"
+msgstr ""
+
+msgid "Mit Termin"
+msgstr ""
+
+msgid "Mit Zusage (Ich komme)"
+msgstr ""
+
+msgid "Mitmachen"
+msgstr ""
+
+msgid "Nach Gebiet"
+msgstr ""
+
+msgid "Neue Aktion"
+msgstr ""
+
+msgid "Neue Aufgabe"
+msgstr ""
+
+msgid "Nicht nachvollziehbar"
+msgstr ""
+
+msgid "Noch keine Aktionen. Legen Sie eine Idee an."
+msgstr ""
+
+msgid "Online-Aktion"
+msgstr ""
+
+msgid "Plakatieren"
+msgstr ""
+
+msgid "Schichten der Veranstaltung"
+msgstr ""
+
+msgid "Setzen auf: %1"
+msgstr ""
+
+msgid "Sie haben diese Aktion bereits gemeldet. Die Meldung wird geprüft."
+msgstr ""
+
+msgid "Textbaustein hinzufügen"
+msgstr ""
+
+msgid "Textbausteine"
+msgstr ""
+
+msgid "Titel des Textbausteins"
+msgstr ""
+
+msgid "Unterschriftensammlung"
+msgstr ""
+
+msgid "Verantwortlich"
+msgstr ""
+
+msgid "Vorstand oder Administration"
+msgstr ""
+
+msgid "Wann und wo"
+msgstr ""
+
+msgid "Wartet auf Freigabe"
+msgstr ""
+
+msgid "Warum melden Sie diese Aktion?"
+msgstr ""
+
+msgid "Was ist herausgekommen?"
+msgstr ""
+
+msgid "Weniger als %1 Personen haben zugesagt"
+msgstr ""
+
+msgid "Ziel"
+msgstr ""
+
+msgid "Ziel und Fortschritt"
+msgstr ""
+
+msgid "Zielmenge"
+msgstr ""
+
+msgid "Zu den Aktionen"
+msgstr ""
+
+msgid "Zum Beispiel Plakate oder Unterschriften."
+msgstr ""
+
+msgid "Zurückgezogen: %1"
+msgstr ""
+
+msgid "Meldung zurücknehmen"
+msgstr ""
+
+msgid "Ohne Gebiet"
+msgstr ""
+
+msgid "Zur Aktion"
+msgstr ""

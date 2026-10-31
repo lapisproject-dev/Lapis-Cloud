@@ -620,5 +620,16 @@ classDiagram(name = "OrganizationSettings") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "partner_recursion_last_summary"; "sqlType" to "VARCHAR(2000)" }
         }
+        // Welle V1.9.246 "Aktionen A1" (V133__activism_actions.sql). Whether an action idea needs a second person's approval (default FALSE) and the
+        // country whose notice texts are shown (default DE). NOT part of the generic update write-set and not in OrganizationSettingsDto: written
+        // ONLY by ActivismStore.
+        attribute(name = "activismReviewRequired", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "activism_review_required" }
+        }
+        attribute(name = "activismNoticeCountry", type = "String") {
+            defaultValue = "DE"
+            stereotype("Column") { "columnName" to "activism_notice_country"; "sqlType" to "VARCHAR(2)" }
+        }
     }
 }

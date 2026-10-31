@@ -34,7 +34,7 @@ import org.w3c.dom.HTMLElement
 
 /** The keys of the sections, in page order. They are also the `section` values of a deep link and the ids (`org-<key>`) of the sections. */
 internal val ORGANIZATION_SECTION_KEYS =
-    listOf("allgemein", "videokonferenz", "aufzeichnung", "mitglieder-finder", "ausschreibungen", "partnerserver")
+    listOf("allgemein", "videokonferenz", "aufzeichnung", "mitglieder-finder", "ausschreibungen", "partnerserver", "aktionen")
 
 /** Names under which a single setting is linked to; each resolves to the section that holds it. */
 internal val ORGANIZATION_SECTION_ALIASES =
@@ -153,6 +153,21 @@ private fun organizationSections(): List<OrganizationSection> =
                 ) { addCssClasses("text-muted small") }
                 panel.actionButton(ActionIcon.NEXT, tr("Partnerserver verwalten")) {
                     onClick { navigateTo(Routes.ORGANIZATION_PARTNER_SERVERS) }
+                }
+            },
+        ),
+        // V1.9.246: static summary (no RPC on load); the content is one button to the settings page of the actions.
+        OrganizationSection(
+            key = "aktionen",
+            icon = "fas fa-bullhorn",
+            title = tr("Aktionen"),
+            summary = { _ -> tr("Hinweistexte, Freigabe von Ideen, Meldungen") },
+            build = { panel, _ ->
+                panel.p(tr("Hier legen Sie die Hinweistexte je Land und Art fest und schalten die Freigabe von Ideen ein.")) {
+                    addCssClasses("text-muted small")
+                }
+                panel.actionButton(ActionIcon.NEXT, tr("Einstellungen zu den Aktionen")) {
+                    onClick { navigateTo(Routes.ACTIVISM_SETTINGS) }
                 }
             },
         ),

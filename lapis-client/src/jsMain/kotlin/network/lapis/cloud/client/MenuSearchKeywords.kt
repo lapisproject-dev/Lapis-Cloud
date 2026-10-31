@@ -39,6 +39,7 @@ object MenuSearchKeywords {
             Routes.ELECTIONS to listOf("wahl", "abstimmung", "stimmzettel", "kandidat", "wählen"),
             Routes.CONSENSUS to listOf("konsens", "widerstand", "systemisch", "abstimmung", "entscheidung"),
             Routes.POLLS to listOf("umfrage", "abstimmung", "meinungsbild", "befragung"),
+            Routes.ACTIVISM to listOf("aktion", "plakatieren", "infostand", "unterschriften", "kundgebung", "wahlkampf", "mitmachen"),
             Routes.LTR_LEDGER to listOf("konto", "guthaben", "saldo", "kontostand", "ltr", "wallet"),
             Routes.CROWDFUNDING to listOf("projekt finanzieren", "kampagne", "fundraising", "sammeln"),
             Routes.AUCTION to listOf("versteigerung", "gebot", "bieten", "ltr handeln"),
@@ -142,6 +143,10 @@ object MenuSearchKeywords {
             Routes.EVENT_IMPORT to "no sidebar link: reachable only from the event management screen, so there is nothing to find",
             Routes.ARTICLE_IMPORT to "no sidebar link: reachable only from the articles screen, so there is nothing to find",
             Routes.MEMBER_LUPABB_SYNC to "no sidebar link: reachable only from the member administration (its search words include lupabb)",
+            Routes.ACTIVISM_NEW to "no sidebar link: reachable only from the list of actions (the search words of Aktionen cover it)",
+            Routes.ACTIVISM_SETTINGS to "no sidebar link: reachable only from the list of actions (BOARD and ADMIN)",
+            Routes.ACTIVISM_DETAIL to "no sidebar link: a detail page opened from the list",
+            Routes.ACTIVISM_EDIT to "no sidebar link: opened from the detail page",
             Routes.ORGANIZATION_PARTNER_SERVERS to
                 "no sidebar link: reachable only from the Organisation page (its search words include partnerserver)",
         )

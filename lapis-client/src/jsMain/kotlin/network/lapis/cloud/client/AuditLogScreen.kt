@@ -614,6 +614,11 @@ fun decodeAuditSnapshot(
             // V1.9.244 -- PartnerAuditSnapshot: the kind and the normalised host / pattern the admin typed; raw-text display.
             AuditEntityType.PARTNER_SERVER -> null
             AuditEntityType.PARTNER_BLOCKLIST -> null
+            // V1.9.246 -- ActivismAuditSnapshot: ids, enums, counts, the length and hash of a text; raw-text display.
+            AuditEntityType.ACTIVISM_ACTION -> null
+            AuditEntityType.ACTIVISM_CONTRIBUTION -> null
+            AuditEntityType.ACTIVISM_REPORT -> null
+            AuditEntityType.ACTIVISM_SETTINGS -> null
         }
     }.getOrNull()
 

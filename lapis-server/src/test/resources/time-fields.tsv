@@ -1025,3 +1025,29 @@ col:PartnerDiscoveredServerTable.nextFetchAt	A	stamped by the server clock (DbCl
 col:OrganizationSettingsTable.partnerRecursionLastRunAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:PartnerRecursionSettingsDto.lastRunAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:DiscoveredPartnerServerDto.lastFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ActivismActionSummaryDto.startsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+dto:ActivismActionSummaryDto.endsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+dto:ActivismActionInput.startsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+dto:ActivismActionInput.endsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+dto:ActivismShiftSummaryDto.startsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+dto:ActivismShiftSummaryDto.endsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+dto:ActivismActionDetailDto.startsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+dto:ActivismActionDetailDto.endsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+col:ActivismActionTable.startsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+col:ActivismActionTable.endsAt	B	wall-clock typed in by a person in the organization zone; never converted for display
+dto:ActivismTaskDto.dueOn	D	calendar date (LocalDate); never converted
+dto:ActivismTaskInput.dueOn	D	calendar date (LocalDate); never converted
+col:ActivismTaskTable.dueOn	D	calendar date (LocalDate); never converted
+dto:ActivismResultDto.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ActivismContributionDto.reportedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ActivismReportDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismActionTable.resultRecordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismActionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismActionTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismContributionTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismContributionTable.reportedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismContributionTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismNoticeTextTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismReportTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismReportTable.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ActivismTaskTable.doneAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

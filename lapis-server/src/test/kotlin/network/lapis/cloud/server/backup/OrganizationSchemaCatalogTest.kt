@@ -58,6 +58,8 @@ class OrganizationSchemaCatalogTest :
                     "partner_event",
                     // Welle V1.9.245 -- the servers reached through the partners (a rediscoverable cache)
                     "partner_discovered_server",
+                    // Welle V1.9.246 -- the bare "I would take part" signals of the actions (Art. 9 relevant, only ever an aggregate)
+                    "activism_signal",
                 )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false

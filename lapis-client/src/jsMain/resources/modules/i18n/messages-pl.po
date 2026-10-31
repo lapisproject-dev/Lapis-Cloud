@@ -29245,3 +29245,318 @@ msgstr "Przez tego partnera: %1 serwerów, %2 wydarzeń"
 
 msgid "Kennung bereits vergeben"
 msgstr "Identyfikator jest już zajęty"
+
+msgid "%1 Personen kommen"
+msgstr "%1 osób przyjdzie"
+
+msgid "%1 bis %2: %3 von %4 Plätzen besetzt"
+msgstr "%1 do %2: zajęto %3 z %4 miejsc"
+
+msgid "%1 gemeldet, davon %2 bestätigt"
+msgstr "%1 zgłoszonych, w tym %2 potwierdzonych"
+
+msgid "%1 von %2 %3"
+msgstr "%1 z %2 %3"
+
+msgid "Abgelehnt: %1"
+msgstr "Odrzucono: %1"
+
+msgid "Aktion bearbeiten"
+msgstr "Edytuj akcję"
+
+msgid "Aktion öffnen"
+msgstr "Otwórz akcję"
+
+msgid "Aktionen sind Vorhaben der Organisation, zum Beispiel ein Infostand oder Plakatieren. Sie können Ideen anlegen, Fortschritt melden und zusagen."
+msgstr "Akcje to przedsięwzięcia organizacji, na przykład stoisko informacyjne lub rozklejanie plakatów. Można dodawać pomysły, zgłaszać postępy i zapowiadać przyjście."
+
+msgid "Aktionsbeitrag"
+msgstr "Wkład w akcję"
+
+msgid "Aktionstag"
+msgstr "Dzień akcji"
+
+msgid "Alle Meldungen"
+msgstr "Wszystkie zgłoszenia"
+
+msgid "Art der Aktion"
+msgstr "Rodzaj akcji"
+
+msgid "Auf Standardtext zurücksetzen"
+msgstr "Przywróć tekst standardowy"
+
+msgid "Beteiligte"
+msgstr "Uczestnicy"
+
+msgid "Beteiligte: %1"
+msgstr "Uczestnicy: %1"
+
+msgid "Bitte beachten Sie die Regeln der genutzten Plattform und den Datenschutz."
+msgstr "Prosimy przestrzegać zasad używanej platformy i ochrony danych."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 1.000.000 ein."
+msgstr "Proszę podać liczbę całkowitą od 1 do 1 000 000."
+
+msgid "Bitte geben Sie eine ganze Zahl zwischen 1 und 10.000 ein."
+msgstr "Proszę podać liczbę całkowitą od 1 do 10 000."
+
+msgid "Bitte klären Sie vorab selbst, ob die Versammlung angezeigt oder angemeldet werden muss und bis wann."
+msgstr "Proszę wcześniej samodzielnie sprawdzić, czy zgromadzenie trzeba zgłosić lub zarejestrować i do kiedy."
+
+msgid "Bitte klären Sie vorab selbst, ob für Ihre Aktion Regeln oder Genehmigungen gelten."
+msgstr "Proszę wcześniej samodzielnie sprawdzić, czy dla Pana/Pani akcji obowiązują przepisy lub zezwolenia."
+
+msgid "Bitte klären Sie vorab selbst, ob für das Sammeln von Unterschriften eine Erlaubnis nötig ist und was dabei gilt."
+msgstr "Proszę wcześniej samodzielnie sprawdzić, czy zbieranie podpisów wymaga zezwolenia i jakie obowiązują zasady."
+
+msgid "Bitte klären Sie vorab selbst, ob für den Infostand eine Erlaubnis oder Anmeldung nötig ist."
+msgstr "Proszę wcześniej samodzielnie sprawdzić, czy stoisko informacyjne wymaga zezwolenia lub zgłoszenia."
+
+msgid "Bitte klären Sie vorab selbst, ob für die einzelnen Teile des Aktionstags eine Erlaubnis nötig ist."
+msgstr "Proszę wcześniej samodzielnie sprawdzić, czy poszczególne części dnia akcji wymagają zezwolenia."
+
+msgid "Bitte klären Sie vorab selbst, was bei Gesprächen an der Haustür gilt, und beachten Sie den Datenschutz."
+msgstr "Proszę wcześniej samodzielnie sprawdzić, co obowiązuje przy rozmowach przy drzwiach, i przestrzegać ochrony danych."
+
+msgid "Bitte klären Sie vorab selbst, wo und wie lange plakatiert werden darf und ob eine Erlaubnis nötig ist."
+msgstr "Proszę wcześniej samodzielnie sprawdzić, gdzie i jak długo wolno rozklejać plakaty oraz czy potrzebne jest zezwolenie."
+
+msgid "Bitte schreiben Sie keine Namen oder Angaben über andere Personen in diese Aktion. Alle Mitglieder können sie lesen."
+msgstr "Prosimy nie wpisywać do tej akcji imion ani danych innych osób. Mogą ją przeczytać wszyscy członkowie."
+
+msgid "Bitte schreiben Sie zwischen %1 und %2 Zeichen."
+msgstr "Proszę wpisać od %1 do %2 znaków."
+
+msgid "Danke. Die Meldung wurde weitergegeben."
+msgstr "Dziękujemy. Zgłoszenie zostało przekazane."
+
+msgid "Das Limit für diese Aktion ist erreicht. Bitte versuchen Sie es später erneut."
+msgstr "Osiągnięto limit dla tej akcji. Proszę spróbować później."
+
+msgid "Das geht nur, solange die Aktion läuft (Ergebnis: sobald sie abgeschlossen ist)."
+msgstr "Jest to możliwe tylko w trakcie akcji (wynik: po jej zakończeniu)."
+
+msgid "Der Text ist zu lang."
+msgstr "Tekst jest za długi."
+
+msgid "Der Titel ist zu lang."
+msgstr "Tytuł jest za długi."
+
+msgid "Deutschland"
+msgstr "Niemcy"
+
+msgid "Die Aktion wurde inzwischen geändert -- bitte laden Sie die Ansicht neu."
+msgstr "Akcja została w międzyczasie zmieniona -- proszę odświeżyć widok."
+
+msgid "Dieser Statuswechsel ist nicht möglich."
+msgstr "Ta zmiana statusu nie jest możliwa."
+
+msgid "Eigener Hinweis zu den Regeln"
+msgstr "Własna uwaga o zasadach"
+
+msgid "Eine Aktion hat mindestens eine und höchstens zehn verantwortliche Personen."
+msgstr "Akcja ma co najmniej jedną i co najwyżej dziesięć osób odpowiedzialnych."
+
+msgid "Eine Idee kann nicht von der Person freigegeben werden, die sie angelegt hat."
+msgstr "Pomysł nie może zostać zatwierdzony przez osobę, która go utworzyła."
+
+msgid "Eine ganze Zahl, zum Beispiel 500."
+msgstr "Liczba całkowita, na przykład 500."
+
+msgid "Einstellungen der Aktionen"
+msgstr "Ustawienia akcji"
+
+msgid "Einstellungen und Meldungen"
+msgstr "Ustawienia i zgłoszenia"
+
+msgid "Einstellungen zu den Aktionen"
+msgstr "Ustawienia akcji"
+
+msgid "Ergebnis speichern"
+msgstr "Zapisz wynik"
+
+msgid "Fortschritt"
+msgstr "Postęp"
+
+msgid "Fortschritt melden"
+msgstr "Zgłoś postęp"
+
+msgid "Gebiet (optional)"
+msgstr "Obszar (opcjonalnie)"
+
+msgid "Gemeldete Aktionen"
+msgstr "Zgłoszone akcje"
+
+msgid "Gemeldete Mengen müssen bestätigt werden"
+msgstr "Zgłoszone ilości muszą zostać potwierdzone"
+
+msgid "Georgien"
+msgstr "Gruzja"
+
+msgid "Haustürgespräche"
+msgstr "Rozmowy przy drzwiach"
+
+msgid "Hier legen Sie die Hinweistexte je Land und Art fest und schalten die Freigabe von Ideen ein."
+msgstr "Tutaj ustawia Pan/Pani teksty wskazówek dla kraju i rodzaju oraz włącza zatwierdzanie pomysłów."
+
+msgid "Hinweis zu den Regeln"
+msgstr "Uwaga o zasadach"
+
+msgid "Hinweistexte"
+msgstr "Teksty wskazówek"
+
+msgid "Hinweistexte, Freigabe von Ideen, Meldungen"
+msgstr "Teksty wskazówek, zatwierdzanie pomysłów, zgłoszenia"
+
+msgid "Ich komme"
+msgstr "Przyjdę"
+
+msgid "Idee"
+msgstr "Pomysł"
+
+msgid "Ideen müssen von einer zweiten Person freigegeben werden"
+msgstr "Pomysły muszą zostać zatwierdzone przez drugą osobę"
+
+msgid "Im Dokumentenbereich öffnen"
+msgstr "Otwórz w obszarze dokumentów"
+
+msgid "Infostand"
+msgstr "Stoisko informacyjne"
+
+msgid "Keine Rechtsberatung."
+msgstr "To nie jest porada prawna."
+
+msgid "Keine offenen Meldungen."
+msgstr "Brak otwartych zgłoszeń."
+
+msgid "Kundgebung oder Demonstration"
+msgstr "Wiec lub demonstracja"
+
+msgid "Land speichern"
+msgstr "Zapisz kraj"
+
+msgid "Leer lassen für den Standardtext."
+msgstr "Pozostaw puste, aby użyć tekstu standardowego."
+
+msgid "Liechtenstein"
+msgstr "Liechtenstein"
+
+msgid "Luxemburg"
+msgstr "Luksemburg"
+
+msgid "Material"
+msgstr "Materiały"
+
+msgid "Meine Meldungen"
+msgstr "Moje zgłoszenia"
+
+msgid "Meldung erledigen"
+msgstr "Zamknij zgłoszenie"
+
+msgid "Meldung zu einer Aktion"
+msgstr "Zgłoszenie dotyczące akcji"
+
+msgid "Menge: %1"
+msgstr "Ilość: %1"
+
+msgid "Mit Fortschritt (Menge melden)"
+msgstr "Z postępem (zgłaszanie ilości)"
+
+msgid "Mit Termin"
+msgstr "Z terminem"
+
+msgid "Mit Zusage (Ich komme)"
+msgstr "Z zapowiedzią (Przyjdę)"
+
+msgid "Mitmachen"
+msgstr "Weź udział"
+
+msgid "Nach Gebiet"
+msgstr "Według obszaru"
+
+msgid "Neue Aktion"
+msgstr "Nowa akcja"
+
+msgid "Neue Aufgabe"
+msgstr "Nowe zadanie"
+
+msgid "Nicht nachvollziehbar"
+msgstr "Niezrozumiałe"
+
+msgid "Noch keine Aktionen. Legen Sie eine Idee an."
+msgstr "Brak akcji. Dodaj pomysł."
+
+msgid "Online-Aktion"
+msgstr "Akcja online"
+
+msgid "Plakatieren"
+msgstr "Rozklejanie plakatów"
+
+msgid "Schichten der Veranstaltung"
+msgstr "Zmiany podczas wydarzenia"
+
+msgid "Setzen auf: %1"
+msgstr "Ustaw na: %1"
+
+msgid "Sie haben diese Aktion bereits gemeldet. Die Meldung wird geprüft."
+msgstr "Ta akcja została już przez Pana/Panią zgłoszona. Zgłoszenie jest sprawdzane."
+
+msgid "Textbaustein hinzufügen"
+msgstr "Dodaj blok tekstu"
+
+msgid "Textbausteine"
+msgstr "Bloki tekstu"
+
+msgid "Titel des Textbausteins"
+msgstr "Tytuł bloku tekstu"
+
+msgid "Unterschriftensammlung"
+msgstr "Zbiórka podpisów"
+
+msgid "Verantwortlich"
+msgstr "Odpowiedzialny"
+
+msgid "Vorstand oder Administration"
+msgstr "Zarząd lub administracja"
+
+msgid "Wann und wo"
+msgstr "Kiedy i gdzie"
+
+msgid "Wartet auf Freigabe"
+msgstr "Oczekuje na zatwierdzenie"
+
+msgid "Warum melden Sie diese Aktion?"
+msgstr "Dlaczego zgłasza Pan/Pani tę akcję?"
+
+msgid "Was ist herausgekommen?"
+msgstr "Co z tego wyniknęło?"
+
+msgid "Weniger als %1 Personen haben zugesagt"
+msgstr "Mniej niż %1 osób zapowiedziało przyjście"
+
+msgid "Ziel"
+msgstr "Cel"
+
+msgid "Ziel und Fortschritt"
+msgstr "Cel i postęp"
+
+msgid "Zielmenge"
+msgstr "Ilość docelowa"
+
+msgid "Zu den Aktionen"
+msgstr "Do listy akcji"
+
+msgid "Zum Beispiel Plakate oder Unterschriften."
+msgstr "Na przykład plakaty lub podpisy."
+
+msgid "Zurückgezogen: %1"
+msgstr "Wycofano: %1"
+
+msgid "Meldung zurücknehmen"
+msgstr "Cofnij moje zgłoszenie postępu"
+
+msgid "Ohne Gebiet"
+msgstr "Bez obszaru"
+
+msgid "Zur Aktion"
+msgstr "Do akcji"

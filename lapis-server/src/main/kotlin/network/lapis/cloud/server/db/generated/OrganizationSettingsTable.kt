@@ -124,6 +124,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val partnerRecursionDepth: Column<Short> = short("partner_recursion_depth").default(2.toShort())
     public val partnerRecursionLastRunAt: Column<LocalDateTime?> = datetime("partner_recursion_last_run_at").nullable()
     public val partnerRecursionLastSummary: Column<String?> = varchar("partner_recursion_last_summary", 2000).nullable()
+    // Welle V1.9.246 -- hand-edited (V133). Written ONLY by ActivismStore; NOT part of the generic update write-set.
+    public val activismReviewRequired: Column<Boolean> = bool("activism_review_required").default(false)
+    public val activismNoticeCountry: Column<String> = varchar("activism_notice_country", 2).default("DE")
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }
