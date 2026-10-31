@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.assertions.withClue
 import io.kotest.core.annotation.EnabledIf
 import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
@@ -288,6 +289,15 @@ abstract class MailingListDeleteScenarios(
         fun messageCount(listId: Uuid) =
             transaction {
                 MailingMessageTable.selectAll().where { MailingMessageTable.mailingListId eq listId }.count()
+            }
+
+        fun queuedMessageCount(listId: Uuid) =
+            transaction {
+                MailingMessageTable
+                    .selectAll()
+                    .where {
+                        (MailingMessageTable.mailingListId eq listId) and (MailingMessageTable.status eq MailingMessageStatus.QUEUED)
+                    }.count()
             }
 
         fun attachmentCount(listId: Uuid) =
@@ -708,14 +718,21 @@ abstract class MailingListDeleteScenarios(
                         }
                     val deleteOk = results[0].status == HttpStatusCode.OK
                     val sendOk = results[1].status == HttpStatusCode.OK
-                    (deleteOk != sendOk) shouldBe true
-                    if (deleteOk) {
-                        results[1].status shouldBe HttpStatusCode.NotFound
-                        messageCount(id) shouldBe 0
-                    } else {
-                        results[0].status shouldBe HttpStatusCode.Conflict
-                        results[0].bodyAsText() shouldBe "SENDING"
-                        listRow(id)[MailingListTable.deletedAt] shouldBe null
+                    withClue("delete=${results[0].status} send=${results[1].status}") {
+                        if (deleteOk && sendOk) {
+                            // Legitimate third outcome: the send was queued and the delivery worker finished it before the delete began
+                            // (a deletion is refused only while a message is QUEUED). The invariant is that the deleted list carries no
+                            // QUEUED message, so nothing can be sent for it any more.
+                            queuedMessageCount(id) shouldBe 0
+                        } else if (deleteOk) {
+                            results[1].status shouldBe HttpStatusCode.NotFound
+                            messageCount(id) shouldBe 0
+                        } else {
+                            sendOk shouldBe true
+                            results[0].status shouldBe HttpStatusCode.Conflict
+                            results[0].bodyAsText() shouldBe "SENDING"
+                            listRow(id)[MailingListTable.deletedAt] shouldBe null
+                        }
                     }
                 }
             }()
