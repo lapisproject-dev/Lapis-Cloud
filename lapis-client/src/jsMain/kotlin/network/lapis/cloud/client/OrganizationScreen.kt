@@ -33,7 +33,8 @@ import org.w3c.dom.HTMLElement
  */
 
 /** The keys of the sections, in page order. They are also the `section` values of a deep link and the ids (`org-<key>`) of the sections. */
-internal val ORGANIZATION_SECTION_KEYS = listOf("allgemein", "videokonferenz", "aufzeichnung", "mitglieder-finder", "ausschreibungen")
+internal val ORGANIZATION_SECTION_KEYS =
+    listOf("allgemein", "videokonferenz", "aufzeichnung", "mitglieder-finder", "ausschreibungen", "partnerserver")
 
 /** Names under which a single setting is linked to; each resolves to the section that holds it. */
 internal val ORGANIZATION_SECTION_ALIASES =
@@ -136,6 +137,24 @@ private fun organizationSections(): List<OrganizationSection> =
                     ?: ""
             },
             build = { panel, refresh -> renderTenderDefaultsSettings(panel) { refresh() } },
+        ),
+        // V1.9.244: static summary (no RPC on load); the content is one button to the page of its own.
+        OrganizationSection(
+            key = "partnerserver",
+            icon = "fas fa-handshake",
+            title = tr("Partnerserver"),
+            summary = { _ -> tr("Befreundete Lapis-Server, Sperrliste") },
+            build = { panel, _ ->
+                panel.p(
+                    tr(
+                        "Hier tragen Sie befreundete Lapis-Server ein, deren öffentliche Veranstaltungen stündlich abgeholt werden, " +
+                            "und sperren unerwünschte Server.",
+                    ),
+                ) { addCssClasses("text-muted small") }
+                panel.actionButton(ActionIcon.NEXT, tr("Partnerserver verwalten")) {
+                    onClick { navigateTo(Routes.ORGANIZATION_PARTNER_SERVERS) }
+                }
+            },
         ),
     )
 

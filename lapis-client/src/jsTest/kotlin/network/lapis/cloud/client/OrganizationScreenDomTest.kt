@@ -18,7 +18,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * V1.9.221 -- the page Organisation: five closed sections, one summary line each, content built on the first opening only, the old
+ * V1.9.221 (six since V1.9.244) -- the page Organisation: six closed sections, one summary line each, content built on the first opening only, the old
  * RPCs behind the switches, deep links and their aliases, and the sidebar entry that only an ADMIN gets.
  */
 class OrganizationScreenDomTest {
@@ -122,11 +122,18 @@ class OrganizationScreenDomTest {
     private fun test(block: suspend () -> Unit): Promise<Unit> = formTest { block() }
 
     @Test
-    fun fiveSectionsAreThere_allClosed_andTheSummariesShowTheStoredValues(): Promise<Unit> =
+    fun sixSectionsAreThere_allClosed_andTheSummariesShowTheStoredValues(): Promise<Unit> =
         test {
             scenario(noise = true) { page, calls ->
                 assertEquals(
-                    listOf("org-allgemein", "org-videokonferenz", "org-aufzeichnung", "org-mitglieder-finder", "org-ausschreibungen"),
+                    listOf(
+                        "org-allgemein",
+                        "org-videokonferenz",
+                        "org-aufzeichnung",
+                        "org-mitglieder-finder",
+                        "org-ausschreibungen",
+                        "org-partnerserver",
+                    ),
                     page.sections().map { it.getAttribute("id") },
                 )
                 assertTrue(page.sections().none { it.hasAttribute("open") }, "all sections start closed")
@@ -135,6 +142,8 @@ class OrganizationScreenDomTest {
                 assertEquals("Pulpit-Aufzeichnung: aus · Veranstaltungen: aus", page.summaryOf("aufzeichnung"))
                 assertEquals("Mitglieder-Finder: aus", page.summaryOf("mitglieder-finder"))
                 assertTrue(page.summaryOf("ausschreibungen").contains("Verdeckt bis zur Frist"))
+                // V1.9.244: a static summary, no RPC of its own
+                assertEquals("Befreundete Lapis-Server, Sperrliste", page.summaryOf("partnerserver"))
                 // nothing is built before a section is opened: no switch, no select, only the one read for the summaries
                 assertNull(page.querySelector("button[role=switch]"))
                 assertNull(page.querySelector("select"))

@@ -215,6 +215,22 @@ internal val FederationIpPinningPlugin =
     }
 
 /**
+ * The three Ktor timeouts of one [federationHttpClient]. [DEFAULT] is what every federation fetch has always used (5 s request / 3 s connect /
+ * 5 s socket) and stays the default; V1.9.244 added [PARTNER_FEED] (10 s / 5 s / 10 s) for the partner feed, whose caller additionally wraps the
+ * whole call, body streaming included, in an outer `withTimeout` (the Ktor request timeout alone does not reliably cover a trickled body).
+ */
+internal data class FederationTimeouts(
+    val requestMillis: Long,
+    val connectMillis: Long,
+    val socketMillis: Long,
+) {
+    companion object {
+        val DEFAULT = FederationTimeouts(requestMillis = 5_000, connectMillis = 3_000, socketMillis = 5_000)
+        val PARTNER_FEED = FederationTimeouts(requestMillis = 10_000, connectMillis = 5_000, socketMillis = 10_000)
+    }
+}
+
+/**
  * A hardened [HttpClient] for exactly ONE outbound federation fetch to [target] -- mirrors
  * [network.lapis.cloud.server.economy.oracle.oracleHttpClient]'s own hardening choices
  * (`followRedirects = false` so no redirect can carry a request off an already-SSRF-checked host,
@@ -229,6 +245,16 @@ internal val FederationIpPinningPlugin =
  * host -- [FederationIpPinningPlugin] asserts this at request time.
  */
 internal fun federationHttpClient(target: SafeFederationTarget): HttpClient =
+    federationHttpClientWithTimeouts(target = target, timeouts = FederationTimeouts.DEFAULT)
+
+/**
+ * V1.9.244 -- [federationHttpClient] with explicit [timeouts] (the partner feed needs 5 s / 10 s / 10 s instead of 3 s / 5 s / 5 s). A separate
+ * function, not a defaulted parameter, so that every existing one-argument caller stays byte-identical.
+ */
+internal fun federationHttpClientWithTimeouts(
+    target: SafeFederationTarget,
+    timeouts: FederationTimeouts,
+): HttpClient =
     HttpClient(CIO) {
         engine {
             https {
@@ -237,9 +263,9 @@ internal fun federationHttpClient(target: SafeFederationTarget): HttpClient =
         }
         install(FederationIpPinningPlugin) { this.target = target }
         install(HttpTimeout) {
-            requestTimeoutMillis = 5_000
-            connectTimeoutMillis = 3_000
-            socketTimeoutMillis = 5_000
+            requestTimeoutMillis = timeouts.requestMillis
+            connectTimeoutMillis = timeouts.connectMillis
+            socketTimeoutMillis = timeouts.socketMillis
         }
         expectSuccess = false
         followRedirects = false
@@ -251,16 +277,16 @@ internal fun federationHttpClient(target: SafeFederationTarget): HttpClient =
  * Returns `null` if the cap is hit (the body is discarded, not partially parsed) -- mirrors
  * [network.lapis.cloud.server.economy.oracle.readCappedBodyOrNull]'s own contract.
  */
-internal suspend fun HttpResponse.readCappedFederationBodyOrNull(): ByteArray? {
+internal suspend fun HttpResponse.readCappedFederationBodyOrNull(maxBytes: Int = MAX_FEDERATION_RESPONSE_BYTES): ByteArray? {
     val channel = bodyAsChannel()
-    val buffer = ByteArray(MAX_FEDERATION_RESPONSE_BYTES + 1)
+    val buffer = ByteArray(maxBytes + 1)
     var total = 0
     while (total < buffer.size) {
         val read = channel.readAvailable(buffer, total, buffer.size - total)
         if (read == -1) break
         total += read
     }
-    return if (total > MAX_FEDERATION_RESPONSE_BYTES) null else buffer.copyOf(total)
+    return if (total > maxBytes) null else buffer.copyOf(total)
 }
 
 /**

@@ -590,5 +590,16 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "APP_CONFIRMATION"
             stereotype("Column") { "columnName" to "protocol_confirmation_mode"; "sqlType" to "VARCHAR(16)" }
         }
+        // Welle V1.9.244 "Partnerserver P1" (V131__partner_server_feed.sql). Whether OUR partner list is left out of our public partner feed
+        // (NOT NULL, FALSE) and the stable public id of THIS server in that feed (NULL until the first feed request creates it). Both are NOT
+        // part of the generic updateOrganizationSettings write-set and not in OrganizationSettingsDto: written ONLY by PartnerServerStore.
+        attribute(name = "partnerListHidden", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "partner_list_hidden" }
+        }
+        attribute(name = "partnerServerId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "partner_server_id" }
+        }
     }
 }

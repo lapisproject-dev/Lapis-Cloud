@@ -332,6 +332,12 @@ object Routes {
      */
     const val ORGANIZATION = "/organization"
 
+    /**
+     * V1.9.244 "Partnerserver P1" -- the ADMIN page behind the Organisation section "Partnerserver" (`PartnerServersScreen.kt`). No sidebar link of its
+     * own. Registered BEFORE [ORGANIZATION] so the longer path is never taken for the shorter one. Route-level ADMIN gate; the RPCs enforce it again.
+     */
+    const val ORGANIZATION_PARTNER_SERVERS = "/organization/partner-servers"
+
     // Soziales Netzwerk, Welle V1.1.1 "Fundament & Post-Kern" -- `ISocialNetworkService`,
     // self-contained domain: Timeline lesen, Post verfassen (Inhalt + LTR-Einsatz +
     // Sichtbarkeitsstufe), eigenen Post unsichtbar machen. Role gate verified against
@@ -1152,6 +1158,12 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.CONFERENCE_STREAM_DESTINATIONS) {
         requireRole(routing, AccountRole.ADMIN) {
             show(Routes.CONFERENCE_STREAM_DESTINATIONS, ::renderConferenceStreamDestinationsScreen)
+        }
+    }
+    // V1.9.244: the longer path is registered first (no prefix confusion with /organization).
+    routing.kvOn(Routes.ORGANIZATION_PARTNER_SERVERS) {
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.ORGANIZATION_PARTNER_SERVERS, ::renderPartnerServersScreen)
         }
     }
     routing.kvOn(Routes.ORGANIZATION) {

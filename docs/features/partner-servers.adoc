@@ -1,0 +1,55 @@
+= Partner servers (V1.9.244, wave P1)
+:toc:
+
+Lapis Cloud servers can be connected as **partners**. In wave P1 a server fetches the *public events* of the servers an administrator has entered. The partners have to set nothing up: every Lapis Cloud
+server already publishes the feed. **Nothing is shown to visitors yet** -- P1 only collects the data (the display on `/veranstaltungen`, with duplicate merging, is wave P2).
+
+NOTE: The `[kuml]` blocks of the architecture page are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== What an administrator does
+
+On the page *Organisation* the section **Partnerserver** has one button, "Partnerserver verwalten" (`/organization/partner-servers`, ADMIN only):
+
+. Enter the address of the partner (`partner.example.org`; `https://`, a trailing slash or a path are tolerated and dropped) and, optionally, a display name.
+. "Prüfen und speichern" makes **one** request to the partner. The partner is stored only if it answered with a valid feed; the page then says how many events were found.
+. The list shows per partner: name, host, a status with a symbol *and* words (fetched, waiting until HH:MM, paused, blocked), the last fetch, the number of cached events and the last error as a plain sentence.
+  "Aktiv" pauses and resumes the fetching; "Entfernen" deletes the partner and its cached events.
+. **Sperrliste**: a host (`spam.example.org`) or all sub-domains of a host (`*.example.org`) that is never fetched and never shown. A new block deletes the cached events of every matching partner at once. A block always wins over a partner.
+. "Eigene Partnerliste im Feed ausblenden": other servers then do not see who this server is connected with.
+
+Every change is written to the audit log (`PARTNER_SERVER`, `PARTNER_BLOCKLIST`): the kind of change and the host or pattern the administrator typed, never a name from a foreign feed.
+
+== What leaves this server (our feed)
+
+`GET /api/public/partner-feed/v1` -- no sign-in, rate limited (30 requests per minute and client, `429` + `Retry-After`), the body memoised for 60 seconds, `ETag`/`If-None-Match` (`304`).
+It repeats exactly what `/veranstaltungen` and `/veranstaltung.ics` already show anybody:
+
+* public, published events that have not ended and start within 365 days (a series is **one** entry: the next date plus the repeat sentence), at most 500 events and 512 KiB;
+* per event: id, title, start and end with the UTC offset, the organisation's time zone, an online yes/no, the location text, the short summary, the public page URL;
+* the own server id and name, and -- unless hidden -- the list of active, not blocked partners (host and name).
+
+**Never**: an online URL, the long description, capacity, fee, registrations, members, creators, drafts, cancelled or members-only events.
+
+== What we fetch
+
+Once an hour per partner (the minute is spread per partner so that servers do not all fetch at the same second), plus once when the partner is added. At most 50 partners per run, four at the same time.
+A failed fetch is retried after 1, 2, 4, 8, 16 and then 24 hours; the cached events stay until they expire (6 hours after the last successful fetch or `304`).
+
+Limits: 5 s to connect, 10 s for the whole request including the body, 512 KiB, no redirects, `application/json` only, at most 200 events per partner, at most 100 entries of the partner's own partner list.
+
+== Honest limits
+
+* **Direct partners only.** The partner list of a partner is stored (read-only, for wave P2) but never followed: a partner cannot make this server fetch from a third host.
+* **A server id is bound to one host.** The first id a host announces is kept; a later different id is the error "meldet eine andere Kennung", and a second host claiming an already bound id is refused.
+  This is what stops a malicious partner from overwriting the cached events of another one.
+* **Staging and backup.** The own server id lives in `organization_settings` and is part of the backup. A staging instance restored from a production backup has the *same* id as production: the two then
+  refuse each other as "this server itself". Accepted in P1; a later "create a new id" action is possible.
+* The partner events cache (`partner_event`) is **not** part of the backup (a refilled cache of foreign data); the partner list and the block list are.
+* Event texts are in the partner's language. The repeat sentence comes as the partner wrote it.
+* Not verified: a fetch against a real second server over the internet (all tests run on a simulated network); PostgreSQL behaviour is covered by the `postgresTest` lane.
+
+== Outlook
+
+P2 shows the cached events on `/veranstaltungen`, merging an event that two partners announce (same server id and event id). P3 may add partners of partners. Both need their own review.
+
+See link:../architecture/partner-server-feed.adoc[the architecture page] for the contract, the limits and the security chain.

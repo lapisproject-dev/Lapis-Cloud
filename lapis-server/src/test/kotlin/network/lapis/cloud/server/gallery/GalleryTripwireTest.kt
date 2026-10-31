@@ -65,7 +65,7 @@ class GalleryTripwireTest :
         }
 
         test(
-            "the gallery RPC service is the sixth to last registerService of Application.kt (the dashboard, the party report, the LupaBB sync, the Protokoll draft and the Protokoll finalising follow it)",
+            "the gallery RPC service is the seventh to last registerService of Application.kt (the dashboard, the party report, the LupaBB sync, the Protokoll draft, the Protokoll finalising and the partner servers follow it)",
         ) {
             val code = SourceScan.blank(File(SourceScan.mainRoot(), "network/lapis/cloud/server/Application.kt").readText())
             val registrations =
@@ -73,12 +73,13 @@ class GalleryTripwireTest :
                     .findAll(code)
                     .map { it.range.first }
                     .toList()
-            registrations[registrations.size - 6] shouldBe code.indexOf("registerService(IAttachedImageService::class)")
-            registrations[registrations.size - 5] shouldBe code.indexOf("registerService(IDashboardService::class)")
-            registrations[registrations.size - 4] shouldBe code.indexOf("registerService(IPartyReportService::class)")
-            registrations[registrations.size - 3] shouldBe code.indexOf("registerService(ILupaBbSyncService::class)")
-            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(IProtocolDraftService::class)")
-            registrations.last() shouldBe code.indexOf("registerService(IMeetingProtocolService::class)")
+            registrations[registrations.size - 7] shouldBe code.indexOf("registerService(IAttachedImageService::class)")
+            registrations[registrations.size - 6] shouldBe code.indexOf("registerService(IDashboardService::class)")
+            registrations[registrations.size - 5] shouldBe code.indexOf("registerService(IPartyReportService::class)")
+            registrations[registrations.size - 4] shouldBe code.indexOf("registerService(ILupaBbSyncService::class)")
+            registrations[registrations.size - 3] shouldBe code.indexOf("registerService(IProtocolDraftService::class)")
+            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(IMeetingProtocolService::class)")
+            registrations.last() shouldBe code.indexOf("registerService(IPartnerServerService::class)")
         }
 
         // ── V1.9.223: pictures in social posts ──────────────────────────────────────────────

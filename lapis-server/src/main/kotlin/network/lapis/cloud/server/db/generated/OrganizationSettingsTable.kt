@@ -114,5 +114,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val protocolConfirmationMode: Column<ProtocolConfirmationMode> =
         enumerationByName<ProtocolConfirmationMode>("protocol_confirmation_mode", 16).default(ProtocolConfirmationMode.APP_CONFIRMATION)
 
+    // Welle V1.9.244 -- hand-edited, see 11-organization-settings.kuml.kts (V131). Written ONLY by PartnerServerStore; NOT part of the generic update write-set.
+    public val partnerListHidden: Column<Boolean> = bool("partner_list_hidden").default(false)
+    public val partnerServerId: Column<Uuid?> = uuid("partner_server_id").nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

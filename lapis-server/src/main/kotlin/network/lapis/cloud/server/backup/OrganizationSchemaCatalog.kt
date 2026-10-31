@@ -107,6 +107,10 @@ object OrganizationSchemaCatalog {
                 "Welle V1.9.144. The daily aggregate (region key + coarse band) of the finder. It names no member, " +
                 "but it is derived from the excluded " +
                 "consent events, so it is meaningless without them and is recomputed by the poller.",
+            "partner_event" to
+                "Welle V1.9.244. Cache of the public events of the partner servers, refilled hourly by the PartnerFeedPoller. " +
+                "Restoring stale foreign data would show outdated events; partner_server and partner_blocklist ARE backed up " +
+                "(see docs/features/partner-servers.adoc).",
         )
 
     data class ColumnMetadata(

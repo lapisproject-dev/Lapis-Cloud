@@ -82,7 +82,8 @@ class DomainModelMergerTest :
             // Welle V1.9.225 "Rechenschaftsbericht (PartG)" -- now 77 with the addition of 76-partg-report.kuml.kts.
             // Welle V1.9.226 "LupaBB-Abgleich" -- now 78 with the addition of 77-lupabb-sync.kuml.kts.
             // Welle V1.9.237 "Neue Nachricht" -- now 79 with the addition of 78-direct-message-block.kuml.kts.
-            scriptFiles shouldHaveSize 79
+            // Welle V1.9.244 "Partnerserver P1" -- now 80 with the addition of 79-partner-servers.kuml.kts.
+            scriptFiles shouldHaveSize 80
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -583,7 +584,8 @@ class DomainModelMergerTest :
             // net +3 (224 -> 227).
             // 05-governance.kuml.kts (V1.9.240) adds FOUR real tables (protocol_version, protocol_version_confirmation, protocol_version_task,
             // protocol_task_status); its new DocumentVersion stub dedups into the real entity, net +4 (227 -> 231).
-            val distinctTableNames = 231
+            // 79-partner-servers.kuml.kts (V1.9.244) adds THREE real tables (partner_server, partner_event, partner_blocklist); no stub, net +3 (231 -> 234).
+            val distinctTableNames = 234
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -979,6 +981,9 @@ class DomainModelMergerTest :
                     "ProtocolVersionConfirmationTable.kt",
                     "ProtocolVersionTaskTable.kt",
                     "ProtocolTaskStatusTable.kt",
+                    "PartnerServerTable.kt",
+                    "PartnerEventTable.kt",
+                    "PartnerBlocklistTable.kt",
                 )
         }
 

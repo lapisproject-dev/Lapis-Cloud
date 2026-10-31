@@ -240,6 +240,10 @@ classDiagram(name = "AuditLog") {
         literal(name = "MEETING_SESSION")
         // Welle V1.9.237 "Neue Nachricht" -- one entry per group message (entityId = the committee id, snapshot = the delivered count only); 25 chars.
         literal(name = "DIRECT_MESSAGE_GROUP_SEND")
+        // Welle V1.9.244 "Partnerserver P1" -- a partner server was added / switched / removed, a block pattern was set / lifted, the partner list was hidden or shown
+        // (hosts and patterns only, never a name from a foreign feed); 14 and 17 chars.
+        literal(name = "PARTNER_SERVER")
+        literal(name = "PARTNER_BLOCKLIST")
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

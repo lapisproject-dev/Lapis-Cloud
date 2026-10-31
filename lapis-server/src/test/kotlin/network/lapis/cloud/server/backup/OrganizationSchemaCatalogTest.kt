@@ -54,6 +54,8 @@ class OrganizationSchemaCatalogTest :
                     "member_finder_region_band",
                     // Welle V1.9.226 -- the sealed LupaBB credentials (bound to this instance's key) and the run guard
                     "lupabb_sync_config",
+                    // Welle V1.9.244 -- the refilled cache of the partner servers' public events
+                    "partner_event",
                 )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false

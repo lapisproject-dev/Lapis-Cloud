@@ -575,6 +575,16 @@ enum class AuditEntityType {
      * [DirectMessageGroupSendSnapshot]: the delivered count only, never a text, a name or a recipient. 25 chars, fits `VARCHAR(29)`. Appended LAST.
      */
     DIRECT_MESSAGE_GROUP_SEND,
+
+    /**
+     * Welle V1.9.244 -- a partner server was added, switched on/off or removed, or the own partner list was hidden/shown (`entityId` = the partner
+     * id, or the settings singleton for the list switch), snapshot = [PartnerAuditSnapshot]: the host as the admin typed it (normalised), never
+     * a name from a foreign feed. 14 chars, fits `VARCHAR(29)`. Appended LAST.
+     */
+    PARTNER_SERVER,
+
+    /** Welle V1.9.244 -- a block pattern was set or lifted (`entityId` = the block id), snapshot = [PartnerAuditSnapshot]. 17 chars. Appended LAST. */
+    PARTNER_BLOCKLIST,
 }
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */

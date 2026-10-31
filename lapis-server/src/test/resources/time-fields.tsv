@@ -1008,3 +1008,13 @@ col:ProtocolVersionTaskTable.dueDate	D	calendar date of a task (the deadline), n
 col:ProtocolTaskStatusTable.doneAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
 col:ProtocolTaskStatusTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
 col:AgendaItemTable.approvalRecordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
+dto:PartnerServerDto.lastFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartnerServerDto.nextFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerServerTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerServerTable.lastFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerServerTable.nextFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerEventTable.startsAt	A	remote feed instant (ISO-8601 with offset), converted to UTC by PartnerFeedParser; stored and sent as UTC
+col:PartnerEventTable.endsAt	A	remote feed instant (ISO-8601 with offset), converted to UTC by PartnerFeedParser; stored and sent as UTC
+col:PartnerEventTable.fetchedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerEventTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerBlocklistTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

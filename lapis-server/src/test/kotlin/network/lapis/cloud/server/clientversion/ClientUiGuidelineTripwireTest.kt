@@ -567,6 +567,10 @@ private val R24_MIGRATED: Set<String> =
         // `PoliticianScreen.politicianRevokeConfirmDialog`) in the same wave so R29 does not rise when
         // the file joins this set.
         "KeycloakLinkScreen.kt",
+        // Welle V1.9.244 "Partnerserver P1": born on the form grammar -- the add form and the block form are `lapisForm`s whose writes go through
+        // `form.submit`; the other writes (Aktiv, Entfernen, Entsperren, the list switch) go through `runGuardedAction`. The two checkboxes are
+        // IMMEDIATE SWITCHES, justified in R24B_JUSTIFIED.
+        "PartnerServersScreen.kt",
         // Welle V1.9.12 "Mitfahrzentrale": every labelled text field (Von/Nach/Abfahrtsdatum/
         // Abfahrtszeit/Freie Plätze/Notiz in the create/edit form, Nachricht in the contact form)
         // goes through `lapisForm`'s `textField`/`textAreaField`/`selectField` from the start --
@@ -878,6 +882,13 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         // OFFER/REQUEST, never submitted, same reason as the approval-queue statusSelects above.
         // V1.9.186: the same toolbar gains "Nur meine" -- switches the list between the feed and the own entries, never submitted.
         "CarpoolScreen.kt" to listOf("filterRow.select( [label \"Art\"]", "onlyMineCheck = filterRow.checkBox(label = tr(\"Nur meine\"))"),
+        // Welle V1.9.244 "Partnerserver P1" -- IMMEDIATE SWITCHES: "Aktiv" of a partner row and "Eigene Partnerliste im Feed ausblenden" save themselves
+        // on change (one RPC call each, then the list reloads) -- no surrounding form, no submit button, same reason as StatuteQaScreen.kt's consent checkbox.
+        "PartnerServersScreen.kt" to
+            listOf(
+                "val active = actions.checkBox(value = partner.active, label = tr(\"Aktiv\"))",
+                "val toggle = box.checkBox(value = hidden, label = tr(\"Eigene Partnerliste im Feed ausblenden\"))",
+            ),
     )
 
 /**

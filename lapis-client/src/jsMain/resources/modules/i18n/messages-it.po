@@ -29073,3 +29073,149 @@ msgstr "Senza di lei, senza i membri usciti e quelli inattivi"
 
 msgid "Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Empfänger: %2)."
 msgstr "Il suo messaggio viene inviato singolarmente a ogni membro del gruppo «%1» (destinatari: %2)."
+
+# Welle V1.9.244 "Partnerserver P1" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+msgid "Nur https-Adressen sind erlaubt."
+msgstr "Sono consentiti solo indirizzi https."
+
+msgid "Das ist keine gültige Serveradresse."
+msgstr "Questo non è un indirizzo di server valido."
+
+msgid "Bitte nur eine Adresse ohne Port und ohne Zugangsdaten angeben."
+msgstr "Inserisci solo un indirizzo senza porta e senza credenziali."
+
+msgid "Diese Adresse zeigt auf ein internes Netz oder ist eine IP-Adresse. Bitte den öffentlichen Servernamen angeben."
+msgstr "Questo indirizzo punta a una rete interna o è un indirizzo IP. Inserisci il nome pubblico del server."
+
+msgid "Bitte den vollständigen Servernamen angeben, zum Beispiel partner.beispiel.de."
+msgstr "Inserisci il nome completo del server, ad esempio partner.esempio.it."
+
+msgid "Das ist dieser Server selbst."
+msgstr "Questo è il server stesso."
+
+msgid "Die Adresse ist zu lang."
+msgstr "L'indirizzo è troppo lungo."
+
+msgid "Dieser Host steht auf der Sperrliste."
+msgstr "Questo host è nell'elenco di blocco."
+
+msgid "Der Server ist nicht öffentlich erreichbar (die Adresse zeigt auf ein internes Netz)."
+msgstr "Il server non è raggiungibile pubblicamente (l'indirizzo punta a una rete interna)."
+
+msgid "Der Server hat nicht innerhalb von 10 Sekunden geantwortet."
+msgstr "Il server non ha risposto entro 10 secondi."
+
+msgid "Der Server leitet weiter. Weiterleitungen werden aus Sicherheitsgründen nicht verfolgt."
+msgstr "Il server reindirizza. Per motivi di sicurezza i reindirizzamenti non vengono seguiti."
+
+msgid "Die Antwort des Servers ist größer als 512 KiB."
+msgstr "La risposta del server supera 512 KiB."
+
+msgid "Der Server liefert keinen gültigen Lapis-Feed."
+msgstr "Il server non fornisce un feed Lapis valido."
+
+msgid "Der Server meldet eine andere Kennung als bisher."
+msgstr "Il server comunica un identificativo diverso da prima."
+
+msgid "Diese Serverkennung gehört bereits einem anderen Partner."
+msgstr "Questo identificativo di server appartiene già a un altro partner."
+
+msgid "Der Server ist nicht erreichbar."
+msgstr "Il server non è raggiungibile."
+
+msgid "Das Sicherheitszertifikat des Servers ist nicht gültig."
+msgstr "Il certificato di sicurezza del server non è valido."
+
+msgid "Dieser Server ist schon eingetragen."
+msgstr "Questo server è già stato aggiunto."
+
+msgid "Gespeichert als %1 – Veranstaltungen gefunden: %2."
+msgstr "Salvato come %1 – eventi trovati: %2."
+
+msgid "Gesperrt"
+msgstr "Bloccato"
+
+msgid "Abgerufen"
+msgstr "Recuperato"
+
+msgid "Wartet bis %1"
+msgstr "In attesa fino alle %1"
+
+msgid "Wartet auf den ersten Abruf"
+msgstr "In attesa del primo recupero"
+
+msgid "Gesperrt – wird nicht abgerufen und nicht angezeigt"
+msgstr "Bloccato – non viene recuperato né mostrato"
+
+msgid "Zur Organisation"
+msgstr "Torna all'organizzazione"
+
+msgid "Partnerserver"
+msgstr "Server partner"
+
+msgid "Wir holen stündlich die öffentlichen Veranstaltungen dieser Server ab. Die Partner müssen nichts einrichten."
+msgstr "Ogni ora recuperiamo gli eventi pubblici di questi server. I partner non devono configurare nulla."
+
+msgid "Adresse des Servers"
+msgstr "Indirizzo del server"
+
+msgid "Zum Beispiel partner.beispiel.de"
+msgstr "Ad esempio partner.esempio.it"
+
+msgid "Anzeigename (optional)"
+msgstr "Nome visualizzato (facoltativo)"
+
+msgid "Eingetragene Partner"
+msgstr "Partner registrati"
+
+msgid "Noch kein Partner eingetragen."
+msgstr "Non è ancora stato aggiunto alcun partner."
+
+msgid "Letzter Abruf: %1"
+msgstr "Ultimo recupero: %1"
+
+msgid "Veranstaltungen: %1"
+msgstr "Eventi: %1"
+
+msgid "Partner entfernen?"
+msgstr "Rimuovere il partner?"
+
+msgid "Partner und zwischengespeicherte Veranstaltungen entfernen?"
+msgstr "Rimuovere il partner e i suoi eventi memorizzati nella cache?"
+
+msgid "Eigene Partnerliste im Feed ausblenden"
+msgstr "Nascondi il proprio elenco di partner nel feed"
+
+msgid "Andere Server sehen dann nicht, mit wem Sie verbunden sind."
+msgstr "Gli altri server non vedranno così con chi sei collegato."
+
+msgid "Sperrliste"
+msgstr "Elenco di blocco"
+
+msgid "Gesperrte Hosts werden nie abgerufen und nie angezeigt. Erlaubt sind ein Servername oder *.servername für alle Unterdomänen."
+msgstr "Gli host bloccati non vengono mai recuperati né mostrati. Sono ammessi un nome di server o *.nomeserver per tutti i sottodomini."
+
+msgid "Host oder Muster"
+msgstr "Host o modello"
+
+msgid "Zum Beispiel spam.beispiel.de oder *.beispiel.de"
+msgstr "Ad esempio spam.esempio.it oppure *.esempio.it"
+
+msgid "Sperren"
+msgstr "Blocca"
+
+msgid "Bitte einen Servernamen oder *.servername angeben."
+msgstr "Inserisci un nome di server o *.nomeserver."
+
+msgid "Befreundete Lapis-Server, Sperrliste"
+msgstr "Server Lapis amici, elenco di blocco"
+
+msgid "Hier tragen Sie befreundete Lapis-Server ein, deren öffentliche Veranstaltungen stündlich abgeholt werden, und sperren unerwünschte Server."
+msgstr "Qui aggiungi server Lapis amici i cui eventi pubblici vengono recuperati ogni ora e blocchi i server indesiderati."
+
+msgid "Partnerserver verwalten"
+msgstr "Gestisci i server partner"
+
+msgid "Partnerserver-Sperrliste"
+msgstr "Elenco di blocco dei server partner"
+

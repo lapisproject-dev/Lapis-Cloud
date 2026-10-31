@@ -29024,3 +29024,149 @@ msgstr "Without yourself, without former and inactive members"
 
 msgid "Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Empfänger: %2)."
 msgstr "Your message goes individually to every member of the group “%1” (recipients: %2)."
+
+# Welle V1.9.244 "Partnerserver P1" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+msgid "Nur https-Adressen sind erlaubt."
+msgstr "Only https addresses are allowed."
+
+msgid "Das ist keine gültige Serveradresse."
+msgstr "This is not a valid server address."
+
+msgid "Bitte nur eine Adresse ohne Port und ohne Zugangsdaten angeben."
+msgstr "Please enter only an address without a port and without credentials."
+
+msgid "Diese Adresse zeigt auf ein internes Netz oder ist eine IP-Adresse. Bitte den öffentlichen Servernamen angeben."
+msgstr "This address points to an internal network or is an IP address. Please enter the public server name."
+
+msgid "Bitte den vollständigen Servernamen angeben, zum Beispiel partner.beispiel.de."
+msgstr "Please enter the full server name, for example partner.example.com."
+
+msgid "Das ist dieser Server selbst."
+msgstr "This is this server itself."
+
+msgid "Die Adresse ist zu lang."
+msgstr "The address is too long."
+
+msgid "Dieser Host steht auf der Sperrliste."
+msgstr "This host is on the blocklist."
+
+msgid "Der Server ist nicht öffentlich erreichbar (die Adresse zeigt auf ein internes Netz)."
+msgstr "The server is not publicly reachable (the address points to an internal network)."
+
+msgid "Der Server hat nicht innerhalb von 10 Sekunden geantwortet."
+msgstr "The server did not answer within 10 seconds."
+
+msgid "Der Server leitet weiter. Weiterleitungen werden aus Sicherheitsgründen nicht verfolgt."
+msgstr "The server redirects. Redirects are not followed for security reasons."
+
+msgid "Die Antwort des Servers ist größer als 512 KiB."
+msgstr "The server's response is larger than 512 KiB."
+
+msgid "Der Server liefert keinen gültigen Lapis-Feed."
+msgstr "The server does not deliver a valid Lapis feed."
+
+msgid "Der Server meldet eine andere Kennung als bisher."
+msgstr "The server reports a different identifier than before."
+
+msgid "Diese Serverkennung gehört bereits einem anderen Partner."
+msgstr "This server identifier already belongs to another partner."
+
+msgid "Der Server ist nicht erreichbar."
+msgstr "The server is not reachable."
+
+msgid "Das Sicherheitszertifikat des Servers ist nicht gültig."
+msgstr "The server's security certificate is not valid."
+
+msgid "Dieser Server ist schon eingetragen."
+msgstr "This server has already been added."
+
+msgid "Gespeichert als %1 – Veranstaltungen gefunden: %2."
+msgstr "Saved as %1 – events found: %2."
+
+msgid "Gesperrt"
+msgstr "Blocked"
+
+msgid "Abgerufen"
+msgstr "Fetched"
+
+msgid "Wartet bis %1"
+msgstr "Waiting until %1"
+
+msgid "Wartet auf den ersten Abruf"
+msgstr "Waiting for the first fetch"
+
+msgid "Gesperrt – wird nicht abgerufen und nicht angezeigt"
+msgstr "Blocked – not fetched and not shown"
+
+msgid "Zur Organisation"
+msgstr "Back to the organization"
+
+msgid "Partnerserver"
+msgstr "Partner servers"
+
+msgid "Wir holen stündlich die öffentlichen Veranstaltungen dieser Server ab. Die Partner müssen nichts einrichten."
+msgstr "We fetch the public events of these servers every hour. The partners do not have to set anything up."
+
+msgid "Adresse des Servers"
+msgstr "Server address"
+
+msgid "Zum Beispiel partner.beispiel.de"
+msgstr "For example partner.example.com"
+
+msgid "Anzeigename (optional)"
+msgstr "Display name (optional)"
+
+msgid "Eingetragene Partner"
+msgstr "Added partners"
+
+msgid "Noch kein Partner eingetragen."
+msgstr "No partner has been added yet."
+
+msgid "Letzter Abruf: %1"
+msgstr "Last fetch: %1"
+
+msgid "Veranstaltungen: %1"
+msgstr "Events: %1"
+
+msgid "Partner entfernen?"
+msgstr "Remove partner?"
+
+msgid "Partner und zwischengespeicherte Veranstaltungen entfernen?"
+msgstr "Remove the partner and its cached events?"
+
+msgid "Eigene Partnerliste im Feed ausblenden"
+msgstr "Hide own partner list in the feed"
+
+msgid "Andere Server sehen dann nicht, mit wem Sie verbunden sind."
+msgstr "Other servers then cannot see who you are connected with."
+
+msgid "Sperrliste"
+msgstr "Blocklist"
+
+msgid "Gesperrte Hosts werden nie abgerufen und nie angezeigt. Erlaubt sind ein Servername oder *.servername für alle Unterdomänen."
+msgstr "Blocked hosts are never fetched and never shown. A server name or *.servername for all subdomains is allowed."
+
+msgid "Host oder Muster"
+msgstr "Host or pattern"
+
+msgid "Zum Beispiel spam.beispiel.de oder *.beispiel.de"
+msgstr "For example spam.example.com or *.example.com"
+
+msgid "Sperren"
+msgstr "Block"
+
+msgid "Bitte einen Servernamen oder *.servername angeben."
+msgstr "Please enter a server name or *.servername."
+
+msgid "Befreundete Lapis-Server, Sperrliste"
+msgstr "Friendly Lapis servers, blocklist"
+
+msgid "Hier tragen Sie befreundete Lapis-Server ein, deren öffentliche Veranstaltungen stündlich abgeholt werden, und sperren unerwünschte Server."
+msgstr "Here you add friendly Lapis servers whose public events are fetched every hour, and block unwanted servers."
+
+msgid "Partnerserver verwalten"
+msgstr "Manage partner servers"
+
+msgid "Partnerserver-Sperrliste"
+msgstr "Partner server blocklist"
+

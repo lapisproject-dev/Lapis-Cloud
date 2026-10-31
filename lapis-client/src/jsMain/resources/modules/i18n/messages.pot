@@ -28419,3 +28419,149 @@ msgstr ""
 
 msgid "Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Empfänger: %2)."
 msgstr ""
+
+# Welle V1.9.244 "Partnerserver P1" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+msgid "Nur https-Adressen sind erlaubt."
+msgstr ""
+
+msgid "Das ist keine gültige Serveradresse."
+msgstr ""
+
+msgid "Bitte nur eine Adresse ohne Port und ohne Zugangsdaten angeben."
+msgstr ""
+
+msgid "Diese Adresse zeigt auf ein internes Netz oder ist eine IP-Adresse. Bitte den öffentlichen Servernamen angeben."
+msgstr ""
+
+msgid "Bitte den vollständigen Servernamen angeben, zum Beispiel partner.beispiel.de."
+msgstr ""
+
+msgid "Das ist dieser Server selbst."
+msgstr ""
+
+msgid "Die Adresse ist zu lang."
+msgstr ""
+
+msgid "Dieser Host steht auf der Sperrliste."
+msgstr ""
+
+msgid "Der Server ist nicht öffentlich erreichbar (die Adresse zeigt auf ein internes Netz)."
+msgstr ""
+
+msgid "Der Server hat nicht innerhalb von 10 Sekunden geantwortet."
+msgstr ""
+
+msgid "Der Server leitet weiter. Weiterleitungen werden aus Sicherheitsgründen nicht verfolgt."
+msgstr ""
+
+msgid "Die Antwort des Servers ist größer als 512 KiB."
+msgstr ""
+
+msgid "Der Server liefert keinen gültigen Lapis-Feed."
+msgstr ""
+
+msgid "Der Server meldet eine andere Kennung als bisher."
+msgstr ""
+
+msgid "Diese Serverkennung gehört bereits einem anderen Partner."
+msgstr ""
+
+msgid "Der Server ist nicht erreichbar."
+msgstr ""
+
+msgid "Das Sicherheitszertifikat des Servers ist nicht gültig."
+msgstr ""
+
+msgid "Dieser Server ist schon eingetragen."
+msgstr ""
+
+msgid "Gespeichert als %1 – Veranstaltungen gefunden: %2."
+msgstr ""
+
+msgid "Gesperrt"
+msgstr ""
+
+msgid "Abgerufen"
+msgstr ""
+
+msgid "Wartet bis %1"
+msgstr ""
+
+msgid "Wartet auf den ersten Abruf"
+msgstr ""
+
+msgid "Gesperrt – wird nicht abgerufen und nicht angezeigt"
+msgstr ""
+
+msgid "Zur Organisation"
+msgstr ""
+
+msgid "Partnerserver"
+msgstr ""
+
+msgid "Wir holen stündlich die öffentlichen Veranstaltungen dieser Server ab. Die Partner müssen nichts einrichten."
+msgstr ""
+
+msgid "Adresse des Servers"
+msgstr ""
+
+msgid "Zum Beispiel partner.beispiel.de"
+msgstr ""
+
+msgid "Anzeigename (optional)"
+msgstr ""
+
+msgid "Eingetragene Partner"
+msgstr ""
+
+msgid "Noch kein Partner eingetragen."
+msgstr ""
+
+msgid "Letzter Abruf: %1"
+msgstr ""
+
+msgid "Veranstaltungen: %1"
+msgstr ""
+
+msgid "Partner entfernen?"
+msgstr ""
+
+msgid "Partner und zwischengespeicherte Veranstaltungen entfernen?"
+msgstr ""
+
+msgid "Eigene Partnerliste im Feed ausblenden"
+msgstr ""
+
+msgid "Andere Server sehen dann nicht, mit wem Sie verbunden sind."
+msgstr ""
+
+msgid "Sperrliste"
+msgstr ""
+
+msgid "Gesperrte Hosts werden nie abgerufen und nie angezeigt. Erlaubt sind ein Servername oder *.servername für alle Unterdomänen."
+msgstr ""
+
+msgid "Host oder Muster"
+msgstr ""
+
+msgid "Zum Beispiel spam.beispiel.de oder *.beispiel.de"
+msgstr ""
+
+msgid "Sperren"
+msgstr ""
+
+msgid "Bitte einen Servernamen oder *.servername angeben."
+msgstr ""
+
+msgid "Befreundete Lapis-Server, Sperrliste"
+msgstr ""
+
+msgid "Hier tragen Sie befreundete Lapis-Server ein, deren öffentliche Veranstaltungen stündlich abgeholt werden, und sperren unerwünschte Server."
+msgstr ""
+
+msgid "Partnerserver verwalten"
+msgstr ""
+
+msgid "Partnerserver-Sperrliste"
+msgstr ""
+

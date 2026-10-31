@@ -191,6 +191,8 @@ class AuditLogSchemaDriftTest :
                             "MEETING_EVENT_LINK",
                             "MEETING_SESSION",
                             "DIRECT_MESSAGE_GROUP_SEND",
+                            "PARTNER_SERVER",
+                            "PARTNER_BLOCKLIST",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

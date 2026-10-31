@@ -611,6 +611,9 @@ fun decodeAuditSnapshot(
             AuditEntityType.MEETING_SESSION -> null
             // V1.9.237 -- DirectMessageGroupSendSnapshot: the delivered count only; raw-text display.
             AuditEntityType.DIRECT_MESSAGE_GROUP_SEND -> null
+            // V1.9.244 -- PartnerAuditSnapshot: the kind and the normalised host / pattern the admin typed; raw-text display.
+            AuditEntityType.PARTNER_SERVER -> null
+            AuditEntityType.PARTNER_BLOCKLIST -> null
         }
     }.getOrNull()
 

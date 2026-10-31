@@ -204,6 +204,8 @@ import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningPoller
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningService
 import network.lapis.cloud.server.partg.PartgImportPreviewStore
+import network.lapis.cloud.server.partner.PartnerFeedPoller
+import network.lapis.cloud.server.partner.registerPartnerFeedRoutes
 import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
 import network.lapis.cloud.server.payment.bankstatement.BankStatementImportService
 import network.lapis.cloud.server.payment.dunning.DunningConfig
@@ -356,6 +358,7 @@ import network.lapis.cloud.server.rpc.OnlineCountsService
 import network.lapis.cloud.server.rpc.OpenItemService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
 import network.lapis.cloud.server.rpc.OrganizationTimeZoneService
+import network.lapis.cloud.server.rpc.PartnerServerService
 import network.lapis.cloud.server.rpc.PartyReportService
 import network.lapis.cloud.server.rpc.PaymentGatewayService
 import network.lapis.cloud.server.rpc.PeerTransferService
@@ -470,6 +473,7 @@ import network.lapis.cloud.shared.rpc.IOnlineCountsService
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IOrganizationTimeZoneService
+import network.lapis.cloud.shared.rpc.IPartnerServerService
 import network.lapis.cloud.shared.rpc.IPartyReportService
 import network.lapis.cloud.shared.rpc.IPaymentGatewayService
 import network.lapis.cloud.shared.rpc.IPeerTransferService
@@ -1701,6 +1705,13 @@ internal fun Application.module(
     // (WebhookConfig.load already fail-fasts before enabled can be true with a null key).
     webhookDeliveryPoller.start()
     monitor.subscribe(ApplicationStopping) { webhookDeliveryPoller.stop() }
+    // V1.9.244 "Partnerserver P1": the hourly refresh of the partner caches (no-op while no partner exists), the flood guard of the public feed
+    // route (per client, 30/min) and the probe budget of the admin form (per admin, 10/min). Module-scoped, never a constructor default.
+    val partnerFeedPoller = PartnerFeedPoller()
+    partnerFeedPoller.start()
+    monitor.subscribe(ApplicationStopping) { partnerFeedPoller.stop() }
+    val partnerFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val partnerProbeRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val webhookConfigureRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val webhookSecretRotateRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     // D2 -- deliberately its own, tighter budget: a synchronous diagnostic call must not share the
@@ -2861,25 +2872,30 @@ internal fun Application.module(
                 mcpEnabled = mcpConfig.isOperational,
             )
         }
-        // V1.9.225 party report (PartG), R1. Second to last since V1.9.226 (the LupaBB sync is the LAST registerService; Kilua numbers
-        // routes by declaration order). New methods of the interface go to its end, never in between.
+        // V1.9.225 party report (PartG), R1. Registered before the LupaBB sync, the Protokoll draft, the Protokoll finalisation and the
+        // partner servers (Kilua numbers routes by declaration order). New methods of the interface go to its end, never in between.
         registerService(IPartyReportService::class) { call ->
             PartyReportService(call = call, writeRateLimiter = partgReportWriteRateLimiter)
         }
-        // V1.9.226 LupaBB member master-data sync (ADMIN, manual). Second to last since V1.9.239 (the Protokoll draft is the LAST
-        // registerService; Kilua numbers routes by declaration order). New methods of the interface go to its end, never in between.
+        // V1.9.226 LupaBB member master-data sync (ADMIN, manual). Registered before the Protokoll draft, the Protokoll finalisation and the
+        // partner servers (Kilua numbers routes by declaration order). New methods of the interface go to its end, never in between.
         registerService(ILupaBbSyncService::class) { call ->
             LupaBbSyncService(call = call, runtime = lupaBbSyncRuntime)
         }
-        // V1.9.239 Protokoll draft of a Sitzung (Welle D1). Second to last registerService (Kilua numbers routes by declaration order).
-        // New methods of the interface go to its end, never in between.
+        // V1.9.239 Protokoll draft of a Sitzung (Welle D1). Registered before the Protokoll finalisation and the partner servers (Kilua numbers
+        // routes by declaration order). New methods of the interface go to its end, never in between.
         registerService(IProtocolDraftService::class) { call ->
             ProtocolDraftService(call = call)
         }
-        // V1.9.240 Protokoll fertigstellen (Welle D2). THIS is the LAST registerService (after IProtocolDraftService). New methods of the
-        // interface go to its end, never in between.
+        // V1.9.240 Protokoll fertigstellen (Welle D2). Second to last since V1.9.244 (the partner servers are the LAST registerService). New
+        // methods of the interface go to its end, never in between.
         registerService(IMeetingProtocolService::class) { call ->
             MeetingProtocolService(call = call, storageRoot = documentStorageRoot)
+        }
+        // V1.9.244 Partnerserver P1 (ADMIN). THIS is the LAST registerService (after IMeetingProtocolService). New methods of the interface go to
+        // its end, never in between.
+        registerService(IPartnerServerService::class) { call ->
+            PartnerServerService(call = call, probeRateLimiter = partnerProbeRateLimiter)
         }
     }
 
@@ -2894,6 +2910,8 @@ internal fun Application.module(
         }
         registerDocumentRoutes(documentStorageRoot)
         registerMeetingProtocolRoutes(documentStorageRoot)
+        // V1.9.244: the public event feed for partner servers (no login, rate limited, memoised, ETag).
+        registerPartnerFeedRoutes(rateLimiter = partnerFeedRateLimiter)
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
         // V1.9.232: attachments on mailing messages; its own upload budget (per member), BOARD/ADMIN only.
         registerMailingAttachmentRoutes(

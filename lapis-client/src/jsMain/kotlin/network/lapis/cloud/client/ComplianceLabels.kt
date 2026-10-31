@@ -207,6 +207,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.MEETING_EVENT_LINK -> gettext("Sitzung und Veranstaltung (Verknüpfung)")
         AuditEntityType.MEETING_SESSION -> gettext("Sitzung im Konferenzraum")
         AuditEntityType.DIRECT_MESSAGE_GROUP_SEND -> gettext("Gruppennachricht")
+        AuditEntityType.PARTNER_SERVER -> gettext("Partnerserver")
+        AuditEntityType.PARTNER_BLOCKLIST -> gettext("Partnerserver-Sperrliste")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -340,6 +342,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.MEETING_EVENT_LINK -> "secondary"
         AuditEntityType.MEETING_SESSION -> "secondary"
         AuditEntityType.DIRECT_MESSAGE_GROUP_SEND -> "secondary"
+        AuditEntityType.PARTNER_SERVER -> "secondary"
+        AuditEntityType.PARTNER_BLOCKLIST -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

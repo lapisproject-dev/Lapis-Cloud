@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.244 -- Partner servers, wave P1: public event feed and direct partners
+
+**Additive migration V131, no new environment variable, no new dependency.** Direct partners only; the partner events are **not displayed yet** (wave P2).
+
+- **Our feed.** `GET /api/public/partner-feed/v1` (no sign-in, 30 requests/min/client, memoised 60 s, `ETag`/`304`): public, published, not yet ended events of the next 365 days (a series once, with its sentence), start/end with UTC offset, never an online URL, description, capacity, fee or member data; plus the own server id and the list of active partners (switchable off).
+- **Their feed.** An administrator enters a host on *Organisation > Partnerserver*; "Prüfen und speichern" fetches once and stores the partner only if the feed is valid. `PartnerFeedPoller` refreshes hourly (spread per partner, 4 in parallel, back-off 1 h to 24 h), the cache lives 6 h.
+- **Block list** (`host` or `*.host`): never fetched, never shown; a new block deletes the cached events at once and wins over a partner.
+- **Security.** Host normalisation without a parser differential (every IPv4 spelling is an IP literal), the full address blocklist of `checkWebhookUrl` (CGNAT, mapped, 6to4, Teredo, NAT64, 0/8, 240/4) with IP pinning, no redirects, 5 s/10 s/512 KiB, JSON depth check, event URLs bound to the partner host, foreign text cleaned (NFC, no control/bidi characters, HTML never interpreted). A server id is bound to one host (`UNIQUE(remote_server_id)`), the event id is unique per partner row: no cache poisoning.
+- **Data.** `partner_server`, `partner_event` (excluded from the backup), `partner_blocklist`, `organization_settings.partner_list_hidden` / `partner_server_id`; `audit_log_entry.entity_type` gains `PARTNER_SERVER`, `PARTNER_BLOCKLIST` (changes are audited: kind plus host or pattern only).
+- **Additive in the HTTP client:** `federationHttpClient(target, timeouts)` and `readCappedFederationBodyOrNull(maxBytes)` got defaulted parameters; every existing caller is unchanged.
+- **RPC.** `IPartnerServerService` (8 methods, ADMIN only) is now the last `registerService`; two order pins (`ConferenceTimerServiceEventGuardTripwireTest`, `GalleryTripwireTest`) moved by one.
+- **Honest limits.** A staging instance restored from a production backup shares the server id of production (documented, not solved). Not verified against a real second server over the internet; all fetch tests run on a simulated network. Docs: `partner-servers.adoc`, `partner-server-feed.adoc`.
+
 ### V1.9.243 -- One series, one entry on the public pages
 
 **Behaviour change first:** `/veranstaltungen` lists a recurring event once -- its next public date -- instead of once per date. The page of a series date gets a block "Weitere Termine dieser Serie". `/veranstaltung.ics`, the embed list and the navigation are unchanged and still see every date.

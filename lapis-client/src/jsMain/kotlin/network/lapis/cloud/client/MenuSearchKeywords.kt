@@ -122,6 +122,9 @@ object MenuSearchKeywords {
                     "mitglieder-finder",
                     "ausschreibung",
                     "mitgliederzahl",
+                    "partnerserver",
+                    "partner",
+                    "sperrliste",
                 ),
             Routes.CONFERENCE_STREAM_DESTINATIONS to listOf("stream", "youtube", "livestream", "rtmp", "übertragung"),
             Routes.SEPA_SETTINGS to listOf("gläubiger-id", "sepa", "bank", "lastschrift einstellungen"),
@@ -139,5 +142,7 @@ object MenuSearchKeywords {
             Routes.EVENT_IMPORT to "no sidebar link: reachable only from the event management screen, so there is nothing to find",
             Routes.ARTICLE_IMPORT to "no sidebar link: reachable only from the articles screen, so there is nothing to find",
             Routes.MEMBER_LUPABB_SYNC to "no sidebar link: reachable only from the member administration (its search words include lupabb)",
+            Routes.ORGANIZATION_PARTNER_SERVERS to
+                "no sidebar link: reachable only from the Organisation page (its search words include partnerserver)",
         )
 }

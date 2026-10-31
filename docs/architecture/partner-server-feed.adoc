@@ -1,0 +1,140 @@
+= Partner server feed (V1.9.244)
+:toc:
+
+NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+See link:../features/partner-servers.adoc[the feature description] for what an administrator sees. This page records the contract, the limits and why the pieces look the way they do.
+
+== Feed contract, version 1
+
+[kuml, partner-feed-contract, svg]
+----
+classDiagram(name = "Partner feed v1") {
+    val feed = classOf(name = "PartnerFeedV1") {
+        attribute(name = "schemaVersion", type = "Int")
+        attribute(name = "kind", type = "String")
+        attribute(name = "serverId", type = "UUID")
+        attribute(name = "name", type = "String")
+        attribute(name = "generatedAt", type = "String")
+        attribute(name = "partnersHidden", type = "Boolean")
+    }
+    val event = classOf(name = "PartnerFeedEvent") {
+        attribute(name = "kind", type = "String")
+        attribute(name = "id", type = "String")
+        attribute(name = "title", type = "String")
+        attribute(name = "startsAt", type = "String")
+        attribute(name = "endsAt", type = "String")
+        attribute(name = "timeZone", type = "String")
+        attribute(name = "online", type = "Boolean")
+        attribute(name = "place", type = "String")
+        attribute(name = "summary", type = "String")
+        attribute(name = "url", type = "String")
+    }
+    val recurrence = classOf(name = "PartnerFeedRecurrence") {
+        attribute(name = "sentence", type = "String")
+    }
+    val partner = classOf(name = "PartnerFeedPartner") {
+        attribute(name = "kind", type = "String")
+        attribute(name = "host", type = "String")
+        attribute(name = "name", type = "String")
+    }
+    association(source = feed, target = event) { target { multiplicity("0..500"); role = "events" } }
+    association(source = feed, target = partner) { target { multiplicity("0..*"); role = "partners" } }
+    association(source = event, target = recurrence) { target { multiplicity("0..1"); role = "recurrence" } }
+}
+----
+
+`startsAt`/`endsAt` are ISO-8601 *with* the offset (`2026-11-05T19:00:00+01:00`) plus the IANA `timeZone`: unambiguous for the reader, whatever its own zone. The cache stores UTC instants (time class A)
+and keeps the zone for the display only.
+
+*Extensibility.* A reader ignores unknown fields and unknown `kind` values. New kinds of entries become **new named lists** with a `kind` per entry; an existing field never changes meaning. A breaking change is `schemaVersion` 2 under a new path.
+
+== Fetch sequence
+
+[kuml, partner-feed-fetch, svg]
+----
+sequenceDiagram(name = "Partner feed: hourly fetch") {
+    val poller = participant(name = "PartnerFeedPoller")
+    val store = participant(name = "PartnerServerStore")
+    val fetcher = participant(name = "PartnerFeedFetcher")
+    val guard = participant(name = "Address guard and DNS pin")
+    val partner = participant(name = "Partner server")
+
+    message(from = poller, to = store, text = "purge expired, due partners (blocked hosts filtered out first)")
+    message(from = poller, to = fetcher, text = "fetch(host, etag) -- outside any transaction")
+    message(from = fetcher, to = guard, text = "resolve ONCE, all addresses must be public, pin the first")
+    message(from = fetcher, to = partner, text = "GET /api/public/partner-feed/v1 (pinned IP, original Host and SNI)")
+    message(from = partner, to = fetcher, text = "200 JSON <= 512 KiB / 304 / error")
+    message(from = fetcher, to = poller, text = "parsed feed or an error code")
+    message(from = poller, to = store, text = "short transaction: block list checked again, events replaced, next slot or back-off")
+}
+----
+
+== Data model
+
+[kuml, partner-server-model, svg]
+----
+classDiagram(name = "Partner servers -- tables") {
+    val server = classOf(name = "partner_server") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "host", type = "String") // unique, lower-case
+        attribute(name = "remote_server_id", type = "UUID") // unique: bound to one host
+        attribute(name = "active", type = "Boolean")
+        attribute(name = "last_status", type = "String") // OK | ERROR | NEVER
+        attribute(name = "last_error", type = "String") // a code, never a text
+        attribute(name = "consecutive_failures", type = "Int")
+        attribute(name = "next_fetch_at", type = "LocalDateTime") // UTC
+        attribute(name = "remote_partners_json", type = "String") // stored, never followed
+    }
+    val event = classOf(name = "partner_event") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "partner_server_id", type = "UUID")
+        attribute(name = "remote_event_id", type = "String") // unique per partner ROW
+        attribute(name = "starts_at", type = "LocalDateTime") // UTC instant
+        attribute(name = "expires_at", type = "LocalDateTime")
+    }
+    classOf(name = "partner_blocklist") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "pattern", type = "String") // host or *.host
+    }
+    association(source = server, target = event) { target { multiplicity("0..*"); role = "events (ON DELETE CASCADE)" } }
+}
+----
+
+*Why `UNIQUE(partner_server_id, remote_event_id)` and not `(remote_server_id, remote_event_id)`.* The server id is announced by the partner itself. With the second key a malicious partner B could claim the server id of
+partner A and overwrite A's cached events. The key is the partner *row*; additionally `UNIQUE(partner_server.remote_server_id)` binds an announced id to exactly one host (first seen wins; a changed id or a second host
+claiming it is refused). Event de-duplication across partners in P2 uses `(server id, event id)` *after* this binding.
+
+== Limits
+
+[cols="2,1", options="header"]
+|===
+| Limit | Value
+| Connect / whole request incl. body | 5 s / 10 s (`withTimeout` around the whole call)
+| Response body | 512 KiB, `Content-Length` and the streamed size
+| JSON nesting | 16 (checked before parsing)
+| Events per partner / own feed | 200 / 500
+| Partner-list entries stored | 100, 64 KiB
+| Event length / start window | 31 days / now -1 day to +366 days
+| Fetches per run / in parallel | 50 / 4
+| Feed rate limit / memo | 30 per minute and client / 60 s
+| Probe rate limit (admin form) | 10 per minute and admin
+| Back-off | 1, 2, 4, 8, 16, 24 h (capped)
+| Cache lifetime | 6 h after the last success
+|===
+
+== Security chain
+
+. *Address.* `PartnerHost` normalises by hand (no parser differential): https only, port 443, no user info, IDN to punycode, lower case. The last label must start with a letter, which rejects every IPv4 spelling
+  (`2130706433`, `0177.0.0.1`, `0x7f.0.0.1`, `127.1`); IP literals, `localhost`, `.local`, `.internal`, `.lan`, `.home.arpa`, single-label names and the own host are refused before any network access.
+. *Resolution and pin.* `checkWebhookUrl` resolves once and refuses loopback, link-local (cloud metadata), RFC 1918, CGNAT, ULA, IPv4-mapped, 6to4, Teredo, NAT64, `0/8` and `240/4`; **all** returned addresses must be public.
+  `FederationIpPinningPlugin` connects to the first address only (DNS rebinding closed), with the original host for `Host` and TLS (certificate validation stays on). No redirect is followed.
+. *Text.* `ForeignText` NFC-normalises, removes control and bidi characters, collapses blanks and cuts by code points; HTML is never interpreted. The client sets foreign text only through its `untrusted*` helpers.
+. *URLs.* An event URL must be https and its host must be **exactly the partner's own host**: a partner can only link to itself.
+. *Logs* carry the host and a code, never a body and never an address.
+. *Resources.* One client per request (`use {}`), the poller stops with the application, a block is checked again inside the transaction that writes a fetch result (no write-back after `addBlock`).
+
+== Pins
+
+`IPartnerServerService` is the **last** `registerService`; its methods keep their order (Kilua numbers routes by declaration order). `PartnerServerTripwireTest` pins the ADMIN gate, the construction of the fetcher, and
+that the partner list of a partner is never read back to fetch from.

@@ -7829,6 +7829,20 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   border-bottom: 1px solid var(--lapis-border);
 }
 
+/* V1.9.244: partner servers. A blocked row is dimmed AND carries the symbol and the words "Gesperrt" (colour is never the only signal). No motion. */
+.partner-row {
+  overflow-wrap: anywhere;
+}
+
+.partner-row--blocked {
+  opacity: 0.65;
+}
+
+.partner-status {
+  display: flex;
+  align-items: baseline;
+}
+
 
 /* V1.9.222: image gallery (crowdfunding projects, auctions). Tokens only, no motion at all: a tap on a thumbnail swaps the large picture at once. */
 .lapis-gallery-editor {

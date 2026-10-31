@@ -29091,3 +29091,149 @@ msgstr "Sans vous-même, sans les membres sortis ni les membres inactifs"
 
 msgid "Ihre Nachricht geht einzeln an alle Mitglieder der Gruppe „%1“ (Empfänger: %2)."
 msgstr "Votre message est envoyé individuellement à chaque membre du groupe « %1 » (destinataires : %2)."
+
+# Welle V1.9.244 "Partnerserver P1" -- appended, not interleaved alphabetically (see CLAUDE.md i18n note).
+msgid "Nur https-Adressen sind erlaubt."
+msgstr "Seules les adresses https sont autorisées."
+
+msgid "Das ist keine gültige Serveradresse."
+msgstr "Ce n'est pas une adresse de serveur valide."
+
+msgid "Bitte nur eine Adresse ohne Port und ohne Zugangsdaten angeben."
+msgstr "Veuillez saisir uniquement une adresse sans port ni identifiants."
+
+msgid "Diese Adresse zeigt auf ein internes Netz oder ist eine IP-Adresse. Bitte den öffentlichen Servernamen angeben."
+msgstr "Cette adresse pointe vers un réseau interne ou est une adresse IP. Veuillez saisir le nom public du serveur."
+
+msgid "Bitte den vollständigen Servernamen angeben, zum Beispiel partner.beispiel.de."
+msgstr "Veuillez saisir le nom complet du serveur, par exemple partner.exemple.fr."
+
+msgid "Das ist dieser Server selbst."
+msgstr "Il s'agit de ce serveur lui-même."
+
+msgid "Die Adresse ist zu lang."
+msgstr "L'adresse est trop longue."
+
+msgid "Dieser Host steht auf der Sperrliste."
+msgstr "Cet hôte figure sur la liste de blocage."
+
+msgid "Der Server ist nicht öffentlich erreichbar (die Adresse zeigt auf ein internes Netz)."
+msgstr "Le serveur n'est pas joignable publiquement (l'adresse pointe vers un réseau interne)."
+
+msgid "Der Server hat nicht innerhalb von 10 Sekunden geantwortet."
+msgstr "Le serveur n'a pas répondu en 10 secondes."
+
+msgid "Der Server leitet weiter. Weiterleitungen werden aus Sicherheitsgründen nicht verfolgt."
+msgstr "Le serveur redirige. Pour des raisons de sécurité, les redirections ne sont pas suivies."
+
+msgid "Die Antwort des Servers ist größer als 512 KiB."
+msgstr "La réponse du serveur dépasse 512 KiB."
+
+msgid "Der Server liefert keinen gültigen Lapis-Feed."
+msgstr "Le serveur ne fournit pas de flux Lapis valide."
+
+msgid "Der Server meldet eine andere Kennung als bisher."
+msgstr "Le serveur indique un autre identifiant qu'auparavant."
+
+msgid "Diese Serverkennung gehört bereits einem anderen Partner."
+msgstr "Cet identifiant de serveur appartient déjà à un autre partenaire."
+
+msgid "Der Server ist nicht erreichbar."
+msgstr "Le serveur est injoignable."
+
+msgid "Das Sicherheitszertifikat des Servers ist nicht gültig."
+msgstr "Le certificat de sécurité du serveur n'est pas valide."
+
+msgid "Dieser Server ist schon eingetragen."
+msgstr "Ce serveur est déjà enregistré."
+
+msgid "Gespeichert als %1 – Veranstaltungen gefunden: %2."
+msgstr "Enregistré sous %1 – événements trouvés : %2."
+
+msgid "Gesperrt"
+msgstr "Bloqué"
+
+msgid "Abgerufen"
+msgstr "Récupéré"
+
+msgid "Wartet bis %1"
+msgstr "En attente jusqu'à %1"
+
+msgid "Wartet auf den ersten Abruf"
+msgstr "En attente de la première récupération"
+
+msgid "Gesperrt – wird nicht abgerufen und nicht angezeigt"
+msgstr "Bloqué – ni récupéré ni affiché"
+
+msgid "Zur Organisation"
+msgstr "Retour à l'organisation"
+
+msgid "Partnerserver"
+msgstr "Serveurs partenaires"
+
+msgid "Wir holen stündlich die öffentlichen Veranstaltungen dieser Server ab. Die Partner müssen nichts einrichten."
+msgstr "Nous récupérons toutes les heures les événements publics de ces serveurs. Les partenaires n'ont rien à configurer."
+
+msgid "Adresse des Servers"
+msgstr "Adresse du serveur"
+
+msgid "Zum Beispiel partner.beispiel.de"
+msgstr "Par exemple partner.exemple.fr"
+
+msgid "Anzeigename (optional)"
+msgstr "Nom affiché (facultatif)"
+
+msgid "Eingetragene Partner"
+msgstr "Partenaires enregistrés"
+
+msgid "Noch kein Partner eingetragen."
+msgstr "Aucun partenaire n'est encore enregistré."
+
+msgid "Letzter Abruf: %1"
+msgstr "Dernière récupération : %1"
+
+msgid "Veranstaltungen: %1"
+msgstr "Événements : %1"
+
+msgid "Partner entfernen?"
+msgstr "Supprimer le partenaire ?"
+
+msgid "Partner und zwischengespeicherte Veranstaltungen entfernen?"
+msgstr "Supprimer le partenaire et ses événements en cache ?"
+
+msgid "Eigene Partnerliste im Feed ausblenden"
+msgstr "Masquer sa propre liste de partenaires dans le flux"
+
+msgid "Andere Server sehen dann nicht, mit wem Sie verbunden sind."
+msgstr "Les autres serveurs ne voient alors pas avec qui vous êtes connecté."
+
+msgid "Sperrliste"
+msgstr "Liste de blocage"
+
+msgid "Gesperrte Hosts werden nie abgerufen und nie angezeigt. Erlaubt sind ein Servername oder *.servername für alle Unterdomänen."
+msgstr "Les hôtes bloqués ne sont jamais récupérés ni affichés. Un nom de serveur ou *.nomdeserveur pour tous les sous-domaines est autorisé."
+
+msgid "Host oder Muster"
+msgstr "Hôte ou motif"
+
+msgid "Zum Beispiel spam.beispiel.de oder *.beispiel.de"
+msgstr "Par exemple spam.exemple.fr ou *.exemple.fr"
+
+msgid "Sperren"
+msgstr "Bloquer"
+
+msgid "Bitte einen Servernamen oder *.servername angeben."
+msgstr "Veuillez saisir un nom de serveur ou *.nomdeserveur."
+
+msgid "Befreundete Lapis-Server, Sperrliste"
+msgstr "Serveurs Lapis amis, liste de blocage"
+
+msgid "Hier tragen Sie befreundete Lapis-Server ein, deren öffentliche Veranstaltungen stündlich abgeholt werden, und sperren unerwünschte Server."
+msgstr "Ici, vous enregistrez des serveurs Lapis amis dont les événements publics sont récupérés toutes les heures, et vous bloquez les serveurs indésirables."
+
+msgid "Partnerserver verwalten"
+msgstr "Gérer les serveurs partenaires"
+
+msgid "Partnerserver-Sperrliste"
+msgstr "Liste de blocage des serveurs partenaires"
+
