@@ -235,12 +235,18 @@ abstract class MeetingProtocolFinaliseScenarios(
                             }
                         }.also { gate.countDown() }
                         .map { it.get(60, TimeUnit.SECONDS) }
-                outcomes.count { it == ProtocolConfirmOutcome.FULLY_CONFIRMED } shouldBe 1
-                // The loser sees either the already confirmed role or an already confirmed version -- an answer, never a second row or an error.
-                (
-                    outcomes.single { it != ProtocolConfirmOutcome.FULLY_CONFIRMED } in
-                        setOf(ProtocolConfirmOutcome.NOT_AWAITING, ProtocolConfirmOutcome.ALREADY_CONFIRMED)
-                ) shouldBe true
+                // The winner writes the one confirmation. The loser sees either the already confirmed role or an already confirmed version, or --
+                // when it takes the archive lock first and performs the late PDF archiving that a failed first attempt leaves behind -- the same
+                // FULLY_CONFIRMED. Every ending is an answer, never an error and never a second row (the count below).
+                outcomes.any { it == ProtocolConfirmOutcome.FULLY_CONFIRMED } shouldBe true
+                outcomes.all {
+                    it in
+                        setOf(
+                            ProtocolConfirmOutcome.FULLY_CONFIRMED,
+                            ProtocolConfirmOutcome.NOT_AWAITING,
+                            ProtocolConfirmOutcome.ALREADY_CONFIRMED,
+                        )
+                } shouldBe true
             } finally {
                 pool.shutdownNow()
             }
