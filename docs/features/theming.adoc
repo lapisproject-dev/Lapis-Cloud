@@ -147,7 +147,7 @@ with a strong ETag and no compression. `/theme.css` has a weak ETag and revalida
 * Only the 16 tokens are themable. Role colours, chart, encounter, map and gold ("fleck") tokens stay fixed until a `version` 2 of the format.
 * Corner radii written as literals in the client stay as they are.
 * The video overlay draws on a canvas with a fixed `Inter Variable`; a theme font does not change it.
-* On the server-rendered public pages the chrome bar, the body and wordmark fonts and the primary buttons follow the theme. Content greys, the gold callouts and the error red keep their fixed values.
+* The server-rendered public pages (V1.9.247) take their colours from the theme tokens (`bg`, `text`, `muted`, `border`, `surface`, `surface-sunken`, `accent`, `accent-soft`, `accent-strong`, `invalid`) and the theme fonts, in light and dark mode. Only three literals remain: `#fff` (QR code ground) and a green success edge (`#2e7d32`, `#4caf50` in dark mode). Four more contrast pairs are checked by the validator as advisory warnings; no theme is rejected for them.
 * The OG images keep their font (DejaVu).
 
 == Security
