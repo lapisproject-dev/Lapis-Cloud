@@ -19,7 +19,7 @@ import network.lapis.cloud.shared.domain.RecurrenceWeekday
  * this is the single source of TRUTH, that one is only formatting until the truth arrives.
  */
 internal object RecurrenceSentence {
-    private val WEEKDAY_NAMES_NOMINATIVE =
+    internal val WEEKDAY_NAMES_NOMINATIVE =
         mapOf(
             RecurrenceWeekday.MO to "Montag",
             RecurrenceWeekday.TU to "Dienstag",

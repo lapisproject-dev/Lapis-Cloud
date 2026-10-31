@@ -63,3 +63,7 @@ internal fun germanWeekdayShort(dt: LocalDateTime): String = GERMAN_WEEKDAYS[dt.
 /** Numeric German date and time, e.g. `12.11.2026, 19:00` (V1.9.217). */
 internal fun germanShortDateTime(dt: LocalDateTime): String =
     "%02d.%02d.%04d, %s".format(dt.dayOfMonth, dt.monthNumber, dt.year, germanTime(dt))
+
+/** "Di, 10.11.2026" -- short weekday plus numeric date (V1.9.243, series entries on the public pages). */
+internal fun germanShortDate(dt: LocalDateTime): String =
+    "${germanWeekdayShort(dt)}, %02d.%02d.%04d".format(dt.dayOfMonth, dt.monthNumber, dt.year)

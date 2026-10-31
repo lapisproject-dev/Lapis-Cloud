@@ -40,6 +40,7 @@ import network.lapis.cloud.server.events.EventText
 import network.lapis.cloud.server.events.EventTicketPolicy
 import network.lapis.cloud.server.events.QrCodeEncoder
 import network.lapis.cloud.server.events.mailPromotion
+import network.lapis.cloud.server.events.series.PublicSeriesSummary
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
@@ -881,6 +882,7 @@ private fun loadPublicEventView(
                 wallNow = OrganizationTimeZone.wallNowOf(now),
             )
         val wallNow = OrganizationTimeZone.wallNowOf(now)
+        val series = loadSeriesSection(row = row, now = now, wallNow = wallNow)
         EventPublicHtml.View(
             title = row[EventTable.title],
             slug = row[EventTable.slug],
@@ -909,8 +911,49 @@ private fun loadPublicEventView(
                     slug = row[EventTable.slug],
                     coverImageId = row[EventTable.coverImageId],
                 ),
+            series = series,
         )
     }
+
+/**
+ * V1.9.243 -- the "Weitere Termine dieser Serie" block: three constant statements (siblings, grouped stats, full flags), no rule
+ * expansion. `null` for a single event or when no other public upcoming date exists. "geändert" = the date was edited on its own
+ * (`series_detached`, set by every THIS-scope edit) or moved away from its original slot.
+ */
+private fun loadSeriesSection(
+    row: ResultRow,
+    now: LocalDateTime,
+    wallNow: LocalDateTime,
+): EventPublicHtml.SeriesSection? {
+    val seriesId = row[EventTable.seriesId] ?: return null
+    val eventId = row[EventTable.id]
+    val siblings = PublicSeriesQueries.loadSiblings(seriesId = seriesId, excludeEventId = eventId, wallNow = wallNow)
+    if (siblings.isEmpty()) return null
+    val stats = PublicSeriesQueries.loadSeriesStats(seriesIds = listOf(seriesId), wallNow = wallNow)[seriesId] ?: return null
+    val listed = siblings.take(PublicSeriesQueries.DETAIL_MAX_SIBLINGS)
+    val full = PublicSeriesQueries.loadFullEventIds(eventIds = listed.map { it[EventTable.id] }, now = now)
+    val ownIsUpcoming = row[EventTable.endsAt] > wallNow
+    val others = (stats.upcomingCount - if (ownIsUpcoming) 1 else 0).coerceAtLeast(listed.size)
+    val items =
+        listed.mapNotNull { sibling ->
+            val slug = sibling[EventTable.slug]
+            if (!COVER_SLUG_PATTERN.matches(slug)) return@mapNotNull null
+            val originalStart = sibling[EventTable.seriesOriginalStart]
+            EventPublicHtml.SeriesItem(
+                slug = slug,
+                startsAt = sibling[EventTable.startsAt],
+                changed = sibling[EventTable.seriesDetached] || (originalStart != null && originalStart != sibling[EventTable.startsAt]),
+                waitlist = sibling[EventTable.id] in full,
+            )
+        }
+    return EventPublicHtml.SeriesSection(
+        sentence = PublicSeriesSummary.repeatSentenceOrFallback(stats.rrule),
+        moreCount = others,
+        lastStartsAt = stats.lastStartsAt,
+        items = items,
+        overflow = if (siblings.size > listed.size) others - listed.size else 0,
+    )
+}
 
 /**
  * The security headers of every HTML response of the `/veranstaltung/...` family (V1.9.128). Since V1.9.130 the header core is shared

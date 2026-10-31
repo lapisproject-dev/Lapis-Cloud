@@ -320,3 +320,28 @@ participates in every pre-existing feature unmodified: registration/capacity/wai
 image (`EventCoverPolicy.coverImageUrl`, a pure function of `slug`/`coverImageId` -- both already
 unique per materialized instance), and the embed widget (`EventIcsFeed.loadUpcomingPublicPublished`,
 the exact query `EmbedEventsFeedRoutes.kt` reuses).
+
+[[public-view]]
+== Public view (V1.9.243)
+
+`/veranstaltungen` shows one entry per series and `/veranstaltung/{slug}` lists the other dates (user-facing behaviour:
+link:../features/public-event-page.adoc#recurring-events[public event page]). The queries live in `PublicSeriesQueries`; the rule is never
+expanded, so there is no loop over occurrences.
+
+* **Overview, two statements regardless of the number of series.** Q1 selects single events and, per series, the earliest public upcoming
+  date by an anti-join: a row is the representative when no sibling of the same `series_id` is public, published, not over, and earlier
+  (`starts_at <`, or equal and a smaller id). Q2 is one grouped statement (`GROUP BY series_id, rrule`, `COUNT(*)`, `MAX(starts_at)`)
+  for all listed series ids, at most 50.
+* **Detail, three statements:** the siblings (limit 51 to detect a cut), Q2 for the one series, and one grouped statement for the
+  full-flags (same occupancy rule as `EventStore.countOccupied`: CONFIRMED, or PENDING_PAYMENT with a live hold).
+* **Index:** `idx_event_series_starts (series_id, starts_at)` from `V56__event_series.sql` serves the anti-join and both groupings; no
+  migration. The cap is 50 entries (overview) and 50 listed siblings (detail).
+* **Tiebreak:** the id comparison inside the anti-join is done on the text form of the UUID, so H2 and PostgreSQL pick the same
+  representative when two dates of one series start at the same minute (a moved date). The Postgres lane runs the same scenarios.
+* **"Changed":** every edit with the scope THIS (`EventSeriesMaterializer.applyEdit`, `deleteOrCancel`) calls `markSeriesEventsDetached`, so a
+  date edited on its own -- title, place, anything -- carries `series_detached = true`; a date moved away from `series_original_start` is
+  flagged too. A detached date keeps its `series_id` and is therefore still a member of the series.
+* **Reuse:** `PublicSeriesSummary` (public `object`, pure) builds the repeat sentence and the teaser value type from a rule; a partner
+  server can use it for its own feed. That feed is not built here.
+* `EventIcsFeed.loadUpcomingPublicPublished` is unchanged: the ICS feed, the embed list and the navigation availability still see every
+  date.

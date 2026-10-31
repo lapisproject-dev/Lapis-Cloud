@@ -16,6 +16,7 @@ import kotlinx.html.stream.createHTML
 import kotlinx.html.title
 import kotlinx.html.ul
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.events.series.SeriesTeaser
 import network.lapis.cloud.server.theme.publicStylesheetLinks
 
 /**
@@ -53,6 +54,8 @@ internal object PublicOverviewHtml {
         val title: String,
         val slug: String,
         val startsAt: LocalDateTime,
+        /** V1.9.243 -- non-null when this entry stands for a whole series (its next occurrence is the entry); `null` for a single event. */
+        val series: SeriesTeaser? = null,
     )
 
     fun articlesPage(
@@ -126,8 +129,32 @@ internal object PublicOverviewHtml {
                                 attributes["hreflang"] = "de"
                                 +item.title
                             }
+                            val series = item.series
+                            if (series != null) {
+                                repeatMark(tip = series.repeatSentence.replaceFirstChar { it.uppercase() })
+                            }
                             span(classes = "section-note") {
                                 +" · ${germanDate(item.startsAt)}, ${germanTime(item.startsAt)} Uhr"
+                            }
+                            if (series != null) {
+                                span(classes = "section-note series-note") {
+                                    +"${series.repeatSentence.replaceFirstChar { it.uppercase() }} · "
+                                    if (series.upcomingCount > 1) {
+                                        a(
+                                            href =
+                                                PublicChrome.languageUrl(
+                                                    baseUrl = baseUrl,
+                                                    currentPath = "/veranstaltung/${item.slug}",
+                                                    lang = lang,
+                                                ) + "#weitere-termine",
+                                        ) {
+                                            attributes["hreflang"] = "de"
+                                            +"Alle Termine (${series.upcomingCount})"
+                                        }
+                                    } else {
+                                        +"Letzter Termin dieser Serie"
+                                    }
+                                }
                             }
                         }
                     }

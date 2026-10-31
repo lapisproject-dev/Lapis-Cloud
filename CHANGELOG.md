@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.243 -- One series, one entry on the public pages
+
+**Behaviour change first:** `/veranstaltungen` lists a recurring event once -- its next public date -- instead of once per date. The page of a series date gets a block "Weitere Termine dieser Serie". `/veranstaltung.ics`, the embed list and the navigation are unchanged and still see every date.
+
+- **Overview.** A series is one row: the earliest public, published, not yet finished date, a small repeat mark with a tooltip, a sentence ("Jeden ersten Montag im Monat", from the rule's fields, no expansion) and "Alle Termine (n)" linking to `#weitere-termine`; the last remaining date says "Letzter Termin dieser Serie". Single events render as before. The 50 cap now counts entries. Two statements, whatever the number of series (anti-join plus one grouped statement).
+- **Detail.** In the standard mode, after the registration card: sentence, "Noch n Termine, bis ...", and the other dates (five open, the rest in a closed `details`, at most 50, then "... und n weitere Termine"), with the tags *geändert* (edited on its own or moved) and *Warteliste*. Also shown on the page of a past date. Not shown in the `?embed=1` variant. Three statements.
+- **`n` counts rows that exist**, not the rule's full expansion: a series that is only partly materialised shows a smaller `n`. A date that was edited on its own keeps its `series_id` and counts as a member.
+- The id tiebreak in the anti-join compares the text form of the UUID, so H2 and PostgreSQL agree; new `PublicSeriesPostgresTest` runs the same scenarios on PostgreSQL. New reusable, pure `PublicSeriesSummary`.
+- **No migration** (`idx_event_series_starts` from V56 serves the queries), no RPC change, no new translated string (public page bodies are German). Docs: `public-event-page.adoc`, `event-series.adoc`.
+- **Not verified:** real browsers and touch devices (the tooltip is hover-only; the sentence is also printed in the row), search-engine behaviour (the overview is `index,follow`; how a crawler treats the anchor link is not known).
+
 ### V1.9.242 -- Small fixes to the Sitzung panel and to finalising a Protokoll
 
 **No migration**, no new RPC method, no new DTO field (`MeetingProtocolPreviewDto` is unchanged; `blockedReason` now also carries `EMPTY`).

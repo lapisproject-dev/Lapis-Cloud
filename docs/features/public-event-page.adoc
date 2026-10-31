@@ -133,10 +133,31 @@ stateDiagram(name = "Public event page flow") {
 
 The diagram omits the parameter for readability: in the embed mode every transition between pages of this family carries `embed=1`.
 
+[[recurring-events]]
+== Recurring events (V1.9.243)
+
+A series is one entry on `/veranstaltungen`: its earliest still-upcoming public, published date, with a small "repeat" mark, a one-line
+sentence ("Jeden ersten Montag im Monat") and a link "Alle Termine (n)" to the anchor `#weitere-termine` of that date's page. The last
+remaining date of a series shows "Letzter Termin dieser Serie" and no link. Single events render exactly as before. The `/veranstaltungen`
+cap of 50 counts entries, not dates.
+
+The detail page of a series date shows, in the STANDARD mode only, the block "Weitere Termine dieser Serie" after the registration card:
+the sentence, "Noch n Termine, bis ...", and the other public upcoming dates (the first five open, the rest inside a closed `details`
+element, at most 50 in total, then "... und n weitere Termine"). The block also shows on the page of a date that has already taken place.
+Each row can carry two tags: *geändert* (the date was edited on its own -- every "only this date" edit sets `series_detached` -- or moved
+away from its original slot) and *Warteliste* (that date is full). The embed variant (`?embed=1`) has no block, because its site-relative
+links would leave the frame.
+
+`n` counts the dates that exist as `event` rows and are public, published and not yet over; the rule is never expanded, so a series that is
+only partly materialised shows a smaller `n`. A moved date that was edited before it was detached still belongs to its series (`series_id`
+is kept), so it counts.
+
 == Known limitations
 
 * `/aktuelles/{slug}` got the same two modes in V1.9.130 (link:public-article-page.adoc[Public article page]); the header core is now shared (`applyPageModeHeaders`) without any change in the event headers.
 * `ticket.svg` and `ticket.pdf` send no `Referrer-Policy` (only CSP, `nosniff`, `no-store`, `noindex`); harmless, as neither document loads or links anything.
 * The "Zur Anmeldung" link has not been tried on a phone.
 * No automatic iframe height.
+* `/veranstaltungen` has no calendar or date filter, so a series cannot be expanded there; the exception for it is gone and the link to the detail page is the way in.
+* The repeat mark's tooltip works on hover only (not on touch); the same sentence is printed in the row below it.
 * The CSP `form-action 'self'` against the `303` to the payment provider has not been verified in a live browser (pre-existing).

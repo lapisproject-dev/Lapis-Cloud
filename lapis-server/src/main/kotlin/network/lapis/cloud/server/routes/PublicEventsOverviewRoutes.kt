@@ -8,6 +8,8 @@ import io.ktor.server.routing.get
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.events.series.PublicSeriesSummary
+import network.lapis.cloud.server.events.series.SeriesOccurrenceRef
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -17,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
@@ -95,20 +98,37 @@ private fun renderCachedEventsBody(
     val items =
         transaction {
             val dbNow = DbClock.nowLocalDateTime()
-            EventIcsFeed
-                .loadUpcomingPublicPublished(wallNow = OrganizationTimeZone.wallNowOf(dbNow), limit = MAX_EVENTS)
-                .mapNotNull { row -> row.toEventItem() }
+            val wallNow = OrganizationTimeZone.wallNowOf(dbNow)
+            val rows = PublicSeriesQueries.loadOverviewRepresentatives(wallNow = wallNow, limit = MAX_EVENTS)
+            val stats = PublicSeriesQueries.loadSeriesStats(seriesIds = rows.mapNotNull { it[EventTable.seriesId] }, wallNow = wallNow)
+            rows.mapNotNull { row -> row.toEventItem(stats) }
         }
     val body = PublicOverviewHtml.eventsPage(items = items, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
     cachedBody[lang] = CachedEventsOverviewBody(body = body, expiresAt = now + EVENTS_OVERVIEW_CACHE_TTL)
     return body
 }
 
-private fun ResultRow.toEventItem(): PublicOverviewHtml.EventItem? {
+private fun ResultRow.toEventItem(stats: Map<Uuid, PublicSeriesQueries.SeriesStats>): PublicOverviewHtml.EventItem? {
     val slug = this[EventTable.slug]
     if (!COVER_SLUG_PATTERN.matches(slug)) {
         logger.warn { "Skipping event ${this[EventTable.id]} on /veranstaltungen: slug does not match the expected pattern" }
         return null
     }
-    return PublicOverviewHtml.EventItem(title = this[EventTable.title], slug = slug, startsAt = this[EventTable.startsAt])
+    val seriesStats = this[EventTable.seriesId]?.let { stats[it] }
+    val teaser =
+        seriesStats?.let {
+            PublicSeriesSummary.teaser(
+                rule = PublicSeriesSummary.parseOrNull(it.rrule),
+                next =
+                    SeriesOccurrenceRef(
+                        eventId = this[EventTable.id],
+                        slug = slug,
+                        title = this[EventTable.title],
+                        startsAt = this[EventTable.startsAt],
+                    ),
+                upcomingCount = it.upcomingCount,
+                lastStartsAt = it.lastStartsAt,
+            )
+        }
+    return PublicOverviewHtml.EventItem(title = this[EventTable.title], slug = slug, startsAt = this[EventTable.startsAt], series = teaser)
 }

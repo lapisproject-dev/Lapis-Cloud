@@ -119,6 +119,31 @@ internal object SocialPublicHtml {
         .rank-list li { padding: 0.2rem 0; }
         .section-note { color: #888; font-size: 0.8rem; font-style: italic; }
 
+        /* V1.9.243 "Eine Serie, ein Eintrag" -- the repeat mark on /veranstaltungen (CSS-only tooltip from data-tip, never title=;
+           the mark is aria-hidden because the same sentence is printed in the row below it) and the series block of the detail page. */
+        .series-mark { position: relative; display: inline-block; vertical-align: middle; margin-left: 0.4rem; color: #888; line-height: 0; }
+        .series-mark svg { display: block; }
+        .series-mark::after {
+            content: attr(data-tip); position: absolute; bottom: calc(100% + 0.3rem); left: 0; z-index: 2;
+            width: max-content; max-width: min(16rem, 80vw); padding: 0.3rem 0.6rem; border-radius: 0.3rem;
+            background: var(--lapis-nav-hover-bg); color: var(--lapis-nav-text); font-size: 0.75rem; line-height: 1.3;
+            white-space: normal; opacity: 0; visibility: hidden;
+        }
+        @media (hover: hover) {
+            .series-mark:hover::after { opacity: 1; visibility: visible; transition: opacity 0.12s ease 300ms, visibility 0s linear 300ms; }
+        }
+        @media (prefers-reduced-motion: reduce) { .series-mark::after { transition: none; } }
+        .series-note { display: block; }
+        .event-series { margin: 0 0 2rem 0; max-width: 44rem; }
+        .event-series h2 { margin: 0 0 0.4rem 0; font-size: 1.25rem; }
+        .event-series ol { margin: 0.5rem 0; padding-left: 1.6rem; }
+        .event-series li { padding: 0.15rem 0; overflow-wrap: anywhere; }
+        .event-series summary { cursor: pointer; margin: 0.4rem 0; }
+        .event-tag {
+            display: inline-block; margin-left: 0.4rem; padding: 0 0.4rem; border: 1px solid rgba(128, 128, 128, 0.5);
+            border-radius: 0.3rem; font-size: 0.75rem; text-transform: lowercase; color: var(--lapis-accent);
+        }
+
         /* Welle V1.4.1a "Öffentliche Website-Integration" (/embed/v1/login) -- shares this
            stylesheet, same reasoning as the V1.3.0 block above: no second stylesheet, no inline
            <style>, see network.lapis.cloud.server.routes.EmbedHtml class KDoc. */

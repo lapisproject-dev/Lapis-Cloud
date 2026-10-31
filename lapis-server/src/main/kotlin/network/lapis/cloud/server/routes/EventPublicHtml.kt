@@ -7,11 +7,13 @@ import kotlinx.html.DL
 import kotlinx.html.FORM
 import kotlinx.html.FlowContent
 import kotlinx.html.FormMethod
+import kotlinx.html.OL
 import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.br
 import kotlinx.html.button
 import kotlinx.html.dd
+import kotlinx.html.details
 import kotlinx.html.div
 import kotlinx.html.dl
 import kotlinx.html.dt
@@ -26,13 +28,17 @@ import kotlinx.html.html
 import kotlinx.html.id
 import kotlinx.html.img
 import kotlinx.html.label
+import kotlinx.html.li
 import kotlinx.html.link
 import kotlinx.html.main
 import kotlinx.html.meta
+import kotlinx.html.ol
 import kotlinx.html.p
 import kotlinx.html.script
 import kotlinx.html.section
+import kotlinx.html.span
 import kotlinx.html.stream.createHTML
+import kotlinx.html.summary
 import kotlinx.html.textArea
 import kotlinx.html.textInput
 import kotlinx.html.title
@@ -102,6 +108,26 @@ internal object EventPublicHtml {
         val feeCurrency: String = "EUR",
         /** End of the registration window (JSON-LD `Offer.validThrough`); `null` when open-ended. */
         val registrationClosesAt: LocalDateTime? = null,
+        /** V1.9.243 -- the "Weitere Termine dieser Serie" block; `null` for a single event or when no other public upcoming date exists. */
+        val series: SeriesSection? = null,
+    )
+
+    /** V1.9.243 -- the other upcoming public dates of the series this event belongs to. */
+    data class SeriesSection(
+        val sentence: String,
+        /** All OTHER public upcoming dates of the series (the shown [items] plus [overflow]). */
+        val moreCount: Int,
+        val lastStartsAt: LocalDateTime,
+        val items: List<SeriesItem>,
+        /** How many further dates are not listed ([items] is capped); `0` when nothing was cut. */
+        val overflow: Int,
+    )
+
+    data class SeriesItem(
+        val slug: String,
+        val startsAt: LocalDateTime,
+        val changed: Boolean,
+        val waitlist: Boolean,
     )
 
     /** V1.9.217 -- Open Graph description, preview image and JSON-LD of the STANDARD detail page, assembled by the route. */
@@ -178,7 +204,55 @@ internal object EventPublicHtml {
                     )
             }
             if (canRegister) registrationCard(ctx = ctx, slug = view.slug, waitlist = view.full)
+            // Links are site-relative and would leave the frame in the slim embed variant, so the block is STANDARD-only.
+            if (!ctx.isEmbed && view.series != null && view.series.items.isNotEmpty()) seriesSection(ctx = ctx, series = view.series)
         }
+
+    private const val SERIES_VISIBLE_ROWS = 5
+
+    private fun FlowContent.seriesSection(
+        ctx: EventPageContext,
+        series: SeriesSection,
+    ) {
+        section(classes = "event-series") {
+            id = "weitere-termine"
+            attributes["aria-labelledby"] = "weitere-termine-titel"
+            h2 {
+                id = "weitere-termine-titel"
+                +"Weitere Termine dieser Serie"
+            }
+            p(classes = "section-note") {
+                +"${series.sentence.replaceFirstChar { it.uppercase() }}. "
+                +(if (series.moreCount == 1) "Noch 1 Termin" else "Noch ${series.moreCount} Termine")
+                +", bis ${germanShortDate(series.lastStartsAt)}"
+            }
+            val head = series.items.take(SERIES_VISIBLE_ROWS)
+            val rest = series.items.drop(SERIES_VISIBLE_ROWS)
+            ol { head.forEach { seriesRow(ctx = ctx, item = it) } }
+            if (rest.isNotEmpty()) {
+                details {
+                    summary { +"Alle anzeigen (${rest.size} weitere)" }
+                    ol { rest.forEach { seriesRow(ctx = ctx, item = it) } }
+                }
+            }
+            if (series.overflow > 0) {
+                p(classes = "section-note") { +"… und ${series.overflow} weitere Termine" }
+            }
+        }
+    }
+
+    private fun OL.seriesRow(
+        ctx: EventPageContext,
+        item: SeriesItem,
+    ) {
+        li {
+            a(href = ctx.href("/veranstaltung/${item.slug}")) {
+                +"${germanShortDate(item.startsAt)}, ${germanTime(item.startsAt)} Uhr"
+            }
+            if (item.changed) span(classes = "event-tag") { +"geändert" }
+            if (item.waitlist) span(classes = "event-tag") { +"Warteliste" }
+        }
+    }
 
     private fun FlowContent.factList(block: DL.() -> Unit) {
         dl(classes = "event-facts") { block() }
