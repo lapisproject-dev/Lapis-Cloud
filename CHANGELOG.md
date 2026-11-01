@@ -6,6 +6,12 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.249 -- Events tab for partner-only instances
+
+- Fix: the public Events tab was missing when only partner events were visible (known case: Apolda). It now uses the same visibility rule as `/veranstaltungen` (`PartnerEventDisplay.loadVisible`); the partner query runs only when no own event exists.
+- **Behaviour to know:** after a block the tab can stay visible for up to 30 seconds (memo TTL) and then leads to an empty page.
+- **Not verified:** not checked on a real instance; no migration, no environment variable, no PostgreSQL run (no query changed, `loadVisible` reused).
+
 ## [0.45.0] — 2026-11-01
 
 Small feature release on `[0.44.0]` (one wave, V1.9.248). **No migration (schema stays `V133`), no new environment variable, no new dependency.** Behaviour to know: the embed script `lapis-widgets.js` grows to 24208 bytes (hosts that pin it with Subresource Integrity must update the hash) and `GET /api/embed/v1/events?quelle=alle` is new; without the parameter the answer is byte-identical.

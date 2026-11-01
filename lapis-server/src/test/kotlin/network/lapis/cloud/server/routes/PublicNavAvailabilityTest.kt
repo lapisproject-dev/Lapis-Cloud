@@ -10,6 +10,12 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.partner.PartnerDisplayEpoch
+import network.lapis.cloud.server.partner.PartnerEventDisplay
+import network.lapis.cloud.server.partner.PartnerServerStore
+import network.lapis.cloud.server.partner.addDirectPartner
+import network.lapis.cloud.server.partner.wipePartnerTables
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
@@ -49,6 +55,8 @@ class PublicNavAvailabilityTest :
         beforeSpec { DatabaseConfig.connect() }
 
         beforeTest {
+            wipePartnerTables()
+            PartnerDisplayEpoch.bump()
             transaction {
                 ArticleTable.update({ ArticleTable.status eq ArticleStatus.PUBLISHED }) { it[status] = ArticleStatus.DRAFT }
                 EventTable.update({
@@ -58,6 +66,7 @@ class PublicNavAvailabilityTest :
         }
 
         afterSpec {
+            wipePartnerTables()
             transaction {
                 if (createdArticleIds.isNotEmpty()) ArticleTable.deleteWhere { id inList createdArticleIds }
                 if (createdEventIds.isNotEmpty()) EventTable.deleteWhere { id inList createdEventIds }
@@ -176,6 +185,67 @@ class PublicNavAvailabilityTest :
         test("T3b: a MEMBERS_ONLY event is excluded, even if PUBLISHED and upcoming") {
             createEvent(startsAt = now.plusHours(-1), endsAt = now.plusHours(1), visibility = EventVisibility.MEMBERS_ONLY)
             loadPublicNavAvailability(wallNow = now).events shouldBe false
+        }
+
+        // ── V1.9.249: partner events ─────────────────────────────────────────────
+        val farFuture = LocalDateTime(2099, 5, 1, 18, 0)
+
+        fun partner(host: String = "partner.example.org") =
+            addDirectPartner(
+                host = host,
+                now = DbClock.nowLocalDateTime(),
+                eventStart = farFuture,
+                eventEnd = LocalDateTime(2099, 5, 1, 20, 0),
+            )
+
+        test("V1.9.249 (a): neither own nor partner events -> false") {
+            loadPublicNavAvailability(wallNow = now).events shouldBe false
+        }
+
+        test("V1.9.249 (b): only an own event -> true") {
+            createEvent(startsAt = now.plusHours(-1), endsAt = now.plusHours(1))
+            loadPublicNavAvailability(wallNow = now).events shouldBe true
+        }
+
+        test("V1.9.249 (c): only a visible partner event (Apolda case) -> true") {
+            partner()
+            loadPublicNavAvailability(wallNow = now).events shouldBe true
+        }
+
+        test("V1.9.249 (d): blocked origin -> false") {
+            partner()
+            transaction { PartnerServerStore.addBlock(pattern = "partner.example.org", now = DbClock.nowLocalDateTime()) }
+            loadPublicNavAvailability(wallNow = now).events shouldBe false
+        }
+
+        test("V1.9.249 (d): inactive root partner -> false") {
+            val id = partner()
+            transaction { PartnerServerStore.setActive(id = id, active = false, now = DbClock.nowLocalDateTime()) }
+            loadPublicNavAvailability(wallNow = now).events shouldBe false
+        }
+
+        test("V1.9.249 (d): an already ended partner event -> false") {
+            addDirectPartner(
+                host = "partner.example.org",
+                now = DbClock.nowLocalDateTime(),
+                eventStart = LocalDateTime(2020, 1, 1, 10, 0),
+                eventEnd = LocalDateTime(2020, 1, 1, 12, 0),
+            )
+            loadPublicNavAvailability(wallNow = now).events shouldBe false
+        }
+
+        test("V1.9.249 (e): tab agrees with PartnerEventDisplay.loadVisible") {
+            for (withPartner in listOf(false, true)) {
+                wipePartnerTables()
+                if (withPartner) partner()
+                val nav = loadPublicNavAvailability(wallNow = now)
+                transaction {
+                    nav.events shouldBe
+                        PartnerEventDisplay
+                            .loadVisible(nowUtc = DbClock.nowLocalDateTime(), orgZone = OrganizationTimeZone.current())
+                            .isNotEmpty()
+                }
+            }
         }
 
         // ── T4: articles ─────────────────────────────────────────────────────────

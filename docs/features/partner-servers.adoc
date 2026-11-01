@@ -52,8 +52,8 @@ Limits: 5 s to connect, 10 s for the whole request including the body, 512 KiB, 
   Servers not fetched for a while come first, so the caps rotate over the runs.
 * **Where the origin is shown.** Every foreign event on `/veranstaltungen` carries a line "Partnerserver: Name" (direct partner) or "Partnerserver: Name (host) · über Name" (reached through a partner). The link opens the origin's own page,
   with `rel="noopener noreferrer external"`, no referrer, no new tab, and the words "(externe Seite)" for assistive technology; the arrow is decoration only.
-* **Filter.** `/veranstaltungen?quelle=eigene` lists only this server's events (`noindex`); `?quelle=alle` and no parameter list both. The two links "Alle" and "Nur eigene" appear only when there is something to filter. An unknown or
-  repeated value redirects to the plain URL. A recurring partner event is one entry with the sentence "Reihe: ...".
+* **Filter.** `/veranstaltungen?quelle=eigene` lists only this server's events (`noindex`); `?quelle=alle` and no parameter list both. The two links "Alle" and "Nur eigene" appear only when there is something to filter. An unknown or repeated value redirects to the plain URL. A recurring partner event is one entry with the sentence "Reihe: ...".
+* **Navigation tab.** The Events tab in the public navigation also appears when only partner events are visible (same visibility rule as `/veranstaltungen`; after a block the tab may stay up to 30 seconds and then leads to an empty page).
 * **Calendar feed.** `/veranstaltung.ics?quelle=alle` additionally contains the partner events (own first, at most 500 entries, at most 50 partner entries and 10 per origin, `CATEGORIES:Partnerserver`, the origin line in `DESCRIPTION`).
   Without the parameter -- or with any other value -- the feed is exactly the own events, as before. A partner series is one entry for its next date, **without** a repeat rule.
 * **Block list.** A pattern hides the host itself *and* everything that was reached through it. A block takes effect on the public page at once (read-time filter plus a counter that empties the 30-second server-side memo) and the

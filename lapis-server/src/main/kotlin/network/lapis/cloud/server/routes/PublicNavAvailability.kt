@@ -4,8 +4,10 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.articles.ArticleStore
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.partner.PartnerEventDisplay
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.EventStatus
@@ -47,7 +49,8 @@ internal data class PublicNavAvailability(
 }
 
 /**
- * Runs the two existence checks that decide [PublicNavAvailability] -- **MUST stay identical** to
+ * `events` is true when an own public event is upcoming OR [PartnerEventDisplay.loadVisible] shows a partner event
+ * (the partner query only runs when no own event exists). Runs the existence checks that decide [PublicNavAvailability] -- **MUST stay identical** to
  * the filters [PublicArticlesOverviewRoutes]/[PublicEventsOverviewRoutes] themselves use
  * ([ArticleStore.listPublishedNewestFirst]'s `status eq PUBLISHED` / [EventIcsFeed
  * .loadUpcomingPublicPublished]'s `visibility eq PUBLIC and status eq PUBLISHED and endsAt greater
@@ -64,6 +67,16 @@ internal data class PublicNavAvailability(
  */
 internal fun loadPublicNavAvailability(wallNow: LocalDateTime = OrganizationTimeZone.wallNow()): PublicNavAvailability =
     transaction {
+        val ownEvents =
+            EventTable
+                .selectAll()
+                .where {
+                    (EventTable.visibility eq EventVisibility.PUBLIC) and
+                        (EventTable.status eq EventStatus.PUBLISHED) and
+                        (EventTable.endsAt greater wallNow)
+                }.limit(1)
+                .empty()
+                .not()
         PublicNavAvailability(
             articles =
                 ArticleTable
@@ -72,16 +85,7 @@ internal fun loadPublicNavAvailability(wallNow: LocalDateTime = OrganizationTime
                     .limit(1)
                     .empty()
                     .not(),
-            events =
-                EventTable
-                    .selectAll()
-                    .where {
-                        (EventTable.visibility eq EventVisibility.PUBLIC) and
-                            (EventTable.status eq EventStatus.PUBLISHED) and
-                            (EventTable.endsAt greater wallNow)
-                    }.limit(1)
-                    .empty()
-                    .not(),
+            events = ownEvents || partnerEventsVisible(),
             // Welle V1.9.20 -- the SAME loaders the pages and feeds use, LIMIT 1 -- one definition of
             // "visible", so a tab can never lead to an empty page (or a page exist without its tab).
             board = PublicProfilesReader.loadBoardCards(limit = 1).isNotEmpty(),
@@ -89,6 +93,17 @@ internal fun loadPublicNavAvailability(wallNow: LocalDateTime = OrganizationTime
             chapters = PublicProfilesReader.loadChapterCards(limit = 1).isNotEmpty(),
         )
     }
+
+/**
+ * Needs an open transaction. Uses [PartnerEventDisplay.loadVisible] itself (block list, hop limits, active root,
+ * expiry, URL revalidation), so the tab can never disagree with `/veranstaltungen`. Partner times are UTC
+ * ([DbClock]), unlike the own-event check which uses the organisation wall clock. A cheaper `loadAny()`
+ * short-circuit is a possible later optimisation.
+ */
+private fun partnerEventsVisible(): Boolean =
+    PartnerEventDisplay
+        .loadVisible(nowUtc = DbClock.nowLocalDateTime(), orgZone = OrganizationTimeZone.current())
+        .isNotEmpty()
 
 /**
  * Process-lifetime, 30-second-TTL memo of [loadPublicNavAvailability] -- ONE instance shared by every
@@ -99,6 +114,9 @@ internal fun loadPublicNavAvailability(wallNow: LocalDateTime = OrganizationTime
  * A production installation may show a just-published article/event up to [ttl] late in the chrome
  * (bounded staleness, same posture [PublicLandingRoutes]' own body memo already establishes) -- never
  * early: a lookup failure (see below) never optimistically shows a tab.
+ *
+ * **V1.9.249**: after a partner block the Events tab may stay visible for up to [ttl]; the page then shows an empty
+ * state (HTTP 200), never foreign data.
  *
  * **Welle V1.9.20, accepted trade-off**: a tab for `/vorstand`, `/politiker` or `/landesverbaende`
  * can remain visible for up to [ttl] after the last entry was withdrawn -- it then leads to a page
