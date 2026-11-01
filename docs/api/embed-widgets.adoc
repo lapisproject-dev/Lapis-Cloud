@@ -935,8 +935,9 @@ a `PUBLIC`+`PUBLISHED` event; for any other event the identical URL requires a B
 and every other case (unknown slug, a private event, a public event with no cover set) returns the
 same bare `404` — no response header or body distinguishes them (no existence oracle). See
 `network.lapis.cloud.server.events.EventCoverImageProcessor` for the upload-time
-validation/downscaling/metadata-stripping pipeline (JPEG/PNG only, 800×600 minimum regardless of
-orientation, 5 MB cap, re-encoded so no EXIF/GPS/ICC metadata and no polyglot payload survives).
+validation/cropping/downscaling/metadata-stripping pipeline (JPEG/PNG only, 800×600 minimum regardless of
+orientation and, since V1.9.252, also checked on the 4:3 crop (a portrait image needs at least 800 px width), 5 MB cap, a centre crop to exactly
+4:3 landscape applied after the EXIF rotation and before the downscale (at most 1600×1200; images stored before V1.9.252 are not re-cropped), re-encoded so no EXIF/GPS/ICC metadata and no polyglot payload survives).
 
 **Known, deliberate limitation**: `OrganizationExportService`'s backup/export includes
 `event.cover_image_id` (it walks every table generically) but *not* the cover image file itself —

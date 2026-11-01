@@ -788,6 +788,8 @@ internal fun renderEventCoverCard(
             setStyle("aspect-ratio", "4 / 3")
             setStyle("overflow", "hidden")
         }
+    // V1.9.252: outside `preview` on purpose -- `preview.removeAll()` must not delete the hint.
+    card.div(tr("Wird mittig auf 4:3 zugeschnitten.")) { addCssClasses("text-muted small") }
 
     fun renderPreview() {
         preview.removeAll()

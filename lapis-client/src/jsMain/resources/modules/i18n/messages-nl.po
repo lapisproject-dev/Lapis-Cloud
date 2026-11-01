@@ -16358,6 +16358,10 @@ msgstr "Wijzigingen aan de omslagafbeelding worden direct opgeslagen."
 msgid "Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB"
 msgstr "Geen omslagafbeelding – JPEG of PNG, min. 800x600, max. 5 MB"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:538
+msgid "Wird mittig auf 4:3 zugeschnitten."
+msgstr "Wordt in het midden bijgesneden tot 4:3."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:549
 msgid "Bild auswählen…"
 msgstr "Afbeelding kiezen…"

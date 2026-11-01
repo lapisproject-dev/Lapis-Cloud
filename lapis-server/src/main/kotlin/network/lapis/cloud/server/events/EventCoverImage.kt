@@ -57,9 +57,52 @@ internal sealed interface CoverDimensionRule {
     ) : CoverDimensionRule
 }
 
+/** Centre crop to exactly [w]:[h] (landscape), applied after the EXIF orientation and before the downscale. */
+internal data class CropAspect(
+    val w: Int,
+    val h: Int,
+) {
+    init {
+        require(w in 1..16 && h in 1..16) { "CropAspect must be within 1..16, got $w:$h" }
+    }
+}
+
+/** A crop rectangle inside an image, see [centreCropRect]. */
+internal data class CropRect(
+    val x: Int,
+    val y: Int,
+    val width: Int,
+    val height: Int,
+)
+
+/**
+ * The largest centred rectangle of exactly [aspect] (`w:h`) that fits into [width] x [height]. Computed in `Long`; the result loses at
+ * most `aspect.w - 1` / `aspect.h - 1` pixels of the short side. If no such rectangle exists (`k == 0`, e.g. a 3x2 image for 4:3) the
+ * full rectangle is returned -- the minimum-size rule rejects such images before a crop is ever attempted.
+ */
+internal fun centreCropRect(
+    width: Int,
+    height: Int,
+    aspect: CropAspect,
+): CropRect {
+    require(width > 0 && height > 0) { "Image dimensions must be positive, got ${width}x$height" }
+    val k = minOf(width.toLong() / aspect.w, height.toLong() / aspect.h)
+    if (k == 0L) return CropRect(x = 0, y = 0, width = width, height = height)
+    val cw = k * aspect.w
+    val ch = k * aspect.h
+    return CropRect(
+        x = ((width - cw) / 2).toInt(),
+        y = ((height - ch) / 2).toInt(),
+        width = cw.toInt(),
+        height = ch.toInt(),
+    )
+}
+
 internal data class CoverImageLimits(
     val rule: CoverDimensionRule,
     val targetLongEdgePx: Int,
+    /** `null` (default) = the image is never cropped. Only [EVENT_COVER_CROPPED] sets it. */
+    val cropAspect: CropAspect? = null,
 ) {
     /** Convenience constructor for the orientation-independent [CoverDimensionRule.LongShortEdge] rule (event covers, chapter crests). */
     constructor(minLongEdgePx: Int, minShortEdgePx: Int, targetLongEdgePx: Int) :
@@ -75,6 +118,17 @@ internal data class CoverImageLimits(
     fun accepts(
         orientedWidth: Int,
         orientedHeight: Int,
+    ): Boolean {
+        if (!acceptsRule(orientedWidth = orientedWidth, orientedHeight = orientedHeight)) return false
+        val crop = cropAspect ?: return true
+        if (orientedWidth <= 0 || orientedHeight <= 0) return false
+        val rect = centreCropRect(width = orientedWidth, height = orientedHeight, aspect = crop)
+        return acceptsRule(orientedWidth = rect.width, orientedHeight = rect.height)
+    }
+
+    private fun acceptsRule(
+        orientedWidth: Int,
+        orientedHeight: Int,
     ): Boolean =
         when (val r = rule) {
             is CoverDimensionRule.LongShortEdge ->
@@ -88,7 +142,13 @@ internal data class CoverImageLimits(
     /** The German "what is the minimum" fragment for the 422 message, e.g. `mindestens 800x600px, je nach Ausrichtung`. */
     fun describeMinimumDe(): String =
         when (val r = rule) {
-            is CoverDimensionRule.LongShortEdge -> "mindestens ${r.minLongEdgePx}x${r.minShortEdgePx}px, je nach Ausrichtung"
+            is CoverDimensionRule.LongShortEdge ->
+                if (cropAspect != null) {
+                    "mindestens ${r.minLongEdgePx}x${r.minShortEdgePx}px nach dem Zuschnitt auf ${cropAspect.w}:${cropAspect.h}; " +
+                        "Hochformat: mindestens ${r.minLongEdgePx}px breit"
+                } else {
+                    "mindestens ${r.minLongEdgePx}x${r.minShortEdgePx}px, je nach Ausrichtung"
+                }
             is CoverDimensionRule.WidthAndAspect ->
                 "mindestens ${r.minWidthPx} px breit und ${r.minHeightPx} px hoch, Seitenverhältnis zwischen 1:2 und 4:1"
         }
@@ -103,6 +163,12 @@ internal data class CoverImageLimits(
                     ),
                 targetLongEdgePx = EventCoverPolicy.TARGET_LONG_EDGE_PX,
             )
+
+        /**
+         * V1.9.252 -- [EVENT_COVER] plus a centre crop to exactly 4:3 landscape. ONLY `EventCoverRoutes` uses this; articles keep
+         * [EVENT_COVER] (16:9, no crop).
+         */
+        val EVENT_COVER_CROPPED = EVENT_COVER.copy(cropAspect = CropAspect(w = 4, h = 3))
         val CHAPTER_CREST = CoverImageLimits(minLongEdgePx = 64, minShortEdgePx = 64, targetLongEdgePx = 1024)
 
         /** V1.9.222 -- a gallery picture: no minimum format (any size above one pixel), stored at most 1600 px on the long edge, never
@@ -208,7 +274,8 @@ sealed interface CoverProcessingResult {
  *    without this, a 40-megapixel PNG can require on the order of 150-160 MB of heap just to
  *    decode, a real risk given this Dockerfile's own recent OOM history (`27b177c4`).
  * 4. Halve repeatedly with bilinear interpolation down to the target long edge, proportionally,
- *    NEVER cropped.
+ *    never cropped unless `limits.cropAspect` is set (event covers only: centre crop to 4:3,
+ *    applied after the EXIF orientation and before the downscale).
  * 5. Apply the EXIF orientation tag (JPEG only) BEFORE the final re-encode, so a portrait phone
  *    photo does not come out rotated 90 degrees once EXIF is stripped.
  * 6. Draw into a FRESH [BufferedImage] (`TYPE_INT_RGB` for JPEG -- the bundled JPEG writer cannot
@@ -359,7 +426,17 @@ internal object EventCoverImageProcessor {
                 return CoverProcessingResult.DimensionsTooSmall(width = orientedWidth, height = orientedHeight)
             }
 
-            val subsample = (longEdge / (2 * limits.targetLongEdgePx)).coerceAtLeast(1)
+            // The subsampling factor derives from the long edge of the region that SURVIVES the crop, not of the uncropped header;
+            // otherwise a strongly elongated image is subsampled too hard and the stored cover ends up below the checked minimum.
+            val cropAspectForSizing = limits.cropAspect
+            val survivingLongEdge =
+                if (cropAspectForSizing != null) {
+                    val r = centreCropRect(width = orientedWidth, height = orientedHeight, aspect = cropAspectForSizing)
+                    maxOf(r.width, r.height)
+                } else {
+                    longEdge
+                }
+            val subsample = (survivingLongEdge / (2 * limits.targetLongEdgePx)).coerceAtLeast(1)
             val param = reader.defaultReadParam
             if (subsample > 1) param.setSourceSubsampling(subsample, subsample, 0, 0)
 
@@ -372,7 +449,12 @@ internal object EventCoverImageProcessor {
                 }
 
             val oriented = applyOrientation(image = decoded, orientation = orientation)
-            val resized = downscaleToTarget(source = oriented, targetLongEdge = limits.targetLongEdgePx)
+            // The crop rectangle is computed from the DECODED raster (subsampling rounds up, so the header rect would not fit).
+            val cropAspect = limits.cropAspect
+            val cropped = if (cropAspect != null) cropToAspect(source = oriented, aspect = cropAspect) else oriented
+            var resized = downscaleToTarget(source = cropped, targetLongEdge = limits.targetLongEdgePx)
+            // Scaling uses toInt(), which can drift by one pixel (1600x1199); trim again so the result is exactly the aspect.
+            if (cropAspect != null) resized = cropToAspect(source = resized, aspect = cropAspect)
 
             val format = outputFormatFor(resized)
             val flattened = flatten(source = resized, format = format)
@@ -384,6 +466,16 @@ internal object EventCoverImageProcessor {
         } finally {
             reader.dispose()
         }
+    }
+
+    /** Centre crop of [source] to [aspect] via a `getSubimage` view (no pixel copy); the source itself if nothing is cut. */
+    internal fun cropToAspect(
+        source: BufferedImage,
+        aspect: CropAspect,
+    ): BufferedImage {
+        val rect = centreCropRect(width = source.width, height = source.height, aspect = aspect)
+        if (rect.x == 0 && rect.y == 0 && rect.width == source.width && rect.height == source.height) return source
+        return source.getSubimage(rect.x, rect.y, rect.width, rect.height)
     }
 
     /**

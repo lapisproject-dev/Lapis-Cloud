@@ -388,7 +388,7 @@ Two multipart routes (`registerArticleImportImageRoutes`), BOARD/ADMIN, API in `
 [[cover-limits]]
 === Cover size limits of imported articles -- V1.9.106
 
-Legacy website images are often small, so an IMPORTED article accepts covers from **300 px width** (height at least 150 px, aspect 1:2 to 4:1 after the EXIF rotation, never enlarged); every other article and every event keeps 800x600.
+Legacy website images are often small, so an IMPORTED article accepts covers from **300 px width** (height at least 150 px, aspect 1:2 to 4:1 after the EXIF rotation, never enlarged); every other article and every event keeps 800x600 (events are additionally centre-cropped to 4:3 since V1.9.252; articles are not).
 `CoverImageLimits` now carries a rule (`LongShortEdge` for events and chapter crests, bit-identical to before; `WidthAndAspect` for imported articles). The ONLY factory is `ArticleCoverPolicy.limitsForArticle(imported)`, and its
 argument is always the DB row's `imported` flag (the cover route uses the pre-check row and re-checks the locked row; the image commit uses the batch target read from the table). `imported` is written once by `ArticleStore.insertImported`,
 no request DTO has such a property and no multipart field is read for it; tripwires pin all of this.

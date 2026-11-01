@@ -22,7 +22,7 @@ internal object EventCoverPolicy {
     const val MIN_LONG_EDGE_PX = 800
     const val MIN_SHORT_EDGE_PX = 600
 
-    /** Every stored cover image is re-encoded to at most this long edge, proportionally, never cropped. */
+    /** Every stored cover image is re-encoded to at most this long edge, proportionally; never cropped unless the limits set a crop aspect (event covers: centre crop to 4:3). */
     const val TARGET_LONG_EDGE_PX = 1600
     const val JPEG_QUALITY = 0.85f
 

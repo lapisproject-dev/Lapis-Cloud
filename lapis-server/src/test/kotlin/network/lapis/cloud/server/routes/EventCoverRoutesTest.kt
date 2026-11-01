@@ -345,7 +345,7 @@ class EventCoverRoutesTest :
             }
         }
 
-        test("upload: portrait 600x800 (long edge 800, short edge 600) -> 200, orientation-independent minimum") {
+        test("upload: portrait 600x800 -> 422 (V1.9.252: below 800x600 after the 4:3 crop), with the crop wording") {
             testApplication {
                 application { module() }
                 val (_, slug) = createEvent()
@@ -356,7 +356,44 @@ class EventCoverRoutesTest :
                         header("X-Member-Id", board.toString())
                         setBody(MultiPartFormDataContent(uploadFormData(renderJpegBytes(width = 600, height = 800))))
                     }
-                response.status shouldBe HttpStatusCode.OK
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                response.bodyAsText() shouldContain "nach dem Zuschnitt auf 4:3"
+            }
+        }
+
+        test("upload: portrait 800x1000 -> 200, stored 800x600 (cropped top and bottom)") {
+            testApplication {
+                application { module() }
+                val (_, slug) = createEvent(visibility = EventVisibility.PUBLIC, status = EventStatus.PUBLISHED)
+                val board = createMember("event-cover-board-portrait-ok-${Uuid.random()}@example.org", AccountRole.BOARD)
+                val upload =
+                    client.post("/api/embed/v1/event/$slug/cover") {
+                        header(HttpHeaders.Origin, TEST_ORIGIN)
+                        header("X-Member-Id", board.toString())
+                        setBody(MultiPartFormDataContent(uploadFormData(renderPngBytes(width = 800, height = 1000))))
+                    }
+                upload.status shouldBe HttpStatusCode.OK
+                val stored = ImageIO.read(java.io.ByteArrayInputStream(client.get("/veranstaltung/$slug/bild").bodyAsBytes()))
+                stored.width shouldBe 800
+                stored.height shouldBe 600
+            }
+        }
+
+        test("upload: 1920x1080 PNG -> the served image is centre-cropped to exactly 1440x1080 (V1.9.252)") {
+            testApplication {
+                application { module() }
+                val (_, slug) = createEvent(visibility = EventVisibility.PUBLIC, status = EventStatus.PUBLISHED)
+                val board = createMember("event-cover-board-169-${Uuid.random()}@example.org", AccountRole.BOARD)
+                val upload =
+                    client.post("/api/embed/v1/event/$slug/cover") {
+                        header(HttpHeaders.Origin, TEST_ORIGIN)
+                        header("X-Member-Id", board.toString())
+                        setBody(MultiPartFormDataContent(uploadFormData(renderPngBytes(width = 1920, height = 1080))))
+                    }
+                upload.status shouldBe HttpStatusCode.OK
+                val stored = ImageIO.read(java.io.ByteArrayInputStream(client.get("/veranstaltung/$slug/bild").bodyAsBytes()))
+                stored.width shouldBe 1440
+                stored.height shouldBe 1080
             }
         }
 

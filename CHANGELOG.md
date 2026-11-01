@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.252 -- Event cover image in one 4:3 format
+
+- New event cover uploads are centre-cropped on the server to exactly 4:3 landscape, after the EXIF rotation and before the downscale (stored at most 1600x1200). A 16:9 photo loses the left and right edge, a portrait photo the top and bottom.
+- The public event page shows the cover at most 36 rem wide, left-aligned with title and facts, in a fixed 4:3 frame. The old height limit (22 rem) is gone. The embed view narrows the image with the page width.
+- The cover card in the admin screen says "Wird mittig auf 4:3 zugeschnitten." (new text in all seven catalogs).
+- **Behaviour to know (portrait photos):** the minimum of 800x600 is still checked on the original and now also on the cropped size, before the image is decoded. A portrait image therefore needs at least 800 px width (a normal phone photo, 3024x4032, passes). Small portrait images that were accepted before (for example 600x800) now get a 422 with the text "mindestens 800x600px nach dem Zuschnitt auf 4:3; Hochformat: mindestens 800px breit".
+- **Existing images are not re-cropped** (no migration, no batch job). They keep their ratio; the public page crops them in the browser with CSS (`aspect-ratio` + `object-fit: cover`).
+- Unchanged: article covers (16:9), chapter crests, gallery images, video overlays, embed feed, widget. The `og:image` of new uploads is 4:3.
+- Tests: crop arithmetic table, processor tests (16:9, portrait, exact 4:3, below the minimum, EXIF, bomb guard, metadata), scope tripwires for all other limits, route tests, a CSS block test and a browser test for the admin hint.
+- **No migration, no new environment variable, no PostgreSQL run** (no query or column changes).
+- Not verified on a real instance.
+
 ### V1.9.251 -- Fix i18n marker in the browser tab title
 
 - Fix: the browser tab title of pages with a constant subtitle (Partnerserver, LupaBB sync, the article and event import pages, the read-only bank statement import page) showed the internal marker `###KvI18nS###` in front of the subtitle, and the subtitle did not follow a language switch. The constant subtitle is now resolved like the title; subtitles set from loaded data are left verbatim (only a leading marker is removed).

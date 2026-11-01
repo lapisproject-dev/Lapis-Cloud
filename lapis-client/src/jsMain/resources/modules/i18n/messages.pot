@@ -15491,6 +15491,10 @@ msgstr ""
 msgid "Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:538
+msgid "Wird mittig auf 4:3 zugeschnitten."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:549
 msgid "Bild auswählen…"
 msgstr ""

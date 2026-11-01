@@ -16315,6 +16315,10 @@ msgstr "Zmiany obrazu okładki są zapisywane natychmiast."
 msgid "Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB"
 msgstr "Brak obrazu okładki – JPEG lub PNG, min. 800x600, maks. 5 MB"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:538
+msgid "Wird mittig auf 4:3 zugeschnitten."
+msgstr "Zostanie przycięty centralnie do proporcji 4:3."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:549
 msgid "Bild auswählen…"
 msgstr "Wybierz obraz…"

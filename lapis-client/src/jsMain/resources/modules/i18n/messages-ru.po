@@ -16305,6 +16305,10 @@ msgstr "Изменения обложки сохраняются сразу."
 msgid "Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB"
 msgstr "Нет обложки – JPEG или PNG, минимум 800x600, макс. 5 МБ"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:538
+msgid "Wird mittig auf 4:3 zugeschnitten."
+msgstr "Будет обрезано по центру до 4:3."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:549
 msgid "Bild auswählen…"
 msgstr "Выбрать изображение…"

@@ -359,4 +359,15 @@ class SocialPublicHtmlTest :
             SocialPublicHtml.STYLESHEET shouldContain "margin-inline: auto"
             SocialPublicHtml.STYLESHEET shouldNotContain "margin: 0 auto; padding: 0 1.5rem"
         }
+
+        test("V1.9.252: .event-cover is width-bounded 4:3, never height-clamped, left-aligned") {
+            val block = Regex("""\.event-cover\s*\{([^}]*)\}""").find(SocialPublicHtml.STYLESHEET)?.groupValues?.get(1)
+            checkNotNull(block) { "the .event-cover rule is missing" }
+            block shouldNotContain "max-height"
+            block shouldContain "aspect-ratio: 4 / 3"
+            block shouldContain "max-width: 36rem"
+            block shouldContain "object-fit: cover"
+            block shouldNotContain "margin-inline"
+            block shouldNotContain "#"
+        }
     })

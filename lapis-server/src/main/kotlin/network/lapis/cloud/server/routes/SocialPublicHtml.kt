@@ -369,11 +369,13 @@ internal object SocialPublicHtml {
         /* Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- shares this stylesheet, see
            network.lapis.cloud.server.routes.EventPublicHtml class KDoc. No inline `style` attribute
            on the <img> itself (EventPublicHtml forbids raw HTML/inline styles categorically, same
-           discipline every other block in this file follows) -- a fixed 4:3 aspect ratio, cropped
-           via object-fit, matches the admin-side upload card's own preview box. */
+           discipline every other block in this file follows) -- width-bounded (36rem, left-aligned with
+           title/facts), never height-clamped; fixed 4:3 via aspect-ratio + object-fit so pre-V1.9.252
+           covers in other ratios are cropped by the browser; `?embed=1` narrows via width:100%; colours
+           from --lapis-* only. */
         .event-cover {
-            display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin-bottom: 1.5rem; max-height: 22rem;
-            border-radius: 0.75rem; border: 1px solid var(--lapis-border);
+            display: block; width: 100%; max-width: 36rem; height: auto; aspect-ratio: 4 / 3; object-fit: cover;
+            margin: 0 0 1.5rem 0; border-radius: 0.75rem; border: 1px solid var(--lapis-border);
         }
 
         /* Welle V1.9.128 "Veranstaltungsseite: Kopfbereich, Layout, ?embed=1" -- shares this stylesheet, see

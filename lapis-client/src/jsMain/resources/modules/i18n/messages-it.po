@@ -16361,6 +16361,10 @@ msgstr "Le modifiche all'immagine di copertina vengono salvate immediatamente."
 msgid "Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB"
 msgstr "Nessuna immagine di copertina – JPEG o PNG, min. 800x600, max. 5 MB"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:538
+msgid "Wird mittig auf 4:3 zugeschnitten."
+msgstr "Viene ritagliata al centro in formato 4:3."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:549
 msgid "Bild auswählen…"
 msgstr "Scegli immagine…"

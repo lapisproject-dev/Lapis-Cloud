@@ -12,6 +12,7 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.events.CoverImageLimits
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.events.EventStore
@@ -51,6 +52,7 @@ private val SLUG_PATTERN = COVER_SLUG_PATTERN
  * Security checklist (see the wave plan's own table for the full rationale):
  * - **CSRF**: `Origin`/`Sec-Fetch-Site` checked on every write, in addition to the session cookie's
  *   own `SameSite=Strict`.
+ * - **Crop (V1.9.252)**: the upload is centre-cropped to 4:3 via `CoverImageLimits.EVENT_COVER_CROPPED` (events only).
  * - **DoS**: an early `Content-Length` rejection BEFORE any byte is read, a form-field byte-size
  *   limit (see `CoverUploadSupport.receiveSingleCoverUpload`), and the image processor's own
  *   decompression-bomb guard (dimensions checked before decode).
@@ -103,7 +105,7 @@ internal fun Route.registerEventCoverRoutes(
 
         // Welle V1.4.36 -- multipart-receive/sniff/process extracted (byte-identical behavior) into
         // CoverUploadSupport.kt so ArticleCoverRoutes can reuse it; see that file's own KDoc.
-        val ok = call.receiveSingleCoverUpload() ?: return@post
+        val ok = call.receiveSingleCoverUpload(CoverImageLimits.EVENT_COVER_CROPPED) ?: return@post
 
         val newId = Uuid.random()
         storage.write(id = newId, format = ok.format, bytes = ok.bytes)

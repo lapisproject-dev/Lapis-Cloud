@@ -139,7 +139,7 @@ Two files for one slug (`a.jpg` + `a.png`, or the same name twice) are **both** 
 
 Every image runs through the same pipeline as a manual cover upload (magic-byte sniffing, decompression-bomb guard, EXIF orientation, metadata-free re-encode, long edge at most
 1600 px). For **imported articles only** the minimum is relaxed (Variante 1): **width at least 300 px, height at least 150 px, width/height between 1:2 and 4:1, measured after the EXIF
-rotation, never enlarged**. Ordinary articles and events keep 800x600. The relaxation is structural: `ArticleCoverPolicy.limitsForArticle(imported)` is the only factory and its
+rotation, never enlarged**. Ordinary articles and events keep 800x600 (events are additionally centre-cropped to 4:3; articles are not). The relaxation is structural: `ArticleCoverPolicy.limitsForArticle(imported)` is the only factory and its
 argument always comes from the database row (`imported` is written once, at import, and never changes); no request field can set it.
 
 === Commit semantics

@@ -16312,6 +16312,10 @@ msgstr "Changes to the cover image are saved immediately."
 msgid "Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB"
 msgstr "No cover image – JPEG or PNG, at least 800x600, max. 5 MB"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:538
+msgid "Wird mittig auf 4:3 zugeschnitten."
+msgstr "Cropped to 4:3 around the centre."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:549
 msgid "Bild auswählen…"
 msgstr "Choose image…"

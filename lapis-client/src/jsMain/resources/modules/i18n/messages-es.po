@@ -16143,6 +16143,10 @@ msgstr "Los cambios en la imagen de portada se guardan de inmediato."
 msgid "Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB"
 msgstr "Sin imagen de portada – JPEG o PNG, mín. 800x600, máx. 5 MB"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:538
+msgid "Wird mittig auf 4:3 zugeschnitten."
+msgstr "Se recorta al centro en formato 4:3."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:549
 msgid "Bild auswählen…"
 msgstr "Elegir imagen…"
