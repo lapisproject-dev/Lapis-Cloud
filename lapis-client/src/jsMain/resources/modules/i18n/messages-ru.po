@@ -29554,3 +29554,51 @@ msgstr "Без района"
 
 msgid "Zur Aktion"
 msgstr "К акции"
+
+msgid "⏸ Pause"
+msgstr "⏸ Пауза"
+
+msgid "▶ Fortsetzen"
+msgstr "▶ Продолжить"
+
+msgid "Wird pausiert …"
+msgstr "Пауза включается …"
+
+msgid "Wird fortgesetzt …"
+msgstr "Возобновление …"
+
+msgid "Weder Aufzeichnung noch Live-Stream laufen."
+msgstr "Не идут ни запись, ни прямая трансляция."
+
+msgid "⏸ Pause: Aufzeichnung und Live-Stream sind angehalten."
+msgstr "⏸ Пауза: запись и прямая трансляция остановлены."
+
+msgid "⏸ Pause: Die Aufzeichnung ist angehalten."
+msgstr "⏸ Пауза: запись остановлена."
+
+msgid "⏸ Pause: Der Live-Stream ist angehalten."
+msgstr "⏸ Пауза: прямая трансляция остановлена."
+
+msgid "Sie können weiter miteinander sprechen."
+msgstr "Вы можете продолжать разговаривать друг с другом."
+
+msgid "Pause: Aufzeichnung und Live-Stream angehalten"
+msgstr "Пауза: запись и прямая трансляция остановлены"
+
+msgid "Pause: Aufzeichnung angehalten"
+msgstr "Пауза: запись остановлена"
+
+msgid "Pause: Live-Stream angehalten"
+msgstr "Пауза: прямая трансляция остановлена"
+
+msgid "Pause beendet"
+msgstr "Пауза закончилась"
+
+msgid "Die Sitzung ist pausiert. Setzen Sie zuerst fort."
+msgstr "Заседание приостановлено. Сначала продолжите его."
+
+msgid "Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht."
+msgstr "Эта запись достигла максимального числа пауз."
+
+msgid "ist wegen der Pause angehalten"
+msgstr "остановлена из-за паузы"

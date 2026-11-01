@@ -45,6 +45,12 @@ public object ConferenceRoomTable : Table("conference_room") {
     public val participantsMayUnmute: Column<Boolean> = bool("participants_may_unmute").default(true)
 
     /**
+     * V1.9.254 -- V134. Set while the room is paused (recording and/or stream); the lock anchor of pause/resume. Class A (UTC). Written ONLY by
+     * `ConferenceRoomPauseCoordinator` (and the stop paths it names) -- pinned by `ConferenceRoomPauseTripwireTest`.
+     */
+    public val capturePausedAt: Column<LocalDateTime?> = datetime("capture_paused_at").nullable()
+
+    /**
      * V1.9.115 -- V94. The view a recording / stream shows (RASTER or SPEAKER). Exposed default deliberate (same reasoning as
      * [allowFederationGuests]): the many room fixtures need not know the column.
      */

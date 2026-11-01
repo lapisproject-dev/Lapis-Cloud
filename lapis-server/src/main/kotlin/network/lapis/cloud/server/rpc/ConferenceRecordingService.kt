@@ -13,6 +13,7 @@ import network.lapis.cloud.server.conference.MAX_COMPOSE_ATTEMPTS
 import network.lapis.cloud.server.conference.RecordingDiskBudget
 import network.lapis.cloud.server.conference.RecordingRawFiles
 import network.lapis.cloud.server.conference.RecordingSpeakerTimelineStore
+import network.lapis.cloud.server.conference.RoomPauseDb
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
@@ -44,6 +45,7 @@ import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
 import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
+import network.lapis.cloud.shared.rpc.ConferenceRoomPausedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.EventRoomRecordingAccessLevelNotAllowedException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -259,6 +261,11 @@ class ConferenceRecordingService(
         // V1.9.158: the moderator check MUST come first -- the typed reasons below (event not released / switch off / access level) tell the
         // release state of an event and may only reach a moderator; a stranger gets the neutral ForbiddenException.
         requireModeratorOrPrivileged(room = room, current = current)
+        // V1.9.254 (Z12): while the room is paused nothing is started (after the moderator check, so a stranger learns nothing).
+        if (room[ConferenceRoomTable.capturePausedAt] != null && !RoomPauseDb.clearCaptureIfNothingPaused(roomId = roomUuid)) {
+            // (a leftover mark with nothing paused -- e.g. a crash between a stop and its cleanup -- is cleared here, the room lock is held)
+            throw ConferenceRoomPausedException()
+        }
         // V1.9.156: an event room is recorded ONLY when the instance switch is on AND the organizer released this event -- and everybody who
         // enters such a room has acknowledged the capture consent (proof in event_capture_acknowledgment; EventOnlineJoin enforces it). The
         // release is frozen while the room is active, so no participant can be inside without that proof. Room-row lock is held (see above).
@@ -334,8 +341,13 @@ class ConferenceRecordingService(
             val row =
                 ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingUuid }.singleOrNull()
                     ?: throw NotFoundException("Conference recording $recordingUuid not found")
+            // V1.9.254: the room is locked FIRST (lock order room -> recording -> stream, as in the pause coordinator).
             val room =
-                ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceRecordingTable.roomId] }.singleOrNull()
+                ConferenceRoomTable
+                    .selectAll()
+                    .where { ConferenceRoomTable.id eq row[ConferenceRecordingTable.roomId] }
+                    .forUpdate()
+                    .singleOrNull()
                     ?: throw NotFoundException("Conference room for recording $recordingUuid not found")
             requireModeratorOrPrivileged(room = room, current = current)
 
@@ -344,7 +356,12 @@ class ConferenceRecordingService(
                 ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq recordingUuid }) {
                     it[stoppedAt] = now
                     it[status] = ConferenceRecordingStatus.STOPPING
+                    it[pausedAt] = null
                 }
+                // V1.9.254 (Z13): a stop in a pause closes the open pause row (the rest up to the end is cut out); stopping the last paused
+                // thing ends the room pause. Before the audit, which stays the last lock-taking operation.
+                RoomPauseDb.closeOpenPause(recordingId = recordingUuid, at = now)
+                RoomPauseDb.clearCaptureIfNothingPaused(roomId = room[ConferenceRoomTable.id], actor = current)
                 // See startRecording's own comment -- must be the LAST lock-taking operation.
                 AuditLogRecorder.record(
                     actorMemberId = current.memberId,
@@ -1169,6 +1186,7 @@ class ConferenceRecordingService(
             lastRecomputeFailed = mayRecompute && row[ConferenceRecordingTable.lastRecomputeFailureCode] != null,
             recomputedAt = if (status == ConferenceRecordingStatus.READY) row[ConferenceRecordingTable.recomputedAt] else null,
             broadcastView = row[ConferenceRecordingTable.broadcastView],
+            paused = status == ConferenceRecordingStatus.RECORDING && row[ConferenceRecordingTable.pausedAt] != null,
         )
     }
 

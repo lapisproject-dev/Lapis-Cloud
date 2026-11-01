@@ -124,6 +124,8 @@ data class ConferenceRecordingDto(
     val recomputedAt: LocalDateTime? = null,
     /** V1.9.115: the view frozen when the recording started (the room setting at that moment); a recompute uses this one, not the current room setting. */
     val broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
+    /** V1.9.254: the recording is paused by the room's pause mode (status RECORDING); nothing is recorded until the room is resumed. */
+    val paused: Boolean = false,
 )
 
 /**

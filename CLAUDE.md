@@ -287,6 +287,17 @@ Details: `scripts/loadtest/README.adoc`, Laufzettel `docs/architecture/encounter
 - **`scripts/loadtest/lib/routes.json` ist an die Methodenreihenfolge von `IEncounterSpaceService` gebunden** (Route = `/rpc/routeEncounterSpaceServiceManager<Index>`): Tripwire `LoadTestRouteIndexTripwireTest`, Drahtformat `LoadTestWireContractTest` (gleiche Fixtures wie die Node-Tests). **Neue RPC-Methoden ans ENDE** des Interfaces, nie in die Mitte.
 - Node-Tests (`node --test scripts/loadtest/test/*.test.mjs`) laufen als eigener CI-Job `loadtest`, ohne `npm install`; die optionale Medienschicht (`@livekit/rtc-node`) wird in CI nie installiert und nur per `import()` bei `--media=livekit` geladen.
 
+## Pausen-Modus (V1.9.254)
+
+Details: `docs/architecture/conference-recording.adoc`, Abschnitt "Pauses (stages and cut-outs, V1.9.254)", `docs/features/video-conferencing.adoc`. Kurzregeln:
+
+- **Eine Pause stoppt die Egresses, sie schneidet nie nur nachträglich.** Sonst stünden private Gespräche in den Rohdateien und das Banner "angehalten" wäre falsch. Der `RecordingPoller` stoppt die Egresses (ein Ort), der Coordinator weckt ihn nur (`requestTick`).
+- **Schreiber-Monopol:** `conference_room.capture_paused_at` und die Zeilen von `conference_recording_pause` schreibt nur `ConferenceRoomPauseCoordinator.kt` (mit `RoomPauseDb`); die Stop-Pfade (`stopRecording`, `stopStream`, `RecordingPoller.transitionToStopping`, `StreamPoller.finalizeEnded*`) rufen `RoomPauseDb` auf. `ConferenceRoomPauseTripwireTest` prüft das, außerdem: kein LiveKit-Aufruf in `transaction {}` des Coordinators, keine Identität im Log.
+- **Sperrreihenfolge Raum -> Aufzeichnung -> Stream** (`RoomPauseDb.lockRoom` zuerst in jeder Transaktion, die danach `capture_paused_at` räumt). Der Umfang (Aufzeichnung/Stream/beide) wird **abgeleitet**, nie gespeichert.
+- **Pausengrund `ROOM_PAUSE` steht am Ende des Enums `ConferenceStreamPauseReason`** (die Reihenfolge ist tragend). Ein Stream mit `SECRET_BALLOT`/`MANUAL` gehört nicht zum Umfang; ein manuelles `pauseStream` nimmt einen Raumpausen-Stream aus dem Umfang (`MANUAL`).
+- **Der Stream-Wechsel ist nicht nahtlos** (Stop + neuer Egress). Es gibt bewusst **keinen** Web-Egress und kein Custom-Template (`ConferenceReactionsRecordingTripwireTest` + `ConferenceRoomPauseTripwireTest`): sonst landeten Client-DOM-Overlays im Stream. Ein Pausenbild im Stream (Schritt 2, noch nicht gebaut) braucht eine neue, getrennte Entscheidung samt Tripwire-Ausnahme.
+- **Ein Banner:** die Pause nutzt das bestehende Raum-Banner (`lapis-room-notice`, `role="status"`), keinen zweiten Balken. Der Zustand kommt aus den DTOs, die Pakete `capture_pause`/`capture_resume` lösen nur ein erneutes Lesen aus.
+
 ## Begegnungsraum: Raumvorlagen (V1.9.152)
 
 Details: Abschnitt "Stage 2c" in `docs/architecture/encounter-space.adoc`. Kurzregeln:

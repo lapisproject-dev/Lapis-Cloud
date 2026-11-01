@@ -96,6 +96,7 @@ import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RoomBallotStatus
+import network.lapis.cloud.shared.domain.RoomPauseScope
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
@@ -1523,6 +1524,7 @@ private fun enterCall(
     }
     var microphonePermitted = true
     var moderationPanel: ConferenceModerationPanel? = null
+    var pauseToggleRef: () -> Unit = {}
     var toggleMicRef: () -> Unit = {}
     var cameraEnabled = initialDevices.camera
     var screenShareEnabled = false
@@ -1982,7 +1984,14 @@ private fun enterCall(
     var lastActionStatus = ""
 
     // V1.9.158: the reason an event room blocks recording / streaming (moderators only, `null` otherwise) and the one line that shows it.
-    fun captureBlockedReason(): String? = if (canModerate) conferenceEventCaptureBlockedReason(eventCapture) else null
+    fun captureBlockedReason(): String? =
+        when {
+            !canModerate -> null
+            // V1.9.254: while the room is paused nothing is started -- the reason is shown instead of a click that the server would refuse
+            conferenceEventCaptureBlockedReason(eventCapture) != null -> conferenceEventCaptureBlockedReason(eventCapture)
+            clientRoomPauseScope(activeRecordingDto, activeStreamDto) != null -> roomPausedStartReason()
+            else -> null
+        }
 
     fun updateCaptureReasonLine() {
         val reason = captureBlockedReason()
@@ -2441,6 +2450,7 @@ private fun enterCall(
                         }
                     }
                 },
+                onPause = { pauseToggleRef() },
                 reactions = roomReactionsEnabled,
                 onReactions = { enabled, revert ->
                     moderationPanel?.setBusy(true)
@@ -2591,11 +2601,47 @@ private fun enterCall(
     // V1.9.26: the same banner now speaks for the whole secret ballot ("Geheime Wahl läuft: ..." -- see [secretBallotBannerText]); it is a
     // polite status (a changed text must not be re-announced as an alarm), has still no close button, and stays in the call surface so a
     // guest sees it too.
-    val secretBallotPauseBanner = callPanel.vPanel(spacing = 6) { addCssClasses("border border-warning rounded p-2") }
+    //
+    // V1.9.254: it is also THE banner of the pause mode ("⏸ Pause: ..."): one room notice, never a second bar (`lapis-room-notice`). The
+    // "Fortsetzen" button in it is built once and shown to moderators only.
+    val secretBallotPauseBanner = callPanel.vPanel(spacing = 6) { addCssClasses("border border-warning rounded p-2 lapis-room-notice") }
     secretBallotPauseBanner.hide()
     secretBallotPauseBanner.setAttribute("role", "status")
     secretBallotPauseBanner.setAttribute("aria-live", "polite")
     val secretBallotBannerLine = secretBallotPauseBanner.div("") { addCssClass("fw-bold") }
+    // the "Fortsetzen" button is a sibling directly under the banner (created after updateSecretBallotBanner): the ballot banner itself has no button
+    var bannerResumeButton: io.kvision.html.Button? = null
+    var pauseBusy: PauseBusy? = null
+    var refreshCaptureStateRef: suspend () -> Unit = {}
+
+    fun refreshPauseControls(roomPause: RoomPauseScope?) {
+        val state = pauseButtonStateOf(roomPause, activeRecordingDto, activeStreamDto, pauseBusy)
+        moderationPanel?.setPause(state)
+        bannerResumeButton?.let { resume ->
+            if (canModerate && roomPause != null) resume.show() else resume.hide()
+            resume.disabled = pauseBusy != null
+        }
+    }
+
+    pauseToggleRef = toggle@{
+        if (!canModerate || pauseBusy != null) return@toggle
+        val resuming = clientRoomPauseScope(activeRecordingDto, activeStreamDto) != null
+        val state = pauseButtonStateOf(clientRoomPauseScope(activeRecordingDto, activeStreamDto), activeRecordingDto, activeStreamDto, null)
+        // an unavailable option swallows the click (the reason is on the button); no request
+        if (!resuming && !state.available) return@toggle
+        pauseBusy = if (resuming) PauseBusy.RESUMING else PauseBusy.PAUSING
+        refreshPauseControls(clientRoomPauseScope(activeRecordingDto, activeStreamDto))
+        AppScope.launch {
+            guarded {
+                val service = rpcService<IConferenceModerationService>()
+                if (resuming) service.resumeRoomCapture(room.id) else service.pauseRoomCapture(room.id)
+            }
+            pauseBusy = null
+            // the state comes from the server DTOs, never from a local guess
+            refreshCaptureStateRef()
+            refreshPauseControls(clientRoomPauseScope(activeRecordingDto, activeStreamDto))
+        }
+    }
     var recordingStateKnown = false
     var shownBannerText: String? = null
 
@@ -2620,8 +2666,15 @@ private fun enterCall(
                 recordingStateKnown -> false
                 else -> null
             }
+        val roomPause = clientRoomPauseScope(activeRecordingDto, activeStreamDto)
         val text =
-            secretBallotBannerText(secretOpen, StreamMirrorState(activeStreamDto?.status, activeStreamDto?.pauseReason), recordingActive)
+            secretBallotBannerText(
+                secretOpen,
+                StreamMirrorState(activeStreamDto?.status, activeStreamDto?.pauseReason),
+                recordingActive,
+                roomPause,
+            )
+        refreshPauseControls(roomPause)
         if (text == shownBannerText) return
         shownBannerText = text
         if (text == null) {
@@ -2631,6 +2684,12 @@ private fun enterCall(
             secretBallotPauseBanner.show()
         }
     }
+
+    bannerResumeButton =
+        callPanel.button(tr("▶ Fortsetzen"), style = ButtonStyle.OUTLINESECONDARY).also {
+            it.hide()
+            it.onClick { pauseToggleRef() }
+        }
 
     // V1.9.70 -- the snapshot the dock's mini bar shows (no personal data, no title). Published at every place that changes one of its
     // inputs: `transition`, the mic/camera state functions, the screen-share click, `updateStatusBadgesAndTitle` and the vote callback.
@@ -2647,8 +2706,11 @@ private fun enterCall(
             screenSharing = screenShareEnabled,
             recording = activeRecordingDto != null,
             streaming = activeStreamDto != null,
+            // V1.9.254: the room pause has its own badge (roomPause) -- streamPaused is only the secret ballot / a moderator's pause
             streamPaused =
-                activeStreamDto?.status.let { it == ConferenceStreamStatus.PAUSED || it == ConferenceStreamStatus.PAUSING },
+                activeStreamDto?.status.let { it == ConferenceStreamStatus.PAUSED || it == ConferenceStreamStatus.PAUSING } &&
+                    !activeStreamDto.pausedByRoom(),
+            roomPause = clientRoomPauseScope(activeRecordingDto, activeStreamDto),
             voteOpen = (voteController?.state?.badgeCount() ?: 0) > 0,
             handRaisedSelf = dockHandRaisedSelf,
             raisedHandsCount = dockRaisedHandsCount,
@@ -3219,7 +3281,11 @@ private fun enterCall(
             streamBanner.hide()
             streamBannerAcknowledged = false
         }
+        // V1.9.254: the start buttons show / drop the "room is paused" reason with the state
+        updateRecordButtonLabel()
+        updateStreamButtonsVisibility()
     }
+    refreshCaptureStateRef = { onMediaStatusPush() }
 
     /**
      * Review-round-1 fix (2026-08-09) for the disclosed gap `CHANGELOG.md`'s Wave 2 entry and
@@ -5874,6 +5940,8 @@ private fun enterCall(
                     notices.announce(gettext("Reaktionen sind in diesem Raum ausgeschaltet."), assertive = false)
                 }
             }
+            // V1.9.254: the pause mode started / ended -- read the recording and stream state again (the packet carries no state)
+            ConferenceModerationSignal.CapturePauseChanged -> AppScope.launch { onMediaStatusPush() }
             ConferenceModerationSignal.Lock, ConferenceModerationSignal.Unlock -> {
                 roomMayUnmute = signal == ConferenceModerationSignal.Unlock
                 moderationPanel?.setState(roomMuteOnJoin, roomMayUnmute)
@@ -8127,10 +8195,11 @@ internal fun conferenceStreamBadgeVerbPhrase(
         ConferenceStreamStatus.STARTING -> gettext("wird gestartet")
         ConferenceStreamStatus.LIVE -> gettext("läuft")
         ConferenceStreamStatus.PAUSED ->
-            if (pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT) {
-                gettext("ist wegen geheimer Abstimmung unterbrochen")
-            } else {
-                gettext("ist unterbrochen")
+            when (pauseReason) {
+                ConferenceStreamPauseReason.SECRET_BALLOT -> gettext("ist wegen geheimer Abstimmung unterbrochen")
+                // V1.9.254: the room pause
+                ConferenceStreamPauseReason.ROOM_PAUSE -> gettext("ist wegen der Pause angehalten")
+                ConferenceStreamPauseReason.MANUAL, null -> gettext("ist unterbrochen")
             }
         ConferenceStreamStatus.PAUSING -> gettext("wird angehalten")
         ConferenceStreamStatus.STOPPING -> gettext("wird beendet")
@@ -8362,6 +8431,8 @@ internal fun conferenceStreamNeedsPoll(stream: ConferenceStreamDto?): Boolean {
     if (stream.status == ConferenceStreamStatus.STARTING || stream.status == ConferenceStreamStatus.STOPPING) return true
     if (stream.status == ConferenceStreamStatus.PAUSING) return true
     if (stream.status == ConferenceStreamStatus.PAUSED && stream.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT) return true
+    // V1.9.254: the server restarts a room-pause stream by itself once the room is resumed -- no LiveKit push reaches this client for that
+    if (stream.status == ConferenceStreamStatus.PAUSED && stream.pauseReason == ConferenceStreamPauseReason.ROOM_PAUSE) return true
     return stream.targets.any { it.status == ConferenceStreamTargetStatus.PENDING }
 }
 

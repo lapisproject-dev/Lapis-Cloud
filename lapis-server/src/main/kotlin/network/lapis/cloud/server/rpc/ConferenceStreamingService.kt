@@ -10,6 +10,7 @@ import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
 import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitEgressClient
+import network.lapis.cloud.server.conference.RoomPauseDb
 import network.lapis.cloud.server.conference.StreamUrlFingerprint
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
@@ -46,6 +47,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatusDto
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
+import network.lapis.cloud.shared.rpc.ConferenceRoomPausedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
@@ -595,6 +597,11 @@ class ConferenceStreamingService(
                     throw ConferenceRoomEndedException()
                 }
                 requireModeratorOrPrivileged(room = room, current = current)
+                // V1.9.254 (Z12): while the room is paused nothing is started (after the moderator check, so a stranger learns nothing).
+                if (room[ConferenceRoomTable.capturePausedAt] != null && !RoomPauseDb.clearCaptureIfNothingPaused(roomId = roomUuid)) {
+                    // (a leftover mark with nothing paused -- e.g. a crash between a stop and its cleanup -- is cleared here, the room lock is held)
+                    throw ConferenceRoomPausedException()
+                }
                 // V1.9.156: an event room is streamed ONLY when the instance switch is on AND the organizer released this event; everybody who
                 // enters such a room has acknowledged the capture consent (EventOnlineJoin), and the release is frozen while the room is active.
                 EventConferenceGuard.requireEventCaptureAllowed(row = room)
@@ -900,7 +907,14 @@ class ConferenceStreamingService(
                     val pauseReasonNow = row[ConferenceStreamTable.pauseReason]
                     val needsEscalation =
                         status == ConferenceStreamStatus.PAUSING ||
-                            (status == ConferenceStreamStatus.PAUSED && pauseReasonNow == ConferenceStreamPauseReason.SECRET_BALLOT)
+                            (
+                                status == ConferenceStreamStatus.PAUSED &&
+                                    (
+                                        pauseReasonNow == ConferenceStreamPauseReason.SECRET_BALLOT ||
+                                            // V1.9.254 Z10: a manual pause takes the stream out of the room pause (it is not resumed with the room)
+                                            pauseReasonNow == ConferenceStreamPauseReason.ROOM_PAUSE
+                                    )
+                            )
                     if (needsEscalation) {
                         ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamUuid }) {
                             it[pauseReason] = ConferenceStreamPauseReason.MANUAL
@@ -938,37 +952,21 @@ class ConferenceStreamingService(
                 )
             }
         if (prep.alreadyHandled) {
-            return transaction {
-                val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                streamRowToDto(row = row, roomTitle = prep.roomTitle)
-            }
-        }
-
-        // Best-effort REQUEST, OUTSIDE any transaction -- see class KDoc "pauseStream/resumeStream/
-        // stopStream -- best-effort StopEgress". Security-audit round-4 R4-3 fix -- StopEgress alone
-        // is a REQUEST, not a confirmation (same discipline stopStream's own MAJOR-1/MINOR-6 fix and
-        // DefaultSecretBallotStreamGuard.quiesceStreamsForMeeting already apply): confirmedStopped
-        // below, via the SAME awaitEgressStopConfirmation loop stopStream uses (same
-        // pauseVerifyTimeoutSeconds budget, no new env var), is what actually decides whether this
-        // call may finalize PAUSED.
-        var confirmedStopped = true
-        if (prep.roomName != null && prep.egressId != null) {
-            try {
-                liveKitEgressClient.stopEgress(roomName = prep.roomName, egressId = prep.egressId)
-            } catch (e: LiveKitAdminException) {
-                logger.warn { "pauseStream: StopEgress failed for stream $streamUuid: ${e.message}" }
-            }
-            confirmedStopped = awaitEgressStopConfirmation(roomName = prep.roomName, egressId = prep.egressId)
-        }
-
-        if (!confirmedStopped) {
-            // The row is already PAUSING (written above) -- left untouched here.
-            // StreamPoller.handlePausing retries the same confirmation on its next tick, same
-            // fail-closed "leave it PAUSING, retry later" posture stopStream's own timeout branch and
-            // DefaultSecretBallotStreamGuard.quiesceStreamsForMeeting's own timeout branch document.
-            logger.warn {
-                "pauseStream: timed out confirming egress ${prep.egressId} stopped for stream $streamUuid -- left " +
-                    "PAUSING, StreamPoller retries on its next tick"
+            // V1.9.254 (Z10): a manual pause may have taken the last paused thing out of the room pause -> end the room pause. A SEPARATE
+            // transaction (room lock first), after the stream transaction, to keep the lock order room -> stream.
+            val roomId =
+                transaction {
+                    ConferenceStreamTable
+                        .selectAll()
+                        .where {
+                            ConferenceStreamTable.id eq streamUuid
+                        }.single()[ConferenceStreamTable.roomId]
+                }
+            if (transaction { RoomPauseDb.isRoomPaused(roomId) }) {
+                transaction {
+                    RoomPauseDb.lockRoom(roomId)
+                    RoomPauseDb.clearCaptureIfNothingPaused(roomId = roomId, actor = current)
+                }
             }
             return transaction {
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
@@ -976,51 +974,18 @@ class ConferenceStreamingService(
             }
         }
 
+        // V1.9.254: the stop-confirm-finalize kernel (Security-audit round-4 R4-3 fix, unchanged) lives in quiesceStreamEgress now, shared with
+        // the room pause of ConferenceRoomPauseCoordinator. If it did not finalize (timeout / resurrected row) the row is left as it is.
+        quiesceStreamEgress(
+            streamId = streamUuid,
+            roomName = prep.roomName,
+            egressId = prep.egressId,
+            liveKitEgressClient = liveKitEgressClient,
+            streamingConfig = streamingConfig,
+            actorMemberId = current.memberId,
+            actorRole = current.role,
+        )
         return transaction {
-            val now = nowLocalDateTime()
-            // Security-audit round-4 R4-3 fix -- same egress-id-guarded predicate as stopStream's own
-            // NEU-1 fix / StreamPoller.markPaused's own NEU-2 fix / DefaultSecretBallotStreamGuard
-            // .markPaused's own R4-1 fix: only finalize PAUSED if the row's CURRENT
-            // `livekit_egress_id` still matches (or remains unset, i.e. never set) the id whose stop
-            // THIS call just confirmed above -- otherwise a concurrent
-            // startStream/restartEgressForStream "abandoned" branch already resurrected this row onto
-            // a FRESH, actually-publishing egress in the window between that confirmation and this
-            // write, and finalizing to PAUSED here would strand the fresh egress forever (PAUSED is
-            // never revisited by anything). If the predicate does not match, the write is skipped
-            // entirely -- the row is left exactly as the resurrection wrote it, still PAUSING under
-            // StreamPoller's own handlePausing sweep on the very next tick.
-            val confirmedEgressId = prep.egressId
-            val updated =
-                ConferenceStreamTable.update({
-                    (ConferenceStreamTable.id eq streamUuid) and
-                        (ConferenceStreamTable.status eq ConferenceStreamStatus.PAUSING) and
-                        (
-                            ConferenceStreamTable.livekitEgressId.isNull() or
-                                (ConferenceStreamTable.livekitEgressId eq confirmedEgressId)
-                        )
-                }) {
-                    it[status] = ConferenceStreamStatus.PAUSED
-                    it[pausedAt] = now
-                    // pauseReason left untouched -- already MANUAL, written above before the
-                    // confirmation loop started.
-                }
-            if (updated == 0) {
-                logger.warn {
-                    "pauseStream: stream $streamUuid was resurrected with a new egress id while this call's own " +
-                        "stop confirmation was pending -- NOT finalizing to PAUSED, leaving it for StreamPoller's " +
-                        "own next tick"
-                }
-                val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                return@transaction streamRowToDto(row = row, roomTitle = prep.roomTitle)
-            }
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.CONFERENCE_STREAM,
-                entityId = streamUuid,
-                action = AuditAction.UPDATE,
-                occurredAt = now,
-            )
             val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
             streamRowToDto(row = row, roomTitle = prep.roomTitle)
         }
@@ -1058,6 +1023,12 @@ class ConferenceStreamingService(
                     throw ConflictException(
                         "Der Stream ist wegen einer laufenden geheimen Abstimmung unterbrochen und kann nicht manuell fortgesetzt werden.",
                     )
+                }
+                // V1.9.254 (Z11): a stream of the room pause is resumed with the ROOM ("Fortsetzen"), never on its own.
+                if (row[ConferenceStreamTable.pauseReason] == ConferenceStreamPauseReason.ROOM_PAUSE &&
+                    room[ConferenceRoomTable.capturePausedAt] != null
+                ) {
+                    throw ConferenceRoomPausedException()
                 }
                 if (row[ConferenceStreamTable.status] != ConferenceStreamStatus.PAUSED) {
                     throw ConflictException("Conference stream $streamUuid is not paused")
@@ -1182,63 +1153,75 @@ class ConferenceStreamingService(
             }
         }
 
-        return transaction {
-            val now = nowLocalDateTime()
-            // Security-audit round-3 NEU-1 fix -- the row's CURRENT livekit_egress_id must still
-            // match (or remain null, i.e. never set) the id whose stop THIS call just confirmed above
-            // via awaitEgressStopConfirmation (prep.egressId, possibly null if none was ever known) --
-            // otherwise a concurrent startStream/restartEgressForStream "abandoned" branch already
-            // resurrected this row onto a FRESH, actually-publishing egress in the window between
-            // that confirmation and this write (see those call sites' own KDoc "abandoned"), and
-            // finalizing to ENDED here would strand the fresh egress forever: ENDED is terminal to
-            // StreamPoller's own NON_TERMINAL_STREAM_STATUSES sweep, so nothing would ever ask it to
-            // stop again. Verified live-reproducible (security-audit round 3): the OLD unconditional
-            // write here is what let a `stopStream` confirming an OLD egress silently overwrite a
-            // resurrection that had already attached a NEW, still-publishing egress to the same row.
-            // If the predicate below does not match, the write is skipped entirely and the row is left
-            // exactly as the resurrection wrote it (STOPPING/PAUSING with the fresh id) --
-            // StreamPoller picks it up on its very next tick like any other non-terminal row.
-            val confirmedEgressId = prep.egressId
-            val updated =
-                ConferenceStreamTable.update({
-                    (ConferenceStreamTable.id eq streamUuid) and
+        val result =
+            transaction {
+                val now = nowLocalDateTime()
+                // Security-audit round-3 NEU-1 fix -- the row's CURRENT livekit_egress_id must still
+                // match (or remain null, i.e. never set) the id whose stop THIS call just confirmed above
+                // via awaitEgressStopConfirmation (prep.egressId, possibly null if none was ever known) --
+                // otherwise a concurrent startStream/restartEgressForStream "abandoned" branch already
+                // resurrected this row onto a FRESH, actually-publishing egress in the window between
+                // that confirmation and this write (see those call sites' own KDoc "abandoned"), and
+                // finalizing to ENDED here would strand the fresh egress forever: ENDED is terminal to
+                // StreamPoller's own NON_TERMINAL_STREAM_STATUSES sweep, so nothing would ever ask it to
+                // stop again. Verified live-reproducible (security-audit round 3): the OLD unconditional
+                // write here is what let a `stopStream` confirming an OLD egress silently overwrite a
+                // resurrection that had already attached a NEW, still-publishing egress to the same row.
+                // If the predicate below does not match, the write is skipped entirely and the row is left
+                // exactly as the resurrection wrote it (STOPPING/PAUSING with the fresh id) --
+                // StreamPoller picks it up on its very next tick like any other non-terminal row.
+                val confirmedEgressId = prep.egressId
+                val updated =
+                    ConferenceStreamTable.update({
+                        (ConferenceStreamTable.id eq streamUuid) and
+                            (
+                                ConferenceStreamTable.livekitEgressId.isNull() or
+                                    (ConferenceStreamTable.livekitEgressId eq confirmedEgressId)
+                            )
+                    }) {
+                        it[status] = ConferenceStreamStatus.ENDED
+                        it[endedAt] = now
+                    }
+                if (updated == 0) {
+                    logger.warn {
+                        "stopStream: stream $streamUuid was resurrected with a new egress id while this call's own " +
+                            "stop confirmation was pending -- NOT finalizing to ENDED, leaving it for StreamPoller's " +
+                            "own next tick"
+                    }
+                    val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
+                    return@transaction streamRowToDto(row = row, roomTitle = prep.roomTitle)
+                }
+                ConferenceStreamTargetTable.update({
+                    (ConferenceStreamTargetTable.streamId eq streamUuid) and
                         (
-                            ConferenceStreamTable.livekitEgressId.isNull() or
-                                (ConferenceStreamTable.livekitEgressId eq confirmedEgressId)
+                            ConferenceStreamTargetTable.status inList
+                                listOf(ConferenceStreamTargetStatus.PENDING, ConferenceStreamTargetStatus.ACTIVE)
                         )
                 }) {
-                    it[status] = ConferenceStreamStatus.ENDED
-                    it[endedAt] = now
+                    it[status] = ConferenceStreamTargetStatus.FINISHED
                 }
-            if (updated == 0) {
-                logger.warn {
-                    "stopStream: stream $streamUuid was resurrected with a new egress id while this call's own " +
-                        "stop confirmation was pending -- NOT finalizing to ENDED, leaving it for StreamPoller's " +
-                        "own next tick"
-                }
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.CONFERENCE_STREAM,
+                    entityId = streamUuid,
+                    action = AuditAction.UPDATE,
+                    occurredAt = now,
+                )
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                return@transaction streamRowToDto(row = row, roomTitle = prep.roomTitle)
+                streamRowToDto(row = row, roomTitle = prep.roomTitle)
             }
-            ConferenceStreamTargetTable.update({
-                (ConferenceStreamTargetTable.streamId eq streamUuid) and
-                    (
-                        ConferenceStreamTargetTable.status inList
-                            listOf(ConferenceStreamTargetStatus.PENDING, ConferenceStreamTargetStatus.ACTIVE)
-                    )
-            }) {
-                it[status] = ConferenceStreamTargetStatus.FINISHED
+        // V1.9.254 (Z13): stopping the last paused thing ends the room pause. A SEPARATE transaction after the commit: stopStream deliberately
+        // never takes the room lock inside its own transaction (SecretBallotStreamPauseTest R6), and taking it after the stream row would invert
+        // the lock order of the pause coordinator. Only when the room is marked at all (a plain read), so an ordinary stop takes no room lock.
+        val roomId = Uuid.parse(result.roomId)
+        if (transaction { RoomPauseDb.isRoomPaused(roomId) }) {
+            transaction {
+                RoomPauseDb.lockRoom(roomId)
+                RoomPauseDb.clearCaptureIfNothingPaused(roomId = roomId, actor = current)
             }
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.CONFERENCE_STREAM,
-                entityId = streamUuid,
-                action = AuditAction.UPDATE,
-                occurredAt = now,
-            )
-            val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-            streamRowToDto(row = row, roomTitle = prep.roomTitle)
         }
+        return result
     }
 
     /**
@@ -1255,21 +1238,12 @@ class ConferenceStreamingService(
         roomName: String,
         egressId: String,
     ): Boolean =
-        withTimeoutOrNull(streamingConfig.pauseVerifyTimeoutSeconds.seconds) {
-            while (true) {
-                val egresses =
-                    try {
-                        liveKitEgressClient.listEgress(roomName)
-                    } catch (e: LiveKitAdminException) {
-                        logger.warn { "stopStream: ListEgress failed while confirming egress $egressId stopped: ${e.message}" }
-                        delay(STOP_VERIFY_POLL_MS)
-                        continue
-                    }
-                val info = egresses.firstOrNull { it.egressId == egressId }
-                if (info == null || info.status in TERMINAL_EGRESS_STATUSES) return@withTimeoutOrNull true
-                delay(STOP_VERIFY_POLL_MS)
-            }
-        } == true
+        awaitEgressStopConfirmation(
+            liveKitEgressClient = liveKitEgressClient,
+            streamingConfig = streamingConfig,
+            roomName = roomName,
+            egressId = egressId,
+        )
 
     // ── Transparency read ────────────────────────────────────────────────
 
@@ -2152,5 +2126,108 @@ object ConferenceStreamPauseCoordinator {
             )
         }
         return affectedIds
+    }
+}
+
+/**
+ * Polls `ListEgress` every [STOP_VERIFY_POLL_MS] until [egressId] is gone or terminal, capped at `pauseVerifyTimeoutSeconds`; `false` on timeout.
+ * The member [ConferenceStreamingService] delegates here (V1.9.254: shared with [quiesceStreamEgress]).
+ */
+internal suspend fun awaitEgressStopConfirmation(
+    liveKitEgressClient: LiveKitEgressClient,
+    streamingConfig: ConferenceStreamingConfig,
+    roomName: String,
+    egressId: String,
+): Boolean =
+    withTimeoutOrNull(streamingConfig.pauseVerifyTimeoutSeconds.seconds) {
+        while (true) {
+            val egresses =
+                try {
+                    liveKitEgressClient.listEgress(roomName)
+                } catch (e: LiveKitAdminException) {
+                    logger.warn { "stopStream: ListEgress failed while confirming egress $egressId stopped: ${e.message}" }
+                    delay(STOP_VERIFY_POLL_MS)
+                    continue
+                }
+            val info = egresses.firstOrNull { it.egressId == egressId }
+            if (info == null || info.status in TERMINAL_EGRESS_STATUSES) return@withTimeoutOrNull true
+            delay(STOP_VERIFY_POLL_MS)
+        }
+    } == true
+
+/**
+ * The stop-confirm-finalize kernel of a pause (V1.9.254: extracted unchanged from `pauseStream`, shared with the room pause).
+ *
+ * The row must already be [ConferenceStreamStatus.PAUSING] (the caller wrote it, with its pause reason, in its own transaction). Sends a
+ * best-effort `StopEgress`, then confirms via [awaitEgressStopConfirmation] that the egress really ended (StopEgress alone is a REQUEST),
+ * and only then finalizes PAUSED -- with the egress-id-guarded predicate of Security-audit round 4 (R4-3): the write is skipped when a
+ * concurrent restart already attached a fresh egress to the row. Must be called OUTSIDE any transaction. Returns `true` iff the row was
+ * finalized to PAUSED; on `false` (timeout, resurrected row) the row is left PAUSING and `StreamPoller.handlePausing` retries.
+ */
+internal suspend fun quiesceStreamEgress(
+    streamId: Uuid,
+    roomName: String?,
+    egressId: String?,
+    liveKitEgressClient: LiveKitEgressClient,
+    streamingConfig: ConferenceStreamingConfig,
+    actorMemberId: Uuid?,
+    actorRole: AccountRole?,
+): Boolean {
+    var confirmedStopped = true
+    if (roomName != null && egressId != null) {
+        try {
+            liveKitEgressClient.stopEgress(roomName = roomName, egressId = egressId)
+        } catch (e: LiveKitAdminException) {
+            logger.warn { "pauseStream: StopEgress failed for stream $streamId: ${e.message}" }
+        }
+        confirmedStopped =
+            awaitEgressStopConfirmation(
+                liveKitEgressClient = liveKitEgressClient,
+                streamingConfig = streamingConfig,
+                roomName = roomName,
+                egressId = egressId,
+            )
+    }
+    if (!confirmedStopped) {
+        // The row is already PAUSING -- left untouched; StreamPoller.handlePausing retries the same confirmation on its next tick.
+        logger.warn {
+            "pauseStream: timed out confirming egress $egressId stopped for stream $streamId -- left PAUSING, " +
+                "StreamPoller retries on its next tick"
+        }
+        return false
+    }
+    return transaction {
+        val now = DbClock.nowLocalDateTime()
+        // Only finalize PAUSED if the row's CURRENT livekit_egress_id still matches (or remains unset) the id whose stop was just confirmed --
+        // otherwise a concurrent restart resurrected the row onto a FRESH egress and finalizing would strand it (R4-3).
+        val updated =
+            ConferenceStreamTable.update({
+                (ConferenceStreamTable.id eq streamId) and
+                    (ConferenceStreamTable.status eq ConferenceStreamStatus.PAUSING) and
+                    (
+                        ConferenceStreamTable.livekitEgressId.isNull() or
+                            (ConferenceStreamTable.livekitEgressId eq egressId)
+                    )
+            }) {
+                it[status] = ConferenceStreamStatus.PAUSED
+                it[pausedAt] = now
+                // pauseReason left untouched -- written by the caller before the confirmation loop started.
+            }
+        if (updated == 0) {
+            logger.warn {
+                "pauseStream: stream $streamId was resurrected with a new egress id while this call's own stop confirmation was " +
+                    "pending -- NOT finalizing to PAUSED, leaving it for StreamPoller's own next tick"
+            }
+            return@transaction false
+        }
+        AuditLogRecorder.record(
+            actorMemberId = actorMemberId,
+            actorRole = actorRole,
+            entityType = AuditEntityType.CONFERENCE_STREAM,
+            entityId = streamId,
+            action = AuditAction.UPDATE,
+            occurredAt = now,
+        )
+        true
     }
 }

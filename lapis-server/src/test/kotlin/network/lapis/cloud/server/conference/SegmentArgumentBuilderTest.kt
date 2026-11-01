@@ -207,6 +207,77 @@ class SegmentArgumentBuilderTest :
             }.isFailure shouldBe true
         }
 
+        test("V1.9.254: after a pause cut-out the video seeks to the SOURCE time of the segment, the length stays the output length") {
+            // output frames 900..1800 (a 30 s stretch of the file) that start at source frame 4500 (150 s): 60 s were cut out before it
+            val cutSeg =
+                EdlSegment(
+                    index = 1,
+                    startFrame = 900,
+                    endFrame = 1800,
+                    screenShareTrackId = null,
+                    cameraSlots = mapOf("a" to 0),
+                    shape = GridShape(cols = 1, rows = 1),
+                    sourceStartFrame = 2700,
+                )
+            val args =
+                SegmentArgumentBuilder.buildVideoSegment(
+                    seg = cutSeg,
+                    inputs = sources("a"),
+                    canvas = canvas,
+                    fps = fps,
+                    outVideo = "/work/seg.mp4",
+                )
+            args[args.indexOf("-ss") + 1] shouldBe "89.500000" // source 90 s minus the track offset 0.5 s
+            args[args.indexOf("-frames:v") + 1] shouldBe "900"
+        }
+
+        test("V1.9.254: after a pause cut-out the audio is cut from the source time, not from the output time") {
+            val cutSeg =
+                EdlSegment(
+                    index = 1,
+                    startFrame = 900,
+                    endFrame = 1800,
+                    screenShareTrackId = null,
+                    cameraSlots = emptyMap(),
+                    shape = GridShape(cols = 1, rows = 1),
+                    sourceStartFrame = 2700,
+                )
+            // data in the source only from 0 to 80 s: the output stretch [30 s, 60 s) maps to source [90 s, 120 s) -> NO audio there
+            val silent =
+                SegmentArgumentBuilder.buildAudioSegment(
+                    seg = cutSeg,
+                    sources =
+                        listOf(
+                            SegmentAudioSource(
+                                path = "/work/m.mka",
+                                offsetSeconds = 0.0,
+                                wallRanges = listOf(TimeRange(startSeconds = 0.0, endSeconds = 80.0)),
+                                tempo = null,
+                            ),
+                        ),
+                    fps = fps,
+                    outWav = "/w.wav",
+                )
+            silent listShouldContain "anullsrc=r=48000:cl=stereo"
+            // data from 85 to 100 s: the first 10 s of the segment (source 90..100) carry sound, seeked at source media time 90 s
+            val sound =
+                SegmentArgumentBuilder.buildAudioSegment(
+                    seg = cutSeg,
+                    sources =
+                        listOf(
+                            SegmentAudioSource(
+                                path = "/work/m.mka",
+                                offsetSeconds = 0.0,
+                                wallRanges = listOf(TimeRange(startSeconds = 85.0, endSeconds = 100.0)),
+                                tempo = null,
+                            ),
+                        ),
+                    fps = fps,
+                    outWav = "/w.wav",
+                )
+            sound[sound.indexOf("-ss") + 1] shouldBe "90.000000"
+        }
+
         fun audioSource(
             ranges: List<TimeRange>,
             tempo: Double? = null,

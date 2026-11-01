@@ -21,6 +21,9 @@ import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
 import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
+import network.lapis.cloud.shared.rpc.ConferenceRoomPauseLimitException
+import network.lapis.cloud.shared.rpc.ConferenceRoomPauseNothingToPauseException
+import network.lapis.cloud.shared.rpc.ConferenceRoomPausedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.DirectMessageGroupTooLargeException
 import network.lapis.cloud.shared.rpc.DirectMessageGroupUnavailableException
@@ -268,6 +271,10 @@ internal fun typedRefusalText(e: Throwable): String? =
         is ActivismReportOpenException -> tr("Sie haben diese Aktion bereits gemeldet. Die Meldung wird geprüft.")
         is ActivismResponsibleLimitException -> tr("Eine Aktion hat mindestens eine und höchstens zehn verantwortliche Personen.")
         is ActivismInvalidTransitionException -> tr("Dieser Statuswechsel ist nicht möglich.")
+        // V1.9.254 pause mode: the fixed texts of its typed refusals.
+        is ConferenceRoomPauseNothingToPauseException -> tr("Weder Aufzeichnung noch Live-Stream laufen.")
+        is ConferenceRoomPausedException -> tr("Die Sitzung ist pausiert. Setzen Sie zuerst fort.")
+        is ConferenceRoomPauseLimitException -> tr("Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht.")
         else -> null
     }
 

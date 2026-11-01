@@ -172,6 +172,9 @@ classDiagram(name = "ConferenceStreaming") {
     val conferenceStreamPauseReason = enumOf(name = "ConferenceStreamPauseReason") {
         literal(name = "MANUAL")
         literal(name = "SECRET_BALLOT")
+        // V1.9.254 (V134): the room pause (pause mode) -- APPENDED at the end, the order is load-bearing. A ROOM_PAUSE stream is stopped with the
+        // room and started again on resume (ConferenceRoomPauseCoordinator); it is NOT seamless, the platform sees an interruption.
+        literal(name = "ROOM_PAUSE")
     }
 
     // Literal order is load-bearing (see above), matching

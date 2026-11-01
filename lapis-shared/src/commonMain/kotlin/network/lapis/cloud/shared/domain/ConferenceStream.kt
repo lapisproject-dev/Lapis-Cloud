@@ -96,7 +96,7 @@ enum class ConferenceStreamStatus { STARTING, LIVE, PAUSED, STOPPING, ENDED, FAI
  * load-bearing (same mechanism as [ConferenceStreamPlatform]).
  */
 @Serializable
-enum class ConferenceStreamPauseReason { MANUAL, SECRET_BALLOT }
+enum class ConferenceStreamPauseReason { MANUAL, SECRET_BALLOT, ROOM_PAUSE }
 
 /**
  * Mirrors LiveKit's own `livekit.StreamInfo.Status` (`ACTIVE`/`FINISHED`/`FAILED`), plus a

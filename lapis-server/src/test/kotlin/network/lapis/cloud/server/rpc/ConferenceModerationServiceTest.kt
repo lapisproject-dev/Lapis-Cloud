@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -19,10 +20,20 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.conference.ConferenceAudioGrantState
 import network.lapis.cloud.server.conference.ConferenceConfig
+import network.lapis.cloud.server.conference.ConferenceRoomPauseCoordinator
+import network.lapis.cloud.server.conference.ConferenceStreamingConfig
+import network.lapis.cloud.server.conference.FakeLiveKitEgressClient
+import network.lapis.cloud.server.conference.LiveKitEgressInfo
+import network.lapis.cloud.server.conference.MAX_PAUSES_PER_RECORDING
 import network.lapis.cloud.server.conference.ModerationFakeLiveKit
+import network.lapis.cloud.server.conference.RoomPauseDb
 import network.lapis.cloud.server.conference.liveParticipant
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
@@ -30,7 +41,11 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
+import network.lapis.cloud.server.db.generated.ConferenceRecordingPauseTable
+import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
+import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.ConferenceStreamTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -42,10 +57,18 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
+import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRole
+import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
+import network.lapis.cloud.shared.domain.ConferenceStreamLayout
+import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
+import network.lapis.cloud.shared.domain.ConferenceStreamStatus
+import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.ConferenceRoomPauseLimitException
+import network.lapis.cloud.shared.rpc.ConferenceRoomPauseNothingToPauseException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.and
@@ -57,6 +80,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
@@ -84,7 +108,20 @@ private class ModerationRig(
     val broadcastView: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val joinLeaveSounds: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val reactions: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
-)
+    val pauseLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+    val egress: FakeLiveKitEgressClient = FakeLiveKitEgressClient(),
+    /** How often the pause coordinator woke the recording poller. */
+    val recordingTicks: AtomicInteger = AtomicInteger(),
+) {
+    val pauseCoordinator: ConferenceRoomPauseCoordinator =
+        ConferenceRoomPauseCoordinator(
+            liveKitAdminClient = liveKit,
+            liveKitEgressClient = egress,
+            streamingConfig = ConferenceStreamingConfig.load { null },
+            rateLimiter = pauseLimiter,
+            requestRecordingTick = { recordingTicks.incrementAndGet() },
+        )
+}
 
 private class RoomFx(
     val id: Uuid,
@@ -107,6 +144,7 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
             broadcastViewRateLimiter = rig.broadcastView,
             joinLeaveSoundsRateLimiter = rig.joinLeaveSounds,
             reactionsRateLimiter = rig.reactions,
+            pauseCoordinator = rig.pauseCoordinator,
         )
 
     fun conference(call: io.ktor.server.application.ApplicationCall) =
@@ -162,6 +200,14 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
         val dto = service(call).setRoomReactions(roomId = q["room"]!!, enabled = q["enabled"]!!.toBoolean())
         call.respondText("ok|${dto.reactionsEnabled}|${dto.myRole}")
     }
+    post("/test/pause") {
+        val dto = service(call).pauseRoomCapture(call.request.queryParameters["room"]!!)
+        call.respondText("ok|${dto.roomPaused}|${dto.recordingPaused}|${dto.streamPaused}")
+    }
+    post("/test/resume") {
+        val dto = service(call).resumeRoomCapture(call.request.queryParameters["room"]!!)
+        call.respondText("ok|${dto.roomPaused}|${dto.recordingPaused}|${dto.streamPaused}")
+    }
     post("/test/join") {
         call.respondText(conference(call).joinRoom(roomId = call.request.queryParameters["room"]!!, guestConsent = null).token)
     }
@@ -188,6 +234,19 @@ private fun moderationApp(
         install(StatusPages) {
             exception<ForbiddenException> { call, _ -> call.respondText("forbidden", status = HttpStatusCode.Forbidden) }
             exception<ConflictException> { call, cause -> call.respondText("conflict|${cause.message}", status = HttpStatusCode.Conflict) }
+            exception<ConferenceRoomPauseNothingToPauseException> {
+                call,
+                _,
+                ->
+                call.respondText("nothing", status = HttpStatusCode.Conflict)
+            }
+            exception<ConferenceRoomPauseLimitException> { call, _ -> call.respondText("limit", status = HttpStatusCode.Conflict) }
+            exception<network.lapis.cloud.shared.rpc.RateLimitedException> {
+                call,
+                _,
+                ->
+                call.respondText("rate", status = HttpStatusCode.TooManyRequests)
+            }
         }
         routing { registerModerationRoutes(rig) }
     }
@@ -237,6 +296,15 @@ class ConferenceModerationServiceTest :
                 ConferenceParticipationTable.deleteWhere {
                     (ConferenceParticipationTable.memberId inList createdMemberIds) or (ConferenceParticipationTable.roomId inList roomIds)
                 }
+                val recordingIds =
+                    ConferenceRecordingTable
+                        .selectAll()
+                        .where { ConferenceRecordingTable.roomId inList roomIds }
+                        .map { it[ConferenceRecordingTable.id] }
+                ConferenceRecordingPauseTable.deleteWhere { ConferenceRecordingPauseTable.recordingId inList recordingIds }
+                ConferenceRecordingTrackTable.deleteWhere { ConferenceRecordingTrackTable.recordingId inList recordingIds }
+                ConferenceRecordingTable.deleteWhere { ConferenceRecordingTable.id inList recordingIds }
+                ConferenceStreamTable.deleteWhere { ConferenceStreamTable.roomId inList roomIds }
                 ConferenceRoomTable.deleteWhere { ConferenceRoomTable.createdByMemberId inList createdMemberIds }
                 EncounterSpaceTable.deleteWhere { EncounterSpaceTable.id inList createdSpaceIds }
                 AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
@@ -1151,5 +1219,346 @@ class ConferenceModerationServiceTest :
                 act(path = "/test/reactions", caller = creator, "room" to r, "enabled" to "false").first shouldBe HttpStatusCode.OK
                 act(path = "/test/reactions", caller = creator, "room" to r, "enabled" to "true").first shouldBe HttpStatusCode.Conflict
             }
+        }
+
+        // -- V1.9.254 pause mode ------------------------------------------------------------------------------------------------------
+
+        fun newRecording(
+            room: RoomFx,
+            pausedAt: LocalDateTime? = null,
+            stage: Int = 0,
+            status: ConferenceRecordingStatus = ConferenceRecordingStatus.RECORDING,
+        ): Uuid {
+            val id = Uuid.random()
+            transaction {
+                ConferenceRecordingTable.insert {
+                    it[ConferenceRecordingTable.id] = id
+                    it[roomId] = room.id
+                    it[startedByMemberId] = room.creator
+                    it[startedAt] = DbClock.nowLocalDateTime()
+                    it[ConferenceRecordingTable.status] = status
+                    it[accessLevel] = DocumentAccessLevel.BOARD_ONLY
+                    it[rawDir] = id.toString()
+                    it[composeAttempts] = 0
+                    it[ConferenceRecordingTable.pausedAt] = pausedAt
+                    it[ConferenceRecordingTable.stage] = stage.toShort()
+                }
+            }
+            return id
+        }
+
+        fun newStream(
+            room: RoomFx,
+            status: ConferenceStreamStatus,
+            egressId: String? = "EG_stream_${Uuid.random()}",
+            reason: ConferenceStreamPauseReason? = null,
+        ): Uuid {
+            val id = Uuid.random()
+            transaction {
+                ConferenceStreamTable.insert {
+                    it[ConferenceStreamTable.id] = id
+                    it[roomId] = room.id
+                    it[startedByMemberId] = room.creator
+                    it[ConferenceStreamTable.status] = status
+                    it[layout] = ConferenceStreamLayout.GRID
+                    it[latencyMode] = ConferenceStreamLatencyMode.STANDARD
+                    it[livekitEgressId] = egressId
+                    it[startedAt] = DbClock.nowLocalDateTime()
+                    it[restartCount] = 0
+                    it[pauseReason] = reason
+                }
+            }
+            return id
+        }
+
+        fun recordingRow(id: Uuid) =
+            transaction { ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq id }.single() }
+
+        fun streamRow(id: Uuid) = transaction { ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq id }.single() }
+
+        fun pauseRows(recordingId: Uuid) =
+            transaction {
+                ConferenceRecordingPauseTable.selectAll().where { ConferenceRecordingPauseTable.recordingId eq recordingId }.toList()
+            }
+
+        fun pausePackets(
+            rig: ModerationRig,
+            room: RoomFx,
+        ) = rig.liveKit.packets
+            .filter { it.room == room.name && it.topic == CONFERENCE_MODERATION_TOPIC }
+            .map { it.payload }
+
+        test(
+            "pause (recording only): paused_at and ONE pause row are set, the room is marked, the poller is woken, one audit entry without names, a packet goes out",
+        ) {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            val recordingId = newRecording(room)
+            moderationApp(rig = rig) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()) shouldBe
+                    (HttpStatusCode.OK to "ok|true|true|false")
+            }
+            val rec = recordingRow(recordingId)
+            (rec[ConferenceRecordingTable.pausedAt] != null) shouldBe true
+            rec[ConferenceRecordingTable.stage] shouldBe 0.toShort()
+            val pauses = pauseRows(recordingId)
+            pauses.size shouldBe 1
+            pauses.single()[ConferenceRecordingPauseTable.seq] shouldBe 1.toShort()
+            pauses.single()[ConferenceRecordingPauseTable.resumedAt] shouldBe null
+            (roomRow(room)[ConferenceRoomTable.capturePausedAt] != null) shouldBe true
+            (rig.recordingTicks.get() >= 1) shouldBe true
+            val audit = audits(room).single { it.contains("capturePause") }
+            audit shouldBe """{"capturePause":"on","recording":true,"stream":false}"""
+            pausePackets(rig, room) shouldContainExactly listOf("""{"v":1,"k":"capture_pause"}""")
+        }
+
+        test("pause (Z4): a double click is idempotent -- still ONE pause row and ONE audit entry") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            val recordingId = newRecording(room)
+            moderationApp(rig = rig) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()).second shouldBe "ok|true|true|false"
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()).second shouldBe "ok|true|true|false"
+            }
+            pauseRows(recordingId).size shouldBe 1
+            audits(room).count { it.contains("capturePause") } shouldBe 1
+            pausePackets(rig, room).size shouldBe 1
+        }
+
+        test("pause (Z10): a stale room mark with nothing paused (stream resumed by hand) is a FRESH pause, not a silent no-op") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            val streamId = newStream(room, ConferenceStreamStatus.LIVE)
+            transaction {
+                ConferenceRoomTable.update({ ConferenceRoomTable.id eq room.id }) { it[capturePausedAt] = DbClock.nowLocalDateTime() }
+            }
+            moderationApp(rig = rig) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()).second shouldBe "ok|true|false|true"
+            }
+            val status = streamRow(streamId)[ConferenceStreamTable.status]
+            (status == ConferenceStreamStatus.PAUSING || status == ConferenceStreamStatus.PAUSED) shouldBe true
+            streamRow(streamId)[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.ROOM_PAUSE
+        }
+
+        test("pause (Z4, race): two parallel pause calls end in exactly one pause row and one audit entry") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            val recordingId = newRecording(room)
+            moderationApp(rig = rig) {
+                val results =
+                    coroutineScope {
+                        listOf(
+                            async { act(path = "/test/pause", caller = creator, "room" to room.id.toString()) },
+                            async { act(path = "/test/pause", caller = creator, "room" to room.id.toString()) },
+                        ).awaitAll()
+                    }
+                results.forEach { it shouldBe (HttpStatusCode.OK to "ok|true|true|false") }
+            }
+            pauseRows(recordingId).size shouldBe 1
+            audits(room).count { it.contains("capturePause") } shouldBe 1
+        }
+
+        test("pause (Z3): nothing running -> its own refusal, no state, no audit entry") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            // a recording that is already STOPPING and a stream paused by a moderator are not "running"
+            newRecording(room, status = ConferenceRecordingStatus.STOPPING)
+            newStream(room, ConferenceStreamStatus.PAUSED, reason = ConferenceStreamPauseReason.MANUAL)
+            moderationApp(rig = rig) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()) shouldBe (HttpStatusCode.Conflict to "nothing")
+            }
+            roomRow(room)[ConferenceRoomTable.capturePausedAt] shouldBe null
+            audits(room).count { it.contains("capturePause") } shouldBe 0
+            rig.liveKit.packets.size shouldBe 0
+        }
+
+        test("pause and resume: every refusal is the same forbidden answer (stranger, ended room, encounter room, unknown room)") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val stranger = newMember()
+            val room = newRoom(creator)
+            newRecording(room)
+            val ended = newRoom(creator, ended = true)
+            val encounter = newRoom(creator, encounter = true)
+            moderationApp(rig = rig) {
+                listOf("/test/pause", "/test/resume").forEach { path ->
+                    act(path = path, caller = stranger, "room" to room.id.toString()) shouldBe (HttpStatusCode.Forbidden to "forbidden")
+                    act(path = path, caller = creator, "room" to ended.id.toString()) shouldBe (HttpStatusCode.Forbidden to "forbidden")
+                    act(path = path, caller = creator, "room" to encounter.id.toString()) shouldBe (HttpStatusCode.Forbidden to "forbidden")
+                    act(path = path, caller = creator, "room" to Uuid.random().toString()) shouldBe
+                        (HttpStatusCode.Forbidden to "forbidden")
+                    act(path = path, caller = creator, "room" to "not-a-uuid") shouldBe (HttpStatusCode.Forbidden to "forbidden")
+                }
+            }
+            roomRow(room)[ConferenceRoomTable.capturePausedAt] shouldBe null
+        }
+
+        test("pause: the member rate limit applies before anything is touched") {
+            val limited = ModerationRig(pauseLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes))
+            val creator = newMember()
+            val room = newRoom(creator)
+            newRecording(room)
+            moderationApp(rig = limited) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()).first shouldBe HttpStatusCode.OK
+                act(path = "/test/resume", caller = creator, "room" to room.id.toString()).first shouldBe HttpStatusCode.TooManyRequests
+            }
+        }
+
+        test(
+            "pause (Z1): a LIVE stream goes PAUSING -> PAUSED with reason ROOM_PAUSE, the egress is stopped and confirmed; recording and stream are BOTH",
+        ) {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            val recordingId = newRecording(room)
+            val egressId = "EG_live_${Uuid.random()}"
+            rig.egress.egressInfoByEgressId[egressId] =
+                LiveKitEgressInfo(egressId = egressId, roomName = room.name, status = "EGRESS_COMPLETE")
+            val streamId = newStream(room, ConferenceStreamStatus.LIVE, egressId = egressId)
+            moderationApp(rig = rig) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()) shouldBe
+                    (HttpStatusCode.OK to "ok|true|true|true")
+            }
+            rig.egress.stoppedEgressIds shouldContainExactly listOf(egressId)
+            val stream = streamRow(streamId)
+            stream[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.PAUSED
+            stream[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.ROOM_PAUSE
+            (recordingRow(recordingId)[ConferenceRecordingTable.pausedAt] != null) shouldBe true
+            audits(room).single { it.contains("capturePause") } shouldBe """{"capturePause":"on","recording":true,"stream":true}"""
+        }
+
+        test("pause (Z6): a stream paused for a secret ballot is NOT part of the scope and keeps its reason") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            newRecording(room)
+            val streamId = newStream(room, ConferenceStreamStatus.PAUSED, reason = ConferenceStreamPauseReason.SECRET_BALLOT)
+            moderationApp(rig = rig) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()) shouldBe
+                    (HttpStatusCode.OK to "ok|true|true|false")
+            }
+            streamRow(streamId)[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.SECRET_BALLOT
+            rig.egress.stoppedEgressIds.size shouldBe 0
+        }
+
+        test(
+            "pause (Z2): a STARTING stream without an egress id goes PAUSING (the poller adopts the egress later), nothing is stopped now",
+        ) {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            val streamId = newStream(room, ConferenceStreamStatus.STARTING, egressId = null)
+            moderationApp(rig = rig) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()) shouldBe
+                    (HttpStatusCode.OK to "ok|true|false|true")
+            }
+            streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.PAUSING
+            streamRow(streamId)[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.ROOM_PAUSE
+            rig.egress.stoppedEgressIds.size shouldBe 0
+        }
+
+        test("pause: the limit of pauses per recording is refused with its own answer and changes nothing") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            val recordingId = newRecording(room, stage = MAX_PAUSES_PER_RECORDING)
+            val now = DbClock.nowLocalDateTime()
+            transaction {
+                (1..MAX_PAUSES_PER_RECORDING).forEach { n ->
+                    ConferenceRecordingPauseTable.insert {
+                        it[id] = Uuid.random()
+                        it[ConferenceRecordingPauseTable.recordingId] = recordingId
+                        it[seq] = n.toShort()
+                        it[pausedAt] = now
+                        it[resumedAt] = now
+                    }
+                }
+            }
+            moderationApp(rig = rig) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()) shouldBe (HttpStatusCode.Conflict to "limit")
+            }
+            roomRow(room)[ConferenceRoomTable.capturePausedAt] shouldBe null
+            pauseRows(recordingId).size shouldBe MAX_PAUSES_PER_RECORDING
+        }
+
+        test(
+            "resume: the pause row is closed, the stage advances, the room is unmarked, one audit entry; resume when not paused is idempotent without an audit entry",
+        ) {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            val recordingId = newRecording(room)
+            moderationApp(rig = rig) {
+                act(path = "/test/resume", caller = creator, "room" to room.id.toString()) shouldBe
+                    (HttpStatusCode.OK to "ok|false|false|false")
+                audits(room).count { it.contains("capturePause") } shouldBe 0
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()).second shouldBe "ok|true|true|false"
+                act(path = "/test/resume", caller = creator, "room" to room.id.toString()) shouldBe
+                    (HttpStatusCode.OK to "ok|false|false|false")
+                act(path = "/test/resume", caller = creator, "room" to room.id.toString()).second shouldBe "ok|false|false|false"
+            }
+            val rec = recordingRow(recordingId)
+            rec[ConferenceRecordingTable.pausedAt] shouldBe null
+            rec[ConferenceRecordingTable.stage] shouldBe 1.toShort()
+            pauseRows(recordingId).single()[ConferenceRecordingPauseTable.resumedAt] shouldNotBe null
+            roomRow(room)[ConferenceRoomTable.capturePausedAt] shouldBe null
+            audits(room).filter { it.contains("capturePause") } shouldContainExactly
+                listOf(
+                    """{"capturePause":"on","recording":true,"stream":false}""",
+                    """{"capturePause":"off","recording":true,"stream":false}""",
+                )
+            pausePackets(rig, room) shouldContainExactly listOf("""{"v":1,"k":"capture_pause"}""", """{"v":1,"k":"capture_resume"}""")
+            // a second pause is the next stage's end: seq 2
+            moderationApp(rig = rig) {
+                act(path = "/test/pause", caller = creator, "room" to room.id.toString()).second shouldBe
+                    "ok|true|true|false"
+            }
+            pauseRows(recordingId).map { it[ConferenceRecordingPauseTable.seq] }.sorted() shouldBe listOf(1.toShort(), 2.toShort())
+        }
+
+        test("stop paths (Z13): closing the open pause row and clearing the room mark when nothing is paused any more") {
+            val creator = newMember()
+            val room = newRoom(creator)
+            val now = DbClock.nowLocalDateTime()
+            val recordingId = newRecording(room, pausedAt = now)
+            transaction {
+                ConferenceRecordingPauseTable.insert {
+                    it[id] = Uuid.random()
+                    it[ConferenceRecordingPauseTable.recordingId] = recordingId
+                    it[seq] = 1.toShort()
+                    it[pausedAt] = now
+                    it[resumedAt] = null
+                }
+                ConferenceRoomTable.update({ ConferenceRoomTable.id eq room.id }) { it[capturePausedAt] = now }
+                // stopping the recording (what stopRecording / the poller do)
+                ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq recordingId }) {
+                    it[status] = ConferenceRecordingStatus.STOPPING
+                    it[pausedAt] = null
+                }
+                RoomPauseDb.closeOpenPause(recordingId = recordingId, at = now)
+                RoomPauseDb.clearCaptureIfNothingPaused(roomId = room.id) shouldBe true
+            }
+            pauseRows(recordingId).single()[ConferenceRecordingPauseTable.resumedAt] shouldBe now
+            roomRow(room)[ConferenceRoomTable.capturePausedAt] shouldBe null
+            // nothing marked -> nothing to clear
+            transaction { RoomPauseDb.clearCaptureIfNothingPaused(roomId = room.id) } shouldBe false
+        }
+
+        test("Z7 helper: a ballot pause of a paused room becomes a room pause, only for PAUSED + SECRET_BALLOT") {
+            val creator = newMember()
+            val room = newRoom(creator)
+            val ballot = newStream(room, ConferenceStreamStatus.PAUSED, reason = ConferenceStreamPauseReason.SECRET_BALLOT)
+            val manual = newStream(room, ConferenceStreamStatus.PAUSED, reason = ConferenceStreamPauseReason.MANUAL)
+            transaction {
+                RoomPauseDb.convertBallotPauseToRoomPause(ballot)
+                RoomPauseDb.convertBallotPauseToRoomPause(manual)
+            }
+            streamRow(ballot)[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.ROOM_PAUSE
+            streamRow(manual)[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.MANUAL
         }
     })

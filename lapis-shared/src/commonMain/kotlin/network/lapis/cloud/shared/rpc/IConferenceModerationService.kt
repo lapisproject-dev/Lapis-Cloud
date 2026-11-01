@@ -3,6 +3,7 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
+import network.lapis.cloud.shared.domain.ConferenceRoomPauseDto
 
 /**
  * V1.9.108 -- moderator audio controls of a running video conference: mute one person, mute everybody, ask somebody to switch the
@@ -82,4 +83,15 @@ interface IConferenceModerationService {
         roomId: String,
         enabled: Boolean,
     ): ConferenceRoomDto
+
+    /**
+     * V1.9.254 -- pause mode: pauses what is running in the room (the recording, the live stream, or both). The recording stops writing at
+     * once (the egresses are stopped; the pause is cut out of the finished video), the stream is stopped and resumed later. People keep
+     * talking. Same authority and the same single `ForbiddenException` for every refusal as [setRoomAudioPolicy]. Idempotent while paused.
+     * Throws [ConferenceRoomPauseNothingToPauseException] when nothing runs and [ConferenceRoomPauseLimitException] at the pause limit.
+     */
+    suspend fun pauseRoomCapture(roomId: String): ConferenceRoomPauseDto
+
+    /** V1.9.254 -- ends the pause: the recording continues in the same file, the stream starts again. Idempotent when the room is not paused. */
+    suspend fun resumeRoomCapture(roomId: String): ConferenceRoomPauseDto
 }

@@ -19,6 +19,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.ConferenceRecordingPauseTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingSpeakerSpanTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
@@ -48,6 +49,7 @@ import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
 import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 private const val FAKE_ROOM_NAME_PREFIX = "lc-poller-test-"
@@ -119,6 +121,9 @@ internal class FakeLiveKitEgressClient(
     /** V1.9.110: while `true`, startParticipantFileEgress is refused like LiveKit does when it has no egress CPU left. */
     var failParticipantFileStart = false
     val stoppedEgressIds = mutableListOf<String>()
+
+    /** While `true`, stopEgress throws like LiveKit does for an egress that already ended. */
+    var failStopEgress = false
     val egressInfoByEgressId = mutableMapOf<String, LiveKitEgressInfo>()
 
     override suspend fun startTrackEgress(
@@ -155,6 +160,7 @@ internal class FakeLiveKitEgressClient(
         egressId: String,
     ): LiveKitEgressInfo {
         stoppedEgressIds += egressId
+        if (failStopEgress) throw LiveKitAdminException(message = "StopEgress refused (simulated: egress already ended)")
         return egressInfoByEgressId[egressId] ?: error("unknown egressId $egressId in fake")
     }
 
@@ -255,6 +261,7 @@ class RecordingPollerTest :
         afterSpec {
             transaction {
                 if (createdRecordingIds.isNotEmpty()) {
+                    ConferenceRecordingPauseTable.deleteWhere { ConferenceRecordingPauseTable.recordingId inList createdRecordingIds }
                     ConferenceRecordingTrackTable.deleteWhere { ConferenceRecordingTrackTable.recordingId inList createdRecordingIds }
                 }
                 if (createdMemberIds.isNotEmpty()) {
@@ -369,6 +376,7 @@ class RecordingPollerTest :
             durationMs: Long? = null,
             egressKind: ConferenceRecordingEgressMode = ConferenceRecordingEgressMode.TRACK,
             identity: String? = null,
+            stage: Int = 0,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -386,6 +394,7 @@ class RecordingPollerTest :
                     it[ConferenceRecordingTrackTable.durationMs] = durationMs
                     it[sizeBytes] = null
                     it[ConferenceRecordingTrackTable.egressKind] = egressKind
+                    it[ConferenceRecordingTrackTable.stage] = stage.toShort()
                 }
             }
             return id
@@ -3114,6 +3123,336 @@ class RecordingPollerTest :
                 ).tickAndSettle()
                 recordingRow(failed)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
                 (spansOf(failed) > 0L) shouldBe true
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        // ── V1.9.254 pause mode ─────────────────────────────────────────
+
+        fun markPaused(
+            recordingId: Uuid,
+            pausedAt: LocalDateTime,
+            seq: Int = 1,
+            resumedAt: LocalDateTime? = null,
+            stage: Int = 0,
+            pausedNow: Boolean = true,
+        ) {
+            transaction {
+                ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq recordingId }) {
+                    it[ConferenceRecordingTable.pausedAt] = if (pausedNow) pausedAt else null
+                    it[ConferenceRecordingTable.stage] = stage.toShort()
+                }
+                ConferenceRecordingPauseTable.insert {
+                    it[ConferenceRecordingPauseTable.id] = Uuid.random()
+                    it[ConferenceRecordingPauseTable.recordingId] = recordingId
+                    it[ConferenceRecordingPauseTable.seq] = seq.toShort()
+                    it[ConferenceRecordingPauseTable.pausedAt] = pausedAt
+                    it[ConferenceRecordingPauseTable.resumedAt] = resumedAt
+                }
+            }
+        }
+
+        fun cameraParticipant(
+            member: Uuid,
+            trackSid: String,
+        ) = LiveKitParticipantInfo(
+            identity = member.toString(),
+            tracks = listOf(LiveKitTrackInfo(sid = trackSid, type = "VIDEO", source = "CAMERA", muted = false)),
+        )
+
+        test(
+            "PAUSED recording: every running egress gets ONE StopEgress, the rows turn terminal, and NOTHING is started -- not even for a new track",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pause-stops@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.RECORDING)
+                markPaused(recordingId, pausedAt = DbClock.nowLocalDateTime())
+                val egressClient = FakeLiveKitEgressClient()
+                val running = "EG_running-$recordingId"
+                egressClient.egressInfoByEgressId[running] =
+                    LiveKitEgressInfo(egressId = running, roomName = livekitRoomName, status = "EGRESS_COMPLETE")
+                val trackRowId = createTrack(recordingId, egressId = running, livekitTrackId = "TR_old")
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(cameraParticipant(member, "TR_old"), cameraParticipant(Uuid.random(), "TR_new"))
+                val poller = buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot)
+
+                poller.tickAndSettle()
+                poller.tickAndSettle()
+
+                // the shared test database holds recordings of other tests: only OUR egress is asserted, and it is stopped exactly once
+                egressClient.stoppedEgressIds.count { it == running } shouldBe 1
+                egressClient.started shouldHaveSize 0
+                transaction { ConferenceRecordingTrackTable.selectAll().where { ConferenceRecordingTrackTable.id eq trackRowId }.single() }[
+                    ConferenceRecordingTrackTable.status,
+                ] shouldBe ConferenceRecordingTrackStatus.COMPLETE
+                recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.RECORDING
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "resume before the stop was confirmed: a still-running egress of stage 0 gets ONE StopEgress and the stage-1 egress still starts",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pause-early-resume@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.RECORDING)
+                val now = DbClock.nowLocalDateTime()
+                markPaused(recordingId, pausedAt = now, resumedAt = now, stage = 1, pausedNow = false)
+                val stale = "EG_stale-$recordingId"
+                val egressClient = FakeLiveKitEgressClient()
+                egressClient.egressInfoByEgressId[stale] =
+                    LiveKitEgressInfo(egressId = stale, roomName = livekitRoomName, status = "EGRESS_COMPLETE")
+                val staleRowId = createTrack(recordingId, egressId = stale, livekitTrackId = "TR_cam", stage = 0)
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] = listOf(cameraParticipant(member, "TR_cam"))
+                val poller = buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot)
+
+                poller.tickAndSettle()
+                poller.tickAndSettle()
+
+                egressClient.stoppedEgressIds.count { it == stale } shouldBe 1
+                egressClient.started shouldHaveSize 1
+                transaction { ConferenceRecordingTrackTable.selectAll().where { ConferenceRecordingTrackTable.id eq staleRowId }.single() }[
+                    ConferenceRecordingTrackTable.status,
+                ] shouldBe ConferenceRecordingTrackStatus.COMPLETE
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "resume before the stop was confirmed: StopEgress throws for an already ended egress -- its stale row is still refreshed to COMPLETE",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pause-early-resume-throw@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.RECORDING)
+                val now = DbClock.nowLocalDateTime()
+                markPaused(recordingId, pausedAt = now, resumedAt = now, stage = 1, pausedNow = false)
+                val stale = "EG_stale-throw-$recordingId"
+                val egressClient = FakeLiveKitEgressClient()
+                egressClient.failStopEgress = true
+                egressClient.egressInfoByEgressId[stale] =
+                    LiveKitEgressInfo(egressId = stale, roomName = livekitRoomName, status = "EGRESS_COMPLETE")
+                val staleRowId = createTrack(recordingId, egressId = stale, livekitTrackId = "TR_cam", stage = 0)
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] = listOf(cameraParticipant(member, "TR_cam"))
+                val poller = buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot)
+
+                poller.tickAndSettle()
+
+                transaction { ConferenceRecordingTrackTable.selectAll().where { ConferenceRecordingTrackTable.id eq staleRowId }.single() }[
+                    ConferenceRecordingTrackTable.status,
+                ] shouldBe ConferenceRecordingTrackStatus.COMPLETE
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("RESUMED recording (stage 1): the SAME track sid of stage 0 is recorded again, the new row carries stage 1") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pause-resume@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.RECORDING)
+                val now = DbClock.nowLocalDateTime()
+                markPaused(recordingId, pausedAt = now, resumedAt = now, stage = 1, pausedNow = false)
+                createTrack(
+                    recordingId,
+                    egressId = "EG_stage0-$recordingId",
+                    livekitTrackId = "TR_cam",
+                    status = ConferenceRecordingTrackStatus.COMPLETE,
+                )
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] = listOf(cameraParticipant(member, "TR_cam"))
+                val egressClient = FakeLiveKitEgressClient()
+                val poller = buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot)
+
+                poller.tickAndSettle()
+                poller.tickAndSettle() // a second tick must not start it again
+
+                egressClient.started shouldHaveSize 1
+                egressClient.started.single().second shouldBe "TR_cam"
+                val rows =
+                    transaction {
+                        ConferenceRecordingTrackTable
+                            .selectAll()
+                            .where { ConferenceRecordingTrackTable.recordingId eq recordingId }
+                            .toList()
+                    }
+                rows.map { it[ConferenceRecordingTrackTable.stage].toInt() }.sorted() shouldBe listOf(0, 1)
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("maxTracks counts per stage (a full stage 0 does not block stage 1) and all stages together are bounded by 4 x maxTracks") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pause-maxtracks@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.RECORDING)
+                val now = DbClock.nowLocalDateTime()
+                markPaused(recordingId, pausedAt = now, resumedAt = now, stage = 1, pausedNow = false)
+                createTrack(
+                    recordingId,
+                    egressId = "EG_s0-$recordingId",
+                    livekitTrackId = "TR_s0",
+                    status = ConferenceRecordingTrackStatus.COMPLETE,
+                )
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(cameraParticipant(member, "TR_a"), cameraParticipant(Uuid.random(), "TR_b"))
+                val egressClient = FakeLiveKitEgressClient()
+                val poller =
+                    buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot, maxTracks = 1)
+
+                poller.tickAndSettle()
+                // stage 0 holds one row (= maxTracks) yet stage 1 may record one track
+                egressClient.started shouldHaveSize 1
+
+                // 4 x maxTracks rows over all stages: the fourth stage-0 row plus ... fill up to the bound -> no further start
+                createTrack(
+                    recordingId,
+                    egressId = "EG_f1-$recordingId",
+                    livekitTrackId = "TR_f1",
+                    status = ConferenceRecordingTrackStatus.COMPLETE,
+                    stage = 0,
+                )
+                createTrack(
+                    recordingId,
+                    egressId = "EG_f2-$recordingId",
+                    livekitTrackId = "TR_f2",
+                    status = ConferenceRecordingTrackStatus.COMPLETE,
+                    stage = 0,
+                )
+                poller.tickAndSettle()
+                egressClient.started shouldHaveSize 1
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("a stop in the pause (room ended): the open pause row is closed, paused_at is cleared, the room mark is cleared") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pause-stop@example.org")
+                val (roomId, _) = createRoom(member, ended = true)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.RECORDING)
+                val pausedAt = DbClock.nowLocalDateTime()
+                markPaused(recordingId, pausedAt = pausedAt)
+                transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) { it[capturePausedAt] = pausedAt } }
+                val poller =
+                    buildPoller(
+                        FakeLiveKitAdminClient(),
+                        FakeLiveKitEgressClient(),
+                        FakeRecordingComposer(),
+                        hostRawRoot,
+                        documentStorageRoot,
+                    )
+
+                poller.tickAndSettle()
+
+                val rec = recordingRow(recordingId)
+                rec[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.STOPPING
+                rec[ConferenceRecordingTable.pausedAt] shouldBe null
+                transaction {
+                    ConferenceRecordingPauseTable
+                        .selectAll()
+                        .where { ConferenceRecordingPauseTable.recordingId eq recordingId }
+                        .single()
+                }[
+                    ConferenceRecordingPauseTable.resumedAt,
+                ].shouldNotBeNull()
+                transaction { ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single() }[
+                    ConferenceRoomTable.capturePausedAt,
+                ] shouldBe null
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PROCESSING with a pause: the composer gets the cut-out (pause start .. first track of the next stage) and the duration is the length AFTER the cut",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pause-compose@example.org")
+                val (roomId, _) = createRoom(member)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING)
+                val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
+                val first = rawDir.resolve("alice__CAMERA__TR_a.mp4").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+                val second = rawDir.resolve("alice__CAMERA__TR_b.mp4").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+                val t0Seconds = 1_790_000_000L
+
+                fun nanos(offset: Long) = (t0Seconds + offset) * 1_000_000_000L
+
+                fun utc(offset: Long) = Instant.fromEpochSeconds(t0Seconds + offset).toLocalDateTime(TimeZone.UTC)
+                createTrack(
+                    recordingId,
+                    "EG_p0-$recordingId",
+                    "TR_a",
+                    ConferenceRecordingTrackStatus.COMPLETE,
+                    fileName = first.name,
+                    startedAtEpochNanos = nanos(0),
+                    durationMs = 10_000L,
+                    stage = 0,
+                )
+                createTrack(
+                    recordingId,
+                    "EG_p1-$recordingId",
+                    "TR_b",
+                    ConferenceRecordingTrackStatus.COMPLETE,
+                    fileName = second.name,
+                    startedAtEpochNanos = nanos(14),
+                    durationMs = 6_000L,
+                    stage = 1,
+                )
+                // paused at 10 s, resumed at 12 s, the stage-1 track needed until 14 s to start -> the cut is [10, 14)
+                markPaused(recordingId, pausedAt = utc(10), resumedAt = utc(12), stage = 1, pausedNow = false)
+
+                var seen: RecordingComposeSpec? = null
+                val composer =
+                    FakeRecordingComposer { spec, out ->
+                        seen = spec
+                        out.writeBytes(byteArrayOf(1, 2, 3, 4))
+                    }
+                val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)
+
+                poller.tickAndSettle()
+
+                val spec = seen.shouldNotBeNull()
+                spec.cutOuts shouldHaveSize 1
+                spec.cutOuts.single().startSeconds shouldBe (10.0 plusOrMinus 0.001)
+                spec.cutOuts.single().endSeconds shouldBe (14.0 plusOrMinus 0.001)
+                spec.outputDurationSeconds shouldBe (20.0 plusOrMinus 0.001)
+                spec.finalDurationSeconds shouldBe (16.0 plusOrMinus 0.001)
+                val row = recordingRow(recordingId)
+                row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
+                row[ConferenceRecordingTable.durationSeconds] shouldBe 16L
+                createdDocumentIds += row[ConferenceRecordingTable.documentId]!!
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()

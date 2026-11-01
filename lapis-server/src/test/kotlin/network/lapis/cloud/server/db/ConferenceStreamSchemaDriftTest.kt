@@ -132,7 +132,7 @@ class ConferenceStreamSchemaDriftTest :
             entity.attributeByName("pause_reason")?.type shouldBe
                 ErmDataType.Enum(
                     name = "ConferenceStreamPauseReason",
-                    values = listOf("MANUAL", "SECRET_BALLOT"),
+                    values = listOf("MANUAL", "SECRET_BALLOT", "ROOM_PAUSE"), // V1.9.254: ROOM_PAUSE appended
                     externalFqName = "network.lapis.cloud.shared.domain.ConferenceStreamPauseReason",
                 )
             entity.attributeByName("layout")?.type shouldBe

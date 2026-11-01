@@ -70,6 +70,7 @@ import network.lapis.cloud.server.conference.ConferenceHandQueueReconciler
 import network.lapis.cloud.server.conference.ConferenceHandQueueState
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
+import network.lapis.cloud.server.conference.ConferenceRoomPauseCoordinator
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
 import network.lapis.cloud.server.conference.ConferenceTimerReconciler
 import network.lapis.cloud.server.conference.ConferenceTimerState
@@ -1141,6 +1142,7 @@ internal fun Application.module(
     val conferenceBroadcastViewRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
     val conferenceJoinLeaveSoundsRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
     val conferenceReactionsRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
+    val conferencePauseRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
     val conferenceMutePreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
     // V1.9.127 "Reaktionen und Handzeichen" -- the raised-hand queue is a process-wide singleton for the same reason as
@@ -1360,6 +1362,16 @@ internal fun Application.module(
     // `.start()` gated on conferenceStreamingConfig.enabled, same reasoning as recordingPoller above.
     val conferenceStreamingConfig = ConferenceStreamingConfig.load()
     val streamPoller = StreamPoller(liveKitEgressClient = liveKitEgressClient, streamingConfig = conferenceStreamingConfig)
+    // V1.9.254 pause mode: one process-wide coordinator (its rate limiter must not be recreated per RPC call). It wakes the recording poller so the
+    // egresses stop at once; no new RPC service is registered (the registration order stays untouched).
+    val conferenceRoomPauseCoordinator =
+        ConferenceRoomPauseCoordinator(
+            liveKitAdminClient = liveKitAdminClient,
+            liveKitEgressClient = liveKitEgressClient,
+            streamingConfig = conferenceStreamingConfig,
+            rateLimiter = conferencePauseRateLimiter,
+            requestRecordingTick = { recordingPoller.requestTick() },
+        )
     if (conferenceStreamingConfig.enabled) {
         streamPoller.start()
     }
@@ -2601,6 +2613,7 @@ internal fun Application.module(
                 broadcastViewRateLimiter = conferenceBroadcastViewRateLimiter,
                 joinLeaveSoundsRateLimiter = conferenceJoinLeaveSoundsRateLimiter,
                 reactionsRateLimiter = conferenceReactionsRateLimiter,
+                pauseCoordinator = conferenceRoomPauseCoordinator,
                 previewRateLimiter = conferenceMutePreviewRateLimiter,
             )
         }

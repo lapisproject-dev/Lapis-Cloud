@@ -29374,3 +29374,51 @@ msgstr "Sin zona"
 
 msgid "Zur Aktion"
 msgstr "A la acción"
+
+msgid "⏸ Pause"
+msgstr "⏸ Pausa"
+
+msgid "▶ Fortsetzen"
+msgstr "▶ Reanudar"
+
+msgid "Wird pausiert …"
+msgstr "Pausando …"
+
+msgid "Wird fortgesetzt …"
+msgstr "Reanudando …"
+
+msgid "Weder Aufzeichnung noch Live-Stream laufen."
+msgstr "No hay ninguna grabación ni transmisión en directo en curso."
+
+msgid "⏸ Pause: Aufzeichnung und Live-Stream sind angehalten."
+msgstr "⏸ Pausa: la grabación y la transmisión en directo están detenidas."
+
+msgid "⏸ Pause: Die Aufzeichnung ist angehalten."
+msgstr "⏸ Pausa: la grabación está detenida."
+
+msgid "⏸ Pause: Der Live-Stream ist angehalten."
+msgstr "⏸ Pausa: la transmisión en directo está detenida."
+
+msgid "Sie können weiter miteinander sprechen."
+msgstr "Pueden seguir hablando entre ustedes."
+
+msgid "Pause: Aufzeichnung und Live-Stream angehalten"
+msgstr "Pausa: grabación y transmisión en directo detenidas"
+
+msgid "Pause: Aufzeichnung angehalten"
+msgstr "Pausa: grabación detenida"
+
+msgid "Pause: Live-Stream angehalten"
+msgstr "Pausa: transmisión en directo detenida"
+
+msgid "Pause beendet"
+msgstr "Pausa terminada"
+
+msgid "Die Sitzung ist pausiert. Setzen Sie zuerst fort."
+msgstr "La sesión está en pausa. Reanúdela primero."
+
+msgid "Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht."
+msgstr "Esta grabación ha alcanzado el número máximo de pausas."
+
+msgid "ist wegen der Pause angehalten"
+msgstr "está detenida por la pausa"

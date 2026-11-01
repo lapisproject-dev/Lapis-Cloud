@@ -4,6 +4,7 @@ import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
 import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
+import network.lapis.cloud.shared.domain.RoomPauseScope
 
 /*
  * V1.9.26 "Abstimmen im Konferenzraum", Welle 3 -- the client's mirror of the server's secret-ballot stream rule.
@@ -123,6 +124,21 @@ internal fun secretBallotBannerText(
     secretOpenInRoom: Boolean?,
     stream: StreamMirrorState,
     recordingActive: Boolean?,
+    roomPause: RoomPauseScope? = null,
+): String? {
+    // V1.9.254: ONE banner for both reasons -- the secret ballot sentence first, then the pause sentence.
+    val ballot = secretBallotSentence(secretOpenInRoom, stream, recordingActive, recordingPaused = roomPause.stopsRecording())
+    val pause = roomPause?.let { roomPauseSentence(it) }
+    return listOfNotNull(ballot, pause).takeIf { it.isNotEmpty() }?.joinToString(" ")
+}
+
+private fun RoomPauseScope?.stopsRecording(): Boolean = this == RoomPauseScope.RECORDING || this == RoomPauseScope.BOTH
+
+private fun secretBallotSentence(
+    secretOpenInRoom: Boolean?,
+    stream: StreamMirrorState,
+    recordingActive: Boolean?,
+    recordingPaused: Boolean,
 ): String? {
     val pausedForBallot =
         (stream.status == ConferenceStreamStatus.PAUSING || stream.status == ConferenceStreamStatus.PAUSED) &&
@@ -138,7 +154,8 @@ internal fun secretBallotBannerText(
             -> gettext("Geheime Wahl läuft: Der Livestream wird angehalten.")
             ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED, null -> gettext("Geheime Wahl läuft.")
         }
-    return if (recordingActive == false) head else head + " " + gettext("Die Aufzeichnung der Sitzung läuft weiter.")
+    // the recording does not "run on" while the room pause stopped it
+    return if (recordingActive == false || recordingPaused) head else head + " " + gettext("Die Aufzeichnung der Sitzung läuft weiter.")
 }
 
 /** The lines of the dialog before a secret election is opened; the last line is always the note about the recording. */

@@ -7,6 +7,7 @@ import network.lapis.cloud.server.conference.ConferenceAudioGrantState
 import network.lapis.cloud.server.conference.ConferenceAudioPolicy
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceModerationPackets
+import network.lapis.cloud.server.conference.ConferenceRoomPauseCoordinator
 import network.lapis.cloud.server.conference.LIVEKIT_MICROPHONE_SOURCE
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitAdminException
@@ -28,6 +29,7 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
+import network.lapis.cloud.shared.domain.ConferenceRoomPauseDto
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceModerationService
@@ -89,6 +91,7 @@ class ConferenceModerationService(
     private val broadcastViewRateLimiter: FederationInboxRateLimiter,
     private val joinLeaveSoundsRateLimiter: FederationInboxRateLimiter,
     private val reactionsRateLimiter: FederationInboxRateLimiter,
+    private val pauseCoordinator: ConferenceRoomPauseCoordinator,
 ) : IConferenceModerationService {
     private data class RoomContext(
         val roomId: Uuid,
@@ -400,6 +403,18 @@ class ConferenceModerationService(
             logger.warn { "conference moderation: the reactions notice could not be sent" }
         }
         return dto
+    }
+
+    override suspend fun pauseRoomCapture(roomId: String): ConferenceRoomPauseDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        return pauseCoordinator.pause(roomId = roomId, current = current)
+    }
+
+    override suspend fun resumeRoomCapture(roomId: String): ConferenceRoomPauseDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        return pauseCoordinator.resume(roomId = roomId, current = current)
     }
 
     // -- LiveKit-side application of a lock change ------------------------------------------------------------------------------------

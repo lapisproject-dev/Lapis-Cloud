@@ -28938,3 +28938,51 @@ msgstr ""
 
 msgid "Zur Aktion"
 msgstr ""
+
+msgid "⏸ Pause"
+msgstr ""
+
+msgid "▶ Fortsetzen"
+msgstr ""
+
+msgid "Wird pausiert …"
+msgstr ""
+
+msgid "Wird fortgesetzt …"
+msgstr ""
+
+msgid "Weder Aufzeichnung noch Live-Stream laufen."
+msgstr ""
+
+msgid "⏸ Pause: Aufzeichnung und Live-Stream sind angehalten."
+msgstr ""
+
+msgid "⏸ Pause: Die Aufzeichnung ist angehalten."
+msgstr ""
+
+msgid "⏸ Pause: Der Live-Stream ist angehalten."
+msgstr ""
+
+msgid "Sie können weiter miteinander sprechen."
+msgstr ""
+
+msgid "Pause: Aufzeichnung und Live-Stream angehalten"
+msgstr ""
+
+msgid "Pause: Aufzeichnung angehalten"
+msgstr ""
+
+msgid "Pause: Live-Stream angehalten"
+msgstr ""
+
+msgid "Pause beendet"
+msgstr ""
+
+msgid "Die Sitzung ist pausiert. Setzen Sie zuerst fort."
+msgstr ""
+
+msgid "Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht."
+msgstr ""
+
+msgid "ist wegen der Pause angehalten"
+msgstr ""

@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
+import network.lapis.cloud.shared.domain.RoomPauseScope
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import org.w3c.dom.HTMLElement
 import kotlin.js.Date
@@ -56,6 +57,8 @@ internal data class DockSnapshot(
     val raisedHandsCount: Int? = null,
     /** V1.9.133 -- the conference timer (digits and phase only; `null` = none). */
     val timer: DockTimer? = null,
+    /** V1.9.254 -- what the room pause currently stops (`null` = the room is not paused); [streamPaused] then never carries the room pause. */
+    val roomPause: RoomPauseScope? = null,
 )
 
 internal sealed class DockState {

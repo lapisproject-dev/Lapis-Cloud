@@ -35,6 +35,7 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
+import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamDestinationTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTable
@@ -43,13 +44,17 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceStreamDestinationDto
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
+import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamPlatform
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
+import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -908,6 +913,91 @@ class ConferenceStreamingServiceTest :
                     }
                 newEgressId shouldNotBe firstEgressId
             }
+        }
+
+        // V1.9.254 Z10: a manual pause takes a ROOM_PAUSE stream out of the room pause; if nothing else is paused the room mark ends.
+        suspend fun roomPauseEscalation(
+            withPausedRecording: Boolean,
+            email: String,
+        ): Triple<ConferenceStreamPauseReason?, Boolean, Int> {
+            var result: Triple<ConferenceStreamPauseReason?, Boolean, Int>? = null
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceStreamingExceptionHandlers() }
+                    routing { registerConferenceStreamingTestRoutes() }
+                }
+                val creator = createTestMember(email)
+                val roomId = createTestRoom(creator, "Sitzung")
+                val destId = createTestDestination("Z10-Ziel-$email", creator)
+                val startDto =
+                    client
+                        .post("/test/start-stream?roomId=$roomId&destinationIds=$destId&layout=GRID&latencyMode=STANDARD") {
+                            header("X-Member-Id", creator.toString())
+                        }.bodyAsText()
+                        .toStreamDto()
+                val streamUuid = Uuid.parse(startDto.id)
+                val roomUuid = roomId
+                transaction {
+                    ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamUuid }) {
+                        it[status] = ConferenceStreamStatus.PAUSED
+                        it[pauseReason] = ConferenceStreamPauseReason.ROOM_PAUSE
+                    }
+                    ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomUuid }) { it[capturePausedAt] = DbClock.nowLocalDateTime() }
+                    if (withPausedRecording) {
+                        val recId = Uuid.random()
+                        ConferenceRecordingTable.insert {
+                            it[id] = recId
+                            it[ConferenceRecordingTable.roomId] = roomUuid
+                            it[startedByMemberId] = creator
+                            it[startedAt] = DbClock.nowLocalDateTime()
+                            it[status] = ConferenceRecordingStatus.RECORDING
+                            it[accessLevel] = DocumentAccessLevel.BOARD_ONLY
+                            it[rawDir] = recId.toString()
+                            it[composeAttempts] = 0
+                            it[pausedAt] = DbClock.nowLocalDateTime()
+                            it[stage] = 0.toShort()
+                        }
+                    }
+                }
+                client.post("/test/pause-stream?streamId=${startDto.id}") { header("X-Member-Id", creator.toString()) }.status shouldBe
+                    HttpStatusCode.OK
+                result =
+                    transaction {
+                        val reason =
+                            ConferenceStreamTable
+                                .selectAll()
+                                .where { ConferenceStreamTable.id eq streamUuid }
+                                .single()[ConferenceStreamTable.pauseReason]
+                        val marked =
+                            ConferenceRoomTable
+                                .selectAll()
+                                .where { ConferenceRoomTable.id eq roomUuid }
+                                .single()[ConferenceRoomTable.capturePausedAt] != null
+                        val ended =
+                            AuditLogEntryTable
+                                .selectAll()
+                                .where {
+                                    (AuditLogEntryTable.entityId eq roomUuid) and
+                                        (AuditLogEntryTable.entityType eq AuditEntityType.CONFERENCE_ROOM)
+                                }.count { it[AuditLogEntryTable.afterSnapshot].orEmpty().contains("ended_nothing_left") }
+                        Triple(reason, marked, ended)
+                    }
+            }
+            return result!!
+        }
+
+        test("pauseStream (Z10): a ROOM_PAUSE stream paused by hand becomes MANUAL; with nothing else paused the room mark ends once") {
+            val (reason, marked, ended) = roomPauseEscalation(withPausedRecording = false, email = "stream-z10-clear@example.org")
+            reason shouldBe ConferenceStreamPauseReason.MANUAL
+            marked shouldBe false
+            ended shouldBe 1
+        }
+
+        test("pauseStream (Z10): the room mark stays while the recording is still paused") {
+            val (reason, marked, ended) = roomPauseEscalation(withPausedRecording = true, email = "stream-z10-keep@example.org")
+            reason shouldBe ConferenceStreamPauseReason.MANUAL
+            marked shouldBe true
+            ended shouldBe 0
         }
 
         test("resumeStream: rejected with Conflict when the stream is not PAUSED") {
@@ -1830,6 +1920,8 @@ private fun cleanUpConferenceStreamingTestData(
                 (ConferenceParticipationTable.roomId inList roomIds) or (ConferenceParticipationTable.memberId inList memberIds)
             }
         }
+        // V1.9.254 Z10 tests insert a paused recording directly -- delete before the room it references.
+        roomIds.forEach { roomId -> ConferenceRecordingTable.deleteWhere { ConferenceRecordingTable.roomId eq roomId } }
         roomIds.forEach { roomId -> ConferenceRoomTable.deleteWhere { ConferenceRoomTable.id eq roomId } }
         memberIds.forEach { memberId -> AccountTable.deleteWhere { AccountTable.memberId eq memberId } }
         memberIds.forEach { memberId -> MemberTable.deleteWhere { MemberTable.id eq memberId } }

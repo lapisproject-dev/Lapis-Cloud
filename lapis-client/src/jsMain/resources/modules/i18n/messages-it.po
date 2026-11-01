@@ -29592,3 +29592,51 @@ msgstr "Senza zona"
 
 msgid "Zur Aktion"
 msgstr "All’azione"
+
+msgid "⏸ Pause"
+msgstr "⏸ Pausa"
+
+msgid "▶ Fortsetzen"
+msgstr "▶ Riprendi"
+
+msgid "Wird pausiert …"
+msgstr "Messa in pausa …"
+
+msgid "Wird fortgesetzt …"
+msgstr "Ripresa …"
+
+msgid "Weder Aufzeichnung noch Live-Stream laufen."
+msgstr "Non è in corso né una registrazione né una diretta."
+
+msgid "⏸ Pause: Aufzeichnung und Live-Stream sind angehalten."
+msgstr "⏸ Pausa: la registrazione e la diretta sono ferme."
+
+msgid "⏸ Pause: Die Aufzeichnung ist angehalten."
+msgstr "⏸ Pausa: la registrazione è ferma."
+
+msgid "⏸ Pause: Der Live-Stream ist angehalten."
+msgstr "⏸ Pausa: la diretta è ferma."
+
+msgid "Sie können weiter miteinander sprechen."
+msgstr "Potete continuare a parlare tra voi."
+
+msgid "Pause: Aufzeichnung und Live-Stream angehalten"
+msgstr "Pausa: registrazione e diretta ferme"
+
+msgid "Pause: Aufzeichnung angehalten"
+msgstr "Pausa: registrazione ferma"
+
+msgid "Pause: Live-Stream angehalten"
+msgstr "Pausa: diretta ferma"
+
+msgid "Pause beendet"
+msgstr "Pausa terminata"
+
+msgid "Die Sitzung ist pausiert. Setzen Sie zuerst fort."
+msgstr "La seduta è in pausa. La riprenda prima."
+
+msgid "Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht."
+msgstr "Questa registrazione ha raggiunto il numero massimo di pause."
+
+msgid "ist wegen der Pause angehalten"
+msgstr "è ferma per la pausa"

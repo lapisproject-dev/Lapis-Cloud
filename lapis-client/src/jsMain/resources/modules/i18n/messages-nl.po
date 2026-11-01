@@ -29589,3 +29589,51 @@ msgstr "Zonder gebied"
 
 msgid "Zur Aktion"
 msgstr "Naar de actie"
+
+msgid "⏸ Pause"
+msgstr "⏸ Pauze"
+
+msgid "▶ Fortsetzen"
+msgstr "▶ Hervatten"
+
+msgid "Wird pausiert …"
+msgstr "Wordt gepauzeerd …"
+
+msgid "Wird fortgesetzt …"
+msgstr "Wordt hervat …"
+
+msgid "Weder Aufzeichnung noch Live-Stream laufen."
+msgstr "Er loopt geen opname en geen livestream."
+
+msgid "⏸ Pause: Aufzeichnung und Live-Stream sind angehalten."
+msgstr "⏸ Pauze: de opname en de livestream zijn stilgezet."
+
+msgid "⏸ Pause: Die Aufzeichnung ist angehalten."
+msgstr "⏸ Pauze: de opname is stilgezet."
+
+msgid "⏸ Pause: Der Live-Stream ist angehalten."
+msgstr "⏸ Pauze: de livestream is stilgezet."
+
+msgid "Sie können weiter miteinander sprechen."
+msgstr "U kunt gewoon met elkaar blijven praten."
+
+msgid "Pause: Aufzeichnung und Live-Stream angehalten"
+msgstr "Pauze: opname en livestream stilgezet"
+
+msgid "Pause: Aufzeichnung angehalten"
+msgstr "Pauze: opname stilgezet"
+
+msgid "Pause: Live-Stream angehalten"
+msgstr "Pauze: livestream stilgezet"
+
+msgid "Pause beendet"
+msgstr "Pauze beëindigd"
+
+msgid "Die Sitzung ist pausiert. Setzen Sie zuerst fort."
+msgstr "De vergadering is gepauzeerd. Hervat die eerst."
+
+msgid "Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht."
+msgstr "Deze opname heeft het maximale aantal pauzes bereikt."
+
+msgid "ist wegen der Pause angehalten"
+msgstr "is stilgezet vanwege de pauze"

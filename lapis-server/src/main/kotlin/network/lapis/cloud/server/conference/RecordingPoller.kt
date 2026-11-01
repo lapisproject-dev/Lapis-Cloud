@@ -17,6 +17,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.ConferenceRecordingPauseTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -79,6 +80,12 @@ private const val BLANK_MIN_SECONDS = 1.5
 
 /** Bound of [RecordingPoller]'s "already warned" set -- a hostile stream of identities must not grow it without limit. */
 private const val MAX_WARNED_SIDS = 1000
+
+/** V1.9.254: the track rows of a recording over ALL its stages are bounded by this factor times maxTracks (bounds the remux effort). */
+private const val MAX_STAGE_FACTOR = 4
+
+/** V1.9.254: less than this much video left after the pause cut-outs is not a recording. */
+private const val MIN_CUT_RESULT_SECONDS = 1.0
 
 /** LiveKit `TrackSource` strings that belong to the person file of a per-person (Participant Egress) recording. */
 private val PERSON_SOURCES = setOf("CAMERA", "MICROPHONE")
@@ -291,6 +298,9 @@ class RecordingPoller(
     /** V1.9.110: participant SIDs already reported as having an unusable identity (logged once, not every tick). */
     private val warnedUnusableParticipantSids: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
+    /** V1.9.254: recordings for which the "too many track rows over all stages" limit was already logged (once per recording). */
+    private val warnedTotalRowLimit: MutableSet<Uuid> = ConcurrentHashMap.newKeySet()
+
     /** See class KDoc "requestTick". Conflated: at most one pending wake-up, never a queue. */
     private val wake = Channel<Unit>(Channel.CONFLATED)
 
@@ -403,6 +413,11 @@ class RecordingPoller(
         }
 
         val livekitRoomName = roomRow[ConferenceRoomTable.livekitRoomName]
+        if (row.pausedAt != null) {
+            // V1.9.254: NOTHING is recorded in a pause -- the egresses are stopped and no new one starts until the room is resumed.
+            handleRecordingPaused(row = row, livekitRoomName = livekitRoomName)
+            return
+        }
         val participants =
             try {
                 liveKitAdminClient.listParticipants(livekitRoomName)
@@ -418,17 +433,25 @@ class RecordingPoller(
                     .where { ConferenceRecordingTrackTable.recordingId eq row.id }
                     .map { it.toTrackRow() }
             }
+        // V1.9.254: only the rows of the CURRENT stage count as "known" (after a resume the same track / participant SID must be recorded
+        // again) and only they count against maxTracks; the rows over all stages are bounded by MAX_STAGE_FACTOR * maxTracks.
+        val currentRows = existingRows.filter { it.stage == row.stage }
+        // Defensive (resume before the stop of a pause was confirmed): an egress of an EARLIER stage must never run on into the pause or
+        // alongside the new stage's egress of the same track.
+        stopEgressOfEarlierStages(row = row, livekitRoomName = livekitRoomName, rows = existingRows)
+        val totalRoom = totalRowRoom(row = row, allRowCount = existingRows.size)
         if (row.egressMode == ConferenceRecordingEgressMode.PARTICIPANT) {
             handleRecordingParticipantMode(
                 row = row,
                 livekitRoomName = livekitRoomName,
                 participants = participants,
-                existingRows = existingRows,
+                existingRows = currentRows,
+                totalRoom = totalRoom,
             )
             return
         }
-        val existingTrackIds = existingRows.mapTo(HashSet()) { it.livekitTrackId }
-        var slotsRemaining = recordingConfig.maxTracks - existingTrackIds.size
+        val existingTrackIds = currentRows.mapTo(HashSet()) { it.livekitTrackId }
+        var slotsRemaining = minOf(recordingConfig.maxTracks - existingTrackIds.size, totalRoom)
         if (slotsRemaining <= 0) return
 
         for (participant in participants) {
@@ -460,6 +483,7 @@ class RecordingPoller(
                     identity = participant.identity,
                     source = mapTrackSource(track.source),
                     kind = ConferenceRecordingEgressMode.TRACK,
+                    trackStage = row.stage.toInt(),
                 )
             }
         }
@@ -486,11 +510,12 @@ class RecordingPoller(
         livekitRoomName: String,
         participants: List<LiveKitParticipantInfo>,
         existingRows: List<TrackRow>,
+        totalRoom: Int,
     ) {
         val knownIds = existingRows.mapTo(HashSet()) { it.livekitTrackId }
         stopEgressOfDepartedParticipants(row = row, livekitRoomName = livekitRoomName, participants = participants, rows = existingRows)
 
-        var slotsRemaining = recordingConfig.maxTracks - existingRows.size
+        var slotsRemaining = minOf(recordingConfig.maxTracks - existingRows.size, totalRoom)
         for (participant in participants) {
             for (track in participant.tracks) {
                 if (slotsRemaining <= 0) return
@@ -520,6 +545,7 @@ class RecordingPoller(
                     identity = participant.identity,
                     source = mapTrackSource(track.source),
                     kind = ConferenceRecordingEgressMode.TRACK,
+                    trackStage = row.stage.toInt(),
                 )
             }
             if (slotsRemaining <= 0) return
@@ -556,6 +582,7 @@ class RecordingPoller(
                 identity = participant.identity,
                 source = ConferenceRecordingTrackSource.CAMERA,
                 kind = ConferenceRecordingEgressMode.PARTICIPANT,
+                trackStage = row.stage.toInt(),
             )
         }
     }
@@ -610,6 +637,94 @@ class RecordingPoller(
         return false
     }
 
+    /** How many more track rows this recording may get over ALL its stages ([MAX_STAGE_FACTOR] x maxTracks); logs ONCE (counts only) when exhausted. */
+    private fun totalRowRoom(
+        row: RecordingRow,
+        allRowCount: Int,
+    ): Int {
+        val room = (recordingConfig.maxTracks * MAX_STAGE_FACTOR - allRowCount).coerceAtLeast(0)
+        if (room == 0 && warnedTotalRowLimit.add(row.id)) {
+            logger.warn {
+                "RecordingPoller: recording ${row.id} reached its limit of $allRowCount track rows over all stages -- no new egress"
+            }
+        }
+        return room
+    }
+
+    /**
+     * Sends ONE `StopEgress` for every still-running egress row of a stage BEFORE the current one, then refreshes those rows from
+     * `ListEgress`. Normally the pause already stopped them; this covers a resume that came before the stop was confirmed.
+     */
+    private suspend fun stopEgressOfEarlierStages(
+        row: RecordingRow,
+        livekitRoomName: String,
+        rows: List<TrackRow>,
+    ) {
+        val stale =
+            rows.filter {
+                it.stage < row.stage &&
+                    (it.status == ConferenceRecordingTrackStatus.STARTING || it.status == ConferenceRecordingTrackStatus.ACTIVE) &&
+                    it.egressId !in stopRequestedEgressIds
+            }
+        if (stale.isEmpty()) return
+        for (t in stale) {
+            try {
+                liveKitEgressClient.stopEgress(roomName = livekitRoomName, egressId = t.egressId)
+                stopRequestedEgressIds += t.egressId
+            } catch (e: LiveKitAdminException) {
+                logger.warn { "RecordingPoller: StopEgress (earlier stage) failed for ${t.egressId} (recording ${row.id}): ${e.message}" }
+            }
+        }
+        // Refresh whatever the StopEgress outcome was: LiveKit refuses to stop an egress that already ended, its row must still turn terminal.
+        val egressInfos =
+            try {
+                liveKitEgressClient.listEgress(livekitRoomName)
+            } catch (e: LiveKitAdminException) {
+                logger.warn { "RecordingPoller: ListEgress failed for recording ${row.id}: ${e.message}" }
+                return
+            }
+        refreshTrackRows(row = row, egressInfos = egressInfos, trackRows = stale)
+    }
+
+    /**
+     * V1.9.254 -- a PAUSED recording: every running egress gets ONE `StopEgress` (whatever the egress mode), the rows are refreshed from
+     * `ListEgress` until they are terminal, and NOTHING starts. Private talk in the pause must never reach the raw files; the cut-out of
+     * the composed video (see [RecordingPauseCuts]) removes the 1-3 s the stopping egresses still write after the click.
+     */
+    private suspend fun handleRecordingPaused(
+        row: RecordingRow,
+        livekitRoomName: String,
+    ) {
+        val rows =
+            transaction {
+                ConferenceRecordingTrackTable
+                    .selectAll()
+                    .where { ConferenceRecordingTrackTable.recordingId eq row.id }
+                    .map { it.toTrackRow() }
+            }
+        val running =
+            rows.filter { it.status == ConferenceRecordingTrackStatus.STARTING || it.status == ConferenceRecordingTrackStatus.ACTIVE }
+        if (running.isEmpty()) return
+        for (t in running) {
+            if (t.egressId in stopRequestedEgressIds) continue
+            try {
+                liveKitEgressClient.stopEgress(roomName = livekitRoomName, egressId = t.egressId)
+                stopRequestedEgressIds += t.egressId
+            } catch (e: LiveKitAdminException) {
+                // Not remembered: the next tick tries again. If LiveKit already ended the egress, the refresh below makes the row terminal.
+                logger.warn { "RecordingPoller: StopEgress (pause) failed for ${t.egressId} (recording ${row.id}): ${e.message}" }
+            }
+        }
+        val egressInfos =
+            try {
+                liveKitEgressClient.listEgress(livekitRoomName)
+            } catch (e: LiveKitAdminException) {
+                logger.warn { "RecordingPoller: ListEgress failed for recording ${row.id}: ${e.message}" }
+                return
+            }
+        refreshTrackRows(row = row, egressInfos = egressInfos, trackRows = running)
+    }
+
     private fun insertTrackRow(
         recordingId: Uuid,
         rowId: Uuid,
@@ -618,9 +733,11 @@ class RecordingPoller(
         identity: String,
         source: ConferenceRecordingTrackSource,
         kind: ConferenceRecordingEgressMode,
+        trackStage: Int,
     ) {
         transaction {
             ConferenceRecordingTrackTable.insert {
+                it[ConferenceRecordingTrackTable.stage] = trackStage.toShort()
                 it[id] = rowId
                 it[ConferenceRecordingTrackTable.recordingId] = recordingId
                 it[egressId] = egressInfo.egressId
@@ -1073,6 +1190,34 @@ class RecordingPoller(
         }
         // A per-person file whose picture is black throughout contributes no video input; with no picture left anywhere there is nothing to compose.
         if (videoInputs.isEmpty()) return SpecResult.NoVideo
+        // V1.9.254: the pauses of the room are cut out of the finished video.
+        val pauses =
+            transaction {
+                ConferenceRecordingPauseTable
+                    .selectAll()
+                    .where { ConferenceRecordingPauseTable.recordingId eq row.id }
+                    .map {
+                        RecordingPauseSpan(
+                            seq = it[ConferenceRecordingPauseTable.seq].toInt(),
+                            pausedAt = it[ConferenceRecordingPauseTable.pausedAt],
+                            resumedAt = it[ConferenceRecordingPauseTable.resumedAt],
+                        )
+                    }
+            }
+        val cutOuts =
+            RecordingPauseCuts.compute(
+                pauses = pauses,
+                tracks = completedTracks.map { StageTrackStart(stage = it.stage.toInt(), startedAtEpochNanos = it.startedAtEpochNanos) },
+                t0EpochNanos = t0,
+                totalSeconds = outputDurationSeconds,
+            )
+        if (cutOuts.isNotEmpty() &&
+            outputDurationSeconds - RecordingPauseCuts.totalLength(cuts = cutOuts, totalSeconds = outputDurationSeconds) <
+            MIN_CUT_RESULT_SECONDS
+        ) {
+            logger.warn { "RecordingPoller: nothing but pauses left of recording ${row.id} -- FAILED" }
+            return SpecResult.NoVideo
+        }
         if (row.broadcastView == ConferenceBroadcastView.SPEAKER) {
             val plan =
                 speakerPlan(
@@ -1090,6 +1235,7 @@ class RecordingPoller(
                         outputDurationSeconds = outputDurationSeconds,
                         layout = RecordingLayout.SPEAKER,
                         speakerSpans = plan.spans,
+                        cutOuts = cutOuts,
                     ),
                 )
             }
@@ -1099,6 +1245,7 @@ class RecordingPoller(
                 videoInputs = videoInputs,
                 audioInputs = audioInputs,
                 outputDurationSeconds = outputDurationSeconds,
+                cutOuts = cutOuts,
             ),
         )
     }
@@ -1285,8 +1432,6 @@ class RecordingPoller(
                     return
                 }
             }
-        val outputDurationSeconds = spec.outputDurationSeconds
-
         val outputFile = File(hostRawRoot, "${row.rawDir}/composed-$attemptNumber.mp4")
         outputFile.parentFile.mkdirs()
         try {
@@ -1311,7 +1456,7 @@ class RecordingPoller(
                     it[status] = ConferenceRecordingStatus.READY
                     it[readyAt] = now
                     it[ConferenceRecordingTable.documentId] = documentId
-                    it[durationSeconds] = outputDurationSeconds.toLong()
+                    it[durationSeconds] = spec.finalDurationSeconds.toLong()
                     it[ConferenceRecordingTable.fileSizeBytes] = fileSizeBytes
                 }
             }
@@ -1433,7 +1578,7 @@ class RecordingPoller(
                         // failure marker in between makes it match nothing -> the whole version switch rolls back.
                         ConferenceRecordingTable.update({ fencedRecompute(recordingId = row.id, fence = fence) }) {
                             it[fileSizeBytes] = sizeBytes
-                            it[durationSeconds] = spec.outputDurationSeconds.toLong()
+                            it[durationSeconds] = spec.finalDurationSeconds.toLong()
                             it[recomputedAt] = now
                             it[recomputeStartedAt] = null
                             it[lastRecomputeFailureCode] = null
@@ -1524,10 +1669,16 @@ class RecordingPoller(
                 ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingId }.singleOrNull()
                     ?: return@transaction
             if (current[ConferenceRecordingTable.status] != ConferenceRecordingStatus.RECORDING) return@transaction
+            // V1.9.254: room first (lock order room -> recording -> stream, as in the pause coordinator).
+            RoomPauseDb.lockRoom(current[ConferenceRecordingTable.roomId])
             ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq recordingId }) {
                 it[stoppedAt] = now
                 it[status] = ConferenceRecordingStatus.STOPPING
+                it[pausedAt] = null
             }
+            // V1.9.254: a stop in a pause closes the open pause row; the rest up to the end is cut out of the video.
+            RoomPauseDb.closeOpenPause(recordingId = recordingId, at = now)
+            RoomPauseDb.clearCaptureIfNothingPaused(roomId = current[ConferenceRecordingTable.roomId])
             // System-initiated (auto-stop), no acting member -- AuditLogRecorder.record accepts a
             // null actor for exactly this case. Must be the LAST lock-taking operation -- see that
             // object's KDoc "deadlock-avoidance contract".
@@ -1605,6 +1756,10 @@ private data class RecordingRow(
     val egressMode: ConferenceRecordingEgressMode,
     /** V1.9.115: the room's view frozen when the recording started. */
     val broadcastView: ConferenceBroadcastView,
+    /** V1.9.254: set while the recording is paused. */
+    val pausedAt: LocalDateTime?,
+    /** V1.9.254: the current stage (see [ConferenceRecordingTable.stage]). */
+    val stage: Short,
 )
 
 /** Plain data snapshot of a `conference_recording_track` row -- same "never a live ResultRow across suspension" reasoning as [RecordingRow]. */
@@ -1621,6 +1776,8 @@ private data class TrackRow(
     val startedAtEpochNanos: Long?,
     val endedAtEpochNanos: Long?,
     val durationMs: Long?,
+    /** V1.9.254: the recording stage this row belongs to. */
+    val stage: Short,
 )
 
 private fun ResultRow.toRecordingRow() =
@@ -1640,6 +1797,8 @@ private fun ResultRow.toRecordingRow() =
         recomputeStartedAt = this[ConferenceRecordingTable.recomputeStartedAt],
         egressMode = this[ConferenceRecordingTable.egressMode],
         broadcastView = this[ConferenceRecordingTable.broadcastView],
+        pausedAt = this[ConferenceRecordingTable.pausedAt],
+        stage = this[ConferenceRecordingTable.stage],
     )
 
 private fun ResultRow.toTrackRow() =
@@ -1655,6 +1814,7 @@ private fun ResultRow.toTrackRow() =
         startedAtEpochNanos = this[ConferenceRecordingTrackTable.startedAtEpochNanos],
         endedAtEpochNanos = this[ConferenceRecordingTrackTable.endedAtEpochNanos],
         durationMs = this[ConferenceRecordingTrackTable.durationMs],
+        stage = this[ConferenceRecordingTrackTable.stage],
     )
 
 /** Maps LiveKit's `livekit.proto` `TrackSource` wire string -- see [LiveKitTrackInfo] KDoc -- onto this wave's own [ConferenceRecordingTrackSource]. */

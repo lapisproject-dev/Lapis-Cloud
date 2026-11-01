@@ -6,6 +6,8 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.events.EVENT_GUEST_IDENTITY_PREFIX
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_CAPTURE_PAUSE
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_CAPTURE_RESUME
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_LOCK
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_MUTED
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_MUTED_PEER
@@ -178,6 +180,10 @@ internal object ConferenceModerationPackets {
     /** V1.9.127 -- broadcast: the room's reactions were switched on / off by a moderator. */
     fun reactions(enabled: Boolean): ByteArray =
         build(kind = if (enabled) CONFERENCE_MODERATION_KIND_REACTIONS_ON else CONFERENCE_MODERATION_KIND_REACTIONS_OFF)
+
+    /** V1.9.254 -- broadcast: the room's pause mode started / ended (clients re-read the recording / stream state). */
+    fun capturePause(paused: Boolean): ByteArray =
+        build(kind = if (paused) CONFERENCE_MODERATION_KIND_CAPTURE_PAUSE else CONFERENCE_MODERATION_KIND_CAPTURE_RESUME)
 
     /** Sent to the moderators only -- it names WHO was muted, which everybody else does not learn. */
     fun mutedPeer(memberId: Uuid): ByteArray = build(kind = CONFERENCE_MODERATION_KIND_MUTED_PEER, memberId = memberId)

@@ -50,6 +50,11 @@ data class EdlSegment(
     val speakerTrackId: String? = null,
     /** V1.9.115: the tracks of the strip below the large speaker tile, in display order (at most [CONFERENCE_SPEAKER_STRIP_MAX_RECORDING]). */
     val stripTrackIds: List<String> = emptyList(),
+    /**
+     * V1.9.254: the frame of the SOURCE (wall-clock) timeline this segment starts at. [startFrame] / [endFrame] are OUTPUT frames; after a
+     * pause cut-out the two differ. Without cut-outs it equals [startFrame].
+     */
+    val sourceStartFrame: Long = startFrame,
 ) {
     val frames: Long get() = endFrame - startFrame
 }
@@ -108,12 +113,21 @@ object RecordingEditDecisionList {
         canvasH: Int,
         layout: RecordingLayout = RecordingLayout.GRID,
         speakerSpans: List<RecordingSpeakerSpan> = emptyList(),
+        cutOuts: List<TimeRange> = emptyList(),
     ): List<EdlSegment> {
         require(fps > 0) { "fps must be positive" }
         require(totalSeconds.isFinite() && totalSeconds > 0.0) { "totalSeconds must be > 0" }
         val totalFrames = (totalSeconds * fps).roundToLong().coerceAtLeast(1L)
 
+        // V1.9.254: pause cut-outs. Their borders are HARD cut points (never merged away), the stretches between them are dropped.
+        val cutFrames = normalizeCutOuts(cutOuts = cutOuts, fps = fps, totalFrames = totalFrames)
+        val hardCuts = HashSet<Long>()
+        for ((from, to) in cutFrames) {
+            hardCuts += from
+            hardCuts += to
+        }
         val rawCuts = sortedSetOf(0L, totalFrames)
+        rawCuts += hardCuts
         for (track in tracks) {
             for (range in track.ranges) {
                 rawCuts += frameOf(seconds = range.startSeconds, fps = fps, totalFrames = totalFrames)
@@ -134,10 +148,10 @@ object RecordingEditDecisionList {
         }
 
         var minFrames = MIN_CUT_FRAMES.toLong()
-        var cuts = mergeShort(cuts = rawCuts.toList(), minFrames = minFrames)
+        var cuts = mergeShort(cuts = rawCuts.toList(), minFrames = minFrames, hard = hardCuts)
         while (cuts.size - 1 > MAX_SEGMENTS && minFrames < totalFrames) {
             minFrames *= 2
-            cuts = mergeShort(cuts = rawCuts.toList(), minFrames = minFrames)
+            cuts = mergeShort(cuts = rawCuts.toList(), minFrames = minFrames, hard = hardCuts)
             logger.warn { "RecordingEditDecisionList: more than $MAX_SEGMENTS segments -- minimum cut length raised to $minFrames frames" }
         }
 
@@ -145,9 +159,15 @@ object RecordingEditDecisionList {
         val segments = ArrayList<EdlSegment>(cuts.size - 1)
         var previousSlots: Map<String, Int> = emptyMap()
         var previousShape: GridShape? = null
+        var outputCursor = 0L
         for (i in 0 until cuts.size - 1) {
             val start = cuts[i]
             val end = cuts[i + 1]
+            // a segment lies entirely inside or outside a cut-out (their borders are cut points)
+            if (cutFrames.any { (from, to) -> start >= from && end <= to }) continue
+            val outStart = outputCursor
+            outputCursor += end - start
+            val index = segments.size
             val middle = (start + end) / 2.0 / fps
             val visible = ordered.filter { track -> track.ranges.any { middle >= it.startSeconds && middle < it.endSeconds } }
             // the screen share that started LAST is large (V1.9.115); ties by track id for determinism
@@ -158,7 +178,15 @@ object RecordingEditDecisionList {
             val cameras = visible.filter { it !== share }
             if (layout == RecordingLayout.SPEAKER && share == null) {
                 val speakerSegment =
-                    speakerSegment(index = i, start = start, end = end, middle = middle, cameras = cameras, spans = speakerSpans)
+                    speakerSegment(
+                        index = index,
+                        start = outStart,
+                        end = outStart + (end - start),
+                        sourceStart = start,
+                        middle = middle,
+                        cameras = cameras,
+                        spans = speakerSpans,
+                    )
                 if (speakerSegment != null) {
                     segments += speakerSegment
                     previousSlots = emptyMap()
@@ -183,12 +211,13 @@ object RecordingEditDecisionList {
                 )
             segments +=
                 EdlSegment(
-                    index = i,
-                    startFrame = start,
-                    endFrame = end,
+                    index = index,
+                    startFrame = outStart,
+                    endFrame = outStart + (end - start),
                     screenShareTrackId = share?.trackId,
                     cameraSlots = slots,
                     shape = shape,
+                    sourceStartFrame = start,
                 )
             previousSlots = slots
             previousShape = shape
@@ -204,6 +233,7 @@ object RecordingEditDecisionList {
         index: Int,
         start: Long,
         end: Long,
+        sourceStart: Long,
         middle: Double,
         cameras: List<EdlVideoTrack>,
         spans: List<RecordingSpeakerSpan>,
@@ -234,6 +264,7 @@ object RecordingEditDecisionList {
             shape = GridShape(cols = 1, rows = 1),
             speakerTrackId = main.trackId,
             stripTrackIds = strip.take(CONFERENCE_SPEAKER_STRIP_MAX_RECORDING).map { it.trackId },
+            sourceStartFrame = sourceStart,
         )
     }
 
@@ -250,6 +281,7 @@ object RecordingEditDecisionList {
     private fun mergeShort(
         cuts: List<Long>,
         minFrames: Long,
+        hard: Set<Long> = emptySet(),
     ): List<Long> {
         val result = cuts.toMutableList()
         var i = 0
@@ -259,13 +291,47 @@ object RecordingEditDecisionList {
                 i++
                 continue
             }
-            if (i == 0) {
-                result.removeAt(1)
-            } else {
-                result.removeAt(i)
-                i--
+            // V1.9.254: a border of a pause cut-out is never merged away (1-2 frames of the pause must not slip into the video)
+            val startRemovable = i > 0 && result[i] !in hard
+            val endRemovable = i + 1 < result.size - 1 && result[i + 1] !in hard
+            when {
+                startRemovable -> {
+                    result.removeAt(i)
+                    i--
+                }
+                endRemovable -> result.removeAt(i + 1)
+                else -> i++
             }
         }
         return result
+    }
+
+    /** Cut-outs as sorted, merged, non-empty frame intervals `[from, to)` inside `[0, totalFrames]`. */
+    private fun normalizeCutOuts(
+        cutOuts: List<TimeRange>,
+        fps: Int,
+        totalFrames: Long,
+    ): List<Pair<Long, Long>> {
+        val frames =
+            cutOuts
+                .filter { it.startSeconds.isFinite() && it.endSeconds.isFinite() }
+                .map {
+                    frameOf(
+                        seconds = it.startSeconds,
+                        fps = fps,
+                        totalFrames = totalFrames,
+                    ) to frameOf(seconds = it.endSeconds, fps = fps, totalFrames = totalFrames)
+                }.filter { it.second > it.first }
+                .sortedBy { it.first }
+        val merged = ArrayList<Pair<Long, Long>>()
+        for (f in frames) {
+            val last = merged.lastOrNull()
+            if (last != null && f.first <= last.second) {
+                merged[merged.size - 1] = last.first to maxOf(last.second, f.second)
+            } else {
+                merged += f
+            }
+        }
+        return merged
     }
 }

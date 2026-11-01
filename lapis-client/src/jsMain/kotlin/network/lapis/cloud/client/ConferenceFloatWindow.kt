@@ -88,11 +88,7 @@ internal fun floatWindowViewOf(state: DockState): FloatWindowView {
             is DockState.Resolving -> tr("Verbindung wird gewechselt …")
             else -> ""
         }
-    val badges =
-        buildList {
-            if (snapshot?.recording == true) add(tr("● Aufzeichnung"))
-            if (snapshot?.streaming == true) add(if (snapshot.streamPaused) tr("◆ Live-Stream pausiert") else tr("◆ Live-Stream"))
-        }
+    val badges = captureBadges(snapshot)
     return FloatWindowView(
         statusText = status,
         consentBadges = badges,

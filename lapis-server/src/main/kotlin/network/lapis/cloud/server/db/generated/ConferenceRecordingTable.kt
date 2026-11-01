@@ -48,6 +48,12 @@ public object ConferenceRecordingTable : Table("conference_recording") {
     /** V1.9.115 -- V94. `true` iff `conference_recording_speaker_span` holds the speaker timeline of this recording. */
     public val speakerTimelineComputed: Column<Boolean> = bool("speaker_timeline_computed").default(false)
 
+    /** V1.9.254 -- V134. Set while the recording is paused (a sub-state of RECORDING). Class A (UTC). */
+    public val pausedAt: Column<LocalDateTime?> = datetime("paused_at").nullable()
+
+    /** V1.9.254 -- V134. The current stage; every pause ends one (the egresses of the next stage start after the resume). */
+    public val stage: Column<Short> = short("stage").default(0.toShort())
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 3 index(es) declared on this entity are not emitted --

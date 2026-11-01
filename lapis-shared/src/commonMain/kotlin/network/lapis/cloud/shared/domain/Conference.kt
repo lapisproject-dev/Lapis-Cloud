@@ -439,6 +439,13 @@ const val CONFERENCE_MODERATION_KIND_UNLOCK = "unlock"
 const val CONFERENCE_MODERATION_KIND_REACTIONS_ON = "reactions_on"
 const val CONFERENCE_MODERATION_KIND_REACTIONS_OFF = "reactions_off"
 
+/**
+ * V1.9.254 -- broadcast: the pause mode of the room started / ended. The packet carries NO state: clients re-read the recording / stream
+ * DTOs (`ConferenceRecordingDto.paused`, `ConferenceStreamDto.pauseReason`), so a late joiner or a reload sees the same truth.
+ */
+const val CONFERENCE_MODERATION_KIND_CAPTURE_PAUSE = "capture_pause"
+const val CONFERENCE_MODERATION_KIND_CAPTURE_RESUME = "capture_resume"
+
 /** The closed set of accepted `k` values -- shared by the server (what it may send) and the client (what it accepts). */
 val CONFERENCE_MODERATION_KINDS: Set<String> =
     setOf(
@@ -449,6 +456,8 @@ val CONFERENCE_MODERATION_KINDS: Set<String> =
         CONFERENCE_MODERATION_KIND_UNLOCK,
         CONFERENCE_MODERATION_KIND_REACTIONS_ON,
         CONFERENCE_MODERATION_KIND_REACTIONS_OFF,
+        CONFERENCE_MODERATION_KIND_CAPTURE_PAUSE,
+        CONFERENCE_MODERATION_KIND_CAPTURE_RESUME,
     )
 
 /**

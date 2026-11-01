@@ -589,7 +589,8 @@ class DomainModelMergerTest :
             // 79-partner-servers.kuml.kts (V1.9.245) adds ONE real table (partner_discovered_server); its PartnerServer reference dedups, net +1 (234 -> 235).
             // 80-activism.kuml.kts (V1.9.246) adds NINE real tables (activism_action, _responsible, _task, _text_block, _material_document,
             // _contribution, _signal, _report, _notice_text); the Member, CostCenter, Event and Document stubs dedup into the real entities, net +9 (235 -> 244).
-            val distinctTableNames = 244
+            // 28-conference-recording.kuml.kts (V1.9.254) adds ONE real table (conference_recording_pause); its ConferenceRecording reference dedups, net +1 (244 -> 245).
+            val distinctTableNames = 245
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -717,6 +718,7 @@ class DomainModelMergerTest :
                     "ConferenceRecordingTable.kt",
                     "ConferenceRecordingTrackTable.kt",
                     "ConferenceRecordingSpeakerSpanTable.kt",
+                    "ConferenceRecordingPauseTable.kt",
                     "ConferenceStreamDestinationTable.kt",
                     "ConferenceStreamTable.kt",
                     "ConferenceStreamTargetTable.kt",

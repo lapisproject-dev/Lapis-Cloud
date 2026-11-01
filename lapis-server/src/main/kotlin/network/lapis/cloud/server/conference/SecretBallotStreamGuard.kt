@@ -422,7 +422,16 @@ class DefaultSecretBallotStreamGuard(
                     // ballot on the same meeting (scenarios 12/13 in the wave's own test plan) must
                     // keep this stream paused.
                     .filter { (_, roomId) -> !SecretBallotStreamLock.hasOpenSecretBallot(roomId) }
-                    .map { (streamId, _) -> streamId }
+                    // V1.9.254 Z7: the room is still paused by the moderators -- the stream must NOT restart now. It stays PAUSED, its reason
+                    // becomes ROOM_PAUSE, and it is started with the room (resumeRoomCapture / StreamPoller).
+                    .filter { (streamId, roomId) ->
+                        if (RoomPauseDb.isRoomPaused(roomId)) {
+                            RoomPauseDb.convertBallotPauseToRoomPause(streamId)
+                            false
+                        } else {
+                            true
+                        }
+                    }.map { (streamId, _) -> streamId }
             }
         }
 }

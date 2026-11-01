@@ -1449,6 +1449,91 @@ class StreamPollerTest :
             egressClient.listEgressCalls.get() shouldBe 0
         }
 
+        // ── V1.9.254 pause mode ─────────────────────────────────────────
+
+        test("PAUSED + ROOM_PAUSE while the room is still paused: left untouched, nothing is started") {
+            val member = createMember("poller-roompause-held@example.org")
+            val (roomId, _) = createRoom(member)
+            val destId = createDestination(member, streamKey = "roompause-held-key")
+            val streamId =
+                createStream(
+                    roomId,
+                    member,
+                    ConferenceStreamStatus.PAUSED,
+                    livekitEgressId = "EG_roompause_old",
+                    pauseReason = ConferenceStreamPauseReason.ROOM_PAUSE,
+                )
+            createTarget(streamId, destId, "rtmp://sink.example.org:1935/live/{roo...old}")
+            transaction {
+                ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) {
+                    it[capturePausedAt] =
+                        DbClock.nowLocalDateTime()
+                }
+            }
+            val egressClient = StreamPollerFakeEgressClient()
+
+            buildPoller(egressClient).tick()
+
+            egressClient.startRoomCompositeEgressCalls.size shouldBe 0
+            streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.PAUSED
+            streamRow(streamId)[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.ROOM_PAUSE
+        }
+
+        test(
+            "PAUSED + ROOM_PAUSE while the room is NOT paused any more (resume could not restart it, or a crash): the poller starts it again",
+        ) {
+            val member = createMember("poller-roompause-converge@example.org")
+            val (roomId, roomName) = createRoom(member)
+            val destId = createDestination(member, streamKey = "roompause-converge-key")
+            val streamId =
+                createStream(
+                    roomId,
+                    member,
+                    ConferenceStreamStatus.PAUSED,
+                    livekitEgressId = "EG_roompause_stale",
+                    pauseReason = ConferenceStreamPauseReason.ROOM_PAUSE,
+                )
+            createTarget(streamId, destId, "rtmp://sink.example.org:1935/live/{roo...ale}")
+            val egressClient = StreamPollerFakeEgressClient()
+            egressClient.startRoomCompositeEgressResult = { LiveKitEgressInfo(egressId = "EG_roompause_fresh", status = "EGRESS_STARTING") }
+
+            buildPoller(egressClient).tick()
+
+            egressClient.startRoomCompositeEgressCalls.single().first shouldBe roomName
+            val stream = streamRow(streamId)
+            stream[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.LIVE
+            stream[ConferenceStreamTable.livekitEgressId] shouldBe "EG_roompause_fresh"
+            stream[ConferenceStreamTable.pauseReason] shouldBe null
+        }
+
+        test("a stream that ends while the room is paused (auto-stop) clears the room mark when nothing else is paused") {
+            val member = createMember("poller-roompause-end@example.org")
+            val (roomId, _) = createRoom(member)
+            val streamId =
+                createStream(
+                    roomId,
+                    member,
+                    ConferenceStreamStatus.PAUSED,
+                    livekitEgressId = "EG_roompause_end",
+                    pauseReason = ConferenceStreamPauseReason.ROOM_PAUSE,
+                    startedAt = DbClock.nowLocalDateTime().shiftedByMinutes(-10_000),
+                )
+            transaction {
+                ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) {
+                    it[capturePausedAt] =
+                        DbClock.nowLocalDateTime()
+                }
+            }
+
+            buildPoller(StreamPollerFakeEgressClient()).tick()
+
+            streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.ENDED
+            transaction {
+                ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single()
+            }[ConferenceRoomTable.capturePausedAt] shouldBe
+                null
+        }
+
         // ── tick() exception safety ──────────────────────────────────────
 
         test("tick(): an unexpected exception for one stream does not prevent another stream's own progress in the same tick") {

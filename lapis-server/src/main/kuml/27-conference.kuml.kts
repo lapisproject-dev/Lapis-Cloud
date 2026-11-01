@@ -225,6 +225,12 @@ classDiagram(name = "Conference") {
             defaultValue = "TRUE"
             stereotype("Column") { "columnName" to "participants_may_unmute" }
         }
+        // V1.9.254 -- V134. Set while the moderators have paused the room (recording and/or stream); also the lock anchor of pause/resume.
+        // Written ONLY by ConferenceRoomPauseCoordinator (and the stop paths it names, pinned by ConferenceRoomPauseTripwireTest).
+        attribute(name = "capturePausedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "capture_paused_at" }
+        }
         // V1.9.115 -- V94. The view a recording / stream shows (RASTER = tile grid, SPEAKER = one large tile + filmstrip); applies from the
         // next recording / stream start (see docs/architecture/conference-views.adoc).
         attribute(name = "broadcastView", type = conferenceBroadcastView) {

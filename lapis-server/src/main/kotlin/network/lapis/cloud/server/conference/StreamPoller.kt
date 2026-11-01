@@ -608,6 +608,36 @@ class StreamPoller(
         // (folded into this existing per-row PAUSED dispatch rather than a second top-level query,
         // since it needs exactly the same PAUSED rows NON_TERMINAL_STREAM_STATUSES/tick() already
         // fetch).
+        if (row.pauseReason == ConferenceStreamPauseReason.ROOM_PAUSE) {
+            // V1.9.254 (Z17) -- a stream paused by the room pause whose room is NOT paused any more (the resume could not restart it, e.g. the
+            // stream was still PAUSING at that moment, or the process crashed): convergent rule, start it again. While the room is paused it
+            // simply stays paused (the max-duration ceiling below still applies, measured on the wall clock including pauses).
+            val roomStillPaused = transaction { RoomPauseDb.isRoomPaused(row.roomId) }
+            if (!roomStillPaused) {
+                val ballotOpen = transaction { SecretBallotStreamLock.hasOpenSecretBallot(row.roomId) }
+                if (ballotOpen) {
+                    transaction {
+                        ConferenceStreamTable.update({
+                            (ConferenceStreamTable.id eq row.id) and
+                                (ConferenceStreamTable.status eq ConferenceStreamStatus.PAUSED) and
+                                (ConferenceStreamTable.pauseReason eq ConferenceStreamPauseReason.ROOM_PAUSE)
+                        }) {
+                            it[pauseReason] = ConferenceStreamPauseReason.SECRET_BALLOT
+                        }
+                    }
+                    return
+                }
+                logger.info { "StreamPoller: room of stream ${row.id} is no longer paused -- restarting the stream" }
+                restartEgressForStream(
+                    streamId = row.id,
+                    liveKitEgressClient = liveKitEgressClient,
+                    streamingConfig = streamingConfig,
+                    actorMemberId = null,
+                    actorRole = null,
+                )
+                return
+            }
+        }
         if (row.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT) {
             // SecretBallotStreamLock.hasOpenSecretBallot runs a plain Exposed DSL query with no
             // transaction { } of its own (same "caller locks/wraps" contract every other call site
@@ -742,6 +772,8 @@ class StreamPoller(
             val current =
                 ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamId }.singleOrNull() ?: return@transaction
             if (current[ConferenceStreamTable.status] !in NON_TERMINAL_STREAM_STATUSES) return@transaction
+            // V1.9.254: room first (lock order room -> recording -> stream), so the pause cleanup below cannot deadlock with a pause/resume.
+            RoomPauseDb.lockRoom(current[ConferenceStreamTable.roomId])
             ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) {
                 it[status] = ConferenceStreamStatus.ENDED
                 it[endedAt] = now
@@ -756,6 +788,7 @@ class StreamPoller(
             // null actor for exactly this case, same as RecordingPoller.transitionToStopping. Must
             // be the LAST lock-taking operation -- see that object's KDoc "deadlock-avoidance
             // contract".
+            RoomPauseDb.clearCaptureIfNothingPaused(roomId = current[ConferenceStreamTable.roomId])
             AuditLogRecorder.record(
                 actorMemberId = null,
                 actorRole = null,
@@ -790,6 +823,7 @@ class StreamPoller(
             val current =
                 ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamId }.singleOrNull() ?: return@transaction
             if (current[ConferenceStreamTable.status] !in NON_TERMINAL_STREAM_STATUSES) return@transaction
+            RoomPauseDb.lockRoom(current[ConferenceStreamTable.roomId])
             val updated =
                 ConferenceStreamTable.update({
                     (ConferenceStreamTable.id eq streamId) and
@@ -815,6 +849,7 @@ class StreamPoller(
             }) {
                 it[status] = ConferenceStreamTargetStatus.FINISHED
             }
+            RoomPauseDb.clearCaptureIfNothingPaused(roomId = current[ConferenceStreamTable.roomId])
             AuditLogRecorder.record(
                 actorMemberId = null,
                 actorRole = null,

@@ -108,7 +108,23 @@ data class RecordingComposeSpec(
     val layout: RecordingLayout = RecordingLayout.GRID,
     /** V1.9.115: who is the large tile when (smoothed, wall-clock seconds); only read when [layout] is [RecordingLayout.SPEAKER]. */
     val speakerSpans: List<RecordingSpeakerSpan> = emptyList(),
-)
+    /**
+     * V1.9.254: stretches of the WALL-CLOCK timeline (seconds relative to `t0`, like [outputDurationSeconds]) that are cut out of the
+     * output -- the pauses of the room. The composed file is shorter by their total length.
+     */
+    val cutOuts: List<TimeRange> = emptyList(),
+) {
+    /** The length of the finished file: [outputDurationSeconds] minus the (merged) [cutOuts]. */
+    val finalDurationSeconds: Double
+        get() =
+            (
+                outputDurationSeconds -
+                    RecordingPauseCuts.totalLength(
+                        cuts = cutOuts,
+                        totalSeconds = outputDurationSeconds,
+                    )
+            ).coerceAtLeast(0.0)
+}
 
 /** V1.9.115 -- how the people are laid out in a recording (a screen share is always shown large, whatever the layout). */
 enum class RecordingLayout { GRID, SPEAKER }

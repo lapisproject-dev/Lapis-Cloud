@@ -540,6 +540,10 @@ col:ConferenceRecordingTable.manualRetryWindowStartedAt	A	stamped by the server 
 col:ConferenceRecordingTable.lastManualRetryAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceRecordingTable.recomputeStartedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceRecordingTable.recomputedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRecordingTable.pausedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRecordingPauseTable.pausedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRecordingPauseTable.resumedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRoomTable.capturePausedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceRoomTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceRoomTable.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceStreamDestinationTable.streamKeySetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

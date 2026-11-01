@@ -29564,3 +29564,51 @@ msgstr "Bez obszaru"
 
 msgid "Zur Aktion"
 msgstr "Do akcji"
+
+msgid "⏸ Pause"
+msgstr "⏸ Przerwa"
+
+msgid "▶ Fortsetzen"
+msgstr "▶ Wznów"
+
+msgid "Wird pausiert …"
+msgstr "Wstrzymywanie …"
+
+msgid "Wird fortgesetzt …"
+msgstr "Wznawianie …"
+
+msgid "Weder Aufzeichnung noch Live-Stream laufen."
+msgstr "Nie trwa ani nagrywanie, ani transmisja na żywo."
+
+msgid "⏸ Pause: Aufzeichnung und Live-Stream sind angehalten."
+msgstr "⏸ Przerwa: nagrywanie i transmisja na żywo są wstrzymane."
+
+msgid "⏸ Pause: Die Aufzeichnung ist angehalten."
+msgstr "⏸ Przerwa: nagrywanie jest wstrzymane."
+
+msgid "⏸ Pause: Der Live-Stream ist angehalten."
+msgstr "⏸ Przerwa: transmisja na żywo jest wstrzymana."
+
+msgid "Sie können weiter miteinander sprechen."
+msgstr "Mogą Państwo nadal ze sobą rozmawiać."
+
+msgid "Pause: Aufzeichnung und Live-Stream angehalten"
+msgstr "Przerwa: nagrywanie i transmisja na żywo wstrzymane"
+
+msgid "Pause: Aufzeichnung angehalten"
+msgstr "Przerwa: nagrywanie wstrzymane"
+
+msgid "Pause: Live-Stream angehalten"
+msgstr "Przerwa: transmisja na żywo wstrzymana"
+
+msgid "Pause beendet"
+msgstr "Przerwa zakończona"
+
+msgid "Die Sitzung ist pausiert. Setzen Sie zuerst fort."
+msgstr "Posiedzenie jest wstrzymane. Najpierw je wznów."
+
+msgid "Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht."
+msgstr "To nagranie osiągnęło maksymalną liczbę przerw."
+
+msgid "ist wegen der Pause angehalten"
+msgstr "jest wstrzymana z powodu przerwy"

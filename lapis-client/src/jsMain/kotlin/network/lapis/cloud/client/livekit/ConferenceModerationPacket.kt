@@ -5,6 +5,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_CAPTURE_PAUSE
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_CAPTURE_RESUME
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_LOCK
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_MUTED
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_MUTED_PEER
@@ -41,6 +43,9 @@ sealed interface ConferenceModerationSignal {
     data object ReactionsOn : ConferenceModerationSignal
 
     data object ReactionsOff : ConferenceModerationSignal
+
+    /** V1.9.254 -- the pause mode of the room started / ended: re-read the recording and stream state (the packet itself carries no state). */
+    data object CapturePauseChanged : ConferenceModerationSignal
 }
 
 private val MEMBER_UUID = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
@@ -74,6 +79,9 @@ internal fun conferenceModerationPacket(
         CONFERENCE_MODERATION_KIND_UNLOCK -> ConferenceModerationSignal.Unlock
         CONFERENCE_MODERATION_KIND_REACTIONS_ON -> ConferenceModerationSignal.ReactionsOn
         CONFERENCE_MODERATION_KIND_REACTIONS_OFF -> ConferenceModerationSignal.ReactionsOff
+        CONFERENCE_MODERATION_KIND_CAPTURE_PAUSE,
+        CONFERENCE_MODERATION_KIND_CAPTURE_RESUME,
+        -> ConferenceModerationSignal.CapturePauseChanged
         CONFERENCE_MODERATION_KIND_MUTED_PEER -> {
             val id = (obj["id"] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull ?: return null
             if (!MEMBER_UUID.matches(id)) return null

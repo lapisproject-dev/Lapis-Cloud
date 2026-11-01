@@ -27,6 +27,9 @@ public object ConferenceRecordingTrackTable : Table("conference_recording_track"
     public val egressKind: Column<ConferenceRecordingEgressMode> =
         enumerationByName<ConferenceRecordingEgressMode>("egress_kind", 11).default(ConferenceRecordingEgressMode.TRACK)
 
+    /** V1.9.254 -- V134. The recording stage this track row belongs to (see `ConferenceRecordingTable.stage`). */
+    public val stage: Column<Short> = short("stage").default(0.toShort())
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 1 index declared on this entity is not emitted -- Exposed's index {} DSL needs typed

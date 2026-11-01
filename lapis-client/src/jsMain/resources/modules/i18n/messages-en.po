@@ -29543,3 +29543,51 @@ msgstr "No area"
 
 msgid "Zur Aktion"
 msgstr "To the action"
+
+msgid "⏸ Pause"
+msgstr "⏸ Pause"
+
+msgid "▶ Fortsetzen"
+msgstr "▶ Resume"
+
+msgid "Wird pausiert …"
+msgstr "Pausing …"
+
+msgid "Wird fortgesetzt …"
+msgstr "Resuming …"
+
+msgid "Weder Aufzeichnung noch Live-Stream laufen."
+msgstr "Neither a recording nor a live stream is running."
+
+msgid "⏸ Pause: Aufzeichnung und Live-Stream sind angehalten."
+msgstr "⏸ Pause: The recording and the live stream are stopped."
+
+msgid "⏸ Pause: Die Aufzeichnung ist angehalten."
+msgstr "⏸ Pause: The recording is stopped."
+
+msgid "⏸ Pause: Der Live-Stream ist angehalten."
+msgstr "⏸ Pause: The live stream is stopped."
+
+msgid "Sie können weiter miteinander sprechen."
+msgstr "You can keep talking to each other."
+
+msgid "Pause: Aufzeichnung und Live-Stream angehalten"
+msgstr "Pause: recording and live stream stopped"
+
+msgid "Pause: Aufzeichnung angehalten"
+msgstr "Pause: recording stopped"
+
+msgid "Pause: Live-Stream angehalten"
+msgstr "Pause: live stream stopped"
+
+msgid "Pause beendet"
+msgstr "Pause ended"
+
+msgid "Die Sitzung ist pausiert. Setzen Sie zuerst fort."
+msgstr "The session is paused. Resume it first."
+
+msgid "Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht."
+msgstr "This recording has reached the maximum number of pauses."
+
+msgid "ist wegen der Pause angehalten"
+msgstr "is stopped because of the pause"

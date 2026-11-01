@@ -194,7 +194,9 @@ class FfmpegSegmentedComposer(
                 canvasH = canvas.height,
                 layout = spec.layout,
                 speakerSpans = spec.speakerSpans,
+                cutOuts = spec.cutOuts,
             )
+        if (segments.isEmpty()) throw RecordingComposeException(message = "nothing left after cutting out the pauses")
         // Counts only (privacy): never a key, a file name or an identity.
         logger.info {
             "FfmpegSegmentedComposer: ${segments.size} segment(s) (${segments.count {

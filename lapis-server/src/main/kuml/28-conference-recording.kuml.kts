@@ -317,6 +317,16 @@ classDiagram(name = "ConferenceRecording") {
                 "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode"
             }
         }
+        // V1.9.254 (V134): pause mode. pausedAt is set while the recording is paused (a sub-state of RECORDING, CHECK in V134); stage counts
+        // the pauses already resumed -- the egresses of a stage start after a resume, the track rows carry the stage they belong to.
+        attribute(name = "pausedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "paused_at" }
+        }
+        attribute(name = "stage", type = "Int") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "stage"; "sqlType" to "SMALLINT" }
+        }
         // V1.9.115 (V94): the room's broadcast view FROZEN when the recording starts (a recompute uses this one), and whether the speaker
         // timeline (conference_recording_speaker_span) has been computed for this recording.
         attribute(name = "broadcastView", type = conferenceBroadcastView) {
@@ -431,6 +441,11 @@ classDiagram(name = "ConferenceRecording") {
                 "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode"
             }
         }
+        // V1.9.254 (V134): the stage (see ConferenceRecording.stage) this track row belongs to.
+        attribute(name = "stage", type = "Int") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "stage"; "sqlType" to "SMALLINT" }
+        }
     }
 
     // V1.9.115 (V94): the SMOOTHED speaker timeline of a recording -- an offset range plus the id of the person's video track row, never a
@@ -461,6 +476,34 @@ classDiagram(name = "ConferenceRecording") {
         }
         attribute(name = "endMs", type = "Long") {
             stereotype("Column") { "columnName" to "end_ms" }
+        }
+    }
+
+    // V1.9.254 (V134): one row per pause of a recording -- pause n ends stage n - 1. No person column. The composer cuts these stretches out
+    // of the finished video. Written ONLY by ConferenceRoomPauseCoordinator / RecordingPoller.transitionToStopping. ON DELETE CASCADE with
+    // the recording (V134); kUML cannot express the cascade, the migration is the source of truth for it.
+    val conferenceRecordingPause = classOf(name = "ConferenceRecordingPause") {
+        stereotype("Entity") {
+            "tableName" to "conference_recording_pause"
+            "kotlinObjectName" to "ConferenceRecordingPauseTable"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "recordingId", type = "UUID") {
+            stereotype("Column") { "columnName" to "recording_id"; "fkEntity" to "ConferenceRecording" }
+        }
+        attribute(name = "seq", type = "Int") {
+            stereotype("Column") { "columnName" to "seq"; "sqlType" to "SMALLINT" }
+        }
+        attribute(name = "pausedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "paused_at" }
+        }
+        attribute(name = "resumedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "resumed_at" }
         }
     }
 }

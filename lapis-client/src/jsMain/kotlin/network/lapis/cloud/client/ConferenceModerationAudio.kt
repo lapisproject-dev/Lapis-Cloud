@@ -404,6 +404,7 @@ internal class ConferenceModerationPanel(
     private val onJoinLeaveSounds: (enabled: Boolean, revert: () -> Unit) -> Unit = { _, _ -> },
     reactions: Boolean = true,
     private val onReactions: (enabled: Boolean, revert: () -> Unit) -> Unit = { _, _ -> },
+    private val onPause: () -> Unit = {},
     private val onMuteOnJoin: (value: Boolean, revert: () -> Unit) -> Unit,
     private val onLock: (locked: Boolean, revert: () -> Unit) -> Unit,
 ) {
@@ -414,6 +415,19 @@ internal class ConferenceModerationPanel(
             content = tr("Moderation"),
             className = "btn btn-outline-secondary btn-sm lapis-conference-moderation-toggle",
         )
+
+    /**
+     * V1.9.254 -- the pause toggle ("⏸ Pause" / "▶ Fortsetzen"), always visible next to "Moderation" (not inside the closed body). An
+     * option that cannot be used right now is `aria-disabled` + `aria-describedby`, never `disabled`.
+     */
+    val pauseButton: Tag =
+        root.tag(
+            TAG.BUTTON,
+            content = tr("⏸ Pause"),
+            className = "btn btn-outline-secondary btn-sm lapis-conference-pause-toggle",
+        )
+    private val pauseReason: Div = root.div(className = "text-muted small")
+    private var pauseAvailable = false
     private val body: Div = root.div(className = "lapis-conference-moderation-body")
 
     // The switch state lives here, not in the DOM: a closed body is not rendered at all (a hidden KVision widget leaves the DOM), so the
@@ -468,6 +482,11 @@ internal class ConferenceModerationPanel(
         )
         rasterInput.onEvent { change = { chooseBroadcastView(ConferenceBroadcastView.RASTER) } }
         speakerInput.onEvent { change = { chooseBroadcastView(ConferenceBroadcastView.SPEAKER) } }
+        pauseButton.setAttribute("type", "button")
+        pauseButton.setAttribute("aria-pressed", "false")
+        pauseReason.setAttribute("id", PAUSE_REASON_ID)
+        pauseReason.hide()
+        pauseButton.onEvent { click = { if (pauseAvailable) onPause() } }
         toggle.setAttribute("type", "button")
         toggle.setAttribute("aria-controls", BODY_ID)
         body.setAttribute("id", BODY_ID)
@@ -599,6 +618,36 @@ internal class ConferenceModerationPanel(
         setAttrIfChanged("aria-checked", value.toString())
     }
 
+    /** Applies the pause toggle state (V1.9.254). */
+    fun setPause(state: PauseButtonState) {
+        pauseAvailable = state.available
+        val label = state.label
+        if (pauseButton.content != label) pauseButton.content = label
+        pauseButton.setAttrIfChanged("aria-pressed", state.pressed.toString())
+        if (state.available) {
+            pauseButton.removeAttribute("aria-disabled")
+            pauseButton.removeAttribute("aria-describedby")
+            pauseButton.removeCssClass("disabled")
+        } else {
+            pauseButton.setAttrIfChanged("aria-disabled", "true")
+            pauseButton.addCssClass("disabled")
+            val describedBy = state.reason?.let { PAUSE_REASON_ID }
+            if (describedBy != null) {
+                pauseButton.setAttrIfChanged("aria-describedby", describedBy)
+            } else {
+                pauseButton.removeAttribute("aria-describedby")
+            }
+        }
+        pauseButton.setAttrIfChanged("aria-busy", state.busy.toString())
+        val reason = state.reason
+        if (reason != null) {
+            if (pauseReason.content != reason) pauseReason.content = reason
+            pauseReason.show()
+        } else {
+            pauseReason.hide()
+        }
+    }
+
     fun setBusy(busy: Boolean) {
         rasterInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
         speakerInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
@@ -613,6 +662,7 @@ internal class ConferenceModerationPanel(
         const val LOCK_ID = "lapis-conference-lock-microphones"
         const val JOIN_LEAVE_SOUNDS_ID = "lapis-conference-join-leave-sounds"
         const val REACTIONS_ID = "lapis-conference-reactions"
+        const val PAUSE_REASON_ID = "lapis-conference-pause-reason"
         const val BODY_ID = "lapis-conference-moderation-body"
         const val VIEW_RASTER_ID = "lapis-conference-broadcast-view-raster"
         const val VIEW_SPEAKER_ID = "lapis-conference-broadcast-view-speaker"

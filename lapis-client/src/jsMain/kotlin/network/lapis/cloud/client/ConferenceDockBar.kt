@@ -92,11 +92,7 @@ internal fun dockBarViewOf(
             is DockState.Stopped -> dockStopText(state.reason)
             is DockState.Idle -> ""
         }
-    val badges =
-        buildList {
-            if (snapshot?.recording == true) add(tr("● Aufzeichnung"))
-            if (snapshot?.streaming == true) add(if (snapshot.streamPaused) tr("◆ Live-Stream pausiert") else tr("◆ Live-Stream"))
-        }
+    val badges = captureBadges(snapshot)
     val voteBadge = snapshot?.voteOpen == true
     val screenShare = snapshot?.screenSharing == true
     val live = state is DockState.Live
@@ -192,6 +188,15 @@ private fun consentChanges(
             resolvedAttributeText(
                 if (after.streamPaused) tr("Live-Stream pausiert") else tr("Live-Stream fortgesetzt"),
             )
+    }
+    // V1.9.254: the pause of the room is announced with what it stops; the badge itself only says "⏸ Pause".
+    if (before?.roomPause != after.roomPause) {
+        val scope = after.roomPause
+        if (scope != null) {
+            result += resolvedAttributeText(roomPauseAnnouncement(scope))
+        } else if (before?.roomPause != null) {
+            result += resolvedAttributeText(tr("Pause beendet"))
+        }
     }
     return result
 }

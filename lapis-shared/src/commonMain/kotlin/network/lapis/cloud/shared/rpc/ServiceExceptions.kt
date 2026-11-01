@@ -1069,3 +1069,21 @@ class ActivismResponsibleLimitException(
 class ActivismInvalidTransitionException(
     override val message: String = "This status change is not allowed",
 ) : AbstractServiceException()
+
+/** V1.9.254 -- distinct type. Pause mode: neither a recording nor a live stream is running in this room, so there is nothing to pause. */
+@RpcServiceException
+class ConferenceRoomPauseNothingToPauseException(
+    override val message: String = "Neither a recording nor a live stream is running",
+) : AbstractServiceException()
+
+/** V1.9.254 -- distinct type. The room is paused: a recording or stream cannot be started (or a paused stream resumed on its own) until the room is resumed. */
+@RpcServiceException
+class ConferenceRoomPausedException(
+    override val message: String = "The session is paused",
+) : AbstractServiceException()
+
+/** V1.9.254 -- distinct type. The recording already has the maximum number of pauses. */
+@RpcServiceException
+class ConferenceRoomPauseLimitException(
+    override val message: String = "Too many pauses in this recording",
+) : AbstractServiceException()

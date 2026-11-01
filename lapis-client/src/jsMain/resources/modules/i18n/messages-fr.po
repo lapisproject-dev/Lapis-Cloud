@@ -29610,3 +29610,51 @@ msgstr "Sans secteur"
 
 msgid "Zur Aktion"
 msgstr "Vers l’action"
+
+msgid "⏸ Pause"
+msgstr "⏸ Pause"
+
+msgid "▶ Fortsetzen"
+msgstr "▶ Reprendre"
+
+msgid "Wird pausiert …"
+msgstr "Mise en pause …"
+
+msgid "Wird fortgesetzt …"
+msgstr "Reprise …"
+
+msgid "Weder Aufzeichnung noch Live-Stream laufen."
+msgstr "Ni enregistrement ni diffusion en direct en cours."
+
+msgid "⏸ Pause: Aufzeichnung und Live-Stream sind angehalten."
+msgstr "⏸ Pause : l'enregistrement et la diffusion en direct sont arrêtés."
+
+msgid "⏸ Pause: Die Aufzeichnung ist angehalten."
+msgstr "⏸ Pause : l'enregistrement est arrêté."
+
+msgid "⏸ Pause: Der Live-Stream ist angehalten."
+msgstr "⏸ Pause : la diffusion en direct est arrêtée."
+
+msgid "Sie können weiter miteinander sprechen."
+msgstr "Vous pouvez continuer à vous parler."
+
+msgid "Pause: Aufzeichnung und Live-Stream angehalten"
+msgstr "Pause : enregistrement et diffusion en direct arrêtés"
+
+msgid "Pause: Aufzeichnung angehalten"
+msgstr "Pause : enregistrement arrêté"
+
+msgid "Pause: Live-Stream angehalten"
+msgstr "Pause : diffusion en direct arrêtée"
+
+msgid "Pause beendet"
+msgstr "Pause terminée"
+
+msgid "Die Sitzung ist pausiert. Setzen Sie zuerst fort."
+msgstr "La séance est en pause. Reprenez-la d'abord."
+
+msgid "Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht."
+msgstr "Cet enregistrement a atteint le nombre maximal de pauses."
+
+msgid "ist wegen der Pause angehalten"
+msgstr "est arrêtée à cause de la pause"

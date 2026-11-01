@@ -32,7 +32,7 @@ class ConferenceRecordingSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the three recording entities plus the Member/ConferenceRoom/Document stubs") {
+        test("model declares exactly the four recording entities plus the Member/ConferenceRoom/Document stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -41,6 +41,7 @@ class ConferenceRecordingSchemaDriftTest :
                     "conference_recording",
                     "conference_recording_track",
                     "conference_recording_speaker_span",
+                    "conference_recording_pause",
                 )
         }
 

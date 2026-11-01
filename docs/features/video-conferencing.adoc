@@ -417,6 +417,18 @@ X (formerly Twitter) is a platform of its own in the admin list "Stream-Ziele". 
 
 Details: link:../architecture/conference-recording.adoc[conference-recording.adoc], section "Streams (RTMP)".
 
+== Pause mode (V1.9.254)
+
+A moderator (room creator, BOARD, ADMIN) can pause the *recording* and the *live stream* of a room while everybody keeps talking. The *Pause* button sits next to "Moderation" in the sheet of the call controls; while the room is paused it reads *Fortsetzen*, and the banner of the call has a *Fortsetzen* button too.
+
+* *What is paused.* Only what runs: a recording that is recording, a stream that is starting or live. A stream already paused for a secret ballot or by hand is not touched. If neither runs, the button is unavailable (`aria-disabled`, the reason is under it: "Weder Aufzeichnung noch Live-Stream laufen.").
+* *One banner.* The existing room notice (`role="status"`) says what is stopped: "⏸ Pause: Aufzeichnung und Live-Stream sind angehalten. Sie können weiter miteinander sprechen." (variants for the recording alone and the stream alone). With a secret ballot it is the same banner: the ballot sentence first, then the pause sentence, and "Die Aufzeichnung der Sitzung läuft weiter." is dropped while the recording is stopped. The mini bar and the floating window show one badge "⏸ Pause" for what is stopped.
+* *Recording.* The recording stays one file. The pauses are cut out of the video; its length is the length after the cut. The recording is stopped for real (no private talk in the raw files, apart from the 1 to 3 s after the click, see the architecture note).
+* *Live stream.* Stopped and started again with the room: the platform sees an interruption, *the switch is not seamless*. There is no pause picture in this step (a later step).
+* *While paused* a recording or stream cannot be started (the buttons say "Die Sitzung ist pausiert. Setzen Sie zuerst fort."); stopping works and ends the pause when nothing is paused any more. The maximum duration of a recording or stream is measured on the wall clock including the pauses.
+* *Limits.* 20 pauses per recording. Encounter rooms and breakout rooms are not supported. Everybody in the room learns of a pause from a data packet (`capture_pause` / `capture_resume`) and from the recording and stream state they read anyway, so a late joiner or a reload sees the same banner. Whether a guest without an account reads that state is the same as for the recording notice today.
+* *Audit.* One entry per pause and per resume on the room (`capturePause` on/off, which parts), no names.
+
 == Unavailable options in event rooms (V1.9.158)
 
 An option that cannot work in a room is not offered, or it is `aria-disabled` with a reason; it never ends in a bare "no permission".

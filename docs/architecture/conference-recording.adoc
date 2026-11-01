@@ -33,6 +33,14 @@ stateDiagram(name = "Conference recording") {
     transition(source = stopping, target = failed) { trigger = "NO_TRACKS, EGRESS_TIMEOUT" }
     transition(source = processing, target = ready) { trigger = "composition archived" }
     transition(source = processing, target = failed) { trigger = "NO_TRACK_STORED, COMPOSE_FAILED (attempts exhausted)" }
+    transition(source = recording, target = recording) {
+        trigger = "pauseRoomCapture: paused_at set, pause row opened, egresses stopped"
+        guard = "[moderator, something runs, fewer than 20 pauses]"
+    }
+    transition(source = recording, target = recording) {
+        trigger = "resumeRoomCapture: pause row closed, stage + 1, paused_at cleared, new egresses start"
+        guard = "[paused]"
+    }
     transition(source = failed, target = processing) {
         trigger = "retryRecordingComposition / recomputeRecording (moderator): attempts = MAX - 1"
         guard = "[failure_code = COMPOSE_FAILED, raw files present]"
@@ -48,6 +56,27 @@ stateDiagram(name = "Conference recording") {
 with the fixed German `failure_reason` text by `RecordingPoller.markFailed`. The client renders its own text per code and never the server's `failure_reason`.
 
 A READY recording that is being recomputed is still READY: `recompute_started_at` (V89) is a sub-state of READY, see <<Recompute>>.
+
+== Pauses (stages and cut-outs, V1.9.254)
+
+A moderator can pause what runs in a room (recording, live stream, or both) while people keep talking (`pauseRoomCapture` / `resumeRoomCapture` of `IConferenceModerationService`). *A pause stops the egresses; it never records and cuts afterwards.* Otherwise private talk would sit in the raw files and the banner "Aufzeichnung angehalten" would be untrue.
+
+State (migration `V134`; no new status value):
+
+* `conference_room.capture_paused_at` is set while the room is paused. It is also the lock anchor: pause and resume lock the room row `FOR UPDATE` (lock order room, recording, stream), which serialises double clicks. The scope (recording, stream, both) is *derived*, never stored: the recording is paused when `conference_recording.paused_at` is set, the stream when it is `PAUSING`/`PAUSED` with the pause reason `ROOM_PAUSE`.
+* `conference_recording.paused_at` is a sub-state of `RECORDING` (CHECK), like `recompute_started_at` is one of `READY`. `conference_recording.stage` counts the resumed pauses; every track row carries the `stage` it was started in (`conference_recording_track.stage`).
+* `conference_recording_pause` has one row per pause (`seq` = stage + 1, `paused_at`, `resumed_at`; no person column; `ON DELETE CASCADE`). At most one row is open; H2 has no partial index, so this is enforced in code under the room lock.
+
+Mechanics:
+
+* *Pause:* `RecordingPoller` sees `paused_at`, sends ONE `StopEgress` per running row (both egress modes), refreshes the rows from `ListEgress` and starts nothing. The coordinator only wakes the poller (`requestTick`), so there is a single place that stops egresses.
+* *Resume:* the pause row is closed and `stage` is incremented. The poller starts egresses again; only the rows of the *current stage* count as known (the same participant SID or track SID must be recorded again) and against `maxTracks`. Over all stages a recording gets at most `4 x maxTracks` rows (bounds the remux effort; reached once, it logs counts only).
+* *Stop in a pause* (`stopRecording`, room ended, maximum duration): the open pause row is closed at the stop time and `paused_at` cleared; the rest up to the end is cut out. If nothing else is paused, `capture_paused_at` is cleared in the same transaction and an audit entry "ended_nothing_left" is written.
+* *Limit:* `MAX_PAUSES_PER_RECORDING = 20` (a constant); more is refused with `ConferenceRoomPauseLimitException`.
+
+Cut-outs: `RecordingPauseCuts.compute` turns the pauses into wall-clock stretches relative to `t0`. The start is `paused_at`; the end is the later of `resumed_at` and the first start of a track of the next stage (the new egresses need a moment); an open pause runs to the end. What the stopping egresses still wrote after the click (1 to 3 s) is cut too. Server clock and LiveKit clock (`started_at_epoch_nanos`) are assumed equal (same host); a skew shifts the cut by exactly that skew. The edit decision list treats the cut borders as *hard* cut points (never merged away by `MIN_CUT_FRAMES`) and drops the segments inside; `EdlSegment.startFrame/endFrame` are *output* frames (gap-free), `EdlSegment.sourceStartFrame` is where the segment reads the source (`SegmentArgumentBuilder` seeks with it). `duration_seconds` is the length after the cut (`RecordingComposeSpec.finalDurationSeconds`); a recording with less than one second left fails with `COMPOSE_FAILED` (no new failure code). A recompute uses the same cut-outs. The speaker timeline stays on the wall clock; the edit decision list maps it.
+
+*Not covered:* in the first 1 to 3 s after the click the egresses still write into the *raw files* (the finished video has them cut out). While `keep_raw` keeps the raw files, they contain that stretch. Encounter rooms and breakouts are not supported.
 
 == Edit decision list
 
@@ -135,7 +164,9 @@ In TRACK mode the audio inputs are the MICROPHONE tracks, in PARTICIPANT mode th
 
 == Streams (RTMP) -- what is and is not different
 
-Nothing changes on the server for streams: `startStream` stores the layout it is given, as before. The start dialog pre-selects `GRID` for *Raster* and `SPEAKER` for *Sprecher groß*; every layout can still be chosen. LiveKit's own template (`grid` / `speaker`) does the arrangement and the switching, **not** our 2 s smoothing; whether that template shows a shared screen large is not verified (there is no test against a real LiveKit here). There is no "pinned person with a strip" in a stream (only `SINGLE_PARTICIPANT`, one person without a strip). The setting applies from the next stream start; pausing and resuming keep the layout of the row.
+*Room pause (V1.9.254).* A stream of the room is paused with the pause reason `ROOM_PAUSE` through the same stop-confirm-finalize kernel as `pauseStream` (`quiesceStreamEgress`): `PAUSING`, `StopEgress`, confirmation with `ListEgress`, then `PAUSED`. On resume a *new* egress is started (`restartEgressForStream`), or `StreamPoller.handlePaused` does it when the stream was still `PAUSING` or the process restarted (a `PAUSED`+`ROOM_PAUSE` stream whose room is no longer paused is started). *This is not seamless:* the platform sees an interruption at every pause and resume, and whether a platform (YouTube "auto-stop", X) ends the broadcast meanwhile is *not verified*. A seamless picture change would need a LiveKit Egress that can show a picture without the room audio (a custom egress template, or an RTMP relay such as MediaMTX in front of the platform); `UpdateStream` only changes the target URLs and `UpdateLayout` only switches between the layouts of the template. Neither is part of this wave. A stream paused for a secret ballot or by hand is *not* part of the pause scope; a manual `pauseStream` on a room-pause stream takes it out of the scope (reason `MANUAL`), `resumeStream` of a room-pause stream is refused while the room is paused, and a ballot that ends while the room is paused turns the ballot pause into a room pause (the stream starts with the room).
+
+Nothing else changes on the server for streams: `startStream` stores the layout it is given, as before. The start dialog pre-selects `GRID` for *Raster* and `SPEAKER` for *Sprecher groß*; every layout can still be chosen. LiveKit's own template (`grid` / `speaker`) does the arrangement and the switching, **not** our 2 s smoothing; whether that template shows a shared screen large is not verified (there is no test against a real LiveKit here). There is no "pinned person with a strip" in a stream (only `SINGLE_PARTICIPANT`, one person without a strip). The setting applies from the next stream start; pausing and resuming keep the layout of the row.
 
 === X (V1.9.131)
 

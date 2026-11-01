@@ -159,7 +159,8 @@ object SegmentArgumentBuilder {
     ): List<String> {
         val frames = seg.frames
         require(frames > 0) { "segment must have at least one frame" }
-        val segStart = seg.startFrame.toDouble() / fps
+        // V1.9.254: source time, not output time (they differ after a pause cut-out)
+        val segStart = seg.sourceStartFrame.toDouble() / fps
         val duration = frames.toDouble() / fps
         val cells = cells(seg = seg, canvas = canvas)
         val args = mutableListOf("-y", "-nostdin", "-hide_banner", "-loglevel", "error")
@@ -231,8 +232,9 @@ object SegmentArgumentBuilder {
         val frames = seg.frames
         require(frames > 0) { "segment must have at least one frame" }
         val total = sampleCount(frames = frames, fps = fps)
-        val segStart = seg.startFrame.toDouble() / fps
-        val segEnd = seg.endFrame.toDouble() / fps
+        // V1.9.254: source time, not output time (they differ after a pause cut-out)
+        val segStart = seg.sourceStartFrame.toDouble() / fps
+        val segEnd = (seg.sourceStartFrame + frames).toDouble() / fps
         val args = mutableListOf("-y", "-nostdin", "-hide_banner", "-loglevel", "error")
         val parts = mutableListOf<String>()
         var inputs = 0
