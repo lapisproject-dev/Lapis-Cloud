@@ -80,7 +80,14 @@ private fun renderActivismForm(
             hint = tr("Eine ganze Zahl, zum Beispiel 500."),
         )
     val unit = form.textField(label = tr("Einheit"), value = existing?.unit, hint = tr("Zum Beispiel Plakate oder Unterschriften."))
-    val confirm = form.checkField(label = tr("Gemeldete Mengen müssen bestätigt werden"), value = existing?.confirmContributions ?: false)
+    // A check box cannot be hidden through LapisField.setVisible (text controls only): it lives in its own host that is shown or hidden.
+    val confirmHost = form.panel.div()
+    val confirm =
+        form.checkField(
+            label = tr("Gemeldete Mengen müssen bestätigt werden"),
+            value = existing?.confirmContributions ?: false,
+            host = confirmHost,
+        )
     val formSignal = form.checkField(label = tr("Mit Zusage (Ich komme)"), value = existing?.formSignal ?: false)
     val ownNotice = form.textAreaField(label = tr("Eigener Hinweis zu den Regeln"), rows = 3, value = existing?.ownNotice)
 
@@ -91,7 +98,12 @@ private fun renderActivismForm(
         val progress = formProgress.value == "true"
         goal.setVisible(progress)
         unit.setVisible(progress)
-        confirm.setVisible(progress)
+        if (progress) {
+            confirmHost.show()
+        } else {
+            confirm.clearError()
+            confirmHost.hide()
+        }
     }
     formAppointment.subscribe { sync() }
     formProgress.subscribe { sync() }
@@ -101,7 +113,9 @@ private fun renderActivismForm(
     val save = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     form.buttons(primary = save)
     save.onClick {
-        val goalValue = goal.value.trim().takeIf { it.isNotEmpty() }
+        // Only what is visible is sent: a hidden field keeps its value in the form, but never reaches the server.
+        val progress = formProgress.value == "true"
+        val goalValue = if (progress) goal.value.trim().takeIf { it.isNotEmpty() } else null
         val parsedGoal = goalValue?.let { ActivismLogic.parseWhole(it, ActivismLimits.GOAL_QUANTITY_MIN, ActivismLimits.GOAL_QUANTITY_MAX) }
         if (goalValue != null && parsedGoal == null) {
             goal.showError(gettext("Bitte geben Sie eine ganze Zahl zwischen 1 und 1.000.000 ein."))
@@ -120,11 +134,11 @@ private fun renderActivismForm(
                 endsAt = endsAt,
                 kind = ActivismKind.valueOf(kind.value),
                 formAppointment = appointment,
-                formProgress = formProgress.value == "true",
+                formProgress = progress,
                 formSignal = formSignal.value == "true",
                 goalQuantity = parsedGoal,
-                unit = unit.value,
-                confirmContributions = confirm.value == "true",
+                unit = if (progress) unit.value else "",
+                confirmContributions = progress && confirm.value == "true",
                 ownNotice = ownNotice.value,
             )
         form.submit(save) {

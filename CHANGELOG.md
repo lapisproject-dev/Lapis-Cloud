@@ -6,6 +6,14 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.250 -- Fix crash in the Aktionen form
+
+- Fix: "Neue Aktion" and the edit form crashed while the page was built (`LapisField.setVisible` was called on the check box "Gemeldete Mengen müssen bestätigt werden", which only text controls support), so no action could be created or edited since v0.44.0. The check box now sits in its own container that is shown or hidden.
+- Fix: fields that are hidden are no longer sent with stale values (`confirmContributions`, `goalQuantity`, `unit`). A hidden, invalid "Zielmenge" no longer blocks saving. **Behaviour to know:** an existing action that is switched to "ohne Fortschritt" is saved with `goalQuantity` empty, `unit` empty and `confirmContributions` off, and an action stored with `confirmContributions` on but without the progress form is normalised to off on its next save. The values stay in the form while it is open, so ticking the progress form again brings them back.
+- Tests: new browser tests (`ActivismFormDomTest`) build the real screen (new and edit), toggle the forms, check what is sent and pin that `setVisible` on a check or select field still fails loud.
+- Not verified on a real instance yet; reproduced from the code and a screenshot, then covered by a browser test.
+- No migration, no environment variable, no server change, no PostgreSQL run.
+
 ### V1.9.249 -- Events tab for partner-only instances
 
 - Fix: the public Events tab was missing when only partner events were visible (known case: Apolda). It now uses the same visibility rule as `/veranstaltungen` (`PartnerEventDisplay.loadVisible`); the partner query runs only when no own event exists.
