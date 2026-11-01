@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.45.2] — 2026-11-01
+
+Patch release on `[0.45.1]` (two waves, V1.9.251 and V1.9.252). **No migration (schema stays `V133`), no new environment variable, no new dependency.** Behaviour to know: (1) **new event cover uploads are centre-cropped on the server to exactly 4:3**, the public event page shows the cover in a 4:3 frame at most 36 rem wide; existing covers are not re-cropped; a portrait photo now needs at least 800 px width; (2) the browser tab title of pages with a constant subtitle no longer shows an internal marker. Checked with unit and browser tests (headless Chrome) and on H2; **not** verified on a real instance.
+
 ### V1.9.252 -- Event cover image in one 4:3 format
 
 - New event cover uploads are centre-cropped on the server to exactly 4:3 landscape, after the EXIF rotation and before the downscale (stored at most 1600x1200). A 16:9 photo loses the left and right edge, a portrait photo the top and bottom.

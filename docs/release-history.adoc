@@ -557,6 +557,8 @@ tried with real participants or on a real device, and the Keycloak provisioning 
 
 **`v0.45.1`** (waves V1.9.249 and V1.9.250, schema `V133`) is a patch release on `v0.45.0`. The Aktionen form works again ("Neue Aktion" and the edit form crashed while the page was built since `v0.44.0`, so no action could be created or edited), and a hidden field is no longer sent with a stale value. The public Events tab now also appears on an instance that has only partner events. No migration, no new environment variable, no new dependency. Tested with browser tests in headless Chrome and on H2; not verified on a real instance; see `CHANGELOG.md` `[0.45.1]`.
 
+**`v0.45.2`** (waves V1.9.251 and V1.9.252, schema `V133`) is a patch release on `v0.45.1`. New event cover uploads are centre-cropped on the server to exactly 4:3 and the public event page shows the cover at most 36 rem wide in a 4:3 frame (existing covers are not re-cropped; a portrait photo now needs at least 800 px width). The browser tab title no longer shows an internal marker on pages with a constant subtitle. No migration, no new environment variable, no new dependency. Tested with unit and browser tests and on H2; not verified on a real instance; see `CHANGELOG.md` `[0.45.2]`.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,
