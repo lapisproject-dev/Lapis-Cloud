@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.45.0] — 2026-11-01
+
+Small feature release on `[0.44.0]` (one wave, V1.9.248). **No migration (schema stays `V133`), no new environment variable, no new dependency.** Behaviour to know: the embed script `lapis-widgets.js` grows to 24208 bytes (hosts that pin it with Subresource Integrity must update the hash) and `GET /api/embed/v1/events?quelle=alle` is new; without the parameter the answer is byte-identical.
+
 ### V1.9.248 -- Events list widget and partner events in the embed feed
 
 No migration, no new environment variable, no new dependency.
@@ -21,7 +25,7 @@ No migration, no new environment variable, no new dependency.
 - Documentation: the claim "< 12 KB" in `website-integration.adoc` and the statement that the embed feed never carries partner events (`partner-servers.adoc`) are corrected.
 - `PartnerServerTripwireTest`: the embed feed may now read foreign events, but only through `PartnerEventDisplay` (still never the tables or stores directly).
 
-**Behaviour to know**: the partner `originName` of a direct partner is the label the administrator gave it; the relay chain `via` is part of the feed answer (not shown by the widget) and so becomes visible to anyone who asks with `?quelle=alle`. The attribute names carry no `lapis` prefix, unlike the other widgets.
+**Behaviour to know**: the partner `originName` of a direct partner is the label the administrator gave it, otherwise the partner's own name or its host; the relay chain `via` is part of the feed answer (not shown by the widget) and so becomes visible to anyone who asks with `?quelle=alle`. The attribute names carry no `lapis` prefix, unlike the other widgets.
 
 **Not verified**: not tried on parteidervernunft.de or libertasbiblica.de, not on real phones, not with screen readers, and only in Chrome (headless); Firefox and Safari were not run. No PostgreSQL lane (no query or migration changed).
 

@@ -107,7 +107,7 @@ and the feed can carry the events of the partner servers on request (see <<event
 
 Wave V1.4.34/V1.4.36 adds a sixth, read-only surface — `GET /api/embed/v1/articles` (see
 <<articles-list-widget>>) — a JSON list of the newest published articles, structurally a 1:1
-mirror of the events list widget. Likewise no `data-lapis-widget="..."` hydration counterpart.
+mirror of the events list widget. Unlike the events list (since V1.9.248), it has no `data-lapis-widget="..."` hydration counterpart.
 
 All six are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
 
@@ -726,7 +726,7 @@ Since V1.9.248 `lapis-widgets.js` renders this list itself. It is one more host 
 |Attribute |Meaning |Default
 
 |`data-limit`
-|Number of entries, decimal digits only, clamped to 1 to 20. Anything else is the default.
+|Number of entries, decimal digits only. Values above 20 become 20; `0` or anything else is the default.
 |`5`
 
 |`data-source`
@@ -788,7 +788,7 @@ Each `partnerEvents` entry has exactly these keys (`locationText`, `summary` and
 |`https`, the origin's own host, validated at receipt and once more when answering.
 
 |`originName`, `originHost`
-|Display name (at most 80 characters) and host of the origin. For a direct partner `originName` is the label the administrator gave it.
+|Display name (at most 80 characters) and host of the origin. For a direct partner `originName` is the label the administrator gave it, otherwise the partner's own name or its host.
 
 |`via`
 |The relay chain as normalised hosts (at most 3). Empty for a direct partner.
