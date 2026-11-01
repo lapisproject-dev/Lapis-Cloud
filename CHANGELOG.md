@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.253 -- Raised hands stand out in the video conference
+
+- People with a raised hand now come first in the gallery and the filmstrip, in the order they raised the hand (new pure function `orderTilesByRaisedHands`). The own tile never moves; after lowering, a tile returns to its old place; a change of speaker or video does not reorder; without hands the layout is unchanged. A pinned person and the screen-share stage are not affected.
+- The "Hand gehoben" badge is filled gold (`--lapis-fleck`) with a hairline, and the tile gets a 2 px gold ring (`::before`, next to the speaker ring on `::after`). The badge bobs by 2 px only under `prefers-reduced-motion: no-preference`; with reduced motion the calm gold fill remains. Forced-colors uses `Highlight` for the ring. Tokens only; no new text, the catalogs are unchanged.
+- The cells of the floating window show the ring (class only, new `FloatMediaSource.handRaised`); they are not sorted by hands.
+- Tests: `ConferenceHandOrderTest`, new cases in `ConferenceViewControllerTest`, `ConferenceRaisedHandDomTest`, and a CSS text tripwire (`ClientConferenceRaisedHandCssTripwireTest`) that also carries the reduced-motion rule, because Headless Chrome cannot switch `prefers-reduced-motion` from page script.
+- **No migration, no server change, no new text, no PostgreSQL run** (no query or column changes).
+- Not verified with several real participants or real phones. Recording and stream layout are unchanged. The mini bar has no tiles, so it has no ring and no bobbing.
+
 ## [0.45.2] — 2026-11-01
 
 Patch release on `[0.45.1]` (two waves, V1.9.251 and V1.9.252). **No migration (schema stays `V133`), no new environment variable, no new dependency.** Behaviour to know: (1) **new event cover uploads are centre-cropped on the server to exactly 4:3**, the public event page shows the cover in a 4:3 frame at most 36 rem wide; existing covers are not re-cropped; a portrait photo now needs at least 800 px width; (2) the browser tab title of pages with a constant subtitle no longer shows an internal marker. Checked with unit and browser tests (headless Chrome) and on H2; **not** verified on a real instance.

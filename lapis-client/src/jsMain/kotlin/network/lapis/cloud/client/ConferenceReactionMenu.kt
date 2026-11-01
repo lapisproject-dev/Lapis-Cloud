@@ -36,6 +36,9 @@ internal const val CONFERENCE_REACTION_LAYER_CLASS = "lapis-conference-reaction-
 internal const val CONFERENCE_REACTION_ITEM_CLASS = "lapis-conference-reaction"
 internal const val CONFERENCE_HAND_BADGE_CLASS = "lapis-conference-hand-badge"
 
+/** V1.9.253: the class a tile carries while its person has a raised hand (gold ring, see theme.css). */
+internal const val CONFERENCE_TILE_HAND_CLASS = "lapis-conference-tile--hand"
+
 /** The emoji of a reaction (decorative, always `aria-hidden`). */
 internal fun conferenceReactionEmoji(reaction: ConferenceReaction): String =
     when (reaction) {
@@ -271,4 +274,5 @@ internal fun toggleHandBadge(
     on: Boolean,
 ) {
     badge.style.display = if (on) "inline-flex" else "none"
+    badge.classList.toggle("is-raised", on)
 }

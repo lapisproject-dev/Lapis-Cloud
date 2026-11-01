@@ -152,6 +152,11 @@ private class FloatCell(
         toggleSpeakingMark(el, speakingBadge, on)
     }
 
+    /** V1.9.253: only a class (the gold ring); no node is added. */
+    fun setHand(on: Boolean) {
+        el.classList.toggle(CONFERENCE_TILE_HAND_CLASS, on)
+    }
+
     fun show(
         source: FloatMediaSource,
         ledger: ConferenceVideoLedger,
@@ -180,10 +185,12 @@ private class FloatCell(
         }
         assignedKey = source.key
         setSpeaking(source.speakingMarked)
+        setHand(source.handRaised)
     }
 
     fun hide() {
         setSpeaking(false)
+        setHand(false)
         el.style.display = "none"
         fallback?.let { it.parentNode?.removeChild(it) }
         fallback = null
@@ -261,6 +268,7 @@ internal class FloatStage {
         for (cell in listOf(mainCell) + stripCells + insetCell) {
             val key = cell.assignedKey ?: continue
             cell.setSpeaking(byKey[key]?.speakingMarked == true)
+            cell.setHand(byKey[key]?.handRaised == true)
         }
     }
 

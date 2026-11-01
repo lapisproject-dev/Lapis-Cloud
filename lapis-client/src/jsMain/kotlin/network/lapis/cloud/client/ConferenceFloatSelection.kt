@@ -28,6 +28,8 @@ internal data class FloatMediaSource(
      * change which picture is the big one. Shares are never marked (they have no speaker identity).
      */
     val speakingMarked: Boolean = false,
+    /** V1.9.253: the person has a raised hand right now. Display only (a ring by class); it never changes which picture is the big one. */
+    val handRaised: Boolean = false,
 )
 
 /** The DOM-free view of a [FloatMediaSource] for the selection. */

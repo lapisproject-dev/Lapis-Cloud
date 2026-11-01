@@ -4059,7 +4059,13 @@ private fun enterCall(
             handControl?.apply(raised = controller.selfRaised, position = controller.selfPosition, busy = controller.busy)
         }
         val raised = controller.order.toSet()
-        for (entry in tiles.values) toggleHandBadge(entry.handBadge, entry.identity in raised)
+        for (entry in tiles.values) {
+            val up = entry.identity in raised
+            toggleHandBadge(entry.handBadge, up)
+            entry.element.classList.toggle(CONFERENCE_TILE_HAND_CLASS, up)
+        }
+        // V1.9.253: raised hands go first; a re-layout only when the list really changed (this redraw also runs for other changes)
+        if (viewController.setRaisedHands(controller.order)) applyConferenceGridReflow()
         handsPanel?.render(controller.order) { identity -> tiles[identity]?.displayName }
         dockHandRaisedSelf = controller.selfRaised
         dockRaisedHandsCount = raised.size.takeIf { it > 0 }
@@ -5114,7 +5120,10 @@ private fun enterCall(
         entry.nameBadge.textContent = tileLabel(entry)
         setTileGuest(entry, guestHomeserverByIdentity[identity])
         tiles[identity] = entry
-        handController?.let { toggleHandBadge(entry.handBadge, identity in it.order) }
+        handController?.let {
+            toggleHandBadge(entry.handBadge, identity in it.order)
+            entry.element.classList.toggle(CONFERENCE_TILE_HAND_CLASS, identity in it.order)
+        }
         viewController.participantJoined(identity)
         refreshRoster()
         applyConferenceGridReflow()
@@ -6785,6 +6794,7 @@ private fun enterCall(
                         home = entry.mediaSlot,
                         lastSpokeAtMs = lastSpokeAtMs[entry.identity] ?: 0L,
                         speakingMarked = speakingMark.isMarked(entry.identity, Clock.System.now().toEpochMilliseconds()),
+                        handRaised = handController?.order?.contains(entry.identity) == true,
                         setQuality = publication?.let { pub -> { quality: Int -> requestRemoteVideoQuality(pub, quality) } },
                     ),
                 )

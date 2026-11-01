@@ -319,6 +319,13 @@ Two small things that make a large call feel like a room: a *reaction* (applause
 * **Breakout rooms** have no raised-hand button: the queue belongs to the main room's LiveKit room and the presence rule would refuse a person who sits in a breakout room.
 * **An event guest without an account** sees the list, but the button is switched off ("Für Gäste ohne Konto nicht verfügbar"). A route that would let such a guest raise a hand with the LiveKit token they hold (`POST /api/conference/hand`, the token verified server side) was planned as an *optional step* and is *not built*: it needs a decision by the owner first (see the CHANGELOG, V1.9.127).
 
+=== Raised hands stand out (V1.9.253)
+
+* **Gold, never colour alone.** The tile badge of a raised hand is filled with the gold token (`--lapis-fleck`, black text, hairline) and still carries the hand symbol and the words "Hand gehoben". The tile gets a 2 px gold ring (a hairline in black inside and outside) on its `::before`; the speaker ring sits on `::after`, so both can be seen at once. In forced-colors mode the ring is `Highlight` and the badge keeps the system colours.
+* **Hands first.** In the gallery and in the filmstrip the people with a raised hand come first, in the order they raised the hand (pure function `orderTilesByRaisedHands`, fed to the layout through the position, never by overwriting the join order). The own tile does not move. After lowering, the tile goes back to its old place by itself. A change of speaker or of video does not reorder anything; the layout is only recomputed when the list of hands really changes. A pinned person and the stage of a screen share are not affected. Without hands the layout is exactly the one of before.
+* **Bobbing only when allowed.** The badge moves up and down by 2 px (`transform` only) under `prefers-reduced-motion: no-preference`; with reduced motion the calm gold fill alone remains, and the reduction block says nothing about the hand.
+* **Floating window.** The cells show the ring (a class only, no new badge). The cells are not sorted by hands. The mini bar has no tiles, so it shows neither ring nor bobbing; its counter was already a warning badge.
+
 === Not in the recording and not in the stream
 
 Reactions and hand badges are DOM overlays of the Lapis client. Recordings and streams do not contain them, and this holds only as long as nothing renders the client page into the broadcast:

@@ -14,6 +14,7 @@ import network.lapis.cloud.shared.conference.conferenceGalleryPageSize
 import network.lapis.cloud.shared.conference.conferenceViewFromStorage
 import network.lapis.cloud.shared.conference.conferenceViewStorageValue
 import network.lapis.cloud.shared.conference.initialConferenceView
+import network.lapis.cloud.shared.conference.orderTilesByRaisedHands
 import network.lapis.cloud.shared.conference.reduceConferenceView
 
 /*
@@ -52,6 +53,7 @@ internal class ConferenceViewController(
     private var shareIdentity: String? = null
     private var shareStartOrder = 0L
     private var shareOrderCounter = 0L
+    private var raisedHands: List<String> = emptyList()
 
     /** Current gallery page (clamped on every layout) and current filmstrip page. */
     var page: Int = 0
@@ -78,6 +80,19 @@ internal class ConferenceViewController(
         speakingByLevel = speakingByLevel.filter { it != identity }
         if (shareIdentity == identity) shareEnded()
         return state.pinnedId == identity
+    }
+
+    // -- raised hands (V1.9.253) ----------------------------------------------------------------------------------------------
+
+    /**
+     * The people with a raised hand, in the order they raised it (V1.9.253). They go first in the gallery / filmstrip. Returns `true` only
+     * when the list really changed, so the screen re-lays out on a change and not on every redraw. The real join order is never touched:
+     * a lowered hand sends the tile back to its old place by itself.
+     */
+    fun setRaisedHands(order: List<String>): Boolean {
+        if (order.joinToString("\u0000") == raisedHands.joinToString("\u0000")) return false
+        raisedHands = order.toList()
+        return true
     }
 
     // -- speakers -------------------------------------------------------------------------------------------------------------
@@ -179,8 +194,16 @@ internal class ConferenceViewController(
         hasVideo.keys.forEach { participantJoined(it) }
         joinOrder.keys.retainAll(hasVideo.keys)
         nowMs?.let { tick(it) }
+        // V1.9.253: with raised hands the order fed to the layout is the position in the hand-first order; the real join order stays as is
+        val effectiveOrder: Map<String, Long> =
+            if (raisedHands.isEmpty()) {
+                joinOrder
+            } else {
+                val base = joinOrder.keys.sortedBy { joinOrder.getValue(it) }
+                orderTilesByRaisedHands(base, raisedHands, selfId).withIndex().associate { (index, id) -> id to index.toLong() }
+            }
         val participants =
-            hasVideo.map { (identity, video) -> ConferenceViewParticipant(identity, joinOrder.getValue(identity), video) }
+            hasVideo.map { (identity, video) -> ConferenceViewParticipant(identity, effectiveOrder.getValue(identity), video) }
         val shares =
             shareIdentity?.takeIf { it in hasVideo }?.let { listOf(ConferenceViewScreenShare(it, shareStartOrder)) }.orEmpty()
         val result =

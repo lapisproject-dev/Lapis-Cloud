@@ -5211,6 +5211,35 @@ html.lapis-has-dock {
   font-size: 0.6875rem;
 }
 
+/* V1.9.253 -- gehobene Hand auffaelliger. Abzeichen: Gold-Flaeche (--lapis-fleck) mit schwarzem Text (Gold gegen Schwarz ca. 8,7:1 hell /
+   ca. 11:1 dunkel; die Kachel ist in jedem Theme dunkel) UND Haarlinie UND Symbol + Worte -- nie Farbe allein. Kachel: 2-px-Ring in Gold mit
+   schwarzer Innen- und Aussenlinie auf `::before` (der Sprecherring sitzt auf `::after`, beide ueberlagern sich nicht); `z-index: 1`, weil
+   `::before` im DOM vor Video und Namensschild steht. Die Bewegung (Wippen) steht NUR im Block `prefers-reduced-motion: no-preference`
+   weiter unten; bei "weniger Bewegung" bleibt die ruhige Gold-Flaeche (R54: im Reduktionsblock steht nichts zur Hand). Nur Tokens. */
+.lapis-conference-hand-badge.is-raised {
+  background: var(--lapis-fleck);
+  color: var(--lapis-media-bg);
+  box-shadow: 0 0 0 1px var(--lapis-media-bg);
+}
+
+.lapis-conference-tile--hand::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  border: 2px solid var(--lapis-fleck);
+  box-shadow: inset 0 0 0 1px var(--lapis-media-bg), 0 0 0 1px var(--lapis-media-bg);
+}
+
+/* kleine Flaechen: der Ring rueckt naeher an den Rand */
+.lapis-float-strip-cell.lapis-conference-tile--hand::before,
+.lapis-float-inset.lapis-conference-tile--hand::before,
+.lapis-conference-filmstrip .lapis-conference-tile--hand::before {
+  inset: 2px;
+}
+
 /* V1.9.133 -- Timer der Videokonferenz (nur Anzeige): ueber der Kachelflaeche, nie ueber einem Videobild. Ziffern 24 px fett mit tabellarischen
    Ziffern, links ein Fortschrittsring (20 px, Strich 3 px). Nur vorhandene Tokens. Kontraste (WCAG, gerechnet):
      normal  hell:   Ziffern --lapis-text #14181E auf --lapis-surface #FFFFFF = 17,8:1; Ring --lapis-accent #1E56C8 = 6,5:1
@@ -5443,6 +5472,22 @@ button.lapis-conference-timer:focus-visible {
   .lapis-conference-timer.is-pulsing {
     animation: lapis-conference-timer-pulse 1s ease-in-out infinite;
   }
+
+  /* V1.9.253: das Abzeichen der gehobenen Hand wippt (nur transform, +-2 px); bei "weniger Bewegung" existiert diese Regel nicht */
+  .lapis-conference-hand-badge.is-raised {
+    animation: lapis-conference-hand-bob 2s ease-in-out infinite;
+  }
+}
+
+@keyframes lapis-conference-hand-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
 @keyframes lapis-conference-timer-pulse {
@@ -5528,11 +5573,18 @@ button.lapis-conference-timer:focus-visible {
 }
 
 @media (forced-colors: active) {
-  .lapis-conference-hand-badge {
+  .lapis-conference-hand-badge,
+  .lapis-conference-hand-badge.is-raised {
     background: Canvas;
     color: CanvasText;
     border: 1px solid CanvasText;
+    box-shadow: none;
     forced-color-adjust: none;
+  }
+
+  .lapis-conference-tile--hand::before {
+    border-color: Highlight;
+    box-shadow: none;
   }
 }
 

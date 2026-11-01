@@ -168,4 +168,67 @@ class ConferenceViewControllerTest {
         assertEquals(7, pages)
         assertEquals(1, conferenceStripSlice(emptyList(), 3, 0).third)
     }
+
+    // -- V1.9.253: raised hands first -------------------------------------------------------------------------------------------
+
+    private fun galleryIds(
+        c: ConferenceViewController,
+        people: Map<String, Boolean>,
+        nowMs: Long? = null,
+    ) = c.layout(people, 1280.0, nowMs).galleryPage.map { it.identity }
+
+    @Test
+    fun aRaisedHand_putsThePersonFirstInTheGallery_andLoweringRestoresTheOrder() {
+        val c = controller()
+        val people = room("a", "b", "c")
+        val before = galleryIds(c, people)
+        assertEquals(listOf("me", "a", "b", "c"), before)
+        assertTrue(c.setRaisedHands(listOf("c", "b")))
+        assertEquals(listOf("me", "c", "b", "a"), galleryIds(c, people))
+        assertTrue(c.setRaisedHands(emptyList()))
+        assertEquals(before, galleryIds(c, people))
+    }
+
+    @Test
+    fun setRaisedHands_reportsOnlyRealChanges() {
+        val c = controller()
+        assertFalse(c.setRaisedHands(emptyList()))
+        assertTrue(c.setRaisedHands(listOf("a")))
+        assertFalse(c.setRaisedHands(listOf("a")))
+        assertTrue(c.setRaisedHands(listOf("a", "b")))
+    }
+
+    @Test
+    fun aSpeakerChange_doesNotReorderTheGalleryWithHands() {
+        val c = controller()
+        val people = room("a", "b", "c")
+        c.setRaisedHands(listOf("c"))
+        val first = galleryIds(c, people)
+        c.onSpeakers(0, listOf("a"))
+        assertEquals(first, galleryIds(c, people, nowMs = 100))
+        c.onSpeakers(200, listOf("b"))
+        assertEquals(first, galleryIds(c, people, nowMs = 1500))
+    }
+
+    @Test
+    fun withoutHands_theLayoutIsTheOneOfToday() {
+        val withController = controller()
+        val untouched = controller()
+        val people = room("a", "b", "c")
+        withController.setRaisedHands(listOf("a"))
+        withController.setRaisedHands(emptyList())
+        assertEquals(untouched.layout(people, 1280.0), withController.layout(people, 1280.0))
+    }
+
+    @Test
+    fun aPinnedPerson_staysPinned_whenAHandGoesUp() {
+        val c = controller()
+        val people = room("a", "b", "c")
+        c.layout(people, 1280.0)
+        c.pin("a")
+        c.setRaisedHands(listOf("c"))
+        val layout = c.layout(people, 1280.0)
+        assertEquals("a", layout.main?.identity)
+        assertEquals(ConferenceView.PINNED, layout.effectiveView)
+    }
 }
