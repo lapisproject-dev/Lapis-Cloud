@@ -3,6 +3,8 @@ package network.lapis.cloud.client
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.span
+import io.kvision.i18n.I18n
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import kotlinx.browser.document
 import org.w3c.dom.HTMLElement
@@ -30,6 +32,7 @@ class PageHeaderDomTest {
         liveRegion?.remove()
         liveRegion = null
         PageFocus.consume()
+        PageTitle.reset()
     }
 
     private fun mountLiveRegion(): HTMLElement {
@@ -252,6 +255,96 @@ class PageHeaderDomTest {
             } finally {
                 modal.remove()
             }
+        }
+    }
+
+    private val constantSubtitles =
+        listOf(
+            tr("Wir holen stündlich neue Daten von den Partnerservern."),
+            tr("Mitglieder-Stammdaten aus LupaBB werden abgeglichen."),
+            tr("Fügen Sie eine JSON-Liste früherer Artikel ein."),
+            tr("Fügen Sie eine JSON-Liste vergangener Veranstaltungen ein."),
+            tr("Sie sehen diese Seite mit Leserechten."),
+        )
+
+    @Test
+    fun documentTitle_constantSubtitle_carriesNoMarker_andVisibleParagraphToo() {
+        for (subtitle in constantSubtitles) {
+            withMountedRoot("page-header-const-subtitle") { root, element ->
+                root.pageHeader(tr("Partnerserver"), subtitle = subtitle)
+                val plain = subtitle.removePrefix(KV_I18N_MARKER)
+                assertEquals("Partnerserver – $plain – ${Branding.title}", document.title)
+                assertFalse(document.title.contains(KV_I18N_MARKER))
+                assertFalse(document.title.contains("Kvl18nS"))
+                val text = element().querySelector(".lapis-page-header p")?.textContent.orEmpty()
+                assertTrue(text.contains(plain), "visible subtitle shows the sentence: $text")
+                assertFalse(text.contains(KV_I18N_MARKER))
+            }
+            PageTitle.reset()
+        }
+    }
+
+    @Test
+    fun documentTitle_dataSubtitle_isVerbatim_andNeverTranslated() {
+        withMountedRoot("page-header-data-subtitle") { root, _ ->
+            val header = root.pageHeader(tr("Beitragshistorie"), subtitle = "")
+            withTranslations(mapOf("Erika Musterfrau" to "X")) {
+                header.setSubtitle("Erika Musterfrau")
+                assertEquals("Beitragshistorie – Erika Musterfrau – ${Branding.title}", document.title)
+                PageTitle.apply()
+                assertEquals("Beitragshistorie – Erika Musterfrau – ${Branding.title}", document.title)
+            }
+        }
+    }
+
+    @Test
+    fun documentTitle_dataSubtitle_onlyLeadingMarkerIsStripped() {
+        withMountedRoot("page-header-data-marker") { root, _ ->
+            val header = root.pageHeader(tr("Beitragshistorie"), subtitle = "")
+            header.setSubtitle("Kvl18nS Test $KV_I18N_MARKER mitte")
+            assertEquals("Beitragshistorie – Kvl18nS Test $KV_I18N_MARKER mitte – ${Branding.title}", document.title)
+            header.setSubtitle("${KV_I18N_MARKER}Name")
+            assertEquals("Beitragshistorie – Name – ${Branding.title}", document.title)
+        }
+    }
+
+    @Test
+    fun documentTitle_constantSubtitle_followsALanguageSwitch_viaTranslationsNotARealSwitch() {
+        withMountedRoot("page-header-const-switch") { root, _ ->
+            root.pageHeader(tr("Partnerserver"), subtitle = tr("Konstanter Untertitel"))
+            assertEquals("Partnerserver – Konstanter Untertitel – ${Branding.title}", document.title)
+            withTranslations(mapOf("Konstanter Untertitel" to "Translated")) {
+                PageTitle.apply()
+                assertEquals("Partnerserver – Translated – ${Branding.title}", document.title)
+            }
+        }
+    }
+
+    @Test
+    fun documentTitle_gettextResult_staysVerbatim_andUnknownPlainStringPassesTrans() {
+        withMountedRoot("page-header-gettext") { root, _ ->
+            val text = gettext("Willkommen, %1", "Erika")
+            root.pageHeader(tr("Übersicht"), subtitle = text)
+            assertEquals("Übersicht – $text – ${Branding.title}", document.title)
+            assertFalse(document.title.contains(KV_I18N_MARKER))
+        }
+        assertEquals("Ganz normaler Text", I18n.trans("Ganz normaler Text"))
+    }
+
+    @Test
+    fun documentTitle_setSubtitleReplacesConstant_andNewPageClearsOldData() {
+        withMountedRoot("page-header-switches") { root, _ ->
+            val header = root.pageHeader(tr("Partnerserver"), subtitle = tr("Konstanter Untertitel"))
+            header.setSubtitle("Erika")
+            withTranslations(mapOf("Konstanter Untertitel" to "Translated")) {
+                PageTitle.apply()
+                assertEquals("Partnerserver – Erika – ${Branding.title}", document.title)
+            }
+            header.setSubtitle(null)
+            assertEquals("Partnerserver – ${Branding.title}", document.title)
+            header.setSubtitle("Erika")
+            root.pageHeader(tr("Mitglieder"), subtitle = "")
+            assertEquals("Mitglieder – ${Branding.title}", document.title)
         }
     }
 }

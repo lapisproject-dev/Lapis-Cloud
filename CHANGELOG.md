@@ -6,6 +6,12 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.251 -- Fix i18n marker in the browser tab title
+
+- Fix: the browser tab title of pages with a constant subtitle (Partnerserver, LupaBB sync, the article and event import pages, the read-only bank statement import page) showed the internal marker `###KvI18nS###` in front of the subtitle, and the subtitle did not follow a language switch. The constant subtitle is now resolved like the title; subtitles set from loaded data are left verbatim (only a leading marker is removed).
+- Client only: **no migration, no server change, no new environment variable, no PostgreSQL run.**
+- Not verified on a real instance; reproduced from a screenshot and the code, then covered by browser tests.
+
 ## [0.45.1] — 2026-11-01
 
 Patch release on `[0.45.0]` (two waves, V1.9.249 and V1.9.250). **No migration (schema stays `V133`), no new environment variable, no new dependency.** Behaviour to know: (1) **the Aktionen form works again** — "Neue Aktion" and the edit form crashed while the page was built since `v0.44.0`, so no action could be created or edited; hidden fields are no longer sent with stale values; (2) the public **Events tab now also appears on an instance that has only partner events** and no own upcoming public event (known case: Apolda). Checked with unit and browser tests (headless Chrome) and on H2; **not** verified on a real instance, not on real phones.

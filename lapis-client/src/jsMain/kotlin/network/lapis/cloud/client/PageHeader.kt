@@ -88,19 +88,38 @@ class PageHeader internal constructor(
  */
 internal object PageTitle {
     private var titleKey: String? = null
-    private var subtitle: String? = null
 
+    /** A CONSTANT `tr()` subtitle from `pageHeader(...)`: still carries the marker, resolved again on every [apply]. */
+    private var subtitleKey: String? = null
+
+    /** A loaded DATA subtitle (or an already final text): shown verbatim, never passed to `I18n.trans` (no catalog lookup, no substitution). */
+    private var subtitleData: String? = null
+
+    /**
+     * Only a string that STARTS with [KV_I18N_MARKER] is a `tr()` key; anything else (a `gettext` result, the `""` placeholder, composed
+     * text) is already final and is stored as data.
+     */
     fun set(
         title: String,
         subtitle: String?,
     ) {
         titleKey = title
-        this.subtitle = subtitle?.takeIf { it.isNotBlank() }
+        subtitleKey = null
+        subtitleData = null
+        val s = subtitle?.takeIf { it.isNotBlank() }
+        if (s != null) {
+            if (s.startsWith(KV_I18N_MARKER)) subtitleKey = s else subtitleData = s
+        }
         apply()
     }
 
+    /**
+     * Loaded data replaces any constant subtitle. Only a LEADING marker is removed (as the visible `<p>` does); a marker in the middle
+     * stays. `document.title` is plain text, so there is no markup path.
+     */
     fun setSubtitle(text: String?) {
-        subtitle = text?.takeIf { it.isNotBlank() }
+        subtitleKey = null
+        subtitleData = text?.takeIf { it.isNotBlank() }?.removePrefix(KV_I18N_MARKER)?.takeIf { it.isNotBlank() }
         apply()
     }
 
@@ -108,14 +127,16 @@ internal object PageTitle {
     fun apply() {
         val key = titleKey ?: return
         val plain = resolvedAttributeText(key)
+        val sub = subtitleKey?.let { resolvedAttributeText(it) } ?: subtitleData
         // V1.9.70: a running recording / stream keeps its "● " marker on whatever page the person is on (tab title only, no personal data)
-        document.title = ConferenceDock.decorateTitle(listOfNotNull(plain, subtitle, Branding.title).joinToString(" – "))
+        document.title = ConferenceDock.decorateTitle(listOfNotNull(plain, sub, Branding.title).joinToString(" – "))
     }
 
     /** Test seam: forget the current page. */
     internal fun reset() {
         titleKey = null
-        subtitle = null
+        subtitleKey = null
+        subtitleData = null
     }
 }
 
