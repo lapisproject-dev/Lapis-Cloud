@@ -139,7 +139,7 @@ class EmbedAssetTest :
 
         test(
             "donationRange prelude: present with the correct min/max JSON when the PSP is Configured " +
-                "and the range is usable, and the served bundle stays within the 20480-byte budget " +
+                "and the range is usable, and the served bundle stays within the 24576-byte budget " +
                 "INCLUDING this line (Review MINOR, Round 3 -- the pre-existing budget tests below never " +
                 "exercised this branch, because testApp hardcodes PspConfigState.NotConfigured; see their " +
                 "own comment for why the budget itself had to move to accommodate this)",
@@ -150,7 +150,7 @@ class EmbedAssetTest :
                 // EmbedDonationLimits.effectiveMaxAmountEur -- and both bounds are stripped of their
                 // trailing ".00" (Review TRIVIAL fix, EmbedAssets.widgetJs).
                 body shouldContain """window.__lapisEmbedDonationRangeV1={"min":"5","max":"500"};"""
-                body.toByteArray(Charsets.UTF_8).size.toLong() shouldBeLessThanOrEqualTo 20480L
+                body.toByteArray(Charsets.UTF_8).size.toLong() shouldBeLessThanOrEqualTo 24576L
             }
         }
 
@@ -203,15 +203,34 @@ class EmbedAssetTest :
         // bounded, not stealth: the value is a named constant right here, not silently widened,
         // and the file stays unminified/readable (no minification used to "cheat" the budget
         // down) -- see `hydrateEvent()`'s own comments in `lapis-widgets.js` for the actual code.
-        test("lapis-widgets.js resource file is at most 20480 bytes unminified") {
+        // Raised a fifth time, 20480 -> 24576 bytes, in Welle V1.9.248 -- the fifth widget (`hydrateEvents()`, the events list: fetch with a
+        // 5 s timeout, merge of own and partner events, URL validation of foreign links, German copy, own CSS for the list and the visually
+        // hidden "external page" hint) added about 6.0 KB (the first estimate was 5 KB). Still unminified. The growth guard below pins that
+        // this wave did not add more than that; the next widget is loaded as a separate file (with an SRI concept), not squeezed in here.
+        test("lapis-widgets.js resource file is at most 24576 bytes unminified") {
             widgetsJs.exists() shouldBe true
-            widgetsJs.readBytes().size.toLong() shouldBeLessThanOrEqualTo 20480L
+            widgetsJs.readBytes().size.toLong() shouldBeLessThanOrEqualTo 24576L
         }
 
-        test("served bundle body is at most 20480 bytes INCLUDING the origin-allowlist prelude") {
+        test("the events widget grew the file by no more than 6144 bytes over the V1.9.247 base of 18248") {
+            widgetsJs.readBytes().size.toLong() shouldBeLessThanOrEqualTo 18248L + 6144L
+        }
+
+        test("the events widget: pinned endpoint, credentials, link rel, and no HTML-injecting API anywhere in the file") {
+            val js = widgetsJs.readText()
+            js shouldContain "kind === \"events\""
+            js shouldContain "credentials: \"omit\""
+            js shouldContain "/api/embed/v1/events"
+            js shouldContain "noopener noreferrer external"
+            for (forbidden in listOf("innerHTML", "insertAdjacentHTML", "outerHTML", "eval(", "setAttribute(\"style\"", "new Function")) {
+                js shouldNotContain forbidden
+            }
+        }
+
+        test("served bundle body is at most 24576 bytes INCLUDING the origin-allowlist prelude") {
             testApp {
                 val body = client.get("/embed/v1/lapis-widgets.js").bodyAsText()
-                body.toByteArray(Charsets.UTF_8).size.toLong() shouldBeLessThanOrEqualTo 20480L
+                body.toByteArray(Charsets.UTF_8).size.toLong() shouldBeLessThanOrEqualTo 24576L
             }
         }
 

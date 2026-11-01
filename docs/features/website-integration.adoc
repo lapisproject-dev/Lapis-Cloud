@@ -1,9 +1,9 @@
 = Website Integration (V1.4.1a/V1.4.1b/V1.4.3.3)
 :toc:
 
-A small (< 12 KB, no dependencies) embeddable script lets a partner website — a party's or
+A small (about 24 KB unminified, no dependencies) embeddable script lets a partner website — a party's or
 association's own site, on a *different* origin — offer a member-login button, a
-"become a member" link, an anonymous donation form, and an event-registration form, without ever
+"become a member" link, an anonymous donation form, an event-registration form, and (V1.9.248) a list of the next events (`data-lapis-widget="events"`), without ever
 sharing a session cookie across that origin boundary. Login runs in a popup window on this server's own origin; only a `postMessage`-delivered
 `{ok, displayName}` crosses back to the embedding page. Every widget host carries a working No-JS
 fallback link that the script only ever replaces, never removes first. Full contract (snippet,

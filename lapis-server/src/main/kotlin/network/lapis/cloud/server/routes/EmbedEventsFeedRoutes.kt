@@ -29,6 +29,8 @@ import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventText
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.partner.PartnerEventDisplay
+import network.lapis.cloud.server.partner.PartnerEventView
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventStatus
@@ -188,6 +190,12 @@ internal fun ResultRow.toEmbedEventCommonFields(
  * reused verbatim rather than re-implemented a second time (a second copy of a security-relevant
  * predicate could silently drift from the first).
  *
+ * **V1.9.248 `?quelle=alle`**: with exactly ONE `quelle` parameter whose value is exactly `alle`, the answer additionally carries `partnerEvents`
+ * (foreign events of the partner servers, a SEPARATE array, never mixed into `events`), read through [PartnerEventDisplay.loadVisible] -- the same
+ * read-time filter, caps and URL re-validation as `/veranstaltungen`. Any other spelling (none, repeated, `eigene`, `Alle`, unknown) is the default
+ * feed, byte-identical to before (golden test). No memoisation: a block acts on the very next request. DoS: `loadVisible` scans at most
+ * `MAX_SCAN` rows; bounded by the unchanged rate limiter (one check per request) and the partner store limits.
+ *
  * **`Cache-Control` stays `no-store`** -- [applyEmbedCors] itself sets `Cache-Control: no-store`
  * unconditionally, BEFORE this handler ever runs (see that function's own KDoc), and
  * `response.header(...)` APPENDS rather than replaces (the exact footgun every other file in this
@@ -233,8 +241,13 @@ internal fun Route.registerEmbedEventsFeedRoutes(
             // "Nicht gestreamt" for the same split-outside-the-transaction reasoning).
             val now = DbClock.nowLocalDateTime()
             val orgZone = OrganizationTimeZone.current()
+            // V1.9.248 -- partner events only when the caller asked for exactly one `quelle=alle`; every other spelling is the default feed.
+            val withPartners = wantsPartnerEvents(call.request.queryParameters)
+            var partnerViews: List<PartnerEventView> = emptyList()
             val items =
                 transaction {
+                    // Same transaction, same `now` as /veranstaltungen. No memoisation: block list and switches are read per request.
+                    if (withPartners) partnerViews = PartnerEventDisplay.loadVisible(nowUtc = now, orgZone = orgZone)
                     EventIcsFeed
                         .loadUpcomingPublicPublished(
                             wallNow = OrganizationTimeZone.wallNowOf(now),
@@ -274,11 +287,19 @@ internal fun Route.registerEmbedEventsFeedRoutes(
                         }
                 }
 
-            call.respondText(
-                text = EMBED_EVENTS_FEED_JSON.encodeToString(EmbedEventListResponse.serializer(), EmbedEventListResponse(items)),
-                contentType = EMBED_EVENTS_FEED_JSON_CONTENT_TYPE,
-                status = HttpStatusCode.OK,
-            )
+            val text =
+                if (withPartners) {
+                    EMBED_EVENTS_FEED_JSON.encodeToString(
+                        EmbedEventListWithPartnersResponse.serializer(),
+                        EmbedEventListWithPartnersResponse(
+                            events = items,
+                            partnerEvents = partnerViews.mapNotNull { it.toEmbedPartnerEventItem() },
+                        ),
+                    )
+                } else {
+                    EMBED_EVENTS_FEED_JSON.encodeToString(EmbedEventListResponse.serializer(), EmbedEventListResponse(items))
+                }
+            call.respondText(text = text, contentType = EMBED_EVENTS_FEED_JSON_CONTENT_TYPE, status = HttpStatusCode.OK)
         }
     }
 

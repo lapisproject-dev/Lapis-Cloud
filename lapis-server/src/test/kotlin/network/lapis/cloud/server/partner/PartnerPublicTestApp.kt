@@ -3,6 +3,7 @@ package network.lapis.cloud.server.partner
 import io.ktor.server.application.install
 import io.ktor.server.plugins.autohead.AutoHeadResponse
 import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
+import io.ktor.server.routing.Route
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -44,38 +45,41 @@ internal fun feedTime(
     )
 
 /** The public overview and the iCal route on a test application. The ICS host is `example.org`. */
-internal fun partnerPublicApp(block: suspend ApplicationTestBuilder.() -> Unit) =
-    testApplication {
-        val generous = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes)
-        application {
-            install(XForwardedHeaders) { useLastProxy() }
-            install(AutoHeadResponse)
-            routing {
-                val branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null)
-                val nav = PublicNavAvailabilityProvider()
-                registerPublicEventsOverviewRoutes(readRateLimiter = generous, branding = branding, navAvailability = nav)
-                registerEventPublicRoutes(
-                    checkoutGateways = emptyMap(),
-                    baseUrl = "https://example.org",
-                    mailDispatcher =
-                        MailDispatcher(
-                            transport = NoOpMailTransport(),
-                            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-                        ),
-                    branding = eventTestBranding(),
-                    navAvailability = eventTestNav(),
-                    embedConfig = eventTestEmbedConfig(),
-                    pageRateLimiter = generous,
-                    attemptRateLimiter = generous,
-                    registrationRateLimiter = generous,
-                    ticketPageRateLimiter = generous,
-                    ticketCodeFailureLimiter = LoginRateLimiter(maxFailures = 10_000),
-                    icsFeedRateLimiter = generous,
-                )
-            }
+internal fun partnerPublicApp(
+    extraRoutes: Route.() -> Unit = {},
+    block: suspend ApplicationTestBuilder.() -> Unit,
+) = testApplication {
+    val generous = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes)
+    application {
+        install(XForwardedHeaders) { useLastProxy() }
+        install(AutoHeadResponse)
+        routing {
+            extraRoutes()
+            val branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null)
+            val nav = PublicNavAvailabilityProvider()
+            registerPublicEventsOverviewRoutes(readRateLimiter = generous, branding = branding, navAvailability = nav)
+            registerEventPublicRoutes(
+                checkoutGateways = emptyMap(),
+                baseUrl = "https://example.org",
+                mailDispatcher =
+                    MailDispatcher(
+                        transport = NoOpMailTransport(),
+                        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+                    ),
+                branding = eventTestBranding(),
+                navAvailability = eventTestNav(),
+                embedConfig = eventTestEmbedConfig(),
+                pageRateLimiter = generous,
+                attemptRateLimiter = generous,
+                registrationRateLimiter = generous,
+                ticketPageRateLimiter = generous,
+                ticketCodeFailureLimiter = LoginRateLimiter(maxFailures = 10_000),
+                icsFeedRateLimiter = generous,
+            )
         }
-        block()
     }
+    block()
+}
 
 /** Runs the poller once (recursion included) on the world, with the real "now". */
 internal suspend fun tickWorld(world: FakeWorld) {

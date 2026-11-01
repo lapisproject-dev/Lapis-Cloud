@@ -48,6 +48,10 @@ internal data class PartnerEventView(
     val originHost: String,
     val originName: String?,
     val rootName: String,
+    /** V1.9.248 -- the IANA zone the origin published (validated at receipt); the embed feed hands it on so a widget can show the origin's wall clock. */
+    val timeZone: String,
+    /** V1.9.248 -- the decoded relay chain (normalised hosts, at most 3). */
+    val via: List<String>,
 )
 
 /**
@@ -115,6 +119,8 @@ internal object PartnerEventDisplay {
                     originHost = originHost,
                     originName = if (hops >= 2) row[PartnerDiscoveredServerTable.remoteName] else rootName,
                     rootName = rootName,
+                    timeZone = row[PartnerEventTable.timeZone],
+                    via = via,
                 )
             }
         return capAndSort(views)

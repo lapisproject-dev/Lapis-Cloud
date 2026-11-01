@@ -101,9 +101,9 @@ origin than this server) embed four small widgets:
   (wave V1.4.3.3, see <<event-registration-widget>>).
 
 Wave V1.4.33 adds a fifth, read-only surface — `GET /api/embed/v1/events` (see
-<<events-list-widget>>) — a JSON list of upcoming events for a partner site to render itself. It
-has no `data-lapis-widget="..."` hydration counterpart in this wave (no bundled JS renders it yet),
-so it is not one of the four snippet-based widgets above.
+<<events-list-widget>>) — a JSON list of upcoming events for a partner site to render itself. Since
+wave V1.9.248 the bundle also renders it: `data-lapis-widget="events"` (see <<events-list-hydration>>),
+and the feed can carry the events of the partner servers on request (see <<events-feed-partner-events>>).
 
 Wave V1.4.34/V1.4.36 adds a sixth, read-only surface — `GET /api/embed/v1/articles` (see
 <<articles-list-widget>>) — a JSON list of the newest published articles, structurally a 1:1
@@ -169,7 +169,7 @@ read-only on the ADMIN-only *Website-Integration* screen
 
 == Styling
 
-Four CSS custom properties, set on the embedding page (they cross the Shadow DOM boundary the
+Seven CSS custom properties (the last three are used by the events list only), set on the embedding page (they cross the Shadow DOM boundary the
 widget's own root uses):
 
 [cols="1,1"]
@@ -187,6 +187,15 @@ widget's own root uses):
 
 |`--lapis-embed-font`
 |`inherit`
+
+|`--lapis-embed-text`
+|`inherit`
+
+|`--lapis-embed-muted`
+|`#5B6472`
+
+|`--lapis-embed-border`
+|`#D9DDE3`
 |===
 
 [[environment-variables]]
@@ -699,10 +708,93 @@ which sets `no-store` unconditionally before any handler-specific logic runs (se
 require changing that shared, security-reviewed helper — out of scope for this wave, left for a
 follow-up if partner-site polling volume ever warrants it.
 
-There is no bundled `data-lapis-widget="events"` hydration script in this wave (unlike the other
-four widgets on this page) — a partner site fetches this JSON endpoint directly with its own
-rendering. Adding a shared-bundle `hydrateEvents()` to `lapis-widgets.js` is a candidate for a
-follow-up wave once real partner-site rendering needs are clearer.
+[[events-list-hydration]]
+=== The `events` widget (wave V1.9.248)
+
+Since V1.9.248 `lapis-widgets.js` renders this list itself. It is one more host element for the same script:
+
+[source,html]
+----
+<script async src="https://lapis.example/embed/v1/lapis-widgets.js"></script>
+<div data-lapis-widget="events" data-limit="5">
+  <a href="https://lapis.example/veranstaltungen">Alle Veranstaltungen</a>
+</div>
+----
+
+[cols="1,2,1"]
+|===
+|Attribute |Meaning |Default
+
+|`data-limit`
+|Number of entries, decimal digits only, clamped to 1 to 20. Anything else is the default.
+|`5`
+
+|`data-source`
+|`all` or `alle` also asks for the events of the partner servers (`?quelle=alle`, see <<events-feed-partner-events>>). Every other value, or none, is the own events only.
+|own
+
+|`data-empty-text`
+|Text when there is nothing to show.
+|`Zurzeit sind keine Veranstaltungen geplant.`
+
+|`data-label`
+|Accessible name of the list.
+|`Nächste Veranstaltungen`
+
+|`data-time-zone`
+|IANA zone for the own events; an unknown zone falls back to `Europe/Berlin`.
+|`Europe/Berlin`
+
+|`data-more-text`
+|Text of the closing link to `/veranstaltungen` (`?quelle=eigene` when only own events are shown).
+|`Alle Veranstaltungen →`
+|===
+
+NOTE: These attributes carry no `lapis` prefix, unlike `data-lapis-event-slug`, `data-lapis-amounts` and `data-lapis-fallback-url` of the other widgets. They are named as the integration specification asks; the inconsistency is known and was not "fixed" because every extra attribute spelling costs bytes in the size budget.
+
+* **Hydration only after a good answer.** The widget fetches `GET /api/embed/v1/events` (`credentials: "omit"`, 5 second timeout with an abort). Only when the answer is `200`, parses and carries an `events` array does it mount its closed Shadow DOM. Network error, `403`, `429`, `5xx`, broken JSON, a late answer after the timeout: the host element stays exactly as written, so the No-JS fallback link remains visible.
+* **Merged list.** Own and partner events are merged by start time (own first on a tie), then cut to `data-limit`. A partner entry shows "Partnerserver: <name>" (the name is the label this server's administrator gave the partner, or the origin's own name for hop 2), "Reihe: <sentence>" for a series, and the place or "Online". The relay chain (`via`) is **not** shown.
+* **Time.** Own events are shown in `data-time-zone`. Partner events are shown in the zone their origin published; when that differs from the widget zone the zone's short name is part of the time.
+* **Links.** An own link must start with `<lapis origin>/veranstaltung/`. A partner link must be `https`, without user info, with port 443 or none, and its host must equal `originHost`; otherwise the entry is dropped. Partner links carry `rel="noopener noreferrer external"` and `referrerpolicy="no-referrer"`, a visual arrow, and a visually hidden "(externe Seite)" for screen readers.
+* **Everything is text.** The widget never uses `innerHTML` or similar; feed text (also foreign text) is set as `textContent`, and only the validated URLs reach an `href` (`EmbedAssetTest` pins that the file contains none of `innerHTML`, `insertAdjacentHTML`, `outerHTML`, `eval(`, `setAttribute("style"`, `new Function`).
+* **Accessibility.** A `ul` with an accessible name, one `li` per event (at least 44 px high), a `time` element with `datetime`, a visible focus ring. The three extra custom properties (`--lapis-embed-text`, `--lapis-embed-muted`, `--lapis-embed-border`) are described under <<_styling,Styling>>.
+* **CSP of the embedding page.** `connect-src` must allow the Lapis origin, as for the donation and event widgets. The widget's `<style>` lives inside its Shadow DOM, the same contract as for the other widgets (see <<cors-and-csp-contract>>).
+* **Size.** The bundle now has a budget of 24576 bytes (unminified). The next widget is to be loaded as a separate file, with a Subresource Integrity concept for hosts that pin the main script, rather than squeezed in here.
+
+[[events-feed-partner-events]]
+=== `?quelle=alle`: partner events in the feed (wave V1.9.248)
+
+`GET /api/embed/v1/events?quelle=alle` answers `{"events": [...], "partnerEvents": [...]}`. `events` is byte-identical to the answer without the parameter; foreign events are **never** mixed into it. The parameter counts only when `quelle` is given **exactly once** and is exactly `alle`. No parameter, `eigene`, `Alle`, an unknown value, an empty value or a repeated parameter (also `alle` twice) gives the default answer without a `partnerEvents` key, byte for byte as before. This is deliberately stricter than the iCal route (`/veranstaltung.ics`), which takes the first value; a golden test (`EmbedEventsFeedGoldenTest`) pins the default body, because the websites of existing integrations read it.
+
+Each `partnerEvents` entry has exactly these keys (`locationText`, `summary` and `seriesText` are left out when empty; `online` and `via` are always present):
+
+[cols="1,3"]
+|===
+|Key |Meaning
+
+|`title`, `summary`, `locationText`, `seriesText`
+|Foreign text, shortened at receipt. Render it as text only.
+
+|`startsAt`, `endsAt`
+|UTC, `...Z`.
+
+|`timezone`
+|IANA zone published by the origin (`UTC` when it does not validate).
+
+|`online`
+|`true` when the event can be attended online. There is **no** online link: the partner feed carries none.
+
+|`url`
+|`https`, the origin's own host, validated at receipt and once more when answering.
+
+|`originName`, `originHost`
+|Display name (at most 80 characters) and host of the origin. For a direct partner `originName` is the label the administrator gave it.
+
+|`via`
+|The relay chain as normalised hosts (at most 3). Empty for a direct partner.
+|===
+
+The events come from the same read-time filter as `/veranstaltungen` (`PartnerEventDisplay.loadVisible`): an inactive partner, a blocked origin or relay host, a switched-off recursion and a hop beyond the current depth hide an event at once, with no memo in between; at most 10 events per origin and 50 in total. The 365-day horizon is applied where the data is received and published, not as a further filter on read. CORS, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff` and the rate limiter are those of the default answer (one budget, one check per request). The scan behind the answer reads at most 5000 cached rows and is bounded by the rate limiter and the store limits of the partner servers.
 
 [[articles-list-widget]]
 == Articles list widget (wave V1.4.34/V1.4.36)
@@ -864,7 +956,8 @@ column (`event.cover_image_id`) and an optional `LAPIS_EVENT_COVER_STORAGE_ROOT`
 variable, but is likewise NOT itself a partner-API surface. Wave V1.4.33 adds the read-only
 events-list widget (<<events-list-widget>>) — again the SAME infrastructure, no new environment
 variable, and no database migration (a pure read/projection endpoint over already-existing
-columns). Wave V1.4.34/V1.4.36 adds the read-only articles-list widget
+columns). Wave V1.9.248 lets the bundle render that list (`data-lapis-widget="events"`) and adds the opt-in
+`?quelle=alle` partner events to the feed, again without a new environment variable or migration. Wave V1.4.34/V1.4.36 adds the read-only articles-list widget
 (<<articles-list-widget>>) on the SAME infrastructure once more — no new environment variable; the
 `article` table itself is new (`V55__article.sql`), but that migration ships with the article
 module's own RPC/public-page waves, not with this widget.

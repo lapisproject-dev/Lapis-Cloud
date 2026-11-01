@@ -361,6 +361,129 @@
     });
   }
 
+  // ── Veranstaltungsliste (V1.9.248) ───────────────────────────────────────────────────
+  // Erst nach gueltiger Antwort mounten (F-5). Feed-Daten (auch fremde) nur als textContent / geprueftes href.
+  var EVS = {
+    empty: "Zurzeit sind keine Veranstaltungen geplant.", label: "Nächste Veranstaltungen",
+    more: "Alle Veranstaltungen", online: "Online", series: "Reihe: ", partner: "Partnerserver: ",
+    ext: " (externe Seite)", uhr: " Uhr"
+  };
+  var VCSS =
+    ":host{display:block}ul{list-style:none;margin:0;padding:0}" +
+    "li{min-height:44px;border-bottom:1px solid var(--lapis-embed-border,#D9DDE3)}" +
+    "a{color:var(--lapis-embed-accent,#1E56C8)}li>a{display:block;padding:.5rem 0}" +
+    "a:focus-visible{outline:2px solid var(--lapis-embed-accent,#1E56C8);outline-offset:2px;" +
+    "border-radius:var(--lapis-embed-radius,6px)}" +
+    "time,.m{display:block;color:var(--lapis-embed-muted,#5B6472);font-size:.875em}" +
+    ".w{color:var(--lapis-embed-text,inherit)}" +
+    ".vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}";
+
+  function cut(s, n) {
+    if (typeof s !== "string") return "";
+    return s.length > n ? s.slice(0, n) + "…" : s;
+  }
+
+  function evInt(raw) {
+    if (!raw || !/^[0-9]+$/.test(raw)) return 5;
+    var n = parseInt(raw, 10);
+    return n < 1 ? 5 : n > 20 ? 20 : n;
+  }
+
+  function evZone(z) {
+    try { new Intl.DateTimeFormat("de-DE", { timeZone: z }); return z; } catch (e) { return "Europe/Berlin"; }
+  }
+
+  function evWhen(iso, zone, showZone) {
+    var o = { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: zone };
+    if (showZone) o.timeZoneName = "short";
+    try {
+      return new Intl.DateTimeFormat("de-DE", o).format(new Date(iso)) + (showZone ? "" : EVS.uhr);
+    } catch (e) { return iso; }
+  }
+
+  // Fremder Link: https, keine Zugangsdaten, Port 443, Host == Ursprungs-Host.
+  function evPartnerUrl(raw, originHost) {
+    if (typeof raw !== "string" || typeof originHost !== "string") return null;
+    try {
+      var u = new URL(raw);
+      if (u.protocol !== "https:" || u.username || u.password) return null;
+      if (u.port !== "" && u.port !== "443") return null;
+      return u.hostname.toLowerCase() === originHost.toLowerCase() ? u.href : null;
+    } catch (e) { return null; }
+  }
+
+  function evRender(root, d, host, zone, all) {
+    var items = [], prefix = LAPIS_ORIGIN + "/veranstaltung/";
+    [d.events, Array.isArray(d.partnerEvents) ? d.partnerEvents : []].forEach(function (list, k) {
+      list.forEach(function (e, i) {
+        if (!e) return;
+        var t = typeof e.startsAt === "string" ? Date.parse(e.startsAt) : NaN;
+        var href = k ? evPartnerUrl(e.url, e.originHost) :
+          (typeof e.registrationUrl === "string" && e.registrationUrl.indexOf(prefix) === 0 ? e.registrationUrl : null);
+        if (isNaN(t) || !href || typeof e.title !== "string" || !e.title) return;
+        items.push({ t: t, k: k, i: i, s: e.startsAt, z: k ? evZone(e.timezone) : zone, title: cut(e.title, 200), href: href,
+          loc: cut(e.locationText, 120) || (e.online === true ? EVS.online : ""),
+          series: cut(e.seriesText, 120), name: cut(e.originName, 80) });
+      });
+    });
+    items.sort(function (a, b) { return a.t - b.t || a.k - b.k || a.i - b.i; });
+    items = items.slice(0, evInt(host.getAttribute("data-limit")));
+
+    var more = el("a", {
+      href: LAPIS_ORIGIN + "/veranstaltungen" + (all ? "" : "?quelle=eigene"),
+      textContent: host.getAttribute("data-more-text") || EVS.more + " →"
+    });
+    if (!items.length) {
+      root.appendChild(el("p", { className: "w", textContent: host.getAttribute("data-empty-text") || EVS.empty }));
+      root.appendChild(more);
+      return;
+    }
+    var ul = el("ul", { "aria-label": host.getAttribute("data-label") || EVS.label });
+    items.forEach(function (it) {
+      var li = el("li", {});
+      var shown = it.k === 1 && it.z !== zone;
+      li.appendChild(el("time", { dateTime: it.s, textContent: evWhen(it.s, it.z, shown) }));
+      var a = el("a", { href: it.href, textContent: it.title });
+      if (it.k === 1) {
+        a.rel = "noopener noreferrer external";
+        a.referrerPolicy = "no-referrer";
+        a.hreflang = "de";
+        a.appendChild(el("span", { "aria-hidden": "true", textContent: " ↗" }));
+        a.appendChild(el("span", { className: "vh", textContent: EVS.ext }));
+      }
+      li.appendChild(a);
+      [it.loc, it.series && EVS.series + it.series, it.name && EVS.partner + it.name].forEach(function (m) {
+        if (m) li.appendChild(el("span", { className: "m", textContent: m }));
+      });
+      ul.appendChild(li);
+    });
+    root.appendChild(ul);
+    root.appendChild(more);
+  }
+
+  function hydrateEvents(host) {
+    if (!LAPIS_ORIGIN) return;
+    var src = host.getAttribute("data-source");
+    var all = src === "all" || src === "alle";
+    var zone = evZone(host.getAttribute("data-time-zone") || "Europe/Berlin");
+    var ctl = window.AbortController ? new AbortController() : null;
+    var done = false;
+    var timer = window.setTimeout(function () { done = true; if (ctl) ctl.abort(); }, 5000);
+    fetch(LAPIS_ORIGIN + "/api/embed/v1/events" + (all ? "?quelle=alle" : ""), {
+      credentials: "omit", signal: ctl ? ctl.signal : undefined
+    }).then(function (res) {
+      if (done || res.status !== 200) return null;
+      return res.json();
+    }).then(function (d) {
+      window.clearTimeout(timer);
+      if (done || !d || !Array.isArray(d.events)) return;
+      done = true;
+      var root = mount(host);
+      root.querySelector("style").textContent += VCSS;
+      evRender(root, d, host, zone, all);
+    }).catch(function () { window.clearTimeout(timer); });
+  }
+
   function scan() {
     var hosts = document.querySelectorAll("[data-lapis-widget]");
     for (var i = 0; i < hosts.length; i++) {
@@ -370,6 +493,7 @@
       else if (kind === "join") hydrateJoin(host);
       else if (kind === "donate") hydrateDonate(host);
       else if (kind === "event") hydrateEvent(host);
+      else if (kind === "events") hydrateEvents(host);
     }
   }
 

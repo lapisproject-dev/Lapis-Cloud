@@ -30,6 +30,8 @@ private fun view(
     originHost = origin,
     originName = null,
     rootName = "Root",
+    timeZone = "Europe/Berlin",
+    via = emptyList(),
 )
 
 class PartnerEventDisplayTest :

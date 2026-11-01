@@ -114,14 +114,18 @@ class PartnerServerTripwireTest :
                 .toSet() shouldBe setOf("PartnerFeedPoller.kt", "PartnerRecursionRunner.kt")
         }
 
-        test("the feed builder and the embed feed never touch the partner cache") {
-            listOf("PartnerFeedBuilder.kt", "EmbedEventsFeedRoutes.kt").forEach { name ->
+        test("the feed builder never touches the partner cache; the embed feed reads it only through PartnerEventDisplay (V1.9.248)") {
+            val builder = SourceScan.blank(SourceScan.mainFiles().single { it.name == "PartnerFeedBuilder.kt" }.readText())
+            withClue("PartnerFeedBuilder.kt") {
+                Regex("""PartnerEventTable|PartnerDiscoveredServerTable|PartnerEventDisplay|PartnerDiscoveryStore""")
+                    .containsMatchIn(builder) shouldBe false
+            }
+            // The embed feed gets foreign events ONLY on an explicit ?quelle=alle and ONLY through the read-time filter of PartnerEventDisplay.
+            listOf("EmbedEventsFeedRoutes.kt", "EmbedPartnerEventsFeed.kt").forEach { name ->
                 val code = SourceScan.blank(SourceScan.mainFiles().single { it.name == name }.readText())
                 withClue(name) {
-                    Regex(
-                        """PartnerEventTable|PartnerDiscoveredServerTable|PartnerEventDisplay|PartnerDiscoveryStore""",
-                    ).containsMatchIn(code) shouldBe
-                        false
+                    Regex("""PartnerEventTable|PartnerDiscoveredServerTable|PartnerServerTable|PartnerServerStore|PartnerDiscoveryStore""")
+                        .containsMatchIn(code) shouldBe false
                 }
             }
         }
