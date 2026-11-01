@@ -555,6 +555,8 @@ tried with real participants or on a real device, and the Keycloak provisioning 
 
 **`v0.45.0`** (wave V1.9.248, schema `V133`) is a small feature release on `v0.44.0`. The embed script gains the widget `data-lapis-widget="events"` (list of the next events, own and optionally partner events merged by start time) and `GET /api/embed/v1/events?quelle=alle` answers an additional `partnerEvents` array; without the parameter the answer is byte-identical. The size budget of `lapis-widgets.js` goes from 20480 to 24576 bytes. No migration, no new environment variable, no new dependency. Tested in headless Chrome (Chrome only) and on H2; not tried on the two real websites, on real phones, with screen readers or in Firefox and Safari; see `CHANGELOG.md` `[0.45.0]`.
 
+**`v0.45.1`** (waves V1.9.249 and V1.9.250, schema `V133`) is a patch release on `v0.45.0`. The Aktionen form works again ("Neue Aktion" and the edit form crashed while the page was built since `v0.44.0`, so no action could be created or edited), and a hidden field is no longer sent with a stale value. The public Events tab now also appears on an instance that has only partner events. No migration, no new environment variable, no new dependency. Tested with browser tests in headless Chrome and on H2; not verified on a real instance; see `CHANGELOG.md` `[0.45.1]`.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,

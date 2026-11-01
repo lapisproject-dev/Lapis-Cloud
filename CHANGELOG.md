@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.45.1] — 2026-11-01
+
+Patch release on `[0.45.0]` (two waves, V1.9.249 and V1.9.250). **No migration (schema stays `V133`), no new environment variable, no new dependency.** Behaviour to know: (1) **the Aktionen form works again** — "Neue Aktion" and the edit form crashed while the page was built since `v0.44.0`, so no action could be created or edited; hidden fields are no longer sent with stale values; (2) the public **Events tab now also appears on an instance that has only partner events** and no own upcoming public event (known case: Apolda). Checked with unit and browser tests (headless Chrome) and on H2; **not** verified on a real instance, not on real phones.
+
 ### V1.9.250 -- Fix crash in the Aktionen form
 
 - Fix: "Neue Aktion" and the edit form crashed while the page was built (`LapisField.setVisible` was called on the check box "Gemeldete Mengen müssen bestätigt werden", which only text controls support), so no action could be created or edited since v0.44.0. The check box now sits in its own container that is shown or hidden.
