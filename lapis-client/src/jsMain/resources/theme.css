@@ -1658,6 +1658,29 @@ html.lapis-conference-call-visible .lapis-conference-call-panel {
   border-radius: 4px;
 }
 
+/* V1.9.255 Pausenbild -- die Vorschau hat immer das 16:9-Bild des Streams; der flache Rand entspricht dem Rand, den der Server beim Einpassen
+   setzt (#14171C). Das Bild wird nie beschnitten. */
+.lapis-pause-preview {
+  aspect-ratio: 16 / 9;
+  max-width: 320px;
+  width: 100%;
+  background: #14171C;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.lapis-pause-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.lapis-pause-music-player audio {
+  width: 100%;
+  max-width: 320px;
+}
+
 /* V1.4.23 Hintergrundeffekte -- bewusst KEINE `.lapis-conference-config-row`-Klasse (wie
    `deviceGroup`): die Gruppe soll den Vollbildmodus überleben. */
 .lapis-conference-background-group {

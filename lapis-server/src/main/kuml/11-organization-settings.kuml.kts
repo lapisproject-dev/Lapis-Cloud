@@ -631,5 +631,32 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "DE"
             stereotype("Column") { "columnName" to "activism_notice_country"; "sqlType" to "VARCHAR(2)" }
         }
+        // Welle V1.9.255 "Pausenbild und Pausenmusik" (V135__conference_pause_media.sql). The stored pause picture (<key>.png) and pause music
+        // (<key>.m4a) the server sends to the stream targets while the room pause holds the stream. All NULL = built-in default picture, no music.
+        // NOT part of the generic update write-set: written ONLY by PauseMediaStore / PauseMediaRoutes.
+        attribute(name = "pauseImageKey", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "pause_image_key" }
+        }
+        attribute(name = "pauseImageUpdatedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "pause_image_updated_at" }
+        }
+        attribute(name = "pauseMusicKey", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "pause_music_key" }
+        }
+        attribute(name = "pauseMusicLabel", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "pause_music_label"; "sqlType" to "VARCHAR(80)" }
+        }
+        attribute(name = "pauseMusicDurationSeconds", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "pause_music_duration_seconds"; "sqlType" to "SMALLINT" }
+        }
+        attribute(name = "pauseMusicUpdatedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "pause_music_updated_at" }
+        }
     }
 }

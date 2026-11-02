@@ -28986,3 +28986,84 @@ msgstr ""
 
 msgid "ist wegen der Pause angehalten"
 msgstr ""
+
+msgid "Im Stream läuft das Pausenbild."
+msgstr ""
+
+msgid "Das Pausenbild konnte nicht gesendet werden. Der Stream ist bis zum Fortsetzen unterbrochen."
+msgstr ""
+
+msgid "Das Bild ist zu klein (mindestens 640 × 360 Pixel)."
+msgstr ""
+
+msgid "Die Musik ist zu kurz (mindestens 5 Sekunden)."
+msgstr ""
+
+msgid "Die Musik ist zu lang (höchstens 10 Minuten)."
+msgstr ""
+
+msgid "Die Datei enthält ein Video. Bitte laden Sie nur eine Audiodatei hoch."
+msgstr ""
+
+msgid "Auf diesem Server ist ffmpeg nicht verfügbar, die Musik kann nicht verarbeitet werden."
+msgstr ""
+
+msgid "Der Server ist gerade ausgelastet. Bitte versuchen Sie es gleich noch einmal."
+msgstr ""
+
+msgid "Pause im Live-Stream"
+msgstr ""
+
+msgid "Nur im Live-Stream zu sehen und zu hören. Nicht in der Aufzeichnung, nicht im Raum."
+msgstr ""
+
+msgid "Pausenbild"
+msgstr ""
+
+msgid "Vorschau des Pausenbilds"
+msgstr ""
+
+msgid "Ein eigenes Bild ist hinterlegt."
+msgstr ""
+
+msgid "Es wird das Standardbild verwendet."
+msgstr ""
+
+msgid "JPEG, PNG oder WebP, mindestens 640 × 360 Pixel, höchstens 10 MB. Das Bild wird nie beschnitten; was nicht ins 16:9-Format passt, bekommt einen ruhigen dunklen Rand."
+msgstr ""
+
+msgid "Bild auswählen"
+msgstr ""
+
+msgid "Eigenes Bild hochladen"
+msgstr ""
+
+msgid "Das Pausenbild wurde gespeichert."
+msgstr ""
+
+msgid "Das Standardbild wird wieder verwendet."
+msgstr ""
+
+msgid "Pausenmusik"
+msgstr ""
+
+msgid "Keine Musik hinterlegt. Im Stream ist während der Pause nichts zu hören."
+msgstr ""
+
+msgid "MP3, M4A, OGG, FLAC oder WAV, 5 Sekunden bis 10 Minuten, höchstens 15 MB. Die Musik läuft in Endlosschleife und wird auf eine einheitliche Lautstärke gebracht."
+msgstr ""
+
+msgid "Laden Sie nur Musik hoch, für deren öffentliche Wiedergabe Sie die Rechte haben. Plattformen können Streams mit geschützter Musik stummschalten oder sperren."
+msgstr ""
+
+msgid "Musikdatei auswählen"
+msgstr ""
+
+msgid "Musik hochladen"
+msgstr ""
+
+msgid "Die Pausenmusik wurde gespeichert."
+msgstr ""
+
+msgid "Die Pausenmusik wurde entfernt."
+msgstr ""

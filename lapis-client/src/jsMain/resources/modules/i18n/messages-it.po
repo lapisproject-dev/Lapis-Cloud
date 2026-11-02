@@ -29640,3 +29640,84 @@ msgstr "Questa registrazione ha raggiunto il numero massimo di pause."
 
 msgid "ist wegen der Pause angehalten"
 msgstr "è ferma per la pausa"
+
+msgid "Im Stream läuft das Pausenbild."
+msgstr "Nello streaming è in onda l'immagine di pausa."
+
+msgid "Das Pausenbild konnte nicht gesendet werden. Der Stream ist bis zum Fortsetzen unterbrochen."
+msgstr "Non è stato possibile inviare l'immagine di pausa. Lo streaming resta interrotto fino alla ripresa."
+
+msgid "Das Bild ist zu klein (mindestens 640 × 360 Pixel)."
+msgstr "L'immagine è troppo piccola (almeno 640 × 360 pixel)."
+
+msgid "Die Musik ist zu kurz (mindestens 5 Sekunden)."
+msgstr "La musica è troppo breve (almeno 5 secondi)."
+
+msgid "Die Musik ist zu lang (höchstens 10 Minuten)."
+msgstr "La musica è troppo lunga (al massimo 10 minuti)."
+
+msgid "Die Datei enthält ein Video. Bitte laden Sie nur eine Audiodatei hoch."
+msgstr "Il file contiene un video. Carichi soltanto un file audio."
+
+msgid "Auf diesem Server ist ffmpeg nicht verfügbar, die Musik kann nicht verarbeitet werden."
+msgstr "ffmpeg non è disponibile su questo server, quindi la musica non può essere elaborata."
+
+msgid "Der Server ist gerade ausgelastet. Bitte versuchen Sie es gleich noch einmal."
+msgstr "Il server è occupato in questo momento. Riprovi tra poco."
+
+msgid "Pause im Live-Stream"
+msgstr "Pausa nello streaming in diretta"
+
+msgid "Nur im Live-Stream zu sehen und zu hören. Nicht in der Aufzeichnung, nicht im Raum."
+msgstr "Si vede e si sente solo nello streaming in diretta. Non nella registrazione, non nella stanza."
+
+msgid "Pausenbild"
+msgstr "Immagine di pausa"
+
+msgid "Vorschau des Pausenbilds"
+msgstr "Anteprima dell'immagine di pausa"
+
+msgid "Ein eigenes Bild ist hinterlegt."
+msgstr "È memorizzata un'immagine personalizzata."
+
+msgid "Es wird das Standardbild verwendet."
+msgstr "Viene usata l'immagine predefinita."
+
+msgid "JPEG, PNG oder WebP, mindestens 640 × 360 Pixel, höchstens 10 MB. Das Bild wird nie beschnitten; was nicht ins 16:9-Format passt, bekommt einen ruhigen dunklen Rand."
+msgstr "JPEG, PNG o WebP, almeno 640 × 360 pixel, al massimo 10 MB. L'immagine non viene mai ritagliata; ciò che non rientra nel formato 16:9 riceve un margine scuro e sobrio."
+
+msgid "Bild auswählen"
+msgstr "Scegli immagine"
+
+msgid "Eigenes Bild hochladen"
+msgstr "Carica un'immagine personalizzata"
+
+msgid "Das Pausenbild wurde gespeichert."
+msgstr "L'immagine di pausa è stata salvata."
+
+msgid "Das Standardbild wird wieder verwendet."
+msgstr "Viene di nuovo usata l'immagine predefinita."
+
+msgid "Pausenmusik"
+msgstr "Musica di pausa"
+
+msgid "Keine Musik hinterlegt. Im Stream ist während der Pause nichts zu hören."
+msgstr "Nessuna musica memorizzata. Durante la pausa nello streaming non si sente nulla."
+
+msgid "MP3, M4A, OGG, FLAC oder WAV, 5 Sekunden bis 10 Minuten, höchstens 15 MB. Die Musik läuft in Endlosschleife und wird auf eine einheitliche Lautstärke gebracht."
+msgstr "MP3, M4A, OGG, FLAC o WAV, da 5 secondi a 10 minuti, al massimo 15 MB. La musica viene riprodotta in ciclo continuo e portata a un volume uniforme."
+
+msgid "Laden Sie nur Musik hoch, für deren öffentliche Wiedergabe Sie die Rechte haben. Plattformen können Streams mit geschützter Musik stummschalten oder sperren."
+msgstr "Carichi solo musica di cui ha i diritti per la riproduzione pubblica. Le piattaforme possono silenziare o bloccare gli streaming con musica protetta."
+
+msgid "Musikdatei auswählen"
+msgstr "Scegli file musicale"
+
+msgid "Musik hochladen"
+msgstr "Carica musica"
+
+msgid "Die Pausenmusik wurde gespeichert."
+msgstr "La musica di pausa è stata salvata."
+
+msgid "Die Pausenmusik wurde entfernt."
+msgstr "La musica di pausa è stata rimossa."

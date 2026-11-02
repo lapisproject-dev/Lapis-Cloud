@@ -29591,3 +29591,84 @@ msgstr "This recording has reached the maximum number of pauses."
 
 msgid "ist wegen der Pause angehalten"
 msgstr "is stopped because of the pause"
+
+msgid "Im Stream läuft das Pausenbild."
+msgstr "The pause picture is playing in the stream."
+
+msgid "Das Pausenbild konnte nicht gesendet werden. Der Stream ist bis zum Fortsetzen unterbrochen."
+msgstr "The pause picture could not be sent. The stream is interrupted until you resume."
+
+msgid "Das Bild ist zu klein (mindestens 640 × 360 Pixel)."
+msgstr "The picture is too small (at least 640 × 360 pixels)."
+
+msgid "Die Musik ist zu kurz (mindestens 5 Sekunden)."
+msgstr "The music is too short (at least 5 seconds)."
+
+msgid "Die Musik ist zu lang (höchstens 10 Minuten)."
+msgstr "The music is too long (at most 10 minutes)."
+
+msgid "Die Datei enthält ein Video. Bitte laden Sie nur eine Audiodatei hoch."
+msgstr "The file contains a video. Please upload an audio file only."
+
+msgid "Auf diesem Server ist ffmpeg nicht verfügbar, die Musik kann nicht verarbeitet werden."
+msgstr "ffmpeg is not available on this server, so the music cannot be processed."
+
+msgid "Der Server ist gerade ausgelastet. Bitte versuchen Sie es gleich noch einmal."
+msgstr "The server is busy right now. Please try again in a moment."
+
+msgid "Pause im Live-Stream"
+msgstr "Pause in the live stream"
+
+msgid "Nur im Live-Stream zu sehen und zu hören. Nicht in der Aufzeichnung, nicht im Raum."
+msgstr "Only seen and heard in the live stream. Not in the recording, not in the room."
+
+msgid "Pausenbild"
+msgstr "Pause picture"
+
+msgid "Vorschau des Pausenbilds"
+msgstr "Preview of the pause picture"
+
+msgid "Ein eigenes Bild ist hinterlegt."
+msgstr "A custom picture is stored."
+
+msgid "Es wird das Standardbild verwendet."
+msgstr "The default picture is used."
+
+msgid "JPEG, PNG oder WebP, mindestens 640 × 360 Pixel, höchstens 10 MB. Das Bild wird nie beschnitten; was nicht ins 16:9-Format passt, bekommt einen ruhigen dunklen Rand."
+msgstr "JPEG, PNG or WebP, at least 640 × 360 pixels, at most 10 MB. The picture is never cropped; whatever does not fit the 16:9 frame gets a calm dark margin."
+
+msgid "Bild auswählen"
+msgstr "Choose picture"
+
+msgid "Eigenes Bild hochladen"
+msgstr "Upload own picture"
+
+msgid "Das Pausenbild wurde gespeichert."
+msgstr "The pause picture was saved."
+
+msgid "Das Standardbild wird wieder verwendet."
+msgstr "The default picture is used again."
+
+msgid "Pausenmusik"
+msgstr "Pause music"
+
+msgid "Keine Musik hinterlegt. Im Stream ist während der Pause nichts zu hören."
+msgstr "No music stored. Nothing is heard in the stream during the pause."
+
+msgid "MP3, M4A, OGG, FLAC oder WAV, 5 Sekunden bis 10 Minuten, höchstens 15 MB. Die Musik läuft in Endlosschleife und wird auf eine einheitliche Lautstärke gebracht."
+msgstr "MP3, M4A, OGG, FLAC or WAV, 5 seconds to 10 minutes, at most 15 MB. The music plays in an endless loop and is brought to a uniform loudness."
+
+msgid "Laden Sie nur Musik hoch, für deren öffentliche Wiedergabe Sie die Rechte haben. Plattformen können Streams mit geschützter Musik stummschalten oder sperren."
+msgstr "Only upload music you have the rights to play publicly. Platforms may mute or block streams with protected music."
+
+msgid "Musikdatei auswählen"
+msgstr "Choose music file"
+
+msgid "Musik hochladen"
+msgstr "Upload music"
+
+msgid "Die Pausenmusik wurde gespeichert."
+msgstr "The pause music was saved."
+
+msgid "Die Pausenmusik wurde entfernt."
+msgstr "The pause music was removed."

@@ -77,6 +77,8 @@ internal fun renderConferenceRecordingSettings(
         renderPulpitRecordingSection(panel, dto, changed)
         renderEventCaptureSection(panel, dto, changed)
         panel.link(tr("Stream-Ziele verwalten"), url = "#${Routes.CONFERENCE_STREAM_DESTINATIONS}", className = "small")
+        // V1.9.255 -- the picture and the music the server sends to the stream targets during a room pause (see ConferencePauseMediaSettings.kt)
+        renderPauseMediaSection(panel, dto, changed)
     }
 }
 

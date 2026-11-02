@@ -871,6 +871,12 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         eventCaptureNoticeVersion = this[OrganizationSettingsTable.eventCaptureNoticeVersion],
         // V1.9.201 -- read-only here, set only through updateTenderDefaultVisibility.
         tenderDefaultVisibility = this[OrganizationSettingsTable.tenderDefaultVisibility],
+        // V1.9.255 -- read-only here, written only by PauseMediaRoutes. The version is the first 8 characters of the stored key.
+        pauseImageCustom = this[OrganizationSettingsTable.pauseImageKey] != null,
+        pauseImageVersion = this[OrganizationSettingsTable.pauseImageKey]?.toString()?.take(8),
+        pauseMusicLabel = this[OrganizationSettingsTable.pauseMusicLabel],
+        pauseMusicDurationSeconds = this[OrganizationSettingsTable.pauseMusicDurationSeconds]?.toInt(),
+        pauseMusicVersion = this[OrganizationSettingsTable.pauseMusicKey]?.toString()?.take(8),
     )
 
 /**

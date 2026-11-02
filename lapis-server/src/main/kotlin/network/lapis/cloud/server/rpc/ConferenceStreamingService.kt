@@ -12,6 +12,8 @@ import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.RoomPauseDb
 import network.lapis.cloud.server.conference.StreamUrlFingerprint
+import network.lapis.cloud.server.conference.pausefeed.PauseFeedControl
+import network.lapis.cloud.server.conference.pausefeed.PauseFeeds
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -952,6 +954,9 @@ class ConferenceStreamingService(
                 )
             }
         if (prep.alreadyHandled) {
+            // V1.9.255 -- a manual pause takes the stream out of the room pause: its pause feed (if any) ends at once, not only with the
+            // poller's next reconcile. Idempotent and harmless when no feed exists.
+            PauseFeeds.current.stop(streamUuid)
             // V1.9.254 (Z10): a manual pause may have taken the last paused thing out of the room pause -> end the room pause. A SEPARATE
             // transaction (room lock first), after the stream transaction, to keep the lock order room -> stream.
             val roomId =
@@ -1119,6 +1124,9 @@ class ConferenceStreamingService(
                 streamRowToDto(row = row, roomTitle = prep.roomTitle)
             }
         }
+
+        // V1.9.255 -- the row is STOPPING now: a pause feed of this stream (if any) ends at once, not only with the poller's next reconcile.
+        PauseFeeds.current.stop(streamUuid)
 
         // Best-effort, OUTSIDE any transaction -- see class KDoc. Security-audit MAJOR-1/MINOR-6 fix
         // -- StopEgress alone is a REQUEST, not a confirmation (LiveKit's own semantics, see
@@ -1533,6 +1541,7 @@ class ConferenceStreamingService(
             targets = targetDtos(streamId),
             failureReason = row[ConferenceStreamTable.failureReason],
             pauseReason = row[ConferenceStreamTable.pauseReason],
+            pauseFeed = PauseFeeds.current.stateOf(streamId),
         )
     }
 
@@ -1669,137 +1678,144 @@ internal suspend fun restartEgressForStream(
     streamingConfig: ConferenceStreamingConfig,
     actorMemberId: Uuid?,
     actorRole: AccountRole?,
+    pauseFeed: PauseFeedControl = PauseFeeds.current,
 ): ConferenceStreamStatus {
     val secretBox = streamingConfig.secretEncryptionKey?.let { SecretBox(it) }
 
+    // V1.9.255 -- THE choke point of the pause feed: the feed of this stream is stopped (and awaited) and the claim PAUSED -> STARTING is
+    // committed under the SAME per-stream lock, so a later `ensureRunning` can only see a stream that is no longer PAUSED. That is what makes
+    // "never two senders on one stream key" hold for every caller (resume, poller, secret-ballot auto-resume). The LiveKit call below runs
+    // after the lock, outside any transaction, as before.
     val prep =
-        transaction {
-            // V1.0 Videokonferenzen, Wave 9, R4 race-fix -- atomic conditional claim, NOT
-            // `forUpdate()`-SELECT-then-separate-UPDATE: an `UPDATE ... WHERE status = PAUSED` is a
-            // single, indivisible row-level write on every SQL engine (the WHERE re-check and the
-            // write happen atomically against whatever the row's CURRENT committed state is) -- a
-            // concurrent SECOND such UPDATE for the SAME [streamId] can only ever see `claimedRows == 0`
-            // once the first has committed. A `forUpdate()` SELECT immediately followed by a SEPARATE
-            // UPDATE statement was empirically found NOT to reliably close this window against two
-            // genuinely concurrent calls (see the wave's own R4 race test, `closeVoting` on two
-            // different Elections of the same meeting racing to auto-resume the SAME stream) --
-            // collapsing "check" and "claim" into ONE statement removes the gap between them entirely.
-            val claimedRows =
-                ConferenceStreamTable.update({
-                    (ConferenceStreamTable.id eq streamId) and (ConferenceStreamTable.status eq ConferenceStreamStatus.PAUSED)
-                }) {
-                    it[status] = ConferenceStreamStatus.STARTING
-                }
-            val row =
-                ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamId }.singleOrNull()
-                    ?: throw NotFoundException("Conference stream $streamId not found")
-
-            // See function KDoc "Respects an already-terminal row". `claimedRows == 0` covers BOTH
-            // "was never PAUSED to begin with" and "a concurrent claim already won" identically.
-            if (claimedRows == 0) {
-                return@transaction RestartEgressPrep(preparation = null, currentStatus = row[ConferenceStreamTable.status])
-            }
-            val room =
-                ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceStreamTable.roomId] }.singleOrNull()
-                    ?: throw NotFoundException("Conference room for stream $streamId not found")
-            if (secretBox == null) {
-                // The claim already flipped this row to STARTING above -- roll it back to PAUSED so it
-                // is not stranded in a state with no LiveKit call ever actually in flight for it.
-                //
-                // Security-audit round-3 NEU-3 fix -- same one-way escalation to MANUAL the MINOR-9
-                // branch below already applies for a disabled destination: without it, pauseReason
-                // stays SECRET_BALLOT, so StreamPoller.handlePaused's own SECRET_BALLOT auto-resume
-                // branch re-enters this exact function on EVERY tick for as long as
-                // LAPIS_SECRET_ENCRYPTION_KEY stays unset/invalid -- the same F3 infinite-retry-loop
-                // failure mode as the disabled-destination case, just at a third location, holding the
-                // room's one-active-stream-per-room slot open indefinitely instead of ever reaching
-                // handlePaused's max-duration escalation.
-                ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) {
-                    it[status] = ConferenceStreamStatus.PAUSED
-                    it[pauseReason] = ConferenceStreamPauseReason.MANUAL
-                }
-                logger.warn {
-                    "restartEgressForStream: LAPIS_SECRET_ENCRYPTION_KEY unset/invalid -- cannot restart stream $streamId, " +
-                        "leaving it PAUSED (pauseReason escalated to MANUAL)"
-                }
-                return@transaction RestartEgressPrep(preparation = null, currentStatus = ConferenceStreamStatus.PAUSED)
-            }
-
-            // Re-derive the plaintext URLs/fingerprints fresh -- see the ORIGINAL resumeStream's
-            // own comment (still true here: destination rows still exist while a PAUSED stream
-            // references them, deleteDestination refuses otherwise).
-            val targetRows =
-                (ConferenceStreamTargetTable innerJoin ConferenceStreamDestinationTable)
-                    .selectAll()
-                    .where { ConferenceStreamTargetTable.streamId eq streamId }
-                    .toList()
-
-            // Security-audit MINOR-9 fix -- AUTO-resume only (actorMemberId == null, i.e. the
-            // secret-ballot Auto-Resume path: DefaultSecretBallotStreamGuard.resumeStreamsForMeeting /
-            // StreamPoller.handlePaused's own orphaned-pause reconciliation). If an operator disabled
-            // a destination WHILE this stream sat paused, silently auto-restarting an egress to it
-            // would resurrect a stream the operator just took offline behind their back -- the whole
-            // point of `enabled=false` is "stop sending here", and an automatic system action must not
-            // override that. A MANUAL resumeStream click is a human, in-the-moment decision and is
-            // deliberately NOT gated here -- same distinction ConferenceStreamingService.startStream's
-            // own `enabled` check already draws for the initial start.
-            if (actorMemberId == null && targetRows.any { !it[ConferenceStreamDestinationTable.enabled] }) {
-                // Security-audit-round-2 F3 fix -- the log line below already claimed "leaving it PAUSED
-                // for manual moderator intervention", but `pauseReason` was left untouched (still
-                // SECRET_BALLOT) -- StreamPoller.handlePaused re-enters its SECRET_BALLOT auto-resume
-                // branch on EVERY tick as long as this destination stays disabled (its own
-                // hasOpenSecretBallot check is false, the ballot already closed), calling this function
-                // again, being declined again, forever: an infinite retry loop that never reaches
-                // handlePaused's max-duration escalation, holding the room's one-active-stream-per-room
-                // slot open indefinitely. One-way escalation to MANUAL -- same D4 semantics
-                // ConferenceStreamingService.pauseStream's own manual-pause-while-PAUSING/PAUSED-
-                // SECRET_BALLOT branch already establishes -- takes this row OUT of
-                // resumeCandidatesForMeeting's/handlePaused's SECRET_BALLOT auto-resume machinery for
-                // good: a moderator must now consciously call resumeStream (which is NOT gated on
-                // `enabled`, see this branch's own KDoc above) to bring it back, and handlePaused's
-                // ordinary maxDurationMinutes ceiling applies again in the meantime instead of being
-                // suspended forever.
-                ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) {
-                    it[status] = ConferenceStreamStatus.PAUSED
-                    it[pauseReason] = ConferenceStreamPauseReason.MANUAL
-                }
-                logger.warn {
-                    "restartEgressForStream: at least one destination for stream $streamId is disabled -- " +
-                        "auto-resume declined, leaving it PAUSED (pauseReason escalated to MANUAL) for manual " +
-                        "moderator intervention"
-                }
-                return@transaction RestartEgressPrep(preparation = null, currentStatus = ConferenceStreamStatus.PAUSED)
-            }
-
-            val urls =
-                targetRows.map { tr ->
-                    val plaintextUrl = restartRtmpUrl(row = tr, secretBox = secretBox)
-                    val fingerprint = StreamUrlFingerprint.of(plaintextUrl)
-                    ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq tr[ConferenceStreamTargetTable.id] }) {
-                        it[urlFingerprint] = fingerprint
-                        it[status] = ConferenceStreamTargetStatus.PENDING
-                        it[startedAtEpochNanos] = null
-                        it[endedAtEpochNanos] = null
-                        it[retries] = 0
-                        it[failureReason] = null
+        pauseFeed.stopThen(streamId = streamId) {
+            transaction {
+                // V1.0 Videokonferenzen, Wave 9, R4 race-fix -- atomic conditional claim, NOT
+                // `forUpdate()`-SELECT-then-separate-UPDATE: an `UPDATE ... WHERE status = PAUSED` is a
+                // single, indivisible row-level write on every SQL engine (the WHERE re-check and the
+                // write happen atomically against whatever the row's CURRENT committed state is) -- a
+                // concurrent SECOND such UPDATE for the SAME [streamId] can only ever see `claimedRows == 0`
+                // once the first has committed. A `forUpdate()` SELECT immediately followed by a SEPARATE
+                // UPDATE statement was empirically found NOT to reliably close this window against two
+                // genuinely concurrent calls (see the wave's own R4 race test, `closeVoting` on two
+                // different Elections of the same meeting racing to auto-resume the SAME stream) --
+                // collapsing "check" and "claim" into ONE statement removes the gap between them entirely.
+                val claimedRows =
+                    ConferenceStreamTable.update({
+                        (ConferenceStreamTable.id eq streamId) and (ConferenceStreamTable.status eq ConferenceStreamStatus.PAUSED)
+                    }) {
+                        it[status] = ConferenceStreamStatus.STARTING
                     }
-                    plaintextUrl
-                }
-            ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) { it[status] = ConferenceStreamStatus.STARTING }
+                val row =
+                    ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamId }.singleOrNull()
+                        ?: throw NotFoundException("Conference stream $streamId not found")
 
-            RestartEgressPrep(
-                preparation =
-                    ResumePreparation(
-                        roomName = room[ConferenceRoomTable.livekitRoomName],
-                        roomTitle = room[ConferenceRoomTable.title],
-                        layout = row[ConferenceStreamTable.layout],
-                        latencyMode = row[ConferenceStreamTable.latencyMode],
-                        participantIdentity = row[ConferenceStreamTable.participantIdentity],
-                        previousRestartCount = row[ConferenceStreamTable.restartCount],
-                        urls = urls,
-                    ),
-                currentStatus = ConferenceStreamStatus.STARTING,
-            )
+                // See function KDoc "Respects an already-terminal row". `claimedRows == 0` covers BOTH
+                // "was never PAUSED to begin with" and "a concurrent claim already won" identically.
+                if (claimedRows == 0) {
+                    return@transaction RestartEgressPrep(preparation = null, currentStatus = row[ConferenceStreamTable.status])
+                }
+                val room =
+                    ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceStreamTable.roomId] }.singleOrNull()
+                        ?: throw NotFoundException("Conference room for stream $streamId not found")
+                if (secretBox == null) {
+                    // The claim already flipped this row to STARTING above -- roll it back to PAUSED so it
+                    // is not stranded in a state with no LiveKit call ever actually in flight for it.
+                    //
+                    // Security-audit round-3 NEU-3 fix -- same one-way escalation to MANUAL the MINOR-9
+                    // branch below already applies for a disabled destination: without it, pauseReason
+                    // stays SECRET_BALLOT, so StreamPoller.handlePaused's own SECRET_BALLOT auto-resume
+                    // branch re-enters this exact function on EVERY tick for as long as
+                    // LAPIS_SECRET_ENCRYPTION_KEY stays unset/invalid -- the same F3 infinite-retry-loop
+                    // failure mode as the disabled-destination case, just at a third location, holding the
+                    // room's one-active-stream-per-room slot open indefinitely instead of ever reaching
+                    // handlePaused's max-duration escalation.
+                    ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) {
+                        it[status] = ConferenceStreamStatus.PAUSED
+                        it[pauseReason] = ConferenceStreamPauseReason.MANUAL
+                    }
+                    logger.warn {
+                        "restartEgressForStream: LAPIS_SECRET_ENCRYPTION_KEY unset/invalid -- cannot restart stream $streamId, " +
+                            "leaving it PAUSED (pauseReason escalated to MANUAL)"
+                    }
+                    return@transaction RestartEgressPrep(preparation = null, currentStatus = ConferenceStreamStatus.PAUSED)
+                }
+
+                // Re-derive the plaintext URLs/fingerprints fresh -- see the ORIGINAL resumeStream's
+                // own comment (still true here: destination rows still exist while a PAUSED stream
+                // references them, deleteDestination refuses otherwise).
+                val targetRows =
+                    (ConferenceStreamTargetTable innerJoin ConferenceStreamDestinationTable)
+                        .selectAll()
+                        .where { ConferenceStreamTargetTable.streamId eq streamId }
+                        .toList()
+
+                // Security-audit MINOR-9 fix -- AUTO-resume only (actorMemberId == null, i.e. the
+                // secret-ballot Auto-Resume path: DefaultSecretBallotStreamGuard.resumeStreamsForMeeting /
+                // StreamPoller.handlePaused's own orphaned-pause reconciliation). If an operator disabled
+                // a destination WHILE this stream sat paused, silently auto-restarting an egress to it
+                // would resurrect a stream the operator just took offline behind their back -- the whole
+                // point of `enabled=false` is "stop sending here", and an automatic system action must not
+                // override that. A MANUAL resumeStream click is a human, in-the-moment decision and is
+                // deliberately NOT gated here -- same distinction ConferenceStreamingService.startStream's
+                // own `enabled` check already draws for the initial start.
+                if (actorMemberId == null && targetRows.any { !it[ConferenceStreamDestinationTable.enabled] }) {
+                    // Security-audit-round-2 F3 fix -- the log line below already claimed "leaving it PAUSED
+                    // for manual moderator intervention", but `pauseReason` was left untouched (still
+                    // SECRET_BALLOT) -- StreamPoller.handlePaused re-enters its SECRET_BALLOT auto-resume
+                    // branch on EVERY tick as long as this destination stays disabled (its own
+                    // hasOpenSecretBallot check is false, the ballot already closed), calling this function
+                    // again, being declined again, forever: an infinite retry loop that never reaches
+                    // handlePaused's max-duration escalation, holding the room's one-active-stream-per-room
+                    // slot open indefinitely. One-way escalation to MANUAL -- same D4 semantics
+                    // ConferenceStreamingService.pauseStream's own manual-pause-while-PAUSING/PAUSED-
+                    // SECRET_BALLOT branch already establishes -- takes this row OUT of
+                    // resumeCandidatesForMeeting's/handlePaused's SECRET_BALLOT auto-resume machinery for
+                    // good: a moderator must now consciously call resumeStream (which is NOT gated on
+                    // `enabled`, see this branch's own KDoc above) to bring it back, and handlePaused's
+                    // ordinary maxDurationMinutes ceiling applies again in the meantime instead of being
+                    // suspended forever.
+                    ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) {
+                        it[status] = ConferenceStreamStatus.PAUSED
+                        it[pauseReason] = ConferenceStreamPauseReason.MANUAL
+                    }
+                    logger.warn {
+                        "restartEgressForStream: at least one destination for stream $streamId is disabled -- " +
+                            "auto-resume declined, leaving it PAUSED (pauseReason escalated to MANUAL) for manual " +
+                            "moderator intervention"
+                    }
+                    return@transaction RestartEgressPrep(preparation = null, currentStatus = ConferenceStreamStatus.PAUSED)
+                }
+
+                val urls =
+                    targetRows.map { tr ->
+                        val plaintextUrl = restartRtmpUrl(row = tr, secretBox = secretBox)
+                        val fingerprint = StreamUrlFingerprint.of(plaintextUrl)
+                        ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq tr[ConferenceStreamTargetTable.id] }) {
+                            it[urlFingerprint] = fingerprint
+                            it[status] = ConferenceStreamTargetStatus.PENDING
+                            it[startedAtEpochNanos] = null
+                            it[endedAtEpochNanos] = null
+                            it[retries] = 0
+                            it[failureReason] = null
+                        }
+                        plaintextUrl
+                    }
+                ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) { it[status] = ConferenceStreamStatus.STARTING }
+
+                RestartEgressPrep(
+                    preparation =
+                        ResumePreparation(
+                            roomName = room[ConferenceRoomTable.livekitRoomName],
+                            roomTitle = room[ConferenceRoomTable.title],
+                            layout = row[ConferenceStreamTable.layout],
+                            latencyMode = row[ConferenceStreamTable.latencyMode],
+                            participantIdentity = row[ConferenceStreamTable.participantIdentity],
+                            previousRestartCount = row[ConferenceStreamTable.restartCount],
+                            urls = urls,
+                        ),
+                    currentStatus = ConferenceStreamStatus.STARTING,
+                )
+            }
         }
 
     val toRestart = prep.preparation ?: return prep.currentStatus
@@ -2008,7 +2024,7 @@ private data class RestartEgressPrep(
  * an explicit [secretBox] parameter instead of an instance field). Never logged, never persisted,
  * never returned -- see [SecretBox] KDoc.
  */
-private fun restartRtmpUrl(
+internal fun restartRtmpUrl(
     row: ResultRow,
     secretBox: SecretBox,
 ): String {

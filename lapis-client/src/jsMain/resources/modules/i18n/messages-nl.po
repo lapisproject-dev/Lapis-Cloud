@@ -29637,3 +29637,84 @@ msgstr "Deze opname heeft het maximale aantal pauzes bereikt."
 
 msgid "ist wegen der Pause angehalten"
 msgstr "is stilgezet vanwege de pauze"
+
+msgid "Im Stream läuft das Pausenbild."
+msgstr "In de stream wordt het pauzebeeld getoond."
+
+msgid "Das Pausenbild konnte nicht gesendet werden. Der Stream ist bis zum Fortsetzen unterbrochen."
+msgstr "Het pauzebeeld kon niet worden verzonden. De stream ligt stil tot u hervat."
+
+msgid "Das Bild ist zu klein (mindestens 640 × 360 Pixel)."
+msgstr "De afbeelding is te klein (minstens 640 × 360 pixels)."
+
+msgid "Die Musik ist zu kurz (mindestens 5 Sekunden)."
+msgstr "De muziek is te kort (minstens 5 seconden)."
+
+msgid "Die Musik ist zu lang (höchstens 10 Minuten)."
+msgstr "De muziek is te lang (hooguit 10 minuten)."
+
+msgid "Die Datei enthält ein Video. Bitte laden Sie nur eine Audiodatei hoch."
+msgstr "Het bestand bevat een video. Upload alleen een audiobestand."
+
+msgid "Auf diesem Server ist ffmpeg nicht verfügbar, die Musik kann nicht verarbeitet werden."
+msgstr "ffmpeg is op deze server niet beschikbaar, de muziek kan dus niet worden verwerkt."
+
+msgid "Der Server ist gerade ausgelastet. Bitte versuchen Sie es gleich noch einmal."
+msgstr "De server is momenteel druk bezet. Probeer het zo opnieuw."
+
+msgid "Pause im Live-Stream"
+msgstr "Pauze in de livestream"
+
+msgid "Nur im Live-Stream zu sehen und zu hören. Nicht in der Aufzeichnung, nicht im Raum."
+msgstr "Alleen te zien en te horen in de livestream. Niet in de opname, niet in de ruimte."
+
+msgid "Pausenbild"
+msgstr "Pauzebeeld"
+
+msgid "Vorschau des Pausenbilds"
+msgstr "Voorbeeld van het pauzebeeld"
+
+msgid "Ein eigenes Bild ist hinterlegt."
+msgstr "Er is een eigen afbeelding opgeslagen."
+
+msgid "Es wird das Standardbild verwendet."
+msgstr "Het standaardbeeld wordt gebruikt."
+
+msgid "JPEG, PNG oder WebP, mindestens 640 × 360 Pixel, höchstens 10 MB. Das Bild wird nie beschnitten; was nicht ins 16:9-Format passt, bekommt einen ruhigen dunklen Rand."
+msgstr "JPEG, PNG of WebP, minstens 640 × 360 pixels, hooguit 10 MB. De afbeelding wordt nooit bijgesneden; wat niet in het 16:9-formaat past, krijgt een rustige donkere rand."
+
+msgid "Bild auswählen"
+msgstr "Afbeelding kiezen"
+
+msgid "Eigenes Bild hochladen"
+msgstr "Eigen afbeelding uploaden"
+
+msgid "Das Pausenbild wurde gespeichert."
+msgstr "Het pauzebeeld is opgeslagen."
+
+msgid "Das Standardbild wird wieder verwendet."
+msgstr "Het standaardbeeld wordt weer gebruikt."
+
+msgid "Pausenmusik"
+msgstr "Pauzemuziek"
+
+msgid "Keine Musik hinterlegt. Im Stream ist während der Pause nichts zu hören."
+msgstr "Geen muziek opgeslagen. Tijdens de pauze is er niets te horen in de stream."
+
+msgid "MP3, M4A, OGG, FLAC oder WAV, 5 Sekunden bis 10 Minuten, höchstens 15 MB. Die Musik läuft in Endlosschleife und wird auf eine einheitliche Lautstärke gebracht."
+msgstr "MP3, M4A, OGG, FLAC of WAV, 5 seconden tot 10 minuten, hooguit 15 MB. De muziek speelt in een eindeloze lus en wordt op een gelijkmatig volume gebracht."
+
+msgid "Laden Sie nur Musik hoch, für deren öffentliche Wiedergabe Sie die Rechte haben. Plattformen können Streams mit geschützter Musik stummschalten oder sperren."
+msgstr "Upload alleen muziek waarvan u de rechten voor openbare weergave heeft. Platforms kunnen streams met beschermde muziek dempen of blokkeren."
+
+msgid "Musikdatei auswählen"
+msgstr "Muziekbestand kiezen"
+
+msgid "Musik hochladen"
+msgstr "Muziek uploaden"
+
+msgid "Die Pausenmusik wurde gespeichert."
+msgstr "De pauzemuziek is opgeslagen."
+
+msgid "Die Pausenmusik wurde entfernt."
+msgstr "De pauzemuziek is verwijderd."

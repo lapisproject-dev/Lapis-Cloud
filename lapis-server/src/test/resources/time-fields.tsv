@@ -1055,3 +1055,5 @@ col:ActivismNoticeTextTable.updatedAt	A	stamped by the server clock (DbClock/Ser
 col:ActivismReportTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ActivismReportTable.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ActivismTaskTable.doneAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OrganizationSettingsTable.pauseImageUpdatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OrganizationSettingsTable.pauseMusicUpdatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

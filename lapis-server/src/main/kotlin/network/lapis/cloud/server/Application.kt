@@ -68,6 +68,7 @@ import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceConnectedMembers
 import network.lapis.cloud.server.conference.ConferenceHandQueueReconciler
 import network.lapis.cloud.server.conference.ConferenceHandQueueState
+import network.lapis.cloud.server.conference.ConferenceModerationPackets
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.conference.ConferenceRoomPauseCoordinator
@@ -77,18 +78,28 @@ import network.lapis.cloud.server.conference.ConferenceTimerState
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard
 import network.lapis.cloud.server.conference.FfmpegBlankVideoDetector
+import network.lapis.cloud.server.conference.FfmpegProcessRunner
 import network.lapis.cloud.server.conference.FfmpegSegmentedComposer
 import network.lapis.cloud.server.conference.FfmpegSpeechActivityAnalyzer
 import network.lapis.cloud.server.conference.FfprobeMediaProber
 import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
 import network.lapis.cloud.server.conference.HttpLiveKitEgressClient
 import network.lapis.cloud.server.conference.LiveKitAdminClient
+import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.RecordingComposer
 import network.lapis.cloud.server.conference.RecordingMediaProber
 import network.lapis.cloud.server.conference.RecordingPoller
 import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.conference.StreamPoller
+import network.lapis.cloud.server.conference.pausefeed.DbPauseFeedDataSource
+import network.lapis.cloud.server.conference.pausefeed.FfmpegPauseFeedLauncher
+import network.lapis.cloud.server.conference.pausefeed.FfprobeAudioProber
+import network.lapis.cloud.server.conference.pausefeed.PauseFeedSupervisor
+import network.lapis.cloud.server.conference.pausefeed.PauseFeedTargetPolicy
+import network.lapis.cloud.server.conference.pausefeed.PauseFeeds
+import network.lapis.cloud.server.conference.pausefeed.PauseMediaStore
+import network.lapis.cloud.server.conference.pausefeed.PauseMusicProcessor
 import network.lapis.cloud.server.contribution.ContributionReliefRedactionPoller
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.dashboard.DashboardCaches
@@ -98,6 +109,7 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.StagingSeedData
 import network.lapis.cloud.server.db.StagingSeedTopUp
 import network.lapis.cloud.server.db.dbFailureKind
+import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.dsgvo.MailOutboxPersonalData
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
@@ -270,6 +282,7 @@ import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
 import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
 import network.lapis.cloud.server.routes.registerPartgReportRoutes
+import network.lapis.cloud.server.routes.registerPauseMediaRoutes
 import network.lapis.cloud.server.routes.registerPaypalWebhookRoutes
 import network.lapis.cloud.server.routes.registerPrivilegedActionRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
@@ -405,6 +418,7 @@ import network.lapis.cloud.server.webhook.WebhookDeliveryPoller
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.Greeting
 import network.lapis.cloud.shared.domain.AccountingExportProvider
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.GalleryRules
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.PaymentProvider
@@ -503,6 +517,8 @@ import network.lapis.cloud.shared.rpc.IVideoOverlayService
 import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
 import network.lapis.cloud.shared.rpc.IWebhookService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 import kotlin.time.Duration.Companion.hours
@@ -1361,6 +1377,62 @@ internal fun Application.module(
     // RecordingPoller's own "sole caller" posture for recording) -- constructed unconditionally,
     // `.start()` gated on conferenceStreamingConfig.enabled, same reasoning as recordingPoller above.
     val conferenceStreamingConfig = ConferenceStreamingConfig.load()
+    // V1.9.255 pause picture and music of the live stream. The supervisor owns the ffmpeg feed processes; it has NO LiveKit client (nothing from
+    // the room can reach the feed). Switched off by LAPIS_STREAM_PAUSE_FEED_ENABLED=false (default on), and automatically when streaming or ffmpeg
+    // is missing. It is wired BEFORE the poller and the coordinator, which read PauseFeeds.current at construction.
+    val pauseMediaStore =
+        PauseMediaStore(
+            root = File(System.getenv("LAPIS_PAUSE_MEDIA_STORAGE_ROOT") ?: documentStorageRoot.resolve("conference-pause-media").path),
+            feedsRunning = { PauseFeeds.current.anyRunning() },
+        )
+    val pauseFeedTlsArgs = PauseFeedSupervisor.tlsVerifyArgsIfAvailable()
+    val pauseFeedEnabled =
+        conferenceStreamingConfig.enabled &&
+            ffmpegAvailable &&
+            System.getenv("LAPIS_STREAM_PAUSE_FEED_ENABLED")?.trim()?.lowercase() != "false"
+    val pauseFeedSupervisor =
+        PauseFeedSupervisor(
+            launcher = FfmpegPauseFeedLauncher(ffmpegPath = conferenceRecordingConfig.ffmpegPath),
+            media = pauseMediaStore,
+            targetPolicy = PauseFeedTargetPolicy(allowRtmps = pauseFeedTlsArgs.isNotEmpty()),
+            dataSource = DbPauseFeedDataSource(conferenceStreamingConfig),
+            enabled = pauseFeedEnabled,
+            tlsVerifyArgs = pauseFeedTlsArgs,
+            onStateChanged = { roomId ->
+                // Wakes every client of the room to re-read the stream DTO (the banner line follows the feed state). Best effort.
+                val roomName =
+                    transaction {
+                        ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.singleOrNull()?.get(
+                            ConferenceRoomTable.livekitRoomName,
+                        )
+                    }
+                if (roomName != null) {
+                    try {
+                        liveKitAdminClient.sendData(
+                            room = roomName,
+                            topic = CONFERENCE_MODERATION_TOPIC,
+                            payload = ConferenceModerationPackets.capturePause(true),
+                        )
+                    } catch (e: LiveKitAdminException) {
+                        applicationLogger.warn { "pause feed: the room notice could not be sent" }
+                    }
+                }
+                EventCaptureLiveBroadcaster.notifyRoomChanged(roomId)
+            },
+            onFeedEnded = { pauseMediaStore.sweep() },
+            scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO),
+        )
+    PauseFeeds.current = pauseFeedSupervisor
+    monitor.subscribe(ApplicationStopping) { pauseFeedSupervisor.shutdown() }
+    Runtime.getRuntime().addShutdownHook(Thread { pauseFeedSupervisor.shutdown() })
+    if (!pauseFeedEnabled) {
+        applicationLogger.info { "pause feed: off (streaming, ffmpeg or LAPIS_STREAM_PAUSE_FEED_ENABLED)" }
+    }
+    val pauseMusicProcessor =
+        PauseMusicProcessor(
+            runner = FfmpegProcessRunner(conferenceRecordingConfig.ffmpegPath),
+            prober = FfprobeAudioProber(conferenceRecordingConfig.ffprobePath),
+        )
     val streamPoller = StreamPoller(liveKitEgressClient = liveKitEgressClient, streamingConfig = conferenceStreamingConfig)
     // V1.9.254 pause mode: one process-wide coordinator (its rate limiter must not be recreated per RPC call). It wakes the recording poller so the
     // egresses stop at once; no new RPC service is registered (the registration order stays untouched).
@@ -1874,6 +1946,9 @@ internal fun Application.module(
     // V1.9.129 "Video-Overlays" -- ADMIN upload budget per actor, and the (authenticated, per member) delivery budget.
     val videoOverlayUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 60.minutes)
     val videoOverlayReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
+    // V1.9.255 pause picture / music: ADMIN upload budget per actor (a music transcode is real work) and the preview budget.
+    val pauseMediaUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 10.minutes)
+    val pauseMediaReadRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- same posture as the event-cover
     // pair above (member-keyed write, bounded per-IP read), plus a member-keyed preview budget
     // and an IP-keyed page-read budget for the public /aktuelles/{slug} surface.
@@ -3243,6 +3318,15 @@ internal fun Application.module(
             baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             uploadRateLimiter = videoOverlayUploadRateLimiter,
             readRateLimiter = videoOverlayReadRateLimiter,
+        )
+        // V1.9.255 -- ADMIN upload, removal and preview of the pause picture and pause music of the live stream. Always on.
+        registerPauseMediaRoutes(
+            store = pauseMediaStore,
+            musicProcessor = pauseMusicProcessor,
+            ffmpegAvailable = ffmpegAvailable,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            uploadRateLimiter = pauseMediaUploadRateLimiter,
+            readRateLimiter = pauseMediaReadRateLimiter,
         )
         // Welle V1.9.222 "Bildergalerie" -- private upload + same-origin delivery of the gallery pictures. Always on; literal routes
         // under

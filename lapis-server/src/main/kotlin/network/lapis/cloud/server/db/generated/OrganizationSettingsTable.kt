@@ -127,6 +127,13 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.9.246 -- hand-edited (V133). Written ONLY by ActivismStore; NOT part of the generic update write-set.
     public val activismReviewRequired: Column<Boolean> = bool("activism_review_required").default(false)
     public val activismNoticeCountry: Column<String> = varchar("activism_notice_country", 2).default("DE")
+    // Welle V1.9.255 -- hand-edited (V135). Written ONLY by PauseMediaStore; NOT part of the generic update write-set.
+    public val pauseImageKey: Column<Uuid?> = uuid("pause_image_key").nullable()
+    public val pauseImageUpdatedAt: Column<LocalDateTime?> = datetime("pause_image_updated_at").nullable()
+    public val pauseMusicKey: Column<Uuid?> = uuid("pause_music_key").nullable()
+    public val pauseMusicLabel: Column<String?> = varchar("pause_music_label", 80).nullable()
+    public val pauseMusicDurationSeconds: Column<Short?> = short("pause_music_duration_seconds").nullable()
+    public val pauseMusicUpdatedAt: Column<LocalDateTime?> = datetime("pause_music_updated_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

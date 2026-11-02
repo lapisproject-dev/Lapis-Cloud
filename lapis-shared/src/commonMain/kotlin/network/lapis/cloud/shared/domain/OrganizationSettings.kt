@@ -243,6 +243,19 @@ data class OrganizationSettingsDto(
      * the visibility of a published tender never changes.
      */
     val tenderDefaultVisibility: TenderBidVisibility = TenderBidVisibility.HIDDEN_UNTIL_DEADLINE,
+    /**
+     * V1.9.255 -- `true` iff an ADMIN uploaded an own pause picture (otherwise the built-in default picture is used). **Read-only here**,
+     * not in [OrganizationSettingsInput]: set only through `PauseMediaRoutes`.
+     */
+    val pauseImageCustom: Boolean = false,
+    /** V1.9.255 -- cache-buster of the pause picture URL (first 8 characters of the stored key); `null` without an own picture. */
+    val pauseImageVersion: String? = null,
+    /** V1.9.255 -- display label of the pause music (sanitized file name); `null` without music. */
+    val pauseMusicLabel: String? = null,
+    /** V1.9.255 -- duration of the pause music in seconds; `null` without music. */
+    val pauseMusicDurationSeconds: Int? = null,
+    /** V1.9.255 -- cache-buster of the pause music URL; `null` without music. */
+    val pauseMusicVersion: String? = null,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

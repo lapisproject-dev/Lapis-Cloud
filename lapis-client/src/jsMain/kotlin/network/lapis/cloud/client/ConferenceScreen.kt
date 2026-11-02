@@ -2609,6 +2609,10 @@ private fun enterCall(
     secretBallotPauseBanner.setAttribute("role", "status")
     secretBallotPauseBanner.setAttribute("aria-live", "polite")
     val secretBallotBannerLine = secretBallotPauseBanner.div("") { addCssClass("fw-bold") }
+    // V1.9.255 -- second line while the room pause holds the stream: whether the pause picture is sent (see roomPauseFeedLine)
+    val pauseFeedBannerLine = secretBallotPauseBanner.div("") { addCssClass("small") }
+    pauseFeedBannerLine.hide()
+    var shownPauseFeedLine: String? = null
     // the "Fortsetzen" button is a sibling directly under the banner (created after updateSecretBallotBanner): the ballot banner itself has no button
     var bannerResumeButton: io.kvision.html.Button? = null
     var pauseBusy: PauseBusy? = null
@@ -2675,6 +2679,16 @@ private fun enterCall(
                 roomPause,
             )
         refreshPauseControls(roomPause)
+        val feedLine = if (roomPause != null) roomPauseFeedLine(activeStreamDto) else null
+        if (feedLine != shownPauseFeedLine) {
+            shownPauseFeedLine = feedLine
+            if (feedLine == null) {
+                pauseFeedBannerLine.hide()
+            } else {
+                pauseFeedBannerLine.content = feedLine
+                pauseFeedBannerLine.show()
+            }
+        }
         if (text == shownBannerText) return
         shownBannerText = text
         if (text == null) {

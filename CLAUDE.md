@@ -298,6 +298,17 @@ Details: `docs/architecture/conference-recording.adoc`, Abschnitt "Pauses (stage
 - **Der Stream-Wechsel ist nicht nahtlos** (Stop + neuer Egress). Es gibt bewusst **keinen** Web-Egress und kein Custom-Template (`ConferenceReactionsRecordingTripwireTest` + `ConferenceRoomPauseTripwireTest`): sonst landeten Client-DOM-Overlays im Stream. Ein Pausenbild im Stream (Schritt 2, noch nicht gebaut) braucht eine neue, getrennte Entscheidung samt Tripwire-Ausnahme.
 - **Ein Banner:** die Pause nutzt das bestehende Raum-Banner (`lapis-room-notice`, `role="status"`), keinen zweiten Balken. Der Zustand kommt aus den DTOs, die Pakete `capture_pause`/`capture_resume` lösen nur ein erneutes Lesen aus.
 
+## Pausenbild und Pausenmusik im Live-Stream (V1.9.255)
+
+Details: `docs/architecture/conference-recording.adoc` ("Pause feed (V1.9.255)"), `docs/features/video-conferencing.adoc`. Kurzregeln:
+
+- **Der Feed ist ein eigener ffmpeg-Prozess des Servers** (`PauseFeedSupervisor`, Paket `conference.pausefeed`). Er hat **keinen LiveKit-Client** und tritt keinem Raum bei, es gibt keinen Pfad aus dem Raum in den Feed. Der Zustand liegt nur im Speicher; die DB entscheidet, ob ein Feed **gewünscht** ist (`PauseFeedWishes`: `PAUSED` + `ROOM_PAUSE` + Raum pausiert, nicht beendet), gelesen unter dem Stream-Lock direkt vor dem Spawn.
+- **Einziger Choke-Point für Neustarts ist `restartEgressForStream`:** der Claim `PAUSED -> STARTING` läuft in `pauseFeed.stopThen(streamId)`. Niemals einen Egress an dieser Stelle vorbei starten (`PauseFeedTripwireTest` prüft per grep, wer `startRoomCompositeEgress`/`startParticipantEgress` aufruft). Sonst zwei Sender auf einem Key.
+- **`-progress` ist kein Orphan-Schutz** (ffmpeg ignoriert SIGPIPE, gemessen). Schutz: Container (JVM ist PID 1), `-t 14400`, `ApplicationStopping` + Shutdown-Hook. Nicht anders dokumentieren.
+- **Ziele müssen öffentlich sein** (`PauseFeedTargetPolicy`, jede aufgelöste Adresse); rtmps nur mit `-tls_verify 1` und CA-Bundle. Kein Key und keine Klartext-URL im Log (Stderr nur durch `PauseFeedCommand.sanitize`), ffmpeg nur mit Argumentliste.
+- **Die Medien stehen in sechs Spalten von `organization_settings` (V135), nur `PauseMediaDb`/`PauseMediaRoutes` schreiben sie;** nicht in `OrganizationSettingsInput`. Eine ersetzte Datei wird erst gelöscht, wenn kein Feed läuft (`PauseMediaStore.retire`, ffmpeg liest das Bild pro Frame neu).
+- **Berechtigung nur ADMIN** (wie die Organisationseinstellungen und die Overlay-Bibliothek), jede Methode, Same-Origin bei Schreibzugriffen.
+
 ## Begegnungsraum: Raumvorlagen (V1.9.152)
 
 Details: Abschnitt "Stage 2c" in `docs/architecture/encounter-space.adoc`. Kurzregeln:

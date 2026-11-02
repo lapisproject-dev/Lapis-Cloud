@@ -3,6 +3,8 @@ package network.lapis.cloud.server.conference
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.conference.pausefeed.PauseFeedControl
+import network.lapis.cloud.server.conference.pausefeed.PauseFeeds
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRecordingPauseTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
@@ -171,6 +173,8 @@ class ConferenceRoomPauseCoordinator(
     /** Wakes the [RecordingPoller] so the egresses stop at once; a test seam (no-op in tests without a poller). */
     private val requestRecordingTick: () -> Unit,
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
+    /** V1.9.255 -- the pause feed (picture and music for the stream targets). It never touches LiveKit; a failure of it changes nothing here. */
+    private val pauseFeed: PauseFeedControl = PauseFeeds.current,
 ) {
     private data class PausePlan(
         val state: ConferenceRoomPauseDto,
@@ -185,6 +189,8 @@ class ConferenceRoomPauseCoordinator(
         val roomName: String,
         val changed: Boolean,
         val streamsToRestart: List<Uuid>,
+        /** Streams that stayed paused but now for a secret ballot: they get no pause feed. */
+        val streamsToUnfeed: List<Uuid> = emptyList(),
     )
 
     suspend fun pause(
@@ -310,6 +316,15 @@ class ConferenceRoomPauseCoordinator(
                 // The row is PAUSING; StreamPoller.handlePausing finishes the confirmation. Never the exception text (may name a host).
                 logger.warn { "room pause: the stream stop could not be confirmed now (${e::class.simpleName}) -- StreamPoller retries" }
             }
+            // V1.9.255 -- the feed starts only once the stream is confirmed PAUSED (it re-reads that itself); a stream still PAUSING or a
+            // failure here is picked up by StreamPoller's reconcile.
+            try {
+                pauseFeed.ensureRunning(plan.streamToQuiesce)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn { "room pause: the pause feed could not be started now (${e::class.simpleName}) -- StreamPoller retries" }
+            }
         }
         notify(id = id, roomName = plan.roomName, paused = true)
         return transaction { RoomPauseDb.stateOf(id) }
@@ -337,6 +352,7 @@ class ConferenceRoomPauseCoordinator(
                 var recordingResumed = false
                 var streamResumed = false
                 val restart = ArrayList<Uuid>()
+                val unfeed = ArrayList<Uuid>()
 
                 val recording =
                     ConferenceRecordingTable
@@ -383,6 +399,7 @@ class ConferenceRoomPauseCoordinator(
                         }) {
                             it[pauseReason] = ConferenceStreamPauseReason.SECRET_BALLOT
                         }
+                        unfeed += streamId
                     } else if (stream[ConferenceStreamTable.status] == ConferenceStreamStatus.PAUSED) {
                         restart += streamId
                     }
@@ -404,10 +421,13 @@ class ConferenceRoomPauseCoordinator(
                     roomName = room[ConferenceRoomTable.livekitRoomName],
                     changed = true,
                     streamsToRestart = restart,
+                    streamsToUnfeed = unfeed,
                 )
             }
         if (!plan.changed) return plan.state
 
+        // V1.9.255 (Z9) -- the stream stays paused for a secret ballot: the room pause is over, so the feed ends (outside the transaction).
+        for (streamId in plan.streamsToUnfeed) pauseFeed.stop(streamId)
         for (streamId in plan.streamsToRestart) {
             try {
                 restartEgressForStream(
@@ -416,6 +436,7 @@ class ConferenceRoomPauseCoordinator(
                     streamingConfig = streamingConfig,
                     actorMemberId = current.memberId,
                     actorRole = current.role,
+                    pauseFeed = pauseFeed,
                 )
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

@@ -28,6 +28,8 @@ import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.LiveKitEgressInfo
 import network.lapis.cloud.server.conference.StreamPoller
+import network.lapis.cloud.server.conference.pausefeed.PauseFeedControl
+import network.lapis.cloud.server.conference.pausefeed.PauseFeeds
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
@@ -991,6 +993,24 @@ class ConferenceStreamingServiceTest :
             reason shouldBe ConferenceStreamPauseReason.MANUAL
             marked shouldBe false
             ended shouldBe 1
+        }
+
+        test("pauseStream (Z10): a manual pause of a ROOM_PAUSE stream ends its pause feed at once") {
+            val stopped = java.util.concurrent.CopyOnWriteArrayList<Uuid>()
+            val previous = PauseFeeds.current
+            PauseFeeds.current =
+                object : PauseFeedControl by PauseFeedControl.NoOp {
+                    override suspend fun stop(streamId: Uuid) {
+                        stopped += streamId
+                    }
+                }
+            try {
+                roomPauseEscalation(withPausedRecording = false, email = "stream-z10-feed@example.org").first shouldBe
+                    ConferenceStreamPauseReason.MANUAL
+            } finally {
+                PauseFeeds.current = previous
+            }
+            stopped.size shouldBe 1
         }
 
         test("pauseStream (Z10): the room mark stays while the recording is still paused") {

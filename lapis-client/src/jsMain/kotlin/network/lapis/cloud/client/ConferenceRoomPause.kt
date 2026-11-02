@@ -5,6 +5,7 @@ import io.kvision.i18n.tr
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
+import network.lapis.cloud.shared.domain.ConferenceStreamPauseFeedState
 import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.RoomPauseScope
@@ -43,6 +44,20 @@ internal fun roomPauseHeadline(scope: RoomPauseScope): String =
 /** The banner text of a paused room: what is stopped, and that people may keep talking. */
 internal fun roomPauseSentence(scope: RoomPauseScope): String =
     roomPauseHeadline(scope) + " " + gettext("Sie können weiter miteinander sprechen.")
+
+/**
+ * V1.9.255 -- the second line of the room banner while the room pause holds the live stream: whether the server sends the pause picture to the
+ * targets. `null` (no line) for every other state, so the banner never says more than is true.
+ */
+internal fun roomPauseFeedLine(stream: ConferenceStreamDto?): String? {
+    if (!stream.pausedByRoom()) return null
+    return when (stream?.pauseFeed) {
+        ConferenceStreamPauseFeedState.ACTIVE -> gettext("Im Stream läuft das Pausenbild.")
+        ConferenceStreamPauseFeedState.FAILED ->
+            gettext("Das Pausenbild konnte nicht gesendet werden. Der Stream ist bis zum Fortsetzen unterbrochen.")
+        else -> null
+    }
+}
 
 /** The one badge of the mini bar / floating window while the room is paused. */
 internal fun roomPauseBadge(): String = gettext("⏸ Pause")

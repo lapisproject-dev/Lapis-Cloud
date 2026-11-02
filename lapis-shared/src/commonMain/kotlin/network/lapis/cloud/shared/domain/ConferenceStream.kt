@@ -99,6 +99,16 @@ enum class ConferenceStreamStatus { STARTING, LIVE, PAUSED, STOPPING, ENDED, FAI
 enum class ConferenceStreamPauseReason { MANUAL, SECRET_BALLOT, ROOM_PAUSE }
 
 /**
+ * V1.9.255 -- state of the pause feed (still picture plus optional music) the SERVER sends to the stream targets while the room pause
+ * holds the live stream. Held in memory only (never stored): `OFF` = no feed (also: the feature is off, the stream is not paused by the
+ * room, or the process restarted and the poller has not started it yet), `STARTING` = process launched but no progress yet, `ACTIVE` = the
+ * feed is sending, `FAILED` = no feed could be started or it kept failing -- the stream is interrupted until the resume (the V1.9.254
+ * behaviour). Literal order is load-bearing (same mechanism as [ConferenceStreamPlatform]).
+ */
+@Serializable
+enum class ConferenceStreamPauseFeedState { OFF, STARTING, ACTIVE, FAILED }
+
+/**
  * Mirrors LiveKit's own `livekit.StreamInfo.Status` (`ACTIVE`/`FINISHED`/`FAILED`), plus a
  * `PENDING` pre-start state this codebase adds for the row's own life between `INSERT` and the
  * first successful `StreamPoller` reconciliation against `ListEgress`'s `stream_results` (matched
@@ -226,6 +236,8 @@ data class ConferenceStreamDto(
      * geheimer Abstimmung, wird automatisch fortgesetzt" vs. plain "unterbrochen" badge.
      */
     val pauseReason: ConferenceStreamPauseReason?,
+    /** V1.9.255 -- state of the server-side pause feed; [ConferenceStreamPauseFeedState.OFF] unless the room pause holds this stream. */
+    val pauseFeed: ConferenceStreamPauseFeedState = ConferenceStreamPauseFeedState.OFF,
 )
 
 /**

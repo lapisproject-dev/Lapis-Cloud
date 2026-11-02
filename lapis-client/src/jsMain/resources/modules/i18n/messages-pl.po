@@ -29612,3 +29612,84 @@ msgstr "To nagranie osiągnęło maksymalną liczbę przerw."
 
 msgid "ist wegen der Pause angehalten"
 msgstr "jest wstrzymana z powodu przerwy"
+
+msgid "Im Stream läuft das Pausenbild."
+msgstr "W transmisji wyświetlany jest obraz przerwy."
+
+msgid "Das Pausenbild konnte nicht gesendet werden. Der Stream ist bis zum Fortsetzen unterbrochen."
+msgstr "Nie udało się wysłać obrazu przerwy. Transmisja jest przerwana do czasu wznowienia."
+
+msgid "Das Bild ist zu klein (mindestens 640 × 360 Pixel)."
+msgstr "Obraz jest za mały (co najmniej 640 × 360 pikseli)."
+
+msgid "Die Musik ist zu kurz (mindestens 5 Sekunden)."
+msgstr "Muzyka jest za krótka (co najmniej 5 sekund)."
+
+msgid "Die Musik ist zu lang (höchstens 10 Minuten)."
+msgstr "Muzyka jest za długa (najwyżej 10 minut)."
+
+msgid "Die Datei enthält ein Video. Bitte laden Sie nur eine Audiodatei hoch."
+msgstr "Plik zawiera wideo. Prześlij wyłącznie plik audio."
+
+msgid "Auf diesem Server ist ffmpeg nicht verfügbar, die Musik kann nicht verarbeitet werden."
+msgstr "ffmpeg nie jest dostępny na tym serwerze, więc muzyki nie można przetworzyć."
+
+msgid "Der Server ist gerade ausgelastet. Bitte versuchen Sie es gleich noch einmal."
+msgstr "Serwer jest w tej chwili zajęty. Spróbuj ponownie za moment."
+
+msgid "Pause im Live-Stream"
+msgstr "Przerwa w transmisji na żywo"
+
+msgid "Nur im Live-Stream zu sehen und zu hören. Nicht in der Aufzeichnung, nicht im Raum."
+msgstr "Widoczne i słyszalne tylko w transmisji na żywo. Nie w nagraniu i nie w pokoju."
+
+msgid "Pausenbild"
+msgstr "Obraz przerwy"
+
+msgid "Vorschau des Pausenbilds"
+msgstr "Podgląd obrazu przerwy"
+
+msgid "Ein eigenes Bild ist hinterlegt."
+msgstr "Zapisano własny obraz."
+
+msgid "Es wird das Standardbild verwendet."
+msgstr "Używany jest obraz domyślny."
+
+msgid "JPEG, PNG oder WebP, mindestens 640 × 360 Pixel, höchstens 10 MB. Das Bild wird nie beschnitten; was nicht ins 16:9-Format passt, bekommt einen ruhigen dunklen Rand."
+msgstr "JPEG, PNG lub WebP, co najmniej 640 × 360 pikseli, najwyżej 10 MB. Obraz nigdy nie jest przycinany; to, co nie mieści się w formacie 16:9, dostaje spokojny ciemny margines."
+
+msgid "Bild auswählen"
+msgstr "Wybierz obraz"
+
+msgid "Eigenes Bild hochladen"
+msgstr "Prześlij własny obraz"
+
+msgid "Das Pausenbild wurde gespeichert."
+msgstr "Obraz przerwy został zapisany."
+
+msgid "Das Standardbild wird wieder verwendet."
+msgstr "Ponownie używany jest obraz domyślny."
+
+msgid "Pausenmusik"
+msgstr "Muzyka przerwy"
+
+msgid "Keine Musik hinterlegt. Im Stream ist während der Pause nichts zu hören."
+msgstr "Brak zapisanej muzyki. W czasie przerwy w transmisji nic nie słychać."
+
+msgid "MP3, M4A, OGG, FLAC oder WAV, 5 Sekunden bis 10 Minuten, höchstens 15 MB. Die Musik läuft in Endlosschleife und wird auf eine einheitliche Lautstärke gebracht."
+msgstr "MP3, M4A, OGG, FLAC lub WAV, od 5 sekund do 10 minut, najwyżej 15 MB. Muzyka gra w nieskończonej pętli i jest wyrównywana do jednolitej głośności."
+
+msgid "Laden Sie nur Musik hoch, für deren öffentliche Wiedergabe Sie die Rechte haben. Plattformen können Streams mit geschützter Musik stummschalten oder sperren."
+msgstr "Przesyłaj tylko muzykę, do której publicznego odtwarzania masz prawa. Platformy mogą wyciszyć lub zablokować transmisje z chronioną muzyką."
+
+msgid "Musikdatei auswählen"
+msgstr "Wybierz plik muzyczny"
+
+msgid "Musik hochladen"
+msgstr "Prześlij muzykę"
+
+msgid "Die Pausenmusik wurde gespeichert."
+msgstr "Muzyka przerwy została zapisana."
+
+msgid "Die Pausenmusik wurde entfernt."
+msgstr "Muzyka przerwy została usunięta."

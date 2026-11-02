@@ -11,6 +11,9 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.conference.pausefeed.PauseFeedControl
+import network.lapis.cloud.server.conference.pausefeed.PauseFeedWishes
+import network.lapis.cloud.server.conference.pausefeed.PauseFeeds
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTable
@@ -154,6 +157,8 @@ class StreamPoller(
     private val liveKitEgressClient: LiveKitEgressClient,
     private val streamingConfig: ConferenceStreamingConfig,
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
+    /** V1.9.255 -- the pause feed; this poller reconciles it (starts missing feeds, stops those no longer wanted) at the end of every tick. */
+    private val pauseFeed: PauseFeedControl = PauseFeeds.current,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var loopJob: Job? = null
@@ -198,6 +203,25 @@ class StreamPoller(
             }
         } catch (e: Throwable) {
             logger.warn(e) { "StreamPoller: tick failed" }
+        }
+        reconcilePauseFeeds()
+    }
+
+    /**
+     * V1.9.255 -- the pause feed follows the database: every stream that is `PAUSED` for the room pause (room still paused, not ended) gets a
+     * feed (idempotent; this also covers a server restart, a missed confirmation and a secret ballot that begins inside a room pause), every
+     * feed of a stream that is no longer wanted (resumed, stopped, ended, failed) is stopped. Never throws: the feed is a nicety, the
+     * stream state machine above must not depend on it.
+     */
+    private suspend fun reconcilePauseFeeds() {
+        try {
+            val wanted = transaction { PauseFeedWishes.wantedStreamIds() }
+            pauseFeed.reconcile(wanted)
+            for (id in wanted) pauseFeed.ensureRunning(id)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.warn(e) { "StreamPoller: pause feed reconcile failed" }
         }
     }
 
@@ -634,6 +658,7 @@ class StreamPoller(
                     streamingConfig = streamingConfig,
                     actorMemberId = null,
                     actorRole = null,
+                    pauseFeed = pauseFeed,
                 )
                 return
             }
@@ -654,6 +679,7 @@ class StreamPoller(
                     streamingConfig = streamingConfig,
                     actorMemberId = null,
                     actorRole = null,
+                    pauseFeed = pauseFeed,
                 )
                 return
             }

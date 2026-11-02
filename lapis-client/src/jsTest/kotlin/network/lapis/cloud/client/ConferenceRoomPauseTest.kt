@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
+import network.lapis.cloud.shared.domain.ConferenceStreamPauseFeedState
 import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
@@ -67,6 +68,28 @@ class ConferenceRoomPauseTest {
     )
 
     private fun bytes(json: String) = json.encodeToByteArray()
+
+    // ── V1.9.255 pause feed line ─────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun theFeedLine_isShownOnlyForAnActiveOrFailedFeedOfARoomPausedStream() {
+        fun line(
+            state: ConferenceStreamPauseFeedState,
+            status: ConferenceStreamStatus = ConferenceStreamStatus.PAUSED,
+            reason: ConferenceStreamPauseReason? = ConferenceStreamPauseReason.ROOM_PAUSE,
+        ) = roomPauseFeedLine(stream(status, reason).copy(pauseFeed = state))
+        assertEquals("Im Stream läuft das Pausenbild.", line(ConferenceStreamPauseFeedState.ACTIVE))
+        assertEquals(
+            "Das Pausenbild konnte nicht gesendet werden. Der Stream ist bis zum Fortsetzen unterbrochen.",
+            line(ConferenceStreamPauseFeedState.FAILED),
+        )
+        assertNull(line(ConferenceStreamPauseFeedState.OFF))
+        assertNull(line(ConferenceStreamPauseFeedState.STARTING))
+        // never for a stream that is not paused by the room, and never without a stream
+        assertNull(line(ConferenceStreamPauseFeedState.ACTIVE, reason = ConferenceStreamPauseReason.SECRET_BALLOT))
+        assertNull(line(ConferenceStreamPauseFeedState.ACTIVE, status = ConferenceStreamStatus.LIVE, reason = null))
+        assertNull(roomPauseFeedLine(null))
+    }
 
     // ── scope ────────────────────────────────────────────────────────────────────────────────────────────────
 

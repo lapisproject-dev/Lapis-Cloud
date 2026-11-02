@@ -29602,3 +29602,84 @@ msgstr "Эта запись достигла максимального числ
 
 msgid "ist wegen der Pause angehalten"
 msgstr "остановлена из-за паузы"
+
+msgid "Im Stream läuft das Pausenbild."
+msgstr "В трансляции показывается картинка паузы."
+
+msgid "Das Pausenbild konnte nicht gesendet werden. Der Stream ist bis zum Fortsetzen unterbrochen."
+msgstr "Не удалось отправить картинку паузы. Трансляция прервана до возобновления."
+
+msgid "Das Bild ist zu klein (mindestens 640 × 360 Pixel)."
+msgstr "Изображение слишком маленькое (не менее 640 × 360 пикселей)."
+
+msgid "Die Musik ist zu kurz (mindestens 5 Sekunden)."
+msgstr "Музыка слишком короткая (не менее 5 секунд)."
+
+msgid "Die Musik ist zu lang (höchstens 10 Minuten)."
+msgstr "Музыка слишком длинная (не более 10 минут)."
+
+msgid "Die Datei enthält ein Video. Bitte laden Sie nur eine Audiodatei hoch."
+msgstr "Файл содержит видео. Загрузите только аудиофайл."
+
+msgid "Auf diesem Server ist ffmpeg nicht verfügbar, die Musik kann nicht verarbeitet werden."
+msgstr "На этом сервере недоступен ffmpeg, поэтому музыку обработать нельзя."
+
+msgid "Der Server ist gerade ausgelastet. Bitte versuchen Sie es gleich noch einmal."
+msgstr "Сервер сейчас занят. Повторите попытку через минуту."
+
+msgid "Pause im Live-Stream"
+msgstr "Пауза в прямой трансляции"
+
+msgid "Nur im Live-Stream zu sehen und zu hören. Nicht in der Aufzeichnung, nicht im Raum."
+msgstr "Видно и слышно только в прямой трансляции. Не в записи и не в комнате."
+
+msgid "Pausenbild"
+msgstr "Картинка паузы"
+
+msgid "Vorschau des Pausenbilds"
+msgstr "Предпросмотр картинки паузы"
+
+msgid "Ein eigenes Bild ist hinterlegt."
+msgstr "Сохранена собственная картинка."
+
+msgid "Es wird das Standardbild verwendet."
+msgstr "Используется картинка по умолчанию."
+
+msgid "JPEG, PNG oder WebP, mindestens 640 × 360 Pixel, höchstens 10 MB. Das Bild wird nie beschnitten; was nicht ins 16:9-Format passt, bekommt einen ruhigen dunklen Rand."
+msgstr "JPEG, PNG или WebP, не менее 640 × 360 пикселей, не более 10 МБ. Изображение никогда не обрезается; то, что не помещается в формат 16:9, получает спокойное тёмное поле."
+
+msgid "Bild auswählen"
+msgstr "Выбрать картинку"
+
+msgid "Eigenes Bild hochladen"
+msgstr "Загрузить свою картинку"
+
+msgid "Das Pausenbild wurde gespeichert."
+msgstr "Картинка паузы сохранена."
+
+msgid "Das Standardbild wird wieder verwendet."
+msgstr "Снова используется картинка по умолчанию."
+
+msgid "Pausenmusik"
+msgstr "Музыка паузы"
+
+msgid "Keine Musik hinterlegt. Im Stream ist während der Pause nichts zu hören."
+msgstr "Музыка не сохранена. Во время паузы в трансляции ничего не слышно."
+
+msgid "MP3, M4A, OGG, FLAC oder WAV, 5 Sekunden bis 10 Minuten, höchstens 15 MB. Die Musik läuft in Endlosschleife und wird auf eine einheitliche Lautstärke gebracht."
+msgstr "MP3, M4A, OGG, FLAC или WAV, от 5 секунд до 10 минут, не более 15 МБ. Музыка играет по кругу и приводится к единой громкости."
+
+msgid "Laden Sie nur Musik hoch, für deren öffentliche Wiedergabe Sie die Rechte haben. Plattformen können Streams mit geschützter Musik stummschalten oder sperren."
+msgstr "Загружайте только музыку, права на публичное воспроизведение которой у вас есть. Платформы могут отключить звук или заблокировать трансляции с защищённой музыкой."
+
+msgid "Musikdatei auswählen"
+msgstr "Выбрать музыкальный файл"
+
+msgid "Musik hochladen"
+msgstr "Загрузить музыку"
+
+msgid "Die Pausenmusik wurde gespeichert."
+msgstr "Музыка паузы сохранена."
+
+msgid "Die Pausenmusik wurde entfernt."
+msgstr "Музыка паузы удалена."

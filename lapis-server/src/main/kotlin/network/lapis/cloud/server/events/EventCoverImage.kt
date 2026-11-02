@@ -171,6 +171,22 @@ internal data class CoverImageLimits(
         val EVENT_COVER_CROPPED = EVENT_COVER.copy(cropAspect = CropAspect(w = 4, h = 3))
         val CHAPTER_CREST = CoverImageLimits(minLongEdgePx = 64, minShortEdgePx = 64, targetLongEdgePx = 1024)
 
+        /**
+         * V1.9.255 -- the pause picture of the live stream: at least 640x360 (after the EXIF rotation), aspect between 1:4 and 4:1, the long edge
+         * stored at most 1280 px (never upscaled here; `PauseImageProcessor` letterboxes the result into a 1280x720 frame afterwards).
+         */
+        val PAUSE_IMAGE =
+            CoverImageLimits(
+                rule =
+                    CoverDimensionRule.WidthAndAspect(
+                        minWidthPx = network.lapis.cloud.shared.domain.PauseMediaRules.IMAGE_MIN_WIDTH_PX,
+                        minHeightPx = network.lapis.cloud.shared.domain.PauseMediaRules.IMAGE_MIN_HEIGHT_PX,
+                        minAspect = 0.25,
+                        maxAspect = 4.0,
+                    ),
+                targetLongEdgePx = network.lapis.cloud.shared.domain.PauseMediaRules.IMAGE_FRAME_WIDTH_PX,
+            )
+
         /** V1.9.222 -- a gallery picture: no minimum format (any size above one pixel), stored at most 1600 px on the long edge, never
          * upscaled. */
         val GALLERY_IMAGE = CoverImageLimits(minLongEdgePx = 1, minShortEdgePx = 1, targetLongEdgePx = 1600)
