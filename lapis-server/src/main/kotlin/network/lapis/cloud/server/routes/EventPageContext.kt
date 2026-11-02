@@ -119,6 +119,11 @@ internal fun embedFrameAncestors(embedConfig: EmbedConfig): List<String> =
  *   feature is enabled and an allowlist is configured: then `'self'` plus the allowlisted origins, and no `X-Frame-Options` (it cannot
  *   express an allowlist, and browsers that understand `frame-ancestors` ignore it anyway). The STANDARD mode is never frameable, whatever
  *   the allowlist says -- `?embed=1` is the only switch, and it only has an effect where the operator opted in.
+ * - **`form-action`**: `'self'` by default. [formActionSelf] `= false` drops the directive for the one page whose form POST answers with a
+ *   `303` to the payment provider (`GET /veranstaltung/{slug}/zahlung`): Chrome checks the redirect target against `form-action` too
+ *   (V1.9.259, same rule as `AuthFormAction.UNRESTRICTED`).
+ * - **`Referrer-Policy`**: `no-referrer` by default. The signed-in variant of the detail page passes `same-origin`: with `no-referrer`
+ *   Chromium sends `Origin: null` on a form POST from that document, and the strict same-origin check of the button POST would refuse it.
  * - No `<script>` on this surface, so `default-src 'none'` and `style-src 'self'` stay maximally strict (no inline styles anywhere).
  *   The one exception (V1.9.217): a detail page that renders the share bar passes [scriptSrcSelf] and gets `script-src 'self'` (only
  *   the same-origin share script; still no inline script, no hashes, no nonces).
@@ -127,6 +132,8 @@ internal fun ApplicationCall.applyPageModeHeaders(
     isEmbed: Boolean,
     frameAncestors: List<String>,
     scriptSrcSelf: Boolean = false,
+    referrerPolicy: String = "no-referrer",
+    formActionSelf: Boolean = true,
 ) {
     val imgSrc = if (isEmbed) "'self'" else "'self' data:"
     val frameable = isEmbed && frameAncestors.isNotEmpty()
@@ -134,10 +141,10 @@ internal fun ApplicationCall.applyPageModeHeaders(
     response.header(
         "Content-Security-Policy",
         "default-src 'none'; img-src $imgSrc; style-src 'self'; font-src 'self'; ${if (scriptSrcSelf) "script-src 'self'; " else ""}" +
-            "form-action 'self'; base-uri 'none'; frame-ancestors $ancestors",
+            "${if (formActionSelf) "form-action 'self'; " else ""}base-uri 'none'; frame-ancestors $ancestors",
     )
     response.header("X-Content-Type-Options", "nosniff")
-    response.header("Referrer-Policy", "no-referrer")
+    response.header("Referrer-Policy", referrerPolicy)
     if (!frameable) response.header("X-Frame-Options", "DENY")
     response.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 }

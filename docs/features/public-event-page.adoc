@@ -152,6 +152,56 @@ links would leave the frame.
 only partly materialised shows a smaller `n`. A moved date that was edited before it was detached still belongs to its series (`series_id`
 is kept), so it counts.
 
+== Member-aware registration (V1.9.259)
+
+The detail page knows who is looking at it, and the guest form no longer tells whether an address belongs to an account.
+
+=== Signed-in visitors
+
+The page reads the **session cookie only** (never `Authorization: Bearer`, never the test-only `X-Member-Id`), and never in the embed mode (there the
+cookie is not even read). A visitor counts as signed in when the session is valid, the status is `ACTIVE`, `FRIEND` or `GUEST`
+(`MemberStatusSets.EVENT_SELF_REGISTRANT`) and the row is not anonymised; every other case renders the signed-out page byte for byte.
+
+The registration card of a signed-in visitor shows "Angemeldet als <name>", a button "Zur Veranstaltung anmelden" (a body-less
+`POST /veranstaltung/{slug}/anmeldung/konto`) and, below a divider, the guest form headed "Weitere Gäste anmelden" with the sentence that the form is
+**not for the visitor's own registration but for further guests**. With a current registration (`CONFIRMED`, `WAITLISTED`, or a `PENDING_PAYMENT`
+whose hold has not lapsed) the button is disabled (`disabled`, `aria-disabled`, `aria-describedby`), a note says why and a link leads to the member
+area (to pay, or to manage). A signed-out STANDARD visitor sees a hint above the guest form: members should sign in first.
+
+Headers of the signed-in page: `Cache-Control: private, no-store`, `Vary: Cookie`, `Referrer-Policy: same-origin` (with `no-referrer` Chromium sends
+`Origin: null` on a form POST, which the strict check below would refuse). Signed-out STANDARD responses keep `no-store` and add `Vary: Cookie`;
+the embed responses are unchanged. None of them sets a cookie.
+
+=== The button POST
+
+`POST /veranstaltung/{slug}/anmeldung/konto` runs in this order: attempt limiter, embed refused (404), `isStrictSameOriginFormPost` (403 with a fixed
+page and no effect otherwise), content length, public event (404), session lookup (no session: `303` to the detail page), strict registration
+limiter, then the same registration code as the member RPC (`MemberEventSelfRegistration`). Success, a waitlist place and "already registered" all
+answer `303` to `/veranstaltung/{slug}#anmeldung` (post/redirect/get). A paid event answers `200` with the hand-off page (provider link with
+`target="_top"`), **not** a `303` to the provider: Chrome checks a form's redirect target against `form-action`.
+
+`isStrictSameOriginFormPost` is stricter than `isSameOriginRequest`: `Sec-Fetch-Site` (if present) must be `same-origin`; an `Origin` must match
+(the literal `null` fails); without `Origin` the `Referer` must match; with neither header the request is refused.
+
+=== The guest form and the address of an account
+
+Binding order of `POST /veranstaltung/{slug}/anmeldung` (a reordering is a review blocker):
+
+. noindex marker, attempt limiter, content length and type, honeypot, validation, event lookup and `PUBLIC` check, strict registration limiter (as before);
+. `probeAvailability`: the reasons that do not depend on the address (closed: `404`; waitlist full or payment not available: `303` to `/abgebrochen`);
+. **one** account query (`GuestAddressAccountMatcher`) for the normalised address;
+. an address of an account: nothing is stored, nobody is told, the lock-and-sweep of a placement is run, and the owner gets a notice mail (once per
+  event and address per 24 hours, 100 per hour overall); otherwise a guest registration with `deferCheckout = true`;
+. every accepted case ends in the same `303` to `/danke` (no registration id in the URL).
+
+A duplicate guest address gets a short "already registered" mail under the same limits, with no new token. The mails carry no text of the visitor
+(`logRecipient = false`, purposes `event-registration-member-notice` and `event-registration-duplicate-notice`).
+
+A **paid** event no longer sends a guest to the payment provider from the POST: the seat is reserved (hold: 30 minutes) and the confirmation mail
+carries "Jetzt bezahlen" (`/veranstaltung/{slug}/zahlung?token=...`, the same token as the cancel link). That keeps a network round trip out of the
+request, which a member address would never have had. `GET /zahlung` therefore sends no `form-action` directive (its POST answers with a `303` to the
+provider). The provider's success return is `/veranstaltung/{slug}/bezahlt`; `/danke?r=` of older sessions still works (the id is ignored).
+
 == Known limitations
 
 * `/aktuelles/{slug}` got the same two modes in V1.9.130 (link:public-article-page.adoc[Public article page]); the header core is now shared (`applyPageModeHeaders`) without any change in the event headers.
@@ -160,4 +210,14 @@ is kept), so it counts.
 * No automatic iframe height.
 * `/veranstaltungen` has no calendar or date filter, so a series cannot be expanded there; the exception for it is gone and the link to the detail page is the way in.
 * The repeat mark's tooltip works on hover only (not on touch); the same sentence is printed in the row below it.
-* The CSP `form-action 'self'` against the `303` to the payment provider has not been verified in a live browser (pre-existing).
+* The CSP `form-action 'self'` against the `303` to the payment provider has not been verified in a live browser (pre-existing). Since V1.9.259 the
+  payment-confirmation page (`GET /zahlung`) sends no `form-action` for that reason, and the signed-in button answers with a hand-off page instead of a
+  `303`; neither has been tried in a real browser.
+* The JSON embed endpoint `POST /api/embed/v1/event/{slug}/registration` is unchanged: it still stores an address of an account as a guest and still answers
+  `PAYMENT_REQUIRED` with a URL (see the KDoc of `embedEventResponseFor`).
+* The notice-mail limiter lives in the process: a restart resets it, and a flood of distinct keys evicts the oldest first. The global cap bounds the damage.
+* A capacity side channel remains: with exactly one free seat, a guest address fills it and the page then shows "Ausgebucht", an account address does not.
+  Rate limits bound it; it is not closed.
+* The two branches of the guest form do comparable database work (one account query, the event lock and sweep, a mail enqueue) but their running time
+  is not identical; it has not been measured.
+* The session cookie is `SameSite=Strict`: arriving through a link from another site shows the signed-out variant until the next navigation.

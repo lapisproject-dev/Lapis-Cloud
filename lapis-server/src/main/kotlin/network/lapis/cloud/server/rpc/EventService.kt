@@ -23,7 +23,6 @@ import network.lapis.cloud.server.events.EventOnlineJoin
 import network.lapis.cloud.server.events.EventOnlineLifecycle
 import network.lapis.cloud.server.events.EventOnlineServices
 import network.lapis.cloud.server.events.EventOnlineWindow
-import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRefunds
 import network.lapis.cloud.server.events.EventRegistrationMessage
@@ -36,6 +35,7 @@ import network.lapis.cloud.server.events.EventRoomStore
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventTicketIssuer
 import network.lapis.cloud.server.events.EventTicketPolicy
+import network.lapis.cloud.server.events.MemberEventSelfRegistration
 import network.lapis.cloud.server.events.mailPromotion
 import network.lapis.cloud.server.events.series.EventSeriesLimits
 import network.lapis.cloud.server.events.series.EventSeriesMaterializer
@@ -628,16 +628,7 @@ class EventService(
                 EventRegistrationMessage.Outcome.TooLong -> throw BadRequestException(EventRegistrationMessage.TOO_LONG_TEXT)
             }
         val id = eventId.toEventUuid()
-        val (email, displayName) =
-            transaction {
-                (EventStore.memberEmailOrNull(current.memberId) ?: "") to (EventStore.memberDisplayNameOrNull(current.memberId) ?: "")
-            }
-        val result =
-            submission.submit(
-                eventId = id,
-                participant = EventParticipant.Member(memberId = current.memberId, displayName = displayName, email = email),
-                message = message,
-            )
+        val result = MemberEventSelfRegistration(submission).register(memberId = current.memberId, eventId = id, message = message)
         return when (result) {
             is EventRegistrationResult.Confirmed ->
                 EventRegistrationResultDto(registration = fetchRegistrationDto(result.registrationId), checkoutRedirectUrl = null)
@@ -648,6 +639,10 @@ class EventService(
                     registration = fetchRegistrationDto(result.registrationId),
                     checkoutRedirectUrl = result.redirectUrl,
                 )
+            // Only `submit(deferCheckout = true)` (the public guest form) produces this; the member path never defers. Mapped to what the
+            // member would see without a redirect, so a future caller that does defer still gets a registered seat back.
+            is EventRegistrationResult.PaymentLinkSent ->
+                EventRegistrationResultDto(registration = fetchRegistrationDto(result.registrationId), checkoutRedirectUrl = null)
             EventRegistrationResult.AlreadyRegistered -> throw ConflictException("Sie sind für diese Veranstaltung bereits angemeldet.")
             EventRegistrationResult.EventNotAvailable -> throw ConflictException(
                 "Diese Veranstaltung ist derzeit nicht für Anmeldungen geöffnet.",

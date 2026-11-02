@@ -138,6 +138,7 @@ import network.lapis.cloud.server.encounter.PulpitRecordingState
 import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventConferencePoller
 import network.lapis.cloud.server.events.EventCoverStorage
+import network.lapis.cloud.server.events.EventNoticeMailLimiter
 import network.lapis.cloud.server.events.EventOnlineServices
 import network.lapis.cloud.server.events.EventRegistrationMessageNotifier
 import network.lapis.cloud.server.events.EventRegistrationSubmission
@@ -1842,6 +1843,8 @@ internal fun Application.module(
         )
     val eventRegistrationAttemptRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes, maxTrackedKeys = 50_000)
     val eventRegistrationRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes, maxTrackedKeys = 50_000)
+    // V1.9.259 -- ONE process-wide instance: bounds the notice mails (member / duplicate) the public guest form can trigger.
+    val eventNoticeMailLimiter = EventNoticeMailLimiter()
     val eventPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- a door check-in can produce hundreds of
     // scans in a few minutes, distinct from eventWriteRateLimiter's 60/min (tuned for ordinary
@@ -3279,6 +3282,7 @@ internal fun Application.module(
             icsFeedRateLimiter = eventIcsFeedRateLimiter,
             messageNotifier = eventMessageNotifier,
             shareConfig = shareConfig,
+            noticeMailLimiter = eventNoticeMailLimiter,
         )
         // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- the two account-less literal routes (/api/events/{slug}/online-*).
         registerEventOnlineGuestRoutes(

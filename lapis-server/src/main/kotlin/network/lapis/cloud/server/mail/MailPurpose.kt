@@ -62,6 +62,9 @@ object MailPurpose {
             "encounter-entry-notice",
             "event-waitlist-promotion",
             "event-registration",
+            // V1.9.259 -- the two notices the public guest form can trigger (address of an account / address already registered).
+            "event-registration-member-notice",
+            "event-registration-duplicate-notice",
             "event-ticket-reissue",
             "event-ticket",
             EVENT_REGISTRATION_MESSAGE_PURPOSE,

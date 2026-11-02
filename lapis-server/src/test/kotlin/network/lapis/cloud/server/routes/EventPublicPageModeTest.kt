@@ -4,7 +4,6 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -350,22 +349,22 @@ class EventPublicPageModeTest :
 
                 val registered = postForm("/veranstaltung/$slug/anmeldung?embed=1", "guestName" to "Eva", "guestEmail" to "eva@example.org")
                 registered.status shouldBe HttpStatusCode(303, "See Other")
-                registered.headers[HttpHeaders.Location]!! shouldContain "/veranstaltung/$slug/danke?r="
-                registered.headers[HttpHeaders.Location]!! shouldEndWith "&embed=1"
+                // V1.9.259: one neutral answer, no registration id in the URL.
+                registered.headers[HttpHeaders.Location] shouldBe "/veranstaltung/$slug/danke?embed=1"
 
                 val badToken = postForm("/veranstaltung/$slug/zahlung?embed=1", "token" to "")
                 badToken.headers[HttpHeaders.Location] shouldBe "/veranstaltung/$slug/abgebrochen?embed=1"
             }
         }
 
-        test("a full event sends a registrant to the waitlist page and keeps the mode") {
+        test("a full event sends a guest to the one neutral thanks page and keeps the mode") {
             val (eventId, slug) = createEvent(capacity = 1)
             createRegistration(eventId)
             withApp {
                 val standard = postForm("/veranstaltung/$slug/anmeldung", "guestName" to "Zoe", "guestEmail" to "zoe@example.org")
-                standard.headers[HttpHeaders.Location] shouldBe "/veranstaltung/$slug/warteliste"
+                standard.headers[HttpHeaders.Location] shouldBe "/veranstaltung/$slug/danke"
                 val embed = postForm("/veranstaltung/$slug/anmeldung?embed=1", "guestName" to "Zed", "guestEmail" to "zed@example.org")
-                embed.headers[HttpHeaders.Location] shouldBe "/veranstaltung/$slug/warteliste?embed=1"
+                embed.headers[HttpHeaders.Location] shouldBe "/veranstaltung/$slug/danke?embed=1"
                 val page = client.get("/veranstaltung/$slug").bodyAsText()
                 page shouldContain "event-callout--waitlist"
                 page shouldContain "Auf die Warteliste setzen"

@@ -22,8 +22,10 @@ import kotlinx.html.figure
 import kotlinx.html.form
 import kotlinx.html.h1
 import kotlinx.html.h2
+import kotlinx.html.h3
 import kotlinx.html.head
 import kotlinx.html.hiddenInput
+import kotlinx.html.hr
 import kotlinx.html.html
 import kotlinx.html.id
 import kotlinx.html.img
@@ -38,6 +40,7 @@ import kotlinx.html.script
 import kotlinx.html.section
 import kotlinx.html.span
 import kotlinx.html.stream.createHTML
+import kotlinx.html.strong
 import kotlinx.html.summary
 import kotlinx.html.textArea
 import kotlinx.html.textInput
@@ -52,6 +55,7 @@ import network.lapis.cloud.server.theme.publicStylesheetLinks
 import network.lapis.cloud.shared.domain.EventRegistrationMessageLimits
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventTicketCode
+import kotlin.uuid.Uuid
 
 /**
  * Welle V1.4.3.1 "Veranstaltungen" -- the server-rendered, unauthenticated public surface (see
@@ -110,6 +114,8 @@ internal object EventPublicHtml {
         val registrationClosesAt: LocalDateTime? = null,
         /** V1.9.243 -- the "Weitere Termine dieser Serie" block; `null` for a single event or when no other public upcoming date exists. */
         val series: SeriesSection? = null,
+        /** V1.9.259 -- the event's id, for the signed-in visitor's link into the member area; `null` where a render test does not need it. */
+        val eventId: Uuid? = null,
     )
 
     /** V1.9.243 -- the other upcoming public dates of the series this event belongs to. */
@@ -143,6 +149,8 @@ internal object EventPublicHtml {
         /** V1.9.217 -- the share bar (STANDARD mode only; the route passes `null` in EMBED mode and when sharing is off). */
         share: ShareBarModel? = null,
         ogMeta: EventOgMeta? = null,
+        /** V1.9.259 -- the signed-in visitor (STANDARD mode only; the route passes `null` in EMBED mode and for a signed-out visitor). */
+        viewer: EventPublicViewer? = null,
     ): String =
         skeleton(
             ctx = ctx,
@@ -203,7 +211,16 @@ internal object EventPublicHtml {
                         waitlist = true,
                     )
             }
-            if (canRegister) registrationCard(ctx = ctx, slug = view.slug, waitlist = view.full)
+            if (canRegister) {
+                registrationCard(
+                    ctx = ctx,
+                    slug = view.slug,
+                    waitlist = view.full,
+                    paid = view.feeAmount.signum() != 0,
+                    view = view,
+                    viewer = viewer,
+                )
+            }
             // Links are site-relative and would leave the frame in the slim embed variant, so the block is STANDARD-only.
             if (!ctx.isEmbed && view.series != null && view.series.items.isNotEmpty()) seriesSection(ctx = ctx, series = view.series)
         }
@@ -309,6 +326,9 @@ internal object EventPublicHtml {
         ctx: EventPageContext,
         slug: String,
         waitlist: Boolean,
+        paid: Boolean,
+        view: View,
+        viewer: EventPublicViewer?,
     ) {
         section(classes = "event-card") {
             id = "anmeldung"
@@ -317,57 +337,154 @@ internal object EventPublicHtml {
                 id = "anmeldung-titel"
                 +(if (waitlist) "Auf die Warteliste" else "Anmeldung")
             }
-            form(action = ctx.href("/veranstaltung/$slug/anmeldung"), method = FormMethod.post, classes = "event-form") {
-                honeypotField()
-                div(classes = "event-field") {
-                    label {
-                        htmlFor = "guestName"
-                        +"Name"
-                    }
-                    textInput(name = "guestName") {
-                        id = "guestName"
-                        required = true
-                        attributes["autocomplete"] = "name"
-                        attributes["maxlength"] = EventPolicy.MAX_GUEST_NAME_LENGTH.toString()
+            if (viewer != null && !ctx.isEmbed) {
+                signedInBlock(ctx = ctx, slug = slug, waitlist = waitlist, paid = paid, view = view, viewer = viewer)
+            } else if (!ctx.isEmbed) {
+                // V1.9.259 -- signed-out STANDARD visitors who are members are pointed at their own account first.
+                div(classes = "event-member-hint") {
+                    p {
+                        +MEMBER_HINT_TEXT
+                        +" "
+                        a(href = "${ctx.baseUrl}/app#/login") { +"Anmelden" }
                     }
                 }
-                div(classes = "event-field") {
-                    label {
-                        htmlFor = "guestEmail"
-                        +"E-Mail-Adresse"
-                    }
-                    emailInput(name = "guestEmail") {
-                        id = "guestEmail"
-                        required = true
-                        attributes["autocomplete"] = "email"
-                        attributes["maxlength"] = EventPolicy.MAX_GUEST_EMAIL_LENGTH.toString()
-                    }
-                }
-                // V1.9.204 -- optional message to the organisers. Plain page without JavaScript, so no live character counter.
-                div(classes = "event-field") {
-                    label {
-                        htmlFor = "guestMessage"
-                        +"Nachricht an die Veranstalter (optional)"
-                    }
-                    textArea(rows = "3") {
-                        id = "guestMessage"
-                        name = "nachricht"
-                        attributes["maxlength"] = EventRegistrationMessageLimits.MAX_LENGTH.toString()
-                        attributes["aria-describedby"] = "guestMessageHint"
-                    }
-                    p(classes = "event-hint") {
-                        id = "guestMessageHint"
-                        +(
-                            "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, " +
-                                "nicht durch eine Antwort auf Ihre Frage. Höchstens ${EventRegistrationMessageLimits.MAX_LENGTH} Zeichen."
-                        )
-                    }
-                }
-                button(type = ButtonType.submit, classes = "event-submit") {
-                    +(if (waitlist) "Auf die Warteliste setzen" else "Verbindlich anmelden")
-                }
-                p(classes = "event-hint") { +"Sie erhalten eine Bestätigung per E-Mail." }
             }
+            guestForm(ctx = ctx, slug = slug, waitlist = waitlist, forAdditionalGuests = viewer != null && !ctx.isEmbed)
+        }
+    }
+
+    /** The paragraph above the guest form for a visitor who is not signed in (STANDARD mode only). */
+    internal const val MEMBER_HINT_TEXT: String =
+        "Sie sind Mitglied? Dann melden Sie sich bitte zuerst an und melden Sie sich danach im Mitgliederbereich " +
+            "zur Veranstaltung an. So ist Ihre Anmeldung Ihrem Konto zugeordnet."
+
+    /** The sentence under "Weitere Gäste anmelden": this form is NOT for the signed-in visitor. */
+    internal const val ADDITIONAL_GUESTS_TEXT: String =
+        "Dieses Formular ist nicht für Ihre eigene Anmeldung gedacht, sondern für weitere Gäste. " +
+            "Tragen Sie hier Name und E-Mail-Adresse der Person ein, die Sie zusätzlich anmelden möchten."
+
+    /**
+     * V1.9.259 -- the signed-in visitor's block: "Angemeldet als ...", the one-click registration button (a bodiless POST, cookie-authenticated)
+     * and, once registered, the disabled button with the reason. The guest form follows below, labelled as being for further guests.
+     */
+    private fun FlowContent.signedInBlock(
+        ctx: EventPageContext,
+        slug: String,
+        waitlist: Boolean,
+        paid: Boolean,
+        view: View,
+        viewer: EventPublicViewer,
+    ) {
+        val own = viewer.own
+        val memberAreaUrl = "${ctx.baseUrl}/app#/events" + (view.eventId?.let { "/$it" } ?: "")
+        p(classes = "event-signed-in") {
+            +"Angemeldet als "
+            strong { +viewer.displayName }
+        }
+        form(action = ctx.href("/veranstaltung/$slug/anmeldung/konto"), method = FormMethod.post, classes = "event-form") {
+            button(type = ButtonType.submit, classes = "event-submit") {
+                if (own != null) {
+                    attributes["disabled"] = "disabled"
+                    attributes["aria-disabled"] = "true"
+                    attributes["aria-describedby"] = "anmeldung-status"
+                }
+                +(if (waitlist) "Auf die Warteliste setzen" else "Zur Veranstaltung anmelden")
+            }
+        }
+        if (own == null) {
+            if (paid) p(classes = "event-hint") { +"Danach geht es zur Zahlung." }
+        } else {
+            val note =
+                when (own.status) {
+                    EventRegistrationStatus.WAITLISTED -> "Sie stehen auf der Warteliste."
+                    EventRegistrationStatus.PENDING_PAYMENT -> "Ihre Anmeldung ist noch nicht bezahlt."
+                    else -> "Sie sind für diese Veranstaltung angemeldet."
+                }
+            p(classes = "event-registered-note") {
+                id = "anmeldung-status"
+                span {
+                    attributes["aria-hidden"] = "true"
+                    +"✓ "
+                }
+                +note
+            }
+            p(classes = "event-hint") {
+                a(href = memberAreaUrl) {
+                    +(if (own.status == EventRegistrationStatus.PENDING_PAYMENT) "Jetzt bezahlen" else "Im Mitgliederbereich verwalten")
+                }
+            }
+        }
+        hr(classes = "event-divider")
+        h3 { +"Weitere Gäste anmelden" }
+        p(classes = "event-hint") { +ADDITIONAL_GUESTS_TEXT }
+    }
+
+    private fun FlowContent.guestForm(
+        ctx: EventPageContext,
+        slug: String,
+        waitlist: Boolean,
+        forAdditionalGuests: Boolean,
+    ) {
+        form(action = ctx.href("/veranstaltung/$slug/anmeldung"), method = FormMethod.post, classes = "event-form") {
+            honeypotField()
+            div(classes = "event-field") {
+                label {
+                    htmlFor = "guestName"
+                    +"Name"
+                }
+                textInput(name = "guestName") {
+                    id = "guestName"
+                    required = true
+                    attributes["autocomplete"] = "name"
+                    attributes["maxlength"] = EventPolicy.MAX_GUEST_NAME_LENGTH.toString()
+                }
+            }
+            div(classes = "event-field") {
+                label {
+                    htmlFor = "guestEmail"
+                    +"E-Mail-Adresse"
+                }
+                emailInput(name = "guestEmail") {
+                    id = "guestEmail"
+                    required = true
+                    attributes["autocomplete"] = "email"
+                    attributes["maxlength"] = EventPolicy.MAX_GUEST_EMAIL_LENGTH.toString()
+                }
+            }
+            // V1.9.204 -- optional message to the organisers. Plain page without JavaScript, so no live character counter.
+            div(classes = "event-field") {
+                label {
+                    htmlFor = "guestMessage"
+                    +"Nachricht an die Veranstalter (optional)"
+                }
+                textArea(rows = "3") {
+                    id = "guestMessage"
+                    name = "nachricht"
+                    attributes["maxlength"] = EventRegistrationMessageLimits.MAX_LENGTH.toString()
+                    attributes["aria-describedby"] = "guestMessageHint"
+                }
+                p(classes = "event-hint") {
+                    id = "guestMessageHint"
+                    +(
+                        "Ihre Nachricht sehen die Veranstalter. Gültig ist Ihre Anmeldung durch die Bestätigung, " +
+                            "nicht durch eine Antwort auf Ihre Frage. Höchstens ${EventRegistrationMessageLimits.MAX_LENGTH} Zeichen."
+                    )
+                }
+            }
+            button(
+                type = ButtonType.submit,
+                classes = if (forAdditionalGuests) "event-submit event-submit--secondary" else "event-submit",
+            ) {
+                +(
+                    when {
+                        forAdditionalGuests && waitlist -> "Gast auf die Warteliste setzen"
+                        forAdditionalGuests -> "Gast anmelden"
+                        waitlist -> "Auf die Warteliste setzen"
+                        else -> "Verbindlich anmelden"
+                    }
+                )
+            }
+            p(classes = "event-hint") { +"Sie erhalten eine Bestätigung per E-Mail." }
         }
     }
 
@@ -404,14 +521,35 @@ internal object EventPublicHtml {
             p { a(href = ctx.href("/veranstaltung/$slug")) { +"Zurück zur Anmeldung" } }
         }
 
+    /**
+     * V1.9.259 -- the ONE answer of the public guest form for every accepted submission (new guest, duplicate, address of an account):
+     * it must not tell the three apart, so it promises nothing about the outcome and shows no registration id.
+     */
     fun thanksPage(
         ctx: EventPageContext,
         slug: String,
-        registrationId: String?,
     ): String =
-        skeleton(ctx = ctx, heading = "Anmeldung bestätigt", currentPath = "/veranstaltung/$slug/danke", noIndex = true) {
-            callout(text = "Vielen Dank für Ihre Anmeldung. Eine Bestätigung wurde per E-Mail versendet.")
-            if (registrationId != null) p(classes = "event-hint") { +"Vorgang: $registrationId" }
+        skeleton(ctx = ctx, heading = "Danke", currentPath = "/veranstaltung/$slug/danke", noIndex = true) {
+            callout(
+                text =
+                    "Danke. Wir haben Ihnen eine E-Mail geschickt. Falls Sie bereits Mitglied sind, finden Sie darin " +
+                        "den Hinweis, wie Sie sich im Mitgliederbereich anmelden.",
+            )
+        }
+
+    /** V1.9.259 -- where the payment provider returns to after a successful payment; replaces the former `/danke?r=` target. */
+    fun paidPage(
+        ctx: EventPageContext,
+        slug: String,
+    ): String =
+        skeleton(ctx = ctx, heading = "Danke für Ihre Zahlung", currentPath = "/veranstaltung/$slug/bezahlt", noIndex = true) {
+            callout(text = "Die Bestätigung mit Ihrem Ticket erhalten Sie per E-Mail.")
+        }
+
+    /** V1.9.259 -- 403 of the signed-in button POST when the same-origin check fails: a fixed text, nothing reflected, no effect. */
+    fun forbiddenPage(ctx: EventPageContext): String =
+        skeleton(ctx = ctx, heading = "Nicht erlaubt", currentPath = "/veranstaltungen", noIndex = true) {
+            callout(text = "Diese Anfrage wurde abgelehnt. Bitte melden Sie sich über die Veranstaltungsseite an.")
         }
 
     fun waitlistPage(
@@ -507,10 +645,12 @@ internal object EventPublicHtml {
         ctx: EventPageContext,
         slug: String,
         redirectUrl: String,
+        /** V1.9.259 -- the sentence above the link; the default is the EMBED wording. */
+        lead: String = "Die Zahlung öffnet sich im vollen Browserfenster.",
     ): String =
         skeleton(ctx = ctx, heading = "Zahlung abschließen", currentPath = "/veranstaltung/$slug", noIndex = true) {
             section(classes = "event-card") {
-                p { +"Die Zahlung öffnet sich im vollen Browserfenster." }
+                p { +lead }
                 a(href = redirectUrl, target = "_top", classes = "event-submit") {
                     attributes["rel"] = "noopener"
                     +"Weiter zur Zahlung"

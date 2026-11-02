@@ -137,7 +137,7 @@ class EventPublicRoutesTest :
                 }
                 PaymentGatewayComplianceAcknowledgmentTable.insert {
                     it[id] = Uuid.random()
-                    it[acknowledgedByMemberId] = createMember("event-public-routes-ack-${Uuid.random()}@example.org")
+                    it[acknowledgedByMemberId] = createMember(email = "event-public-routes-ack-${Uuid.random()}@example.org")
                     it[acknowledgedAt] = LocalDateTime(2030, 1, 1, 9, 0)
                     it[disclaimerVersion] = PaymentGatewayComplianceDisclaimer.VERSION
                     it[disclaimerSha256] = PaymentGatewayComplianceDisclaimer.SHA256
@@ -195,7 +195,7 @@ class EventPublicRoutesTest :
         val farFutureEndsAt = LocalDateTime(2030, 1, 1, 22, 0)
 
         fun createPaidEvent(): Pair<Uuid, String> {
-            val organizer = createMember("event-public-routes-organizer-${Uuid.random()}@example.org")
+            val organizer = createMember(email = "event-public-routes-organizer-${Uuid.random()}@example.org")
             val id = Uuid.random()
             val slug = "public-routes-test-$id"
             transaction {
@@ -230,7 +230,7 @@ class EventPublicRoutesTest :
          * event-cover auf der öffentlichen Veranstaltungsseite".
          */
         fun createPublicEvent(withCover: Boolean): Pair<Uuid, String> {
-            val organizer = createMember("event-public-routes-cover-organizer-${Uuid.random()}@example.org")
+            val organizer = createMember(email = "event-public-routes-cover-organizer-${Uuid.random()}@example.org")
             val id = Uuid.random()
             val slug = "public-routes-cover-test-$id"
             transaction {
@@ -330,7 +330,7 @@ class EventPublicRoutesTest :
             enableGateway()
             val pspConfigState = testPspConfigState()
             val (eventId, slug) = createPaidEvent()
-            val payer = createMember("event-public-routes-payer-${Uuid.random()}@example.org")
+            val payer = createMember(email = "event-public-routes-payer-${Uuid.random()}@example.org")
             val token = randomToken()
             insertPendingPaymentRegistration(eventId = eventId, memberId = payer, token = token)
 
@@ -349,7 +349,7 @@ class EventPublicRoutesTest :
             enableGateway()
             val pspConfigState = testPspConfigState()
             val (eventId, slug) = createPaidEvent()
-            val payer = createMember("event-public-routes-embed-payer-${Uuid.random()}@example.org")
+            val payer = createMember(email = "event-public-routes-embed-payer-${Uuid.random()}@example.org")
             val token = randomToken()
             insertPendingPaymentRegistration(eventId = eventId, memberId = payer, token = token)
 
@@ -392,7 +392,7 @@ class EventPublicRoutesTest :
             enableGateway()
             val pspConfigState = testPspConfigState()
             val (eventId, slug) = createPaidEvent()
-            val payer = createMember("event-public-routes-empty-token-${Uuid.random()}@example.org")
+            val payer = createMember(email = "event-public-routes-empty-token-${Uuid.random()}@example.org")
             insertPendingPaymentRegistration(eventId = eventId, memberId = payer, token = randomToken())
 
             testApp(checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState), pspConfigState = pspConfigState) {
@@ -410,7 +410,7 @@ class EventPublicRoutesTest :
             enableGateway()
             val pspConfigState = testPspConfigState()
             val (eventId, slug) = createPaidEvent()
-            val payer = createMember("event-public-routes-wrong-token-${Uuid.random()}@example.org")
+            val payer = createMember(email = "event-public-routes-wrong-token-${Uuid.random()}@example.org")
             val registrationId = insertPendingPaymentRegistration(eventId = eventId, memberId = payer, token = randomToken())
 
             testApp(checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState), pspConfigState = pspConfigState) {
@@ -438,7 +438,7 @@ class EventPublicRoutesTest :
             enableGateway()
             val pspConfigState = testPspConfigState()
             val (eventId, slug) = createPaidEvent()
-            val payer = createMember("event-public-routes-bad-ct-${Uuid.random()}@example.org")
+            val payer = createMember(email = "event-public-routes-bad-ct-${Uuid.random()}@example.org")
             val token = randomToken()
             insertPendingPaymentRegistration(eventId = eventId, memberId = payer, token = token)
 
@@ -495,7 +495,7 @@ class EventPublicRoutesTest :
             enableGateway()
             val pspConfigState = testPspConfigState()
             val (eventId, slug) = createPaidEvent()
-            val payer = createMember("event-public-routes-oversized-${Uuid.random()}@example.org")
+            val payer = createMember(email = "event-public-routes-oversized-${Uuid.random()}@example.org")
             insertPendingPaymentRegistration(eventId = eventId, memberId = payer, token = randomToken())
 
             testApp(checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState), pspConfigState = pspConfigState) {

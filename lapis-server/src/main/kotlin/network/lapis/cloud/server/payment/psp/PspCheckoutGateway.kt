@@ -56,6 +56,8 @@ data class PspReturnUrls(
          * `<form>`-Flow ohne Client-Router, der ein Hash-Fragment überhaupt lesen könnte. Kein Geheimnis
          * -- eine Checkout-Rückkehrseite für eine zufällige UUID, die ein Fremder nicht bereits besitzt,
          * ist funktional dieselbe "leere Bestätigung" wie eine nicht gefundene Anmeldung.
+         * Seit V1.9.259 kehrt der Erfolgsfall auf `/bezahlt` zurück (nicht mehr `/danke`): `/danke` ist die eine neutrale Antwort des
+         * Gast-Formulars und verspricht nichts über das Konto; `r` wird dort wie hier nicht mehr gelesen.
          */
         fun eventRegistration(
             baseUrl: String,
@@ -64,7 +66,7 @@ data class PspReturnUrls(
         ): PspReturnUrls {
             val encodedRegistrationId = URLEncoder.encode(registrationId, Charsets.UTF_8)
             return PspReturnUrls(
-                successUrl = "$baseUrl/veranstaltung/$slug/danke?r=$encodedRegistrationId",
+                successUrl = "$baseUrl/veranstaltung/$slug/bezahlt?r=$encodedRegistrationId",
                 cancelUrl = "$baseUrl/veranstaltung/$slug/abgebrochen?r=$encodedRegistrationId",
             )
         }

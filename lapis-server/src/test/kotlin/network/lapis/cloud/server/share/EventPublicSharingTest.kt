@@ -216,7 +216,9 @@ class EventPublicSharingTest :
                 }
                 for (page in listOf("danke", "warteliste", "abgebrochen", "ticket?code=x", "storno?token=x", "zahlung?token=x")) {
                     val response = client.get("/veranstaltung/$slug/$page")
-                    response.headers["Content-Security-Policy"] shouldBe CSP_PLAIN
+                    // V1.9.259: the payment-confirmation page drops `form-action` (its POST answers with a 303 to the payment provider).
+                    response.headers["Content-Security-Policy"] shouldBe
+                        CSP_PLAIN.let { if (page.startsWith("zahlung")) it.replace("form-action 'self'; ", "") else it }
                     response.bodyAsText() shouldNotContain "class=\"share\""
                 }
             }

@@ -109,9 +109,10 @@ internal object EmbedEventOutcome {
  * Partner-Origins) für eine bekannte E-Mail-Adresse erfragen, ob sie bereits für eine
  * kostenpflichtige Parteiveranstaltung angemeldet ist -- begrenzt durch den strikten
  * `registrationRateLimiter` (5 Versuche/60min pro Quell-IP), der eine gezielte Einzelabfrage aber
- * nicht verhindert. Dieselbe Unterscheidung existiert unverändert auch auf der
- * server-gerenderten Formular-Route (`EventPublicRoutes`, Redirect nach `/danke` vs. Stripe-URL) --
- * keine Regression dieser Welle, aber eine Lücke, die ein künftiger Fix schließen sollte (z. B.
+ * nicht verhindert. Auf der server-gerenderten Formular-Route (`EventPublicRoutes`) ist diese
+ * Unterscheidung seit V1.9.259 geschlossen (jede angenommene Eingabe endet im selben Redirect nach
+ * `/danke`, Gast-Plätze rufen den Zahlungsanbieter nie im POST); DIESE JSON-Route ist unverändert
+ * und bleibt eine Lücke, die ein künftiger Fix schließen sollte (z. B.
  * durch einen Zahlungs-Wiederaufnahme-Redirect statt `CONFIRMED` für `AlreadyRegistered` auf einem
  * kostenpflichtigen Event), siehe auch `docs/api/embed-widgets.adoc`.
  */
@@ -126,6 +127,9 @@ internal fun embedEventResponseFor(result: EventRegistrationResult): Pair<HttpSt
         is EventRegistrationResult.PaymentRequired ->
             HttpStatusCode.OK to
                 EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.PAYMENT_REQUIRED, redirectUrl = result.redirectUrl)
+        // Unreachable: this JSON route always submits with deferCheckout = false. Mapped to the shape a duplicate has (no redirect URL).
+        is EventRegistrationResult.PaymentLinkSent ->
+            HttpStatusCode.OK to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.CONFIRMED)
         EventRegistrationResult.EventNotAvailable ->
             HttpStatusCode.NotFound to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.NOT_AVAILABLE)
         EventRegistrationResult.WaitlistFull ->

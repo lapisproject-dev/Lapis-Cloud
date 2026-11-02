@@ -144,7 +144,8 @@ internal class RegisterForEventTool(
             // to non-zero in the race window between that pre-check and submission.submit's own
             // lock-time re-read: never `paymentUrl` (removed for good, see class KDoc), always the
             // SAME opaque ForbiddenException as every other "cannot register" outcome here.
-            is EventRegistrationResult.PaymentRequired -> throw ForbiddenException("Not permitted for this account")
+            is EventRegistrationResult.PaymentRequired, is EventRegistrationResult.PaymentLinkSent ->
+                throw ForbiddenException("Not permitted for this account")
             EventRegistrationResult.AlreadyRegistered -> {
                 // AlreadyRegistered itself carries neither a status nor a waitlist position (see its
                 // own KDoc) -- one additional, self-scoped read fills both in.

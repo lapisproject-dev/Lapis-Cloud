@@ -29,6 +29,7 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventCoverPolicy
+import network.lapis.cloud.server.events.EventNoticeMailLimiter
 import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRegistrationMessage
@@ -38,6 +39,8 @@ import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventText
 import network.lapis.cloud.server.events.EventTicketPolicy
+import network.lapis.cloud.server.events.GuestAddressAccountMatcher
+import network.lapis.cloud.server.events.MemberEventSelfRegistration
 import network.lapis.cloud.server.events.QrCodeEncoder
 import network.lapis.cloud.server.events.mailPromotion
 import network.lapis.cloud.server.events.series.PublicSeriesSummary
@@ -46,6 +49,7 @@ import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.partner.PartnerEventDisplay
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.pdf.EventTicketPdfGenerator
+import network.lapis.cloud.server.rpc.FriendRegistrationConfig
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -64,6 +68,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.math.BigDecimal
+import java.net.URI
 import java.security.MessageDigest
 
 /**
@@ -107,6 +112,12 @@ private val ICS_CONTENT_TYPE = ContentType("text", "calendar").withParameter("ch
  * 4. [MAX_EVENT_REGISTRATION_BODY_BYTES] content-length cap, checked BEFORE any body byte is read,
  *    plus [EVENT_FORM_FIELD_LIMIT] on Ktor's own (50 MiB default) form-field buffering.
  *
+ * **V1.9.259 -- member-aware registration:** the detail page shows a signed-in visitor (cookie session only, never in EMBED mode) a one-click
+ * registration button (`POST .../anmeldung/konto`, strict same-origin check); the guest form checks the availability first, then looks up the
+ * address once, and answers EVERY accepted submission with the same redirect to `/danke` -- an address of an account is not stored, its owner
+ * is mailed instead. Gast seats of a paid event are reserved without calling the payment provider (the pay link goes out by mail). See
+ * `docs/features/public-event-page.adoc` for the binding order.
+ *
  * Every handler body runs inside [withEventPublicErrorHandling] -- no exception, expected or not,
  * ever escapes as Ktor's bare, header-less default 500 (same discipline `SocialPublicRoutes
  * .withPublicErrorHandling` establishes for its own route family; that function is not reused
@@ -138,8 +149,14 @@ internal fun Route.registerEventPublicRoutes(
     messageNotifier: EventRegistrationMessageNotifier = EventRegistrationMessageNotifier.DISABLED,
     // V1.9.217 -- share bar on the detail page; DISABLED keeps every response byte-identical to V1.9.216. Application.kt wires the real one.
     shareConfig: ShareConfig = ShareConfig.DISABLED,
+    // V1.9.259 -- bounds the member-notice / duplicate-notice mails of the guest form (one per event+address per 24 h, 100 per hour overall).
+    // Application.kt creates ONE instance for the process; the default is for tests, which want a fresh one per application.
+    noticeMailLimiter: EventNoticeMailLimiter = EventNoticeMailLimiter(),
+    // V1.9.259 -- decides whether a FRIEND account's address counts for the member notice (verified address required or not).
+    friendRegistrationConfig: FriendRegistrationConfig = FriendRegistrationConfig.load(),
 ) {
     val frameAncestors = embedFrameAncestors(embedConfig)
+    val canonicalOrigin = runCatching { URI(baseUrl) }.getOrNull()
 
     /** The per-request context -- always the FIRST thing a handler builds, never inside a transaction (see [PublicNavAvailabilityProvider.current]). */
     fun ApplicationCall.pageContext(): EventPageContext =
@@ -152,6 +169,7 @@ internal fun Route.registerEventPublicRoutes(
             mailDispatcher = mailDispatcher,
             messageNotifier = messageNotifier,
         )
+    val memberSelfRegistration = MemberEventSelfRegistration(submission)
 
     get("/veranstaltung/{slug}") {
         val ctx = call.pageContext()
@@ -166,7 +184,12 @@ internal fun Route.registerEventPublicRoutes(
                 call.respondEventNotFound(ctx)
                 return@withEventPublicErrorHandling
             }
-            call.response.header(HttpHeaders.CacheControl, "no-store")
+            // V1.9.259 -- the signed-in variant is personal: `private, no-store`, and every STANDARD response varies on the cookie so a
+            // shared cache can never hand one visitor's page to another. EMBED never reads the cookie and keeps its headers.
+            val viewer =
+                view.eventId?.let { call.resolveEventPublicViewer(isEmbed = ctx.isEmbed, eventId = it, now = DbClock.nowLocalDateTime()) }
+            call.response.header(HttpHeaders.CacheControl, if (viewer != null) "private, no-store" else "no-store")
+            if (!ctx.isEmbed) call.response.header(HttpHeaders.Vary, "Cookie")
             // The cover image is same-origin (`/veranstaltung/{slug}/bild`), already covered by `img-src 'self'`.
             val shareUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/veranstaltung/${view.slug}", lang = ctx.lang)
             val share =
@@ -195,9 +218,9 @@ internal fun Route.registerEventPublicRoutes(
                             ),
                     )
                 }
-            call.applyEventPageHeaders(ctx = ctx, scriptSrcSelf = share?.needsScript == true)
+            call.applyEventPageHeaders(ctx = ctx, scriptSrcSelf = share?.needsScript == true, referrerSameOrigin = viewer != null)
             call.respondText(
-                text = EventPublicHtml.eventPage(ctx = ctx, view = view, share = share, ogMeta = ogMeta),
+                text = EventPublicHtml.eventPage(ctx = ctx, view = view, share = share, ogMeta = ogMeta, viewer = viewer),
                 contentType = HTML_CONTENT_TYPE,
             )
         }
@@ -331,52 +354,141 @@ internal fun Route.registerEventPublicRoutes(
                 call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
+            // V1.9.259 -- the order from here on is binding (see docs/features/public-event-page.adoc): the address-INDEPENDENT reasons a
+            // registration cannot be taken are answered FIRST, so they look the same for a member address and a stranger; only then does
+            // the route look at the address, and every accepted submission ends in the same `303` to `/danke`.
+            val now = DbClock.nowLocalDateTime()
+            when (submission.probeAvailability(eventId = eventId, now = now)) {
+                EventRegistrationSubmission.Availability.NotAvailable -> {
+                    call.respondEventNotFound(ctx)
+                    return@withEventPublicErrorHandling
+                }
+                EventRegistrationSubmission.Availability.WaitlistFull,
+                EventRegistrationSubmission.Availability.GatewayUnavailable,
+                -> {
+                    call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
+                    return@withEventPublicErrorHandling
+                }
+                EventRegistrationSubmission.Availability.Open -> Unit
+            }
+            val eventTitle = transaction { EventStore.getEventOrNull(eventId)?.get(EventTable.title) }.orEmpty()
+            val thanksLocation = ctx.href("/veranstaltung/$slug/danke")
+            // ONE query, whatever the address is.
+            val account =
+                GuestAddressAccountMatcher.selfRegistrantOrNull(
+                    normalizedEmail = normalizedEmail,
+                    friendConfig = friendRegistrationConfig,
+                )
+            if (account != null) {
+                // The address belongs to an account: nothing is stored, no organiser is told, the account owner gets a notice (once per
+                // event+address per day). The lock+sweep keeps the database work comparable with the guest branch.
+                submission.touchEventLock(eventId = eventId, now = now)
+                if (noticeMailLimiter.tryAcquire(eventId = eventId, normalizedEmail = normalizedEmail)) {
+                    submission.mailMemberNotice(to = account.email, title = eventTitle, eventId = eventId)
+                }
+                call.respondEventRedirect(ctx = ctx, location = thanksLocation)
+                return@withEventPublicErrorHandling
+            }
             val result =
                 submission.submit(
                     eventId = eventId,
                     participant = EventParticipant.Guest(name = guestName, normalizedEmail = normalizedEmail),
                     message = guestMessage,
+                    // A paid seat is reserved and the payment link goes out by mail: no provider round-trip inside this request.
+                    deferCheckout = true,
                 )
             when (result) {
-                is EventRegistrationResult.Confirmed ->
-                    call.respondEventRedirect(
-                        ctx = ctx,
-                        location = ctx.href("/veranstaltung/$slug/danke?r=${result.registrationId}"),
-                    )
+                is EventRegistrationResult.Confirmed,
+                is EventRegistrationResult.Waitlisted,
+                is EventRegistrationResult.PaymentLinkSent,
+                // Not produced with deferCheckout = true; if it ever were, the visitor still gets the one neutral answer.
+                is EventRegistrationResult.PaymentRequired,
+                -> call.respondEventRedirect(ctx = ctx, location = thanksLocation)
+                EventRegistrationResult.AlreadyRegistered -> {
+                    if (noticeMailLimiter.tryAcquire(eventId = eventId, normalizedEmail = normalizedEmail)) {
+                        submission.mailDuplicateNotice(to = normalizedEmail, title = eventTitle)
+                    }
+                    call.respondEventRedirect(ctx = ctx, location = thanksLocation)
+                }
+                EventRegistrationResult.EventNotAvailable -> call.respondEventNotFound(ctx)
+                EventRegistrationResult.WaitlistFull,
+                EventRegistrationResult.GatewayUnavailable,
+                is EventRegistrationResult.PaymentFailed,
+                -> call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
+            }
+        }
+    }
+
+    // V1.9.259 -- the signed-in visitor's own registration, one click, no body. Cookie session only (never Bearer / X-Member-Id), strict
+    // same-origin check, never in EMBED mode. Post/Redirect/Get: a second POST finds the registration under the event lock and changes nothing.
+    post("/veranstaltung/{slug}/anmeldung/konto") {
+        call.markEventNoIndex()
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
+            val slug = call.parameters["slug"]
+            if (slug == null) {
+                call.respondEventNotFound(ctx)
+                return@withEventPublicErrorHandling
+            }
+            if (!attemptRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+                call.respondEventTooManyRequests(ctx)
+                return@withEventPublicErrorHandling
+            }
+            // The framed variant has no account button; the route does not exist there.
+            if (ctx.isEmbed) {
+                call.respondEventNotFound(ctx)
+                return@withEventPublicErrorHandling
+            }
+            if (!isStrictSameOriginFormPost(headers = call.request.headers, canonicalOrigin = canonicalOrigin)) {
+                call.respondEventForbidden(ctx)
+                return@withEventPublicErrorHandling
+            }
+            val declaredContentLength = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+            if (declaredContentLength == null || declaredContentLength > MAX_EVENT_REGISTRATION_BODY_BYTES) {
+                call.respondEventMalformed(ctx = ctx, status = HttpStatusCode.PayloadTooLarge)
+                return@withEventPublicErrorHandling
+            }
+            val eventId =
+                transaction {
+                    EventStore
+                        .getEventBySlugOrNull(slug)
+                        ?.takeIf { it[EventTable.visibility] == EventVisibility.PUBLIC }
+                        ?.get(EventTable.id)
+                }
+            if (eventId == null) {
+                call.respondEventNotFound(ctx)
+                return@withEventPublicErrorHandling
+            }
+            val eventPage = ctx.href("/veranstaltung/$slug")
+            val viewer = call.resolveEventPublicViewer(isEmbed = false, eventId = eventId, now = DbClock.nowLocalDateTime())
+            if (viewer == null) {
+                call.respondEventRedirect(ctx = ctx, location = eventPage)
+                return@withEventPublicErrorHandling
+            }
+            if (!registrationRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+                call.respondEventTooManyRequests(ctx)
+                return@withEventPublicErrorHandling
+            }
+            when (val result = memberSelfRegistration.register(memberId = viewer.memberId, eventId = eventId, message = null)) {
+                is EventRegistrationResult.Confirmed,
+                is EventRegistrationResult.Waitlisted,
+                is EventRegistrationResult.PaymentLinkSent,
+                EventRegistrationResult.AlreadyRegistered,
+                -> call.respondEventRedirect(ctx = ctx, location = "$eventPage#anmeldung")
+                // The checkout is not a 303 out of this form: Chrome checks a form's redirect target against `form-action`. The hand-off
+                // page carries the provider link with target="_top" instead.
                 is EventRegistrationResult.PaymentRequired ->
-                    call.respondEventPaymentRequired(
+                    call.respondEventPaymentHandoff(
                         ctx = ctx,
                         slug = slug,
                         redirectUrl = result.redirectUrl,
+                        lead = "Ihr Platz ist reserviert. Bitte schließen Sie die Zahlung ab.",
                     )
-                is EventRegistrationResult.Waitlisted ->
-                    call.respondEventRedirect(
-                        ctx = ctx,
-                        location = ctx.href("/veranstaltung/$slug/warteliste"),
-                    )
-                EventRegistrationResult.AlreadyRegistered ->
-                    call.respondEventRedirect(
-                        ctx = ctx,
-                        location = ctx.href("/veranstaltung/$slug/danke"),
-                    )
-                EventRegistrationResult.EventNotAvailable -> {
-                    call.respondEventNotFound(ctx)
-                }
-                EventRegistrationResult.WaitlistFull ->
-                    call.respondEventRedirect(
-                        ctx = ctx,
-                        location = ctx.href("/veranstaltung/$slug/abgebrochen"),
-                    )
-                EventRegistrationResult.GatewayUnavailable ->
-                    call.respondEventRedirect(
-                        ctx = ctx,
-                        location = ctx.href("/veranstaltung/$slug/abgebrochen"),
-                    )
-                is EventRegistrationResult.PaymentFailed ->
-                    call.respondEventRedirect(
-                        ctx = ctx,
-                        location = ctx.href("/veranstaltung/$slug/abgebrochen"),
-                    )
+                EventRegistrationResult.EventNotAvailable -> call.respondEventRedirect(ctx = ctx, location = eventPage)
+                EventRegistrationResult.WaitlistFull,
+                EventRegistrationResult.GatewayUnavailable,
+                is EventRegistrationResult.PaymentFailed,
+                -> call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
             }
         }
     }
@@ -385,7 +497,17 @@ internal fun Route.registerEventPublicRoutes(
         call.markEventNoIndex()
         val ctx = call.pageContext()
         call.respondEventReturnPage(ctx = ctx, rateLimiter = pageRateLimiter) {
-            EventPublicHtml.thanksPage(ctx = ctx, slug = call.parameters["slug"].orEmpty(), registrationId = call.parameters["r"])
+            EventPublicHtml.thanksPage(ctx = ctx, slug = call.parameters["slug"].orEmpty())
+        }
+    }
+
+    // V1.9.259 -- the payment provider's success return. `r` (the registration id) is deliberately not read: the page promises nothing
+    // and shows nothing about the visitor; old `/danke?r=` return URLs of sessions created earlier still work (they ignore `r` too).
+    get("/veranstaltung/{slug}/bezahlt") {
+        call.markEventNoIndex()
+        val ctx = call.pageContext()
+        call.respondEventReturnPage(ctx = ctx, rateLimiter = pageRateLimiter) {
+            EventPublicHtml.paidPage(ctx = ctx, slug = call.parameters["slug"].orEmpty())
         }
     }
 
@@ -508,7 +630,9 @@ internal fun Route.registerEventPublicRoutes(
             val slug = call.parameters["slug"].orEmpty()
             val token = call.parameters["token"].orEmpty()
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyEventPageHeaders(ctx = ctx)
+            // Its form POSTs to /zahlung, which answers with a 303 to the payment provider (now the main path of a paying guest): no
+            // `form-action`, or Chrome blocks the redirect target (V1.9.259, AuthFormAction.UNRESTRICTED).
+            call.applyEventPageHeaders(ctx = ctx, formActionSelf = false)
             call.respondText(
                 text = EventPublicHtml.paymentConfirmPage(ctx = ctx, slug = slug, token = token),
                 contentType = HTML_CONTENT_TYPE,
@@ -930,6 +1054,7 @@ private fun loadPublicEventView(
                     coverImageId = row[EventTable.coverImageId],
                 ),
             series = series,
+            eventId = eventId,
         )
     }
 
@@ -980,8 +1105,18 @@ private fun loadSeriesSection(
 internal fun ApplicationCall.applyEventPageHeaders(
     ctx: EventPageContext,
     scriptSrcSelf: Boolean = false,
+    /** V1.9.259 -- the signed-in detail page: `Referrer-Policy: same-origin` so its form POST carries a real `Origin` (see [applyPageModeHeaders]). */
+    referrerSameOrigin: Boolean = false,
+    /** V1.9.259 -- `false` only for the page whose form POST redirects to the payment provider (see [applyPageModeHeaders]). */
+    formActionSelf: Boolean = true,
 ) {
-    applyPageModeHeaders(isEmbed = ctx.isEmbed, frameAncestors = ctx.frameAncestors, scriptSrcSelf = scriptSrcSelf)
+    applyPageModeHeaders(
+        isEmbed = ctx.isEmbed,
+        frameAncestors = ctx.frameAncestors,
+        scriptSrcSelf = scriptSrcSelf,
+        referrerPolicy = if (referrerSameOrigin) "same-origin" else "no-referrer",
+        formActionSelf = formActionSelf,
+    )
 }
 
 private suspend fun ApplicationCall.respondEventRedirect(
@@ -1007,12 +1142,29 @@ private suspend fun ApplicationCall.respondEventPaymentRequired(
         respondEventRedirect(ctx = ctx, location = redirectUrl)
         return
     }
+    respondEventPaymentHandoff(ctx = ctx, slug = slug, redirectUrl = redirectUrl)
+}
+
+/** The `200` page with the provider link (`target="_top"`), never a `303`: used in EMBED mode and after the signed-in button POST. */
+private suspend fun ApplicationCall.respondEventPaymentHandoff(
+    ctx: EventPageContext,
+    slug: String,
+    redirectUrl: String,
+    lead: String = "Die Zahlung öffnet sich im vollen Browserfenster.",
+) {
     response.header(HttpHeaders.CacheControl, "no-store")
     applyEventPageHeaders(ctx = ctx)
     respondText(
-        text = EventPublicHtml.paymentHandoffPage(ctx = ctx, slug = slug, redirectUrl = redirectUrl),
+        text = EventPublicHtml.paymentHandoffPage(ctx = ctx, slug = slug, redirectUrl = redirectUrl, lead = lead),
         contentType = HTML_CONTENT_TYPE,
     )
+}
+
+/** `403` of the signed-in button POST when the strict same-origin check fails: fixed page, nothing reflected, no effect. */
+private suspend fun ApplicationCall.respondEventForbidden(ctx: EventPageContext) {
+    response.header(HttpHeaders.CacheControl, "no-store")
+    applyEventPageHeaders(ctx = ctx)
+    respondText(text = EventPublicHtml.forbiddenPage(ctx), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.Forbidden)
 }
 
 private suspend fun ApplicationCall.respondEventNotFound(ctx: EventPageContext) {

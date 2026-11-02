@@ -422,6 +422,25 @@ internal object SocialPublicHtml {
         .event-submit--danger { background: var(--lapis-invalid); color: var(--lapis-bg); }
         .event-submit--danger:hover { color: var(--lapis-bg); }
         .event-hint { margin: 0.75rem 0 0 0; font-size: 0.9rem; color: inherit; }
+        /* V1.9.259 -- member-aware registration card. Tokens only; no inline styles anywhere (CSP style-src 'self'). */
+        .event-member-hint {
+            margin: 0 0 1rem 0; padding: 0.7rem 0.9rem; border-left: 4px solid var(--lapis-border-strong); border-radius: 0.35rem;
+            background: var(--lapis-surface); color: var(--lapis-text);
+        }
+        .event-member-hint p { margin: 0; }
+        .event-signed-in { margin: 0 0 0.75rem 0; }
+        .event-registered-note { margin: 0.75rem 0 0 0; font-weight: 600; }
+        .event-divider { margin: 1.5rem 0 1rem 0; border: 0; border-top: 1px solid var(--lapis-border); }
+        .event-card h3 { margin: 0 0 0.5rem 0; font-size: 1.05rem; }
+        .event-submit--secondary {
+            background: var(--lapis-surface); color: var(--lapis-accent); border: 2px solid var(--lapis-accent);
+        }
+        .event-submit--secondary:hover { filter: none; color: var(--lapis-accent); background: var(--lapis-accent-soft); }
+        .event-submit:disabled, .event-submit[aria-disabled="true"] {
+            cursor: not-allowed; filter: none; background: var(--lapis-surface); color: var(--lapis-muted);
+            border: 1px solid var(--lapis-border-strong);
+        }
+        .event-submit:disabled:hover, .event-submit[aria-disabled="true"]:hover { filter: none; color: var(--lapis-muted); }
         .event-card form { margin: 0; }
         .event-description { max-width: 44rem; margin: 0 0 2rem 0; overflow-wrap: anywhere; }
         .event-qr { margin: 1.5rem 0 0.75rem 0; text-align: center; }

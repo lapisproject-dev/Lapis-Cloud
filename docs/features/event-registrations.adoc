@@ -52,6 +52,20 @@ anybody can open lets a stranger watch an organisation fill up. See link:public-
 * The creator only sees the message in the overview if he is BOARD or ADMIN **now** (the same rule as `listRegistrations`); a creator whose role was
   withdrawn reads it in the postbox or the mail link only.
 
+== Member addresses on the guest form (V1.9.259)
+
+The public guest form must not reveal whether an address belongs to an account. When the normalised address matches an account that may register
+itself (`ACTIVE`, `FRIEND` -- with a verified address when the operator requires verification -- or `GUEST`; not anonymised, with a local account), **no
+registration is stored** and the owner receives a notice mail with a link to sign in and to the event in the member area. The visitor sees the same
+redirect as for any other accepted submission.
+
+* Mail purposes: `event-registration-member-notice` and `event-registration-duplicate-notice` (a guest address typed in again). Neither carries a text of
+  the visitor (no name, no message). Both are enqueued outside any transaction.
+* Limits (`EventNoticeMailLimiter`, shared by both purposes): one mail per event and address per 24 hours (the key is a SHA-256 of event id and address, the
+  plain address is not held), and 100 notice mails per hour for the instance, checked only after the per-key check.
+* Data protection: `logRecipient = false`; no log line names a match; the outbox keeps the mail itself until it is sent or expires.
+* The limiter state is in the process; a restart resets it.
+
 == Overview (`getRegistrationOverview`)
 
 BOARD/ADMIN, rate limited like the other management calls. Counters are computed on the server: `activeCount` (confirmed plus not yet lapsed holds, equal
@@ -84,5 +98,6 @@ documented gap of `event_registration` (see `PersonalDataRegistry.knownUncovered
   not opened in a real Excel or LibreOffice.**
 * A guest's message reaches the creator by a mail without text only, never in the postbox.
 * The embed widget and the MCP tool have no message field; the plain public page has no live character counter (no JavaScript there).
+* The notice mails of V1.9.259 and the signed-in button of the public page have not been tried with a real mail server or a real browser.
 * The overview shows at most 2000 rows, the export refuses more than 10 000.
 * The new translations were written by the model, not by a native speaker.

@@ -66,6 +66,14 @@ internal sealed interface EventRegistrationResult {
         val position: Int,
     ) : EventRegistrationResult
 
+    /**
+     * V1.9.259 -- a seat for a PAID event was reserved WITHOUT calling the payment provider (`submit(deferCheckout = true)`, the public
+     * guest form): the registrant pays through the link in the mail. Never produced by the member RPC, the embed JSON route or MCP.
+     */
+    data class PaymentLinkSent(
+        val registrationId: Uuid,
+    ) : EventRegistrationResult
+
     /** The event exists but is not currently open for registration: not `PUBLISHED`, past its registration deadline, or already started. Deliberately ONE result for all three -- no oracle for an anonymous caller. */
     data object EventNotAvailable : EventRegistrationResult
 
@@ -168,13 +176,25 @@ internal class EventRegistrationSubmission(
         // impossible.
         embedOrigin: String? = null,
         message: String? = null,
+        // V1.9.259 -- `true` (public guest form only): a paid seat is reserved and the payment link goes out by mail, with NO provider call
+        // in the request. Keeps the guest path free of a network round-trip the member path never had (no timing oracle), see KDoc.
+        deferCheckout: Boolean = false,
     ): EventRegistrationResult {
-        val result = submitPlaced(eventId = eventId, participant = participant, now = now, embedOrigin = embedOrigin, message = message)
+        val result =
+            submitPlaced(
+                eventId = eventId,
+                participant = participant,
+                now = now,
+                embedOrigin = embedOrigin,
+                message = message,
+                deferCheckout = deferCheckout,
+            )
         if (message != null) {
             val registrationId =
                 when (result) {
                     is EventRegistrationResult.Confirmed -> result.registrationId
                     is EventRegistrationResult.PaymentRequired -> result.registrationId
+                    is EventRegistrationResult.PaymentLinkSent -> result.registrationId
                     is EventRegistrationResult.Waitlisted -> result.registrationId
                     else -> null
                 }
@@ -189,6 +209,7 @@ internal class EventRegistrationSubmission(
         now: LocalDateTime,
         embedOrigin: String?,
         message: String?,
+        deferCheckout: Boolean,
     ): EventRegistrationResult {
         // 1. Resolve + a CHEAP pre-lock registration-window check (early exit for the common case
         // only -- step 3 re-checks this authoritatively against the LOCKED row).
@@ -347,6 +368,15 @@ internal class EventRegistrationSubmission(
                         ticketUrl = ticketUrl,
                     )
                     EventRegistrationResult.Confirmed(registrationId = registrationId)
+                } else if (deferCheckout) {
+                    mailRegistrationReceived(
+                        participant = participant,
+                        title = title,
+                        slug = slug,
+                        cancelToken = cancelToken,
+                        mode = RegistrationMailMode.PAYMENT_PENDING,
+                    )
+                    EventRegistrationResult.PaymentLinkSent(registrationId = registrationId)
                 } else {
                     createCheckoutOrFreeSeat(
                         eventId = eventId,
@@ -710,6 +740,119 @@ internal class EventRegistrationSubmission(
         }
     }
 
+    /** What a public visitor can be told about [probeAvailability] -- deliberately coarse, identical for every address. */
+    internal sealed interface Availability {
+        data object Open : Availability
+
+        data object NotAvailable : Availability
+
+        data object WaitlistFull : Availability
+
+        data object GatewayUnavailable : Availability
+    }
+
+    /**
+     * V1.9.259 -- READ-ONLY pre-check of the address-independent reasons a public registration cannot be taken, using the same building
+     * blocks as [submitPlaced] steps 1-2 (registration window, gateway for a fee > 0) plus the capacity/waitlist-full test of step 3. It
+     * never looks at WHO registers, so the public route can run it BEFORE it looks at the address: a closed event, a full waitlist or a
+     * missing gateway then answer identically for a member address and a stranger. The authoritative placement stays under the event lock.
+     */
+    internal fun probeAvailability(
+        eventId: Uuid,
+        now: LocalDateTime = DbClock.nowLocalDateTime(),
+    ): Availability {
+        val eventRow = transaction { EventStore.getEventOrNull(eventId) } ?: return Availability.NotAvailable
+        if (!EventPolicy.isRegistrationOpen(
+                status = eventRow[EventTable.status],
+                registrationClosesAt = eventRow[EventTable.registrationClosesAt],
+                startsAt = eventRow[EventTable.startsAt],
+                wallNow = OrganizationTimeZone.wallNowOf(now),
+            )
+        ) {
+            return Availability.NotAvailable
+        }
+        if (eventRow[EventTable.feeAmount].compareTo(BigDecimal.ZERO) != 0 && !gatewayUsable()) return Availability.GatewayUnavailable
+        val full =
+            transaction {
+                val capacity = eventRow[EventTable.capacity]
+                capacity != null &&
+                    EventStore.countOccupied(eventId = eventId, now = now) >= capacity &&
+                    EventStore.countWaitlisted(eventId) >= EventPolicy.MAX_WAITLIST
+            }
+        return if (full) Availability.WaitlistFull else Availability.Open
+    }
+
+    /**
+     * V1.9.259 -- takes the event lock, sweeps stale holds and the waitlist and mails the promotions, exactly like a placement does, but
+     * places nothing. The public route calls it on the member-address branch so that both branches do the same lock and sweep work.
+     */
+    internal fun touchEventLock(
+        eventId: Uuid,
+        now: LocalDateTime = DbClock.nowLocalDateTime(),
+    ) {
+        val (_, promotions) = EventCapacityGuard.withEventLock(eventId = eventId, now = now) { }
+        promotions.forEach { it.mailPromotion(mailDispatcher) }
+    }
+
+    /**
+     * V1.9.259 -- sent to an address that belongs to an account when it was typed into the public GUEST form. No text of the visitor goes
+     * in (no name, no message): anyone can type any address. [logRecipient] is `false`: the pair "address + purpose" would otherwise record
+     * which accounts exist, in the server log.
+     */
+    internal fun mailMemberNotice(
+        to: String,
+        title: String,
+        eventId: Uuid,
+    ) {
+        val loginUrl = "$baseUrl/app#/login"
+        val eventUrl = "$baseUrl/app#/events/$eventId"
+        val plainText =
+            "Hallo,\n\n" +
+                "für die Veranstaltung \"$title\" wurde auf unserer öffentlichen Seite diese E-Mail-Adresse eingetragen. " +
+                "Die Adresse gehört zu einem Konto bei uns. Bitte melden Sie sich an und melden Sie sich danach im " +
+                "Mitgliederbereich zur Veranstaltung an, damit die Anmeldung Ihrem Konto zugeordnet ist.\n\n" +
+                "Anmelden: $loginUrl\n\n" +
+                "Zur Veranstaltung im Mitgliederbereich: $eventUrl\n\n" +
+                "Falls Sie das nicht waren, können Sie diese E-Mail ignorieren. Es wurde keine Anmeldung gespeichert.\n"
+        val escapedTitle = htmlEscape(title)
+        val html =
+            "<p>Hallo,</p><p>für die Veranstaltung \"$escapedTitle\" wurde auf unserer öffentlichen Seite diese E-Mail-Adresse " +
+                "eingetragen. Die Adresse gehört zu einem Konto bei uns. Bitte melden Sie sich an und melden Sie sich danach im " +
+                "Mitgliederbereich zur Veranstaltung an, damit die Anmeldung Ihrem Konto zugeordnet ist.</p>" +
+                "<p><a href=\"$loginUrl\">Anmelden</a></p>" +
+                "<p><a href=\"$eventUrl\">Zur Veranstaltung im Mitgliederbereich</a></p>" +
+                "<p>Falls Sie das nicht waren, können Sie diese E-Mail ignorieren. Es wurde keine Anmeldung gespeichert.</p>"
+        mailDispatcher.enqueue(
+            to = to,
+            subject = "Hinweis zur Veranstaltung \"$title\"",
+            plainTextBody = plainText,
+            htmlBody = html,
+            purpose = "event-registration-member-notice",
+            logRecipient = false,
+        )
+    }
+
+    /** V1.9.259 -- sent when the SAME guest address is typed in again for an event it is already registered for. No new token, nothing changes. */
+    internal fun mailDuplicateNotice(
+        to: String,
+        title: String,
+    ) {
+        val plainText =
+            "Hallo,\n\nDiese E-Mail-Adresse ist für \"$title\" bereits angemeldet. Es wurde nichts geändert. " +
+                "Ihren Stornierungslink finden Sie in der früheren E-Mail.\n"
+        val html =
+            "<p>Hallo,</p><p>Diese E-Mail-Adresse ist für \"${htmlEscape(title)}\" bereits angemeldet. Es wurde nichts geändert. " +
+                "Ihren Stornierungslink finden Sie in der früheren E-Mail.</p>"
+        mailDispatcher.enqueue(
+            to = to,
+            subject = "Ihre Anmeldung: $title",
+            plainTextBody = plainText,
+            htmlBody = html,
+            purpose = "event-registration-duplicate-notice",
+            logRecipient = false,
+        )
+    }
+
     private fun gatewayUsable(): Boolean {
         val settingsRow =
             transaction {
@@ -773,7 +916,12 @@ internal class EventRegistrationSubmission(
             }
         val ticketLine = if (ticketUrl != null) "\n\nIhr Ticket: $ticketUrl" else ""
         val ticketHtml = if (ticketUrl != null) "<p><a href=\"$ticketUrl\">Ihr Ticket</a></p>" else ""
-        val plainText = "Hallo $name,\n\n$statusLine$ticketLine\n\nAnmeldung stornieren: $cancelUrl\n"
+        // V1.9.259 -- the payment link: `POST /zahlung` takes the very same token as `/storno` (registration found by its hash, status must
+        // be PENDING_PAYMENT), so the cancel token doubles as the pay token -- no migration, no second secret.
+        val payUrl = if (mode == RegistrationMailMode.PAYMENT_PENDING) "$baseUrl/veranstaltung/$slug/zahlung?token=$cancelToken" else null
+        val payLine = if (payUrl != null) "\n\nJetzt bezahlen: $payUrl" else ""
+        val payHtml = if (payUrl != null) "<p><a href=\"$payUrl\">Jetzt bezahlen</a></p>" else ""
+        val plainText = "Hallo $name,\n\n$statusLine$ticketLine$payLine\n\nAnmeldung stornieren: $cancelUrl\n"
         // Security-Review MINOR fix: `name` (guest display name from the unauthenticated public
         // registration form)/`title` (BOARD/ADMIN-supplied event title) -- htmlEscape() both,
         // separately from the plain-text `statusLine` above (see
@@ -790,7 +938,9 @@ internal class EventRegistrationSubmission(
                         "${EventPolicy.STANDARD_HOLD.inWholeMinutes} Minuten ab, sonst wird der Platz wieder freigegeben."
             }
         val html =
-            "<p>Hallo ${htmlEscape(name)},</p><p>$statusLineHtml</p>$ticketHtml<p><a href=\"$cancelUrl\">Anmeldung stornieren</a></p>"
+            "<p>Hallo ${htmlEscape(
+                name,
+            )},</p><p>$statusLineHtml</p>$ticketHtml$payHtml<p><a href=\"$cancelUrl\">Anmeldung stornieren</a></p>"
         mailDispatcher.enqueue(to = to, subject = subject, plainTextBody = plainText, htmlBody = html, purpose = "event-registration")
     }
 

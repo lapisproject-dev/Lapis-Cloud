@@ -92,6 +92,14 @@ object MemberStatusSets {
     val CARPOOL_PASSENGER: Set<MemberStatus> =
         setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)
 
+    /**
+     * V1.9.259 -- may register ITSELF for an event through the button on the public event page, and whose address on the public guest
+     * form triggers the member notice mail instead of a guest registration. Anonymised and account-less rows are excluded by the query
+     * (`GuestAddressAccountMatcher`), not by this set.
+     */
+    val EVENT_SELF_REGISTRANT: Set<MemberStatus> =
+        setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.GUEST)
+
     /** V1.9.125 -- may offer rides, invite passengers and manage participants (the V1.9.12 rule, unchanged). Only for the carpool methods. */
     val CARPOOL_DRIVER: Set<MemberStatus> = ORGANIZATION_MEMBER
 
