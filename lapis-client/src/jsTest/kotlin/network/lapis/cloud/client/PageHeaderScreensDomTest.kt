@@ -63,6 +63,40 @@ class PageHeaderScreensDomTest {
         }
     }
 
+    /**
+     * V1.9.257 guard: every screen that passes a constant `tr()` sentence as the subtitle of `pageHeader` (found with
+     * `grep -rn "subtitle\s*=\s*tr("` in `jsMain`: the article import, the event import, the LupaBB sync and the partner servers)
+     * keeps that sentence out of the tab title, and no marker reaches `document.title`. Screens whose subtitle is a loaded data value
+     * are covered by `PageHeaderDomTest`; a screen that needs a real RPC answer to render its header is not in this list (none was found).
+     */
+    @Test
+    fun screensWithAConstantSubtitle_haveAMarkerFreeTabTitleWithoutTheSentence(): Promise<Unit> =
+        test {
+            val screens: List<Pair<String, (Root) -> Unit>> =
+                listOf(
+                    "Frühere Artikel importieren" to { root -> renderArticleImportScreen(root) },
+                    "Frühere Veranstaltungen importieren" to { root -> renderEventImportScreen(root) },
+                    "LupaBB-Abgleich" to { root -> renderLupaSyncScreen(root) },
+                    "Partnerserver" to { root -> renderPartnerServersScreen(root) },
+                )
+            for ((expectedTitle, render) in screens) {
+                PageTitle.reset()
+                AppState.setSession(session())
+                withFetchStub {
+                    withMountedRoot("ph-const-subtitle") { root, element ->
+                        render(root)
+                        delay(50)
+                        val h1 = element().h1Texts().single()
+                        val tab = kotlinx.browser.document.title
+                        assertEquals("$h1 – ${Branding.title}", tab, "$expectedTitle: tab title")
+                        assertTrue(!tab.contains(KV_I18N_MARKER), "$h1: no marker in the tab")
+                        assertTrue(!tab.contains("KvI18n"), "$h1: no marker remnant in the tab")
+                    }
+                }
+            }
+            PageTitle.reset()
+        }
+
     @Test
     fun login_hasOneH1(): Promise<Unit> = test { assertOneH1("ph-login", "Anmelden") { renderLoginScreen(it) } }
 

@@ -173,11 +173,36 @@ class CameraFilterClientTripwireTest :
             creators shouldBe listOf("ConferenceCameraFilterStage.kt")
         }
 
-        test("the panel is built only for a member session, and the decision is made in one pure function") {
+        test("the panel is offered to every participant: no role question decides it (V1.9.257)") {
             val screen = File(CLIENT_DIR, "ConferenceScreen.kt").readText()
-            screen shouldContain "offered = cameraFilterOfferedFor(AppState.session)"
-            code("ConferenceCameraFilterSection.kt") shouldContain "if (offered) {"
-            code("ConferenceCameraFilters.kt") shouldContain "session != null && !isConferenceNonMember(session)"
+            val call = screen.substringAfter("ConferenceCameraFilterSection(").substringBefore("previewHost = cameraFilterPreviewBridge")
+            call shouldContain "offered = true,"
+            // nothing in the client asks "is this a member" for the camera filter any more
+            screen shouldNotContain "cameraFilterOfferedFor"
+            val offenders =
+                CLIENT_DIR
+                    .walkTopDown()
+                    .filter { it.isFile && it.extension == "kt" }
+                    .filter { "cameraFilterOfferedFor" in withoutComments(it.readText()) }
+                    .map { it.name }
+                    .toList()
+            offenders.shouldBeEmpty()
+            for (name in FILTER_FILES) {
+                withClue(name) {
+                    code(name) shouldNotContain "isConferenceNonMember"
+                    code(name) shouldNotContain "MemberStatusSets"
+                    code(name) shouldNotContain "AppState.session"
+                }
+            }
+        }
+
+        test("the filter widens nothing else: overlays keep the server's switch, and the filter files do not ask the overlay questions") {
+            val screen = File(CLIENT_DIR, "ConferenceScreen.kt").readText()
+            // the overlay panel still follows the join answer and the overlay controller still follows it too
+            (Regex("""offered = joinToken\.videoOverlaysOffered""").findAll(screen).count() >= 2) shouldBe true
+            for (name in FILTER_FILES) {
+                withClue(name) { code(name) shouldNotContain "videoOverlaysOffered" }
+            }
         }
 
         test("the frame stage never touches the camera track itself (one processor per track, owned by the background controller)") {

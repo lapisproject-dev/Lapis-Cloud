@@ -268,12 +268,13 @@ class PageHeaderDomTest {
         )
 
     @Test
-    fun documentTitle_constantSubtitle_carriesNoMarker_andVisibleParagraphToo() {
+    fun documentTitle_constantSubtitle_isNotInTheTab_andVisibleParagraphStillShowsIt() {
         for (subtitle in constantSubtitles) {
             withMountedRoot("page-header-const-subtitle") { root, element ->
                 root.pageHeader(tr("Partnerserver"), subtitle = subtitle)
                 val plain = subtitle.removePrefix(KV_I18N_MARKER)
-                assertEquals("Partnerserver – $plain – ${Branding.title}", document.title)
+                // V1.9.257: a constant explanatory sentence is part of the page, not of the tab title
+                assertEquals("Partnerserver – ${Branding.title}", document.title)
                 assertFalse(document.title.contains(KV_I18N_MARKER))
                 assertFalse(document.title.contains("Kvl18nS"))
                 val text = element().querySelector(".lapis-page-header p")?.textContent.orEmpty()
@@ -298,24 +299,26 @@ class PageHeaderDomTest {
     }
 
     @Test
-    fun documentTitle_dataSubtitle_onlyLeadingMarkerIsStripped() {
+    fun documentTitle_dataSubtitle_markerIsStrippedEverywhere() {
         withMountedRoot("page-header-data-marker") { root, _ ->
             val header = root.pageHeader(tr("Beitragshistorie"), subtitle = "")
             header.setSubtitle("Kvl18nS Test $KV_I18N_MARKER mitte")
-            assertEquals("Beitragshistorie – Kvl18nS Test $KV_I18N_MARKER mitte – ${Branding.title}", document.title)
+            // V1.9.257: the finished tab title is cleaned as a whole, a marker in the middle goes too (the browser folds the double space)
+            assertEquals("Beitragshistorie – Kvl18nS Test mitte – ${Branding.title}", document.title)
+            assertFalse(document.title.contains(KV_I18N_MARKER))
             header.setSubtitle("${KV_I18N_MARKER}Name")
             assertEquals("Beitragshistorie – Name – ${Branding.title}", document.title)
         }
     }
 
     @Test
-    fun documentTitle_constantSubtitle_followsALanguageSwitch_viaTranslationsNotARealSwitch() {
+    fun documentTitle_constantSubtitle_staysOutOfTheTab_acrossALanguageSwitch() {
         withMountedRoot("page-header-const-switch") { root, _ ->
             root.pageHeader(tr("Partnerserver"), subtitle = tr("Konstanter Untertitel"))
-            assertEquals("Partnerserver – Konstanter Untertitel – ${Branding.title}", document.title)
-            withTranslations(mapOf("Konstanter Untertitel" to "Translated")) {
+            assertEquals("Partnerserver – ${Branding.title}", document.title)
+            withTranslations(mapOf("Konstanter Untertitel" to "Translated", "Partnerserver" to "Partner servers")) {
                 PageTitle.apply()
-                assertEquals("Partnerserver – Translated – ${Branding.title}", document.title)
+                assertEquals("Partner servers – ${Branding.title}", document.title)
             }
         }
     }

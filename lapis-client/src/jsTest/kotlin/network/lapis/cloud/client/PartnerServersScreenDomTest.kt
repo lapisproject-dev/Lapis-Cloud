@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import kotlinx.browser.document
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
@@ -14,9 +15,16 @@ import network.lapis.cloud.shared.domain.PartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerServerOverviewDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IPartnerServerService
+import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.events.Event
+import org.w3c.dom.events.MouseEvent
+import org.w3c.dom.events.MouseEventInit
 import kotlin.js.Promise
+import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -78,6 +86,7 @@ class PartnerServersScreenDomTest {
         overview: PartnerServerOverviewDto,
         recursion: PartnerRecursionSettingsDto = PartnerRecursionSettingsDto(true, 2, null, null),
         discovered: List<DiscoveredPartnerServerDto> = emptyList(),
+        onRemoveBlock: (String) -> Unit = {},
         block: suspend (HTMLElement) -> Unit,
     ) {
         AppState.setSession(
@@ -92,6 +101,7 @@ class PartnerServersScreenDomTest {
         val list = routeOf { rpcService<IPartnerServerService>().list() }
         val settingsRoute = routeOf { rpcService<IPartnerServerService>().getPartnerRecursionSettings() }
         val discoveredRoute = routeOf { rpcService<IPartnerServerService>().listDiscoveredPartnerServers() }
+        val removeRoute = routeOf { rpcService<IPartnerServerService>().removeBlock("x") }
         withFetchStub(
             respond = { request ->
                 when {
@@ -100,6 +110,10 @@ class PartnerServersScreenDomTest {
                     request.rpcRoute == settingsRoute -> request.answerWith(jsonOf(PartnerRecursionSettingsDto.serializer(), recursion))
                     request.rpcRoute == discoveredRoute ->
                         request.answerWith(jsonOf(ListSerializer(DiscoveredPartnerServerDto.serializer()), discovered))
+                    request.rpcRoute == removeRoute -> {
+                        onRemoveBlock(request.rpcParam(0) as String)
+                        request.answerWith("null")
+                    }
                     else -> request.answerWith("[]")
                 }
             },
@@ -146,16 +160,69 @@ class PartnerServersScreenDomTest {
         }
 
     @Test
-    fun theBlocklistIsClosedWhileEmptyAndOpenOtherwise(): Promise<Unit> =
+    fun theBlocklistIsAlwaysOpen_emptyOrNot_andSaysSoToAssistiveTechnology(): Promise<Unit> =
         test {
-            scenario(PartnerServerOverviewDto(emptyList(), emptyList(), false)) { page ->
-                val details = assertNotNull(page.querySelector("details.lapis-settings-section") as? HTMLElement)
-                assertFalse(details.hasAttribute("open"))
+            for (blocks in listOf(emptyList(), listOf(PartnerBlockDto("x", "*.spam.example")))) {
+                scenario(PartnerServerOverviewDto(emptyList(), blocks, false)) { page ->
+                    val details = assertNotNull(page.querySelector("details.lapis-settings-section") as? HTMLElement)
+                    assertTrue(details.hasAttribute("open"), "open with ${blocks.size} block(s)")
+                    assertEquals("true", details.querySelector("summary")?.getAttribute("aria-expanded"))
+                    assertEquals(blocks.isNotEmpty(), details.textContent.orEmpty().contains("*.spam.example"))
+                }
             }
-            scenario(PartnerServerOverviewDto(emptyList(), listOf(PartnerBlockDto("x", "*.spam.example")), false)) { page ->
-                val details = assertNotNull(page.querySelector("details.lapis-settings-section") as? HTMLElement)
-                assertTrue(details.hasAttribute("open"))
-                assertTrue(details.textContent.orEmpty().contains("*.spam.example"))
+        }
+
+    @Test
+    fun theTabTitleIsTheTitleAndTheBrand_withoutTheExplanatorySentenceAndWithoutAMarker(): Promise<Unit> =
+        test {
+            PageTitle.reset()
+            scenario(PartnerServerOverviewDto(emptyList(), emptyList(), false)) { page ->
+                assertEquals("Partnerserver – ${Branding.title}", document.title)
+                assertFalse(document.title.contains(KV_I18N_MARKER))
+                assertFalse(document.title.contains("KvI18n"))
+                assertTrue(page.textContent.orEmpty().contains("Wir holen stündlich die öffentlichen Veranstaltungen"))
+            }
+            PageTitle.reset()
+        }
+
+    @Test
+    fun unblockingWorksOnTheFirstClick_evenWhenTheRequiredFieldAboveHasBeenTouched(): Promise<Unit> =
+        test {
+            val blocks = listOf(PartnerBlockDto("x", "a.spam.example"), PartnerBlockDto("y", "b.spam.example"))
+            val removed = mutableListOf<String>()
+            scenario(PartnerServerOverviewDto(emptyList(), blocks, false), onRemoveBlock = { removed += it }) { page ->
+                val field = assertNotNull(page.querySelector("input[type=text]") as? HTMLInputElement)
+                field.focus()
+                // The field counts as touched (typed in, then emptied again): only then does leaving it report "required".
+                field.value = "x"
+                field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+                field.value = ""
+                field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+                val unblock = page.allOf("button").first { it.textContent.orEmpty().trim() == "Entsperren" }
+                unblock.scrollIntoView()
+                val rect = unblock.getBoundingClientRect()
+                val x = rect.left + rect.width / 2
+                val y = rect.top + rect.height / 2
+
+                fun mouse(
+                    type: String,
+                    target: HTMLElement,
+                ) {
+                    val init = MouseEventInit(bubbles = true, cancelable = true, clientX = x.toInt(), clientY = y.toInt())
+                    target.dispatchEvent(MouseEvent(type, init))
+                }
+                // What a person does: press on the button (this blurs the touched field), release, click.
+                mouse("mousedown", unblock)
+                field.blur()
+                // The button must not have moved between the press and the release (a layout shift would let the release land beside it).
+                val after = unblock.getBoundingClientRect()
+                assertTrue(abs(after.top - rect.top) < 0.5, "the button moved from top=${rect.top} to ${after.top}")
+                mouse("mouseup", unblock)
+                unblock.click()
+                awaitUntil("the first click removed the entry") { removed.isNotEmpty() }
+                assertEquals(listOf("x"), removed)
+                // and the report of the empty required field comes AFTER the click, not instead of it
+                awaitAppScopeIdle("the page reloaded")
             }
         }
 

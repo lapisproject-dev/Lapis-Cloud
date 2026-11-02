@@ -25,8 +25,8 @@ import kotlin.math.min
  * it the preview, the honest notice, the main switch, the group "Licht und Farbe" (four sliders), the group "Hautglättung" (one slider, with
  * its own notice), the pause line with "Erneut versuchen", and "Alle Filter aus".
  *
- * - The whole section does not exist (no node in the DOM) while [offered] is `false` (guests without a member session, joins that do not
- *   offer it). In a browser that cannot run the stage the row stays, disabled, with an explanation (Chromium-based browsers only).
+ * - The whole section does not exist (no node in the DOM) while [offered] is `false` (V1.9.257: the conference screen always passes `true` --
+ *   every participant, guests included, gets the local filter). In a browser that cannot run the stage the row stays, disabled, with an explanation (Chromium-based browsers only).
  * - The sliders are real `<input type=range>` with a `<label for>`, an `<output>` and an `aria-valuetext`. The keys (arrows +-1, Page up/down
  *   +-10, Home/End to the ends) are handled here ([cameraFilterSliderKeyTarget]) and the native behaviour is suppressed, so the steps are the
  *   same in every browser and testable.
@@ -130,7 +130,7 @@ private class FilterSlider(
 
 internal class ConferenceCameraFilterSection(
     parent: Container,
-    /** `false` => NOTHING is built (the panel is not in the DOM). */
+    /** `false` => NOTHING is built (the panel is not in the DOM). The conference screen passes `true` for every role (V1.9.257). */
     val offered: Boolean,
     val availability: ConferenceBackgroundAvailability,
     /** `false` if this browser cannot run the frame stage although the processors are supported (no WebGL2, ...). */

@@ -49,9 +49,6 @@ internal object PartnerServersLogic {
     /** Whether the "Prüfen und speichern" button may be pressed: an address was typed. */
     fun canProbe(address: String): Boolean = address.isNotBlank()
 
-    /** The blocklist details element is closed while there is nothing in it. */
-    fun blocklistOpen(count: Int): Boolean = count > 0
-
     // ── V1.9.245 "Partner von Partnern" ─────────────────────────────────────────
 
     /** The depth choice only matters while the recursion is on. */

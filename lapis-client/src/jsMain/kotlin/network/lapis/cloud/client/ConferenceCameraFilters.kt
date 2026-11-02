@@ -101,14 +101,6 @@ internal fun cameraFilterWanted(
     supported: Boolean,
 ): Boolean = supported && settings.enabled && !settings.isNeutral()
 
-/**
- * Whether the camera filter panel is offered at all: a person with a MEMBER session (not a guest or friend of another server, and not an
- * event guest without an account -- there is no session then). The filter itself runs locally and needs nothing from the server; this is the
- * same "the least needed for guests" line the overlays draw.
- */
-internal fun cameraFilterOfferedFor(session: network.lapis.cloud.shared.domain.SessionInfoDto?): Boolean =
-    session != null && !isConferenceNonMember(session)
-
 internal const val CAMERA_FILTER_STORAGE_KEY = "lapis.conference.cameraFilters.v1"
 
 /** `{"enabled":true,"brightness":5,...}` -- only the five numbers and one boolean, no free text. */

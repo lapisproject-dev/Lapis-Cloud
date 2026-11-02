@@ -77,11 +77,9 @@ class PartnerServersLogicTest {
     }
 
     @Test
-    fun theProbeNeedsAnAddress_andTheBlocklistIsClosedWhileEmpty() {
+    fun theProbeNeedsAnAddress() {
         assertFalse(PartnerServersLogic.canProbe("  "))
         assertTrue(PartnerServersLogic.canProbe("partner.beispiel.de"))
-        assertFalse(PartnerServersLogic.blocklistOpen(0))
-        assertTrue(PartnerServersLogic.blocklistOpen(2))
     }
 
     @Test

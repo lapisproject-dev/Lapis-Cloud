@@ -297,8 +297,12 @@ private fun renderBlocklist(
     reload: () -> Unit,
 ) {
     val details = Tag(TAG.DETAILS, className = "lapis-settings-section border rounded mt-3")
-    if (PartnerServersLogic.blocklistOpen(blocks.size)) details.setAttribute("open", "")
+    // V1.9.257: the block list is ALWAYS open, empty or not -- a closed list hid the very field that adds the first entry. It cannot be collapsed
+    // either (the click on the summary is cancelled), so `aria-expanded="true"` stays true for the life of the element.
+    details.setAttribute("open", "")
     val head = Tag(TAG.SUMMARY, className = "lapis-settings-summary")
+    head.setAttribute("aria-expanded", "true")
+    head.onEvent { click = { event -> event.preventDefault() } }
     head.add(Span("⊘", className = "me-2").apply { setAttribute("aria-hidden", "true") })
     head.add(Span(tr("Sperrliste"), className = "lapis-settings-title"))
     details.add(head)
@@ -310,6 +314,20 @@ private fun renderBlocklist(
         tr("Gesperrte Hosts werden nie abgerufen und nie angezeigt. Erlaubt sind ein Servername oder *.servername für alle Unterdomänen."),
     ) {
         addCssClasses("text-muted small")
+    }
+    // V1.9.257: the entries come BEFORE the form. A report of the required field ("Host oder Muster") grows the form; below the entries it can
+    // never push a "Entsperren" button away between the press and the release of the mouse.
+    blocks.forEach { block ->
+        val row = body.div { addCssClasses("d-flex align-items-center gap-2 border-bottom py-1") }
+        row.untrustedSpan(block.pattern, className = "font-monospace flex-grow-1")
+        row.actionButton(ActionIcon.UNDO, tr("Entsperren"), small = true) {
+            onClick {
+                runGuardedAction(button = this) {
+                    guarded { rpcService<IPartnerServerService>().removeBlock(block.id) }
+                    reload()
+                }
+            }
+        }
     }
     val form = body.lapisForm()
     val pattern =
@@ -327,18 +345,6 @@ private fun renderBlocklist(
                 form.showFormError(tr("Bitte einen Servernamen oder *.servername angeben."))
             } else {
                 reload()
-            }
-        }
-    }
-    blocks.forEach { block ->
-        val row = body.div { addCssClasses("d-flex align-items-center gap-2 border-bottom py-1") }
-        row.untrustedSpan(block.pattern, className = "font-monospace flex-grow-1")
-        row.actionButton(ActionIcon.UNDO, tr("Entsperren"), small = true) {
-            onClick {
-                runGuardedAction(button = this) {
-                    guarded { rpcService<IPartnerServerService>().removeBlock(block.id) }
-                    reload()
-                }
             }
         }
     }

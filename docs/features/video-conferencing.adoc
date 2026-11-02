@@ -282,6 +282,18 @@ Things to know:
 * The consent text names no home server any more in its first layer (a friend has none); the version changed from `2026-08-16.v1` to `2026-10-13.v1`.
 * `FriendGuestConferenceParityTest` pins that a friend and a guest get the same result from every conference RPC; the only documented differences are `callerIsGuest` of `getGuestJoinInfo` and the home server shown in `listParticipants`.
 
+=== Short token of guests and friends: what happens after 15 minutes (V1.9.257, review only)
+
+A guest or friend gets a LiveKit token that lives `guestTokenTtlMinutes` (default 15, `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES`) instead of `tokenTtlMinutes`. It is chosen in `ConferenceService`, `ConferenceBreakoutService` and `EncounterSpaceService` (`isNonMember`), on purpose short: closing the guest access removes the participant but cannot revoke an issued token.
+
+*Found by reading the code (nothing was run):*
+
+* The client uses the token only for `room.connect(...)` (`LiveKitRoomSession`). The relay retry after a failed first connect reuses the same token on purpose.
+* A full disconnect (cause not "same account elsewhere") ends in `decideAfterDisconnect` -> `RejoinMain` and asks the server for a *new* token (`rejoinMainRoomToken`), at most three times in 60 seconds (`AutoRejoinGuard`). A deliberate "Hier fortsetzen" does the same (`resumeToken`).
+* A SDK-internal resume (`Reconnecting` -> `Reconnected`) works with the state of the SDK and does not ask this server for anything.
+
+*Not verified:* what the LiveKit server and the SDK do with an already running session when the token ends after 15 minutes (this depends on the LiveKit version and on the token refresh the server pushes), and a real test that waits longer than the token lifetime in a room. No change was made for this.
+
 == Reactions and raised hands (V1.9.127)
 
 Two small things that make a large call feel like a room: a *reaction* (applause, heart, amen, thumbs up, flower, laughter, amazement, question) is a mood that appears on a person's tile for three seconds, and the *raised hand* ("Wortmeldung") puts a person into a list that everybody can see and the moderation can work through.

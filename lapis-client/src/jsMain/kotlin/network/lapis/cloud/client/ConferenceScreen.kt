@@ -1898,9 +1898,10 @@ private fun enterCall(
             previewHost = overlayPreviewBridge,
         )
 
-    // V1.9.142 "Kamera-Filter" -- EINGEKLAPPTE Zeile direkt NACH den Overlays und VOR der Rauschunterdrückung. Das Panel gibt es für ein Mitglied, nicht
-    // für Gäste ohne Konto (`cameraFilterOfferedFor`): der Filter läuft rein lokal, aber die Zusage "Gäste sehen nur das Nötigste" gilt hier wie bei
-    // den Overlays. Dieselben Vorwärtsreferenzen wie oben: Controller und Stufe entstehen weiter unten, am Hintergrund-Controller.
+    // V1.9.142 "Kamera-Filter" -- EINGEKLAPPTE Zeile direkt NACH den Overlays und VOR der Rauschunterdrückung. V1.9.257: Der Filter läuft rein lokal
+    // im Browser und wird ALLEN Teilnehmern angeboten (Mitglied, Freund, Gast, Gast ohne Konto) -- es gibt keine Rollenabfrage mehr. Die Overlays
+    // (`videoOverlaysOffered`, für Gäste aus) und das Hochladen (Mitgliedern vorbehalten) behalten ihre eigenen Abfragen unverändert.
+    // Dieselben Vorwärtsreferenzen wie oben: Controller und Stufe entstehen weiter unten, am Hintergrund-Controller.
     var onCameraFilterSlider: ((CameraFilterSettings) -> CameraFilterSettings) -> Unit = {}
     var onCameraFilterToggle: (Boolean) -> Unit = {}
     var onCameraFilterReset: () -> Unit = {}
@@ -1922,7 +1923,7 @@ private fun enterCall(
     val cameraFilterSection =
         ConferenceCameraFilterSection(
             parent = moreSheet,
-            offered = cameraFilterOfferedFor(AppState.session),
+            offered = true,
             availability = backgroundAvailability,
             stageAvailable = cameraFilterStageSupportedInThisBrowser(),
             onSlider = { change -> onCameraFilterSlider(change) },

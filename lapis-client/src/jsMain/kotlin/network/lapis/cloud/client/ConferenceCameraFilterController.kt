@@ -26,7 +26,7 @@ internal enum class CameraFilterPhase { IDLE, APPLYING, ACTIVE, FAILED, UNSUPPOR
 internal enum class SmoothingPause { NONE, PERFORMANCE, UNAVAILABLE }
 
 internal data class CameraFilterUiState(
-    /** `false` => no panel at all (guests, and every join that does not offer the panel). */
+    /** `false` => no panel at all (not decided by the role any more, V1.9.257). */
     val offered: Boolean,
     val availability: ConferenceBackgroundAvailability,
     val settings: CameraFilterSettings,

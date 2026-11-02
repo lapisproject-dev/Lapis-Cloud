@@ -81,7 +81,7 @@ class PageHeader internal constructor(
 
 /**
  * The browser tab title of the current page: "<title> -- <brand>", or "<title> -- <subtitle> -- <brand>" once a screen has set a
- * subtitle. It is composed from the CONSTANT title (a `tr(...)` string) each time, so [apply] can rebuild it after a language switch:
+ * DATA subtitle (V1.9.257: a constant `tr()` subtitle is not part of it). It is composed from the CONSTANT title (a `tr(...)` string) each time, so [apply] can rebuild it after a language switch:
  * `document.title` is not part of the KVision tree, so `I18n.language`'s root restart does not reach it (audit fix -- the header
  * doc promised a translated title but only the first render was translated). The live region ([LIVE_REGION_ID]) is NOT rewritten on
  * a language switch: it announces ROUTE changes, and a switch is not one.
@@ -89,36 +89,31 @@ class PageHeader internal constructor(
 internal object PageTitle {
     private var titleKey: String? = null
 
-    /** A CONSTANT `tr()` subtitle from `pageHeader(...)`: still carries the marker, resolved again on every [apply]. */
-    private var subtitleKey: String? = null
-
-    /** A loaded DATA subtitle (or an already final text): shown verbatim, never passed to `I18n.trans` (no catalog lookup, no substitution). */
+    /** A loaded DATA subtitle: shown verbatim, never passed to `I18n.trans` (no catalog lookup, no substitution). */
     private var subtitleData: String? = null
 
     /**
-     * Only a string that STARTS with [KV_I18N_MARKER] is a `tr()` key; anything else (a `gettext` result, the `""` placeholder, composed
-     * text) is already final and is stored as data.
+     * V1.9.257: a CONSTANT `tr()` subtitle (a long explanatory sentence under the title) is NOT part of the tab title any more -- it belongs to the
+     * visible `<p>` only. A tab reading "Partnerserver – Wir holen stündlich die öffentlichen Veranstaltungen ..." is unreadable and was the place
+     * where the `###KvI18nS###` marker showed up. Only a string that does not start with [KV_I18N_MARKER] (a `gettext` result, composed text) is
+     * data and ends up in the tab title.
      */
     fun set(
         title: String,
         subtitle: String?,
     ) {
         titleKey = title
-        subtitleKey = null
         subtitleData = null
         val s = subtitle?.takeIf { it.isNotBlank() }
-        if (s != null) {
-            if (s.startsWith(KV_I18N_MARKER)) subtitleKey = s else subtitleData = s
-        }
+        if (s != null && !s.startsWith(KV_I18N_MARKER)) subtitleData = s
         apply()
     }
 
     /**
-     * Loaded data replaces any constant subtitle. Only a LEADING marker is removed (as the visible `<p>` does); a marker in the middle
-     * stays. `document.title` is plain text, so there is no markup path.
+     * Loaded data replaces any earlier subtitle. A leading marker is removed (as the visible `<p>` does); [apply] removes a marker anywhere
+     * in the final tab title. `document.title` is plain text, so there is no markup path.
      */
     fun setSubtitle(text: String?) {
-        subtitleKey = null
         subtitleData = text?.takeIf { it.isNotBlank() }?.removePrefix(KV_I18N_MARKER)?.takeIf { it.isNotBlank() }
         apply()
     }
@@ -127,15 +122,15 @@ internal object PageTitle {
     fun apply() {
         val key = titleKey ?: return
         val plain = resolvedAttributeText(key)
-        val sub = subtitleKey?.let { resolvedAttributeText(it) } ?: subtitleData
         // V1.9.70: a running recording / stream keeps its "● " marker on whatever page the person is on (tab title only, no personal data)
-        document.title = ConferenceDock.decorateTitle(listOfNotNull(plain, sub, Branding.title).joinToString(" – "))
+        // V1.9.257: the marker is removed from the FINISHED string as a last guard -- whatever path delivered it, it never reaches the tab.
+        document.title =
+            ConferenceDock.decorateTitle(listOfNotNull(plain, subtitleData, Branding.title).joinToString(" – ")).replace(KV_I18N_MARKER, "")
     }
 
     /** Test seam: forget the current page. */
     internal fun reset() {
         titleKey = null
-        subtitleKey = null
         subtitleData = null
     }
 }

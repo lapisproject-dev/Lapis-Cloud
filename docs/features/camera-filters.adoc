@@ -3,7 +3,7 @@
 
 == Purpose
 
-A member who joins a video conference may correct the light and colour of their *own* camera image and soften their skin. The picture is changed in the
+A participant who joins a video conference may correct the light and colour of their *own* camera image and soften their skin. The picture is changed in the
 browser *before* it is sent, so **everyone sees the result -- and it is part of the recording and of the livestream**, because both are composed from the
 raw per-person tracks that already carry the filter. Nothing leaves the browser tab: no frame, no detected face, no keypoint is sent to any server, stored,
 logged or exported (`CameraFilterClientTripwireTest`).
@@ -11,7 +11,7 @@ logged or exported (`CameraFilterClientTripwireTest`).
 Camera filters share the *one* processor of the camera track with the background effects and the video overlays (see
 link:../architecture/video-background-effects.adoc[video-background-effects.adoc]); there is never a second processor and never a second segmentation.
 
-== What a member can do
+== What a participant can do
 
 The panel is one collapsed row "Kamera-Filter: Aus|An" in the "Mehr" sheet, after the video overlays and before the noise suppression.
 
@@ -27,7 +27,9 @@ The sliders are real `<input type=range>` elements with a `<label for>`, an `<ou
 Home / End go to the ends. The values (five numbers and the switch) are remembered in the browser only (`localStorage`, `lapis.conference.cameraFilters.v1`); a
 damaged or blocked value gives neutral settings with the switch off.
 
-Guests without a member session never get the panel. In a browser that cannot run the stage the row stays, disabled, with an explanation (Chromium-based
+Since V1.9.257 the panel is offered to *every* participant of a conference -- members, friends, guests of another server and guests without an account -- because
+the filter runs purely in the browser and sends nothing to the server. Only the camera filter is offered to everyone: the video overlays keep their own switch
+(`videoOverlaysOffered`, never for guests) and uploading overlay images stays reserved for members. In a browser that cannot run the stage the row stays, disabled, with an explanation (Chromium-based
 browsers only; in the app WebView a separate sentence).
 
 == How the sliders map to the picture
