@@ -185,7 +185,9 @@ answer `303` to `/veranstaltung/{slug}#anmeldung` (post/redirect/get). A paid ev
 
 === The guest form and the address of an account
 
-Binding order of `POST /veranstaltung/{slug}/anmeldung` (a reordering is a review blocker):
+Binding order of `POST /veranstaltung/{slug}/anmeldung` (a reordering is a review blocker). Since V1.9.260 the JSON embed endpoint
+`POST /api/embed/v1/event/{slug}/registration` runs steps 2 to 5 through the same class, `PublicGuestRegistration`, with the same order and the same
+`EventNoticeMailLimiter` instance; it answers `200 {"outcome":"ACCEPTED"}` where the form answers `303` to `/danke`:
 
 . noindex marker, attempt limiter, content length and type, honeypot, validation, event lookup and `PUBLIC` check, strict registration limiter (as before);
 . `probeAvailability`: the reasons that do not depend on the address (closed: `404`; waitlist full or payment not available: `303` to `/abgebrochen`);
@@ -213,8 +215,10 @@ provider). The provider's success return is `/veranstaltung/{slug}/bezahlt`; `/d
 * The CSP `form-action 'self'` against the `303` to the payment provider has not been verified in a live browser (pre-existing). Since V1.9.259 the
   payment-confirmation page (`GET /zahlung`) sends no `form-action` for that reason, and the signed-in button answers with a hand-off page instead of a
   `303`; neither has been tried in a real browser.
-* The JSON embed endpoint `POST /api/embed/v1/event/{slug}/registration` is unchanged: it still stores an address of an account as a guest and still answers
-  `PAYMENT_REQUIRED` with a URL (see the KDoc of `embedEventResponseFor`).
+* The JSON embed endpoint shares the guest path since V1.9.260, so the remaining cases below apply to both routes: the capacity side channel, races
+  between the availability check and the event lock (a post-lock `WaitlistFull`, `GatewayUnavailable` or `EventNotAvailable` can only happen on the guest
+  branch), and the per-process notice limiter. `payment_checkout_session.embed_origin` is no longer recorded for embed registrations (the checkout is
+  created from the mail link).
 * The notice-mail limiter lives in the process: a restart resets it, and a flood of distinct keys evicts the oldest first. The global cap bounds the damage.
 * A capacity side channel remains: with exactly one free seat, a guest address fills it and the page then shows "Ausgebucht", an account address does not.
   Rate limits bound it; it is not closed.

@@ -466,7 +466,7 @@ Request body (`application/json`, at most 4096 bytes):
 
 `kommentar` is the SAME honeypot field the server-rendered form's `params["kommentar"]` already
 uses — a hidden field a real registrant never sees or fills. A non-blank `kommentar` returns the
-identical `200 {"outcome":"CONFIRMED"}` a genuine confirmed registration would, with no database
+identical `200 {"outcome":"ACCEPTED"}` a genuine registration would, with no database
 write and nothing logged, and is checked *before* the slug is even resolved: a bot gets the same
 `200` regardless of which slug it guessed, while an honest caller with a genuinely unknown slug
 gets `404`.
@@ -485,33 +485,15 @@ eats into either registration budget.
 |===
 |Response |Meaning
 
-|`200 {"outcome":"CONFIRMED"}`
-|A brand-new confirmed registration (free event, or a paid event's registration where — structurally
-impossible today, but see the fachlogik — no payment step is needed), an ALREADY-registered guest
-(same email, second attempt), or the honeypot was tripped.
+|`200 {"outcome":"ACCEPTED"}`
+|The ONE answer for every accepted request: a new guest (free event: confirmed; full event: waitlisted; paid event: seat reserved for 30 minutes,
+"Jetzt bezahlen" link by mail), an already registered guest (a short notice mail), an address that belongs to an account (nothing stored, the owner gets
+a notice mail), and a honeypot hit. All five are byte-identical (status, headers, body), so a caller cannot learn whether an address is registered or
+belongs to an account. `registrationId`, a waitlist position and a payment URL are never returned; the widget does not redirect to the payment
+provider. The address-independent reasons below (`404`, `409`, `503`) are answered before the address is looked at, so they look the same for every address.
 +
-**The byte-identical body only holds across all three cases for a fee-free event
-(`feeAmount == 0`).** On a *paid* event, an ALREADY-registered guest still gets this exact
-`{"outcome":"CONFIRMED"}` body, but a brand-new registration instead gets
-`200 {"outcome":"PAYMENT_REQUIRED","redirectUrl":"..."}` (see below) — the two cases are
-distinguishable on the wire. Deliberately still no *literal* "you are already registered" message
-(no enumeration oracle in those exact words, and a detected bot never learns it was detected), but
-an unauthenticated caller who already knows (or can send from) an allowlisted partner origin can
-probe a specific, known e-mail address against a paid event and infer from `CONFIRMED` vs.
-`PAYMENT_REQUIRED` whether that address is already registered — capped, but not prevented, by the
-strict 5-attempts/60min `registrationRateLimiter` per source IP. The same distinguishability
-already exists, unchanged, on the server-rendered `/veranstaltung/{slug}/anmeldung` form route (not
-a regression of this widget) — closing it for both routes (e.g. by also returning a payment-resume
-redirect for an ALREADY-registered guest on a paid event) is tracked as follow-up work, not yet
-implemented.
-
-|`200 {"outcome":"WAITLISTED"}`
-|The event is full; the guest joined the waitlist. No waitlist position is ever returned.
-
-|`200 {"outcome":"PAYMENT_REQUIRED","redirectUrl":"..."}`
-|A paid event placed the guest in a `PENDING_PAYMENT` seat; `redirectUrl` is the Stripe-hosted
-checkout page the widget redirects the browser to (`window.location.assign`, full top-level
-navigation, same reasoning the donation widget's own redirect already documents).
+Before V1.9.260 this endpoint answered `CONFIRMED`, `WAITLISTED` or `PAYMENT_REQUIRED` (with a `redirectUrl`); a client that still expects those values
+must be updated.
 
 |`400 {"outcome":"BAD_REQUEST"}`
 |Malformed JSON, a blank/oversized `guestName` (over 300 characters), or a missing/oversized
@@ -519,14 +501,14 @@ navigation, same reasoning the donation widget's own redirect already documents)
 not check the address for a valid email *shape* (no `@`/domain check) — same scope-cut
 `CrmContactPolicy.normalizeEmail` already documents for CRM contacts. The widget's own client-side
 check (`email.indexOf("@") <= 0`) and the `<input type="email">` field are the only format guard; a
-direct API caller can submit an address with no `@` at all and receive `200 CONFIRMED`.
+direct API caller can submit an address with no `@` at all and receive `200 ACCEPTED`.
 
 |`404 {"outcome":"NOT_AVAILABLE"}`
 |The slug does not resolve to a `PUBLIC` event at all — covers an unknown slug, `DRAFT`,
 `CANCELLED`, and `MEMBERS_ONLY` events uniformly. No existence oracle for an anonymous caller.
 
 |`409 {"outcome":"WAITLIST_FULL"}`
-|The event's waitlist is already at its cap (`EventPolicy.MAX_WAITLIST`, 500 entries).
+|The event's waitlist is already at its cap (`EventPolicy.MAX_WAITLIST`, 500 entries). Answered before the address is looked at.
 
 |`413`
 |Body exceeds the 4096-byte cap (checked before the body is even read, or while streaming it in) —
@@ -545,8 +527,10 @@ generic fallback for an unhandled server-side exception (`500` never leaves this
 JSON envelope).
 
 |`502 {"outcome":"GATEWAY_ERROR"}`
-|Stripe itself rejected or could not be reached. Stripe's own error text is logged server-side only.
+|Not reachable since V1.9.260 (the request makes no payment-provider call); kept in the mapping for completeness.
 |===
+
+The widget replaces the form with the sentence "Danke. Wir haben Ihnen eine E-Mail geschickt. Falls Sie bereits Mitglied sind, finden Sie darin den Hinweis, wie Sie sich im Mitgliederbereich anmelden." on `ACCEPTED` (character-identical to the thank-you page of the server-rendered form); any other value, including the retired `CONFIRMED`/`WAITLISTED`/`PAYMENT_REQUIRED`, shows the generic error and the fallback link.
 
 Why `outcome` and not the donation checkout's `error` field: the donation contract is already
 published and frozen, and retrofitting it would be a breaking change for any code already
@@ -568,16 +552,16 @@ sequenceDiagram(name = "Embed widget event registration flow (V1.4.3.3)") {
     val widget = participant(name = "lapis-widgets.js")
     val server = participant(name = "Lapis Cloud server")
     val submission = participant(name = "EventRegistrationSubmission")
-    val stripe = participant(name = "Stripe")
+    val mailbox = participant(name = "Visitor's mailbox")
 
     message(from = partnerPage, to = widget, text = "Form filled in, \"Register\" clicked")
     message(from = widget, to = server, text = "POST /api/embed/v1/event/{slug}/registration (credentials: omit)")
     message(from = server, to = server, text = "CORS gate -> Content-Type check -> rate limits -> honeypot -> validation -> slug/visibility")
-    message(from = server, to = submission, text = "submit(eventId, Guest(name, email))")
-    message(from = submission, to = server, text = "Confirmed | Waitlisted | PaymentRequired | ...")
-    message(from = server, to = widget, text = "200 {outcome: CONFIRMED|WAITLISTED|PAYMENT_REQUIRED, redirectUrl?}")
-    message(from = widget, to = partnerPage, text = "Form replaced with confirmation text")
-    message(from = widget, to = stripe, text = "[if PAYMENT_REQUIRED] window.location.assign(redirectUrl) -- full top-level navigation")
+    message(from = server, to = submission, text = "PublicGuestRegistration.register: availability probe, account lookup, submit(deferCheckout)")
+    message(from = submission, to = server, text = "Accepted | NotAvailable | WaitlistFull | GatewayUnavailable")
+    message(from = submission, to = mailbox, text = "mail (confirmation / Jetzt bezahlen / notice)")
+    message(from = server, to = widget, text = "200 {outcome: ACCEPTED}")
+    message(from = widget, to = partnerPage, text = "Form replaced with the one neutral sentence")
 }
 ----
 

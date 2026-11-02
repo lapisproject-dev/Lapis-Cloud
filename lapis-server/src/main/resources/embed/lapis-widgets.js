@@ -282,9 +282,7 @@
   // ── Anmeldungs-Widget (V1.4.3.3) ─────────────────────────────────────────────────────
   var EVT = {
     name: "Name", email: "E-Mail", submit: "Anmelden", pending: "Bitte warten …", fb: "Zur Anmeldungsseite",
-    confirmed: "Anmeldung bestätigt. Sie erhalten eine E-Mail.",
-    waitlisted: "Sie stehen auf der Warteliste. Wir melden uns, sobald ein Platz frei wird.",
-    redirecting: "Weiterleitung zur Zahlung …",
+    accepted: "Danke. Wir haben Ihnen eine E-Mail geschickt. Falls Sie bereits Mitglied sind, finden Sie darin den Hinweis, wie Sie sich im Mitgliederbereich anmelden.",
     eGeneric: "Bitte erneut versuchen.", retryIn: "Erneut in %s Sek.",
     eName: "Bitte einen Namen eingeben.", eEmail: "Bitte eine gültige E-Mail-Adresse eingeben.",
     eNotAvailable: "Diese Veranstaltung ist derzeit nicht für Anmeldungen geöffnet."
@@ -336,6 +334,8 @@
       status.className = "s err"; status.textContent = message; fbA.hidden = false;
     }
 
+    function done() { root.replaceChild(el("p", { textContent: EVT.accepted, "aria-live": "polite" }), form); }
+
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var name = nI.value.trim(), email = eI.value.trim();
@@ -349,9 +349,7 @@
       }).then(function (res) {
         if (res.status === 200 || res.status === 429) {
           return res.json().then(function (d) {
-            if (d.outcome === "CONFIRMED") { root.replaceChild(el("p", { textContent: EVT.confirmed, "aria-live": "polite" }), form); return; }
-            if (d.outcome === "WAITLISTED") { root.replaceChild(el("p", { textContent: EVT.waitlisted, "aria-live": "polite" }), form); return; }
-            if (d.outcome === "PAYMENT_REQUIRED") { status.textContent = EVT.redirecting; window.location.assign(d.redirectUrl); return; }
+            if (d.outcome === "ACCEPTED") { done(); return; }
             if (d.outcome === "RATE_LIMITED") { showError(d.retryAfterSeconds ? EVT.retryIn.replace("%s", d.retryAfterSeconds) : EVT.eGeneric); return; }
             showError(EVT.eGeneric);
           }).catch(function () { showError(EVT.eGeneric); });

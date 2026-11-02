@@ -422,6 +422,10 @@ ever produced it (the fee raised from zero between this tool's own pre-check and
 own lock-time re-read), is mapped to the SAME opaque, generic refusal as every other "cannot
 register" outcome -- never a payment URL.
 
+`register_for_event` registers only the authenticated member of the session (`EventParticipant.Member`); it has no guest path, so it cannot
+be used to learn whether an e-mail address belongs to an account (the account oracle of the public guest form and the JSON embed endpoint,
+closed in V1.9.259 and V1.9.260, does not exist here).
+
 This is deliberately NOT an oracle: `list_upcoming_events` already reports `feeAmount`/
 `requiresPayment` per event (so an agent can filter out paid events before ever calling
 `register_for_event`), and a non-existent/non-`PUBLISHED` event produces the SAME generic

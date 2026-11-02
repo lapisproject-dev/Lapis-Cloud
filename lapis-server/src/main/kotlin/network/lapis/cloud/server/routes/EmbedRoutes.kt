@@ -23,6 +23,7 @@ import network.lapis.cloud.server.embed.EmbedDonationLimits
 import network.lapis.cloud.server.embed.applyEmbedCors
 import network.lapis.cloud.server.embed.respondEmbedForbiddenOrigin
 import network.lapis.cloud.server.embed.respondEmbedPreflight
+import network.lapis.cloud.server.events.EventNoticeMailLimiter
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
@@ -93,7 +94,7 @@ private val JSON_CONTENT_TYPE = ContentType.Application.Json.withParameter("char
  * preflight rather than adding a second new limiter instance (same low-stakes, budget-sharing
  * reasoning [eventPageRateLimiter] itself already embodies for [registerEmbedEventRoutes]).
  */
-fun Route.registerEmbedRoutes(
+internal fun Route.registerEmbedRoutes(
     config: EmbedConfig,
     assetRateLimiter: FederationInboxRateLimiter,
     loginPageRateLimiter: FederationInboxRateLimiter,
@@ -115,6 +116,8 @@ fun Route.registerEmbedRoutes(
     eventRegistrationAttemptRateLimiter: FederationInboxRateLimiter,
     eventRegistrationRateLimiter: FederationInboxRateLimiter,
     eventPageRateLimiter: FederationInboxRateLimiter,
+    // V1.9.260 -- the SAME instance the public form route uses (no default: a second instance would double the notice-mail budget).
+    eventNoticeMailLimiter: EventNoticeMailLimiter,
     // Welle V1.4.33 -- Veranstaltungsliste-Feed-Widget. Read-only/public-by-design, kein
     // Money-/Schreibpfad wie die Spenden-/Anmeldungs-Parameter oben, deshalb ein einzelner neuer
     // Limiter statt eines Paars; die OPTIONS-Preflight teilt sich eventPageRateLimiter (siehe
@@ -192,6 +195,7 @@ fun Route.registerEmbedRoutes(
         attemptRateLimiter = eventRegistrationAttemptRateLimiter,
         registrationRateLimiter = eventRegistrationRateLimiter,
         pageRateLimiter = eventPageRateLimiter,
+        noticeMailLimiter = eventNoticeMailLimiter,
     )
 
     // Welle V1.4.33 "Veranstaltungsliste als Embed-Widget".

@@ -77,6 +77,9 @@ class EmbedAssetTest :
                             eventRegistrationAttemptRateLimiter = generousLimiter(),
                             eventRegistrationRateLimiter = generousLimiter(),
                             eventPageRateLimiter = generousLimiter(),
+                            eventNoticeMailLimiter =
+                                network.lapis.cloud.server.events
+                                    .EventNoticeMailLimiter(),
                             eventsFeedRateLimiter = generousLimiter(),
                             articlesFeedRateLimiter = generousLimiter(),
                         )
@@ -128,6 +131,9 @@ class EmbedAssetTest :
                             eventRegistrationAttemptRateLimiter = generousLimiter(),
                             eventRegistrationRateLimiter = generousLimiter(),
                             eventPageRateLimiter = generousLimiter(),
+                            eventNoticeMailLimiter =
+                                network.lapis.cloud.server.events
+                                    .EventNoticeMailLimiter(),
                             eventsFeedRateLimiter = generousLimiter(),
                             articlesFeedRateLimiter = generousLimiter(),
                         )
@@ -383,6 +389,25 @@ class EmbedAssetTest :
             val hydrateEventBody = text.substring(startIdx, endIdx)
             hydrateEventBody shouldNotContain "data-lapis-fallback-url"
             hydrateEventBody shouldContain "credentials: \"omit\""
+        }
+
+        test(
+            "V1.9.260: hydrateEvent has no redirect, no payment/confirmed/waitlisted outcome handling; it shows the one neutral accepted " +
+                "sentence; the file did not grow past the V1.9.259 size",
+        ) {
+            val text = widgetsJs.readText()
+            val start = text.indexOf("function hydrateEvent(")
+            val end = text.indexOf("// ── Veranstaltungsliste", start)
+            (start >= 0 && end > start) shouldBe true
+            val section = text.substring(start, end)
+            for (forbidden in listOf("location.assign", "PAYMENT_REQUIRED", "redirectUrl", "CONFIRMED", "WAITLISTED")) {
+                section shouldNotContain forbidden
+            }
+            section shouldContain "\"ACCEPTED\""
+            text shouldContain "accepted: \"Danke. Wir haben Ihnen eine E-Mail geschickt."
+            // the donate widget keeps its redirect
+            text shouldContain "window.location.assign(d.redirectUrl)"
+            widgetsJs.readBytes().size.toLong() shouldBeLessThanOrEqualTo 24208L
         }
 
         test(

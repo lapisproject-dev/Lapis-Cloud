@@ -24,14 +24,15 @@ import network.lapis.cloud.server.embed.EmbedCorsResult
 import network.lapis.cloud.server.embed.applyEmbedCors
 import network.lapis.cloud.server.embed.respondEmbedForbiddenOrigin
 import network.lapis.cloud.server.embed.respondEmbedPreflight
-import network.lapis.cloud.server.events.EventParticipant
+import network.lapis.cloud.server.events.EventNoticeMailLimiter
 import network.lapis.cloud.server.events.EventPolicy
-import network.lapis.cloud.server.events.EventRegistrationResult
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.events.PublicGuestRegistration
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
+import network.lapis.cloud.server.rpc.FriendRegistrationConfig
 import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.domain.PaymentProvider
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -45,9 +46,9 @@ private const val MAX_EMBED_EVENT_REGISTRATION_BODY_BYTES = 4096
 
 private val EMBED_EVENT_JSON = Json { ignoreUnknownKeys = true }
 
-// explicitNulls = false -- a null redirectUrl/retryAfterSeconds is OMITTED from the wire body
-// entirely, never serialized as a literal `"redirectUrl":null`. See embedEventResponseFor's own
-// KDoc "Byte-identity" for why that matters.
+// explicitNulls = false -- a null retryAfterSeconds is OMITTED from the wire body entirely (it only
+// ever appears on a 429), never serialized as a literal `"retryAfterSeconds":null`. See
+// embedEventResponseFor's own KDoc "Byte-identity" for why that matters.
 private val EMBED_EVENT_RESPONSE_JSON = Json { explicitNulls = false }
 private val EMBED_EVENT_JSON_CONTENT_TYPE = ContentType.Application.Json.withParameter("charset", "utf-8")
 
@@ -64,19 +65,15 @@ internal data class EmbedEventRegistrationRequest(
 @Serializable
 internal data class EmbedEventRegistrationResponse(
     val outcome: String,
-    val redirectUrl: String? = null,
     val retryAfterSeconds: Long? = null,
 )
 
 /**
- * The four visitor-facing outcomes this endpoint's wire contract distinguishes, plus the three
- * pure operator diagnoses (see `embedEventResponseFor`'s status-code mapping in this file's own
- * KDoc).
+ * V1.9.260 -- ONE neutral accepted answer plus the address-independent reasons and the pure
+ * operator diagnoses (see `embedEventResponseFor`'s status-code mapping in this file's own KDoc).
  */
 internal object EmbedEventOutcome {
-    const val CONFIRMED = "CONFIRMED"
-    const val WAITLISTED = "WAITLISTED"
-    const val PAYMENT_REQUIRED = "PAYMENT_REQUIRED"
+    const val ACCEPTED = "ACCEPTED"
     const val NOT_AVAILABLE = "NOT_AVAILABLE"
     const val WAITLIST_FULL = "WAITLIST_FULL"
     const val UNAVAILABLE = "UNAVAILABLE"
@@ -85,60 +82,32 @@ internal object EmbedEventOutcome {
     const val RATE_LIMITED = "RATE_LIMITED"
 }
 
+/** The ONE body every accepted registration sends -- all accepted paths send exactly this instance. */
+private val ACCEPTED_BODY = EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.ACCEPTED)
+
 /**
- * REINE Projektion, kein Serializer: [EventRegistrationResult] -> (Status, Wire-Body). Bewusst
- * verlustbehaftet -- [EventRegistrationResult.AlreadyRegistered] ist byte-identisch zu
- * [EventRegistrationResult.Confirmed], und weder `registrationId` noch die Wartelisten-`position`
- * erreichen je die Leitung (kein Enumerations-Orakel über bestehende Anmeldungen für einen
- * unauthentifizierten Aufrufer -- eine Parteiveranstaltung, deren Anmeldungsliste sich per HTTP
- * erfragen ließe, wäre Mitgliedschaftsaufklärung). Ausgelagert und `internal`, damit alle acht
- * Zweige (inkl. `WaitlistFull`, das end-to-end 500 Wartelisten-Zeilen bräuchte) als reiner
- * Unit-Test prüfbar sind, siehe `EmbedEventOutcomeMappingTest`.
- *
- * **Byte-identity gilt NUR für gebührenfreie Veranstaltungen** (Security-Review MINOR fix --
- * vorher stand hier fälschlich eine uneingeschränkte Garantie): `Confirmed`/`AlreadyRegistered`/ein
- * Honeypot-Treffer liefern bei `feeAmount == 0` alle drei exakt `{"outcome":"CONFIRMED"}` --
- * `EMBED_EVENT_RESPONSE_JSON` (nicht handgeschriebene Interpolation wie
- * `EmbedDonationRoutes.jsonString`) escaped `redirectUrl` korrekt UND garantiert diese
- * Byte-Identität, weil `explicitNulls = false` das `redirectUrl`-/`retryAfterSeconds`-Feld bei
- * `null` vollständig weglässt statt es als `null`-Literal zu serialisieren. Auf einer KOSTENPFLICHTIGEN
- * Veranstaltung dagegen unterscheiden sich die beiden Fälle sehr wohl auf der Leitung:
- * `AlreadyRegistered` bleibt `200 {"outcome":"CONFIRMED"}`, eine echte neue Anmeldung wird
- * `200 {"outcome":"PAYMENT_REQUIRED","redirectUrl":...}` -- ein unauthentifizierter Aufrufer kann
- * damit per `curl` (unter Nutzung einer der öffentlich im ausgelieferten Widget-Bundle stehenden
- * Partner-Origins) für eine bekannte E-Mail-Adresse erfragen, ob sie bereits für eine
- * kostenpflichtige Parteiveranstaltung angemeldet ist -- begrenzt durch den strikten
- * `registrationRateLimiter` (5 Versuche/60min pro Quell-IP), der eine gezielte Einzelabfrage aber
- * nicht verhindert. Auf der server-gerenderten Formular-Route (`EventPublicRoutes`) ist diese
- * Unterscheidung seit V1.9.259 geschlossen (jede angenommene Eingabe endet im selben Redirect nach
- * `/danke`, Gast-Plätze rufen den Zahlungsanbieter nie im POST); DIESE JSON-Route ist unverändert
- * und bleibt eine Lücke, die ein künftiger Fix schließen sollte (z. B.
- * durch einen Zahlungs-Wiederaufnahme-Redirect statt `CONFIRMED` für `AlreadyRegistered` auf einem
- * kostenpflichtigen Event), siehe auch `docs/api/embed-widgets.adoc`.
+ * REINE Projektion, kein Serializer: [PublicGuestRegistration.Outcome] -> (Status, Wire-Body).
+ * Bewusst verlustbehaftet -- eine frische Anmeldung, eine Warteliste, ein Duplikat, eine Konto-Adresse
+ * (und der Honeypot) sind ALLE `200 {"outcome":"ACCEPTED"}`, byte-identisch, auch bei kostenpflichtigen
+ * Veranstaltungen (V1.9.260): ein unauthentifizierter Aufrufer kann weder erfragen, ob eine Adresse
+ * bereits angemeldet ist, noch ob sie zu einem Konto gehört. Adressunabhängige Gründe (geschlossen,
+ * Warteliste voll, kein Zahlungsanbieter) kommen VOR dem Adressabgleich und sehen für jede Adresse
+ * gleich aus. Weder `registrationId` noch eine Wartelisten-`position` noch eine `redirectUrl`
+ * erreichen je die Leitung. `explicitNulls = false` lässt `retryAfterSeconds` bei `null` vollständig
+ * weg. Ausgelagert und `internal`, damit alle Zweige als reiner Unit-Test prüfbar sind, siehe
+ * `EmbedEventOutcomeMappingTest`.
  */
-internal fun embedEventResponseFor(result: EventRegistrationResult): Pair<HttpStatusCode, EmbedEventRegistrationResponse> =
-    when (result) {
-        is EventRegistrationResult.Confirmed ->
-            HttpStatusCode.OK to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.CONFIRMED)
-        EventRegistrationResult.AlreadyRegistered ->
-            HttpStatusCode.OK to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.CONFIRMED)
-        is EventRegistrationResult.Waitlisted ->
-            HttpStatusCode.OK to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.WAITLISTED)
-        is EventRegistrationResult.PaymentRequired ->
-            HttpStatusCode.OK to
-                EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.PAYMENT_REQUIRED, redirectUrl = result.redirectUrl)
-        // Unreachable: this JSON route always submits with deferCheckout = false. Mapped to the shape a duplicate has (no redirect URL).
-        is EventRegistrationResult.PaymentLinkSent ->
-            HttpStatusCode.OK to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.CONFIRMED)
-        EventRegistrationResult.EventNotAvailable ->
+internal fun embedEventResponseFor(outcome: PublicGuestRegistration.Outcome): Pair<HttpStatusCode, EmbedEventRegistrationResponse> =
+    when (outcome) {
+        PublicGuestRegistration.Outcome.Accepted -> HttpStatusCode.OK to ACCEPTED_BODY
+        PublicGuestRegistration.Outcome.NotAvailable ->
             HttpStatusCode.NotFound to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.NOT_AVAILABLE)
-        EventRegistrationResult.WaitlistFull ->
+        PublicGuestRegistration.Outcome.WaitlistFull ->
             HttpStatusCode.Conflict to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.WAITLIST_FULL)
-        EventRegistrationResult.GatewayUnavailable ->
+        PublicGuestRegistration.Outcome.GatewayUnavailable ->
             HttpStatusCode.ServiceUnavailable to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.UNAVAILABLE)
-        is EventRegistrationResult.PaymentFailed ->
-            // result.message (Stripe's own text) stays server-side only -- never delivered here,
-            // same posture EmbedDonationRoutes' own StripeFailed branch establishes.
+        // Unreachable (the guest path never calls the provider inside the request); the provider text would stay server-side anyway.
+        PublicGuestRegistration.Outcome.PaymentFailed ->
             HttpStatusCode.BadGateway to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.GATEWAY_ERROR)
     }
 
@@ -147,8 +116,10 @@ internal fun embedEventResponseFor(result: EventRegistrationResult): Pair<HttpSt
  * `POST /api/embed/v1/event/{slug}/registration` and its `OPTIONS` preflight. Called from
  * [registerEmbedRoutes] INSIDE the `if (!config.enabled) return` gate, directly after
  * `registerEmbedDonationRoutes`, same registration discipline every other route in that function
- * follows. Builds exactly ONE [EventRegistrationSubmission] at registration time (like
- * `registerEventPublicRoutes` does), never per request.
+ * follows. Builds exactly ONE [EventRegistrationSubmission] and ONE [PublicGuestRegistration] at
+ * registration time (like `registerEventPublicRoutes` does), never per request. The decision logic
+ * (availability probe BEFORE the address lookup, member notice, duplicate notice, deferred
+ * checkout) lives in [PublicGuestRegistration], shared with the form route (V1.9.260).
  *
  * **Verbindliche Reihenfolge inside the `POST` handler, any reordering is a review blocker:**
  * 0. The entire body runs inside [withEmbedEventErrorHandling] -- no exception, expected or not,
@@ -158,10 +129,10 @@ internal fun embedEventResponseFor(result: EventRegistrationResult): Pair<HttpSt
  *    legitimate same-origin caller). The `Allowed.canonicalOrigin` value itself does NOT shape the
  *    eventual redirect (that still comes from
  *    [network.lapis.cloud.server.payment.psp.StripeReturnUrls], never from the widget's own
- *    origin) -- but it IS carried through to step 12's [EventRegistrationSubmission.submit] as
- *    `embedOrigin` (Security-Review MINOR fix), so a paid registration's
- *    `payment_checkout_session` row records which embed partner it came through, same as
- *    `AnonymousDonationCheckout` already does for the donation path.
+ *    origin) -- but it IS carried through to step 12's [PublicGuestRegistration.register] as
+ *    `embedOrigin`. Since V1.9.260 a paid embed registration only reserves the seat (the checkout
+ *    session is created later from the mail link), so the origin is no longer recorded on a
+ *    `payment_checkout_session` row.
  * 2. `X-Content-Type-Options: nosniff` -- set EXACTLY HERE, exactly once (see this file's own
  *    KDoc "F-1" below) -- never again in [respondEmbedEventJson].
  * 3. `Content-Type` MUST be `application/json`, else `415` -- this also indirectly guarantees a
@@ -174,7 +145,7 @@ internal fun embedEventResponseFor(result: EventRegistrationResult): Pair<HttpSt
  * 6. The GENEROUS [attemptRateLimiter] (30/60min) -- BEFORE the JSON decode, a cheap flood/DoS
  *    backstop.
  * 7. JSON decode (`runCatching`) -- failure -> `400 BAD_REQUEST`.
- * 8. Honeypot (`kommentar` non-blank) -- immediate `200 CONFIRMED`, no DB access, never logged,
+ * 8. Honeypot (`kommentar` non-blank) -- immediate `200 ACCEPTED` (byte-identical to a real one), no DB access, never logged,
  *    consumes NEITHER the strict rate limiter NOR any DB write. Checked BEFORE slug resolution
  *    (see "F-8" below) -- a bot gets the SAME 200 regardless of whether the slug it guessed is
  *    real, an honest caller with an unknown slug gets 404.
@@ -191,7 +162,7 @@ internal fun embedEventResponseFor(result: EventRegistrationResult): Pair<HttpSt
  *    work, SHARED with `registerEventPublicRoutes`' own form route (same limiter instances, see
  *    `registerEmbedRoutes`' own call site) so the widget cannot be used to double a real
  *    registrant's hourly budget.
- * 12. [EventRegistrationSubmission.submit].
+ * 12. [PublicGuestRegistration.register] (no message: the embed form has no message field).
  * 13. [embedEventResponseFor] -> [respondEmbedEventJson].
  */
 internal fun Route.registerEmbedEventRoutes(
@@ -202,12 +173,21 @@ internal fun Route.registerEmbedEventRoutes(
     attemptRateLimiter: FederationInboxRateLimiter,
     registrationRateLimiter: FederationInboxRateLimiter,
     pageRateLimiter: FederationInboxRateLimiter,
+    // V1.9.260 -- the SAME instance the form route uses; no default, so no second instance can silently double the notice-mail budget.
+    noticeMailLimiter: EventNoticeMailLimiter,
+    friendRegistrationConfig: FriendRegistrationConfig = FriendRegistrationConfig.load(),
 ) {
     val submission =
         EventRegistrationSubmission(
             checkoutGateways = checkoutGateways,
             baseUrl = baseUrl,
             mailDispatcher = mailDispatcher,
+        )
+    val guestRegistration =
+        PublicGuestRegistration(
+            submission = submission,
+            noticeMailLimiter = noticeMailLimiter,
+            friendRegistrationConfig = friendRegistrationConfig,
         )
 
     post("/api/embed/v1/event/{slug}/registration") {
@@ -284,14 +264,11 @@ internal fun Route.registerEmbedEventRoutes(
             }
 
             // 8. Honeypot -- BEFORE slug resolution (see this file's KDoc "F-8"): a bot gets the
-            // SAME 200 CONFIRMED regardless of which slug it guessed, an honest caller with an
+            // SAME 200 ACCEPTED regardless of which slug it guessed, an honest caller with an
             // unknown slug gets 404 instead. No DB access, never logged, no rate-limiter
             // consumption beyond step 6.
             if (!request.kommentar.isNullOrBlank()) {
-                call.respondEmbedEventJson(
-                    status = HttpStatusCode.OK,
-                    body = EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.CONFIRMED),
-                )
+                call.respondEmbedEventJson(status = HttpStatusCode.OK, body = ACCEPTED_BODY)
                 return@withEmbedEventErrorHandling
             }
 
@@ -343,13 +320,15 @@ internal fun Route.registerEmbedEventRoutes(
             }
 
             // 12-13. Delegate to the fachlogik, map the result.
-            val result =
-                submission.submit(
+            val outcome =
+                guestRegistration.register(
                     eventId = eventId,
-                    participant = EventParticipant.Guest(name = guestName, normalizedEmail = normalizedEmail),
+                    guestName = guestName,
+                    normalizedEmail = normalizedEmail,
+                    message = null,
                     embedOrigin = canonicalOrigin,
                 )
-            val (status, body) = embedEventResponseFor(result)
+            val (status, body) = embedEventResponseFor(outcome)
             call.respondEmbedEventJson(status = status, body = body)
         }
     }

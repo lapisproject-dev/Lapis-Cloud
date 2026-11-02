@@ -30,7 +30,6 @@ import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventNoticeMailLimiter
-import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRegistrationMessage
 import network.lapis.cloud.server.events.EventRegistrationMessageNotifier
@@ -39,8 +38,8 @@ import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventText
 import network.lapis.cloud.server.events.EventTicketPolicy
-import network.lapis.cloud.server.events.GuestAddressAccountMatcher
 import network.lapis.cloud.server.events.MemberEventSelfRegistration
+import network.lapis.cloud.server.events.PublicGuestRegistration
 import network.lapis.cloud.server.events.QrCodeEncoder
 import network.lapis.cloud.server.events.mailPromotion
 import network.lapis.cloud.server.events.series.PublicSeriesSummary
@@ -170,6 +169,12 @@ internal fun Route.registerEventPublicRoutes(
             messageNotifier = messageNotifier,
         )
     val memberSelfRegistration = MemberEventSelfRegistration(submission)
+    val guestRegistration =
+        PublicGuestRegistration(
+            submission = submission,
+            noticeMailLimiter = noticeMailLimiter,
+            friendRegistrationConfig = friendRegistrationConfig,
+        )
 
     get("/veranstaltung/{slug}") {
         val ctx = call.pageContext()
@@ -357,63 +362,21 @@ internal fun Route.registerEventPublicRoutes(
             // V1.9.259 -- the order from here on is binding (see docs/features/public-event-page.adoc): the address-INDEPENDENT reasons a
             // registration cannot be taken are answered FIRST, so they look the same for a member address and a stranger; only then does
             // the route look at the address, and every accepted submission ends in the same `303` to `/danke`.
-            val now = DbClock.nowLocalDateTime()
-            when (submission.probeAvailability(eventId = eventId, now = now)) {
-                EventRegistrationSubmission.Availability.NotAvailable -> {
-                    call.respondEventNotFound(ctx)
-                    return@withEventPublicErrorHandling
-                }
-                EventRegistrationSubmission.Availability.WaitlistFull,
-                EventRegistrationSubmission.Availability.GatewayUnavailable,
-                -> {
-                    call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
-                    return@withEventPublicErrorHandling
-                }
-                EventRegistrationSubmission.Availability.Open -> Unit
-            }
-            val eventTitle = transaction { EventStore.getEventOrNull(eventId)?.get(EventTable.title) }.orEmpty()
-            val thanksLocation = ctx.href("/veranstaltung/$slug/danke")
-            // ONE query, whatever the address is.
-            val account =
-                GuestAddressAccountMatcher.selfRegistrantOrNull(
-                    normalizedEmail = normalizedEmail,
-                    friendConfig = friendRegistrationConfig,
-                )
-            if (account != null) {
-                // The address belongs to an account: nothing is stored, no organiser is told, the account owner gets a notice (once per
-                // event+address per day). The lock+sweep keeps the database work comparable with the guest branch.
-                submission.touchEventLock(eventId = eventId, now = now)
-                if (noticeMailLimiter.tryAcquire(eventId = eventId, normalizedEmail = normalizedEmail)) {
-                    submission.mailMemberNotice(to = account.email, title = eventTitle, eventId = eventId)
-                }
-                call.respondEventRedirect(ctx = ctx, location = thanksLocation)
-                return@withEventPublicErrorHandling
-            }
-            val result =
-                submission.submit(
+            when (
+                guestRegistration.register(
                     eventId = eventId,
-                    participant = EventParticipant.Guest(name = guestName, normalizedEmail = normalizedEmail),
+                    guestName = guestName,
+                    normalizedEmail = normalizedEmail,
                     message = guestMessage,
-                    // A paid seat is reserved and the payment link goes out by mail: no provider round-trip inside this request.
-                    deferCheckout = true,
+                    embedOrigin = null,
                 )
-            when (result) {
-                is EventRegistrationResult.Confirmed,
-                is EventRegistrationResult.Waitlisted,
-                is EventRegistrationResult.PaymentLinkSent,
-                // Not produced with deferCheckout = true; if it ever were, the visitor still gets the one neutral answer.
-                is EventRegistrationResult.PaymentRequired,
-                -> call.respondEventRedirect(ctx = ctx, location = thanksLocation)
-                EventRegistrationResult.AlreadyRegistered -> {
-                    if (noticeMailLimiter.tryAcquire(eventId = eventId, normalizedEmail = normalizedEmail)) {
-                        submission.mailDuplicateNotice(to = normalizedEmail, title = eventTitle)
-                    }
-                    call.respondEventRedirect(ctx = ctx, location = thanksLocation)
-                }
-                EventRegistrationResult.EventNotAvailable -> call.respondEventNotFound(ctx)
-                EventRegistrationResult.WaitlistFull,
-                EventRegistrationResult.GatewayUnavailable,
-                is EventRegistrationResult.PaymentFailed,
+            ) {
+                PublicGuestRegistration.Outcome.Accepted ->
+                    call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/danke"))
+                PublicGuestRegistration.Outcome.NotAvailable -> call.respondEventNotFound(ctx)
+                PublicGuestRegistration.Outcome.WaitlistFull,
+                PublicGuestRegistration.Outcome.GatewayUnavailable,
+                PublicGuestRegistration.Outcome.PaymentFailed,
                 -> call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
             }
         }

@@ -39,6 +39,7 @@ import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.embed.EmbedOriginAllowlist
+import network.lapis.cloud.server.events.EventNoticeMailLimiter
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
@@ -266,6 +267,7 @@ class EmbedEventRoutesTest :
                             attemptRateLimiter = attemptRateLimiter,
                             registrationRateLimiter = registrationRateLimiter,
                             pageRateLimiter = pageRateLimiter,
+                            noticeMailLimiter = EventNoticeMailLimiter(),
                         )
                     }
                 }
@@ -285,20 +287,20 @@ class EmbedEventRoutesTest :
         fun registrationCountFor(eventId: Uuid): Long =
             transaction { EventRegistrationTable.selectAll().where { EventRegistrationTable.eventId eq eventId }.count() }
 
-        test("Confirmed/AlreadyRegistered/Honeypot all return byte-identical {\"outcome\":\"CONFIRMED\"} at 200") {
+        test("Confirmed/AlreadyRegistered/Honeypot all return byte-identical {\"outcome\":\"ACCEPTED\"} at 200") {
             testApp {
                 val (eventId, slug) = createFreeEvent()
                 val confirmed = postRegistration(slug, """{"guestName":"Anna","guestEmail":"anna@example.org"}""")
                 confirmed.status shouldBe HttpStatusCode.OK
-                confirmed.bodyAsText() shouldBe """{"outcome":"CONFIRMED"}"""
+                confirmed.bodyAsText() shouldBe """{"outcome":"ACCEPTED"}"""
 
                 val alreadyRegistered = postRegistration(slug, """{"guestName":"Anna","guestEmail":"anna@example.org"}""")
                 alreadyRegistered.status shouldBe HttpStatusCode.OK
-                alreadyRegistered.bodyAsText() shouldBe """{"outcome":"CONFIRMED"}"""
+                alreadyRegistered.bodyAsText() shouldBe """{"outcome":"ACCEPTED"}"""
 
                 val honeypot = postRegistration(slug, """{"guestName":"Bot","guestEmail":"bot@example.org","kommentar":"x"}""")
                 honeypot.status shouldBe HttpStatusCode.OK
-                honeypot.bodyAsText() shouldBe """{"outcome":"CONFIRMED"}"""
+                honeypot.bodyAsText() shouldBe """{"outcome":"ACCEPTED"}"""
 
                 registrationCountFor(eventId) shouldBe 1L
             }
@@ -358,7 +360,7 @@ class EmbedEventRoutesTest :
                 }
                 val real = postRegistration(slug, """{"guestName":"Real","guestEmail":"real@example.org"}""")
                 real.status shouldBe HttpStatusCode.OK
-                real.bodyAsText() shouldBe """{"outcome":"CONFIRMED"}"""
+                real.bodyAsText() shouldBe """{"outcome":"ACCEPTED"}"""
             }
         }
 
@@ -449,35 +451,35 @@ class EmbedEventRoutesTest :
             }
         }
 
-        test("PAYMENT_REQUIRED: paid event with a usable gateway returns a redirectUrl") {
+        test("paid event with a usable gateway: neutral ACCEPTED, seat reserved with a hold, no provider call, no checkout session") {
             enableGateway()
             val pspConfigState = testPspConfigState()
-            testApp(checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState), pspConfigState = pspConfigState) {
+            var providerCalls = 0
+            val countingClient =
+                StripeCheckoutClient(
+                    pspConfig = pspConfigState.config,
+                    httpClient =
+                        HttpClient(
+                            MockEngine { _ ->
+                                providerCalls++
+                                respond("{}", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                            },
+                        ),
+                )
+            testApp(checkoutClient = countingClient, pspConfigState = pspConfigState) {
                 val (eventId, slug) = createPaidEvent()
                 val response = postRegistration(slug, """{"guestName":"Payer","guestEmail":"payer@example.org"}""")
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldBe
-                    """{"outcome":"PAYMENT_REQUIRED","redirectUrl":"https://checkout.stripe.com/c/pay/cs_test_embed_event_fake"}"""
-
-                // Security-Review MINOR fix: the checkout session's embed_origin must record the
-                // canonical allowlist origin that came in via applyEmbedCors, not null -- otherwise
-                // an operator cannot tell this session apart from one created by the server-rendered
-                // form route (which has no embed origin at all).
-                val registrationId =
-                    transaction {
-                        EventRegistrationTable
-                            .selectAll()
-                            .where { EventRegistrationTable.eventId eq eventId }
-                            .single()[EventRegistrationTable.id]
-                    }
-                val storedEmbedOrigin =
-                    transaction {
-                        PaymentCheckoutSessionTable
-                            .selectAll()
-                            .where { PaymentCheckoutSessionTable.eventRegistrationId eq registrationId }
-                            .single()[PaymentCheckoutSessionTable.embedOrigin]
-                    }
-                storedEmbedOrigin shouldBe "https://partei.example"
+                response.bodyAsText() shouldBe """{"outcome":"ACCEPTED"}"""
+                providerCalls shouldBe 0
+                val row = transaction { EventRegistrationTable.selectAll().where { EventRegistrationTable.eventId eq eventId }.single() }
+                row[EventRegistrationTable.holdExpiresAt] shouldNotBe null
+                transaction {
+                    PaymentCheckoutSessionTable
+                        .selectAll()
+                        .where { PaymentCheckoutSessionTable.eventRegistrationId eq row[EventRegistrationTable.id] }
+                        .count()
+                } shouldBe 0L
             }
         }
 
@@ -490,25 +492,25 @@ class EmbedEventRoutesTest :
             }
         }
 
-        test("PaymentFailed: the checkout provider rejects the checkout -> 502 GATEWAY_ERROR, Stripe's own text never appears") {
+        test("a rejecting checkout provider is never asked inside the POST: still 200 ACCEPTED, Stripe's text never appears") {
             enableGateway()
             val pspConfigState = testPspConfigState()
             testApp(checkoutClient = failingCheckoutClient(pspConfigState), pspConfigState = pspConfigState) {
                 val (_, slug) = createPaidEvent()
                 val response = postRegistration(slug, """{"guestName":"A","guestEmail":"a@example.org"}""")
-                response.status shouldBe HttpStatusCode.BadGateway
-                response.bodyAsText() shouldBe """{"outcome":"GATEWAY_ERROR"}"""
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe """{"outcome":"ACCEPTED"}"""
                 response.bodyAsText().contains("secret Stripe-side") shouldBe false
             }
         }
 
-        test("Waitlisted: capacity=1 event, one seat already occupied -> exact {\"outcome\":\"WAITLISTED\"}, no position") {
+        test("Waitlisted: capacity=1 event, one seat already occupied -> exact {\"outcome\":\"ACCEPTED\"}, no position") {
             testApp {
                 val (_, slug) = createFreeEventWithCapacity(1)
                 postRegistration(slug, """{"guestName":"First","guestEmail":"first@example.org"}""")
                 val second = postRegistration(slug, """{"guestName":"Second","guestEmail":"second@example.org"}""")
                 second.status shouldBe HttpStatusCode.OK
-                second.bodyAsText() shouldBe """{"outcome":"WAITLISTED"}"""
+                second.bodyAsText() shouldBe """{"outcome":"ACCEPTED"}"""
             }
         }
 
@@ -587,6 +589,8 @@ class EmbedEventRoutesTest :
                     append("guestEmail", guestEmail)
                 }.formUrlEncode()
 
+        val sharedNoticeLimiter = EventNoticeMailLimiter()
+
         fun Route.registerBothRouteFamilies(sharedRegistrationLimiter: FederationInboxRateLimiter) {
             registerEventPublicRoutes(
                 checkoutGateways = emptyMap(),
@@ -598,6 +602,7 @@ class EmbedEventRoutesTest :
                 pageRateLimiter = generousLimiter(),
                 attemptRateLimiter = generousLimiter(),
                 registrationRateLimiter = sharedRegistrationLimiter,
+                noticeMailLimiter = sharedNoticeLimiter,
                 ticketPageRateLimiter = generousLimiter(),
                 ticketCodeFailureLimiter =
                     network.lapis.cloud.server.security
@@ -612,6 +617,7 @@ class EmbedEventRoutesTest :
                 attemptRateLimiter = generousLimiter(),
                 registrationRateLimiter = sharedRegistrationLimiter,
                 pageRateLimiter = generousLimiter(),
+                noticeMailLimiter = sharedNoticeLimiter,
             )
         }
 

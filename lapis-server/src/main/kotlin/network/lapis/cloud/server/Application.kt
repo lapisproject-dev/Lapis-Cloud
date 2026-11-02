@@ -3396,6 +3396,7 @@ internal fun Application.module(
             eventRegistrationAttemptRateLimiter = eventRegistrationAttemptRateLimiter,
             eventRegistrationRateLimiter = eventRegistrationRateLimiter,
             eventPageRateLimiter = eventPageRateLimiter,
+            eventNoticeMailLimiter = eventNoticeMailLimiter,
             eventsFeedRateLimiter = embedEventsFeedRateLimiter,
             eventsPastFeedRateLimiter = embedEventsPastFeedRateLimiter,
             articlesFeedRateLimiter = embedArticlesFeedRateLimiter,

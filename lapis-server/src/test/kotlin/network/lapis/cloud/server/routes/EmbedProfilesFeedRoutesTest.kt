@@ -401,6 +401,9 @@ class EmbedProfilesFeedRoutesTest :
                                 eventRegistrationAttemptRateLimiter = generousLimiter(),
                                 eventRegistrationRateLimiter = generousLimiter(),
                                 eventPageRateLimiter = generousLimiter(),
+                                eventNoticeMailLimiter =
+                                    network.lapis.cloud.server.events
+                                        .EventNoticeMailLimiter(),
                                 eventsFeedRateLimiter = generousLimiter(),
                                 articlesFeedRateLimiter = generousLimiter(),
                             )
