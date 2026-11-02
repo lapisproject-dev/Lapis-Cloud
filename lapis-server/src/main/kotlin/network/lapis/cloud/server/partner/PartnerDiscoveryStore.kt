@@ -23,6 +23,7 @@ import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
@@ -55,6 +56,15 @@ internal data class DiscoveredRow(
     /** The hosts of the stored partner list (re-validated); empty when hidden or none. */
     val partners: List<String>,
     val partnersHidden: Boolean,
+)
+
+/** V1.9.258 -- the five small columns the guest sign-in page needs (NOT the stored partner list). */
+internal data class DiscoveredLoginRow(
+    val host: String,
+    val remoteName: String?,
+    val rootPartnerId: Uuid,
+    val hops: Int,
+    val via: List<String>,
 )
 
 /** Everything one recursion run reads in its first transaction. */
@@ -229,6 +239,26 @@ internal object PartnerDiscoveryStore {
             .limit(PartnerRecursionLimits.MAX_DISCOVERED_ROWS)
             .map { it.toDiscovered() }
             .sortedWith(compareBy({ it.hops }, { it.host }))
+
+    /** Login page read: only the five small columns (NOT the stored partner list), at most [PartnerRecursionLimits.MAX_DISCOVERED_ROWS]. */
+    fun listForLoginChoices(): List<DiscoveredLoginRow> =
+        PartnerDiscoveredServerTable
+            .select(
+                PartnerDiscoveredServerTable.host,
+                PartnerDiscoveredServerTable.remoteName,
+                PartnerDiscoveredServerTable.rootPartnerServerId,
+                PartnerDiscoveredServerTable.hops,
+                PartnerDiscoveredServerTable.viaHosts,
+            ).limit(PartnerRecursionLimits.MAX_DISCOVERED_ROWS)
+            .map {
+                DiscoveredLoginRow(
+                    host = it[PartnerDiscoveredServerTable.host],
+                    remoteName = it[PartnerDiscoveredServerTable.remoteName],
+                    rootPartnerId = it[PartnerDiscoveredServerTable.rootPartnerServerId],
+                    hops = it[PartnerDiscoveredServerTable.hops].toInt(),
+                    via = PartnerProvenance.decode(it[PartnerDiscoveredServerTable.viaHosts]),
+                )
+            }
 
     /** Per direct partner: (number of discovered servers, number of cached discovered events). */
     fun countsByRoot(): Map<Uuid, Pair<Int, Int>> =

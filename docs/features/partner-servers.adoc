@@ -62,6 +62,17 @@ Limits: 5 s to connect, 10 s for the whole request including the body, 512 KiB, 
 * **Admin page.** Switch, depth, the state of the last run in words and numbers, the list of reached servers (name and host as plain text, level, chain "über a -> b", events, state) with a "Sperren" button, and per direct partner
   the line "Über diesen Partner: n Server, m Veranstaltungen".
 
+[[guest-signin-choice]]
+== Guest sign-in choice (V1.9.258)
+
+The home-server form of the guest sign-in (`/federation/oidc/rp/login`) lists the partner servers so a guest can pick instead of typing.
+
+* *What is listed.* Active direct partners and, with the recursion on and within its depth, the servers reached through them -- under the same rules as the public event pages (`PartnerEventDisplay.isVisible`): block list on origin and chain, inactive root, depth. Our own host is left out. If the partner list is hidden (`partnerListHidden`), nothing is listed and the page looks as before.
+* *Search.* A separate GET form with `q` (cleaned, at most 100 characters, plain substring on name and host). At most 200 entries are shown, with the real count.
+* *POST.* Free text wins; a choice must be an exact member of the current list and is checked against a fresh hidden flag. It then follows the free-text path unchanged (`https://<host>`).
+* *Freshness.* The list is memoised for 30 seconds per display epoch; block, deactivate, remove, hide/show and a new partner bump the epoch. Newly discovered servers show up after at most 30 seconds.
+* *Privacy.* `q` and the preselected `partner` are in the URL: browser history and the access log of the reverse proxy see them; the application log does not.
+
 == Honest limits
 
 * **A partner cannot make this server fetch from just any host -- but it can make it ask a few.** Within the bounds above a partner can list hosts that are not Lapis servers; each is asked once per hour for the feed path (see the

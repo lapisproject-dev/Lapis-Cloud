@@ -30,6 +30,10 @@ These headers are *newly introduced* in V1.9.135; none of the pages set any befo
 * `Referrer-Policy: same-origin`. `no-referrer` (as on the public pages) would make browsers send `Origin: null` on the form POST, which `isSameOriginRequest` answers with 403 on `POST /federation/oidc/rp/login`.
 * No `form-action` on the consent pages and the home-server form: the 302 after the POST goes to a foreign origin, which Chrome checks against `form-action` and would block. For the home-server form that is the discovered `authorization_endpoint` of the (SSRF-checked) home server. The consent `redirect_uri` is validated against the client registration (`OidcRedirectUriMatcher`) before it is issued; the page builds no allowlist of its own.
 
+== Home-server form: partner choice (V1.9.258)
+
+With at least one visible partner server the form gets: a search form (`role="search"`, `label` "Partner suchen", field `q`, own `<form method="get">`), a result line (`id="partner_result"`, count or "Keine Treffer" with a reset link, and a cap notice above 200), and in the POST form a labelled `<select id="partner_host">` (`aria-describedby` points to a hint and the result line) followed by "oder" and the free-text field, which is no longer `required` while a list is shown. "Weiter" stays the first submit button of the POST form, so Enter submits the sign-in, not the search. Without a visible partner the page is byte-identical to before. No new CSS class, no script. `q` is reflected only after cleaning and escaping; an unknown `?partner=` is never shown. Both parameters are in the URL (history, proxy log).
+
 == Escaping and no reflection
 
 All text goes through kotlinx.html escaping; there is no `unsafe {}`, no script and no inline style. Error pages show enum constants only, so no typed address or token claim can appear in them. The consent pages show the host of the `redirect_uri` (never the whole URL, no port); the full URI exists only as a hidden field. The self-declared client name is filtered of control characters and capped at 80 characters.

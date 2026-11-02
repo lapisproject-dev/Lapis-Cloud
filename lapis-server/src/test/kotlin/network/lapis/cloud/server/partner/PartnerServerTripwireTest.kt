@@ -106,6 +106,18 @@ class PartnerServerTripwireTest :
                 .shouldBeEmpty()
         }
 
+        test(
+            "V1.9.258: the guest sign-in page reads the partner list only through PartnerLoginChoices, whose visibility rule is PartnerEventDisplay.isVisible",
+        ) {
+            val oidc = SourceScan.blank(SourceScan.mainFiles().single { it.name == "OidcRoutes.kt" }.readText())
+            Regex("""PartnerServerTable|PartnerDiscoveredServerTable|PartnerServerStore|PartnerDiscoveryStore|PartnerEventDisplay""")
+                .containsMatchIn(oidc) shouldBe false
+            oidc.contains("PartnerLoginChoices") shouldBe true
+            val choices = SourceScan.blank(partnerFiles.single { it.name == "PartnerLoginChoices.kt" }.readText())
+            choices.contains("PartnerEventDisplay.isVisible(") shouldBe true
+            choices.contains("remotePartnersJson") shouldBe false
+        }
+
         test("PartnerRecursionRunner is referenced from src/main only by the poller, never from a request path") {
             SourceScan
                 .mainFiles()

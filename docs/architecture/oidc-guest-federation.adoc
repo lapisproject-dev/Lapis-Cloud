@@ -8,6 +8,7 @@ login at `/federation/oidc/rp/login` and finishes it at `/federation/oidc/rp/cal
 == Flow
 
 . *RP start.* `POST /federation/oidc/rp/login` takes the home server address. The request must be same-origin (see <<Browser binding and same-origin start>>).
+. *Choice (V1.9.258).* The form may also post `partner_host` instead of free text. Free text always wins; a choice must be an exact member of the current partner list (`PartnerLoginChoices`, see <<../features/partner-servers.adoc#guest-signin-choice,partner servers>>) and is read against a fresh hidden flag. An accepted host becomes `https://<host>` and then takes the very same path. Every offered host already passed `PartnerHost.normalizeHostOnly`, so the choice is a subset of what free text accepts and adds no capability. A refused choice is answered with the fixed error page and the audit reason `PARTNER_CHOICE_NOT_LISTED`. `/rp/login` has no rate limit of its own, as before.
 . *Discovery.* The RP fetches `/.well-known/openid-configuration` of the home server (SSRF-guarded transport).
 . *Registration (DCR).* On first contact the RP registers itself with `POST /federation/oidc/register` and stores the result in `oidc_home_server_registration`.
 . *Authorize.* The RP stores a one-time attempt (`oidc_rp_login_attempt`: state hash, PKCE verifier, nonce) and redirects the browser to the home server's `/authorize` with PKCE S256, `state` and `nonce`.

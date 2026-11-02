@@ -117,45 +117,49 @@ internal class PartnerServerService(
                 )
                 is PartnerFetchOutcome.Fetched -> outcome
             }
-        return transaction {
-            when (
-                val inserted =
-                    PartnerServerStore.insertProbedPartner(
-                        host = host,
-                        displayName = name,
-                        parsed = fetched.parsed,
-                        etag = fetched.etag,
-                        now = now,
-                    )
-            ) {
-                is PartnerInsertResult.Failed ->
-                    PartnerProbeResultDto(
-                        saved = false,
-                        host = host,
-                        eventCount = 0,
-                        error = inserted.error,
-                        addressRejection = null,
-                    )
-                is PartnerInsertResult.Inserted -> {
-                    audit(
-                        actor = current,
-                        entityType = AuditEntityType.PARTNER_SERVER,
-                        entityId = inserted.id,
-                        action = AuditAction.CREATE,
-                        kind = PartnerAuditKind.ADDED,
-                        subject = host,
-                        now = now,
-                    )
-                    PartnerProbeResultDto(
-                        saved = true,
-                        host = host,
-                        eventCount = fetched.parsed.events.size,
-                        error = null,
-                        addressRejection = null,
-                    )
+        val result =
+            transaction {
+                when (
+                    val inserted =
+                        PartnerServerStore.insertProbedPartner(
+                            host = host,
+                            displayName = name,
+                            parsed = fetched.parsed,
+                            etag = fetched.etag,
+                            now = now,
+                        )
+                ) {
+                    is PartnerInsertResult.Failed ->
+                        PartnerProbeResultDto(
+                            saved = false,
+                            host = host,
+                            eventCount = 0,
+                            error = inserted.error,
+                            addressRejection = null,
+                        )
+                    is PartnerInsertResult.Inserted -> {
+                        audit(
+                            actor = current,
+                            entityType = AuditEntityType.PARTNER_SERVER,
+                            entityId = inserted.id,
+                            action = AuditAction.CREATE,
+                            kind = PartnerAuditKind.ADDED,
+                            subject = host,
+                            now = now,
+                        )
+                        PartnerProbeResultDto(
+                            saved = true,
+                            host = host,
+                            eventCount = fetched.parsed.events.size,
+                            error = null,
+                            addressRejection = null,
+                        )
+                    }
                 }
             }
-        }
+        // V1.9.258 -- a new partner appears on the guest sign-in page at once.
+        if (result.saved) PartnerDisplayEpoch.bump()
+        return result
     }
 
     override suspend fun setActive(
@@ -259,21 +263,26 @@ internal class PartnerServerService(
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
         val now = clock()
-        transaction {
-            if (PartnerServerStore.isPartnerListHidden() != hidden) {
-                PartnerServerStore.setPartnerListHidden(hidden)
-                val kind = if (hidden) PartnerAuditKind.LIST_HIDDEN else PartnerAuditKind.LIST_SHOWN
-                audit(
-                    actor = current,
-                    entityType = AuditEntityType.PARTNER_SERVER,
-                    entityId = ORGANIZATION_SETTINGS_ID,
-                    action = AuditAction.UPDATE,
-                    kind = kind,
-                    subject = null,
-                    now = now,
-                )
+        val changed =
+            transaction {
+                val differs = PartnerServerStore.isPartnerListHidden() != hidden
+                if (differs) {
+                    PartnerServerStore.setPartnerListHidden(hidden)
+                    val kind = if (hidden) PartnerAuditKind.LIST_HIDDEN else PartnerAuditKind.LIST_SHOWN
+                    audit(
+                        actor = current,
+                        entityType = AuditEntityType.PARTNER_SERVER,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        kind = kind,
+                        subject = null,
+                        now = now,
+                    )
+                }
+                differs
             }
-        }
+        // V1.9.258 -- after the commit: the memoised guest sign-in partner list is rebuilt from the new state.
+        if (changed) PartnerDisplayEpoch.bump()
     }
 
     override suspend fun getPartnerRecursionSettings(): PartnerRecursionSettingsDto {

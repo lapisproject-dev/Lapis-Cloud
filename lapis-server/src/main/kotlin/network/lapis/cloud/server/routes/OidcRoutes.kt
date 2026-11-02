@@ -29,6 +29,8 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.html.ButtonType
+import kotlinx.html.FORM
+import kotlinx.html.FlowContent
 import kotlinx.html.FormMethod
 import kotlinx.html.InputType
 import kotlinx.html.a
@@ -37,11 +39,14 @@ import kotlinx.html.code
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h1
+import kotlinx.html.h2
 import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.li
+import kotlinx.html.option
 import kotlinx.html.p
+import kotlinx.html.select
 import kotlinx.html.strong
 import kotlinx.html.ul
 import kotlinx.serialization.json.Json
@@ -81,6 +86,8 @@ import network.lapis.cloud.server.federation.readCappedFederationBodyOrNull
 import network.lapis.cloud.server.federation.requireSafeFederationUrl
 import network.lapis.cloud.server.mcp.McpResource
 import network.lapis.cloud.server.mcp.optin.McpMemberBlockStore
+import network.lapis.cloud.server.partner.PartnerLoginChoices
+import network.lapis.cloud.server.partner.PartnerLoginFilterResult
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
@@ -724,7 +731,28 @@ fun Route.registerOidcRoutes(
         // UNRESTRICTED: the POST answers with a 302 to the discovered authorization_endpoint of the foreign home server,
         // which Chrome would check against `form-action 'self'` and block.
         call.applyAuthPageHeaders(formAction = AuthFormAction.UNRESTRICTED, imgSrcSelf = branding.logoAvailable)
-        call.respondText(rpLoginFormHtml(branding = branding, baseUrl = baseUrl), contentType = io.ktor.http.ContentType.Text.Html)
+        // V1.9.258 -- an empty list (none configured, or the admin hides the partner list) means: the page is exactly the plain form.
+        val all = PartnerLoginChoices.current()
+        val picker =
+            if (all.isEmpty()) {
+                null
+            } else {
+                val query = PartnerLoginChoices.normalizeQuery(call.request.queryParameters["q"])
+                val result = PartnerLoginChoices.filter(all = all, query = query)
+                val wanted = PartnerLoginChoices.canonicalChoiceOrNull(call.request.queryParameters["partner"])
+                // Only hosts of the list ever come back onto the page; an unknown ?partner= is dropped.
+                val selected =
+                    result.shown.firstOrNull { it.host == wanted }?.host
+                        ?: result.shown
+                            .singleOrNull()
+                            ?.takeIf { query != null }
+                            ?.host
+                RpPartnerPicker(result = result, totalAvailable = all.size, selectedHost = selected)
+            }
+        call.respondText(
+            rpLoginFormHtml(branding = branding, baseUrl = baseUrl, picker = picker),
+            contentType = io.ktor.http.ContentType.Text.Html,
+        )
     }
 
     post("/federation/oidc/rp/login") {
@@ -738,11 +766,29 @@ fun Route.registerOidcRoutes(
             return@post
         }
         val form = call.receiveParameters()
-        val rawInput = form["home_server"]?.trim()
-        if (rawInput.isNullOrBlank()) {
-            call.respond(HttpStatusCode.BadRequest, "home_server is required")
-            return@post
-        }
+        val rawInput =
+            when (val input = resolveRpLoginInput(form)) {
+                is RpLoginInput.Missing -> {
+                    call.respond(HttpStatusCode.BadRequest, "home_server is required")
+                    return@post
+                }
+                is RpLoginInput.RejectedChoice -> {
+                    OidcLoginAuditRecorder.record(
+                        eventType = OidcLoginEventType.RP_LOGIN_FAILED,
+                        remoteParty = input.raw.filterNot { it.isISOControl() }.take(RP_CHOICE_AUDIT_MAX_CHARS),
+                        reason = "PARTNER_CHOICE_NOT_LISTED",
+                    )
+                    call.respondAuthErrorPage(
+                        error = OidcLoginError.INVALID_HOME_SERVER,
+                        status = HttpStatusCode.BadRequest,
+                        branding = branding,
+                        baseUrl = baseUrl,
+                    )
+                    return@post
+                }
+                is RpLoginInput.FreeText -> input.raw
+                is RpLoginInput.Choice -> "https://${input.host}"
+            }
         val homeServer = normalizeHomeServerOrigin(rawInput)
         if (homeServer == null) {
             OidcLoginAuditRecorder.record(
@@ -1695,6 +1741,37 @@ private suspend fun fetchDiscoveryDocument(homeServer: String): OidcDiscoveryDto
         }
     }.getOrNull()
 
+/** V1.9.258 -- what the home-server form POSTed: free text, an accepted choice of the partner list, a refused one, or nothing. */
+private sealed interface RpLoginInput {
+    data class FreeText(
+        val raw: String,
+    ) : RpLoginInput
+
+    data class Choice(
+        val host: String,
+    ) : RpLoginInput
+
+    data class RejectedChoice(
+        val raw: String,
+    ) : RpLoginInput
+
+    data object Missing : RpLoginInput
+}
+
+private const val RP_CHOICE_AUDIT_MAX_CHARS = 253
+
+/**
+ * Free text ALWAYS wins. A choice must be an exact member of the current partner list (and the list must not have been hidden meanwhile);
+ * an accepted choice becomes `https://<host>` and then runs through the very same normalisation, discovery and SSRF checks as free text.
+ */
+private fun resolveRpLoginInput(form: Parameters): RpLoginInput {
+    val free = form["home_server"]?.trim()
+    if (!free.isNullOrBlank()) return RpLoginInput.FreeText(free)
+    val rawChoice = form["partner_host"]?.trim()
+    if (rawChoice.isNullOrBlank()) return RpLoginInput.Missing
+    return PartnerLoginChoices.acceptChoice(raw = rawChoice)?.let { RpLoginInput.Choice(it) } ?: RpLoginInput.RejectedChoice(rawChoice)
+}
+
 /** Normalizes free-text user input to a bare `https://host[:port]` origin -- strips path/query/fragment (WebFinger discovery deferred, plain-domain input only, per concept). `null` if unparseable or not resolvable to an HTTPS origin. */
 private fun normalizeHomeServerOrigin(input: String): String? {
     val candidate = if (input.contains("://")) input else "https://$input"
@@ -1800,14 +1877,29 @@ internal fun consentPageHtml(
     }
 }
 
+/** V1.9.258 -- the partner choice of the guest sign-in page: the filtered list, how many exist in all, and the pre-selected host. */
+internal data class RpPartnerPicker(
+    val result: PartnerLoginFilterResult,
+    val totalAvailable: Int,
+    val selectedHost: String?,
+)
+
 internal fun rpLoginFormHtml(
     branding: ResolvedBranding,
     baseUrl: String,
+    picker: RpPartnerPicker? = null,
 ): String =
     renderAuthPage(title = "Gastzugang: mit Ihrem Heimatserver anmelden", branding = branding, baseUrl = baseUrl) {
         h1 { +"Gastzugang: mit Ihrem Heimatserver anmelden" }
-        p { +"Geben Sie die Adresse des Lapis-Cloud-Servers ein, bei dem Sie Mitglied sind." }
+        if (picker == null) {
+            p { +"Geben Sie die Adresse des Lapis-Cloud-Servers ein, bei dem Sie Mitglied sind." }
+        } else {
+            p { +"Wählen Sie den Lapis-Cloud-Server, bei dem Sie Mitglied sind, aus der Liste oder geben Sie seine Adresse ein." }
+            rpPartnerSearchForm(picker)
+        }
         form(action = "/federation/oidc/rp/login", method = FormMethod.post) {
+            val hasSelect = picker != null && picker.result.shown.isNotEmpty()
+            if (picker != null && hasSelect) rpPartnerSelect(picker)
             div(classes = "auth-field") {
                 label {
                     htmlFor = "home_server"
@@ -1815,7 +1907,8 @@ internal fun rpLoginFormHtml(
                 }
                 input(type = InputType.url, name = "home_server") {
                     id = "home_server"
-                    required = true
+                    // With a list the free text alone need not be filled in: the choice may be enough.
+                    required = !hasSelect
                     autoComplete = "url"
                     placeholder = "https://ihr-heimatserver.example"
                 }
@@ -1826,6 +1919,82 @@ internal fun rpLoginFormHtml(
             }
         }
     }
+
+/** A SEPARATE GET form: Enter in the search box must never submit the sign-in. */
+private fun FlowContent.rpPartnerSearchForm(picker: RpPartnerPicker) {
+    val result = picker.result
+    form(action = "/federation/oidc/rp/login", method = FormMethod.get) {
+        attributes["role"] = "search"
+        div(classes = "auth-field") {
+            label {
+                htmlFor = "partner_q"
+                +"Partner suchen"
+            }
+            input(type = InputType.search, name = "q") {
+                id = "partner_q"
+                attributes["maxlength"] = PartnerLoginChoices.MAX_QUERY_CODEPOINTS.toString()
+                result.query?.let { value = it }
+            }
+        }
+        picker.selectedHost?.let { hiddenField(name = "partner", value = it) }
+        authActions {
+            button(type = ButtonType.submit, classes = "auth-secondary") { +"Suchen" }
+        }
+    }
+    val query = result.query
+    if (query != null) {
+        p {
+            id = "partner_result"
+            if (result.totalMatches == 0) {
+                +"Keine Treffer für „$query“. Prüfen Sie die Schreibweise oder geben Sie die Adresse unten ein. "
+                a(href = "/federation/oidc/rp/login") { +"Suche zurücksetzen" }
+            } else {
+                +"${result.totalMatches} Treffer für „$query“"
+            }
+        }
+    }
+    if (result.capped) {
+        p {
+            +(
+                "Es werden die ersten ${PartnerLoginChoices.MAX_CHOICES} von ${result.totalMatches} Partnerservern angezeigt. " +
+                    "Grenzen Sie die Suche ein."
+            )
+        }
+    }
+}
+
+private fun FORM.rpPartnerSelect(picker: RpPartnerPicker) {
+    h2 { +"Partnerserver auswählen" }
+    div(classes = "auth-field") {
+        label {
+            htmlFor = "partner_host"
+            +"Partnerserver"
+        }
+        select {
+            id = "partner_host"
+            name = "partner_host"
+            attributes["aria-describedby"] = if (picker.result.query != null) "partner_host_hint partner_result" else "partner_host_hint"
+            option {
+                value = ""
+                +"– Partnerserver wählen –"
+            }
+            picker.result.shown.forEach { choice ->
+                option {
+                    value = choice.host
+                    selected = choice.host == picker.selectedHost
+                    +choice.label
+                }
+            }
+        }
+    }
+    p {
+        id = "partner_host_hint"
+        +"Ihre Anmeldung erfolgt auf dem gewählten Server, nicht hier. Nicht jeder Partner erlaubt die Anmeldung von Gästen; "
+        +"in diesem Fall erscheint die bekannte Fehlerseite."
+    }
+    p { +"oder" }
+    h2 { +"Andere Adresse eingeben" }
+}
 
 private fun appendRpBindingCookie(
     call: io.ktor.server.application.ApplicationCall,
