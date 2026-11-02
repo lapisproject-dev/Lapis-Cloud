@@ -538,9 +538,18 @@ integrating against it. A waitlisted registration is not an error either — a s
 that is present in *every* response body, including `400`/`429`, reads more honestly than
 overloading a field named `error` with a non-error value.
 
+=== Partner-origin audit trail (V1.9.261)
+
+The `Origin` header is matched against the allowlist and the registration stores the matching canonical allowlist entry in
+`event_registration.embed_origin` (never the raw header; the form, the member RPC and MCP store nothing). When the registrant pays through the
+link in the mail, the stored value is checked again against the current allowlist and only then copied to
+`payment_checkout_session.embed_origin`; a partner removed in the meantime gives `NULL`. The value is an audit trail only: the payment return
+URL, the provider redirect and `frame-ancestors` never depend on it, and the response of the endpoint does not change with it.
+
 === DSGVO / what is stored
 
-Exactly what the server-rendered form already stores: the guest's name and email, nothing more.
+The guest's name and email, as the server-rendered form stores them, plus the canonical allowlisted origin of the partner website the
+registration came through (an entry of the operator's own allowlist, not visitor-supplied).
 The widget itself sets no cookie, uses no browser storage on the partner origin, and sends
 `credentials: "omit"` on every request — no session/credential of any kind ever crosses the origin
 boundary in either direction.

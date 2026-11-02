@@ -217,8 +217,9 @@ provider). The provider's success return is `/veranstaltung/{slug}/bezahlt`; `/d
   `303`; neither has been tried in a real browser.
 * The JSON embed endpoint shares the guest path since V1.9.260, so the remaining cases below apply to both routes: the capacity side channel, races
   between the availability check and the event lock (a post-lock `WaitlistFull`, `GatewayUnavailable` or `EventNotAvailable` can only happen on the guest
-  branch), and the per-process notice limiter. `payment_checkout_session.embed_origin` is no longer recorded for embed registrations (the checkout is
-  created from the mail link).
+  branch), and the per-process notice limiter. the partner origin of a JSON-embed registration is stored on `event_registration.embed_origin`
+  (V1.9.261, guest rows only) and copied to `payment_checkout_session.embed_origin` when the checkout is created from the mail link, after it was
+  re-validated against the current allowlist (a removed partner gives `NULL`). It is an audit trail; nothing reads it.
 * The notice-mail limiter lives in the process: a restart resets it, and a flood of distinct keys evicts the oldest first. The global cap bounds the damage.
 * A capacity side channel remains: with exactly one free seat, a guest address fills it and the page then shows "Ausgebucht", an account address does not.
   Rate limits bound it; it is not closed.

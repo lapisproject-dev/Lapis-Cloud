@@ -429,6 +429,8 @@ internal object EventStore {
         ticketIssuedAt: LocalDateTime? = null,
         // V1.9.204 -- already normalised by `EventRegistrationMessage.normalize`; never written again after this insert.
         message: String? = null,
+        // V1.9.261 -- canonical allowlist origin of the embed partner (guest rows only); already length-checked by `EmbedOriginAudit.forStorage`.
+        embedOrigin: String? = null,
     ) {
         EventRegistrationTable.insert {
             it[EventRegistrationTable.id] = id
@@ -449,6 +451,7 @@ internal object EventStore {
             it[EventRegistrationTable.ticketCodeSha256] = ticketCodeSha256
             it[EventRegistrationTable.ticketIssuedAt] = ticketIssuedAt
             it[EventRegistrationTable.message] = message
+            it[EventRegistrationTable.embedOrigin] = embedOrigin
         }
     }
 

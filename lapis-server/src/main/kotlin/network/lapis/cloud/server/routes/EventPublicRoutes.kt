@@ -167,6 +167,7 @@ internal fun Route.registerEventPublicRoutes(
             baseUrl = baseUrl,
             mailDispatcher = mailDispatcher,
             messageNotifier = messageNotifier,
+            embedConfig = embedConfig,
         )
     val memberSelfRegistration = MemberEventSelfRegistration(submission)
     val guestRegistration =

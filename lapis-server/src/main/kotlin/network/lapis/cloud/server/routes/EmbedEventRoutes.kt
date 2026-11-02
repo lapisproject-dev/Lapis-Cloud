@@ -131,8 +131,9 @@ internal fun embedEventResponseFor(outcome: PublicGuestRegistration.Outcome): Pa
  *    [network.lapis.cloud.server.payment.psp.StripeReturnUrls], never from the widget's own
  *    origin) -- but it IS carried through to step 12's [PublicGuestRegistration.register] as
  *    `embedOrigin`. Since V1.9.260 a paid embed registration only reserves the seat (the checkout
- *    session is created later from the mail link), so the origin is no longer recorded on a
- *    `payment_checkout_session` row.
+ *    session is created later from the mail link). Since V1.9.261 the origin is stored on
+ *    `event_registration.embed_origin` and, at checkout, copied to `payment_checkout_session` after
+ *    being re-validated against the current allowlist (audit trail only).
  * 2. `X-Content-Type-Options: nosniff` -- set EXACTLY HERE, exactly once (see this file's own
  *    KDoc "F-1" below) -- never again in [respondEmbedEventJson].
  * 3. `Content-Type` MUST be `application/json`, else `415` -- this also indirectly guarantees a
@@ -182,6 +183,7 @@ internal fun Route.registerEmbedEventRoutes(
             checkoutGateways = checkoutGateways,
             baseUrl = baseUrl,
             mailDispatcher = mailDispatcher,
+            embedConfig = config,
         )
     val guestRegistration =
         PublicGuestRegistration(
@@ -196,9 +198,9 @@ internal fun Route.registerEmbedEventRoutes(
             // same reasoning EmbedDonationRoutes documents for its own checkout route): this
             // endpoint has no legitimate same-origin caller. `canonicalOrigin` -- the STORED
             // allowlist entry, never the raw request value -- is kept (Security-Review MINOR fix)
-            // and threaded down into EventRegistrationSubmission.submit so a paid registration's
-            // payment_checkout_session row records which embed partner it came through, mirroring
-            // AnonymousDonationCheckout's own canonicalOrigin -> embedOrigin handling.
+            // and threaded down into EventRegistrationSubmission.submit, which stores it on the
+            // registration (V1.9.261); the mail-link checkout later copies it to payment_checkout_session
+            // after re-validating it against the current allowlist.
             val cors = call.applyEmbedCors(allowlist = config.allowlist, allowInsecure = config.allowInsecureOrigins)
             val canonicalOrigin =
                 when (cors) {

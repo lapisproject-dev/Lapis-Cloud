@@ -49,6 +49,9 @@ public object EventRegistrationTable : Table("event_registration") {
     // V1.9.204 addendum -- optional message of the registrant to the organisers (immutable after insert).
     public val message: Column<String?> = varchar("message", 500).nullable()
 
+    // V1.9.261 addendum -- see 39-events.kuml.kts.
+    public val embedOrigin: Column<String?> = varchar("embed_origin", 255).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 6 index(es) declared on this entity are not emitted —

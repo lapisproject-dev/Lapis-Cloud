@@ -12,6 +12,8 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.withSavepoint
+import network.lapis.cloud.server.embed.EmbedConfig
+import network.lapis.cloud.server.embed.EmbedOriginAudit
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.htmlEscape
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
@@ -152,6 +154,10 @@ internal class EventRegistrationSubmission(
     private val mailDispatcher: MailDispatcher,
     // V1.9.204 -- tells the event's creator about a registration that carries a message; `DISABLED` for callers without one.
     private val messageNotifier: EventRegistrationMessageNotifier = EventRegistrationMessageNotifier.DISABLED,
+    // V1.9.261 -- used ONLY to re-validate the stored embed origin when a checkout is resumed from the mail link. Only instances that can
+    // resume a registration which carries an origin need the real config (`EventPublicRoutes`, `EmbedEventRoutes`). The default is safe:
+    // every re-validation fails, so `null` is written -- exactly the pre-V1.9.261 behaviour.
+    private val embedConfig: EmbedConfig = EmbedConfig.DISABLED,
 ) {
     /**
      * Registers [participant] for [eventId]. [message] is the registrant's optional note to the organisers, ALREADY normalised by
@@ -162,18 +168,10 @@ internal class EventRegistrationSubmission(
         eventId: Uuid,
         participant: EventParticipant,
         now: LocalDateTime = DbClock.nowLocalDateTime(),
-        // Security-Review MINOR fix: the STORED allowlist origin (from `applyEmbedCors`'
-        // `EmbedCorsResult.Allowed.canonicalOrigin`) for a registration that came in through
-        // `EmbedEventRoutes` -- `null` for the member-RPC (`EventService`) and server-rendered form
-        // (`EventPublicRoutes`) paths, neither of which has an embed origin at all. Threaded all the
-        // way down to `startStripeCheckout` -> `PspCheckoutSessions.create`'s own `embedOrigin`
-        // column, mirroring `AnonymousDonationCheckout`'s `canonicalOrigin` -> `embedOrigin` handling
-        // for the donation path -- see `PaymentCheckoutSessionTable`'s
-        // `chk_payment_checkout_session_embed_origin_external` constraint (V18 migration), which was
-        // widened specifically so `event_registration_id` could carry a non-null `embed_origin` too.
-        // Without this, every embed-widget checkout session was indistinguishable from a
-        // form-route one in `payment_checkout_session`, making a per-partner-origin audit/takedown
-        // impossible.
+        // The STORED allowlist origin (from `applyEmbedCors`' `EmbedCorsResult.Allowed.canonicalOrigin`) of a registration that came in
+        // through `EmbedEventRoutes` -- `null` for the member-RPC, MCP and the server-rendered form. Since V1.9.261 it is stored on
+        // `event_registration.embed_origin` (guest rows only) and, when the checkout is created, copied to
+        // `payment_checkout_session.embed_origin` after being re-validated against the CURRENT allowlist (see [resumeCheckout]).
         embedOrigin: String? = null,
         message: String? = null,
         // V1.9.259 -- `true` (public guest form only): a paid seat is reserved and the payment link goes out by mail, with NO provider call
@@ -238,6 +236,8 @@ internal class EventRegistrationSubmission(
         // 3. Under the event lock: re-check the registration window, re-read the fee, duplicate
         // check, capacity decision, insert.
         val registrationId = Uuid.random()
+        // Only a guest registration can carry an origin (chk_event_registration_embed_origin_guest), and the value must fit the column.
+        val storedOrigin = if (participant is EventParticipant.Guest) EmbedOriginAudit.forStorage(embedOrigin) else null
         val cancelToken = randomCancelToken()
         val cancelTokenHash = sha256Hex(cancelToken.toByteArray(Charsets.US_ASCII))
         val (placement, promotions) =
@@ -287,6 +287,7 @@ internal class EventRegistrationSubmission(
                             ticketCodeSha256 = ticket?.sha256,
                             ticketIssuedAt = if (ticket != null) now else null,
                             message = message,
+                            embedOrigin = storedOrigin,
                         )
                         Placement.Placed(needsPayment = gatewayNeeded, feeAmount = feeAmount, ticketRawCode = ticket?.rawCode)
                     } else {
@@ -306,6 +307,7 @@ internal class EventRegistrationSubmission(
                             now = now,
                             confirmedAt = null,
                             message = message,
+                            embedOrigin = storedOrigin,
                         )
                         Placement.Waitlisted(position)
                     }
@@ -387,7 +389,7 @@ internal class EventRegistrationSubmission(
                         cancelToken = cancelToken,
                         feeAmount = placement.feeAmount,
                         now = now,
-                        embedOrigin = embedOrigin,
+                        embedOrigin = storedOrigin,
                     )
                 }
             }
@@ -487,7 +489,7 @@ internal class EventRegistrationSubmission(
         now: LocalDateTime,
     ): EventRegistrationResult {
         if (!gatewayUsable()) return EventRegistrationResult.GatewayUnavailable
-        val (feeAndHold, promotions) =
+        val (resumeFacts, promotions) =
             EventCapacityGuard.withEventLock(eventId = eventId, now = now) { lockedEvent ->
                 val registration = EventStore.getRegistrationOrNull(registrationId)
                 val registrationOpen =
@@ -506,11 +508,18 @@ internal class EventRegistrationSubmission(
                     // registration's REAL hold (up to 48h for a waitlist promotion) out of the lock
                     // alongside the fee, so startStripeCheckout can bind the checkout session's
                     // local expires_at to it instead of always assuming the flat 30-minute default.
-                    else -> registration[EventRegistrationTable.feeAmount] to registration[EventRegistrationTable.holdExpiresAt]
+                    else ->
+                        ResumeFacts(
+                            fee = registration[EventRegistrationTable.feeAmount],
+                            holdExpiresAt = registration[EventRegistrationTable.holdExpiresAt],
+                            storedEmbedOrigin = registration[EventRegistrationTable.embedOrigin],
+                        )
                 }
             }
         promotions.forEach { it.mailPromotion(mailDispatcher) }
-        val (fee, holdExpiresAt) = feeAndHold ?: return EventRegistrationResult.EventNotAvailable
+        val facts = resumeFacts ?: return EventRegistrationResult.EventNotAvailable
+        val fee = facts.fee
+        val holdExpiresAt = facts.holdExpiresAt
         val slug = transaction { EventStore.getEventOrThrow(eventId)[EventTable.slug] }
         val outcome =
             startStripeCheckout(
@@ -521,11 +530,10 @@ internal class EventRegistrationSubmission(
                 now = now,
                 freeSeatOnFailure = false,
                 holdExpiresAt = holdExpiresAt,
-                // resumeCheckout is reached EXCLUSIVELY via registerEventPublicRoutes' own
-                // POST /veranstaltung/{slug}/zahlung (see this function's own KDoc) -- never through
-                // EmbedEventRoutes, which has no payment-resume endpoint of its own -- so there is no
-                // embed origin to carry here.
-                embedOrigin = null,
+                // V1.9.261 -- the origin stored on the registration is re-validated against the CURRENT allowlist before it is
+                // copied; a removed partner or a disabled embed yields null. The copy is an audit trail only: nothing reads
+                // payment_checkout_session.embed_origin, and the return URL / frame-ancestors do not depend on it.
+                embedOrigin = EmbedOriginAudit.revalidateForUse(stored = facts.storedEmbedOrigin, config = embedConfig),
             )
         return when (outcome) {
             is CheckoutOutcome.Success ->
@@ -687,6 +695,13 @@ internal class EventRegistrationSubmission(
         return CheckoutOutcome.Success(success.redirectUrl)
     }
 
+    /** What [resumeCheckoutUnguarded] reads from the locked registration row. */
+    private data class ResumeFacts(
+        val fee: BigDecimal,
+        val holdExpiresAt: LocalDateTime?,
+        val storedEmbedOrigin: String?,
+    )
+
     private sealed interface CheckoutOutcome {
         data class Success(
             val redirectUrl: String,
@@ -714,6 +729,7 @@ internal class EventRegistrationSubmission(
         ticketCodeSha256: String? = null,
         ticketIssuedAt: LocalDateTime? = null,
         message: String? = null,
+        embedOrigin: String? = null,
     ) {
         // Savepoint (V1.9.37): the caller catches a `uq_event_registration_active_participant` violation
         // and goes on using this transaction (promotion sweep, commit). On PostgreSQL that violation
@@ -736,6 +752,7 @@ internal class EventRegistrationSubmission(
                 ticketCodeSha256 = ticketCodeSha256,
                 ticketIssuedAt = ticketIssuedAt,
                 message = message,
+                embedOrigin = embedOrigin,
             )
         }
     }

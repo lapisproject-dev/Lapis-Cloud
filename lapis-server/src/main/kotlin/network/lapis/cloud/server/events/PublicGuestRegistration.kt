@@ -20,6 +20,8 @@ import kotlin.uuid.Uuid
  *    notice mail to the account owner, nothing stored.
  * 4. Otherwise a guest placement with `deferCheckout = true` (no provider round-trip inside the request).
  *
+ * `embedOrigin` is `null` from the server-rendered form and the canonical allowlist origin from the embed route (V1.9.261: stored on the row).
+ *
  * The caller has ALREADY done limits, validation, the PUBLIC visibility check and the strict registration rate limiter.
  */
 internal class PublicGuestRegistration(

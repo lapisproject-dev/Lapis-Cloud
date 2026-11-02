@@ -652,5 +652,10 @@ classDiagram(name = "Events") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "message"; "sqlType" to "VARCHAR(500)" }
         }
+        // V1.9.261 canonical embed allowlist origin of a JSON-embed guest registration (V137, audit trail, never exposed to clients).
+        attribute(name = "embedOrigin", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "embed_origin"; "sqlType" to "VARCHAR(255)" }
+        }
     }
 }

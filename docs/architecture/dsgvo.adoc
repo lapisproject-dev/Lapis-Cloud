@@ -164,6 +164,12 @@ correctly, covered by `EventPersonalData` for its member-FK side (`coveredTableN
 self-service Auskunft/Löschung path for guests, plus an automatic retention limit for
 `guest_name`/`guest_email` (Art. 5(1)(e) DSGVO), is deferred to a follow-up wave.
 
+*Partner origin (V1.9.261).* A guest who registered through the JSON embed also carries `event_registration.embed_origin`, the canonical origin of the
+partner website. It is an entry of the operator's own allowlist, not visitor data, but beside the guest's name and address it says that this person
+came through that partner, so it is treated as part of the guest record: it is stored only on guest rows (`chk_event_registration_embed_origin_guest`),
+so it never appears in a member's Auskunft and needs no member erasure; it will fall under the same guest Auskunft/Löschung/retention wave as
+`guest_name`/`guest_email` when that is built. Nothing reads it except the payment-resume path, which re-validates it.
+
 == Direct-message attachments (`direct_message_attachment`, Welle V1.9.233)
 
 `CommunicationPersonalData` also covers `direct_message_attachment`.
