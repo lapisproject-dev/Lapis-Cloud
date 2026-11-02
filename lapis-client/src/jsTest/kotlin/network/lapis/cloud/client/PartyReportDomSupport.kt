@@ -4,11 +4,13 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgPositions
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgSheetDto
+import network.lapis.cloud.shared.domain.PartgUnitCompletenessDto
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
 import network.lapis.cloud.shared.domain.SessionInfoDto
@@ -64,6 +66,23 @@ internal object PartyReportDomSupport {
             ),
         )
 
+    /** The federal unit misses E01 and E02 and has no prior year; the state unit is complete with a half-entered prior year. */
+    fun completeness(year: Int) =
+        PartgCompletenessDto(
+            year = year,
+            priorYear = year - 1,
+            leafCount = 35,
+            units =
+                listOf(
+                    PartgUnitCompletenessDto(
+                        unit = federal,
+                        missingCurrent = listOf("E01", "E02"),
+                        enteredPrior = 0,
+                    ),
+                    PartgUnitCompletenessDto(unit = state, missingCurrent = emptyList(), enteredPrior = 30),
+                ),
+        )
+
     fun sheet(year: Int) =
         PartgSheetDto(
             year = year,
@@ -75,7 +94,7 @@ internal object PartyReportDomSupport {
             priorRevision = 0,
         )
 
-    /** The routes of the six methods, found through the compiler-checked service reference. */
+    /** The routes of the seven methods, found through the compiler-checked service reference. */
     class Routes(
         val overview: String,
         val units: String,
@@ -83,6 +102,7 @@ internal object PartyReportDomSupport {
         val sheet: String,
         val save: String,
         val hint: String,
+        val completeness: String,
     )
 
     suspend fun routes() =
@@ -93,6 +113,7 @@ internal object PartyReportDomSupport {
             sheet = routeOf { rpcService<IPartyReportService>().getSheet(2025, "FEDERAL") },
             save = routeOf { rpcService<IPartyReportService>().saveSheet(2025, "FEDERAL", 0, 0, emptyList()) },
             hint = routeOf { rpcService<IPartyReportService>().updatePositionHint("E01", null) },
+            completeness = routeOf { rpcService<IPartyReportService>().reportCompleteness(2025) },
         )
 
     fun answer(
@@ -107,6 +128,8 @@ internal object PartyReportDomSupport {
                 request.answerWith(
                     jsonOf(ListSerializer(PartgUnitDto.serializer()), listOf(federal, state)),
                 )
+            request.rpcRoute == routes.completeness ->
+                request.answerWith(jsonOf(PartgCompletenessDto.serializer(), completeness(year)))
             request.rpcRoute == routes.positions -> request.answerWith(jsonOf(ListSerializer(PartgPositionDto.serializer()), positions))
             request.rpcRoute == routes.sheet -> request.answerWith(jsonOf(PartgSheetDto.serializer(), sheet(year)))
             request.rpcRoute == routes.save ->

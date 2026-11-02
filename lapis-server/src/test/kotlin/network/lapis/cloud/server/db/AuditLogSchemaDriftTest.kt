@@ -197,6 +197,7 @@ class AuditLogSchemaDriftTest :
                             "ACTIVISM_CONTRIBUTION",
                             "ACTIVISM_REPORT",
                             "ACTIVISM_SETTINGS",
+                            "PARTG_REPORT_EXPORT",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

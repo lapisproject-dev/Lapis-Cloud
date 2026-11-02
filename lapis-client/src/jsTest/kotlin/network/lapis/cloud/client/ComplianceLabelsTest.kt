@@ -332,4 +332,10 @@ class ComplianceLabelsTest {
     fun boardChangeTypeColor_joinedIsSuccess() {
         assertEquals("success", boardChangeTypeColor(BoardChangeType.JOINED))
     }
+
+    @Test
+    fun theReportExportHasItsOwnLabelAndColour() {
+        assertEquals("Export Rechenschaftsbericht (Entwurf)", auditEntityTypeLabel(AuditEntityType.PARTG_REPORT_EXPORT))
+        assertEquals("secondary", auditEntityTypeColor(AuditEntityType.PARTG_REPORT_EXPORT))
+    }
 }

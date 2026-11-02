@@ -213,6 +213,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.ACTIVISM_CONTRIBUTION -> gettext("Aktionsbeitrag")
         AuditEntityType.ACTIVISM_REPORT -> gettext("Meldung zu einer Aktion")
         AuditEntityType.ACTIVISM_SETTINGS -> gettext("Einstellungen der Aktionen")
+        // V1.9.256 -- one export of the report draft (PDF or Excel); counters only.
+        AuditEntityType.PARTG_REPORT_EXPORT -> gettext("Export Rechenschaftsbericht (Entwurf)")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -352,6 +354,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.ACTIVISM_CONTRIBUTION -> "secondary"
         AuditEntityType.ACTIVISM_REPORT -> "secondary"
         AuditEntityType.ACTIVISM_SETTINGS -> "secondary"
+        AuditEntityType.PARTG_REPORT_EXPORT -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

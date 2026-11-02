@@ -27322,9 +27322,6 @@ msgstr "Accountability report (position note)"
 msgid "Rechenschaftsbericht (PartG)"
 msgstr "Accountability report (PartG)"
 
-msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
-msgstr "Here you record the income, expenses and assets for the accountability report, per unit and year, by hand or from an Excel template. This page does not produce a finished report yet."
-
 msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
 msgstr "Membership fees and similar regular contributions"
 
@@ -27570,9 +27567,6 @@ msgstr "Accountability report under the Parties Act"
 
 msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
 msgstr "The accountability report is only available to political parties. You can find the setting in the organisation data."
-
-msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
-msgstr "Here you enter the figures for the accountability report. This is a working aid, not legal advice: the report itself and its audit by the auditor follow in a later step."
 
 msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
 msgstr "You have entered values that have not been saved yet. If you switch now, they will be lost."
@@ -29672,3 +29666,48 @@ msgstr "The pause music was saved."
 
 msgid "Die Pausenmusik wurde entfernt."
 msgstr "The pause music was removed."
+
+msgid "Gesamtpartei (alle Einheiten)"
+msgstr "Whole party (all units)"
+
+msgid "Umfang"
+msgstr "Scope"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er ist nicht geprüft und ersetzt weder den geprüften Rechenschaftsbericht noch eine Rechtsberatung. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "This is a draft and not an official report. It has not been audited and replaces neither the audited accountability report nor legal advice. Values that were not entered appear as “n. e.” (not entered), not as 0."
+
+msgid "Excel herunterladen"
+msgstr "Download Excel"
+
+msgid "Vollständigkeit"
+msgstr "Completeness"
+
+msgid "Alle Positionen sind erfasst."
+msgstr "All positions have been entered."
+
+msgid "Einheiten vollständig: %1"
+msgstr "Units complete: %1"
+
+msgid "%1: Vorjahr nicht erfasst – Spalte bleibt leer"
+msgstr "%1: previous year not entered – the column stays empty"
+
+msgid "%1: Vorjahr: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: previous year: %2 of %3 positions not entered"
+
+msgid "%1: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: %2 of %3 positions not entered"
+
+msgid "Bericht erzeugen"
+msgstr "Create report"
+
+msgid "Bericht"
+msgstr "Report"
+
+msgid "Export Rechenschaftsbericht (Entwurf)"
+msgstr "Export of the accountability report (draft)"
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht und erzeugen daraus einen Entwurf. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Entwurf ersetzt nicht den geprüften Bericht."
+msgstr "Here you enter the figures for the accountability report and create a draft from them. This is a working aid, not legal advice: the draft does not replace the audited report."
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage, und erzeugen daraus einen Entwurf als PDF oder Excel-Datei."
+msgstr "Here you record the income, expenses and assets for the accountability report, per unit and year, by hand or from an Excel template, and create a draft from them as a PDF or Excel file."

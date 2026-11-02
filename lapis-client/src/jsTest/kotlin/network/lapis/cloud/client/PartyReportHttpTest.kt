@@ -51,4 +51,16 @@ class PartyReportHttpTest {
     fun templateUrl_carriesYearAndUnit() {
         assertEquals("/api/partg-report/template?year=2025&unit=FEDERAL", PartyReportHttp.templateUrl(2025, "FEDERAL"))
     }
+
+    @Test
+    fun theExportUrl_hasFormatYearAndEscapedScope() {
+        assertEquals(
+            "/api/partg-report/export/pdf?year=2025&scope=ALL",
+            PartyReportHttp.exportUrl(network.lapis.cloud.shared.domain.PartgReportFormat.PDF, 2025, "ALL"),
+        )
+        assertEquals(
+            "/api/partg-report/export/xlsx?year=2024&scope=STATE%3Aabc",
+            PartyReportHttp.exportUrl(network.lapis.cloud.shared.domain.PartgReportFormat.XLSX, 2024, "STATE:abc"),
+        )
+    }
 }

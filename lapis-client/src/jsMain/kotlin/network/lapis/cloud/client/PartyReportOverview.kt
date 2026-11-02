@@ -1,12 +1,12 @@
 package network.lapis.cloud.client
 
+import io.kvision.html.ButtonStyle
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.table.cell
 import io.kvision.table.row
-import kotlinx.browser.document
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgUnitDto
 
@@ -35,8 +35,12 @@ internal fun partgFillBadge(row: PartgOverviewRowDto): Pair<String, String> =
 internal fun SimplePanel.renderPartyReportOverview(
     context: PartyReportContext,
     onEdit: (PartgUnitDto) -> Unit,
+    onReport: () -> Unit,
 ) {
     p(yearHint(context.year)) { addCssClasses("text-muted small mb-0") }
+    actionGroup {
+        actionButton(ActionIcon.EXPORT, tr("Bericht erzeugen"), ButtonStyle.OUTLINEPRIMARY) { onClick { onReport() } }
+    }
     val section =
         dataSection<List<PartgOverviewRowDto>>(
             emptyText = tr("Keine Gliederungen vorhanden."),
@@ -59,7 +63,7 @@ internal fun SimplePanel.renderPartyReportOverview(
                             tableActionGroup().apply {
                                 tableActionButton(ActionIcon.EDIT, tr("Werte erfassen")).onClick { onEdit(row.unit) }
                                 tableActionButton(ActionIcon.DOWNLOAD, tr("Vorlage herunterladen")).onClick {
-                                    downloadTemplate(PartyReportHttp.templateUrl(context.year, row.unit.unitKey))
+                                    downloadAttachment(PartyReportHttp.templateUrl(context.year, row.unit.unitKey))
                                 }
                                 tableActionButton(ActionIcon.UPLOAD, tr("Excel-Datei importieren")).onClick {
                                     openPartyReportImportDialog(context.year, row.unit) { onEdit(row.unit) }
@@ -81,15 +85,4 @@ private fun io.kvision.table.Row.totalCell(cents: Long?) {
             moneySpan(centsToDecimal(cents), warnIfNegative = true)
         }
     }
-}
-
-/** Starts the download of the template through a temporary anchor (no page navigation, the response is an attachment). */
-private fun downloadTemplate(url: String) {
-    val anchor = document.createElement("a")
-    anchor.setAttribute("href", url)
-    anchor.setAttribute("download", "")
-    anchor.setAttribute("rel", "noopener")
-    document.body?.appendChild(anchor)
-    (anchor as org.w3c.dom.HTMLElement).click()
-    document.body?.removeChild(anchor)
 }

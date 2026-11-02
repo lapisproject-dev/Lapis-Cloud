@@ -600,6 +600,13 @@ enum class AuditEntityType {
 
     /** Welle V1.9.246 -- the operator's notice texts, notice country or review switch changed (`entityId` = the settings singleton). 17 chars. Appended LAST. */
     ACTIVISM_SETTINGS,
+
+    /**
+     * Welle V1.9.256 -- `PartgReportExportRoutes` writes one `CREATE` entry per successful PDF or XLSX export of the report draft. `entityId` is a
+     * fresh export id, the snapshot is [PartgReportExportAuditSnapshot] (format, year, scope, counters). It never holds an amount or a name.
+     * 19 chars, fits `VARCHAR(29)`. Appended LAST.
+     */
+    PARTG_REPORT_EXPORT,
 }
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */

@@ -27389,9 +27389,6 @@ msgstr "Rapport de comptes (note de poste)"
 msgid "Rechenschaftsbericht (PartG)"
 msgstr "Rapport de comptes (PartG)"
 
-msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
-msgstr "Vous saisissez ici les recettes, les dépenses et le patrimoine pour le rapport de comptes, par entité et par année, à la main ou à partir d'un modèle Excel. Cette page ne produit pas encore de rapport finalisé."
-
 msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
 msgstr "Cotisations des membres et contributions régulières similaires"
 
@@ -27637,9 +27634,6 @@ msgstr "Rapport de comptes selon la loi sur les partis"
 
 msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
 msgstr "Le rapport de comptes n'est disponible que pour les partis politiques. Le réglage se trouve dans les données de l'organisation."
-
-msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
-msgstr "Vous saisissez ici les chiffres du rapport de comptes. C'est une aide de travail et non un conseil juridique : le rapport lui-même et son contrôle par le commissaire aux comptes suivront à une étape ultérieure."
 
 msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
 msgstr "Vous avez saisi des valeurs qui ne sont pas encore enregistrées. Si vous changez maintenant, elles seront perdues."
@@ -29739,3 +29733,48 @@ msgstr "La musique de pause a été enregistrée."
 
 msgid "Die Pausenmusik wurde entfernt."
 msgstr "La musique de pause a été retirée."
+
+msgid "Gesamtpartei (alle Einheiten)"
+msgstr "Tout le parti (toutes les entités)"
+
+msgid "Umfang"
+msgstr "Périmètre"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er ist nicht geprüft und ersetzt weder den geprüften Rechenschaftsbericht noch eine Rechtsberatung. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Ceci est un brouillon et non un rapport officiel. Il n'est pas vérifié et ne remplace ni le rapport de comptes vérifié ni un conseil juridique. Les valeurs non saisies apparaissent comme « n. e. » (non saisi), et non comme 0."
+
+msgid "Excel herunterladen"
+msgstr "Télécharger le fichier Excel"
+
+msgid "Vollständigkeit"
+msgstr "Complétude"
+
+msgid "Alle Positionen sind erfasst."
+msgstr "Toutes les positions sont saisies."
+
+msgid "Einheiten vollständig: %1"
+msgstr "Entités complètes : %1"
+
+msgid "%1: Vorjahr nicht erfasst – Spalte bleibt leer"
+msgstr "%1 : année précédente non saisie – la colonne reste vide"
+
+msgid "%1: Vorjahr: %2 von %3 Positionen nicht erfasst"
+msgstr "%1 : année précédente : %2 positions sur %3 non saisies"
+
+msgid "%1: %2 von %3 Positionen nicht erfasst"
+msgstr "%1 : %2 positions sur %3 non saisies"
+
+msgid "Bericht erzeugen"
+msgstr "Créer le rapport"
+
+msgid "Bericht"
+msgstr "Rapport"
+
+msgid "Export Rechenschaftsbericht (Entwurf)"
+msgstr "Export du rapport de comptes (brouillon)"
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht und erzeugen daraus einen Entwurf. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Entwurf ersetzt nicht den geprüften Bericht."
+msgstr "Vous saisissez ici les chiffres du rapport de comptes et en générez un brouillon. C'est une aide de travail et non un conseil juridique : le brouillon ne remplace pas le rapport vérifié."
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage, und erzeugen daraus einen Entwurf als PDF oder Excel-Datei."
+msgstr "Vous saisissez ici les recettes, les dépenses et le patrimoine pour le rapport de comptes, par entité et par année, à la main ou à partir d'un modèle Excel, et en générez un brouillon au format PDF ou Excel."

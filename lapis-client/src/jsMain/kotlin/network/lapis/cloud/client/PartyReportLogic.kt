@@ -2,7 +2,10 @@ package network.lapis.cloud.client
 
 import network.lapis.cloud.shared.domain.AmountParse
 import network.lapis.cloud.shared.domain.PartgAmountError
+import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgPositions
+import network.lapis.cloud.shared.domain.PartgReportScope
+import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
 import network.lapis.cloud.shared.domain.parseGermanAmount
 
@@ -133,3 +136,54 @@ internal fun partgFillState(
         filled >= total -> PartgFillState.COMPLETE
         else -> PartgFillState.PARTIAL
     }
+
+/** What the checklist of the report export says about one unit (V1.9.256). */
+internal enum class PartgChecklistKind { MISSING, PRIOR_NONE, PRIOR_PARTIAL, COMPLETE_SUMMARY }
+
+/**
+ * One line of the checklist. [MISSING]: [missing] holds the not entered LEAF codes of the report year. [PRIOR_NONE] / [PRIOR_PARTIAL]: the year
+ * before (neutral, never a warning); [count] is then the number of missing positions of the year before. [COMPLETE_SUMMARY] has no [unit];
+ * [count] is the number of units that are complete for the report year.
+ */
+internal data class PartgChecklistLine(
+    val kind: PartgChecklistKind,
+    val unit: PartgUnitDto?,
+    val missing: List<String>,
+    val count: Int,
+    val leafCount: Int,
+)
+
+/**
+ * The checklist of [dto] for [scopeKey] (`ALL` or a unit key): per unit the missing positions and the state of the year before, then ONE line
+ * for all units that are complete. Pure and DOM-free.
+ */
+internal fun completenessLines(
+    dto: PartgCompletenessDto,
+    scopeKey: String,
+): List<PartgChecklistLine> {
+    val units = if (scopeKey == PartgReportScope.ALL_KEY) dto.units else dto.units.filter { it.unit.unitKey == scopeKey }
+    val lines = mutableListOf<PartgChecklistLine>()
+    var complete = 0
+    for (entry in units) {
+        if (entry.missingCurrent.isEmpty()) {
+            complete += 1
+        } else {
+            lines +=
+                PartgChecklistLine(PartgChecklistKind.MISSING, entry.unit, entry.missingCurrent, entry.missingCurrent.size, dto.leafCount)
+        }
+        if (entry.enteredPrior == 0) {
+            lines += PartgChecklistLine(PartgChecklistKind.PRIOR_NONE, entry.unit, emptyList(), dto.leafCount, dto.leafCount)
+        } else if (entry.enteredPrior < dto.leafCount) {
+            lines +=
+                PartgChecklistLine(
+                    PartgChecklistKind.PRIOR_PARTIAL,
+                    entry.unit,
+                    emptyList(),
+                    dto.leafCount - entry.enteredPrior,
+                    dto.leafCount,
+                )
+        }
+    }
+    if (complete > 0) lines += PartgChecklistLine(PartgChecklistKind.COMPLETE_SUMMARY, null, emptyList(), complete, dto.leafCount)
+    return lines
+}

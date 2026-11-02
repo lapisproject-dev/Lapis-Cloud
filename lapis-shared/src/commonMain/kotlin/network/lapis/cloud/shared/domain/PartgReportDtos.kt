@@ -158,3 +158,27 @@ data class PartgImportRejectionDto(
 object PartgImportLimits {
     const val MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 }
+
+/** V1.9.256 -- the completeness of one unit: the not entered LEAF codes of the report year (catalogue order) and the count of the year before. */
+@Serializable
+data class PartgUnitCompletenessDto(
+    val unit: PartgUnitDto,
+    val missingCurrent: List<String>,
+    val enteredPrior: Int,
+)
+
+@Serializable
+data class PartgCompletenessDto(
+    val year: Int,
+    val priorYear: Int,
+    val leafCount: Int,
+    val units: List<PartgUnitCompletenessDto>,
+)
+
+/** V1.9.256 -- limits of the report export. */
+object PartgReportLimits {
+    const val MAX_PDF_PAGES = 600
+    const val MAX_PDF_BYTES = 8 * 1024 * 1024
+    const val MAX_XLSX_BYTES = 8 * 1024 * 1024
+    const val PDF_TIME_LIMIT_SECONDS = 20L
+}

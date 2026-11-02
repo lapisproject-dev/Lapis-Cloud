@@ -27371,9 +27371,6 @@ msgstr "Rendiconto (nota della voce)"
 msgid "Rechenschaftsbericht (PartG)"
 msgstr "Rendiconto (PartG)"
 
-msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
-msgstr "Qui si registrano entrate, uscite e patrimonio per il rendiconto, per unità e anno, a mano o da un modello Excel. Questa pagina non genera ancora un rendiconto finito."
-
 msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
 msgstr "Quote associative e contributi regolari simili"
 
@@ -27619,9 +27616,6 @@ msgstr "Rendiconto secondo la legge sui partiti"
 
 msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
 msgstr "Il rendiconto è disponibile solo per i partiti politici. L'impostazione si trova nei dati dell'organizzazione."
-
-msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
-msgstr "Qui si inseriscono le cifre per il rendiconto. È un supporto di lavoro, non una consulenza legale: il rendiconto vero e proprio e la sua revisione da parte del revisore seguiranno in un passo successivo."
 
 msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
 msgstr "Ha inserito valori non ancora salvati. Se cambia ora, andranno persi."
@@ -29721,3 +29715,48 @@ msgstr "La musica di pausa è stata salvata."
 
 msgid "Die Pausenmusik wurde entfernt."
 msgstr "La musica di pausa è stata rimossa."
+
+msgid "Gesamtpartei (alle Einheiten)"
+msgstr "Intero partito (tutte le unità)"
+
+msgid "Umfang"
+msgstr "Ambito"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er ist nicht geprüft und ersetzt weder den geprüften Rechenschaftsbericht noch eine Rechtsberatung. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Questa è una bozza e non un rendiconto ufficiale. Non è verificata e non sostituisce né il rendiconto verificato né una consulenza legale. I valori non inseriti compaiono come «n. e.» (non inserito), non come 0."
+
+msgid "Excel herunterladen"
+msgstr "Scarica il file Excel"
+
+msgid "Vollständigkeit"
+msgstr "Completezza"
+
+msgid "Alle Positionen sind erfasst."
+msgstr "Tutte le voci sono state inserite."
+
+msgid "Einheiten vollständig: %1"
+msgstr "Unità complete: %1"
+
+msgid "%1: Vorjahr nicht erfasst – Spalte bleibt leer"
+msgstr "%1: anno precedente non inserito – la colonna resta vuota"
+
+msgid "%1: Vorjahr: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: anno precedente: %2 voci su %3 non inserite"
+
+msgid "%1: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: %2 voci su %3 non inserite"
+
+msgid "Bericht erzeugen"
+msgstr "Crea il rendiconto"
+
+msgid "Bericht"
+msgstr "Rendiconto"
+
+msgid "Export Rechenschaftsbericht (Entwurf)"
+msgstr "Esportazione del rendiconto (bozza)"
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht und erzeugen daraus einen Entwurf. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Entwurf ersetzt nicht den geprüften Bericht."
+msgstr "Qui si inseriscono le cifre per il rendiconto e se ne ricava una bozza. È un supporto di lavoro, non una consulenza legale: la bozza non sostituisce il rendiconto verificato."
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage, und erzeugen daraus einen Entwurf als PDF oder Excel-Datei."
+msgstr "Qui si registrano entrate, uscite e patrimonio per il rendiconto, per unità e anno, a mano o da un modello Excel, e se ne ricava una bozza come file PDF o Excel."

@@ -118,4 +118,94 @@ class PartyReportLogicTest {
         assertEquals(42, PartgPositions.ALL.size)
         assertEquals(35, PartgPositions.ALL.count { it.kind == PartgKind.LEAF })
     }
+
+    // ------------------------------------------------------------------ V1.9.256 checklist
+
+    private val federalUnit =
+        network.lapis.cloud.shared.domain.PartgUnitDto(
+            unitKey = "FEDERAL",
+            level = network.lapis.cloud.shared.domain.PartgUnitLevel.FEDERAL,
+        )
+    private val stateUnit =
+        network.lapis.cloud.shared.domain.PartgUnitDto(
+            unitKey = "STATE:0d2f1a4e-7c35-4b8e-9a61-3f5e8c2b1d90",
+            level = network.lapis.cloud.shared.domain.PartgUnitLevel.STATE,
+            chapterId = "0d2f1a4e-7c35-4b8e-9a61-3f5e8c2b1d90",
+            chapterName = "Nord",
+        )
+
+    private fun dto(vararg units: network.lapis.cloud.shared.domain.PartgUnitCompletenessDto) =
+        network.lapis.cloud.shared.domain
+            .PartgCompletenessDto(year = 2025, priorYear = 2024, leafCount = 35, units = units.toList())
+
+    @Test
+    fun checklist_ofAFullyEnteredParty_isOneSummaryLine() {
+        val all = PartgPositions.LEAF_CODES
+        val lines =
+            completenessLines(
+                dto(
+                    network.lapis.cloud.shared.domain
+                        .PartgUnitCompletenessDto(federalUnit, emptyList(), 35),
+                    network.lapis.cloud.shared.domain
+                        .PartgUnitCompletenessDto(stateUnit, emptyList(), 35),
+                ),
+                "ALL",
+            )
+        assertEquals(1, lines.size)
+        assertEquals(PartgChecklistKind.COMPLETE_SUMMARY, lines.single().kind)
+        assertEquals(2, lines.single().count)
+        assertTrue(all.isNotEmpty())
+    }
+
+    @Test
+    fun checklist_listsMissingPositionsAndTheStateOfThePriorYear_neutrally() {
+        val lines =
+            completenessLines(
+                dto(
+                    network.lapis.cloud.shared.domain
+                        .PartgUnitCompletenessDto(federalUnit, listOf("E01", "E02"), 0),
+                    network.lapis.cloud.shared.domain
+                        .PartgUnitCompletenessDto(stateUnit, emptyList(), 30),
+                ),
+                "ALL",
+            )
+        assertEquals(
+            listOf(
+                PartgChecklistKind.MISSING,
+                PartgChecklistKind.PRIOR_NONE,
+                PartgChecklistKind.PRIOR_PARTIAL,
+                PartgChecklistKind.COMPLETE_SUMMARY,
+            ),
+            lines.map { it.kind },
+        )
+        assertEquals(listOf("E01", "E02"), lines[0].missing)
+        assertEquals(5, lines[2].count)
+    }
+
+    @Test
+    fun checklist_forASingleUnit_ignoresTheOthers_andNoUnitMeansNoLines() {
+        val federal =
+            network.lapis.cloud.shared.domain
+                .PartgUnitCompletenessDto(federalUnit, listOf("E01"), 35)
+        val state =
+            network.lapis.cloud.shared.domain
+                .PartgUnitCompletenessDto(stateUnit, emptyList(), 35)
+        val lines = completenessLines(dto(federal, state), stateUnit.unitKey)
+        assertEquals(listOf(PartgChecklistKind.COMPLETE_SUMMARY), lines.map { it.kind })
+        assertEquals(emptyList(), completenessLines(dto(), "ALL"))
+        assertEquals(emptyList(), completenessLines(dto(federal), "STATE:other"))
+    }
+
+    @Test
+    fun checklist_onlyThePriorYearMissing_isNotAMissingLine() {
+        val lines =
+            completenessLines(
+                dto(
+                    network.lapis.cloud.shared.domain
+                        .PartgUnitCompletenessDto(federalUnit, emptyList(), 0),
+                ),
+                "ALL",
+            )
+        assertEquals(listOf(PartgChecklistKind.PRIOR_NONE, PartgChecklistKind.COMPLETE_SUMMARY), lines.map { it.kind })
+    }
 }

@@ -26493,10 +26493,6 @@ msgstr ""
 msgid "Rechenschaftsbericht (PartG)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
-msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartgPositionLabels.kt:1
 msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
 msgstr ""
@@ -26823,10 +26819,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
 msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
-msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:1
@@ -29066,4 +29058,49 @@ msgid "Die Pausenmusik wurde gespeichert."
 msgstr ""
 
 msgid "Die Pausenmusik wurde entfernt."
+msgstr ""
+
+msgid "Gesamtpartei (alle Einheiten)"
+msgstr ""
+
+msgid "Umfang"
+msgstr ""
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er ist nicht geprüft und ersetzt weder den geprüften Rechenschaftsbericht noch eine Rechtsberatung. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr ""
+
+msgid "Excel herunterladen"
+msgstr ""
+
+msgid "Vollständigkeit"
+msgstr ""
+
+msgid "Alle Positionen sind erfasst."
+msgstr ""
+
+msgid "Einheiten vollständig: %1"
+msgstr ""
+
+msgid "%1: Vorjahr nicht erfasst – Spalte bleibt leer"
+msgstr ""
+
+msgid "%1: Vorjahr: %2 von %3 Positionen nicht erfasst"
+msgstr ""
+
+msgid "%1: %2 von %3 Positionen nicht erfasst"
+msgstr ""
+
+msgid "Bericht erzeugen"
+msgstr ""
+
+msgid "Bericht"
+msgstr ""
+
+msgid "Export Rechenschaftsbericht (Entwurf)"
+msgstr ""
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht und erzeugen daraus einen Entwurf. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Entwurf ersetzt nicht den geprüften Bericht."
+msgstr ""
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage, und erzeugen daraus einen Entwurf als PDF oder Excel-Datei."
 msgstr ""

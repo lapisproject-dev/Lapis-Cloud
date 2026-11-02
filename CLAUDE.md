@@ -398,9 +398,9 @@ Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" 
 - **Welche Konten ein Schritt anbietet und wann die Einrichtung vollständig ist, entscheidet nur `FinanceSetup.kt` in `lapis-shared`** (`accepts`, `financeSetupStatusOf`); Client, `getFinanceSetupStatus` und die Sperre in `enablePaymentGateway` rufen dieselbe Funktion (`FinanceSetupParityTest`). Das Gebührenkonto ist nie Pflicht.
 - **`createStandardChart` ist idempotent und schreibt höchstens einen aggregierten `ORGANIZATION_SETTINGS`/`UPDATE`-Eintrag.** Der Kontenplan ist ein Vorschlag (Steuerberatung bestätigt); die Sphäre liegt nie am Konto.
 
-## Rechenschaftsbericht (V1.9.225)
+## Rechenschaftsbericht (V1.9.225, R2 V1.9.256)
 
-Welle R1 des PartG-Rechenschaftsberichts: Positionsmodell, Direkterfassung und Excel-Import je Einheit und Jahr. Es entsteht **kein Bericht und kein PDF** (R2). Siehe `docs/features/partg-report.adoc` und `docs/architecture/partg-report.adoc`.
+Welle R1 des PartG-Rechenschaftsberichts: Positionsmodell, Direkterfassung und Excel-Import je Einheit und Jahr. R2 (V1.9.256) erzeugt daraus einen **Entwurf** als PDF und XLSX (Tab „Bericht“, `PartgReportExportRoutes`); kein amtlicher Bericht. Siehe `docs/features/partg-report.adoc` und `docs/architecture/partg-report.adoc`.
 
 - **Store-Monopol:** `PartgReportStore` ist der einzige Leser/Schreiber von `partg_report_position`/`_sheet`/`_value` (Ausnahme `PartgReportPersonalData`); `PartgReportStoreTripwireTest`. Eine Wertzeile darf nur auf eine `LEAF`-Position zeigen, das erzwingt der Service (kein Trigger).
 - **Zugriff:** `requirePartyReportAccess(call)` ist die erste Anweisung jeder RPC-Methode und jedes Route-Handlers: erst Rolle BOARD/ADMIN, dann `isPoliticalParty` (sonst `PartyReportNotEnabledException`); `PartyReportAccessTripwireTest`. Ein Nicht-Vorstand erfährt so nie, ob die Organisation eine Partei ist.
@@ -409,7 +409,11 @@ Welle R1 des PartG-Rechenschaftsberichts: Positionsmodell, Direkterfassung und E
 - **XLSX:** eigener Leser/Schreiber ohne Bibliothek (`partg/xlsx/`). `OoxmlZipReader` ist eine **angepasste Kopie** des `ArticleImportZipReader`: die Sicherheitslogik existiert doppelt, Korrekturen immer in beiden Dateien. Formeln werden nie ausgewertet. Import-Vorschauen liegen nur im Speicher (`PartgImportPreviewStore`, ein Neustart löscht sie).
 - **Spalte `value_source`**, nicht `source` (Kollision mit Exposeds `ColumnSet.source`). `partg_report_position.code` ist ein UNIQUE-*Constraint* (H2 nimmt als FK-Ziel keinen Unique-Index). V121 darf bis zum Release auf dem Feature-Branch korrigiert werden, danach nur noch per neuer Migration.
 - **Backup:** `partg_report_position` ist eine geseedete Menge (frisch, solange kein `org_hint` gesetzt ist); der Restore überschreibt die 42 Zeilen per Id.
-- **Ehrlichkeit:** kein Knopf und kein Text verspricht einen fertigen Bericht (`PartyReportScreenDomTest`). Positionsliste, Bezeichnungen und Gliederungsebenen sind noch nicht gegen das Bundestags-Muster und den Gesetzestext geprüft.
+- **R2, Summen:** nur über `PartgPositions.sums`; die Abhängigkeiten einer Summe stehen in `PartgReportComputation.inputsOf` (`PartgInputsOfParityTest`). `NotEntered` ist nie 0 (PDF `n. e.`, XLSX „nicht erfasst“). Prozent ganzzahlig per Langdivision, `MAX_UNITS = 201`.
+- **R2, Lesen:** Übersicht, Checkliste und Export lesen über `PartgReportStore.enteredSnapshot`/`enteredValues` (eine Abfrage). Das Paket `partg/report` fasst keine Tabelle an.
+- **R2, Export:** die Routen in `PartgReportExportRoutes.kt` stehen unter demselben Tripwire (`requirePartyReportAccess(call)` als erste Anweisung, beide Routendateien werden gescannt). Audit `PARTG_REPORT_EXPORT` (V136) vor dem Senden, ohne Betrag und ohne Namen. Im XLSX nie `<f>`; Strings immer `inlineStr`, `= + - @` mit `quotePrefix`.
+- **R2, PDF:** Wasserzeichen mit `PREPEND` in `q`/`Q`, Betragszellen nie abschneiden, Textbereinigung in `PdfFontText`, explizite Trailer-`/ID` für Byte-Determinismus. Minus im PDF ist der ASCII-Bindestrich (WinAnsi hat kein U+2212).
+- **Ehrlichkeit:** kein Knopf und kein Text behauptet einen amtlichen, fertigen oder geprüften Bericht, nur „Entwurf“ (`PartyReportScreenDomTest`, mit Negationsliste). R2 wurde nicht mit dem Bundestags-Muster verglichen, nicht in echtem Excel/LibreOffice/Word geöffnet, nicht von der Bundestagsverwaltung angenommen und nicht vom Wirtschaftsprüfer gesehen. Positionsliste, Bezeichnungen und Gliederungsebenen sind noch nicht gegen das Bundestags-Muster und den Gesetzestext geprüft.
 
 ## LupaBB-Abgleich (V1.9.226)
 

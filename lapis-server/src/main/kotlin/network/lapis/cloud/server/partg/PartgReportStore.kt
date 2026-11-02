@@ -7,6 +7,7 @@ import network.lapis.cloud.server.db.generated.PartgReportValueTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
+import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgPositions
@@ -15,12 +16,14 @@ import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
 import network.lapis.cloud.shared.domain.PartgValueSource
 import network.lapis.cloud.shared.rpc.NotFoundException
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
@@ -279,34 +282,58 @@ internal object PartgReportStore {
             .where { PartgReportSheetTable.id eq sheetId }
             .single()[PartgReportSheetTable.revision]
 
+    /**
+     * The entered LEAF values per year and unit key, read with ONE statement (sheet LEFT JOIN value), so the picture is consistent even under
+     * READ COMMITTED. Codes outside [PartgPositions.LEAF_CODES] are dropped. [updatedAt] holds the sheet header time per year and unit key
+     * (also for sheets without any value).
+     */
+    class EnteredSnapshot(
+        val values: Map<Int, Map<String, Map<String, Long>>>,
+        val updatedAt: Map<Int, Map<String, LocalDateTime>>,
+    )
+
+    fun enteredSnapshot(years: Collection<Int>): EnteredSnapshot {
+        if (years.isEmpty()) return EnteredSnapshot(values = emptyMap(), updatedAt = emptyMap())
+        val values = HashMap<Int, HashMap<String, HashMap<String, Long>>>()
+        val updated = HashMap<Int, HashMap<String, LocalDateTime>>()
+        PartgReportSheetTable
+            .join(PartgReportValueTable, JoinType.LEFT, PartgReportSheetTable.id, PartgReportValueTable.sheetId)
+            .select(
+                PartgReportSheetTable.fiscalYear,
+                PartgReportSheetTable.unitKey,
+                PartgReportSheetTable.updatedAt,
+                PartgReportValueTable.positionCode,
+                PartgReportValueTable.amountCents,
+            ).where { PartgReportSheetTable.fiscalYear inList years.toList() }
+            .forEach { row ->
+                val year = row[PartgReportSheetTable.fiscalYear]
+                val unitKey = row[PartgReportSheetTable.unitKey]
+                updated.getOrPut(year) { HashMap() }[unitKey] = row[PartgReportSheetTable.updatedAt]
+                val unitValues = values.getOrPut(year) { HashMap() }.getOrPut(unitKey) { HashMap() }
+                val code = row.getOrNull(PartgReportValueTable.positionCode)
+                val cents = row.getOrNull(PartgReportValueTable.amountCents)
+                if (code != null && cents != null && code in PartgPositions.LEAF_CODES) unitValues[code] = cents
+            }
+        return EnteredSnapshot(values = values, updatedAt = updated)
+    }
+
+    /** The entered LEAF values per year and unit key; see [enteredSnapshot]. */
+    fun enteredValues(years: Collection<Int>): Map<Int, Map<String, Map<String, Long>>> = enteredSnapshot(years).values
+
     /** One entry per unit with the filled count and the three totals; `null` totals mean nothing was entered. */
     fun overview(year: Int): List<PartgOverviewRowDto> {
-        val units = units()
-        val sheets =
-            PartgReportSheetTable
-                .selectAll()
-                .where { PartgReportSheetTable.fiscalYear eq year }
-                .map(::toSheetRow)
-                .associateBy { it.unitKey }
-        val valuesBySheet: Map<Uuid, Map<String, Long>> =
-            if (sheets.isEmpty()) {
-                emptyMap()
-            } else {
-                PartgReportValueTable
-                    .selectAll()
-                    .where { PartgReportValueTable.sheetId inList sheets.values.map { it.id } }
-                    .orderBy(PartgReportValueTable.sheetId to SortOrder.ASC, PartgReportValueTable.positionCode to SortOrder.ASC)
-                    .groupBy({ it[PartgReportValueTable.sheetId] }, {
-                        it[PartgReportValueTable.positionCode] to
-                            it[PartgReportValueTable.amountCents]
-                    })
-                    .mapValues { it.value.toMap() }
-            }
-        return units.map { unit ->
-            val sheet = sheets[unit.unitKey]
-            val values = sheet?.let { valuesBySheet[it.id] }.orEmpty()
+        val snapshot = enteredSnapshot(listOf(year))
+        val byUnit = snapshot.values[year].orEmpty()
+        val updatedAt = snapshot.updatedAt[year].orEmpty()
+        return units().map { unit ->
+            val values = byUnit[unit.unitKey].orEmpty()
             if (values.isEmpty()) {
-                PartgOverviewRowDto(unit = unit, filledCount = 0, leafCount = PartgPositions.LEAF_COUNT, updatedAt = sheet?.updatedAt)
+                PartgOverviewRowDto(
+                    unit = unit,
+                    filledCount = 0,
+                    leafCount = PartgPositions.LEAF_COUNT,
+                    updatedAt = updatedAt[unit.unitKey],
+                )
             } else {
                 val sums = PartgPositions.sums(values)
                 PartgOverviewRowDto(
@@ -316,11 +343,15 @@ internal object PartgReportStore {
                     incomeTotalCents = sums.getValue(PartgPositions.INCOME_TOTAL),
                     expenseTotalCents = sums.getValue(PartgPositions.EXPENSE_TOTAL),
                     netAssetsCents = sums.getValue(PartgPositions.NET),
-                    updatedAt = sheet?.updatedAt,
+                    updatedAt = updatedAt[unit.unitKey],
                 )
             }
         }
     }
+
+    /** Per unit: the not entered LEAF codes of [year] (catalogue order) and how many LEAF values the year before has. */
+    fun completeness(year: Int): PartgCompletenessDto =
+        PartgCompletenessCalculator.compute(year = year, units = units(), entered = enteredValues(listOf(year, year - 1)))
 
     /** `true` iff any sheet (even an empty header) of this chapter exists: the foreign key would block the delete anyway. */
     fun hasValuesForChapter(chapterId: Uuid): Boolean =

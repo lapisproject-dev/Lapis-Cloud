@@ -11,6 +11,7 @@ import network.lapis.cloud.server.partg.requirePartyReportAccess
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgPositionHintSnapshot
@@ -149,6 +150,12 @@ class PartyReportService internal constructor(
             source = PartgValueSource.MANUAL,
             now = ServerClock.now(),
         )
+    }
+
+    override suspend fun reportCompleteness(year: Int): PartgCompletenessDto {
+        requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        return transaction { PartgReportStore.completeness(year) }
     }
 
     private fun normalizeHint(hint: String?): String? {

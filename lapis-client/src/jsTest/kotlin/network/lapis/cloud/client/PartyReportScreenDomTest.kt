@@ -9,12 +9,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** V1.9.225 -- the party-report page: shell, notice, tabs, the overview table with its icon-only actions (guideline R58), no promise of a finished report. */
+/** V1.9.225 / V1.9.256 -- the party-report page: shell, notice, tabs, the overview table with its icon-only actions (guideline R58), draft wording only (no claim of an official or finished report). */
 class PartyReportScreenDomTest {
     private fun HTMLElement.shows(text: String): Boolean = textContent.orEmpty().contains(text)
 
+    private fun HTMLElement.buttons(): List<String> = allOf("button").map { it.textContent?.trim().orEmpty() }
+
     @Test
-    fun theOverview_showsTheUnitsWithBadgesTotals_andNoPromiseOfAReport(): Promise<Unit> =
+    fun theOverview_showsTheUnitsWithBadgesTotals_andOnlyDraftWording(): Promise<Unit> =
         formTest {
             runCatching { window.localStorage.removeItem("lapis.partyReport.tab") }
             AppState.setSession(PartyReportDomSupport.session())
@@ -27,20 +29,43 @@ class PartyReportScreenDomTest {
                     assertTrue(page.shows("Rechenschaftsbericht nach Parteiengesetz"))
                     // the notice says plainly that this is a working aid
                     assertTrue(page.allOf(".alert-info").single().shows("keine Rechtsberatung"))
-                    // three tabs, the overview is active
+                    // four tabs, the overview is active
                     val tabs = page.allOf(".btn-group button").map { it.textContent?.trim() }
-                    assertEquals(listOf("Übersicht", "Werte erfassen", "Positionen"), tabs)
+                    assertEquals(listOf("Übersicht", "Werte erfassen", "Positionen", "Bericht"), tabs)
                     val rows = page.allOf("tbody tr")
                     assertTrue(rows[0].shows("Bundesverband") && rows[0].shows("Nicht erfasst"))
                     assertTrue(rows[1].shows("Landesverband Nord") && rows[1].shows("Teilweise (12 von 35)"))
                     assertTrue(rows[1].shows("1.500,00"), "income total")
                     assertTrue(rows[0].shows("–"), "nothing entered shows a dash")
-                    // nothing on the page offers to create the report (R1 stores values only)
+                    // the page offers the draft, never a finished or official report
+                    assertTrue(page.shows("Entwurf"), "the page speaks of a draft")
+                    assertTrue(page.buttons().contains("Bericht erzeugen"))
                     val all = page.textContent.orEmpty().lowercase()
-                    assertFalse(
-                        all.contains("bericht erstellen") || all.contains("bericht erzeugen") || all.contains("pdf"),
-                        "no promise of a report",
-                    )
+                    val withoutNegations =
+                        all
+                            .replace("nicht amtlich", "")
+                            .replace("ersetzt nicht den geprüften", "")
+                            .replace("kein amtlicher", "")
+                    listOf("amtlich", "fertig", "geprüft", "einreichen").forEach {
+                        assertFalse(withoutNegations.contains(it), "no claim of '$it' without a negation")
+                    }
+                }
+            }
+        }
+
+    @Test
+    fun theOverviewLink_switchesToTheReportTab(): Promise<Unit> =
+        formTest {
+            runCatching { window.localStorage.removeItem("lapis.partyReport.tab") }
+            AppState.setSession(PartyReportDomSupport.session())
+            val routes = PartyReportDomSupport.routes()
+            withFetchStub(respond = { request -> PartyReportDomSupport.answer(routes, request, 2025) }) {
+                mountedForm("party-report-link") { root, element ->
+                    renderPartyReportScreen(root)
+                    awaitUntil("the overview rows") { element().allOf("tbody tr").size == 2 }
+                    element().buttonNamed("Bericht erzeugen").click()
+                    awaitUntil("the report tab") { element().allOf("[data-partg-checklist]").isNotEmpty() }
+                    assertTrue(element().shows("Umfang"))
                 }
             }
         }

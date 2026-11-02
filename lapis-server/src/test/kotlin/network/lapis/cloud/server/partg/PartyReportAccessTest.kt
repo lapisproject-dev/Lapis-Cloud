@@ -33,6 +33,7 @@ class PartyReportAccessTest :
                 "listUnits" to { s -> s.listUnits() },
                 "overview" to { s -> s.overview(year) },
                 "getSheet" to { s -> s.getSheet(year = year, unitKey = "FEDERAL") },
+                "reportCompleteness" to { s -> s.reportCompleteness(year) },
                 "saveSheet" to
                     { s ->
                         s.saveSheet(
@@ -48,7 +49,7 @@ class PartyReportAccessTest :
         test("the list of methods covers the whole interface") {
             val declared = network.lapis.cloud.shared.rpc.IPartyReportService::class.members.map { it.name }.toSet()
             (methods.map { it.first }.toSet() == declared.intersect(methods.map { it.first }.toSet())) shouldBe true
-            methods.size shouldBe 6
+            methods.size shouldBe 7
         }
 
         test("board and admin may call every method of a party") {

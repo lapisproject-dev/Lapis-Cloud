@@ -28,3 +28,20 @@ data class PartgImportAuditSnapshot(
     val year: Int,
     val unitKey: String,
 )
+
+/** The file format of a report export (V1.9.256). */
+@Serializable
+enum class PartgReportFormat { PDF, XLSX }
+
+/** Audit snapshot of ONE export of the report draft (V1.9.256). Counts and ids only: never an amount, never a name. */
+@Serializable
+data class PartgReportExportAuditSnapshot(
+    val format: PartgReportFormat,
+    val year: Int,
+    /** `ALL` or a unit key. */
+    val scope: String,
+    val unitCount: Int,
+    /** Not entered LEAF values of the report year over all units in scope. */
+    val missingCount: Int,
+    val byteSize: Int,
+)

@@ -14,11 +14,11 @@ import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.rpc.IPartyReportService
 import org.w3c.dom.events.Event
 
-/** The three tabs of the party report page. */
-internal enum class PartyReportTab { OVERVIEW, SHEET, POSITIONS }
+/** The tabs of the party report page. New tabs are appended: the remembered tab is read back by name. */
+internal enum class PartyReportTab { OVERVIEW, SHEET, POSITIONS, REPORT }
 
 /**
- * The state the three tabs share (V1.9.225): the report year and the unit picked for entry, plus a probe the page asks before something would
+ * The state the tabs share (V1.9.225): the report year and the unit picked for entry, plus a probe the page asks before something would
  * throw typed-in values away (changing the year, the unit or the tab, closing the browser tab).
  */
 internal class PartyReportContext(
@@ -26,6 +26,12 @@ internal class PartyReportContext(
 ) {
     var unit: PartgUnitDto? = null
     var hasUnsavedChanges: () -> Boolean = { false }
+
+    /** V1.9.256: the scope of the report export (`ALL` or a unit key). */
+    var reportScope: String = network.lapis.cloud.shared.domain.PartgReportScope.ALL_KEY
+
+    /** V1.9.256: jumps to the entry tab of a unit (set by the page). */
+    var openSheetFor: (PartgUnitDto) -> Unit = {}
 }
 
 private const val TAB_STORAGE_KEY = "lapis.partyReport.tab"
@@ -39,10 +45,11 @@ private fun rememberTab(tab: PartyReportTab) {
 
 /**
  * V1.9.225 "Rechenschaftsbericht (PartG), R1" -- the page for the finance board of a political party: what was spent and received, per reporting
- * unit and year, typed in or imported from Excel. It creates NO report and NO PDF (that is a later wave); the intro says so plainly.
+ * unit and year, typed in or imported from Excel, and (R2, V1.9.256) the draft of the report as PDF or Excel. The draft is no official report; the
+ * texts say so plainly.
  *
  * Reachable for BOARD and ADMIN when the organisation is a political party (`SessionInfoDto.politicalParty`); the server enforces both on every
- * call. Three tabs: the overview of all units, entry of one unit, and the positions with the organisation's own hints.
+ * call. Four tabs: the overview of all units, entry of one unit, the positions with the organisation's own hints, and the report draft.
  */
 fun renderPartyReportScreen(container: SimplePanel) {
     val root = container.dataScreenRoot(spacing = 14)
@@ -57,8 +64,8 @@ fun renderPartyReportScreen(container: SimplePanel) {
         setAttribute("role", "note")
         div(
             tr(
-                "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht " +
-                    "selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt.",
+                "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht und erzeugen daraus einen Entwurf. Das ist eine Arbeitshilfe, " +
+                    "keine Rechtsberatung: Der Entwurf ersetzt nicht den geprüften Bericht.",
             ),
         )
     }
@@ -89,6 +96,10 @@ fun renderPartyReportScreen(container: SimplePanel) {
     }
 
     lateinit var showTab: (PartyReportTab) -> Unit
+    context.openSheetFor = { unit ->
+        context.unit = unit
+        showTab(PartyReportTab.SHEET)
+    }
 
     fun paintSegments() {
         segmentHost.removeAll()
@@ -97,6 +108,7 @@ fun renderPartyReportScreen(container: SimplePanel) {
                 PartyReportTab.OVERVIEW to tr("Übersicht"),
                 PartyReportTab.SHEET to tr("Werte erfassen"),
                 PartyReportTab.POSITIONS to tr("Positionen"),
+                PartyReportTab.REPORT to tr("Bericht"),
             )
         segmentHost.segmentedScroll {
             segmentedControl(options = options, selected = tab, ariaLabel = tr("Bereich")) { chosen ->
@@ -110,12 +122,17 @@ fun renderPartyReportScreen(container: SimplePanel) {
         context.hasUnsavedChanges = { false }
         when (tab) {
             PartyReportTab.OVERVIEW ->
-                tabPanel.renderPartyReportOverview(context) { unit ->
-                    context.unit = unit
-                    showTab(PartyReportTab.SHEET)
-                }
+                tabPanel.renderPartyReportOverview(
+                    context = context,
+                    onEdit = { unit ->
+                        context.unit = unit
+                        showTab(PartyReportTab.SHEET)
+                    },
+                    onReport = { showTab(PartyReportTab.REPORT) },
+                )
             PartyReportTab.SHEET -> tabPanel.renderPartyReportSheetEditor(context)
             PartyReportTab.POSITIONS -> tabPanel.renderPartyReportPositions()
+            PartyReportTab.REPORT -> tabPanel.renderPartyReportExport(context)
         }
     }
     showTab = { chosen ->

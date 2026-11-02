@@ -250,6 +250,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "ACTIVISM_CONTRIBUTION")
         literal(name = "ACTIVISM_REPORT")
         literal(name = "ACTIVISM_SETTINGS")
+        literal(name = "PARTG_REPORT_EXPORT")
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

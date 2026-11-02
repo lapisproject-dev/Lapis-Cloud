@@ -27153,9 +27153,6 @@ msgstr "Informe de rendición de cuentas (nota de posición)"
 msgid "Rechenschaftsbericht (PartG)"
 msgstr "Informe de rendición de cuentas (PartG)"
 
-msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
-msgstr "Aquí registra los ingresos, los gastos y el patrimonio para el informe de rendición de cuentas, por unidad y año, a mano o desde una plantilla de Excel. Esta página todavía no genera un informe terminado."
-
 msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
 msgstr "Cuotas de socios y aportaciones regulares similares"
 
@@ -27401,9 +27398,6 @@ msgstr "Informe de rendición de cuentas según la Ley de Partidos"
 
 msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
 msgstr "El informe de rendición de cuentas solo está disponible para partidos políticos. El ajuste se encuentra en los datos de la organización."
-
-msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
-msgstr "Aquí registra las cifras para el informe de rendición de cuentas. Es una ayuda de trabajo, no asesoramiento jurídico: el informe en sí y su revisión por el auditor llegarán en un paso posterior."
 
 msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
 msgstr "Ha introducido valores que aún no se han guardado. Si cambia ahora, se perderán."
@@ -29503,3 +29497,48 @@ msgstr "Se guardó la música de pausa."
 
 msgid "Die Pausenmusik wurde entfernt."
 msgstr "Se quitó la música de pausa."
+
+msgid "Gesamtpartei (alle Einheiten)"
+msgstr "Todo el partido (todas las unidades)"
+
+msgid "Umfang"
+msgstr "Alcance"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er ist nicht geprüft und ersetzt weder den geprüften Rechenschaftsbericht noch eine Rechtsberatung. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Esto es un borrador y no un informe oficial. No está auditado y no sustituye ni el informe de rendición de cuentas auditado ni el asesoramiento jurídico. Los valores no registrados aparecen como «n. e.» (no registrado), no como 0."
+
+msgid "Excel herunterladen"
+msgstr "Descargar Excel"
+
+msgid "Vollständigkeit"
+msgstr "Integridad"
+
+msgid "Alle Positionen sind erfasst."
+msgstr "Todas las posiciones están registradas."
+
+msgid "Einheiten vollständig: %1"
+msgstr "Unidades completas: %1"
+
+msgid "%1: Vorjahr nicht erfasst – Spalte bleibt leer"
+msgstr "%1: año anterior no registrado – la columna queda vacía"
+
+msgid "%1: Vorjahr: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: año anterior: %2 de %3 posiciones no registradas"
+
+msgid "%1: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: %2 de %3 posiciones no registradas"
+
+msgid "Bericht erzeugen"
+msgstr "Crear informe"
+
+msgid "Bericht"
+msgstr "Informe"
+
+msgid "Export Rechenschaftsbericht (Entwurf)"
+msgstr "Exportación del informe de rendición de cuentas (borrador)"
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht und erzeugen daraus einen Entwurf. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Entwurf ersetzt nicht den geprüften Bericht."
+msgstr "Aquí registra las cifras para el informe de rendición de cuentas y genera con ellas un borrador. Es una ayuda de trabajo, no asesoramiento jurídico: el borrador no sustituye al informe auditado."
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage, und erzeugen daraus einen Entwurf als PDF oder Excel-Datei."
+msgstr "Aquí registra los ingresos, los gastos y el patrimonio para el informe de rendición de cuentas, por unidad y año, a mano o desde una plantilla de Excel, y genera con ellos un borrador en PDF o en Excel."

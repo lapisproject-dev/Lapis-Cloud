@@ -27368,9 +27368,6 @@ msgstr "Verantwoordingsverslag (opmerking bij post)"
 msgid "Rechenschaftsbericht (PartG)"
 msgstr "Verantwoordingsverslag (PartG)"
 
-msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
-msgstr "Hier legt u per eenheid en jaar de inkomsten, uitgaven en het vermogen voor het verantwoordingsverslag vast, handmatig of uit een Excel-sjabloon. Een afgerond verslag maakt deze pagina nog niet."
-
 msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
 msgstr "Ledenbijdragen en soortgelijke regelmatige bijdragen"
 
@@ -27616,9 +27613,6 @@ msgstr "Verantwoordingsverslag volgens de Partijenwet"
 
 msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
 msgstr "Het verantwoordingsverslag is alleen beschikbaar voor politieke partijen. De instelling vindt u in de organisatiegegevens."
-
-msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
-msgstr "Hier voert u de cijfers voor het verantwoordingsverslag in. Dit is een werkhulp, geen juridisch advies: het verslag zelf en de controle door de accountant volgen in een latere stap."
 
 msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
 msgstr "U hebt waarden ingevoerd die nog niet zijn opgeslagen. Als u nu wisselt, gaan ze verloren."
@@ -29718,3 +29712,48 @@ msgstr "De pauzemuziek is opgeslagen."
 
 msgid "Die Pausenmusik wurde entfernt."
 msgstr "De pauzemuziek is verwijderd."
+
+msgid "Gesamtpartei (alle Einheiten)"
+msgstr "Hele partij (alle eenheden)"
+
+msgid "Umfang"
+msgstr "Reikwijdte"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er ist nicht geprüft und ersetzt weder den geprüften Rechenschaftsbericht noch eine Rechtsberatung. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Dit is een concept en geen officieel verslag. Het is niet gecontroleerd en vervangt noch het gecontroleerde verantwoordingsverslag noch juridisch advies. Niet ingevoerde waarden verschijnen als „n. e.” (niet ingevoerd), niet als 0."
+
+msgid "Excel herunterladen"
+msgstr "Excel downloaden"
+
+msgid "Vollständigkeit"
+msgstr "Volledigheid"
+
+msgid "Alle Positionen sind erfasst."
+msgstr "Alle posten zijn ingevoerd."
+
+msgid "Einheiten vollständig: %1"
+msgstr "Eenheden volledig: %1"
+
+msgid "%1: Vorjahr nicht erfasst – Spalte bleibt leer"
+msgstr "%1: vorig jaar niet ingevoerd – de kolom blijft leeg"
+
+msgid "%1: Vorjahr: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: vorig jaar: %2 van %3 posten niet ingevoerd"
+
+msgid "%1: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: %2 van %3 posten niet ingevoerd"
+
+msgid "Bericht erzeugen"
+msgstr "Verslag maken"
+
+msgid "Bericht"
+msgstr "Verslag"
+
+msgid "Export Rechenschaftsbericht (Entwurf)"
+msgstr "Export van het verantwoordingsverslag (concept)"
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht und erzeugen daraus einen Entwurf. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Entwurf ersetzt nicht den geprüften Bericht."
+msgstr "Hier voert u de cijfers voor het verantwoordingsverslag in en maakt u er een concept van. Dit is een werkhulp, geen juridisch advies: het concept vervangt het gecontroleerde verslag niet."
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage, und erzeugen daraus einen Entwurf als PDF oder Excel-Datei."
+msgstr "Hier legt u per eenheid en jaar de inkomsten, uitgaven en het vermogen voor het verantwoordingsverslag vast, handmatig of uit een Excel-sjabloon, en maakt u er een concept van als pdf- of Excel-bestand."

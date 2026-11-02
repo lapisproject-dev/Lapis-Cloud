@@ -339,22 +339,7 @@ internal class LetterPdfBuilder(
     private fun sanitizeForFont(
         text: String,
         font: PDFont,
-    ): String =
-        text
-            .replace("\t", "  ")
-            .map { ch ->
-                try {
-                    font.encode(ch.toString())
-                    ch
-                } catch (e: Exception) {
-                    // PDFBox's Standard-14 Type1 fonts throw IllegalArgumentException for an
-                    // unencodable code point (its own `encode` signature declares only the
-                    // checked `IOException`, kept here too in case that ever changes) -- caught
-                    // broadly since this is a best-effort rendering fallback, not logic whose
-                    // correctness depends on the exact exception type.
-                    '?'
-                }
-            }.joinToString("")
+    ): String = PdfFontText.sanitize(text = text, font = font)
 
     private fun textWidth(
         text: String,

@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import kotlinx.browser.document
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.shared.domain.PartgImportApplyDto
@@ -7,10 +8,13 @@ import network.lapis.cloud.shared.domain.PartgImportApplyResultDto
 import network.lapis.cloud.shared.domain.PartgImportPreviewDto
 import network.lapis.cloud.shared.domain.PartgImportRejectionCode
 import network.lapis.cloud.shared.domain.PartgImportRejectionDto
+import network.lapis.cloud.shared.domain.PartgReportFormat
 import org.w3c.files.File
 import org.w3c.xhr.FormData
 import org.w3c.xhr.XMLHttpRequest
 import kotlin.coroutines.resume
+
+private external fun encodeURIComponent(value: String): String
 
 /**
  * V1.9.225 -- the two-step Excel import of the party report over `XMLHttpRequest`. The server always answers with JSON; an error is a stable
@@ -45,6 +49,13 @@ internal object PartyReportHttp {
         year: Int,
         unitKey: String,
     ): String = "/api/partg-report/template?year=$year&unit=$unitKey"
+
+    /** The relative download URL of the report draft. [scope] is `ALL` or a unit key (strictly validated server side); still escaped. */
+    fun exportUrl(
+        format: PartgReportFormat,
+        year: Int,
+        scope: String,
+    ): String = "/api/partg-report/export/${format.name.lowercase()}?year=$year&scope=${encodeURIComponent(scope)}"
 
     suspend fun preview(
         year: Int,
@@ -114,4 +125,15 @@ internal object PartyReportHttp {
 
     private fun rejectionCode(body: String): PartgImportRejectionCode? =
         runCatching { json.decodeFromString(PartgImportRejectionDto.serializer(), body).code }.getOrNull()
+}
+
+/** Starts a download through a temporary anchor (no page navigation, the response is an attachment). */
+internal fun downloadAttachment(url: String) {
+    val anchor = document.createElement("a")
+    anchor.setAttribute("href", url)
+    anchor.setAttribute("download", "")
+    anchor.setAttribute("rel", "noopener")
+    document.body?.appendChild(anchor)
+    (anchor as org.w3c.dom.HTMLElement).click()
+    document.body?.removeChild(anchor)
 }

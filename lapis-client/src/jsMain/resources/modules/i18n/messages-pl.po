@@ -27340,9 +27340,6 @@ msgstr "Sprawozdanie finansowe (uwaga do pozycji)"
 msgid "Rechenschaftsbericht (PartG)"
 msgstr "Sprawozdanie finansowe (PartG)"
 
-msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
-msgstr "Tutaj wprowadzają Państwo dla każdej jednostki i roku przychody, wydatki i majątek do sprawozdania finansowego, ręcznie lub z szablonu Excel. Ta strona nie tworzy jeszcze gotowego sprawozdania."
-
 msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
 msgstr "Składki członkowskie i podobne regularne wpłaty"
 
@@ -27588,9 +27585,6 @@ msgstr "Sprawozdanie finansowe według ustawy o partiach"
 
 msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
 msgstr "Sprawozdanie finansowe jest dostępne tylko dla partii politycznych. Ustawienie znajdą Państwo w danych organizacji."
-
-msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
-msgstr "Tutaj wprowadzają Państwo dane do sprawozdania finansowego. To pomoc w pracy, a nie porada prawna: samo sprawozdanie i jego badanie przez biegłego rewidenta nastąpią w późniejszym kroku."
 
 msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
 msgstr "Wprowadzili Państwo wartości, które nie zostały jeszcze zapisane. Jeśli teraz Państwo przejdą, zostaną utracone."
@@ -29693,3 +29687,48 @@ msgstr "Muzyka przerwy została zapisana."
 
 msgid "Die Pausenmusik wurde entfernt."
 msgstr "Muzyka przerwy została usunięta."
+
+msgid "Gesamtpartei (alle Einheiten)"
+msgstr "Cała partia (wszystkie jednostki)"
+
+msgid "Umfang"
+msgstr "Zakres"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er ist nicht geprüft und ersetzt weder den geprüften Rechenschaftsbericht noch eine Rechtsberatung. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "To jest projekt, a nie oficjalne sprawozdanie. Nie został zbadany i nie zastępuje ani zbadanego sprawozdania finansowego, ani porady prawnej. Wartości, które nie zostały wprowadzone, pojawiają się jako „n. e.” (niewprowadzone), a nie jako 0."
+
+msgid "Excel herunterladen"
+msgstr "Pobierz plik Excel"
+
+msgid "Vollständigkeit"
+msgstr "Kompletność"
+
+msgid "Alle Positionen sind erfasst."
+msgstr "Wszystkie pozycje zostały wprowadzone."
+
+msgid "Einheiten vollständig: %1"
+msgstr "Kompletne jednostki: %1"
+
+msgid "%1: Vorjahr nicht erfasst – Spalte bleibt leer"
+msgstr "%1: poprzedni rok niewprowadzony – kolumna pozostaje pusta"
+
+msgid "%1: Vorjahr: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: poprzedni rok: %2 z %3 pozycji niewprowadzonych"
+
+msgid "%1: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: %2 z %3 pozycji niewprowadzonych"
+
+msgid "Bericht erzeugen"
+msgstr "Utwórz sprawozdanie"
+
+msgid "Bericht"
+msgstr "Sprawozdanie"
+
+msgid "Export Rechenschaftsbericht (Entwurf)"
+msgstr "Eksport sprawozdania finansowego (projekt)"
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht und erzeugen daraus einen Entwurf. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Entwurf ersetzt nicht den geprüften Bericht."
+msgstr "Tutaj wprowadzają Państwo dane do sprawozdania finansowego i tworzą z nich projekt. To pomoc w pracy, a nie porada prawna: projekt nie zastępuje zbadanego sprawozdania."
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage, und erzeugen daraus einen Entwurf als PDF oder Excel-Datei."
+msgstr "Tutaj wprowadzają Państwo dla każdej jednostki i roku przychody, wydatki i majątek do sprawozdania finansowego, ręcznie lub z szablonu Excel, i tworzą z nich projekt jako plik PDF lub Excel."

@@ -318,8 +318,8 @@ internal object PageIntros {
                     "party-report",
                     tr(
                         "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den " +
-                            "Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese " +
-                            "Seite noch nicht.",
+                            "Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage, und erzeugen daraus einen Entwurf als " +
+                            "PDF oder Excel-Datei.",
                     ),
                 )
             Routes.COST_CENTERS ->

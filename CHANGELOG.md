@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.256 -- Party accountability report R2: the draft as PDF and XLSX
+
+- New tab **Bericht** on the party report page: pick the scope (whole party or one unit), read the checklist of what is still missing, download the **draft** as a PDF (A4 landscape) or an Excel file. Both buttons are always enabled; a gap never blocks the export.
+- **Not entered is never 0:** a position nobody entered is printed as `n. e.` (PDF) or "nicht erfasst" (XLSX); a sum with a missing input shows its partial amount and `(unvollst.)` with a footnote naming the missing positions; a share that cannot be computed is `n. b.`. The computing core (`PartgReportComputation`, shared) keeps `PartgPositions.sums` as the one sum formula and derives the dependencies of each sum (`PartgInputsOfParityTest`); percentages use integer long division (half up), at most 201 units.
+- **PDF:** completeness block, summary (income Nr. 1 to 10, expenses Nr. 1 to 3, total, surplus, shares, year before, table by level), income matrix per unit and the whole party, expenses and assets per unit; header, "Seite x von y", legend and a watermark "ENTWURF" behind the content on every page. Amounts are never cut off (font shrinks or the matrix splits). Deterministic bytes in the tests.
+- **XLSX:** six fixed sheets, real numbers (euro and percent formats), no formula, no macro, no shared strings; text starting with `= + - @` carries the quote-prefix style.
+- **Routes:** `GET /api/partg-report/export/pdf|xlsx?year=&scope=` under the same access gate (BOARD/ADMIN of a party, role first), 10 per member and minute, two renderings at a time, 600 pages and 8 MB per file. Fixed file name, `no-store`, `nosniff`. One audit entry per export (`PARTG_REPORT_EXPORT`, counters only, no amount, no name), written before the file is sent.
+- The overview, the checklist and the export read the entered values with one statement (`PartgReportStore.enteredSnapshot`), so the numbers agree. New RPC method `reportCompleteness` (appended last).
+- **Migration `V136`** (additive): only the CHECK of `audit_log_entry.entity_type` gains `PARTG_REPORT_EXPORT`. The text clean-up of `LetterPdfBuilder` moved to `PdfFontText` (control characters now become spaces).
+- 16 new texts in all seven catalogs (agent translations); two obsolete texts of R1 removed.
+- **Deviations from the plan text:** the PDF uses the ASCII hyphen as minus (the standard PDF fonts have no U+2212); the audit uses the entity type instead of an action because `AuditAction` has no export action; the whole-party summary shows Nr. 10 and Nr. 3 on their own lines and says "not consolidated" (no "without subsidies" column).
+- **Not verified:** not compared pixel by pixel with the Bundestag sample; not opened in real Excel, LibreOffice or Word; not accepted by the Bundestag administration; not seen by the auditor; the position list is still unchecked. A unit without subordinate regional units keeps its summary row open until zeros are entered. Open questions are listed in `docs/features/partg-report.adoc`.
+- The PostgreSQL lane of the V136 migration test runs only with `LAPIS_TEST_POSTGRES_URL`; without it the migration is verified on H2 only.
+
 ### V1.9.255 -- Pause picture and pause music in the live stream (pause mode, step 2)
 
 - While the room pause holds the live stream, the **server sends a still picture and optional music to the stream targets**, so the audience sees a pause screen instead of an interrupted broadcast. Picture and music are seen and heard **only in the live stream**: never in the recording, never in the room.

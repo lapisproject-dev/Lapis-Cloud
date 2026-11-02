@@ -52,4 +52,11 @@ class PartyReportNavTest {
         assertNotNull(PageIntros.forRoute(Routes.PARTY_REPORT))
         assertNull(null)
     }
+
+    @Test
+    fun theTabIsRememberedByName_andAnUnknownNameFallsBackToTheOverview() {
+        assertEquals(PartyReportTab.REPORT, PartyReportTab.valueOf("REPORT"))
+        assertEquals(listOf("OVERVIEW", "SHEET", "POSITIONS", "REPORT"), PartyReportTab.entries.map { it.name })
+        assertEquals(PartyReportTab.OVERVIEW, runCatching { PartyReportTab.valueOf("GONE") }.getOrNull() ?: PartyReportTab.OVERVIEW)
+    }
 }

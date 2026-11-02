@@ -592,6 +592,8 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         "FormGrammar.kt",
         // Welle V1.9.246 "Aktionen A1": the list holds only the status filter chips (justified below, R24B_JUSTIFIED) and navigation buttons -- no form.
         "ActivismScreen.kt",
+        // V1.9.256: the "Bericht" tab has no form: one scope selector (justified below) and two download buttons.
+        "PartyReportExport.kt",
         "PaymentGatewaySettingsScreen.kt",
         "EmbedIntegrationScreen.kt",
         // W4b: only filters / a selector (justified below), or no field at all (PostalMailScreen: two bespoke confirm modals).
@@ -845,6 +847,9 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         "MyVolunteerShiftsScreen.kt" to
             listOf("val eventSelect = eventSelectRow.select(options = emptyList(), label = tr(\"Veranstaltung\"))"),
         "PaymentGatewaySettingsScreen.kt" to listOf("row.select( [label \"Anbieter\"]"),
+        // V1.9.256 -- the scope of the report draft (whole party or one unit) picks what the download contains, never submitted.
+        "PartyReportExport.kt" to
+            listOf("val scopeSelect = toolbar.select(options = options, value = context.reportScope, label = tr(\"Umfang\"))"),
         // W4d (this batch): the "Nur aktive Profile" / "Inklusive ehemaliger Profile" toggle picks what the
         // list below shows -- never submitted, same reason as CommunicationScreen.kt's listSelect above.
         "PoliticianScreen.kt" to listOf("listControlsRow.select( [label \"Anzeige\"]"),

@@ -37,7 +37,7 @@ class PartgReportStoreTripwireTest :
                 .shouldBeEmpty()
         }
 
-        test("only the store, the writer, the service, the routes and the chapter service use the store") {
+        test("only the store, the writer, the service, the routes (import and export) and the chapter service use the store") {
             files
                 .filter { Regex("""\bPartgReportStore\b""").containsMatchIn(SourceScan.blank(it.readText())) }
                 .map { it.name }
@@ -48,6 +48,7 @@ class PartgReportStoreTripwireTest :
                         "PartgSheetWriter.kt",
                         "PartyReportService.kt",
                         "PartgReportRoutes.kt",
+                        "PartgReportExportRoutes.kt",
                         "RegionalChapterService.kt",
                     ),
                 ).shouldBeEmpty()

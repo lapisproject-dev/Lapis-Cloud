@@ -37,33 +37,45 @@ class PartyReportAccessTripwireTest :
                         .first()
                 }.toList()
 
-        test("the RPC surface is exactly the six known methods") {
+        test("the RPC surface is exactly the seven known methods") {
             IPartyReportService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }
-                .toSet() shouldBe setOf("listPositions", "updatePositionHint", "listUnits", "overview", "getSheet", "saveSheet")
+                .toSet() shouldBe
+                setOf("listPositions", "updatePositionHint", "listUnits", "overview", "getSheet", "saveSheet", "reportCompleteness")
         }
 
         test("every RPC method of the service starts with the access gate") {
             val code = source("PartyReportService.kt")
             val starts = firstStatements(code, Regex("""override suspend fun \w+\([^)]*\)\s*:\s*[\w<>?, ]+\s*"""))
-            (starts.size) shouldBe 6
+            (starts.size) shouldBe 7
             starts.filterNot { it.contains("requirePartyReportAccess(call)") }.shouldBeEmpty()
         }
 
         test("every HTTP handler of the routes starts with the access gate") {
             // the raw text: the route paths are string literals, which the blanked source erases
-            val code =
-                SourceScan
-                    .mainFiles()
-                    .single {
-                        it.name == "PartgReportRoutes.kt"
-                    }.readText()
-                    .substringAfter("fun Route.registerPartgReportRoutes")
-            val handlers = Regex("""\b(get|post)\("/api/partg-report/[^"]*"\)\s*\{""").findAll(code).toList()
-            handlers.size shouldBe 3
-            handlers.forEach { m ->
-                val body = code.substring(m.range.last + 1).trimStart()
+            fun handlersOf(
+                file: String,
+                marker: String,
+            ): List<String> {
+                val code =
+                    SourceScan
+                        .mainFiles()
+                        .single { it.name == file }
+                        .readText()
+                        .substringAfter(marker)
+                return Regex("""\b(get|post)\("/api/partg-report/[^"]*"\)\s*\{""")
+                    .findAll(code)
+                    .map { m ->
+                        code.substring(m.range.last + 1).trimStart()
+                    }.toList()
+            }
+
+            val import = handlersOf("PartgReportRoutes.kt", "fun Route.registerPartgReportRoutes")
+            val export = handlersOf("PartgReportExportRoutes.kt", "fun Route.registerPartgReportExportRoutes")
+            import.size shouldBe 3
+            export.size shouldBe 2
+            (import + export).forEach { body ->
                 // the gate may sit inside `val current = try { requirePartyReportAccess(call) } ...` -- it must be the first call of the handler
                 val firstCall = Regex("""\w+\(""").find(body)!!.value
                 (firstCall == "try(" || body.startsWith("val current =")) shouldBe true
@@ -75,10 +87,8 @@ class PartyReportAccessTripwireTest :
                         "receive<",
                         "rateLimiter.checkAndRecord",
                         "queryParameters",
-                    ).map { body.indexOf(it) }.filter {
-                        it >=
-                            0
-                    }
+                        "tryAcquire",
+                    ).map { body.indexOf(it) }.filter { it >= 0 }
                 later.all { gate < it } shouldBe true
             }
         }
@@ -94,5 +104,6 @@ class PartyReportAccessTripwireTest :
         test("no RPC method of the service logs an amount, a hint or a name") {
             source("PartyReportService.kt").lines().filter { "logger." in it }.shouldBeEmpty()
             source("PartgReportRoutes.kt").lines().filter { "logger." in it }.shouldBeEmpty()
+            source("PartgReportExportRoutes.kt").lines().filter { "logger." in it && "logger.info" !in it }.shouldBeEmpty()
         }
     })

@@ -281,6 +281,7 @@ import network.lapis.cloud.server.routes.registerMemberPhotoRoutes
 import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
 import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
+import network.lapis.cloud.server.routes.registerPartgReportExportRoutes
 import network.lapis.cloud.server.routes.registerPartgReportRoutes
 import network.lapis.cloud.server.routes.registerPauseMediaRoutes
 import network.lapis.cloud.server.routes.registerPaypalWebhookRoutes
@@ -1936,6 +1937,9 @@ internal fun Application.module(
     // V1.9.225 party report Excel import: 10 previews/applies per minute and client address.
     val partgReportImportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val partgImportPreviewStore = PartgImportPreviewStore()
+    // V1.9.256 party report export (PDF/XLSX): 10 per member and minute, two renderings at a time.
+    val partgReportExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val partgReportExportConcurrency = Semaphore(permits = 2)
     val attachedImageListRateLimiter = FederationInboxRateLimiter(maxRequests = 600, window = 60.minutes)
     val attachedImageReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
 
@@ -3056,6 +3060,8 @@ internal fun Application.module(
         registerBankStatementRoutes(secretBox = bankStatementSecretBox, rateLimiter = bankStatementUploadRateLimiter)
         // V1.9.225: party report template download and Excel import (preview + apply); previews live in memory only.
         registerPartgReportRoutes(previewStore = partgImportPreviewStore, rateLimiter = partgReportImportRateLimiter)
+        // V1.9.256: the report draft as PDF / XLSX.
+        registerPartgReportExportRoutes(rateLimiter = partgReportExportRateLimiter, concurrency = partgReportExportConcurrency)
         registerDunningRoutes(storageRoot = documentStorageRoot, previewRateLimiter = dunningPreviewRateLimiter)
         // Welle V1.4.5.2 "DATEV-Format-Export".
         registerDatevRoutes(exportRateLimiter = datevExportRateLimiter)

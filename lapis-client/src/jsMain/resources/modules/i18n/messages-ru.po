@@ -27330,9 +27330,6 @@ msgstr "Отчёт о финансировании (примечание к по
 msgid "Rechenschaftsbericht (PartG)"
 msgstr "Отчёт о финансировании (PartG)"
 
-msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage. Einen fertigen Bericht erzeugt diese Seite noch nicht."
-msgstr "Здесь вы вносите по каждому подразделению и году доходы, расходы и имущество для отчёта о финансировании вручную или из шаблона Excel. Готовый отчёт эта страница пока не создаёт."
-
 msgid "Mitgliedsbeiträge und ähnliche regelmäßige Beiträge"
 msgstr "Членские взносы и аналогичные регулярные взносы"
 
@@ -27578,9 +27575,6 @@ msgstr "Отчёт о финансировании по закону о парт
 
 msgid "Der Rechenschaftsbericht ist nur für politische Parteien verfügbar. Die Einstellung finden Sie in den Organisationsdaten."
 msgstr "Отчёт о финансировании доступен только политическим партиям. Настройка находится в данных организации."
-
-msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Bericht selbst und seine Prüfung durch den Wirtschaftsprüfer folgen in einem späteren Schritt."
-msgstr "Здесь вы вносите данные для отчёта о финансировании. Это вспомогательное средство, а не юридическая консультация: сам отчёт и его проверка аудитором появятся на следующем этапе."
 
 msgid "Sie haben Werte eingegeben, die noch nicht gespeichert sind. Wenn Sie jetzt wechseln, gehen sie verloren."
 msgstr "Вы ввели значения, которые ещё не сохранены. Если вы сейчас перейдёте, они будут потеряны."
@@ -29683,3 +29677,48 @@ msgstr "Музыка паузы сохранена."
 
 msgid "Die Pausenmusik wurde entfernt."
 msgstr "Музыка паузы удалена."
+
+msgid "Gesamtpartei (alle Einheiten)"
+msgstr "Вся партия (все подразделения)"
+
+msgid "Umfang"
+msgstr "Охват"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er ist nicht geprüft und ersetzt weder den geprüften Rechenschaftsbericht noch eine Rechtsberatung. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Это черновик, а не официальный отчёт. Он не проверен и не заменяет ни проверенный отчёт о финансировании, ни юридическую консультацию. Не введённые значения отображаются как «n. e.» (не введено), а не как 0."
+
+msgid "Excel herunterladen"
+msgstr "Скачать файл Excel"
+
+msgid "Vollständigkeit"
+msgstr "Полнота"
+
+msgid "Alle Positionen sind erfasst."
+msgstr "Все позиции введены."
+
+msgid "Einheiten vollständig: %1"
+msgstr "Полных подразделений: %1"
+
+msgid "%1: Vorjahr nicht erfasst – Spalte bleibt leer"
+msgstr "%1: прошлый год не введён – столбец останется пустым"
+
+msgid "%1: Vorjahr: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: прошлый год: не введено %2 из %3 позиций"
+
+msgid "%1: %2 von %3 Positionen nicht erfasst"
+msgstr "%1: не введено %2 из %3 позиций"
+
+msgid "Bericht erzeugen"
+msgstr "Сформировать отчёт"
+
+msgid "Bericht"
+msgstr "Отчёт"
+
+msgid "Export Rechenschaftsbericht (Entwurf)"
+msgstr "Экспорт отчёта о финансировании (черновик)"
+
+msgid "Hier erfassen Sie die Zahlen für den Rechenschaftsbericht und erzeugen daraus einen Entwurf. Das ist eine Arbeitshilfe, keine Rechtsberatung: Der Entwurf ersetzt nicht den geprüften Bericht."
+msgstr "Здесь вы вносите данные для отчёта о финансировании и формируете из них черновик. Это вспомогательное средство, а не юридическая консультация: черновик не заменяет проверенный отчёт."
+
+msgid "Hier erfassen Sie je Gliederung und Jahr die Einnahmen, Ausgaben und das Vermögen für den Rechenschaftsbericht, von Hand oder aus einer Excel-Vorlage, und erzeugen daraus einen Entwurf als PDF oder Excel-Datei."
+msgstr "Здесь вы вносите по каждому подразделению и году доходы, расходы и имущество для отчёта о финансировании вручную или из шаблона Excel и формируете из них черновик в виде файла PDF или Excel."

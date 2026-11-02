@@ -1,4 +1,4 @@
-= Party accountability report, R1: architecture (V1.9.225)
+= Party accountability report, R1 and R2: architecture (V1.9.225, V1.9.256)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -87,8 +87,46 @@ The template writer produces a deterministic file (fixed ZIP time). Organisation
 a token of 32 random bytes of which only the SHA-256 is kept and compared in constant time, single use whatever the outcome (a foreign member's guess burns the token). A restart drops
 all previews. Apply checks the revisions twice: against the preview and again under the lock.
 
+== Report model (R2)
+
+`PartgReportComputation` (shared, commonMain) is the computing core for client and server. A cell is `Value`, `Partial(cents, missing)` or `NotEntered`, and `NotEntered` is never 0. `PartgPositions.sums`
+stays the ONE formula of the seven sums; `inputsOf(sum)` only states which LEAF positions a sum depends on (derived from the catalogue), and `PartgInputsOfParityTest` proves that both agree (raise each leaf
+by one, the sum changes exactly when the leaf is in `inputsOf`). `aggregate` adds the entered leaves of several units; a leaf is complete only when every unit entered it. Shares are tenths of a percent by
+integer long division, rounded half up (away from zero on a tie), with no Double and no BigDecimal in commonMain. `MAX_UNITS = 201` (federal level plus 100 chapters with two units each) keeps every
+sum below 201 x 35 x 99,999,999,999,999 cents inside the Long range, and the percentage division multiplies only the remainder by ten.
+
+`PartgReportStore.enteredSnapshot` reads sheet LEFT JOIN value with ONE statement for all requested years, so the picture is consistent under READ COMMITTED (a loop of `values(sheetId)` would be N+1 and
+not consistent). The overview, the checklist (`PartgCompletenessCalculator`) and the export all use it.
+
+== PDF renderer (R2)
+
+`PartgReportPdfRenderer` is its own table builder on PDFBox (A4 landscape, Helvetica, WinAnsi): `LetterPdfBuilder` is portrait. The text clean-up of the Standard-14 fonts lives in `PdfFontText`
+(shared with `LetterPdfBuilder`): unencodable characters become `?`, control characters become spaces. Two passes: the content first; then on every page the watermark with `PREPEND` (behind the content,
+saved and restored graphics state, `ExtGState` alpha 0.12, `resetContext` so nothing leaks into the content), and the header, legend and "Seite x von y" with `APPEND`. Amount cells are never truncated: each
+cell is fitted to its column (8, 7, 6 pt, then smaller); the income matrix uses compact cells (`*` for partial) and splits into two column blocks when the largest amount would not fit 12 columns. A page
+break falls only between rows and repeats the header. Limits: pages (`PdfLimitExceeded`), bytes after `save`, and a deadline checked per row. Determinism: no creation date, fixed producer, and an explicit
+trailer `/ID` from the SHA-256 of the document (PDFBox otherwise writes a time-dependent ID).
+
+== XLSX export (R2)
+
+`PartgReportXlsxWriter` writes by hand (only `PartgXlsxWriter.escape` is reused; `PartgXlsxWriter` itself is untouched). Every string is `inlineStr`; there is no `<f>` anywhere, no shared strings and no
+macro part. The style indices are constants: 2 euro (`numFmtId` 164, with a negative section), 3 percent (165, `0.0%`), 4 quote prefix. A string starting with `= + - @` gets the quote-prefix style;
+tab, CR and LF become spaces; invalid XML characters are dropped. Fixed ZIP time and part order, so equal documents give equal bytes.
+
+== Export routes (R2)
+
+`PartgReportExportRoutes.kt` (`GET /api/partg-report/export/pdf|xlsx?year=&scope=`). Order: access gate (the first statement of each handler, pinned by `PartyReportAccessTripwireTest`), rate limit
+(10 per member and minute), strict input check (`year`, `scope` = `ALL` or a unit key of at most 48 characters), concurrency permit (`Semaphore(2)`, released in `finally`), ONE read transaction (organisation
+name, units, `enteredValues`), assemble and render outside the transaction on `Dispatchers.Default`, audit in its own transaction BEFORE anything is sent (if the audit fails, no file is delivered), response with
+a fixed file name, `Cache-Control: no-store` and `nosniff`. The refusal body is the existing `PartgImportRejectionDto`. Only format, year, scope key and counters are logged.
+
+== Migration V136
+
+Only the CHECK of `audit_log_entry.entity_type` is widened by `PARTG_REPORT_EXPORT` (the list is V133's, copied verbatim, plus one). `AuditAction` has no export action, so the entry is a `CREATE` of that
+entity type; the format is in the snapshot. `PartgReportSheet` is not reused because it means "one entry per value" and the whole party has no sheet id.
+
 == Client
 
 Route `Routes.PARTY_REPORT`, guarded by `NavVisibility.showsPartyReport(session)` (`SessionInfoDto.politicalParty`, appended at the end with a default). `PartgSheetDraft` holds the
 typed-in state without the DOM (blank means not entered, 0 is a value); the live sums use the shared `PartgPositions.sums`, so client and server cannot compute differently. Labels
-come from `partgLabel`, one literal `tr(...)` per code. The browser's own question appears when the tab is closed with unsaved values; a change of year, unit or tab asks first.
+come from `partgLabel`, one literal `tr(...)` per code. The fourth tab (`PartyReportExport.kt`) loads `reportCompleteness` and the unit list, filters the checklist with the pure `completenessLines`, and starts a download with a temporary anchor (the codebase convention; an error response would be saved as a JSON file, which is why the checklist loads over RPC first). The browser's own question appears when the tab is closed with unsaved values; a change of year, unit or tab asks first.

@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
@@ -15,7 +16,7 @@ import network.lapis.cloud.shared.domain.PartgValueChangeDto
  * EVERY method first requires the role BOARD or ADMIN ([ForbiddenException]) and only then that the organisation is a political party
  * ([PartyReportNotEnabledException]); the order is fixed so that the gate itself reveals nothing to anyone
  * below the board (the fact is not secret otherwise: `SessionInfoDto.politicalParty` is sent to every logged-in member).
- * R1 stores typed-in or imported values per position, year and unit; it creates no report and no PDF.
+ * R1 stores typed-in or imported values per position, year and unit; R2 (V1.9.256) creates a draft as PDF/XLSX over HTTP routes, not over this interface.
  */
 @RpcService
 interface IPartyReportService {
@@ -47,4 +48,7 @@ interface IPartyReportService {
         expectedPriorRevision: Long,
         changes: List<PartgValueChangeDto>,
     ): PartgSaveResultDto
+
+    /** V1.9.256: completeness of all units for [year] and the year before. The same query feeds the overview (server side) and the checklist. */
+    suspend fun reportCompleteness(year: Int): PartgCompletenessDto
 }
