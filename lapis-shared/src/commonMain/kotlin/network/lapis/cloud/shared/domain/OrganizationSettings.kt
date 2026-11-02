@@ -256,6 +256,11 @@ data class OrganizationSettingsDto(
     val pauseMusicDurationSeconds: Int? = null,
     /** V1.9.255 -- cache-buster of the pause music URL; `null` without music. */
     val pauseMusicVersion: String? = null,
+    /**
+     * V1.9.262 -- organisation default of "Ansicht bei Aufzeichnung und Stream". Copied into a room only when the room is created; never
+     * changes an existing room (only applyBroadcastViewDefaultToExistingRooms does). Read-only here, set via setConferenceBroadcastViewDefault.
+     */
+    val conferenceBroadcastViewDefault: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

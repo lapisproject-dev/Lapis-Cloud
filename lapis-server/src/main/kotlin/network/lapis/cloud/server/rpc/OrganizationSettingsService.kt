@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.agreementtexts.AgreementTextStore
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.BankAccountTable
+import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.encounter.PulpitRecordingControl
@@ -13,6 +14,7 @@ import network.lapis.cloud.server.encounter.PulpitRecordingNotice
 import network.lapis.cloud.server.encounter.PulpitStopReason
 import network.lapis.cloud.server.events.EventCaptureLock
 import network.lapis.cloud.server.events.EventCaptureNotice
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.memberfinder.MemberFinderLifecycle
 import network.lapis.cloud.server.memberfinder.MemberFinderNotice
 import network.lapis.cloud.server.payment.sepa.BicValidator
@@ -25,6 +27,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_NOTICE_VERSION
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MEMBER_FINDER_NOTICE_VERSION
@@ -44,12 +47,17 @@ import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.MemberFinderNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PulpitRecordingNoticeOutdatedException
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
@@ -84,7 +92,19 @@ class OrganizationSettingsService(
     private val pulpitRecording: PulpitRecordingControl,
     /** V1.9.143: whether this server has a recording service at all (`LAPIS_RECORDING_ENABLED`); only shown to the admin, never stored. */
     private val recordingInfrastructureAvailable: Boolean = false,
+    /**
+     * V1.9.262: budget of [countRoomsDifferingFromBroadcastViewDefault] (key `member:<id>`). The service is built per RPC call, so the
+     * default is a COMPANION-shared instance (a fresh one per call would never throttle); production passes its own module singleton.
+     */
+    private val broadcastViewCountRateLimiter: FederationInboxRateLimiter = DEFAULT_BROADCAST_VIEW_COUNT_LIMITER,
+    /** V1.9.262: budget of [applyBroadcastViewDefaultToExistingRooms]; same companion-default reasoning as the count limiter. */
+    private val broadcastViewApplyRateLimiter: FederationInboxRateLimiter = DEFAULT_BROADCAST_VIEW_APPLY_LIMITER,
 ) : IOrganizationSettingsService {
+    private companion object {
+        val DEFAULT_BROADCAST_VIEW_COUNT_LIMITER = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+        val DEFAULT_BROADCAST_VIEW_APPLY_LIMITER = FederationInboxRateLimiter(maxRequests = 3, window = 1.minutes)
+    }
+
     override suspend fun getOrganizationSettings(): OrganizationSettingsDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*READ_ROLES)
@@ -159,6 +179,111 @@ class OrganizationSettingsService(
             }
         if (result.second) logger.info { "tender default visibility changed by ${current.memberId}" }
         return result.first
+    }
+
+    /**
+     * V1.9.262 -- the ONLY way to change [OrganizationSettingsDto.conferenceBroadcastViewDefault] (ADMIN). A change writes one
+     * [AuditEntityType.ORGANIZATION_SETTINGS] `UPDATE` entry (before/after as a one-field JSON snapshot, no personal data); setting the value
+     * it already has writes neither a row nor an audit entry. The generic [updateOrganizationSettings] never touches the column. Existing
+     * rooms keep their own value.
+     */
+    override suspend fun setConferenceBroadcastViewDefault(view: ConferenceBroadcastView): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val result =
+            transaction {
+                val before = BroadcastViewDefaultStore.load()
+                if (before != view) {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[conferenceBroadcastViewDefault] = view
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = "{\"conferenceBroadcastViewDefault\":\"${before.name}\"}",
+                        after = "{\"conferenceBroadcastViewDefault\":\"${view.name}\"}",
+                    )
+                }
+                loadOrganizationSettings().withInfrastructure() to (before != view)
+            }
+        if (result.second) logger.info { "broadcast view default changed by ${current.memberId}" }
+        return result.first
+    }
+
+    /**
+     * V1.9.262 -- read-only count of the rooms [applyBroadcastViewDefaultToExistingRooms] would change (ADMIN). The role check comes before
+     * the rate limiter and any DB access, so a non-admin learns nothing.
+     */
+    override suspend fun countRoomsDifferingFromBroadcastViewDefault(): Int {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        requireBroadcastViewRate(limiter = broadcastViewCountRateLimiter, memberId = current.memberId)
+        return transaction {
+            val target = BroadcastViewDefaultStore.load()
+            ConferenceRoomTable
+                .selectAll()
+                .where(roomsDifferingFrom(target))
+                .count()
+                .toInt()
+        }
+    }
+
+    /**
+     * V1.9.262 -- sets every open, non-encounter room to the STORED organisation default (ADMIN; the client passes no value). Returns the
+     * number of rooms changed. 0 writes nothing and no audit entry; > 0 writes exactly one `ORGANIZATION_SETTINGS`/`UPDATE` entry (value and
+     * count only: no room ids/titles, no personal data). Running recordings keep the view frozen at their start.
+     *
+     * Lock order: organisation row (`FOR UPDATE`, serialises against a concurrent [setConferenceBroadcastViewDefault] so the audited value is
+     * the applied one) -> conference_room rows -> audit chain. No cycle: moderation's `setRoomBroadcastView` and the recording start lock
+     * room -> recording -> audit and never the organisation row; room creation reads the organisation row without a lock.
+     */
+    override suspend fun applyBroadcastViewDefaultToExistingRooms(): Int {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        requireBroadcastViewRate(limiter = broadcastViewApplyRateLimiter, memberId = current.memberId)
+        val changed =
+            transaction {
+                val target =
+                    OrganizationSettingsTable
+                        .select(OrganizationSettingsTable.conferenceBroadcastViewDefault)
+                        .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                        .forUpdate()
+                        .singleOrNull()
+                        ?.get(OrganizationSettingsTable.conferenceBroadcastViewDefault)
+                        ?: ConferenceBroadcastView.RASTER
+                val updated =
+                    ConferenceRoomTable.update(where = { roomsDifferingFrom(target) }) {
+                        it[broadcastView] = target
+                    }
+                if (updated > 0) {
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        after = "{\"applyBroadcastViewDefaultToRooms\":\"${target.name}\",\"rooms\":$updated}",
+                    )
+                }
+                updated
+            }
+        if (changed > 0) logger.info { "broadcast view default applied to $changed rooms by ${current.memberId}" }
+        return changed
+    }
+
+    private fun roomsDifferingFrom(target: ConferenceBroadcastView): Op<Boolean> =
+        ConferenceRoomTable.endedAt.isNull() and
+            ConferenceRoomTable.encounterSpaceId.isNull() and
+            (ConferenceRoomTable.broadcastView neq target)
+
+    private fun requireBroadcastViewRate(
+        limiter: FederationInboxRateLimiter,
+        memberId: Uuid,
+    ) {
+        if (!limiter.checkAndRecord("member:$memberId")) throw ConflictException("Rate limit exceeded, try again later")
     }
 
     /**
@@ -657,6 +782,7 @@ class OrganizationSettingsService(
                 // V1.9.144: memberFinderEnabled / memberFinderNoticeVersion likewise -- only updateMemberFinderEnabled may set them.
                 // V1.9.156: eventCaptureEnabled / eventCaptureNoticeVersion likewise -- only updateEventCaptureEnabled may set them.
                 // V1.9.201: tenderDefaultVisibility likewise -- only updateTenderDefaultVisibility may set it.
+                // V1.9.262: conferenceBroadcastViewDefault likewise -- only setConferenceBroadcastViewDefault may set it.
             }
 
             val afterMapping =
@@ -877,6 +1003,8 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         pauseMusicLabel = this[OrganizationSettingsTable.pauseMusicLabel],
         pauseMusicDurationSeconds = this[OrganizationSettingsTable.pauseMusicDurationSeconds]?.toInt(),
         pauseMusicVersion = this[OrganizationSettingsTable.pauseMusicKey]?.toString()?.take(8),
+        // V1.9.262 -- read-only here, set only through setConferenceBroadcastViewDefault.
+        conferenceBroadcastViewDefault = this[OrganizationSettingsTable.conferenceBroadcastViewDefault],
     )
 
 /**
@@ -897,6 +1025,20 @@ internal object NoiseSuppressionDefaultStore {
      * a default could not be read; the safe answer is "off", today's behaviour.
      */
     fun currentValue(): Boolean = runCatching { transaction { load() } }.getOrDefault(false)
+}
+
+/**
+ * V1.9.262 -- the organisation default of the room broadcast view. Must run inside a `transaction {}`; a missing row (never happens, V1
+ * seeds it) means RASTER. Room creation uses [load] directly (no runCatching): a failed statement would abort a Postgres transaction anyway.
+ */
+internal object BroadcastViewDefaultStore {
+    fun load(): ConferenceBroadcastView =
+        OrganizationSettingsTable
+            .select(OrganizationSettingsTable.conferenceBroadcastViewDefault)
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .singleOrNull()
+            ?.get(OrganizationSettingsTable.conferenceBroadcastViewDefault)
+            ?: ConferenceBroadcastView.RASTER
 }
 
 /**

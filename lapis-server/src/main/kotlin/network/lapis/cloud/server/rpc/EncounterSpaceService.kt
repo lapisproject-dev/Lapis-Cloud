@@ -683,6 +683,8 @@ class EncounterSpaceService(
                             it[ConferenceRoomTable.createdByMemberId] = current.memberId
                             it[ConferenceRoomTable.createdAt] = now
                             it[ConferenceRoomTable.endedAt] = null
+                            // V1.9.262: no broadcast-view default -- encounter rooms are never recorded/streamed through this column
+                            // (pulpit recording has its own path); the column default RASTER stays.
                             it[ConferenceRoomTable.maxParticipants] = maxForSession
                             it[ConferenceRoomTable.allowFederationGuests] =
                                 space[EncounterSpaceTable.guestPolicy] == EncounterGuestPolicy.MEMBERS_AND_GUESTS.name

@@ -113,9 +113,10 @@ private fun organizationSections(): List<OrganizationSection> =
             summary = { state ->
                 state.settings?.let {
                     gettext(
-                        "Pulpit-Aufzeichnung: %1 · Veranstaltungen: %2",
+                        "Pulpit-Aufzeichnung: %1 · Veranstaltungen: %2 · Standardansicht: %3",
                         onOff(it.pulpitRecordingEnabled),
                         onOff(it.eventCaptureEnabled),
+                        conferenceBroadcastViewLabel(it.conferenceBroadcastViewDefault),
                     )
                 } ?: ""
             },

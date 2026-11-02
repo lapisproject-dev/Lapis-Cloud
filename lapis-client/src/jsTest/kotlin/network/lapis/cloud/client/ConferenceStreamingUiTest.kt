@@ -640,4 +640,20 @@ class ConferenceStreamingUiTest {
         // completely inert") -- must not be dropped from the copy.
         assertTrue(CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS.contains("Sitzung zugeordnet"))
     }
+
+    // ---------------------------------------------------------------------------------------
+    // V1.9.262 -- the room's view (frozen from the organisation default at creation) pre-selects the stream layout
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun conferenceStreamLayoutOf_mapsTheRoomView_toThePreSelectedLayout() {
+        assertEquals(
+            ConferenceStreamLayout.GRID,
+            conferenceStreamLayoutOf(network.lapis.cloud.shared.domain.ConferenceBroadcastView.RASTER),
+        )
+        assertEquals(
+            ConferenceStreamLayout.SPEAKER,
+            conferenceStreamLayoutOf(network.lapis.cloud.shared.domain.ConferenceBroadcastView.SPEAKER),
+        )
+    }
 }

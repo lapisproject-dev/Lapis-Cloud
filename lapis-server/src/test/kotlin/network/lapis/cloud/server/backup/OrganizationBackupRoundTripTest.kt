@@ -39,6 +39,7 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.BackupOperationStatus
 import network.lapis.cloud.shared.domain.BackupOperationType
 import network.lapis.cloud.shared.domain.BillingInterval
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventStatus
@@ -306,6 +307,7 @@ class OrganizationBackupRoundTripTest :
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                     it[eventCaptureEnabled] = true
                     it[eventCaptureNoticeVersion] = "1"
+                    it[conferenceBroadcastViewDefault] = ConferenceBroadcastView.SPEAKER // V1.9.262
                 }
                 EventCaptureAcknowledgmentTable.insert {
                     it[id] = Uuid.random()
@@ -415,6 +417,7 @@ class OrganizationBackupRoundTripTest :
                     OrganizationSettingsTable.selectAll().single().let {
                         it[OrganizationSettingsTable.eventCaptureEnabled] shouldBe true
                         it[OrganizationSettingsTable.eventCaptureNoticeVersion] shouldBe "1"
+                        it[OrganizationSettingsTable.conferenceBroadcastViewDefault] shouldBe ConferenceBroadcastView.SPEAKER
                     }
                     val proofs = EventCaptureAcknowledgmentTable.selectAll().toList()
                     proofs.size shouldBe 2

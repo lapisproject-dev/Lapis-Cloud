@@ -658,5 +658,11 @@ classDiagram(name = "OrganizationSettings") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "pause_music_updated_at" }
         }
+        // Welle V1.9.262 (V138__organization_broadcast_view_default.sql). Organisation default of the recording/stream view, NOT NULL,
+        // RASTER | SPEAKER, default RASTER. Copied into conference_room.broadcast_view only at room creation. NOT part of the generic write-set.
+        attribute(name = "conferenceBroadcastViewDefault", type = "String") {
+            defaultValue = "RASTER"
+            stereotype("Column") { "columnName" to "conference_broadcast_view_default"; "sqlType" to "VARCHAR(7)" }
+        }
     }
 }

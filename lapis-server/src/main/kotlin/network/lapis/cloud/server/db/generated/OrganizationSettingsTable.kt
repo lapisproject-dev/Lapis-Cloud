@@ -6,6 +6,7 @@ import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.ProtocolConfirmationMode
@@ -134,6 +135,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val pauseMusicLabel: Column<String?> = varchar("pause_music_label", 80).nullable()
     public val pauseMusicDurationSeconds: Column<Short?> = short("pause_music_duration_seconds").nullable()
     public val pauseMusicUpdatedAt: Column<LocalDateTime?> = datetime("pause_music_updated_at").nullable()
+    // Welle V1.9.262 -- hand-edited (V138). Written ONLY by setConferenceBroadcastViewDefault; NOT part of the generic update write-set.
+    public val conferenceBroadcastViewDefault: Column<ConferenceBroadcastView> =
+        enumerationByName<ConferenceBroadcastView>("conference_broadcast_view_default", 7).default(ConferenceBroadcastView.RASTER)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

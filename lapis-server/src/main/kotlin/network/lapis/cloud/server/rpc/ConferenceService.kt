@@ -416,6 +416,8 @@ class ConferenceService(
                 it[ConferenceRoomTable.allowFederationGuests] = input.allowFederationGuests
                 it[ConferenceRoomTable.muteOnJoin] = input.muteOnJoin
                 it[ConferenceRoomTable.participantsMayUnmute] = input.participantsMayUnmute
+                // V1.9.262: pre-fill from the organisation default; the room's own value wins from now on.
+                it[ConferenceRoomTable.broadcastView] = BroadcastViewDefaultStore.load()
             }
             val row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single()
             rowToDto(row = row, current = current, liveRooms = mapOf(newRoomName to liveKitRoom.numParticipants))

@@ -1158,6 +1158,9 @@ internal fun Application.module(
     val conferenceRequestUnmuteRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 30.seconds)
     val conferencePolicyRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 5.seconds)
     val conferenceBroadcastViewRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
+    // V1.9.262 -- org default of the broadcast view: bulk count 10/min, bulk apply 3/min per admin (module singletons, see OrganizationSettingsService).
+    val broadcastViewDefaultCountRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val broadcastViewDefaultApplyRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 1.minutes)
     val conferenceJoinLeaveSoundsRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
     val conferenceReactionsRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
     val conferencePauseRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
@@ -2538,6 +2541,8 @@ internal fun Application.module(
                 call = call,
                 pulpitRecording = pulpitRecordingCoordinator,
                 recordingInfrastructureAvailable = conferenceRecordingConfig.enabled && conferenceConfig.enabled,
+                broadcastViewCountRateLimiter = broadcastViewDefaultCountRateLimiter,
+                broadcastViewApplyRateLimiter = broadcastViewDefaultApplyRateLimiter,
             )
         }
         registerService(IOrganizationTimeZoneService::class) { call -> OrganizationTimeZoneService(call) }

@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.EventConferenceTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
+import network.lapis.cloud.server.rpc.BroadcastViewDefaultStore
 import network.lapis.cloud.server.rpc.ConferenceRoomCloser
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
@@ -272,6 +273,8 @@ internal class EventConferenceProvisioner(
                         it[allowFederationGuests] = plan.publicEvent
                         it[muteOnJoin] = false
                         it[participantsMayUnmute] = true
+                        // V1.9.262: pre-fill from the organisation default; the room's own value wins from now on.
+                        it[ConferenceRoomTable.broadcastView] = BroadcastViewDefaultStore.load()
                     }
                     if (!EventConferenceStore.activate(eventId = eventId, claimToken = plan.claimToken, conferenceRoomId = roomId)) {
                         throw ClaimSupersededException()

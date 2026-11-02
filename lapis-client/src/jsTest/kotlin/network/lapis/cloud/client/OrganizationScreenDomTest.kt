@@ -140,7 +140,7 @@ class OrganizationScreenDomTest {
                 assertTrue(page.sections().none { it.hasAttribute("open") }, "all sections start closed")
                 assertEquals("Zeitzone: Europe/Berlin · Mitgliederzahl öffentlich: an", page.summaryOf("allgemein"))
                 assertEquals("Rauschunterdrückung: an · Overlays: aus", page.summaryOf("videokonferenz"))
-                assertEquals("Pulpit-Aufzeichnung: aus · Veranstaltungen: aus", page.summaryOf("aufzeichnung"))
+                assertEquals("Pulpit-Aufzeichnung: aus · Veranstaltungen: aus · Standardansicht: Raster", page.summaryOf("aufzeichnung"))
                 assertEquals("Mitglieder-Finder: aus", page.summaryOf("mitglieder-finder"))
                 assertTrue(page.summaryOf("ausschreibungen").contains("Verdeckt bis zur Frist"))
                 // V1.9.244: a static summary, no RPC of its own

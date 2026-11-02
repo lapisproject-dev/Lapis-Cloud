@@ -62,6 +62,13 @@ class OrganizationSettingsSchemaDriftTest :
             transaction { introspectOrganizationSettingsTable() }.columns.getValue("noise_suppression_default").nullable shouldBe false
         }
 
+        test("conference_broadcast_view_default is NOT NULL in the model and in the migrated schema -- V1.9.262 addendum") {
+            val entity = model.entities.single { it.name == "organization_settings" }
+            entity.attributeByName("conference_broadcast_view_default")?.nullable shouldBe false
+            transaction { introspectOrganizationSettingsTable() }.columns.getValue("conference_broadcast_view_default").nullable shouldBe
+                false
+        }
+
         test("auction_enabled is NOT NULL, auction_max_value_ltr is nullable -- V0.6.2 addendum") {
             val entity = model.entities.single { it.name == "organization_settings" }
             entity.attributeByName("auction_enabled")?.nullable shouldBe false

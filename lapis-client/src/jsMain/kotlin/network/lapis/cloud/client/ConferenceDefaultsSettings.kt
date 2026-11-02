@@ -74,6 +74,8 @@ internal fun renderConferenceRecordingSettings(
             reload()
             onChanged()
         }
+        // V1.9.262 -- the organisation default of the recording/stream view (first block; saves at once, no rebuild)
+        renderBroadcastViewDefaultSection(panel, dto, onChanged)
         renderPulpitRecordingSection(panel, dto, changed)
         renderEventCaptureSection(panel, dto, changed)
         panel.link(tr("Stream-Ziele verwalten"), url = "#${Routes.CONFERENCE_STREAM_DESTINATIONS}", className = "small")

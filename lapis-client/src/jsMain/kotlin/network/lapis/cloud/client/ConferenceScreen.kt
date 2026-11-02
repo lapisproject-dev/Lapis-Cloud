@@ -7459,7 +7459,7 @@ private fun breakoutRecallConfirmDialog(onConfirm: () -> Unit) {
  * Hinweis ([CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS]) is static and unconditional, never implying a
  * protection that does not exist this wave (see [IConferenceStreamingService] KDoc "Out of scope").
  */
-private fun startStreamDialog(
+internal fun startStreamDialog(
     targets: List<ConferenceStreamTargetDto>,
     maxDestinations: Int,
     participantOptions: List<Pair<String, String>>,

@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.262 -- Organisation default for the recording/stream view
+
+- **Setting:** under *Organisation > Aufzeichnung & Übertragung* (first block) an administrator chooses the default view for recordings and the stream dialog pre-fill: *Raster* (default, unchanged for every existing instance) or *Sprecher groß*. The two radios save at once; a refusal puts the radio back; a status line (`aria-live`) names the saved view; the section summary shows it.
+- **Precedence:** the default is copied into `conference_room.broadcast_view` only when a room is created (`ConferenceService.createRoom`, `EventConferenceProvisioner`). It never changes an existing room, and a room's own choice (moderation `setRoomBroadcastView`) always wins over a later change of the default. A running recording keeps the view frozen at its start.
+- **Action:** "Auf alle bestehenden Räume anwenden" counts first, asks (focus on "Abbrechen", singular/plural text) and then sets every open room to the *stored* default; with nothing to change a small notice appears instead. Rooms that are ended and encounter-space rooms (whose column is never read) are excluded. One `ORGANIZATION_SETTINGS`/`UPDATE` audit entry per real change, carrying value and count only (no room ids or titles); a no-op writes nothing.
+- **API (appended at the end of `IOrganizationSettingsService`):** `setConferenceBroadcastViewDefault`, `countRoomsDifferingFromBroadcastViewDefault`, `applyBroadcastViewDefaultToExistingRooms`, all ADMIN-only (role check before the limiter and any DB access). Count is limited to 10 and apply to 3 per minute and administrator. The generic `updateOrganizationSettings` never writes the column. `OrganizationSettingsDto.conferenceBroadcastViewDefault` is the last field.
+- **Migration V138:** `organization_settings.conference_broadcast_view_default VARCHAR(7) NOT NULL DEFAULT 'RASTER'` with CHECK `chk_os_broadcast_view_default`; V137 is untouched. Model (`11-organization-settings.kuml.kts`), table object and backup round trip carry the column. Apply reads the organisation row `FOR UPDATE` (lock order: organisation row, rooms, audit chain; no cycle with moderation or recording start).
+- **Decision:** encounter-space rooms are not pre-filled and not counted (their column is never read; pulpit recording has its own path).
+- **Not verified:** a real recording or stream through LiveKit egress, a real browser (only headless Chrome), the PostgreSQL lane of the migration test (see the wave report). The translations (en, es, fr, it, nl, pl, ru) were written by the model, not by a native speaker.
+- **Docs:** `conference-recording.adoc`, `video-conferencing.adoc`, `CLAUDE.md`.
+
 ### V1.9.261 -- Partner origin of embed registrations is recorded again
 
 - **Migration V137:** new column `event_registration.embed_origin` (`VARCHAR(255)`, nullable, existing rows `NULL`, no data rewrite) and the CHECK `chk_event_registration_embed_origin_guest` (`embed_origin IS NULL OR member_id IS NULL`): only a guest registration can carry an origin. The kuml model (`39-events.kuml.kts`) and `EventRegistrationTable` carry the column.

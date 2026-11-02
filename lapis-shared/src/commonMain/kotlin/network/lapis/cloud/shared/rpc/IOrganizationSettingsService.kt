@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.domain.TenderBidVisibility
@@ -78,4 +79,23 @@ interface IOrganizationSettingsService {
      * touches the column. A published tender keeps its own visibility.
      */
     suspend fun updateTenderDefaultVisibility(visibility: TenderBidVisibility): OrganizationSettingsDto
+
+    /**
+     * V1.9.262. Role: ADMIN only. Sets the organisation default view (RASTER | SPEAKER) for recordings and the stream dialog pre-fill of NEW
+     * rooms. Existing rooms keep their own value. A change writes one audit entry; the same value writes nothing.
+     */
+    suspend fun setConferenceBroadcastViewDefault(view: ConferenceBroadcastView): OrganizationSettingsDto
+
+    /**
+     * V1.9.262. Role: ADMIN only. Read-only: number of rooms that are not ended, not an encounter session room, and whose view differs from
+     * the stored organisation default.
+     */
+    suspend fun countRoomsDifferingFromBroadcastViewDefault(): Int
+
+    /**
+     * V1.9.262. Role: ADMIN only. Sets every such room to the STORED organisation default (the client passes no value). Returns the number of
+     * rooms changed. 0 writes nothing and no audit entry (idempotent); > 0 writes exactly one ORGANIZATION_SETTINGS/UPDATE entry with value and
+     * count. Running recordings keep the view frozen at their start; applies from the next recording / stream start.
+     */
+    suspend fun applyBroadcastViewDefaultToExistingRooms(): Int
 }
