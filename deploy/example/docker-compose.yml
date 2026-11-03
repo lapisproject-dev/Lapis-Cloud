@@ -57,7 +57,7 @@ services:
     # V1.9.93: the server pulls the image CI published for a release tag instead of compiling the sources itself.
     # LAPIS_IMAGE_TAG is an exact version without the leading `v` (never `latest`); rollback = set the old value.
     # To build from source instead, add the override file: see docker-compose.build.yml.
-    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.45.2)}
+    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.46.0)}
     container_name: lapis-cloud-server
     depends_on:
       postgres:
@@ -125,6 +125,9 @@ services:
       # stream destination RTMP keys at rest (32 raw bytes, base64-encoded) -- generate with
       # `openssl rand -base64 32`, never reuse across deployments.
       LAPIS_STREAMING_ENABLED: "true"
+      # Pause picture/music in the live stream (V1.9.255) -- OPTIONAL, see .env.example. Empty = default (feed on).
+      LAPIS_STREAM_PAUSE_FEED_ENABLED: ${LAPIS_STREAM_PAUSE_FEED_ENABLED:-}
+      LAPIS_PAUSE_MEDIA_STORAGE_ROOT: ${LAPIS_PAUSE_MEDIA_STORAGE_ROOT:-}
       LAPIS_SECRET_ENCRYPTION_KEY: ${LAPIS_SECRET_ENCRYPTION_KEY:?LAPIS_SECRET_ENCRYPTION_KEY must be set in .env}
       # Price-Oracle Gold anchor (V0.6.6) -- all three OPTIONAL, unlike the ":?must be set" vars
       # above. Only needed if this deployment's anchor is switched to GOLD_XAU (default stays
