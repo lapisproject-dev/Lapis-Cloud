@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.mcp.config
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle V1.8.1 -- operator configuration of the optional MCP resource-server layer. **Default
  * OFF.** Modelled directly on `network.lapis.cloud.server.ai.config.AiConfig`: [load] never
@@ -97,7 +99,7 @@ internal class McpConfig private constructor(
          * has no provider profile to short-circuit on) -- a bad tuning variable is reported even
          * while the feature itself is off, so an operator sees the problem before flipping it on.
          */
-        fun load(env: (String) -> String? = System::getenv): McpConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): McpConfig {
             val enabled = env(ENV_ENABLED)?.trim().equals("true", ignoreCase = true)
             // Boolean has no "invalid" shape (any non-"true" value simply means false) -- no
             // `invalid` entry for this variable, same as ENV_ENABLED itself.

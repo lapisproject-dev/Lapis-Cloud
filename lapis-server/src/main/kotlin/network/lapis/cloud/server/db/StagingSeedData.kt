@@ -2,6 +2,7 @@ package network.lapis.cloud.server.db
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.TimeZone
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.StagingSeedChapters.auditAndGrantOfficers
 import network.lapis.cloud.server.db.StagingSeedChapters.insertChapters
 import network.lapis.cloud.server.db.StagingSeedCommunity.seedCommunity
@@ -439,7 +440,7 @@ object StagingSeedData {
      * [database] exists only so tests can aim the (otherwise unchanged) gate at an isolated database.
      */
     fun seedIfEmpty(
-        env: (String) -> String? = System::getenv,
+        env: (String) -> String? = SecretEnv::get,
         database: Database? = null,
     ) {
         when (val decision = StagingSeedConfig.decide(env)) {

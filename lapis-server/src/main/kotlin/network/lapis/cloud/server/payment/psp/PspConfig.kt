@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.payment.psp
 
+import network.lapis.cloud.server.config.SecretEnv
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -118,7 +119,7 @@ class PspConfig private constructor(
          * codebase establishes). Never throws -- see [PspConfigState.Incomplete] for how a broken
          * configuration is reported instead.
          */
-        fun load(env: (String) -> String? = System::getenv): PspConfigState {
+        fun load(env: (String) -> String? = SecretEnv::get): PspConfigState {
             fun value(key: String): String? = env(key)?.trim()?.takeUnless { it.isBlank() }
 
             val anySet = ALL_ENV_KEYS.any { value(it) != null }

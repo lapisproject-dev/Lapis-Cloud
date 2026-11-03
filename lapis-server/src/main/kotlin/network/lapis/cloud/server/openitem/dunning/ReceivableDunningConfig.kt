@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.openitem.dunning
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle V1.4.15 -- configuration for the automated receivable-dunning poller, structurally
  * independent from [network.lapis.cloud.server.payment.dunning.DunningConfig] (the pre-existing
@@ -23,7 +25,7 @@ class ReceivableDunningConfig private constructor(
         private const val MIN_MAX_NOTICES_PER_TICK = 1
         private const val MAX_MAX_NOTICES_PER_TICK = 5000
 
-        fun load(env: (String) -> String? = System::getenv): ReceivableDunningConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): ReceivableDunningConfig {
             val pollerEnabled = env("LAPIS_RECEIVABLE_DUNNING_POLLER_ENABLED")?.trim().equals("true", ignoreCase = true)
             val pollIntervalSeconds =
                 (env("LAPIS_RECEIVABLE_DUNNING_POLL_INTERVAL_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_POLL_INTERVAL_SECONDS)

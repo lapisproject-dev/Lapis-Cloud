@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.generated.ConferenceBackgroundImageTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.eq
@@ -21,7 +22,7 @@ private val logger = KotlinLogging.logger {}
  * [TravelExpensePersonalData] already establishes for its own `receiptStorageRoot`.
  */
 private val backgroundStorageRoot: File
-    get() = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
+    get() = File(SecretEnv.get("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
 
 /**
  * Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen" -- owns

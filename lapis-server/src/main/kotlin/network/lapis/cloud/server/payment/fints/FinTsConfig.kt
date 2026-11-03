@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.payment.fints
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle V1.4.14 Wave 2 "FinTS/HBCI-Live-Kontoabruf". Configuration for [FinTsPoller] and both
  * [Hbci4jFinTsClient] operations. Pure string parsing, no I/O -- **deliberately no fail-fast**,
@@ -46,7 +48,7 @@ class FinTsConfig private constructor(
 
         private const val DEFAULT_PASSPORT_DIR_SUFFIX = "fints-passports"
 
-        fun load(env: (String) -> String? = System::getenv): FinTsConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): FinTsConfig {
             val pollerEnabled = env("LAPIS_FINTS_POLLER_ENABLED")?.trim().equals("true", ignoreCase = true)
             val pollIntervalSeconds =
                 (env("LAPIS_FINTS_POLL_INTERVAL_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_POLL_INTERVAL_SECONDS)

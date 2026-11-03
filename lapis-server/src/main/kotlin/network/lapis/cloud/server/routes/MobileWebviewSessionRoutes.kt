@@ -11,6 +11,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.ApiKeyStore
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -37,8 +38,8 @@ import network.lapis.cloud.server.security.SessionStore
  * The deploy compose files deliberately do NOT pass this variable through, so PdV, ELB and Staging
  * stay off unless an operator adds it to the service `environment:` block on purpose.
  */
-internal fun mobileWebviewBridgeEnabled(getenv: (String) -> String? = System::getenv): Boolean =
-    getenv("LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED")?.trim().equals("true", ignoreCase = true)
+internal fun mobileWebviewBridgeEnabled(env: (String) -> String? = SecretEnv::get): Boolean =
+    env("LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED")?.trim().equals("true", ignoreCase = true)
 
 /**
  * V1.5.2 -- server-side allowlist of the generic section bridge: `section` key -> redirect target.

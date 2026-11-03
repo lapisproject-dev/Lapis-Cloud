@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.federation
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.security.DeploymentMode
 
 private val logger = KotlinLogging.logger {}
@@ -19,7 +20,7 @@ private val logger = KotlinLogging.logger {}
  * loud, non-fatal signal that a real deployment must override this.
  */
 object FederationConfig {
-    val publicBaseUrl: String = System.getenv("LAPIS_PUBLIC_BASE_URL") ?: "http://localhost:8080"
+    val publicBaseUrl: String = SecretEnv.get("LAPIS_PUBLIC_BASE_URL") ?: "http://localhost:8080"
 
     val actorUri: String get() = "$publicBaseUrl/federation/actor"
     val inboxUri: String get() = "$publicBaseUrl/federation/inbox"

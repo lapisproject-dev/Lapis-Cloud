@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.webhook
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.crypto.SecretBox
 import java.util.Base64
 
@@ -79,7 +80,7 @@ data class WebhookConfig(
         private const val MIN_POLL_INTERVAL_SECONDS = 1L
         private const val MIN_RETENTION_DAYS = 1
 
-        fun load(env: (String) -> String? = System::getenv): WebhookConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): WebhookConfig {
             val enabled = env("LAPIS_WEBHOOKS_ENABLED")?.trim().equals("true", ignoreCase = true)
             val allowInsecureRaw = env("LAPIS_WEBHOOKS_ALLOW_INSECURE")?.trim()
             if (allowInsecureRaw != null) {

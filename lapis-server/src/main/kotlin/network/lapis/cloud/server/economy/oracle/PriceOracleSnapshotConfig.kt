@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.economy.oracle
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle "Price-Oracle-Preishistorie". Configuration for [PriceOracleSnapshotPoller] -- pure string
  * parsing, same "safe to call unconditionally" posture as `SepaConfig.load`/`FinTsConfig.load`.
@@ -14,7 +16,7 @@ class PriceOracleSnapshotConfig private constructor(
         private const val DEFAULT_INTERVAL_SECONDS = 3600L
         private const val MIN_INTERVAL_SECONDS = 300L
 
-        fun load(env: (String) -> String? = System::getenv): PriceOracleSnapshotConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): PriceOracleSnapshotConfig {
             val enabled = env("LAPIS_ORACLE_SNAPSHOT_ENABLED")?.trim().equals("true", ignoreCase = true)
             val intervalSeconds =
                 (env("LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_INTERVAL_SECONDS)

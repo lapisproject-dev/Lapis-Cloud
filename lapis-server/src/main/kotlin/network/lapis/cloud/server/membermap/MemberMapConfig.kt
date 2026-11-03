@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.membermap
 
+import network.lapis.cloud.server.config.SecretEnv
 import java.io.File
 
 /**
@@ -32,7 +33,7 @@ data class MemberMapConfig(
         private const val REQUIRED_EXTENSION = "pmtiles"
 
         /** Pure string validation ONLY -- no file I/O, never throws. See class KDoc. */
-        fun load(env: (String) -> String? = System::getenv): MemberMapConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): MemberMapConfig {
             val invalid = mutableListOf<String>()
             val raw = env(ENV_PMTILES_PATH)?.trim()?.takeUnless { it.isBlank() }
             val path =

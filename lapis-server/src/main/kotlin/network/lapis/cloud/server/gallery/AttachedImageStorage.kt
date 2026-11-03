@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.gallery
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.events.CoverImageFormat
 import java.io.File
 import java.nio.file.Files
@@ -91,7 +92,7 @@ internal class AttachedImageStorage(
 
         fun fromEnvironment(
             documentStorageRoot: File? = null,
-            env: (String) -> String? = System::getenv,
+            env: (String) -> String? = SecretEnv::get,
         ): AttachedImageStorage {
             val explicit = env(ENV_STORAGE_ROOT)?.takeIf { it.isNotBlank() }
             val root =

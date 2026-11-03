@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.embed
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 
 private val logger = KotlinLogging.logger {}
 
@@ -46,7 +47,7 @@ data class EmbedConfig(
         /** For tests, and for any caller that needs the feature turned off outright. */
         val DISABLED = EmbedConfig(enabled = false, allowlist = EmbedOriginAllowlist.EMPTY, allowInsecureOrigins = false)
 
-        fun load(env: (String) -> String? = System::getenv): EmbedConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): EmbedConfig {
             val enabled = env(ENV_ENABLED)?.trim().equals("true", ignoreCase = true)
 
             val allowInsecureRaw = env(ENV_ALLOW_INSECURE)?.trim()

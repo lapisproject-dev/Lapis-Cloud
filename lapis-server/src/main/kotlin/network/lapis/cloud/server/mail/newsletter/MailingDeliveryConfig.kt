@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.mail.newsletter
 
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -31,7 +32,7 @@ object MailingDeliveryConfig {
      * unless the caller separately verifies real SMTP is actually configured -- see
      * `Application.module()`'s call site, which checks `SmtpConfigState` immediately after.
      */
-    fun load(env: (String) -> String? = System::getenv): MailingDeliveryMode {
+    fun load(env: (String) -> String? = SecretEnv::get): MailingDeliveryMode {
         val raw = env(ENV_KEY)?.trim()?.lowercase()?.takeUnless { it.isBlank() } ?: VALUE_LOG
         return when (raw) {
             VALUE_LOG -> MailingDeliveryMode.LOG
@@ -50,7 +51,7 @@ object MailingDeliveryConfig {
      * for the netcup relay is an open operational question, this default is a conservative
      * placeholder). Fails fast on a non-numeric or negative value, same posture as [load].
      */
-    fun loadSendDelay(env: (String) -> String? = System::getenv): Duration {
+    fun loadSendDelay(env: (String) -> String? = SecretEnv::get): Duration {
         val raw = env(ENV_KEY_SEND_DELAY_MS)?.trim()?.takeUnless { it.isBlank() } ?: return DEFAULT_SEND_DELAY_MS.milliseconds
         val millis = raw.toLongOrNull()
         if (millis == null || millis < 0) {

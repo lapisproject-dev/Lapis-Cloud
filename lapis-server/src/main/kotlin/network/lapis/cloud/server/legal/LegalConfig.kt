@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.legal
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * V1.4.7 "Rechtstexte" -- the operator-supplied details that fill the Impressum/Datenschutz
  * templates (`GET /impressum`, `GET /datenschutz`). Pure string validation, NO I/O -- exactly the
@@ -79,7 +81,7 @@ class LegalConfig private constructor(
          * value is recorded in [LegalConfig.invalid] and the field falls back to `null`, see class
          * KDoc.
          */
-        fun load(env: (String) -> String? = System::getenv): LegalConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): LegalConfig {
             val invalid = mutableListOf<String>()
 
             fun readField(name: String): String? {

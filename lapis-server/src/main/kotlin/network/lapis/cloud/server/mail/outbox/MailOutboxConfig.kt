@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.mail.outbox
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.mail.MailBudgetConfig
 import java.util.Base64
@@ -36,7 +37,7 @@ object MailOutboxConfig {
     fun load(
         smtpConfigured: Boolean,
         budgetEnabled: Boolean,
-        env: (String) -> String? = System::getenv,
+        env: (String) -> String? = SecretEnv::get,
     ): MailOutboxSetup? {
         if (!smtpConfigured) {
             check(!budgetEnabled) { "${MailBudgetConfig.ENV_MAX} requires real SMTP configuration (LAPIS_SMTP_*) -- none is set." }

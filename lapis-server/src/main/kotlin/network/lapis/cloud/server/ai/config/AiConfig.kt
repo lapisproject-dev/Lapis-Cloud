@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.ai.config
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle V1.6.1 -- operator configuration of the optional AI assistance layer. **Default OFF.**
  *
@@ -86,7 +88,7 @@ internal class AiConfig private constructor(
          * Pure string/number validation, no I/O. Never throws. With `LAPIS_AI_ENABLED` unset or not
          * exactly `true` nothing else is even looked at (a disabled feature has no profile to validate).
          */
-        fun load(env: (String) -> String? = System::getenv): AiConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): AiConfig {
             val enabled = env(ENV_ENABLED)?.trim().equals("true", ignoreCase = true)
             val invalid = mutableListOf<String>()
 

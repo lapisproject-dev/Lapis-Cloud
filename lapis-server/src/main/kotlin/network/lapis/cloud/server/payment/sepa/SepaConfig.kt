@@ -3,6 +3,7 @@ package network.lapis.cloud.server.payment.sepa
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.crypto.SecretBox
 import java.util.Base64
 
@@ -72,7 +73,7 @@ class SepaConfig private constructor(
             lastUsedAt: LocalDate?,
         ): LocalDate = (lastUsedAt ?: grantedAt).plus(MANDATE_EXPIRY_MONTHS, DateTimeUnit.MONTH)
 
-        fun load(env: (String) -> String? = System::getenv): SepaConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): SepaConfig {
             val pollerEnabled = env("LAPIS_SEPA_POLLER_ENABLED")?.trim().equals("true", ignoreCase = true)
             val pollIntervalSeconds =
                 (env("LAPIS_SEPA_POLL_INTERVAL_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_POLL_INTERVAL_SECONDS)

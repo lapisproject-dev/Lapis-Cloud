@@ -2,6 +2,7 @@ package network.lapis.cloud.server.governance.session
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.TimeZone
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.MeetingTable
@@ -65,7 +66,7 @@ private class ArchiveInput(
 internal class ProtocolPdfArchiver(
     storageRoot: File?,
 ) {
-    private val root: File = storageRoot ?: File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
+    private val root: File = storageRoot ?: File(SecretEnv.get("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
 
     fun archive(
         versionId: Uuid,

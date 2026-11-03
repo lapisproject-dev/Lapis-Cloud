@@ -111,3 +111,5 @@ the reaper and a mailing-list send, and fails if the address, its local part, th
   at FINE, so nothing reaches the output. If a bridge is added later, the converters do not cover it.
 * The client-facing side (what the browser sees) is a separate mechanism: `RpcErrorSanitizer` and `installSqlExceptionHandler`, see
   link:database-timeouts-and-retries.adoc[database-timeouts-and-retries.adoc].
+* Secrets handed over as files (`<NAME>_FILE`, V1.9.266) are never logged: the log line and every error name the variable only,
+  see link:secret-files.adoc[secret-files.adoc].

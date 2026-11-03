@@ -3,6 +3,7 @@ package network.lapis.cloud.server.db
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import java.util.UUID
@@ -38,16 +39,12 @@ object DatabaseConfig {
     fun connect(): Database = database
 
     private fun buildAndMigrate(): Database {
-        val jdbcUrl =
-            System.getenv("LAPIS_DB_URL")
-                ?: "jdbc:h2:mem:$inMemoryDatabaseName;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE"
-        val username = System.getenv("LAPIS_DB_USER") ?: "sa"
-        val password = System.getenv("LAPIS_DB_PASSWORD") ?: ""
-        val poolSize = System.getenv("LAPIS_DB_POOL_SIZE")?.toIntOrNull() ?: 10
-        // `connectionTimeout` bounds how long a caller waits to ACQUIRE a pooled connection; it does NOT
-        // bound a wait on a database-level row lock. That backstop is the Postgres-side session timeouts
-        // introduced in V1.9.55 (see DbSessionTimeouts and docs/architecture/database-timeouts-and-retries.adoc).
-        val connectionTimeoutMs = System.getenv("LAPIS_DB_CONNECTION_TIMEOUT_MS")?.toLongOrNull() ?: 30_000L
+        val settings = dbConnectionSettings(inMemoryName = inMemoryDatabaseName)
+        val jdbcUrl = settings.jdbcUrl
+        val username = settings.username
+        val password = settings.password
+        val poolSize = settings.poolSize
+        val connectionTimeoutMs = settings.connectionTimeoutMs
 
         // Invalid timeout variables abort startup (fail fast) -- see DbSessionTimeouts.fromEnv.
         val timeouts = DbSessionTimeouts.fromEnv()
@@ -134,3 +131,33 @@ object DatabaseConfig {
             .locations("classpath:db/migration")
             .load()
 }
+
+/** V1.9.266 -- resolved connection settings; [toString] never shows the password. */
+internal data class DbConnectionSettings(
+    val jdbcUrl: String,
+    val username: String,
+    val password: String,
+    val poolSize: Int,
+    val connectionTimeoutMs: Long,
+) {
+    override fun toString(): String =
+        "DbConnectionSettings(username=$username, password=<redacted>, poolSize=$poolSize, connectionTimeoutMs=$connectionTimeoutMs)"
+}
+
+/** Reads the DB connection settings through [env] (defaults to [SecretEnv.get], so `LAPIS_DB_PASSWORD_FILE` works). */
+internal fun dbConnectionSettings(
+    env: (String) -> String? = SecretEnv::get,
+    inMemoryName: String,
+): DbConnectionSettings =
+    DbConnectionSettings(
+        jdbcUrl =
+            env("LAPIS_DB_URL")
+                ?: "jdbc:h2:mem:$inMemoryName;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
+        username = env("LAPIS_DB_USER") ?: "sa",
+        password = env("LAPIS_DB_PASSWORD") ?: "",
+        poolSize = env("LAPIS_DB_POOL_SIZE")?.toIntOrNull() ?: 10,
+        // `connectionTimeout` bounds how long a caller waits to ACQUIRE a pooled connection; it does NOT
+        // bound a wait on a database-level row lock. That backstop is the Postgres-side session timeouts
+        // introduced in V1.9.55 (see DbSessionTimeouts and docs/architecture/database-timeouts-and-retries.adoc).
+        connectionTimeoutMs = env("LAPIS_DB_CONNECTION_TIMEOUT_MS")?.toLongOrNull() ?: 30_000L,
+    )

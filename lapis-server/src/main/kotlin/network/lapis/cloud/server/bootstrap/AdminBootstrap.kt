@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.forMemberUpdate
@@ -533,9 +534,10 @@ object AdminBootstrap {
 }
 
 fun main() {
+    SecretEnv.preflight()
     val action =
-        System
-            .getenv("LAPIS_BOOTSTRAP_ACTION")
+        SecretEnv
+            .get("LAPIS_BOOTSTRAP_ACTION")
             ?.trim()
             ?.lowercase()
             ?.ifEmpty { null } ?: "reset-password"
@@ -575,12 +577,12 @@ private fun reportConsoleChange(result: AdminBootstrap.ConsoleChangeResult) {
 
 private fun mainSetRole() {
     val email =
-        System.getenv("LAPIS_BOOTSTRAP_TARGET_EMAIL") ?: error("LAPIS_BOOTSTRAP_TARGET_EMAIL must be set")
+        SecretEnv.get("LAPIS_BOOTSTRAP_TARGET_EMAIL") ?: error("LAPIS_BOOTSTRAP_TARGET_EMAIL must be set")
     val role =
         runCatching {
             AccountRole.valueOf(
-                System
-                    .getenv("LAPIS_BOOTSTRAP_ROLE")
+                SecretEnv
+                    .get("LAPIS_BOOTSTRAP_ROLE")
                     ?.trim()
                     ?.uppercase()
                     .orEmpty(),
@@ -592,12 +594,12 @@ private fun mainSetRole() {
 
 private fun mainSetStatus() {
     val email =
-        System.getenv("LAPIS_BOOTSTRAP_TARGET_EMAIL") ?: error("LAPIS_BOOTSTRAP_TARGET_EMAIL must be set")
+        SecretEnv.get("LAPIS_BOOTSTRAP_TARGET_EMAIL") ?: error("LAPIS_BOOTSTRAP_TARGET_EMAIL must be set")
     val status =
         runCatching {
             MemberStatus.valueOf(
-                System
-                    .getenv("LAPIS_BOOTSTRAP_STATUS")
+                SecretEnv
+                    .get("LAPIS_BOOTSTRAP_STATUS")
                     ?.trim()
                     ?.uppercase()
                     .orEmpty(),
@@ -611,15 +613,25 @@ private fun mainSetStatus() {
     reportConsoleChange(AdminBootstrap.setStatus(email = email, newStatus = status))
 }
 
+internal data class ResetPasswordInputs(
+    val email: String,
+    val password: String,
+    val displayName: String?,
+    val force: Boolean,
+) {
+    override fun toString(): String = "ResetPasswordInputs(email=$email, password=<redacted>, displayName=$displayName, force=$force)"
+}
+
+internal fun resetPasswordInputs(env: (String) -> String? = SecretEnv::get): ResetPasswordInputs =
+    ResetPasswordInputs(
+        email = env("LAPIS_BOOTSTRAP_ADMIN_EMAIL") ?: error("LAPIS_BOOTSTRAP_ADMIN_EMAIL must be set"),
+        password = env("LAPIS_BOOTSTRAP_ADMIN_PASSWORD") ?: error("LAPIS_BOOTSTRAP_ADMIN_PASSWORD must be set"),
+        displayName = env("LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME"),
+        force = env("LAPIS_BOOTSTRAP_FORCE")?.equals("true", ignoreCase = true) == true,
+    )
+
 private fun mainResetPassword() {
-    val email =
-        System.getenv("LAPIS_BOOTSTRAP_ADMIN_EMAIL")
-            ?: error("LAPIS_BOOTSTRAP_ADMIN_EMAIL must be set")
-    val password =
-        System.getenv("LAPIS_BOOTSTRAP_ADMIN_PASSWORD")
-            ?: error("LAPIS_BOOTSTRAP_ADMIN_PASSWORD must be set")
-    val displayName = System.getenv("LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME")
-    val force = System.getenv("LAPIS_BOOTSTRAP_FORCE")?.equals("true", ignoreCase = true) == true
+    val (email, password, displayName, force) = resetPasswordInputs()
 
     DatabaseConfig.connect()
 

@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.branding
 
+import network.lapis.cloud.server.config.SecretEnv
 import java.io.File
 
 /**
@@ -73,7 +74,7 @@ class BrandConfig private constructor(
          * -- an invalid value is recorded in [BrandConfig.invalid] and the corresponding field
          * falls back to its default, see class KDoc.
          */
-        fun load(env: (String) -> String? = System::getenv): BrandConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): BrandConfig {
             val invalid = mutableListOf<String>()
 
             val rawTitle = env(ENV_TITLE)?.trim()?.takeUnless { it.isBlank() }

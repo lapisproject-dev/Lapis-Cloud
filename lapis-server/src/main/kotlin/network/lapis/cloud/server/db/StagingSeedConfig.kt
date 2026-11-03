@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.db
 
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.shared.rpc.WeakPasswordException
 
@@ -36,7 +37,7 @@ internal object StagingSeedConfig {
     /** Never a real login target — used only so [decide] can refuse a seed password identical to the source-published [DevSeedData.DEMO_PASSWORD]. */
     private const val STAGING_POLICY_CHECK_EMAIL: String = StagingSeedData.STAGING_ADMIN_EMAIL
 
-    fun decide(env: (String) -> String? = System::getenv): StagingSeedDecision {
+    fun decide(env: (String) -> String? = SecretEnv::get): StagingSeedDecision {
         val modeValue = env(ENV_STAGING_MODE)
         // Case-sensitive, exact-literal comparison -- mirrors AuthTestMode.evaluate's
         // `testModeProperty == "true"`. "True"/"TRUE"/"1"/"yes" etc. are all treated as unset

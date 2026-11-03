@@ -891,6 +891,47 @@ password, LiveKit API key/secret, coturn shared secret -- see `deploy/local/dock
 the dev-only equivalents of those, which must NOT be reused here). Never committed, never logged,
 never baked into the image.
 
+=== Optional: secrets as files (V1.9.266)
+
+Instead of `NAME` the server also accepts `NAME_FILE=/run/secrets/<file>` for 18 secrets (database password, encryption key, SMTP
+password, Stripe/PayPal secrets, LiveKit/TURN secrets, AI and Letterxpress keys, oracle keys, bootstrap passwords; the full list is
+in `docs/architecture/secret-files.adoc`). The default is unchanged: without a `_FILE` variable nothing changes.
+
+* Rules: absolute path, regular file (links are followed), at most 64 KiB, UTF-8 without byte order mark, one trailing line break
+  is removed. `NAME` and `NAME_FILE` together stop the start. A broken file stops the start; the message names the variable, never
+  the path or the value.
+* Rotation means restart. There is no reload.
+* Permissions: mode `0400` or `0440`. Without Swarm, Compose bind-mounts the host file, so the host file's owner and mode apply;
+  the image runs as the system user `lapiscloud` (see `Dockerfile`), which must be able to read it.
+* `/run/secrets` does not show up in `docker inspect`, an environment variable does.
+* After the switch remove the old values from `.env`, otherwise they still sit there in plain text. Also delete old
+  `.env.bak-*` copies on the servers (operator task).
+* `render-secrets.sh` (LiveKit, coturn, egress) still needs the plain values for its templates. `POSTGRES_PASSWORD_FILE` of the
+  Postgres image is a separate feature and not part of this.
+
+Compose snippet (a *separate, edited copy* of the compose file; a small override file does not work, see below):
+
+[source,yaml]
+----
+secrets:
+  lapis_db_password:
+    file: ./secrets/lapis_db_password   # chmod 0400
+
+services:
+  lapis-server:
+    secrets: [lapis_db_password]
+    environment:
+      # remove the line  LAPIS_DB_PASSWORD: ${LAPIS_DB_PASSWORD:?...}  and add:
+      LAPIS_DB_PASSWORD_FILE: /run/secrets/lapis_db_password
+----
+
+Why no ready-made override file: Docker Compose evaluates `${VAR:?...}` per file before merging, so an override cannot lift the
+`:?` checks of the base file (checked with `docker compose config` and dummy values: the error is raised even with `!reset`).
+The base file stays unchanged; instance copies edit their own line.
+
+Verified only with temporary files in unit tests and `docker compose config` with dummy values; not verified with real Docker
+Compose secrets, Swarm or Kubernetes.
+
 == Price-Oracle: Gold anchor (optional)
 
 `LAPIS_ORACLE_GOLDAPI_KEY`, `LAPIS_ORACLE_METALPRICEAPI_KEY`, `LAPIS_ORACLE_ALPHAVANTAGE_KEY` are

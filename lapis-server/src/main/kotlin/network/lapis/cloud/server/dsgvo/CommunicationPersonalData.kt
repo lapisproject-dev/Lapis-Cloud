@@ -3,6 +3,7 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.generated.DirectMessageAttachmentTable
 import network.lapis.cloud.server.db.generated.DirectMessageBlockTable
 import network.lapis.cloud.server.db.generated.DirectMessageTable
@@ -30,7 +31,7 @@ import kotlin.uuid.Uuid
 
 /** Same root `Application.module` computes for `documentStorageRoot`; re-derived like in `TravelExpensePersonalData` (no storage root reaches a contributor). */
 private val dmAttachmentStorageRoot: File
-    get() = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
+    get() = File(SecretEnv.get("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
 
 /**
  * Owns mailing lists/subscriptions/messages/delivery log plus direct messages.

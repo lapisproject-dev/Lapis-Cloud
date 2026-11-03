@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.conference
 
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.crypto.SecretBox
 import java.util.Base64
 
@@ -106,7 +107,7 @@ class ConferenceStreamingConfig private constructor(
          * Reads `LAPIS_STREAMING_ENABLED`/`LAPIS_SECRET_ENCRYPTION_KEY`/
          * `LAPIS_STREAM_MAX_DESTINATIONS`/`LAPIS_STREAM_POLL_INTERVAL_SECONDS`/
          * `LAPIS_STREAM_MAX_DURATION_MINUTES`/`LAPIS_STREAM_STARTUP_TIMEOUT_SECONDS`/
-         * `LAPIS_STREAMING_PAUSE_VERIFY_TIMEOUT_SECONDS` via [env] (defaults to [System.getenv]). See
+         * `LAPIS_STREAMING_PAUSE_VERIFY_TIMEOUT_SECONDS` via [env] (defaults to [SecretEnv.get]). See
          * class KDoc "Fail-fast on the encryption key" for the exact validation this method
          * performs. Unparseable numeric values silently fall back to their default rather than
          * throwing -- same "degrade to a sane default, never crash config load over a malformed
@@ -116,7 +117,7 @@ class ConferenceStreamingConfig private constructor(
          * while streaming is enabled would silently store credentials with no encryption at all,
          * which this class treats as never acceptable).
          */
-        fun load(env: (String) -> String? = System::getenv): ConferenceStreamingConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): ConferenceStreamingConfig {
             val enabled = env("LAPIS_STREAMING_ENABLED")?.trim().equals("true", ignoreCase = true)
             val rawKey = env("LAPIS_SECRET_ENCRYPTION_KEY")?.trim().orEmpty()
             val decodedKey = if (rawKey.isBlank()) null else decodeBase64OrNull(rawKey)

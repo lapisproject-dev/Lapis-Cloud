@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.bootstrap
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import org.flywaydb.core.Flyway
 import org.postgresql.ds.PGSimpleDataSource
 
@@ -41,10 +42,24 @@ private val logger = KotlinLogging.logger {}
  * Prints Flyway's own repair report (which entries it touched) at INFO before exiting 0. Idempotent
  * -- repairing an already-correct schema history is a documented no-op, safe to re-run.
  */
+internal data class FlywayRepairSettings(
+    val jdbcUrl: String,
+    val username: String,
+    val password: String,
+) {
+    override fun toString(): String = "FlywayRepairSettings(username=$username, password=<redacted>)"
+}
+
+internal fun flywayRepairSettings(env: (String) -> String? = SecretEnv::get): FlywayRepairSettings =
+    FlywayRepairSettings(
+        jdbcUrl = env("LAPIS_DB_URL") ?: error("LAPIS_DB_URL must be set"),
+        username = env("LAPIS_DB_USER") ?: error("LAPIS_DB_USER must be set"),
+        password = env("LAPIS_DB_PASSWORD") ?: error("LAPIS_DB_PASSWORD must be set"),
+    )
+
 fun main() {
-    val jdbcUrl = System.getenv("LAPIS_DB_URL") ?: error("LAPIS_DB_URL must be set")
-    val username = System.getenv("LAPIS_DB_USER") ?: error("LAPIS_DB_USER must be set")
-    val password = System.getenv("LAPIS_DB_PASSWORD") ?: error("LAPIS_DB_PASSWORD must be set")
+    SecretEnv.preflight()
+    val (jdbcUrl, username, password) = flywayRepairSettings()
 
     val dataSource =
         PGSimpleDataSource().apply {

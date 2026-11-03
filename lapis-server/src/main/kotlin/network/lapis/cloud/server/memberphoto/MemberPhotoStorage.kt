@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.memberphoto
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -64,7 +65,7 @@ internal class MemberPhotoStorage(
         const val ENV_STORAGE_ROOT = "LAPIS_MEMBER_PHOTO_STORAGE_ROOT"
         private val KEY_PATTERN = Regex("^[0-9a-f-]{36}\\.jpg$")
 
-        fun fromEnvironment(env: (String) -> String? = System::getenv): MemberPhotoStorage {
+        fun fromEnvironment(env: (String) -> String? = SecretEnv::get): MemberPhotoStorage {
             val explicit = env(ENV_STORAGE_ROOT)?.takeIf { it.isNotBlank() }
             val root =
                 if (explicit != null) {

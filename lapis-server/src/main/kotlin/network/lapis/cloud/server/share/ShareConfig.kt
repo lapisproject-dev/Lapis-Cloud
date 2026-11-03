@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.share
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import java.net.URI
 
 private val logger = KotlinLogging.logger {}
@@ -41,7 +42,7 @@ internal data class ShareConfig(
 
         fun load(
             baseUrl: String,
-            env: (String) -> String? = System::getenv,
+            env: (String) -> String? = SecretEnv::get,
         ): ShareConfig {
             val parsed = parse(env(ENV))
             if (parsed.unknown.isNotEmpty()) {

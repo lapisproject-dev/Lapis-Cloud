@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.payment.psp
 
+import network.lapis.cloud.server.config.SecretEnv
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -92,7 +93,7 @@ class PaypalConfig private constructor(
          * Reine String-Validierung, KEIN Netzwerk/I/O -- gleiche Haltung wie [PspConfig.load]. Wirft
          * niemals -- siehe [PaypalConfigState.Incomplete] für die Fehlerberichterstattung.
          */
-        fun load(env: (String) -> String? = System::getenv): PaypalConfigState {
+        fun load(env: (String) -> String? = SecretEnv::get): PaypalConfigState {
             fun value(key: String): String? = env(key)?.trim()?.takeUnless { it.isBlank() }
 
             val anySet = ALL_ENV_KEYS.any { value(it) != null }

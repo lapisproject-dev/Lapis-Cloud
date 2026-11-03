@@ -6,6 +6,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.DunningComplianceAcknowledgmentTable
@@ -100,7 +101,7 @@ private const val MAX_LEVEL_NUMBER = 1000
 class DunningService(
     private val call: ApplicationCall,
     private val dunningConfig: DunningConfig = DunningConfig.load(),
-    private val documentStorageRoot: File = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage"),
+    private val documentStorageRoot: File = File(SecretEnv.get("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage"),
     private val issueRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
 ) : IDunningService {
     // ════════════════════════════════════════════════════════════════════

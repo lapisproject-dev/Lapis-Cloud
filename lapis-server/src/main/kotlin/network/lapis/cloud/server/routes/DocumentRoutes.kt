@@ -17,6 +17,7 @@ import io.ktor.server.routing.post
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readAvailable
 import network.lapis.cloud.server.ai.kb.KnowledgeIndexer
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
@@ -50,7 +51,7 @@ import kotlin.uuid.Uuid
 private const val DEFAULT_MAX_UPLOAD_MB = 128L
 private const val MIN_MAX_UPLOAD_MB = 1L
 
-internal fun documentMaxUploadBytes(env: (String) -> String? = System::getenv): Long =
+internal fun documentMaxUploadBytes(env: (String) -> String? = SecretEnv::get): Long =
     (env("LAPIS_DOCUMENT_MAX_UPLOAD_MB")?.trim()?.toLongOrNull() ?: DEFAULT_MAX_UPLOAD_MB)
         .coerceAtLeast(MIN_MAX_UPLOAD_MB) * 1024 * 1024
 

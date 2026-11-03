@@ -14,6 +14,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.config.SecretEnv
 import java.util.Base64
 
 /**
@@ -69,10 +70,10 @@ import java.util.Base64
  * not "only guard against the one known leak vector".
  */
 class LetterxpressPostalMailProvider(
-    private val username: String? = System.getenv("LAPIS_LETTERXPRESS_USERNAME"),
-    private val apiKey: String? = System.getenv("LAPIS_LETTERXPRESS_APIKEY"),
-    private val liveMode: Boolean = System.getenv("LAPIS_LETTERXPRESS_LIVE_MODE")?.toBoolean() ?: false,
-    private val baseUrl: String = System.getenv("LAPIS_LETTERXPRESS_BASE_URL") ?: "https://api.letterxpress.de/v1",
+    private val username: String? = SecretEnv.get("LAPIS_LETTERXPRESS_USERNAME"),
+    private val apiKey: String? = SecretEnv.get("LAPIS_LETTERXPRESS_APIKEY"),
+    private val liveMode: Boolean = SecretEnv.get("LAPIS_LETTERXPRESS_LIVE_MODE")?.toBoolean() ?: false,
+    private val baseUrl: String = SecretEnv.get("LAPIS_LETTERXPRESS_BASE_URL") ?: "https://api.letterxpress.de/v1",
     private val httpClient: HttpClient = defaultLetterxpressHttpClient(),
 ) : PostalMailProvider {
     override suspend fun dispatchLetter(

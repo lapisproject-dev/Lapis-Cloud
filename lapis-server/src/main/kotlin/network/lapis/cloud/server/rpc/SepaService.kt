@@ -9,6 +9,7 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.forMemberUpdate
@@ -183,7 +184,7 @@ internal data class PreparedBatchFile(
 class SepaService(
     private val call: ApplicationCall,
     private val sepaConfig: SepaConfig = SepaConfig.load(),
-    private val documentStorageRoot: File = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage"),
+    private val documentStorageRoot: File = File(SecretEnv.get("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage"),
     private val mandateWriteRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
 ) : ISepaService {
     override suspend fun getSepaComplianceDisclaimer(): SepaComplianceDisclaimerDto {

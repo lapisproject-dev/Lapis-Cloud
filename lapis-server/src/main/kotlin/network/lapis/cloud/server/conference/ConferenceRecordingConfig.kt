@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.conference
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 
 private val logger = KotlinLogging.logger {}
@@ -97,13 +98,13 @@ class ConferenceRecordingConfig private constructor(
          * `LAPIS_EGRESS_OUTPUT_HOST_DIR`/`LAPIS_FFMPEG_PATH`/`LAPIS_RECORDING_POLL_INTERVAL_SECONDS`/
          * `LAPIS_RECORDING_EGRESS_TIMEOUT_MINUTES`/`LAPIS_RECORDING_MAX_DURATION_MINUTES`/
          * `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES`/`LAPIS_RECORDING_MAX_TRACKS`/
-         * `LAPIS_RECORDING_KEEP_RAW`/`LAPIS_RECORDING_EGRESS_MODE` via [env] (defaults to [System.getenv]). Pure string parsing,
+         * `LAPIS_RECORDING_KEEP_RAW`/`LAPIS_RECORDING_EGRESS_MODE` via [env] (defaults to [SecretEnv.get]). Pure string parsing,
          * no I/O -- see class KDoc. Unparseable numeric values silently fall back to their default
          * rather than throwing (same "degrade to a sane default, never crash config load over a
          * malformed number" posture [ConferenceConfig.load]'s own TTL/max-participants parsing
          * already establishes).
          */
-        fun load(env: (String) -> String? = System::getenv): ConferenceRecordingConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): ConferenceRecordingConfig {
             val ffmpegPath = env("LAPIS_FFMPEG_PATH")?.trim().orEmpty().ifBlank { DEFAULT_FFMPEG_PATH }
             return ConferenceRecordingConfig(
                 enabled = env("LAPIS_RECORDING_ENABLED")?.trim().equals("true", ignoreCase = true),

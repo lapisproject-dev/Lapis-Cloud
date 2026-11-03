@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.economy.oracle
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * V0.6.6 "Price-Oracle: Gold- und Fiat-Anker". Deployment-supplied API keys for the three key-gated
  * [network.lapis.cloud.shared.domain.AnchorAsset.GOLD_XAU] sources -- follows
@@ -28,7 +30,7 @@ class OracleSourceConfig private constructor(
             "alphaVantageKey=${redact(alphaVantageKey)})"
 
     companion object {
-        fun load(env: (String) -> String? = System::getenv): OracleSourceConfig =
+        fun load(env: (String) -> String? = SecretEnv::get): OracleSourceConfig =
             OracleSourceConfig(
                 goldApiKey = env("LAPIS_ORACLE_GOLDAPI_KEY")?.trim()?.takeUnless { it.isBlank() },
                 metalPriceApiKey = env("LAPIS_ORACLE_METALPRICEAPI_KEY")?.trim()?.takeUnless { it.isBlank() },

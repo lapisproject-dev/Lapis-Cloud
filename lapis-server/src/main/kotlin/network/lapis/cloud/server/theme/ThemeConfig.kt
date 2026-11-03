@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.theme
 
+import network.lapis.cloud.server.config.SecretEnv
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
 
@@ -15,7 +16,7 @@ data class ThemeConfig(
         const val ENV_PATH = "LAPIS_THEME_PATH"
         private const val MAX_LENGTH = 4096
 
-        fun load(env: (String) -> String? = System::getenv): ThemeConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): ThemeConfig {
             val raw = env(ENV_PATH)?.trim()
             if (raw.isNullOrEmpty()) return ThemeConfig(path = null, invalid = false)
             if (raw.length > MAX_LENGTH || raw.contains('\u0000') || raw.any { it < ' ' }) return ThemeConfig(path = null, invalid = true)

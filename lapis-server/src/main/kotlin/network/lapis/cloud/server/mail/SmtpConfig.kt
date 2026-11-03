@@ -2,6 +2,7 @@ package network.lapis.cloud.server.mail
 
 import jakarta.mail.internet.AddressException
 import jakarta.mail.internet.InternetAddress
+import network.lapis.cloud.server.config.SecretEnv
 
 /**
  * V1.2.3 Echter SMTP-Versand. Result of [SmtpConfig.load] -- a three-way state, mirroring
@@ -124,7 +125,7 @@ class SmtpConfig private constructor(
          * in this codebase establishes). Never throws -- see [SmtpConfigState.Incomplete] for how a
          * broken configuration is reported instead.
          */
-        fun load(env: (String) -> String? = System::getenv): SmtpConfigState {
+        fun load(env: (String) -> String? = SecretEnv::get): SmtpConfigState {
             fun value(key: String): String? = env(key)?.trim()?.takeUnless { it.isBlank() }
 
             val anySet = ALL_ENV_KEYS.any { value(it) != null }

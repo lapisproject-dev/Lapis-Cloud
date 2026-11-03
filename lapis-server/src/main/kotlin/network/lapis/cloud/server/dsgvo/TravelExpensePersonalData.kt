@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.generated.TravelExpenseAttachmentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseDocumentTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
@@ -37,7 +38,7 @@ private val logger = KotlinLogging.logger {}
  * DRAFT/never-submitted-WITHDRAWN case.
  */
 private val receiptStorageRoot: File
-    get() = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
+    get() = File(SecretEnv.get("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
 
 /**
  * Welle V1.4.11 "Reisekostenabrechnung für Vorstand und Funktionsträger" -- owns

@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.db
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.StagingSeedLtr.applyTopUp
 import network.lapis.cloud.server.db.StagingSeedTopUpGuard.instanceCheck
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -49,7 +50,7 @@ internal object StagingSeedTopUp {
         )
 
     fun topUpIfEligible(
-        env: (String) -> String? = System::getenv,
+        env: (String) -> String? = SecretEnv::get,
         database: Database? = null,
     ): StagingTopUpOutcome {
         if (StagingSeedTopUpGuard.envGate(env) != null) return StagingTopUpOutcome.Skipped(reason = "staging mode is not enabled")

@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.mail
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle V1.9.81 -- the hourly e-mail send budget (`LAPIS_MAIL_MAX_PER_HOUR`, `LAPIS_MAIL_RESERVE_PER_HOUR`).
  *
@@ -39,7 +41,7 @@ sealed interface MailBudgetConfig {
         /** Default reserve: `max(1, ceil(0.2 * max))`, in integer arithmetic. */
         fun defaultReserve(max: Int): Int = maxOf(1, (max + 4) / 5)
 
-        fun load(env: (String) -> String? = System::getenv): MailBudgetConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): MailBudgetConfig {
             val rawMax = env(ENV_MAX)?.trim().orEmpty()
             val rawReserve = env(ENV_RESERVE)?.trim().orEmpty()
             if (rawMax.isEmpty()) {

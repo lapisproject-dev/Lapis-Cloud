@@ -104,6 +104,7 @@ import network.lapis.cloud.server.conference.pausefeed.PauseFeedTargetPolicy
 import network.lapis.cloud.server.conference.pausefeed.PauseFeeds
 import network.lapis.cloud.server.conference.pausefeed.PauseMediaStore
 import network.lapis.cloud.server.conference.pausefeed.PauseMusicProcessor
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.contribution.ContributionReliefRedactionPoller
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.dashboard.DashboardCaches
@@ -533,6 +534,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 fun main() {
+    SecretEnv.preflight()
     // V1.4.35 Wiederkehrende Veranstaltungen: ical4j system properties, set before the library is
     // ever classloaded (first real use is inside RecurrenceExpander, triggered from RPC calls much
     // later -- but main() is the one place guaranteed to run before any of that). Two properties:
@@ -604,7 +606,7 @@ internal fun Application.module(
     DatabaseConfig.connect()
     DevSeedData.seedIfEmpty()
 
-    val documentStorageRoot = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
+    val documentStorageRoot = File(SecretEnv.get("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
     documentStorageRoot.mkdirs()
     // V1.9.263: one shared limiter for the ADMIN storage-space RPC (DocumentService is rebuilt per call).
     val documentStorageSpaceReader =
@@ -621,7 +623,7 @@ internal fun Application.module(
     // already mounts -- avoids adding a brand-new Docker volume just for this feature. See
     // `EventCoverStorage` KDoc.
     val eventCoverStorageRoot =
-        File(System.getenv("LAPIS_EVENT_COVER_STORAGE_ROOT") ?: documentStorageRoot.resolve("event-covers").path)
+        File(SecretEnv.get("LAPIS_EVENT_COVER_STORAGE_ROOT") ?: documentStorageRoot.resolve("event-covers").path)
     val eventCoverStorage = EventCoverStorage(eventCoverStorageRoot)
 
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- exact mirror of eventCoverStorage
@@ -629,7 +631,7 @@ internal fun Application.module(
     // env override. Reuses EventCoverStorage/EventCoverImageProcessor 1:1, see ArticleCoverPolicy
     // KDoc "kein Neubau".
     val articleCoverStorageRoot =
-        File(System.getenv("LAPIS_ARTICLE_COVER_STORAGE_ROOT") ?: documentStorageRoot.resolve("article-covers").path)
+        File(SecretEnv.get("LAPIS_ARTICLE_COVER_STORAGE_ROOT") ?: documentStorageRoot.resolve("article-covers").path)
     val articleCoverStorage = EventCoverStorage(articleCoverStorageRoot)
 
     // Welle V1.9.19 "Mitglieder-Foto" -- same durable volume as documentStorageRoot (already mounted
@@ -643,14 +645,14 @@ internal fun Application.module(
     // LAPIS_CHAPTER_CREST_STORAGE_ROOT. Uses ChapterCrestStorage (same semantics as EventCoverStorage, plus
     // the .svg extension of V1.9.21); file name = server UUID + fixed format enum, never client input.
     val chapterCrestStorageRoot =
-        File(System.getenv("LAPIS_CHAPTER_CREST_STORAGE_ROOT") ?: documentStorageRoot.resolve("chapter-crests").path)
+        File(SecretEnv.get("LAPIS_CHAPTER_CREST_STORAGE_ROOT") ?: documentStorageRoot.resolve("chapter-crests").path)
     val chapterCrestStorage = ChapterCrestStorage(chapterCrestStorageRoot)
 
     // Welle V1.9.129 "Video-Overlays" -- the admin's library of logos and frames. Same durable volume as documentStorageRoot, own
     // "video-overlays/" subdirectory, own env override LAPIS_VIDEO_OVERLAY_STORAGE_ROOT. File name = server UUID + fixed format
     // enum, never client input. Organization data: part of the admin backup (BackupAssetRoots below).
     val videoOverlayStorageRoot =
-        File(System.getenv("LAPIS_VIDEO_OVERLAY_STORAGE_ROOT") ?: documentStorageRoot.resolve("video-overlays").path)
+        File(SecretEnv.get("LAPIS_VIDEO_OVERLAY_STORAGE_ROOT") ?: documentStorageRoot.resolve("video-overlays").path)
     val videoOverlayStorage = VideoOverlayStorage(videoOverlayStorageRoot)
 
     // Welle V1.9.222 "Bildergalerie" -- the gallery pictures of crowdfunding projects and auctions. Same durable volume as
@@ -679,7 +681,7 @@ internal fun Application.module(
     // Deliberately NOT eagerly validated: Route.staticFiles resolves files lazily per-request, so an
     // empty/missing directory (e.g. in a `./gradlew clean check` run that never built the client) is
     // harmless -- requests to "/" just 404 instead of breaking server startup or the test suite.
-    val clientDistRoot = File(System.getenv("LAPIS_CLIENT_DIST_ROOT") ?: "../lapis-client/build/dist/js/productionExecutable")
+    val clientDistRoot = File(SecretEnv.get("LAPIS_CLIENT_DIST_ROOT") ?: "../lapis-client/build/dist/js/productionExecutable")
     clientDistRoot.mkdirs()
 
     // Welle V1.9.5 "Vorstands-Karte" -- see MemberMapConfig/PmtilesBasemap/MemberMapStartupCheck
@@ -766,7 +768,7 @@ internal fun Application.module(
     // LAPIS_COOKIE_SECURE=false -- ONLY for local plaintext-HTTP dev, see registerAuthRoutes KDoc
     // "Cookie transport".
     val loginRateLimiter = LoginRateLimiter()
-    val cookieSecure = System.getenv("LAPIS_COOKIE_SECURE")?.equals("false", ignoreCase = true) != true
+    val cookieSecure = SecretEnv.get("LAPIS_COOKIE_SECURE")?.equals("false", ignoreCase = true) != true
 
     // V1.7.1b "Keycloak als externe Benutzerverwaltung -- Server-Kern" -- optional, DEFAULT OFF
     // (see KeycloakConfig KDoc). keycloakConfig itself is now loaded earlier, right after
@@ -1398,14 +1400,14 @@ internal fun Application.module(
     // is missing. It is wired BEFORE the poller and the coordinator, which read PauseFeeds.current at construction.
     val pauseMediaStore =
         PauseMediaStore(
-            root = File(System.getenv("LAPIS_PAUSE_MEDIA_STORAGE_ROOT") ?: documentStorageRoot.resolve("conference-pause-media").path),
+            root = File(SecretEnv.get("LAPIS_PAUSE_MEDIA_STORAGE_ROOT") ?: documentStorageRoot.resolve("conference-pause-media").path),
             feedsRunning = { PauseFeeds.current.anyRunning() },
         )
     val pauseFeedTlsArgs = PauseFeedSupervisor.tlsVerifyArgsIfAvailable()
     val pauseFeedEnabled =
         conferenceStreamingConfig.enabled &&
             ffmpegAvailable &&
-            System.getenv("LAPIS_STREAM_PAUSE_FEED_ENABLED")?.trim()?.lowercase() != "false"
+            SecretEnv.get("LAPIS_STREAM_PAUSE_FEED_ENABLED")?.trim()?.lowercase() != "false"
     val pauseFeedSupervisor =
         PauseFeedSupervisor(
             launcher = FfmpegPauseFeedLauncher(ffmpegPath = conferenceRecordingConfig.ffmpegPath),

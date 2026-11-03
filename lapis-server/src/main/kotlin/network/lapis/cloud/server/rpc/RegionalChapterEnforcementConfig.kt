@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.rpc
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- operator configuration of the hard
  * "every member becoming ACTIVE must already have a regional chapter assigned once at least one
@@ -29,7 +31,7 @@ class RegionalChapterEnforcementConfig private constructor(
     companion object {
         const val ENV_ENABLED = "LAPIS_REGIONAL_CHAPTER_ENFORCEMENT_ENABLED"
 
-        fun load(env: (String) -> String? = System::getenv): RegionalChapterEnforcementConfig =
+        fun load(env: (String) -> String? = SecretEnv::get): RegionalChapterEnforcementConfig =
             RegionalChapterEnforcementConfig(enabled = env(ENV_ENABLED)?.equals("true", ignoreCase = true) == true)
     }
 }

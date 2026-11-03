@@ -6,6 +6,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toKotlinLocalDate
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.csv.SpreadsheetCsv
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
@@ -1057,11 +1058,12 @@ private fun logAggregates(outcome: ImportOutcome) {
 // =====================================================================================================
 
 fun main() {
+    SecretEnv.preflight()
     val csvPathString =
-        System.getenv("LAPIS_MEMBER_IMPORT_CSV_PATH") ?: error("LAPIS_MEMBER_IMPORT_CSV_PATH must be set")
+        SecretEnv.get("LAPIS_MEMBER_IMPORT_CSV_PATH") ?: error("LAPIS_MEMBER_IMPORT_CSV_PATH must be set")
     val reportPathString =
-        System.getenv("LAPIS_MEMBER_IMPORT_REPORT_PATH") ?: error("LAPIS_MEMBER_IMPORT_REPORT_PATH must be set")
-    val commit = System.getenv("LAPIS_MEMBER_IMPORT_COMMIT")?.equals("true", ignoreCase = true) == true
+        SecretEnv.get("LAPIS_MEMBER_IMPORT_REPORT_PATH") ?: error("LAPIS_MEMBER_IMPORT_REPORT_PATH must be set")
+    val commit = SecretEnv.get("LAPIS_MEMBER_IMPORT_COMMIT")?.equals("true", ignoreCase = true) == true
 
     val csvPath = Path.of(csvPathString)
     if (!Files.isRegularFile(csvPath)) {

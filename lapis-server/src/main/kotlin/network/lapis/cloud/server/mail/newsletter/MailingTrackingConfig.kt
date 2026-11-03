@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.mail.newsletter
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import java.security.SecureRandom
 import java.util.Base64
@@ -25,7 +26,7 @@ object MailingTrackingConfig {
 
     fun loadKey(
         mode: MailingDeliveryMode,
-        env: (String) -> String? = System::getenv,
+        env: (String) -> String? = SecretEnv::get,
     ): ByteArray {
         val raw = env(ENV_KEY)?.trim()?.takeUnless { it.isBlank() }
         if (raw == null) {

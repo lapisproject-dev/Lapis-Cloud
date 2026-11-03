@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.keycloak
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle V1.7.1a -- operator configuration of the optional "Keycloak as external user management"
  * feature. **Default OFF.** See `03 Bereiche/Lapis Cloud/Keycloak Externe Benutzerverwaltung.md`
@@ -123,7 +125,7 @@ internal class KeycloakConfig private constructor(
          * `KeycloakOidcMetadata`). Never throws. With `LAPIS_KEYCLOAK_ENABLED` unset or not exactly
          * `true` nothing else is even looked at.
          */
-        fun load(env: (String) -> String? = System::getenv): KeycloakConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): KeycloakConfig {
             val enabled = env(ENV_ENABLED)?.trim().equals("true", ignoreCase = true)
             val invalid = mutableListOf<String>()
 

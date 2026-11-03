@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.conference
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 1 -- environment configuration for the LiveKit
  * SFU/Twirp connection this server talks to. Mirrors [network.lapis.cloud.server.federation.FederationConfig]'s
@@ -15,7 +17,7 @@ package network.lapis.cloud.server.conference
  * constructor-parameter-default idiom: `System.getenv` cannot be mutated per-JVM-test-run, so a
  * hardcoded call here would make the partial-config/short-secret fail-fast paths untestable without
  * reflection hacks. Production code's call site (a future wave's `Application.module`) stays
- * `ConferenceConfig.load()` -- `System::getenv` is the default.
+ * `ConferenceConfig.load()` -- `SecretEnv::get` is the default.
  */
 class ConferenceConfig private constructor(
     /** WebSocket URL handed to the browser (`ws://`/`wss://`) -- blank iff the feature is unconfigured. Never sent anywhere but the client's own connect call; not a secret. */
@@ -159,7 +161,7 @@ class ConferenceConfig private constructor(
          * Reads `LAPIS_LIVEKIT_URL`/`LAPIS_LIVEKIT_API_URL`/`LAPIS_LIVEKIT_API_KEY`/
          * `LAPIS_LIVEKIT_API_SECRET`/`LAPIS_LIVEKIT_TOKEN_TTL_MINUTES`/
          * `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES`/`LAPIS_CONFERENCE_MAX_PARTICIPANTS`/
-         * `LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS` via [env] (defaults to [System.getenv]).
+         * `LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS` via [env] (defaults to [SecretEnv.get]).
          * `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES` defaults to [DEFAULT_GUEST_TOKEN_TTL_MINUTES] (15)
          * independently of `LAPIS_LIVEKIT_TOKEN_TTL_MINUTES` -- see [guestTokenTtlMinutes] KDoc.
          * `LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS` defaults to
@@ -214,7 +216,7 @@ class ConferenceConfig private constructor(
          * planned rollout. Until that rollout happens, leave `LAPIS_TURNS_URLS` unset; the deployment
          * behaves exactly as it did before this property existed.
          */
-        fun load(env: (String) -> String? = System::getenv): ConferenceConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): ConferenceConfig {
             val url = env("LAPIS_LIVEKIT_URL")?.trim().orEmpty()
             val explicitApiUrl = env("LAPIS_LIVEKIT_API_URL")?.trim().orEmpty()
             val apiUrl = explicitApiUrl.ifBlank { deriveApiUrl(url) }

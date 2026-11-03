@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -252,7 +253,7 @@ object DevSeedData {
      */
     fun seedIfEmpty(force: Boolean = false) {
         if (!force) {
-            val seedRequested = System.getenv("LAPIS_SEED_DEMO_DATA")?.equals("true", ignoreCase = true) == true
+            val seedRequested = SecretEnv.get("LAPIS_SEED_DEMO_DATA")?.equals("true", ignoreCase = true) == true
             if (!seedRequested) return
         }
         check(DeploymentMode.isH2InMemory()) {

@@ -108,6 +108,15 @@ Details: `docs/architecture/logging-privacy.adoc`. Kurzregeln:
   Personendaten (Kilua loggt jede Exposed-Ausnahme mit Meldung und Ursachenkette). Ein Tripwire-Test prüft die Appender-Patterns.
 - Kein `logback-test.xml` anlegen (die Tests müssen die Produktionskonfiguration laden); Logger `Exposed` bleibt mindestens INFO.
 
+## Secrets aus Dateien (V1.9.266)
+
+Details: `docs/architecture/secret-files.adoc`. Kurzregeln:
+
+- Umgebungsvariablen nur über `SecretEnv.get` lesen bzw. über einen `env: (String) -> String?`-Parameter mit Default `SecretEnv::get`; nie `System.getenv`.
+- Ein neues Secret kommt in `SecretEnv.SECRET_NAMES` (`SecretEnvTripwireTest` prüft Vollständigkeit).
+- `SecretFileException` nie fangen und nie eine Ursache anhängen (die Meldung einer `IOException` enthält den Pfad).
+- `SecretEnv.preflight()` ist die erste Anweisung jeder `main()`.
+
 ## Gast-Föderation (V1.9.99)
 
 - Gast-Föderation: Die RP fordert ausschließlich `OidcScopes.FEDERATION` an; `OidcScopes.ALL` nur für Issuer/Discovery (Tripwire `OidcFederationScopeTripwireTest`). Details: `docs/architecture/oidc-guest-federation.adoc`.

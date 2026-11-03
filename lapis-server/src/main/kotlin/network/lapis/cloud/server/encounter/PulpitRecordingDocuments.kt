@@ -3,6 +3,7 @@ package network.lapis.cloud.server.encounter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.db.generated.AiKnowledgeChunkTable
 import network.lapis.cloud.server.db.generated.AiKnowledgeIndexStateTable
 import network.lapis.cloud.server.db.generated.AiKnowledgeReleaseTable
@@ -54,7 +55,7 @@ internal object PulpitRecordingDocuments {
         configuredRoot = root
     }
 
-    fun storageRoot(): File = configuredRoot ?: File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
+    fun storageRoot(): File = configuredRoot ?: File(SecretEnv.get("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
 
     /** `"dd.MM.yyyy HH:mm"` of [utc] on the organization's wall clock (a fixed German format, like every server-generated title). */
     internal fun wallText(utc: LocalDateTime): String {

@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.rpc
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * V0.11.0 FRIEND self-registration -- environment configuration. Read via env-var lookups injected
  * as a `(String) -> String?` function ([load]'s `env` parameter) rather than `System.getenv` calls
@@ -35,7 +37,7 @@ class FriendRegistrationConfig private constructor(
     companion object {
         private const val DEFAULT_MAX_FRIEND_ACCOUNTS = 500
 
-        fun load(env: (String) -> String? = System::getenv): FriendRegistrationConfig =
+        fun load(env: (String) -> String? = SecretEnv::get): FriendRegistrationConfig =
             FriendRegistrationConfig(
                 requireEmailVerification =
                     env("LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION")?.equals("true", ignoreCase = true) == true,

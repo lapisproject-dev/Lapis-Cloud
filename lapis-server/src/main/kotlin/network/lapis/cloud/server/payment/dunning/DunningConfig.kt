@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.payment.dunning
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle V1.2.7 "Automatisiertes Mahnwesen". Configuration for the automated dunning poller/postal
  * dispatch. Pure string parsing, no I/O -- **deliberately no fail-fast**, exactly the same posture
@@ -31,7 +33,7 @@ class DunningConfig private constructor(
         private const val MIN_MAX_NOTICES_PER_TICK = 1
         private const val MAX_MAX_NOTICES_PER_TICK = 5000
 
-        fun load(env: (String) -> String? = System::getenv): DunningConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): DunningConfig {
             val pollerEnabled = env("LAPIS_DUNNING_POLLER_ENABLED")?.trim().equals("true", ignoreCase = true)
             val pollIntervalSeconds =
                 (env("LAPIS_DUNNING_POLL_INTERVAL_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_POLL_INTERVAL_SECONDS)

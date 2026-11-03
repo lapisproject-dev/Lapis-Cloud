@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.db
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * Welle V1.9.55 -- Postgres session timeouts applied to every pooled connection of the application
  * pool (via Hikari's `connectionInitSql`, i.e. once per physical connection).
@@ -46,7 +48,7 @@ internal data class DbSessionTimeouts(
          * Unset -> default. Blank/garbage/negative/out-of-range -> [IllegalStateException] naming ONLY
          * the variable (fail fast at startup, never echoing the raw value).
          */
-        fun fromEnv(env: Map<String, String> = System.getenv()): DbSessionTimeouts {
+        fun fromEnv(env: Map<String, String> = SecretEnv.rawSnapshot()): DbSessionTimeouts {
             fun read(
                 name: String,
                 default: Long,

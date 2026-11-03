@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.security
 
+import network.lapis.cloud.server.config.SecretEnv
+
 /**
  * The single, shared "are we pointed at the H2 in-memory default, or a real deployment"
  * signal — refactored out of [network.lapis.cloud.server.db.DevSeedData] (which used to carry a
@@ -15,7 +17,7 @@ package network.lapis.cloud.server.security
  */
 internal object DeploymentMode {
     fun isH2InMemory(): Boolean {
-        val jdbcUrl = System.getenv("LAPIS_DB_URL")
+        val jdbcUrl = SecretEnv.get("LAPIS_DB_URL")
         return jdbcUrl == null || jdbcUrl.startsWith("jdbc:h2:mem:")
     }
 }

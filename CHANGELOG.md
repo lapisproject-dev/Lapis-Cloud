@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.266 -- Secrets from files (`<NAME>_FILE`)
+
+- **What:** 18 secrets can be handed over as a file: `LAPIS_DB_PASSWORD`, `LAPIS_SECRET_ENCRYPTION_KEY`, `LAPIS_SMTP_PASSWORD`, `LAPIS_MAILING_TRACKING_KEY`, `LAPIS_KEYCLOAK_CLIENT_SECRET`, `LAPIS_LIVEKIT_API_KEY`, `LAPIS_LIVEKIT_API_SECRET`, `LAPIS_TURN_SHARED_SECRET`, `LAPIS_STRIPE_SECRET_KEY`, `LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET`, `LAPIS_PAYPAL_CLIENT_SECRET`, `LAPIS_AI_API_KEY`, `LAPIS_LETTERXPRESS_APIKEY`, `LAPIS_BOOTSTRAP_ADMIN_PASSWORD`, `LAPIS_STAGING_SEED_PASSWORD` and the three `LAPIS_ORACLE_*_KEY` values, each as `<NAME>_FILE=/absolute/path`.
+- **Rules:** `<NAME>` and `<NAME>_FILE` both non-empty stops the start. An empty or blank value of either counts as not set. The path must be absolute; links are followed, the target must be a regular file of at most 64 KiB, valid UTF-8, without byte order mark and NUL byte. Exactly one trailing line break is removed, nothing else is trimmed. An empty file is an error.
+- **Fail closed:** a broken file stops the start. `SecretEnv.preflight()` is the first statement of every `main()`. The error names the variable only, never the path or the value; the log writes one line per secret with the name only.
+- **Rotation = restart.** No watcher, no reload.
+- **Default unchanged, no operator action:** without a `_FILE` variable every value is read exactly as before.
+- **Code:** one gateway `SecretEnv` for every environment read (about 100 call sites switched); `SecretEnvTripwireTest` keeps it so and keeps the secret list complete.
+- **Not verified:** only with temporary files in unit tests. Not verified with real Docker Compose secrets, Docker Swarm or Kubernetes. The compose example was only checked with `docker compose config` and dummy values; a small override file cannot lift the base file's `${VAR:?}` checks, so the README shows a snippet for an edited copy instead.
+- **No migration, no UI text.**
+- **Docs:** `docs/architecture/secret-files.adoc`, `docs/architecture/logging-privacy.adoc`, `deploy/example/README.adoc`.
+
 ### V1.9.265 -- Brand logo variants (signet/wordmark, light/dark)
 
 - **What:** four new optional variables, each an absolute in-container path to an `.svg`, `.png` or `.webp` file (at most 512 KiB), validated and probed exactly like `LAPIS_BRAND_LOGO_PATH`: `LAPIS_BRAND_SIGNET_LIGHT_PATH`, `LAPIS_BRAND_SIGNET_DARK_PATH`, `LAPIS_BRAND_WORDMARK_LIGHT_PATH`, `LAPIS_BRAND_WORDMARK_DARK_PATH`. The signet is used in the navbar, the wordmark in the sign-in lockup and in the public page header. "Light" is the artwork for a light page, "dark" the one for a dark page.

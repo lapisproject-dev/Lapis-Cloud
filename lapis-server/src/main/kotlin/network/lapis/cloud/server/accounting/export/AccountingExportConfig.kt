@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.accounting.export
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.config.SecretEnv
 import network.lapis.cloud.server.crypto.SecretBox
 import java.util.Base64
 
@@ -38,7 +39,7 @@ data class AccountingExportConfig(
         private const val MIN_POLL_INTERVAL_SECONDS = 1L
         private const val MAX_POLL_INTERVAL_SECONDS = 60L
 
-        fun load(env: (String) -> String? = System::getenv): AccountingExportConfig {
+        fun load(env: (String) -> String? = SecretEnv::get): AccountingExportConfig {
             val enabled = env("LAPIS_ACCOUNTING_EXPORT_ENABLED")?.trim()?.equals("false", ignoreCase = true) != true
 
             val rawKey = env("LAPIS_SECRET_ENCRYPTION_KEY")?.trim().orEmpty()
