@@ -78,15 +78,17 @@ import network.lapis.cloud.shared.domain.SocialPostReportCategory
  */
 internal object SocialPublicHtml {
     /**
-     * Static stylesheet, served under `/s/assets/style.css` -- a plain `const val` with zero
-     * interpolation. Exists so no inline `<style>` block is ever needed anywhere in this file, which
+     * Static stylesheet, served under `/s/assets/style.css` -- a plain `const val` with only
+     * compile-time constants interpolated (no runtime values). Exists so no inline `<style>` block is ever
+     * needed anywhere in this file, which
      * is what lets `SocialPublicRoutes`' Content-Security-Policy restrict `style-src` to `'self'`
      * instead of having to allow inline styles as a CSP source keyword (see class KDoc point 1 for
      * this file's own, separate rendering-safety guarantee).
      */
     const val STYLESHEET: String =
         """
-        :root { color-scheme: light dark; }
+        /* mirrors the theme.css V1.9.210 token */
+        :root { color-scheme: light dark; --lapis-brand-logo-size: ${PublicBrandLogoSize.SIZE}; }
         body { font-family: var(--lapis-font-body); max-width: 42rem; margin: 0 auto; padding: 1.5rem; line-height: 1.55; background: var(--lapis-bg); color: var(--lapis-text); }
         header, footer { margin-bottom: 1.5rem; }
         footer { margin-top: 2rem; font-size: 0.85rem; color: var(--lapis-muted); }
@@ -222,9 +224,12 @@ internal object SocialPublicHtml {
         .chrome a { color: var(--lapis-nav-text); text-decoration: none; }
         .chrome a:hover { color: var(--lapis-nav-text); }
         .chrome :focus-visible { outline-color: var(--lapis-nav-text); }
-        .chrome-logo { max-height: 22px; width: auto; vertical-align: middle; }
+        .chrome-logo { height: var(--lapis-brand-logo-size); width: auto; max-width: ${PublicBrandLogoSize.MAX_WIDTH_PX}px; object-fit: contain; vertical-align: middle; flex-shrink: 0; }
+        /* same breakpoint as theme.css; deliberately not the 30rem nav-wrap query */
+        @media (max-width: ${PublicBrandLogoSize.PHONE_BREAKPOINT}) { .chrome-logo { max-width: ${PublicBrandLogoSize.PHONE_MAX_WIDTH_PX}px; } }
         .chrome-brand { display: inline-flex; align-items: center; gap: 0.5rem; }
         .chrome-mark { display: inline-flex; line-height: 0; }
+        .chrome-mark svg { width: var(--lapis-brand-logo-size); height: var(--lapis-brand-logo-size); }
         .chrome-wordmark { font-family: var(--lapis-font-display); letter-spacing: 0.01em; }
         /* Welle V1.9.11 "Öffentliche Icon-Navigation" -- switched from text links to ICON-ONLY links
            (Design-Team-Review, Kare/Ive/Jobs), see PublicChrome.renderChrome KDoc for the four

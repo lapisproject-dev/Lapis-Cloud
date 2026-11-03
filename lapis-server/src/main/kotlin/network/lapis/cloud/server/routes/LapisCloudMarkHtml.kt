@@ -12,10 +12,10 @@ import network.lapis.cloud.shared.branding.LapisCloudMark
  * drift. Built with the kotlinx.html tag API (attributes are escaped; no raw-HTML escape hatch, which the public pages
  * must not use). Colours are presentation attributes (`fill`/`stroke`), never `style=`, which keeps the page inside
  * `style-src 'self'`. Purely decorative (`aria-hidden`); the link's accessible name is the wordmark next to it. Static,
- * no user input.
+ * no user input. V1.9.267: 32 px, the same as the app navbar ([PublicBrandLogoSize]).
  */
 internal object LapisCloudMarkHtml {
-    private const val SIZE_PX = "22"
+    private const val SIZE_PX = PublicBrandLogoSize.SIZE_PX
 
     fun FlowContent.lapisCloudMark() {
         val palette = LapisCloudMark.DarkPalette
@@ -23,8 +23,8 @@ internal object LapisCloudMarkHtml {
             name = "svg",
             attrs =
                 mapOf(
-                    "width" to SIZE_PX,
-                    "height" to SIZE_PX,
+                    "width" to SIZE_PX.toString(),
+                    "height" to SIZE_PX.toString(),
                     "viewBox" to LapisCloudMark.VIEW_BOX,
                     "aria-hidden" to "true",
                     "focusable" to "false",

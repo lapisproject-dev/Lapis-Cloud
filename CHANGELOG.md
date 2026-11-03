@@ -6,6 +6,14 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.267 -- Public-page logo 22 px to 32 px
+
+- **What:** the logo in the header of the public pages grows from 22 to 32 px, the built-in Lapis Cloud mark too. Caps are 180 px wide, and 120 px under 767.98px, as in the app. **This changes the look of the public pages of all instances at once.**
+- **How:** `PublicBrandLogoSize` is the single server-side source; `PublicBrandLogoSizeDriftTest` compares it with `theme.css`. The header padding and the 30rem navigation-wrap query are unchanged; the CSP is unchanged (`style-src 'self'`).
+- **Known effect:** the `<img>` has no `width`/`height` attributes (the aspect ratio is unknown to the server), so on first load the width can shift, as in the app.
+- **Not verified:** nothing was checked in a real browser or on real devices, and nobody judged real artwork or instances by eye. The layout was checked only by CSS assertions and arithmetic. A very wide wordmark (wider than about 5:1) can wrap the header at 768 px and above.
+- **Tests:** golden files updated for the two mark attributes.
+
 ### V1.9.266 -- Secrets from files (`<NAME>_FILE`)
 
 - **What:** 18 secrets can be handed over as a file: `LAPIS_DB_PASSWORD`, `LAPIS_SECRET_ENCRYPTION_KEY`, `LAPIS_SMTP_PASSWORD`, `LAPIS_MAILING_TRACKING_KEY`, `LAPIS_KEYCLOAK_CLIENT_SECRET`, `LAPIS_LIVEKIT_API_KEY`, `LAPIS_LIVEKIT_API_SECRET`, `LAPIS_TURN_SHARED_SECRET`, `LAPIS_STRIPE_SECRET_KEY`, `LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET`, `LAPIS_PAYPAL_CLIENT_SECRET`, `LAPIS_AI_API_KEY`, `LAPIS_LETTERXPRESS_APIKEY`, `LAPIS_BOOTSTRAP_ADMIN_PASSWORD`, `LAPIS_STAGING_SEED_PASSWORD` and the three `LAPIS_ORACLE_*_KEY` values, each as `<NAME>_FILE=/absolute/path`.

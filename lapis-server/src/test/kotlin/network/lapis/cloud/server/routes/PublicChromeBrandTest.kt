@@ -51,7 +51,8 @@ class PublicChromeBrandTest :
                 b shouldContain "<svg "
                 b shouldContain "chrome-mark"
                 b shouldContain "aria-hidden=\"true\""
-                b shouldContain "width=\"22\""
+                b shouldContain "width=\"32\""
+                b shouldContain "height=\"32\""
                 b shouldContain "Mein Verein"
             }
 

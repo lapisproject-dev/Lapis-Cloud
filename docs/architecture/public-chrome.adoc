@@ -111,12 +111,12 @@ byte-identical, image-free CSP — this is additive, not a loosening of the defa
 == Brand rule (V1.9.214)
 
 The brand link shows the operator logo when `ResolvedBranding.logoAvailable` is set (image only, as before). Otherwise it
-shows the Lapis Cloud mark followed by the title wordmark, whatever the title is. The mark is a 22 px inline SVG, dark variant
+shows the Lapis Cloud mark followed by the title wordmark, whatever the title is. The mark is a 32 px inline SVG, dark variant
 only because the chrome bar is fixed `#14181E`, and decorative (`aria-hidden`); the link's accessible name is the wordmark.
 Colours are SVG presentation attributes, never `style=`, so the CSP stays unchanged. Geometry and palette come from
-`LapisCloudMark` in `lapis-shared`, which the client mark uses as well. The 22 px height equals `img.chrome-logo`, so the bar
+`LapisCloudMark` in `lapis-shared`, which the client mark uses as well. The 32 px height equals `img.chrome-logo` (both follow `--lapis-brand-logo-size`, `PublicBrandLogoSize`), so the bar
 does not jump between logo and mark. The `.chrome-brand` and `.chrome-mark` rules (spacing) live in the shared public
-stylesheet; the SVG itself is sized by its attributes.
+stylesheet; the SVG is sized by its attributes and by `.chrome-mark svg`.
 
 == Focus, current page and links (V1.9.247)
 
