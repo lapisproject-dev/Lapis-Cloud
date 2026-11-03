@@ -22922,17 +22922,20 @@ msgstr "Controlli il suo nome."
 msgid "Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut."
 msgstr "La partecipazione non è possibile al momento. Riprovi."
 
-msgid "Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus."
-msgstr "È nella videoconferenza. Microfono e fotocamera sono spenti."
+msgid "Sie sind in der Videokonferenz."
+msgstr "Lei è nella videoconferenza."
+
+msgid "Ihre Kamera ist an."
+msgstr "La sua videocamera è attiva."
+
+msgid "Ihre Kamera ist aus."
+msgstr "La sua videocamera è disattivata."
 
 msgid "Verbindung wird aufgebaut …"
 msgstr "Connessione in corso …"
 
 msgid "Die Verbindung konnte nicht aufgebaut werden."
 msgstr "Non è stato possibile stabilire la connessione."
-
-msgid "Die Kamera konnte nicht eingeschaltet werden."
-msgstr "Non è stato possibile accendere la fotocamera."
 
 msgid "Die Verbindung wurde beendet."
 msgstr "La connessione è terminata."

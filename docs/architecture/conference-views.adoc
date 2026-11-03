@@ -91,7 +91,7 @@ The view switcher is a `radiogroup` of four `radio` buttons (arrow keys move, En
 
 * **Not verified in a real browser against a real LiveKit room** with several real participants: the DOM tests mount the stage and the switcher in headless Chrome with synthetic tiles. The call screen itself cannot be mounted in Karma.
 * **Only one screen share is shown** (as before); the layout functions handle several, the call does not receive more.
-* **The guest view for events (`EventGuestCallView`) and the encounter room have no switcher** and keep their own layouts.
+* **The guest view for events (`EventGuestCallView`) and the encounter room have no view switcher** and keep their own layouts. Since V1.9.272 the guest view has a device section (microphone, camera, speaker where the browser can); see link:../features/event-online-participation.adoc[Online participation in events].
 * The "Ansicht" twin in the "Mehr" sheet is a button that opens the same radio group as the bar button (the group itself is not duplicated into the sheet).
 * The speaker is detected from LiveKit's voice activity: a loud room noise counts as speech.
 * The gold ring on the page arrow and the pin icon were not checked with a screen reader or on a real phone; the new texts are agent translations not checked by native speakers.

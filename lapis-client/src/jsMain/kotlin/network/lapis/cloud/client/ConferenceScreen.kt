@@ -6571,40 +6571,25 @@ private fun enterCall(
         btn.onClick { toggleScreenShare() }
     }
 
-    // V1.3.x Geräteauswahl -- ein nutzergetriebener Dropdown-Wechsel ruft `switchDevice` auf.
-    // `applyingProgrammaticDeviceValue` filtert PROGRAMMATISCHE `select.value =`-Zuweisungen heraus
-    // (Vorauswahl in `refreshDeviceOptions`, Revert nach Fehlschlag hier unten,
-    // `onActiveDeviceChanged`-Sync) -- ohne diesen Guard würde JEDE dieser Zuweisungen denselben
-    // `subscribe {}`-Callback erneut auslösen (gegen die KVision-9.6.0-Quelle verifiziert, siehe
-    // `applyingProgrammaticDeviceValue`s eigene Deklaration weiter oben) und einen zweiten,
-    // überflüssigen `switchDevice`-Aufruf verursachen. Kein Erfolgs-Toast (Jobs' Bedingung im
-    // Design-Review) -- nur ein sichtbarer Revert bei Fehlschlag.
+    // V1.3.x Geräteauswahl -- ein nutzergetriebener Dropdown-Wechsel ruft `switchDevice` auf. Die Verdrahtung selbst lebt seit V1.9.272 in
+    // `wireConferenceDeviceSelect` (geteilt mit der Gast-Ansicht); hier hängen nur die Besonderheiten dieses Bildschirms dran: der
+    // Programmatik-Guard `applyingProgrammaticDeviceValue`, `guarded`, der Fehler-Toast und das Persistieren der `deviceId`.
     fun wireDeviceSelect(
         select: Select,
         kind: ConferenceDeviceKind,
     ) {
-        select.subscribe { selected ->
-            // V1.9.169 -- the "Erst nach Freigabe verfügbar" placeholder is not a choice
-            if (isDevicePlaceholder(select)) return@subscribe
-            // V1.4.19 -- zusätzlich zum synchronen Programmatik-Guard: leere/blanke Werte (der
-            // "Wird geladen …"-Platzhalter `"" to …` bzw. `enumerateDevices()` ohne Freigabe) sind nie
-            // eine Nutzerauswahl und greifen auch bei asynchronem Feuern des KVision-Subscribers nicht.
-            val deviceId =
-                conferenceDeviceSelectionToApply(applyingProgrammatic = applyingProgrammaticDeviceValue, deviceId = selected)
-                    ?: return@subscribe
-            AppScope.launch {
-                val failure = guarded { session.switchDevice(kind, deviceId) }
-                if (failure != null) {
-                    notifyError(conferenceDeviceErrorMessage(kind, failure))
-                    applyingProgrammaticDeviceValue = true
-                    select.value = session.activeDeviceId(kind)
-                    applyingProgrammaticDeviceValue = false
-                } else {
-                    // SECURITY: nur die `deviceId` wird persistiert, nie `rawLabel`.
-                    localStorage[conferenceDeviceStorageKey(kind)] = deviceId
-                }
-            }
-        }
+        wireConferenceDeviceSelect(
+            select = select,
+            kind = kind,
+            switch = { k, id -> session.switchDevice(k, id) },
+            activeId = { k -> session.activeDeviceId(k) },
+            isProgrammatic = { applyingProgrammaticDeviceValue },
+            setProgrammatic = { applyingProgrammaticDeviceValue = it },
+            guarded = { block -> guarded { block() } },
+            onFailure = { message -> notifyError(message) },
+            // SECURITY: nur die `deviceId` wird persistiert, nie `rawLabel`.
+            onApplied = { deviceId -> localStorage[conferenceDeviceStorageKey(kind)] = deviceId },
+        )
     }
     wireDeviceSelect(micDeviceSelect, ConferenceDeviceKind.MICROPHONE)
     wireDeviceSelect(cameraDeviceSelect, ConferenceDeviceKind.CAMERA)

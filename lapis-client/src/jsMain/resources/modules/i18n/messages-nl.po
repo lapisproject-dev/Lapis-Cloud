@@ -22963,17 +22963,20 @@ msgstr "Controleer uw naam."
 msgid "Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut."
 msgstr "Deelname is nu niet mogelijk. Probeer het opnieuw."
 
-msgid "Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus."
-msgstr "U bent in de videoconferentie. Microfoon en camera staan uit."
+msgid "Sie sind in der Videokonferenz."
+msgstr "U bent in de videoconferentie."
+
+msgid "Ihre Kamera ist an."
+msgstr "Uw camera staat aan."
+
+msgid "Ihre Kamera ist aus."
+msgstr "Uw camera staat uit."
 
 msgid "Verbindung wird aufgebaut …"
 msgstr "Verbinding wordt gemaakt …"
 
 msgid "Die Verbindung konnte nicht aufgebaut werden."
 msgstr "De verbinding kon niet worden gemaakt."
-
-msgid "Die Kamera konnte nicht eingeschaltet werden."
-msgstr "De camera kon niet worden ingeschakeld."
 
 msgid "Die Verbindung wurde beendet."
 msgstr "De verbinding is beëindigd."

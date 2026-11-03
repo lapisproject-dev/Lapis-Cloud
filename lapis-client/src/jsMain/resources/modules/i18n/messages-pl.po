@@ -22883,17 +22883,20 @@ msgstr "Proszę sprawdzić swoje imię."
 msgid "Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut."
 msgstr "Udział nie jest teraz możliwy. Proszę spróbować ponownie."
 
-msgid "Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus."
-msgstr "Są Państwo w wideokonferencji. Mikrofon i kamera są wyłączone."
+msgid "Sie sind in der Videokonferenz."
+msgstr "Są Państwo w wideokonferencji."
+
+msgid "Ihre Kamera ist an."
+msgstr "Państwa kamera jest włączona."
+
+msgid "Ihre Kamera ist aus."
+msgstr "Państwa kamera jest wyłączona."
 
 msgid "Verbindung wird aufgebaut …"
 msgstr "Łączenie …"
 
 msgid "Die Verbindung konnte nicht aufgebaut werden."
 msgstr "Nie udało się nawiązać połączenia."
-
-msgid "Die Kamera konnte nicht eingeschaltet werden."
-msgstr "Nie udało się włączyć kamery."
 
 msgid "Die Verbindung wurde beendet."
 msgstr "Połączenie zostało zakończone."

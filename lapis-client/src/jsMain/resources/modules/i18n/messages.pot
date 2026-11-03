@@ -22063,16 +22063,19 @@ msgstr ""
 msgid "Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut."
 msgstr ""
 
-msgid "Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus."
+msgid "Sie sind in der Videokonferenz."
+msgstr ""
+
+msgid "Ihre Kamera ist an."
+msgstr ""
+
+msgid "Ihre Kamera ist aus."
 msgstr ""
 
 msgid "Verbindung wird aufgebaut …"
 msgstr ""
 
 msgid "Die Verbindung konnte nicht aufgebaut werden."
-msgstr ""
-
-msgid "Die Kamera konnte nicht eingeschaltet werden."
 msgstr ""
 
 msgid "Die Verbindung wurde beendet."

@@ -22917,17 +22917,20 @@ msgstr "Please check your name."
 msgid "Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut."
 msgstr "Taking part is not possible right now. Please try again."
 
-msgid "Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus."
-msgstr "You are in the video conference. Microphone and camera are off."
+msgid "Sie sind in der Videokonferenz."
+msgstr "You are in the video conference."
+
+msgid "Ihre Kamera ist an."
+msgstr "Your camera is on."
+
+msgid "Ihre Kamera ist aus."
+msgstr "Your camera is off."
 
 msgid "Verbindung wird aufgebaut …"
 msgstr "Connecting …"
 
 msgid "Die Verbindung konnte nicht aufgebaut werden."
 msgstr "The connection could not be established."
-
-msgid "Die Kamera konnte nicht eingeschaltet werden."
-msgstr "The camera could not be switched on."
 
 msgid "Die Verbindung wurde beendet."
 msgstr "The connection has ended."

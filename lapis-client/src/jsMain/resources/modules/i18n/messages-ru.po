@@ -22873,17 +22873,20 @@ msgstr "Проверьте своё имя."
 msgid "Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut."
 msgstr "Сейчас участие невозможно. Повторите попытку."
 
-msgid "Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus."
-msgstr "Вы в видеоконференции. Микрофон и камера выключены."
+msgid "Sie sind in der Videokonferenz."
+msgstr "Вы находитесь в видеоконференции."
+
+msgid "Ihre Kamera ist an."
+msgstr "Ваша камера включена."
+
+msgid "Ihre Kamera ist aus."
+msgstr "Ваша камера выключена."
 
 msgid "Verbindung wird aufgebaut …"
 msgstr "Подключение …"
 
 msgid "Die Verbindung konnte nicht aufgebaut werden."
 msgstr "Не удалось установить соединение."
-
-msgid "Die Kamera konnte nicht eingeschaltet werden."
-msgstr "Не удалось включить камеру."
 
 msgid "Die Verbindung wurde beendet."
 msgstr "Соединение завершено."

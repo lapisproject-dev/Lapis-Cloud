@@ -158,6 +158,7 @@ Details: `docs/architecture/time-and-timezones.adoc`. Kurzregeln:
 - Eine Veranstaltungs-Konferenz wird ausschließlich über `IEventService.joinEventOnline` (Mitglieder) bzw. `POST /api/events/{slug}/online-guest` (Gäste ohne Konto) betreten. Die gewöhnlichen Konferenz-RPCs lehnen Veranstaltungsräume über `EventConferenceGuard` ab; neue `roomId`-Methoden in `ConferenceService` erzwingen eine Entscheidung (Tripwire `EventConferenceGuardTripwireTest`).
 - `event_conference` wird nur von `EventConferenceStore` geschrieben; LiveKit wird nie innerhalb von `transaction {}` aufgerufen (Claim-Protokoll mit `claim_token`). Das Zeitfenster berechnet nur `EventOnlineWindow`.
 - Gast-Identitäten tragen das Präfix `evg-`; Gäste werden nicht in die Teilnehmerhistorie geschrieben. Details: `docs/features/event-online-participation.adoc`.
+- Die Geräteauswahl der Gast-Ansicht (V1.9.272: `EventGuestDevicePanel`, `ConferenceDeviceSelectWiring`) speichert nichts im Browser, sendet nichts und nennt keine Geräte-ID/kein Label in Texten (Tripwire `ClientEventGuestDevicePrivacyTripwireTest`); `getUserMedia` nur per Klick über `ConferenceDevicePermissionRow`.
 
 ## Konferenz-Ansichten (V1.9.115)
 

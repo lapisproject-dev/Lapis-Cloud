@@ -39,6 +39,23 @@ window; a conference that is already running vetoes a change that would remove i
   live connection (a second use replaces the first). Guests are subject to the room-wide audio rules (lock, mute all, reconciler) like
   every other non-moderator.
 
+== Devices in the guest call view (V1.9.272)
+
+The lean call view of an account-less guest (`EventGuestCallView`) has a "Geräte" section with microphone, camera and, where the browser
+can switch the output (`setSinkId`) and lists at least two real outputs, a speaker field. It opens by default on screens from 768 px, closed
+below; the "Geräte" button carries `aria-expanded` and `aria-controls`.
+
+* *Permission rule:* the page never opens the browser's permission dialog on its own. Until the browser lists the devices the fields show
+  "Erst nach Freigabe verfügbar" and the usual button "Zugriff auf Mikrofon und Kamera erlauben" is the only way to ask (one click, every
+  acquired track is stopped at once). A blocked browser gets an explanation, not a dialog. Microphone and camera stay off.
+* *Privacy rule:* nothing is remembered between visits (no browser storage), no device id or label is sent anywhere or written to a log, and
+  a label appears only as the text of an option. `ClientEventGuestDevicePrivacyTripwireTest` pins this as a source scan over
+  `EventGuestCallView.kt`, `EventGuestDevicePanel.kt` and `ConferenceDeviceSelectWiring.kt`.
+* *Truthful state line:* the bold line at the top names the real state ("Sie sind in der Videokonferenz. Ihr Mikrofon ist aus. Ihre Kamera
+  ist aus."); the grey line below it carries only notes and errors (a device that vanished, a switch that failed).
+* The select wiring is shared with the member call screen (`wireConferenceDeviceSelect`); the member screen additionally remembers the
+  chosen id, the guest view never does.
+
 == Conference creation (claim protocol)
 
 The room is created exactly once, on the first successful join, by `EventConferenceProvisioner.ensureRoom`:

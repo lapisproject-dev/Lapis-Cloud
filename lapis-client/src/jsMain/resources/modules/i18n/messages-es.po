@@ -22645,17 +22645,20 @@ msgstr "Compruebe su nombre."
 msgid "Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut."
 msgstr "La participación no es posible en este momento. Inténtelo de nuevo."
 
-msgid "Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus."
-msgstr "Está en la videoconferencia. El micrófono y la cámara están apagados."
+msgid "Sie sind in der Videokonferenz."
+msgstr "Está en la videoconferencia."
+
+msgid "Ihre Kamera ist an."
+msgstr "Su cámara está activada."
+
+msgid "Ihre Kamera ist aus."
+msgstr "Su cámara está desactivada."
 
 msgid "Verbindung wird aufgebaut …"
 msgstr "Conectando …"
 
 msgid "Die Verbindung konnte nicht aufgebaut werden."
 msgstr "No se pudo establecer la conexión."
-
-msgid "Die Kamera konnte nicht eingeschaltet werden."
-msgstr "No se pudo encender la cámara."
 
 msgid "Die Verbindung wurde beendet."
 msgstr "La conexión ha finalizado."

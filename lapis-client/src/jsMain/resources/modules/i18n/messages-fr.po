@@ -22940,17 +22940,20 @@ msgstr "Veuillez vérifier votre nom."
 msgid "Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut."
 msgstr "La participation n'est pas possible pour le moment. Veuillez réessayer."
 
-msgid "Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus."
-msgstr "Vous êtes dans la visioconférence. Le micro et la caméra sont coupés."
+msgid "Sie sind in der Videokonferenz."
+msgstr "Vous êtes dans la visioconférence."
+
+msgid "Ihre Kamera ist an."
+msgstr "Votre caméra est activée."
+
+msgid "Ihre Kamera ist aus."
+msgstr "Votre caméra est désactivée."
 
 msgid "Verbindung wird aufgebaut …"
 msgstr "Connexion en cours …"
 
 msgid "Die Verbindung konnte nicht aufgebaut werden."
 msgstr "La connexion n'a pas pu être établie."
-
-msgid "Die Kamera konnte nicht eingeschaltet werden."
-msgstr "La caméra n'a pas pu être activée."
 
 msgid "Die Verbindung wurde beendet."
 msgstr "La connexion est terminée."

@@ -1,20 +1,72 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.core.onClick
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.button
 import io.kvision.html.div
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import kotlinx.browser.document
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
+import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
+import network.lapis.cloud.client.livekit.ConferenceDeviceKind
+import network.lapis.cloud.client.livekit.DeviceEnumeration
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import org.w3c.dom.HTMLElement
+
+/** The phases of the guest call the state line tells apart. */
+internal enum class GuestCallPhase { CONNECTING, CONNECTED, RECONNECTING, ENDED, UNAVAILABLE, FAILED }
+
+/**
+ * V1.9.272 -- the ONE source of the state sentence at the top of the guest call view. Connected, it names the real state of microphone and
+ * camera (the old static "Mikrofon und Kamera sind aus." contradicted the buttons as soon as one was switched on).
+ */
+internal fun guestStateLine(
+    phase: GuestCallPhase,
+    micOn: Boolean,
+    cameraOn: Boolean,
+): String =
+    when (phase) {
+        GuestCallPhase.CONNECTING -> gettext("Verbindung wird aufgebaut …")
+        GuestCallPhase.CONNECTED ->
+            listOf(
+                gettext("Sie sind in der Videokonferenz."),
+                if (micOn) gettext("Ihr Mikrofon ist an.") else gettext("Ihr Mikrofon ist aus."),
+                if (cameraOn) gettext("Ihre Kamera ist an.") else gettext("Ihre Kamera ist aus."),
+            ).joinToString(" ")
+        GuestCallPhase.RECONNECTING -> gettext("Die Verbindung wird wiederhergestellt …")
+        GuestCallPhase.ENDED -> gettext("Die Verbindung wurde beendet.")
+        GuestCallPhase.UNAVAILABLE -> gettext("Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut.")
+        GuestCallPhase.FAILED -> gettext("Die Verbindung konnte nicht aufgebaut werden.")
+    }
+
+/** The bold state line: a polite live region of its own (the grey event line below it only carries notes and errors). */
+internal class GuestStateLine(
+    parent: Container,
+) {
+    val element: Div =
+        parent.div {
+            setAttribute("role", "status")
+            setAttribute("aria-live", "polite")
+            setAttribute("aria-atomic", "true")
+            addCssClasses("fw-bold")
+        }
+
+    fun render(
+        phase: GuestCallPhase,
+        micOn: Boolean,
+        cameraOn: Boolean,
+    ) {
+        element.content = guestStateLine(phase, micOn, cameraOn)
+    }
+}
 
 /** Entry used by the join screen: builds the lean call view of a person without an account. */
 internal fun startEventGuestCall(
@@ -49,6 +101,12 @@ internal class EventGuestCallView(
     private lateinit var micButton: Button
     private lateinit var cameraButton: Button
     private lateinit var statusLine: Div
+    private lateinit var stateLine: GuestStateLine
+    private var phase = GuestCallPhase.CONNECTING
+    private var devicePanel: EventGuestDevicePanel? = null
+
+    /** The current local camera track, kept so the preview can be attached again after a camera switch. */
+    private var localVideoTrack: Track? = null
 
     /** V1.9.156: the capture line; built in [show] before the connection starts and only ever fed by the server's packets. */
     private var captureBanner: EventCaptureBanner? = null
@@ -58,7 +116,10 @@ internal class EventGuestCallView(
             onRemoteTrackGone = { identity, track, _ -> detachRemote(identity, track) },
             onParticipantJoined = { identity, displayName -> ensureTile(identity, displayName) },
             onParticipantLeft = { identity -> removeTile(identity) },
-            onLocalVideoTrack = { track -> showLocalVideo(track) },
+            onLocalVideoTrack = { track ->
+                localVideoTrack = track
+                showLocalVideo(track)
+            },
             onLocalTrackMuteChanged = { source, muted ->
                 if (source == "microphone") micOn = !muted
                 if (source == "camera") cameraOn = !muted
@@ -67,15 +128,18 @@ internal class EventGuestCallView(
             onRecordingStatusChanged = { _ -> },
             onEventCapture = { live -> captureBanner?.render(live) },
             onActiveSpeakersChanged = { _ -> },
-            onActiveDeviceChanged = { _, _ -> },
-            onMediaDevicesChanged = {},
-            onMediaDevicesError = { _, _ -> },
+            onActiveDeviceChanged = { kind, deviceId -> devicePanel?.syncActive(kind, deviceId) },
+            onMediaDevicesChanged = { devicePanel?.let { panel -> AppScope.launch { panel.refresh(preserveFocus = true) } } },
+            // Fires for the "enable" paths (microphone / camera switched on), so the "aktiviert" wording is the right one.
+            onMediaDevicesError = { kind, failure ->
+                kind?.let { statusLine.content = conferenceDeviceEnableErrorMessage(it, failure) }
+            },
             onChat = { _ -> },
             onWhiteboardPreview = { _, _, _ -> },
             onWhiteboardCommit = { _, _, _ -> },
             onNotesCommit = { _, _, _ -> },
-            onReconnecting = { statusLine.content = tr("Die Verbindung wird wiederhergestellt …") },
-            onReconnected = { statusLine.content = "" },
+            onReconnecting = { setPhase(GuestCallPhase.RECONNECTING) },
+            onReconnected = { setPhase(GuestCallPhase.CONNECTED) },
             onDisconnected = { _ -> onConnectionEnded() },
         )
 
@@ -83,7 +147,8 @@ internal class EventGuestCallView(
         // First in the picture: a person who joined an event that may be recorded sees, from the first frame on, whether it is (the join answer
         // carries the state at that moment; the server's packets update it).
         captureBanner = EventCaptureBanner(host).also { it.render(response.captureLive) }
-        host.div(tr("Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus.")) { addCssClasses("fw-bold") }
+        stateLine = GuestStateLine(host)
+        stateLine.render(phase, micOn, cameraOn)
         statusLine =
             host.div {
                 setAttribute("role", "status")
@@ -100,18 +165,62 @@ internal class EventGuestCallView(
                 }
             },
         )
-        val controls = host.hPanel(spacing = 8)
+        // The row of buttons wraps (a fourth button must not push the page wider than a 390 px phone); its buttons are added below, once the
+        // panel they point at exists.
+        val controls = host.div(className = "d-flex flex-wrap gap-2 my-2")
+        val open = runCatching { window.matchMedia("(min-width: 768px)").matches }.getOrDefault(false)
+        val panel =
+            EventGuestDevicePanel(
+                parent = host,
+                port = devicePort,
+                onNote = { note -> statusLine.content = note },
+                onCameraSwitched = { showLocalVideo(localVideoTrack) },
+                initiallyOpen = open,
+            )
+        devicePanel = panel
         micButton =
             controls.button(tr("Mikrofon einschalten"), style = ButtonStyle.OUTLINESECONDARY) {
+                setStyle("min-height", "44px")
                 onClick { toggleMicrophone() }
             }
         cameraButton =
             controls.button(tr("Kamera einschalten"), style = ButtonStyle.OUTLINESECONDARY) {
+                setStyle("min-height", "44px")
                 onClick { toggleCamera() }
             }
+        controls.button(tr("Geräte"), style = ButtonStyle.OUTLINESECONDARY) {
+            setStyle("min-height", "44px")
+            setAttribute("aria-controls", panel.panelId)
+            setAttribute("aria-expanded", panel.isOpen.toString())
+            onClick { setAttribute("aria-expanded", panel.toggle().toString()) }
+        }
         controls.button(tr("Verlassen"), style = ButtonStyle.OUTLINEDANGER) {
+            setStyle("min-height", "44px")
             onClick { leave() }
         }
+    }
+
+    private val devicePort: GuestDevicePort =
+        object : GuestDevicePort {
+            override val publishesMedia: Boolean get() = session.publishesMedia
+
+            override suspend fun list(kind: ConferenceDeviceKind): DeviceEnumeration = session.listDevicesWithRawCount(kind)
+
+            override fun active(kind: ConferenceDeviceKind): String? = session.activeDeviceId(kind)
+
+            override suspend fun switch(
+                kind: ConferenceDeviceKind,
+                deviceId: String,
+            ): ConferenceDeviceFailure? = session.switchDevice(kind, deviceId)
+        }
+
+    private fun setPhase(next: GuestCallPhase) {
+        phase = next
+        renderState()
+    }
+
+    private fun renderState() {
+        stateLine.render(phase, micOn, cameraOn)
     }
 
     private fun connect() {
@@ -119,13 +228,17 @@ internal class EventGuestCallView(
             val url = response.serverUrl
             val token = response.token
             if (url == null || token == null) {
-                statusLine.content = tr("Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut.")
+                setPhase(GuestCallPhase.UNAVAILABLE)
                 return@launch
             }
-            statusLine.content = tr("Verbindung wird aufgebaut …")
+            setPhase(GuestCallPhase.CONNECTING)
             val failure = session.connect(serverUrl = url, token = token, turnServers = response.turnServers)
-            statusLine.content = if (failure == null) "" else tr("Die Verbindung konnte nicht aufgebaut werden.")
-            if (failure != null) onConnectionEnded()
+            if (failure != null) {
+                onConnectionEnded(GuestCallPhase.FAILED)
+            } else {
+                setPhase(GuestCallPhase.CONNECTED)
+                devicePanel?.onConnected()
+            }
         }
     }
 
@@ -133,10 +246,13 @@ internal class EventGuestCallView(
         AppScope.launch {
             val failure = session.setMicrophone(!micOn)
             if (failure != null) {
-                statusLine.content = tr("Das Mikrofon konnte nicht eingeschaltet werden.")
+                statusLine.content = conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.MICROPHONE, failure)
             } else {
                 micOn = !micOn
+                statusLine.content = ""
                 syncButtons()
+                // The labels of the devices are known only after the browser let the page use one: list them again.
+                devicePanel?.refresh(preserveFocus = false)
             }
         }
     }
@@ -145,10 +261,12 @@ internal class EventGuestCallView(
         AppScope.launch {
             val failure = session.setCamera(!cameraOn)
             if (failure != null) {
-                statusLine.content = tr("Die Kamera konnte nicht eingeschaltet werden.")
+                statusLine.content = conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.CAMERA, failure)
             } else {
                 cameraOn = !cameraOn
+                statusLine.content = ""
                 syncButtons()
+                devicePanel?.refresh(preserveFocus = false)
             }
         }
     }
@@ -156,21 +274,25 @@ internal class EventGuestCallView(
     private fun syncButtons() {
         micButton.text = if (micOn) tr("Mikrofon ausschalten") else tr("Mikrofon einschalten")
         cameraButton.text = if (cameraOn) tr("Kamera ausschalten") else tr("Kamera einschalten")
+        renderState()
     }
 
     private fun leave() {
         if (left) return
         left = true
+        devicePanel?.dispose()
         AppScope.launch {
             runCatching { session.disconnect() }
             onLeft()
         }
     }
 
-    private fun onConnectionEnded() {
+    private fun onConnectionEnded(ended: GuestCallPhase = GuestCallPhase.ENDED) {
         if (left) return
         left = true
-        statusLine.content = tr("Die Verbindung wurde beendet.")
+        devicePanel?.dispose()
+        statusLine.content = ""
+        setPhase(ended)
         host.button(tr("Erneut beitreten"), style = ButtonStyle.PRIMARY) {
             onClick { onLeft() }
         }
