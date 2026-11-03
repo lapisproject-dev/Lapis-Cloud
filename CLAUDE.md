@@ -476,3 +476,10 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **Audit:** `ACTIVISM_ACTION/_CONTRIBUTION/_REPORT/_SETTINGS`, Snapshots ohne Freitext (nur Ids, Enums, Zahlen, Länge + SHA-256 von Texten); das Anlegen einer Meldung und jedes Signal werden nicht auditiert.
 - **Registrierung:** `IActivismService` ist die **letzte** `registerService` (nach `IPartnerServerService`); neue Methoden ans Ende. Pins: `ConferenceTimerServiceEventGuardTripwireTest`, `GalleryTripwireTest`, `ActivismTripwireTest`.
 - **Client:** Routen `/activism`, `/activism/new`, `/activism/settings` (BOARD/ADMIN), `/activism/:id`, `/activism/:id/edit`; Texte anderer Personen nur über `untrusted*`, Fortschritt als natives `<progress>` ohne Inline-Style, keine Mitglieds-Id im DOM.
+
+## Speicherplatz-Anzeige (V1.9.263)
+
+- **Eine Messung:** freier und gesamter Platz werden nur über `StorageSpaceProbe` (Paket `server.documents`) gemessen. Außer dort kommen `usableSpace`, `totalSpace` und `FileStore` im Main-Code nicht vor; `RecordingDiskBudget`, `RecordingPoller`, `ConferenceRecordingService` und `PulpitRecordingCoordinator` nutzen `StorageSpaceProbe.usable`. Pin: `StorageSpaceTripwireTest`.
+- **RPC:** `IDocumentService.storageSpace()` steht am Ende der Schnittstelle (`DocumentService`, nicht ein neuer Dienst; die Reihenfolge von `registerService` bleibt). Reihenfolge im Service: ADMIN-Prüfung, dann Limiter (12 Aufrufe je 60 s je Mitglied), dann Dateisystem. Der Limiter ist die eine Instanz aus `Application.module` (`DocumentStorageSpaceReader`), nie eine neue je Konstruktor.
+- **Antwort:** nur `level`, `freeBytes`, `totalBytes`; nie Pfad, Mount-Punkt oder Host. Ein Messfehler wird mit Ausnahmetyp geloggt (nie `message`) und als `UNKNOWN` beantwortet. Fehlendes Verzeichnis ist `UNKNOWN`, nicht `WARNING`.
+- **Client:** die Schwellen rechnet nur der Server; der Client zeigt `level` an (`StorageSpaceDisplay.kt`, Long-Arithmetik, dezimale GB). Karte nur bei HINT/WARNING und als erstes in "Für Sie"; Zeile auf der Dokumentenablage in allen vier Zuständen. Beides nur für ADMIN, ohne Toast bei Fehlern.

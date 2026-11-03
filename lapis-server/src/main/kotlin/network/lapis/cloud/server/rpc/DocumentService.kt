@@ -10,11 +10,14 @@ import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.documents.DocumentStorageSpaceReader
 import network.lapis.cloud.server.documents.FolderAccessLevels
 import network.lapis.cloud.server.encounter.PulpitRecordingDocuments
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.canAccessDocumentAtLevel
+import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
@@ -24,6 +27,7 @@ import network.lapis.cloud.shared.domain.DocumentFolderAccessLevelSnapshot
 import network.lapis.cloud.shared.domain.DocumentFolderDto
 import network.lapis.cloud.shared.domain.DocumentVersionDto
 import network.lapis.cloud.shared.domain.FolderAccessLevelChangeDto
+import network.lapis.cloud.shared.domain.StorageSpaceDto
 import network.lapis.cloud.shared.domain.restrictiveness
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -99,7 +103,18 @@ private const val MAX_TIGHTEN_ATTEMPTS = 3
  */
 class DocumentService(
     private val call: ApplicationCall,
+    private val storageSpaceReader: DocumentStorageSpaceReader = DocumentStorageSpaceReader.UNCONFIGURED,
 ) : IDocumentService {
+    /**
+     * V1.9.263. ADMIN only; the role check runs before the rate limiter (a non-ADMIN never creates a
+     * limiter entry) and the limiter before any file system access.
+     */
+    override suspend fun storageSpace(): StorageSpaceDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        return storageSpaceReader.read(current.memberId)
+    }
+
     /**
      * **V0.11.0 security fix (pre-existing, found while auditing the FRIEND-wave blast radius)**:
      * this method previously did not call [resolveCurrentMember] AT ALL -- the full folder tree

@@ -7849,6 +7849,36 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   font-size: .875rem;
 }
 
+/* V1.9.263: the storage-space card is not a link itself (only its "Zu den Dokumenten" link is): no hover effect, text may wrap.
+   The warning state uses Bootstrap's subtle/emphasis tokens only, so it follows light and dark mode. */
+.lapis-storage-card:hover {
+  background-color: var(--lapis-surface);
+  border-color: var(--lapis-border);
+}
+
+.lapis-storage-card.bg-warning-subtle:hover {
+  background-color: var(--bs-warning-bg-subtle);
+  border-color: var(--bs-warning-border-subtle);
+}
+
+.lapis-storage-card .lapis-signal-card__reason {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.lapis-storage-card.text-warning-emphasis .lapis-signal-card__reason {
+  color: inherit;
+}
+
+.lapis-storage-card__link {
+  align-self: flex-start;
+}
+
+.lapis-storage-line {
+  min-width: 0;
+}
+
 /* V1.9.224: the live "(aktiv/gesamt)" after a sidebar entry. Information, not a request: muted, no background. */
 .nav-live-suffix {
   color: var(--lapis-muted);

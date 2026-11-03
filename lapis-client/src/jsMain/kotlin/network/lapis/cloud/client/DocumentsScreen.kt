@@ -19,6 +19,7 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AiIndexStatus
 import network.lapis.cloud.shared.domain.AiKnowledgeEntryDto
@@ -40,9 +41,28 @@ import network.lapis.cloud.shared.rpc.IDocumentService
  * computed inline any more -- review finding fix), which is the pure, unit-tested predicate that
  * must mirror the server's role set exactly: see that object's own KDoc.
  */
-fun renderDocumentsScreen(container: SimplePanel) {
+fun renderDocumentsScreen(container: SimplePanel) = renderDocumentsScreen(container, liveStorageSpaceRpc())
+
+/** Test seam (V1.9.263): the storage-space RPC can be replaced; the public overload keeps the route signature `(SimplePanel) -> Unit`. */
+internal fun renderDocumentsScreen(
+    container: SimplePanel,
+    storageSpaceRpc: StorageSpaceRpc,
+) {
     val root = container.dataScreenRoot(spacing = 14)
     root.pageHeader(tr("Dokumentenablage"), intro = PageIntros.forRoute(Routes.DOCUMENTS))
+    // V1.9.263: free space of the document volume, ADMIN only; a failure or a refused call leaves the slot empty (no toast).
+    if (showsStorageSpace(AppState.session)) {
+        val storageSlot = root.div(className = "lapis-documents-storage")
+        AppScope.launch {
+            try {
+                storageSlot.add(storageSpaceLine(storageSpaceRpc.storageSpace()))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // nothing to show
+            }
+        }
+    }
     val canManage = DocumentsAuthzUi.canManage(AppState.session?.role)
 
     // V1.9.49 (R36B): each list has a title row with its own create button; the forms sit directly under the title row.

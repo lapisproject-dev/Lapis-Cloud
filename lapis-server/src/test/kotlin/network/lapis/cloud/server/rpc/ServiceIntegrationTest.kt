@@ -283,12 +283,12 @@ class ServiceIntegrationTest :
                     }
                     routing {
                         post("/test/create-folder") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val folder = service.createFolder(name = "Satzungen")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val doc =
                                 service.createDocument(
                                     folderId = call.parameters["folderId"]!!,
@@ -298,7 +298,7 @@ class ServiceIntegrationTest :
                             call.respondText(doc.id)
                         }
                         post("/test/delete-document/{documentId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             service.deleteDocument(call.parameters["documentId"]!!)
                             call.respondText("ok")
                         }
@@ -367,12 +367,12 @@ class ServiceIntegrationTest :
                     }
                     routing {
                         post("/test/create-folder") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val folder = service.createFolder(name = "Executive Board Documents")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}/{level}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val doc =
                                 service.createDocument(
                                     folderId = call.parameters["folderId"]!!,
@@ -382,12 +382,12 @@ class ServiceIntegrationTest :
                             call.respondText(doc.id)
                         }
                         get("/test/list-documents/{folderId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val docs = service.listDocuments(call.parameters["folderId"]!!)
                             call.respondText(docs.joinToString(",") { it.id })
                         }
                         get("/test/list-versions/{documentId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val versions = service.listVersions(call.parameters["documentId"]!!)
                             call.respondText(versions.size.toString())
                         }
@@ -440,12 +440,12 @@ class ServiceIntegrationTest :
                     }
                     routing {
                         post("/test/create-folder") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val folder = service.createFolder(name = "Beitragsrechnungen (Delete-Authz-Test)")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}/{level}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val doc =
                                 service.createDocument(
                                     folderId = call.parameters["folderId"]!!,
@@ -455,7 +455,7 @@ class ServiceIntegrationTest :
                             call.respondText(doc.id)
                         }
                         post("/test/delete-document/{documentId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             service.deleteDocument(call.parameters["documentId"]!!)
                             call.respondText("ok")
                         }
@@ -514,12 +514,12 @@ class ServiceIntegrationTest :
                     }
                     routing {
                         post("/test/create-folder") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val folder = service.createFolder(name = "Vorstandsprotokolle (Create-Authz-Test)")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}/{level}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val doc =
                                 service.createDocument(
                                     folderId = call.parameters["folderId"]!!,
@@ -576,12 +576,12 @@ class ServiceIntegrationTest :
                     }
                     routing {
                         post("/test/create-folder") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val folder = service.createFolder(name = "Satzungen (Guest-Scope-Test)")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val doc =
                                 service.createDocument(
                                     folderId = call.parameters["folderId"]!!,
@@ -591,12 +591,12 @@ class ServiceIntegrationTest :
                             call.respondText(doc.id)
                         }
                         get("/test/list-documents/{folderId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val docs = service.listDocuments(call.parameters["folderId"]!!)
                             call.respondText(docs.joinToString(",") { it.id })
                         }
                         get("/test/list-versions/{documentId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val versions = service.listVersions(call.parameters["documentId"]!!)
                             call.respondText(versions.size.toString())
                         }
@@ -650,12 +650,12 @@ class ServiceIntegrationTest :
                     }
                     routing {
                         post("/test/create-folder2") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val folder = service.createFolder(name = "Mischordner (Folder-Count-Test)")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document2/{folderId}/{level}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val doc =
                                 service.createDocument(
                                     folderId = call.parameters["folderId"]!!,
@@ -665,17 +665,17 @@ class ServiceIntegrationTest :
                             call.respondText(doc.id)
                         }
                         get("/test/list-folders") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val folders = service.listFolders()
                             call.respondText(folders.joinToString(";") { "${it.id}=${it.documentCount}" })
                         }
                         get("/test/list-documents2/{folderId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val docs = service.listDocuments(call.parameters["folderId"]!!)
                             call.respondText(docs.size.toString())
                         }
                         post("/test/delete-document2/{documentId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             service.deleteDocument(call.parameters["documentId"]!!)
                             call.respondText("ok")
                         }

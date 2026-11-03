@@ -192,12 +192,12 @@ class DsgvoServiceTest :
                             call.respondText(list.joinToString(",") { it.id })
                         }
                         post("/test/create-folder") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val folder = service.createFolder(name = "DSGVO-Test-Ordner")
                             call.respondText(folder.id)
                         }
                         post("/test/create-document/{folderId}") {
-                            val service = DocumentService(call)
+                            val service = DocumentService(call = call)
                             val doc =
                                 service.createDocument(
                                     folderId = call.parameters["folderId"]!!,

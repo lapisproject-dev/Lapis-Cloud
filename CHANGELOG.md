@@ -6,6 +6,23 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.263 -- Storage space indicator for administrators
+
+- **What:** free and total space of the document volume plus a level, shown to ADMIN users only: a card in *Für Sie* on the dashboard (only at the hint and warning level, always the first card) and one line on *Dokumentenablage* (all four states: ok, hint, warning, not measurable).
+- **Thresholds:** hint below 20 % or below 10 GB free; warning below 5 % or below 2 GB free; GB are decimal (10^9 bytes); an exact boundary belongs to the milder level. The server derives the level, the client only shows it.
+- **API (appended at the end of `IDocumentService`):** `storageSpace()`. ADMIN only, checked before the rate limiter and before any file system access; 12 calls per 60 s per member (`RateLimitedException`). The answer carries only the level, the free bytes and the total bytes, never a path, mount point or host name. A refused or failed call shows nothing (no toast).
+- **One measurement:** `StorageSpaceProbe` is the only place that asks the file system for free or total space (one statvfs pair, no tree walk, no cache); `RecordingDiskBudget`, `RecordingPoller`, `ConferenceRecordingService` and `PulpitRecordingCoordinator` use the same probe. `StorageSpaceTripwireTest` pins this. There is no migration (V138 stays the latest).
+- **Limits:**
+  - Only the volume of `LAPIS_DOCUMENT_STORAGE_ROOT` is measured. The raw recording work directory and the PostgreSQL volume are not covered.
+  - On pdv2 several instances share one disk, so the number applies to all of them together.
+  - The value is `usableSpace`, which can be smaller than what `df` reports as free.
+  - A volume smaller than 10 GB always shows at least the hint level.
+  - An I/O error on an existing directory can read as 0 bytes free and show a false warning; that cannot be told apart.
+- **Open (not in this wave):** a warning before a recording starts, a hint mail to administrators, adjustable thresholds.
+- **Not verified:** a really full disk, a real server volume, a real browser (only headless Chrome), a screen reader (the card has `role="status"` inside the section that is already `aria-live="polite"`, which may announce it twice).
+- **Translations:** model-written (en, es, fr, it, nl, pl, ru), not by native speakers.
+- **Docs:** `dashboard.adoc`, `pulpit-recording.adoc`, `conference-recording.adoc`, `document-access.adoc`, `CLAUDE.md`.
+
 ### V1.9.262 -- Organisation default for the recording/stream view
 
 - **Setting:** under *Organisation > Aufzeichnung & Übertragung* (first block) an administrator chooses the default view for recordings and the stream dialog pre-fill: *Raster* (default, unchanged for every existing instance) or *Sprecher groß*. The two radios save at once; a refusal puts the radio back; a status line (`aria-live`) names the saved view; the section summary shows it.

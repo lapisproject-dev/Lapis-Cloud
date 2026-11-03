@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.conference
 
+import network.lapis.cloud.server.documents.StorageSpaceProbe
 import java.io.File
 import kotlin.math.max
 
@@ -43,7 +44,7 @@ object RecordingDiskBudget {
         rawBytes: Long,
         durationSeconds: Long,
         currentFileBytes: Long?,
-        diskSpace: (File) -> Long = { it.usableSpace },
+        diskSpace: (File) -> Long = StorageSpaceProbe.usable,
     ): Boolean {
         if (diskSpace(workRoot) <
             requiredWorkBytes(rawBytes = rawBytes, durationSeconds = durationSeconds, currentFileBytes = currentFileBytes)

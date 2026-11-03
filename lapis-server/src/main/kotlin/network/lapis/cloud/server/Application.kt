@@ -110,6 +110,7 @@ import network.lapis.cloud.server.db.StagingSeedData
 import network.lapis.cloud.server.db.StagingSeedTopUp
 import network.lapis.cloud.server.db.dbFailureKind
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.documents.DocumentStorageSpaceReader
 import network.lapis.cloud.server.dsgvo.MailOutboxPersonalData
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
@@ -601,6 +602,12 @@ internal fun Application.module(
 
     val documentStorageRoot = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
     documentStorageRoot.mkdirs()
+    // V1.9.263: one shared limiter for the ADMIN storage-space RPC (DocumentService is rebuilt per call).
+    val documentStorageSpaceReader =
+        DocumentStorageSpaceReader(
+            root = documentStorageRoot,
+            rateLimiter = FederationInboxRateLimiter(maxRequests = DocumentStorageSpaceReader.MAX_CALLS, window = 1.minutes),
+        )
 
     // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- reuses documentStorageRoot's
     // durable-volume guarantee with an "event-covers/" subdirectory as the default, same pattern
@@ -2467,7 +2474,7 @@ internal fun Application.module(
         registerService(IMemberStatisticsService::class) { call -> MemberStatisticsService(call = call) }
         registerService(IMemberHonorService::class) { call -> MemberHonorService(call = call) }
         registerService(IMemberFamilyService::class) { call -> MemberFamilyService(call = call) }
-        registerService(IDocumentService::class) { call -> DocumentService(call) }
+        registerService(IDocumentService::class) { call -> DocumentService(call = call, storageSpaceReader = documentStorageSpaceReader) }
         registerService(IMailingService::class) { call ->
             MailingService(
                 call = call,

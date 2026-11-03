@@ -340,12 +340,12 @@ class FederationGuestJourneyTest :
                             call.respondText("${p.id}:${p.status}")
                         }
                         post("/e2e3/create-folder") {
-                            val f = DocumentService(call).createFolder(name = "E2E Scenario 3 Ordner", parentFolderId = null)
+                            val f = DocumentService(call = call).createFolder(name = "E2E Scenario 3 Ordner", parentFolderId = null)
                             call.respondText(f.id)
                         }
                         post("/e2e3/create-document/{folderId}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = "E2E Scenario 3 Vorstandsprotokoll (PUBLIC_MEMBERS)",
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -353,7 +353,7 @@ class FederationGuestJourneyTest :
                             call.respondText(d.id)
                         }
                         get("/e2e3/list-documents") {
-                            val list = DocumentService(call).listDocuments(null)
+                            val list = DocumentService(call = call).listDocuments(null)
                             call.respondText(list.joinToString(",") { it.id })
                         }
 

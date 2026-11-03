@@ -468,6 +468,10 @@ msgstr "No disponible: %1 – %2"
 msgid "Nichts auszuzahlen"
 msgstr "Nada que pagar"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:106
+msgid "Noch %1 frei von %2 (%3). Bitte bei Gelegenheit alte Aufzeichnungen oder Dokumente aufräumen oder den Speicher erweitern."
+msgstr "Quedan %1 libres de %2 (%3). Cuando sea posible, ordene grabaciones o documentos antiguos o amplíe el almacenamiento."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSepaPanel.kt:300
 msgid "Noch keine SEPA-Datei erzeugt."
 msgstr "Aún no se ha generado ningún archivo SEPA."
@@ -483,6 +487,10 @@ msgstr "Solo la junta directiva y la administración pueden generar archivos SEP
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1494
 msgid "Nur die ersten %1 von %2 Kontakten geladen."
 msgstr "Solo se cargaron los primeros %1 de %2 contactos."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:99
+msgid "Nur noch %1 frei von %2 (%3). Neue Uploads und Aufzeichnungen können bald scheitern. Bitte jetzt Platz schaffen."
+msgstr "Solo quedan %1 libres de %2 (%3). Las nuevas cargas y grabaciones podrían fallar pronto. Libere espacio ahora."
 
 msgid "Nur nötig, wenn ausgezahlt werden soll. Die IBAN wird verschlüsselt gespeichert."
 msgstr "Solo es necesario si se desea el pago. El IBAN se guarda cifrado."
@@ -537,6 +545,30 @@ msgstr ""
 "servidor de origen.\n"
 "2. Abra %3/app#/conference\n"
 "3. Introduzca allí este identificador de sala: %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
+msgid "Speicherplatz fast voll"
+msgstr "Espacio de almacenamiento casi lleno"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
+msgid "Speicherplatz wird knapp"
+msgstr "El espacio de almacenamiento se está agotando"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:140
+msgid "Speicherplatz: %1 frei von %2 (%3)"
+msgstr "Espacio de almacenamiento: %1 libres de %2 (%3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:139
+msgid "Speicherplatz: %1 frei von %2 (%3), fast voll"
+msgstr "Espacio de almacenamiento: %1 libres de %2 (%3), casi lleno"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:138
+msgid "Speicherplatz: %1 frei von %2 (%3), wird knapp"
+msgstr "Espacio de almacenamiento: %1 libres de %2 (%3), se está agotando"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:132
+msgid "Speicherplatz: derzeit nicht messbar"
+msgstr "Espacio de almacenamiento: no se puede medir en este momento"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:179
 msgid "Standardkonto gesetzt."
@@ -1271,6 +1303,10 @@ msgstr "Fecha del consentimiento (ISO, p. ej. 2026-09-14T10:00)"
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr "El momento no tiene un formato ISO válido (p. ej. 2026-09-14T10:00)."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:122
+msgid "Zu den Dokumenten"
+msgstr "Ir a los documentos"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:959
 msgid "Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung -- siehe Abschnitt \"Abstimmung\" unten."
 msgstr "Esta moción ya tiene una votación meritocrática -- véase la sección \"Votación\" más abajo."
@@ -1294,6 +1330,10 @@ msgstr "Listo para el pago"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:358
 msgid "erfasst von %1"
 msgstr "registrado por %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:69
+msgid "unter 1 %"
+msgstr "menos del 1 %"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:271
 msgid "Änderung zu: %1"
@@ -2353,7 +2393,7 @@ msgstr "Moción de enmienda: %1"
 msgid "Änderungsanträge zu diesem Antrag"
 msgstr "Mociones de enmienda a esta moción"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:525
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:545
 msgid "Änderungshinweis (optional)"
 msgstr "Nota de modificación (opcional)"
 
@@ -3605,7 +3645,7 @@ msgstr "Indique una denominación."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:230
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferencePauseMediaSettings.kt:168
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceVideoOverlayLibrarySettings.kt:295
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:523
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:543
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPhotoCard.kt:117
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegionalChaptersScreen.kt:249
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt:664
@@ -3989,7 +4029,7 @@ msgstr ""
 "El mandato de domiciliación SEPA será revocado. A partir de entonces, las "
 "futuras cuotas ya no podrán cobrarse por domiciliación."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:79
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:89
 msgid "Dashboard"
 msgstr "Panel"

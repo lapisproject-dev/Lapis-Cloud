@@ -234,6 +234,13 @@ not guarantee), so a caller who can see a folder at all can no longer infer a hi
 count that they could not otherwise learn "exists at some level" -- the invariant maintained above is
 what keeps this number safe.
 
+== Storage space RPC (V1.9.263)
+
+`IDocumentService.storageSpace()` is the last method of the interface. Role: ADMIN only, checked right after the session is resolved and before the
+rate limiter and before any file system access (a caller who is not an ADMIN never creates a limiter entry). Limit: 12 calls per 60 s per member, one
+shared limiter created in `Application.module` (`DocumentService` is rebuilt per call). The answer is `StorageSpaceDto(level, freeBytes, totalBytes)`
+and never carries a path, mount point or host name; a measurement error is logged with the exception type only and answered as `UNKNOWN`.
+
 == Decision flow: setting a folder's access level
 
 [source,kuml,name="folder-access-level-decision"]

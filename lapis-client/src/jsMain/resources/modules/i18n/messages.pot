@@ -458,6 +458,10 @@ msgstr ""
 msgid "Nichts auszuzahlen"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:106
+msgid "Noch %1 frei von %2 (%3). Bitte bei Gelegenheit alte Aufzeichnungen oder Dokumente aufräumen oder den Speicher erweitern."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSepaPanel.kt:300
 msgid "Noch keine SEPA-Datei erzeugt."
 msgstr ""
@@ -472,6 +476,10 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1494
 msgid "Nur die ersten %1 von %2 Kontakten geladen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:99
+msgid "Nur noch %1 frei von %2 (%3). Neue Uploads und Aufzeichnungen können bald scheitern. Bitte jetzt Platz schaffen."
 msgstr ""
 
 msgid "Nur nötig, wenn ausgezahlt werden soll. Die IBAN wird verschlüsselt gespeichert."
@@ -519,6 +527,30 @@ msgid ""
 "eigenen Heimserver.\n"
 "2. Öffnen Sie %3/app#/conference\n"
 "3. Geben Sie dort diese Raum-Kennung ein: %4"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
+msgid "Speicherplatz fast voll"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
+msgid "Speicherplatz wird knapp"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:140
+msgid "Speicherplatz: %1 frei von %2 (%3)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:139
+msgid "Speicherplatz: %1 frei von %2 (%3), fast voll"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:138
+msgid "Speicherplatz: %1 frei von %2 (%3), wird knapp"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:132
+msgid "Speicherplatz: derzeit nicht messbar"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:179
@@ -1254,6 +1286,10 @@ msgstr ""
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:122
+msgid "Zu den Dokumenten"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:959
 msgid "Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung -- siehe Abschnitt \"Abstimmung\" unten."
 msgstr ""
@@ -1276,6 +1312,10 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:358
 msgid "erfasst von %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:69
+msgid "unter 1 %"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:271
@@ -2254,7 +2294,7 @@ msgstr ""
 msgid "Änderungsanträge zu diesem Antrag"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:525
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:545
 msgid "Änderungshinweis (optional)"
 msgstr ""
 
@@ -3434,7 +3474,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:230
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferencePauseMediaSettings.kt:168
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceVideoOverlayLibrarySettings.kt:295
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:523
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:543
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPhotoCard.kt:117
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegionalChaptersScreen.kt:249
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt:664
@@ -3743,7 +3783,7 @@ msgstr ""
 msgid "Das SEPA-Lastschriftmandat wird widerrufen. Zukünftige Beiträge können danach nicht mehr per Lastschrift eingezogen werden."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:79
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:89
 msgid "Dashboard"
 msgstr ""
@@ -4224,13 +4264,13 @@ msgstr ""
 msgid "Dokumentation der acht Standard-TOM-Kategorien. \"Version\" ist ein einfacher Zähler, der bei jeder Aktualisierung um eins steigt -- keine eigene Versionshistorie mit Diff-Ansicht in dieser Welle."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:445
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:53
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:465
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:73
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:119
 msgid "Dokumente"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:45
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:52
 msgid "Dokumentenablage"
 msgstr ""
 
@@ -5446,7 +5486,7 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt:416
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:387
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:532
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:552
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:819
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt:135
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt:666
@@ -5893,7 +5933,7 @@ msgstr ""
 msgid "Keine Detaildaten für diesen Eintrag hinterlegt."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:186
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:206
 msgid "Keine Dokumente in diesem Ordner."
 msgstr ""
 
@@ -6581,7 +6621,7 @@ msgid "Meine Buchungen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:671
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:94
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:95
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:70
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:111
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:140
@@ -7023,8 +7063,8 @@ msgstr ""
 msgid "Neue TOM anlegen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:514
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:521
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:534
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:541
 msgid "Neue Version hochladen"
 msgstr ""
 
@@ -7250,7 +7290,7 @@ msgstr ""
 msgid "Noch keine Notizen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:285
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:305
 msgid "Noch keine Ordner vorhanden."
 msgstr ""
 
@@ -7283,7 +7323,7 @@ msgstr ""
 msgid "Noch keine TOM-Einträge angelegt."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:76
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:96
 msgid "Noch keine Version hochgeladen."
 msgstr ""
 
@@ -7460,8 +7500,8 @@ msgstr ""
 msgid "Orakel-Konfiguration aktualisiert."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:428
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:49
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:448
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:69
 msgid "Ordner"
 msgstr ""
 
@@ -8006,7 +8046,7 @@ msgstr ""
 msgid "Schiedsverfahren-Korrekturübertragung bestätigen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBroadcastViewDefaultSettings.kt:123
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBroadcastViewDefaultSettings.kt:131
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt:266
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolFinalSection.kt:217
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1258
@@ -8176,8 +8216,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsCreateForms.kt:48
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:118
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:71
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:403
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:442
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:423
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:462
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:487
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:300
 msgid "Sichtbarkeit"
@@ -8724,7 +8764,7 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:217
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:85
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:86
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:228
 msgid "Status: %1"
 msgstr ""
@@ -8960,7 +9000,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:708
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusScreen.kt:124
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingForms.kt:39
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:394
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:414
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:156
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:226
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionsScreen.kt:105
@@ -9277,15 +9317,15 @@ msgstr ""
 msgid "Version %1"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:547
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:567
 msgid "Version hochgeladen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:62
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:82
 msgid "Versionen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:74
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:94
 msgid "Versionen von \"%1\":"
 msgstr ""
 
@@ -9570,7 +9610,7 @@ msgstr ""
 msgid "Wiederkehrend (RCUR)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:79
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:80
 msgid "Willkommen, %1"
 msgstr ""
 
@@ -9636,7 +9676,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:147
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:302
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:315
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:143
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:148
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:170
 #: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:151
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:124
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:370

@@ -21,6 +21,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRecordingPauseTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.documents.StorageSpaceProbe
 import network.lapis.cloud.server.routes.archiveGeneratedFile
 import network.lapis.cloud.server.routes.archiveNewVersionOfFile
 import network.lapis.cloud.server.time.ServerClock
@@ -269,7 +270,7 @@ class RecordingPoller(
     private val blankDetector: RecordingBlankVideoDetector = RecordingBlankVideoDetector.None,
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
     /** V1.9.109: free-space probe of the recompute's pre-flight check; a test seam. */
-    private val diskSpace: (File) -> Long = { it.usableSpace },
+    private val diskSpace: (File) -> Long = StorageSpaceProbe.usable,
     /** V1.9.115: measures the loudness of the microphones for the speaker timeline; a test seam, [SpeechActivityAnalyzer.None] measures nothing (the recording then shows the grid). */
     private val speechAnalyzer: SpeechActivityAnalyzer = SpeechActivityAnalyzer.None,
 ) {

@@ -65,6 +65,7 @@ internal fun renderDashboardScreen(
     onlineCountsScheduler: OnlineCountsScheduler,
     signalsRpc: DashboardSignalsRpc = liveDashboardSignalsRpc(),
     visibility: DashboardVisibility = WindowDashboardVisibility,
+    storageSpaceRpc: StorageSpaceRpc = liveStorageSpaceRpc(),
 ) {
     val session = AppState.session
     if (session == null) {
@@ -99,7 +100,7 @@ internal fun renderDashboardScreen(
         renderOnlineCountsCard(online, rpc = onlineCountsRpc, scheduler = onlineCountsScheduler)
     }
 
-    renderSignals(root, session, signalsRpc, visibility)
+    renderSignals(root, session, signalsRpc, visibility, storageSpaceRpc)
 }
 
 private fun SimplePanel.statusChip(
@@ -135,10 +136,14 @@ private fun renderSignals(
     session: SessionInfoDto,
     rpc: DashboardSignalsRpc,
     visibility: DashboardVisibility,
+    storageRpc: StorageSpaceRpc,
 ) {
     val section = Div(className = "lapis-dashboard-signals-section")
     section.setAttribute("aria-live", "polite")
     section.h2(tr("Für Sie")) { addCssClass("h5") }
+    // V1.9.263: the storage-space card (ADMIN, hint/warning only) always comes first, before the signal cards.
+    val storageSlot = Div(className = "lapis-dashboard-storage")
+    section.add(storageSlot)
     val status = Div(className = "lapis-dashboard-signals__status small text-body-secondary")
     status.content = tr("Wird geladen …")
     section.add(status)
@@ -150,19 +155,57 @@ private fun renderSignals(
     var started = false
     var inFlight = false
     var shown = false
+    var signalCount = 0
+    var storageShown = false
+    var storagePending = false
     var lastLoadMs = Double.NEGATIVE_INFINITY
     var listener: ((Event) -> Unit)? = null
+
+    // The "nothing new" sentence stands only when there is no signal card AND no storage card, whatever order the answers arrive in.
+    fun updateStatus() {
+        if (!shown) return
+        when {
+            signalCount > 0 || storageShown -> status.visible = false
+            storagePending -> {
+                status.content = tr("Wird geladen …")
+                status.visible = true
+            }
+            else -> {
+                status.content = tr("Im Moment gibt es nichts Neues für Sie.")
+                status.visible = true
+            }
+        }
+    }
 
     fun show(signals: List<DashboardSignalDto>) {
         val cards = sortSignals(signals).mapNotNull { signalCard(it, context) }
         grid.removeAll()
         cards.forEach { grid.add(it) }
         shown = true
-        if (cards.isEmpty()) {
-            status.content = tr("Im Moment gibt es nichts Neues für Sie.")
-            status.visible = true
-        } else {
-            status.visible = false
+        signalCount = cards.size
+        updateStatus()
+    }
+
+    // Once, no polling, no toast: a failure or a refused call simply leaves the card away.
+    fun loadStorage() {
+        storagePending = true
+        AppScope.launch {
+            try {
+                val dto = storageRpc.storageSpace()
+                if (!gone) {
+                    storageSpaceCard(dto)?.let {
+                        storageSlot.add(it)
+                        storageShown = true
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // nothing to show
+            } finally {
+                storagePending = false
+                if (!gone) updateStatus()
+            }
         }
     }
 
@@ -192,6 +235,7 @@ private fun renderSignals(
             if (!started) {
                 started = true
                 load()
+                if (showsStorageSpace(session)) loadStorage()
             }
             if (listener == null) {
                 val l: (Event) -> Unit = {

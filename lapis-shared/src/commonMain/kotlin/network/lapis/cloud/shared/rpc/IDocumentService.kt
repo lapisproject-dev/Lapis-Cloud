@@ -6,6 +6,7 @@ import network.lapis.cloud.shared.domain.DocumentDto
 import network.lapis.cloud.shared.domain.DocumentFolderDto
 import network.lapis.cloud.shared.domain.DocumentVersionDto
 import network.lapis.cloud.shared.domain.FolderAccessLevelChangeDto
+import network.lapis.cloud.shared.domain.StorageSpaceDto
 
 /**
  * Metadata-only RPC surface. File bytes travel over dedicated Ktor HTTP routes
@@ -84,4 +85,11 @@ interface IDocumentService {
         folderId: String,
         accessLevel: DocumentAccessLevel,
     ): FolderAccessLevelChangeDto
+
+    /**
+     * V1.9.263. Role: ADMIN only (ForbiddenException otherwise, checked before any file system access).
+     * Per-member rate limit 12 / 60 s (RateLimitedException). Free/total bytes of the volume holding the
+     * document store plus the server-derived level; never a path, mount point or host name.
+     */
+    suspend fun storageSpace(): StorageSpaceDto
 }

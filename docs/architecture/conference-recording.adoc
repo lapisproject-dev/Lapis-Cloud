@@ -415,6 +415,7 @@ Tests wait with `RecordingPoller.awaitCompositionIdleForTest()`. `stop()` cancel
   `UPDATE ... WHERE status = READY AND recompute_started_at IS NULL` sets `recompute_started_at` (V89; CHECK: only while READY). Zero rows is `RecordingRecomputeInProgressException`. Audit `UPDATE`, `status=READY` to `recompute requested`.
   The recording stays fully usable: document, media URL and playback are unchanged until the new version is committed.
 * *FAILED + COMPOSE_FAILED.* Exactly the retry path (same flip, same counter), audit text `recompute requested (failed recording)`.
+* *Free space (V1.9.263).* `RecordingDiskBudget`, `RecordingPoller` and `ConferenceRecordingService` read free space through `StorageSpaceProbe.usable`, the single measurement of the server. The administrator indicator (`IDocumentService.storageSpace`) uses the same probe and measures only the document volume.
 * *Disk.* `RecordingDiskBudget`: the work volume needs `max(1.5 x raw + 1 GiB, raw + pcm + 2 x file + 1 GiB)` (pcm = 192 000 bytes per second of recording), the document volume `file + 512 MiB`. Checked in the RPC (before the transaction, it reads the file system;
   `RecordingRecomputeInsufficientDiskException`) and again by the poller right before the work starts (the answer is minutes old).
 * *The work.* The worker composes into `<raw dir>/recompute-<uuid>.mp4.part`, then `archiveNewVersionOfFile` copies it as a NEW `document_version` (`max + 1`) *outside* any transaction (streamed, SHA-256) and then, in ONE transaction, (1) runs the *fencing update*

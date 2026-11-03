@@ -64,3 +64,9 @@ acknowledges it; a running recording is not interrupted.
 * The consent variants for non-members and the placeholder texts are drafts; the translations are model translations.
 * The proof of the pulpit person's agreement with a person attached lives outside Lapis Cloud; the audit entry of a start only records *whether* the pulpit had
   agreed and the hashes of the two texts.
+
+== Free-space measurement (V1.9.263)
+
+`RecordingDiskBudget` and the pulpit recording coordinator take their free-space reading from the shared `StorageSpaceProbe`, the single place that asks the
+file system. The administrator indicator on the dashboard and on the document page uses the same probe, but it measures only the volume of the document
+store, not the raw recording work directory.

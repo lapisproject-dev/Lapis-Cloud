@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.documents.StorageSpaceProbe
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
 import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
@@ -186,7 +187,7 @@ class ConferenceRecordingService(
     /** V1.9.109: the document store's root, for the free-space check of a recompute (`null` skips that half of the check). */
     private val documentStorageRoot: File? = null,
     /** V1.9.109: the free-space probe; a test seam. */
-    private val diskSpace: (File) -> Long = { it.usableSpace },
+    private val diskSpace: (File) -> Long = StorageSpaceProbe.usable,
     /** V1.9.109: invoked once after a successful [recomputeRecording] COMMIT -- wired to `RecordingPoller.requestTick()`. Never called inside the transaction. */
     private val onRecomputeRequested: () -> Unit = {},
 ) : IConferenceRecordingService {

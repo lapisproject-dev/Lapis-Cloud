@@ -153,10 +153,10 @@ class PulpitRecordingDeleteTest :
                     changeNote = "test",
                 ).also { ordinaryDocuments += it }
             encounterApp {
-                client.runAs(member = admin) { call -> DocumentService(call).deleteDocument(id.toString()) }.getOrThrow()
+                client.runAs(member = admin) { call -> DocumentService(call = call).deleteDocument(id.toString()) }.getOrThrow()
                 rowsOf(id) shouldBe Triple(false, false, 0L)
                 blob.exists() shouldBe false
-                client.runAs(member = admin) { call -> DocumentService(call).deleteDocument(other.toString()) }.getOrThrow()
+                client.runAs(member = admin) { call -> DocumentService(call = call).deleteDocument(other.toString()) }.getOrThrow()
                 transaction { DocumentTable.selectAll().where { DocumentTable.id eq other }.single()[DocumentTable.isDeleted] } shouldBe
                     true
             }
@@ -219,13 +219,13 @@ class PulpitRecordingDeleteTest :
                 client
                     .runAs(member = admin) { call ->
                         DocumentService(
-                            call,
+                            call = call,
                         ).setDocumentAccessLevel(documentId = id.toString(), accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS)
                     }.failure<ConflictException>()
                 client
                     .runAs(member = admin) { call ->
                         DocumentService(
-                            call,
+                            call = call,
                         ).setFolderAccessLevel(folderId = folderId.toString(), accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS)
                     }.failure<ConflictException>()
                 transaction { DocumentTable.selectAll().where { DocumentTable.id eq id }.single()[DocumentTable.accessLevel] } shouldBe

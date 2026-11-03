@@ -467,6 +467,10 @@ msgstr "Недоступно: %1 – %2"
 msgid "Nichts auszuzahlen"
 msgstr "Выплачивать нечего"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:106
+msgid "Noch %1 frei von %2 (%3). Bitte bei Gelegenheit alte Aufzeichnungen oder Dokumente aufräumen oder den Speicher erweitern."
+msgstr "Свободно ещё %1 из %2 (%3). При случае уберите старые записи или документы либо расширьте хранилище."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSepaPanel.kt:300
 msgid "Noch keine SEPA-Datei erzeugt."
 msgstr "Файл SEPA ещё не создан."
@@ -482,6 +486,10 @@ msgstr "Только правление и администрация могут
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1494
 msgid "Nur die ersten %1 von %2 Kontakten geladen."
 msgstr "Загружены только первые %1 из %2 контактов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:99
+msgid "Nur noch %1 frei von %2 (%3). Neue Uploads und Aufzeichnungen können bald scheitern. Bitte jetzt Platz schaffen."
+msgstr "Свободно только %1 из %2 (%3). Новые загрузки и записи могут скоро не удаваться. Пожалуйста, освободите место сейчас."
 
 msgid "Nur nötig, wenn ausgezahlt werden soll. Die IBAN wird verschlüsselt gespeichert."
 msgstr "Нужно только для выплаты. IBAN хранится в зашифрованном виде."
@@ -536,6 +544,30 @@ msgstr ""
 "сервер.\n"
 "2. Откройте %3/app#/conference\n"
 "3. Введите там этот идентификатор комнаты: %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
+msgid "Speicherplatz fast voll"
+msgstr "Хранилище почти заполнено"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
+msgid "Speicherplatz wird knapp"
+msgstr "Место в хранилище заканчивается"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:140
+msgid "Speicherplatz: %1 frei von %2 (%3)"
+msgstr "Место в хранилище: свободно %1 из %2 (%3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:139
+msgid "Speicherplatz: %1 frei von %2 (%3), fast voll"
+msgstr "Место в хранилище: свободно %1 из %2 (%3), почти заполнено"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:138
+msgid "Speicherplatz: %1 frei von %2 (%3), wird knapp"
+msgstr "Место в хранилище: свободно %1 из %2 (%3), заканчивается"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:132
+msgid "Speicherplatz: derzeit nicht messbar"
+msgstr "Место в хранилище: сейчас измерить нельзя"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:179
 msgid "Standardkonto gesetzt."
@@ -1270,6 +1302,10 @@ msgstr "Дата согласия (ISO, напр. 2026-09-14T10:00)"
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr "Время указано не в корректном формате ISO (напр. 2026-09-14T10:00)."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:122
+msgid "Zu den Dokumenten"
+msgstr "Перейти к документам"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:959
 msgid "Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung -- siehe Abschnitt \"Abstimmung\" unten."
 msgstr "По этой заявке уже есть меритократическое голосование -- см. раздел «Голосование» ниже."
@@ -1293,6 +1329,10 @@ msgstr "Готово к выплате"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:358
 msgid "erfasst von %1"
 msgstr "зафиксировал(а): %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:69
+msgid "unter 1 %"
+msgstr "менее 1 %"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:271
 msgid "Änderung zu: %1"
@@ -2350,7 +2390,7 @@ msgstr "Поправка: %1"
 msgid "Änderungsanträge zu diesem Antrag"
 msgstr "Поправки к этой заявке"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:525
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:545
 msgid "Änderungshinweis (optional)"
 msgstr "Примечание к изменению (необязательно)"
 
@@ -3599,7 +3639,7 @@ msgstr "Укажите наименование."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:230
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferencePauseMediaSettings.kt:168
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceVideoOverlayLibrarySettings.kt:295
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:523
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:543
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPhotoCard.kt:117
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegionalChaptersScreen.kt:249
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt:664
@@ -3979,7 +4019,7 @@ msgstr ""
 "Мандат прямого дебета SEPA будет отозван. После этого будущие взносы больше "
 "нельзя будет списывать прямым дебетом."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:79
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:89
 msgid "Dashboard"
 msgstr "Панель управления"
@@ -4645,13 +4685,13 @@ msgstr ""
 "счётчик, увеличивающийся на единицу при каждом обновлении — отдельной "
 "истории версий с сравнением изменений в этой волне нет."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:445
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:53
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:465
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:73
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:119
 msgid "Dokumente"
 msgstr "Документы"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:45
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:52
 msgid "Dokumentenablage"
 msgstr "Хранилище документов"
 
@@ -5968,7 +6008,7 @@ msgstr "Высокий"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt:416
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:387
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:532
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:552
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:819
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt:135
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseExtraCosts.kt:666
@@ -6460,7 +6500,7 @@ msgstr "В зарегистрированных разделах данные н
 msgid "Keine Detaildaten für diesen Eintrag hinterlegt."
 msgstr "Для этой записи подробные данные не указаны."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:186
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:206
 msgid "Keine Dokumente in diesem Ordner."
 msgstr "В этой папке нет документов."
 
@@ -7173,7 +7213,7 @@ msgid "Meine Buchungen"
 msgstr "Мои проводки"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:671
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:94
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:95
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:70
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:111
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:140
@@ -7651,8 +7691,8 @@ msgstr "Новое назначение"
 msgid "Neue TOM anlegen"
 msgstr "Создать новую запись TOM"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:514
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:521
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:534
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:541
 msgid "Neue Version hochladen"
 msgstr "Загрузить новую версию"
 
@@ -7884,7 +7924,7 @@ msgstr "Пока нет сообщений."
 msgid "Noch keine Notizen."
 msgstr "Пока нет заметок."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:285
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:305
 msgid "Noch keine Ordner vorhanden."
 msgstr "Пока нет папок."
 
@@ -7917,7 +7957,7 @@ msgstr "Пока нет пунктов повестки дня."
 msgid "Noch keine TOM-Einträge angelegt."
 msgstr "Пока не создано ни одной записи TOM."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:76
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:96
 msgid "Noch keine Version hochgeladen."
 msgstr "Пока не загружено ни одной версии."
 
@@ -8103,8 +8143,8 @@ msgstr "Оракул остановлен (HALT) -- актуальный кур�
 msgid "Orakel-Konfiguration aktualisiert."
 msgstr "Конфигурация оракула обновлена."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:428
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:49
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:448
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:69
 msgid "Ordner"
 msgstr "Папка"
 

@@ -73,11 +73,14 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "T-S1 Ordner", accessLevel = DocumentAccessLevel.BOARD_ONLY)
+                            val f =
+                                DocumentService(
+                                    call = call,
+                                ).createFolder(name = "T-S1 Ordner", accessLevel = DocumentAccessLevel.BOARD_ONLY)
                             call.respondText(f.id)
                         }
                         get("/list") {
-                            val folders = DocumentService(call).listFolders()
+                            val folders = DocumentService(call = call).listFolders()
                             call.respondText(folders.joinToString(",") { it.id })
                         }
                     }
@@ -96,11 +99,14 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "T-S2 Ordner", accessLevel = DocumentAccessLevel.BOARD_ONLY)
+                            val f =
+                                DocumentService(
+                                    call = call,
+                                ).createFolder(name = "T-S2 Ordner", accessLevel = DocumentAccessLevel.BOARD_ONLY)
                             call.respondText(f.id)
                         }
                         get("/docs/{id}") {
-                            val docs = DocumentService(call).listDocuments(call.parameters["id"]!!)
+                            val docs = DocumentService(call = call).listDocuments(call.parameters["id"]!!)
                             call.respondText(docs.size.toString())
                         }
                     }
@@ -126,22 +132,25 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/parent") {
-                            val f = DocumentService(call).createFolder(name = "T-S3 Eltern")
+                            val f = DocumentService(call = call).createFolder(name = "T-S3 Eltern")
                             call.respondText(f.id)
                         }
                         post("/child/{parentId}") {
-                            val f = DocumentService(call).createFolder(name = "T-S3 Kind", parentFolderId = call.parameters["parentId"])
+                            val f =
+                                DocumentService(
+                                    call = call,
+                                ).createFolder(name = "T-S3 Kind", parentFolderId = call.parameters["parentId"])
                             call.respondText(f.id)
                         }
                         post("/tighten-parent/{parentId}") {
-                            DocumentService(call).setFolderAccessLevel(
+                            DocumentService(call = call).setFolderAccessLevel(
                                 folderId = call.parameters["parentId"]!!,
                                 accessLevel = DocumentAccessLevel.ADMIN_ONLY,
                             )
                             call.respondText("ok")
                         }
                         get("/list") {
-                            val folders = DocumentService(call).listFolders()
+                            val folders = DocumentService(call = call).listFolders()
                             call.respondText(folders.joinToString(",") { it.id })
                         }
                     }
@@ -166,12 +175,15 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "T-S4 Ordner", accessLevel = DocumentAccessLevel.BOARD_ONLY)
+                            val f =
+                                DocumentService(
+                                    call = call,
+                                ).createFolder(name = "T-S4 Ordner", accessLevel = DocumentAccessLevel.BOARD_ONLY)
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = "T-S4 Dokument",
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -192,12 +204,15 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "T-S5 Ordner", accessLevel = DocumentAccessLevel.BOARD_ONLY)
+                            val f =
+                                DocumentService(
+                                    call = call,
+                                ).createFolder(name = "T-S5 Ordner", accessLevel = DocumentAccessLevel.BOARD_ONLY)
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = "T-S5 Dokument",
                                     accessLevel = DocumentAccessLevel.BOARD_ONLY,
@@ -206,7 +221,7 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/set/{docId}/{level}") {
                             val d =
-                                DocumentService(call).setDocumentAccessLevel(
+                                DocumentService(call = call).setDocumentAccessLevel(
                                     documentId = call.parameters["docId"]!!,
                                     accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
                                 )
@@ -227,12 +242,12 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "T-S6 Ordner")
+                            val f = DocumentService(call = call).createFolder(name = "T-S6 Ordner")
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = "T-S6 Dokument",
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -241,7 +256,7 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/setDoc/{docId}/{level}") {
                             val d =
-                                DocumentService(call).setDocumentAccessLevel(
+                                DocumentService(call = call).setDocumentAccessLevel(
                                     documentId = call.parameters["docId"]!!,
                                     accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
                                 )
@@ -249,7 +264,7 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/setFolder/{folderId}/{level}") {
                             val result =
-                                DocumentService(call).setFolderAccessLevel(
+                                DocumentService(call = call).setFolderAccessLevel(
                                     folderId = call.parameters["folderId"]!!,
                                     accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
                                 )
@@ -275,16 +290,19 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/parent") {
-                            val f = DocumentService(call).createFolder(name = "T-S7 Eltern")
+                            val f = DocumentService(call = call).createFolder(name = "T-S7 Eltern")
                             call.respondText(f.id)
                         }
                         post("/child/{parentId}") {
-                            val f = DocumentService(call).createFolder(name = "T-S7 Kind", parentFolderId = call.parameters["parentId"])
+                            val f =
+                                DocumentService(
+                                    call = call,
+                                ).createFolder(name = "T-S7 Kind", parentFolderId = call.parameters["parentId"])
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}/{title}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = call.parameters["title"]!!,
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -293,14 +311,14 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/tighten/{folderId}/{level}") {
                             val result =
-                                DocumentService(call).setFolderAccessLevel(
+                                DocumentService(call = call).setFolderAccessLevel(
                                     folderId = call.parameters["folderId"]!!,
                                     accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
                                 )
                             call.respondText(result.tightenedDocuments.toString())
                         }
                         get("/level/{docId}") {
-                            val docs = DocumentService(call).listDocuments()
+                            val docs = DocumentService(call = call).listDocuments()
                             call.respondText(docs.single { it.id == call.parameters["docId"] }.accessLevel.name)
                         }
                     }
@@ -350,12 +368,12 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "T-S11 Ordner")
+                            val f = DocumentService(call = call).createFolder(name = "T-S11 Ordner")
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = "T-S11 Dokument",
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -364,7 +382,7 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/set/{docId}") {
                             val d =
-                                DocumentService(call).setDocumentAccessLevel(
+                                DocumentService(call = call).setDocumentAccessLevel(
                                     documentId = call.parameters["docId"]!!,
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
                                 )
@@ -388,7 +406,7 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         get("/list") {
-                            val folders = DocumentService(call).listFolders()
+                            val folders = DocumentService(call = call).listFolders()
                             call.respondText(folders.joinToString(",") { it.id })
                         }
                     }
@@ -436,12 +454,12 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "K4 Ordner")
+                            val f = DocumentService(call = call).createFolder(name = "K4 Ordner")
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = "K4 Dokument",
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -450,7 +468,7 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/set/{docId}/{level}") {
                             val d =
-                                DocumentService(call).setDocumentAccessLevel(
+                                DocumentService(call = call).setDocumentAccessLevel(
                                     documentId = call.parameters["docId"]!!,
                                     accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
                                 )
@@ -479,12 +497,12 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "K4-Kaskade Ordner")
+                            val f = DocumentService(call = call).createFolder(name = "K4-Kaskade Ordner")
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = "K4-Kaskade Dokument",
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -493,7 +511,7 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/tighten/{folderId}") {
                             val result =
-                                DocumentService(call).setFolderAccessLevel(
+                                DocumentService(call = call).setFolderAccessLevel(
                                     folderId = call.parameters["folderId"]!!,
                                     accessLevel = DocumentAccessLevel.ADMIN_ONLY,
                                 )
@@ -523,27 +541,33 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/parent") {
-                            val f = DocumentService(call).createFolder(name = "T-B5 Eltern")
+                            val f = DocumentService(call = call).createFolder(name = "T-B5 Eltern")
                             call.respondText(f.id)
                         }
                         post("/child/{parentId}") {
-                            val f = DocumentService(call).createFolder(name = "T-B5 Kind", parentFolderId = call.parameters["parentId"])
+                            val f =
+                                DocumentService(
+                                    call = call,
+                                ).createFolder(name = "T-B5 Kind", parentFolderId = call.parameters["parentId"])
                             call.respondText(f.id)
                         }
                         post("/grandchild/{parentId}") {
-                            val f = DocumentService(call).createFolder(name = "T-B5 Enkel", parentFolderId = call.parameters["parentId"])
+                            val f =
+                                DocumentService(
+                                    call = call,
+                                ).createFolder(name = "T-B5 Enkel", parentFolderId = call.parameters["parentId"])
                             call.respondText(f.id)
                         }
                         post("/tighten/{folderId}/{level}") {
                             val result =
-                                DocumentService(call).setFolderAccessLevel(
+                                DocumentService(call = call).setFolderAccessLevel(
                                     folderId = call.parameters["folderId"]!!,
                                     accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
                                 )
                             call.respondText("${result.tightenedFolders}/${result.tightenedDocuments}")
                         }
                         get("/own-level/{folderId}") {
-                            val folders = DocumentService(call).listFolders()
+                            val folders = DocumentService(call = call).listFolders()
                             call.respondText(folders.single { it.id == call.parameters["folderId"] }.accessLevel.name)
                         }
                     }
@@ -593,12 +617,12 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = secretFolderName)
+                            val f = DocumentService(call = call).createFolder(name = secretFolderName)
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = secretDocumentTitle,
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -606,14 +630,14 @@ class DocumentAccessLevelServiceTest :
                             call.respondText(d.id)
                         }
                         post("/tighten/{folderId}") {
-                            DocumentService(call).setFolderAccessLevel(
+                            DocumentService(call = call).setFolderAccessLevel(
                                 folderId = call.parameters["folderId"]!!,
                                 accessLevel = DocumentAccessLevel.ADMIN_ONLY,
                             )
                             call.respondText("ok")
                         }
                         post("/delete/{docId}") {
-                            DocumentService(call).deleteDocument(call.parameters["docId"]!!)
+                            DocumentService(call = call).deleteDocument(call.parameters["docId"]!!)
                             call.respondText("ok")
                         }
                     }
@@ -652,12 +676,12 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "T-B3 Ordner")
+                            val f = DocumentService(call = call).createFolder(name = "T-B3 Ordner")
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}/{title}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = call.parameters["title"]!!,
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -666,7 +690,7 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/tighten/{folderId}") {
                             val r =
-                                DocumentService(call).setFolderAccessLevel(
+                                DocumentService(call = call).setFolderAccessLevel(
                                     folderId = call.parameters["folderId"]!!,
                                     accessLevel = DocumentAccessLevel.ADMIN_ONLY,
                                 )
@@ -712,12 +736,12 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "T-B3-Gross Ordner")
+                            val f = DocumentService(call = call).createFolder(name = "T-B3-Gross Ordner")
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}/{title}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = call.parameters["title"]!!,
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -726,14 +750,14 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/tighten/{folderId}") {
                             val r =
-                                DocumentService(call).setFolderAccessLevel(
+                                DocumentService(call = call).setFolderAccessLevel(
                                     folderId = call.parameters["folderId"]!!,
                                     accessLevel = DocumentAccessLevel.ADMIN_ONLY,
                                 )
                             call.respondText(r.tightenedDocuments.toString())
                         }
                         get("/levels/{folderId}") {
-                            val docs = DocumentService(call).listDocuments(call.parameters["folderId"]!!)
+                            val docs = DocumentService(call = call).listDocuments(call.parameters["folderId"]!!)
                             val levels =
                                 docs
                                     .map { it.accessLevel.name }
@@ -758,12 +782,12 @@ class DocumentAccessLevelServiceTest :
                     install(StatusPages) { documentExceptionHandlers() }
                     routing {
                         post("/f") {
-                            val f = DocumentService(call).createFolder(name = "T-W3 Ordner")
+                            val f = DocumentService(call = call).createFolder(name = "T-W3 Ordner")
                             call.respondText(f.id)
                         }
                         post("/d/{folderId}") {
                             val d =
-                                DocumentService(call).createDocument(
+                                DocumentService(call = call).createDocument(
                                     folderId = call.parameters["folderId"]!!,
                                     title = "T-W3 Dokument",
                                     accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
@@ -771,12 +795,12 @@ class DocumentAccessLevelServiceTest :
                             call.respondText(d.id)
                         }
                         post("/delete/{docId}") {
-                            DocumentService(call).deleteDocument(call.parameters["docId"]!!)
+                            DocumentService(call = call).deleteDocument(call.parameters["docId"]!!)
                             call.respondText("ok")
                         }
                         post("/tighten/{folderId}") {
                             val r =
-                                DocumentService(call).setFolderAccessLevel(
+                                DocumentService(call = call).setFolderAccessLevel(
                                     folderId = call.parameters["folderId"]!!,
                                     accessLevel = DocumentAccessLevel.ADMIN_ONLY,
                                 )
@@ -805,7 +829,7 @@ class DocumentAccessLevelServiceTest :
                     routing {
                         post("/parent") {
                             val f =
-                                DocumentService(call).createFolder(
+                                DocumentService(call = call).createFolder(
                                     name = "T-CF Eltern",
                                     accessLevel = DocumentAccessLevel.ADMIN_ONLY,
                                 )
@@ -813,7 +837,7 @@ class DocumentAccessLevelServiceTest :
                         }
                         post("/child/{parentId}/{level}") {
                             val f =
-                                DocumentService(call).createFolder(
+                                DocumentService(call = call).createFolder(
                                     name = "T-CF Kind",
                                     parentFolderId = call.parameters["parentId"],
                                     accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
@@ -847,14 +871,14 @@ class DocumentAccessLevelServiceTest :
                     routing {
                         post("/f") {
                             val f =
-                                DocumentService(call).createFolder(
+                                DocumentService(call = call).createFolder(
                                     name = "T-NF Ordner",
                                     accessLevel = DocumentAccessLevel.ADMIN_ONLY,
                                 )
                             call.respondText(f.id)
                         }
                         post("/set/{folderId}/{level}") {
-                            DocumentService(call).setFolderAccessLevel(
+                            DocumentService(call = call).setFolderAccessLevel(
                                 folderId = call.parameters["folderId"]!!,
                                 accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
                             )

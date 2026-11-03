@@ -32,6 +32,7 @@ import network.lapis.cloud.server.conference.RecordingMediaProber
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
+import network.lapis.cloud.server.documents.StorageSpaceProbe
 import network.lapis.cloud.server.rpc.PulpitRecordingSettingsStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.time.ServerClock
@@ -117,7 +118,7 @@ class PulpitRecordingCoordinator(
     private val documentStorageRoot: File,
     private val prober: RecordingMediaProber = RecordingMediaProber.None,
     private val intervalSeconds: Long = 15,
-    private val diskSpace: (File) -> Long = { it.usableSpace },
+    private val diskSpace: (File) -> Long = StorageSpaceProbe.usable,
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
 ) : PulpitRecordingControl {
     private val mutex = Mutex()

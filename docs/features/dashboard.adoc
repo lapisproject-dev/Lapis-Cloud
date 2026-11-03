@@ -16,6 +16,14 @@ migration (the index check below found nothing to add), no new setting, no new d
 ** While loading: one line "Wird geladen ...", no skeleton. Nothing to show or a failed request: "Im Moment gibt es nichts Neues für Sie." (no toast,
    no retry loop; an earlier list stays when a later refresh fails). An answer after the person left the page is dropped.
 ** The list is fetched when the page opens and again when the tab becomes visible and the last fetch is more than a minute old.
+** *Storage space card (ADMIN, V1.9.263)*: for an ADMIN a card before all signal cards shows the free space of the document volume, only at the
+   hint level (below 20 % or 10 GB free) and at the warning level (below 5 % or 2 GB free, amber). Text: "Speicherplatz wird knapp" /
+   "Speicherplatz fast voll", free and total size (decimal GB, German comma) and the percentage, plus a link to the documents. It has `role="status"`,
+   the icon is `aria-hidden`. Loaded once with the page (no polling, not on the visibility refresh); a failure, a refused call or the levels ok and
+   unknown show nothing and no toast. The sentence "Im Moment gibt es nichts Neues für Sie." stays hidden while this card is shown. The same measurement
+   appears as one line on the document page in all four states. Limits: only the volume of `LAPIS_DOCUMENT_STORAGE_ROOT` is measured (not the raw
+   recording work directory, not the PostgreSQL volume); on pdv2 several instances share the disk; the value is `usableSpace`, which can be below
+   what `df` reports; a volume under 10 GB is always at least at the hint level.
 * The grid follows the width of its section (a container query, not the window): one column below 36rem, two from 36rem, three from 56rem.
 
 == The signals

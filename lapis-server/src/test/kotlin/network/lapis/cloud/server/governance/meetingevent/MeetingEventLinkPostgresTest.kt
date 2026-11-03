@@ -59,7 +59,12 @@ abstract class MeetingEventLinkScenarios(
 ) : FunSpec({
         beforeSpec { db.activate() }
         installLaneGuards(db = db, checkDeadlocks = true)
-        afterSpec { db.deactivate() }
+        afterSpec {
+            // The plain events of this spec must not outlive it: on the shared in-JVM H2 database they showed up in the public event list of
+            // whichever spec ran next in the same fork (PartnerRecursionScenarioTest, seen once the fork distribution changed in V1.9.263).
+            runCatching { transaction { EventTable.deleteWhere { EventTable.title eq "MEL-Test-Ereignis" } } }
+            db.deactivate()
+        }
 
         val at = LocalDateTime(2030, 5, 4, 19, 0)
 
