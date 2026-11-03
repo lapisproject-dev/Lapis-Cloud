@@ -50,12 +50,12 @@ internal fun renderDocumentsScreen(
 ) {
     val root = container.dataScreenRoot(spacing = 14)
     root.pageHeader(tr("Dokumentenablage"), intro = PageIntros.forRoute(Routes.DOCUMENTS))
-    // V1.9.263: free space of the document volume, ADMIN only; a failure or a refused call leaves the slot empty (no toast).
+    // V1.9.263/V1.9.273: free space (bar) of the document volume, ADMIN only; a failure or a refused call leaves the slot empty (no toast).
     if (showsStorageSpace(AppState.session)) {
         val storageSlot = root.div(className = "lapis-documents-storage")
         AppScope.launch {
             try {
-                storageSlot.add(storageSpaceLine(storageSpaceRpc.storageSpace()))
+                storageSlot.add(storageSpaceBar(storageSpaceRpc.storageSpace()))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

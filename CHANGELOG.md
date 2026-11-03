@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.273 -- Storage-space bar on the document page and the dashboard (ADMIN)
+
+- **Client only. No migration, no server, DTO, RPC, dependency or environment change.**
+- **Owner decision of 2026-11-03:** the free space is shown as a bar with colour, and the dashboard tile is always visible for an ADMIN. This reverses two decisions of V1.9.263 (no bar, because of the Rams review; "a card only when there is something to say", because of the Raskin review).
+- **Bar:** `storageSpaceBar` replaces `storageSpaceCard` and `storageSpaceLine`. The fill is the used share (100 minus the floored free percentage), the colour follows the level (`--lapis-storage-info/hint/warning`, defined in all three theme blocks), unknown shows an empty dashed track. Sentence: "Belegt X von Y, frei Z (N % frei)". One `role="img"` with an `aria-label`; the link "Zur Dokumentenablage" (dashboard only) is a sibling of that element, because the children of an `img` role are presentational.
+- **Dashboard:** the slot `lapis-dashboard-storage` exists only for an ADMIN and its room (`min-height: 5.5rem`) is reserved from the first frame. The tile is a signal (`storageSignals`) only at hint and warning level; at info and unknown "Im Moment gibt es nichts Neues für Sie." stays visible beside it. A failed or refused call removes the reserved slot without a toast; this is the only layout shift. The old card had `role="status"`; the tile has none, the section is `aria-live="polite"` anyway.
+- **Not used on purpose:** no `<meter>` (the thresholds, including the absolute 10 GB and 2 GB limits, would have to be computed in the client), no tick marks or zones, no cache, no polling, no animation.
+- **Texts:** 6 new msgids ("Speicherplatz", "Speicherplatz knapp", "Speicherplatz nicht messbar", "Belegt %1 von %2, frei %3 (%4 frei)", "Der freie Platz lässt sich derzeit nicht messen.", "Zur Dokumentenablage"), 8 removed, all seven catalogs plus `messages.pot`.
+- **Tests:** new `StorageSpaceBarDomTest` and `ThemeStorageTokensTest` (3:1 fill against track in all three blocks, no raw hex in `.lapis-storage*` rules); `DashboardStorageSpaceDomTest` and `DocumentsStorageSpaceBarDomTest` (renamed from `...LineDomTest`) rewritten for the new behaviour; `StorageSpaceI18nCatalogTest` extended.
+- **Not verified:** a real browser, a real phone, a screen reader, a really full disk. The number measures only the document volume; on a shared host that is the shared disk.
+- Version bump, push, release, deploy and website are not part of this wave.
+
 ### V1.9.272 -- Device selection and a truthful state line in the event guest call view
 
 - **Client only. No migration, no server, DTO, endpoint, dependency or environment change.**

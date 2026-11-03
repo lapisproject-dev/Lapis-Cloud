@@ -458,10 +458,6 @@ msgstr ""
 msgid "Nichts auszuzahlen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:106
-msgid "Noch %1 frei von %2 (%3). Bitte bei Gelegenheit alte Aufzeichnungen oder Dokumente aufräumen oder den Speicher erweitern."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSepaPanel.kt:300
 msgid "Noch keine SEPA-Datei erzeugt."
 msgstr ""
@@ -476,10 +472,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1494
 msgid "Nur die ersten %1 von %2 Kontakten geladen."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:99
-msgid "Nur noch %1 frei von %2 (%3). Neue Uploads und Aufzeichnungen können bald scheitern. Bitte jetzt Platz schaffen."
 msgstr ""
 
 msgid "Nur nötig, wenn ausgezahlt werden soll. Die IBAN wird verschlüsselt gespeichert."
@@ -531,26 +523,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
 msgid "Speicherplatz fast voll"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
-msgid "Speicherplatz wird knapp"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:140
-msgid "Speicherplatz: %1 frei von %2 (%3)"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:139
-msgid "Speicherplatz: %1 frei von %2 (%3), fast voll"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:138
-msgid "Speicherplatz: %1 frei von %2 (%3), wird knapp"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:132
-msgid "Speicherplatz: derzeit nicht messbar"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:179
@@ -1284,10 +1256,6 @@ msgid "Zeitpunkt der Einwilligung (ISO, z. B. 2026-09-14T10:00)"
 msgstr ""
 
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:122
-msgid "Zu den Dokumenten"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:959
@@ -29550,4 +29518,28 @@ msgid "Rechenschaftsbericht: Ausweise"
 msgstr ""
 
 msgid "Rechenschaftsbericht: Erläuterungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz knapp"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz nicht messbar"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Belegt %1 von %2, frei %3 (%4 frei)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Der freie Platz lässt sich derzeit nicht messen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Zur Dokumentenablage"
 msgstr ""

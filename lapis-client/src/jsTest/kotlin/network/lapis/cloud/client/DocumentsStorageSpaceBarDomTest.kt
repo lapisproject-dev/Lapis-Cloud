@@ -18,8 +18,8 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** V1.9.263 -- the storage-space line on the document page: ADMIN only, all four states, before the folder list. */
-class DocumentsStorageSpaceLineDomTest {
+/** V1.9.263/V1.9.273 -- the storage-space bar on the document page: ADMIN only, all four states, before the folder list. */
+class DocumentsStorageSpaceBarDomTest {
     private fun session(role: AccountRole) =
         SessionInfoDto(
             memberId = "m-1",
@@ -71,12 +71,12 @@ class DocumentsStorageSpaceLineDomTest {
             }
         }
 
-    private fun HTMLElement.line(): HTMLElement? = querySelector(".lapis-storage-line") as HTMLElement?
+    private fun HTMLElement.line(): HTMLElement? = querySelector(".lapis-storage") as HTMLElement?
 
     private fun checkLine(
         level: StorageSpaceLevel,
-        expected: String,
-        warning: Boolean,
+        headline: String,
+        cssClass: String,
     ): Promise<Unit> {
         val dto =
             if (level == StorageSpaceLevel.UNKNOWN) {
@@ -85,32 +85,35 @@ class DocumentsStorageSpaceLineDomTest {
                 StorageSpaceDto(level = level, freeBytes = 150_000_000_000L, totalBytes = 1_000_000_000_000L)
             }
         return run("documents-storage-$level", AccountRole.ADMIN, FakeStorage { dto }) { el ->
-            awaitUntil("the line for $level") { el.line() != null }
-            val line = assertNotNull(el.line())
-            assertTrue(line.textContent.orEmpty().contains(expected), line.textContent.orEmpty())
-            assertEquals(warning, line.classList.contains("text-warning-emphasis"))
-            assertEquals("true", assertNotNull(line.querySelector(".fas")).getAttribute("aria-hidden"))
+            awaitUntil("the bar for $level") { el.line() != null }
+            val bar = assertNotNull(el.line())
+            assertTrue(bar.classList.contains(cssClass), bar.className)
+            assertTrue(bar.textContent.orEmpty().contains(headline), bar.textContent.orEmpty())
+            assertNotNull(bar.querySelector("[role=img]"))
+            assertNull(bar.querySelector("a"), "no link on the document page")
+            assertEquals("true", assertNotNull(bar.querySelector(".fas")).getAttribute("aria-hidden"))
             val folderTitle =
                 assertNotNull(
                     el.allOf("*").firstOrNull { it.children.length == 0 && it.textContent?.trim() == "Ordner" },
                     "no 'Ordner' title",
                 )
-            val following = line.compareDocumentPosition(folderTitle).toInt() and 4
-            assertTrue(following != 0, "the line stands before the folder list")
+            val following = bar.compareDocumentPosition(folderTitle).toInt() and 4
+            assertTrue(following != 0, "the bar stands before the folder list")
         }
     }
 
     @Test
-    fun adminSeesTheLine_ok(): Promise<Unit> = checkLine(StorageSpaceLevel.INFO, "Speicherplatz: 150,0 GB frei von 1,0 TB (15 %)", false)
+    fun adminSeesTheBar_info(): Promise<Unit> = checkLine(StorageSpaceLevel.INFO, "Belegt 850,0 GB von 1,0 TB", "lapis-storage--info")
 
     @Test
-    fun adminSeesTheLine_hint(): Promise<Unit> = checkLine(StorageSpaceLevel.HINT, "wird knapp", false)
+    fun adminSeesTheBar_hint(): Promise<Unit> = checkLine(StorageSpaceLevel.HINT, "Speicherplatz knapp", "lapis-storage--hint")
 
     @Test
-    fun adminSeesTheLine_warning(): Promise<Unit> = checkLine(StorageSpaceLevel.WARNING, "fast voll", true)
+    fun adminSeesTheBar_warning(): Promise<Unit> = checkLine(StorageSpaceLevel.WARNING, "Speicherplatz fast voll", "lapis-storage--warning")
 
     @Test
-    fun adminSeesTheLine_unknown(): Promise<Unit> = checkLine(StorageSpaceLevel.UNKNOWN, "Speicherplatz: derzeit nicht messbar", false)
+    fun adminSeesTheBar_unknown(): Promise<Unit> =
+        checkLine(StorageSpaceLevel.UNKNOWN, "Der freie Platz lässt sich derzeit nicht messen.", "lapis-storage--unknown")
 
     @Test
     fun boardSeesNoLine_andTheRpcIsNotCalled(): Promise<Unit> {

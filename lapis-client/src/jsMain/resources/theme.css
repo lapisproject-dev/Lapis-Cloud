@@ -76,6 +76,9 @@
 
   /* Akzent -- Lapis, deutlich gesättigter als vorher, auf Weiß lesbar */
   --lapis-accent:          #1E56C8;
+  --lapis-storage-info:    var(--lapis-accent);
+  --lapis-storage-hint:    #B35300;
+  --lapis-storage-warning: var(--lapis-invalid);
   --lapis-accent-strong:   #17429B;
   --lapis-accent-soft:     #E7EDFB;
   --lapis-accent-contrast: #FFFFFF;
@@ -167,6 +170,9 @@
     --lapis-nav-muted:       #A8AEB8;
 
     --lapis-accent:          #5B8FF0;
+    --lapis-storage-info:    var(--lapis-accent);
+    --lapis-storage-hint:    #F0A44B;
+    --lapis-storage-warning: #F07178;
     --lapis-accent-strong:   #7CA6F3;
     --lapis-accent-soft:     #1B2A44;
     --lapis-accent-contrast: #0B0E12;
@@ -237,6 +243,9 @@
   --lapis-nav-muted:       #A8AEB8;
 
   --lapis-accent:          #5B8FF0;
+  --lapis-storage-info:    var(--lapis-accent);
+  --lapis-storage-hint:    #F0A44B;
+  --lapis-storage-warning: #F07178;
   --lapis-accent-strong:   #7CA6F3;
   --lapis-accent-soft:     #1B2A44;
   --lapis-accent-contrast: #0B0E12;
@@ -7854,34 +7863,81 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   font-size: .875rem;
 }
 
-/* V1.9.263: the storage-space card is not a link itself (only its "Zu den Dokumenten" link is): no hover effect, text may wrap.
-   The warning state uses Bootstrap's subtle/emphasis tokens only, so it follows light and dark mode. */
-.lapis-storage-card:hover {
-  background-color: var(--lapis-surface);
-  border-color: var(--lapis-border);
+/* V1.9.273: the storage-space bar (replaces the V1.9.263 card and line). Colours come from the --lapis-storage-* tokens (contrast checked
+   by ThemeStorageTokensTest); no animation, so there is nothing to dampen for prefers-reduced-motion. */
+.lapis-storage {
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+  min-width: 0;
 }
 
-.lapis-storage-card.bg-warning-subtle:hover {
-  background-color: var(--bs-warning-bg-subtle);
-  border-color: var(--bs-warning-border-subtle);
+.lapis-storage__figure {
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+  min-width: 0;
 }
 
-.lapis-storage-card .lapis-signal-card__reason {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
+.lapis-storage__head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
 }
 
-.lapis-storage-card.text-warning-emphasis .lapis-signal-card__reason {
-  color: inherit;
+.lapis-storage__track {
+  height: .5rem;
+  border-radius: .25rem;
+  overflow: hidden;
+  background: var(--lapis-surface-sunken);
+  border: 1px solid var(--lapis-border-strong);
 }
 
-.lapis-storage-card__link {
+.lapis-storage__fill {
+  height: 100%;
+}
+
+.lapis-storage--info .lapis-storage__fill {
+  background: var(--lapis-storage-info);
+}
+
+.lapis-storage--hint .lapis-storage__fill {
+  background: var(--lapis-storage-hint);
+}
+
+.lapis-storage--warning .lapis-storage__fill {
+  background: var(--lapis-storage-warning);
+}
+
+.lapis-storage--unknown .lapis-storage__track {
+  border-style: dashed;
+}
+
+.lapis-storage__text {
+  color: var(--lapis-text);
+  overflow-wrap: anywhere;
+}
+
+.lapis-storage__link {
   align-self: flex-start;
 }
 
-.lapis-storage-line {
+.lapis-storage-tile {
+  padding: .75rem 1rem;
+  gap: .375rem;
   min-width: 0;
+}
+
+.lapis-storage-tile--warning {
+  border-left: 4px solid var(--lapis-storage-warning);
+}
+
+.lapis-dashboard-storage--reserved {
+  min-height: 5.5rem;
+}
+
+.lapis-documents-storage:not(:empty) {
+  margin-bottom: .25rem;
 }
 
 /* V1.9.224: the live "(aktiv/gesamt)" after a sidebar entry. Information, not a request: muted, no background. */

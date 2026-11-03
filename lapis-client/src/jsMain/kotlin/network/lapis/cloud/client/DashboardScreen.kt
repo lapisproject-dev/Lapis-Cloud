@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.DashboardPriority
 import network.lapis.cloud.shared.domain.DashboardSignalDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.domain.StorageSpaceLevel
 import network.lapis.cloud.shared.rpc.IDashboardService
 import org.w3c.dom.events.Event
 
@@ -125,6 +126,13 @@ internal fun sortSignals(signals: List<DashboardSignalDto>): List<DashboardSigna
             .thenBy { it.reasonKey },
     )
 
+private fun storageTileClasses(level: StorageSpaceLevel): String =
+    when (level) {
+        StorageSpaceLevel.HINT -> "card lapis-storage-tile bg-warning-subtle border-warning-subtle"
+        StorageSpaceLevel.WARNING -> "card lapis-storage-tile bg-danger-subtle border-danger-subtle lapis-storage-tile--warning"
+        else -> "card lapis-storage-tile"
+    }
+
 /**
  * "Für Sie". The list is mounted with a one-line "Wird geladen …" so the page does not jump; an answer after the screen has left is dropped;
  * a failure or an empty answer ends in "Im Moment gibt es nichts Neues für Sie." (no toast, no retry loop). The list is fetched again when the
@@ -141,9 +149,17 @@ private fun renderSignals(
     val section = Div(className = "lapis-dashboard-signals-section")
     section.setAttribute("aria-live", "polite")
     section.h2(tr("Für Sie")) { addCssClass("h5") }
-    // V1.9.263: the storage-space card (ADMIN, hint/warning only) always comes first, before the signal cards.
-    val storageSlot = Div(className = "lapis-dashboard-storage")
-    section.add(storageSlot)
+    // V1.9.273: the storage-space tile (ADMIN only) always comes first, before the signal cards. Its room is reserved from the
+    // first frame, so the cards below do not jump when the answer arrives. Without an ADMIN there is no slot at all.
+    val storageSlot: Div? =
+        if (showsStorageSpace(session)) {
+            Div(className = "lapis-dashboard-storage lapis-dashboard-storage--reserved").also {
+                it.setAttribute("aria-hidden", "true")
+                section.add(it)
+            }
+        } else {
+            null
+        }
     val status = Div(className = "lapis-dashboard-signals__status small text-body-secondary")
     status.content = tr("Wird geladen …")
     section.add(status)
@@ -156,16 +172,17 @@ private fun renderSignals(
     var inFlight = false
     var shown = false
     var signalCount = 0
-    var storageShown = false
+    var storageSignals = false
     var storagePending = false
     var lastLoadMs = Double.NEGATIVE_INFINITY
     var listener: ((Event) -> Unit)? = null
 
-    // The "nothing new" sentence stands only when there is no signal card AND no storage card, whatever order the answers arrive in.
+    // The "nothing new" sentence stands only when there is no signal card AND no storage signal (hint or warning), whatever order the
+    // answers arrive in. The tile at info or unknown level is no signal.
     fun updateStatus() {
         if (!shown) return
         when {
-            signalCount > 0 || storageShown -> status.visible = false
+            signalCount > 0 || storageSignals -> status.visible = false
             storagePending -> {
                 status.content = tr("Wird geladen …")
                 status.visible = true
@@ -186,22 +203,26 @@ private fun renderSignals(
         updateStatus()
     }
 
-    // Once, no polling, no toast: a failure or a refused call simply leaves the card away.
+    // Once, no polling, no toast: a failure or a refused call removes the reserved slot (the one allowed shift).
     fun loadStorage() {
+        val slot = storageSlot ?: return
         storagePending = true
         AppScope.launch {
             try {
                 val dto = storageRpc.storageSpace()
                 if (!gone) {
-                    storageSpaceCard(dto)?.let {
-                        storageSlot.add(it)
-                        storageShown = true
-                    }
+                    val level = storageBarModel(dto).level
+                    val tile = Div(className = storageTileClasses(level))
+                    tile.add(storageSpaceBar(dto, withLink = true))
+                    slot.add(tile)
+                    slot.removeCssClass("lapis-dashboard-storage--reserved")
+                    slot.removeAttribute("aria-hidden")
+                    storageSignals = level == StorageSpaceLevel.HINT || level == StorageSpaceLevel.WARNING
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                // nothing to show
+                if (!gone) section.remove(slot)
             } finally {
                 storagePending = false
                 if (!gone) updateStatus()

@@ -95,7 +95,7 @@ class StorageSpaceI18nCatalogTest :
         val catalogs: Map<String, Map<String, String>> by lazy { languages.associateWith { parsePo(File(i18nDir, "messages-$it.po")) } }
 
         test("sanity: the wave file yields all of its texts") {
-            (msgids.size >= 11) shouldBe true
+            (msgids.size >= 9) shouldBe true
         }
 
         test("every text is present in all seven catalogs") {
@@ -112,7 +112,22 @@ class StorageSpaceI18nCatalogTest :
                 }.shouldBeEmpty()
         }
 
-        test("every placeholder %1, %2, %3 of a German text is kept in every translation") {
+        test("the texts of the old card and line are gone from the template and all seven catalogs") {
+            val removed =
+                listOf(
+                    "Speicherplatz wird knapp",
+                    "Speicherplatz: %1 frei von %2 (%3)",
+                    "Speicherplatz: %1 frei von %2 (%3), fast voll",
+                    "Speicherplatz: %1 frei von %2 (%3), wird knapp",
+                    "Speicherplatz: derzeit nicht messbar",
+                    "Zu den Dokumenten",
+                )
+            val pot = parsePo(File(i18nDir, "messages.pot"))
+            (removed.filter { pot.containsKey(it) } + languages.flatMap { l -> removed.filter { catalogs.getValue(l).containsKey(it) } })
+                .shouldBeEmpty()
+        }
+
+        test("every placeholder %1 to %4 of a German text is kept in every translation") {
             val placeholder = Regex("""%\d""")
             val broken =
                 languages.flatMap { lang ->

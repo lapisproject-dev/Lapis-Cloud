@@ -44,7 +44,7 @@ private object QuietScheduler : OnlineCountsScheduler {
     override fun removeVisibilityListener(listener: (Event) -> Unit) = Unit
 }
 
-/** V1.9.263 -- the storage-space card of "Für Sie" (ADMIN only, hint and warning only, always first). */
+/** V1.9.263/V1.9.273 -- the storage-space tile of "Für Sie" (ADMIN only, always first, a signal only at hint and warning). */
 class DashboardStorageSpaceDomTest {
     private fun session(role: AccountRole) =
         SessionInfoDto(
@@ -117,7 +117,7 @@ class DashboardStorageSpaceDomTest {
             deadline = null,
         )
 
-    private fun HTMLElement.storageCards(): Int = querySelectorAll(".lapis-storage-card").length
+    private fun HTMLElement.storageCards(): Int = querySelectorAll(".lapis-storage-tile").length
 
     private fun run(
         id: String,
@@ -151,11 +151,11 @@ class DashboardStorageSpaceDomTest {
             awaitUntil("the storage card") { el.storageCards() == 1 }
             awaitUntil("the signal card") { el.querySelectorAll("a.lapis-signal-card").length == 1 }
             val section = assertNotNull(el.querySelector(".lapis-dashboard-signals-section"), "no section: ${el.innerHTML}") as HTMLElement
-            val firstCard = assertNotNull(section.querySelector(".lapis-signal-card"), "no card: ${section.innerHTML}") as HTMLElement
-            assertTrue(firstCard.classList.contains("lapis-storage-card"), "the storage card comes before the signal cards")
-            assertEquals("status", firstCard.getAttribute("role"))
-            assertFalse(firstCard.classList.contains("bg-warning-subtle"), "hint: no warning colours")
-            assertTrue(firstCard.textContent.orEmpty().contains("Speicherplatz wird knapp"))
+            val firstCard = assertNotNull(section.querySelector(".card"), "no card: ${section.innerHTML}") as HTMLElement
+            assertTrue(firstCard.classList.contains("lapis-storage-tile"), "the storage tile comes before the signal cards")
+            assertNull(firstCard.getAttribute("role"), "the tile is no status region any more; the section is aria-live")
+            assertTrue(firstCard.classList.contains("bg-warning-subtle"), "hint: warning-subtle tile")
+            assertTrue(firstCard.textContent.orEmpty().contains("Speicherplatz knapp"))
             val icon = assertNotNull(firstCard.querySelector(".fas"), "no icon: ${firstCard.outerHTML}")
             assertEquals("true", icon.getAttribute("aria-hidden"))
             val link = assertNotNull(firstCard.querySelector("a"), "no link: ${firstCard.outerHTML}")
@@ -173,8 +173,9 @@ class DashboardStorageSpaceDomTest {
             FakeStorage { dto(StorageSpaceLevel.WARNING) },
         ) { el, _ ->
             awaitUntil("the storage card") { el.storageCards() == 1 }
-            val card = assertNotNull(el.querySelector(".lapis-storage-card")) as HTMLElement
-            assertTrue(card.classList.contains("bg-warning-subtle"))
+            val card = assertNotNull(el.querySelector(".lapis-storage-tile")) as HTMLElement
+            assertTrue(card.classList.contains("bg-danger-subtle"))
+            assertTrue(card.classList.contains("lapis-storage-tile--warning"))
             val text = card.textContent.orEmpty()
             assertTrue(text.contains("Speicherplatz fast voll"), text)
             assertTrue(text.contains("18,4 GB"), text)
@@ -182,24 +183,46 @@ class DashboardStorageSpaceDomTest {
             assertTrue(text.contains("1 %"), text)
         }
 
-    private fun noCard(
+    private fun tileWithNothingNew(
         id: String,
-        storage: StorageSpaceRpc,
+        level: StorageSpaceLevel,
     ): Promise<Unit> =
-        run(id, AccountRole.ADMIN, FakeSignals(answer = emptyList()), storage) { el, _ ->
+        run(id, AccountRole.ADMIN, FakeSignals(answer = emptyList()), FakeStorage { dto(level) }) { el, _ ->
+            awaitUntil("the tile") { el.storageCards() == 1 }
+            awaitUntil("the empty sentence") { el.textContent.orEmpty().contains("Im Moment gibt es nichts Neues für Sie.") }
+            val slot = assertNotNull(el.querySelector(".lapis-dashboard-storage")) as HTMLElement
+            assertFalse(slot.classList.contains("lapis-dashboard-storage--reserved"))
+            assertNull(slot.getAttribute("aria-hidden"))
+        }
+
+    @Test
+    fun infoShowsATile_andNothingNewStaysVisible(): Promise<Unit> = tileWithNothingNew("storage-info", StorageSpaceLevel.INFO)
+
+    @Test
+    fun unknownShowsATile_andNothingNewStaysVisible(): Promise<Unit> = tileWithNothingNew("storage-unknown", StorageSpaceLevel.UNKNOWN)
+
+    @Test
+    fun anRpcFailureRemovesTheSlot_withoutAToast(): Promise<Unit> =
+        run("storage-failure", AccountRole.ADMIN, FakeSignals(answer = emptyList()), FakeStorage { error("boom") }) { el, _ ->
             awaitUntil("the empty sentence") { el.textContent.orEmpty().contains("Im Moment gibt es nichts Neues für Sie.") }
             assertEquals(0, el.storageCards())
+            assertNull(el.querySelector(".lapis-dashboard-storage"), "the reserved slot is removed")
             assertNull(kotlinx.browser.document.querySelector(".toast, .lapis-toast"), "no toast")
         }
 
     @Test
-    fun infoShowsNoCard(): Promise<Unit> = noCard("storage-info", FakeStorage { dto(StorageSpaceLevel.INFO) })
-
-    @Test
-    fun unknownShowsNoCard(): Promise<Unit> = noCard("storage-unknown", FakeStorage { dto(StorageSpaceLevel.UNKNOWN) })
-
-    @Test
-    fun anRpcFailureShowsNoCardAndNoToast(): Promise<Unit> = noCard("storage-failure", FakeStorage { error("boom") })
+    fun theSlotIsReservedFromTheFirstFrame(): Promise<Unit> =
+        run(
+            "storage-reserved",
+            AccountRole.ADMIN,
+            FakeSignals(answer = emptyList()),
+            FakeStorage(delayMs = 300) { dto(StorageSpaceLevel.INFO) },
+        ) { el, _ ->
+            val slot = assertNotNull(el.querySelector(".lapis-dashboard-storage"), el.innerHTML) as HTMLElement
+            assertTrue(slot.classList.contains("lapis-dashboard-storage--reserved"))
+            assertEquals("true", slot.getAttribute("aria-hidden"))
+            awaitUntil("the tile") { el.storageCards() == 1 }
+        }
 
     private fun noRpcFor(
         id: String,
@@ -210,18 +233,19 @@ class DashboardStorageSpaceDomTest {
             awaitUntil("the empty sentence") { el.textContent.orEmpty().contains("Im Moment gibt es nichts Neues für Sie.") }
             delay(100)
             assertEquals(0, el.storageCards())
+            assertNull(el.querySelector(".lapis-dashboard-storage"), "no slot for $role")
             assertEquals(0, storage.calls)
         }
     }
 
     @Test
-    fun memberGetsNoCard_andTheRpcIsNeverCalled(): Promise<Unit> = noRpcFor("storage-member", AccountRole.MEMBER)
+    fun memberGetsNoTile_andTheRpcIsNeverCalled(): Promise<Unit> = noRpcFor("storage-member", AccountRole.MEMBER)
 
     @Test
-    fun boardGetsNoCard_andTheRpcIsNeverCalled(): Promise<Unit> = noRpcFor("storage-board", AccountRole.BOARD)
+    fun boardGetsNoTile_andTheRpcIsNeverCalled(): Promise<Unit> = noRpcFor("storage-board", AccountRole.BOARD)
 
     @Test
-    fun treasurerGetsNoCard_andTheRpcIsNeverCalled(): Promise<Unit> = noRpcFor("storage-treasurer", AccountRole.TREASURER)
+    fun treasurerGetsNoTile_andTheRpcIsNeverCalled(): Promise<Unit> = noRpcFor("storage-treasurer", AccountRole.TREASURER)
 
     @Test
     fun emptySentenceStaysHidden_signalsFirst(): Promise<Unit> =

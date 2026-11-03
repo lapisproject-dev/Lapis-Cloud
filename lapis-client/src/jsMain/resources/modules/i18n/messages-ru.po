@@ -467,10 +467,6 @@ msgstr "Недоступно: %1 – %2"
 msgid "Nichts auszuzahlen"
 msgstr "Выплачивать нечего"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:106
-msgid "Noch %1 frei von %2 (%3). Bitte bei Gelegenheit alte Aufzeichnungen oder Dokumente aufräumen oder den Speicher erweitern."
-msgstr "Свободно ещё %1 из %2 (%3). При случае уберите старые записи или документы либо расширьте хранилище."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSepaPanel.kt:300
 msgid "Noch keine SEPA-Datei erzeugt."
 msgstr "Файл SEPA ещё не создан."
@@ -486,10 +482,6 @@ msgstr "Только правление и администрация могут
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1494
 msgid "Nur die ersten %1 von %2 Kontakten geladen."
 msgstr "Загружены только первые %1 из %2 контактов."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:99
-msgid "Nur noch %1 frei von %2 (%3). Neue Uploads und Aufzeichnungen können bald scheitern. Bitte jetzt Platz schaffen."
-msgstr "Свободно только %1 из %2 (%3). Новые загрузки и записи могут скоро не удаваться. Пожалуйста, освободите место сейчас."
 
 msgid "Nur nötig, wenn ausgezahlt werden soll. Die IBAN wird verschlüsselt gespeichert."
 msgstr "Нужно только для выплаты. IBAN хранится в зашифрованном виде."
@@ -548,26 +540,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
 msgid "Speicherplatz fast voll"
 msgstr "Хранилище почти заполнено"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
-msgid "Speicherplatz wird knapp"
-msgstr "Место в хранилище заканчивается"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:140
-msgid "Speicherplatz: %1 frei von %2 (%3)"
-msgstr "Место в хранилище: свободно %1 из %2 (%3)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:139
-msgid "Speicherplatz: %1 frei von %2 (%3), fast voll"
-msgstr "Место в хранилище: свободно %1 из %2 (%3), почти заполнено"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:138
-msgid "Speicherplatz: %1 frei von %2 (%3), wird knapp"
-msgstr "Место в хранилище: свободно %1 из %2 (%3), заканчивается"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:132
-msgid "Speicherplatz: derzeit nicht messbar"
-msgstr "Место в хранилище: сейчас измерить нельзя"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:179
 msgid "Standardkonto gesetzt."
@@ -1301,10 +1273,6 @@ msgstr "Дата согласия (ISO, напр. 2026-09-14T10:00)"
 
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr "Время указано не в корректном формате ISO (напр. 2026-09-14T10:00)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:122
-msgid "Zu den Dokumenten"
-msgstr "Перейти к документам"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:959
 msgid "Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung -- siehe Abschnitt \"Abstimmung\" unten."
@@ -30123,3 +30091,27 @@ msgstr "Отчёт: ведомости"
 
 msgid "Rechenschaftsbericht: Erläuterungen"
 msgstr "Отчёт: пояснения"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz"
+msgstr "Хранилище"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz knapp"
+msgstr "Хранилище заканчивается"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz nicht messbar"
+msgstr "Хранилище невозможно измерить"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Belegt %1 von %2, frei %3 (%4 frei)"
+msgstr "Занято %1 из %2, свободно %3 (%4 свободно)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Der freie Platz lässt sich derzeit nicht messen."
+msgstr "Сейчас невозможно измерить свободное место."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Zur Dokumentenablage"
+msgstr "Перейти к хранилищу документов"

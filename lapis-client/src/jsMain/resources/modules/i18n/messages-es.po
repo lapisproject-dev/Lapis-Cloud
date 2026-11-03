@@ -468,10 +468,6 @@ msgstr "No disponible: %1 – %2"
 msgid "Nichts auszuzahlen"
 msgstr "Nada que pagar"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:106
-msgid "Noch %1 frei von %2 (%3). Bitte bei Gelegenheit alte Aufzeichnungen oder Dokumente aufräumen oder den Speicher erweitern."
-msgstr "Quedan %1 libres de %2 (%3). Cuando sea posible, ordene grabaciones o documentos antiguos o amplíe el almacenamiento."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSepaPanel.kt:300
 msgid "Noch keine SEPA-Datei erzeugt."
 msgstr "Aún no se ha generado ningún archivo SEPA."
@@ -487,10 +483,6 @@ msgstr "Solo la junta directiva y la administración pueden generar archivos SEP
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1494
 msgid "Nur die ersten %1 von %2 Kontakten geladen."
 msgstr "Solo se cargaron los primeros %1 de %2 contactos."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:99
-msgid "Nur noch %1 frei von %2 (%3). Neue Uploads und Aufzeichnungen können bald scheitern. Bitte jetzt Platz schaffen."
-msgstr "Solo quedan %1 libres de %2 (%3). Las nuevas cargas y grabaciones podrían fallar pronto. Libere espacio ahora."
 
 msgid "Nur nötig, wenn ausgezahlt werden soll. Die IBAN wird verschlüsselt gespeichert."
 msgstr "Solo es necesario si se desea el pago. El IBAN se guarda cifrado."
@@ -549,26 +541,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
 msgid "Speicherplatz fast voll"
 msgstr "Espacio de almacenamiento casi lleno"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
-msgid "Speicherplatz wird knapp"
-msgstr "El espacio de almacenamiento se está agotando"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:140
-msgid "Speicherplatz: %1 frei von %2 (%3)"
-msgstr "Espacio de almacenamiento: %1 libres de %2 (%3)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:139
-msgid "Speicherplatz: %1 frei von %2 (%3), fast voll"
-msgstr "Espacio de almacenamiento: %1 libres de %2 (%3), casi lleno"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:138
-msgid "Speicherplatz: %1 frei von %2 (%3), wird knapp"
-msgstr "Espacio de almacenamiento: %1 libres de %2 (%3), se está agotando"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:132
-msgid "Speicherplatz: derzeit nicht messbar"
-msgstr "Espacio de almacenamiento: no se puede medir en este momento"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:179
 msgid "Standardkonto gesetzt."
@@ -1302,10 +1274,6 @@ msgstr "Fecha del consentimiento (ISO, p. ej. 2026-09-14T10:00)"
 
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr "El momento no tiene un formato ISO válido (p. ej. 2026-09-14T10:00)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:122
-msgid "Zu den Dokumenten"
-msgstr "Ir a los documentos"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:959
 msgid "Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung -- siehe Abschnitt \"Abstimmung\" unten."
@@ -29882,3 +29850,27 @@ msgstr "Informe de rendición de cuentas: justificantes"
 
 msgid "Rechenschaftsbericht: Erläuterungen"
 msgstr "Informe de rendición de cuentas: notas explicativas"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz"
+msgstr "Espacio de almacenamiento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz knapp"
+msgstr "Espacio de almacenamiento escaso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz nicht messbar"
+msgstr "Espacio de almacenamiento no medible"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Belegt %1 von %2, frei %3 (%4 frei)"
+msgstr "Ocupado %1 de %2, libre %3 (%4 libre)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Der freie Platz lässt sich derzeit nicht messen."
+msgstr "Por ahora no se puede medir el espacio libre."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Zur Dokumentenablage"
+msgstr "Ir al archivo de documentos"

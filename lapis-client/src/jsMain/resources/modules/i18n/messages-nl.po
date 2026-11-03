@@ -468,10 +468,6 @@ msgstr "Niet beschikbaar: %1 – %2"
 msgid "Nichts auszuzahlen"
 msgstr "Niets uit te betalen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:106
-msgid "Noch %1 frei von %2 (%3). Bitte bei Gelegenheit alte Aufzeichnungen oder Dokumente aufräumen oder den Speicher erweitern."
-msgstr "Nog %1 vrij van %2 (%3). Ruim bij gelegenheid oude opnamen of documenten op of breid de opslag uit."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseSepaPanel.kt:300
 msgid "Noch keine SEPA-Datei erzeugt."
 msgstr "Nog geen SEPA-bestand aangemaakt."
@@ -487,10 +483,6 @@ msgstr "Alleen het bestuur en het beheer mogen SEPA-bestanden aanmaken."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1494
 msgid "Nur die ersten %1 von %2 Kontakten geladen."
 msgstr "Alleen de eerste %1 van %2 contacten zijn geladen."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:99
-msgid "Nur noch %1 frei von %2 (%3). Neue Uploads und Aufzeichnungen können bald scheitern. Bitte jetzt Platz schaffen."
-msgstr "Nog maar %1 vrij van %2 (%3). Nieuwe uploads en opnamen kunnen binnenkort mislukken. Maak nu ruimte vrij."
 
 msgid "Nur nötig, wenn ausgezahlt werden soll. Die IBAN wird verschlüsselt gespeichert."
 msgstr "Alleen nodig als er uitbetaald moet worden. Het IBAN wordt versleuteld opgeslagen."
@@ -548,26 +540,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
 msgid "Speicherplatz fast voll"
 msgstr "Opslagruimte bijna vol"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:96
-msgid "Speicherplatz wird knapp"
-msgstr "De opslagruimte raakt op"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:140
-msgid "Speicherplatz: %1 frei von %2 (%3)"
-msgstr "Opslagruimte: %1 vrij van %2 (%3)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:139
-msgid "Speicherplatz: %1 frei von %2 (%3), fast voll"
-msgstr "Opslagruimte: %1 vrij van %2 (%3), bijna vol"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:138
-msgid "Speicherplatz: %1 frei von %2 (%3), wird knapp"
-msgstr "Opslagruimte: %1 vrij van %2 (%3), raakt op"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:132
-msgid "Speicherplatz: derzeit nicht messbar"
-msgstr "Opslagruimte: momenteel niet meetbaar"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:179
 msgid "Standardkonto gesetzt."
@@ -1301,10 +1273,6 @@ msgstr "Tijdstip van toestemming (ISO, bijv. 2026-09-14T10:00)"
 
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr "Tijdstip is geen geldig ISO-formaat (bijv. 2026-09-14T10:00)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:122
-msgid "Zu den Dokumenten"
-msgstr "Naar de documenten"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:959
 msgid "Zu diesem Antrag gibt es bereits eine meritokratische Abstimmung -- siehe Abschnitt \"Abstimmung\" unten."
@@ -30200,3 +30168,27 @@ msgstr "Verantwoordingsverslag: verklaringen"
 
 msgid "Rechenschaftsbericht: Erläuterungen"
 msgstr "Verantwoordingsverslag: toelichtingen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz"
+msgstr "Opslagruimte"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz knapp"
+msgstr "Opslagruimte raakt op"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Speicherplatz nicht messbar"
+msgstr "Opslagruimte niet meetbaar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Belegt %1 von %2, frei %3 (%4 frei)"
+msgstr "Bezet %1 van %2, vrij %3 (%4 vrij)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Der freie Platz lässt sich derzeit nicht messen."
+msgstr "De vrije ruimte kan op dit moment niet worden gemeten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
+msgid "Zur Dokumentenablage"
+msgstr "Naar de documentenopslag"
