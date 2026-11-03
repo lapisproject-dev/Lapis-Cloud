@@ -2,7 +2,8 @@ package network.lapis.cloud.server.security
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlin.time.Duration.Companion.milliseconds
+import network.lapis.cloud.server.time.MutableTestClock
+import kotlin.time.Duration.Companion.minutes
 
 /** Pure tests of [LoginRateLimiter] -- no DB access. */
 class LoginRateLimiterTest :
@@ -44,22 +45,24 @@ class LoginRateLimiterTest :
         }
 
         test("the sliding window expires -- a key blocked inside the window becomes allowed again after it") {
-            val limiter = LoginRateLimiter(maxFailures = 1, window = 10.milliseconds)
+            val clock = MutableTestClock("2026-01-01T00:00:00Z")
+            val limiter = LoginRateLimiter(maxFailures = 1, window = 1.minutes, clock = clock)
             val key = "email:short-window@example.org"
 
             limiter.recordFailure(key)
             limiter.checkAllowed(key) shouldBe false
 
-            Thread.sleep(50)
+            clock.advance(1.minutes)
             limiter.checkAllowed(key) shouldBe true
         }
 
         test("recordFailure() after window expiry starts a fresh window rather than accumulating forever") {
-            val limiter = LoginRateLimiter(maxFailures = 2, window = 10.milliseconds)
+            val clock = MutableTestClock("2026-01-01T00:00:00Z")
+            val limiter = LoginRateLimiter(maxFailures = 2, window = 1.minutes, clock = clock)
             val key = "email:fresh-window@example.org"
 
             limiter.recordFailure(key)
-            Thread.sleep(50)
+            clock.advance(1.minutes)
             // Old failure has expired -- this is effectively failure #1 of a new window, not #2.
             limiter.recordFailure(key)
             limiter.checkAllowed(key) shouldBe true

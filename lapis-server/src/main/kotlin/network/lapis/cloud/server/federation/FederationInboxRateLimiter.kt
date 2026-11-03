@@ -51,11 +51,15 @@ import kotlin.time.Instant
  * the same total sorting work amortized over thousands of calls instead of paid in full on each
  * one. A no-op for every existing member-keyed/signature-gated caller, exactly as before -- none of
  * them ever reaches [maxTrackedKeys], so the early return above still short-circuits for them.
+ *
+ * The [clock] parameter is a test seam only (V1.9.268); the production default is [Clock.System]
+ * and no production caller passes it.
  */
 class FederationInboxRateLimiter(
     private val maxRequests: Int = 60,
     private val window: Duration = 1.minutes,
     private val maxTrackedKeys: Int = 10_000,
+    private val clock: Clock = Clock.System,
 ) {
     companion object {
         /**
@@ -76,7 +80,7 @@ class FederationInboxRateLimiter(
 
     /** `true` iff [remoteHost] is still under [maxRequests] within the current [window] -- records this attempt atomically either way. */
     fun checkAndRecord(remoteHost: String): Boolean {
-        val now = Clock.System.now()
+        val now = clock.now()
         var allowed = true
         requestsByKey.compute(remoteHost) { _, existing ->
             val current =
@@ -111,7 +115,7 @@ class FederationInboxRateLimiter(
      */
     internal fun retryAfterSeconds(key: String): Long {
         val entry = requestsByKey[key] ?: return 0
-        val now = Clock.System.now()
+        val now = clock.now()
         val elapsed = now - entry.windowStart
         val remaining = window - elapsed
         if (remaining.isNegative()) return 0

@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.TenderService
+import network.lapis.cloud.server.time.MutableTestClock
 import network.lapis.cloud.server.time.TimeTestSupport
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -118,7 +119,15 @@ class TenderDescriptionFormatTest :
             TimeTestSupport.withMutableServerClock(clock = tenderClock()) {
                 tenderTestApplication {
                     val board = fx.member(label = "board", role = AccountRole.BOARD)
-                    val limiter = FederationInboxRateLimiter(maxRequests = 3, window = 1.minutes)
+                    // The limiter reads its own clock, not the pinned ServerClock: give it a frozen one so the
+                    // window can never expire between the calls, whatever the machine load.
+                    // The rejected 10_001-character and depth calls also count against the limit (the check runs first).
+                    val limiter =
+                        FederationInboxRateLimiter(
+                            maxRequests = 3,
+                            window = 1.minutes,
+                            clock = MutableTestClock("2026-01-01T00:00:00Z"),
+                        )
 
                     suspend fun preview(text: String) =
                         attempt(member = board) { TenderService(call = it, previewRateLimiter = limiter).previewTenderDescription(text) }

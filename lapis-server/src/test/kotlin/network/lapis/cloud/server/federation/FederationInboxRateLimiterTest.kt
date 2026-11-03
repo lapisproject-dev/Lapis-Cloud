@@ -2,8 +2,11 @@ package network.lapis.cloud.server.federation
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.time.MutableTestClock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+
+private fun testClock() = MutableTestClock("2026-01-01T00:00:00Z")
 
 /** Pure tests of [FederationInboxRateLimiter] -- no DB/network access. Mirrors [network.lapis.cloud.server.security.LoginRateLimiterTest]'s shape, adapted for a pure request-RATE limiter (every request counts, not just failures). */
 class FederationInboxRateLimiterTest :
@@ -32,13 +35,17 @@ class FederationInboxRateLimiterTest :
         }
 
         test("the sliding window expires -- a host blocked inside the window is allowed again after it") {
-            val limiter = FederationInboxRateLimiter(maxRequests = 1, window = 10.milliseconds)
+            val clock = testClock()
+            val limiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes, clock = clock)
             val host = "203.0.113.10"
 
             limiter.checkAndRecord(host) shouldBe true
             limiter.checkAndRecord(host) shouldBe false
 
-            Thread.sleep(50)
+            // Expiry is `now - windowStart >= window`: one millisecond short is still rejected, exactly `window` is allowed.
+            clock.advance(1.minutes - 1.milliseconds)
+            limiter.checkAndRecord(host) shouldBe false
+            clock.advance(1.milliseconds)
             limiter.checkAndRecord(host) shouldBe true
         }
 
@@ -54,12 +61,13 @@ class FederationInboxRateLimiterTest :
         }
 
         test("opportunistic eviction bounds the tracked-key map size (best-effort, not exact)") {
-            val limiter = FederationInboxRateLimiter(maxRequests = 100, window = 5.milliseconds, maxTrackedKeys = 5)
+            val clock = testClock()
+            val limiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.minutes, maxTrackedKeys = 5, clock = clock)
             repeat(20) { i -> limiter.checkAndRecord("host-$i") }
-            Thread.sleep(20)
-            // One more call triggers the eviction sweep -- must not throw, and the limiter must
-            // stay usable afterward (the actual map size is an implementation detail we don't pin).
+            clock.advance(1.minutes)
+            // One more call triggers the eviction sweep of the now expired entries; the limiter stays usable.
             limiter.checkAndRecord("host-final") shouldBe true
+            (limiter.trackedKeyCountForTest() <= 5) shouldBe true
         }
 
         test(
@@ -70,7 +78,8 @@ class FederationInboxRateLimiterTest :
             // the "distributed fresh-IP flood" scenario the M3 finding describes: the ONLY eviction
             // path reachable is the oldest-`windowStart` fallback, never the cheap expired-only one.
             val maxTrackedKeys = 100
-            val limiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 10.minutes, maxTrackedKeys = maxTrackedKeys)
+            val limiter =
+                FederationInboxRateLimiter(maxRequests = 1_000, window = 10.minutes, maxTrackedKeys = maxTrackedKeys, clock = testClock())
             repeat(maxTrackedKeys) { i -> limiter.checkAndRecord("fresh-host-$i") }
             limiter.trackedKeyCountForTest() shouldBe maxTrackedKeys // exactly at capacity, no eviction triggered yet
 
@@ -95,7 +104,7 @@ class FederationInboxRateLimiterTest :
         }
 
         test("retryAfterSeconds() is positive and at most the window length right after a request") {
-            val limiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes)
+            val limiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes, clock = testClock())
             val host = "203.0.113.20"
             limiter.checkAndRecord(host)
             val retryAfter = limiter.retryAfterSeconds(host)
@@ -103,10 +112,11 @@ class FederationInboxRateLimiterTest :
         }
 
         test("retryAfterSeconds() is 0 once the window has fully elapsed") {
-            val limiter = FederationInboxRateLimiter(maxRequests = 1, window = 10.milliseconds)
+            val clock = testClock()
+            val limiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes, clock = clock)
             val host = "203.0.113.21"
             limiter.checkAndRecord(host)
-            Thread.sleep(30)
+            clock.advance(1.minutes)
             limiter.retryAfterSeconds(host) shouldBe 0
         }
 
