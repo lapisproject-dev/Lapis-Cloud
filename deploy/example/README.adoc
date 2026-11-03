@@ -1407,7 +1407,7 @@ file). Note that the three boolean switches which default to `true` use `:-true`
       LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT: "${LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT:-true}"
       LAPIS_KEYCLOAK_DISCOVERY_CACHE_SECONDS: "${LAPIS_KEYCLOAK_DISCOVERY_CACHE_SECONDS:-}"
       LAPIS_KEYCLOAK_JWKS_CACHE_SECONDS: "${LAPIS_KEYCLOAK_JWKS_CACHE_SECONDS:-}"
-      # Optional (V1.9.73), both off unless you set them -- see "Just-in-time provisioning and profile sync" below:
+      # Optional (V1.9.73), both off unless you set them; LAPIS_KEYCLOAK_PROVISION_GROUP is optional since V1.9.264 (unset = every verified realm login) -- see "Just-in-time provisioning and profile sync" below:
       LAPIS_KEYCLOAK_AUTO_PROVISION: "${LAPIS_KEYCLOAK_AUTO_PROVISION:-}"
       LAPIS_KEYCLOAK_PROVISION_CLAIM: "${LAPIS_KEYCLOAK_PROVISION_CLAIM:-}"
       LAPIS_KEYCLOAK_PROVISION_GROUP: "${LAPIS_KEYCLOAK_PROVISION_GROUP:-}"
@@ -1528,7 +1528,7 @@ All `LAPIS_KEYCLOAK_*` variables (`network.lapis.cloud.server.keycloak.KeycloakC
 | `LAPIS_KEYCLOAK_AUTO_PROVISION`
 | `false`
 | V1.9.73. Create a member on the first login when the verified ID token carries the group below and no member matches (see "Just-in-time
-  provisioning and profile sync"). Requires `LAPIS_KEYCLOAK_PROVISION_GROUP`. Setting it to `true` without `LAPIS_KEYCLOAK_ENABLED=true`, or
+  provisioning and profile sync"). With `LAPIS_KEYCLOAK_PROVISION_GROUP` only members of that group; without it every verified login of the realm (open mode, startup warning). Setting it to `true` without `LAPIS_KEYCLOAK_ENABLED=true`, or
   together with `LAPIS_REGIONAL_CHAPTER_ENFORCEMENT_ENABLED=true`, stops the server at startup. An empty value means `false` (unlike the three
   switches above, `false` is the safe reading here, so the plain `:-` in the compose snippet is right).
 
@@ -1537,8 +1537,8 @@ All `LAPIS_KEYCLOAK_*` variables (`network.lapis.cloud.server.keycloak.KeycloakC
 | Top-level ID-token claim that carries the groups. No nested paths (a dot is rejected).
 
 | `LAPIS_KEYCLOAK_PROVISION_GROUP`
-| *(required when `AUTO_PROVISION` is on)*
-| The one group whose members are provisioned, compared exactly (`apolda` and `/apolda` both match; `/parent/apolda` does not).
+| *(optional)*
+| The one group whose members are provisioned. A value that is set but invalid stops the server (never open mode). Compared exactly (`apolda` and `/apolda` both match; `/parent/apolda` does not).
 
 | `LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR`
 | `10`
@@ -1563,14 +1563,16 @@ partial state.
 ====
 A member created this way is **ACTIVE at once**. That does not replace an admission procedure (for example a party's admission decision
 under the Parteiengesetz): where a body must decide on the admission, leave `LAPIS_KEYCLOAK_AUTO_PROVISION` off. The Keycloak group
-must itself be the admission decision.
+must itself be the admission decision. Without a group, the realm must contain only the intended people (no self-registration, no identity
+brokering).
 ====
 
-. In Keycloak add a **Group Membership** mapper to the client: *Token Claim Name* `groups`, **Add to ID token** on. *Full group path* may be
+. (Only with a group.) In Keycloak add a **Group Membership** mapper to the client: *Token Claim Name* `groups`, **Add to ID token** on. *Full group path* may be
   on or off (both forms match; sub-groups do not).
 . Make sure the ID token carries `email` (verified) and `name` (or `given_name` / `family_name`).
-. Set `LAPIS_KEYCLOAK_AUTO_PROVISION=true` and `LAPIS_KEYCLOAK_PROVISION_GROUP=<group>` in `.env`, and add the five lines to your compose file
-  (see the snippet above). Optionally `LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR`.
+. Set `LAPIS_KEYCLOAK_AUTO_PROVISION=true` and optionally `LAPIS_KEYCLOAK_PROVISION_GROUP=<group>` in `.env`, and add the five lines to your compose file
+  (see the snippet above). For an event with many first logins set `LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR` accordingly (default 10 per
+  hour, maximum 1000).
 . The new member has the role `MEMBER`, no tier and no regional chapter: no contribution is billed until you assign a tier. Every
   administrator gets one notice mail per creation when SMTP is configured.
 . Removing someone from the Keycloak group does **not** remove the member, and a linked identity keeps logging in; disable the Keycloak

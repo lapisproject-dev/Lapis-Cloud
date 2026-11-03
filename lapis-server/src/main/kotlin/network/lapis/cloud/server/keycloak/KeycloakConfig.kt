@@ -36,12 +36,15 @@ internal class KeycloakConfig private constructor(
     val jwksCacheSeconds: Int,
     /**
      * Welle V1.9.73 -- `LAPIS_KEYCLOAK_AUTO_PROVISION`: create a member on the first login when the verified ID token carries
-     * the required group and no member matches. **Default OFF.** See [KeycloakMemberProvisioner].
+     * the configured group (or, without a configured group, for every verified realm account) and no member matches. **Default OFF.** See [KeycloakMemberProvisioner].
      */
     val autoProvision: Boolean,
     /** Top-level ID-token claim that carries the groups (default `groups`). Nested paths such as `realm_access.roles` are not supported. */
     val provisionClaim: String,
-    /** The one group whose members may be provisioned. Required when [autoProvision] is on. */
+    /**
+     * Optional (V1.9.264). When set, the group claim of the token MUST contain it. When not set (unset/blank), every verified login of the
+     * configured realm is provisioned (open mode). A value that is set but invalid is a startup error and never falls back to "everyone".
+     */
     val provisionGroup: String?,
     /** Maximum number of just-in-time creations per hour (counted in the database, per instance). */
     val provisionRatePerHour: Int,
@@ -58,13 +61,15 @@ internal class KeycloakConfig private constructor(
     /** Read only by the token-exchange/back-channel HTTP calls (1b) -- never logged, never part of [toString]. */
     val clientSecret: String? get() = clientSecretValue
 
+    /** V1.9.264 -- auto-provisioning is on and no group restricts it: every verified login of the realm may be created. */
+    val provisionWithoutGroup: Boolean get() = autoProvision && provisionGroup == null && ENV_PROVISION_GROUP !in invalid
+
     val isOperational: Boolean
         get() =
             enabled &&
                 issuerUrl != null &&
                 !clientId.isNullOrBlank() &&
                 !clientSecretValue.isNullOrBlank() &&
-                (!autoProvision || provisionGroup != null) &&
                 ENV_PROVISION_CLAIM !in invalid &&
                 ENV_PROVISION_GROUP !in invalid &&
                 ENV_PROVISION_RATE_PER_HOUR !in invalid
@@ -173,7 +178,7 @@ internal class KeycloakConfig private constructor(
                 )
 
             val provisionClaim = resolveProvisionClaim(raw = env(ENV_PROVISION_CLAIM)?.trim(), invalid = invalid)
-            val provisionGroup = resolveProvisionGroup(raw = env(ENV_PROVISION_GROUP)?.trim(), required = autoProvision, invalid = invalid)
+            val provisionGroup = resolveProvisionGroup(raw = env(ENV_PROVISION_GROUP)?.trim(), invalid = invalid)
             val provisionRatePerHour =
                 intVar(
                     env = env,
@@ -261,17 +266,13 @@ internal class KeycloakConfig private constructor(
 
         /**
          * Trimmed, non-empty, no control character, at most 255 characters, at most ONE leading `/` and no further `/`
-         * (a nested group path is not supported). Required while [required] (auto-provisioning is on).
+         * (a nested group path is not supported). Unset or blank means "no group" (open mode, V1.9.264); a set but invalid value is rejected.
          */
         private fun resolveProvisionGroup(
             raw: String?,
-            required: Boolean,
             invalid: MutableList<String>,
         ): String? {
-            if (raw.isNullOrEmpty()) {
-                if (required) invalid += ENV_PROVISION_GROUP
-                return null
-            }
+            if (raw.isNullOrEmpty()) return null
             val bare = raw.removePrefix("/")
             val valid =
                 raw.length <= PROVISION_GROUP_MAX_LENGTH &&

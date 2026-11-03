@@ -1,12 +1,19 @@
 package network.lapis.cloud.server.keycloak
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import org.slf4j.LoggerFactory
+import kotlin.uuid.Uuid
 
 private const val CLIENT_SECRET = "kc-provision-secret-value-123"
 private const val SECRET_GROUP = "geheime-gruppe-xyz"
@@ -58,10 +65,27 @@ class KeycloakProvisioningConfigTest :
             config.provisionRatePerHour shouldBe 25
         }
 
-        test("AUTO_PROVISION without a group is not operational and names the variable") {
+        test("AUTO_PROVISION without a group is operational (open mode, V1.9.264) and invalid stays empty") {
             val config = operational(KeycloakConfig.ENV_AUTO_PROVISION to "true")
-            config.isOperational shouldBe false
-            config.invalid shouldContain KeycloakConfig.ENV_PROVISION_GROUP
+            config.isOperational shouldBe true
+            config.provisionGroup shouldBe null
+            config.provisionWithoutGroup shouldBe true
+            config.invalid shouldNotContain KeycloakConfig.ENV_PROVISION_GROUP
+        }
+
+        test("a blank group counts as no group (V1.9.264)") {
+            val config = operational(KeycloakConfig.ENV_AUTO_PROVISION to "true", KeycloakConfig.ENV_PROVISION_GROUP to "   ")
+            config.provisionGroup shouldBe null
+            config.isOperational shouldBe true
+            config.provisionWithoutGroup shouldBe true
+        }
+
+        test("with a group the open mode is off") {
+            operational(
+                KeycloakConfig.ENV_AUTO_PROVISION to "true",
+                KeycloakConfig.ENV_PROVISION_GROUP to "apolda",
+            ).provisionWithoutGroup shouldBe false
+            operational().provisionWithoutGroup shouldBe false
         }
 
         test("a group is only mandatory while AUTO_PROVISION is on") {
@@ -79,11 +103,17 @@ class KeycloakProvisioningConfigTest :
         }
 
         test("invalid groups are rejected: nested path, only slash, control character, too long") {
-            listOf("/parent/child", "/", "a/b", "grp\u0007x", "g".repeat(256)).forEach { bad ->
+            listOf("/parent/child", "/", "a/b", "grp\u0007x", "g".repeat(256), "\u007f", "a\tb").forEach { bad ->
                 val config = operational(KeycloakConfig.ENV_AUTO_PROVISION to "true", KeycloakConfig.ENV_PROVISION_GROUP to bad)
                 config.invalid shouldContain KeycloakConfig.ENV_PROVISION_GROUP
                 config.isOperational shouldBe false
+                // V1.9.264: a set but invalid group never degrades to the open mode
+                config.provisionWithoutGroup shouldBe false
+                val e = shouldThrow<IllegalStateException> { KeycloakStartupCheck.verifyAndLog(config = config, logger = logger) }
+                e.message!! shouldContain KeycloakConfig.ENV_PROVISION_GROUP
             }
+            // an invalid group stays invalid even while AUTO_PROVISION is off (unchanged behaviour)
+            operational(KeycloakConfig.ENV_PROVISION_GROUP to "/a/b").invalid shouldContain KeycloakConfig.ENV_PROVISION_GROUP
             operational(
                 KeycloakConfig.ENV_AUTO_PROVISION to "true",
                 KeycloakConfig.ENV_PROVISION_GROUP to "  apolda  ",
@@ -131,13 +161,56 @@ class KeycloakProvisioningConfigTest :
             KeycloakStartupCheck.verifyAndLog(config = operational(), logger = logger, regionalChapterEnforcementEnabled = true)
         }
 
-        test("startup check: AUTO_PROVISION without a group refuses to start and names the variable, never a value") {
-            val e =
-                shouldThrow<IllegalStateException> {
-                    KeycloakStartupCheck.verifyAndLog(config = operational(KeycloakConfig.ENV_AUTO_PROVISION to "true"), logger = logger)
+        test("startup check: AUTO_PROVISION without a group starts (V1.9.264)") {
+            KeycloakStartupCheck.verifyAndLog(config = operational(KeycloakConfig.ENV_AUTO_PROVISION to "true"), logger = logger)
+        }
+
+        test("startup check: AUTO_PROVISION without a group together with the regional chapter rule refuses to start") {
+            shouldThrow<IllegalStateException> {
+                KeycloakStartupCheck.verifyAndLog(
+                    config = operational(KeycloakConfig.ENV_AUTO_PROVISION to "true"),
+                    logger = logger,
+                    regionalChapterEnforcementEnabled = true,
+                )
+            }.message!! shouldContain "LAPIS_REGIONAL_CHAPTER_ENFORCEMENT_ENABLED"
+        }
+
+        test("startup check: orphaned AUTO_PROVISION without ENABLED and without a group still refuses") {
+            shouldThrow<IllegalStateException> {
+                KeycloakStartupCheck.verifyAndLog(config = load(KeycloakConfig.ENV_AUTO_PROVISION to "true"), logger = logger)
+            }.message!! shouldContain "LAPIS_KEYCLOAK_ENABLED nicht"
+        }
+
+        test("the open-mode warning appears exactly once, only without a group, and leaks nothing") {
+            fun warnings(config: KeycloakConfig): List<String> {
+                val name = "test.keycloak.startup.${Uuid.random()}"
+                val logbackLogger = LoggerFactory.getLogger(name) as Logger
+                val appender = ListAppender<ILoggingEvent>().apply { start() }
+                logbackLogger.addAppender(appender)
+                logbackLogger.level = Level.TRACE
+                try {
+                    KeycloakStartupCheck.verifyAndLog(config = config, logger = KotlinLogging.logger(name))
+                } finally {
+                    logbackLogger.detachAppender(appender)
                 }
-            e.message!! shouldContain KeycloakConfig.ENV_PROVISION_GROUP
-            e.message!! shouldNotContain CLIENT_SECRET
+                return appender.list.filter { it.level == Level.WARN }.map { it.formattedMessage }
+            }
+
+            val open = warnings(operational(KeycloakConfig.ENV_AUTO_PROVISION to "true"))
+            open.count { "OHNE LAPIS_KEYCLOAK_PROVISION_GROUP" in it } shouldBe 1
+            open.count { "ersetzt KEINE Aufnahmepruefung" in it } shouldBe 1
+            open.forEach {
+                it shouldNotContain CLIENT_SECRET
+                it shouldNotContain "keycloak.example.org"
+            }
+
+            val grouped = warnings(operational(KeycloakConfig.ENV_AUTO_PROVISION to "true", KeycloakConfig.ENV_PROVISION_GROUP to "apolda"))
+            grouped.count { "OHNE LAPIS_KEYCLOAK_PROVISION_GROUP" in it } shouldBe 0
+            grouped.count { "ersetzt KEINE Aufnahmepruefung" in it } shouldBe 1
+
+            val off = warnings(operational())
+            off.count { "OHNE LAPIS_KEYCLOAK_PROVISION_GROUP" in it } shouldBe 0
+            off.count { "ersetzt KEINE Aufnahmepruefung" in it } shouldBe 0
         }
 
         test("toString never shows the client secret and shows the new fields") {

@@ -345,9 +345,19 @@ described above.
 ====
 A member created by just-in-time provisioning is **ACTIVE at once**. That is not an admission procedure. Where the decision about a
 new member must be taken by a body (a political party under the Parteiengesetz, an association with an admission vote), leave
-`LAPIS_KEYCLOAK_AUTO_PROVISION` off. Provisioning is meant for deployments where the identity provider's group IS the admission
-decision.
+`LAPIS_KEYCLOAK_AUTO_PROVISION` off. Provisioning is meant for deployments where the identity provider's group, or (without a group)
+the realm itself, IS the admission decision.
 ====
+
+**Open mode (no group, V1.9.264).** `LAPIS_KEYCLOAK_PROVISION_GROUP` is optional. Without it, every verified login of the configured realm
+creates a member. Use this only when:
+
+* the realm contains exclusively the intended people (self-registration in the realm is switched off);
+* no other client or identity brokering (for example social login) brings foreign accounts into the realm;
+* no admission procedure is required (see the warning above).
+
+A startup warning makes the mode visible. A group value that is set but invalid never falls back to the open mode: the server refuses to
+start, and the provisioner refuses to create anything as a second wall.
 
 === Variables
 
@@ -357,18 +367,19 @@ decision.
 
 | `LAPIS_KEYCLOAK_AUTO_PROVISION`
 | `false`
-| Create a member on the first login when the verified ID token carries the required group and no member matches. Needs
-  `LAPIS_KEYCLOAK_ENABLED=true` and `LAPIS_KEYCLOAK_PROVISION_GROUP`; the server refuses to start otherwise (also when this is `true`
-  but `LAPIS_KEYCLOAK_ENABLED` is not -- the option would silently do nothing).
+| Create a member on the first login when no member matches. Needs `LAPIS_KEYCLOAK_ENABLED=true` (the server refuses to start otherwise:
+  the option would silently do nothing). With `LAPIS_KEYCLOAK_PROVISION_GROUP` the group restricts it; without it every verified realm
+  login is created (open mode, logged as a warning at startup).
 
 | `LAPIS_KEYCLOAK_PROVISION_CLAIM`
 | `groups`
-| Name of the **top-level** ID-token claim that carries the groups. Letters, digits, `_`, `:`, `-`; at most 64 characters. A dot is
+| Name of the **top-level** ID-token claim that carries the groups. Ignored without a group (still validated). Letters, digits, `_`, `:`, `-`; at most 64 characters. A dot is
   rejected on purpose: nested paths such as `realm_access.roles` are not supported.
 
 | `LAPIS_KEYCLOAK_PROVISION_GROUP`
-| --
-| The one group whose members may be provisioned, compared exactly and case-sensitively. `apolda` and `/apolda` both match a claim
+| -- (optional)
+| Unset or blank = no group. A value that is set but invalid stops the server; it never falls back to the open mode. The one group whose
+  members may be provisioned, compared exactly and case-sensitively. `apolda` and `/apolda` both match a claim
   value `apolda` or `/apolda`; a nested path (`/parent/apolda`) is **not** the group. At most one `/` (leading), at most 255 characters.
 
 | `LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR`
@@ -398,7 +409,7 @@ sequenceDiagram(name = "Keycloak just-in-time provisioning (V1.9.73)") {
     message(from = server, to = linker, label = "linkOrResolve(issuer, sub, email)")
     message(from = linker, to = server, label = "Rejected(NO_MATCHING_MEMBER)")
     message(from = server, to = provisioner, label = "provision(verified claims) -- only if AUTO_PROVISION")
-    message(from = provisioner, to = provisioner, label = "group claim, email_verified, address, name")
+    message(from = provisioner, to = provisioner, label = "group claim (if configured), email_verified, address, name")
     message(from = provisioner, to = db, label = "lock organization_settings (one creation at a time)")
     message(from = provisioner, to = db, label = "re-resolve link / address; count KEYCLOAK_JIT of the last hour")
     message(from = provisioner, to = db, label = "member ACTIVE, history, account MEMBER, link, number, audit (no PII)")
@@ -409,8 +420,9 @@ sequenceDiagram(name = "Keycloak just-in-time provisioning (V1.9.73)") {
 
 Order of the checks inside `KeycloakMemberProvisioner.provision` (no database write before all of them passed):
 
-. the option is on and a group is configured;
-. the group claim of the **verified ID token** contains the group (`MISSING`, `WRONG_TYPE` and `NO_MATCH` are distinct reasons);
+. the option is on (and a configured group value is valid);
+. if a group is configured: the group claim of the **verified ID token** contains it (`MISSING`, `WRONG_TYPE` and `NO_MATCH` are distinct
+  reasons); without a group this step is skipped;
 . `email_verified` is `true` -- **independent** of `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL`: a new account is never created for an address
   the identity provider did not verify;
 . the address is a valid mailbox address of at most 320 characters (trimmed, lower-cased);
@@ -486,7 +498,10 @@ only in the erasable `member` / `member_email_change` rows.
   existing sessions run until they expire (8 hours).
 * After an Art. 17 erasure the link is deleted and the address anonymized. If the same person logs in again with the group claim, a **new**
   active member is created. Remove them from the Keycloak group first. A block list would contradict the erasure.
-* Not tested against a real Keycloak (or WABEO) -- only against a simulated identity provider in the test suite.
+* **Open mode:** an account that is removed or disabled in the realm does not remove the member. After an Art. 17 erasure, a later login
+  creates a new member, so delete the account in Keycloak first.
+* Not tested against a real Keycloak (or WABEO) -- only against a simulated identity provider in the test suite. Not verified: the real
+  token content (`name`, `email_verified`) of real accounts; accounts without a verified address are refused with the generic page.
 * The rate limit counts per database; there is no per-IP limit on top of the existing callback failure limiter.
 * The hourly count uses the history rows; erasing a member's history within the hour would reduce the count.
 

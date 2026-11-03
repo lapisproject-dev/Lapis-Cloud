@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.264 -- Keycloak auto-provisioning without a group
+
+- **What:** `LAPIS_KEYCLOAK_PROVISION_GROUP` is optional. With `LAPIS_KEYCLOAK_AUTO_PROVISION=true` and no group (unset or blank), every verified login of the configured realm creates a member on the first login (open mode). With a group, nothing changes.
+- **Unchanged guardrails:** `email_verified` is mandatory regardless of `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL`; a name is mandatory; an existing member (same address) or link wins; the hourly rate limit applies; the role is the constant `MEMBER`, never read from a claim; the combination with `LAPIS_REGIONAL_CHAPTER_ENFORCEMENT_ENABLED=true` and the orphaned option without `LAPIS_KEYCLOAK_ENABLED` are still startup errors.
+- **Fail closed:** a group value that is set but invalid (nested path, `/`, control character, too long) still stops the start and never degrades to the open mode; the provisioner refuses to create anything in that state as a second wall.
+- **Visibility:** an additional startup warning names the open mode (no host, realm or secret); the success log line carries `mode=open|group`.
+- **Warning:** only for realms that contain exclusively the intended people (self-registration off, no identity brokering). It is not an admission procedure (Parteiengesetz).
+- **Not verified:** no login against a real Keycloak or WABEO; the token content (`name`, `email_verified`) of real accounts is unknown; accounts without a verified address are refused with the generic page.
+- **No migration (V138 stays the latest), no UI text.**
+- **Docs:** `keycloak-login.adoc`, `dsgvo.adoc`, `deploy/example/README.adoc`.
+
 ### V1.9.263 -- Storage space indicator for administrators
 
 - **What:** free and total space of the document volume plus a level, shown to ADMIN users only: a card in *Für Sie* on the dashboard (only at the hint and warning level, always the first card) and one line on *Dokumentenablage* (all four states: ok, hint, warning, not measurable).

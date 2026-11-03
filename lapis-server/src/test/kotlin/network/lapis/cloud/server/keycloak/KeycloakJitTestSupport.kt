@@ -58,7 +58,7 @@ internal class RecordingProvisioningMailer(
     }
 }
 
-/** A Keycloak configuration with the provisioning options as given; always otherwise complete. */
+/** A Keycloak configuration with the provisioning options as given; always otherwise complete. `group = null` = open mode (V1.9.264). */
 internal fun jitConfig(
     autoProvision: Boolean = true,
     group: String? = "apolda",

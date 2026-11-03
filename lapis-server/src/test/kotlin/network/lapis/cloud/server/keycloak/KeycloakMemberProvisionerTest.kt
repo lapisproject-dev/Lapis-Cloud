@@ -198,6 +198,127 @@ abstract class KeycloakMemberProvisionerScenarios(
                 Rejected(RejectReason.GROUP_MISSING)
         }
 
+        // ---- V1.9.264: open mode (no group) ----
+
+        test("open mode: no group configured, a verified account is created as an ACTIVE MEMBER (V1.9.264)") {
+            val email = uniqueEmail()
+            val outcome =
+                provisioner(config = jitConfig(group = null))
+                    .go(email = email, subject = "sub-open", claims = idClaims(email = email, groups = null))
+                    .shouldBeInstanceOf<KeycloakMemberProvisioner.Outcome.Provisioned>()
+            val id = outcome.memberId
+            transaction { MemberTable.selectAll().where { MemberTable.id eq id }.single()[MemberTable.status] } shouldBe MemberStatus.ACTIVE
+            val account = transaction { AccountTable.selectAll().where { AccountTable.memberId eq id }.single() }
+            account[AccountTable.role] shouldBe AccountRole.MEMBER
+            account[AccountTable.passwordHash] shouldBe null
+            val link = transaction { KeycloakAccountLinkTable.selectAll().where { KeycloakAccountLinkTable.memberId eq id }.single() }
+            link[KeycloakAccountLinkTable.linkedBy] shouldBe null
+            val history = transaction { MemberStatusHistoryTable.selectAll().where { MemberStatusHistoryTable.memberId eq id }.toList() }
+            history.size shouldBe 1
+            history.single()[MemberStatusHistoryTable.sourceKind] shouldBe "KEYCLOAK_JIT"
+            val audit = memberAuditJson(id)
+            audit.size shouldBe 1
+            audit.single() shouldContain "PROVISIONED"
+            audit.single() shouldNotContain email
+            audit.single() shouldNotContain "sub-open"
+        }
+
+        test("open mode: the group claim is irrelevant, whatever its content or type") {
+            val p = provisioner(config = jitConfig(group = null))
+            val a = uniqueEmail()
+            p.go(email = a, claims = idClaims(email = a, groups = listOf("something-else"))).shouldBeInstanceOf<
+                KeycloakMemberProvisioner.Outcome.Provisioned,
+            >()
+            val b = uniqueEmail()
+            p.go(email = b, claims = idClaims(email = b, groups = 7)).shouldBeInstanceOf<KeycloakMemberProvisioner.Outcome.Provisioned>()
+        }
+
+        test("open mode: the other guardrails stay -- unverified, bad address, no name create nothing") {
+            val p = provisioner(config = jitConfig(group = null))
+            var email = uniqueEmail()
+            p.go(email = email, verified = false, claims = idClaims(email = email, groups = null)) shouldBe
+                Rejected(RejectReason.EMAIL_NOT_VERIFIED)
+            memberCountByEmail(email) shouldBe 0
+            // email_verified is mandatory even when the operator relaxed REQUIRE_VERIFIED_EMAIL
+            email = uniqueEmail()
+            provisioner(config = jitConfig(group = null, requireVerifiedEmail = false)).go(email = email, verified = false) shouldBe
+                Rejected(RejectReason.EMAIL_NOT_VERIFIED)
+            memberCountByEmail(email) shouldBe 0
+            email = uniqueEmail()
+            p.go(email = email, claims = idClaims(email = email, name = null, groups = null)) shouldBe Rejected(RejectReason.NAME_MISSING)
+            memberCountByEmail(email) shouldBe 0
+            email = uniqueEmail()
+            p.go(email = email, claims = idClaims(email = email, name = " \u0007 ", groups = null)) shouldBe
+                Rejected(RejectReason.NAME_MISSING)
+            memberCountByEmail(email) shouldBe 0
+            val hostile = "a@b.de\r\nBcc: x@y.de"
+            p.go(email = hostile) shouldBe Rejected(RejectReason.INVALID_EMAIL)
+            memberCountByEmail(hostile) shouldBe 0
+        }
+
+        test("open mode: an existing member (other case) or an existing link wins, no second member") {
+            val p = provisioner(config = jitConfig(group = null))
+            val existing = fixture.member(email = "existing-open-" + Uuid.random().toString().take(8) + "@example.org")
+            val before = transaction { MemberTable.selectAll().count() }
+            p.go(email = fixture.emailOf(existing).uppercase()) shouldBe KeycloakMemberProvisioner.Outcome.ExistingFound
+            transaction { MemberTable.selectAll().count() } shouldBe before
+
+            p.go(email = uniqueEmail(), subject = "open-same-subject").shouldBeInstanceOf<KeycloakMemberProvisioner.Outcome.Provisioned>()
+            val afterFirst = transaction { MemberTable.selectAll().count() }
+            p.go(email = uniqueEmail(), subject = "open-same-subject") shouldBe KeycloakMemberProvisioner.Outcome.ExistingFound
+            transaction { MemberTable.selectAll().count() } shouldBe afterFirst
+        }
+
+        test("open mode: the hourly rate limit applies") {
+            val p = provisioner(config = jitConfig(group = null, ratePerHour = 2))
+            withClock("2036-05-01T10:00:00Z") {
+                repeat(2) { p.go().shouldBeInstanceOf<KeycloakMemberProvisioner.Outcome.Provisioned>() }
+                val blocked = uniqueEmail()
+                p.go(email = blocked) shouldBe Rejected(RejectReason.RATE_LIMITED)
+                memberCountByEmail(blocked) shouldBe 0
+            }
+        }
+
+        test("open mode: the role is a constant even for hostile role claims") {
+            val email = uniqueEmail()
+            val claims =
+                idClaims(
+                    email = email,
+                    groups = null,
+                    extra =
+                        mapOf(
+                            "role" to "ADMIN",
+                            "roles" to listOf("ADMIN", "BOARD"),
+                            "realm_access" to mapOf("roles" to listOf("admin")),
+                            "resource_access" to mapOf("lapis" to mapOf("roles" to listOf("ADMIN"))),
+                        ),
+                )
+            val id =
+                provisioner(config = jitConfig(group = null))
+                    .go(email = email, claims = claims)
+                    .shouldBeInstanceOf<KeycloakMemberProvisioner.Outcome.Provisioned>()
+                    .memberId
+            transaction { AccountTable.selectAll().where { AccountTable.memberId eq id }.single()[AccountTable.role] } shouldBe
+                AccountRole.MEMBER
+            memberAuditJson(id).single() shouldContain "\"role\":\"MEMBER\""
+        }
+
+        test("with a group, a member of another group is still refused (regression)") {
+            val email = uniqueEmail()
+            provisioner().go(email = email, claims = idClaims(email = email, groups = listOf("wabeo-other"))) shouldBe
+                Rejected(RejectReason.GROUP_NO_MATCH)
+            memberCountByEmail(email) shouldBe 0
+        }
+
+        test("fail closed: a set but invalid group is DISABLED and never degrades to the open mode") {
+            val config = jitConfig(group = "/a/b")
+            config.provisionGroup shouldBe null
+            val email = uniqueEmail()
+            provisioner(config = config).go(email = email, claims = idClaims(email = email, groups = null)) shouldBe
+                Rejected(RejectReason.DISABLED)
+            memberCountByEmail(email) shouldBe 0
+        }
+
         test("an existing member with the same address (other case) wins: ExistingFound, no second member") {
             val existing = fixture.member(email = "existing-" + Uuid.random().toString().take(8) + "@example.org")
             val address = fixture.emailOf(existing)

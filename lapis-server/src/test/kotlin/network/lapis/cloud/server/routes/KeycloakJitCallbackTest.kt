@@ -316,9 +316,10 @@ class KeycloakJitCallbackTest :
             token: () -> String,
             accessToken: () -> String = { "unused-access-token" },
             expectedStatus: HttpStatusCode = HttpStatusCode.Unauthorized,
+            cfg: KeycloakConfig = config(),
         ) {
             val before = memberCount()
-            callback(cfg = config(), nonce = nonce, idToken = token, accessToken = accessToken) { status, _, setCookies ->
+            callback(cfg = cfg, nonce = nonce, idToken = token, accessToken = accessToken) { status, _, setCookies ->
                 status shouldBe expectedStatus
                 hasSession(setCookies) shouldBe false
             }
@@ -480,6 +481,74 @@ class KeycloakJitCallbackTest :
                         claims(email = email, nonce = nonce, groups = listOf("admin", "apolda"), extra = mapOf("role" to "ADMIN")),
                     )
                 },
+            ) { status, _, _ -> status shouldBe HttpStatusCode.Found }
+            val id = requireNotNull(trackNewMember(email))
+            transaction { AccountTable.selectAll().where { AccountTable.memberId eq id }.single()[AccountTable.role] } shouldBe
+                AccountRole.MEMBER
+        }
+
+        // ── V1.9.264: open mode (no group) ──
+
+        test("open mode end to end: a token without any group claim creates a MEMBER and logs in") {
+            val email = "open-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            callback(
+                cfg = config(group = null),
+                nonce = nonce,
+                idToken = { sign(claims(email = email, nonce = nonce, groups = null)) },
+            ) { status, _, setCookies ->
+                status shouldBe HttpStatusCode.Found
+                hasSession(setCookies) shouldBe true
+            }
+            val id = requireNotNull(trackNewMember(email))
+            transaction { AccountTable.selectAll().where { AccountTable.memberId eq id }.single()[AccountTable.role] } shouldBe
+                AccountRole.MEMBER
+            transaction { MemberTable.selectAll().where { MemberTable.id eq id }.single()[MemberTable.status] } shouldBe MemberStatus.ACTIVE
+            events(id, OidcLoginEventType.KEYCLOAK_LOGIN_SUCCESS).size shouldBe 1
+            events(id, OidcLoginEventType.KEYCLOAK_LINK_CREATED).size shouldBe 1
+        }
+
+        test("open mode: an unverified address is refused and nothing is created") {
+            val email = "open-unv-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            assertRefused(
+                email,
+                nonce,
+                token = { sign(claims(email = email, nonce = nonce, groups = null, emailVerified = false)) },
+                cfg = config(group = null),
+            )
+        }
+
+        test("open mode: unsigned, foreign-audience and foreign-issuer tokens still create nothing") {
+            val cfg = config(group = null)
+            var email = "open-none-" + Uuid.random().toString().take(10) + "@example.org"
+            var nonce = "n-${Uuid.random()}"
+            assertRefused(email, nonce, token = { PlainJWT(claims(email = email, nonce = nonce, groups = null)).serialize() }, cfg = cfg)
+            email = "open-aud-" + Uuid.random().toString().take(10) + "@example.org"
+            nonce = "n-${Uuid.random()}"
+            assertRefused(
+                email,
+                nonce,
+                token = { sign(claims(email = email, nonce = nonce, groups = null, audience = "some-other-client")) },
+                cfg = cfg,
+            )
+            email = "open-iss-" + Uuid.random().toString().take(10) + "@example.org"
+            nonce = "n-${Uuid.random()}"
+            assertRefused(
+                email,
+                nonce,
+                token = { sign(claims(email = email, nonce = nonce, groups = null, issuer = "https://evil.example.org")) },
+                cfg = cfg,
+            )
+        }
+
+        test("open mode: a hostile role claim does not raise the role") {
+            val email = "open-role-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            callback(
+                cfg = config(group = null),
+                nonce = nonce,
+                idToken = { sign(claims(email = email, nonce = nonce, groups = null, extra = mapOf("role" to "ADMIN"))) },
             ) { status, _, _ -> status shouldBe HttpStatusCode.Found }
             val id = requireNotNull(trackNewMember(email))
             transaction { AccountTable.selectAll().where { AccountTable.memberId eq id }.single()[AccountTable.role] } shouldBe

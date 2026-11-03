@@ -46,7 +46,7 @@ private val logger = KotlinLogging.logger {}
 
 /**
  * Welle V1.9.73 "Keycloak: Just-in-time-Anlage" -- creates a member on the FIRST Keycloak login when the verified ID token carries
- * the configured group and [KeycloakAccountLinker] found no member. **Opt-in** (`LAPIS_KEYCLOAK_AUTO_PROVISION`, default OFF), a
+ * the configured group (if one is configured) and [KeycloakAccountLinker] found no member. **Opt-in** (`LAPIS_KEYCLOAK_AUTO_PROVISION`, default OFF), a
  * separate stage that runs only after the linker answered `NO_MATCHING_MEMBER`; the linker itself still never creates anything.
  *
  * **What is created.** An ACTIVE member (no tier, no regional chapter, no join-contract acknowledgment -- the precedent is
@@ -55,6 +55,7 @@ private val logger = KotlinLogging.logger {}
  * webhook and one `MEMBER`/`CREATE` audit entry without any name or address.
  *
  * **Security properties.**
+ * - Without a group (V1.9.264) the realm itself is the admission boundary: every other guardrail stays unchanged.
  * - Claims come ONLY from the verified ID token (see [KeycloakProvisioningClaims]). The role is a constant, never derived from a claim.
  * - A member whose address matches (or an existing link for the `(issuer, subject)`) always wins: [Outcome.ExistingFound], never a duplicate.
  * - `email_verified` must be `true` regardless of `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL`.
@@ -114,14 +115,19 @@ internal class KeycloakMemberProvisioner(
         emailVerified: Boolean,
         claims: JWTClaimsSet,
     ): Outcome {
+        if (!config.autoProvision) return Outcome.Rejected(RejectReason.DISABLED)
+        // Fail closed: a group value that was SET but rejected never degrades to "everyone" (startup refuses it; this is the second wall).
+        if (KeycloakConfig.ENV_PROVISION_GROUP in config.invalid) return Outcome.Rejected(RejectReason.DISABLED)
         val requiredGroup = config.provisionGroup
-        if (!config.autoProvision || requiredGroup == null) return Outcome.Rejected(RejectReason.DISABLED)
-
-        when (KeycloakProvisioningClaims.checkGroup(claims = claims, claimName = config.provisionClaim, requiredGroup = requiredGroup)) {
-            KeycloakProvisioningClaims.GroupCheck.MATCH -> Unit
-            KeycloakProvisioningClaims.GroupCheck.MISSING -> return Outcome.Rejected(RejectReason.GROUP_MISSING)
-            KeycloakProvisioningClaims.GroupCheck.NO_MATCH -> return Outcome.Rejected(RejectReason.GROUP_NO_MATCH)
-            KeycloakProvisioningClaims.GroupCheck.WRONG_TYPE -> return Outcome.Rejected(RejectReason.GROUP_WRONG_TYPE)
+        if (requiredGroup != null) {
+            when (
+                KeycloakProvisioningClaims.checkGroup(claims = claims, claimName = config.provisionClaim, requiredGroup = requiredGroup)
+            ) {
+                KeycloakProvisioningClaims.GroupCheck.MATCH -> Unit
+                KeycloakProvisioningClaims.GroupCheck.MISSING -> return Outcome.Rejected(RejectReason.GROUP_MISSING)
+                KeycloakProvisioningClaims.GroupCheck.NO_MATCH -> return Outcome.Rejected(RejectReason.GROUP_NO_MATCH)
+                KeycloakProvisioningClaims.GroupCheck.WRONG_TYPE -> return Outcome.Rejected(RejectReason.GROUP_WRONG_TYPE)
+            }
         }
         // Stricter than the linker: independent of LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL -- a NEW account is never created for an
         // address the identity provider did not verify.
@@ -245,8 +251,9 @@ internal class KeycloakMemberProvisioner(
                 Outcome.Rejected(RejectReason.RATE_LIMITED)
             }
             is TxResult.Created -> {
+                val mode = if (config.provisionGroup == null) "open" else "group"
                 logger.info {
-                    "Keycloak JIT provisioned memberId=${result.memberId} subjectFingerprint=${keycloakSubjectFingerprint(
+                    "Keycloak JIT provisioned mode=$mode memberId=${result.memberId} subjectFingerprint=${keycloakSubjectFingerprint(
                         subject,
                     )}"
                 }

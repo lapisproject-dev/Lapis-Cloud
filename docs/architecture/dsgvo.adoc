@@ -537,7 +537,7 @@ Two opt-in processing steps of the Keycloak login (`keycloak-login.adoc`, "Just-
 
 * **Creation on the first login** (`LAPIS_KEYCLOAK_AUTO_PROVISION`): name and address come from the verified ID token of the identity provider
   the operator chose; the Keycloak subject is stored in `keycloak_account_link`. The legal basis (Art. 6(1)(b), membership; the operator
-  decides and documents it) is the operator's to check -- a person in the configured group is treated as having joined. The new member's
+  decides and documents it) is the operator's to check -- a person in the configured group (or, without a group, any person of the whole realm, V1.9.264) is treated as having joined. The new member's
   records are ordinary `member` data: they appear in the Art. 15 export and are removed or anonymized by Art. 17 like any other member.
   The hash-chained audit entry carries flags and the fact "provisioned", **no name, no address, no subject**, so erasure cannot be blocked
   by it.

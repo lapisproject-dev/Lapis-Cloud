@@ -78,15 +78,24 @@ internal object KeycloakStartupCheck {
         if (config.autoProvision || config.syncProfile) {
             logger.info {
                 "Keycloak-Anlage/Abgleich: autoProvision=${config.autoProvision} provisionClaim=${config.provisionClaim} " +
-                    "provisionGroup=${config.provisionGroup} provisionRatePerHour=${config.provisionRatePerHour} " +
+                    "provisionGroup=${config.provisionGroup ?: "<keine>"} provisionRatePerHour=${config.provisionRatePerHour} " +
                     "syncProfile=${config.syncProfile}"
             }
         }
         if (config.autoProvision) {
             logger.warn {
-                "LAPIS_KEYCLOAK_AUTO_PROVISION=true -- wer die konfigurierte Keycloak-Gruppe traegt, wird beim ersten Login " +
-                    "automatisch als AKTIVES Mitglied angelegt. Das ersetzt KEINE Aufnahmepruefung (z. B. nach PartG): wo " +
-                    "ueber die Aufnahme entschieden werden muss, diese Option nicht verwenden."
+                "LAPIS_KEYCLOAK_AUTO_PROVISION=true -- wer sich ueber Keycloak mit verifizierter Adresse anmeldet (und, falls " +
+                    "konfiguriert, die Keycloak-Gruppe traegt), wird beim ersten Login automatisch als AKTIVES Mitglied " +
+                    "angelegt. Das ersetzt KEINE Aufnahmepruefung (z. B. nach PartG): wo ueber die Aufnahme entschieden " +
+                    "werden muss, diese Option nicht verwenden."
+            }
+        }
+        if (config.provisionWithoutGroup) {
+            logger.warn {
+                "LAPIS_KEYCLOAK_AUTO_PROVISION=true OHNE LAPIS_KEYCLOAK_PROVISION_GROUP (offener Modus) -- JEDES Konto des " +
+                    "konfigurierten Keycloak-Realms mit verifizierter E-Mail-Adresse und Namen wird beim ersten Login als " +
+                    "AKTIVES Mitglied angelegt. Nur fuer Realms, die ausschliesslich die vorgesehenen Personen enthalten " +
+                    "(Selbstregistrierung im Realm abgeschaltet); kein Aufnahmeverfahren."
             }
         }
 
