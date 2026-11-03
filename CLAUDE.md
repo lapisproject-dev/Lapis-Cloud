@@ -483,3 +483,13 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **RPC:** `IDocumentService.storageSpace()` steht am Ende der Schnittstelle (`DocumentService`, nicht ein neuer Dienst; die Reihenfolge von `registerService` bleibt). Reihenfolge im Service: ADMIN-Prüfung, dann Limiter (12 Aufrufe je 60 s je Mitglied), dann Dateisystem. Der Limiter ist die eine Instanz aus `Application.module` (`DocumentStorageSpaceReader`), nie eine neue je Konstruktor.
 - **Antwort:** nur `level`, `freeBytes`, `totalBytes`; nie Pfad, Mount-Punkt oder Host. Ein Messfehler wird mit Ausnahmetyp geloggt (nie `message`) und als `UNKNOWN` beantwortet. Fehlendes Verzeichnis ist `UNKNOWN`, nicht `WARNING`.
 - **Client:** die Schwellen rechnet nur der Server; der Client zeigt `level` an (`StorageSpaceDisplay.kt`, Long-Arithmetik, dezimale GB). Karte nur bei HINT/WARNING und als erstes in "Für Sie"; Zeile auf der Dokumentenablage in allen vier Zuständen. Beides nur für ADMIN, ohne Toast bei Fehlern.
+
+## Marken-Logo-Varianten (V1.9.265)
+
+- **Eine Kette:** `BrandLogoVariants.kt` (Paket `server.branding`) hält die ganze Auflösung: `resolveLogo(mode, kind)` (gleiche Art eigener Modus, gleiche Art anderer Modus, andere Art, Legacy-Logo, Standardmarke), `urlFor`, `legacyRouteFile`, `rasterShareLogoPath`, `wordmarkCarriesName`. Die Kette stützt sich nur auf `ResolvedBranding.variants` und `logoAvailable`; eine Variante steht nur in der Map, wenn ihre Datei beim Start nutzbar war. Keine zweite Kopie der Kette im Main-Code. Die Content-Type-Allowlist `brandingLogoContentType` lebt dort (nicht mehr in `Application.kt`).
+- **CSP:** `img-src 'self'` der öffentlichen und der Anmeldeseiten hängt an `ResolvedBranding.servesAnyLogo`, nie an `logoAvailable` allein. `grep -rn "imgSrcSelf = branding.logoAvailable"` muss leer sein.
+- **Route:** `GET /api/branding/logo/{variant}` (`registerBrandingLogoRoutes`) bildet den Slug über das geschlossene Enum `LogoVariant.fromSlug` (exakt, kein Trim, keine Kleinschreibung) auf die Map ab, nie auf einen Pfad aus der Anfrage; antwortet immer selbst (404 mit leerem Body), vor dem `staticFiles`-Fänger.
+- **Payload:** der Schlüssel `logos` im `#lapis-brand`-JSON steht nur, wenn mindestens eine Variante gesetzt ist; ohne Varianten ist der Payload byte-gleich zu V1.9.264 (Golden-Test `BrandGoldenSnapshotTest`). `LAPIS_CLOUD_MARK_SVG` bleibt byte-gleich (`LIGHT + "\n" + DARK`).
+- **Überlagerungen:** `VideoOverlayInstanceLogo` liest `legacyRouteFile()`, also die Datei, die `/api/branding/logo` ausliefert; SVG wird weiter nicht angeboten.
+- **Neue Variablen loggen nur den Namen**, nie den Pfad. Jede der fünf Variablen lehnt ein `..`-Segment ab.
+

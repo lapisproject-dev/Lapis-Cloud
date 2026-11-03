@@ -23,7 +23,12 @@ data class ResolvedBranding(
     val logoPath: String?,
     /** `null` in the many test/preview default-parameter call sites that predate this field. */
     val websiteUrl: String? = null,
-)
+    /** V1.9.265 -- the logo variants whose file was usable at startup (absent = not configured or not usable). Default keeps old call sites compiling. */
+    val variants: Map<LogoVariant, ResolvedLogoFile> = emptyMap(),
+) {
+    /** `true` if ANY logo (legacy or variant) is served -- drives the CSP `img-src 'self'` allowance of the public pages. */
+    val servesAnyLogo: Boolean get() = logoAvailable || variants.isNotEmpty()
+}
 
 /**
  * V1.2.5 White-Label-Branding -- startup-time resolution of [BrandConfig] into [ResolvedBranding],
@@ -66,14 +71,22 @@ object BrandingStartupCheck {
             }
         }
 
+        val variants = resolveVariants(config = config, probe = probe)
+
         val logoPath = config.logoPath
         if (logoPath == null) {
             logger.info { "Branding aktiv: title='${config.title}', kein Logo konfiguriert (LAPIS_BRAND_LOGO_PATH unset)." }
-            return ResolvedBranding(title = config.title, logoAvailable = false, logoPath = null, websiteUrl = config.websiteUrl)
+            return ResolvedBranding(
+                title = config.title,
+                logoAvailable = false,
+                logoPath = null,
+                websiteUrl = config.websiteUrl,
+                variants = variants,
+            )
         }
 
         val logoProbe = probe(logoPath)
-        val available = logoProbe != null && logoProbe.readable && logoProbe.isRegularFile && logoProbe.sizeBytes <= MAX_LOGO_BYTES
+        val available = isUsable(logoProbe)
         if (!available) {
             logger.warn {
                 "LAPIS_BRAND_LOGO_PATH ('$logoPath') ist gesetzt, aber die Datei ist nicht nutzbar " +
@@ -88,7 +101,37 @@ object BrandingStartupCheck {
             logoAvailable = available,
             logoPath = if (available) logoPath else null,
             websiteUrl = config.websiteUrl,
+            variants = variants,
         )
+    }
+
+    private fun isUsable(logoProbe: LogoProbe?): Boolean =
+        logoProbe != null && logoProbe.readable && logoProbe.isRegularFile && logoProbe.sizeBytes <= MAX_LOGO_BYTES
+
+    /**
+     * V1.9.265 -- probes each configured variant with the same [probe]/[MAX_LOGO_BYTES] as the legacy logo. Logs the variable NAME
+     * only, never the path (new variables log less than the legacy one does).
+     */
+    private fun resolveVariants(
+        config: BrandConfig,
+        probe: (String) -> LogoProbe?,
+    ): Map<LogoVariant, ResolvedLogoFile> {
+        val usable = linkedMapOf<LogoVariant, ResolvedLogoFile>()
+        for ((variant, path) in config.variantPaths) {
+            if (isUsable(probe(path))) {
+                usable[variant] =
+                    ResolvedLogoFile(path = path, extension = path.substringAfterLast('.', missingDelimiterValue = "").lowercase())
+            } else {
+                logger.warn {
+                    "${variant.envName} ist gesetzt, aber die Datei ist nicht nutzbar (fehlt, kein regulärer Pfad, nicht lesbar, " +
+                        "oder größer als $MAX_LOGO_BYTES Bytes) -- diese Logo-Variante bleibt deaktiviert."
+                }
+            }
+        }
+        if (usable.isNotEmpty()) {
+            logger.info { "Branding: aktive Logo-Varianten: ${usable.keys.joinToString(", ") { it.slug }}." }
+        }
+        return usable
     }
 
     private fun probeFile(path: String): LogoProbe? {

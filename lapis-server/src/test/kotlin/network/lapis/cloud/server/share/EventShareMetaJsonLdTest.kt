@@ -49,7 +49,8 @@ private fun view(
 private fun branding(
     title: String = "Testverein",
     logoPath: String? = null,
-) = ResolvedBranding(title = title, logoAvailable = logoPath != null, logoPath = logoPath)
+    variants: Map<network.lapis.cloud.server.branding.LogoVariant, network.lapis.cloud.server.branding.ResolvedLogoFile> = emptyMap(),
+) = ResolvedBranding(title = title, logoAvailable = logoPath != null, logoPath = logoPath, variants = variants)
 
 private fun ld(
     view: EventPublicHtml.View,
@@ -113,6 +114,34 @@ class EventShareMetaJsonLdTest :
             val trailing = parse(ld(view = view(), baseUrl = "$BASE/"))["image"]!!.jsonPrimitive.content
             trailing shouldBe "$BASE/apple-touch-icon.png"
             trailing shouldStartWith BASE
+        }
+
+        test("image chain with logo variants: first raster variant wins, SVG-only variants fall to the apple-touch-icon") {
+            fun v(
+                variant: network.lapis.cloud.server.branding.LogoVariant,
+                ext: String,
+            ) = variant to
+                network.lapis.cloud.server.branding
+                    .ResolvedLogoFile(path = "/x/${variant.slug}.$ext", extension = ext)
+            val wl = network.lapis.cloud.server.branding.LogoVariant.WORDMARK_LIGHT
+            val sd = network.lapis.cloud.server.branding.LogoVariant.SIGNET_DARK
+            parse(
+                ld(view = view(), brand = branding(variants = mapOf(v(wl, "png"), v(sd, "png")))),
+            )["image"]!!.jsonPrimitive.content shouldBe
+                "$BASE/api/branding/logo/wordmark-light"
+            parse(
+                ld(view = view(), brand = branding(variants = mapOf(v(wl, "svg"), v(sd, "webp")))),
+            )["image"]!!.jsonPrimitive.content shouldBe
+                "$BASE/api/branding/logo/signet-dark"
+            parse(
+                ld(view = view(), brand = branding(variants = mapOf(v(wl, "svg"), v(sd, "svg")))),
+            )["image"]!!.jsonPrimitive.content shouldBe
+                "$BASE/apple-touch-icon.png"
+            // The cover still wins over every logo.
+            parse(
+                ld(view = view(cover = "$BASE/c.png"), brand = branding(variants = mapOf(v(wl, "png")))),
+            )["image"]!!.jsonPrimitive.content shouldBe
+                "$BASE/c.png"
         }
 
         test("hostile titles and currency cannot break out of the script block") {

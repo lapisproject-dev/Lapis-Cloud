@@ -114,4 +114,60 @@ class BrandingHtmlTest :
             val second = BrandingHtml.inject(html = FIXTURE_HTML, brand = brand)
             first shouldBe second
         }
+
+        context("V1.9.265 logos block") {
+            fun file(v: LogoVariant) = ResolvedLogoFile(path = "/x/${v.slug}.svg", extension = "svg")
+
+            test("no variants -> the payload is byte-identical to the pre-variants string (legacy logo or none)") {
+                BrandingHtml.inject(html = FIXTURE_HTML, brand = DEFAULT_BRANDING) shouldContain
+                    """{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":false,"emergencyAdminLoginEnabled":false}</script>"""
+                val legacy = ResolvedBranding(title = "ELB", logoAvailable = true, logoPath = "/app/branding/logo.svg")
+                val out = BrandingHtml.inject(html = FIXTURE_HTML, brand = legacy)
+                out shouldContain
+                    """{"title":"ELB","logoUrl":"/api/branding/logo","keycloakMode":false,"emergencyAdminLoginEnabled":false}</script>"""
+                out shouldNotContain "\"logos\""
+            }
+
+            test("all four variants -> exact JSON block (wordmark carries the name in the lockup, not in the navbar)") {
+                val brand =
+                    ResolvedBranding(
+                        title = "T",
+                        logoAvailable = false,
+                        logoPath = null,
+                        variants = LogoVariant.entries.associateWith(::file),
+                    )
+                BrandingHtml.inject(html = FIXTURE_HTML, brand = brand) shouldContain
+                    """"emergencyAdminLoginEnabled":false,"logos":{"signet":{"light":"/api/branding/logo/signet-light",""" +
+                    """"dark":"/api/branding/logo/signet-dark"},"wordmark":{"light":"/api/branding/logo/wordmark-light",""" +
+                    """"dark":"/api/branding/logo/wordmark-dark"},"wordmarkCarriesName":{"navbar":false,"lockup":true}}}</script>"""
+            }
+
+            test("a single variant fills every slot via the chain and never yields a null slot") {
+                val brand =
+                    ResolvedBranding(
+                        title = "T",
+                        logoAvailable = false,
+                        logoPath = null,
+                        variants = mapOf(LogoVariant.WORDMARK_DARK to file(LogoVariant.WORDMARK_DARK)),
+                    )
+                val out = BrandingHtml.inject(html = FIXTURE_HTML, brand = brand)
+                out shouldContain
+                    """"logos":{"signet":{"light":"/api/branding/logo/wordmark-dark","dark":"/api/branding/logo/wordmark-dark"}"""
+                out shouldContain """"wordmarkCarriesName":{"navbar":true,"lockup":true}"""
+                out.substringAfter("\"logos\"") shouldNotContain "null"
+            }
+
+            test("a title with </script> stays safe with variants present") {
+                val brand =
+                    ResolvedBranding(
+                        title = "</script><script>alert(1)</script>",
+                        logoAvailable = false,
+                        logoPath = null,
+                        variants = mapOf(LogoVariant.SIGNET_LIGHT to file(LogoVariant.SIGNET_LIGHT)),
+                    )
+                val out = BrandingHtml.inject(html = FIXTURE_HTML, brand = brand)
+                out shouldNotContain "<script>alert(1)"
+                out shouldContain "\\u003C/script>"
+            }
+        }
     })

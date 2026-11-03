@@ -6,6 +6,23 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.265 -- Brand logo variants (signet/wordmark, light/dark)
+
+- **What:** four new optional variables, each an absolute in-container path to an `.svg`, `.png` or `.webp` file (at most 512 KiB), validated and probed exactly like `LAPIS_BRAND_LOGO_PATH`: `LAPIS_BRAND_SIGNET_LIGHT_PATH`, `LAPIS_BRAND_SIGNET_DARK_PATH`, `LAPIS_BRAND_WORDMARK_LIGHT_PATH`, `LAPIS_BRAND_WORDMARK_DARK_PATH`. The signet is used in the navbar, the wordmark in the sign-in lockup and in the public page header. "Light" is the artwork for a light page, "dark" the one for a dark page.
+- **Fallback chain (total, never a broken image):** same kind (own mode, other mode), then the other kind (own mode, other mode), then the legacy `LAPIS_BRAND_LOGO_PATH` logo, then the built-in Lapis Cloud mark. An instance that sets none of the new variables renders byte-for-byte as before (pinned by golden-snapshot tests).
+- **Routes:** `GET /api/branding/logo/{variant}` with the exact slugs `signet-light`, `signet-dark`, `wordmark-light`, `wordmark-dark` (no case folding, no trimming). Anything else, and a variant that is not configured or not usable, answers `404` with an empty body. `GET /api/branding/logo` keeps serving the legacy logo; without a legacy logo it serves the light signet of the chain. Same headers as before (`Cache-Control: public, max-age=300`, `X-Content-Type-Options: nosniff`).
+- **Theme switch:** the client shows exactly one of the two images per `data-theme` and switches live without a reload; the server-rendered public pages switch by `prefers-color-scheme`. When a wordmark image already spells the operator name, the text label next to it is left out (the image `alt` carries the name).
+- **CSP:** the public pages and the sign-in pages now allow `img-src 'self'` whenever ANY logo is served (`ResolvedBranding.servesAnyLogo`), not only when the legacy logo exists. Without it an instance with only the new variables would show no logo on any public page.
+- **Stricter validation (all five variables):** a path with a `..` segment is now rejected, for `LAPIS_BRAND_LOGO_PATH` too. A real path with `..` is unlikely; the variable then falls back to "not set" and a `WARN` names it.
+- **Other surfaces:** `og:image` and the JSON-LD image use the first raster (PNG/WebP) logo in the order wordmark-light, signet-light, wordmark-dark, signet-dark, legacy; an SVG is never used there. The video-overlay instance logo is the file `GET /api/branding/logo` serves (the legacy logo, else the light signet); an SVG is still not offered.
+- **Logs:** the new variables are logged by variable name only, never the path (the legacy logo's existing log lines are unchanged).
+- **Limits:**
+  - A "light" file shown in dark mode can be hard to read when only the other kind is configured, because the chain prefers the kind over the mode.
+  - The top bar of the default theme is dark in both modes (`nav` token), so a light signet stands on a dark bar there. The mode follows the page theme, not the bar colour; check the light variant against the `nav` colour of your theme.
+- **Not verified:** no real instance, no real device, only headless Chrome; real artwork was not judged by eye.
+- **No migration (V138 stays the latest), no UI text.**
+- **Docs:** `docs/features/branding.adoc`, `deploy/example/README.adoc`, `.env.example`, `docker-compose.yml`.
+
 ### V1.9.264 -- Keycloak auto-provisioning without a group
 
 - **What:** `LAPIS_KEYCLOAK_PROVISION_GROUP` is optional. With `LAPIS_KEYCLOAK_AUTO_PROVISION=true` and no group (unset or blank), every verified login of the configured realm creates a member on the first login (open mode). With a group, nothing changes.

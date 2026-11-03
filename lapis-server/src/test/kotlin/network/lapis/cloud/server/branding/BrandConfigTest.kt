@@ -192,4 +192,69 @@ class BrandConfigTest :
             config.websiteUrl shouldBe exactly200
             config.invalid.shouldBeEmpty()
         }
+
+        context("V1.9.265 logo variants") {
+            for (variant in LogoVariant.entries) {
+                val name = variant.envName
+
+                fun load(value: String?) = BrandConfig.load(envOf(*(if (value == null) emptyArray() else arrayOf(name to value))))
+
+                test("$name: valid absolute svg/png/webp/.PNG paths are accepted") {
+                    for (ext in listOf("svg", "png", "webp", "PNG")) {
+                        val config = load("/app/branding/x.$ext")
+                        config.variantPaths[variant] shouldBe "/app/branding/x.$ext"
+                        config.invalid.shouldBeEmpty()
+                    }
+                }
+
+                test("$name: relative, URL, wrong extension, NUL and .. segment are rejected and named") {
+                    for (
+                    bad in
+                    listOf(
+                        "branding/x.svg",
+                        "https://example.org/x.svg",
+                        "/app/branding/x.jpg",
+                        "/app/bran\u0000ding/x.svg",
+                        "/app/../etc/x.svg",
+                        "/app/branding/../x.png",
+                        "/app\\..\\x.png",
+                    )
+                    ) {
+                        val config = load(bad)
+                        config.variantPaths[variant] shouldBe null
+                        config.invalid shouldContain name
+                    }
+                }
+
+                test("$name: unset or blank is neither configured nor invalid") {
+                    for (value in listOf(null, "", "   ")) {
+                        val config = load(value)
+                        config.variantPaths[variant] shouldBe null
+                        config.invalid.shouldBeEmpty()
+                    }
+                }
+            }
+
+            test("mixed: two valid, one invalid, one unset") {
+                val config =
+                    BrandConfig.load(
+                        envOf(
+                            LogoVariant.SIGNET_LIGHT.envName to "/a/s.svg",
+                            LogoVariant.SIGNET_DARK.envName to "/a/../s.svg",
+                            LogoVariant.WORDMARK_LIGHT.envName to "/a/w.png",
+                        ),
+                    )
+                config.variantPaths.keys shouldBe setOf(LogoVariant.SIGNET_LIGHT, LogoVariant.WORDMARK_LIGHT)
+                config.invalid shouldBe listOf(LogoVariant.SIGNET_DARK.envName)
+            }
+
+            test("the legacy variable is unchanged except that a .. segment is now rejected too") {
+                BrandConfig.load(envOf(BrandConfig.ENV_LOGO_PATH to "/app/branding/logo.svg")).logoPath shouldBe "/app/branding/logo.svg"
+                val bad = BrandConfig.load(envOf(BrandConfig.ENV_LOGO_PATH to "/app/../logo.svg"))
+                bad.logoPath shouldBe null
+                bad.invalid shouldContain BrandConfig.ENV_LOGO_PATH
+                // A dot inside a name is not a traversal segment.
+                BrandConfig.load(envOf(BrandConfig.ENV_LOGO_PATH to "/app/my..logo.svg")).logoPath shouldBe "/app/my..logo.svg"
+            }
+        }
     })

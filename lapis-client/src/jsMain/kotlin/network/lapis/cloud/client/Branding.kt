@@ -31,7 +31,46 @@ private data class BrandPayload(
      * dead-end local-login form is worse than not offering it.
      */
     val emergencyAdminLoginEnabled: Boolean = false,
+    /**
+     * V1.9.265 -- the resolved logo variants (`BrandingHtml.renderLogosJson` on the server). Present ONLY when the operator configured
+     * at least one `LAPIS_BRAND_*_PATH` variant; absent on every older/legacy-only payload, which therefore renders exactly as before.
+     */
+    val logos: BrandLogos? = null,
 )
+
+/** One slot pair of the resolved logos: the URL for the light and for the dark theme (`null` = the built-in mark). */
+@Serializable
+internal data class LogoPair(
+    val light: String? = null,
+    val dark: String? = null,
+)
+
+/** Whether the shown wordmark image already spells the operator name, so the text label next to it is left out. */
+@Serializable
+internal data class CarriesName(
+    val navbar: Boolean = false,
+    val lockup: Boolean = false,
+)
+
+/** The `logos` object of the brand payload, see [BrandPayload.logos]. */
+@Serializable
+internal data class BrandLogos(
+    val signet: LogoPair? = null,
+    val wordmark: LogoPair? = null,
+    val wordmarkCarriesName: CarriesName? = null,
+)
+
+private val BRAND_LOGO_VARIANT_URLS =
+    listOf("signet-light", "signet-dark", "wordmark-light", "wordmark-dark").map { "/api/branding/logo/$it" }.toSet()
+
+/**
+ * Client-side allowlist for logo URLs read from the payload (defense in depth; the server only ever writes these): exactly the
+ * legacy route or one of the four variant routes. Anything else (`javascript:`, other paths, absolute URLs) is treated as `null`.
+ */
+internal fun isBrandLogoUrl(url: String?): Boolean = url == "/api/branding/logo" || url in BRAND_LOGO_VARIANT_URLS
+
+private fun LogoPair?.sanitized(): LogoPair? =
+    this?.let { LogoPair(light = light.takeIf(::isBrandLogoUrl), dark = dark.takeIf(::isBrandLogoUrl)) }
 
 private val brandJson =
     Json {
@@ -100,6 +139,16 @@ object Branding {
 
     val logoUrl: String?
         get() = readPayload()?.logoUrl?.takeUnless { it.isBlank() }
+
+    /**
+     * V1.9.265 -- the resolved logo variants, or `null` when the payload has none (legacy/default instances) or the block is
+     * malformed. URLs outside the allowlist ([isBrandLogoUrl]) are dropped to `null`. Computed per read, like [logoUrl].
+     */
+    internal val logos: BrandLogos?
+        get() =
+            readPayload()?.logos?.let {
+                BrandLogos(signet = it.signet.sanitized(), wordmark = it.wordmark.sanitized(), wordmarkCarriesName = it.wordmarkCarriesName)
+            }
 
     /**
      * V1.7.2 sub-wave 2b -- the pre-login counterpart of `SessionInfoDto.keycloakMode` (available

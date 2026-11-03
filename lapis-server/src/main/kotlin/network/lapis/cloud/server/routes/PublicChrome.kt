@@ -13,7 +13,11 @@ import kotlinx.html.nav
 import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.summary
+import network.lapis.cloud.server.branding.LogoKind
+import network.lapis.cloud.server.branding.LogoMode
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.branding.resolveLogo
+import network.lapis.cloud.server.branding.urlFor
 
 /**
  * Welle "Einheitlicher Kopfbereich + Sprachumschalter" -- the shared visual chrome (skip-link,
@@ -760,8 +764,16 @@ internal object PublicChrome {
         branding: ResolvedBranding,
     ) {
         a(href = baseUrl, classes = "chrome-brand") {
-            if (branding.logoAvailable) {
-                img(src = "/api/branding/logo", alt = branding.title, classes = "chrome-logo")
+            // V1.9.265: wordmark (or, via the fallback chain, signet/legacy logo) per colour scheme. Equal light/dark source -> one <img>
+            // (a legacy-only instance renders exactly what it did before); different sources -> two <img>, switched by CSS.
+            val lightUrl = branding.urlFor(branding.resolveLogo(mode = LogoMode.LIGHT, kind = LogoKind.WORDMARK))
+            val darkUrl = branding.urlFor(branding.resolveLogo(mode = LogoMode.DARK, kind = LogoKind.WORDMARK))
+            if (lightUrl != null && darkUrl != null && lightUrl == darkUrl) {
+                img(src = lightUrl, alt = branding.title, classes = "chrome-logo")
+            } else if (lightUrl != null || darkUrl != null) {
+                // Built-in mark for the one missing side is not possible: with any variant or legacy logo the chain reaches a file.
+                lightUrl?.let { img(src = it, alt = branding.title, classes = "chrome-logo chrome-logo--light") }
+                darkUrl?.let { img(src = it, alt = branding.title, classes = "chrome-logo chrome-logo--dark") }
             } else {
                 // V1.9.214: without an operator logo the Lapis Cloud mark shows next to the title, whatever the title is.
                 span(classes = "chrome-mark") { with(LapisCloudMarkHtml) { lapisCloudMark() } }

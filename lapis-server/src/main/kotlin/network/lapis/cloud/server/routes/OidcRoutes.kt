@@ -356,7 +356,7 @@ fun Route.registerOidcRoutes(
             return@get
         }
 
-        call.applyAuthPageHeaders(formAction = AuthFormAction.UNRESTRICTED, imgSrcSelf = branding.logoAvailable)
+        call.applyAuthPageHeaders(formAction = AuthFormAction.UNRESTRICTED, imgSrcSelf = branding.servesAnyLogo)
         if (isMcpRequest) {
             call.respondText(
                 mcpConsentPageHtml(
@@ -730,7 +730,7 @@ fun Route.registerOidcRoutes(
     get("/federation/oidc/rp/login") {
         // UNRESTRICTED: the POST answers with a 302 to the discovered authorization_endpoint of the foreign home server,
         // which Chrome would check against `form-action 'self'` and block.
-        call.applyAuthPageHeaders(formAction = AuthFormAction.UNRESTRICTED, imgSrcSelf = branding.logoAvailable)
+        call.applyAuthPageHeaders(formAction = AuthFormAction.UNRESTRICTED, imgSrcSelf = branding.servesAnyLogo)
         // V1.9.258 -- an empty list (none configured, or the admin hides the partner list) means: the page is exactly the plain form.
         val all = PartnerLoginChoices.current()
         val picker =
@@ -1818,7 +1818,7 @@ private suspend fun ApplicationCall.respondAuthErrorPage(
     branding: ResolvedBranding,
     baseUrl: String,
 ) {
-    applyAuthPageHeaders(formAction = AuthFormAction.SELF, imgSrcSelf = branding.logoAvailable)
+    applyAuthPageHeaders(formAction = AuthFormAction.SELF, imgSrcSelf = branding.servesAnyLogo)
     respondText(
         authErrorPageHtml(message = error.text, branding = branding, baseUrl = baseUrl),
         contentType = io.ktor.http.ContentType.Text.Html,

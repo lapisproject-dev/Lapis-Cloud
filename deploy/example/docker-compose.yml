@@ -164,6 +164,11 @@ services:
       # "White-Label-Branding".
       LAPIS_BRAND_TITLE: ${LAPIS_BRAND_TITLE:-}
       LAPIS_BRAND_LOGO_PATH: ${LAPIS_BRAND_LOGO_PATH:-}
+      # V1.9.265 logo variants -- OPTIONAL, see .env.example and README.adoc "Logo variants".
+      LAPIS_BRAND_SIGNET_LIGHT_PATH: ${LAPIS_BRAND_SIGNET_LIGHT_PATH:-}
+      LAPIS_BRAND_SIGNET_DARK_PATH: ${LAPIS_BRAND_SIGNET_DARK_PATH:-}
+      LAPIS_BRAND_WORDMARK_LIGHT_PATH: ${LAPIS_BRAND_WORDMARK_LIGHT_PATH:-}
+      LAPIS_BRAND_WORDMARK_DARK_PATH: ${LAPIS_BRAND_WORDMARK_DARK_PATH:-}
       # V1.4.18 -- operator website URL linked from the public footer, see BrandConfig KDoc.
       LAPIS_BRAND_WEBSITE_URL: ${LAPIS_BRAND_WEBSITE_URL:-}
       # Themes per file (V1.9.216) -- OPTIONAL, unset by default: an absolute in-container path to a theme directory, see

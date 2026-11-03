@@ -107,7 +107,7 @@ fun Route.registerLegalRoutes(
                 body = imprintBodies.getValue(lang),
                 contentType = HTML_CONTENT_TYPE,
                 cacheControl = "public, max-age=3600",
-                imgSrcSelf = branding.logoAvailable,
+                imgSrcSelf = branding.servesAnyLogo,
             )
         }
     }
@@ -132,7 +132,7 @@ fun Route.registerLegalRoutes(
                 contentType = HTML_CONTENT_TYPE,
                 // Shorter than /impressum: the finder section follows a runtime switch (the ETag changes with the variant).
                 cacheControl = "public, max-age=300",
-                imgSrcSelf = branding.logoAvailable,
+                imgSrcSelf = branding.servesAnyLogo,
             )
         }
     }

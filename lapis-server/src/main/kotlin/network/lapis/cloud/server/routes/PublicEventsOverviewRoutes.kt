@@ -108,7 +108,7 @@ fun Route.registerPublicEventsOverviewRoutes(
                 body = body,
                 contentType = HTML_CONTENT_TYPE,
                 cacheControl = "public, max-age=300",
-                imgSrcSelf = branding.logoAvailable,
+                imgSrcSelf = branding.servesAnyLogo,
             )
         }
     }

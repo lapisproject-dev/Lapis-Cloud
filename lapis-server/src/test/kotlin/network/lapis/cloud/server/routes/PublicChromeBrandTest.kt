@@ -92,4 +92,56 @@ class PublicChromeBrandTest :
             svg shouldNotContain "<script"
             Regex("<svg ").findAll(svg).count() shouldBe 1
         }
+
+        context("V1.9.265 logo variants") {
+            fun variants(vararg v: network.lapis.cloud.server.branding.LogoVariant) =
+                ResolvedBranding(
+                    title = "Mein Verein",
+                    logoAvailable = false,
+                    logoPath = null,
+                    variants =
+                        v.associateWith {
+                            network.lapis.cloud.server.branding
+                                .ResolvedLogoFile(path = "/x/${it.slug}.png", extension = "png")
+                        },
+                )
+
+            test("legacy logo -> exactly one img.chrome-logo with the markup of earlier versions") {
+                val b = brand(chrome(withLogo))
+                b shouldContain "<img alt=\"Mein Verein\" src=\"/api/branding/logo\" class=\"chrome-logo\">"
+                b.split("<img").size shouldBe 2
+            }
+
+            test("light and dark wordmark -> two imgs, light and dark") {
+                val b =
+                    brand(
+                        chrome(
+                            variants(
+                                network.lapis.cloud.server.branding.LogoVariant.WORDMARK_LIGHT,
+                                network.lapis.cloud.server.branding.LogoVariant.WORDMARK_DARK,
+                            ),
+                        ),
+                    )
+                b.split("<img").size shouldBe 3
+                b shouldContain "src=\"/api/branding/logo/wordmark-light\""
+                b shouldContain "src=\"/api/branding/logo/wordmark-dark\""
+                b shouldContain "chrome-logo chrome-logo--light"
+                b shouldContain "chrome-logo chrome-logo--dark"
+                b shouldNotContain "chrome-wordmark"
+            }
+
+            test("a single variant fills both sides -> one img, no duplicate") {
+                val b = brand(authChrome(variants(network.lapis.cloud.server.branding.LogoVariant.SIGNET_DARK)))
+                b.split("<img").size shouldBe 2
+                b shouldContain "src=\"/api/branding/logo/signet-dark\""
+                b shouldNotContain "chrome-logo--"
+            }
+
+            test("nothing configured -> the mark and the title as before") {
+                val b = brand(chrome(noLogo("Mein Verein")))
+                b shouldContain "chrome-mark"
+                b shouldContain "Mein Verein"
+                b shouldNotContain "<img"
+            }
+        }
     })

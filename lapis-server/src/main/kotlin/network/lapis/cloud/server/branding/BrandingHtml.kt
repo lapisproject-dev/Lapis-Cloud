@@ -123,7 +123,26 @@ object BrandingHtml {
     ): String {
         val logoUrlLiteral = if (brand.logoAvailable) "\"${escapeJsonString(LOGO_ROUTE_PATH)}\"" else "null"
         return "{\"title\":\"${escapeJsonString(brand.title)}\",\"logoUrl\":$logoUrlLiteral,\"keycloakMode\":$keycloakMode," +
-            "\"emergencyAdminLoginEnabled\":$emergencyAdminLoginEnabled}"
+            "\"emergencyAdminLoginEnabled\":$emergencyAdminLoginEnabled${renderLogosJson(brand)}}"
+    }
+
+    /**
+     * V1.9.265 -- the `logos` key, appended ONLY when at least one logo variant is configured, so an instance without the new
+     * variables gets the byte-identical payload of earlier versions. Slots are the resolved fallback chain
+     * ([resolveLogo]); `null` means "built-in mark" (cannot happen once a variant exists, kept as a client-side safety net).
+     */
+    private fun renderLogosJson(brand: ResolvedBranding): String {
+        if (brand.variants.isEmpty()) return ""
+
+        fun slot(
+            mode: LogoMode,
+            kind: LogoKind,
+        ): String = brand.urlFor(brand.resolveLogo(mode = mode, kind = kind))?.let { "\"${escapeJsonString(it)}\"" } ?: "null"
+
+        fun pair(kind: LogoKind): String = "{\"light\":${slot(LogoMode.LIGHT, kind)},\"dark\":${slot(LogoMode.DARK, kind)}}"
+        return ",\"logos\":{\"signet\":${pair(LogoKind.SIGNET)},\"wordmark\":${pair(LogoKind.WORDMARK)}," +
+            "\"wordmarkCarriesName\":{\"navbar\":${brand.wordmarkCarriesName(LogoKind.SIGNET)}," +
+            "\"lockup\":${brand.wordmarkCarriesName(LogoKind.WORDMARK)}}}"
     }
 
     /** Standard HTML text-node escaping -- see class KDoc "Two separate escaping contexts". */

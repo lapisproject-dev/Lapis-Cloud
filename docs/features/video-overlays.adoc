@@ -42,6 +42,7 @@ is involved. At most 50 elements; names are 1 to 60 characters without control c
 
 The instance logo (`LAPIS_BRAND_LOGO_PATH`, served at `/api/branding/logo`) is offered automatically as the first logo -- but only if it is a PNG or a
 WebP. An SVG instance logo is not offered; the admin card says so and suggests uploading a PNG.
+Since V1.9.265 an instance that configured only logo variants offers the file that route serves (the light signet of the fallback chain); the same PNG/WebP-only rule applies.
 
 == Rights and data
 

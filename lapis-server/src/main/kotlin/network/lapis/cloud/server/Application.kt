@@ -54,7 +54,11 @@ import network.lapis.cloud.server.backup.BackupAssetRoots
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
+import network.lapis.cloud.server.branding.LogoVariant
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.branding.ResolvedLogoFile
+import network.lapis.cloud.server.branding.brandingLogoContentType
+import network.lapis.cloud.server.branding.legacyRouteFile
 import network.lapis.cloud.server.carpool.CarpoolDeps
 import network.lapis.cloud.server.carpool.CarpoolNotifier
 import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
@@ -3435,7 +3439,7 @@ internal fun Application.module(
         get("/app") { serveIndexHtml(call = call, shell = clientShell) }
         get("/app/") { call.respondPublicCanonicalRedirect(canonicalUrl = "${FederationConfig.publicBaseUrl.trimEnd('/')}/app") }
         get("/index.html") { serveIndexHtml(call = call, shell = clientShell) }
-        get("/api/branding/logo") { serveBrandingLogo(call = call, branding = resolvedBranding) }
+        registerBrandingLogoRoutes(branding = resolvedBranding)
         // V1.4.20 client-version hint -- literal route, wins over the staticFiles catch-all below.
         registerClientVersionRoutes(rateLimiter = clientVersionRateLimiter, buildIdProvider = { clientShell.buildId })
         // V1.4.23 Videokonferenz-Hintergrundeffekte -- WASM/Modell/Hintergrundbilder mit Cache-Control, siehe
@@ -3480,24 +3484,33 @@ private suspend fun serveIndexHtml(
 }
 
 /**
+ * V1.2.5 / V1.9.265 -- the branding logo routes: `GET /api/branding/logo` (the legacy logo, else the light signet of the fallback chain) and
+ * `GET /api/branding/logo/{variant}` (one of the four variants, matched against the closed [LogoVariant] enum -- no path component of
+ * the request is ever used to read a file). MUST be registered before the `staticFiles` catch-all; every handler answers itself
+ * (404 with an empty body for anything but an exact slug of a usable variant), so nothing can fall through to `staticFiles`.
+ */
+internal fun io.ktor.server.routing.Route.registerBrandingLogoRoutes(branding: ResolvedBranding) {
+    get("/api/branding/logo") { serveBrandingLogoFile(call = call, file = branding.legacyRouteFile()) }
+    get("/api/branding/logo/{variant}") {
+        val variant = LogoVariant.fromSlug(call.parameters["variant"])
+        serveBrandingLogoFile(call = call, file = variant?.let { branding.variants[it] })
+    }
+}
+
+/**
  * V1.2.5 White-Label-Branding -- streams the operator-supplied logo file (never buffers it into
  * memory), exactly the [LocalFileContent] pattern `network.lapis.cloud.server.routes
- * .registerDocumentRoutes` already establishes. 404 whenever [ResolvedBranding.logoAvailable] is
- * false (BrandingStartupCheck already ruled out anything not safely servable) or the path's own
- * extension somehow falls outside the fixed allowlist below (defense-in-depth belt-and-braces,
- * mirrors [BrandConfig]'s own allowlist -- `logoPath` itself is operator-only, never user input).
+ * .registerDocumentRoutes` already establishes. 404 (empty body) whenever there is no [file]
+ * (BrandingStartupCheck already ruled out anything not safely servable) or its extension somehow falls outside
+ * the fixed allowlist [brandingLogoContentType] (defense-in-depth belt-and-braces -- the paths are operator-only
+ * configuration, never request input). V1.9.265: serves both `/api/branding/logo` and `/api/branding/logo/{variant}`.
  */
-private suspend fun serveBrandingLogo(
+private suspend fun serveBrandingLogoFile(
     call: ApplicationCall,
-    branding: ResolvedBranding,
+    file: ResolvedLogoFile?,
 ) {
-    val logoPath = branding.logoPath
-    if (!branding.logoAvailable || logoPath == null) {
-        call.respond(HttpStatusCode.NotFound)
-        return
-    }
-    val contentType = brandingLogoContentType(logoPath)
-    if (contentType == null) {
+    val contentType = file?.let { brandingLogoContentType(it.extension) }
+    if (file == null || contentType == null) {
         call.respond(HttpStatusCode.NotFound)
         return
     }
@@ -3505,23 +3518,8 @@ private suspend fun serveBrandingLogo(
     // Ktor's HttpHeaders has no XContentTypeOptions constant -- same literal-string convention
     // `SocialPublicRoutes.kt`'s own `applyPublicPageHeaders` already uses for this exact header.
     call.response.header("X-Content-Type-Options", "nosniff")
-    call.respond(LocalFileContent(File(logoPath), contentType))
+    call.respond(LocalFileContent(File(file.path), contentType))
 }
-
-/**
- * Fixed allowlist, NOT `ContentType.parse` on an arbitrary extension -- mirrors
- * [BrandConfig]'s own `ALLOWED_LOGO_EXTENSIONS` (see that class' KDoc); kept as a separate literal
- * map rather than importing that private set, since the two lists serving two different purposes
- * (config-time acceptance vs. response Content-Type) drifting apart would fail closed (404), never
- * open.
- */
-private fun brandingLogoContentType(path: String): ContentType? =
-    when (path.substringAfterLast('.', missingDelimiterValue = "").lowercase()) {
-        "svg" -> ContentType.parse("image/svg+xml")
-        "png" -> ContentType.Image.PNG
-        "webp" -> ContentType.parse("image/webp")
-        else -> null
-    }
 
 /**
  * V1.9.55: non-RPC routes never echo driver/ORM text. A timeout-class failure is a 503 with

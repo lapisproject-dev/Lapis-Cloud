@@ -181,7 +181,7 @@ private fun ApplicationCall.applyTrackingHeaders() {
 private fun ApplicationCall.applyTrackingPageHeaders(branding: ResolvedBranding) {
     response.header(HttpHeaders.CacheControl, "no-store")
     response.header("X-Robots-Tag", "noindex")
-    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+    applyPublicPageHeaders(imgSrcSelf = branding.servesAnyLogo)
 }
 
 private suspend fun ApplicationCall.respondNotFound(

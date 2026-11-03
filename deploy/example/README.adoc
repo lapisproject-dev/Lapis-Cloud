@@ -1161,6 +1161,41 @@ max-age=300`) and shown in the navbar in place of the Lapis gem mark. Without a 
 Lapis Cloud mark is shown next to the title, whatever the title is (since V1.9.214). To replace it,
 set `LAPIS_BRAND_LOGO_PATH`.
 
+=== Logo variants (V1.9.265, optional)
+
+Four more optional variables give a separate signet (navbar) and wordmark (sign-in lockup, public page header) for a light and a dark page.
+Each is an absolute in-container path with the same rules as `LAPIS_BRAND_LOGO_PATH` (`.svg`, `.png`, `.webp`, at most 512 KiB, regular readable
+file, no `..` segment). Put the files in the same `deploy/example/branding/` directory (mounted at `/app/branding`).
+
+[cols="2,3",options="header"]
+|===
+| Variable | Used for
+| `LAPIS_BRAND_SIGNET_LIGHT_PATH` | navbar signet on a light page
+| `LAPIS_BRAND_SIGNET_DARK_PATH` | navbar signet on a dark page
+| `LAPIS_BRAND_WORDMARK_LIGHT_PATH` | lockup and public header on a light page
+| `LAPIS_BRAND_WORDMARK_DARK_PATH` | lockup and public header on a dark page
+|===
+
+Missing variants are filled by a fixed chain, so you can configure as little as one file:
+
+[cols="1,4",options="header"]
+|===
+| Step | Source
+| 1 | same kind, own mode (e.g. `signet-dark` for the navbar in dark mode)
+| 2 | same kind, other mode
+| 3 | other kind, own mode, then other kind, other mode
+| 4 | the legacy `LAPIS_BRAND_LOGO_PATH` logo
+| 5 | the built-in Lapis Cloud mark
+|===
+
+Artwork hints: a signet roughly square, at least 64 px or an SVG, transparent background. Check the dark variant on `#0b1630` (or on your own
+`nav` colour). The top bar of the default theme is dark in both modes, so the light signet stands on a dark bar there: the mode follows the page
+theme, not the bar. When a wordmark image already spells the operator name, the text next to it is omitted.
+
+Routes: `GET /api/branding/logo/{variant}` with `signet-light`, `signet-dark`, `wordmark-light`, `wordmark-dark` (exact, lower case). Anything
+else, or a variant that is not configured or usable, answers `404` with an empty body. The new variables are logged by name only, never the path.
+Details: `docs/features/branding.adoc`.
+
 **"Betrieben mit Lapis Cloud" is NOT removable by this or any other configuration.** Every screen
 (app shell and login screen alike) carries a small, fixed credit linking to
 `https://cloud.lapisproject.dev`, regardless of `LAPIS_BRAND_TITLE`/`LAPIS_BRAND_LOGO_PATH` --

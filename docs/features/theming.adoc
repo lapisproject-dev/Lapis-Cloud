@@ -144,6 +144,8 @@ with a strong ETag and no compression. `/theme.css` has a weak ETag and revalida
 
 == Limits
 
+* Logos for a light and a dark page are configured separately from the theme: see link:branding.adoc[Branding], section "Logo variants". The mode follows the page theme, not the `nav` colour.
+
 * Only the 16 tokens are themable. Role colours, chart, encounter, map and gold ("fleck") tokens stay fixed until a `version` 2 of the format.
 * Corner radii written as literals in the client stay as they are.
 * The video overlay draws on a canvas with a fixed `Inter Variable`; a theme font does not change it.

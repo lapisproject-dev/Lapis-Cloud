@@ -165,7 +165,7 @@ internal object PublicLandingHtml {
      * Bis V1.4.7 wurde hier der Marken-Claim ([PublicUiStrings.tagline]) zum `<h1>` des Contents,
      * in der Annahme, der Markenname selbst stehe bereits im Chrome. Das stimmt nur für eine
      * Installation OHNE eigenes Logo: [PublicChrome.renderChrome] rendert den Namen dort als reinen
-     * Text-Knoten (`span.chrome-wordmark`) nur im `else`-Zweig von `branding.logoAvailable` -- ist
+     * Text-Knoten (`span.chrome-wordmark`) nur im `else`-Zweig der Logo-Auflösung (`resolveLogo`, seit V1.9.265 auch Logo-Varianten) -- ist
      * ein Logo konfiguriert (z. B. die PROD_HOST-Produktivinstanz), erscheint dort
      * stattdessen ein `<img alt="...">`, und der Organisationsname taucht auf der GESAMTEN Seite an
      * KEINER sichtbaren Text-Stelle mehr auf -- nur im `alt`-Attribut, das Screenreadern vorbehalten

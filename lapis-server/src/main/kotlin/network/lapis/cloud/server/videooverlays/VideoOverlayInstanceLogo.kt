@@ -2,6 +2,7 @@ package network.lapis.cloud.server.videooverlays
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.branding.legacyRouteFile
 import network.lapis.cloud.shared.domain.VideoOverlayItemDto
 import network.lapis.cloud.shared.domain.VideoOverlayKind
 import network.lapis.cloud.shared.domain.VideoOverlayRules
@@ -32,11 +33,11 @@ internal class VideoOverlayInstanceLogo private constructor(
         fun none(): VideoOverlayInstanceLogo = VideoOverlayInstanceLogo(item = null, reason = REASON_NONE)
 
         fun resolve(branding: ResolvedBranding): VideoOverlayInstanceLogo {
-            val path = branding.logoPath
-            if (!branding.logoAvailable || path == null) return none()
-            return when (path.substringAfterLast('.', missingDelimiterValue = "").lowercase()) {
+            // V1.9.265: the file `/api/branding/logo` serves (legacy logo, else the light signet of the fallback chain).
+            val file = branding.legacyRouteFile() ?: return none()
+            return when (file.extension) {
                 "svg" -> VideoOverlayInstanceLogo(item = null, reason = REASON_SVG)
-                "png" -> offered(branding = branding, size = pngSize(File(path)))
+                "png" -> offered(branding = branding, size = pngSize(File(file.path)))
                 "webp" -> offered(branding = branding, size = 0 to 0)
                 else -> none()
             }

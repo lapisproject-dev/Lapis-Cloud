@@ -47,6 +47,11 @@ class BrandConfig private constructor(
      */
     val websiteUrl: String?,
     /**
+     * V1.9.265 -- configured (string-valid, NOT yet probed on disk) paths of the four logo variants, keyed by [LogoVariant].
+     * A variant that is unset/blank/invalid is absent. Same validation as [logoPath] (plus the `..` rule, see [isValidLogoPath]).
+     */
+    val variantPaths: Map<LogoVariant, String>,
+    /**
      * Namen der `LAPIS_BRAND_*`-Variablen, deren Wert verworfen wurde (auf den jeweiligen Default
      * zurückgefallen) -- NUR für Startup-Logging bestimmt (siehe [BrandingStartupCheck]), niemals
      * ein Grund zu werfen. Leer, wenn beide Werte entweder unset oder gültig waren.
@@ -112,12 +117,18 @@ class BrandConfig private constructor(
                     else -> rawWebsiteUrl
                 }
 
-            return BrandConfig(title = title, logoPath = logoPath, websiteUrl = websiteUrl, invalid = invalid)
+            val variantPaths = linkedMapOf<LogoVariant, String>()
+            for (variant in LogoVariant.entries) {
+                val raw = env(variant.envName)?.trim()?.takeUnless { it.isBlank() } ?: continue
+                if (isValidLogoPath(raw)) variantPaths[variant] = raw else invalid += variant.envName
+            }
+
+            return BrandConfig(title = title, logoPath = logoPath, websiteUrl = websiteUrl, variantPaths = variantPaths, invalid = invalid)
         }
 
         /**
          * Must be an absolute path (never resolved relative to some ambiguous working directory),
-         * contain no embedded NUL byte, and carry one of [ALLOWED_LOGO_EXTENSIONS] (checked
+         * contain no embedded NUL byte, no `..` segment, and carry one of [ALLOWED_LOGO_EXTENSIONS] (checked
          * case-insensitively -- an operator typing `.SVG` is far more likely than a deliberate,
          * meaningfully different extension). [LAPIS_BRAND_LOGO_PATH] is an operator-only
          * environment variable, never user/request input -- this check is defense-in-depth, not a
@@ -125,6 +136,8 @@ class BrandConfig private constructor(
          */
         private fun isValidLogoPath(path: String): Boolean {
             if (path.contains('\u0000')) return false
+            // V1.9.265: no `..` segment, for the legacy variable and the four variant variables alike.
+            if (path.split('/', '\\').any { it == ".." }) return false
             if (!File(path).isAbsolute) return false
             val extension = path.substringAfterLast('.', missingDelimiterValue = "").lowercase()
             return extension in ALLOWED_LOGO_EXTENSIONS

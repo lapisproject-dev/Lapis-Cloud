@@ -124,6 +124,55 @@ class BrandingTest {
         assertEquals("Second", Branding.title)
     }
 
+    // ── V1.9.265 logo variants ────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun logosBlock_parsesSignetWordmarkAndCarriesName() {
+        setBrandElement(
+            """{"title":"X","logoUrl":null,"logos":{"signet":{"light":"/api/branding/logo/signet-light",""" +
+                """"dark":"/api/branding/logo/signet-dark"},""" +
+                """"wordmark":{"light":"/api/branding/logo/wordmark-light","dark":null},"wordmarkCarriesName":{"navbar":true,"lockup":false}}}""",
+        )
+        val logos = Branding.logos!!
+        assertEquals("/api/branding/logo/signet-light", logos.signet!!.light)
+        assertEquals("/api/branding/logo/signet-dark", logos.signet!!.dark)
+        assertEquals("/api/branding/logo/wordmark-light", logos.wordmark!!.light)
+        assertNull(logos.wordmark!!.dark)
+        assertTrue(logos.wordmarkCarriesName!!.navbar)
+        assertFalse(logos.wordmarkCarriesName!!.lockup)
+    }
+
+    @Test
+    fun missingOrMalformedLogosBlock_isNull() {
+        setBrandElement("""{"title":"X","logoUrl":"/api/branding/logo"}""")
+        assertNull(Branding.logos)
+        setBrandElement("""{"title":"X","logos":"nonsense"}""")
+        assertNull(Branding.logos)
+        removeBrandElement()
+        assertNull(Branding.logos)
+    }
+
+    @Test
+    fun logoUrlAllowlist_dropsEverythingButTheFiveRoutes() {
+        setBrandElement(
+            """{"title":"X","logos":{"signet":{"light":"javascript:alert(1)","dark":"/etc/x"},""" +
+                """"wordmark":{"light":"https://evil.example/x.png",""" +
+                """"dark":"/api/branding/logo/signet-light/../x"}}}""",
+        )
+        val logos = Branding.logos!!
+        assertNull(logos.signet!!.light)
+        assertNull(logos.signet!!.dark)
+        assertNull(logos.wordmark!!.light)
+        assertNull(logos.wordmark!!.dark)
+        assertTrue(isBrandLogoUrl("/api/branding/logo"))
+        for (slug in listOf("signet-light", "signet-dark", "wordmark-light", "wordmark-dark")) {
+            assertTrue(isBrandLogoUrl("/api/branding/logo/$slug"))
+        }
+        assertFalse(isBrandLogoUrl("/api/branding/logo/Signet-Light"))
+        assertFalse(isBrandLogoUrl("/api/branding/logo/"))
+        assertFalse(isBrandLogoUrl(null))
+    }
+
     // ── V1.7.2 sub-wave 2b "Keycloak als externe Benutzerverwaltung -- UI" ─────────────────────────
 
     @Test

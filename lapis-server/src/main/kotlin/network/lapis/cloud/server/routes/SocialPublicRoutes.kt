@@ -264,7 +264,7 @@ internal fun Route.registerSocialPublicRoutes(
                 body = body,
                 contentType = HTML_CONTENT_TYPE,
                 cacheControl = "public, max-age=300, stale-while-revalidate=3600",
-                imgSrcSelf = branding.logoAvailable,
+                imgSrcSelf = branding.servesAnyLogo,
             )
         }
     }
@@ -381,7 +381,7 @@ internal fun Route.registerSocialPublicRoutes(
                         contentType = HTML_CONTENT_TYPE,
                         cacheControl = "public, max-age=300, stale-while-revalidate=3600",
                         scriptSrcSelf = share?.needsScript == true,
-                        imgSrcSelf = branding.logoAvailable,
+                        imgSrcSelf = branding.servesAnyLogo,
                     )
                 }
             }
@@ -449,7 +449,7 @@ internal fun Route.registerSocialPublicRoutes(
                     nav = navAvailability.current(),
                 )
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+            call.applyPublicPageHeaders(imgSrcSelf = branding.servesAnyLogo)
             call.respondText(text = body, contentType = HTML_CONTENT_TYPE)
         }
     }
@@ -527,7 +527,7 @@ internal fun Route.registerSocialPublicRoutes(
             val body =
                 SocialPublicHtml.reportSubmittedPage(baseUrl = baseUrl, branding = branding, lang = lang, nav = navAvailability.current())
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+            call.applyPublicPageHeaders(imgSrcSelf = branding.servesAnyLogo)
             call.respondText(text = body, contentType = HTML_CONTENT_TYPE)
         }
     }
@@ -885,10 +885,10 @@ internal fun ApplicationCall.applyPublicPageHeaders(
     /**
      * Sprachumschalter-Welle: `true` adds `'self'` to `img-src` on top of the `data:` scheme every
      * call site already gets unconditionally (see below) -- for the chrome header's optional
-     * operator logo (`/api/branding/logo`,
-     * [network.lapis.cloud.server.branding.ResolvedBranding.logoAvailable]), the only `'self'`-hosted
-     * image this route family ever serves. Default `false` -- a call site that does not pass
-     * `branding.logoAvailable` explicitly just gets the unconditional `data:` allowance below.
+     * operator logo (`/api/branding/logo` or, since V1.9.265, one of
+     * `/api/branding/logo/{variant}`; [network.lapis.cloud.server.branding.ResolvedBranding.servesAnyLogo]), the only
+     * `'self'`-hosted image this route family ever serves. Default `false` -- a call site that does not pass
+     * `branding.servesAnyLogo` explicitly just gets the unconditional `data:` allowance below.
      */
     imgSrcSelf: Boolean = false,
 ) {
@@ -957,7 +957,7 @@ internal suspend fun ApplicationCall.respondPublicNotFound(
     lang: PublicLanguage = PublicLanguage.DEFAULT,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+    applyPublicPageHeaders(imgSrcSelf = branding.servesAnyLogo)
     respondText(
         text = SocialPublicHtml.notFoundPage(baseUrl = baseUrl, branding = branding, lang = lang),
         contentType = HTML_CONTENT_TYPE,
@@ -989,7 +989,7 @@ private suspend fun ApplicationCall.respondPublicLegallyRemoved(
     nav: PublicNavAvailability,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+    applyPublicPageHeaders(imgSrcSelf = branding.servesAnyLogo)
     respondText(
         text = SocialPublicHtml.legallyRemovedPage(view = view, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav),
         contentType = HTML_CONTENT_TYPE,
@@ -1022,7 +1022,7 @@ private suspend fun ApplicationCall.respondPublicMalformedRequest(
     lang: PublicLanguage = PublicLanguage.DEFAULT,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+    applyPublicPageHeaders(imgSrcSelf = branding.servesAnyLogo)
     respondText(
         text = SocialPublicHtml.malformedRequestPage(baseUrl = baseUrl, branding = branding, lang = lang),
         contentType = HTML_CONTENT_TYPE,
@@ -1044,7 +1044,7 @@ internal suspend fun ApplicationCall.respondPublicTooManyRequests(
 ) {
     response.header(HttpHeaders.RetryAfter, "60")
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+    applyPublicPageHeaders(imgSrcSelf = branding.servesAnyLogo)
     respondText(
         text = SocialPublicHtml.tooManyRequestsPage(baseUrl = baseUrl, branding = branding, lang = lang),
         contentType = HTML_CONTENT_TYPE,
@@ -1135,7 +1135,7 @@ internal suspend fun ApplicationCall.respondPublicServerError(
     branding: ResolvedBranding,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+    applyPublicPageHeaders(imgSrcSelf = branding.servesAnyLogo)
     respondText(
         text = SocialPublicHtml.serverErrorPage(baseUrl = baseUrl, branding = branding),
         contentType = HTML_CONTENT_TYPE,

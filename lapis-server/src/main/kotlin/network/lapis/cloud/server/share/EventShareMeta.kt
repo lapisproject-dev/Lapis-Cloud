@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.branding.rasterShareLogoPath
 import network.lapis.cloud.server.events.EventText
 import network.lapis.cloud.server.routes.EventPublicHtml
 import network.lapis.cloud.server.routes.germanShortDateTime
@@ -40,16 +41,14 @@ internal object EventShareMeta {
         return ShareLinks.truncateCodepoints(value = parts.joinToString(SEPARATOR), max = OG_DESCRIPTION_MAX_CODEPOINTS)
     }
 
-    /** Cover image, else a raster operator logo (PNG/WebP; SVG is rejected by social networks), else `null`. */
+    /** Cover image, else a raster operator logo (PNG/WebP, any variant; SVG is rejected by social networks), else `null`. */
     fun ogImage(
         view: EventPublicHtml.View,
         baseUrl: String,
         branding: ResolvedBranding,
     ): String? {
         view.coverImageUrl?.let { return it }
-        val logoPath = branding.logoPath?.lowercase() ?: return null
-        val raster = logoPath.endsWith(".png") || logoPath.endsWith(".webp")
-        return if (branding.logoAvailable && raster) "$baseUrl/api/branding/logo" else null
+        return branding.rasterShareLogoPath()?.let { "$baseUrl$it" }
     }
 
     /**

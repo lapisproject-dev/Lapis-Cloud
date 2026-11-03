@@ -89,7 +89,7 @@ fun Route.registerPublicTransparencyRoutes(
                 body = body,
                 contentType = HTML_CONTENT_TYPE,
                 cacheControl = "public, max-age=60",
-                imgSrcSelf = branding.logoAvailable,
+                imgSrcSelf = branding.servesAnyLogo,
             )
         }
     }

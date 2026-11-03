@@ -24,9 +24,16 @@ import io.kvision.panel.SimplePanel
  * statt zweier, potenziell driftender Kopien.
  */
 fun SimplePanel.brandLockup(): Link {
-    val lockup = link(label = Branding.title, url = "/", dataNavigo = false, className = "lapis-lockup")
+    val logos = Branding.logos
+    // V1.9.265: with a wordmark image that already spells the name, the text label is left out (the image's alt names the link).
+    val label = if (logos?.wordmarkCarriesName?.lockup == true) "" else Branding.title
+    val lockup = link(label = label, url = "/", dataNavigo = false, className = "lapis-lockup")
     lockup.labelFirst = false
     when {
+        logos?.wordmark != null -> {
+            val slot = brandSlot(pair = logos.wordmark, alt = Branding.title)
+            lockup.span(content = slot.html, rich = true, className = slot.className)
+        }
         Branding.logoUrl != null ->
             lockup.span(
                 content = brandLogoImgHtml(src = Branding.logoUrl!!, alt = Branding.title),
@@ -38,6 +45,42 @@ fun SimplePanel.brandLockup(): Link {
     }
     return lockup
 }
+
+/** The HTML and CSS class of one brand-mark span (navbar signet or lockup wordmark), see [brandSlot]. */
+internal data class BrandSlot(
+    val html: String,
+    val className: String,
+)
+
+/**
+ * V1.9.265 -- the content of a brand-mark span for a resolved light/dark [pair]:
+ *  - both sides `null` -> the built-in Lapis Cloud mark (both halves);
+ *  - both sides the same URL -> ONE `<img>`, byte-identical to the legacy single-logo markup;
+ *  - otherwise -> one element per theme side (an `<img class="lapis-brand-logo--light|--dark">`, or the matching half of the built-in
+ *    mark for a side without a URL); `theme.css` shows the one that matches `data-theme`. Never `loading="lazy"` and never `<picture>`:
+ *    the hidden image must be loaded already so a live theme switch does not flash, and `<picture>` follows the OS, not `data-theme`.
+ */
+internal fun brandSlot(
+    pair: LogoPair,
+    alt: String,
+): BrandSlot =
+    when {
+        pair.light == null && pair.dark == null -> BrandSlot(html = LAPIS_CLOUD_MARK_SVG, className = "lapis-brand-mark")
+        pair.light == pair.dark -> BrandSlot(html = brandLogoImgHtml(src = pair.light!!, alt = alt), className = "lapis-brand-logo")
+        else ->
+            BrandSlot(
+                html =
+                    (
+                        pair.light?.let { brandLogoImgHtml(src = it, alt = alt, className = "lapis-brand-logo--light") }
+                            ?: LAPIS_CLOUD_MARK_LIGHT_SVG
+                    ) +
+                        (
+                            pair.dark?.let { brandLogoImgHtml(src = it, alt = alt, className = "lapis-brand-logo--dark") }
+                                ?: LAPIS_CLOUD_MARK_DARK_SVG
+                        ),
+                className = "lapis-brand-logo",
+            )
+    }
 
 /**
  * V1.2.5 White-Label-Branding -- builds a real `<img>` tag for a brand mark's `rich = true` span
@@ -52,7 +95,11 @@ fun SimplePanel.brandLockup(): Link {
 internal fun brandLogoImgHtml(
     src: String,
     alt: String,
-): String = """<img src="${escapeHtmlAttribute(src)}" alt="${escapeHtmlAttribute(alt)}">"""
+    className: String? = null,
+): String {
+    val classAttribute = className?.let { """class="${escapeHtmlAttribute(it)}" """ } ?: ""
+    return """<img ${classAttribute}src="${escapeHtmlAttribute(src)}" alt="${escapeHtmlAttribute(alt)}">"""
+}
 
 internal fun escapeHtmlAttribute(value: String): String =
     buildString {

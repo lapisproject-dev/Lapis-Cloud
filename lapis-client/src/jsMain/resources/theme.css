@@ -420,6 +420,11 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
   object-fit: contain;
 }
 
+/* V1.9.265 logo variants: a light/dark pair is two <img> in one wrapper span; exactly one is shown per data-theme (same switch as the
+   default mark above). Specificity (0,3,1) beats `.lapis-brand-logo img { display: block }` (0,1,1). Size rules above apply to both. */
+html[data-theme="dark"] .lapis-brand-logo .lapis-brand-logo--light,
+html:not([data-theme="dark"]) .lapis-brand-logo .lapis-brand-logo--dark { display: none; }
+
 /* V1.9.210: the brand link lays out mark/logo and title as a flex row with a real gap. Box: 4 + 32 + 4 + 2px border = 42px,
    exactly as high as before (5 + 30 + 5 + 2). On phones the title has font-size 0; see the mobile block. */
 .lapis-navbar .navbar-brand {

@@ -867,7 +867,7 @@ private suspend fun ApplicationCall.respondKeycloakErrorPage(
     branding: ResolvedBranding,
     baseUrl: String,
 ) {
-    applyAuthPageHeaders(formAction = AuthFormAction.SELF, imgSrcSelf = branding.logoAvailable)
+    applyAuthPageHeaders(formAction = AuthFormAction.SELF, imgSrcSelf = branding.servesAnyLogo)
     respondText(
         authErrorPageHtml(message = error.text, branding = branding, baseUrl = baseUrl),
         contentType = ContentType.Text.Html,

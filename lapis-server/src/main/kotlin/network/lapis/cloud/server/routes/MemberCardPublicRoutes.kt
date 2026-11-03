@@ -68,7 +68,7 @@ internal fun Route.registerMemberCardPublicRoutes(
                 call.respondMemberCardPage(
                     body = MemberCardPublicHtml.tooManyRequestsPage(branding = branding, baseUrl = baseUrl),
                     status = HttpStatusCode.TooManyRequests,
-                    imgSrcSelf = branding.logoAvailable,
+                    imgSrcSelf = branding.servesAnyLogo,
                 )
                 return@withMemberCardErrorHandling
             }
@@ -76,7 +76,7 @@ internal fun Route.registerMemberCardPublicRoutes(
                 call.respondMemberCardPage(
                     body = MemberCardPublicHtml.tooManyRequestsPage(branding = branding, baseUrl = baseUrl),
                     status = HttpStatusCode.TooManyRequests,
-                    imgSrcSelf = branding.logoAvailable,
+                    imgSrcSelf = branding.servesAnyLogo,
                 )
                 return@withMemberCardErrorHandling
             }
@@ -94,7 +94,7 @@ internal fun Route.registerMemberCardPublicRoutes(
                 call.respondMemberCardPage(
                     body = MemberCardPublicHtml.invalidPage(branding = branding, baseUrl = baseUrl),
                     status = HttpStatusCode.OK,
-                    imgSrcSelf = branding.logoAvailable,
+                    imgSrcSelf = branding.servesAnyLogo,
                 )
                 return@withMemberCardErrorHandling
             }
@@ -115,7 +115,7 @@ internal fun Route.registerMemberCardPublicRoutes(
                             ),
                     ),
                 status = HttpStatusCode.OK,
-                imgSrcSelf = branding.logoAvailable,
+                imgSrcSelf = branding.servesAnyLogo,
             )
         }
     }
@@ -165,7 +165,7 @@ private suspend fun ApplicationCall.withMemberCardErrorHandling(
             respondMemberCardPage(
                 body = MemberCardPublicHtml.errorPage(branding = branding, baseUrl = baseUrl),
                 status = HttpStatusCode.InternalServerError,
-                imgSrcSelf = branding.logoAvailable,
+                imgSrcSelf = branding.servesAnyLogo,
             )
         }
     }

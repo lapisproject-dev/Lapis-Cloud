@@ -14,3 +14,36 @@ Colours, corner radius and fonts are a separate feature: see link:theming.adoc[T
   A wider logo is scaled down to fit, never cropped.
 * For sharp rendering use an SVG, or a PNG that is at least 96 px tall.
 * Do not add your own padding inside the image: the spacing to the title comes from the interface.
+
+== Logo variants (V1.9.265)
+
+Besides the single legacy logo (`LAPIS_BRAND_LOGO_PATH`) an operator can configure four files: a *signet* (compact, navbar) and a *wordmark* (spells the
+name, sign-in lockup and public page header), each for a *light* and a *dark* page.
+
+[cols="2,3",options="header"]
+|===
+| Variable | Route
+| `LAPIS_BRAND_SIGNET_LIGHT_PATH` | `/api/branding/logo/signet-light`
+| `LAPIS_BRAND_SIGNET_DARK_PATH` | `/api/branding/logo/signet-dark`
+| `LAPIS_BRAND_WORDMARK_LIGHT_PATH` | `/api/branding/logo/wordmark-light`
+| `LAPIS_BRAND_WORDMARK_DARK_PATH` | `/api/branding/logo/wordmark-dark`
+|===
+
+Each file is an absolute in-container path (`deploy/example/branding` is mounted at `/app/branding`), `.svg`, `.png` or `.webp`, at most 512 KiB, no `..`
+segment. A file that is missing, unreadable or too large disables that one variant with a `WARN` that names the variable (never the path).
+
+=== Fallback chain
+
+A slot (mode x kind) takes the first available source: same kind in its own mode, same kind in the other mode, the other kind in the own mode, the other
+kind in the other mode, the legacy logo, the built-in Lapis Cloud mark. So one file is enough; an instance without any new variable is unchanged.
+Limit: with only the other kind configured, a light file can end up on a dark page.
+
+=== Behaviour
+
+* The SPA shows exactly one image per `data-theme` and switches live. The server-rendered public pages switch by `prefers-color-scheme`.
+* A wordmark that is used for both modes of a kind carries the name: the text label next to it is omitted and the image `alt` is the title.
+* The default theme's top bar (`nav` token) is dark in both modes. The mode follows the page theme, so check the light variant against your `nav` colour.
+* `og:image` and the JSON-LD image use the first raster logo (wordmark-light, signet-light, wordmark-dark, signet-dark, legacy); an SVG is never used.
+* The video-overlay instance logo is the file `GET /api/branding/logo` serves (legacy logo, else the light signet of the chain); an SVG is not offered.
+* The sign-in and public pages allow `img-src 'self'` whenever any logo is served.
+

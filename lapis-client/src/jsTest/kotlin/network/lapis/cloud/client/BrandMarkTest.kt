@@ -132,6 +132,91 @@ class BrandMarkTest {
     }
 
     @Test
+    fun markConstant_isLightPlusNewlinePlusDark_andHalvesAreSingleSvgs() {
+        assertEquals(LAPIS_CLOUD_MARK_LIGHT_SVG + "\n" + LAPIS_CLOUD_MARK_DARK_SVG, LAPIS_CLOUD_MARK_SVG)
+        assertTrue(LAPIS_CLOUD_MARK_LIGHT_SVG.contains("lapis-brand-mark--light"))
+        assertFalse(LAPIS_CLOUD_MARK_LIGHT_SVG.contains("lapis-brand-mark--dark"))
+        assertTrue(LAPIS_CLOUD_MARK_DARK_SVG.contains("lapis-brand-mark--dark"))
+        assertFalse(LAPIS_CLOUD_MARK_DARK_SVG.contains("lapis-brand-mark--light"))
+    }
+
+    @Test
+    fun brandSlot_bothNull_isTheDefaultMark() {
+        val slot = brandSlot(LogoPair(), "X")
+        assertEquals(LAPIS_CLOUD_MARK_SVG, slot.html)
+        assertEquals("lapis-brand-mark", slot.className)
+    }
+
+    @Test
+    fun brandSlot_sameUrl_isOneImgIdenticalToTheLegacyMarkup() {
+        val slot = brandSlot(LogoPair(light = "/api/branding/logo", dark = "/api/branding/logo"), "X")
+        assertEquals(brandLogoImgHtml(src = "/api/branding/logo", alt = "X"), slot.html)
+        assertEquals("""<img src="/api/branding/logo" alt="X">""", slot.html)
+        assertEquals("lapis-brand-logo", slot.className)
+    }
+
+    @Test
+    fun brandSlot_differentUrls_isTwoEagerImgsPerThemeSide() {
+        val slot = brandSlot(LogoPair(light = "/api/branding/logo/signet-light", dark = "/api/branding/logo/signet-dark"), "X")
+        assertEquals("lapis-brand-logo", slot.className)
+        assertEquals(
+            """<img class="lapis-brand-logo--light" src="/api/branding/logo/signet-light" alt="X">""" +
+                """<img class="lapis-brand-logo--dark" src="/api/branding/logo/signet-dark" alt="X">""",
+            slot.html,
+        )
+        assertFalse(slot.html.contains("loading"))
+        assertFalse(slot.html.contains("<picture"))
+    }
+
+    @Test
+    fun brandSlot_oneSideMissing_usesThatHalfOfTheDefaultMark() {
+        val onlyLight = brandSlot(LogoPair(light = "/api/branding/logo/signet-light", dark = null), "X")
+        assertTrue(onlyLight.html.contains("""class="lapis-brand-logo--light""""))
+        assertTrue(onlyLight.html.endsWith(LAPIS_CLOUD_MARK_DARK_SVG))
+        val onlyDark = brandSlot(LogoPair(light = null, dark = "/api/branding/logo/signet-dark"), "X")
+        assertTrue(onlyDark.html.startsWith(LAPIS_CLOUD_MARK_LIGHT_SVG))
+        assertTrue(onlyDark.html.contains("""class="lapis-brand-logo--dark""""))
+    }
+
+    @Test
+    fun brandSlot_escapesTheAlt() {
+        val slot = brandSlot(LogoPair(light = "/api/branding/logo/signet-light", dark = "/api/branding/logo/signet-dark"), "A\"<b>")
+        assertFalse(slot.html.contains("<b>"))
+        assertTrue(slot.html.contains("alt=\"A&quot;&lt;b&gt;\""))
+    }
+
+    @Test
+    fun lockup_withWordmarkVariants_rendersBothImgsAndNoTextWhenTheWordmarkCarriesTheName() {
+        setBrand(
+            """{"title":"Mein Verein","logos":{"signet":{"light":"/api/branding/logo/wordmark-light",""" +
+                """"dark":"/api/branding/logo/wordmark-dark"},""" +
+                """"wordmark":{"light":"/api/branding/logo/wordmark-light","dark":"/api/branding/logo/wordmark-dark"},""" +
+                """"wordmarkCarriesName":{"navbar":true,"lockup":true}}}""",
+        )
+        withMountedRoot("brand-variants-lockup") { root, element ->
+            root.brandLockup()
+            assertEquals(2, element().querySelectorAll(".lapis-brand-logo img").length)
+            assertEquals("", element().querySelector("a.lapis-lockup")!!.textContent!!.trim())
+            assertEquals("Mein Verein", element().querySelector(".lapis-brand-logo img")!!.getAttribute("alt"))
+        }
+    }
+
+    @Test
+    fun lockup_withSignetOnlyVariants_keepsTheTitleText() {
+        setBrand(
+            """{"title":"Mein Verein","logos":{"signet":{"light":"/api/branding/logo/signet-light",""" +
+                """"dark":"/api/branding/logo/signet-light"},""" +
+                """"wordmark":{"light":"/api/branding/logo/signet-light","dark":"/api/branding/logo/signet-light"},""" +
+                """"wordmarkCarriesName":{"navbar":false,"lockup":false}}}""",
+        )
+        withMountedRoot("brand-variants-lockup-title") { root, element ->
+            root.brandLockup()
+            assertEquals(1, element().querySelectorAll(".lapis-brand-logo img").length)
+            assertTrue(element().textContent!!.contains("Mein Verein"))
+        }
+    }
+
+    @Test
     fun footerAttribution_is12px_andHasNoSparkle() {
         withMountedRoot("brand-mark-footer") { root, element ->
             root.lapisAttribution()

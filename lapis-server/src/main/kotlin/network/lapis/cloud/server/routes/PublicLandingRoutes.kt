@@ -117,7 +117,7 @@ fun Route.registerPublicLandingRoutes(
                 // Plan § 1.2 "Hash-Bridge": the ONE caller in this whole codebase that requests
                 // script-src 'self' -- /s and /transparenz never pass this, and stay script-free.
                 scriptSrcSelf = true,
-                imgSrcSelf = branding.logoAvailable,
+                imgSrcSelf = branding.servesAnyLogo,
             )
         }
     }

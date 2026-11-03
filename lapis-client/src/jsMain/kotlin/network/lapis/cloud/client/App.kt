@@ -87,29 +87,8 @@ external val messagesRu: dynamic
  */
 val AppScope: CoroutineScope = CoroutineScope(SupervisorJob() + window.asCoroutineDispatcher())
 
-/**
- * The Lapis Cloud default brand mark: the cloud-and-lapis-stone symbol, geometry copied verbatim from
- * `cloud.lapisproject.dev`'s `Logo.astro` (full-size variant: strokes 12/5, with the gold sparkle). Two inline SVGs
- * in one span, a light and a dark one, of which `theme.css` shows exactly one depending on `data-theme` on
- * `<html>`. No `currentColor`, no `id`, no `<defs>`, and no colour literal here: fills and strokes are the `bm-*`
- * classes in `theme.css` (palette per variant), so the colours are not Kotlin debt for rule R9. The copies (and any
- * further copy on the page) can never collide. Purely decorative (`aria-hidden`). The sparkle only exists at this
- * size; the footer variant [LAPIS_CLOUD_MARK_SMALL_SVG] drops it. An operator-supplied logo always takes
- * precedence over this mark (see `brandLockup()` and the navbar); without a logo the mark shows regardless of the title.
- */
-internal const val LAPIS_CLOUD_MARK_SVG = """<svg class="lapis-brand-mark-svg lapis-brand-mark--light" width="32" height="32" viewBox="${LapisCloudMark.VIEW_BOX}" aria-hidden="true" focusable="false">
-    <path class="bm-cloud" d="${LapisCloudMark.CLOUD_D}" stroke-width="${LapisCloudMark.STROKE_CLOUD}" stroke-linejoin="round" />
-    <g class="bm-edge" stroke-width="${LapisCloudMark.STROKE_EDGE}" stroke-linejoin="round">
-        <path class="bm-f1" d="${LapisCloudMark.F1_D}" />
-        <path class="bm-f2" d="${LapisCloudMark.F2_D}" />
-        <path class="bm-f3" d="${LapisCloudMark.F3_D}" />
-        <path class="bm-f4" d="${LapisCloudMark.F4_D}" />
-        <path class="bm-f5" d="${LapisCloudMark.F5_D}" />
-        <path class="bm-f6" d="${LapisCloudMark.F6_D}" />
-    </g>
-    <path class="bm-spark" d="${LapisCloudMark.SPARK_D}" />
-</svg>
-<svg class="lapis-brand-mark-svg lapis-brand-mark--dark" width="32" height="32" viewBox="${LapisCloudMark.VIEW_BOX}" aria-hidden="true" focusable="false">
+/** The light half of [LAPIS_CLOUD_MARK_SVG] (V1.9.265: also used on its own when only one theme side has an operator logo). */
+internal const val LAPIS_CLOUD_MARK_LIGHT_SVG = """<svg class="lapis-brand-mark-svg lapis-brand-mark--light" width="32" height="32" viewBox="${LapisCloudMark.VIEW_BOX}" aria-hidden="true" focusable="false">
     <path class="bm-cloud" d="${LapisCloudMark.CLOUD_D}" stroke-width="${LapisCloudMark.STROKE_CLOUD}" stroke-linejoin="round" />
     <g class="bm-edge" stroke-width="${LapisCloudMark.STROKE_EDGE}" stroke-linejoin="round">
         <path class="bm-f1" d="${LapisCloudMark.F1_D}" />
@@ -121,6 +100,32 @@ internal const val LAPIS_CLOUD_MARK_SVG = """<svg class="lapis-brand-mark-svg la
     </g>
     <path class="bm-spark" d="${LapisCloudMark.SPARK_D}" />
 </svg>"""
+
+/** The dark half of [LAPIS_CLOUD_MARK_SVG]. */
+internal const val LAPIS_CLOUD_MARK_DARK_SVG = """<svg class="lapis-brand-mark-svg lapis-brand-mark--dark" width="32" height="32" viewBox="${LapisCloudMark.VIEW_BOX}" aria-hidden="true" focusable="false">
+    <path class="bm-cloud" d="${LapisCloudMark.CLOUD_D}" stroke-width="${LapisCloudMark.STROKE_CLOUD}" stroke-linejoin="round" />
+    <g class="bm-edge" stroke-width="${LapisCloudMark.STROKE_EDGE}" stroke-linejoin="round">
+        <path class="bm-f1" d="${LapisCloudMark.F1_D}" />
+        <path class="bm-f2" d="${LapisCloudMark.F2_D}" />
+        <path class="bm-f3" d="${LapisCloudMark.F3_D}" />
+        <path class="bm-f4" d="${LapisCloudMark.F4_D}" />
+        <path class="bm-f5" d="${LapisCloudMark.F5_D}" />
+        <path class="bm-f6" d="${LapisCloudMark.F6_D}" />
+    </g>
+    <path class="bm-spark" d="${LapisCloudMark.SPARK_D}" />
+</svg>"""
+
+/**
+ * The Lapis Cloud default brand mark: the cloud-and-lapis-stone symbol, geometry copied verbatim from
+ * `cloud.lapisproject.dev`'s `Logo.astro` (full-size variant: strokes 12/5, with the gold sparkle). Two inline SVGs
+ * in one span, a light and a dark one, of which `theme.css` shows exactly one depending on `data-theme` on
+ * `<html>`. No `currentColor`, no `id`, no `<defs>`, and no colour literal here: fills and strokes are the `bm-*`
+ * classes in `theme.css` (palette per variant), so the colours are not Kotlin debt for rule R9. The copies (and any
+ * further copy on the page) can never collide. Purely decorative (`aria-hidden`). The sparkle only exists at this
+ * size; the footer variant [LAPIS_CLOUD_MARK_SMALL_SVG] drops it. An operator-supplied logo always takes
+ * precedence over this mark (see `brandLockup()` and the navbar); without a logo the mark shows regardless of the title.
+ */
+internal const val LAPIS_CLOUD_MARK_SVG = LAPIS_CLOUD_MARK_LIGHT_SVG + "\n" + LAPIS_CLOUD_MARK_DARK_SVG
 
 /**
  * Footer variant of [LAPIS_CLOUD_MARK_SVG] for `lapisAttribution()` (12 px): the geometry of
@@ -249,7 +254,8 @@ class App : Application() {
             // `toggleButton` below would be confusing (which one opens what?).
             val navbar =
                 navbar(
-                    label = Branding.title,
+                    // V1.9.265: a signet-only operator logo keeps the title; a wordmark image that spells the name replaces it.
+                    label = if (Branding.logos?.wordmarkCarriesName?.navbar == true) "" else Branding.title,
                     // Nutzer-Entscheidung V1.4.7 ("überall, auch eingeloggt"): der Marken-Klick
                     // führt konsequent auf die öffentliche Startseite "/", auch aus einer
                     // eingeloggten Tiefenansicht heraus. Echte volle Seitennavigation, KEIN
@@ -280,7 +286,12 @@ class App : Application() {
             // via the same `rich = true` HTML-string mechanism the mark uses -- not KVision's
             // `Link.image` property, whose mutation semantics on an already-constructed `Link` were not
             // verified against this pinned KVision version (see V1.2.5 plan "Offene Frage 1").
+            val navbarLogos = Branding.logos
             when {
+                navbarLogos?.signet != null -> {
+                    val slot = brandSlot(pair = navbarLogos.signet, alt = Branding.title)
+                    navbar.brandLink.span(content = slot.html, rich = true, className = slot.className)
+                }
                 Branding.logoUrl != null ->
                     navbar.brandLink.span(
                         content = brandLogoImgHtml(src = Branding.logoUrl!!, alt = Branding.title),
