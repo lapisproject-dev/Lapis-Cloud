@@ -7,11 +7,21 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
+import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
+import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
+import network.lapis.cloud.server.db.generated.PartgReportNoteTable
+import network.lapis.cloud.server.db.generated.PartgReportNotesSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportPositionTable
 import network.lapis.cloud.server.db.generated.PartgReportSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
+import network.lapis.cloud.shared.domain.PartgContributionKind
+import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgKind
+import network.lapis.cloud.shared.domain.PartgNoteBlock
+import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgSection
+import network.lapis.cloud.shared.domain.PartgTriState
 import network.lapis.cloud.shared.domain.PartgUnitLevel
 import network.lapis.cloud.shared.domain.PartgValueSource
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -31,9 +41,20 @@ class PartgReportSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("the model declares the three report entities plus the Member and RegionalChapter stubs") {
+        test("the model declares the eight report entities plus the Member and RegionalChapter stubs") {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("member", "regional_chapter", "partg_report_position", "partg_report_sheet", "partg_report_value")
+                setOf(
+                    "member",
+                    "regional_chapter",
+                    "partg_report_position",
+                    "partg_report_sheet",
+                    "partg_report_value",
+                    "partg_report_annex",
+                    "partg_report_large_donor",
+                    "partg_report_notes_sheet",
+                    "partg_report_note",
+                    "partg_report_holding",
+                )
         }
 
         fun check(
@@ -81,6 +102,82 @@ class PartgReportSchemaDriftTest :
                 expectedForeignKeys = mapOf("sheet_id" to "partg_report_sheet", "updated_by" to "member"),
                 sqlOnlyForeignKeys = mapOf("position_code" to "partg_report_position"),
             )
+        }
+
+        test("partg_report_annex matches the migrated schema and PartgReportAnnexTable 1:1") {
+            check(
+                table = "partg_report_annex",
+                exposedColumns = PartgReportAnnexTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("regional_chapter_id" to "regional_chapter", "updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+        }
+
+        test("partg_report_large_donor matches the migrated schema and PartgReportLargeDonorTable 1:1") {
+            check(
+                table = "partg_report_large_donor",
+                exposedColumns = PartgReportLargeDonorTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("annex_id" to "partg_report_annex", "created_by" to "member", "updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+        }
+
+        test("partg_report_notes_sheet matches the migrated schema and PartgReportNotesSheetTable 1:1") {
+            check(
+                table = "partg_report_notes_sheet",
+                exposedColumns = PartgReportNotesSheetTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+        }
+
+        test("partg_report_note matches the migrated schema and PartgReportNoteTable 1:1") {
+            check(
+                table = "partg_report_note",
+                exposedColumns = PartgReportNoteTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("notes_sheet_id" to "partg_report_notes_sheet", "updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+        }
+
+        test("partg_report_holding matches the migrated schema and PartgReportHoldingTable 1:1") {
+            check(
+                table = "partg_report_holding",
+                exposedColumns = PartgReportHoldingTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("notes_sheet_id" to "partg_report_notes_sheet", "updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+        }
+
+        test("the R3 enums are in exactly the order of the shared enums and sized by their sqlType") {
+            PartgPersonKind.entries.map { it.name } shouldBe listOf("NATURAL", "LEGAL")
+            PartgContributionKind.entries.map { it.name } shouldBe listOf("DONATION", "FEE", "BOTH")
+            PartgNoteBlock.entries.map { it.name } shouldBe
+                listOf("GENERAL_ACCOUNTING", "RELIEF_28", "HOLDINGS", "MEDIA_PRODUCTS", "REAL_ESTATE_VALUATION")
+            PartgTriState.entries.map { it.name } shouldBe listOf("YES", "NO", "UNSPECIFIED")
+            PartgDeduction.entries.map { it.name } shouldBe listOf("UNASSIGNABLE", "CASH_OVER_1000", "OVER_3300", "WRONGLY_REPORTED")
+            transaction {
+                listOf(
+                    PartgReportLargeDonorTable.personKind.columnType.sqlType(),
+                    PartgReportLargeDonorTable.contributionKind.columnType.sqlType(),
+                    PartgReportNoteTable.blockCode.columnType.sqlType(),
+                    PartgReportNoteTable.reliefAbs1.columnType.sqlType(),
+                )
+            } shouldBe listOf("VARCHAR(7)", "VARCHAR(8)", "VARCHAR(21)", "VARCHAR(11)")
+            // the longest literal fits its column exactly
+            PartgNoteBlock.entries.maxOf { it.name.length } shouldBe 21
+            PartgContributionKind.entries.maxOf { it.name.length } shouldBe 8
+        }
+
+        test("the R3 unique rules") {
+            transaction { introspectPartgTable("partg_report_annex") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("fiscal_year", "unit_key"))
+            transaction { introspectPartgTable("partg_report_notes_sheet") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("fiscal_year"))
+            transaction { introspectPartgTable("partg_report_note") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("notes_sheet_id", "block_code"))
+            transaction { introspectPartgTable("partg_report_holding") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("notes_sheet_id", "sort_order"))
         }
 
         test("the enums are in exactly the order of the shared enums and sized by their sqlType") {

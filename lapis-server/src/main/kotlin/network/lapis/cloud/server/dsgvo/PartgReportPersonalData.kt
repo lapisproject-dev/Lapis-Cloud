@@ -3,11 +3,17 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
+import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
+import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
+import network.lapis.cloud.server.db.generated.PartgReportNoteTable
+import network.lapis.cloud.server.db.generated.PartgReportNotesSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportPositionTable
 import network.lapis.cloud.server.db.generated.PartgReportSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
 
@@ -22,11 +28,26 @@ import kotlin.uuid.Uuid
  * **Erasure: retained in every [ErasureMode].** The report values are the material of the report a party owes under section 24 PartG and must be
  * kept for ten years (section 24 (2) PartG, section 19a PartG); the foreign keys keep pointing to the member row, whose display is anonymised
  * (`member.anonymized_at`) like for every other retain-with-reason contributor. Art. 17 (3) (b) GDPR.
+ *
+ * **V1.9.269 (R3)** adds `partg_report_annex`, `partg_report_large_donor`, `partg_report_notes_sheet`, `partg_report_note` and
+ * `partg_report_holding`. Their member foreign keys (`updated_by`, `created_by`) are exported as "changed by you" with year, unit and kind of
+ * change only -- NEVER a name, an address, an amount or a note text -- and retained on erasure for the same reason. The large-donor rows
+ * themselves are personal data of THIRD PARTIES without a member key; that gap is listed in `PersonalDataRegistry.knownUncoveredSubjectRoots`.
  */
 object PartgReportPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "partyReport"
     override val displayName = "Rechenschaftsbericht (PartG)"
-    override val coveredTables = setOf(PartgReportPositionTable, PartgReportSheetTable, PartgReportValueTable)
+    override val coveredTables =
+        setOf(
+            PartgReportPositionTable,
+            PartgReportSheetTable,
+            PartgReportValueTable,
+            PartgReportAnnexTable,
+            PartgReportLargeDonorTable,
+            PartgReportNotesSheetTable,
+            PartgReportNoteTable,
+            PartgReportHoldingTable,
+        )
 
     override fun exportMember(memberId: Uuid) =
         buildJsonObject {
@@ -68,6 +89,65 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                                     put("year", row[PartgReportSheetTable.fiscalYear])
                                     put("unit", row[PartgReportSheetTable.unitKey])
                                     put("changedAt", row[PartgReportSheetTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "annexChangedByYou",
+                buildJsonArray {
+                    PartgReportAnnexTable
+                        .selectAll()
+                        .where { PartgReportAnnexTable.updatedBy eq memberId }
+                        .toList()
+                        .sortedWith(compareBy({ it[PartgReportAnnexTable.fiscalYear] }, { it[PartgReportAnnexTable.unitKey] }))
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("year", row[PartgReportAnnexTable.fiscalYear])
+                                    put("unit", row[PartgReportAnnexTable.unitKey])
+                                    put("changedAt", row[PartgReportAnnexTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "largeDonorRowsChangedByYou",
+                buildJsonArray {
+                    val annexes = PartgReportAnnexTable.selectAll().toList().associateBy { it[PartgReportAnnexTable.id] }
+                    PartgReportLargeDonorTable
+                        .selectAll()
+                        .where { (PartgReportLargeDonorTable.updatedBy eq memberId) or (PartgReportLargeDonorTable.createdBy eq memberId) }
+                        .toList()
+                        .sortedWith(
+                            compareBy({ it[PartgReportLargeDonorTable.updatedAt] }, { it[PartgReportLargeDonorTable.id].toString() }),
+                        ).forEach { row ->
+                            val annex = annexes[row[PartgReportLargeDonorTable.annexId]]
+                            add(
+                                buildJsonObject {
+                                    put("year", annex?.get(PartgReportAnnexTable.fiscalYear))
+                                    put("unit", annex?.get(PartgReportAnnexTable.unitKey))
+                                    put("changedAt", row[PartgReportLargeDonorTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "notesChangedByYou",
+                buildJsonArray {
+                    PartgReportNotesSheetTable
+                        .selectAll()
+                        .where { PartgReportNotesSheetTable.updatedBy eq memberId }
+                        .toList()
+                        .sortedBy { it[PartgReportNotesSheetTable.fiscalYear] }
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("year", row[PartgReportNotesSheetTable.fiscalYear])
+                                    put("changedAt", row[PartgReportNotesSheetTable.updatedAt].toString())
                                 },
                             )
                         }
@@ -117,6 +197,56 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                     PartgReportValueTable
                         .selectAll()
                         .where { PartgReportValueTable.updatedBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_annex",
+                rowsRetained =
+                    PartgReportAnnexTable
+                        .selectAll()
+                        .where { PartgReportAnnexTable.updatedBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_large_donor",
+                rowsRetained =
+                    PartgReportLargeDonorTable
+                        .selectAll()
+                        .where { (PartgReportLargeDonorTable.updatedBy eq memberId) or (PartgReportLargeDonorTable.createdBy eq memberId) }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_notes_sheet",
+                rowsRetained =
+                    PartgReportNotesSheetTable
+                        .selectAll()
+                        .where { PartgReportNotesSheetTable.updatedBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_note",
+                rowsRetained =
+                    PartgReportNoteTable
+                        .selectAll()
+                        .where { PartgReportNoteTable.updatedBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_holding",
+                rowsRetained =
+                    PartgReportHoldingTable
+                        .selectAll()
+                        .where { PartgReportHoldingTable.updatedBy eq memberId }
                         .count()
                         .toInt(),
                 retentionReason = reason,

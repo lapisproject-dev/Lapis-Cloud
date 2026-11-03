@@ -146,6 +146,12 @@ object PersonalDataRegistry {
                 "Verschluesselung im Ruhezustand, 30 Minuten Verfallsdauer der Sicherheits-Mails und Loeschung von " +
                 "Payload und Hash beim Abschluss jeder Zeile. Ein Gast-Auskunfts-/Loeschpfad ist nicht vorgesehen. " +
                 "Sichtbar gemacht, nicht geschlossen.",
+            "partg_report_large_donor" to
+                "Welle V1.9.269. PII Dritter (Name, Anschrift, Jahressumme ueber 10.000 EUR) fuer den gesonderten " +
+                "Ausweis B nach § 25 Abs. 3 PartG, laut Konzept 10 Jahre aufzubewahren; kein member-FK. Auskunft und " +
+                "Loeschung erfolgen nur ueber den Vorstand: Zeile ansehen oder loeschen im Reiter 'Ausweise'. Ein " +
+                "Betroffenen-Selbstbedienungsweg ist nicht vorgesehen, eine Loeschroutine nach Fristablauf folgt mit R6. " +
+                "Sichtbar gemacht, nicht geschlossen.",
         )
 
     /**
@@ -155,7 +161,15 @@ object PersonalDataRegistry {
      * beiden, niemals in keinem (siehe `PersonalDataCoverageTest`'s Test C).
      */
     internal val nonMemberPiiTables: Set<String> =
-        setOf("external_donor", "crm_contact", "event_registration", "bank_statement_line", "open_item", "mail_outbox")
+        setOf(
+            "external_donor",
+            "crm_contact",
+            "event_registration",
+            "bank_statement_line",
+            "open_item",
+            "mail_outbox",
+            "partg_report_large_donor",
+        )
 
     /**
      * Tables that are not covered by a [PersonalDataContributor] on purpose, each with a written

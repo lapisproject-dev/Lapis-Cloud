@@ -621,6 +621,9 @@ fun decodeAuditSnapshot(
             AuditEntityType.ACTIVISM_SETTINGS -> null
             // V1.9.256 -- PartgReportExportAuditSnapshot: format, year, scope and counters; raw-text display, no link.
             AuditEntityType.PARTG_REPORT_EXPORT -> null
+            // V1.9.269 -- annex and notes snapshots: counters, ids and codes only; raw-text display, no link.
+            AuditEntityType.PARTG_REPORT_ANNEX -> null
+            AuditEntityType.PARTG_REPORT_NOTES -> null
         }
     }.getOrNull()
 

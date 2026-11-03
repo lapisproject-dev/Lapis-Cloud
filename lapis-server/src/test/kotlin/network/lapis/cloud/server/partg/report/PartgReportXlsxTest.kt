@@ -14,7 +14,19 @@ class PartgReportXlsxGoldenTest :
         val xlsx = readXlsx(bytes)
 
         test("the sheets have fixed names in a fixed order") {
-            xlsx.sheetNames shouldBe listOf("Vollständigkeit", "Zusammenfassung", "Einnahmen", "Ausgaben", "Vermögen", "Hinweise")
+            xlsx.sheetNames shouldBe
+                listOf(
+                    "Vollständigkeit",
+                    "Zusammenfassung",
+                    "Einnahmen",
+                    "Ausgaben",
+                    "Vermögen",
+                    "Ausweis A",
+                    "Ausweis B",
+                    "Mitglieder",
+                    "Erläuterungen",
+                    "Hinweise",
+                )
         }
 
         test("A1 of every sheet is the header line of the PDF") {

@@ -185,6 +185,9 @@ enum class ActionIcon(
     /** V1.9.190: the "info" glyph of a collapsed page intro ("Hinweis anzeigen"). */
     INFO("fas fa-circle-info"),
 
+    /** V1.9.269: a hint that asks for a look ("Bitte prüfen" in the plausibility hints of the party report); never an action. */
+    WARN("fas fa-triangle-exclamation"),
+
     /** V1.9.190: points down -- the collapsed page intro that opens on click. */
     CHEVRON_DOWN("fas fa-chevron-down"),
 

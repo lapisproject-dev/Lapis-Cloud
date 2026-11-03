@@ -29,9 +29,9 @@ class PartyReportScreenDomTest {
                     assertTrue(page.shows("Rechenschaftsbericht nach Parteiengesetz"))
                     // the notice says plainly that this is a working aid
                     assertTrue(page.allOf(".alert-info").single().shows("keine Rechtsberatung"))
-                    // four tabs, the overview is active
+                    // six tabs in the display order (not the enum order), the overview is active
                     val tabs = page.allOf(".btn-group button").map { it.textContent?.trim() }
-                    assertEquals(listOf("Übersicht", "Werte erfassen", "Positionen", "Bericht"), tabs)
+                    assertEquals(listOf("Übersicht", "Werte erfassen", "Ausweise", "Erläuterungen", "Positionen", "Bericht"), tabs)
                     val rows = page.allOf("tbody tr")
                     assertTrue(rows[0].shows("Bundesverband") && rows[0].shows("Nicht erfasst"))
                     assertTrue(rows[1].shows("Landesverband Nord") && rows[1].shows("Teilweise (12 von 35)"))
@@ -100,5 +100,56 @@ class PartyReportScreenDomTest {
                 assertTrue(element().shows("nur für politische Parteien"))
                 assertEquals(0, element().allOf(".btn-group button").size)
             }
+        }
+
+    @Test
+    fun theTabSelect_forNarrowScreens_hasTheLabelBereich_andTheSameSixChoices(): Promise<Unit> =
+        formTest {
+            runCatching { window.localStorage.removeItem("lapis.partyReport.tab") }
+            AppState.setSession(PartyReportDomSupport.session())
+            val routes = PartyReportDomSupport.routes()
+            withFetchStub(respond = { request -> PartyReportDomSupport.answer(routes, request, 2025) }) {
+                mountedForm("party-report-tab-select") { root, element ->
+                    renderPartyReportScreen(root)
+                    awaitUntil("the overview rows") { element().allOf("tbody tr").size == 2 }
+                    val select = element().controlOf("Bereich") as org.w3c.dom.HTMLSelectElement
+                    val labels =
+                        (0 until select.options.length).map {
+                            select.options
+                                .item(it)
+                                ?.textContent
+                                ?.trim()
+                        }
+                    assertEquals(listOf("Übersicht", "Werte erfassen", "Ausweise", "Erläuterungen", "Positionen", "Bericht"), labels)
+                    assertEquals("OVERVIEW", select.value)
+                    // the wide and the narrow variant sit in their own containers; the stylesheet shows exactly one of them
+                    assertEquals(1, element().allOf(".lapis-partg-tabs-wide").size)
+                    assertEquals(1, element().allOf(".lapis-partg-tabs-narrow").size)
+                }
+            }
+        }
+
+    @Test
+    fun aRememberedTabFromBeforeR3_isStillRead(): Promise<Unit> =
+        formTest {
+            // the stored value is the enum NAME; the four old names stay valid, the new ones were appended
+            runCatching { window.localStorage.setItem("lapis.partyReport.tab", "POSITIONS") }
+            AppState.setSession(PartyReportDomSupport.session())
+            val routes = PartyReportDomSupport.routes()
+            withFetchStub(respond = { request -> PartyReportDomSupport.answer(routes, request, 2025) }) {
+                mountedForm("party-report-remembered") { root, element ->
+                    renderPartyReportScreen(root)
+                    awaitUntil("the positions") { element().shows("Nur Pflichtbeiträge") }
+                    assertEquals(
+                        "Positionen",
+                        element()
+                            .allOf(".btn-group button")
+                            .first { it.getAttribute("aria-pressed") == "true" }
+                            .textContent
+                            ?.trim(),
+                    )
+                }
+            }
+            runCatching { window.localStorage.removeItem("lapis.partyReport.tab") }
         }
 }

@@ -29904,3 +29904,219 @@ msgid_plural "%1 Räume umgestellt."
 msgstr[0] "Переключена %1 комната."
 msgstr[1] "Переключено %1 комнаты."
 msgstr[2] "Переключено %1 комнат."
+
+msgid "Nicht zuordenbare Spenden"
+msgstr "Пожертвования, которые нельзя отнести"
+
+msgid "Bar-Spenden über 1.000 €"
+msgstr "Пожертвования наличными свыше 1000 €"
+
+msgid "Spenden über 3.300 € ohne Ausweis"
+msgstr "Пожертвования свыше 3300 € без подтверждения"
+
+msgid "Fälschlich gemeldete Spenden"
+msgstr "Ошибочно заявленные пожертвования"
+
+msgid "A: Abzüge bei der Spendenbehandlung"
+msgstr "A: Вычеты при учёте пожертвований"
+
+msgid "Leer bedeutet nicht erfasst, 0 ist ein Wert."
+msgstr "Пусто означает «не введено», 0 — это значение."
+
+msgid "Mitgliederzahl zum 31.12."
+msgstr "Число членов на 31.12."
+
+msgid "Heute im Mitgliederregister: %1 (Stand %2, nicht der 31.12.)"
+msgstr "Сегодня в реестре членов: %1 (по состоянию на %2, а не на 31.12.)"
+
+msgid "Für nachgeordnete Gebietsverbände kennt das Mitgliederregister keine Zahl."
+msgstr "В реестре членов нет данных для подчинённых территориальных организаций."
+
+msgid "B: Spenden und Beiträge über 10.000 € je Person und Jahr"
+msgstr "B: Пожертвования и взносы свыше 10 000 € на человека в год"
+
+msgid "Nur Vorstand und Admin sehen diese Liste. Aufzunehmen sind Personen mit mehr als 10.000 € pro Jahr an diese Gliederung. Beträge an mehrere Gebietsverbände werden noch nicht zusammengeführt."
+msgstr "Этот список видят только правление и администраторы. Вносите людей, пожертвовавших этому подразделению более 10 000 € в год. Суммы, переданные нескольким территориальным организациям, пока не объединяются."
+
+msgid "Noch keine Einträge."
+msgstr "Записей пока нет."
+
+msgid "Zeile hinzufügen"
+msgstr "Добавить строку"
+
+msgid "Das Speichern ist nicht gelungen, oder die Daten wurden inzwischen von jemand anderem geändert. Mit „Neu laden“ sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr "Не удалось сохранить, либо данные тем временем изменил кто-то другой. «Обновить» покажет актуальное состояние; ваши записи будут потеряны."
+
+msgid "Zeile"
+msgstr "Строка"
+
+msgid "Hinweise"
+msgstr "Замечания"
+
+msgid "Zeile löschen?"
+msgstr "Удалить строку?"
+
+msgid "Die Zeile wird aus der Liste entfernt. Das lässt sich nicht rückgängig machen."
+msgstr "Строка будет удалена из списка. Это действие нельзя отменить."
+
+msgid "Neue Zeile"
+msgstr "Новая строка"
+
+msgid "Zeile %1 bearbeiten"
+msgstr "Редактировать строку %1"
+
+msgid "Art der Person"
+msgstr "Тип лица"
+
+msgid "Land (zwei Großbuchstaben)"
+msgstr "Страна (две заглавные буквы)"
+
+msgid "Art der Zuwendung"
+msgstr "Вид взноса"
+
+msgid "Betrag (€)"
+msgstr "Сумма (€)"
+
+msgid "Bitte einen Betrag eingeben."
+msgstr "Введите сумму."
+
+msgid "Spende und Beitrag"
+msgstr "Пожертвование и взнос"
+
+msgid "Allgemeine Angaben zur Rechnungslegung"
+msgstr "Общие сведения об учёте"
+
+msgid "Erleichterungen nach § 28 PartG"
+msgstr "Облегчения по § 28 PartG"
+
+msgid "Beteiligungen"
+msgstr "Участия"
+
+msgid "Medienerzeugnisse"
+msgstr "Медиапродукция"
+
+msgid "Bewertung von Grundstücken"
+msgstr "Оценка недвижимости"
+
+msgid "Zum Beispiel: Bilanzierungs- und Bewertungsmethoden"
+msgstr "Например: методы учёта и оценки"
+
+msgid "Zum Beispiel: Begründung der Inanspruchnahme"
+msgstr "Например: обоснование применения облегчения"
+
+msgid "Zum Beispiel: Erläuterung zu den Beteiligungen"
+msgstr "Например: пояснение к участиям"
+
+msgid "Zum Beispiel: Angaben zu Druckschriften und Medien"
+msgstr "Например: сведения о печатных изданиях и СМИ"
+
+msgid "Zum Beispiel: Wertansatz und Quelle der Bewertung"
+msgstr "Например: принятая стоимость и источник оценки"
+
+msgid "Nicht angegeben"
+msgstr "Не указано"
+
+msgid "Schalten Sie die Bausteine ein, die in den Bericht aufgenommen werden sollen. Ein ausgeschalteter Baustein erscheint nicht im Bericht, auch wenn Text darin steht."
+msgstr "Включите блоки, которые должны попасть в отчёт. Выключенный блок в отчёте не появится, даже если в нём есть текст."
+
+msgid "In den Bericht aufnehmen"
+msgstr "Включить в отчёт"
+
+msgid "Text: %1"
+msgstr "Текст: %1"
+
+msgid "§ 28 Absatz 1"
+msgstr "§ 28, абзац 1"
+
+msgid "§ 28 Absatz 3"
+msgstr "§ 28, абзац 3"
+
+msgid "Unternehmen"
+msgstr "Предприятие"
+
+msgid "Sitz"
+msgstr "Место нахождения"
+
+msgid "Anteil in %"
+msgstr "Доля в %"
+
+msgid "Bitte einen Anteil zwischen 0 und 100 eingeben."
+msgstr "Введите долю от 0 до 100."
+
+msgid "Kapital (€)"
+msgstr "Капитал (€)"
+
+msgid "Ergebnis (€)"
+msgstr "Результат (€)"
+
+msgid "Beteiligung hinzufügen"
+msgstr "Добавить участие"
+
+msgid "Es sind nicht mehr Einträge möglich."
+msgstr "Больше записей добавить нельзя."
+
+msgid "Bitte keine Steuerzeichen verwenden."
+msgstr "Не используйте управляющие символы."
+
+msgid "Hinweise zur Plausibilität"
+msgstr "Замечания по правдоподобию"
+
+msgid "Keine Hinweise."
+msgstr "Замечаний нет."
+
+msgid "Bitte prüfen"
+msgstr "Нужно проверить"
+
+msgid "Zur Info"
+msgstr "К сведению"
+
+msgid "Zeilen %1 und %2"
+msgstr "Строки %1 и %2"
+
+msgid "Anschrift fehlt"
+msgstr "Нет адреса"
+
+msgid "Anschrift unvollständig"
+msgstr "Адрес неполный"
+
+msgid "Bar-Spenden über 1.000 € erfasst"
+msgstr "Введены пожертвования наличными свыше 1000 €"
+
+msgid "Position %1 weicht deutlich vom Vorjahr ab"
+msgstr "Позиция %1 заметно отличается от прошлого года"
+
+msgid "Weitere deutliche Abweichungen zum Vorjahr werden nicht einzeln aufgeführt"
+msgstr "Дальнейшие заметные отклонения от прошлого года по отдельности не перечисляются"
+
+msgid "Mitgliederzahl fehlt"
+msgstr "Нет числа членов"
+
+msgid "Mindestens ein Abzug fehlt"
+msgstr "Не хватает хотя бы одного вычета"
+
+msgid "Die allgemeinen Angaben zur Rechnungslegung fehlen"
+msgstr "Отсутствуют общие сведения об учёте"
+
+msgid "In diese Liste gehören nur Personen mit mehr als 10.000 € im Jahr."
+msgstr "В этот список входят только люди с суммой свыше 10 000 € в год."
+
+msgid "Bitte zwei Großbuchstaben angeben, zum Beispiel DE."
+msgstr "Введите две заглавные буквы, например DE."
+
+msgid "Der Wert liegt außerhalb des erlaubten Bereichs."
+msgstr "Значение выходит за допустимые пределы."
+
+msgid "Ausweise"
+msgstr "Ведомости"
+
+msgid "Erläuterungen"
+msgstr "Пояснения"
+
+msgid "%1 zu prüfen"
+msgstr "%1 на проверку"
+
+msgid "Rechenschaftsbericht: Ausweise"
+msgstr "Отчёт: ведомости"
+
+msgid "Rechenschaftsbericht: Erläuterungen"
+msgstr "Отчёт: пояснения"

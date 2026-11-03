@@ -29663,3 +29663,219 @@ msgid "%1 Raum umgestellt."
 msgid_plural "%1 Räume umgestellt."
 msgstr[0] "%1 sala cambiada."
 msgstr[1] "%1 salas cambiadas."
+
+msgid "Nicht zuordenbare Spenden"
+msgstr "Donaciones no asignables"
+
+msgid "Bar-Spenden über 1.000 €"
+msgstr "Donaciones en efectivo de más de 1.000 €"
+
+msgid "Spenden über 3.300 € ohne Ausweis"
+msgstr "Donaciones de más de 3.300 € sin justificante"
+
+msgid "Fälschlich gemeldete Spenden"
+msgstr "Donaciones notificadas por error"
+
+msgid "A: Abzüge bei der Spendenbehandlung"
+msgstr "A: Deducciones en el tratamiento de donaciones"
+
+msgid "Leer bedeutet nicht erfasst, 0 ist ein Wert."
+msgstr "Vacío significa no registrado, 0 es un valor."
+
+msgid "Mitgliederzahl zum 31.12."
+msgstr "Número de miembros a 31.12."
+
+msgid "Heute im Mitgliederregister: %1 (Stand %2, nicht der 31.12.)"
+msgstr "Hoy en el registro de miembros: %1 (a fecha %2, no el 31.12.)"
+
+msgid "Für nachgeordnete Gebietsverbände kennt das Mitgliederregister keine Zahl."
+msgstr "El registro de miembros no tiene ninguna cifra para las asociaciones territoriales subordinadas."
+
+msgid "B: Spenden und Beiträge über 10.000 € je Person und Jahr"
+msgstr "B: Donaciones y cuotas de más de 10.000 € por persona y año"
+
+msgid "Nur Vorstand und Admin sehen diese Liste. Aufzunehmen sind Personen mit mehr als 10.000 € pro Jahr an diese Gliederung. Beträge an mehrere Gebietsverbände werden noch nicht zusammengeführt."
+msgstr "Solo la junta directiva y los administradores ven esta lista. Se incluyen las personas con más de 10.000 € al año para esta unidad. Los importes a varias asociaciones territoriales todavía no se suman."
+
+msgid "Noch keine Einträge."
+msgstr "Todavía no hay entradas."
+
+msgid "Zeile hinzufügen"
+msgstr "Añadir fila"
+
+msgid "Das Speichern ist nicht gelungen, oder die Daten wurden inzwischen von jemand anderem geändert. Mit „Neu laden“ sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr "No se pudo guardar, o alguien ha modificado los datos entretanto. Con «Recargar» verá el estado actual; sus entradas se perderán."
+
+msgid "Zeile"
+msgstr "Fila"
+
+msgid "Hinweise"
+msgstr "Avisos"
+
+msgid "Zeile löschen?"
+msgstr "¿Eliminar fila?"
+
+msgid "Die Zeile wird aus der Liste entfernt. Das lässt sich nicht rückgängig machen."
+msgstr "La fila se elimina de la lista. Esto no se puede deshacer."
+
+msgid "Neue Zeile"
+msgstr "Nueva fila"
+
+msgid "Zeile %1 bearbeiten"
+msgstr "Editar fila %1"
+
+msgid "Art der Person"
+msgstr "Tipo de persona"
+
+msgid "Land (zwei Großbuchstaben)"
+msgstr "País (dos letras mayúsculas)"
+
+msgid "Art der Zuwendung"
+msgstr "Tipo de aportación"
+
+msgid "Betrag (€)"
+msgstr "Importe (€)"
+
+msgid "Bitte einen Betrag eingeben."
+msgstr "Introduzca un importe."
+
+msgid "Spende und Beitrag"
+msgstr "Donación y cuota"
+
+msgid "Allgemeine Angaben zur Rechnungslegung"
+msgstr "Información general sobre la contabilidad"
+
+msgid "Erleichterungen nach § 28 PartG"
+msgstr "Facilidades según el § 28 PartG"
+
+msgid "Beteiligungen"
+msgstr "Participaciones"
+
+msgid "Medienerzeugnisse"
+msgstr "Productos de medios"
+
+msgid "Bewertung von Grundstücken"
+msgstr "Valoración de inmuebles"
+
+msgid "Zum Beispiel: Bilanzierungs- und Bewertungsmethoden"
+msgstr "Por ejemplo: métodos de contabilización y valoración"
+
+msgid "Zum Beispiel: Begründung der Inanspruchnahme"
+msgstr "Por ejemplo: motivo para acogerse a la facilidad"
+
+msgid "Zum Beispiel: Erläuterung zu den Beteiligungen"
+msgstr "Por ejemplo: explicación de las participaciones"
+
+msgid "Zum Beispiel: Angaben zu Druckschriften und Medien"
+msgstr "Por ejemplo: datos sobre impresos y medios"
+
+msgid "Zum Beispiel: Wertansatz und Quelle der Bewertung"
+msgstr "Por ejemplo: valor aplicado y fuente de la valoración"
+
+msgid "Nicht angegeben"
+msgstr "No indicado"
+
+msgid "Schalten Sie die Bausteine ein, die in den Bericht aufgenommen werden sollen. Ein ausgeschalteter Baustein erscheint nicht im Bericht, auch wenn Text darin steht."
+msgstr "Active los los bloques que deban incluirse en el informe. Un bloque desactivado no aparece en el informe, aunque contenga texto."
+
+msgid "In den Bericht aufnehmen"
+msgstr "Incluir en el informe"
+
+msgid "Text: %1"
+msgstr "Texto: %1"
+
+msgid "§ 28 Absatz 1"
+msgstr "§ 28, apartado 1"
+
+msgid "§ 28 Absatz 3"
+msgstr "§ 28, apartado 3"
+
+msgid "Unternehmen"
+msgstr "Empresa"
+
+msgid "Sitz"
+msgstr "Domicilio social"
+
+msgid "Anteil in %"
+msgstr "Participación en %"
+
+msgid "Bitte einen Anteil zwischen 0 und 100 eingeben."
+msgstr "Introduzca una participación entre 0 y 100."
+
+msgid "Kapital (€)"
+msgstr "Capital (€)"
+
+msgid "Ergebnis (€)"
+msgstr "Resultado (€)"
+
+msgid "Beteiligung hinzufügen"
+msgstr "Añadir participación"
+
+msgid "Es sind nicht mehr Einträge möglich."
+msgstr "No se pueden añadir más entradas."
+
+msgid "Bitte keine Steuerzeichen verwenden."
+msgstr "No utilice caracteres de control."
+
+msgid "Hinweise zur Plausibilität"
+msgstr "Avisos de plausibilidad"
+
+msgid "Keine Hinweise."
+msgstr "Sin avisos."
+
+msgid "Bitte prüfen"
+msgstr "Por favor, revise"
+
+msgid "Zur Info"
+msgstr "A título informativo"
+
+msgid "Zeilen %1 und %2"
+msgstr "Filas %1 y %2"
+
+msgid "Anschrift fehlt"
+msgstr "Falta la dirección"
+
+msgid "Anschrift unvollständig"
+msgstr "Dirección incompleta"
+
+msgid "Bar-Spenden über 1.000 € erfasst"
+msgstr "Donaciones en efectivo de más de 1.000 € registradas"
+
+msgid "Position %1 weicht deutlich vom Vorjahr ab"
+msgstr "La posición %1 difiere claramente del año anterior"
+
+msgid "Weitere deutliche Abweichungen zum Vorjahr werden nicht einzeln aufgeführt"
+msgstr "Otras desviaciones claras respecto al año anterior no se enumeran una por una"
+
+msgid "Mitgliederzahl fehlt"
+msgstr "Falta el número de miembros"
+
+msgid "Mindestens ein Abzug fehlt"
+msgstr "Falta al menos una deducción"
+
+msgid "Die allgemeinen Angaben zur Rechnungslegung fehlen"
+msgstr "Faltan los datos generales sobre la contabilidad"
+
+msgid "In diese Liste gehören nur Personen mit mehr als 10.000 € im Jahr."
+msgstr "En esta lista solo se incluyen las personas con más de 10.000 € al año."
+
+msgid "Bitte zwei Großbuchstaben angeben, zum Beispiel DE."
+msgstr "Introduzca dos letras mayúsculas, por ejemplo DE."
+
+msgid "Der Wert liegt außerhalb des erlaubten Bereichs."
+msgstr "El valor está fuera del intervalo permitido."
+
+msgid "Ausweise"
+msgstr "Justificantes"
+
+msgid "Erläuterungen"
+msgstr "Notas explicativas"
+
+msgid "%1 zu prüfen"
+msgstr "%1 por revisar"
+
+msgid "Rechenschaftsbericht: Ausweise"
+msgstr "Informe de rendición de cuentas: justificantes"
+
+msgid "Rechenschaftsbericht: Erläuterungen"
+msgstr "Informe de rendición de cuentas: notas explicativas"

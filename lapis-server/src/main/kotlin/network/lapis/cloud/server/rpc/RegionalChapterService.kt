@@ -15,6 +15,7 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.FederationConfig
+import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.server.partg.PartgReportStore
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.requireRole
@@ -250,7 +251,12 @@ class RegionalChapterService internal constructor(
             if (activeOfficerCount > 0) throw RegionalChapterInUseException()
             // V1.9.225: report sheets of this chapter (even an empty header) block the delete with their own typed refusal; checked up front so
             // no foreign key violation poisons the PostgreSQL transaction.
-            if (PartgReportStore.hasValuesForChapter(id)) throw RegionalChapterHasPartyReportValuesException()
+            // V1.9.269: the separate statements (annex) of this chapter block it the same way.
+            if (PartgReportStore.hasValuesForChapter(id) ||
+                PartgAnnexStore.hasAnnexForChapter(id)
+            ) {
+                throw RegionalChapterHasPartyReportValuesException()
+            }
 
             // Only revoked officer grants can remain at this point (their history stays in the
             // audit log) -- delete them so a later chapter of the SAME name is not haunted by

@@ -215,6 +215,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.ACTIVISM_SETTINGS -> gettext("Einstellungen der Aktionen")
         // V1.9.256 -- one export of the report draft (PDF or Excel); counters only.
         AuditEntityType.PARTG_REPORT_EXPORT -> gettext("Export Rechenschaftsbericht (Entwurf)")
+        // V1.9.269 -- the separate statements and the notes of the report draft; counters and codes only.
+        AuditEntityType.PARTG_REPORT_ANNEX -> gettext("Rechenschaftsbericht: Ausweise")
+        AuditEntityType.PARTG_REPORT_NOTES -> gettext("Rechenschaftsbericht: Erläuterungen")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -355,6 +358,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.ACTIVISM_REPORT -> "secondary"
         AuditEntityType.ACTIVISM_SETTINGS -> "secondary"
         AuditEntityType.PARTG_REPORT_EXPORT -> "secondary"
+        AuditEntityType.PARTG_REPORT_ANNEX -> "secondary"
+        AuditEntityType.PARTG_REPORT_NOTES -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

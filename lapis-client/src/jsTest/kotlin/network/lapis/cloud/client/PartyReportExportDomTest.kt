@@ -17,8 +17,8 @@ import kotlin.test.assertTrue
 class PartyReportExportDomTest {
     private fun HTMLElement.shows(text: String): Boolean = textContent.orEmpty().contains(text)
 
-    /** The second select of the page: the first one is the report year. */
-    private fun HTMLElement.scopeSelect(): HTMLSelectElement = querySelectorAll("select").item(1) as HTMLSelectElement
+    /** A select of the page by its label (the year select and the narrow-screen tab select come first, so no index). */
+    private fun HTMLElement.scopeSelect(label: String = "Umfang"): HTMLSelectElement = controlOf(label) as HTMLSelectElement
 
     /** Records (and cancels) every download anchor that is clicked while [block] runs. */
     private suspend fun <T> recordingDownloads(block: suspend (() -> List<String>) -> T): T {
@@ -150,7 +150,7 @@ class PartyReportExportDomTest {
                     awaitUntil("the checklist") { element().allOf("details[data-missing]").isNotEmpty() }
                     element().allOf("details[data-missing] button").first { it.textContent?.trim() == "Werte erfassen" }.click()
                     awaitUntil("the entry table") { element().allOf("input[id^='partg-current-']").size == 35 }
-                    val select = element().scopeSelect()
+                    val select = element().scopeSelect("Gliederung")
                     assertEquals("FEDERAL", select.value)
                 }
             }

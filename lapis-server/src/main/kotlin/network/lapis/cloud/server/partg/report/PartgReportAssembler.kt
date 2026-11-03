@@ -1,6 +1,10 @@
 package network.lapis.cloud.server.partg.report
 
+import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.server.partg.PartgCompletenessCalculator
+import network.lapis.cloud.shared.domain.PartgCell
+import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgReportComputation
 import network.lapis.cloud.shared.domain.PartgReportScope
 import network.lapis.cloud.shared.domain.PartgUnitDto
@@ -24,6 +28,9 @@ internal object PartgReportAssembler {
         scope: PartgReportScope,
         units: List<PartgUnitDto>,
         entered: Map<Int, Map<String, Map<String, Long>>>,
+        annex: Map<Int, Map<String, PartgAnnexStore.AnnexData>> = emptyMap(),
+        notes: Map<Int, PartgAnnexStore.NotesData> = emptyMap(),
+        findings: List<PartgFindingDto> = emptyList(),
     ): PartgReportDocument {
         if (units.size > PartgReportComputation.MAX_UNITS) throw PartyReportInvalidInputException("Too many units")
         val selected =
@@ -87,6 +94,80 @@ internal object PartgReportAssembler {
             consolidated = consolidated,
             levels = levels,
             completeness = PartgCompletenessCalculator.compute(year = year, units = selected, entered = entered),
+            annex = annexSection(year = year, selected = selected, all = all, annex = annex),
+            notes = notesSection(notes[year]),
+            findings = findings,
         )
     }
+
+    private fun annexSection(
+        year: Int,
+        selected: List<PartgUnitDto>,
+        all: Boolean,
+        annex: Map<Int, Map<String, PartgAnnexStore.AnnexData>>,
+    ): AnnexSection {
+        val data = annex[year].orEmpty()
+        val pages =
+            selected.map { unit ->
+                val row = data[unit.unitKey]
+                AnnexPage(
+                    label = unitLabel(unit),
+                    deductions =
+                        PartgDeduction.entries.associateWith { d ->
+                            row?.deductions?.get(d)?.let { PartgCell.Value(it) }
+                                ?: PartgCell.NotEntered
+                        },
+                    memberCount = row?.memberCount,
+                )
+            }
+        val whole =
+            if (all) {
+                AnnexPage(
+                    label = PartgReportTexts.WHOLE_PARTY,
+                    deductions = PartgDeduction.entries.associateWith { d -> sumDeduction(deduction = d, pages = pages) },
+                    memberCount =
+                        selected.indexOfFirst { it.level == PartgUnitLevel.FEDERAL }.takeIf { it >= 0 }?.let {
+                            pages[it]
+                                .memberCount
+                        },
+                )
+            } else {
+                null
+            }
+        val donors =
+            selected.flatMap { unit ->
+                val label = unitLabel(unit)
+                data[unit.unitKey]?.donors.orEmpty().mapIndexed { index, donor ->
+                    DonorLine(
+                        unitLabel = label,
+                        rowNumber = index + 1,
+                        personKind = donor.personKind,
+                        name = donor.name,
+                        addressLine =
+                            listOfNotNull(donor.street, listOfNotNull(donor.postalCode, donor.city).joinToString(" ").ifEmpty { null })
+                                .joinToString(", "),
+                        country = donor.country,
+                        contributionKind = donor.contributionKind,
+                        amountCents = donor.amountCents,
+                    )
+                }
+            }
+        return AnnexSection(units = pages, wholeParty = whole, donors = donors)
+    }
+
+    /** Value when every unit entered the figure, NotEntered when none did, else Partial (the same rule as the positions). */
+    private fun sumDeduction(
+        deduction: PartgDeduction,
+        pages: List<AnnexPage>,
+    ): PartgCell {
+        val entered = pages.mapNotNull { (it.deductions.getValue(deduction) as? PartgCell.Value)?.cents }
+        return when {
+            entered.isEmpty() -> PartgCell.NotEntered
+            entered.size == pages.size -> PartgCell.Value(entered.sum())
+            else -> PartgCell.Partial(cents = entered.sum(), missing = listOf(deduction.name))
+        }
+    }
+
+    private fun notesSection(data: PartgAnnexStore.NotesData?): NotesSection =
+        NotesSection(blocks = data?.notes.orEmpty().filter { it.included }, holdings = data?.holdings.orEmpty())
 }

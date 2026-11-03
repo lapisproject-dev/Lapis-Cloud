@@ -50,6 +50,9 @@ class PartgReportStoreTripwireTest :
                         "PartgReportRoutes.kt",
                         "PartgReportExportRoutes.kt",
                         "RegionalChapterService.kt",
+                        // V1.9.269: the annex writer takes the chapter lock, the snapshot reader reads the sheet revisions
+                        "PartgAnnexWriter.kt",
+                        "PartgReportSnapshotReader.kt",
                     ),
                 ).shouldBeEmpty()
         }

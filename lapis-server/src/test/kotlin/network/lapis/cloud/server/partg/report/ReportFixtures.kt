@@ -1,7 +1,15 @@
 package network.lapis.cloud.server.partg.report
 
+import network.lapis.cloud.server.partg.PartgAnnexStore
+import network.lapis.cloud.shared.domain.PartgContributionKind
+import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgHoldingDto
+import network.lapis.cloud.shared.domain.PartgNoteBlock
+import network.lapis.cloud.shared.domain.PartgNoteDto
+import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgPositions
 import network.lapis.cloud.shared.domain.PartgReportScope
+import network.lapis.cloud.shared.domain.PartgTriState
 import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
@@ -9,6 +17,7 @@ import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 import javax.xml.stream.XMLInputFactory
 import javax.xml.stream.XMLStreamConstants
+import kotlin.uuid.Uuid
 
 /** A small, fixed party: the federal level and two regional chapters (state unit + subordinate summary each), partly entered. */
 internal object ReportFixtures {
@@ -69,6 +78,144 @@ internal object ReportFixtures {
         entered: Map<Int, Map<String, Map<String, Long>>> = entered(),
     ): PartgReportDocument =
         PartgReportAssembler.assemble(organizationName = org, year = YEAR, scope = scope, units = units, entered = entered)
+
+    private fun donor(
+        name: String,
+        cents: Long,
+        kind: PartgPersonKind = PartgPersonKind.NATURAL,
+        street: String? = "Hauptstraße 1",
+        postal: String? = "38100",
+        city: String? = "Braunschweig",
+    ) = PartgAnnexStore.DonorRow(
+        id = Uuid.random(),
+        annexId = Uuid.random(),
+        personKind = kind,
+        name = name,
+        street = street,
+        postalCode = postal,
+        city = city,
+        country = "DE",
+        contributionKind = PartgContributionKind.DONATION,
+        amountCents = cents,
+    )
+
+    /** Hostile and exotic donor names on purpose: formula starters, Umlauts, Cyrillic. */
+    fun federalDonors(): List<PartgAnnexStore.DonorRow> =
+        PartgAnnexStore.sortDonors(
+            listOf(
+                donor(name = "=HYPERLINK(\"http://evil.example\",\"x\")", cents = 9_000_000L),
+                donor(name = "+1 Plus", cents = 8_000_000L),
+                donor(name = "-x Minus", cents = 7_000_000L),
+                donor(name = "@x At", cents = 6_000_000L),
+                donor(name = "Müller & Söhne <GmbH>", cents = 5_000_000L, kind = PartgPersonKind.LEGAL),
+                donor(name = "Иван Петров", cents = 4_000_000L, street = null, postal = null, city = null),
+            ),
+        )
+
+    fun annexData(): Map<Int, Map<String, PartgAnnexStore.AnnexData>> =
+        mapOf(
+            YEAR to
+                mapOf(
+                    PartgUnit.FEDERAL_KEY to
+                        PartgAnnexStore.AnnexData(
+                            revision = 3,
+                            deductions =
+                                mapOf(
+                                    PartgDeduction.UNASSIGNABLE to 11_100L,
+                                    PartgDeduction.CASH_OVER_1000 to 0L,
+                                    PartgDeduction.OVER_3300 to null,
+                                    PartgDeduction.WRONGLY_REPORTED to 33_300L,
+                                ),
+                            memberCount = 1_234,
+                            donors = federalDonors(),
+                        ),
+                    PartgUnit.State(CHAPTER_A).key() to
+                        PartgAnnexStore.AnnexData(
+                            revision = 1,
+                            deductions = PartgDeduction.entries.associateWith { 2_200L },
+                            memberCount = null,
+                            donors = emptyList(),
+                        ),
+                ),
+        )
+
+    fun notesData(): Map<Int, PartgAnnexStore.NotesData> =
+        mapOf(
+            YEAR to
+                PartgAnnexStore.NotesData(
+                    revision = 2,
+                    notes =
+                        listOf(
+                            PartgNoteDto(
+                                block = PartgNoteBlock.GENERAL_ACCOUNTING,
+                                included = true,
+                                body = "Erste Zeile\nZweite Zeile: =SUMME(A1)",
+                                reliefAbs1 = null,
+                                reliefAbs3 = null,
+                            ),
+                            PartgNoteDto(
+                                block = PartgNoteBlock.RELIEF_28,
+                                included = true,
+                                body = "Begründung",
+                                reliefAbs1 = PartgTriState.YES,
+                                reliefAbs3 = PartgTriState.UNSPECIFIED,
+                            ),
+                            PartgNoteDto(
+                                block = PartgNoteBlock.HOLDINGS,
+                                included = true,
+                                body = null,
+                                reliefAbs1 = null,
+                                reliefAbs3 = null,
+                            ),
+                            PartgNoteDto(
+                                block = PartgNoteBlock.MEDIA_PRODUCTS,
+                                included = false,
+                                body = "Nicht aufgenommen, darf nicht erscheinen",
+                                reliefAbs1 = null,
+                                reliefAbs3 = null,
+                            ),
+                            PartgNoteDto(
+                                block = PartgNoteBlock.REAL_ESTATE_VALUATION,
+                                included = false,
+                                body = null,
+                                reliefAbs1 = null,
+                                reliefAbs3 = null,
+                            ),
+                        ),
+                    holdings =
+                        listOf(
+                            PartgHoldingDto(
+                                name = "Pressehaus GmbH",
+                                seat = "Berlin",
+                                shareBasisPoints = 2_550,
+                                capitalCents = 25_000_00L,
+                                resultCents = -1_500_00L,
+                            ),
+                        ),
+                ),
+        )
+
+    /** The standard document plus the R3 statements, notes and the hints computed from them. */
+    fun docR3(scope: PartgReportScope = PartgReportScope.All): PartgReportDocument {
+        val findings =
+            PartgPlausibility.check(
+                year = YEAR,
+                units = units(),
+                entered = entered(),
+                annex = annexData(),
+                notes = notesData(),
+            )
+        return PartgReportAssembler.assemble(
+            organizationName = "Test Partei e.V.",
+            year = YEAR,
+            scope = scope,
+            units = units(),
+            entered = entered(),
+            annex = annexData(),
+            notes = notesData(),
+            findings = findings,
+        )
+    }
 }
 
 /** A parsed XLSX cell: `type` is the `t` attribute (`n` when absent), `style` the `s` attribute. */

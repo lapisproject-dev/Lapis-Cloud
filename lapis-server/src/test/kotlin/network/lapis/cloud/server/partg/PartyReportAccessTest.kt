@@ -6,10 +6,15 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PartgContributionKind
+import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
+import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
 import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportNotEnabledException
+import network.lapis.cloud.shared.rpc.PartyReportRevisionConflictException
 import kotlin.uuid.Uuid
 
 /**
@@ -34,6 +39,43 @@ class PartyReportAccessTest :
                 "overview" to { s -> s.overview(year) },
                 "getSheet" to { s -> s.getSheet(year = year, unitKey = "FEDERAL") },
                 "reportCompleteness" to { s -> s.reportCompleteness(year) },
+                // V1.9.269 (R3): every new method is gated the same way
+                "getAnnex" to { s -> s.getAnnex(year = year, unitKey = "FEDERAL") },
+                "saveAnnexFigures" to
+                    { s ->
+                        s.saveAnnexFigures(
+                            year = year,
+                            unitKey = "FEDERAL",
+                            expectedRevision = 0,
+                            deductions = emptyMap(),
+                            memberCount = null,
+                        )
+                    },
+                "saveLargeDonor" to
+                    { s ->
+                        s.saveLargeDonor(
+                            year = year,
+                            unitKey = "FEDERAL",
+                            expectedRevision = 0,
+                            donor =
+                                PartgLargeDonorInputDto(
+                                    id = null,
+                                    personKind = PartgPersonKind.NATURAL,
+                                    name = "Zugriffstest",
+                                    street = null,
+                                    postalCode = null,
+                                    city = null,
+                                    country = "DE",
+                                    contributionKind = PartgContributionKind.DONATION,
+                                    amountCents = 1_000_001L,
+                                ),
+                        )
+                    },
+                "deleteLargeDonor" to
+                    { s -> s.deleteLargeDonor(year = year, unitKey = "FEDERAL", expectedRevision = 0, donorId = Uuid.random().toString()) },
+                "getNotes" to { s -> s.getNotes(year) },
+                "saveNotes" to { s -> s.saveNotes(year = year, expectedRevision = 0, notes = emptyList(), holdings = emptyList()) },
+                "reportFindings" to { s -> s.reportFindings(year) },
                 "saveSheet" to
                     { s ->
                         s.saveSheet(
@@ -49,7 +91,7 @@ class PartyReportAccessTest :
         test("the list of methods covers the whole interface") {
             val declared = network.lapis.cloud.shared.rpc.IPartyReportService::class.members.map { it.name }.toSet()
             (methods.map { it.first }.toSet() == declared.intersect(methods.map { it.first }.toSet())) shouldBe true
-            methods.size shouldBe 7
+            methods.size shouldBe 14
         }
 
         test("board and admin may call every method of a party") {
@@ -58,7 +100,14 @@ class PartyReportAccessTest :
                     val member = fx.member(role = role)
                     for ((name, op) in methods) {
                         val result = attempt(member = member) { op(service(it)) }
-                        (name to result.isSuccess) shouldBe (name to true)
+                        // past the gate: success, or the NotFound / revision conflict of the method itself (the same federal annex is written by the second role)
+                        (
+                            name to (
+                                result.isSuccess ||
+                                    result.exceptionOrNull() is NotFoundException ||
+                                    result.exceptionOrNull() is PartyReportRevisionConflictException
+                            )
+                        ) shouldBe (name to true)
                     }
                 }
             }

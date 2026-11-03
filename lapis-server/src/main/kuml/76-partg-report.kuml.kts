@@ -17,6 +17,14 @@
 // chk_partg_sheet_unit_consistency (unit_level, regional_chapter_id and unit_key agree), chk_partg_value_amount (0..99999999999999),
 // chk_partg_value_source, and the rule "a value may only point to a LEAF position" (the service enforces it; same approach as V59).
 //
+// Welle V1.9.269 "Rechenschaftsbericht R3" (V139__partg_report_r3.sql) adds FIVE tables: partg_report_annex (deductions A + member count E per
+// year and unit, audit entity), partg_report_large_donor (statement B), partg_report_notes_sheet (notes per year, audit entity),
+// partg_report_note (five fixed blocks) and partg_report_holding (structured holdings). NOT expressible in the ERM profile (SQL only, V139): every
+// CHECK (year, unit consistency, revision, ranges, enum literals, amount > 1,000,000 cents of a large donor, relief fields only in RELIEF_28), and
+// the row limits (500 donors, 50 holdings; checked by the service under the lock of the header row).
+// DSGVO (R3): partg_report_large_donor is PERSONAL DATA OF THIRD PARTIES (name, address, yearly sum above 10,000 EUR); no member foreign key,
+// listed in PersonalDataRegistry.knownUncoveredSubjectRoots; created_by/updated_by of all R3 tables are "changed by you" data.
+//
 // DSGVO -- partg_report_sheet.updated_by, partg_report_value.updated_by and partg_report_position.org_hint_updated_by are personal data
 // (who changed what); network.lapis.cloud.server.dsgvo.PartgReportPersonalData exports them as "changed by you" without amounts. The rows are
 // RETAINED on erasure (retention duties of section 24 and section 19a PartG).
@@ -69,6 +77,33 @@ classDiagram(name = "PartgReport") {
         enumOf(name = "PartgValueSource") {
             literal(name = "MANUAL")
             literal(name = "IMPORT")
+        }
+
+    // V1.9.269 (R3). Literal order is load-bearing (= network.lapis.cloud.shared.domain.*).
+    val partgPersonKind =
+        enumOf(name = "PartgPersonKind") {
+            literal(name = "NATURAL")
+            literal(name = "LEGAL")
+        }
+    val partgContributionKind =
+        enumOf(name = "PartgContributionKind") {
+            literal(name = "DONATION")
+            literal(name = "FEE")
+            literal(name = "BOTH")
+        }
+    val partgNoteBlock =
+        enumOf(name = "PartgNoteBlock") {
+            literal(name = "GENERAL_ACCOUNTING")
+            literal(name = "RELIEF_28")
+            literal(name = "HOLDINGS")
+            literal(name = "MEDIA_PRODUCTS")
+            literal(name = "REAL_ESTATE_VALUATION")
+        }
+    val partgTriState =
+        enumOf(name = "PartgTriState") {
+            literal(name = "YES")
+            literal(name = "NO")
+            literal(name = "UNSPECIFIED")
         }
 
     classOf(name = "PartgReportPosition") {
@@ -191,6 +226,247 @@ classDiagram(name = "PartgReport") {
                 "sqlType" to "VARCHAR(6)"
                 "enumType" to "network.lapis.cloud.shared.domain.PartgValueSource"
             }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.269 (R3)
+    classOf(name = "PartgReportAnnex") {
+        stereotype("Entity") { "tableName" to "partg_report_annex"; "kotlinObjectName" to "PartgReportAnnexTable" }
+        stereotype("Index") { "columns" to listOf("fiscal_year", "unit_key"); "unique" to true; "name" to "uq_partg_report_annex_year_unit" }
+        stereotype("Index") { "columns" to listOf("regional_chapter_id"); "name" to "ix_partg_report_annex_regional_chapter" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_annex_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "fiscalYear", type = "Int") {
+            stereotype("Column") { "columnName" to "fiscal_year" }
+        }
+        attribute(name = "unitLevel", type = partgUnitLevel) {
+            stereotype("Column") {
+                "columnName" to "unit_level"
+                "sqlType" to "VARCHAR(11)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgUnitLevel"
+            }
+        }
+        attribute(name = "regionalChapterId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "regional_chapter_id"; "fkEntity" to "RegionalChapter" }
+        }
+        attribute(name = "unitKey", type = "String") {
+            stereotype("Column") { "columnName" to "unit_key"; "sqlType" to "VARCHAR(48)" }
+        }
+        attribute(name = "revision", type = "Long") {
+            stereotype("Column") { "columnName" to "revision" }
+        }
+        attribute(name = "deductionUnassignableCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "deduction_unassignable_cents" }
+        }
+        attribute(name = "deductionCashOver1000Cents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "deduction_cash_over_1000_cents" }
+        }
+        attribute(name = "deductionOver3300Cents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "deduction_over_3300_cents" }
+        }
+        attribute(name = "deductionWronglyReportedCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "deduction_wrongly_reported_cents" }
+        }
+        attribute(name = "memberCount", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "member_count" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.269 (R3)
+    classOf(name = "PartgReportLargeDonor") {
+        stereotype("Entity") { "tableName" to "partg_report_large_donor"; "kotlinObjectName" to "PartgReportLargeDonorTable" }
+        stereotype("Index") { "columns" to listOf("annex_id"); "name" to "ix_partg_report_large_donor_annex" }
+        stereotype("Index") { "columns" to listOf("created_by"); "name" to "ix_partg_report_large_donor_created_by" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_large_donor_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "annexId", type = "UUID") {
+            stereotype("Column") { "columnName" to "annex_id"; "fkEntity" to "PartgReportAnnex" }
+        }
+        attribute(name = "personKind", type = partgPersonKind) {
+            stereotype("Column") {
+                "columnName" to "person_kind"
+                "sqlType" to "VARCHAR(7)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgPersonKind"
+            }
+        }
+        attribute(name = "name", type = "String") {
+            stereotype("Column") { "columnName" to "name"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "street", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "street"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "postalCode", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "postal_code"; "sqlType" to "VARCHAR(10)" }
+        }
+        attribute(name = "city", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "city"; "sqlType" to "VARCHAR(100)" }
+        }
+        attribute(name = "country", type = "String") {
+            stereotype("Column") { "columnName" to "country"; "sqlType" to "VARCHAR(2)" }
+        }
+        attribute(name = "contributionKind", type = partgContributionKind) {
+            stereotype("Column") {
+                "columnName" to "contribution_kind"
+                "sqlType" to "VARCHAR(8)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgContributionKind"
+            }
+        }
+        attribute(name = "amountCents", type = "Long") {
+            stereotype("Column") { "columnName" to "amount_cents" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.269 (R3)
+    classOf(name = "PartgReportNotesSheet") {
+        stereotype("Entity") { "tableName" to "partg_report_notes_sheet"; "kotlinObjectName" to "PartgReportNotesSheetTable" }
+        stereotype("Index") { "columns" to listOf("fiscal_year"); "unique" to true; "name" to "uq_partg_report_notes_sheet_year" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_notes_sheet_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "fiscalYear", type = "Int") {
+            stereotype("Column") { "columnName" to "fiscal_year" }
+        }
+        attribute(name = "revision", type = "Long") {
+            stereotype("Column") { "columnName" to "revision" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.269 (R3)
+    classOf(name = "PartgReportNote") {
+        stereotype("Entity") { "tableName" to "partg_report_note"; "kotlinObjectName" to "PartgReportNoteTable" }
+        stereotype("Index") { "columns" to listOf("notes_sheet_id", "block_code"); "unique" to true; "name" to "uq_partg_report_note_sheet_block" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_note_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "notesSheetId", type = "UUID") {
+            stereotype("Column") { "columnName" to "notes_sheet_id"; "fkEntity" to "PartgReportNotesSheet" }
+        }
+        attribute(name = "blockCode", type = partgNoteBlock) {
+            stereotype("Column") {
+                "columnName" to "block_code"
+                "sqlType" to "VARCHAR(21)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgNoteBlock"
+            }
+        }
+        attribute(name = "included", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "included" }
+        }
+        attribute(name = "body", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "body"; "sqlType" to "VARCHAR(4000)" }
+        }
+        attribute(name = "reliefAbs1", type = partgTriState) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "relief_abs1"
+                "sqlType" to "VARCHAR(11)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgTriState"
+            }
+        }
+        attribute(name = "reliefAbs3", type = partgTriState) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "relief_abs3"
+                "sqlType" to "VARCHAR(11)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgTriState"
+            }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.269 (R3)
+    classOf(name = "PartgReportHolding") {
+        stereotype("Entity") { "tableName" to "partg_report_holding"; "kotlinObjectName" to "PartgReportHoldingTable" }
+        stereotype("Index") { "columns" to listOf("notes_sheet_id", "sort_order"); "unique" to true; "name" to "uq_partg_report_holding_sheet_order" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_holding_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "notesSheetId", type = "UUID") {
+            stereotype("Column") { "columnName" to "notes_sheet_id"; "fkEntity" to "PartgReportNotesSheet" }
+        }
+        attribute(name = "sortOrder", type = "Int") {
+            stereotype("Column") { "columnName" to "sort_order" }
+        }
+        attribute(name = "name", type = "String") {
+            stereotype("Column") { "columnName" to "name"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "seat", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "seat"; "sqlType" to "VARCHAR(100)" }
+        }
+        attribute(name = "shareBasisPoints", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "share_basis_points" }
+        }
+        attribute(name = "capitalCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "capital_cents" }
+        }
+        attribute(name = "resultCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "result_cents" }
         }
         attribute(name = "updatedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "updated_at" }

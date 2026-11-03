@@ -4,8 +4,19 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
+import network.lapis.cloud.shared.domain.PartgContributionKind
+import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgFindingDto
+import network.lapis.cloud.shared.domain.PartgLargeDonorDto
+import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
+import network.lapis.cloud.shared.domain.PartgMemberCountSuggestionDto
+import network.lapis.cloud.shared.domain.PartgNoteBlock
+import network.lapis.cloud.shared.domain.PartgNoteDto
+import network.lapis.cloud.shared.domain.PartgNotesDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
+import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgPositions
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
@@ -94,6 +105,60 @@ internal object PartyReportDomSupport {
             priorRevision = 0,
         )
 
+    // ---- V1.9.269 (R3): the state the stub answers with; every R3 test sets what it needs first (resetR3)
+    var annex: PartgAnnexDto = annexDto()
+    var findings: List<PartgFindingDto> = emptyList()
+    var notes: PartgNotesDto = notesDto()
+
+    fun resetR3() {
+        annex = annexDto()
+        findings = emptyList()
+        notes = notesDto()
+    }
+
+    fun donor(
+        id: String,
+        row: Int,
+        name: String,
+        city: String? = "Braunschweig",
+        cents: Long = 1_200_000L,
+        kind: PartgPersonKind = PartgPersonKind.NATURAL,
+    ) = PartgLargeDonorDto(
+        id = id,
+        rowNumber = row,
+        personKind = kind,
+        name = name,
+        street = if (city == null) null else "Hauptstraße 1",
+        postalCode = if (city == null) null else "38100",
+        city = city,
+        country = "DE",
+        contributionKind = PartgContributionKind.DONATION,
+        amountCents = cents,
+    )
+
+    fun annexDto(
+        year: Int = 2025,
+        suggestion: Boolean = true,
+        donors: List<PartgLargeDonorDto> =
+            listOf(donor("d1", 1, "Fixture Person Eins"), donor("d2", 2, "Fixture Firma Zwei", null, 1_100_000L, PartgPersonKind.LEGAL)),
+    ) = PartgAnnexDto(
+        year = year,
+        unit = federal,
+        revision = 2,
+        deductions = PartgDeduction.entries.associateWith { null },
+        memberCount = null,
+        memberCountSuggestion = if (suggestion) PartgMemberCountSuggestionDto(1234, kotlinx.datetime.LocalDate(2025, 6, 15)) else null,
+        donors = donors,
+    )
+
+    fun notesDto() =
+        PartgNotesDto(
+            year = 2025,
+            revision = 1,
+            notes = PartgNoteBlock.entries.map { PartgNoteDto(it, false, null, null, null) },
+            holdings = emptyList(),
+        )
+
     /** The routes of the seven methods, found through the compiler-checked service reference. */
     class Routes(
         val overview: String,
@@ -103,6 +168,13 @@ internal object PartyReportDomSupport {
         val save: String,
         val hint: String,
         val completeness: String,
+        val getAnnex: String,
+        val saveFigures: String,
+        val saveDonor: String,
+        val deleteDonor: String,
+        val getNotes: String,
+        val saveNotes: String,
+        val findings: String,
     )
 
     suspend fun routes() =
@@ -114,6 +186,31 @@ internal object PartyReportDomSupport {
             save = routeOf { rpcService<IPartyReportService>().saveSheet(2025, "FEDERAL", 0, 0, emptyList()) },
             hint = routeOf { rpcService<IPartyReportService>().updatePositionHint("E01", null) },
             completeness = routeOf { rpcService<IPartyReportService>().reportCompleteness(2025) },
+            getAnnex = routeOf { rpcService<IPartyReportService>().getAnnex(2025, "FEDERAL") },
+            saveFigures = routeOf { rpcService<IPartyReportService>().saveAnnexFigures(2025, "FEDERAL", 0, emptyMap(), null) },
+            saveDonor =
+                routeOf {
+                    rpcService<IPartyReportService>().saveLargeDonor(
+                        2025,
+                        "FEDERAL",
+                        0,
+                        PartgLargeDonorInputDto(
+                            null,
+                            PartgPersonKind.NATURAL,
+                            "x",
+                            null,
+                            null,
+                            null,
+                            "DE",
+                            PartgContributionKind.DONATION,
+                            1_000_001L,
+                        ),
+                    )
+                },
+            deleteDonor = routeOf { rpcService<IPartyReportService>().deleteLargeDonor(2025, "FEDERAL", 0, "x") },
+            getNotes = routeOf { rpcService<IPartyReportService>().getNotes(2025) },
+            saveNotes = routeOf { rpcService<IPartyReportService>().saveNotes(2025, 0, emptyList(), emptyList()) },
+            findings = routeOf { rpcService<IPartyReportService>().reportFindings(2025) },
         )
 
     fun answer(
@@ -136,6 +233,12 @@ internal object PartyReportDomSupport {
                 request.answerWith(
                     jsonOf(PartgSaveResultDto.serializer(), PartgSaveResultDto(revision = 1, priorRevision = 0, changed = 2)),
                 )
+            request.rpcRoute == routes.getAnnex -> request.answerWith(jsonOf(PartgAnnexDto.serializer(), annex))
+            request.rpcRoute == routes.saveFigures || request.rpcRoute == routes.saveDonor || request.rpcRoute == routes.deleteDonor ->
+                request.answerWith(jsonOf(PartgAnnexDto.serializer(), annex))
+            request.rpcRoute == routes.getNotes || request.rpcRoute == routes.saveNotes ->
+                request.answerWith(jsonOf(PartgNotesDto.serializer(), notes))
+            request.rpcRoute == routes.findings -> request.answerWith(jsonOf(ListSerializer(PartgFindingDto.serializer()), findings))
             else -> request.answerWith("null")
         }
 }

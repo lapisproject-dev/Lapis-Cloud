@@ -15,6 +15,11 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
+import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
+import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
+import network.lapis.cloud.server.db.generated.PartgReportNoteTable
+import network.lapis.cloud.server.db.generated.PartgReportNotesSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportPositionTable
 import network.lapis.cloud.server.db.generated.PartgReportSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
@@ -27,6 +32,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -154,6 +160,25 @@ internal class PartgFixtures(
 
     fun cleanUp() {
         transaction {
+            // V1.9.269: the R3 rows first (children before headers)
+            val annexIds =
+                PartgReportAnnexTable
+                    .selectAll()
+                    .where {
+                        PartgReportAnnexTable.updatedBy inList memberIds
+                    }.map { it[PartgReportAnnexTable.id] }
+            PartgReportLargeDonorTable.deleteWhere {
+                (PartgReportLargeDonorTable.annexId inList annexIds) or (PartgReportLargeDonorTable.createdBy inList memberIds)
+            }
+            PartgReportAnnexTable.deleteWhere { PartgReportAnnexTable.id inList annexIds }
+            val notesIds =
+                PartgReportNotesSheetTable
+                    .selectAll()
+                    .where { PartgReportNotesSheetTable.updatedBy inList memberIds }
+                    .map { it[PartgReportNotesSheetTable.id] }
+            PartgReportNoteTable.deleteWhere { PartgReportNoteTable.notesSheetId inList notesIds }
+            PartgReportHoldingTable.deleteWhere { PartgReportHoldingTable.notesSheetId inList notesIds }
+            PartgReportNotesSheetTable.deleteWhere { PartgReportNotesSheetTable.id inList notesIds }
             val sheetIds =
                 PartgReportSheetTable
                     .selectAll()
@@ -168,6 +193,7 @@ internal class PartgFixtures(
                 it[orgHintUpdatedBy] = null
             }
             AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId inList memberIds }) { it[actorMemberId] = null }
+            MemberTable.update({ MemberTable.regionalChapterId inList chapterIds }) { it[regionalChapterId] = null }
             RegionalChapterTable.deleteWhere { RegionalChapterTable.id inList chapterIds }
             AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
             MemberTable.deleteWhere { MemberTable.id inList memberIds }

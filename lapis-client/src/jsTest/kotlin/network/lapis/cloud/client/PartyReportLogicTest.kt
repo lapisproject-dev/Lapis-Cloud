@@ -208,4 +208,73 @@ class PartyReportLogicTest {
             )
         assertEquals(listOf(PartgChecklistKind.PRIOR_NONE, PartgChecklistKind.COMPLETE_SUMMARY), lines.map { it.kind })
     }
+
+    // ---- V1.9.269 (R3)
+
+    @Test
+    fun rowNumbers_areWrittenInGerman() {
+        assertEquals("", partgRowNumbersText(emptyList()))
+        assertEquals("Zeile 3", partgRowNumbersText(listOf(3)))
+        assertEquals("Zeilen 1 und 3", partgRowNumbersText(listOf(1, 3)))
+        assertEquals("Zeilen 1, 3 und 7", partgRowNumbersText(listOf(1, 3, 7)))
+    }
+
+    @Test
+    fun theDateOfACount_isGerman() {
+        assertEquals("15.06.2025", partgGermanDate(kotlinx.datetime.LocalDate(2025, 6, 15)))
+        assertEquals("01.01.2030", partgGermanDate(kotlinx.datetime.LocalDate(2030, 1, 1)))
+    }
+
+    @Test
+    fun aHintLine_namesUnitRowsAndReason_butNoPerson() {
+        val finding =
+            network.lapis.cloud.shared.domain.PartgFindingDto(
+                network.lapis.cloud.shared.domain.PartgFindingCode.P02,
+                network.lapis.cloud.shared.domain.PartgFindingLevel.CHECK,
+                "FEDERAL",
+                listOf(2, 5),
+                target = network.lapis.cloud.shared.domain.PartgFindingTarget.ANNEX,
+            )
+        assertEquals("Bundesverband, Zeilen 2 und 5: Anschrift unvollständig", partgFindingLine(finding, "Bundesverband"))
+        assertEquals("Zeilen 2 und 5: Anschrift unvollständig", partgFindingLine(finding, null))
+    }
+
+    @Test
+    fun theCheckCountsPerUnit_ignoreInfoHintsAndTheOrganisation() {
+        val ann = network.lapis.cloud.shared.domain.PartgFindingTarget.ANNEX
+        val check = network.lapis.cloud.shared.domain.PartgFindingLevel.CHECK
+        val info = network.lapis.cloud.shared.domain.PartgFindingLevel.INFO
+        val code = network.lapis.cloud.shared.domain.PartgFindingCode.P01
+        val counts =
+            partgCheckCounts(
+                listOf(
+                    network.lapis.cloud.shared.domain
+                        .PartgFindingDto(code, check, "FEDERAL", target = ann),
+                    network.lapis.cloud.shared.domain
+                        .PartgFindingDto(code, check, "FEDERAL", target = ann),
+                    network.lapis.cloud.shared.domain
+                        .PartgFindingDto(code, info, "FEDERAL", target = ann),
+                    network.lapis.cloud.shared.domain
+                        .PartgFindingDto(code, check, null, target = ann),
+                ),
+            )
+        assertEquals(mapOf("FEDERAL" to 2), counts)
+    }
+
+    @Test
+    fun theTabsAreDisplayedInTheDocumentedOrder_whileTheEnumKeepsItsStorageOrder() {
+        assertEquals(
+            listOf("OVERVIEW", "SHEET", "AUSWEISE", "ERLAEUTERUNGEN", "POSITIONS", "REPORT"),
+            PARTG_TAB_DISPLAY_ORDER.map { it.name },
+        )
+        // new tabs are appended: the four stored names of R1/R2 keep their position
+        assertEquals(listOf("OVERVIEW", "SHEET", "POSITIONS", "REPORT"), PartyReportTab.entries.take(4).map { it.name })
+    }
+
+    @Test
+    fun everyRefusalCode_hasAFixedText() {
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.entries.forEach {
+            assertTrue(partgAnnexViolationText(it).isNotBlank(), it.name)
+        }
+    }
 }

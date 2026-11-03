@@ -187,3 +187,87 @@ internal fun completenessLines(
     if (complete > 0) lines += PartgChecklistLine(PartgChecklistKind.COMPLETE_SUMMARY, null, emptyList(), complete, dto.leafCount)
     return lines
 }
+
+// ---------------------------------------------------------------- V1.9.269 (R3): separate statements, notes, plausibility hints
+
+/** "Zeile 3" / "Zeilen 1, 3 und 7": the row numbers of a hint, pure and DOM-free. */
+internal fun partgRowNumbersText(rows: List<Int>): String =
+    when (rows.size) {
+        0 -> ""
+        1 -> io.kvision.i18n.gettext("Zeile %1", rows.single())
+        else -> io.kvision.i18n.gettext("Zeilen %1 und %2", rows.dropLast(1).joinToString(", "), rows.last())
+    }
+
+/** `15.06.2030` for the date of a count (`asOf`); the date is formatted from its ISO text, no locale involved. */
+internal fun partgGermanDate(date: kotlinx.datetime.LocalDate): String {
+    val (year, month, day) = date.toString().split("-")
+    return "$day.$month.$year"
+}
+
+/** The short reason of a plausibility hint. Never contains a name, an address or an amount: the DTO carries none. */
+internal fun partgFindingShortLabel(finding: network.lapis.cloud.shared.domain.PartgFindingDto): String =
+    when (finding.code) {
+        network.lapis.cloud.shared.domain.PartgFindingCode.P01 -> io.kvision.i18n.gettext("Anschrift fehlt")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P02 -> io.kvision.i18n.gettext("Anschrift unvollständig")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P03 -> io.kvision.i18n.gettext("Bar-Spenden über 1.000 € erfasst")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P04 -> io.kvision.i18n.gettext("Juristische Person")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P05 ->
+            finding.positionCode?.let { io.kvision.i18n.gettext("Position %1 weicht deutlich vom Vorjahr ab", partgNumberLabelOf(it)) }
+                ?: io.kvision.i18n.gettext("Weitere deutliche Abweichungen zum Vorjahr werden nicht einzeln aufgeführt")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P06 ->
+            when (finding.gap) {
+                "MEMBER_COUNT" -> io.kvision.i18n.gettext("Mitgliederzahl fehlt")
+                "DEDUCTIONS" -> io.kvision.i18n.gettext("Mindestens ein Abzug fehlt")
+                else -> io.kvision.i18n.gettext("Die allgemeinen Angaben zur Rechnungslegung fehlen")
+            }
+    }
+
+private fun partgNumberLabelOf(code: String): String = PartgPositions.find(code)?.numberLabel ?: code
+
+/** The full line of a hint: the unit, the rows and the reason. */
+internal fun partgFindingLine(
+    finding: network.lapis.cloud.shared.domain.PartgFindingDto,
+    unitName: String?,
+): String {
+    val rows = partgRowNumbersText(finding.rowNumbers)
+    val reason = partgFindingShortLabel(finding)
+    val head = listOfNotNull(unitName, rows.ifEmpty { null }).joinToString(", ")
+    return if (head.isEmpty()) reason else "$head: $reason"
+}
+
+/** One fixed text per refusal code of an R3 input (the server answers with the code only). */
+internal fun partgAnnexViolationText(violation: network.lapis.cloud.shared.domain.PartgAnnexViolation): String =
+    when (violation) {
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.AMOUNT_NOT_ABOVE_THRESHOLD ->
+            io.kvision.i18n.gettext("In diese Liste gehören nur Personen mit mehr als 10.000 € im Jahr.")
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.AMOUNT_TOO_LARGE -> io.kvision.i18n.gettext("Der Betrag ist zu groß.")
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.NAME_EMPTY -> io.kvision.i18n.gettext("Bitte einen Namen angeben.")
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.FIELD_TOO_LONG -> io.kvision.i18n.gettext("Der Text ist zu lang.")
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.CONTROL_CHARACTER ->
+            io.kvision.i18n.gettext("Bitte keine Steuerzeichen verwenden.")
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.COUNTRY_INVALID ->
+            io.kvision.i18n.gettext("Bitte zwei Großbuchstaben angeben, zum Beispiel DE.")
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.TOO_MANY -> io.kvision.i18n.gettext("Es sind nicht mehr Einträge möglich.")
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.OUT_OF_RANGE ->
+            io.kvision.i18n.gettext(
+                "Der Wert liegt außerhalb des erlaubten Bereichs.",
+            )
+    }
+
+/** The order of the tabs on screen; the enum order is only the storage order (new tabs are appended there). */
+internal val PARTG_TAB_DISPLAY_ORDER: List<PartyReportTab> =
+    listOf(
+        PartyReportTab.OVERVIEW,
+        PartyReportTab.SHEET,
+        PartyReportTab.AUSWEISE,
+        PartyReportTab.ERLAEUTERUNGEN,
+        PartyReportTab.POSITIONS,
+        PartyReportTab.REPORT,
+    )
+
+/** The number of hints that ask for a look, per unit key. */
+internal fun partgCheckCounts(findings: List<network.lapis.cloud.shared.domain.PartgFindingDto>): Map<String, Int> =
+    findings
+        .filter { it.level == network.lapis.cloud.shared.domain.PartgFindingLevel.CHECK && it.unitKey != null }
+        .groupingBy { checkNotNull(it.unitKey) }
+        .eachCount()

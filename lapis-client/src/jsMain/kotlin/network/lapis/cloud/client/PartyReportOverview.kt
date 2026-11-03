@@ -17,8 +17,15 @@ private val OVERVIEW_HEADERS =
         TableHeader(title = tr("Einnahmen"), numeric = true),
         TableHeader(title = tr("Ausgaben"), numeric = true),
         TableHeader(title = tr("Reinvermögen"), numeric = true),
+        TableHeader(title = tr("Hinweise")),
         TableHeader(title = tr("Aktionen")),
     )
+
+/** The rows of the overview plus the number of hints that ask for a look, per unit key. */
+private class OverviewLoad(
+    val rows: List<PartgOverviewRowDto>,
+    val checks: Map<String, Int>,
+)
 
 /** Label and badge colour of the fill state of one overview row. */
 internal fun partgFillBadge(row: PartgOverviewRowDto): Pair<String, String> =
@@ -42,11 +49,20 @@ internal fun SimplePanel.renderPartyReportOverview(
         actionButton(ActionIcon.EXPORT, tr("Bericht erzeugen"), ButtonStyle.OUTLINEPRIMARY) { onClick { onReport() } }
     }
     val section =
-        dataSection<List<PartgOverviewRowDto>>(
+        dataSection<OverviewLoad>(
             emptyText = tr("Keine Gliederungen vorhanden."),
-            isEmpty = { it.isEmpty() },
-            load = { guarded { partyReportRpc().overview(context.year) } },
-            render = { body, rows ->
+            isEmpty = { it.rows.isEmpty() },
+            load = {
+                guarded {
+                    val rpc = partyReportRpc()
+                    val rows = rpc.overview(context.year)
+                    // the hints are an extra: if they cannot be read, the table is still complete (no badge)
+                    val checks = partgCheckCounts(runCatching { rpc.reportFindings(context.year) }.getOrDefault(emptyList()))
+                    OverviewLoad(rows, checks)
+                }
+            },
+            render = { body, loaded ->
+                val rows = loaded.rows
                 val table = body.standardTable(OVERVIEW_HEADERS)
                 rows.forEach { row ->
                     table.row {
@@ -58,6 +74,10 @@ internal fun SimplePanel.renderPartyReportOverview(
                         totalCell(row.incomeTotalCents)
                         totalCell(row.expenseTotalCents)
                         totalCell(row.netAssetsCents)
+                        cell {
+                            val count = loaded.checks[row.unit.unitKey] ?: 0
+                            if (count > 0) statusBadge(gettext("%1 zu prüfen", count), "warning")
+                        }
                         cell {
                             addCssClass(TABLE_ACTIONS_CELL_CLASS)
                             tableActionGroup().apply {

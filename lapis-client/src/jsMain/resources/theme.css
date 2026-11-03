@@ -8139,6 +8139,22 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   background: var(--lapis-surface);
 }
 
+/* V1.9.269 "Rechenschaftsbericht R3": six tabs do not fit a phone. Wide screens show the segmented buttons, below 640 px a select with the label
+   "Bereich". Exactly one of the two is displayed, so the other one is not in the accessibility tree. No transition (R54), no colour. */
+.lapis-partg-tabs-narrow {
+  display: none;
+}
+
+@media (max-width: 639.98px) {
+  .lapis-partg-tabs-wide {
+    display: none;
+  }
+
+  .lapis-partg-tabs-narrow {
+    display: block;
+  }
+}
+
 /* V1.9.226 "LupaBB-Abgleich": the field comparison of a record ("Feld | bisher | neu"). The old value is muted and struck through, the new one is
    plain; tokens only, no colour literals (R9), no transition (R54). */
 .lapis-lupabb-diff {

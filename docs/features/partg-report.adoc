@@ -1,9 +1,9 @@
-= Party accountability report: positions, entry, Excel import and report draft (V1.9.225 R1, V1.9.256 R2)
+= Party accountability report: positions, entry, Excel import, report draft and separate statements (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
-Waves R1 and R2 of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
+Waves R1, R2 and R3 of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
 hand or imported from an Excel file. R2 (V1.9.256) turns them into a **draft** of the report as a PDF or an Excel file. The draft is marked "ENTWURF -- nicht amtlich" on every page and in
 every file; nothing on the page promises a finished, official or audited report.
 
@@ -20,7 +20,7 @@ and the statute text, and the auditor has not seen the result (see <<not-verifie
 
 == What a person does
 
-Four tabs, and a year picker (default: last year; 2001 up to the current year).
+Six tabs (below 640 px a select with the label "Bereich" replaces the buttons), and a year picker (default: last year; 2001 up to the current year).
 
 *Übersicht*:: one row per reporting unit (the federal level, each regional chapter, and the *summary* of its subordinate regional units), with a fill state
 ("Nicht erfasst", "Teilweise (n von 35)", "Vollständig"), the totals for income, expenses and net assets, and three icon actions: enter values, download the Excel
@@ -28,6 +28,8 @@ template, import an Excel file. A button *Bericht erzeugen* leads to the fourth 
 *Werte erfassen*:: the 42 positions in the order of the statute. 35 are typed in, 7 are sums shown live (total income, material expenses, total expenses, surplus or
 deficit, total assets, total liabilities, net assets). Every typed-in position has a field for the report year **and** one for the year before.
 *Positionen*:: the fixed catalogue with the statute reference and the organisation's own hint per position (up to 500 characters, plain text), shown during entry.
+*Ausweise*:: the separate statements A and B and the member count of one unit and year, see <<separate-statements>>.
+*Erläuterungen*:: the notes of the organisation for the year, see <<notes>>.
 *Bericht*:: see <<report-draft>>.
 
 [[report-draft]]
@@ -45,7 +47,7 @@ and `(unvollst.)`, and a footnote names the missing positions per unit. A share 
 surplus, with shares of the total income and the total expenses, the year before beside it, and a table by level); the income matrix (one row per unit and the whole party, one column per income
 position, report year first, then the year before); the expenses per unit; the assets and liabilities per unit (without share columns). Every page carries the header line, "Seite x von y", the
 legend and a diagonal watermark behind the content. All sums include the subsidies between branches and are **not consolidated** (that follows in a later wave); the summary says so.
-*Layout of the XLSX*:: six fixed sheets: Vollständigkeit, Zusammenfassung, Einnahmen, Ausgaben, Vermögen, Hinweise. Row 1 of every sheet is the PDF header line, the table starts in row 3 in the order
+*Layout of the XLSX*:: ten fixed sheets: Vollständigkeit, Zusammenfassung, Einnahmen, Ausgaben, Vermögen, Ausweis A, Ausweis B, Mitglieder, Erläuterungen, Hinweise (the last four of the first block are R3). Row 1 of every sheet is the PDF header line, the table starts in row 3 in the order
 of the PDF. Amounts are real numbers (euro format, a negative result stays negative), shares are fractions with the format `0.0%`. There is no formula, no macro and no shared string; text that starts with
 `=`, `+`, `-` or `@` is stored with the quote-prefix style.
 *Audit*:: every successful export writes one entry (`PARTG_REPORT_EXPORT`, action `CREATE`) with the format, year, scope and counters. It holds no amount and no name.
@@ -89,7 +91,54 @@ sequenceDiagram(name = "Excel import: preview, then apply (V1.9.225)") {
 }
 ----
 
-== What R1 and R2 do not do
+[[separate-statements]]
+== Separate statements (R3)
+
+Tab *Ausweise*, per unit and year. Only the board and admins see it (same gate as everything else); it shows personal data of third parties.
+
+*A, deductions*:: four amounts: not assignable donations, cash donations over 1,000 EUR, donations over 3,300 EUR without a statement, donations reported in error. Empty is *not entered*; 0 is a value.
+*Member count on 31 December*:: a whole number per unit. For the **current year** and a federal or state unit the page shows the number of active, non-anonymised members in the register as a *suggestion*
+("Heute im Mitgliederregister: n (Stand TT.MM.JJJJ, nicht der 31.12.)") and a button that **only fills the field**. The register has no subordinate associations and does not know earlier years. In the report the
+whole-party row shows the value of the federal unit; the units are **not summed** (a member is counted once, in the unit where it was entered).
+*B, persons over 10,000 EUR*:: one row per person and unit: kind (natural or legal person), name, street, postal code, city, country (two capital letters), kind of contribution (donation, fee, both) and the yearly
+amount. **Only more than 10,000.00 EUR is stored** (client, service and a database CHECK; 10,000.00 EUR is refused, 10,000.01 EUR accepted). At most 500 rows per unit and year; one row open at a time; the list is sorted by
+amount (descending), name, id, so the *row number* of a hint changes when an amount changes. The PDF replaces characters outside WinAnsi (for instance Cyrillic) by `?`; the Excel file keeps them.
+*Limit*:: the rule is applied **per unit and row**. A person with 6,000 EUR to the federal unit and 6,000 EUR to a state unit is in neither list; combining a person over units is R5 (open question Q1).
+
+[[notes]]
+== Notes (R3)
+
+Tab *Erläuterungen*, per year for the organisation. Five blocks, each with the switch *In den Bericht aufnehmen* and a text of at most 4,000 characters: general information on accounting, relief under section 28 PartG
+(with the two choices for paragraph 1 and 3), holdings (plus up to 50 structured rows: name, seat, share in %, capital, result -- the result may be negative), media products, valuation of real estate.
+A block that is switched off does not appear in the report, even if it holds text. The grey text in a field is a placeholder, never a value.
+
+[[plausibility]]
+== Plausibility hints (R3)
+
+Hints above the download buttons, as a badge "n zu prüfen" per unit in the overview and next to the rows of the list. They never block anything, never contain a name, address or amount (only unit, row numbers, a position number),
+and always show a symbol **and** words (amber "Bitte prüfen", neutral "Zur Info"; no red).
+
+[cols="1,3,2",options="header"]
+|===
+| Code | Condition | Level
+| P01 | street, postal code and city of a row are all empty | check
+| P02 | at least one but not all of the three is empty | check
+| P03 | deduction "cash over 1,000 EUR" is greater than 0 | check
+| P04 | the row is a legal person | info
+| P05 | a typed-in position differs from the year before by more than 1,000.00 EUR **and** by more than 50 percent (both strictly; integer arithmetic; a missing year before gives no hint; a year before of 0 counts the percentage as exceeded) | info
+| P06 | gaps: no member count (federal always; a state unit once it has any data), a deduction field empty (units with an annex or values), the accounting-principles note not included (organisation) | check
+|===
+
+At most 2,000 hints; when P05 would exceed that, the remaining ones are cut off and a single P05 info without position marks the cut. Units without any data produce no deduction hint, so 100 untouched chapters do not create noise.
+
+== What R1, R2 and R3 do not do
+
+* R2 and R3 produce a draft only. No official, filed or audited report; no consolidation of the subsidies between branches (R5); no signature, no submission (R6).
+* **R3b (not done yet):** C sponsoring report (over 750 EUR single, over 6,000 EUR per year and unit), D enterprise activity, F youth organisations, and an optional pre-fill of B from `external_donor` or booked donations.
+* **R4:** mapping from the ledger accounts to the positions. **R5:** consolidation and combining a person over units. **R6:** workflow, auditor access, deadlines and the deletion routine after the retention period.
+* R3 deletes nothing automatically: the board removes a row by hand; the ten-year retention (section 24 (2) PartG, per the concept note) is not enforced by code.
+
+== Older limits (R1, R2)
 
 * R2 produces a draft only. No official, filed or audited report; no consolidation of the subsidies between branches (R5); no signature, no submission (R6).
 * No mapping from the ledger accounts to the positions, no consolidation, no auditor access, no workflow (R4 to R6).
@@ -99,6 +148,13 @@ sequenceDiagram(name = "Excel import: preview, then apply (V1.9.225)") {
 
 [[open-questions]]
 == Open questions
+
+. **Q1 (R3): per unit or for the whole party?** Does the 10,000 EUR limit of section 25 (3) PartG apply per regional unit or for the whole party? R3 implements per unit and row and says so in the UI, because section 25 was not read in full. Combining a person over units would be R5.
+. **Q2 (R3): member count.** Entered per unit; the whole-party row shows the federal value and is **not summed**. Whether the Bundestag sample wants a split by state is open. P06 asks for a count only for the federal and state units.
+. **Q3 (R3): who is a member?** The suggestion counts `ACTIVE` members that are not anonymised (as the public statistics do). Family members, guests, friends and donors do not count. The board has to confirm that.
+. **Q4 (R3): who deletes after the retention period?** Nothing is deleted automatically; a deletion routine would come with R6.
+. **Q5 (R3): are P05 and P06 part of the sample or only a convenience?** They are hints only; the risk of a wrong one is low.
+. **Before R4 (not decided here):** are the books kept centrally at the federal unit or in separate ledgers of the units?
 
 . **Summary content.** The sample was read as: income Nr. 1 to 9 and expenses Nr. 1 to 2 for the whole party, with totals with and without subsidies from branches. R2 shows Nr. 1 to 10
   and Nr. 1 to 3, each on its own labelled line, the totals "including subsidies, not consolidated (follows in R5)" and the table by level only in that variant. A column "without subsidies"
@@ -113,6 +169,9 @@ sequenceDiagram(name = "Excel import: preview, then apply (V1.9.225)") {
 
 [[not-verified]]
 == Not verified
+
+* R3: the separate statements, the notes and the hints were **not compared with the Bundestag sample**, **not opened in real Excel or LibreOffice**, **not seen by an auditor**; the legal reading of sections 24 and 25 PartG was **not checked by a lawyer**. The translations of the new texts are model-written.
+* R3: the PostgreSQL lane of the new tests runs only with `LAPIS_TEST_POSTGRES_URL`.
 
 * The PDF and the XLSX of R2 were **not compared pixel by pixel with the Bundestag sample**, **not opened in real Excel, LibreOffice or Word**, **not accepted by the Bundestag administration** and **not seen by the auditor**.
   They are tested by reading them back (text extraction of the PDF, XML parse of the XLSX).

@@ -29332,3 +29332,219 @@ msgid "%1 Raum umgestellt."
 msgid_plural "%1 Räume umgestellt."
 msgstr[0] ""
 msgstr[1] ""
+
+msgid "Nicht zuordenbare Spenden"
+msgstr ""
+
+msgid "Bar-Spenden über 1.000 €"
+msgstr ""
+
+msgid "Spenden über 3.300 € ohne Ausweis"
+msgstr ""
+
+msgid "Fälschlich gemeldete Spenden"
+msgstr ""
+
+msgid "A: Abzüge bei der Spendenbehandlung"
+msgstr ""
+
+msgid "Leer bedeutet nicht erfasst, 0 ist ein Wert."
+msgstr ""
+
+msgid "Mitgliederzahl zum 31.12."
+msgstr ""
+
+msgid "Heute im Mitgliederregister: %1 (Stand %2, nicht der 31.12.)"
+msgstr ""
+
+msgid "Für nachgeordnete Gebietsverbände kennt das Mitgliederregister keine Zahl."
+msgstr ""
+
+msgid "B: Spenden und Beiträge über 10.000 € je Person und Jahr"
+msgstr ""
+
+msgid "Nur Vorstand und Admin sehen diese Liste. Aufzunehmen sind Personen mit mehr als 10.000 € pro Jahr an diese Gliederung. Beträge an mehrere Gebietsverbände werden noch nicht zusammengeführt."
+msgstr ""
+
+msgid "Noch keine Einträge."
+msgstr ""
+
+msgid "Zeile hinzufügen"
+msgstr ""
+
+msgid "Das Speichern ist nicht gelungen, oder die Daten wurden inzwischen von jemand anderem geändert. Mit „Neu laden“ sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr ""
+
+msgid "Zeile"
+msgstr ""
+
+msgid "Hinweise"
+msgstr ""
+
+msgid "Zeile löschen?"
+msgstr ""
+
+msgid "Die Zeile wird aus der Liste entfernt. Das lässt sich nicht rückgängig machen."
+msgstr ""
+
+msgid "Neue Zeile"
+msgstr ""
+
+msgid "Zeile %1 bearbeiten"
+msgstr ""
+
+msgid "Art der Person"
+msgstr ""
+
+msgid "Land (zwei Großbuchstaben)"
+msgstr ""
+
+msgid "Art der Zuwendung"
+msgstr ""
+
+msgid "Betrag (€)"
+msgstr ""
+
+msgid "Bitte einen Betrag eingeben."
+msgstr ""
+
+msgid "Spende und Beitrag"
+msgstr ""
+
+msgid "Allgemeine Angaben zur Rechnungslegung"
+msgstr ""
+
+msgid "Erleichterungen nach § 28 PartG"
+msgstr ""
+
+msgid "Beteiligungen"
+msgstr ""
+
+msgid "Medienerzeugnisse"
+msgstr ""
+
+msgid "Bewertung von Grundstücken"
+msgstr ""
+
+msgid "Zum Beispiel: Bilanzierungs- und Bewertungsmethoden"
+msgstr ""
+
+msgid "Zum Beispiel: Begründung der Inanspruchnahme"
+msgstr ""
+
+msgid "Zum Beispiel: Erläuterung zu den Beteiligungen"
+msgstr ""
+
+msgid "Zum Beispiel: Angaben zu Druckschriften und Medien"
+msgstr ""
+
+msgid "Zum Beispiel: Wertansatz und Quelle der Bewertung"
+msgstr ""
+
+msgid "Nicht angegeben"
+msgstr ""
+
+msgid "Schalten Sie die Bausteine ein, die in den Bericht aufgenommen werden sollen. Ein ausgeschalteter Baustein erscheint nicht im Bericht, auch wenn Text darin steht."
+msgstr ""
+
+msgid "In den Bericht aufnehmen"
+msgstr ""
+
+msgid "Text: %1"
+msgstr ""
+
+msgid "§ 28 Absatz 1"
+msgstr ""
+
+msgid "§ 28 Absatz 3"
+msgstr ""
+
+msgid "Unternehmen"
+msgstr ""
+
+msgid "Sitz"
+msgstr ""
+
+msgid "Anteil in %"
+msgstr ""
+
+msgid "Bitte einen Anteil zwischen 0 und 100 eingeben."
+msgstr ""
+
+msgid "Kapital (€)"
+msgstr ""
+
+msgid "Ergebnis (€)"
+msgstr ""
+
+msgid "Beteiligung hinzufügen"
+msgstr ""
+
+msgid "Es sind nicht mehr Einträge möglich."
+msgstr ""
+
+msgid "Bitte keine Steuerzeichen verwenden."
+msgstr ""
+
+msgid "Hinweise zur Plausibilität"
+msgstr ""
+
+msgid "Keine Hinweise."
+msgstr ""
+
+msgid "Bitte prüfen"
+msgstr ""
+
+msgid "Zur Info"
+msgstr ""
+
+msgid "Zeilen %1 und %2"
+msgstr ""
+
+msgid "Anschrift fehlt"
+msgstr ""
+
+msgid "Anschrift unvollständig"
+msgstr ""
+
+msgid "Bar-Spenden über 1.000 € erfasst"
+msgstr ""
+
+msgid "Position %1 weicht deutlich vom Vorjahr ab"
+msgstr ""
+
+msgid "Weitere deutliche Abweichungen zum Vorjahr werden nicht einzeln aufgeführt"
+msgstr ""
+
+msgid "Mitgliederzahl fehlt"
+msgstr ""
+
+msgid "Mindestens ein Abzug fehlt"
+msgstr ""
+
+msgid "Die allgemeinen Angaben zur Rechnungslegung fehlen"
+msgstr ""
+
+msgid "In diese Liste gehören nur Personen mit mehr als 10.000 € im Jahr."
+msgstr ""
+
+msgid "Bitte zwei Großbuchstaben angeben, zum Beispiel DE."
+msgstr ""
+
+msgid "Der Wert liegt außerhalb des erlaubten Bereichs."
+msgstr ""
+
+msgid "Ausweise"
+msgstr ""
+
+msgid "Erläuterungen"
+msgstr ""
+
+msgid "%1 zu prüfen"
+msgstr ""
+
+msgid "Rechenschaftsbericht: Ausweise"
+msgstr ""
+
+msgid "Rechenschaftsbericht: Erläuterungen"
+msgstr ""

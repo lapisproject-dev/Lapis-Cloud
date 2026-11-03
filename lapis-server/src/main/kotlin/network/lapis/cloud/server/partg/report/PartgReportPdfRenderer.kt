@@ -3,8 +3,13 @@ package network.lapis.cloud.server.partg.report
 import network.lapis.cloud.server.pdf.PdfFontText
 import network.lapis.cloud.server.pdf.PdfLimitExceeded
 import network.lapis.cloud.shared.domain.PartgCell
+import network.lapis.cloud.shared.domain.PartgContributionKind
+import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgNoteBlock
+import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgReportLimits
 import network.lapis.cloud.shared.domain.PartgSection
+import network.lapis.cloud.shared.domain.PartgTriState
 import org.apache.pdfbox.cos.COSArray
 import org.apache.pdfbox.cos.COSString
 import org.apache.pdfbox.pdmodel.PDDocument
@@ -123,6 +128,10 @@ internal class PartgReportPdfRenderer(
                 matrixSection(c = c, doc = document)
                 expenseSection(c = c, doc = document)
                 assetSection(c = c, doc = document)
+                annexASection(c = c, doc = document)
+                annexBSection(c = c, doc = document)
+                annexESection(c = c, doc = document)
+                notesSection(c = c, doc = document)
             } finally {
                 c.close()
             }
@@ -611,6 +620,180 @@ internal class PartgReportPdfRenderer(
             unitFootnote(doc = doc, index = index, relevant = relevant)?.let { paragraph(c = c, text = it, size = 7f) }
         }
     }
+
+    // ---------------------------------------------------------------- R3: separate statements and notes
+
+    private fun deductionTitle(d: PartgDeduction): String =
+        when (d) {
+            PartgDeduction.UNASSIGNABLE -> PartgReportTexts.DEDUCTION_UNASSIGNABLE
+            PartgDeduction.CASH_OVER_1000 -> PartgReportTexts.DEDUCTION_CASH
+            PartgDeduction.OVER_3300 -> PartgReportTexts.DEDUCTION_OVER_3300
+            PartgDeduction.WRONGLY_REPORTED -> PartgReportTexts.DEDUCTION_WRONG
+        }
+
+    private fun annexASection(
+        c: Canvas,
+        doc: PartgReportDocument,
+    ) {
+        c.newPage()
+        heading(c = c, text = PartgReportTexts.ANNEX_A, size = 10f)
+        val cols =
+            listOf(Col(title = PartgReportTexts.COL_UNIT, width = 210f, right = false)) +
+                PartgDeduction.entries.map { Col(title = deductionTitle(it), width = 140f, right = true) }
+        val pages = doc.annex.units + listOfNotNull(doc.annex.wholeParty)
+        val rows =
+            pages.map { page ->
+                Row(
+                    cells = listOf(page.label) + PartgDeduction.entries.map { PartgReportNumberFormat.cell(page.deductions.getValue(it)) },
+                    bold = page === doc.annex.wholeParty,
+                )
+            }
+        table(c = c, title = null, cols = cols, rows = rows)
+    }
+
+    private fun annexBSection(
+        c: Canvas,
+        doc: PartgReportDocument,
+    ) {
+        c.y -= 8f
+        heading(c = c, text = PartgReportTexts.ANNEX_B, size = 10f)
+        paragraph(c = c, text = PartgReportTexts.B_NOTE, size = 7.5f)
+        if (doc.annex.donors.isEmpty()) {
+            paragraph(c = c, text = PartgReportTexts.NO_ENTRIES)
+            return
+        }
+        val cols =
+            listOf(
+                Col(title = PartgReportTexts.COL_UNIT, width = 120f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_ROW, width = 30f, right = true),
+                Col(title = PartgReportTexts.COL_PERSON_KIND, width = 50f, right = false),
+                Col(title = PartgReportTexts.COL_NAME, width = 150f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_ADDRESS, width = 210f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_COUNTRY, width = 30f, right = false),
+                Col(title = PartgReportTexts.COL_CONTRIBUTION, width = 70f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_AMOUNT, width = 90f, right = true),
+            )
+        val rows =
+            doc.annex.donors.map { d ->
+                Row(
+                    cells =
+                        listOf(
+                            d.unitLabel,
+                            d.rowNumber.toString(),
+                            personKindText(d.personKind),
+                            d.name,
+                            d.addressLine,
+                            d.country,
+                            contributionText(d.contributionKind),
+                            PartgReportNumberFormat.euro(d.amountCents),
+                        ),
+                )
+            }
+        table(c = c, title = null, cols = cols, rows = rows)
+    }
+
+    private fun annexESection(
+        c: Canvas,
+        doc: PartgReportDocument,
+    ) {
+        c.y -= 8f
+        heading(c = c, text = PartgReportTexts.ANNEX_E, size = 10f)
+        paragraph(
+            c = c,
+            text = PartgReportTexts.E_NOTE + if (doc.annex.wholeParty != null) " " + PartgReportTexts.E_NOTE_ALL else "",
+            size = 7.5f,
+        )
+        val cols =
+            listOf(
+                Col(title = PartgReportTexts.COL_UNIT, width = 300f, right = false),
+                Col(title = PartgReportTexts.COL_MEMBERS, width = 120f, right = true),
+            )
+        val pages = doc.annex.units + listOfNotNull(doc.annex.wholeParty)
+        val rows =
+            pages.map { page ->
+                Row(
+                    cells = listOf(page.label, page.memberCount?.toString() ?: PartgReportTexts.NOT_ENTERED),
+                    bold = page === doc.annex.wholeParty,
+                )
+            }
+        table(c = c, title = null, cols = cols, rows = rows)
+    }
+
+    private fun notesSection(
+        c: Canvas,
+        doc: PartgReportDocument,
+    ) {
+        c.newPage()
+        heading(c = c, text = PartgReportTexts.NOTES_TITLE, size = 11f)
+        if (doc.notes.blocks.isEmpty()) {
+            paragraph(c = c, text = PartgReportTexts.NOT_ENTERED_LONG)
+            return
+        }
+        for (note in doc.notes.blocks) {
+            heading(c = c, text = noteTitle(note.block), size = 9f)
+            if (note.block == PartgNoteBlock.RELIEF_28) {
+                paragraph(
+                    c = c,
+                    text =
+                        "${PartgReportTexts.RELIEF_ABS1}: ${triText(
+                            note.reliefAbs1,
+                        )} · ${PartgReportTexts.RELIEF_ABS3}: ${triText(note.reliefAbs3)}",
+                )
+            }
+            note.body?.split('\n')?.forEach { paragraph(c = c, text = it.ifBlank { " " }) }
+            if (note.block == PartgNoteBlock.HOLDINGS && doc.notes.holdings.isNotEmpty()) {
+                val cols =
+                    listOf(
+                        Col(title = PartgReportTexts.HOLDING_NAME, width = 250f, right = false, wrap = true),
+                        Col(title = PartgReportTexts.HOLDING_SEAT, width = 150f, right = false, wrap = true),
+                        Col(title = PartgReportTexts.HOLDING_SHARE, width = 80f, right = true),
+                        Col(title = PartgReportTexts.HOLDING_CAPITAL, width = 120f, right = true),
+                        Col(title = PartgReportTexts.HOLDING_RESULT, width = 120f, right = true),
+                    )
+                val rows =
+                    doc.notes.holdings.map { h ->
+                        Row(
+                            cells =
+                                listOf(
+                                    h.name,
+                                    h.seat.orEmpty(),
+                                    h.shareBasisPoints?.let { PartgReportNumberFormat.euro(it.toLong()) } ?: PartgReportTexts.NOT_ENTERED,
+                                    h.capitalCents?.let { PartgReportNumberFormat.euro(it) } ?: PartgReportTexts.NOT_ENTERED,
+                                    h.resultCents?.let { PartgReportNumberFormat.euro(it) } ?: PartgReportTexts.NOT_ENTERED,
+                                ),
+                        )
+                    }
+                table(c = c, title = null, cols = cols, rows = rows)
+            }
+            c.y -= 4f
+        }
+    }
+
+    private fun personKindText(kind: PartgPersonKind) =
+        if (kind == PartgPersonKind.LEGAL) PartgReportTexts.PERSON_LEGAL else PartgReportTexts.PERSON_NATURAL
+
+    private fun contributionText(kind: PartgContributionKind) =
+        when (kind) {
+            PartgContributionKind.DONATION -> PartgReportTexts.CONTRIBUTION_DONATION
+            PartgContributionKind.FEE -> PartgReportTexts.CONTRIBUTION_FEE
+            PartgContributionKind.BOTH -> PartgReportTexts.CONTRIBUTION_BOTH
+        }
+
+    private fun noteTitle(block: PartgNoteBlock) =
+        when (block) {
+            PartgNoteBlock.GENERAL_ACCOUNTING -> PartgReportTexts.NOTE_GENERAL
+            PartgNoteBlock.RELIEF_28 -> PartgReportTexts.NOTE_RELIEF
+            PartgNoteBlock.HOLDINGS -> PartgReportTexts.NOTE_HOLDINGS
+            PartgNoteBlock.MEDIA_PRODUCTS -> PartgReportTexts.NOTE_MEDIA
+            PartgNoteBlock.REAL_ESTATE_VALUATION -> PartgReportTexts.NOTE_REAL_ESTATE
+        }
+
+    private fun triText(state: PartgTriState?) =
+        when (state) {
+            PartgTriState.YES -> PartgReportTexts.YES
+            PartgTriState.NO -> PartgReportTexts.NO
+            else -> PartgReportTexts.UNSPECIFIED
+        }
 
     // ---------------------------------------------------------------- second pass
 

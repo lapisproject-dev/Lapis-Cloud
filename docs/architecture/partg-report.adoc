@@ -1,4 +1,4 @@
-= Party accountability report, R1 and R2: architecture (V1.9.225, V1.9.256)
+= Party accountability report, R1 to R3: architecture (V1.9.225, V1.9.256, V1.9.269)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -130,3 +130,72 @@ entity type; the format is in the snapshot. `PartgReportSheet` is not reused bec
 Route `Routes.PARTY_REPORT`, guarded by `NavVisibility.showsPartyReport(session)` (`SessionInfoDto.politicalParty`, appended at the end with a default). `PartgSheetDraft` holds the
 typed-in state without the DOM (blank means not entered, 0 is a value); the live sums use the shared `PartgPositions.sums`, so client and server cannot compute differently. Labels
 come from `partgLabel`, one literal `tr(...)` per code. The fourth tab (`PartyReportExport.kt`) loads `reportCompleteness` and the unit list, filters the checklist with the pure `completenessLines`, and starts a download with a temporary anchor (the codebase convention; an error response would be saved as a JSON file, which is why the checklist loads over RPC first). The browser's own question appears when the tab is closed with unsaved values; a change of year, unit or tab asks first.
+
+== Separate statements and notes (R3, V1.9.269)
+
+[kuml, partg-report-r3-model, svg]
+----
+classDiagram(name = "PartgReportR3Model") {
+    classOf(name = "partg_report_annex") {
+        attribute(name = "fiscal_year", type = "Int")
+        attribute(name = "unit_key", type = "String")
+        attribute(name = "revision", type = "Long")
+        attribute(name = "deduction_*_cents", type = "Long")
+        attribute(name = "member_count", type = "Int")
+    }
+    classOf(name = "partg_report_large_donor") {
+        attribute(name = "annex_id", type = "UUID")
+        attribute(name = "name", type = "String")
+        attribute(name = "amount_cents", type = "Long")
+    }
+    classOf(name = "partg_report_notes_sheet") {
+        attribute(name = "fiscal_year", type = "Int")
+        attribute(name = "revision", type = "Long")
+    }
+    classOf(name = "partg_report_note") {
+        attribute(name = "block_code", type = "String")
+        attribute(name = "included", type = "Boolean")
+        attribute(name = "body", type = "String")
+    }
+    classOf(name = "partg_report_holding") {
+        attribute(name = "sort_order", type = "Int")
+        attribute(name = "share_basis_points", type = "Int")
+        attribute(name = "result_cents", type = "Long")
+    }
+}
+----
+
+* `V139__partg_report_r3.sql` (V121 and V136 are released and untouched). `partg_report_annex` is one header per (year, unit) with the revision and the four deduction fields and the member count (NULL = not entered). `partg_report_large_donor` holds statement B;
+  `chk_partg_donor_amount` keeps the data minimisation in the database (`amount_cents > 1000000`). The notes are `partg_report_notes_sheet` (per year), five `partg_report_note` rows and up to 50 `partg_report_holding` rows. The audit CHECK list is V136's, copied
+  verbatim, plus `PARTG_REPORT_ANNEX` and `PARTG_REPORT_NOTES`. The row limits (500, 50) are not expressible without a trigger: the service checks them under the lock of the header row.
+* **Store monopol:** `PartgAnnexStore` is the only reader/writer of the five tables (`PartgAnnexStoreTripwireTest`; the exception is `PartgReportPersonalData`). The one write path is `PartgAnnexWriter`: one transaction, lock order regional chapter row, then the header row,
+  revision compared under the lock, child rows written, revision bumped, audit last; the audit snapshot holds counters, ids and codes only. `PartgReportPrivacyTripwireTest` pins that no log line or exception message in the package carries a name, street, city, postal code or text.
+* **Sorting** of the donor list is done in Kotlin (amount descending, name, id), not by SQL `ORDER BY name`: the collation differs between H2 and PostgreSQL and the export bytes would differ.
+* **Revision fence** (`PartgReportSnapshotReader`): the data lives in several tables with child lists, so one statement cannot read it (R2 could, with the sheet-value join). Reads under READ COMMITTED could see a half-applied write. Every writer bumps the revision of its
+  header in the **same commit** as the child rows, and a revision only ever grows, so equal revisions before and after the reads prove that nothing was committed in between (no ABA). A difference repeats the whole read, at most three times, then `PartyReportRevisionConflictException`
+  (export: `REVISION_CONFLICT`, 409). `betweenReadsHook` is the test seam (`PartgReportSnapshotReaderTest`).
+* **Plausibility** (`PartgPlausibility`) is pure: no database, no clock. The member count suggestion (`PartgMemberCountSuggestion`) is a `COUNT` over `member` (`ORGANIZATION_MEMBER`, not anonymised; state units add the chapter).
+* **Document and renderers:** `PartgReportDocument` gets `annex`, `notes` and `findings` (default empty, so R2 tests are unchanged). The PDF adds the pages A, B, member count and notes after the assets; the XLSX adds four sheets before `Hinweise` and lists the hints there
+  (codes, unit, row numbers, position number; no name). Strings are `inlineStr` with the quote prefix; the PDF text clean-up replaces characters outside WinAnsi.
+* **Findings rate limit:** `reportFindings` has its own limiter (30 per member and minute, key `partg:findings:<id>`), not the export's.
+* **Client:** `PartyReportTab` got `AUSWEISE` and `ERLAEUTERUNGEN` appended (the remembered tab is read by name); the display order is `PARTG_TAB_DISPLAY_ORDER`. Below 640 px a select with the label "Bereich" replaces the buttons (CSS shows exactly one of the two).
+  The input rules are `PartgAnnexRules` in lapis-shared, called by client and server (`PartgAnnexRulesTest`).
+
+=== Dependency view
+
+[kuml, partg-report-r3-flow, svg]
+----
+sequenceDiagram(name = "R3: save a donor row and read a consistent snapshot (V1.9.269)") {
+    val board = participant(name = "Board member")
+    val service = participant(name = "PartyReportService")
+    val writer = participant(name = "PartgAnnexWriter")
+    val db = participant(name = "Database")
+
+    message(from = board, to = service, text = "saveLargeDonor(year, unit, expectedRevision, row)")
+    message(from = service, to = service, text = "gate (role, party), PartgAnnexRules, rate limit")
+    message(from = service, to = writer, text = "saveDonor")
+    message(from = writer, to = db, text = "lock chapter row, lock or create annex row, compare revision")
+    message(from = writer, to = db, text = "insert row (at most 500), bump revision, audit last")
+    message(from = writer, to = service, text = "annex as written")
+}
+----

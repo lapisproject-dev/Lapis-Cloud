@@ -607,6 +607,15 @@ enum class AuditEntityType {
      * 19 chars, fits `VARCHAR(29)`. Appended LAST.
      */
     PARTG_REPORT_EXPORT,
+
+    /**
+     * Welle V1.9.269 -- the separate statements of one unit and year (`partg_report_annex`): deductions, member count, large-donor rows. The snapshot is
+     * [PartgAnnexAuditSnapshot]: counters, ids and codes only, never a name, address or amount. 18 chars. Appended LAST.
+     */
+    PARTG_REPORT_ANNEX,
+
+    /** Welle V1.9.269 -- the notes of one year (`partg_report_notes_sheet`); snapshot [PartgNotesAuditSnapshot], no text. 18 chars. Appended LAST. */
+    PARTG_REPORT_NOTES,
 }
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */

@@ -250,4 +250,91 @@ class PartgReportExportRoutesTest :
             (snapshots[0].byteSize > 1000) shouldBe true
             audits[0].first shouldContain "\"format\":\"PDF\""
         }
+
+        test(
+            "V1.9.269: the export carries the separate statements and the notes; the audit entry counts rows and hints but holds no name or address",
+        ) {
+            val board = fx.member()
+            val chapter = fx.chapter()
+            val unit = PartgUnit.State(chapter.toString())
+            val current = fx.currentOf(memberId = board)
+            val now =
+                network.lapis.cloud.server.time.ServerClock
+                    .now()
+            PartgAnnexWriter.saveDonor(
+                current = current,
+                year = year,
+                unit = unit,
+                expectedRevision = 0,
+                donor =
+                    network.lapis.cloud.shared.domain.PartgLargeDonorInputDto(
+                        id = null,
+                        personKind = network.lapis.cloud.shared.domain.PartgPersonKind.LEGAL,
+                        name = "Exportprobe Geheimfirma",
+                        street = null,
+                        postalCode = null,
+                        city = null,
+                        country = "DE",
+                        contributionKind = network.lapis.cloud.shared.domain.PartgContributionKind.FEE,
+                        amountCents = 3_333_333L,
+                    ),
+                now = now,
+            ) {}
+            PartgAnnexWriter.saveNotes(
+                current = current,
+                year = year,
+                expectedRevision = 0,
+                notes =
+                    listOf(
+                        network.lapis.cloud.shared.domain.PartgNoteDto(
+                            block = network.lapis.cloud.shared.domain.PartgNoteBlock.GENERAL_ACCOUNTING,
+                            included = true,
+                            body = "Exportprobe Geheimtext",
+                            reliefAbs1 = null,
+                            reliefAbs3 = null,
+                        ),
+                    ),
+                holdings = emptyList(),
+                now = now,
+            ) {}
+            withRoutes {
+                val pdf = export(board, "pdf", query = "year=$year&scope=${unit.key()}")
+                pdf.status shouldBe HttpStatusCode.OK
+                val pdfText =
+                    org.apache.pdfbox.Loader
+                        .loadPDF(pdf.readRawBytes())
+                        .use {
+                            org.apache.pdfbox.text
+                                .PDFTextStripper()
+                                .getText(it)
+                        }
+                pdfText shouldContain "Gesonderter Ausweis B"
+                pdfText shouldContain "Exportprobe Geheimfirma"
+                pdfText shouldContain "33.333,33"
+                pdfText shouldContain "Exportprobe Geheimtext"
+                val xlsx = export(board, "xlsx", query = "year=$year&scope=${unit.key()}")
+                xlsx.status shouldBe HttpStatusCode.OK
+                val sheets = readXlsxForRoute(xlsx.readRawBytes())
+                sheets shouldContain "Ausweis B"
+            }
+            val audits = exportAudits(board)
+            audits.size shouldBe 2
+            audits.forEach { (after, _) ->
+                listOf("Geheim", "3333333", "Exportprobe").forEach { after shouldNotContain it }
+                val snapshot = json.decodeFromString(PartgReportExportAuditSnapshot.serializer(), after)
+                snapshot.donorRowCount shouldBe 1
+                (snapshot.findingCount >= 1) shouldBe true // at least P01 (no address) and P04 (legal person)
+            }
+        }
     })
+
+private fun readXlsxForRoute(bytes: ByteArray): String {
+    val names = StringBuilder()
+    java.util.zip.ZipInputStream(bytes.inputStream()).use { zip ->
+        while (true) {
+            val entry = zip.nextEntry ?: break
+            if (entry.name == "xl/workbook.xml") names.append(String(zip.readBytes(), Charsets.UTF_8))
+        }
+    }
+    return names.toString()
+}

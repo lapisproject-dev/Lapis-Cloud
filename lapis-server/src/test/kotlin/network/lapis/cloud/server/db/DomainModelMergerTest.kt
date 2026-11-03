@@ -590,7 +590,9 @@ class DomainModelMergerTest :
             // 80-activism.kuml.kts (V1.9.246) adds NINE real tables (activism_action, _responsible, _task, _text_block, _material_document,
             // _contribution, _signal, _report, _notice_text); the Member, CostCenter, Event and Document stubs dedup into the real entities, net +9 (235 -> 244).
             // 28-conference-recording.kuml.kts (V1.9.254) adds ONE real table (conference_recording_pause); its ConferenceRecording reference dedups, net +1 (244 -> 245).
-            val distinctTableNames = 245
+            // 76-partg-report.kuml.kts (V1.9.269) adds FIVE real tables (partg_report_annex, _large_donor, _notes_sheet, _note, _holding); its
+            // Member and RegionalChapter references dedup, net +5 (245 -> 250).
+            val distinctTableNames = 250
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -971,6 +973,11 @@ class DomainModelMergerTest :
                     "PartgReportPositionTable.kt",
                     "PartgReportSheetTable.kt",
                     "PartgReportValueTable.kt",
+                    "PartgReportAnnexTable.kt",
+                    "PartgReportLargeDonorTable.kt",
+                    "PartgReportNotesSheetTable.kt",
+                    "PartgReportNoteTable.kt",
+                    "PartgReportHoldingTable.kt",
                     // Welle V1.9.226 "LupaBB-Abgleich" -- FOUR new real tables; Member is a stub (its two new columns are in 00-foundation).
                     "MemberLupaBbProfileTable.kt",
                     "LupaBbSyncConfigTable.kt",

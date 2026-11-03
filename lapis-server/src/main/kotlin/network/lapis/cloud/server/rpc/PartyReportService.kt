@@ -4,14 +4,29 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.partg.PartgAnnexStore
+import network.lapis.cloud.server.partg.PartgAnnexWriter
+import network.lapis.cloud.server.partg.PartgMemberCountSuggestion
+import network.lapis.cloud.server.partg.PartgReportSnapshotReader
 import network.lapis.cloud.server.partg.PartgReportStore
 import network.lapis.cloud.server.partg.PartgSheetWriter
 import network.lapis.cloud.server.partg.PartgYearRules
+import network.lapis.cloud.server.partg.report.PartgPlausibility
 import network.lapis.cloud.server.partg.requirePartyReportAccess
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.PartgAnnexDto
+import network.lapis.cloud.shared.domain.PartgAnnexRules
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
+import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgFindingDto
+import network.lapis.cloud.shared.domain.PartgHoldingDto
+import network.lapis.cloud.shared.domain.PartgLargeDonorDto
+import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
+import network.lapis.cloud.shared.domain.PartgNoteDto
+import network.lapis.cloud.shared.domain.PartgNotesDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgPositionHintSnapshot
@@ -35,6 +50,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 class PartyReportService internal constructor(
     private val call: ApplicationCall,
     private val writeRateLimiter: FederationInboxRateLimiter,
+    private val findingsRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 30),
 ) : IPartyReportService {
     override suspend fun listPositions(): List<PartgPositionDto> {
         requirePartyReportAccess(call)
@@ -156,6 +172,170 @@ class PartyReportService internal constructor(
         requirePartyReportAccess(call)
         PartgYearRules.requireValid(year)
         return transaction { PartgReportStore.completeness(year) }
+    }
+
+    // ---------------------------------------------------------------- R3 (V1.9.269)
+
+    override suspend fun getAnnex(
+        year: Int,
+        unitKey: String,
+    ): PartgAnnexDto {
+        requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        return transaction { annexDto(year = year, unit = unit) }
+    }
+
+    override suspend fun saveAnnexFigures(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        deductions: Map<PartgDeduction, Long?>,
+        memberCount: Int?,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        PartgAnnexRules.validateFigures(deductions = deductions, memberCount = memberCount)?.let {
+            throw PartyReportInvalidInputException(it.name)
+        }
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.saveFigures(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            deductions = deductions,
+            memberCount = memberCount,
+            now = ServerClock.now(),
+        ) { annexDto(year = year, unit = unit) }
+    }
+
+    override suspend fun saveLargeDonor(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        donor: PartgLargeDonorInputDto,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        PartgAnnexRules.validateDonor(donor)?.let { throw PartyReportInvalidInputException(it.name) }
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.saveDonor(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            donor = donor,
+            now = ServerClock.now(),
+        ) { annexDto(year = year, unit = unit) }
+    }
+
+    override suspend fun deleteLargeDonor(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        donorId: String,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.deleteDonor(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            donorId = donorId,
+            now = ServerClock.now(),
+        ) { annexDto(year = year, unit = unit) }
+    }
+
+    override suspend fun getNotes(year: Int): PartgNotesDto {
+        requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        return transaction { notesDto(year) }
+    }
+
+    override suspend fun saveNotes(
+        year: Int,
+        expectedRevision: Long,
+        notes: List<PartgNoteDto>,
+        holdings: List<PartgHoldingDto>,
+    ): PartgNotesDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        PartgAnnexRules.validateNotes(notes = notes, holdings = holdings)?.let { throw PartyReportInvalidInputException(it.name) }
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.saveNotes(
+            current = current,
+            year = year,
+            expectedRevision = expectedRevision,
+            notes = notes,
+            holdings = holdings,
+            now = ServerClock.now(),
+        ) { notesDto(year) }
+    }
+
+    override suspend fun reportFindings(year: Int): List<PartgFindingDto> {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        if (!findingsRateLimiter.checkAndRecord("partg:findings:${current.memberId}")) throw RateLimitedException()
+        val snapshot = PartgReportSnapshotReader.read(listOf(year, year - 1))
+        return PartgPlausibility.check(
+            year = year,
+            units = snapshot.units,
+            entered = snapshot.entered.values,
+            annex = snapshot.annex,
+            notes = snapshot.notes,
+        )
+    }
+
+    /** Must run inside a transaction. */
+    private fun annexDto(
+        year: Int,
+        unit: PartgUnit,
+    ): PartgAnnexDto {
+        val dto = PartgReportStore.unitDto(unit)
+        val annex = PartgAnnexStore.findAnnex(year = year, unit = unit)
+        val today = ServerClock.todayIn(OrganizationTimeZone.current())
+        return PartgAnnexDto(
+            year = year,
+            unit = dto,
+            revision = annex?.revision ?: 0L,
+            deductions = PartgDeduction.entries.associateWith { annex?.deductions?.get(it) },
+            memberCount = annex?.memberCount,
+            memberCountSuggestion = PartgMemberCountSuggestion.suggest(unit = unit, year = year, today = today, currentYear = today.year),
+            donors =
+                annex
+                    ?.let { PartgAnnexStore.donors(it.id) }
+                    .orEmpty()
+                    .mapIndexed { index, d ->
+                        PartgLargeDonorDto(
+                            id = d.id.toString(),
+                            rowNumber = index + 1,
+                            personKind = d.personKind,
+                            name = d.name,
+                            street = d.street,
+                            postalCode = d.postalCode,
+                            city = d.city,
+                            country = d.country,
+                            contributionKind = d.contributionKind,
+                            amountCents = d.amountCents,
+                        )
+                    },
+        )
+    }
+
+    private fun notesDto(year: Int): PartgNotesDto {
+        val sheet = PartgAnnexStore.findNotes(year)
+        return PartgNotesDto(
+            year = year,
+            revision = sheet?.revision ?: 0L,
+            notes = PartgAnnexStore.notes(sheet?.id),
+            holdings = PartgAnnexStore.holdings(sheet?.id),
+        )
     }
 
     private fun normalizeHint(hint: String?): String? {

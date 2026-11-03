@@ -29958,3 +29958,219 @@ msgid "%1 Raum umgestellt."
 msgid_plural "%1 Räume umgestellt."
 msgstr[0] "%1 salle modifiée."
 msgstr[1] "%1 salles modifiées."
+
+msgid "Nicht zuordenbare Spenden"
+msgstr "Dons non attribuables"
+
+msgid "Bar-Spenden über 1.000 €"
+msgstr "Dons en espèces de plus de 1 000 €"
+
+msgid "Spenden über 3.300 € ohne Ausweis"
+msgstr "Dons de plus de 3 300 € sans justificatif"
+
+msgid "Fälschlich gemeldete Spenden"
+msgstr "Dons déclarés à tort"
+
+msgid "A: Abzüge bei der Spendenbehandlung"
+msgstr "A : Déductions dans le traitement des dons"
+
+msgid "Leer bedeutet nicht erfasst, 0 ist ein Wert."
+msgstr "Vide signifie non saisi, 0 est une valeur."
+
+msgid "Mitgliederzahl zum 31.12."
+msgstr "Nombre de membres au 31.12."
+
+msgid "Heute im Mitgliederregister: %1 (Stand %2, nicht der 31.12.)"
+msgstr "Aujourd’hui dans le registre des membres : %1 (état au %2, pas au 31.12.)"
+
+msgid "Für nachgeordnete Gebietsverbände kennt das Mitgliederregister keine Zahl."
+msgstr "Le registre des membres n’a pas de chiffre pour les associations territoriales subordonnées."
+
+msgid "B: Spenden und Beiträge über 10.000 € je Person und Jahr"
+msgstr "B : Dons et cotisations de plus de 10 000 € par personne et par an"
+
+msgid "Nur Vorstand und Admin sehen diese Liste. Aufzunehmen sind Personen mit mehr als 10.000 € pro Jahr an diese Gliederung. Beträge an mehrere Gebietsverbände werden noch nicht zusammengeführt."
+msgstr "Seuls le conseil d'administration et les administrateurs voient cette liste. Il faut y inscrire les personnes ayant versé plus de 10 000 € par an à cette unité. Les montants versés à plusieurs associations territoriales ne sont pas encore regroupés."
+
+msgid "Noch keine Einträge."
+msgstr "Aucune entrée pour l’instant."
+
+msgid "Zeile hinzufügen"
+msgstr "Ajouter une ligne"
+
+msgid "Das Speichern ist nicht gelungen, oder die Daten wurden inzwischen von jemand anderem geändert. Mit „Neu laden“ sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr "L’enregistrement a échoué, ou les données ont entre-temps été modifiées par quelqu’un d’autre. « Recharger » affiche l’état actuel ; vos saisies seront perdues."
+
+msgid "Zeile"
+msgstr "Ligne"
+
+msgid "Hinweise"
+msgstr "Remarques"
+
+msgid "Zeile löschen?"
+msgstr "Supprimer la ligne ?"
+
+msgid "Die Zeile wird aus der Liste entfernt. Das lässt sich nicht rückgängig machen."
+msgstr "La ligne est retirée de la liste. Cette action est irréversible."
+
+msgid "Neue Zeile"
+msgstr "Nouvelle ligne"
+
+msgid "Zeile %1 bearbeiten"
+msgstr "Modifier la ligne %1"
+
+msgid "Art der Person"
+msgstr "Type de personne"
+
+msgid "Land (zwei Großbuchstaben)"
+msgstr "Pays (deux lettres majuscules)"
+
+msgid "Art der Zuwendung"
+msgstr "Type de contribution"
+
+msgid "Betrag (€)"
+msgstr "Montant (€)"
+
+msgid "Bitte einen Betrag eingeben."
+msgstr "Veuillez saisir un montant."
+
+msgid "Spende und Beitrag"
+msgstr "Don et cotisation"
+
+msgid "Allgemeine Angaben zur Rechnungslegung"
+msgstr "Informations générales sur la comptabilité"
+
+msgid "Erleichterungen nach § 28 PartG"
+msgstr "Allègements selon le § 28 PartG"
+
+msgid "Beteiligungen"
+msgstr "Participations"
+
+msgid "Medienerzeugnisse"
+msgstr "Produits médiatiques"
+
+msgid "Bewertung von Grundstücken"
+msgstr "Évaluation des biens immobiliers"
+
+msgid "Zum Beispiel: Bilanzierungs- und Bewertungsmethoden"
+msgstr "Par exemple : méthodes comptables et d’évaluation"
+
+msgid "Zum Beispiel: Begründung der Inanspruchnahme"
+msgstr "Par exemple : justification du recours à l’allègement"
+
+msgid "Zum Beispiel: Erläuterung zu den Beteiligungen"
+msgstr "Par exemple : explication des participations"
+
+msgid "Zum Beispiel: Angaben zu Druckschriften und Medien"
+msgstr "Par exemple : informations sur les imprimés et les médias"
+
+msgid "Zum Beispiel: Wertansatz und Quelle der Bewertung"
+msgstr "Par exemple : valeur retenue et source de l’évaluation"
+
+msgid "Nicht angegeben"
+msgstr "Non précisé"
+
+msgid "Schalten Sie die Bausteine ein, die in den Bericht aufgenommen werden sollen. Ein ausgeschalteter Baustein erscheint nicht im Bericht, auch wenn Text darin steht."
+msgstr "Activez les blocs à inclure dans le rapport. Un bloc désactivé n’apparaît pas dans le rapport, même s’il contient du texte."
+
+msgid "In den Bericht aufnehmen"
+msgstr "Inclure dans le rapport"
+
+msgid "Text: %1"
+msgstr "Texte : %1"
+
+msgid "§ 28 Absatz 1"
+msgstr "§ 28, alinéa 1"
+
+msgid "§ 28 Absatz 3"
+msgstr "§ 28, alinéa 3"
+
+msgid "Unternehmen"
+msgstr "Entreprise"
+
+msgid "Sitz"
+msgstr "Siège"
+
+msgid "Anteil in %"
+msgstr "Part en %"
+
+msgid "Bitte einen Anteil zwischen 0 und 100 eingeben."
+msgstr "Veuillez saisir une part comprise entre 0 et 100."
+
+msgid "Kapital (€)"
+msgstr "Capital (€)"
+
+msgid "Ergebnis (€)"
+msgstr "Résultat (€)"
+
+msgid "Beteiligung hinzufügen"
+msgstr "Ajouter une participation"
+
+msgid "Es sind nicht mehr Einträge möglich."
+msgstr "Il n’est pas possible d’ajouter d’autres entrées."
+
+msgid "Bitte keine Steuerzeichen verwenden."
+msgstr "Veuillez ne pas utiliser de caractères de contrôle."
+
+msgid "Hinweise zur Plausibilität"
+msgstr "Remarques de plausibilité"
+
+msgid "Keine Hinweise."
+msgstr "Aucune remarque."
+
+msgid "Bitte prüfen"
+msgstr "À vérifier"
+
+msgid "Zur Info"
+msgstr "Pour information"
+
+msgid "Zeilen %1 und %2"
+msgstr "Lignes %1 et %2"
+
+msgid "Anschrift fehlt"
+msgstr "Adresse manquante"
+
+msgid "Anschrift unvollständig"
+msgstr "Adresse incomplète"
+
+msgid "Bar-Spenden über 1.000 € erfasst"
+msgstr "Dons en espèces de plus de 1 000 € saisis"
+
+msgid "Position %1 weicht deutlich vom Vorjahr ab"
+msgstr "La position %1 s’écarte nettement de l’année précédente"
+
+msgid "Weitere deutliche Abweichungen zum Vorjahr werden nicht einzeln aufgeführt"
+msgstr "D’autres écarts notables par rapport à l’année précédente ne sont pas listés individuellement"
+
+msgid "Mitgliederzahl fehlt"
+msgstr "Nombre de membres manquant"
+
+msgid "Mindestens ein Abzug fehlt"
+msgstr "Au moins une déduction manque"
+
+msgid "Die allgemeinen Angaben zur Rechnungslegung fehlen"
+msgstr "Les informations générales sur la comptabilité manquent"
+
+msgid "In diese Liste gehören nur Personen mit mehr als 10.000 € im Jahr."
+msgstr "Cette liste ne comprend que les personnes ayant versé plus de 10 000 € par an."
+
+msgid "Bitte zwei Großbuchstaben angeben, zum Beispiel DE."
+msgstr "Veuillez saisir deux lettres majuscules, par exemple DE."
+
+msgid "Der Wert liegt außerhalb des erlaubten Bereichs."
+msgstr "La valeur est en dehors de la plage autorisée."
+
+msgid "Ausweise"
+msgstr "Justificatifs"
+
+msgid "Erläuterungen"
+msgstr "Explications"
+
+msgid "%1 zu prüfen"
+msgstr "%1 à vérifier"
+
+msgid "Rechenschaftsbericht: Ausweise"
+msgstr "Rapport de reddition des comptes : justificatifs"
+
+msgid "Rechenschaftsbericht: Erläuterungen"
+msgstr "Rapport de reddition des comptes : explications"

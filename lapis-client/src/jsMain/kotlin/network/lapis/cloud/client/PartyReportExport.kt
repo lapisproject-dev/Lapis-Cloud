@@ -13,6 +13,7 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.simplePanel
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
+import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgReportFormat
 import network.lapis.cloud.shared.domain.PartgReportScope
 import network.lapis.cloud.shared.domain.PartgUnitDto
@@ -20,6 +21,7 @@ import network.lapis.cloud.shared.domain.PartgUnitDto
 private class ExportSetup(
     val units: List<PartgUnitDto>,
     val completeness: PartgCompletenessDto,
+    val findings: List<PartgFindingDto>,
 )
 
 /**
@@ -34,7 +36,9 @@ internal fun SimplePanel.renderPartyReportExport(context: PartyReportContext) {
         load = {
             guarded {
                 val rpc = partyReportRpc()
-                ExportSetup(units = rpc.listUnits(), completeness = rpc.reportCompleteness(context.year))
+                // the hints are an extra: if they cannot be read, the page and the downloads still work
+                val findings = runCatching { rpc.reportFindings(context.year) }.getOrDefault(emptyList())
+                ExportSetup(units = rpc.listUnits(), completeness = rpc.reportCompleteness(context.year), findings = findings)
             }
         },
         render = { body, setup -> body.renderExportBody(context, setup) },
@@ -50,10 +54,19 @@ private fun SimplePanel.renderExportBody(
     val toolbar = lapisToolbar()
     val scopeSelect = toolbar.select(options = options, value = context.reportScope, label = tr("Umfang"))
     val checklistHost = simplePanel()
+    val findingsHost = simplePanel()
 
     fun paint() {
         checklistHost.removeAll()
         checklistHost.renderChecklist(context, setup)
+        findingsHost.removeAll()
+        val inScope =
+            setup.findings.filter {
+                context.reportScope == PartgReportScope.ALL_KEY ||
+                    it.unitKey == null ||
+                    it.unitKey == context.reportScope
+            }
+        findingsHost.renderPartyReportFindings(context, setup.units, inScope)
     }
     scopeSelect.subscribe {
         val key = scopeSelect.value ?: return@subscribe

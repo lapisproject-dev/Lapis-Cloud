@@ -29914,3 +29914,219 @@ msgid_plural "%1 Räume umgestellt."
 msgstr[0] "Przestawiono %1 pokój."
 msgstr[1] "Przestawiono %1 pokoje."
 msgstr[2] "Przestawiono %1 pokoi."
+
+msgid "Nicht zuordenbare Spenden"
+msgstr "Darowizny, których nie można przypisać"
+
+msgid "Bar-Spenden über 1.000 €"
+msgstr "Darowizny gotówkowe powyżej 1000 €"
+
+msgid "Spenden über 3.300 € ohne Ausweis"
+msgstr "Darowizny powyżej 3300 € bez zestawienia"
+
+msgid "Fälschlich gemeldete Spenden"
+msgstr "Darowizny zgłoszone błędnie"
+
+msgid "A: Abzüge bei der Spendenbehandlung"
+msgstr "A: Odliczenia przy rozliczaniu darowizn"
+
+msgid "Leer bedeutet nicht erfasst, 0 ist ein Wert."
+msgstr "Puste oznacza brak wpisu, 0 jest wartością."
+
+msgid "Mitgliederzahl zum 31.12."
+msgstr "Liczba członków na dzień 31.12."
+
+msgid "Heute im Mitgliederregister: %1 (Stand %2, nicht der 31.12.)"
+msgstr "Dziś w rejestrze członków: %1 (stan na %2, nie na 31.12.)"
+
+msgid "Für nachgeordnete Gebietsverbände kennt das Mitgliederregister keine Zahl."
+msgstr "Rejestr członków nie zawiera liczby dla podporządkowanych oddziałów terenowych."
+
+msgid "B: Spenden und Beiträge über 10.000 € je Person und Jahr"
+msgstr "B: Darowizny i składki powyżej 10 000 € na osobę rocznie"
+
+msgid "Nur Vorstand und Admin sehen diese Liste. Aufzunehmen sind Personen mit mehr als 10.000 € pro Jahr an diese Gliederung. Beträge an mehrere Gebietsverbände werden noch nicht zusammengeführt."
+msgstr "Tę listę widzą tylko zarząd i administratorzy. Należy wpisać osoby, które wpłaciły na tę jednostkę więcej niż 10 000 € rocznie. Kwoty wpłacone na kilka oddziałów nie są jeszcze łączone."
+
+msgid "Noch keine Einträge."
+msgstr "Brak wpisów."
+
+msgid "Zeile hinzufügen"
+msgstr "Dodaj wiersz"
+
+msgid "Das Speichern ist nicht gelungen, oder die Daten wurden inzwischen von jemand anderem geändert. Mit „Neu laden“ sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr "Nie udało się zapisać albo dane zostały w międzyczasie zmienione przez kogoś innego. „Odśwież” pokaże aktualny stan; Twoje wpisy zostaną utracone."
+
+msgid "Zeile"
+msgstr "Wiersz"
+
+msgid "Hinweise"
+msgstr "Uwagi"
+
+msgid "Zeile löschen?"
+msgstr "Usunąć wiersz?"
+
+msgid "Die Zeile wird aus der Liste entfernt. Das lässt sich nicht rückgängig machen."
+msgstr "Wiersz zostanie usunięty z listy. Tej operacji nie można cofnąć."
+
+msgid "Neue Zeile"
+msgstr "Nowy wiersz"
+
+msgid "Zeile %1 bearbeiten"
+msgstr "Edytuj wiersz %1"
+
+msgid "Art der Person"
+msgstr "Rodzaj osoby"
+
+msgid "Land (zwei Großbuchstaben)"
+msgstr "Kraj (dwie wielkie litery)"
+
+msgid "Art der Zuwendung"
+msgstr "Rodzaj świadczenia"
+
+msgid "Betrag (€)"
+msgstr "Kwota (€)"
+
+msgid "Bitte einen Betrag eingeben."
+msgstr "Podaj kwotę."
+
+msgid "Spende und Beitrag"
+msgstr "Darowizna i składka"
+
+msgid "Allgemeine Angaben zur Rechnungslegung"
+msgstr "Ogólne informacje o rachunkowości"
+
+msgid "Erleichterungen nach § 28 PartG"
+msgstr "Ułatwienia według § 28 PartG"
+
+msgid "Beteiligungen"
+msgstr "Udziały"
+
+msgid "Medienerzeugnisse"
+msgstr "Produkty medialne"
+
+msgid "Bewertung von Grundstücken"
+msgstr "Wycena nieruchomości"
+
+msgid "Zum Beispiel: Bilanzierungs- und Bewertungsmethoden"
+msgstr "Na przykład: metody ujęcia i wyceny"
+
+msgid "Zum Beispiel: Begründung der Inanspruchnahme"
+msgstr "Na przykład: uzasadnienie skorzystania z ułatwienia"
+
+msgid "Zum Beispiel: Erläuterung zu den Beteiligungen"
+msgstr "Na przykład: objaśnienie udziałów"
+
+msgid "Zum Beispiel: Angaben zu Druckschriften und Medien"
+msgstr "Na przykład: informacje o drukach i mediach"
+
+msgid "Zum Beispiel: Wertansatz und Quelle der Bewertung"
+msgstr "Na przykład: przyjęta wartość i źródło wyceny"
+
+msgid "Nicht angegeben"
+msgstr "Nie podano"
+
+msgid "Schalten Sie die Bausteine ein, die in den Bericht aufgenommen werden sollen. Ein ausgeschalteter Baustein erscheint nicht im Bericht, auch wenn Text darin steht."
+msgstr "Włącz bloki, które mają trafić do sprawozdania. Wyłączony blok nie pojawia się w sprawozdaniu, nawet jeśli zawiera tekst."
+
+msgid "In den Bericht aufnehmen"
+msgstr "Dołącz do sprawozdania"
+
+msgid "Text: %1"
+msgstr "Tekst: %1"
+
+msgid "§ 28 Absatz 1"
+msgstr "§ 28 ust. 1"
+
+msgid "§ 28 Absatz 3"
+msgstr "§ 28 ust. 3"
+
+msgid "Unternehmen"
+msgstr "Przedsiębiorstwo"
+
+msgid "Sitz"
+msgstr "Siedziba"
+
+msgid "Anteil in %"
+msgstr "Udział w %"
+
+msgid "Bitte einen Anteil zwischen 0 und 100 eingeben."
+msgstr "Podaj udział od 0 do 100."
+
+msgid "Kapital (€)"
+msgstr "Kapitał (€)"
+
+msgid "Ergebnis (€)"
+msgstr "Wynik (€)"
+
+msgid "Beteiligung hinzufügen"
+msgstr "Dodaj udział"
+
+msgid "Es sind nicht mehr Einträge möglich."
+msgstr "Nie można dodać więcej wpisów."
+
+msgid "Bitte keine Steuerzeichen verwenden."
+msgstr "Nie używaj znaków sterujących."
+
+msgid "Hinweise zur Plausibilität"
+msgstr "Uwagi dotyczące wiarygodności"
+
+msgid "Keine Hinweise."
+msgstr "Brak uwag."
+
+msgid "Bitte prüfen"
+msgstr "Do sprawdzenia"
+
+msgid "Zur Info"
+msgstr "Informacyjnie"
+
+msgid "Zeilen %1 und %2"
+msgstr "Wiersze %1 i %2"
+
+msgid "Anschrift fehlt"
+msgstr "Brak adresu"
+
+msgid "Anschrift unvollständig"
+msgstr "Adres niekompletny"
+
+msgid "Bar-Spenden über 1.000 € erfasst"
+msgstr "Wpisano darowizny gotówkowe powyżej 1000 €"
+
+msgid "Position %1 weicht deutlich vom Vorjahr ab"
+msgstr "Pozycja %1 wyraźnie odbiega od roku poprzedniego"
+
+msgid "Weitere deutliche Abweichungen zum Vorjahr werden nicht einzeln aufgeführt"
+msgstr "Dalsze wyraźne odchylenia od roku poprzedniego nie są wymieniane pojedynczo"
+
+msgid "Mitgliederzahl fehlt"
+msgstr "Brak liczby członków"
+
+msgid "Mindestens ein Abzug fehlt"
+msgstr "Brakuje co najmniej jednego odliczenia"
+
+msgid "Die allgemeinen Angaben zur Rechnungslegung fehlen"
+msgstr "Brakuje ogólnych informacji o rachunkowości"
+
+msgid "In diese Liste gehören nur Personen mit mehr als 10.000 € im Jahr."
+msgstr "Na tej liście są tylko osoby, które wpłaciły więcej niż 10 000 € rocznie."
+
+msgid "Bitte zwei Großbuchstaben angeben, zum Beispiel DE."
+msgstr "Podaj dwie wielkie litery, na przykład DE."
+
+msgid "Der Wert liegt außerhalb des erlaubten Bereichs."
+msgstr "Wartość jest poza dozwolonym zakresem."
+
+msgid "Ausweise"
+msgstr "Zestawienia"
+
+msgid "Erläuterungen"
+msgstr "Objaśnienia"
+
+msgid "%1 zu prüfen"
+msgstr "%1 do sprawdzenia"
+
+msgid "Rechenschaftsbericht: Ausweise"
+msgstr "Sprawozdanie finansowe: zestawienia"
+
+msgid "Rechenschaftsbericht: Erläuterungen"
+msgstr "Sprawozdanie finansowe: objaśnienia"

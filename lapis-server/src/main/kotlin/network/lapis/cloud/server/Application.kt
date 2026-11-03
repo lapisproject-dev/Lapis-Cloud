@@ -1957,6 +1957,8 @@ internal fun Application.module(
     val partgReportImportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val partgImportPreviewStore = PartgImportPreviewStore()
     // V1.9.256 party report export (PDF/XLSX): 10 per member and minute, two renderings at a time.
+    // V1.9.269: the plausibility hints read every table of the report -- their own limiter, not the export's.
+    val partgReportFindingsRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val partgReportExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val partgReportExportConcurrency = Semaphore(permits = 2)
     val attachedImageListRateLimiter = FederationInboxRateLimiter(maxRequests = 600, window = 60.minutes)
@@ -2992,7 +2994,11 @@ internal fun Application.module(
         // V1.9.225 party report (PartG), R1. Registered before the LupaBB sync, the Protokoll draft, the Protokoll finalisation and the
         // partner servers (Kilua numbers routes by declaration order). New methods of the interface go to its end, never in between.
         registerService(IPartyReportService::class) { call ->
-            PartyReportService(call = call, writeRateLimiter = partgReportWriteRateLimiter)
+            PartyReportService(
+                call = call,
+                writeRateLimiter = partgReportWriteRateLimiter,
+                findingsRateLimiter = partgReportFindingsRateLimiter,
+            )
         }
         // V1.9.226 LupaBB member master-data sync (ADMIN, manual). Registered before the Protokoll draft, the Protokoll finalisation and the
         // partner servers (Kilua numbers routes by declaration order). New methods of the interface go to its end, never in between.

@@ -958,6 +958,13 @@ dto:PartgOverviewRowDto.updatedAt	A	stamped by the server clock (ServerClock.now
 col:PartgReportPositionTable.orgHintUpdatedAt	A	PartyReportService.updatePositionHint: stamped by ServerClock.now()
 col:PartgReportSheetTable.updatedAt	A	PartgSheetWriter: stamped by ServerClock.now()
 col:PartgReportValueTable.updatedAt	A	PartgSheetWriter: stamped by ServerClock.now()
+dto:PartgMemberCountSuggestionDto.asOf	D	calendar date (LocalDate): today in the organization zone (PartyReportService.annexDto); never converted
+col:PartgReportAnnexTable.updatedAt	A	PartgAnnexStore: stamped by ServerClock.now()
+col:PartgReportLargeDonorTable.createdAt	A	PartgAnnexStore: stamped by ServerClock.now()
+col:PartgReportLargeDonorTable.updatedAt	A	PartgAnnexStore: stamped by ServerClock.now()
+col:PartgReportNotesSheetTable.updatedAt	A	PartgAnnexStore: stamped by ServerClock.now()
+col:PartgReportNoteTable.updatedAt	A	PartgAnnexStore: stamped by ServerClock.now()
+col:PartgReportHoldingTable.updatedAt	A	PartgAnnexStore: stamped by ServerClock.now()
 dto:LupaBbSyncStatusDto.setAt	A	when the credentials were stored: ServerClock.now()
 dto:LupaBbLastRunDto.finishedAt	A	end of the applied run: ServerClock.now()
 dto:LupaBbPreviewSummaryDto.expiresAt	A	end of the preview time to live, derived from the server clock

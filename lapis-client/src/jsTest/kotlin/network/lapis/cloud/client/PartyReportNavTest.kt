@@ -56,7 +56,11 @@ class PartyReportNavTest {
     @Test
     fun theTabIsRememberedByName_andAnUnknownNameFallsBackToTheOverview() {
         assertEquals(PartyReportTab.REPORT, PartyReportTab.valueOf("REPORT"))
-        assertEquals(listOf("OVERVIEW", "SHEET", "POSITIONS", "REPORT"), PartyReportTab.entries.map { it.name })
+        // R3 (V1.9.269) appended two tabs at the END: the four stored names keep their meaning
+        assertEquals(
+            listOf("OVERVIEW", "SHEET", "POSITIONS", "REPORT", "AUSWEISE", "ERLAEUTERUNGEN"),
+            PartyReportTab.entries.map { it.name },
+        )
         assertEquals(PartyReportTab.OVERVIEW, runCatching { PartyReportTab.valueOf("GONE") }.getOrNull() ?: PartyReportTab.OVERVIEW)
     }
 }

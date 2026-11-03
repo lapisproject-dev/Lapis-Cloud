@@ -1,7 +1,14 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
+import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgFindingDto
+import network.lapis.cloud.shared.domain.PartgHoldingDto
+import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
+import network.lapis.cloud.shared.domain.PartgNoteDto
+import network.lapis.cloud.shared.domain.PartgNotesDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
@@ -51,4 +58,50 @@ interface IPartyReportService {
 
     /** V1.9.256: completeness of all units for [year] and the year before. The same query feeds the overview (server side) and the checklist. */
     suspend fun reportCompleteness(year: Int): PartgCompletenessDto
+
+    /**
+     * V1.9.269 (R3): the separate statements of one unit and year -- deductions (A), member count (E) and the large-donor list (B). Read-only;
+     * the member count suggestion is only set for the current year and a federal or state unit.
+     */
+    suspend fun getAnnex(
+        year: Int,
+        unitKey: String,
+    ): PartgAnnexDto
+
+    /** Saves the four deduction fields and the member count (`null` = not entered). A stale [expectedRevision] is [PartyReportRevisionConflictException]. */
+    suspend fun saveAnnexFigures(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        deductions: Map<PartgDeduction, Long?>,
+        memberCount: Int?,
+    ): PartgAnnexDto
+
+    /** Adds ([PartgLargeDonorInputDto.id] `null`) or changes a large-donor row. At most 500 rows per unit and year; only amounts above 10,000.00 EUR. */
+    suspend fun saveLargeDonor(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        donor: PartgLargeDonorInputDto,
+    ): PartgAnnexDto
+
+    suspend fun deleteLargeDonor(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        donorId: String,
+    ): PartgAnnexDto
+
+    /** The notes of the organisation for [year]: always five blocks, plus the holdings. */
+    suspend fun getNotes(year: Int): PartgNotesDto
+
+    suspend fun saveNotes(
+        year: Int,
+        expectedRevision: Long,
+        notes: List<PartgNoteDto>,
+        holdings: List<PartgHoldingDto>,
+    ): PartgNotesDto
+
+    /** The plausibility hints P01..P06 over all units. Never carries a name, an address or an amount. */
+    suspend fun reportFindings(year: Int): List<PartgFindingDto>
 }

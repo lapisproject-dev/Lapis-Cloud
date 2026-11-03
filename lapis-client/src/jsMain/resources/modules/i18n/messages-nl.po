@@ -29981,3 +29981,219 @@ msgid "%1 Raum umgestellt."
 msgid_plural "%1 Räume umgestellt."
 msgstr[0] "%1 ruimte omgezet."
 msgstr[1] "%1 ruimtes omgezet."
+
+msgid "Nicht zuordenbare Spenden"
+msgstr "Niet toewijsbare giften"
+
+msgid "Bar-Spenden über 1.000 €"
+msgstr "Contante giften boven € 1.000"
+
+msgid "Spenden über 3.300 € ohne Ausweis"
+msgstr "Giften boven € 3.300 zonder verklaring"
+
+msgid "Fälschlich gemeldete Spenden"
+msgstr "Ten onrechte gemelde giften"
+
+msgid "A: Abzüge bei der Spendenbehandlung"
+msgstr "A: Aftrekposten bij de behandeling van giften"
+
+msgid "Leer bedeutet nicht erfasst, 0 ist ein Wert."
+msgstr "Leeg betekent niet ingevuld, 0 is een waarde."
+
+msgid "Mitgliederzahl zum 31.12."
+msgstr "Aantal leden per 31-12"
+
+msgid "Heute im Mitgliederregister: %1 (Stand %2, nicht der 31.12.)"
+msgstr "Vandaag in het ledenregister: %1 (stand %2, niet 31-12)"
+
+msgid "Für nachgeordnete Gebietsverbände kennt das Mitgliederregister keine Zahl."
+msgstr "Het ledenregister kent geen aantal voor onderliggende gebiedsverbanden."
+
+msgid "B: Spenden und Beiträge über 10.000 € je Person und Jahr"
+msgstr "B: Giften en bijdragen boven € 10.000 per persoon en jaar"
+
+msgid "Nur Vorstand und Admin sehen diese Liste. Aufzunehmen sind Personen mit mehr als 10.000 € pro Jahr an diese Gliederung. Beträge an mehrere Gebietsverbände werden noch nicht zusammengeführt."
+msgstr "Alleen het bestuur en beheerders zien deze lijst. Neem personen op met meer dan € 10.000 per jaar aan deze eenheid. Bedragen aan meerdere gebiedsverbanden worden nog niet samengevoegd."
+
+msgid "Noch keine Einträge."
+msgstr "Nog geen items."
+
+msgid "Zeile hinzufügen"
+msgstr "Rij toevoegen"
+
+msgid "Das Speichern ist nicht gelungen, oder die Daten wurden inzwischen von jemand anderem geändert. Mit „Neu laden“ sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren."
+msgstr "Opslaan is mislukt, of de gegevens zijn intussen door iemand anders gewijzigd. Met „Opnieuw laden” ziet u de actuele stand; uw invoer gaat daarbij verloren."
+
+msgid "Zeile"
+msgstr "Rij"
+
+msgid "Hinweise"
+msgstr "Aandachtspunten"
+
+msgid "Zeile löschen?"
+msgstr "Rij verwijderen?"
+
+msgid "Die Zeile wird aus der Liste entfernt. Das lässt sich nicht rückgängig machen."
+msgstr "De rij wordt uit de lijst verwijderd. Dit kan niet ongedaan worden gemaakt."
+
+msgid "Neue Zeile"
+msgstr "Nieuwe rij"
+
+msgid "Zeile %1 bearbeiten"
+msgstr "Rij %1 bewerken"
+
+msgid "Art der Person"
+msgstr "Soort persoon"
+
+msgid "Land (zwei Großbuchstaben)"
+msgstr "Land (twee hoofdletters)"
+
+msgid "Art der Zuwendung"
+msgstr "Soort bijdrage"
+
+msgid "Betrag (€)"
+msgstr "Bedrag (€)"
+
+msgid "Bitte einen Betrag eingeben."
+msgstr "Voer een bedrag in."
+
+msgid "Spende und Beitrag"
+msgstr "Gift en bijdrage"
+
+msgid "Allgemeine Angaben zur Rechnungslegung"
+msgstr "Algemene gegevens over de verslaglegging"
+
+msgid "Erleichterungen nach § 28 PartG"
+msgstr "Verlichtingen volgens § 28 PartG"
+
+msgid "Beteiligungen"
+msgstr "Deelnemingen"
+
+msgid "Medienerzeugnisse"
+msgstr "Mediaproducten"
+
+msgid "Bewertung von Grundstücken"
+msgstr "Waardering van onroerend goed"
+
+msgid "Zum Beispiel: Bilanzierungs- und Bewertungsmethoden"
+msgstr "Bijvoorbeeld: waarderings- en verslaggevingsmethoden"
+
+msgid "Zum Beispiel: Begründung der Inanspruchnahme"
+msgstr "Bijvoorbeeld: motivering van het gebruik"
+
+msgid "Zum Beispiel: Erläuterung zu den Beteiligungen"
+msgstr "Bijvoorbeeld: toelichting op de deelnemingen"
+
+msgid "Zum Beispiel: Angaben zu Druckschriften und Medien"
+msgstr "Bijvoorbeeld: gegevens over drukwerk en media"
+
+msgid "Zum Beispiel: Wertansatz und Quelle der Bewertung"
+msgstr "Bijvoorbeeld: gehanteerde waarde en bron van de waardering"
+
+msgid "Nicht angegeben"
+msgstr "Niet opgegeven"
+
+msgid "Schalten Sie die Bausteine ein, die in den Bericht aufgenommen werden sollen. Ein ausgeschalteter Baustein erscheint nicht im Bericht, auch wenn Text darin steht."
+msgstr "Schakel de blokken in die in het verslag moeten komen. Een uitgeschakeld blok verschijnt niet in het verslag, ook niet als er tekst in staat."
+
+msgid "In den Bericht aufnehmen"
+msgstr "Opnemen in het verslag"
+
+msgid "Text: %1"
+msgstr "Tekst: %1"
+
+msgid "§ 28 Absatz 1"
+msgstr "§ 28, lid 1"
+
+msgid "§ 28 Absatz 3"
+msgstr "§ 28, lid 3"
+
+msgid "Unternehmen"
+msgstr "Onderneming"
+
+msgid "Sitz"
+msgstr "Zetel"
+
+msgid "Anteil in %"
+msgstr "Aandeel in %"
+
+msgid "Bitte einen Anteil zwischen 0 und 100 eingeben."
+msgstr "Voer een aandeel tussen 0 en 100 in."
+
+msgid "Kapital (€)"
+msgstr "Kapitaal (€)"
+
+msgid "Ergebnis (€)"
+msgstr "Resultaat (€)"
+
+msgid "Beteiligung hinzufügen"
+msgstr "Deelneming toevoegen"
+
+msgid "Es sind nicht mehr Einträge möglich."
+msgstr "Er zijn geen extra items mogelijk."
+
+msgid "Bitte keine Steuerzeichen verwenden."
+msgstr "Gebruik geen stuurtekens."
+
+msgid "Hinweise zur Plausibilität"
+msgstr "Plausibiliteitsmeldingen"
+
+msgid "Keine Hinweise."
+msgstr "Geen meldingen."
+
+msgid "Bitte prüfen"
+msgstr "Graag controleren"
+
+msgid "Zur Info"
+msgstr "Ter informatie"
+
+msgid "Zeilen %1 und %2"
+msgstr "Rijen %1 en %2"
+
+msgid "Anschrift fehlt"
+msgstr "Adres ontbreekt"
+
+msgid "Anschrift unvollständig"
+msgstr "Adres onvolledig"
+
+msgid "Bar-Spenden über 1.000 € erfasst"
+msgstr "Contante giften boven € 1.000 ingevoerd"
+
+msgid "Position %1 weicht deutlich vom Vorjahr ab"
+msgstr "Post %1 wijkt duidelijk af van het vorige jaar"
+
+msgid "Weitere deutliche Abweichungen zum Vorjahr werden nicht einzeln aufgeführt"
+msgstr "Verdere duidelijke afwijkingen ten opzichte van het vorige jaar worden niet afzonderlijk vermeld"
+
+msgid "Mitgliederzahl fehlt"
+msgstr "Ledenaantal ontbreekt"
+
+msgid "Mindestens ein Abzug fehlt"
+msgstr "Er ontbreekt minstens één aftrekpost"
+
+msgid "Die allgemeinen Angaben zur Rechnungslegung fehlen"
+msgstr "De algemene gegevens over de verslaglegging ontbreken"
+
+msgid "In diese Liste gehören nur Personen mit mehr als 10.000 € im Jahr."
+msgstr "In deze lijst staan alleen personen met meer dan € 10.000 per jaar."
+
+msgid "Bitte zwei Großbuchstaben angeben, zum Beispiel DE."
+msgstr "Voer twee hoofdletters in, bijvoorbeeld DE."
+
+msgid "Der Wert liegt außerhalb des erlaubten Bereichs."
+msgstr "De waarde ligt buiten het toegestane bereik."
+
+msgid "Ausweise"
+msgstr "Verklaringen"
+
+msgid "Erläuterungen"
+msgstr "Toelichtingen"
+
+msgid "%1 zu prüfen"
+msgstr "%1 te controleren"
+
+msgid "Rechenschaftsbericht: Ausweise"
+msgstr "Verantwoordingsverslag: verklaringen"
+
+msgid "Rechenschaftsbericht: Erläuterungen"
+msgstr "Verantwoordingsverslag: toelichtingen"

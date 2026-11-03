@@ -317,6 +317,18 @@ internal object PartgReportStore {
         return EnteredSnapshot(values = values, updatedAt = updated)
     }
 
+    /** The revisions of all sheet headers of [years], keyed `S:<year>:<unitKey>`; one statement (V1.9.269, part of the snapshot fence). */
+    fun sheetRevisions(years: Collection<Int>): Map<String, Long> {
+        if (years.isEmpty()) return emptyMap()
+        return PartgReportSheetTable
+            .selectAll()
+            .where { PartgReportSheetTable.fiscalYear inList years.toList() }
+            .associate {
+                "S:${it[PartgReportSheetTable.fiscalYear]}:${it[PartgReportSheetTable.unitKey]}" to
+                    it[PartgReportSheetTable.revision]
+            }
+    }
+
     /** The entered LEAF values per year and unit key; see [enteredSnapshot]. */
     fun enteredValues(years: Collection<Int>): Map<Int, Map<String, Map<String, Long>>> = enteredSnapshot(years).values
 

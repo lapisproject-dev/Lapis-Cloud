@@ -622,3 +622,19 @@ neither a member nor a CRM contact has no subject root and therefore no Art. 15/
 * `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
   intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
   the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).
+
+== Party accountability report (`partg_report_*`, V1.9.225, V1.9.269)
+
+This section covers the tables of the party accountability report (section 24 and 25 of the German Parties Act, per the concept note; the legal reading is not checked by a lawyer).
+
+[cols="2,4",options="header"]
+|===
+| Item | Statement
+| Data categories | (1) the person who last changed a row (`updated_by`, `created_by`, `org_hint_updated_by`: member keys, exported as "changed by you"); (2) in `partg_report_large_donor` **personal data of third parties**: name, address, kind of person, kind of contribution and a yearly sum above 10,000 EUR; (3) free texts of the notes; (4) holdings (legal persons).
+| Purpose | Draft of the accountability report of the organisation, only for the board.
+| Access | Only BOARD and ADMIN of an organisation that is a political party; the role is checked before any data is read; never in member-facing screens. Audit entries and logs hold counters, ids and codes only, never a name, address, amount or note text.
+| Retention | Ten years per the concept note (section 24 (2) PartG). No automatic deletion before wave R6.
+| Information and deletion | The donors are third parties **without a member row**. `partg_report_large_donor` is listed in `PersonalDataRegistry.knownUncoveredSubjectRoots` (visible, not closed): information and deletion are done by hand by the board (tab "Ausweise"). Art. 17 (3) (b) GDPR is expected to stand against a deletion during the retention period (legally unverified). A self-service path for the persons is not provided.
+| Member keys | Exported as "changed by you" (year, unit, kind of change; no content); retained on erasure in every mode with the reason; the member row is anonymised.
+| Backup | Included in the whole-organization backup (admin backup of the organisation's own books, like `external_donor`).
+|===

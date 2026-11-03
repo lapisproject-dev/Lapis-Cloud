@@ -44,4 +44,31 @@ data class PartgReportExportAuditSnapshot(
     /** Not entered LEAF values of the report year over all units in scope. */
     val missingCount: Int,
     val byteSize: Int,
+    /** V1.9.269: number of large-donor rows in the export (a counter, never a name). */
+    val donorRowCount: Int = 0,
+    /** V1.9.269: number of plausibility hints shown in the export. */
+    val findingCount: Int = 0,
+)
+
+/** V1.9.269 audit snapshot of a change of the separate statements: counters, ids and codes only. */
+@Serializable
+data class PartgAnnexAuditSnapshot(
+    val year: Int,
+    val unitKey: String,
+    /** `FIGURES`, `DONOR_ADDED`, `DONOR_UPDATED` or `DONOR_DELETED`. */
+    val change: String,
+    val changedFields: List<String> = emptyList(),
+    val donorId: String? = null,
+    val donorCount: Int,
+    val memberCountEntered: Boolean,
+    val deductionsEntered: Int,
+)
+
+/** V1.9.269 audit snapshot of a change of the notes: which blocks, how many holdings. No text. */
+@Serializable
+data class PartgNotesAuditSnapshot(
+    val year: Int,
+    val includedBlocks: List<PartgNoteBlock>,
+    val changedBlocks: List<PartgNoteBlock>,
+    val holdingCount: Int,
 )

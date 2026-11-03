@@ -2,9 +2,15 @@ package network.lapis.cloud.server.partg.report
 
 import network.lapis.cloud.server.partg.xlsx.PartgXlsxWriter
 import network.lapis.cloud.shared.domain.PartgCell
+import network.lapis.cloud.shared.domain.PartgContributionKind
+import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgFindingLevel
+import network.lapis.cloud.shared.domain.PartgNoteBlock
 import network.lapis.cloud.shared.domain.PartgPercent
+import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgReportLimits
 import network.lapis.cloud.shared.domain.PartgSection
+import network.lapis.cloud.shared.domain.PartgTriState
 import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.time.LocalDateTime
@@ -26,8 +32,24 @@ internal object PartgReportXlsxWriter {
     const val SHEET_EXPENSES = "Ausgaben"
     const val SHEET_ASSETS = "Vermögen"
     const val SHEET_NOTES = "Hinweise"
+    const val SHEET_ANNEX_A = "Ausweis A"
+    const val SHEET_ANNEX_B = "Ausweis B"
+    const val SHEET_MEMBERS = "Mitglieder"
+    const val SHEET_EXPLANATIONS = "Erläuterungen"
 
-    private val SHEET_NAMES = listOf(SHEET_COMPLETENESS, SHEET_SUMMARY, SHEET_INCOME, SHEET_EXPENSES, SHEET_ASSETS, SHEET_NOTES)
+    private val SHEET_NAMES =
+        listOf(
+            SHEET_COMPLETENESS,
+            SHEET_SUMMARY,
+            SHEET_INCOME,
+            SHEET_EXPENSES,
+            SHEET_ASSETS,
+            SHEET_ANNEX_A,
+            SHEET_ANNEX_B,
+            SHEET_MEMBERS,
+            SHEET_EXPLANATIONS,
+            SHEET_NOTES,
+        )
 
     // cellXfs indices -- kept in ONE place, STYLES below must match
     const val S_DEFAULT = 0
@@ -53,6 +75,13 @@ internal object PartgReportXlsxWriter {
 
         data class Pct(
             val tenths: Long,
+            val bold: Boolean = false,
+            /** Decimal places of [tenths] as a fraction: 3 for tenths of a percent, 4 for hundredths of a percent. */
+            val scale: Int = 3,
+        ) : X
+
+        data class Num(
+            val value: Long,
             val bold: Boolean = false,
         ) : X
     }
@@ -80,6 +109,10 @@ internal object PartgReportXlsxWriter {
                 income(document),
                 expenses(document),
                 assets(document),
+                annexA(document),
+                annexB(document),
+                members(document),
+                explanations(document),
                 notes(document),
             )
         val header = headerLine(document)
@@ -293,6 +326,148 @@ internal object PartgReportXlsxWriter {
         return s
     }
 
+    private fun deductionTitle(d: PartgDeduction): String =
+        when (d) {
+            PartgDeduction.UNASSIGNABLE -> PartgReportTexts.DEDUCTION_UNASSIGNABLE
+            PartgDeduction.CASH_OVER_1000 -> PartgReportTexts.DEDUCTION_CASH
+            PartgDeduction.OVER_3300 -> PartgReportTexts.DEDUCTION_OVER_3300
+            PartgDeduction.WRONGLY_REPORTED -> PartgReportTexts.DEDUCTION_WRONG
+        }
+
+    private fun annexA(doc: PartgReportDocument): Sheet {
+        val s = Sheet(listOf(48, 28, 28, 28, 28))
+        s.add(X.Text(value = PartgReportTexts.ANNEX_A, bold = true))
+        s.add(
+            X.Text(value = PartgReportTexts.COL_UNIT, bold = true),
+            *PartgDeduction.entries.map<PartgDeduction, X?> { X.Text(value = deductionTitle(it), bold = true) }.toTypedArray(),
+        )
+        (doc.annex.units + listOfNotNull(doc.annex.wholeParty)).forEach { page ->
+            val bold = page === doc.annex.wholeParty
+            s.add(
+                X.Text(value = page.label, bold = bold),
+                *PartgDeduction.entries.map<PartgDeduction, X?> { cellOf(c = page.deductions.getValue(it), bold = bold) }.toTypedArray(),
+            )
+        }
+        return s
+    }
+
+    private fun annexB(doc: PartgReportDocument): Sheet {
+        val s = Sheet(listOf(40, 8, 12, 40, 50, 8, 20, 18))
+        s.add(X.Text(value = PartgReportTexts.ANNEX_B, bold = true))
+        s.add(X.Text(value = PartgReportTexts.B_NOTE))
+        s.add(
+            X.Text(value = PartgReportTexts.COL_UNIT, bold = true),
+            X.Text(value = PartgReportTexts.COL_ROW, bold = true),
+            X.Text(value = PartgReportTexts.COL_PERSON_KIND, bold = true),
+            X.Text(value = PartgReportTexts.COL_NAME, bold = true),
+            X.Text(value = PartgReportTexts.COL_ADDRESS, bold = true),
+            X.Text(value = PartgReportTexts.COL_COUNTRY, bold = true),
+            X.Text(value = PartgReportTexts.COL_CONTRIBUTION, bold = true),
+            X.Text(value = PartgReportTexts.COL_AMOUNT, bold = true),
+        )
+        if (doc.annex.donors.isEmpty()) s.add(X.Text(value = PartgReportTexts.NO_ENTRIES))
+        doc.annex.donors.forEach { d ->
+            s.add(
+                X.Text(value = d.unitLabel),
+                X.Text(value = d.rowNumber.toString()),
+                X.Text(
+                    value =
+                        if (d.personKind ==
+                            PartgPersonKind.LEGAL
+                        ) {
+                            PartgReportTexts.PERSON_LEGAL
+                        } else {
+                            PartgReportTexts.PERSON_NATURAL
+                        },
+                ),
+                X.Text(value = d.name),
+                X.Text(value = d.addressLine),
+                X.Text(value = d.country),
+                X.Text(
+                    value =
+                        when (d.contributionKind) {
+                            PartgContributionKind.DONATION -> PartgReportTexts.CONTRIBUTION_DONATION
+                            PartgContributionKind.FEE -> PartgReportTexts.CONTRIBUTION_FEE
+                            PartgContributionKind.BOTH -> PartgReportTexts.CONTRIBUTION_BOTH
+                        },
+                ),
+                X.Euro(cents = d.amountCents),
+            )
+        }
+        return s
+    }
+
+    private fun members(doc: PartgReportDocument): Sheet {
+        val s = Sheet(listOf(48, 18))
+        s.add(X.Text(value = PartgReportTexts.ANNEX_E, bold = true))
+        s.add(X.Text(value = PartgReportTexts.E_NOTE + if (doc.annex.wholeParty != null) " " + PartgReportTexts.E_NOTE_ALL else ""))
+        s.add(X.Text(value = PartgReportTexts.COL_UNIT, bold = true), X.Text(value = PartgReportTexts.COL_MEMBERS, bold = true))
+        (doc.annex.units + listOfNotNull(doc.annex.wholeParty)).forEach { page ->
+            val bold = page === doc.annex.wholeParty
+            s.add(
+                X.Text(value = page.label, bold = bold),
+                page.memberCount?.let { X.Num(value = it.toLong(), bold = bold) }
+                    ?: X.Text(value = PartgReportTexts.NOT_ENTERED_LONG, bold = bold),
+            )
+        }
+        return s
+    }
+
+    private fun explanations(doc: PartgReportDocument): Sheet {
+        val s = Sheet(listOf(40, 24, 24, 20, 20, 120))
+        s.add(X.Text(value = PartgReportTexts.NOTES_TITLE, bold = true))
+        if (doc.notes.blocks.isEmpty()) s.add(X.Text(value = PartgReportTexts.NOT_ENTERED_LONG))
+        doc.notes.blocks.forEach { note ->
+            s.add(X.Text(value = noteTitle(note.block), bold = true))
+            if (note.block == PartgNoteBlock.RELIEF_28) {
+                s.add(
+                    X.Text(value = PartgReportTexts.RELIEF_ABS1),
+                    X.Text(value = triText(note.reliefAbs1)),
+                    X.Text(value = PartgReportTexts.RELIEF_ABS3),
+                    X.Text(value = triText(note.reliefAbs3)),
+                )
+            }
+            note.body?.split('\n')?.forEach { line -> s.add(X.Text(value = line)) }
+            if (note.block == PartgNoteBlock.HOLDINGS && doc.notes.holdings.isNotEmpty()) {
+                s.add(
+                    X.Text(value = PartgReportTexts.HOLDING_NAME, bold = true),
+                    X.Text(value = PartgReportTexts.HOLDING_SEAT, bold = true),
+                    X.Text(value = PartgReportTexts.HOLDING_SHARE, bold = true),
+                    X.Text(value = PartgReportTexts.HOLDING_CAPITAL, bold = true),
+                    X.Text(value = PartgReportTexts.HOLDING_RESULT, bold = true),
+                )
+                doc.notes.holdings.forEach { h ->
+                    s.add(
+                        X.Text(value = h.name),
+                        X.Text(value = h.seat.orEmpty()),
+                        h.shareBasisPoints?.let { X.Pct(tenths = it.toLong(), bold = false, scale = 4) }
+                            ?: X.Text(value = PartgReportTexts.NOT_ENTERED_LONG),
+                        h.capitalCents?.let { X.Euro(cents = it) } ?: X.Text(value = PartgReportTexts.NOT_ENTERED_LONG),
+                        h.resultCents?.let { X.Euro(cents = it) } ?: X.Text(value = PartgReportTexts.NOT_ENTERED_LONG),
+                    )
+                }
+            }
+            s.blank()
+        }
+        return s
+    }
+
+    private fun noteTitle(block: PartgNoteBlock) =
+        when (block) {
+            PartgNoteBlock.GENERAL_ACCOUNTING -> PartgReportTexts.NOTE_GENERAL
+            PartgNoteBlock.RELIEF_28 -> PartgReportTexts.NOTE_RELIEF
+            PartgNoteBlock.HOLDINGS -> PartgReportTexts.NOTE_HOLDINGS
+            PartgNoteBlock.MEDIA_PRODUCTS -> PartgReportTexts.NOTE_MEDIA
+            PartgNoteBlock.REAL_ESTATE_VALUATION -> PartgReportTexts.NOTE_REAL_ESTATE
+        }
+
+    private fun triText(state: PartgTriState?) =
+        when (state) {
+            PartgTriState.YES -> PartgReportTexts.YES
+            PartgTriState.NO -> PartgReportTexts.NO
+            else -> PartgReportTexts.UNSPECIFIED
+        }
+
     private fun notes(doc: PartgReportDocument): Sheet {
         val s = Sheet(listOf(120))
         s.add(X.Text(value = PartgReportTexts.NOTES, bold = true))
@@ -310,6 +485,24 @@ internal object PartgReportXlsxWriter {
                         PartgSection.LIABILITY,
                     ),
             )?.let { s.add(X.Text(value = it)) }
+        // R3: the plausibility hints. Codes, unit labels, row numbers and position numbers only: never a name, an address or an amount.
+        s.blank()
+        s.add(X.Text(value = "Plausibilitätshinweise", bold = true))
+        if (doc.findings.isEmpty()) s.add(X.Text(value = PartgReportTexts.FINDINGS_NONE))
+        val labels =
+            doc.annex.units.indices
+                .associate { i ->
+                    doc.completeness.units[i]
+                        .unit.unitKey to doc.annex.units[i].label
+                }
+        doc.findings.forEach { f ->
+            val rows = if (f.rowNumbers.isEmpty()) "" else " (Zeilen " + f.rowNumbers.joinToString(", ") + ")"
+            val position = f.positionCode?.let { " Position " + PartgReportLayout.numberText(it) }.orEmpty()
+            val gap = f.gap?.let { " [$it]" }.orEmpty()
+            val unit = f.unitKey?.let { labels[it] } ?: PartgReportTexts.ORGANIZATION
+            val level = if (f.level == PartgFindingLevel.CHECK) PartgReportTexts.LEVEL_CHECK else PartgReportTexts.LEVEL_INFO
+            s.add(X.Text(value = "${f.code.name} · $level · $unit · ${PartgReportTexts.finding(f.code)}$rows$position$gap"))
+        }
         return s
     }
 
@@ -365,7 +558,11 @@ internal object PartgReportXlsxWriter {
                 }
                 is X.Pct -> {
                     val style = if (x.bold) S_BOLD_PERCENT else S_PERCENT
-                    sb.append("""<c r="$ref" s="$style"><v>${BigDecimal.valueOf(x.tenths, 3).toPlainString()}</v></c>""")
+                    sb.append("""<c r="$ref" s="$style"><v>${BigDecimal.valueOf(x.tenths, x.scale).toPlainString()}</v></c>""")
+                }
+                is X.Num -> {
+                    val style = if (x.bold) S_BOLD else S_DEFAULT
+                    sb.append("""<c r="$ref" s="$style"><v>${x.value}</v></c>""")
                 }
             }
         }

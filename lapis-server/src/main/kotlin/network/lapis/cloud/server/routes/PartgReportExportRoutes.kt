@@ -16,17 +16,16 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
-import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
-import network.lapis.cloud.server.partg.PartgReportStore
+import network.lapis.cloud.server.partg.PartgReportSnapshotReader
 import network.lapis.cloud.server.partg.PartgYearRules
+import network.lapis.cloud.server.partg.report.PartgPlausibility
 import network.lapis.cloud.server.partg.report.PartgReportAssembler
 import network.lapis.cloud.server.partg.report.PartgReportPdfRenderer
 import network.lapis.cloud.server.partg.report.PartgReportTooLargeException
 import network.lapis.cloud.server.partg.report.PartgReportXlsxWriter
 import network.lapis.cloud.server.partg.requirePartyReportAccess
 import network.lapis.cloud.server.pdf.PdfLimitExceeded
-import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
@@ -40,8 +39,7 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportInvalidInputException
 import network.lapis.cloud.shared.rpc.PartyReportNotEnabledException
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.selectAll
+import network.lapis.cloud.shared.rpc.PartyReportRevisionConflictException
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.uuid.Uuid
 
@@ -106,36 +104,49 @@ private suspend fun ApplicationCall.export(
         return rejectExport(status = HttpStatusCode.TooManyRequests, code = PartgImportRejectionCode.RATE_LIMITED)
     }
     try {
-        val (organization, units, entered) =
-            transaction {
-                Triple(
-                    OrganizationSettingsTable
-                        .selectAll()
-                        .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
-                        .singleOrNull()
-                        ?.get(OrganizationSettingsTable.name)
-                        .orEmpty(),
-                    PartgReportStore.units(),
-                    PartgReportStore.enteredValues(listOf(year, year - 1)),
-                )
+        val snapshot =
+            try {
+                PartgReportSnapshotReader.read(listOf(year, year - 1))
+            } catch (e: PartyReportRevisionConflictException) {
+                return rejectExport(status = HttpStatusCode.Conflict, code = PartgImportRejectionCode.REVISION_CONFLICT)
             }
         val rendered =
             try {
                 withContext(Dispatchers.Default) {
+                    val findings =
+                        PartgPlausibility.check(
+                            year = year,
+                            units = snapshot.units,
+                            entered = snapshot.entered.values,
+                            annex = snapshot.annex,
+                            notes = snapshot.notes,
+                        )
                     val document =
                         PartgReportAssembler.assemble(
-                            organizationName = organization,
+                            organizationName = snapshot.organizationName,
                             year = year,
                             scope = scope,
-                            units = units,
-                            entered = entered,
+                            units = snapshot.units,
+                            entered = snapshot.entered.values,
+                            annex = snapshot.annex,
+                            notes = snapshot.notes,
+                            findings = findings,
                         )
                     val bytes =
                         when (format) {
                             PartgReportFormat.PDF -> PartgReportPdfRenderer().render(document)
                             PartgReportFormat.XLSX -> PartgReportXlsxWriter.write(document)
                         }
-                    Triple(bytes, document.units.size, document.completeness.units.sumOf { it.missingCurrent.size })
+                    Counters(
+                        bytes = bytes,
+                        unitCount = document.units.size,
+                        missingCount =
+                            document.completeness.units.sumOf {
+                                it.missingCurrent.size
+                            },
+                        donorRowCount = document.annex.donors.size,
+                        findingCount = findings.size,
+                    )
                 }
             } catch (e: NotFoundException) {
                 return rejectExport(status = HttpStatusCode.NotFound, code = PartgImportRejectionCode.NOT_FOUND)
@@ -146,7 +157,7 @@ private suspend fun ApplicationCall.export(
             } catch (e: PartgReportTooLargeException) {
                 return rejectExport(status = HttpStatusCode.PayloadTooLarge, code = PartgImportRejectionCode.TOO_LARGE)
             }
-        val (bytes, unitCount, missingCount) = rendered
+        val (bytes, unitCount, missingCount, donorRowCount, findingCount) = rendered
         val now = ServerClock.now()
         transaction {
             AuditLogRecorder.record(
@@ -165,6 +176,8 @@ private suspend fun ApplicationCall.export(
                             unitCount = unitCount,
                             missingCount = missingCount,
                             byteSize = bytes.size,
+                            donorRowCount = donorRowCount,
+                            findingCount = findingCount,
                         ),
                     ),
                 occurredAt = now,
@@ -180,6 +193,15 @@ private suspend fun ApplicationCall.export(
         concurrency.release()
     }
 }
+
+/** What an export reports to the audit log: counters only. */
+private data class Counters(
+    val bytes: ByteArray,
+    val unitCount: Int,
+    val missingCount: Int,
+    val donorRowCount: Int,
+    val findingCount: Int,
+)
 
 private suspend fun ApplicationCall.rejectExport(
     status: HttpStatusCode,

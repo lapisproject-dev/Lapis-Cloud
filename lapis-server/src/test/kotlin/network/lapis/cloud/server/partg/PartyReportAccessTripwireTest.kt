@@ -37,18 +37,34 @@ class PartyReportAccessTripwireTest :
                         .first()
                 }.toList()
 
-        test("the RPC surface is exactly the seven known methods") {
+        test("the RPC surface is exactly the fourteen known methods") {
             IPartyReportService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }
                 .toSet() shouldBe
-                setOf("listPositions", "updatePositionHint", "listUnits", "overview", "getSheet", "saveSheet", "reportCompleteness")
+                setOf(
+                    "listPositions",
+                    "updatePositionHint",
+                    "listUnits",
+                    "overview",
+                    "getSheet",
+                    "saveSheet",
+                    "reportCompleteness",
+                    // V1.9.269 (R3)
+                    "getAnnex",
+                    "saveAnnexFigures",
+                    "saveLargeDonor",
+                    "deleteLargeDonor",
+                    "getNotes",
+                    "saveNotes",
+                    "reportFindings",
+                )
         }
 
         test("every RPC method of the service starts with the access gate") {
             val code = source("PartyReportService.kt")
             val starts = firstStatements(code, Regex("""override suspend fun \w+\([^)]*\)\s*:\s*[\w<>?, ]+\s*"""))
-            (starts.size) shouldBe 7
+            (starts.size) shouldBe 14
             starts.filterNot { it.contains("requirePartyReportAccess(call)") }.shouldBeEmpty()
         }
 

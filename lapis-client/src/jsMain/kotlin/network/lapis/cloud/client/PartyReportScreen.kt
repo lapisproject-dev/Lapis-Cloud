@@ -15,7 +15,7 @@ import network.lapis.cloud.shared.rpc.IPartyReportService
 import org.w3c.dom.events.Event
 
 /** The tabs of the party report page. New tabs are appended: the remembered tab is read back by name. */
-internal enum class PartyReportTab { OVERVIEW, SHEET, POSITIONS, REPORT }
+internal enum class PartyReportTab { OVERVIEW, SHEET, POSITIONS, REPORT, AUSWEISE, ERLAEUTERUNGEN }
 
 /**
  * The state the tabs share (V1.9.225): the report year and the unit picked for entry, plus a probe the page asks before something would
@@ -32,6 +32,9 @@ internal class PartyReportContext(
 
     /** V1.9.256: jumps to the entry tab of a unit (set by the page). */
     var openSheetFor: (PartgUnitDto) -> Unit = {}
+
+    /** V1.9.269: switches to a tab (set by the page); the link of a plausibility hint uses it. */
+    var openTab: (PartyReportTab) -> Unit = {}
 }
 
 private const val TAB_STORAGE_KEY = "lapis.partyReport.tab"
@@ -49,7 +52,7 @@ private fun rememberTab(tab: PartyReportTab) {
  * texts say so plainly.
  *
  * Reachable for BOARD and ADMIN when the organisation is a political party (`SessionInfoDto.politicalParty`); the server enforces both on every
- * call. Four tabs: the overview of all units, entry of one unit, the positions with the organisation's own hints, and the report draft.
+ * call. Six tabs: the overview of all units, entry of one unit, the separate statements (A, B, member count), the notes, the positions with the organisation's own hints, and the report draft.
  */
 fun renderPartyReportScreen(container: SimplePanel) {
     val root = container.dataScreenRoot(spacing = 14)
@@ -100,19 +103,42 @@ fun renderPartyReportScreen(container: SimplePanel) {
         context.unit = unit
         showTab(PartyReportTab.SHEET)
     }
+    context.openTab = { chosen -> guardedChange(proceed = { showTab(chosen) }, revert = {}) }
+
+    fun tabLabel(candidate: PartyReportTab): String =
+        when (candidate) {
+            PartyReportTab.OVERVIEW -> tr("Übersicht")
+            PartyReportTab.SHEET -> tr("Werte erfassen")
+            PartyReportTab.AUSWEISE -> tr("Ausweise")
+            PartyReportTab.ERLAEUTERUNGEN -> tr("Erläuterungen")
+            PartyReportTab.POSITIONS -> tr("Positionen")
+            PartyReportTab.REPORT -> tr("Bericht")
+        }
 
     fun paintSegments() {
         segmentHost.removeAll()
-        val options =
-            listOf(
-                PartyReportTab.OVERVIEW to tr("Übersicht"),
-                PartyReportTab.SHEET to tr("Werte erfassen"),
-                PartyReportTab.POSITIONS to tr("Positionen"),
-                PartyReportTab.REPORT to tr("Bericht"),
-            )
-        segmentHost.segmentedScroll {
-            segmentedControl(options = options, selected = tab, ariaLabel = tr("Bereich")) { chosen ->
-                if (chosen != tab) guardedChange(proceed = { showTab(chosen) }, revert = {})
+        val options = PARTG_TAB_DISPLAY_ORDER.map { it to tabLabel(it) }
+        // wide screens: the segmented buttons; below 640 px: a select (the CSS shows exactly one of the two, so the other one is not in
+        // the accessibility tree)
+        segmentHost.div(className = "lapis-partg-tabs-wide") {
+            segmentedScroll {
+                segmentedControl(options = options, selected = tab, ariaLabel = tr("Bereich")) { chosen ->
+                    if (chosen != tab) guardedChange(proceed = { showTab(chosen) }, revert = {})
+                }
+            }
+        }
+        segmentHost.div(className = "lapis-partg-tabs-narrow") {
+            val tabSelect =
+                select(
+                    options = options.map { (value, label) -> value.name to label },
+                    value = tab.name,
+                    label = tr("Bereich"),
+                )
+            tabSelect.subscribe {
+                val chosen = tabSelect.value?.let { name -> PartyReportTab.entries.firstOrNull { it.name == name } } ?: return@subscribe
+                if (chosen != tab) {
+                    guardedChange(proceed = { showTab(chosen) }, revert = { tabSelect.value = tab.name })
+                }
             }
         }
     }
@@ -133,6 +159,8 @@ fun renderPartyReportScreen(container: SimplePanel) {
             PartyReportTab.SHEET -> tabPanel.renderPartyReportSheetEditor(context)
             PartyReportTab.POSITIONS -> tabPanel.renderPartyReportPositions()
             PartyReportTab.REPORT -> tabPanel.renderPartyReportExport(context)
+            PartyReportTab.AUSWEISE -> tabPanel.renderPartyReportAnnex(context)
+            PartyReportTab.ERLAEUTERUNGEN -> tabPanel.renderPartyReportNotes(context)
         }
     }
     showTab = { chosen ->

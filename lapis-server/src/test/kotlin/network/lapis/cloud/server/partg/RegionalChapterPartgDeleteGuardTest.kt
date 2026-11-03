@@ -7,6 +7,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.rpc.RegionalChapterService
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
 import network.lapis.cloud.shared.rpc.RegionalChapterHasPartyReportValuesException
@@ -99,6 +100,27 @@ class RegionalChapterPartgDeleteGuardTest :
                 }.isSuccess shouldBe
                     true
                 exists(free) shouldBe false
+            }
+        }
+
+        test("V1.9.269: a chapter with only a separate-statement (annex) row cannot be deleted either") {
+            val board = fx.member(role = AccountRole.BOARD)
+            val admin = fx.member(role = AccountRole.ADMIN)
+            val chapter = fx.chapter()
+            partgTestApplication(fixtures = fx) {
+                call(member = board) {
+                    service(it).saveAnnexFigures(
+                        year = year,
+                        unitKey = PartgUnit.State(chapter.toString()).key(),
+                        expectedRevision = 0,
+                        deductions = mapOf(PartgDeduction.OVER_3300 to 0L),
+                        memberCount = 12,
+                    )
+                }
+                attempt(member = admin) {
+                    RegionalChapterService(call = it, crestStorage = null, baseUrl = "http://localhost").deleteChapter(chapter.toString())
+                }.exceptionOrNull().shouldBeInstanceOf<RegionalChapterHasPartyReportValuesException>()
+                exists(chapter) shouldBe true
             }
         }
     })
