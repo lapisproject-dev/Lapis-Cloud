@@ -43,15 +43,45 @@ class EventCapturePrivacyTripwireTest :
             writers shouldBe listOf("EventCaptureAcknowledgments.kt")
         }
 
-        test("only the two entry paths (and the event deletion) call the writers of the proof") {
+        test("only the entry paths, the in-room acknowledgment and the event deletion call the writers of the proof; the gate only reads") {
             val callers =
                 SourceScan
                     .mainFiles()
                     .filter { it.name != "EventCaptureAcknowledgments.kt" }
-                    .filter { SourceScan.blank(it.readText()).contains("EventCaptureAcknowledgments.") }
-                    .map { it.name }
+                    .filter {
+                        Regex("""EventCaptureAcknowledgments\.(?:recordMember|recordGuest|deleteForEvent)\b""")
+                            .containsMatchIn(SourceScan.blank(it.readText()))
+                    }.map { it.name }
                     .sorted()
-            callers shouldBe listOf("EventOnlineJoin.kt", "EventStore.kt")
+            // V1.9.280: EventService (acknowledgeEventCaptureInRoom) is the third writer; the guest route reaches EventOnlineJoin.acknowledgeAccountless
+            callers shouldBe listOf("EventOnlineJoin.kt", "EventService.kt", "EventStore.kt")
+            // the consent gate and the breakout guard READ the proofs (acknowledgedAmong) and never write
+            val readers =
+                SourceScan
+                    .mainFiles()
+                    .filter {
+                        Regex(
+                            """EventCaptureAcknowledgments\s*\.\s*acknowledgedAmong\(""",
+                        ).containsMatchIn(SourceScan.blank(it.readText()))
+                    }.map { it.name }
+                    .sorted()
+            readers shouldBe listOf("EventCaptureConsentGate.kt", "EventConferenceGuard.kt")
+        }
+
+        test("V1.9.280: the gate logs an exception class or the number of removals -- never an identity, a room, an event or a name") {
+            listOf("events/EventCaptureConsentGate.kt", "events/EventCaptureDefaults.kt").forEach { relative ->
+                val text = EncounterSourceScan.mainFile(relative).readText()
+                Regex("""logger\.(?:trace|debug|info|warn|error)\s*\{([^}]*)}""").findAll(text).forEach { m ->
+                    val interpolations = Regex("""\$\{([^}]*)}|\$[A-Za-z_]\w*""").findAll(m.groupValues[1]).map { it.value }.toList()
+                    (interpolations.all { it == "\${e::class.simpleName}" || it == "\$removed" }) shouldBe true
+                }
+            }
+            // the count packet travels point to point to the moderators only: never sendData (everybody), and the numbers are the only payload
+            val broadcaster = SourceScan.blank(EncounterSourceScan.mainFile("events/EventCaptureLiveBroadcaster.kt").readText())
+            Regex(
+                """topic\s*=\s*EVENT_CAPTURE_COUNT_TOPIC,\s*payload\s*=\s*eventCaptureCountPayload\(dto\),\s*identities\s*=\s*connectedModerators\.toList\(\)""",
+            ).containsMatchIn(broadcaster) shouldBe true
+            Regex("""sendData\(\s*room\s*=\s*[^)]*EVENT_CAPTURE_(?:ASK|COUNT)_TOPIC""").containsMatchIn(broadcaster) shouldBe false
         }
 
         test("the log lines of the new files interpolate nothing but an exception class") {
@@ -83,7 +113,10 @@ class EventCapturePrivacyTripwireTest :
                     .first { it.name == "setEventCaptureAllowed" }
                     .body
             val releaseKeys = Regex("""\\"(\w+)\\":""").findAll(release).map { it.groupValues[1] }.toSet()
-            releaseKeys shouldBe setOf("eventId", "captureAllowed")
+            releaseKeys shouldBe setOf("eventId", "captureAllowed", "afterStart")
+            val created = EncounterSourceScan.mainFile("events/EventCaptureDefaults.kt").readText()
+            Regex("""\\"(\w+)\\":""").findAll(created).map { it.groupValues[1] }.toSet() shouldBe
+                setOf("eventId", "captureAllowed", "source")
             val switch =
                 File(SourceScan.mainRoot(), "network/lapis/cloud/server/rpc/OrganizationSettingsService.kt").readText()
             val snapshot = switch.substringAfter("private fun eventCaptureSnapshot(").substringBefore("\n}\n").substringBefore("/**")

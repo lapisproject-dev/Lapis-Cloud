@@ -16,7 +16,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
-import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.ConferenceStreamTable
 import network.lapis.cloud.server.encounter.encounterApp
 import network.lapis.cloud.server.encounter.failure
 import network.lapis.cloud.server.encounter.runAs
@@ -29,10 +29,14 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
+import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
+import network.lapis.cloud.shared.domain.ConferenceStreamLayout
+import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.EventCaptureChangeLock
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.EventCaptureChangeLockedException
+import network.lapis.cloud.shared.rpc.EventCaptureStillCapturingException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.and
@@ -42,7 +46,6 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -50,8 +53,9 @@ import kotlin.uuid.Uuid
 
 /**
  * V1.9.156 -- the RELEASE of recording / live streaming of one event ([EventService.setEventCaptureAllowed]): BOARD/ADMIN only, only while the instance
- * switch is on, only for a Lapis conference, and FROZEN from the moment people may be inside (window open, room alive, a recording or stream running,
- * somebody with an open participation). Audited with the event id and the value, nothing else. The default is "not released".
+ * switch is on, only for a Lapis conference. Since V1.9.280 switching it ON works at any time (also after the start); switching it OFF is refused only
+ * while a recording or stream runs. Audited with the event id, the value and the flag "afterStart", nothing else. A directly inserted event is not released
+ * (the default for NEW events lives in `EventCaptureDefaults`, see `EventCaptureDefaultTest`).
  */
 class EventCaptureReleaseTest :
     FunSpec({
@@ -200,7 +204,8 @@ class EventCaptureReleaseTest :
                     entry[AuditLogEntryTable.action] shouldBe AuditAction.UPDATE
                     entry[AuditLogEntryTable.actorMemberId] shouldBe board
                     entry[AuditLogEntryTable.beforeSnapshot] shouldBe "{\"eventId\":\"$event\",\"captureAllowed\":false}"
-                    entry[AuditLogEntryTable.afterSnapshot] shouldBe "{\"eventId\":\"$event\",\"captureAllowed\":true}"
+                    entry[AuditLogEntryTable.afterSnapshot] shouldBe
+                        "{\"eventId\":\"$event\",\"captureAllowed\":true,\"afterStart\":false}"
                     entry[AuditLogEntryTable.afterSnapshot]!! shouldNotContain "Online-Event"
                     // the same value again writes nothing
                     client
@@ -213,56 +218,61 @@ class EventCaptureReleaseTest :
             }
         }
 
-        test("frozen while the online window is open -- in both directions") {
+        test("V1.9.280: switching ON works while the window is open (after the start); switching OFF works as long as nothing captures") {
             EventCaptureTestState.enabledWithText()
             val free = fx.event(createdBy = organizer)
             val granted = fx.event(createdBy = organizer, captureAllowed = true)
             TimeTestSupport.withServerClock(instant = inside) {
                 encounterApp {
-                    client
-                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = free.toString(), allowed = true) }
-                        .failure<EventCaptureChangeLockedException>()
+                    val onState =
+                        client
+                            .runAs(
+                                member = board,
+                            ) { call -> service(call).setEventCaptureAllowed(eventId = free.toString(), allowed = true) }
+                            .getOrThrow()
+                    onState.allowed shouldBe true
+                    // the window is open, so the form is told that people inside are asked
+                    onState.roomOpen shouldBe true
+                    onState.changeLock shouldBe EventCaptureChangeLock.NONE
+                    onState.mayChange shouldBe true
                     client
                         .runAs(
                             member = board,
                         ) { call -> service(call).setEventCaptureAllowed(eventId = granted.toString(), allowed = false) }
-                        .failure<EventCaptureChangeLockedException>()
-                    released(free) shouldBe false
-                    released(granted) shouldBe true
-                    val state = client.runAs(member = board) { call -> service(call).getEventCaptureState(free.toString()) }.getOrThrow()
-                    state.changeLock shouldBe EventCaptureChangeLock.ROOM_ACTIVE
-                    state.mayChange shouldBe false
-                }
-            }
-        }
-
-        test("the freeze starts 30 minutes before the start: frozen 20 minutes before, still changeable 35 minutes before") {
-            EventCaptureTestState.enabledWithText()
-            val free = fx.event(createdBy = organizer)
-            // the event starts at 22:00Z
-            TimeTestSupport.withServerClock(instant = "2030-06-15T21:40:00Z") {
-                encounterApp {
-                    client
-                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = free.toString(), allowed = true) }
-                        .failure<EventCaptureChangeLockedException>()
-                    released(free) shouldBe false
-                }
-            }
-            TimeTestSupport.withServerClock(instant = "2030-06-15T21:25:00Z") {
-                encounterApp {
-                    client
-                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = free.toString(), allowed = true) }
                         .getOrThrow()
+                        .allowed shouldBe false
                     released(free) shouldBe true
+                    released(granted) shouldBe false
+                    // the audit carries the flag "afterStart" -- and still no name
+                    val entry = auditOf(free).single()
+                    entry[AuditLogEntryTable.afterSnapshot] shouldBe "{\"eventId\":\"$free\",\"captureAllowed\":true,\"afterStart\":true}"
+                    entry[AuditLogEntryTable.afterSnapshot]!! shouldNotContain "Online-Event"
                 }
             }
         }
 
-        test(
-            "frozen while the room lives, even when the clock is before the window (a window that was moved), and while a recording runs",
-        ) {
+        test("V1.9.280: before the window the audit says afterStart:false; with the switch off a release is still refused") {
             EventCaptureTestState.enabledWithText()
             val event = fx.event(createdBy = organizer)
+            TimeTestSupport.withServerClock(instant = "2030-06-15T10:00:00Z") {
+                encounterApp {
+                    client
+                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = event.toString(), allowed = true) }
+                        .getOrThrow()
+                    auditOf(event).single()[AuditLogEntryTable.afterSnapshot] shouldBe
+                        "{\"eventId\":\"$event\",\"captureAllowed\":true,\"afterStart\":false}"
+                    EventCaptureTestState.instance(enabled = false)
+                    val other = fx.event(createdBy = organizer)
+                    client
+                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = other.toString(), allowed = true) }
+                        .failure<EventCaptureChangeLockedException>()
+                }
+            }
+        }
+
+        test("V1.9.280: a living room does not freeze the release; only a running recording or an unfinished stream blocks switching OFF") {
+            EventCaptureTestState.enabledWithText()
+            val event = fx.event(createdBy = organizer, captureAllowed = true)
             val roomId =
                 TimeTestSupport.withServerClock(instant = inside) {
                     val provisioner =
@@ -290,17 +300,23 @@ class EventCaptureReleaseTest :
                 }
             TimeTestSupport.withServerClock(instant = before) {
                 encounterApp {
-                    // (b) the room is alive
-                    client
-                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = event.toString(), allowed = true) }
-                        .failure<EventCaptureChangeLockedException>()
-                    // the room is over -- (c) a recording that still runs keeps the lock
-                    transaction {
-                        ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) {
-                            it[endedAt] =
-                                network.lapis.cloud.server.db.DbClock
-                                    .nowLocalDateTime()
+                    suspend fun set(allowed: Boolean) =
+                        client.runAs(member = board) { call ->
+                            service(call).setEventCaptureAllowed(eventId = event.toString(), allowed = allowed)
                         }
+
+                    suspend fun lockOf() =
+                        client
+                            .runAs(member = board) { call -> service(call).getEventCaptureState(event.toString()) }
+                            .getOrThrow()
+                            .changeLock
+
+                    // the room is alive and nothing captures: off and on again both work
+                    set(false).getOrThrow().allowed shouldBe false
+                    set(true).getOrThrow().allowed shouldBe true
+                    lockOf() shouldBe EventCaptureChangeLock.NONE
+                    // a recording runs
+                    transaction {
                         ConferenceRecordingTable.insert {
                             it[id] = Uuid.random()
                             it[ConferenceRecordingTable.roomId] = roomId
@@ -320,16 +336,81 @@ class EventCaptureReleaseTest :
                             it[composeAttempts] = 0
                         }
                     }
-                    client
-                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = event.toString(), allowed = true) }
-                        .failure<EventCaptureChangeLockedException>()
+                    lockOf() shouldBe EventCaptureChangeLock.CAPTURE_RUNNING
+                    set(false).failure<EventCaptureStillCapturingException>()
+                    released(event) shouldBe true
+                    // switching on while already on is a no-op, not a refusal
+                    set(true).getOrThrow().allowed shouldBe true
+                    // the recording stopped: off works again
                     transaction { ConferenceRecordingTable.deleteWhere { ConferenceRecordingTable.roomId eq roomId } }
-                    // nothing left: now it can be released
-                    client
-                        .runAs(member = board) { call -> service(call).setEventCaptureAllowed(eventId = event.toString(), allowed = true) }
-                        .getOrThrow()
-                        .allowed shouldBe true
+                    set(false).getOrThrow().allowed shouldBe false
                 }
+            }
+        }
+
+        test("V1.9.280: an unfinished stream (LIVE or PAUSED) blocks switching OFF, an ended one does not") {
+            EventCaptureTestState.enabledWithText()
+            val event = fx.event(createdBy = organizer, captureAllowed = true)
+            val roomId =
+                TimeTestSupport.withServerClock(instant = inside) {
+                    val provisioner =
+                        EventConferenceProvisioner(
+                            config = EVENT_ONLINE_CONFIG,
+                            liveKit = live,
+                            closer =
+                                network.lapis.cloud.server.rpc.ConferenceRoomCloser(
+                                    liveKitAdminClient = live,
+                                    whiteboardState = ConferenceWhiteboardState(),
+                                    notesState = ConferenceNotesState(),
+                                    audioGrantState = ConferenceAudioGrantState(),
+                                ),
+                            retryDelay = 20.milliseconds,
+                            maxWaits = 20,
+                        )
+                    (
+                        runBlocking {
+                            provisioner.ensureRoom(
+                                eventId = event,
+                                now = Instant.parse(inside),
+                            )
+                        } as EventConferenceProvisioner.Ready.Room
+                    ).roomId
+                }
+            val streamId = Uuid.random()
+            try {
+                TimeTestSupport.withServerClock(instant = before) {
+                    encounterApp {
+                        for (status in listOf(ConferenceStreamStatus.LIVE, ConferenceStreamStatus.PAUSED)) {
+                            transaction {
+                                ConferenceStreamTable.insert {
+                                    it[id] = streamId
+                                    it[ConferenceStreamTable.roomId] = roomId
+                                    it[startedByMemberId] = board
+                                    it[startedAt] =
+                                        network.lapis.cloud.server.db.DbClock
+                                            .nowLocalDateTime()
+                                    it[ConferenceStreamTable.status] = status
+                                    it[layout] = ConferenceStreamLayout.GRID
+                                    it[latencyMode] = ConferenceStreamLatencyMode.STANDARD
+                                }
+                            }
+                            client
+                                .runAs(
+                                    member = board,
+                                ) { call -> service(call).setEventCaptureAllowed(eventId = event.toString(), allowed = false) }
+                                .failure<EventCaptureStillCapturingException>()
+                            transaction { ConferenceStreamTable.deleteWhere { ConferenceStreamTable.id eq streamId } }
+                        }
+                        client
+                            .runAs(
+                                member = board,
+                            ) { call -> service(call).setEventCaptureAllowed(eventId = event.toString(), allowed = false) }
+                            .getOrThrow()
+                            .allowed shouldBe false
+                    }
+                }
+            } finally {
+                transaction { ConferenceStreamTable.deleteWhere { ConferenceStreamTable.id eq streamId } }
             }
         }
 

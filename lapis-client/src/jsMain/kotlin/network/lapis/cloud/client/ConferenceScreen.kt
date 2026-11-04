@@ -108,6 +108,7 @@ import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
+import network.lapis.cloud.shared.rpc.EventRoomCaptureConsentMissingException
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceHandService
@@ -1374,6 +1375,10 @@ private fun enterCall(
     callPanel.show()
     // V1.9.156: an EVENT room says, in the picture of everybody, while it is recorded or streamed (the server's packets only, see LiveKitRoomSession).
     val eventCaptureBanner = if (joinToken.eventId != null) EventCaptureBanner(callPanel).also { it.render(initialCaptureLive) } else null
+    // V1.9.280: the question INSIDE an event room after a release was switched on (at most one dialog), and the way out for "Ablehnen" (assigned once
+    // `performLeave` exists).
+    var eventConsentDialog: InRoomConsentHandle? = null
+    var eventConsentLeaveRef: () -> Unit = {}
 
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- every IConferenceService/
     // IConferenceRecordingService/IConferenceStreamingService call below targets the PARENT room's
@@ -1605,6 +1610,9 @@ private fun enterCall(
     val captureReasonLine = callPanel.div { addCssClasses("text-muted small lapis-conference-capture-reason") }
     captureReasonLine.id = ConferenceModerationGroup.CAPTURE_REASON_ID
     captureReasonLine.hide()
+    // V1.9.280: "Zustimmung zur Aufzeichnung: N von M" -- the server sends the numbers to the moderators of an event room only (nobody else gets a
+    // packet), so the line stays empty and hidden for everybody else.
+    val consentCount = if (joinToken.eventId != null) EventCaptureModeratorCount(callPanel) else null
     // V1.9.108: what the person is told when a moderator mutes them / asks them to switch on -- a calm band above the control bar and two
     // live regions; never a focus change, never an error colour.
     val notices = ConferenceModerationNotices(callPanel)
@@ -1995,6 +2003,11 @@ private fun enterCall(
             !canModerate -> null
             // V1.9.254: while the room is paused nothing is started -- the reason is shown instead of a click that the server would refuse
             conferenceEventCaptureBlockedReason(eventCapture) != null -> conferenceEventCaptureBlockedReason(eventCapture)
+            // V1.9.280: the room is open for a recording, but not everybody in it has agreed yet (numbers only)
+            eventCapture == ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_AVAILABLE &&
+                activeRecordingDto == null &&
+                activeStreamDto == null &&
+                eventCaptureStartBlockedReason(consentCount?.current) != null -> eventCaptureStartBlockedReason(consentCount?.current)
             clientRoomPauseScope(activeRecordingDto, activeStreamDto) != null -> roomPausedStartReason()
             else -> null
         }
@@ -3031,6 +3044,10 @@ private fun enterCall(
                                 updateRecordButtonLabel()
                                 updateStreamButtonsVisibility()
                                 null
+                            } catch (e: EventRoomCaptureConsentMissingException) {
+                                // V1.9.280: somebody entered (or was never counted) without the consent: the server did not start anything.
+                                notifyError(typedRefusalText(e).orEmpty())
+                                null
                             }
                         }
                     group.setRecordingBusy(false)
@@ -3141,6 +3158,10 @@ private fun enterCall(
                                 notifyError(captureBlockedReason().orEmpty())
                                 updateRecordButtonLabel()
                                 updateStreamButtonsVisibility()
+                                null
+                            } catch (e: EventRoomCaptureConsentMissingException) {
+                                // V1.9.280: somebody entered (or was never counted) without the consent: the server did not start anything.
+                                notifyError(typedRefusalText(e).orEmpty())
                                 null
                             }
                         }
@@ -4824,6 +4845,10 @@ private fun enterCall(
     // Browser-Vollbild"-Vermeidung). Muss textuell VOR der ersten returnToLobby(...)-Call-Site stehen.
     // V1.2.10 erweitert: räumt zusätzlich die vier Auto-Hide-Aktivitäts-Listener ab.
     fun cleanupFullscreen() {
+        // V1.9.280: the in-room question and the moderator's count (timer, live region) end with the call, on every way out of it
+        eventConsentDialog?.dispose()
+        eventConsentDialog = null
+        consentCount?.dispose()
         streamTargetsPanel.dispose()
         reactionPopover.dispose()
         handController?.dispose()
@@ -5902,6 +5927,46 @@ private fun enterCall(
     // would need a fresh consent there and goes through the guest lobby instead).
     // A breakout whose assignment was recalled meanwhile refuses the breakout token; then the person belongs in the main room, so the
     // fallback returns the MAIN target together with its token (otherwise the card's primary action would stay dead).
+    // V1.9.280 -- the server asks THIS member to acknowledge the capture consent that was switched on after they entered. One dialog at a time; it closes
+    // only when the server accepted the acknowledgment (a later ask opens it again). "Ablehnen" leaves the room the normal way; nothing about the refusal is stored.
+    fun askMemberCaptureConsent() {
+        val eventId = joinToken.eventId ?: return
+        if (leaving) return
+        // one dialog at a time; a repeated ask never moves the focus of a person who is reading or ticking
+        if (eventConsentDialog?.isOpen == true) return
+        AppScope.launch {
+            val notice = guarded { rpcService<IEventService>().getEventCaptureState(eventId) }?.notice ?: return@launch
+            if (leaving || eventConsentDialog?.isOpen == true) return@launch
+            eventConsentDialog =
+                showInRoomCaptureConsent(
+                    parent = callPanel,
+                    notice = notice,
+                    onAccept = { input ->
+                        val accepted =
+                            guarded {
+                                try {
+                                    rpcService<IEventService>().acknowledgeEventCaptureInRoom(eventId, input)
+                                    InRoomAcceptResult.ACCEPTED
+                                } catch (e: EventCaptureNoticeOutdatedException) {
+                                    InRoomAcceptResult.OUTDATED
+                                }
+                            }
+                        if (accepted == InRoomAcceptResult.ACCEPTED) EventCaptureConsentMemory.remember(eventId, input)
+                        accepted ?: InRoomAcceptResult.FAILED
+                    },
+                    onDecline = {
+                        notifyInfo(
+                            tr(
+                                "Sie haben den Raum verlassen. Solange Aufzeichnung und Übertragung erlaubt sind, ist eine Teilnahme nur mit Zustimmung möglich.",
+                            ),
+                        )
+                        eventConsentLeaveRef()
+                    },
+                    reloadNotice = { guarded { rpcService<IEventService>().getEventCaptureState(eventId) }?.notice },
+                )
+        }
+    }
+
     suspend fun resumeToken(): Pair<ConferenceCallTarget, ConferenceJoinTokenDto>? {
         if (target is ConferenceCallTarget.BreakoutRoom) {
             guarded { rpcService<IConferenceBreakoutService>().requestBreakoutJoinToken(target.breakoutRoomId) }
@@ -6028,6 +6093,14 @@ private fun enterCall(
             },
             onModerationSignal = { signal -> handleModerationSignal(signal) },
             onEventCapture = { live -> eventCaptureBanner?.render(live) },
+            onEventCaptureAsk = { askMemberCaptureConsent() },
+            onEventCaptureCount = { count ->
+                consentCount?.render(count)
+                // the start buttons follow the numbers (aria-disabled + the reason line), never a surprise refusal after the click
+                updateRecordButtonLabel()
+                updateStreamButtonsVisibility()
+                updateCaptureReasonLine()
+            },
             onLocalMicrophonePermission = { allowed ->
                 val before = microphonePermitted
                 microphonePermitted = allowed
@@ -6826,6 +6899,7 @@ private fun enterCall(
         }
     }
     leaveButton.onClick { performLeave() }
+    eventConsentLeaveRef = { performLeave() }
 
     // V1.9.72 -- re-entry guard: while the dialog is open (or still fading out) a second trigger (autorepeat, double click, the twin AND
     // the primary) opens no second dialog. `ConfirmOnce` inside the dialog guards the other thing: a second click on "Für alle beenden".

@@ -49,10 +49,12 @@ import network.lapis.cloud.shared.rpc.EventCaptureChangeLockedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
 import network.lapis.cloud.shared.rpc.EventCaptureOperatorNoticeOutdatedException
+import network.lapis.cloud.shared.rpc.EventCaptureStillCapturingException
 import network.lapis.cloud.shared.rpc.EventCaptureTextMissingException
 import network.lapis.cloud.shared.rpc.EventNotLinkableException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
+import network.lapis.cloud.shared.rpc.EventRoomCaptureConsentMissingException
 import network.lapis.cloud.shared.rpc.EventRoomRecordingAccessLevelNotAllowedException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.GalleryLockedException
@@ -217,6 +219,10 @@ internal fun typedRefusalText(e: Throwable): String? =
             conferenceEventCaptureBlockedReason(ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN)
         is EventRoomCaptureBlockedByOrganizerException ->
             conferenceEventCaptureBlockedReason(ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER)
+        // V1.9.280: somebody is in the room without the consent -> the start did not happen; a running recording blocks switching the release off
+        is EventRoomCaptureConsentMissingException -> tr("Inzwischen ist jemand ohne Zustimmung im Raum. Der Start wurde nicht ausgeführt.")
+        is EventCaptureStillCapturingException ->
+            tr("Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind.")
         is ConferenceRecordingAlreadyActiveException -> tr("Es läuft bereits eine Aufzeichnung.")
         is ConferenceRoomEndedException -> tr("Diese Konferenz ist bereits beendet.")
         // V1.9.222: the gallery of an auction with bids / a decided project is frozen; a re-order that is not a permutation of ALL

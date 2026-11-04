@@ -25234,11 +25234,53 @@ msgstr "In tal caso l'immagine, la voce e il nome di tutte le persone nella sala
 msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
 msgstr "La registrazione nelle sale degli eventi non è attivata per questa istanza."
 
-msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
-msgstr "L'autorizzazione non può più essere modificata: la sala online è aperta oppure è in corso una registrazione o una trasmissione."
-
 msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
 msgstr "L'evento è stato salvato, ma l'autorizzazione alla registrazione non ha più potuto essere modificata."
+
+msgid "Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "Si può disattivare solo quando la registrazione e la trasmissione sono terminate."
+
+msgid "Die Veranstaltung hat begonnen. Wer schon im Raum ist und noch nicht zugestimmt hat, wird sofort gefragt."
+msgstr "L'evento è iniziato. A chi è già nella sala e non ha ancora acconsentito verrà chiesto subito."
+
+msgid "Die Veranstaltung wurde gespeichert. Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "L'evento è stato salvato. Si può disattivare solo quando la registrazione e la trasmissione sono terminate."
+
+msgid "Ab jetzt darf dieser Raum aufgezeichnet werden"
+msgstr "Da ora questa sala può essere registrata"
+
+msgid "Bevor aufgezeichnet oder übertragen wird, braucht es die Zustimmung aller, die im Raum sind. Ohne Ihre Zustimmung können Sie nicht im Raum bleiben."
+msgstr "Prima di registrare o trasmettere serve il consenso di tutte le persone presenti nella sala. Senza il suo consenso non può restare nella sala."
+
+msgid "Der Hinweistext wurde inzwischen geändert. Bitte lesen Sie ihn erneut."
+msgstr "Il testo dell'informativa è stato nel frattempo modificato. Lo legga di nuovo."
+
+msgid "Bitte setzen Sie den Haken, um im Raum zu bleiben."
+msgstr "Selezioni la casella per restare nella sala."
+
+msgid "Zustimmen und bleiben"
+msgstr "Acconsentire e restare"
+
+msgid "Ablehnen und Raum verlassen"
+msgstr "Rifiutare e lasciare la sala"
+
+msgid "Sie haben den Raum verlassen. Solange Aufzeichnung und Übertragung erlaubt sind, ist eine Teilnahme nur mit Zustimmung möglich."
+msgstr "Ha lasciato la sala. Finché la registrazione e la trasmissione sono consentite, si può partecipare solo con il consenso."
+
+msgid "Das hat nicht geklappt. Bitte versuchen Sie es noch einmal."
+msgstr "Non ha funzionato. Riprovi, per favore."
+
+msgid "Zustimmung zur Aufzeichnung: %1 von %2"
+msgstr "Consenso alla registrazione: %1 su %2"
+
+msgid "Alle im Raum haben zugestimmt."
+msgstr "Tutte le persone nella sala hanno acconsentito."
+
+msgid "Noch nicht alle im Raum haben zugestimmt (%1 von %2)."
+msgstr "Non tutte le persone nella sala hanno ancora acconsentito (%1 su %2)."
+
+msgid "Inzwischen ist jemand ohne Zustimmung im Raum. Der Start wurde nicht ausgeführt."
+msgstr "Nel frattempo c'è qualcuno senza consenso nella sala. L'avvio non è stato eseguito."
 
 msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
 msgstr "Sta per consentire la registrazione e la trasmissione in diretta nelle sale online degli eventi di questa istanza. L'immagine, la voce e il nome visualizzato di tutte le persone nella sala possono essere registrati e trasmessi, non solo quelli di chi interviene. Il consiglio direttivo decide poi per ogni evento singolarmente."
@@ -25281,9 +25323,6 @@ msgstr "Consentire la registrazione nelle sale degli eventi?"
 
 msgid "Aufzeichnung und Übertragung: erlaubt"
 msgstr "Registrazione e trasmissione in diretta: consentite"
-
-msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
-msgstr "L'autorizzazione alla registrazione non vale per le serie di date. Autorizzi le singole date dopo averle create."
 
 msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
 msgstr "La registrazione e la diretta in streaming non sono attivate per gli eventi su questo server. Contatti l'amministrazione."

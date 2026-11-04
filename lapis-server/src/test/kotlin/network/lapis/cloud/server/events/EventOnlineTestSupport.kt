@@ -106,12 +106,28 @@ internal class EventFakeLiveKit : LiveKitAdminClient {
         return rooms.values.map { it.copy(numParticipants = participants[it.name]?.size ?: 0) }
     }
 
-    override suspend fun listParticipants(room: String): List<LiveKitParticipantInfo> = participants[room].orEmpty().toList()
+    /** V1.9.280: makes `listParticipants` fail like an unreachable LiveKit (the consent gate must then refuse, fail closed). */
+    @Volatile var failParticipants = false
+
+    override suspend fun listParticipants(room: String): List<LiveKitParticipantInfo> {
+        if (org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+                .currentOrNull() != null
+        ) {
+            networkCallInsideTransaction = true
+        }
+        if (failParticipants) throw LiveKitAdminException(message = "simulated LiveKit failure")
+        return participants[room].orEmpty().toList()
+    }
 
     override suspend fun removeParticipant(
         room: String,
         identity: String,
     ) {
+        if (org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+                .currentOrNull() != null
+        ) {
+            networkCallInsideTransaction = true
+        }
         removed += room to identity
         participants[room]?.removeIf { it.identity == identity }
     }
@@ -120,8 +136,9 @@ internal class EventFakeLiveKit : LiveKitAdminClient {
         room: String,
         identity: String,
         name: String = identity,
+        kind: String = "",
     ) {
-        participants.getOrPut(room) { CopyOnWriteArrayList() }.add(LiveKitParticipantInfo(identity = identity, name = name))
+        participants.getOrPut(room) { CopyOnWriteArrayList() }.add(LiveKitParticipantInfo(identity = identity, name = name, kind = kind))
     }
 
     fun forgetRoom(name: String) {
@@ -154,12 +171,33 @@ internal class EventFakeLiveKit : LiveKitAdminClient {
         permission: LiveKitParticipantPermissionUpdate,
     ): Unit = throw UnsupportedOperationException()
 
+    /** V1.9.280: every point-to-point packet (room, topic, payload, destinations); [failSend] makes it fail like an unreachable LiveKit. */
+    data class SentTo(
+        val room: String,
+        val topic: String,
+        val payload: String,
+        val destinations: List<String>,
+    )
+
+    val sentTo = CopyOnWriteArrayList<SentTo>()
+
+    /** `true` iff any point-to-point send (or [removeParticipant]) was made while a database transaction was open on the calling thread (it must never be). */
+    @Volatile var networkCallInsideTransaction = false
+
     override suspend fun sendDataTo(
         room: String,
         topic: String,
         payload: ByteArray,
         destinationIdentities: List<String>,
-    ): Unit = throw UnsupportedOperationException()
+    ) {
+        if (org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+                .currentOrNull() != null
+        ) {
+            networkCallInsideTransaction = true
+        }
+        if (failSend) throw LiveKitAdminException(message = "simulated LiveKit failure")
+        sentTo += SentTo(room = room, topic = topic, payload = payload.toString(Charsets.UTF_8), destinations = destinationIdentities)
+    }
 }
 
 /** Database fixtures of the event-online tests, with a cleanup that removes everything they created (children first). */

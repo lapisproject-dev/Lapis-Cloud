@@ -483,7 +483,7 @@ Until V1.9.155 `EventConferenceGuard.requireNotEventRoom` refused `startRecordin
 given no consent that could be proven. V1.9.156 replaces the refusal at **exactly these two places** by one decision function and builds the proof it relies on.
 Operator view: link:../features/event-capture.adoc[Recording and live streaming in event rooms].
 
-*The decision* (`EventConferenceGuard.requireEventCaptureAllowed(row)`, called under the room-row lock of the caller): an ordinary room is not touched; an event
+*The decision* (`EventConferenceGuard.requireEventCaptureAllowed(row, present)`, called under the room-row lock of the caller): an ordinary room is not touched; an event
 room may be recorded or streamed iff the instance switch is on **with the current operator notice** (`EventCaptureSettings.startAllowed()`), the event is released
 (`event.capture_allowed`) and it is a Lapis conference. Everything else stays `requireNotEventRoom` (`ConferenceService`, `MembershipGuards`); a tripwire
 (`EventConferenceGuardTripwireTest`) counts the call sites of the new function (exactly `startRecordingInTransaction` and `startStream`) and the remaining ones.
@@ -493,9 +493,10 @@ room may be recorded or streamed iff the instance switch is on **with the curren
 that mints a token for an event room besides `rejoinMainRoomToken`, which needs an open participation that only `EventOnlineJoin` creates). The proof is written in the
 same transaction that records the participation (members) or before the token leaves the server (people without an account), under the row lock of the event.
 
-*Why a lock and which order.* A release granted between a person's look at the event and their token would let somebody in who acknowledged nothing. The release is
-therefore frozen (`EventCaptureLock.isActive`) from the opening of the online window, while the room lives, while a recording or stream is not over and while somebody
-has an open participation. The entry path takes `lockEventForUpdate` first and the room row second; `setEventCaptureAllowed` takes the event lock first and reads the
+*Why a lock and which order.* A release granted between a person's look at the event and their token would let somebody in who acknowledged nothing. Until V1.9.279 the
+release was therefore frozen (`EventCaptureLock.isActive`) from the opening of the online window, while the room lives, while a recording or stream is not over and while somebody
+has an open participation. **Since V1.9.280 only the INSTANCE switch keeps that freeze**; the release of one event can be switched on at any time and off whenever nothing captures
+(see "Releasing after the start" below). The entry path takes `lockEventForUpdate` first and the room row second; `setEventCaptureAllowed` takes the event lock first and reads the
 room state without locking it; `updateEvent` locks the event. There is no path that locks the room and then the event, so the order cannot deadlock. The audit entry is the
 last locking operation of the release transaction.
 
@@ -505,6 +506,33 @@ send is not retried and not remembered. The clients drop every packet that carri
 
 *Unchanged on purpose.* The poller (`RecordingPoller`) has no new runtime check: the identities `evg-<uuid>` and `evg-<32 hex>` satisfy `RecordingEgressPaths.isAcceptableIdentity`
 (`RecordingPollerTest`, participant mode (i)); "Neu berechnen", the download and the speaker timeline process only tracks that already exist and obey the document rights.
+
+== Releasing after the start (V1.9.280)
+
+Operator view: link:../features/event-capture.adoc[Recording and live streaming in event rooms], sections "Releasing after the start" and "Consent inside the room".
+
+*The gate at the start.* The people who are in the room when a recording or stream is started may not have acknowledged the current consent text any more (the release was
+switched on after they entered, or the text changed). `EventCaptureConsentGate` therefore sits inside `requireEventCaptureAllowed`, after the availability checks: the
+start is refused with `EventRoomCaptureConsentMissingException` while any identity in the room lacks a proof of the CURRENT text. The presence is collected **before** the
+transaction (`EventCaptureConsentGate.collectForRoom`; LiveKit is a network call and never runs inside `transaction {}`): LiveKit identities (the egress,
+`kind = EGRESS`, left out), minted-but-unexpired guest tokens (`EventOnlineJoin.pendingGuestIdentities`) and open participations are counted. A UUID identity needs a member
+proof, an `evg-` identity a guest-key proof, every other identity counts as missing (fail closed). If LiveKit cannot be asked, the presence is `UNAVAILABLE` and the gate
+refuses with `ServiceBusyException`; this happens only when the gate is reached, so the earlier refusals (stranger, ended room, blocked by admin or organizer) keep their order.
+
+*Lock order (no deadlock).* The join and switching a release OFF lock the event row, then the room row. The start locks the room row only; the gate and the availability
+check READ the event row, the participations and the proofs without locking them. Switching OFF locks the room row too, so it serializes with a start: either the start
+commits first (and OFF is refused because a recording row exists) or OFF commits first (and the start is refused as not released). `EventCaptureLateReleaseRaceTest`
+(H2 and, in the Postgres lane, `EventCaptureLateReleaseRacePostgresTest`) runs the three races: join against start, release ON against a join without a proof, release OFF
+against a start. A joiner into a released room carries its proof in the same transaction, so a recording never runs next to an open participation without a proof.
+
+*Enforcement while something captures.* `EventCaptureLiveBroadcaster.consentSweep` (every 2 s for a room that records or streams, 5 s otherwise) removes whoever is in the room
+without a proof (`removeParticipant`, participation closed). It covers a return with an old LiveKit token (tokens cannot be revoked; a window of up to 2 seconds remains and is
+documented), the return from a breakout (`rejoinMainRoomToken` additionally refuses a member without a proof while something captures,
+`EventConferenceGuard.requireCaptureConsentWhileCapturing`) and a connection made between collecting the presence and committing the start.
+
+*Data packets* (server only, point to point, topics in `sendDataPayloadLimit`, parsers drop a packet with a sending participant): `lapis-event-capture-ask` to the people who lack
+a proof, `lapis-event-capture-count` (`{"v":1,"n":N,"m":M}`, numbers only) to the connected moderators. The log lines of these files carry an exception class or a count of removals,
+never an identity (`EventCapturePrivacyTripwireTest`).
 
 == Order of checks and typed refusals (V1.9.158)
 
@@ -519,6 +547,8 @@ send is not retried and not remembered. The clients drop every packet that carri
 |`EventRoomRecordingAccessLevelNotAllowedException` |event room, access level `PUBLIC_MEMBERS`
 |`EventRoomCaptureBlockedByAdminException` |event room, instance switch off / notice outdated / text placeholder (moderator only)
 |`EventRoomCaptureBlockedByOrganizerException` |event room, event not released or not a Lapis conference (moderator only)
+|`EventRoomCaptureConsentMissingException` |V1.9.280: somebody in the event room has no proof of the current consent text (after the two checks above; no name, no number)
+|`EventCaptureStillCapturingException` |V1.9.280: `setEventCaptureAllowed(false)` while a recording runs or a stream is not over
 |===
 
 == Per-broadcast stream keys (V1.9.274)

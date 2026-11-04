@@ -17,6 +17,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.events.EVENT_GUEST_NAME_SUFFIX
+import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventCaptureLock
 import network.lapis.cloud.server.events.EventCaptureRequirement
 import network.lapis.cloud.server.events.EventOnlineJoin
@@ -28,6 +29,7 @@ import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
 import network.lapis.cloud.shared.domain.EventCaptureLiveDto
+import network.lapis.cloud.shared.domain.EventGuestCaptureConsentRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import network.lapis.cloud.shared.domain.EventGuestNotice
@@ -44,6 +46,7 @@ import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
 import network.lapis.cloud.shared.rpc.EventCaptureTextMissingException
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.net.URI
+import kotlin.time.Duration.Companion.hours
 
 // Privacy rule of this file: the logs never name an event, a guest name, a ticket code, a token or an IP.
 private val logger = KotlinLogging.logger {}
@@ -76,8 +79,17 @@ internal fun Route.registerEventOnlineGuestRoutes(
     ipRateLimiter: FederationInboxRateLimiter,
     eventRateLimiter: FederationInboxRateLimiter,
     stateRateLimiter: FederationInboxRateLimiter,
+    // V1.9.280 -- budget of the in-room consent per event (a hall of guests is asked at the same moment, so it is wider than the join budget).
+    consentEventRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = CONSENT_IDENTITY_MAX_PER_HOUR, window = 1.hours, maxTrackedKeys = 50_000),
 ) {
     val ownOrigin = originOf(baseUrl)
+    registerGuestConsentRoute(
+        ownOrigin = ownOrigin,
+        eventOnline = eventOnline,
+        ipRateLimiter = ipRateLimiter,
+        eventRateLimiter = consentEventRateLimiter,
+    )
 
     get("/api/events/{slug}/online-state") {
         call.response.header(HttpHeaders.CacheControl, "no-store")
@@ -198,6 +210,104 @@ internal fun Route.registerEventOnlineGuestRoutes(
         call.respondGuest(response)
     }
 }
+
+/**
+ * V1.9.280 -- `POST /api/events/{slug}/online-guest/capture-consent`: a guest without an account who is INSIDE acknowledges the capture consent that was
+ * switched on after they entered. Same guards as the join, in the same order (flood gates, Origin, content type, size, strict JSON). The token is in the
+ * body. 204 = recorded; 409 = the text changed (reload it); 429 = throttled; anything else is ONE uniform 403 (no oracle for slugs, tokens or rooms).
+ * Logs nothing about the guest or the event.
+ */
+private fun Route.registerGuestConsentRoute(
+    ownOrigin: String,
+    eventOnline: EventOnlineServices,
+    ipRateLimiter: FederationInboxRateLimiter,
+    eventRateLimiter: FederationInboxRateLimiter,
+) {
+    post("/api/events/{slug}/online-guest/capture-consent") {
+        call.response.header(HttpHeaders.CacheControl, "no-store")
+        if (!ipRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+            call.respond(HttpStatusCode.TooManyRequests)
+            return@post
+        }
+        val slug = call.parameters["slug"]
+        val origin = call.request.headers[HttpHeaders.Origin]
+        if (slug == null || slug.length > MAX_SLUG_LENGTH || origin == null || originOf(origin) != ownOrigin) {
+            call.respond(HttpStatusCode.Forbidden)
+            return@post
+        }
+        if (call.request.headers[HttpHeaders.ContentType]?.startsWith("application/json", ignoreCase = true) != true) {
+            call.respond(HttpStatusCode.UnsupportedMediaType)
+            return@post
+        }
+        val declared = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+        if (declared == null || declared > MAX_EVENT_GUEST_BODY_BYTES) {
+            call.respond(HttpStatusCode.PayloadTooLarge)
+            return@post
+        }
+        val bytes = readCappedBody(call = call, maxBytes = MAX_EVENT_GUEST_BODY_BYTES)
+        if (bytes == null) {
+            call.respond(HttpStatusCode.PayloadTooLarge)
+            return@post
+        }
+        val text = bytes.toString(Charsets.UTF_8)
+        if (exceedsMaxJsonNestingDepth(text = text, maxDepth = MAX_JSON_DEPTH)) {
+            call.respond(HttpStatusCode.BadRequest)
+            return@post
+        }
+        val request =
+            try {
+                GUEST_JSON.decodeFromString<EventGuestCaptureConsentRequestDto>(text)
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
+        val join = eventOnline.join
+        val eventId = transaction { EventStore.getEventBySlugOrNull(slug)?.get(EventTable.id) }
+        if (join == null || eventId == null) {
+            call.respond(HttpStatusCode.Forbidden)
+            return@post
+        }
+        // The budget is charged only for a token this server signed for THIS event, and per verified identity: neither forged tokens nor tokens of
+        // other events can use it up, and a token holder can only use up their own share.
+        val identity = join.ownGuestIdentity(eventId = eventId, token = request.token)
+        if (identity == null) {
+            call.respond(HttpStatusCode.Forbidden)
+            return@post
+        }
+        if (!eventRateLimiter.checkAndRecord("event:$slug:$identity")) {
+            call.respond(HttpStatusCode.TooManyRequests)
+            return@post
+        }
+        val result =
+            try {
+                join.acknowledgeAccountless(
+                    eventId = eventId,
+                    token = request.token,
+                    consent =
+                        EventCaptureAcknowledgmentInput(
+                            consentVersion = request.consentVersion,
+                            consentSha256 = request.consentSha256,
+                        ),
+                    now = ServerClock.nowInstant(),
+                )
+            } catch (e: Exception) {
+                logger.error { "event guest capture consent failed (${e::class.simpleName})" }
+                EventOnlineJoin.GuestAcknowledgment.FORBIDDEN
+            }
+        when (result) {
+            EventOnlineJoin.GuestAcknowledgment.ACKNOWLEDGED -> {
+                // After the commit: the count for the moderators is refreshed right now. Best-effort.
+                EventCaptureLiveBroadcaster.notifyConsentChanged(eventId)
+                call.respond(HttpStatusCode.NoContent)
+            }
+            EventOnlineJoin.GuestAcknowledgment.OUTDATED -> call.respond(HttpStatusCode.Conflict)
+            EventOnlineJoin.GuestAcknowledgment.FORBIDDEN -> call.respond(HttpStatusCode.Forbidden)
+        }
+    }
+}
+
+/** Per event AND guest identity (a real guest needs one or two calls). */
+private const val CONSENT_IDENTITY_MAX_PER_HOUR = 60
 
 private const val MAX_SLUG_LENGTH = 120
 private const val MAX_JSON_DEPTH = 8

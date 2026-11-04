@@ -134,6 +134,8 @@ internal object EventStore {
         // V1.9.113 -- defaulted from the link (a caller that only knows `onlineUrl`, e.g. the importer and the seeds, keeps its meaning).
         onlineKind: EventOnlineKind = if (onlineUrl != null) EventOnlineKind.EXTERNAL_LINK else EventOnlineKind.NONE,
         encounterSpaceId: Uuid? = null,
+        // V1.9.280 -- the resolved release (EventCaptureDefaults.resolve); `false` keeps every pre-existing caller unchanged.
+        captureAllowed: Boolean = false,
     ) {
         EventTable.insert {
             it[EventTable.id] = id
@@ -162,6 +164,7 @@ internal object EventStore {
             it[EventTable.imported] = imported
             it[EventTable.onlineKind] = onlineKind
             it[EventTable.encounterSpaceId] = encounterSpaceId
+            it[EventTable.captureAllowed] = captureAllowed
         }
     }
 

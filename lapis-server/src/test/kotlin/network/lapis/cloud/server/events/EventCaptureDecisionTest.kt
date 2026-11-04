@@ -133,6 +133,10 @@ class EventCaptureDecisionTest :
             DatabaseConfig.connect()
             DevSeedData.seedIfEmpty(force = true)
             TimeTestSupport.setOrganizationZone("America/New_York")
+            // V1.9.280: the consent gate asks LiveKit who is in the room (an empty fake room: nobody lacks the consent)
+            EventCaptureConsentGate.install(
+                EventCaptureConsentGate.Context(liveKit = live, join = null, guestKeySecret = "test-guest-key-secret"),
+            )
             organizer = fx.member(name = "Veranstalterin")
             // seeded actors: an audit entry references its actor and is never deleted, so fixture members could not be cleaned up afterwards
             board = Uuid.parse("00000000-0000-0000-0000-000000000002")
@@ -154,6 +158,7 @@ class EventCaptureDecisionTest :
         }
         afterEach { EventCaptureTestState.reset() }
         afterSpec {
+            EventCaptureConsentGate.install(null)
             transaction {
                 val roomIds = extraRooms.toList() + fx.eventIds.flatMap { fx.roomIdsOf(it) }
                 if (roomIds.isNotEmpty()) {
@@ -215,7 +220,8 @@ class EventCaptureDecisionTest :
             try {
                 transaction {
                     EventConferenceGuard.requireEventCaptureAllowed(
-                        ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single(),
+                        row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single(),
+                        present = EventRoomPresence.EMPTY,
                     )
                 }
                 null

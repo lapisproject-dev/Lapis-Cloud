@@ -24369,10 +24369,52 @@ msgstr ""
 msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
 msgstr ""
 
-msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
+msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
 msgstr ""
 
-msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
+msgid "Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr ""
+
+msgid "Die Veranstaltung hat begonnen. Wer schon im Raum ist und noch nicht zugestimmt hat, wird sofort gefragt."
+msgstr ""
+
+msgid "Die Veranstaltung wurde gespeichert. Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr ""
+
+msgid "Ab jetzt darf dieser Raum aufgezeichnet werden"
+msgstr ""
+
+msgid "Bevor aufgezeichnet oder übertragen wird, braucht es die Zustimmung aller, die im Raum sind. Ohne Ihre Zustimmung können Sie nicht im Raum bleiben."
+msgstr ""
+
+msgid "Der Hinweistext wurde inzwischen geändert. Bitte lesen Sie ihn erneut."
+msgstr ""
+
+msgid "Bitte setzen Sie den Haken, um im Raum zu bleiben."
+msgstr ""
+
+msgid "Zustimmen und bleiben"
+msgstr ""
+
+msgid "Ablehnen und Raum verlassen"
+msgstr ""
+
+msgid "Sie haben den Raum verlassen. Solange Aufzeichnung und Übertragung erlaubt sind, ist eine Teilnahme nur mit Zustimmung möglich."
+msgstr ""
+
+msgid "Das hat nicht geklappt. Bitte versuchen Sie es noch einmal."
+msgstr ""
+
+msgid "Zustimmung zur Aufzeichnung: %1 von %2"
+msgstr ""
+
+msgid "Alle im Raum haben zugestimmt."
+msgstr ""
+
+msgid "Noch nicht alle im Raum haben zugestimmt (%1 von %2)."
+msgstr ""
+
+msgid "Inzwischen ist jemand ohne Zustimmung im Raum. Der Start wurde nicht ausgeführt."
 msgstr ""
 
 msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
@@ -24415,9 +24457,6 @@ msgid "Aufzeichnung in Veranstaltungsräumen erlauben?"
 msgstr ""
 
 msgid "Aufzeichnung und Übertragung: erlaubt"
-msgstr ""
-
-msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
 msgstr ""
 
 msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."

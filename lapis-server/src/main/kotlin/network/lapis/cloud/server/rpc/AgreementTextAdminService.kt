@@ -12,6 +12,7 @@ import network.lapis.cloud.server.agreementtexts.BuiltinAgreementTexts
 import network.lapis.cloud.server.agreementtexts.EncounterConsentLabels
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.isUniqueViolation
+import network.lapis.cloud.server.events.EventCaptureLock
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
@@ -37,6 +38,7 @@ import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
 import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.EventCaptureBusyException
 import network.lapis.cloud.shared.rpc.IAgreementTextAdminService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RateLimitedException
@@ -187,6 +189,9 @@ class AgreementTextAdminService(
                     ) {
                         throw AgreementTextDraftChangedException()
                     }
+                    // V1.9.280: a new EVENT_REC text makes every proof stale. While an event room records or streams, the consent pass would cut everybody
+                    // out before the first person could answer, so the text cannot change while anything captures.
+                    if (kind == AgreementTextKind.EVENT_REC && EventCaptureLock.anyEventRoomCapturing()) throw EventCaptureBusyException()
                     // Re-check everything: the clock moved, another admin may have published in between.
                     validate(kind = kind, versionLabel = label, validFrom = validFrom, body = body, today = today, format = draft.format)
                     val now = DbClock.nowLocalDateTime()

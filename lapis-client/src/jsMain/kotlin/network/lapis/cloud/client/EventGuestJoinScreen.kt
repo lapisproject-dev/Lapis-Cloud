@@ -52,7 +52,7 @@ fun renderEventJoinScreen(
         slug = slug,
         api = EventGuestHttp,
         memberRoute = { eventSlug -> openMemberEventRoute(eventSlug) },
-        startCall = EventGuestCallStarter { host, response, onLeft -> startEventGuestCall(host, response, onLeft) },
+        startCall = EventGuestCallStarter { host, response, onLeft -> startEventGuestCall(host, response, onLeft, slug = slug) },
     )
 }
 

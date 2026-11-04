@@ -4,9 +4,11 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.events.EventCaptureDefaults
 import network.lapis.cloud.server.events.EventOnlineLifecycle
 import network.lapis.cloud.server.events.EventRoomCollisionGuard
 import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -54,6 +56,9 @@ internal object EventSeriesMaterializer {
         template: EventInput,
         createdBy: Uuid,
         now: LocalDateTime,
+        // V1.9.280 -- the creator: only then every occurrence gets the default release (EventCaptureDefaults) and its audit entry. `null` (the staging
+        // seeds) never releases anything.
+        captureActor: CurrentMember? = null,
     ): List<Uuid> {
         val occurrences = RecurrenceExpander.expand(rrule = rrule, dtstart = dtstart, zone = zone)
         val roomId = template.roomId?.let { Uuid.parse(it) }
@@ -70,6 +75,9 @@ internal object EventSeriesMaterializer {
                 )
             }
             val id = Uuid.random()
+            val captureAllowed =
+                captureActor != null &&
+                    EventCaptureDefaults.resolve(explicit = template.captureAllowed, onlineKind = template.onlineKind)
             val slug =
                 network.lapis.cloud.server.events.EventPolicy.slugFor(title = template.title) { candidate ->
                     EventStore.slugTaken(slug = candidate, excludingId = null)
@@ -103,7 +111,12 @@ internal object EventSeriesMaterializer {
                 onlineUrlPublic = template.onlineUrlPublic,
                 onlineKind = template.onlineKind,
                 encounterSpaceId = template.encounterSpaceId?.let { Uuid.parse(it) },
+                captureAllowed = captureAllowed,
             )
+            // One entry per occurrence (counters and flags only); the last lock-taking operation of this iteration.
+            if (captureAllowed && captureActor != null) {
+                EventCaptureDefaults.auditCreated(eventId = id, actor = captureActor, explicit = template.captureAllowed)
+            }
             ids += id
         }
         return ids

@@ -263,8 +263,8 @@ interface IEventService {
 
     /**
      * V1.9.156 -- BOARD/ADMIN. Releases or withdraws the recording / live streaming of [eventId]'s online room. Only for a Lapis conference,
-     * only while the instance switch is on, and NEVER while the room is active (window open, room alive, recording / stream running, somebody
-     * sits in it): everybody who enters must have acknowledged the consent, so the release is frozen from the moment people may enter.
+     * only while the instance switch is on. Since V1.9.280 switching it ON works at any time (also after the start: people inside are then asked in
+     * the room); switching it OFF is refused only while a recording or stream runs ([network.lapis.cloud.shared.rpc.EventCaptureStillCapturingException]).
      */
     suspend fun setEventCaptureAllowed(
         eventId: String,
@@ -281,4 +281,14 @@ interface IEventService {
         guestConsent: ConferenceGuestConsentAcknowledgmentInput?,
         captureConsent: EventCaptureAcknowledgmentInput?,
     ): EventOnlineJoinResultDto
+
+    /**
+     * V1.9.280 -- a member (or a guest with an account) who is INSIDE the event room acknowledges the current capture consent after the release was
+     * switched on. Needs an open participation in the event room; a stale text is [network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException].
+     * Declining has no server call: the client simply leaves the room.
+     */
+    suspend fun acknowledgeEventCaptureInRoom(
+        eventId: String,
+        consent: EventCaptureAcknowledgmentInput,
+    ): EventCaptureStateDto
 }

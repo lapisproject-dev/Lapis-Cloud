@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.generated.EventCaptureAcknowledgmentTable
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -106,6 +107,48 @@ internal object EventCaptureAcknowledgments {
             it[EventCaptureAcknowledgmentTable.consentSha256] = consentSha256
             it[acknowledgedOn] = today
         }
+    }
+
+    /**
+     * V1.9.280 -- READ ONLY (this object stays the one WRITER). Of [memberIds] and [guestKeys], the ones that hold a proof of exactly this [consentVersion]
+     * AND [consentSha256] for [eventId]: a proof for an older text does not count. Returns the member ids and the guest keys separately.
+     */
+    fun acknowledgedAmong(
+        eventId: Uuid,
+        memberIds: Collection<Uuid>,
+        guestKeys: Collection<String>,
+        consentVersion: String,
+        consentSha256: String,
+    ): Pair<Set<Uuid>, Set<String>> {
+        val members =
+            if (memberIds.isEmpty()) {
+                emptySet()
+            } else {
+                EventCaptureAcknowledgmentTable
+                    .selectAll()
+                    .where {
+                        (EventCaptureAcknowledgmentTable.eventId eq eventId) and
+                            (EventCaptureAcknowledgmentTable.memberId inList memberIds.toList()) and
+                            (EventCaptureAcknowledgmentTable.consentVersion eq consentVersion) and
+                            (EventCaptureAcknowledgmentTable.consentSha256 eq consentSha256)
+                    }.mapNotNull { it[EventCaptureAcknowledgmentTable.memberId] }
+                    .toSet()
+            }
+        val guests =
+            if (guestKeys.isEmpty()) {
+                emptySet()
+            } else {
+                EventCaptureAcknowledgmentTable
+                    .selectAll()
+                    .where {
+                        (EventCaptureAcknowledgmentTable.eventId eq eventId) and
+                            (EventCaptureAcknowledgmentTable.guestKey inList guestKeys.toList()) and
+                            (EventCaptureAcknowledgmentTable.consentVersion eq consentVersion) and
+                            (EventCaptureAcknowledgmentTable.consentSha256 eq consentSha256)
+                    }.mapNotNull { it[EventCaptureAcknowledgmentTable.guestKey] }
+                    .toSet()
+            }
+        return members to guests
     }
 
     /** Deleting an event deletes its proofs first (no ON DELETE CASCADE in V110). */

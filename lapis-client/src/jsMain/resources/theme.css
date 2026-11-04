@@ -6369,6 +6369,41 @@ div:hover > .lapis-conference-pin,
   background-color: var(--lapis-surface);
 }
 
+/* V1.9.280: the question INSIDE an event room after a release was switched on. The scrim is a SIBLING of the dialog (it darkens with a token, it never
+   filters what is behind it: no `filter`, no `backdrop-filter`, no `transform` anywhere on the way, so video, sound and the sticky dock stay as they are).
+   Layer 7 -- above the dock and the "Mehr" sheet (6): nobody can operate the room before answering. Narrow screens: the dialog is full width. */
+.lapis-event-capture-ask-wrapper {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.lapis-event-capture-ask-scrim {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-color: var(--lapis-overlay-pill-bg);
+  opacity: .45;
+}
+
+.lapis-event-capture-ask {
+  position: relative;
+  width: 100%;
+  max-width: 32rem;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* V1.9.166 Begegnungsraum Stufe 3: die Rasterkarte. 12 x 8 Kacheln aus der Raumvorlage; die Figuren (Initialen) liegen in einer eigenen Schicht und
    bewegen sich per `transform` auf der FIGUR SELBST (Eigenschaften --x/--y), nie per `transform`/`filter`/`overflow` auf einem Vorfahren: das
    klebende Dock der Steuerleiste darf keinen neuen Containing-Block bekommen. Kein `container-type` (Layout-Containment erzeugt Containing-Blocks).

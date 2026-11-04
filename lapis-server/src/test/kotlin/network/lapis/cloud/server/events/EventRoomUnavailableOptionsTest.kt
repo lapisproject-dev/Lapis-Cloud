@@ -138,6 +138,10 @@ class EventRoomUnavailableOptionsTest :
             DatabaseConfig.connect()
             DevSeedData.seedIfEmpty(force = true)
             TimeTestSupport.setOrganizationZone("America/New_York")
+            // V1.9.280: the consent gate asks LiveKit who is in the room (an empty fake room: nobody lacks the consent)
+            EventCaptureConsentGate.install(
+                EventCaptureConsentGate.Context(liveKit = live, join = null, guestKeySecret = "test-guest-key-secret"),
+            )
             organizer = fx.member(name = "Veranstalterin")
             attendee = fx.member(name = "Teilnehmer")
             stranger = fx.member(name = "Fremder")
@@ -160,6 +164,7 @@ class EventRoomUnavailableOptionsTest :
         }
         afterEach { EventCaptureTestState.reset() }
         afterSpec {
+            EventCaptureConsentGate.install(null)
             transaction {
                 val roomIds = extraRooms.toList() + fx.eventIds.flatMap { fx.roomIdsOf(it) }
                 if (roomIds.isNotEmpty()) {

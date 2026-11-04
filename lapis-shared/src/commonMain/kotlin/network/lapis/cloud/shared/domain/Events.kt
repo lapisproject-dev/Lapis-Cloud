@@ -86,6 +86,12 @@ data class EventInput(
     val onlineKind: EventOnlineKind = EventOnlineKind.NONE,
     /** V1.9.113 -- required for [EventOnlineKind.LAPIS_ENCOUNTER] (an active, non-archived encounter space), forbidden otherwise. */
     val encounterSpaceId: String? = null,
+    /**
+     * V1.9.280 -- only `createEvent` and `createEventSeries` evaluate this: `null` = no explicit choice (the server applies the default "released" when the
+     * instance switch is on and the online kind is a Lapis conference), `false` = explicitly not released, `true` = explicitly released (silently `false`
+     * while the instance switch is off). `updateEvent` and the series edit IGNORE it; the only way to change a release afterwards is `setEventCaptureAllowed`.
+     */
+    val captureAllowed: Boolean? = null,
 )
 
 @Serializable

@@ -2,6 +2,8 @@ package network.lapis.cloud.client
 
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
+import network.lapis.cloud.shared.domain.EventGuestCaptureConsentRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import network.lapis.cloud.shared.domain.EventOnlineStateDto
@@ -29,9 +31,22 @@ internal sealed interface EventGuestJoinHttpResult {
     data object Failed : EventGuestJoinHttpResult
 }
 
-/** The two requests of the guest join page -- an interface so a DOM test can answer them without a server. */
+/** V1.9.280 -- what the in-room consent endpoint answered (204 / 409 / everything else). */
+internal enum class EventGuestAckHttpResult { ACCEPTED, OUTDATED, FAILED }
+
+/** The requests of the guest join page -- an interface so a DOM test can answer them without a server. */
 internal interface EventGuestApi {
     suspend fun state(slug: String): EventOnlineStateDto?
+
+    /**
+     * V1.9.280 -- a guest who is already inside acknowledges the capture consent (`POST /api/events/{slug}/online-guest/capture-consent`). The LiveKit
+     * [token] the join answered with goes in the BODY, never in a URL. The default answers "failed" so a test double needs no override.
+     */
+    suspend fun acknowledgeCapture(
+        slug: String,
+        token: String,
+        consent: EventCaptureAcknowledgmentInput,
+    ): EventGuestAckHttpResult = EventGuestAckHttpResult.FAILED
 
     suspend fun join(
         slug: String,
@@ -47,6 +62,43 @@ internal interface EventGuestApi {
  */
 internal object EventGuestHttp : EventGuestApi {
     private val json = Json { ignoreUnknownKeys = true }
+
+    override suspend fun acknowledgeCapture(
+        slug: String,
+        token: String,
+        consent: EventCaptureAcknowledgmentInput,
+    ): EventGuestAckHttpResult =
+        suspendCancellableCoroutine { cont ->
+            val xhr = XMLHttpRequest()
+            xhr.open("POST", "/api/events/${encodeURIComponent(slug)}/online-guest/capture-consent")
+            xhr.withCredentials = false
+            xhr.setRequestHeader("Content-Type", "application/json")
+            xhr.onload = {
+                cont.resume(
+                    when (xhr.status.toInt()) {
+                        in 200..299 -> EventGuestAckHttpResult.ACCEPTED
+                        409 -> EventGuestAckHttpResult.OUTDATED
+                        else -> EventGuestAckHttpResult.FAILED
+                    },
+                )
+                Unit
+            }
+            xhr.onerror = {
+                cont.resume(EventGuestAckHttpResult.FAILED)
+                Unit
+            }
+            cont.invokeOnCancellation { xhr.abort() }
+            xhr.send(
+                json.encodeToString(
+                    EventGuestCaptureConsentRequestDto.serializer(),
+                    EventGuestCaptureConsentRequestDto(
+                        token = token,
+                        consentVersion = consent.consentVersion,
+                        consentSha256 = consent.consentSha256,
+                    ),
+                ),
+            )
+        }
 
     override suspend fun state(slug: String): EventOnlineStateDto? =
         suspendCancellableCoroutine { cont ->

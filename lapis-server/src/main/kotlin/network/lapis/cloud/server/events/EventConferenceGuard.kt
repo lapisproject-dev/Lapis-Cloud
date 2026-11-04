@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.events
 
+import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.EventConferenceTable
@@ -9,9 +10,11 @@ import network.lapis.cloud.server.rpc.EventCaptureSettingsStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
+import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.ConferenceEventCaptureState
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventOnlineOutcome
+import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -60,12 +63,24 @@ internal object EventConferenceGuard {
      * `EventConferenceGuardTripwireTest` counts exactly these two call sites). Caller MUST have run the moderator check first: the typed
      * reasons thrown here ([EventRoomCaptureBlockedByAdminException], [EventRoomCaptureBlockedByOrganizerException]) tell the release state of
      * the event and must only reach moderators. An ordinary room is not touched.
+     *
+     * V1.9.280 -- after the availability, the CONSENT GATE: the start is refused ([network.lapis.cloud.shared.rpc.EventRoomCaptureConsentMissingException])
+     * while any identity in the room lacks an acknowledgment of the current text. [present] was collected by the caller BEFORE its transaction
+     * ([EventCaptureConsentGate.collectForRoom]); the room row is locked, the event row is deliberately NOT locked here (see the gate's KDoc, lock order).
      */
-    fun requireEventCaptureAllowed(row: ResultRow) {
+    fun requireEventCaptureAllowed(
+        row: ResultRow,
+        present: EventRoomPresence,
+    ) {
         when (eventCaptureAvailability(row)) {
             EventCaptureAvailability.BLOCKED_BY_ADMIN -> throw EventRoomCaptureBlockedByAdminException()
             EventCaptureAvailability.BLOCKED_BY_ORGANIZER -> throw EventRoomCaptureBlockedByOrganizerException()
-            EventCaptureAvailability.NOT_EVENT_ROOM, EventCaptureAvailability.AVAILABLE -> Unit
+            EventCaptureAvailability.NOT_EVENT_ROOM -> Unit
+            EventCaptureAvailability.AVAILABLE -> {
+                val roomId = row[ConferenceRoomTable.id]
+                val eventId = checkNotNull(eventIdOfRoom(roomId))
+                EventCaptureConsentGate.requireEveryoneAcknowledged(eventId = eventId, roomId = roomId, present = present)
+            }
         }
     }
 
@@ -146,5 +161,35 @@ internal object EventConferenceGuard {
                 orgZone = OrganizationTimeZone.current(),
             )
         if (decision.outcome != EventOnlineOutcome.JOINED) throw ForbiddenException(EVENT_ROOM_UNSUPPORTED)
+    }
+
+    /**
+     * V1.9.280 -- the return from a breakout while something captures: a member without an acknowledgment of the CURRENT consent text must not come back
+     * into a room that is being recorded or streamed ([EventCaptureNoticeRequiredException]). While nothing captures they may return -- the question
+     * is then asked in the room. No-op for an ordinary room, for an event that is not released and for the placeholder-only case (nobody is acknowledged
+     * then, so it refuses while something captures).
+     */
+    fun requireCaptureConsentWhileCapturing(
+        row: ResultRow,
+        current: CurrentMember,
+    ) {
+        val roomId = row[ConferenceRoomTable.id]
+        val eventId = eventIdOfRoom(roomId) ?: return
+        val event = EventTable.selectAll().where { EventTable.id eq eventId }.singleOrNull() ?: return
+        if (!EventCaptureRequirement.applies(event)) return
+        if (!EventCaptureLock.isCapturing(roomId)) return
+        val text = AgreementTextResolver.current(kind = AgreementTextKind.EVENT_REC)
+        val acknowledged =
+            !text.placeholder &&
+                EventCaptureAcknowledgments
+                    .acknowledgedAmong(
+                        eventId = eventId,
+                        memberIds = listOf(current.memberId),
+                        guestKeys = emptyList(),
+                        consentVersion = text.versionLabel,
+                        consentSha256 = text.sha256,
+                    ).first
+                    .isNotEmpty()
+        if (!acknowledged) throw EventCaptureNoticeRequiredException()
     }
 }

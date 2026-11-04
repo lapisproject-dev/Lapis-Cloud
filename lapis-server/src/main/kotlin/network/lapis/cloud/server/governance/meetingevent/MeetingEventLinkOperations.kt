@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.isUniqueViolation
+import network.lapis.cloud.server.events.EventCaptureDefaults
 import network.lapis.cloud.server.events.EventOnlineLifecycle
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRoomCollisionGuard
@@ -101,6 +102,7 @@ internal class MeetingEventLinkOperations(
             val input = announcementInput(meeting = meeting, committeeName = committeeName)
             EventPolicy.validate(input = input, wallNow = wallNow, existingStartsAt = null)
             val eventId = Uuid.random()
+            val captureAllowed = EventCaptureDefaults.resolve(explicit = null, onlineKind = input.onlineKind)
             val slug = EventPolicy.slugFor(title = input.title) { candidate -> EventStore.slugTaken(slug = candidate, excludingId = null) }
             try {
                 EventStore.insertEvent(
@@ -121,6 +123,8 @@ internal class MeetingEventLinkOperations(
                     createdBy = current.memberId,
                     status = EventStatus.DRAFT,
                     onlineKind = input.onlineKind,
+                    // V1.9.280: no explicit choice exists on this path -> the default release (the start gate and SecretBallotStreamLock stay in force).
+                    captureAllowed = captureAllowed,
                 )
                 MeetingEventLinkStore.setLink(eventId = eventId, meetingId = meetingId)
             } catch (e: org.jetbrains.exposed.v1.exceptions.ExposedSQLException) {
@@ -133,6 +137,7 @@ internal class MeetingEventLinkOperations(
                 meetingId = meetingId,
                 eventId = eventId,
             )
+            if (captureAllowed) EventCaptureDefaults.auditCreated(eventId = eventId, actor = current, explicit = null)
             refOf(current = current, meetingId = meetingId, eventRow = EventStore.getEventOrThrow(eventId), wallNow = wallNow)
         }
     }

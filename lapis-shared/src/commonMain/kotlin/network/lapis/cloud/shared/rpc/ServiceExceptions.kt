@@ -790,6 +790,21 @@ class EventCaptureChangeLockedException(
     override val message: String = "The recording release cannot be changed while the event room is active",
 ) : AbstractServiceException()
 
+/** V1.9.280 -- distinct type. The release cannot be switched off while a recording or a stream of the event room is running. */
+@RpcServiceException
+class EventCaptureStillCapturingException(
+    override val message: String = "The recording release cannot be switched off while a recording or stream is running",
+) : AbstractServiceException()
+
+/**
+ * V1.9.280 -- distinct type, only for moderators. Somebody in the event room has not acknowledged the current capture consent, so a recording / stream
+ * is not started. Carries neither a name nor a number.
+ */
+@RpcServiceException
+class EventRoomCaptureConsentMissingException(
+    override val message: String = "Not everybody in the room has agreed to the recording yet",
+) : AbstractServiceException()
+
 /** V1.9.156 -- distinct type. The admin acknowledged an older version of the operator notice (or none) when switching event capture on. */
 @RpcServiceException
 class EventCaptureOperatorNoticeOutdatedException(

@@ -9,6 +9,16 @@
 //   * **FK naming**: plain «Column» UUID attributes with «Column».fkEntity, never a UML association (the domain-wide policy 21-auction.kuml.kts documents).
 //     Minimal id-only stubs (owned by Events and Foundation) resolve them. No ON DELETE CASCADE: the application deletes explicitly.
 //   * **Time fields**: `acknowledged_on` is a class-B-style wall-clock DATE of the organization zone, see lapis-server/src/test/resources/time-fields.tsv.
+//
+// **V1.9.280 -- no schema change.** The release after the start and the consent inside the room add NO column and NO table: the proof keeps exactly this shape (event, version,
+// hash, DATE, member id OR guest key). What was added lives in application code only and is deliberately NOT modelled as classes of this MDA file (a class here would be read by
+// the generator as part of the schema):
+//   * `EventCaptureConsentGate` (+ `EventRoomPresence`): the gate at the start of a recording / stream -- every identity in the room needs a proof of the CURRENT text.
+//     It READS this table (`EventCaptureAcknowledgments.acknowledgedAmong`); this table still has exactly one writer.
+//   * `EventCaptureDefaults`: the release of a NEW event is decided in code (Lapis conference + instance switch on), never as a SQL default of `event.capture_allowed`.
+//   * Exceptions `EventCaptureStillCapturingException`, `EventRoomCaptureConsentMissingException`; data packets `lapis-event-capture-ask` / `lapis-event-capture-count`
+//     (server only, numbers only, nothing persisted).
+// See docs/features/event-capture.adoc ("Releasing after the start", "Consent inside the room") and docs/architecture/conference-recording.adoc.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile

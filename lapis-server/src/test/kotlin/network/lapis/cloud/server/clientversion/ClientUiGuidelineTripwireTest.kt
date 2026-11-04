@@ -957,7 +957,9 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
  * a checkbox whose value feeds `setEventCaptureAllowed` after the event is saved -- a genuine field, not a filter, so it cannot be justified). The new consent screen
  * (`EventCaptureConsent.kt`) and the guest page were built with the form grammar and add nothing here. 71 -> 72.
  */
-private const val R24B_REMAINING_MAX = 78 // +1 V1.9.222 (auction unit), +2 V1.9.225 (party-report filters),
+private const val R24B_REMAINING_MAX = 79 // +1 V1.9.280 (in-room capture consent dialog: ONE consent tick, a genuine field of a dialog
+// that has no form -- the answer is sent by its own button),
+// +1 V1.9.222 (auction unit), +2 V1.9.225 (party-report filters),
 // +2 V1.9.269 (party-report: tab select for narrow screens, unit select of the annex tab; both are filters, never submitted),
 // +1 V1.9.272 (event guest call view: the device section's microphone/camera/speaker selects, built in one place; a device picker acts at once, nothing is submitted)
 

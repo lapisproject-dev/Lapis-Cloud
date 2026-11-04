@@ -14,10 +14,14 @@ import network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING
 import network.lapis.cloud.server.encounter.encounterApp
 import network.lapis.cloud.server.encounter.failure
 import network.lapis.cloud.server.encounter.runAs
+import network.lapis.cloud.server.rpc.AgreementTextAdminService
 import network.lapis.cloud.server.rpc.EventCaptureSettingsStore
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.TimeTestSupport
+import network.lapis.cloud.shared.domain.AgreementTextDraftInput
+import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -229,6 +233,61 @@ class EventCaptureInstanceSwitchTest :
                     ) { call -> service(call).updateEventCaptureEnabled(enabled = false, acknowledgedNoticeVersion = null) }
                     .getOrThrow()
                     .eventCaptureEnabled shouldBe false
+            }
+        }
+
+        test("a new EVENT_REC text cannot be published while an event room records -- and can once the recording is over") {
+            EventCaptureTestState.enabledWithText()
+            val event = fx.event(createdBy = organizer, captureAllowed = true)
+            val room = runRoom(fx = fx, live = live, event = event)
+            val recordingId = Uuid.random()
+            transaction {
+                ConferenceRecordingTable.insert {
+                    it[id] = recordingId
+                    it[roomId] = room
+                    it[startedByMemberId] = organizer
+                    it[startedAt] =
+                        network.lapis.cloud.server.db.DbClock
+                            .nowLocalDateTime()
+                    it[stoppedAt] = null
+                    it[readyAt] = null
+                    it[status] = ConferenceRecordingStatus.RECORDING
+                    it[accessLevel] = DocumentAccessLevel.BOARD_ONLY
+                    it[documentId] = null
+                    it[rawDir] = "x"
+                    it[durationSeconds] = null
+                    it[fileSizeBytes] = null
+                    it[failureReason] = null
+                    it[composeAttempts] = 0
+                }
+            }
+            encounterApp {
+                val draft =
+                    client
+                        .runAs(member = ADMIN_ID) { call ->
+                            AgreementTextAdminService(call = call).saveDraft(
+                                AgreementTextDraftInput(
+                                    kind = AgreementTextKind.EVENT_REC,
+                                    versionLabel = "2026-11-04.capture-running",
+                                    validFrom = OrganizationTimeZone.today(),
+                                    body = "Eigene Überschrift\n\nPunkt eins\n\nPunkt zwei\n\nPunkt drei\n\nDetailabsatz.",
+                                ),
+                            )
+                        }.getOrThrow()
+
+                suspend fun publish() =
+                    client.runAs(member = ADMIN_ID) { call ->
+                        AgreementTextAdminService(
+                            call = call,
+                        ).publishDraft(kind = AgreementTextKind.EVENT_REC, expectedDraftSha256 = draft.sha256)
+                    }
+                publish().failure<EventCaptureBusyException>()
+                transaction {
+                    ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq recordingId }) {
+                        it[status] = ConferenceRecordingStatus.PROCESSING
+                    }
+                }
+                publish().getOrThrow().kind shouldBe AgreementTextKind.EVENT_REC
             }
         }
 

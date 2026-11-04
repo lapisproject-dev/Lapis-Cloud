@@ -2,7 +2,8 @@
 :toc:
 
 The online room of an event (`LAPIS_CONFERENCE`, see link:event-online-participation.adoc[Online participation in events]) can be recorded and streamed live --
-*if the operator allows it, if the board releases the event and if everybody who enters has acknowledged the consent first*. Everything is **off by default**.
+*if the operator allows it, if the board releases the event and if everybody who is in the room has acknowledged the consent*. The instance switch is **off by default**;
+since V1.9.280 a newly created Lapis-conference event is released by default once the operator switched the feature on.
 The design and the threat model are in link:../architecture/conference-recording.adoc[docs/architecture/conference-recording.adoc], section "Event rooms (V1.9.156)".
 
 IMPORTANT: Whether and under which conditions persons may be recorded and streamed depends on the **country** of the instance (data protection, personality and
@@ -18,24 +19,59 @@ operator has published its own consent text**.
   while the consent text (`EVENT_REC`, tab "Aufzeichnung (Veranstaltung)" under "Vertragstexte") is still the built-in placeholder. The audit entry records the notice
   version and the hash of the German reference text. Switching **on** is refused while a released event is active (people who entered while it was off acknowledged
   nothing); switching **off** is refused while any event room records or streams (nothing is stopped remotely -- the moderator ends it first).
-. *Event (BOARD/ADMIN):* the event form has the box "Aufzeichnung und Übertragung erlauben" (only for a Lapis conference and only while the instance switch is on). It is
-  saved with its own call (`setEventCaptureAllowed`) after the event itself and audited as `EVENT_CAPTURE` with the event id and the value. A new series occurrence is never
-  released; occurrences are released one by one.
+. *Event (BOARD/ADMIN):* the event form has the box "Aufzeichnung und Übertragung erlauben" (only for a Lapis conference and only while the instance switch is on). Since V1.9.280
+  the box of a NEW event is ticked by default (until the person touches it) and travels with the event (`EventInput.captureAllowed`); an existing event shows its stored value and
+  changes it with its own call (`setEventCaptureAllowed`). Both are audited as `EVENT_CAPTURE` (creation: `CREATE`, `source` = `default` or `explicit`; change: `UPDATE`, flag `afterStart`)
+  with the event id and flags only. See "Default for new events" below.
 . *Room:* the moderator starts and stops the recording and the stream in the room exactly as in an ordinary room. The recording of an event room is stored `BOARD_ONLY`
   (or `ADMIN_ONLY`); `PUBLIC_MEMBERS` is refused.
 
-== The release is frozen while people may be inside
+== Releasing after the start (V1.9.280)
 
-`EventCaptureLock` freezes the release of an event -- and the instance switch ON -- from the moment people may be inside, in both directions:
+The release of ONE event is no longer frozen while the room is active:
 
-* the online window is open (from 30 minutes before the start; tokens are handed out from then on, also to people without an account, who leave no participation row);
-* the room has not ended;
-* a recording or a stream of the room is not over (PAUSED counts as alive);
-* somebody has an open participation.
+* *Switching ON works at any time*, also while the window is open and people are inside. The people inside have acknowledged nothing yet, so they are asked **in the room**
+  (see "Consent inside the room"). Nothing is recorded or streamed before all of them agreed.
+* *Switching OFF* is refused only while a recording is running (`RECORDING`, `STOPPING`) or a stream is not over (including `PAUSED`):
+  `EventCaptureStillCapturingException`, change lock `CAPTURE_RUNNING`. The check runs under the row locks of the event and the room, so it cannot interleave with a start.
+* The **instance** switch keeps the old freeze (`EventCaptureLock.isActive` / `anyReleasedEventActive` are unchanged): people who entered while it was off acknowledged nothing.
+  Because more events are released by default now, switching the instance feature back ON is refused more often while such an event is active.
 
-The entry path re-reads the release under the row lock of the event (lock order: event, then room -- the order of `updateEvent` and `setEventCaptureAllowed`). A
-release that is granted while a person is being let in is noticed there and that person is refused. A kind of the event other than the Lapis conference drops the
-release.
+The entry path re-reads the release under the row lock of the event (lock order: event, then room). A release that is granted while a person is being let in is noticed
+there and that person is refused. A kind of the event other than the Lapis conference drops the release.
+
+=== Default for new events
+
+`EventCaptureDefaults.resolve(explicit, onlineKind)` is the one place that decides: a new event is released iff the online kind is a Lapis conference **and** the instance
+switch is on with the current notice; an explicit `false` always wins; an explicit `true` while the switch is off is silently `false`. The default lives in code, never in
+the database (`event.capture_allowed` keeps `DEFAULT FALSE`), so no path that does not go through it can release an event by accident. Existing events are never touched.
+
+[cols="2,2,3",options="header"]
+|===
+|Path |Value |Why
+|`createEvent` (UI, API, MCP) |`resolve(input.captureAllowed, kind)` |The form's box travels in the same transaction as the event.
+|`createEventSeries` |`resolve(template.captureAllowed, kind)` per occurrence |An explicit `false` applies to every occurrence; one audit entry per released occurrence.
+|Series edit (`applyEdit`), `updateEvent` |unchanged |An edit never grants or withdraws a release.
+|Event importer |`false` |Past events; a release is meaningless.
+|Sitzung announcement (`MeetingEventLinkOperations`) |`resolve(null, kind)` |No explicit choice exists on this path. The start gate and `SecretBallotStreamLock` stay in force.
+|Staging seeds |`false` |Deterministic seeds.
+|===
+
+== Consent inside the room (V1.9.280)
+
+[cols="1,3",options="header"]
+|===
+|Piece |Behaviour
+|Ask |`EventCaptureLiveBroadcaster` (consent pass: every 2 s while a recording or stream runs, otherwise every 5 s, and right after a release change or an acknowledgment) compares the people in the room with the proofs of the CURRENT text. Everybody who is connected and lacks a proof gets the packet `lapis-event-capture-ask` (`{"v":1}`), point to point. The client shows a blocking dialog: "Zustimmen und bleiben" or "Ablehnen und Raum verlassen". Declining is leaving (no server call, nothing stored); Escape does nothing.
+|Acknowledge (member / guest with an account) |`IEventService.acknowledgeEventCaptureInRoom` -- needs an open participation, refuses a stale text, throttled (the join budget), idempotent.
+|Acknowledge (guest without an account) |`POST /api/events/{slug}/online-guest/capture-consent`, body `{token, consentVersion, consentSha256}` (the token is in the body, never in a URL). The LiveKit token is verified (HS256, issuer, expiry, an `evg-` subject, the room of this event). A guest token lives only about 15 minutes, so an EXPIRED token is still accepted when everything else is valid and that identity is connected in LiveKit right now (otherwise a guest who has been inside for a while could never answer the ask). `204` recorded, `409` text changed, `429` throttled, everything else one uniform `403`.
+|Count for the moderators |Packet `lapis-event-capture-count` (`{"v":1,"n":N,"m":M}`), point to point to the moderators who are connected: "Zustimmung zur Aufzeichnung: N von M". Numbers only -- nobody sees who agreed or who is missing, and "pending" and "declined" are not told apart. A polite live region is fed at most once per 1500 ms.
+|Gate at the start |`EventCaptureConsentGate`, called only from `EventConferenceGuard.requireEventCaptureAllowed`: the start is refused (`EventRoomCaptureConsentMissingException`, no name, no number) while any identity in the room lacks a proof of the current text (version AND hash). Counted are LiveKit identities, guests with a minted token who have not connected yet (a minted identity that was seen connected and then left, or reloaded under a new identity, is not counted any more), and open participations; the egress is left out; every other identity counts as missing; the placeholder text acknowledges nobody. If LiveKit cannot be asked the start is refused (fail closed, `ServiceBusyException`) -- after the authorization and availability checks. The start buttons are `aria-disabled` with the reason while the count is below the total.
+|While something captures |Whoever is in the room without a proof is removed (connection cut, participation closed) within the 2-second pass. This covers a return with an old, still valid LiveKit token, the return from a breakout (which is also refused up front while something captures) and a connection made between collecting the presence and committing the start.
+|===
+
+Lock order: the join and switching OFF lock the event row and then the room row; the start locks the ROOM row only and reads the event row and the proofs without locking
+them (a start that locked the event after the room would deadlock with them).
 
 == What a participant sees and acknowledges
 
@@ -105,5 +141,12 @@ The administration's reason has precedence, because the organizer could not help
 * A person without an account now leaves a nameless proof in a released event (until V1.9.155 such a person left no row at all).
 * The banner can be up to 5 seconds late for transitions that only a poller makes; it never switches off because of a failed send.
 * The instance feature cannot be moved while an event room records or streams, and the start reads the settings without the lock the switching side takes.
+* *A new consent text cannot be published while a recording or stream of an event room runs (V1.9.280).* Every proof would be stale at once and the consent pass would cut everybody out before the first person could answer; the publication is refused with `EventCaptureBusyException` until the capture is over.
+* *Window of up to 2 seconds (V1.9.280).* LiveKit tokens cannot be revoked. A person who was in the room before the release was switched on, left it, and returns with the old
+  token while something captures is on the recording until the next consent pass (at most 2 seconds) removes them. This is accepted and stated openly; the alternative would be to
+  forbid switching ON after the start, which defeats the purpose.
+* `LiveKitParticipantInfo.kind` (`EGRESS`) was not verified against a real LiveKit. If LiveKit does not report it, the egress counts as an unknown identity and the gate refuses
+  (fail closed) -- it could block the start of a second capture.
+* The in-room texts are unreviewed drafts; whether such a question is sufficient depends on the law of the country. Their translations are model translations.
 * No per-person opt-out of the picture inside the room (a person who does not want to be recorded leaves, or keeps camera and microphone off).
 * The built-in consent text is a draft; the translations are model translations.

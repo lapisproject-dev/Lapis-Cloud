@@ -25275,11 +25275,53 @@ msgstr "Dan kunnen beeld, geluid en naam van alle personen in de onlineruimte wo
 msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
 msgstr "Opnemen in evenementruimtes is voor deze instantie niet ingeschakeld."
 
-msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
-msgstr "De vrijgave kan niet meer worden gewijzigd: de onlineruimte is geopend of er loopt een opname of livestream."
-
 msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
 msgstr "Het evenement is opgeslagen, maar de vrijgave van de opname kon niet meer worden gewijzigd."
+
+msgid "Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "Uitschakelen kan pas wanneer de opname en de livestream zijn beëindigd."
+
+msgid "Die Veranstaltung hat begonnen. Wer schon im Raum ist und noch nicht zugestimmt hat, wird sofort gefragt."
+msgstr "Het evenement is begonnen. Wie al in de ruimte is en nog niet heeft ingestemd, krijgt direct de vraag."
+
+msgid "Die Veranstaltung wurde gespeichert. Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "Het evenement is opgeslagen. Uitschakelen kan pas wanneer de opname en de livestream zijn beëindigd."
+
+msgid "Ab jetzt darf dieser Raum aufgezeichnet werden"
+msgstr "Vanaf nu mag deze ruimte worden opgenomen"
+
+msgid "Bevor aufgezeichnet oder übertragen wird, braucht es die Zustimmung aller, die im Raum sind. Ohne Ihre Zustimmung können Sie nicht im Raum bleiben."
+msgstr "Voordat er wordt opgenomen of uitgezonden, is de instemming van iedereen in de ruimte nodig. Zonder uw instemming kunt u niet in de ruimte blijven."
+
+msgid "Der Hinweistext wurde inzwischen geändert. Bitte lesen Sie ihn erneut."
+msgstr "De tekst van de mededeling is intussen gewijzigd. Lees hem opnieuw door."
+
+msgid "Bitte setzen Sie den Haken, um im Raum zu bleiben."
+msgstr "Vink het vakje aan om in de ruimte te blijven."
+
+msgid "Zustimmen und bleiben"
+msgstr "Instemmen en blijven"
+
+msgid "Ablehnen und Raum verlassen"
+msgstr "Weigeren en de ruimte verlaten"
+
+msgid "Sie haben den Raum verlassen. Solange Aufzeichnung und Übertragung erlaubt sind, ist eine Teilnahme nur mit Zustimmung möglich."
+msgstr "U hebt de ruimte verlaten. Zolang opnemen en uitzenden zijn toegestaan, is deelname alleen met instemming mogelijk."
+
+msgid "Das hat nicht geklappt. Bitte versuchen Sie es noch einmal."
+msgstr "Dat is niet gelukt. Probeer het nog eens."
+
+msgid "Zustimmung zur Aufzeichnung: %1 von %2"
+msgstr "Instemming met de opname: %1 van %2"
+
+msgid "Alle im Raum haben zugestimmt."
+msgstr "Iedereen in de ruimte heeft ingestemd."
+
+msgid "Noch nicht alle im Raum haben zugestimmt (%1 von %2)."
+msgstr "Nog niet iedereen in de ruimte heeft ingestemd (%1 van %2)."
+
+msgid "Inzwischen ist jemand ohne Zustimmung im Raum. Der Start wurde nicht ausgeführt."
+msgstr "Intussen is er iemand zonder instemming in de ruimte. De start is niet uitgevoerd."
 
 msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
 msgstr "U staat op het punt opname en livestream toe te staan in de onlineruimtes van evenementen van deze instantie. Beeld, geluid en weergegeven naam van alle personen in de ruimte kunnen worden opgenomen en uitgezonden, niet alleen die van de sprekers. Het bestuur beslist daarna per evenement afzonderlijk."
@@ -25322,9 +25364,6 @@ msgstr "Opnemen in evenementruimtes toestaan?"
 
 msgid "Aufzeichnung und Übertragung: erlaubt"
 msgstr "Opname en livestream: toegestaan"
-
-msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
-msgstr "De vrijgave van de opname geldt niet voor reeksen van afspraken. Geef de afzonderlijke afspraken na het aanmaken vrij."
 
 msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
 msgstr "Opname en livestream zijn op deze server niet ingeschakeld voor evenementen. Neem contact op met de administratie."

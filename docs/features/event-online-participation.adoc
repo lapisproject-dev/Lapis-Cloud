@@ -100,6 +100,11 @@ browser against a real LiveKit, guests are not part of the participant history, 
 *unless* the operator, the board and every participant agreed (V1.9.156, link:event-capture.adoc[Recording and live streaming in event rooms]); the guest notice
 "Es wird nichts aufgezeichnet." is only used for events that are not released -- a released event shows the capture variant of the notice instead.
 
+*Consent inside the room (V1.9.280).* A release can be switched on after people entered. Everybody who is then in the room without a proof of the current consent text is asked
+in a blocking dialog ("Zustimmen und bleiben" / "Ablehnen und Raum verlassen"); declining is leaving. A member answers with `acknowledgeEventCaptureInRoom`, a person without an
+account with `POST /api/events/{slug}/online-guest/capture-consent` (the LiveKit token proves who they are; the token travels in the body). The moderators see only "N von M", never
+a name. See link:event-capture.adoc[Recording and live streaming in event rooms].
+
 * A removed account-less guest keeps a valid token for up to `guestTokenTtlMinutes` and LiveKit has no identity blocklist, so the person
   can reconnect with the same token until it expires. Re-minting a token is bounded by the rate limits only.
 * A flood of join requests can still use up the per-event hourly budget of the route (rate limiting is per IP/prefix and per event).

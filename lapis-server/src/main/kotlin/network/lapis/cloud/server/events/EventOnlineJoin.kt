@@ -28,6 +28,7 @@ import network.lapis.cloud.server.rpc.VideoOverlaysOfferedStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceRole
@@ -44,7 +45,9 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
+import network.lapis.cloud.shared.rpc.EventCaptureTextMissingException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
@@ -97,6 +100,156 @@ internal class EventOnlineJoin(
      * Bounded: a room never holds more entries than the guest cap allows, and rooms without entries are removed.
      */
     private val pendingGuests = HashMap<String, MutableMap<String, Instant>>()
+
+    /** V1.9.280 -- room name -> ledger identities seen connected (guarded by the [pendingGuests] monitor); see [noteConnected]. */
+    private val seenConnected = HashMap<String, MutableSet<String>>()
+
+    /**
+     * V1.9.280 -- the identities of guests who hold a minted, not yet expired token for [livekitRoomName] but may not have connected yet. A copy taken
+     * under the ledger's monitor, expired entries filtered out. The capture-consent gate counts them: somebody with a token could otherwise connect right
+     * after a recording started.
+     */
+    fun pendingGuestIdentities(
+        livekitRoomName: String,
+        now: Instant,
+    ): Set<String> =
+        synchronized(pendingGuests) {
+            val seen = seenConnected[livekitRoomName]
+            pendingGuests[livekitRoomName]
+                ?.filterValues { it > now }
+                ?.keys
+                // An identity that was seen connected is either counted through LiveKit or has left: it is no "may still connect" case any more.
+                ?.filterNot { seen != null && it in seen }
+                ?.toSet()
+                ?: emptySet()
+        }
+
+    /**
+     * V1.9.280 -- remembers which minted guest identities of [livekitRoomName] were seen connected in LiveKit. The seat ledger itself keeps its entries
+     * (a token stays usable after its holder disconnected), but [pendingGuestIdentities] stops listing them: a guest who connected and left (or
+     * reloaded under a new identity) must not block a recording start as somebody who "may still connect". Called by the consent gate with the
+     * connected identities of the room.
+     */
+    fun noteConnected(
+        livekitRoomName: String,
+        connected: Set<String>,
+    ) {
+        synchronized(pendingGuests) {
+            val ledger = pendingGuests[livekitRoomName]
+            if (ledger == null) {
+                seenConnected.remove(livekitRoomName)
+                return
+            }
+            val seen = seenConnected.getOrPut(livekitRoomName) { HashSet() }
+            seen.retainAll(ledger.keys)
+            connected.filterTo(seen) { it in ledger }
+            if (seen.isEmpty()) seenConnected.remove(livekitRoomName)
+        }
+    }
+
+    /** V1.9.280 -- the answer of [acknowledgeAccountless]; the route maps it to 204 / 409 / 403. */
+    enum class GuestAcknowledgment { ACKNOWLEDGED, OUTDATED, FORBIDDEN }
+
+    /**
+     * V1.9.280 -- cheap pre-check for the accountless consent route: the verified guest identity iff [token] carries a signature of THIS server, the
+     * right issuer, an `evg-` subject AND the room of THIS event ([eventId]); `null` otherwise. An expired token is fine here (the real check follows in
+     * [acknowledgeAccountless]). The route charges its budget per returned identity, and only for such a token: forged traffic, and a real token of
+     * another event, cannot use up anything for the real guests of this event. The signature is checked before the (cheap, LiveKit-free) room read.
+     */
+    fun ownGuestIdentity(
+        eventId: Uuid,
+        token: String,
+    ): String? {
+        val verified =
+            LiveKitAccessToken.verifyParticipantToken(
+                jwt = token,
+                apiKey = config.apiKey,
+                apiSecret = config.apiSecret,
+                now = ServerClock.nowInstant(),
+                allowExpired = true,
+            ) ?: return null
+        if (!verified.identity.startsWith(EVENT_GUEST_IDENTITY_PREFIX) || verified.identity.length > MAX_IDENTITY_LENGTH) return null
+        val roomName =
+            transaction {
+                val roomId = EventCaptureLock.liveRoomId(eventId) ?: return@transaction null
+                ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.singleOrNull()?.get(
+                    ConferenceRoomTable.livekitRoomName,
+                )
+            }
+        return if (roomName != null && roomName == verified.roomName) verified.identity else null
+    }
+
+    /**
+     * V1.9.280 -- a guest WITHOUT an account who is already inside acknowledges the current capture consent. The caller proves who they are with the
+     * LiveKit [token] this server minted for them ([LiveKitAccessToken.verifyParticipantToken]): signature, issuer, expiry, an `evg-` subject and the room
+     * of THIS event. Everything that does not fit is [GuestAcknowledgment.FORBIDDEN] (one answer, no oracle); only a stale text is told apart. Locks the
+     * event row first (the order of the join), writes the proof only through [EventCaptureAcknowledgments]. Logs nothing.
+     */
+    suspend fun acknowledgeAccountless(
+        eventId: Uuid,
+        token: String,
+        consent: EventCaptureAcknowledgmentInput,
+        now: Instant,
+    ): GuestAcknowledgment {
+        val verified =
+            LiveKitAccessToken.verifyParticipantToken(jwt = token, apiKey = config.apiKey, apiSecret = config.apiSecret, now = now)
+                ?: verifyExpiredButConnected(token = token, now = now)
+                ?: return GuestAcknowledgment.FORBIDDEN
+        if (!verified.identity.startsWith(EVENT_GUEST_IDENTITY_PREFIX) || verified.identity.length > MAX_IDENTITY_LENGTH) {
+            return GuestAcknowledgment.FORBIDDEN
+        }
+        return try {
+            transaction {
+                val event = EventStore.lockEventForUpdate(eventId) ?: return@transaction GuestAcknowledgment.FORBIDDEN
+                val roomId = EventCaptureLock.liveRoomId(eventId) ?: return@transaction GuestAcknowledgment.FORBIDDEN
+                val roomName =
+                    ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single()[ConferenceRoomTable.livekitRoomName]
+                if (roomName != verified.roomName) return@transaction GuestAcknowledgment.FORBIDDEN
+                val text = EventCaptureRequirement.requireConsent(consent)
+                if (EventCaptureRequirement.applies(event)) {
+                    EventCaptureAcknowledgments.recordGuest(
+                        eventId = eventId,
+                        guestKey = EventCaptureAcknowledgments.guestKeyOf(identity = verified.identity, serverSecret = config.apiSecret),
+                        consentVersion = text.versionLabel,
+                        consentSha256 = text.sha256,
+                        today = OrganizationTimeZone.today(),
+                    )
+                }
+                GuestAcknowledgment.ACKNOWLEDGED
+            }
+        } catch (e: EventCaptureNoticeOutdatedException) {
+            GuestAcknowledgment.OUTDATED
+        } catch (e: EventCaptureNoticeRequiredException) {
+            GuestAcknowledgment.FORBIDDEN
+        } catch (e: EventCaptureTextMissingException) {
+            GuestAcknowledgment.FORBIDDEN
+        }
+    }
+
+    /**
+     * A guest token is short-lived (LiveKit checks the expiry only when connecting), so a guest who has been inside for longer than the token lives
+     * still holds an EXPIRED token. It stays good as a proof of identity for the in-room acknowledgment as long as everything else is valid
+     * (signature, issuer, not-before, subject, room) AND that identity is connected in LiveKit right now. LiveKit unreachable: no proof.
+     */
+    private suspend fun verifyExpiredButConnected(
+        token: String,
+        now: Instant,
+    ): LiveKitAccessToken.VerifiedParticipant? {
+        val verified =
+            LiveKitAccessToken.verifyParticipantToken(
+                jwt = token,
+                apiKey = config.apiKey,
+                apiSecret = config.apiSecret,
+                now = now,
+                allowExpired = true,
+            ) ?: return null
+        if (!verified.identity.startsWith(EVENT_GUEST_IDENTITY_PREFIX)) return null
+        return try {
+            if (liveKit.listParticipants(verified.roomName).any { it.identity == verified.identity }) verified else null
+        } catch (e: LiveKitAdminException) {
+            null
+        }
+    }
 
     /** A signed-in caller. */
     suspend fun joinMember(
@@ -476,6 +629,8 @@ internal class EventOnlineJoin(
                 }
             }
             ledger[identity] = expiresAt
+            // a fresh token of the same identity may connect again: it is pending once more
+            seenConnected[roomName]?.remove(identity)
             true
         }
 

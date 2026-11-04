@@ -25252,11 +25252,53 @@ msgstr "Dans ce cas, l'image, la voix et le nom de toutes les personnes de la sa
 msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
 msgstr "L'enregistrement dans les salles d'événement n'est pas activé pour cette instance."
 
-msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
-msgstr "L'autorisation ne peut plus être modifiée : la salle en ligne est ouverte ou un enregistrement ou une diffusion est en cours."
-
 msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
 msgstr "L'événement a été enregistré, mais l'autorisation d'enregistrer n'a plus pu être modifiée."
+
+msgid "Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "La désactivation n'est possible qu'une fois l'enregistrement et la diffusion terminés."
+
+msgid "Die Veranstaltung hat begonnen. Wer schon im Raum ist und noch nicht zugestimmt hat, wird sofort gefragt."
+msgstr "L'événement a commencé. Les personnes déjà dans la salle qui n'ont pas encore donné leur accord sont interrogées immédiatement."
+
+msgid "Die Veranstaltung wurde gespeichert. Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "L'événement a été enregistré. La désactivation n'est possible qu'une fois l'enregistrement et la diffusion terminés."
+
+msgid "Ab jetzt darf dieser Raum aufgezeichnet werden"
+msgstr "À partir de maintenant, cette salle peut être enregistrée"
+
+msgid "Bevor aufgezeichnet oder übertragen wird, braucht es die Zustimmung aller, die im Raum sind. Ohne Ihre Zustimmung können Sie nicht im Raum bleiben."
+msgstr "Avant tout enregistrement ou toute diffusion, l'accord de toutes les personnes présentes dans la salle est nécessaire. Sans votre accord, vous ne pouvez pas rester dans la salle."
+
+msgid "Der Hinweistext wurde inzwischen geändert. Bitte lesen Sie ihn erneut."
+msgstr "Le texte de l'avis a été modifié entre-temps. Veuillez le relire."
+
+msgid "Bitte setzen Sie den Haken, um im Raum zu bleiben."
+msgstr "Veuillez cocher la case pour rester dans la salle."
+
+msgid "Zustimmen und bleiben"
+msgstr "Accepter et rester"
+
+msgid "Ablehnen und Raum verlassen"
+msgstr "Refuser et quitter la salle"
+
+msgid "Sie haben den Raum verlassen. Solange Aufzeichnung und Übertragung erlaubt sind, ist eine Teilnahme nur mit Zustimmung möglich."
+msgstr "Vous avez quitté la salle. Tant que l'enregistrement et la diffusion sont autorisés, la participation n'est possible qu'avec votre accord."
+
+msgid "Das hat nicht geklappt. Bitte versuchen Sie es noch einmal."
+msgstr "Cela n'a pas fonctionné. Veuillez réessayer."
+
+msgid "Zustimmung zur Aufzeichnung: %1 von %2"
+msgstr "Accord pour l'enregistrement : %1 sur %2"
+
+msgid "Alle im Raum haben zugestimmt."
+msgstr "Toutes les personnes présentes dans la salle ont donné leur accord."
+
+msgid "Noch nicht alle im Raum haben zugestimmt (%1 von %2)."
+msgstr "Toutes les personnes présentes dans la salle n'ont pas encore donné leur accord (%1 sur %2)."
+
+msgid "Inzwischen ist jemand ohne Zustimmung im Raum. Der Start wurde nicht ausgeführt."
+msgstr "Entre-temps, une personne sans accord se trouve dans la salle. Le démarrage n'a pas été effectué."
 
 msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
 msgstr "Vous êtes sur le point d'autoriser l'enregistrement et la diffusion en direct dans les salles en ligne des événements de cette instance. L'image, la voix et le nom affiché de toutes les personnes de la salle peuvent être enregistrés et diffusés, pas seulement ceux des intervenants. Le conseil d'administration décide ensuite pour chaque événement séparément."
@@ -25299,9 +25341,6 @@ msgstr "Autoriser l'enregistrement dans les salles d'événement ?"
 
 msgid "Aufzeichnung und Übertragung: erlaubt"
 msgstr "Enregistrement et diffusion en direct : autorisés"
-
-msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
-msgstr "L'autorisation d'enregistrer ne s'applique pas aux séries de dates. Autorisez chaque date après sa création."
 
 msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
 msgstr "L'enregistrement et la diffusion en direct ne sont pas activés pour les événements sur ce serveur. Veuillez contacter l'administration."

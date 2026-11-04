@@ -42,18 +42,25 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_ASK_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_ASK_TOPIC
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_COUNT_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_COUNT_TOPIC
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_TOPIC
 import network.lapis.cloud.shared.domain.EncounterFloorSignal
 import network.lapis.cloud.shared.domain.EncounterMapPacket
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.EncounterRecordingSignal
+import network.lapis.cloud.shared.domain.EventCaptureConsentCountDto
 import network.lapis.cloud.shared.domain.EventCaptureLiveDto
 import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.encounterFloorPacket
 import network.lapis.cloud.shared.domain.encounterMapPacket
 import network.lapis.cloud.shared.domain.encounterRecordingPacket
+import network.lapis.cloud.shared.domain.eventCaptureAskPacket
+import network.lapis.cloud.shared.domain.eventCaptureCountPacket
 import network.lapis.cloud.shared.domain.eventCapturePacket
 import network.lapis.cloud.shared.domain.isStructurallyValid
 import org.khronos.webgl.Uint8Array
@@ -469,6 +476,17 @@ class LiveKitRoomSession(
      * The branch sits BEFORE the participant check.
      */
     private val onEventCapture: (EventCaptureLiveDto) -> Unit = {},
+    /**
+     * V1.9.280 -- the server asks THIS person to acknowledge the capture consent (a release was switched on after they entered). Same rule as the banner
+     * (only a packet WITHOUT a sending participant, 1..[EVENT_CAPTURE_ASK_MAX_PAYLOAD_BYTES] bytes, strictly validated by [eventCaptureAskPacket]); a
+     * forged ask would only open a dialog the person can answer, but a guest may publish data, so it is dropped like every other server packet.
+     */
+    private val onEventCaptureAsk: () -> Unit = {},
+    /**
+     * V1.9.280 -- "N of M acknowledged", sent point to point to the MODERATORS only; same acceptance rule ([eventCaptureCountPacket]). It informs the UI
+     * only and names nobody.
+     */
+    private val onEventCaptureCount: (EventCaptureConsentCountDto) -> Unit = {},
     /**
      * V1.9.108 -- the mute state of ANOTHER participant's track changed (`RoomEvent.TrackMuted`/`TrackUnmuted` for a remote participant;
      * until now only the local ones were relayed). [source] is the publication source (`"microphone"`, ...). Replaces the "does a
@@ -984,6 +1002,21 @@ class LiveKitRoomSession(
                 if (fromParticipant || payload.length !in 1..EVENT_CAPTURE_MAX_PAYLOAD_BYTES) return@onOwned
                 val bytes = ByteArray(payload.length) { index -> payload[index] }
                 eventCapturePacket(fromParticipant = false, payload = bytes)?.let(onEventCapture)
+                return@onOwned
+            }
+            // V1.9.280 -- the two packets of the in-room consent: the same rule, a branch of their own BEFORE the participant check.
+            if (p3 == EVENT_CAPTURE_ASK_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                if (fromParticipant || payload.length !in 1..EVENT_CAPTURE_ASK_MAX_PAYLOAD_BYTES) return@onOwned
+                val bytes = ByteArray(payload.length) { index -> payload[index] }
+                if (eventCaptureAskPacket(fromParticipant = false, payload = bytes)) onEventCaptureAsk()
+                return@onOwned
+            }
+            if (p3 == EVENT_CAPTURE_COUNT_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                if (fromParticipant || payload.length !in 1..EVENT_CAPTURE_COUNT_MAX_PAYLOAD_BYTES) return@onOwned
+                val bytes = ByteArray(payload.length) { index -> payload[index] }
+                eventCaptureCountPacket(fromParticipant = false, payload = bytes)?.let(onEventCaptureCount)
                 return@onOwned
             }
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned

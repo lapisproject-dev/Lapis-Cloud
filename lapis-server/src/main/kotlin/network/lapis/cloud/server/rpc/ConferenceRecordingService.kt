@@ -23,8 +23,10 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.documents.StorageSpaceProbe
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
+import network.lapis.cloud.server.events.EventCaptureConsentGate
 import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventConferenceGuard
+import network.lapis.cloud.server.events.EventRoomPresence
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -221,9 +223,11 @@ class ConferenceRecordingService(
         // "roomUuid" rename already documents, see PeerTransferService.executeTransfer KDoc for
         // the canonical explanation).
         val roomUuid = roomId.toRecordingUuid()
+        // V1.9.280: who is in an event room is asked of LiveKit BEFORE the transaction (never a network call inside one); empty for an ordinary room.
+        val present = EventCaptureConsentGate.collectForRoom(roomUuid)
         val dto =
             transaction {
-                startRecordingInTransaction(roomUuid = roomUuid, accessLevel = accessLevel, current = current)
+                startRecordingInTransaction(roomUuid = roomUuid, accessLevel = accessLevel, current = current, present = present)
             }
         // Only reached once the row is committed -- a poller tick woken BEFORE the commit would not
         // see the new RECORDING row yet and the wake-up would be wasted.
@@ -237,6 +241,7 @@ class ConferenceRecordingService(
         roomUuid: Uuid,
         accessLevel: DocumentAccessLevel,
         current: CurrentMember,
+        present: EventRoomPresence,
     ): ConferenceRecordingDto {
         // `.forUpdate()` locks the room row for the rest of this transaction -- closes the
         // check-then-act race on the "one active recording per room" invariant below: two
@@ -269,8 +274,8 @@ class ConferenceRecordingService(
         }
         // V1.9.156: an event room is recorded ONLY when the instance switch is on AND the organizer released this event -- and everybody who
         // enters such a room has acknowledged the capture consent (proof in event_capture_acknowledgment; EventOnlineJoin enforces it). The
-        // release is frozen while the room is active, so no participant can be inside without that proof. Room-row lock is held (see above).
-        EventConferenceGuard.requireEventCaptureAllowed(row = room)
+        // gate (V1.9.280) refuses the start while anybody in the room lacks that proof. Room-row lock is held (see above).
+        EventConferenceGuard.requireEventCaptureAllowed(row = room, present = present)
         // The file of an event room is for the board: it contains images of persons who did not agree to a wider circle.
         if (accessLevel == DocumentAccessLevel.PUBLIC_MEMBERS && EventConferenceGuard.isEventRoom(room)) {
             throw EventRoomRecordingAccessLevelNotAllowedException()

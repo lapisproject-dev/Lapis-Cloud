@@ -73,8 +73,11 @@ internal fun startEventGuestCall(
     host: SimplePanel,
     response: EventGuestJoinResponseDto,
     onLeft: () -> Unit,
+    // V1.9.280 -- the slug of the event: needed to acknowledge a capture consent that is asked for after the join (null = no in-room question).
+    slug: String? = null,
+    api: EventGuestApi = EventGuestHttp,
 ) {
-    EventGuestCallView(host = host, response = response, onLeft = onLeft).show()
+    EventGuestCallView(host = host, response = response, onLeft = onLeft, slug = slug, api = api).show()
 }
 
 /**
@@ -92,6 +95,8 @@ internal class EventGuestCallView(
     private val host: SimplePanel,
     private val response: EventGuestJoinResponseDto,
     private val onLeft: () -> Unit,
+    private val slug: String? = null,
+    private val api: EventGuestApi = EventGuestHttp,
 ) {
     private var gridElement: HTMLElement? = null
     private val tiles = LinkedHashMap<String, HTMLElement>()
@@ -110,6 +115,9 @@ internal class EventGuestCallView(
 
     /** V1.9.156: the capture line; built in [show] before the connection starts and only ever fed by the server's packets. */
     private var captureBanner: EventCaptureBanner? = null
+
+    /** V1.9.280: the open in-room consent dialog, if any (at most one). */
+    private var consentDialog: InRoomConsentHandle? = null
     private val session: LiveKitRoomSession =
         LiveKitRoomSession(
             onRemoteTrack = { identity, displayName, track, _ -> attachRemote(identity, displayName, track) },
@@ -127,6 +135,7 @@ internal class EventGuestCallView(
             },
             onRecordingStatusChanged = { _ -> },
             onEventCapture = { live -> captureBanner?.render(live) },
+            onEventCaptureAsk = { askCaptureConsent() },
             onActiveSpeakersChanged = { _ -> },
             onActiveDeviceChanged = { kind, deviceId -> devicePanel?.syncActive(kind, deviceId) },
             onMediaDevicesChanged = { devicePanel?.let { panel -> AppScope.launch { panel.refresh(preserveFocus = true) } } },
@@ -277,9 +286,51 @@ internal class EventGuestCallView(
         renderState()
     }
 
+    /**
+     * V1.9.280 -- the server asks this guest to acknowledge the capture consent that was switched on after they entered. One dialog at a time; it closes
+     * only when the server accepted. "Ablehnen" leaves the room (LiveKit is disconnected, nothing is stored about the refusal).
+     */
+    private fun askCaptureConsent() {
+        val eventSlug = slug ?: return
+        val token = response.token ?: return
+        if (left) return
+        // one dialog at a time; a repeated ask never moves the focus of a person who is reading or ticking
+        if (consentDialog?.isOpen == true) return
+        AppScope.launch {
+            val notice = api.state(eventSlug)?.captureNotice ?: return@launch
+            if (left || consentDialog?.isOpen == true) return@launch
+            consentDialog =
+                showInRoomCaptureConsent(
+                    parent = host,
+                    notice = notice,
+                    onAccept = { input ->
+                        when (api.acknowledgeCapture(slug = eventSlug, token = token, consent = input)) {
+                            EventGuestAckHttpResult.ACCEPTED -> InRoomAcceptResult.ACCEPTED
+                            EventGuestAckHttpResult.OUTDATED -> InRoomAcceptResult.OUTDATED
+                            EventGuestAckHttpResult.FAILED -> {
+                                notifyError(tr("Das hat nicht geklappt. Bitte versuchen Sie es noch einmal."))
+                                InRoomAcceptResult.FAILED
+                            }
+                        }
+                    },
+                    onDecline = {
+                        notifyInfo(
+                            tr(
+                                "Sie haben den Raum verlassen. Solange Aufzeichnung und Übertragung erlaubt sind, ist eine Teilnahme nur mit Zustimmung möglich.",
+                            ),
+                        )
+                        leave()
+                    },
+                    reloadNotice = { api.state(eventSlug)?.captureNotice },
+                )
+        }
+    }
+
     private fun leave() {
         if (left) return
         left = true
+        consentDialog?.dispose()
+        consentDialog = null
         devicePanel?.dispose()
         AppScope.launch {
             runCatching { session.disconnect() }
@@ -290,6 +341,8 @@ internal class EventGuestCallView(
     private fun onConnectionEnded(ended: GuestCallPhase = GuestCallPhase.ENDED) {
         if (left) return
         left = true
+        consentDialog?.dispose()
+        consentDialog = null
         devicePanel?.dispose()
         statusLine.content = ""
         setPhase(ended)

@@ -22,13 +22,14 @@ import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 /**
- * V1.9.156 -- when the release of recording / live streaming of ONE event is FROZEN, and what "recording" / "streaming" mean for the banner and for the
- * instance switch. All functions run INSIDE the caller's open `transaction {}`.
+ * V1.9.156 -- what "recording" / "streaming" mean for the banner, for the instance switch and (since V1.9.280) for switching a release off. All functions
+ * run INSIDE the caller's open `transaction {}`.
  *
- * **Why a lock at all.** Everybody who enters a released event room must have acknowledged the capture consent (`EventOnlineJoin`). A person who entered
- * BEFORE the release has acknowledged nothing, so the release (and the instance switch) must not change from the moment people may be inside -- and a
- * person WITHOUT an account leaves no participation row, only a LiveKit identity and a token that stays valid until it expires. The lock is therefore
- * wider than "open participations": it starts when the online window opens (tokens are handed out from then on) and lasts while the room lives.
+ * **V1.9.280 -- what changed.** The release of ONE event is no longer frozen while the room is active: switching it ON works at any time (people who are
+ * inside are then asked in the room, and a recording / stream only starts when all of them acknowledged -- `EventCaptureConsentGate`); switching it OFF is
+ * refused only while something captures ([isCapturing]). [isActive] and [anyReleasedEventActive] are kept UNCHANGED for the INSTANCE switch: people who
+ * entered while the instance switch was off acknowledged nothing, and a person WITHOUT an account leaves no participation row, only a LiveKit identity and a
+ * token that stays valid until it expires -- so the instance switch is still frozen from the opening of the window until the room is over.
  */
 internal object EventCaptureLock {
     /** Statuses in which a recording still captures (egress runs) or is being stopped. */
@@ -69,6 +70,22 @@ internal object EventCaptureLock {
         return hasOpenParticipation(roomId) || liveState(roomId).let { it.recording || it.streaming }
     }
 
+    /**
+     * V1.9.280 -- `true` iff a recording is running / being stopped, or a stream is not over (including PAUSED). The ONLY thing that blocks switching the
+     * release of one event OFF. The room row of [roomId] must be locked by the caller (`forUpdate`) for the answer to be race-free against a start.
+     */
+    fun isCapturing(roomId: Uuid): Boolean =
+        ConferenceRecordingTable
+            .selectAll()
+            .where { (ConferenceRecordingTable.roomId eq roomId) and (ConferenceRecordingTable.status inList RECORDING_STATUSES) }
+            .limit(1)
+            .any() ||
+            ConferenceStreamTable
+                .selectAll()
+                .where { (ConferenceStreamTable.roomId eq roomId) and (ConferenceStreamTable.status inList STREAM_ALIVE_STATUSES) }
+                .limit(1)
+                .any()
+
     /** The conference room of [eventId] (whether or not it has ended), or `null` if none was created yet. */
     fun roomIdOf(eventId: Uuid): Uuid? =
         EventConferenceTable
@@ -100,6 +117,20 @@ internal object EventCaptureLock {
             .selectAll()
             .where { (ConferenceParticipationTable.roomId eq roomId) and ConferenceParticipationTable.leftAt.isNull() }
             .limit(1)
+            .any()
+
+    /** V1.9.280 -- `true` iff [memberId] has an open participation in [roomId] (only `joinEventOnline` creates one). */
+    fun hasOpenParticipation(
+        roomId: Uuid,
+        memberId: Uuid,
+    ): Boolean =
+        ConferenceParticipationTable
+            .selectAll()
+            .where {
+                (ConferenceParticipationTable.roomId eq roomId) and
+                    (ConferenceParticipationTable.memberId eq memberId) and
+                    ConferenceParticipationTable.leftAt.isNull()
+            }.limit(1)
             .any()
 
     /** What the banner of [roomId] shows. */

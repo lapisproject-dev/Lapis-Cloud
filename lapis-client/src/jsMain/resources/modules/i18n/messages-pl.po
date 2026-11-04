@@ -25200,11 +25200,53 @@ msgstr "Wtedy obraz, głos i imię i nazwisko wszystkich osób w pokoju online m
 msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
 msgstr "Nagrywanie w pokojach wydarzeń nie jest włączone dla tej instancji."
 
-msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
-msgstr "Zgody nie można już zmienić: pokój online jest otwarty albo trwa nagrywanie lub transmisja."
-
 msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
 msgstr "Wydarzenie zostało zapisane, ale zgody na nagrywanie nie można już było zmienić."
+
+msgid "Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "Wyłączenie jest możliwe dopiero po zakończeniu nagrywania i transmisji."
+
+msgid "Die Veranstaltung hat begonnen. Wer schon im Raum ist und noch nicht zugestimmt hat, wird sofort gefragt."
+msgstr "Wydarzenie się rozpoczęło. Osoby, które są już w pokoju i jeszcze się nie zgodziły, zostaną od razu zapytane."
+
+msgid "Die Veranstaltung wurde gespeichert. Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "Wydarzenie zostało zapisane. Wyłączenie jest możliwe dopiero po zakończeniu nagrywania i transmisji."
+
+msgid "Ab jetzt darf dieser Raum aufgezeichnet werden"
+msgstr "Od teraz ten pokój może być nagrywany"
+
+msgid "Bevor aufgezeichnet oder übertragen wird, braucht es die Zustimmung aller, die im Raum sind. Ohne Ihre Zustimmung können Sie nicht im Raum bleiben."
+msgstr "Zanim cokolwiek zostanie nagrane lub transmitowane, potrzebna jest zgoda wszystkich osób w pokoju. Bez Pana/Pani zgody nie może Pan/Pani pozostać w pokoju."
+
+msgid "Der Hinweistext wurde inzwischen geändert. Bitte lesen Sie ihn erneut."
+msgstr "Tekst informacji został w międzyczasie zmieniony. Proszę przeczytać go ponownie."
+
+msgid "Bitte setzen Sie den Haken, um im Raum zu bleiben."
+msgstr "Zaznacz pole, aby pozostać w pokoju."
+
+msgid "Zustimmen und bleiben"
+msgstr "Zgadzam się i zostaję"
+
+msgid "Ablehnen und Raum verlassen"
+msgstr "Odmawiam i opuszczam pokój"
+
+msgid "Sie haben den Raum verlassen. Solange Aufzeichnung und Übertragung erlaubt sind, ist eine Teilnahme nur mit Zustimmung möglich."
+msgstr "Opuścił(a) Pan/Pani pokój. Dopóki nagrywanie i transmisja są dozwolone, udział jest możliwy wyłącznie za zgodą."
+
+msgid "Das hat nicht geklappt. Bitte versuchen Sie es noch einmal."
+msgstr "To się nie udało. Proszę spróbować ponownie."
+
+msgid "Zustimmung zur Aufzeichnung: %1 von %2"
+msgstr "Zgoda na nagrywanie: %1 z %2"
+
+msgid "Alle im Raum haben zugestimmt."
+msgstr "Wszystkie osoby w pokoju wyraziły zgodę."
+
+msgid "Noch nicht alle im Raum haben zugestimmt (%1 von %2)."
+msgstr "Nie wszystkie osoby w pokoju wyraziły już zgodę (%1 z %2)."
+
+msgid "Inzwischen ist jemand ohne Zustimmung im Raum. Der Start wurde nicht ausgeführt."
+msgstr "W międzyczasie w pokoju znalazła się osoba bez zgody. Start nie został wykonany."
 
 msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
 msgstr "Zamierza Pan/Pani zezwolić na nagrywanie i transmisję na żywo w pokojach online wydarzeń tej instancji. Obraz, głos i wyświetlana nazwa wszystkich osób w pokoju mogą być nagrywane i transmitowane, nie tylko osób prowadzących. Zarząd decyduje następnie osobno dla każdego wydarzenia."
@@ -25247,9 +25289,6 @@ msgstr "Zezwolić na nagrywanie w pokojach wydarzeń?"
 
 msgid "Aufzeichnung und Übertragung: erlaubt"
 msgstr "Nagrywanie i transmisja na żywo: dozwolone"
-
-msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
-msgstr "Zgoda na nagrywanie nie obejmuje serii terminów. Proszę udzielić zgody dla poszczególnych terminów po ich utworzeniu."
 
 msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
 msgstr "Nagrywanie i transmisja na żywo nie są włączone dla wydarzeń na tym serwerze. Proszę skontaktować się z administracją."

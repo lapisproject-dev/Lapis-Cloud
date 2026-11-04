@@ -90,19 +90,58 @@ class EventConferenceGuardTripwireTest :
                     .functions(EncounterSourceScan.mainFile("rpc/ConferenceRecordingService.kt"))
                     .first { it.name == "startRecordingInTransaction" }
                     .body
-            recording shouldContain "EventConferenceGuard.requireEventCaptureAllowed(row = room)"
+            recording shouldContain "EventConferenceGuard.requireEventCaptureAllowed(row = room, present = present)"
             recording shouldNotContain "requireNotEventRoom"
             val stream =
                 EncounterSourceScan
                     .functions(EncounterSourceScan.mainFile("rpc/ConferenceStreamingService.kt"))
                     .first { it.name == "startStreamInternal" }
                     .body
-            stream shouldContain "EventConferenceGuard.requireEventCaptureAllowed(row = room)"
+            stream shouldContain "EventConferenceGuard.requireEventCaptureAllowed(row = room, present = present)"
             stream shouldNotContain "requireNotEventRoom"
             EncounterSourceScan
                 .functions(EncounterSourceScan.mainFile("rpc/ConferenceBreakoutService.kt"))
                 .first { it.name == "rejoinMainRoomToken" }
                 .body shouldContain "EventConferenceGuard.requireStillEntitled"
+            // V1.9.280: ... and the return from a breakout while something captures asks for the consent
+            EncounterSourceScan
+                .functions(EncounterSourceScan.mainFile("rpc/ConferenceBreakoutService.kt"))
+                .first { it.name == "rejoinMainRoomToken" }
+                .body shouldContain "EventConferenceGuard.requireCaptureConsentWhileCapturing"
+        }
+
+        test(
+            "V1.9.280: the consent gate decides at the start only through the guard; the presence is collected BEFORE the transaction and never inside one",
+        ) {
+            // requireEveryoneAcknowledged and the typed refusal live in the gate/guard and nowhere else
+            val callers =
+                SourceScan
+                    .mainFiles()
+                    .filter { SourceScan.blank(it.readText()).contains("requireEveryoneAcknowledged(") }
+                    .map { it.name }
+                    .sorted()
+            callers shouldBe listOf("EventCaptureConsentGate.kt", "EventConferenceGuard.kt")
+            val throwers =
+                SourceScan
+                    .mainFiles()
+                    .filter { SourceScan.blank(it.readText()).contains("EventRoomCaptureConsentMissingException(") }
+                    .map { it.name }
+            throwers shouldBe listOf("EventCaptureConsentGate.kt")
+            // the start paths collect the presence outside of `transaction {}` and hand it in; the guard never opens a network call
+            listOf("rpc/ConferenceRecordingService.kt", "rpc/ConferenceStreamingService.kt").forEach { file ->
+                val text = EncounterSourceScan.mainFile(file).readText()
+                withClueName(name = file) {
+                    text shouldContain "EventCaptureConsentGate.collectForRoom("
+                    val collect = text.indexOf("EventCaptureConsentGate.collectForRoom(")
+                    val tx = text.indexOf("transaction {", startIndex = collect)
+                    (collect in 0 until tx) shouldBe true
+                }
+            }
+            val guard = EncounterSourceScan.mainFile("events/EventConferenceGuard.kt").readText()
+            SourceScan.blank(guard) shouldNotContain "listParticipants"
+            // the start path never locks the event row (lock order: event, THEN room; the start locks the room only)
+            val gate = EncounterSourceScan.mainFile("events/EventCaptureConsentGate.kt").readText()
+            SourceScan.blank(gate) shouldNotContain "lockEventForUpdate"
         }
 
         test(

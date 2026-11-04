@@ -167,6 +167,8 @@ private val CSS_LEDGER: Map<String, String> =
         ".lapis-encounter-chat-log" to "E3",
         ".lapis-conference-filmstrip" to "E4h",
         ".lapis-agreement-frame" to "E3d",
+        // V1.9.280: the question inside an event room (blocking dialog, bounded by the viewport): the full consent text behind its disclosure can be longer than a phone
+        ".lapis-event-capture-ask" to "E1",
     )
 
 /** Kotlin scrollers that remain: file -> number of lines. Empty since V1.9.68 (the conference chat log and the filmstrip are CSS classes). */

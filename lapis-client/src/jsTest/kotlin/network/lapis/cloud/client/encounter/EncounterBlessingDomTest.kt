@@ -200,9 +200,14 @@ class EncounterBlessingDomTest {
                 awaitUntil("the call went out") { rig.requests.any { it.isRpc && it.rpcRoute == route } }
                 delay(200)
                 assertTrue(element.display()?.hasAttribute("hidden") ?: true, "nothing is shown by a refusal")
+                // The office holder's one-time "microphone is off" entry announcement (a 750 ms timer) may land inside the wait; it is not what a refusal announces.
                 assertEquals(
                     "",
-                    element.allOf("[role=status]").joinToString("") { it.textContent.orEmpty() }.trim(),
+                    element
+                        .allOf("[role=status]")
+                        .map { it.textContent.orEmpty().trim() }
+                        .filterNot { it == "Ihr Mikrofon ist aus." }
+                        .joinToString(""),
                     "and nothing is announced",
                 )
             }

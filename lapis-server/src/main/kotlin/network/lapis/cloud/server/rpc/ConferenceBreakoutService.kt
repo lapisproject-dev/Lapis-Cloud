@@ -668,6 +668,8 @@ class ConferenceBreakoutService(
                 // V1.9.113: a return to the main room of an EVENT conference re-runs the full event authorization (a registration
                 // cancelled since the join, or a closed window, ends the stay).
                 EventConferenceGuard.requireStillEntitled(row = row, current = current)
+                // V1.9.280: while the room is recorded / streamed, only somebody who acknowledged the current capture consent comes back.
+                EventConferenceGuard.requireCaptureConsentWhileCapturing(row = row, current = current)
                 val hasOpenParticipation =
                     ConferenceParticipationTable
                         .selectAll()

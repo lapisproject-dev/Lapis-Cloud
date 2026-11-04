@@ -25229,11 +25229,53 @@ msgstr "Then the image, voice and name of everybody in the online room can be re
 msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
 msgstr "Recording in event rooms is not switched on for this instance."
 
-msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
-msgstr "The release can no longer be changed: the online room is open or a recording or live stream is running."
-
 msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
 msgstr "The event was saved, but the release of the recording could no longer be changed."
+
+msgid "Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "Switching off is only possible once the recording and the live stream have ended."
+
+msgid "Die Veranstaltung hat begonnen. Wer schon im Raum ist und noch nicht zugestimmt hat, wird sofort gefragt."
+msgstr "The event has started. Anyone who is already in the room and has not yet agreed is asked right away."
+
+msgid "Die Veranstaltung wurde gespeichert. Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "The event was saved. Switching off is only possible once the recording and the live stream have ended."
+
+msgid "Ab jetzt darf dieser Raum aufgezeichnet werden"
+msgstr "From now on this room may be recorded"
+
+msgid "Bevor aufgezeichnet oder übertragen wird, braucht es die Zustimmung aller, die im Raum sind. Ohne Ihre Zustimmung können Sie nicht im Raum bleiben."
+msgstr "Before anything is recorded or streamed, everybody in the room has to agree. Without your agreement you cannot stay in the room."
+
+msgid "Der Hinweistext wurde inzwischen geändert. Bitte lesen Sie ihn erneut."
+msgstr "The notice text has changed in the meantime. Please read it again."
+
+msgid "Bitte setzen Sie den Haken, um im Raum zu bleiben."
+msgstr "Please tick the box to stay in the room."
+
+msgid "Zustimmen und bleiben"
+msgstr "Agree and stay"
+
+msgid "Ablehnen und Raum verlassen"
+msgstr "Decline and leave the room"
+
+msgid "Sie haben den Raum verlassen. Solange Aufzeichnung und Übertragung erlaubt sind, ist eine Teilnahme nur mit Zustimmung möglich."
+msgstr "You have left the room. As long as recording and live streaming are allowed, taking part is only possible with your agreement."
+
+msgid "Das hat nicht geklappt. Bitte versuchen Sie es noch einmal."
+msgstr "That did not work. Please try again."
+
+msgid "Zustimmung zur Aufzeichnung: %1 von %2"
+msgstr "Agreement to the recording: %1 of %2"
+
+msgid "Alle im Raum haben zugestimmt."
+msgstr "Everybody in the room has agreed."
+
+msgid "Noch nicht alle im Raum haben zugestimmt (%1 von %2)."
+msgstr "Not everybody in the room has agreed yet (%1 of %2)."
+
+msgid "Inzwischen ist jemand ohne Zustimmung im Raum. Der Start wurde nicht ausgeführt."
+msgstr "Somebody without agreement is in the room now. The start was not carried out."
 
 msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
 msgstr "You are about to allow recording and live streaming in the online rooms of events of this instance. The image, voice and display name of everybody in the room can be recorded and streamed, not only those of the speakers. The board then decides for each event individually."
@@ -25276,9 +25318,6 @@ msgstr "Allow recording in event rooms?"
 
 msgid "Aufzeichnung und Übertragung: erlaubt"
 msgstr "Recording and live stream: allowed"
-
-msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
-msgstr "The release of the recording does not apply to series of dates. Release the individual dates after creating them."
 
 msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
 msgstr "Recording and live streaming are not enabled for events on this server. Please contact the administration."

@@ -3,6 +3,7 @@ package network.lapis.cloud.server.conference
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.crypto.MACSigner
+import com.nimbusds.jose.crypto.MACVerifier
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import java.util.Date
@@ -255,6 +256,46 @@ object LiveKitAccessToken {
         signedJwt.sign(MACSigner(apiSecret.toByteArray(Charsets.UTF_8)))
         return signedJwt.serialize()
     }
+
+    /** V1.9.280 -- what [verifyParticipantToken] read out of a token that THIS server minted. */
+    data class VerifiedParticipant(
+        val identity: String,
+        val roomName: String,
+    )
+
+    /**
+     * V1.9.280 -- verifies a participant token this server minted ([mintParticipantToken]): HS256 only (any other `alg` is refused before the signature
+     * is looked at), a NEW verifier per call, signature, issuer = [apiKey], not expired (unless [allowExpired]: the caller then has to prove by other means that the holder is still inside) and not before [now], a subject and a `video.room` claim.
+     * `null` for everything else -- the caller answers a uniform refusal and must not tell which check failed. Never throws.
+     */
+    fun verifyParticipantToken(
+        jwt: String,
+        apiKey: String,
+        apiSecret: String,
+        now: Instant,
+        allowExpired: Boolean = false,
+    ): VerifiedParticipant? =
+        try {
+            val signed = SignedJWT.parse(jwt)
+            if (signed.header.algorithm != JWSAlgorithm.HS256) return null
+            if (!signed.verify(MACVerifier(apiSecret.toByteArray(Charsets.UTF_8)))) return null
+            val claims = signed.jwtClaimsSet
+            val expires = claims.expirationTime ?: return null
+            val notBefore = claims.notBeforeTime
+            val nowDate = toJavaDate(now)
+            when {
+                claims.issuer != apiKey -> null
+                !allowExpired && !expires.after(nowDate) -> null
+                notBefore != null && notBefore.after(nowDate) -> null
+                else -> {
+                    val subject = claims.subject?.takeIf { it.isNotBlank() }
+                    val room = (claims.getClaim("video") as? Map<*, *>)?.get("room") as? String
+                    if (subject == null || room.isNullOrBlank()) null else VerifiedParticipant(identity = subject, roomName = room)
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
 
     private fun toJavaDate(instant: Instant): Date = Date.from(instant.toJavaInstant())
 }

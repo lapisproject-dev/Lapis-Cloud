@@ -141,6 +141,7 @@ import network.lapis.cloud.server.encounter.EncounterTableState
 import network.lapis.cloud.server.encounter.PulpitRecordingCoordinator
 import network.lapis.cloud.server.encounter.PulpitRecordingDocuments
 import network.lapis.cloud.server.encounter.PulpitRecordingState
+import network.lapis.cloud.server.events.EventCaptureConsentGate
 import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventConferencePoller
 import network.lapis.cloud.server.events.EventCoverStorage
@@ -1910,12 +1911,28 @@ internal fun Application.module(
         monitor.subscribe(ApplicationStopping) { eventConferencePoller.stop() }
         // Welle V1.9.156 -- the banner of event rooms (recording / streaming on or off), sent by the server only. Installed so the recording service
         // can nudge it right after a start; the sweep catches everything the pollers change. A no-op for rooms of events that are not released.
-        val eventCaptureBroadcaster = EventCaptureLiveBroadcaster(liveKit = liveKitAdminClient)
+        // V1.9.280: the consent gate at the start of a recording / stream needs the same boundary (who is in the room, pending guest tokens, the
+        // guest-key secret); the broadcaster additionally asks the people who have not acknowledged and counts for the moderators.
+        EventCaptureConsentGate.install(
+            EventCaptureConsentGate.Context(
+                liveKit = liveKitAdminClient,
+                join = eventOnline.join,
+                guestKeySecret = conferenceConfig.apiSecret,
+            ),
+        )
+        val eventCaptureBroadcaster =
+            EventCaptureLiveBroadcaster(
+                liveKit = liveKitAdminClient,
+                join = eventOnline.join,
+                guestKeySecret = conferenceConfig.apiSecret,
+            )
         EventCaptureLiveBroadcaster.install(eventCaptureBroadcaster)
         eventCaptureBroadcaster.start()
+        eventCaptureBroadcaster.startConsentPass()
         monitor.subscribe(ApplicationStopping) {
             eventCaptureBroadcaster.stop()
             EventCaptureLiveBroadcaster.install(null)
+            EventCaptureConsentGate.install(null)
         }
     }
     val eventTicketPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)

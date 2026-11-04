@@ -160,8 +160,11 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * `getTodaysAnniversaries(` read of the card "Heute" (BOARD/ADMIN). The card is mounted as an empty, invisible slot and draws only when there is something
  * to say: a failed or refused read, an empty answer and a screen that was left all look the same on purpose (no loading line, no error block, no toast --
  * the accepted background shape of the other supplementary dashboard reads).
+ * Welle V1.9.280 "Zustimmung im Raum" adds TWO reads in the (already counted) `ConferenceScreen.kt`: `getEventCaptureState(` once to fetch the consent text when the
+ * server asks (a one-shot inside the dialog's flow, a failure toasts through `guarded`) and once to reload it when the text changed under the dialog. Neither has a
+ * list or a section to show a loading/empty/error state for. 197 -> 199.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 197
+private const val READ_OUTSIDE_STATE_REGION_MAX = 199
 private const val FILES_OUTSIDE_STATE_REGION_MAX = 66
 
 /**

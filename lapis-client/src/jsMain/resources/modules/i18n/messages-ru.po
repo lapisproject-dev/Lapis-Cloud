@@ -25190,11 +25190,53 @@ msgstr "Тогда изображение, голос и имя всех люд�
 msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
 msgstr "Запись в комнатах мероприятий для этого экземпляра не включена."
 
-msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
-msgstr "Разрешение больше нельзя изменить: онлайн-комната открыта или идёт запись либо трансляция."
-
 msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
 msgstr "Мероприятие сохранено, но разрешение на запись изменить уже не удалось."
+
+msgid "Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "Отключить можно только после завершения записи и трансляции."
+
+msgid "Die Veranstaltung hat begonnen. Wer schon im Raum ist und noch nicht zugestimmt hat, wird sofort gefragt."
+msgstr "Мероприятие началось. Тем, кто уже в комнате и ещё не дал согласия, вопрос будет задан сразу."
+
+msgid "Die Veranstaltung wurde gespeichert. Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."
+msgstr "Мероприятие сохранено. Отключить можно только после завершения записи и трансляции."
+
+msgid "Ab jetzt darf dieser Raum aufgezeichnet werden"
+msgstr "С этого момента эту комнату можно записывать"
+
+msgid "Bevor aufgezeichnet oder übertragen wird, braucht es die Zustimmung aller, die im Raum sind. Ohne Ihre Zustimmung können Sie nicht im Raum bleiben."
+msgstr "Прежде чем начнутся запись или трансляция, нужно согласие всех, кто находится в комнате. Без вашего согласия вы не можете остаться в комнате."
+
+msgid "Der Hinweistext wurde inzwischen geändert. Bitte lesen Sie ihn erneut."
+msgstr "Текст уведомления тем временем изменился. Пожалуйста, прочитайте его ещё раз."
+
+msgid "Bitte setzen Sie den Haken, um im Raum zu bleiben."
+msgstr "Установите флажок, чтобы остаться в комнате."
+
+msgid "Zustimmen und bleiben"
+msgstr "Согласиться и остаться"
+
+msgid "Ablehnen und Raum verlassen"
+msgstr "Отказаться и покинуть комнату"
+
+msgid "Sie haben den Raum verlassen. Solange Aufzeichnung und Übertragung erlaubt sind, ist eine Teilnahme nur mit Zustimmung möglich."
+msgstr "Вы покинули комнату. Пока запись и трансляция разрешены, участие возможно только с согласием."
+
+msgid "Das hat nicht geklappt. Bitte versuchen Sie es noch einmal."
+msgstr "Не получилось. Пожалуйста, попробуйте ещё раз."
+
+msgid "Zustimmung zur Aufzeichnung: %1 von %2"
+msgstr "Согласие на запись: %1 из %2"
+
+msgid "Alle im Raum haben zugestimmt."
+msgstr "Все в комнате дали согласие."
+
+msgid "Noch nicht alle im Raum haben zugestimmt (%1 von %2)."
+msgstr "Согласились ещё не все в комнате (%1 из %2)."
+
+msgid "Inzwischen ist jemand ohne Zustimmung im Raum. Der Start wurde nicht ausgeführt."
+msgstr "Тем временем в комнате оказался кто-то без согласия. Запуск не выполнен."
 
 msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
 msgstr "Вы собираетесь разрешить запись и прямую трансляцию в онлайн-комнатах мероприятий этого экземпляра. Изображение, голос и отображаемое имя всех людей в комнате могут записываться и транслироваться, а не только докладчиков. Правление затем решает по каждому мероприятию отдельно."
@@ -25237,9 +25279,6 @@ msgstr "Разрешить запись в комнатах мероприяти
 
 msgid "Aufzeichnung und Übertragung: erlaubt"
 msgstr "Запись и прямая трансляция: разрешены"
-
-msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
-msgstr "Разрешение на запись не распространяется на серии дат. Выдайте разрешение для отдельных дат после их создания."
 
 msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
 msgstr "Запись и прямая трансляция не включены для мероприятий на этом сервере. Обратитесь к администрации."

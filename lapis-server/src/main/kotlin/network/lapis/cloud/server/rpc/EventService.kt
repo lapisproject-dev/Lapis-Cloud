@@ -8,13 +8,18 @@ import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.OpenItemTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.events.EVENT_ROOM_UNSUPPORTED
 import network.lapis.cloud.server.events.EventCapacityGuard
+import network.lapis.cloud.server.events.EventCaptureAcknowledgments
+import network.lapis.cloud.server.events.EventCaptureDefaults
+import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventCaptureLock
 import network.lapis.cloud.server.events.EventCaptureRequirement
 import network.lapis.cloud.server.events.EventCheckIn
@@ -103,9 +108,12 @@ import network.lapis.cloud.shared.domain.SeriesPreviewDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.EventCaptureChangeLockedException
+import network.lapis.cloud.shared.rpc.EventCaptureStillCapturingException
 import network.lapis.cloud.shared.rpc.EventNotLinkableException
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.ServiceBusyException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
@@ -282,6 +290,8 @@ class EventService(
                 )
             }
             val id = Uuid.random()
+            // V1.9.280: newly created events are released by default (instance switch on + Lapis conference); an explicit "no" wins.
+            val captureAllowed = EventCaptureDefaults.resolve(explicit = normalized.captureAllowed, onlineKind = normalized.onlineKind)
             val slug =
                 EventPolicy.slugFor(
                     title = normalized.title,
@@ -308,7 +318,10 @@ class EventService(
                 onlineUrlPublic = normalized.onlineUrlPublic,
                 onlineKind = normalized.onlineKind,
                 encounterSpaceId = encounterSpaceId,
+                captureAllowed = captureAllowed,
             )
+            // V1.9.280: AuditLogRecorder.record is the LAST lock-taking operation of the transaction.
+            if (captureAllowed) EventCaptureDefaults.auditCreated(eventId = id, actor = current, explicit = normalized.captureAllowed)
             EventStore.getEventOrThrow(id).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
         }
     }
@@ -1042,6 +1055,7 @@ class EventService(
                     template = normalized,
                     createdBy = current.memberId,
                     now = now,
+                    captureActor = current,
                 )
             val firstEvent =
                 EventStore
@@ -1209,33 +1223,83 @@ class EventService(
         current.requireRole(*EVENT_MANAGE_ROLES)
         requireWithinRate(current.memberId)
         val id = eventId.toEventUuid()
-        return transaction {
-            // FIRST operation: the event row lock. The entry path (EventOnlineJoin) re-reads the release under the same lock, so a release can never be
-            // granted between a person's look and their token (see EventCaptureLock for the order of all locks).
-            val row = EventStore.lockEventForUpdate(id) ?: throw NotFoundException("Event $eventId not found")
-            if (row[EventTable.captureAllowed] == allowed) return@transaction captureStateOf(row = row, isManager = true)
-            val settings = EventCaptureSettingsStore.load()
-            if (allowed && !settings.startAllowed()) throw EventCaptureChangeLockedException()
-            if (allowed && row[EventTable.onlineKind] != EventOnlineKind.LAPIS_CONFERENCE) {
-                throw BadRequestException("Recording can only be released for an event with a Lapis video conference")
+        var changed = false
+        val state =
+            transaction {
+                // FIRST operation: the event row lock. The entry path (EventOnlineJoin) re-reads the release under the same lock, so a release can never be
+                // granted between a person's look and their token. Lock order: event row, THEN room row (a start of a recording locks the room row only).
+                val row = EventStore.lockEventForUpdate(id) ?: throw NotFoundException("Event $eventId not found")
+                if (row[EventTable.captureAllowed] == allowed) return@transaction captureStateOf(row = row, isManager = true)
+                val settings = EventCaptureSettingsStore.load()
+                if (allowed && !settings.startAllowed()) throw EventCaptureChangeLockedException()
+                if (allowed && row[EventTable.onlineKind] != EventOnlineKind.LAPIS_CONFERENCE) {
+                    throw BadRequestException("Recording can only be released for an event with a Lapis video conference")
+                }
+                // V1.9.280: switching ON works at any time (also after the start: the people inside are asked in the room). Switching OFF is refused only
+                // while a recording / stream runs. The room row is locked too, so this serializes against a concurrent start (which locks the room row and
+                // reads the release): either the start commits first and this is refused, or this commits first and the start is refused.
+                val roomId = EventCaptureLock.roomIdOf(id)
+                if (roomId != null) {
+                    ConferenceRoomTable
+                        .selectAll()
+                        .where { ConferenceRoomTable.id eq roomId }
+                        .forUpdate()
+                        .singleOrNull()
+                    if (!allowed && EventCaptureLock.isCapturing(roomId)) throw EventCaptureStillCapturingException()
+                }
+                // Read under the locks, for the audit entry only (counters and flags -- no names).
+                val afterStart =
+                    EventCaptureLock.isActive(eventRow = row, now = ServerClock.nowInstant(), orgZone = OrganizationTimeZone.current())
+                EventTable.update({ EventTable.id eq id }) { it[captureAllowed] = allowed }
+                changed = true
+                // AuditLogRecorder.record is the LAST lock-taking operation of the transaction (its deadlock-avoidance contract).
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.EVENT_CAPTURE,
+                    entityId = id,
+                    action = AuditAction.UPDATE,
+                    before = "{\"eventId\":\"$id\",\"captureAllowed\":${!allowed}}",
+                    after = "{\"eventId\":\"$id\",\"captureAllowed\":$allowed,\"afterStart\":$afterStart}",
+                )
+                captureStateOf(row = EventStore.getEventOrThrow(id), isManager = true)
             }
-            // `now` is read AFTER the lock: the entry path has the same order, so "window open" is judged consistently.
-            if (EventCaptureLock.isActive(eventRow = row, now = ServerClock.nowInstant(), orgZone = OrganizationTimeZone.current())) {
-                throw EventCaptureChangeLockedException()
+        // After the commit, never in a transaction: the people inside are asked right now, not at the next sweep. Best-effort.
+        if (changed) EventCaptureLiveBroadcaster.notifyConsentChanged(id)
+        return state
+    }
+
+    override suspend fun acknowledgeEventCaptureInRoom(
+        eventId: String,
+        consent: EventCaptureAcknowledgmentInput,
+    ): EventCaptureStateDto {
+        val current = resolveCurrentMember(call)
+        // Throttled like the join (same budget); a refusal is the generic "server busy", not a conflict.
+        if (!eventOnline.memberJoinRateLimiter.checkAndRecord("member:${current.memberId}")) throw ServiceBusyException()
+        val id = eventId.toEventUuid()
+        val state =
+            transaction {
+                // The same first lock as the join and the switch: event row first. A refused text (none published / outdated) is thrown before anything is written.
+                val row = EventStore.lockEventForUpdate(id) ?: throw ForbiddenException(EVENT_ROOM_UNSUPPORTED)
+                val roomId = EventCaptureLock.liveRoomId(id) ?: throw ForbiddenException(EVENT_ROOM_UNSUPPORTED)
+                if (!EventCaptureLock.hasOpenParticipation(roomId = roomId, memberId = current.memberId)) {
+                    throw ForbiddenException(EVENT_ROOM_UNSUPPORTED)
+                }
+                val text = EventCaptureRequirement.requireConsent(consent)
+                // Released meanwhile switched off again: nothing to acknowledge, nothing is written.
+                if (EventCaptureRequirement.applies(row)) {
+                    EventCaptureAcknowledgments.recordMember(
+                        eventId = id,
+                        memberId = current.memberId,
+                        consentVersion = text.versionLabel,
+                        consentSha256 = text.sha256,
+                        today = OrganizationTimeZone.today(),
+                    )
+                }
+                captureStateOf(row = row, isManager = current.role in EVENT_MANAGE_ROLES)
             }
-            EventTable.update({ EventTable.id eq id }) { it[captureAllowed] = allowed }
-            // AuditLogRecorder.record is the LAST lock-taking operation of the transaction (its deadlock-avoidance contract).
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.EVENT_CAPTURE,
-                entityId = id,
-                action = AuditAction.UPDATE,
-                before = "{\"eventId\":\"$id\",\"captureAllowed\":${!allowed}}",
-                after = "{\"eventId\":\"$id\",\"captureAllowed\":$allowed}",
-            )
-            captureStateOf(row = EventStore.getEventOrThrow(id), isManager = true)
-        }
+        EventCaptureLiveBroadcaster.notifyConsentChanged(id)
+        return state
     }
 
     /** The capture state of [row] for a caller; inside a transaction. Reads only -- never locks. */
@@ -1246,14 +1310,18 @@ class EventService(
         val settings = EventCaptureSettingsStore.load()
         val allowed = row[EventTable.captureAllowed]
         val noticeRequired = EventCaptureRequirement.applies(row)
+        val eventId = row[EventTable.id]
+        val roomId = EventCaptureLock.roomIdOf(eventId)
         val lock =
             when {
                 !isManager -> EventCaptureChangeLock.NOT_PRIVILEGED
                 !settings.startAllowed() -> EventCaptureChangeLock.INSTANCE_OFF
-                EventCaptureLock.isActive(eventRow = row, now = ServerClock.nowInstant(), orgZone = OrganizationTimeZone.current()) ->
-                    EventCaptureChangeLock.ROOM_ACTIVE
+                // V1.9.280: the only thing that locks the release of one event is a running recording / stream (and only against switching it OFF).
+                roomId != null && EventCaptureLock.isCapturing(roomId) -> EventCaptureChangeLock.CAPTURE_RUNNING
                 else -> EventCaptureChangeLock.NONE
             }
+        val roomOpen =
+            EventCaptureLock.isActive(eventRow = row, now = ServerClock.nowInstant(), orgZone = OrganizationTimeZone.current())
         return EventCaptureStateDto(
             instanceEnabled = settings.startAllowed(),
             allowed = allowed,
@@ -1261,6 +1329,7 @@ class EventService(
             changeLock = lock,
             mayChange = lock == EventCaptureChangeLock.NONE,
             notice = if (noticeRequired) EventCaptureRequirement.noticeDto() else null,
+            roomOpen = roomOpen,
         )
     }
 

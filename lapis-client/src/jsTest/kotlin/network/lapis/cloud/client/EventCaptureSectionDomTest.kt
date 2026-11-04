@@ -13,8 +13,10 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import kotlin.js.Promise
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 private fun HTMLElement.text(): String = textContent.orEmpty()
@@ -91,27 +93,58 @@ class EventCaptureSectionDomTest {
         }
 
     @Test
-    fun theBoxAppearsOnlyForAConferenceWithTheInstanceSwitchOn(): Promise<Unit> =
+    fun theBoxAppearsOnlyForAConferenceWithTheInstanceSwitchOn_andIsTickedByDefaultForANewEvent(): Promise<Unit> =
         formTest {
             withSection(
                 prefill = null,
                 data = EventCaptureFormData(instanceEnabled = true, lock = EventCaptureChangeLock.NONE),
             ) { _, online, capture, page ->
                 awaitAppScopeIdle("the section is loaded")
-                // a new event starts as NONE ("Vor Ort"): the box is not in the picture
-                assertTrue(page.text().contains("Aufzeichnung und Übertragung erlauben").not() || !isVisible(capture))
+                // a new event starts as NONE ("Vor Ort"): the box is not in the picture, and there is no choice to pass on
+                assertFalse(isVisible(capture))
+                assertNull(capture.createValue())
                 online.kindRadio.value = EventOnlineKind.LAPIS_CONFERENCE.name
                 awaitUntil("the box is shown") { isVisible(capture) }
                 assertTrue(page.text().contains("Aufzeichnung und Übertragung erlauben"))
-                assertFalse(capture.wanted())
-                assertFalse(capture.changed())
-                page.box()!!.click()
+                // V1.9.280: ticked by default; the release travels WITH the new event, so saving calls nothing afterwards
+                assertTrue(page.box()!!.checked)
                 assertTrue(capture.wanted())
-                assertTrue(capture.changed())
+                // the untouched default tick is no explicit choice: it travels as "no choice", so the audit records source = default
+                assertNull(capture.createValue())
+                assertFalse(capture.changed())
+                // the person's own choice wins and stays
+                page.box()!!.click()
+                assertFalse(page.box()!!.checked)
+                assertEquals(false, capture.createValue())
+                // ticking it again is an explicit "yes"
+                page.box()!!.click()
+                assertTrue(page.box()!!.checked)
+                assertEquals(true, capture.createValue())
+                page.box()!!.click()
+                assertFalse(page.box()!!.checked)
                 online.kindRadio.value = EventOnlineKind.NONE.name
                 awaitUntil("the box is gone again") { !isVisible(capture) }
-                // a hidden box wants what the event has: an unreleased event stays unreleased
-                assertFalse(capture.wanted())
+                assertNull(capture.createValue())
+                online.kindRadio.value = EventOnlineKind.LAPIS_CONFERENCE.name
+                awaitUntil("the box is back") { isVisible(capture) }
+                // touched: the default is not applied again over the person's "no"
+                assertFalse(page.box()!!.checked)
+                assertEquals(false, capture.createValue())
+            }
+        }
+
+    @Test
+    fun withTheInstanceSwitchOff_aNewEventsBoxIsNotTicked_andPassesNoChoice(): Promise<Unit> =
+        formTest {
+            val off = EventCaptureFormData(instanceEnabled = false, lock = EventCaptureChangeLock.INSTANCE_OFF)
+            withSection(prefill = null, data = off) { _, online, capture, page ->
+                awaitAppScopeIdle("loaded")
+                online.kindRadio.value = EventOnlineKind.LAPIS_CONFERENCE.name
+                awaitAppScopeIdle("kind switched")
+                // the box is hidden while the instance switch is off for a new event: nothing is ticked, nothing is passed on
+                assertFalse(isVisible(capture))
+                assertNull(capture.createValue())
+                assertFalse(page.box()?.checked == true)
             }
         }
 
@@ -139,19 +172,56 @@ class EventCaptureSectionDomTest {
         }
 
     @Test
-    fun anActiveRoom_locksTheBox_withTheReasonInWords(): Promise<Unit> =
+    fun aRunningRecording_locksSwitchingOff_withTheReasonInWords_andTheOldFreezeTextIsGone(): Promise<Unit> =
         formTest {
-            val active = EventCaptureFormData(instanceEnabled = true, lock = EventCaptureChangeLock.ROOM_ACTIVE)
-            withSection(prefill = event(released = false), data = active) { _, _, capture, page ->
+            val running = EventCaptureFormData(instanceEnabled = true, lock = EventCaptureChangeLock.CAPTURE_RUNNING, roomOpen = true)
+            withSection(prefill = event(released = true), data = running) { _, _, capture, page ->
                 awaitUntil("the locked box") { isVisible(capture) && page.box()?.disabled == true }
-                assertTrue(page.text().contains("Die Freigabe kann nicht mehr geändert werden"))
+                assertTrue(page.text().contains("Ausschalten ist erst möglich, wenn Aufzeichnung und Übertragung beendet sind."))
+                assertFalse(page.text().contains("Die Freigabe kann nicht mehr geändert werden"))
                 val box = page.box()!!
+                assertTrue(box.checked)
                 val reason = assertNotNull(page.querySelector("[id='${box.getAttribute("aria-describedby")}']") as? HTMLElement)
-                assertTrue(reason.text().contains("nicht mehr geändert"))
-                // a locked box cannot be changed by a click
+                assertTrue(reason.text().contains("Ausschalten ist erst möglich"))
+                // a locked box cannot be changed by a click, and saving the form changes nothing
                 box.click()
-                assertFalse(capture.wanted())
+                assertTrue(capture.wanted())
                 assertFalse(capture.changed())
+                // the explanation stays visible next to the reason
+                assertTrue(page.text().contains("Dann können Bild, Ton und Name aller Personen"))
+            }
+        }
+
+    @Test
+    fun anOpenRoom_doesNotLockTheBox_andAHintSaysThatPeopleInsideAreAsked(): Promise<Unit> =
+        formTest {
+            val started = EventCaptureFormData(instanceEnabled = true, lock = EventCaptureChangeLock.NONE, roomOpen = true)
+            withSection(prefill = event(released = false), data = started) { _, _, capture, page ->
+                awaitUntil("the box") { isVisible(capture) && page.box() != null }
+                val box = page.box()!!
+                assertFalse(box.disabled)
+                val hint = "Die Veranstaltung hat begonnen. Wer schon im Raum ist und noch nicht zugestimmt hat, wird sofort gefragt."
+                assertTrue(page.text().contains(hint))
+                // the hint is part of what describes the box (a screen reader reads it with the explanation)
+                val described = box.getAttribute("aria-describedby").orEmpty().split(' ')
+                assertTrue(described.size == 2)
+                assertTrue(described.all { id -> page.querySelector("[id='$id']") != null })
+                // ticking the box answers the question: the hint goes, the change is wanted
+                box.click()
+                assertTrue(capture.wanted())
+                assertTrue(capture.changed())
+                assertFalse(page.text().contains(hint))
+            }
+        }
+
+    @Test
+    fun beforeTheStart_noHint_andTheExplanationIsAlwaysVisible(): Promise<Unit> =
+        formTest {
+            val before = EventCaptureFormData(instanceEnabled = true, lock = EventCaptureChangeLock.NONE, roomOpen = false)
+            withSection(prefill = event(released = false), data = before) { _, _, capture, page ->
+                awaitUntil("the box") { isVisible(capture) && page.box() != null }
+                assertFalse(page.text().contains("Die Veranstaltung hat begonnen."))
+                assertTrue(page.text().contains("Dann können Bild, Ton und Name aller Personen"))
             }
         }
 

@@ -32,6 +32,10 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_ASK_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_ASK_TOPIC
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_COUNT_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_COUNT_TOPIC
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_TOPIC
 import java.security.SecureRandom
@@ -494,6 +498,12 @@ data class LiveKitParticipantInfo(
     val tracks: List<LiveKitTrackInfo> = emptyList(),
     /** The grants of the token the participant is connected with (`livekit.ParticipantPermission`); `null` if LiveKit did not report them. */
     val permission: LiveKitParticipantPermission? = null,
+    /**
+     * V1.9.280 -- `livekit.ParticipantInfo.kind` as protojson prints it (`STANDARD` is the zero value and therefore usually OMITTED, so `""`; the
+     * recording egress joins as `EGRESS`). Used by the capture-consent gate to leave the egress out. NOT verified against a real LiveKit
+     * (see CHANGELOG): when LiveKit does not report it, the egress counts as an unknown identity and the gate refuses (fail closed).
+     */
+    val kind: String = "",
 )
 
 /**
@@ -651,6 +661,9 @@ internal fun sendDataPayloadLimit(topic: String): Int =
         ENCOUNTER_RECORDING_TOPIC -> ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
         // V1.9.156: the event-room capture banner (same reason: without this entry the send would fail on the 16-byte fallback).
         EVENT_CAPTURE_TOPIC -> EVENT_CAPTURE_MAX_PAYLOAD_BYTES
+        // V1.9.280: the two packets of the in-room consent (same reason: without these entries every send would fail on the 16-byte fallback).
+        EVENT_CAPTURE_ASK_TOPIC -> EVENT_CAPTURE_ASK_MAX_PAYLOAD_BYTES
+        EVENT_CAPTURE_COUNT_TOPIC -> EVENT_CAPTURE_COUNT_MAX_PAYLOAD_BYTES
         // V1.9.166: the grid map delta (same reason: without this entry the send would fail on the 16-byte fallback).
         ENCOUNTER_MAP_TOPIC -> ENCOUNTER_MAP_MAX_PAYLOAD_BYTES
         else -> ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES

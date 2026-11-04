@@ -627,15 +627,10 @@ private fun renderEventCreationForm(
     val createButton = buttonRow.actionButton(ActionIcon.ADD, tr("Veranstaltung anlegen"), style = ButtonStyle.PRIMARY)
     buttonRow.add(collapseCancelButton(collapse))
     createButton.onClick {
-        val input = readEventForm(fields, errorBox, existingStartsAt = null) ?: return@onClick
+        // V1.9.280: the release travels WITH a new event (and as the template of every occurrence of a series); null = no explicit choice.
+        val input =
+            readEventForm(fields, errorBox, existingStartsAt = null)?.copy(captureAllowed = fields.capture.createValue()) ?: return@onClick
         if (recurrenceEditor.isEnabled) {
-            // The release belongs to ONE event: an occurrence of a series is released one by one after it was created.
-            if (fields.capture.changed()) {
-                errorBox.content =
-                    tr("Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei.")
-                errorBox.show()
-                return@onClick
-            }
             val rule = recurrenceEditor.currentRule()
             if (rule == null) {
                 errorBox.content = tr("Bitte die Wiederholungsregel prüfen -- sie kann so nicht angelegt werden.")
@@ -664,8 +659,6 @@ private fun renderEventCreationForm(
                 val result = guarded { rpcService<IEventService>().createEvent(input) }
                 createButton.disabled = false
                 if (result != null) {
-                    // V1.9.156: the release follows the event (own call); a refusal has its own toast and leaves the event saved.
-                    applyEventCaptureRelease(eventId = result.id, refs = fields.capture)
                     notifySuccess(gettext("Veranstaltung \"%1\" wurde angelegt.", input.title))
                     collapse(true)
                     onCreated()

@@ -32,6 +32,7 @@ import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoles
+import network.lapis.cloud.server.events.EventCaptureConsentGate
 import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventConferenceGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -695,6 +696,8 @@ class ConferenceStreamingService(
             }
         }
 
+        // V1.9.280: who is in an event room is asked of LiveKit BEFORE the transaction (never a network call inside one); empty for an ordinary room.
+        val present = EventCaptureConsentGate.collectForRoom(roomUuid)
         val prep =
             transaction {
                 // .forUpdate() locks the room row for the rest of this transaction -- closes the
@@ -717,8 +720,8 @@ class ConferenceStreamingService(
                     throw ConferenceRoomPausedException()
                 }
                 // V1.9.156: an event room is streamed ONLY when the instance switch is on AND the organizer released this event; everybody who
-                // enters such a room has acknowledged the capture consent (EventOnlineJoin), and the release is frozen while the room is active.
-                EventConferenceGuard.requireEventCaptureAllowed(row = room)
+                // enters such a room has acknowledged the capture consent (EventOnlineJoin), and since V1.9.280 the consent gate refuses the start while anybody lacks it.
+                EventConferenceGuard.requireEventCaptureAllowed(row = room, present = present)
                 requireEncounterStreamIsPulpitOnly(room = room, layout = layout, participantIdentity = participantIdentity)
 
                 // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- hard-wired,

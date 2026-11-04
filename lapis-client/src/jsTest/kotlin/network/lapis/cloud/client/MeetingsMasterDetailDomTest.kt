@@ -165,6 +165,7 @@ class MeetingsMasterDetailDomTest {
                     assertEquals("Sitzung: Haushaltssitzung", h1.textContent?.trim())
                     val back = element().buttonNamed("Zur Übersicht")
                     assertTrue(back.compareDocumentPosition(h1).toInt() and 4 != 0, "back button above the title")
+                    awaitUntil("the agenda row with its removal button") { element().allOf("table tbody button").size == 1 }
                     val button = element().allOf("table tbody button").single()
                     assertEquals("Tagesordnungspunkt \"Haushalt\" entfernen", button.getAttribute("aria-label"))
                     assertEquals("Tagesordnungspunkt \"Haushalt\" entfernen", button.getAttribute("title"))

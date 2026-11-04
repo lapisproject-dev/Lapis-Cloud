@@ -27,14 +27,21 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_MAX_WALKERS
 import network.lapis.cloud.shared.domain.ENCOUNTER_MAP_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_ASK_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_ASK_TOPIC
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_COUNT_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_COUNT_TOPIC
 import network.lapis.cloud.shared.domain.EncounterFloorSignal
 import network.lapis.cloud.shared.domain.EncounterMapFacing
 import network.lapis.cloud.shared.domain.EncounterMapPacket
 import network.lapis.cloud.shared.domain.EncounterMapPositionDto
 import network.lapis.cloud.shared.domain.EncounterRecordingSignal
+import network.lapis.cloud.shared.domain.EventCaptureConsentCountDto
 import network.lapis.cloud.shared.domain.encounterFloorPayload
 import network.lapis.cloud.shared.domain.encounterMapPayload
 import network.lapis.cloud.shared.domain.encounterRecordingPayload
+import network.lapis.cloud.shared.domain.eventCaptureAskPayload
+import network.lapis.cloud.shared.domain.eventCaptureCountPayload
 import java.util.UUID
 
 private const val ROOM = "lc-11111111-1111-1111-1111-111111111111"
@@ -58,6 +65,15 @@ class LiveKitAdminClientPayloadLimitTest :
             sendDataPayloadLimit(ENCOUNTER_RECORDING_TOPIC) shouldBe ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
             sendDataPayloadLimit(ENCOUNTER_RECORDING_TOPIC) shouldBe 32
             sendDataPayloadLimit("something-else") shouldBe 16
+            // V1.9.280: the two packets of the in-room consent have entries of their own (else every real send fails on the 16-byte fallback)
+            sendDataPayloadLimit(EVENT_CAPTURE_ASK_TOPIC) shouldBe EVENT_CAPTURE_ASK_MAX_PAYLOAD_BYTES
+            sendDataPayloadLimit(EVENT_CAPTURE_COUNT_TOPIC) shouldBe EVENT_CAPTURE_COUNT_MAX_PAYLOAD_BYTES
+            (EVENT_CAPTURE_ASK_MAX_PAYLOAD_BYTES >= eventCaptureAskPayload().length) shouldBe true
+            (
+                EVENT_CAPTURE_COUNT_MAX_PAYLOAD_BYTES >=
+                    eventCaptureCountPayload(EventCaptureConsentCountDto(acknowledged = 999, total = 999)).length
+            ) shouldBe
+                true
         }
 
         fun admin(requests: MutableList<HttpRequestData>) =
@@ -73,6 +89,26 @@ class LiveKitAdminClientPayloadLimitTest :
                         },
                     ) { expectSuccess = false },
             )
+
+        test("the real client sends the ask and the count point to point (the V1.9.280 packets pass the size check)") {
+            val requests = mutableListOf<HttpRequestData>()
+            val client = admin(requests)
+            kotlinx.coroutines.runBlocking {
+                client.sendDataTo(
+                    room = ROOM,
+                    topic = EVENT_CAPTURE_ASK_TOPIC,
+                    payload = eventCaptureAskPayload().toByteArray(),
+                    destinationIdentities = listOf("a"),
+                )
+                client.sendDataTo(
+                    room = ROOM,
+                    topic = EVENT_CAPTURE_COUNT_TOPIC,
+                    payload = eventCaptureCountPayload(EventCaptureConsentCountDto(acknowledged = 999, total = 999)).toByteArray(),
+                    destinationIdentities = listOf("a"),
+                )
+            }
+            requests.size shouldBe 2
+        }
 
         test("the real client sends a raised-hand packet (regression V1.9.127) and a timer packet, to everybody and point to point") {
             val requests = mutableListOf<HttpRequestData>()
