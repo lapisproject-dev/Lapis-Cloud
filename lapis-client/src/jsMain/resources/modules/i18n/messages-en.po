@@ -30146,3 +30146,139 @@ msgstr "The free space cannot be measured at the moment."
 #: src/jsMain/kotlin/network/lapis/cloud/client/StorageSpaceDisplay.kt:1
 msgid "Zur Dokumentenablage"
 msgstr "Go to the document storage"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Für dieses Ziel fehlt der Stream-Schlüssel dieser Sendung."
+msgstr "The stream key of this broadcast is missing for this destination."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Für dieses Stream-Ziel ist kein Schlüssel hinterlegt. Bitte tragen Sie ihn in den Stream-Zielen neu ein."
+msgstr "No key is stored for this stream destination. Please enter it again under stream destinations."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Die Adresse wurde nicht übernommen. Bitte die Adresse der Live-Sendung einfügen."
+msgstr "The address was not accepted. Please paste the address of the live broadcast."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Der Schlüssel enthält ungültige Zeichen oder ist zu lang."
+msgstr "The key contains invalid characters or is too long."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Kommentare öffnen"
+msgstr "Open comments"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Kommentare auf %1 öffnen (neues Fenster)"
+msgstr "Open comments on %1 (new window)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "öffnet %1"
+msgstr "opens %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Zuschauer-Adresse eintragen"
+msgstr "Enter viewer address"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Zuschauer-Adresse ändern"
+msgstr "Change viewer address"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Zuschauer-Adresse für %1"
+msgstr "Viewer address for %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Für ‚%1‘ fehlt der Stream-Schlüssel dieser Sendung."
+msgstr "The stream key of this broadcast is missing for ‘%1’."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Diese Adresse passt nicht zu %1. Bitte die Adresse der Live-Sendung einfügen."
+msgstr "This address does not match %1. Please paste the address of the live broadcast."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "%1 (%2) -- Schlüssel fehlt, bitte in den Stream-Zielen eintragen"
+msgstr "%1 (%2) -- key missing, please enter it under stream destinations"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "%1 (%2) -- braucht Schlüssel für diese Sendung"
+msgstr "%1 (%2) -- needs a key for this broadcast"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Stream-Schlüssel für diese Sendung"
+msgstr "Stream key for this broadcast"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Zuschauer-Adresse jetzt eintragen (optional)"
+msgstr "Enter viewer address now (optional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Die Adresse der Live-Sendung auf der Plattform, so wie Sie sie im Browser sehen. Damit öffnen Sie später die Kommentare."
+msgstr "The address of the live broadcast on the platform, as you see it in your browser. You will use it later to open the comments."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Schlüssel pro Sendung"
+msgstr "Key per broadcast"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Schlüssel fehlt -- bitte neu eingeben"
+msgstr "Key missing -- please enter it again"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Der gespeicherte Schlüssel wird dabei gelöscht."
+msgstr "The stored key is deleted in the process."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Bitte geben Sie den Stream-Schlüssel ein."
+msgstr "Please enter the stream key."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "✓ Schlüssel eingegeben (%1 Zeichen)"
+msgstr "✓ Key entered (%1 characters)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Bitte geben Sie den Stream-Schlüssel dieser Sendung ein."
+msgstr "Please enter the stream key of this broadcast."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Der Schlüssel darf keine Leerzeichen oder Zeilenumbrüche enthalten."
+msgstr "The key must not contain spaces or line breaks."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Steht im Facebook Live Producer unter \"Streamschlüssel\"."
+msgstr "Found in the Facebook Live Producer under \"Stream key\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Steht im X Media Studio unter \"Producer\"."
+msgstr "Found in the X Media Studio under \"Producer\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Zeigt die Plattform beim Einrichten der Sendung an, bei YouTube im YouTube Studio."
+msgstr "The platform shows it when you set up the broadcast; on YouTube, in YouTube Studio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Schlüssel gilt:"
+msgstr "Key applies:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "dauerhaft"
+msgstr "permanent"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "nur pro Sendung"
+msgstr "per broadcast only"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Lapis speichert den Schlüssel verschlüsselt und nutzt ihn für jede Sendung."
+msgstr "Lapis stores the key encrypted and uses it for every broadcast."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "Sie geben den Schlüssel bei jedem Start neu ein. Lapis löscht ihn, wenn die Sendung endet."
+msgstr "You enter the key anew at every start. Lapis deletes it when the broadcast ends."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "%1 -- braucht Schlüssel für diese Sendung, nur im Konferenzraum startbar"
+msgstr "%1 -- needs a key for this broadcast, can only be started in the conference room"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
+msgid "%1 -- Schlüssel fehlt, bitte in den Stream-Zielen eintragen"
+msgstr "%1 -- key missing, please enter it under stream destinations"

@@ -492,6 +492,15 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **Registrierung:** `IActivismService` ist die **letzte** `registerService` (nach `IPartnerServerService`); neue Methoden ans Ende. Pins: `ConferenceTimerServiceEventGuardTripwireTest`, `GalleryTripwireTest`, `ActivismTripwireTest`.
 - **Client:** Routen `/activism`, `/activism/new`, `/activism/settings` (BOARD/ADMIN), `/activism/:id`, `/activism/:id/edit`; Texte anderer Personen nur über `untrusted*`, Fortschritt als natives `<progress>` ohne Inline-Style, keine Mitglieds-Id im DOM.
 
+## Stream-Schlüssel pro Sendung (V1.9.274)
+
+- **Nur `targetRtmpUrl` baut eine Klartext-RTMP-URL** (Start, Resume, Poller, Geheimwahl-Resume, Pausen-Feed). Der Schlüssel liegt je nach `key_kind` an der Destination (AAD = Destination-Id) oder an der Target-Zeile (AAD = `conference_stream_target:<id>`).
+- **Jede Stelle, die `ENDED`/`FAILED` nach `conference_stream` schreibt, ruft `BroadcastKeys.clearForStream`** (sechs Stellen); der Poller räumt zusätzlich mit `clearForTerminalStreams()` bei jedem Tick. `BroadcastKeyTripwireTest` prüft das. Ein einzelnes FAILED-Target löscht den Schlüssel nicht (Resume braucht ihn).
+- **Schlüssel nie in DTO, Log, Audit-Snapshot, Exception-Text oder Backup** (`OrganizationSchemaCatalog.REDACTED_COLUMNS`; neue `*_ciphertext`/`*_sealed`/`*_fingerprint`-Spalten brauchen eine Entscheidung, `BackupSecretColumnTripwireTest`). `ConferenceStreamBroadcastInput` ist bewusst keine `data class`. `BroadcastKeyLeakTest` ist der Kanarienvogel.
+- **Zuschauer-Adresse nur über `StreamViewerUrls.normalize`** (https, exakter Host-Vergleich, nie `endsWith`).
+- **Im Client genau ein `window.open` für Zuschauerseiten** (`openConferenceViewerUrl`, Adresse aus dem Server-DTO, nie aus einem Eingabefeld). Das Schlüsselfeld ist `BroadcastKeyInput` (Text mit CSS-Maske, kein `<form>`), nie ein `LapisField`.
+- **V140 darf bis zum Release in place korrigiert werden**, danach nur per neuer Migration. Neue Rate-Limiter immer als gemeinsame Instanz in `Application.module` übergeben.
+
 ## Speicherplatz-Anzeige (V1.9.263, V1.9.273)
 
 - **Eine Messung:** freier und gesamter Platz werden nur über `StorageSpaceProbe` (Paket `server.documents`) gemessen. Außer dort kommen `usableSpace`, `totalSpace` und `FileStore` im Main-Code nicht vor; `RecordingDiskBudget`, `RecordingPoller`, `ConferenceRecordingService` und `PulpitRecordingCoordinator` nutzen `StorageSpaceProbe.usable`. Pin: `StorageSpaceTripwireTest`.

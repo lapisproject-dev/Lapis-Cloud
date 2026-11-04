@@ -24,6 +24,10 @@ import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConferenceRoomPauseLimitException
 import network.lapis.cloud.shared.rpc.ConferenceRoomPauseNothingToPauseException
 import network.lapis.cloud.shared.rpc.ConferenceRoomPausedException
+import network.lapis.cloud.shared.rpc.ConferenceStreamBroadcastKeyMissingException
+import network.lapis.cloud.shared.rpc.ConferenceStreamBroadcastKeyRejectedException
+import network.lapis.cloud.shared.rpc.ConferenceStreamStoredKeyMissingException
+import network.lapis.cloud.shared.rpc.ConferenceStreamViewerUrlRejectedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.DirectMessageGroupTooLargeException
 import network.lapis.cloud.shared.rpc.DirectMessageGroupUnavailableException
@@ -275,6 +279,15 @@ internal fun typedRefusalText(e: Throwable): String? =
         is ConferenceRoomPauseNothingToPauseException -> tr("Weder Aufzeichnung noch Live-Stream laufen.")
         is ConferenceRoomPausedException -> tr("Die Sitzung ist pausiert. Setzen Sie zuerst fort.")
         is ConferenceRoomPauseLimitException -> tr("Diese Aufzeichnung hat die höchste Zahl an Pausen erreicht.")
+        // V1.9.274 stream key per broadcast: the fixed texts of its typed refusals.
+        is ConferenceStreamBroadcastKeyMissingException -> tr("Für dieses Ziel fehlt der Stream-Schlüssel dieser Sendung.")
+        is ConferenceStreamStoredKeyMissingException ->
+            tr("Für dieses Stream-Ziel ist kein Schlüssel hinterlegt. Bitte tragen Sie ihn in den Stream-Zielen neu ein.")
+        is ConferenceStreamViewerUrlRejectedException ->
+            tr(
+                "Die Adresse wurde nicht übernommen. Bitte die Adresse der Live-Sendung einfügen.",
+            )
+        is ConferenceStreamBroadcastKeyRejectedException -> tr("Der Schlüssel enthält ungültige Zeichen oder ist zu lang.")
         else -> null
     }
 

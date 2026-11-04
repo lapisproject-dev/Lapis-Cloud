@@ -188,6 +188,13 @@ classDiagram(name = "ConferenceStreaming") {
         literal(name = "FAILED")
     }
 
+    // V1.9.274 -- literal order is load-bearing (matches network.lapis.cloud.shared.domain.ConferenceStreamKeyKind). PERSISTENT = the key is stored
+    // (sealed) on the destination; PER_BROADCAST = the moderator types the key anew for every broadcast, it lives only on the target row.
+    val conferenceStreamKeyKind = enumOf(name = "ConferenceStreamKeyKind") {
+        literal(name = "PERSISTENT")
+        literal(name = "PER_BROADCAST")
+    }
+
     val conferenceStreamDestination = classOf(name = "ConferenceStreamDestination") {
         stereotype("Entity") {
             "tableName" to "conference_stream_destination"
@@ -236,14 +243,25 @@ classDiagram(name = "ConferenceStreaming") {
         // .startStream/resumeStream's own in-memory StartEgress call (a later wave step); NEVER
         // logged, NEVER placed in a DTO. VARCHAR(1024) headroom well beyond any realistic stream
         // key length once base64url-encoded with IV+tag overhead.
+        // V1.9.274 (V140): nullable -- NULL for a PER_BROADCAST destination and after a backup restore (the export nulls it).
         attribute(name = "streamKeyCiphertext", type = "String") {
+            multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "stream_key_ciphertext"; "sqlType" to "VARCHAR(1024)" }
+        }
+        // V1.9.274 (V140): PERSISTENT (default) | PER_BROADCAST, see conferenceStreamKeyKind.
+        attribute(name = "keyKind", type = conferenceStreamKeyKind) {
+            defaultValue = "'PERSISTENT'"
+            stereotype("Column") {
+                "columnName" to "key_kind"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceStreamKeyKind"
+            }
         }
         // Stamped on every createDestination/updateDestination(newStreamKey != null) call -- lets
         // an ADMIN answer "is this the key I rotated last week?" without ever seeing the key
         // itself, see network.lapis.cloud.shared.domain.ConferenceStreamDestinationDto (a later
         // wave step) KDoc.
         attribute(name = "streamKeySetAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "stream_key_set_at" }
         }
         // Real FK -> member (id), NOT NULL. Plain «Column» UUID attribute -- see file header
@@ -446,6 +464,17 @@ classDiagram(name = "ConferenceStreaming") {
         attribute(name = "failureReason", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "failure_reason"; "sqlType" to "VARCHAR(500)" }
+        }
+        // V1.9.274 (V140): the key of ONE broadcast of a PER_BROADCAST destination, sealed with the target id as AAD, NULLed when the stream
+        // reaches ENDED/FAILED (BroadcastKeys.clearForStream) and always NULL in a backup (OrganizationSchemaCatalog.REDACTED_COLUMNS).
+        attribute(name = "broadcastKeyCiphertext", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "broadcast_key_ciphertext"; "sqlType" to "VARCHAR(1024)" }
+        }
+        // V1.9.274 (V140): viewer page address (https, normalised by StreamViewerUrls) for the "Kommentare oeffnen" link; moderators only.
+        attribute(name = "viewerUrl", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "viewer_url"; "sqlType" to "VARCHAR(512)" }
         }
     }
 }

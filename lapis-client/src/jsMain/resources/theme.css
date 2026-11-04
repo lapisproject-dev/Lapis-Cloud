@@ -8519,6 +8519,11 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   accent-color: var(--lapis-accent);
 }
 
+/* V1.9.274: the stream key of one broadcast is typed into a text field masked like a password but not offered to password managers. */
+.lapis-secret-mask {
+    -webkit-text-security: disc;
+}
+
 @media (prefers-reduced-motion: reduce) {
   body,
   .lapis-conference-background-preview,

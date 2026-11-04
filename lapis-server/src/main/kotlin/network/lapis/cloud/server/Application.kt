@@ -2038,6 +2038,8 @@ internal fun Application.module(
     val streamingStartStreamRateLimiter = LoginRateLimiter()
     val streamingMutateRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val streamingReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+    // V1.9.274: setBroadcastKey/setViewerUrl per member and stream -- ONE shared instance (a per-call default would be empty every time).
+    val streamingBroadcastInputRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
     // V1.1.1 Soziales Netzwerk, Welle "Fundament & Post-Kern" -- SocialNetworkService.createPost's
     // own budget. Constructed here, NOT left to the service's own constructor default -- same
@@ -2831,6 +2833,7 @@ internal fun Application.module(
                 startStreamRateLimiter = streamingStartStreamRateLimiter,
                 mutateRateLimiter = streamingMutateRateLimiter,
                 readRateLimiter = streamingReadRateLimiter,
+                broadcastInputRateLimiter = streamingBroadcastInputRateLimiter,
             )
         }
         // V1.3.1 "API-Fundament, lesend".

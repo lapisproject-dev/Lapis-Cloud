@@ -312,7 +312,7 @@ class LiveKitStreamEgressLiveIntegrationTest :
                                 .selectAll()
                                 .where { ConferenceStreamDestinationTable.id eq Uuid.parse(id) }
                                 .single()
-                        val ciphertext = row[ConferenceStreamDestinationTable.streamKeyCiphertext]
+                        val ciphertext = row[ConferenceStreamDestinationTable.streamKeyCiphertext]!!
                         ciphertext.shouldStartWithV1()
                         ciphertext shouldNotContainPlaintext plaintext
                         // Round-trip proof: the SAME SecretBox this service uses can decrypt it back

@@ -6,14 +6,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.conference.BroadcastKeys
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
 import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.RoomPauseDb
+import network.lapis.cloud.server.conference.StreamKeyMissing
 import network.lapis.cloud.server.conference.StreamUrlFingerprint
+import network.lapis.cloud.server.conference.StreamViewerUrls
 import network.lapis.cloud.server.conference.pausefeed.PauseFeedControl
 import network.lapis.cloud.server.conference.pausefeed.PauseFeeds
+import network.lapis.cloud.server.conference.targetRtmpUrl
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -36,8 +40,12 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceStreamAvailabilityDto
+import network.lapis.cloud.shared.domain.ConferenceStreamBroadcastInput
 import network.lapis.cloud.shared.domain.ConferenceStreamDestinationDto
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
+import network.lapis.cloud.shared.domain.ConferenceStreamHosts
+import network.lapis.cloud.shared.domain.ConferenceStreamKeyHint
+import network.lapis.cloud.shared.domain.ConferenceStreamKeyKind
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
@@ -50,6 +58,9 @@ import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConferenceRoomPausedException
+import network.lapis.cloud.shared.rpc.ConferenceStreamBroadcastKeyMissingException
+import network.lapis.cloud.shared.rpc.ConferenceStreamStoredKeyMissingException
+import network.lapis.cloud.shared.rpc.ConferenceStreamViewerUrlRejectedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
@@ -101,6 +112,22 @@ private const val MAX_LIST_RESULTS = 200
 private const val STREAM_KEY_MASK = "********"
 
 /**
+ * V1.9.274 -- which hint the start dialog shows for the key field: X for the X platform, FACEBOOK for a generic destination whose ingest host is a
+ * Facebook ingest host ([ConferenceStreamHosts.FACEBOOK_INGEST_HOST]), else OTHER. Derived from stored data only, never from an input.
+ */
+internal fun keyHintOf(
+    platform: ConferenceStreamPlatform,
+    rtmpUrl: String,
+): ConferenceStreamKeyHint {
+    if (platform == ConferenceStreamPlatform.X) return ConferenceStreamKeyHint.X
+    if (platform == ConferenceStreamPlatform.GENERIC_RTMP) {
+        val host = runCatching { URI(rtmpUrl.trim()).host }.getOrNull()?.lowercase()
+        if (host != null && ConferenceStreamHosts.FACEBOOK_INGEST_HOST.matches(host)) return ConferenceStreamKeyHint.FACEBOOK
+    }
+    return ConferenceStreamKeyHint.OTHER
+}
+
+/**
  * Security-audit MAJOR-1/MINOR-6 fix -- mirrors
  * [network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard]'s own (file-private)
  * `TERMINAL_EGRESS_STATUSES` set (`livekit.EgressStatus`'s four terminal values), duplicated rather
@@ -135,6 +162,9 @@ private val IPV4_LITERAL_REGEX = Regex("""^\d{1,3}(\.\d{1,3}){3}$""")
  * class as everything else, not because the raw message itself would be unsafe to show.
  */
 private const val FAILURE_START_FAILED = "Der Stream konnte nicht gestartet werden."
+
+/** V1.9.274 -- fixed per-target reason when the key of a restart is not available (a per-broadcast key that is missing, or a lost persistent key). */
+private const val FAILURE_BROADCAST_KEY_MISSING = "Stream-Schlüssel dieser Sendung fehlt."
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- see
@@ -252,6 +282,9 @@ class ConferenceStreamingService(
         FederationInboxRateLimiter(maxRequests = DEFAULT_MUTATE_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
     private val readRateLimiter: FederationInboxRateLimiter =
         FederationInboxRateLimiter(maxRequests = DEFAULT_READ_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
+    /** V1.9.274 -- limits [setBroadcastKey]/[setViewerUrl] per member and stream. Like the others: `Application.module` must pass ONE shared instance. */
+    private val broadcastInputRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = DEFAULT_BROADCAST_INPUT_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
 ) : IConferenceStreamingService {
     /** See class KDoc "secretBox -- null unless streaming is fully configured". */
     private val secretBox: SecretBox? = streamingConfig.secretEncryptionKey?.let { SecretBox(it) }
@@ -289,7 +322,8 @@ class ConferenceStreamingService(
         label: String,
         platform: ConferenceStreamPlatform,
         rtmpUrl: String,
-        streamKey: String,
+        streamKey: String?,
+        keyKind: ConferenceStreamKeyKind,
     ): ConferenceStreamDestinationDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
@@ -299,7 +333,15 @@ class ConferenceStreamingService(
         val trimmedLabel = label.trim()
         if (trimmedLabel.isBlank()) throw BadRequestException("label must not be blank")
         validateRtmpUrl(rtmpUrl)
-        if (streamKey.isBlank()) throw BadRequestException("streamKey must not be blank")
+        // V1.9.274: a persistent destination needs its key, a per-broadcast one must not carry any.
+        when (keyKind) {
+            ConferenceStreamKeyKind.PERSISTENT -> {
+                if (streamKey == null || streamKey.isBlank()) throw BadRequestException("streamKey must not be blank")
+                BroadcastKeys.validate(streamKey)
+            }
+            ConferenceStreamKeyKind.PER_BROADCAST ->
+                if (streamKey != null) throw BadRequestException("a per-broadcast destination stores no streamKey")
+        }
 
         return transaction {
             val exists =
@@ -315,14 +357,15 @@ class ConferenceStreamingService(
             val newId = Uuid.random()
             // AAD-bound to the destination's OWN id -- see SecretBox KDoc "AAD binding to the
             // owning row". secretBox is non-null here: requireStreamingEnabled() above guarantees it.
-            val ciphertext = secretBox!!.seal(plaintext = streamKey, aad = newId.toString())
+            val ciphertext = streamKey?.let { secretBox!!.seal(plaintext = it, aad = newId.toString()) }
             ConferenceStreamDestinationTable.insert {
                 it[id] = newId
                 it[ConferenceStreamDestinationTable.label] = trimmedLabel
                 it[ConferenceStreamDestinationTable.platform] = platform
                 it[ConferenceStreamDestinationTable.rtmpUrl] = rtmpUrl.trim()
+                it[ConferenceStreamDestinationTable.keyKind] = keyKind
                 it[streamKeyCiphertext] = ciphertext
-                it[streamKeySetAt] = now
+                it[streamKeySetAt] = if (ciphertext != null) now else null
                 it[createdByMemberId] = current.memberId
                 it[createdAt] = now
                 it[enabled] = true
@@ -347,6 +390,7 @@ class ConferenceStreamingService(
         label: String,
         rtmpUrl: String,
         newStreamKey: String?,
+        keyKind: ConferenceStreamKeyKind?,
     ): ConferenceStreamDestinationDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
@@ -361,11 +405,38 @@ class ConferenceStreamingService(
         if (newStreamKey != null && newStreamKey.isBlank()) {
             throw BadRequestException("newStreamKey must not be blank -- omit it entirely to leave the stored key unchanged")
         }
+        if (newStreamKey != null) BroadcastKeys.validate(newStreamKey)
 
         val destUuid = destinationId.toStreamUuid()
         return transaction {
-            ConferenceStreamDestinationTable.selectAll().where { ConferenceStreamDestinationTable.id eq destUuid }.singleOrNull()
-                ?: throw NotFoundException("Conference stream destination $destUuid not found")
+            val existing =
+                ConferenceStreamDestinationTable.selectAll().where { ConferenceStreamDestinationTable.id eq destUuid }.singleOrNull()
+                    ?: throw NotFoundException("Conference stream destination $destUuid not found")
+            // V1.9.274 -- change of the key kind: only while no not-yet-ended stream uses the destination (a resume would fail silently otherwise).
+            val oldKind = existing[ConferenceStreamDestinationTable.keyKind]
+            val newKind = keyKind ?: oldKind
+            val kindChanges = newKind != oldKind
+            if (kindChanges) {
+                val inUse =
+                    (ConferenceStreamTargetTable innerJoin ConferenceStreamTable)
+                        .selectAll()
+                        .where {
+                            (ConferenceStreamTargetTable.destinationId eq destUuid) and
+                                (ConferenceStreamTable.status inList ACTIVE_STREAM_STATUSES)
+                        }.limit(1)
+                        .any()
+                if (inUse) throw ConflictException("The key kind of stream destination $destUuid cannot change while a stream uses it")
+            }
+            when (newKind) {
+                ConferenceStreamKeyKind.PER_BROADCAST ->
+                    if (newStreamKey != null) throw BadRequestException("a per-broadcast destination stores no streamKey")
+                ConferenceStreamKeyKind.PERSISTENT ->
+                    if (kindChanges &&
+                        newStreamKey == null
+                    ) {
+                        throw BadRequestException("switching to a persistent key requires newStreamKey")
+                    }
+            }
             val labelConflict =
                 ConferenceStreamDestinationTable
                     .selectAll()
@@ -379,6 +450,12 @@ class ConferenceStreamingService(
             ConferenceStreamDestinationTable.update({ ConferenceStreamDestinationTable.id eq destUuid }) {
                 it[ConferenceStreamDestinationTable.label] = trimmedLabel
                 it[ConferenceStreamDestinationTable.rtmpUrl] = rtmpUrl.trim()
+                if (kindChanges) it[ConferenceStreamDestinationTable.keyKind] = newKind
+                if (newKind == ConferenceStreamKeyKind.PER_BROADCAST && kindChanges) {
+                    // The stored key is deleted with the switch.
+                    it[streamKeyCiphertext] = null
+                    it[streamKeySetAt] = null
+                }
                 if (newStreamKey != null) {
                     it[streamKeyCiphertext] = secretBox!!.seal(plaintext = newStreamKey, aad = destUuid.toString())
                     it[streamKeySetAt] = now
@@ -507,10 +584,19 @@ class ConferenceStreamingService(
                 .where { ConferenceStreamDestinationTable.enabled eq true }
                 .orderBy(ConferenceStreamDestinationTable.label, SortOrder.ASC)
                 .map { row ->
+                    val kind = row[ConferenceStreamDestinationTable.keyKind]
                     ConferenceStreamTargetDto(
                         id = row[ConferenceStreamDestinationTable.id].toString(),
                         label = row[ConferenceStreamDestinationTable.label],
                         platform = row[ConferenceStreamDestinationTable.platform],
+                        keyKind = kind,
+                        keyHint =
+                            keyHintOf(
+                                platform = row[ConferenceStreamDestinationTable.platform],
+                                rtmpUrl = row[ConferenceStreamDestinationTable.rtmpUrl],
+                            ),
+                        storedKeyMissing =
+                            kind == ConferenceStreamKeyKind.PERSISTENT && row[ConferenceStreamDestinationTable.streamKeyCiphertext] == null,
                     )
                 }
         }
@@ -524,6 +610,7 @@ class ConferenceStreamingService(
         layout: ConferenceStreamLayout,
         latencyMode: ConferenceStreamLatencyMode,
         participantIdentity: String?,
+        broadcastInputs: List<ConferenceStreamBroadcastInput>,
     ): ConferenceStreamDto =
         notifyingEventBanner(
             startStreamInternal(
@@ -532,6 +619,7 @@ class ConferenceStreamingService(
                 layout = layout,
                 latencyMode = latencyMode,
                 participantIdentity = participantIdentity,
+                broadcastInputs = broadcastInputs,
             ),
         )
 
@@ -556,6 +644,7 @@ class ConferenceStreamingService(
         layout: ConferenceStreamLayout,
         latencyMode: ConferenceStreamLatencyMode,
         participantIdentity: String?,
+        broadcastInputs: List<ConferenceStreamBroadcastInput>,
     ): ConferenceStreamDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
@@ -582,6 +671,17 @@ class ConferenceStreamingService(
         }
         val distinctDestinationUuids = distinctDestinationIds.map { it.toStreamUuid() }
         val roomUuid = roomId.toStreamUuid()
+        // V1.9.274 -- structure of the per-destination inputs (no key content is looked at here; keys are checked after the authorization below).
+        val inputsByDestination = HashMap<Uuid, ConferenceStreamBroadcastInput>()
+        for (input in broadcastInputs) {
+            val destUuid = input.destinationId.toStreamUuid()
+            if (destUuid !in distinctDestinationUuids) throw ConflictException("A broadcast input names a destination that is not selected")
+            if (inputsByDestination.put(destUuid, input) !=
+                null
+            ) {
+                throw ConflictException("At most one broadcast input per destination is allowed")
+            }
+        }
 
         val prep =
             transaction {
@@ -677,11 +777,61 @@ class ConferenceStreamingService(
                                 "Destination $destId is already targeted by another active stream (in a different room)",
                             )
                         }
-                        val plaintextUrl = buildRtmpUrl(destRow)
+                        // V1.9.274: the target id is created BEFORE sealing (it is the AAD of the sealed broadcast key).
+                        val targetId = Uuid.random()
+                        val input = inputsByDestination[destId]
+                        val sealedBroadcastKey: String? =
+                            when (destRow[ConferenceStreamDestinationTable.keyKind]) {
+                                ConferenceStreamKeyKind.PER_BROADCAST -> {
+                                    val typed =
+                                        input?.streamKey
+                                            ?: throw ConferenceStreamBroadcastKeyMissingException(destinationId = destId.toString())
+                                    BroadcastKeys.seal(targetId = targetId, key = typed, box = secretBox!!)
+                                }
+                                ConferenceStreamKeyKind.PERSISTENT -> {
+                                    // A persistent destination takes no one-time replacement key, and must hold its stored key.
+                                    if (input?.streamKey !=
+                                        null
+                                    ) {
+                                        throw BadRequestException("A persistent destination takes no broadcast key")
+                                    }
+                                    if (destRow[ConferenceStreamDestinationTable.streamKeyCiphertext] == null) {
+                                        throw ConferenceStreamStoredKeyMissingException(destinationId = destId.toString())
+                                    }
+                                    null
+                                }
+                            }
+                        val normalizedViewerUrl =
+                            input?.viewerUrl?.takeIf { it.isNotBlank() }?.let {
+                                try {
+                                    StreamViewerUrls.normalize(
+                                        raw = it,
+                                        platform = destRow[ConferenceStreamDestinationTable.platform],
+                                        keyHint =
+                                            keyHintOf(
+                                                platform = destRow[ConferenceStreamDestinationTable.platform],
+                                                rtmpUrl = destRow[ConferenceStreamDestinationTable.rtmpUrl],
+                                            ),
+                                    )
+                                } catch (e: ConferenceStreamViewerUrlRejectedException) {
+                                    // Same fixed text, plus which destination (the client names it); the input is not echoed.
+                                    throw ConferenceStreamViewerUrlRejectedException(destinationId = destId.toString())
+                                }
+                            }
+                        val plaintextUrl =
+                            targetRtmpUrl(
+                                destinationRow = destRow,
+                                targetId = targetId,
+                                broadcastKeyCiphertext = sealedBroadcastKey,
+                                secretBox = secretBox!!,
+                            )
                         PreparedTarget(
+                            targetId = targetId,
                             destinationId = destId,
                             plaintextUrl = plaintextUrl,
                             fingerprint = StreamUrlFingerprint.of(plaintextUrl),
+                            sealedBroadcastKey = sealedBroadcastKey,
+                            viewerUrl = normalizedViewerUrl,
                         )
                     }
 
@@ -704,7 +854,9 @@ class ConferenceStreamingService(
                 }
                 preparedTargets.forEach { pt ->
                     ConferenceStreamTargetTable.insert {
-                        it[id] = Uuid.random()
+                        it[id] = pt.targetId
+                        it[broadcastKeyCiphertext] = pt.sealedBroadcastKey
+                        it[viewerUrl] = pt.viewerUrl
                         it[streamId] = newStreamId
                         it[destinationId] = pt.destinationId
                         it[status] = ConferenceStreamTargetStatus.PENDING
@@ -828,7 +980,7 @@ class ConferenceStreamingService(
                     occurredAt = now,
                 )
                 val abandonedRow = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq prep.streamId }.single()
-                return@transaction streamRowToDto(row = abandonedRow, roomTitle = prep.roomTitle)
+                return@transaction streamRowToDto(row = abandonedRow, roomTitle = prep.roomTitle, canManage = true)
             }
             egressResult
                 .onSuccess { info ->
@@ -864,6 +1016,8 @@ class ConferenceStreamingService(
                         it[status] = ConferenceStreamTargetStatus.FAILED
                         it[failureReason] = FAILURE_START_FAILED
                     }
+                    // V1.9.274: FAILED is final for the stream -- the broadcast keys go with it.
+                    BroadcastKeys.clearForStream(prep.streamId)
                 }
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
@@ -874,7 +1028,7 @@ class ConferenceStreamingService(
                 occurredAt = now,
             )
             val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq prep.streamId }.single()
-            streamRowToDto(row = row, roomTitle = prep.roomTitle)
+            streamRowToDto(row = row, roomTitle = prep.roomTitle, canManage = true)
         }
     }
 
@@ -975,7 +1129,7 @@ class ConferenceStreamingService(
             }
             return transaction {
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                streamRowToDto(row = row, roomTitle = prep.roomTitle)
+                streamRowToDto(row = row, roomTitle = prep.roomTitle, canManage = true)
             }
         }
 
@@ -992,7 +1146,7 @@ class ConferenceStreamingService(
         )
         return transaction {
             val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-            streamRowToDto(row = row, roomTitle = prep.roomTitle)
+            streamRowToDto(row = row, roomTitle = prep.roomTitle, canManage = true)
         }
     }
 
@@ -1055,7 +1209,7 @@ class ConferenceStreamingService(
 
         return transaction {
             val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-            streamRowToDto(row = row, roomTitle = roomTitle)
+            streamRowToDto(row = row, roomTitle = roomTitle, canManage = true)
         }
     }
 
@@ -1120,8 +1274,10 @@ class ConferenceStreamingService(
             }
         if (prep.alreadyTerminal) {
             return transaction {
+                // V1.9.274: idempotent -- a second stop of an ended stream makes sure no broadcast key is left.
+                BroadcastKeys.clearForStream(streamUuid)
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                streamRowToDto(row = row, roomTitle = prep.roomTitle)
+                streamRowToDto(row = row, roomTitle = prep.roomTitle, canManage = true)
             }
         }
 
@@ -1157,7 +1313,7 @@ class ConferenceStreamingService(
             }
             return transaction {
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                streamRowToDto(row = row, roomTitle = prep.roomTitle)
+                streamRowToDto(row = row, roomTitle = prep.roomTitle, canManage = true)
             }
         }
 
@@ -1197,7 +1353,7 @@ class ConferenceStreamingService(
                             "own next tick"
                     }
                     val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                    return@transaction streamRowToDto(row = row, roomTitle = prep.roomTitle)
+                    return@transaction streamRowToDto(row = row, roomTitle = prep.roomTitle, canManage = true)
                 }
                 ConferenceStreamTargetTable.update({
                     (ConferenceStreamTargetTable.streamId eq streamUuid) and
@@ -1208,6 +1364,8 @@ class ConferenceStreamingService(
                 }) {
                     it[status] = ConferenceStreamTargetStatus.FINISHED
                 }
+                // V1.9.274: ENDED is final -- the broadcast keys of this stream are deleted in the same transaction.
+                BroadcastKeys.clearForStream(streamUuid)
                 AuditLogRecorder.record(
                     actorMemberId = current.memberId,
                     actorRole = current.role,
@@ -1217,7 +1375,7 @@ class ConferenceStreamingService(
                     occurredAt = now,
                 )
                 val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
-                streamRowToDto(row = row, roomTitle = prep.roomTitle)
+                streamRowToDto(row = row, roomTitle = prep.roomTitle, canManage = true)
             }
         // V1.9.254 (Z13): stopping the last paused thing ends the room pause. A SEPARATE transaction after the commit: stopStream deliberately
         // never takes the room lock inside its own transaction (SecretBallotStreamPauseTest R6), and taking it after the stream row would invert
@@ -1282,7 +1440,14 @@ class ConferenceStreamingService(
                     ?: return@transaction emptyList()
             // Never gated on isPrivileged -- see IConferenceStreamingService.getActiveStream KDoc
             // "everyone in the room has a legal right to know".
-            listOf(streamRowToDto(row = row, roomTitle = room[ConferenceRoomTable.title]))
+            listOf(
+                streamRowToDto(
+                    row = row,
+                    roomTitle = room[ConferenceRoomTable.title],
+                    // Viewer address and key flag only for the moderators of the room; everybody in the room sees the rest.
+                    canManage = ConferenceModeratorAuthority.isModerator(row = room, current = current),
+                ),
+            )
         }
     }
 
@@ -1323,8 +1488,140 @@ class ConferenceStreamingService(
                                 ?.get(ConferenceRoomTable.title)
                                 ?: ""
                         }
-                    streamRowToDto(row = row, roomTitle = title)
+                    streamRowToDto(row = row, roomTitle = title, canManage = true)
                 }
+        }
+    }
+
+    // ── V1.9.274: key of one broadcast + viewer address ────────────────────────────
+
+    override suspend fun setBroadcastKey(
+        streamId: String,
+        destinationId: String,
+        streamKey: String,
+    ): Boolean {
+        val current = resolveCurrentMember(call)
+        requireStreamingEnabled()
+        requireWithinRate(limiter = mutateRateLimiter, memberId = current.memberId)
+        val streamUuid = streamId.toStreamUuid()
+        val destUuid = destinationId.toStreamUuid()
+        return transaction {
+            // The row lock serialises this write against stopStream/StreamPoller finalizing the stream (which clear the key in their transaction).
+            val streamRow = lockStreamForModerator(streamUuid = streamUuid, current = current)
+            requireWithinBroadcastInputRate(memberId = current.memberId, streamId = streamUuid)
+            BroadcastKeys.validate(streamKey)
+            requireStreamNotEnding(streamRow)
+            val target = targetRowOf(streamId = streamUuid, destinationId = destUuid)
+            if (target[ConferenceStreamDestinationTable.keyKind] != ConferenceStreamKeyKind.PER_BROADCAST) {
+                throw ConflictException("Destination $destUuid stores a persistent key -- there is no broadcast key to set")
+            }
+            val targetRowId = target[ConferenceStreamTargetTable.id]
+            ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq targetRowId }) {
+                it[broadcastKeyCiphertext] = BroadcastKeys.seal(targetId = targetRowId, key = streamKey, box = secretBox!!)
+            }
+            // No payload: neither the key nor anything derived from it. Last lock-taking operation (see AuditLogRecorder KDoc).
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.CONFERENCE_STREAM,
+                entityId = streamUuid,
+                action = AuditAction.UPDATE,
+                occurredAt = nowLocalDateTime(),
+            )
+            true
+        }
+    }
+
+    override suspend fun setViewerUrl(
+        streamId: String,
+        destinationId: String,
+        viewerUrl: String?,
+    ): ConferenceStreamTargetStatusDto {
+        val current = resolveCurrentMember(call)
+        requireStreamingEnabled()
+        requireWithinRate(limiter = mutateRateLimiter, memberId = current.memberId)
+        val streamUuid = streamId.toStreamUuid()
+        val destUuid = destinationId.toStreamUuid()
+        return transaction {
+            val streamRow = lockStreamForModerator(streamUuid = streamUuid, current = current)
+            requireWithinBroadcastInputRate(memberId = current.memberId, streamId = streamUuid)
+            if (streamRow[ConferenceStreamTable.status].let { it == ConferenceStreamStatus.ENDED || it == ConferenceStreamStatus.FAILED }) {
+                throw ConflictException("Stream $streamUuid has ended")
+            }
+            val target = targetRowOf(streamId = streamUuid, destinationId = destUuid)
+            val normalized =
+                viewerUrl?.takeIf { it.isNotBlank() }?.let {
+                    StreamViewerUrls.normalize(
+                        raw = it,
+                        platform = target[ConferenceStreamDestinationTable.platform],
+                        keyHint =
+                            keyHintOf(
+                                platform = target[ConferenceStreamDestinationTable.platform],
+                                rtmpUrl = target[ConferenceStreamDestinationTable.rtmpUrl],
+                            ),
+                    )
+                }
+            ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq target[ConferenceStreamTargetTable.id] }) {
+                it[ConferenceStreamTargetTable.viewerUrl] = normalized
+            }
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.CONFERENCE_STREAM,
+                entityId = streamUuid,
+                action = AuditAction.UPDATE,
+                occurredAt = nowLocalDateTime(),
+            )
+            targetDtos(streamId = streamUuid, canManage = true, streamTerminal = false)
+                .first { it.destinationId == destUuid.toString() }
+        }
+    }
+
+    /** Loads (row-locked) the stream and its room, then requires the caller to be a moderator of that room BEFORE anything else is revealed. */
+    private fun lockStreamForModerator(
+        streamUuid: Uuid,
+        current: CurrentMember,
+    ): ResultRow {
+        val streamRow =
+            ConferenceStreamTable
+                .selectAll()
+                .where { ConferenceStreamTable.id eq streamUuid }
+                .forUpdate()
+                .singleOrNull()
+                ?: throw NotFoundException("Conference stream $streamUuid not found")
+        val room =
+            ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq streamRow[ConferenceStreamTable.roomId] }.singleOrNull()
+                ?: throw NotFoundException("Conference room for stream $streamUuid not found")
+        requireModeratorOrPrivileged(room = room, current = current)
+        return streamRow
+    }
+
+    private fun requireStreamNotEnding(streamRow: ResultRow) {
+        val status = streamRow[ConferenceStreamTable.status]
+        if (status == ConferenceStreamStatus.STOPPING ||
+            status == ConferenceStreamStatus.ENDED ||
+            status == ConferenceStreamStatus.FAILED
+        ) {
+            throw ConflictException("Stream ${streamRow[ConferenceStreamTable.id]} is ending or has ended")
+        }
+    }
+
+    private fun targetRowOf(
+        streamId: Uuid,
+        destinationId: Uuid,
+    ): ResultRow =
+        (ConferenceStreamTargetTable innerJoin ConferenceStreamDestinationTable)
+            .selectAll()
+            .where { (ConferenceStreamTargetTable.streamId eq streamId) and (ConferenceStreamTargetTable.destinationId eq destinationId) }
+            .singleOrNull()
+            ?: throw NotFoundException("Destination $destinationId is not a target of stream $streamId")
+
+    private fun requireWithinBroadcastInputRate(
+        memberId: Uuid,
+        streamId: Uuid,
+    ) {
+        if (!broadcastInputRateLimiter.checkAndRecord("member:$memberId:stream:$streamId")) {
+            throw ConflictException("Too many requests -- try again later")
         }
     }
 
@@ -1476,39 +1773,30 @@ class ConferenceStreamingService(
         }
     }
 
-    /**
-     * Concatenates a destination's stored `rtmpUrl` with its DECRYPTED stream key -- the ONE place
-     * in this class the plaintext key exists in memory, and only for the duration of building this
-     * string. Never logged, never persisted, never returned -- see [SecretBox] KDoc and
-     * [ConferenceStreamDestinationDto] KDoc. Works identically whether [row] came from a plain
-     * [ConferenceStreamDestinationTable] select ([startStream]) or an
-     * `ConferenceStreamTargetTable innerJoin ConferenceStreamDestinationTable` join ([resumeStream])
-     * -- [ResultRow] column lookup is unaffected by which tables were joined to produce it.
-     */
-    private fun buildRtmpUrl(row: ResultRow): String {
-        val base = row[ConferenceStreamDestinationTable.rtmpUrl].trimEnd('/')
-        val destinationId = row[ConferenceStreamDestinationTable.id]
-        val key = secretBox!!.open(sealed = row[ConferenceStreamDestinationTable.streamKeyCiphertext], aad = destinationId.toString())
-        return "$base/$key"
-    }
-
     private fun destinationRowToDto(row: ResultRow): ConferenceStreamDestinationDto =
         ConferenceStreamDestinationDto(
             id = row[ConferenceStreamDestinationTable.id].toString(),
             label = row[ConferenceStreamDestinationTable.label],
             platform = row[ConferenceStreamDestinationTable.platform],
             rtmpUrl = row[ConferenceStreamDestinationTable.rtmpUrl],
+            keyKind = row[ConferenceStreamDestinationTable.keyKind],
             streamKeyMask = STREAM_KEY_MASK,
             streamKeySetAt = row[ConferenceStreamDestinationTable.streamKeySetAt],
             createdByDisplayName = memberDisplayName(row[ConferenceStreamDestinationTable.createdByMemberId]),
             enabled = row[ConferenceStreamDestinationTable.enabled],
         )
 
-    private fun targetDtos(streamId: Uuid): List<ConferenceStreamTargetStatusDto> =
+    /** [canManage] = moderator of the room: only then the viewer address and the "key needed" flag are filled (everybody else gets the defaults). */
+    private fun targetDtos(
+        streamId: Uuid,
+        canManage: Boolean,
+        streamTerminal: Boolean,
+    ): List<ConferenceStreamTargetStatusDto> =
         (ConferenceStreamTargetTable innerJoin ConferenceStreamDestinationTable)
             .selectAll()
             .where { ConferenceStreamTargetTable.streamId eq streamId }
             .map { row ->
+                val kind = row[ConferenceStreamDestinationTable.keyKind]
                 ConferenceStreamTargetStatusDto(
                     destinationId = row[ConferenceStreamTargetTable.destinationId].toString(),
                     label = row[ConferenceStreamDestinationTable.label],
@@ -1516,12 +1804,20 @@ class ConferenceStreamingService(
                     status = row[ConferenceStreamTargetTable.status],
                     retries = row[ConferenceStreamTargetTable.retries],
                     failureReason = row[ConferenceStreamTargetTable.failureReason],
+                    keyKind = kind,
+                    needsBroadcastKey =
+                        canManage &&
+                            !streamTerminal &&
+                            kind == ConferenceStreamKeyKind.PER_BROADCAST &&
+                            row[ConferenceStreamTargetTable.broadcastKeyCiphertext] == null,
+                    viewerUrl = if (canManage) row[ConferenceStreamTargetTable.viewerUrl] else null,
                 )
             }
 
     private fun streamRowToDto(
         row: ResultRow,
         roomTitle: String,
+        canManage: Boolean,
     ): ConferenceStreamDto {
         val streamId = row[ConferenceStreamTable.id]
         val startedBy = row[ConferenceStreamTable.startedByMemberId]
@@ -1538,7 +1834,14 @@ class ConferenceStreamingService(
             pausedAt = row[ConferenceStreamTable.pausedAt],
             endedAt = row[ConferenceStreamTable.endedAt],
             restartCount = row[ConferenceStreamTable.restartCount],
-            targets = targetDtos(streamId),
+            targets =
+                targetDtos(
+                    streamId = streamId,
+                    canManage = canManage,
+                    streamTerminal =
+                        row[ConferenceStreamTable.status] == ConferenceStreamStatus.ENDED ||
+                            row[ConferenceStreamTable.status] == ConferenceStreamStatus.FAILED,
+                ),
             failureReason = row[ConferenceStreamTable.failureReason],
             pauseReason = row[ConferenceStreamTable.pauseReason],
             pauseFeed = PauseFeeds.current.stateOf(streamId),
@@ -1555,13 +1858,20 @@ class ConferenceStreamingService(
 
 private const val DEFAULT_MUTATE_RATE_MAX = 30
 private const val DEFAULT_READ_RATE_MAX = 60
+private const val DEFAULT_BROADCAST_INPUT_RATE_MAX = 10
 private val DEFAULT_ACTION_RATE_WINDOW = 1.minutes
 
-private data class PreparedTarget(
+private class PreparedTarget(
+    val targetId: Uuid,
     val destinationId: Uuid,
     val plaintextUrl: String,
     val fingerprint: String,
-)
+    val sealedBroadcastKey: String?,
+    val viewerUrl: String?,
+) {
+    // Never prints the plaintext URL or the sealed key.
+    override fun toString(): String = "PreparedTarget(targetId=$targetId, destinationId=$destinationId)"
+}
 
 private data class StartPreparation(
     val streamId: Uuid,
@@ -1786,11 +2096,29 @@ internal suspend fun restartEgressForStream(
                     return@transaction RestartEgressPrep(preparation = null, currentStatus = ConferenceStreamStatus.PAUSED)
                 }
 
+                // V1.9.274 -- a target whose key is not there (a per-broadcast key that was never stored, a persistent key lost in a restore) is
+                // marked FAILED with a fixed reason and left out; the other targets restart. Nothing left: stay PAUSED with MANUAL, exactly like
+                // the disabled-destination branch above (no endless retry).
                 val urls =
-                    targetRows.map { tr ->
-                        val plaintextUrl = restartRtmpUrl(row = tr, secretBox = secretBox)
+                    targetRows.mapNotNull { tr ->
+                        val targetRowId = tr[ConferenceStreamTargetTable.id]
+                        val plaintextUrl =
+                            try {
+                                targetRtmpUrl(
+                                    destinationRow = tr,
+                                    targetId = targetRowId,
+                                    broadcastKeyCiphertext = tr[ConferenceStreamTargetTable.broadcastKeyCiphertext],
+                                    secretBox = secretBox,
+                                )
+                            } catch (e: StreamKeyMissing) {
+                                ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq targetRowId }) {
+                                    it[status] = ConferenceStreamTargetStatus.FAILED
+                                    it[failureReason] = FAILURE_BROADCAST_KEY_MISSING
+                                }
+                                return@mapNotNull null
+                            }
                         val fingerprint = StreamUrlFingerprint.of(plaintextUrl)
-                        ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq tr[ConferenceStreamTargetTable.id] }) {
+                        ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq targetRowId }) {
                             it[urlFingerprint] = fingerprint
                             it[status] = ConferenceStreamTargetStatus.PENDING
                             it[startedAtEpochNanos] = null
@@ -1800,6 +2128,14 @@ internal suspend fun restartEgressForStream(
                         }
                         plaintextUrl
                     }
+                if (urls.isEmpty()) {
+                    ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) {
+                        it[status] = ConferenceStreamStatus.PAUSED
+                        it[pauseReason] = ConferenceStreamPauseReason.MANUAL
+                    }
+                    logger.warn { "restartEgressForStream: no target of stream $streamId has a usable key -- leaving it PAUSED (MANUAL)" }
+                    return@transaction RestartEgressPrep(preparation = null, currentStatus = ConferenceStreamStatus.PAUSED)
+                }
                 ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) { it[status] = ConferenceStreamStatus.STARTING }
 
                 RestartEgressPrep(
@@ -1998,6 +2334,8 @@ internal suspend fun restartEgressForStream(
                     it[status] = ConferenceStreamTargetStatus.FAILED
                     it[failureReason] = FAILURE_START_FAILED
                 }
+                // V1.9.274: FAILED is final for the stream -- the broadcast keys go with it.
+                BroadcastKeys.clearForStream(streamId)
             }
         AuditLogRecorder.record(
             actorMemberId = actorMemberId,
@@ -2018,21 +2356,19 @@ private data class RestartEgressPrep(
 )
 
 /**
- * [restartEgressForStream]'s own plaintext-URL builder -- functionally identical to
- * [ConferenceStreamingService]'s private `buildRtmpUrl` instance method, duplicated (not shared) here
- * purely because THIS function has no [ConferenceStreamingService] instance to call it on (it takes
- * an explicit [secretBox] parameter instead of an instance field). Never logged, never persisted,
- * never returned -- see [SecretBox] KDoc.
+ * Thin wrapper for the join row of a target and its destination (used by the pause feed): delegates to
+ * [targetRtmpUrl], the one place a plaintext RTMP URL is built. Throws `StreamKeyMissing` if the needed key is not there.
  */
 internal fun restartRtmpUrl(
     row: ResultRow,
     secretBox: SecretBox,
-): String {
-    val base = row[ConferenceStreamDestinationTable.rtmpUrl].trimEnd('/')
-    val destinationId = row[ConferenceStreamDestinationTable.id]
-    val key = secretBox.open(sealed = row[ConferenceStreamDestinationTable.streamKeyCiphertext], aad = destinationId.toString())
-    return "$base/$key"
-}
+): String =
+    targetRtmpUrl(
+        destinationRow = row,
+        targetId = row[ConferenceStreamTargetTable.id],
+        broadcastKeyCiphertext = row[ConferenceStreamTargetTable.broadcastKeyCiphertext],
+        secretBox = secretBox,
+    )
 
 /**
  * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- server-internal bridge

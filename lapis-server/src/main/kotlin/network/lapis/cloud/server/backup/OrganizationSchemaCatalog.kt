@@ -1,5 +1,8 @@
 package network.lapis.cloud.server.backup
 
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import java.security.MessageDigest
 import java.sql.Connection
@@ -120,6 +123,56 @@ object OrganizationSchemaCatalog {
                 "Welle V1.9.245. Servers reached THROUGH the direct partners (hop >= 2) -- a pure cache of foreign data that the " +
                 "PartnerFeedPoller rediscovers within a few runs from the backed-up partner_server rows. Restoring stale foreign " +
                 "hosts would only make the first run fetch outdated paths (see docs/features/partner-servers.adoc).",
+        )
+
+    /** A column that stays in the exported table shape, but whose VALUE is replaced in the backup ([replacement]) -- [reason] documents why. */
+    data class Redaction(
+        val replacement: JsonElement,
+        val reason: String,
+    )
+
+    /**
+     * V1.9.274 -- columns whose value never leaves the instance in a backup. The column set of the table stays unchanged (the restore binds the
+     * same columns), only the exported value is the [Redaction.replacement]. Used for stream key material: the ciphertexts are bound to THIS
+     * instance's `LAPIS_SECRET_ENCRYPTION_KEY` (a restore elsewhere could not open them anyway, same reasoning as `lupabb_sync_config`), and a key
+     * does not belong in a backup file. After a restore the ADMIN enters the persistent stream keys again; the start refuses a destination
+     * without a key (`ConferenceStreamStoredKeyMissingException`).
+     *
+     * `BackupSecretColumnTripwireTest` fails for any new column named `*_ciphertext`, `*_sealed` or `*_fingerprint` that is neither listed here
+     * nor in its documented allow list.
+     */
+    val REDACTED_COLUMNS: Map<String, Map<String, Redaction>> =
+        mapOf(
+            "conference_stream_target" to
+                mapOf(
+                    "broadcast_key_ciphertext" to
+                        Redaction(
+                            replacement = JsonNull,
+                            reason =
+                                "V1.9.274. The key of ONE broadcast: short-lived by design (deleted when the stream ends), never in a backup.",
+                        ),
+                    "url_fingerprint" to
+                        Redaction(
+                            replacement = JsonPrimitive("{redacted}"),
+                            reason =
+                                "V1.9.274. Holds up to 3+3 plaintext characters of the stream key (LiveKit's own redaction format, " +
+                                    "needed to match the egress results). NOT NULL, hence a placeholder; a restored stream is never " +
+                                    "live, the value is recomputed at the next start.",
+                        ),
+                ),
+            "conference_stream_destination" to
+                mapOf(
+                    "stream_key_ciphertext" to
+                        Redaction(
+                            replacement = JsonNull,
+                            reason = "V1.9.274. Sealed with this instance's key; a persistent stream key is entered again after a restore.",
+                        ),
+                    "stream_key_set_at" to
+                        Redaction(
+                            replacement = JsonNull,
+                            reason = "V1.9.274. Goes with stream_key_ciphertext: 'no key stored' after a restore.",
+                        ),
+                ),
         )
 
     data class ColumnMetadata(

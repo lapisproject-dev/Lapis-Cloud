@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.i18n.tr
+import network.lapis.cloud.shared.domain.ConferenceStreamHosts
 
 /**
  * Welle V1.9.207 -- stream destination presets. Pure UX: a preset may prefill the RTMP base URL of the create form, nothing else.
@@ -37,7 +38,7 @@ internal val conferenceStreamPresets: List<ConferenceStreamPreset> =
             label = "Facebook Live",
             serverUrl = null,
             perEventUrl = true,
-            hostPattern = Regex("^live-api(-[a-z0-9]+)?\\.facebook\\.com$"),
+            hostPattern = ConferenceStreamHosts.FACEBOOK_INGEST_HOST,
             keyHint = {
                 tr("Server-URL und Stream-Schlüssel zeigt Facebook beim Einrichten der Live-Übertragung an. Der Schlüssel kann wechseln.")
             },

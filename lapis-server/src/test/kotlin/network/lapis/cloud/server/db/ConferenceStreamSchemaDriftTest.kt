@@ -69,8 +69,16 @@ class ConferenceStreamSchemaDriftTest :
 
             entity.attributeByName("label")?.nullable shouldBe false
             entity.attributeByName("rtmp_url")?.nullable shouldBe false
-            entity.attributeByName("stream_key_ciphertext")?.nullable shouldBe false
-            entity.attributeByName("stream_key_set_at")?.nullable shouldBe false
+            // V1.9.274 (V140): nullable -- PER_BROADCAST stores no key, a backup restore nulls it.
+            entity.attributeByName("stream_key_ciphertext")?.nullable shouldBe true
+            entity.attributeByName("stream_key_set_at")?.nullable shouldBe true
+            entity.attributeByName("key_kind")?.nullable shouldBe false
+            entity.attributeByName("key_kind")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ConferenceStreamKeyKind",
+                    values = listOf("PERSISTENT", "PER_BROADCAST"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ConferenceStreamKeyKind",
+                )
             entity.attributeByName("created_at")?.nullable shouldBe false
             entity.attributeByName("enabled")?.nullable shouldBe false
 
@@ -180,6 +188,8 @@ class ConferenceStreamSchemaDriftTest :
             entity.attributeByName("ended_at_epoch_nanos")?.nullable shouldBe true
             entity.attributeByName("retries")?.nullable shouldBe false
             entity.attributeByName("failure_reason")?.nullable shouldBe true
+            entity.attributeByName("broadcast_key_ciphertext")?.nullable shouldBe true
+            entity.attributeByName("viewer_url")?.nullable shouldBe true
 
             // Literal order is load-bearing -- see 29-conference-streaming.kuml.kts file header.
             entity.attributeByName("status")?.type shouldBe

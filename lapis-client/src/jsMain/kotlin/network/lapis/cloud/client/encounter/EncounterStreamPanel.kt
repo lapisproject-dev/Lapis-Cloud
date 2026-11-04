@@ -1,6 +1,7 @@
 package network.lapis.cloud.client.encounter
 
 import io.kvision.core.Container
+import io.kvision.form.check.CheckBox
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.Span
@@ -28,6 +29,7 @@ import network.lapis.cloud.client.sanitizeUntrustedI18nText
 import network.lapis.cloud.client.untrustedOptions
 import network.lapis.cloud.shared.domain.ConferenceStreamAvailabilityDto
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
+import network.lapis.cloud.shared.domain.ConferenceStreamKeyKind
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
@@ -133,9 +135,18 @@ internal class EncounterStreamPanel(
         panel.div(terms.streamOnlyStageContent(), className = "text-muted small")
         val targetFields = mutableListOf<Pair<String, LapisField>>()
         data.targets.forEach { target ->
-            targetFields +=
-                target.id to
-                form.checkField(label = sanitizeUntrustedI18nText(target.label))
+            // V1.9.274: a destination whose key is typed anew for every broadcast cannot be started from here (no key field); the
+            // conference room can. A persistent destination without a stored key is not startable either.
+            val perBroadcast = target.keyKind == ConferenceStreamKeyKind.PER_BROADCAST
+            val label =
+                when {
+                    perBroadcast -> gettext("%1 -- braucht Schlüssel für diese Sendung, nur im Konferenzraum startbar", target.label)
+                    target.storedKeyMissing -> gettext("%1 -- Schlüssel fehlt, bitte in den Stream-Zielen eintragen", target.label)
+                    else -> target.label
+                }
+            val field = form.checkField(label = sanitizeUntrustedI18nText(label))
+            if (perBroadcast || target.storedKeyMissing) (field.control as? CheckBox)?.disabled = true
+            targetFields += target.id to field
         }
         val pulpit = pulpitPeople().filter { it.role == EncounterPresenceRole.PULPIT }
         val pulpitField =
@@ -169,6 +180,7 @@ internal class EncounterStreamPanel(
                             layout = ConferenceStreamLayout.SINGLE_PARTICIPANT,
                             latencyMode = ConferenceStreamLatencyMode.STANDARD,
                             participantIdentity = speaker,
+                            broadcastInputs = emptyList(),
                         )
                     }
                 if (result != null) notifySuccess(tr("Die Übertragung wird gestartet."))

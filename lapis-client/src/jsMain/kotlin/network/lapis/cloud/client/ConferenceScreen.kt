@@ -13,6 +13,7 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
@@ -75,7 +76,9 @@ import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
+import network.lapis.cloud.shared.domain.ConferenceStreamBroadcastInput
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
+import network.lapis.cloud.shared.domain.ConferenceStreamKeyKind
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
@@ -99,6 +102,8 @@ import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomPauseScope
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
+import network.lapis.cloud.shared.rpc.ConferenceStreamBroadcastKeyMissingException
+import network.lapis.cloud.shared.rpc.ConferenceStreamViewerUrlRejectedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
@@ -2551,6 +2556,8 @@ private fun enterCall(
     // D7: one row per destination, honest interim/terminal states -- see [updateStreamTargetsPanel].
     val streamTargetsPanel = callPanel.vPanel(spacing = 2) { addCssClasses("ms-2") }
     streamTargetsPanel.hide()
+    // V1.9.274: "Kommentare öffnen" per target -- moderators only, kept apart from [streamTargetsPanel] (which is hidden while PAUSED).
+    val streamCommentsPanel = StreamCommentsPanel().also { callPanel.add(it) }
 
     // D3/D4: non-blocking, dual-action, no auto-fade, no silent timeout -- see file KDoc.
     // V1.2.10 -- `lapis-conference-transparency-banner`: sticky beim Scrollen (theme.css), damit die
@@ -2876,6 +2883,20 @@ private fun enterCall(
         }
     }
 
+    // V1.9.274 -- "Kommentare öffnen" and the viewer address editor, see [StreamCommentsPanel].
+    fun updateStreamCommentsPanel() {
+        streamCommentsPanel.update(
+            stream = activeStreamDto,
+            canModerate = moderation != null,
+            onTargetSaved = { updated ->
+                activeStreamDto =
+                    activeStreamDto?.let { current ->
+                        current.copy(targets = current.targets.map { if (it.destinationId == updated.destinationId) updated else it })
+                    }
+            },
+        )
+    }
+
     fun updateStreamDetailLine() {
         val active = activeStreamDto
         if (active != null) {
@@ -2885,6 +2906,7 @@ private fun enterCall(
             streamDetailLine.hide()
         }
         updateStreamTargetsPanel()
+        updateStreamCommentsPanel()
         updateStatusBadgesAndTitle()
     }
 
@@ -3072,19 +3094,35 @@ private fun enterCall(
                 participantOptions,
                 // pre-selected from the room's setting (RASTER = gallery, SPEAKER = speaker); the dialog can still choose any layout
                 defaultLayout = conferenceStreamLayoutOf(roomBroadcastView),
-            ) { destinationIds, layout, latencyMode, participantIdentity ->
+            ) { destinationIds, layout, latencyMode, participantIdentity, inputs ->
                 group.setStreamBusy(true)
                 AppScope.launch {
                     val result =
                         guarded {
                             try {
+                                // The typed keys live only in `inputs` of this call; nothing stores them.
                                 rpcService<IConferenceStreamingService>().startStream(
                                     room.id,
                                     destinationIds,
                                     layout,
                                     latencyMode,
                                     participantIdentity,
+                                    inputs,
                                 )
+                            } catch (e: ConferenceStreamBroadcastKeyMissingException) {
+                                val label = targets.firstOrNull { it.id == e.destinationId }?.label.orEmpty()
+                                notifyError(
+                                    sanitizeUntrustedI18nText(gettext("Für ‚%1‘ fehlt der Stream-Schlüssel dieser Sendung.", label)),
+                                )
+                                null
+                            } catch (e: ConferenceStreamViewerUrlRejectedException) {
+                                val label = targets.firstOrNull { it.id == e.destinationId }?.label.orEmpty()
+                                notifyError(
+                                    sanitizeUntrustedI18nText(
+                                        gettext("Diese Adresse passt nicht zu %1. Bitte die Adresse der Live-Sendung einfügen.", label),
+                                    ),
+                                )
+                                null
                             } catch (e: EventRoomCaptureBlockedByAdminException) {
                                 eventCapture = ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN
                                 notifyError(captureBlockedReason().orEmpty())
@@ -7454,6 +7492,7 @@ internal fun startStreamDialog(
         layout: ConferenceStreamLayout,
         latencyMode: ConferenceStreamLatencyMode,
         participantIdentity: String?,
+        inputs: List<ConferenceStreamBroadcastInput>,
     ) -> Unit,
 ) {
     val modal = Modal(caption = tr("Live-Stream starten"))
@@ -7461,14 +7500,49 @@ internal fun startStreamDialog(
 
     modal.div(gettext("Ziele auswählen (max. %1):", maxDestinations)) { addCssClasses("fw-bold mt-2") }
     val targetsPanel = modal.vPanel(spacing = 2)
+    // V1.9.274: per target the key of THIS broadcast (per-broadcast destinations only) and the optional viewer address, both shown once the
+    // target is ticked. The key fields are emptied on confirm, cancel and close; nothing of them is kept anywhere else.
+    val keyInputsByTarget = mutableMapOf<ConferenceStreamTargetDto, BroadcastKeyInput>()
+    val viewerInputsByTarget = mutableMapOf<ConferenceStreamTargetDto, Tag>()
+    val detailPanelsByTarget = mutableMapOf<ConferenceStreamTargetDto, SimplePanel>()
     val checkboxesByTarget =
         targets.associateWith { target ->
             // Security audit follow-up (untrusted-text sanitization gaps): target.label is host-assigned free
             // text (same field sanitized via row.div(sanitizeUntrustedI18nText(target.label)) elsewhere in this
             // file) -- CheckBox.label reaches the same render path, sanitize the whole composed result.
-            targetsPanel.checkBox(
-                label = sanitizeUntrustedI18nText(gettext("%1 (%2)", target.label, conferenceStreamPlatformLabel(target.platform))),
-            )
+            val platform = conferenceStreamPlatformLabel(target.platform)
+            val checkboxLabel =
+                when {
+                    target.storedKeyMissing ->
+                        gettext("%1 (%2) -- Schlüssel fehlt, bitte in den Stream-Zielen eintragen", target.label, platform)
+                    target.keyKind == ConferenceStreamKeyKind.PER_BROADCAST ->
+                        gettext("%1 (%2) -- braucht Schlüssel für diese Sendung", target.label, platform)
+                    else -> gettext("%1 (%2)", target.label, platform)
+                }
+            val checkbox = targetsPanel.checkBox(label = sanitizeUntrustedI18nText(checkboxLabel))
+            if (target.storedKeyMissing) checkbox.disabled = true
+            val detail = targetsPanel.vPanel(spacing = 2) { addCssClasses("ms-4 mb-2") }
+            detail.hide()
+            if (target.keyKind == ConferenceStreamKeyKind.PER_BROADCAST && !target.storedKeyMissing) {
+                keyInputsByTarget[target] =
+                    BroadcastKeyInput(
+                        labelText = tr("Stream-Schlüssel für diese Sendung"),
+                        hintText = broadcastKeyHint(target.keyHint),
+                    ).also { detail.add(it) }
+            }
+            val viewerDetails = Tag(TAG.DETAILS, className = "small")
+            viewerDetails.add(Tag(TAG.SUMMARY, content = tr("Zuschauer-Adresse jetzt eintragen (optional)")))
+            val viewerInput = Tag(TAG.INPUT, className = "form-control form-control-sm mt-1")
+            viewerInput.setAttribute("type", "text")
+            viewerInput.setAttribute("inputmode", "url")
+            viewerInput.setAttribute("autocomplete", "off")
+            viewerInput.setAttribute("aria-label", sanitizeUntrustedI18nText(gettext("Zuschauer-Adresse für %1", target.label)))
+            viewerDetails.add(viewerInput)
+            viewerDetails.add(Tag(TAG.DIV, content = tr(CONFERENCE_VIEWER_URL_HINT), className = "text-muted"))
+            detail.add(viewerDetails)
+            viewerInputsByTarget[target] = viewerInput
+            detailPanelsByTarget[target] = detail
+            checkbox
         }
     val selectionErrorBox =
         modal.div().apply {
@@ -7480,8 +7554,16 @@ internal fun startStreamDialog(
 
     fun updateSummary() {
         summaryBox.content = conferenceStreamStartSummary(selectedTargets().map { it.label })
+        checkboxesByTarget.forEach { (target, checkbox) ->
+            val detail = detailPanelsByTarget.getValue(target)
+            if (checkbox.value) detail.show() else detail.hide()
+        }
     }
     checkboxesByTarget.values.forEach { checkbox -> checkbox.onClick { updateSummary() } }
+
+    fun clearAllKeys() = keyInputsByTarget.values.forEach { it.clear() }
+    // Any way of closing (Escape, the close button, a click outside) empties the key fields.
+    modal.addAfterDestroyHook { clearAllKeys() }
 
     val layoutOptions = ConferenceStreamLayout.entries.map { it.name to conferenceStreamLayoutLabel(it) }
     val layoutSelect = modal.select(options = layoutOptions, value = defaultLayout.name, label = tr("Layout"))
@@ -7502,7 +7584,14 @@ internal fun startStreamDialog(
 
     modal.div(CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS) { addCssClasses("text-muted small mt-2") }
 
-    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(
+        newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply {
+            onClick {
+                clearAllKeys()
+                modal.hide()
+            }
+        },
+    )
     modal.addButton(
         Button(tr("Jetzt live gehen"), style = ButtonStyle.DANGER).apply {
             onClick {
@@ -7520,14 +7609,47 @@ internal fun startStreamDialog(
                     selectionErrorBox.show()
                     return@onClick
                 }
+                // V1.9.274: the button stays active; a missing or invalid key is a field error and the focus goes to the first such field.
+                var firstProblem: BroadcastKeyInput? = null
+                selected.forEach { target ->
+                    val keyInput = keyInputsByTarget[target] ?: return@forEach
+                    val problem = keyInput.problem()
+                    if (problem != null) {
+                        keyInput.showError(problem)
+                        if (firstProblem == null) firstProblem = keyInput
+                    } else {
+                        keyInput.clearError()
+                    }
+                }
+                firstProblem?.let {
+                    it.focusInput()
+                    return@onClick
+                }
                 val latencyMode = ConferenceStreamLatencyMode.valueOf(latencySelect.value ?: ConferenceStreamLatencyMode.STANDARD.name)
+                val inputs =
+                    selected.mapNotNull { target ->
+                        val key = keyInputsByTarget[target]?.takeAndClear()
+                        val viewerUrl =
+                            (
+                                viewerInputsByTarget
+                                    .getValue(
+                                        target,
+                                    ).getElement() as? HTMLInputElement
+                            )?.value?.trim()?.ifEmpty { null }
+                        if (key == null && viewerUrl == null) null else ConferenceStreamBroadcastInput(target.id, key, viewerUrl)
+                    }
+                clearAllKeys()
                 modal.hide()
-                onConfirm(selected.map { it.id }, layout, latencyMode, participantIdentity)
+                onConfirm(selected.map { it.id }, layout, latencyMode, participantIdentity, inputs)
             }
         },
     )
     modal.show()
 }
+
+/** V1.9.274 -- the hint under the optional viewer address of the start dialog and the comments panel. */
+internal const val CONFERENCE_VIEWER_URL_HINT =
+    "Die Adresse der Live-Sendung auf der Plattform, so wie Sie sie im Browser sehen. Damit öffnen Sie später die Kommentare."
 
 /**
  * D6 (Norman/Raskin) -- blunt, not falsely reassuring: LiveKit has NO pause primitive (verified

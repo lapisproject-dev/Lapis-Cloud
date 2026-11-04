@@ -429,6 +429,16 @@ X (formerly Twitter) is a platform of its own in the admin list "Stream-Ziele". 
 
 Details: link:../architecture/conference-recording.adoc[conference-recording.adoc], section "Streams (RTMP)".
 
+== Stream key per broadcast and "Kommentare öffnen" (V1.9.274)
+
+*Stream destinations (ADMIN).* A destination has a key kind: _dauerhaft_ (Lapis stores the key sealed and uses it for every broadcast) or _nur pro Sendung_ (nothing is stored; the moderator enters the key at every start and Lapis deletes it when the broadcast ends). Facebook Live issues a new key for every broadcast, so use _nur pro Sendung_ there. A permanent key is still the recommended way where the platform allows it. After a restore from a backup the permanent keys are empty and have to be entered again.
+
+*Start dialog (moderator).* A ticked per-broadcast destination shows a field "Stream-Schlüssel für diese Sendung" with the place where the platform shows it (Facebook Live Producer, X Media Studio). The key is masked, not offered to password managers, and emptied when the dialog closes. Each target also has an optional "Zuschauer-Adresse jetzt eintragen" field.
+
+*In the call (moderator).* Under the stream state every target with a viewer address has a "Kommentare öffnen" button. It opens the live page of the platform in a new window; Lapis shows no comments itself and a platform account is needed there. The address can be entered or changed later.
+
+Facts about the platforms: Facebook and X show the comments on the page of the live broadcast; for YouTube and Twitch the chat opens as a small window. Not verified against the real platforms (see the changelog of V1.9.274).
+
 == Pause mode (V1.9.254)
 
 A moderator (room creator, BOARD, ADMIN) can pause the *recording* and the *live stream* of a room while everybody keeps talking. The *Pause* button sits next to "Moderation" in the sheet of the call controls; while the room is paused it reads *Fortsetzen*, and the banner of the call has a *Fortsetzen* button too.

@@ -1087,3 +1087,30 @@ class ConferenceRoomPausedException(
 class ConferenceRoomPauseLimitException(
     override val message: String = "Too many pauses in this recording",
 ) : AbstractServiceException()
+
+/** V1.9.274 -- distinct type. The stream key of this broadcast is missing for a per-broadcast destination. Fixed text, never contains the input. */
+@RpcServiceException
+class ConferenceStreamBroadcastKeyMissingException(
+    val destinationId: String = "",
+    override val message: String = "The stream key of this broadcast is missing",
+) : AbstractServiceException()
+
+/** V1.9.274 -- distinct type. A persistent destination holds no stored key (e.g. after a backup restore); the ADMIN has to enter it again. */
+@RpcServiceException
+class ConferenceStreamStoredKeyMissingException(
+    val destinationId: String = "",
+    override val message: String = "The stream destination holds no stored key",
+) : AbstractServiceException()
+
+/** V1.9.274 -- distinct type. The viewer page address was not accepted. Fixed text, never echoes the input. */
+@RpcServiceException
+class ConferenceStreamViewerUrlRejectedException(
+    val destinationId: String = "",
+    override val message: String = "The address was not accepted",
+) : AbstractServiceException()
+
+/** V1.9.274 -- distinct type. The stream key has invalid characters or is too long. Fixed text, never echoes the input. */
+@RpcServiceException
+class ConferenceStreamBroadcastKeyRejectedException(
+    override val message: String = "The key contains invalid characters or is too long",
+) : AbstractServiceException()

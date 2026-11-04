@@ -23,7 +23,7 @@ class ConferenceStreamDialogDefaultLayoutDomTest {
                     maxDestinations = 3,
                     participantOptions = listOf("p1" to "Anna"),
                     defaultLayout = ConferenceStreamLayout.SPEAKER,
-                ) { _, _, _, _ -> }
+                ) { _, _, _, _, _ -> }
                 awaitUntil("the dialog is shown") { document.querySelector(".modal.show") != null }
                 val select = lastOpenModal().allOf("select").first()
                 val values = select.querySelectorAll("option")

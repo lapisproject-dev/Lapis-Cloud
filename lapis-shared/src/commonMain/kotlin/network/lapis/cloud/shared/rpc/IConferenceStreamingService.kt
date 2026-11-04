@@ -2,12 +2,15 @@ package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.ConferenceStreamAvailabilityDto
+import network.lapis.cloud.shared.domain.ConferenceStreamBroadcastInput
 import network.lapis.cloud.shared.domain.ConferenceStreamDestinationDto
 import network.lapis.cloud.shared.domain.ConferenceStreamDto
+import network.lapis.cloud.shared.domain.ConferenceStreamKeyKind
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import network.lapis.cloud.shared.domain.ConferenceStreamPlatform
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
+import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatusDto
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- RTMP-composited-egress
@@ -132,6 +135,9 @@ import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
  *   `https://template.livekit.io` by default -- this wave documents a `template_base` knob and the
  *   resulting `error_code 412` failure signature but does not build a Lapis-owned template (a
  *   genuine tension with the "Datenverarbeitung ist server-lokal" doctrine, flagged separately).
+ * - **Comments, level 1 only (V1.9.274).** The moderator gets a "Kommentare öffnen" link to the viewer page of the platform. Lapis
+ *   shows no comments itself, a platform account is needed. Level 2 (embedded chat for YouTube/Owncast), level 3 (platform APIs with OAuth,
+ *   quotas, Facebook app review, the paid X API) and the reconnect action are NOT part of this wave.
  * - Also carried forward, restated so nobody assumes streaming brought them along: no SRT output
  *   (RTMP/RTMPS only), no segmented/HLS output from LiveKit itself, no donation CTA/embedded public
  *   viewer page, no per-participant stream opt-out beyond camera-off/pseudonym, no platform stream
@@ -158,6 +164,9 @@ interface IConferenceStreamingService {
     suspend fun listDestinations(): List<ConferenceStreamDestinationDto>
 
     /**
+     * V1.9.274: [keyKind] [ConferenceStreamKeyKind.PERSISTENT] requires a [streamKey], [ConferenceStreamKeyKind.PER_BROADCAST] forbids one
+     * (else [BadRequestException]); the key is checked for printable ASCII, 1..512 characters.
+     *
      * Role: ADMIN. [streamKey] is WRITE-ONLY: accepted here, immediately encrypted via
      * [network.lapis.cloud.server.crypto.SecretBox] with the destination's own id as GCM AAD, and
      * NEVER readable again through any method on this interface. [label] must be unique (else
@@ -179,7 +188,8 @@ interface IConferenceStreamingService {
         label: String,
         platform: ConferenceStreamPlatform,
         rtmpUrl: String,
-        streamKey: String,
+        streamKey: String?,
+        keyKind: ConferenceStreamKeyKind = ConferenceStreamKeyKind.PERSISTENT,
     ): ConferenceStreamDestinationDto
 
     /**
@@ -188,12 +198,17 @@ interface IConferenceStreamingService {
      * non-null value REPLACES the stored ciphertext and stamps a fresh `streamKeySetAt`. A
      * blank/whitespace-only [newStreamKey] is REJECTED with a validation error, never silently
      * stored -- a stray form submit must never wipe a working key into an empty one.
+     *
+     * V1.9.274: [keyKind] `null` = unchanged. PERSISTENT -> PER_BROADCAST deletes the stored key ([newStreamKey] must then be `null`),
+     * PER_BROADCAST -> PERSISTENT requires [newStreamKey]. A change of the key kind is refused ([ConflictException]) while a not yet ended stream
+     * uses the destination.
      */
     suspend fun updateDestination(
         destinationId: String,
         label: String,
         rtmpUrl: String,
         newStreamKey: String?,
+        keyKind: ConferenceStreamKeyKind? = null,
     ): ConferenceStreamDestinationDto
 
     /** Role: ADMIN. Soft on/off without deleting the stored, encrypted credential. A disabled destination is excluded from [listStreamTargets] and rejected (with [ConflictException]) if named in [startStream]'s `destinationIds`. */
@@ -242,6 +257,10 @@ interface IConferenceStreamingService {
      * `participantIdentity == null`; or the caller is over their throttle budget. Calls LiveKit
      * SYNCHRONOUSLY -- see class KDoc "startStream DOES call LiveKit synchronously" for the full
      * two-transaction ordering and crash-recovery story.
+     *
+     * V1.9.274: [broadcastInputs] carries, per destination, the key of THIS broadcast (mandatory for [ConferenceStreamKeyKind.PER_BROADCAST]
+     * destinations -- [ConferenceStreamBroadcastKeyMissingException] otherwise; forbidden for persistent ones) and an optional viewer page
+     * address. The key is sealed on the target row and deleted when the stream ends or fails.
      */
     suspend fun startStream(
         roomId: String,
@@ -249,6 +268,7 @@ interface IConferenceStreamingService {
         layout: ConferenceStreamLayout,
         latencyMode: ConferenceStreamLatencyMode,
         participantIdentity: String?,
+        broadcastInputs: List<ConferenceStreamBroadcastInput> = emptyList(),
     ): ConferenceStreamDto
 
     /**
@@ -312,4 +332,27 @@ interface IConferenceStreamingService {
      * enforce.
      */
     suspend fun listStreams(roomId: String? = null): List<ConferenceStreamDto>
+
+    // ── V1.9.274 (appended: routes are indexed by position) ───────────────────────────────────
+
+    /**
+     * Role: room creator OR global BOARD/ADMIN. Stores the key of THIS broadcast for a [ConferenceStreamKeyKind.PER_BROADCAST] destination of a
+     * not yet ending stream (STOPPING/ENDED/FAILED -> [ConflictException]). Never returns anything that allows conclusions about the key. No
+     * restart of the egress happens here (the reconnect action is a later wave); the screen has no control for it yet.
+     */
+    suspend fun setBroadcastKey(
+        streamId: String,
+        destinationId: String,
+        streamKey: String,
+    ): Boolean
+
+    /**
+     * Role: room creator OR global BOARD/ADMIN. Sets (or, `null`/blank, clears) the viewer page address of one target; checked and normalised by the
+     * server per platform (https only, exact host comparison), [ConferenceStreamViewerUrlRejectedException] otherwise.
+     */
+    suspend fun setViewerUrl(
+        streamId: String,
+        destinationId: String,
+        viewerUrl: String?,
+    ): ConferenceStreamTargetStatusDto
 }

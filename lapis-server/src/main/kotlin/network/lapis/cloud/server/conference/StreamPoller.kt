@@ -186,6 +186,13 @@ class StreamPoller(
      * -- so a caller (production loop or a test) never needs its own try/catch.
      */
     suspend fun tick() {
+        // V1.9.274 safety net (also covers the first tick after a server start): no broadcast key survives on a stream that already ended.
+        try {
+            val cleared = transaction { BroadcastKeys.clearForTerminalStreams() }
+            if (cleared > 0) logger.warn { "StreamPoller: cleared $cleared leftover broadcast key(s) of ended streams" }
+        } catch (e: Throwable) {
+            logger.warn { "StreamPoller: clearing leftover broadcast keys failed (${e::class.simpleName})" }
+        }
         try {
             val rows =
                 transaction {
@@ -810,6 +817,8 @@ class StreamPoller(
             }) {
                 it[status] = ConferenceStreamTargetStatus.FINISHED
             }
+            // V1.9.274: ENDED is final -- the broadcast keys go with it, in the same transaction.
+            BroadcastKeys.clearForStream(streamId)
             // System-initiated (auto-stop), no acting member -- AuditLogRecorder.record accepts a
             // null actor for exactly this case, same as RecordingPoller.transitionToStopping. Must
             // be the LAST lock-taking operation -- see that object's KDoc "deadlock-avoidance
@@ -875,6 +884,8 @@ class StreamPoller(
             }) {
                 it[status] = ConferenceStreamTargetStatus.FINISHED
             }
+            // V1.9.274: ENDED is final -- the broadcast keys go with it, in the same transaction.
+            BroadcastKeys.clearForStream(streamId)
             RoomPauseDb.clearCaptureIfNothingPaused(roomId = current[ConferenceStreamTable.roomId])
             AuditLogRecorder.record(
                 actorMemberId = null,
@@ -941,6 +952,8 @@ class StreamPoller(
                 it[status] = ConferenceStreamTargetStatus.FAILED
                 it[failureReason] = reason
             }
+            // V1.9.274: FAILED is final -- the broadcast keys go with it, in the same transaction.
+            BroadcastKeys.clearForStream(streamId)
             AuditLogRecorder.record(
                 actorMemberId = null,
                 actorRole = null,

@@ -103,7 +103,10 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
             ),
         "ConferenceScreen.kt" to
             (
-                8 to
+                9 to
+                    "V1.9.274: startStreamDialog -- an addAfterDestroyHook on a Modal created in the same call, " +
+                    "registered before it has an element; it only empties the typed stream-key fields (no render, no key, " +
+                    "no re-render involved); covered by StreamBroadcastKeyDomTest. Older entries: " +
                     "role=alert banners (hidden first; the live call path cannot be mounted in a test, so they were not converted), " +
                     "roster/chat badges (raw child, next add patches), the tile-area containers " +
                     "(V1.9.115: the separate stage hook is gone, " +

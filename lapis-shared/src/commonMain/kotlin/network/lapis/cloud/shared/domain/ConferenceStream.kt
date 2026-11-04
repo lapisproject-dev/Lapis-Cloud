@@ -28,6 +28,27 @@ import kotlinx.serialization.Serializable
 enum class ConferenceStreamPlatform { YOUTUBE, TWITCH, PEERTUBE, OWNCAST, GENERIC_RTMP, X }
 
 /**
+ * V1.9.274 -- how the stream key of a destination is handled. [PERSISTENT]: the ADMIN stores the key (sealed) on the destination and every broadcast
+ * uses it. [PER_BROADCAST]: the platform issues a new key for every broadcast (Facebook Live, a scheduled X broadcast); the moderator types it at
+ * the start, it lives only on the target row of that one broadcast and is deleted when the stream ends. Literal order is load-bearing (same
+ * mechanism as [ConferenceStreamPlatform]).
+ */
+@Serializable
+enum class ConferenceStreamKeyKind { PERSISTENT, PER_BROADCAST }
+
+/**
+ * V1.9.274 -- which hint text the start dialog shows for the key of a [ConferenceStreamKeyKind.PER_BROADCAST] destination. Derived on the server
+ * from the platform and the ingest host, never a URL and never an input. Literal order is load-bearing.
+ */
+@Serializable
+enum class ConferenceStreamKeyHint { FACEBOOK, X, OTHER }
+
+/** V1.9.274 -- the single place the Facebook ingest host pattern lives; the client preset references it, the server derives [ConferenceStreamKeyHint] from it. */
+object ConferenceStreamHosts {
+    val FACEBOOK_INGEST_HOST = Regex("^live-api(-[a-z0-9]+)?\\.facebook\\.com$")
+}
+
+/**
  * Which LiveKit egress shape [network.lapis.cloud.server.db.generated.ConferenceStreamTable]'s
  * `startStream` uses. `GRID`/`SPEAKER` -> `StartRoomCompositeEgress` (Chrome + web template,
  * `https://template.livekit.io` by default -- see the wave's scope-decisions doc "MAJOR GOTCHA" for
@@ -143,6 +164,8 @@ data class ConferenceStreamDestinationDto(
     val label: String,
     val platform: ConferenceStreamPlatform,
     val rtmpUrl: String,
+    /** V1.9.274 -- [ConferenceStreamKeyKind.PER_BROADCAST] destinations store no key at all. */
+    val keyKind: ConferenceStreamKeyKind = ConferenceStreamKeyKind.PERSISTENT,
     /**
      * ALWAYS the literal string `"********"` -- never derived from the real key's length or content
      * in any way. The operational question "which destination is this?" is fully answered by
@@ -152,7 +175,8 @@ data class ConferenceStreamDestinationDto(
      * [network.lapis.cloud.shared.rpc.IConferenceStreamingService] KDoc for the full rationale.
      */
     val streamKeyMask: String,
-    val streamKeySetAt: LocalDateTime,
+    /** `null` = no key stored (a [ConferenceStreamKeyKind.PER_BROADCAST] destination, or a persistent one restored from a backup). */
+    val streamKeySetAt: LocalDateTime?,
     val createdByDisplayName: String,
     val enabled: Boolean,
 )
@@ -168,6 +192,12 @@ data class ConferenceStreamTargetDto(
     val id: String,
     val label: String,
     val platform: ConferenceStreamPlatform,
+    /** V1.9.274 */
+    val keyKind: ConferenceStreamKeyKind = ConferenceStreamKeyKind.PERSISTENT,
+    /** V1.9.274 -- hint text for the key field of a [ConferenceStreamKeyKind.PER_BROADCAST] destination. */
+    val keyHint: ConferenceStreamKeyHint = ConferenceStreamKeyHint.OTHER,
+    /** V1.9.274 -- a [ConferenceStreamKeyKind.PERSISTENT] destination without a stored key (after a backup restore): not startable until the ADMIN enters it again. */
+    val storedKeyMissing: Boolean = false,
 )
 
 /**
@@ -199,6 +229,15 @@ data class ConferenceStreamTargetStatusDto(
      * already enforces for Wave 2. `null` unless [status] is [ConferenceStreamTargetStatus.FAILED].
      */
     val failureReason: String?,
+    /** V1.9.274 */
+    val keyKind: ConferenceStreamKeyKind = ConferenceStreamKeyKind.PERSISTENT,
+    /**
+     * V1.9.274 -- moderators only (always `false` for everybody else): a [ConferenceStreamKeyKind.PER_BROADCAST] target of a stream that has not ended
+     * and holds no key (e.g. after a failed restart). Reserved for the reconnect action of the next wave.
+     */
+    val needsBroadcastKey: Boolean = false,
+    /** V1.9.274 -- moderators only (always `null` for everybody else): the normalised viewer page address behind the "Kommentare öffnen" link. */
+    val viewerUrl: String? = null,
 )
 
 /**
@@ -258,3 +297,19 @@ data class ConferenceStreamAvailabilityDto(
     val maxDestinations: Int,
     val configuredDestinationCount: Int,
 )
+
+/**
+ * V1.9.274 -- what the moderator types for ONE destination when starting a stream: the key of this broadcast (required for a
+ * [ConferenceStreamKeyKind.PER_BROADCAST] destination, forbidden for a persistent one) and optionally the viewer page address. A plain class, NOT a
+ * `data class`, so that no generated `toString`/`copy`/`component` can ever print the key; [toString] is fixed.
+ */
+@Serializable
+class ConferenceStreamBroadcastInput(
+    val destinationId: String,
+    val streamKey: String? = null,
+    val viewerUrl: String? = null,
+) {
+    override fun toString(): String =
+        "ConferenceStreamBroadcastInput(destinationId=$destinationId, streamKey=${if (streamKey == null) "null" else "<redacted>"}, " +
+            "viewerUrl=<redacted>)"
+}

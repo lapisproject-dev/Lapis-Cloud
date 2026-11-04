@@ -521,6 +521,44 @@ send is not retried and not remembered. The clients drop every packet that carri
 |`EventRoomCaptureBlockedByOrganizerException` |event room, event not released or not a Lapis conference (moderator only)
 |===
 
+== Per-broadcast stream keys (V1.9.274)
+
+Some platforms issue a new stream key for every broadcast (Facebook Live, a scheduled X broadcast). A destination therefore has a *key kind*: `PERSISTENT` (the ADMIN stores the key sealed on the destination, as before) or `PER_BROADCAST` (nothing is stored on the destination; the moderator types the key into the start dialog).
+
+=== Where the key lives and how long
+
+[cols="2,3,3",options="header"]
+|===
+| Kind | Stored in | Deleted
+
+| `PERSISTENT`
+| `conference_stream_destination.stream_key_ciphertext`, AAD = destination id
+| with a switch to `PER_BROADCAST`, or by the ADMIN
+
+| `PER_BROADCAST`
+| `conference_stream_target.broadcast_key_ciphertext`, AAD = `conference_stream_target:<target id>` (the prefix keeps it apart from a destination key)
+| when the stream reaches `ENDED` or `FAILED`
+|===
+
+Six places write `ENDED`/`FAILED` to `conference_stream`: `StreamPoller.finalizeEnded`, `finalizeEndedConfirmed`, `markFailed`, the failure branch of `startStream`, `stopStream` and the failure branch of `restartEgressForStream`. Each calls `BroadcastKeys.clearForStream` in the same transaction; `BroadcastKeyTripwireTest` pins the list. The first step of every `StreamPoller.tick()` calls `BroadcastKeys.clearForTerminalStreams()` as a safety net (this also covers the first tick after a server start). A single `FAILED` target of a running stream keeps its key: Resume resets every target and needs it.
+
+Only `targetRtmpUrl` builds a plaintext RTMP URL (start, every restart, the pause feed). A missing key raises `StreamKeyMissing` (a constant message). At a restart the target becomes `FAILED` with a fixed reason and the others restart; if no target is left the stream stays `PAUSED` with `MANUAL` (no endless retry, same pattern as a disabled destination).
+
+=== Backup
+
+`OrganizationSchemaCatalog.REDACTED_COLUMNS` exports the key columns as NULL and `conference_stream_target.url_fingerprint` (up to 3+3 plaintext characters of the key) as `{redacted}`. The ciphertexts are bound to the `LAPIS_SECRET_ENCRYPTION_KEY` of the instance and do not belong in a backup (same reasoning as `lupabb_sync_config`). *After a restore the ADMIN enters the persistent stream keys again*; the start refuses a persistent destination without a key with `ConferenceStreamStoredKeyMissingException`. This changes what an existing backup restores.
+
+=== Viewer address ("Kommentare öffnen")
+
+Level 1 of the comments: the moderator gives the address of the viewer page; Lapis opens it in a new window and shows no comments itself. `StreamViewerUrls.normalize` accepts https only, compares the host exactly against fixed sets, converts international names to ASCII, refuses user info, ports other than 443, IP literals and `localhost`, and rebuilds the address (YouTube from the 11-character video id to the chat popout, Twitch from the channel name, the rest as host + path + query without the fragment). The client has exactly one `window.open`, with `noopener,noreferrer`; the popup size is used for the YouTube and Twitch chat pages only.
+
+=== Possible later
+
+* Level 2: an embedded chat for platforms that allow it (YouTube popout chat, Owncast), which needs a look at the content security policy.
+* Level 3: platform APIs (OAuth, refresh tokens, quotas, the Facebook app review, the paid X API). Kay's remark applies: a comment feed would need its own `broadcast` table, not columns on the stream.
+* A default viewer address for Twitch and Owncast derived from the destination.
+* The reconnect action for a failed target (`needsBroadcastKey` and `setBroadcastKey` prepare it).
+
 == Known limitations
 
 * *Participant egress mode (the default since V1.9.116) was measured with one real browser participant only* (see <<Staging results (2026-10-12)>>) and re-encodes (CPU), see <<Participant egress mode (V1.9.110, default since V1.9.116)>>: a late camera, the screen-share offset, several people and the CPU cost under load are open; there is no fallback to Track Egress when LiveKit refuses a start; recordings made in Track mode (all before V1.9.116 unless `track` was set) keep their audio/video offset and cannot be repaired.

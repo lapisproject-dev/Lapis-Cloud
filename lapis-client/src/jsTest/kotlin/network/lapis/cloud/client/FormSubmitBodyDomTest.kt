@@ -416,8 +416,8 @@ class FormSubmitBodyDomTest {
                     select.dispatchEvent(Event("change"))
                     fill(element().inputs("input[type=password]")[0], " key with spaces ")
                     element().button("Stream-Ziel anlegen").click()
-                    awaitUntil("create request") { calls.any { it.isRpc && (it.json.params.length as Int) == 4 } }
-                    val request = calls.first { it.isRpc && (it.json.params.length as Int) == 4 }
+                    awaitUntil("create request") { calls.any { it.isRpc && (it.json.params.length as Int) == 5 } }
+                    val request = calls.first { it.isRpc && (it.json.params.length as Int) == 5 }
                     assertEquals("PdV Kanal", request.rpcParam(0) as String)
                     assertEquals("TWITCH", request.rpcParam(1) as String)
                     assertEquals("rtmps://ingest.example.org/live", request.rpcParam(2) as String)
@@ -440,8 +440,8 @@ class FormSubmitBodyDomTest {
                     fill(texts[1], " rtmps://new.example.org/live  ")
                     // Schlüssel leer lassen: `newStreamKey` muss `null` sein (Passwortfeld-Semantik).
                     modal.button("Speichern").click()
-                    awaitUntil("update request") { calls.any { it.isRpc && (it.json.params.length as Int) == 4 } }
-                    val request = calls.first { it.isRpc && (it.json.params.length as Int) == 4 }
+                    awaitUntil("update request") { calls.any { it.isRpc && (it.json.params.length as Int) == 5 } }
+                    val request = calls.first { it.isRpc && (it.json.params.length as Int) == 5 }
                     assertEquals("dest-1", request.rpcParam(0) as String)
                     assertEquals("Neu benannt", request.rpcParam(1) as String)
                     assertEquals("rtmps://new.example.org/live", request.rpcParam(2) as String)

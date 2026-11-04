@@ -4,6 +4,7 @@ import io.kvision.form.select.Select
 import io.kvision.form.text.Text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Div
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.icon
@@ -17,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.number
 import network.lapis.cloud.shared.domain.ConferenceStreamDestinationDto
+import network.lapis.cloud.shared.domain.ConferenceStreamKeyKind
 import network.lapis.cloud.shared.domain.ConferenceStreamPlatform
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 
@@ -111,14 +113,26 @@ private fun renderDestinationRow(
     headerRow.typeBadge(conferenceStreamDestinationLabel(destination.platform, destination.rtmpUrl), "secondary")
     headerRow.activeStatusBadge(destination.enabled)
 
+    if (destination.keyKind == ConferenceStreamKeyKind.PER_BROADCAST) {
+        headerRow.typeBadge(tr("Schlüssel pro Sendung"), "info")
+    }
+
     row.untrustedDiv(destination.rtmpUrl, className = "text-muted small")
-    row.div(
-        gettext(
-            "Schlüssel gesetzt am %1 von %2",
-            conferenceStreamDestinationDateLabel(destination.streamKeySetAt),
-            destination.createdByDisplayName,
-        ),
-    ) { addCssClasses("text-muted small") }
+    val keySetAt = destination.streamKeySetAt
+    when {
+        // V1.9.274: nothing is stored on purpose -- the key is typed at every start.
+        destination.keyKind == ConferenceStreamKeyKind.PER_BROADCAST -> Unit
+        // V1.9.274: a persistent destination without a key (restored from a backup): not startable until it is entered again.
+        keySetAt == null -> row.div(tr("Schlüssel fehlt -- bitte neu eingeben")) { addCssClasses("text-danger small") }
+        else ->
+            row.div(
+                gettext(
+                    "Schlüssel gesetzt am %1 von %2",
+                    conferenceStreamDestinationDateLabel(keySetAt),
+                    destination.createdByDisplayName,
+                ),
+            ) { addCssClasses("text-muted small") }
+    }
 
     val actionRow = row.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
     val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
@@ -200,9 +214,22 @@ private fun SimplePanel.renderDestinationCreateForm(
         )
     val hintLine = form.panel.div { addCssClasses("text-muted small") }
 
+    // V1.9.274: does the platform issue a new key for every broadcast? Then nothing is stored, the key is typed at each start.
+    var keyKindRadios: KeyKindRadios? = null
+    var keyFieldRef: LapisField? = null
+
     // D1: the lock glyph is the one non-technical cue this field behaves differently from every other text field on the
     // page (Kare). Der Schlüssel ist ein Geheimnis: keine Passwortmanager-Angebote, kein Aufdecken (er soll den Bildschirm
     // nicht mehr als nötig sehen).
+    keyKindRadios =
+        KeyKindRadios(form.panel, serial = nextDestinationFormSerial++, initial = ConferenceStreamKeyKind.PERSISTENT) { kind ->
+            // The key field is hidden (and emptied) for a per-broadcast destination: it is neither read nor sent.
+            val persistent = kind == ConferenceStreamKeyKind.PERSISTENT
+            keyFieldRef?.let {
+                if (!persistent) it.reset()
+                it.setVisible(persistent)
+            }
+        }
     val keyField =
         form.passwordField(
             label = tr("Stream-Schlüssel"),
@@ -210,6 +237,7 @@ private fun SimplePanel.renderDestinationCreateForm(
             suppressManagers = true,
             actions = { it.lockIcon() },
         )
+    keyFieldRef = keyField
     val createButton = newActionButton(ActionIcon.ADD, tr("Stream-Ziel anlegen"), ButtonStyle.PRIMARY)
     form.buttons(primary = createButton, cancel = collapseCancelButton(collapse))
 
@@ -234,9 +262,12 @@ private fun SimplePanel.renderDestinationCreateForm(
             val label = labelField.value.trim()
             // A preset is stored as GENERIC_RTMP; the stream key field is never read or written by presets.
             val platform = conferenceStreamSelection(platformSelect.value).first
+            val kind = keyKindRadios?.value ?: ConferenceStreamKeyKind.PERSISTENT
+            // A per-broadcast destination sends no key at all (the field is hidden, nothing is read).
+            val storedKey = if (kind == ConferenceStreamKeyKind.PERSISTENT) keyField.value else null
             val result =
                 guarded {
-                    rpcService<IConferenceStreamingService>().createDestination(label, platform, urlField.value.trim(), keyField.value)
+                    rpcService<IConferenceStreamingService>().createDestination(label, platform, urlField.value.trim(), storedKey, kind)
                 }
             if (result != null) {
                 notifySuccess(gettext("Stream-Ziel \"%1\" wurde angelegt.", label))
@@ -252,6 +283,8 @@ private fun SimplePanel.renderDestinationCreateForm(
 }
 
 /** Feldregel der RTMP-URL (lose gespiegelt, der Server bleibt Autorität). */
+private var nextDestinationFormSerial = 0
+
 private fun rtmpUrlCheck(url: String): FieldCheck =
     if (conferenceStreamUrlLooksValid(url)) {
         FieldCheck.Ok
@@ -281,20 +314,54 @@ private fun renderDestinationEditModal(
             required = true,
             rule = { rtmpUrlCheck(it) },
         )
+    var keyKindRadios: KeyKindRadios? = null
+    var keyFieldRef: LapisField? = null
+    val switchWarning =
+        Div().apply {
+            addCssClasses("text-warning-emphasis small")
+            content = tr("Der gespeicherte Schlüssel wird dabei gelöscht.")
+            hide()
+        }
+    keyKindRadios =
+        KeyKindRadios(form.panel, serial = nextDestinationFormSerial++, initial = destination.keyKind) { kind ->
+            val persistent = kind == ConferenceStreamKeyKind.PERSISTENT
+            keyFieldRef?.let {
+                if (!persistent) it.reset()
+                it.setVisible(persistent)
+            }
+            // Only a switch AWAY from a stored key deletes something.
+            if (!persistent && destination.keyKind == ConferenceStreamKeyKind.PERSISTENT) switchWarning.show() else switchWarning.hide()
+        }
+    form.panel.add(switchWarning)
     val keyField =
         form.passwordField(
             label = tr("Neuer Stream-Schlüssel (leer lassen = unverändert lassen)"),
             suppressManagers = true,
             actions = { it.lockIcon() },
         )
+    keyFieldRef = keyField
+    if (destination.keyKind == ConferenceStreamKeyKind.PER_BROADCAST) keyField.setVisible(false)
+    // Back from per-broadcast to a stored key: the key is mandatory then.
+    keyField.extraChecks +=
+        {
+            val backToPersistent =
+                destination.keyKind == ConferenceStreamKeyKind.PER_BROADCAST && keyKindRadios?.value == ConferenceStreamKeyKind.PERSISTENT
+            if (backToPersistent && keyField.value.isEmpty()) {
+                FieldCheck.Invalid(gettext("Bitte geben Sie den Stream-Schlüssel ein."))
+            } else {
+                FieldCheck.Ok
+            }
+        }
     if (destination.platform == ConferenceStreamPlatform.X) {
         // X wechselt den Schlüssel unter Umständen pro Übertragung; nur dieses Ziel bekommt den Hinweis.
         form.panel.div(tr("Bei X kann sich der Schlüssel pro Übertragung ändern. Tragen Sie ihn dann hier neu ein.")) {
             addCssClasses("text-muted small")
         }
     }
-    form.panel.div(gettext("Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt.", destination.streamKeyMask)) {
-        addCssClasses("text-muted small")
+    if (destination.streamKeySetAt != null) {
+        form.panel.div(gettext("Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt.", destination.streamKeyMask)) {
+            addCssClasses("text-muted small")
+        }
     }
     val savedBox =
         form.panel.div().apply {
@@ -311,11 +378,14 @@ private fun renderDestinationEditModal(
     val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     saveButton.onClick {
         form.submit(saveButton) {
-            val newKey = keyField.value.takeIf { it.isNotEmpty() }
+            val kind = keyKindRadios?.value ?: destination.keyKind
+            // A per-broadcast destination sends no key (the field is hidden); `null` kind = unchanged.
+            val newKey = if (kind == ConferenceStreamKeyKind.PERSISTENT) keyField.value.takeIf { it.isNotEmpty() } else null
+            val newKind = kind.takeIf { it != destination.keyKind }
             val result =
                 guarded {
                     rpcService<IConferenceStreamingService>()
-                        .updateDestination(destination.id, labelField.value.trim(), urlField.value.trim(), newKey)
+                        .updateDestination(destination.id, labelField.value.trim(), urlField.value.trim(), newKey, newKind)
                 }
             if (result != null) {
                 // D1: re-masks visibly INSTEAD OF silently -- the key field itself clears and this confirmation line appears,

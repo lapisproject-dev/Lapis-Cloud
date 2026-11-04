@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ConferenceStreamKeyKind
 import network.lapis.cloud.shared.domain.ConferenceStreamPlatform
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -15,8 +16,10 @@ public object ConferenceStreamDestinationTable : Table("conference_stream_destin
     public val label: Column<String> = varchar("label", 120).uniqueIndex()
     public val platform: Column<ConferenceStreamPlatform> = enumerationByName<ConferenceStreamPlatform>("platform", 12)
     public val rtmpUrl: Column<String> = varchar("rtmp_url", 500)
-    public val streamKeyCiphertext: Column<String> = varchar("stream_key_ciphertext", 1024)
-    public val streamKeySetAt: Column<LocalDateTime> = datetime("stream_key_set_at")
+    public val keyKind: Column<ConferenceStreamKeyKind> =
+        enumerationByName<ConferenceStreamKeyKind>("key_kind", 16).default(ConferenceStreamKeyKind.PERSISTENT)
+    public val streamKeyCiphertext: Column<String?> = varchar("stream_key_ciphertext", 1024).nullable()
+    public val streamKeySetAt: Column<LocalDateTime?> = datetime("stream_key_set_at").nullable()
     public val createdByMemberId: Column<Uuid> = reference("created_by_member_id", MemberTable.id)
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val enabled: Column<Boolean> = bool("enabled").default(true)

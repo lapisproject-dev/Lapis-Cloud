@@ -19,6 +19,8 @@ public object ConferenceStreamTargetTable : Table("conference_stream_target") {
     public val endedAtEpochNanos: Column<Long?> = long("ended_at_epoch_nanos").nullable()
     public val retries: Column<Int> = integer("retries").default(0)
     public val failureReason: Column<String?> = varchar("failure_reason", 500).nullable()
+    public val broadcastKeyCiphertext: Column<String?> = varchar("broadcast_key_ciphertext", 1024).nullable()
+    public val viewerUrl: Column<String?> = varchar("viewer_url", 512).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

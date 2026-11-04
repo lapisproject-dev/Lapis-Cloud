@@ -232,6 +232,7 @@ class OrganizationExportService(
         assetIds: Map<BackupAssetKind, MutableSet<String>>,
     ): Pair<Long, String> {
         val assetKinds = BACKUP_ASSET_KINDS.filter { it.tableName == table.tableName }
+        val redactions = OrganizationSchemaCatalog.REDACTED_COLUMNS[table.tableName]
         val digest = MessageDigest.getInstance("SHA-256")
         var rowCount = 0L
         zip.putNextEntry(ZipEntry(DATA_ENTRY_PREFIX + table.tableName + ".jsonl"))
@@ -247,7 +248,14 @@ class OrganizationExportService(
                 statement.fetchSize = JDBC_FETCH_SIZE
                 statement.executeQuery().use { rs ->
                     while (rs.next()) {
-                        val row = JdbcRowCodec.rowToJson(rs = rs, columns = table.columns)
+                        val read = JdbcRowCodec.rowToJson(rs = rs, columns = table.columns)
+                        // V1.9.274: key material never leaves the instance -- see OrganizationSchemaCatalog.REDACTED_COLUMNS.
+                        val row =
+                            if (redactions == null) {
+                                read
+                            } else {
+                                JsonObject(read.mapValues { (name, value) -> redactions[name]?.replacement ?: value })
+                            }
                         if (table.tableName in BLOB_TABLES) {
                             (row[STORAGE_KEY_COLUMN] as? JsonPrimitive)?.contentOrNull?.let { blobStorageKeys += it }
                         }
