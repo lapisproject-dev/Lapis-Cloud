@@ -155,9 +155,14 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * `runGuardedAction`, a failure toasts through `guarded`: the accepted shape of the other `preview*` reads); `MyProtocolTasksSection.kt` holds the
  * `getMyProtocolTasks(` read of "Meine Aufgaben aus Protokollen" (the section is mounted hidden and appears only when there are tasks; a person without tasks
  * and a failed read look the same on purpose -- the accepted background shape of the badge reads).
+ *
+ * Welle V1.9.276 "Heute" (dashboard card) adds ONE read in ONE new file (65 -> 66 files, 196 -> 197): `TodaysAnniversariesCard.kt` holds the
+ * `getTodaysAnniversaries(` read of the card "Heute" (BOARD/ADMIN). The card is mounted as an empty, invisible slot and draws only when there is something
+ * to say: a failed or refused read, an empty answer and a screen that was left all look the same on purpose (no loading line, no error block, no toast --
+ * the accepted background shape of the other supplementary dashboard reads).
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 196
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 65
+private const val READ_OUTSIDE_STATE_REGION_MAX = 197
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 66
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

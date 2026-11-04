@@ -10717,6 +10717,34 @@ msgstr "Doelgebonden bedrijf"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1122
 msgid "Zwischengespeichert (Cached)"
 msgstr "Tijdelijk opgeslagen (cached)"
+
+msgid "%1 wird %2"
+msgid_plural "%1 wird %2"
+msgstr[0] "%1 wordt %2"
+msgstr[1] "%1 wordt %2"
+
+msgid "%1: seit %2 Jahr dabei"
+msgid_plural "%1: seit %2 Jahren dabei"
+msgstr[0] "%1: %2 jaar lid"
+msgstr[1] "%1: %2 jaar lid"
+
+msgid "und %1 weiterer Eintrag"
+msgid_plural "und %1 weitere Einträge"
+msgstr[0] "en nog %1 vermelding"
+msgstr[1] "en nog %1 vermeldingen"
+
+msgid "erstes Jahr"
+msgstr "eerste jaar"
+
+msgid "Meilenstein"
+msgstr "mijlpaal"
+
+msgid "Geburtstage und Jubiläen heute"
+msgstr "Verjaardagen en jubilea vandaag"
+
+msgid "Alle Geburtstage und Jubiläen"
+msgstr "Alle verjaardagen en jubilea"
+
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 tot %2: %3 (%4)"
 

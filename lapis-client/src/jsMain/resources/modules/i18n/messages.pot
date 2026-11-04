@@ -29772,3 +29772,29 @@ msgstr ""
 msgid "Das Ziel konnte nicht neu verbunden werden. Bitte versuchen Sie es in einer Minute erneut."
 msgstr ""
 
+msgid "%1 wird %2"
+msgid_plural "%1 wird %2"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%1: seit %2 Jahr dabei"
+msgid_plural "%1: seit %2 Jahren dabei"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "und %1 weiterer Eintrag"
+msgid_plural "und %1 weitere Einträge"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "erstes Jahr"
+msgstr ""
+
+msgid "Meilenstein"
+msgstr ""
+
+msgid "Geburtstage und Jubiläen heute"
+msgstr ""
+
+msgid "Alle Geburtstage und Jubiläen"
+msgstr ""

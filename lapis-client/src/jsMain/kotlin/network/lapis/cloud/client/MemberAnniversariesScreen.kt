@@ -222,7 +222,7 @@ private fun Container.renderAnniversaryOccasion(entry: AnniversaryEntryDto) {
     span(anniversaryRowLabel(entry)) { addCssClass(anniversaryEmphasisCssClass(entry.emphasis)) }
 }
 
-private fun anniversaryKindIcon(kind: AnniversaryEntryKind): String =
+internal fun anniversaryKindIcon(kind: AnniversaryEntryKind): String =
     when (kind) {
         AnniversaryEntryKind.BIRTHDAY -> "fas fa-cake-candles"
         AnniversaryEntryKind.MEMBERSHIP_ANNIVERSARY -> "fas fa-award"

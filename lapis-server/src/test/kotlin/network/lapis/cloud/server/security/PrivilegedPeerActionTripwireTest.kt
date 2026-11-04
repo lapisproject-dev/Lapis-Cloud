@@ -91,8 +91,11 @@ class PrivilegedPeerActionTripwireTest :
                     "age computation of the family membership rules, no value leaves",
                 "network/lapis/cloud/server/rpc/BoardMembershipService.kt#getTransparenzregisterReport" to
                     "only checks WHETHER a value is present (data-gap list), no value leaves",
-                "network/lapis/cloud/server/rpc/MemberAnniversaryService.kt#getUpcomingAnniversaries" to
+                "network/lapis/cloud/server/rpc/MemberAnniversaryService.kt#toRaw" to
                     "anniversary list for BOARD/ADMIN -- documented limitation (CHANGELOG, Known limitations)",
+                "network/lapis/cloud/server/rpc/MemberAnniversaryService.kt#loadTodaysCandidates" to
+                    "dashboard card today for BOARD/ADMIN: name + age/years only, no date leaves -- same audience as the " +
+                    "anniversary list, documented limitation",
                 "network/lapis/cloud/server/routes/MailmergeRoutes.kt#toMailmergeMemberDto" to
                     "the postal address of recipients is the purpose of a mail merge -- documented limitation (CHANGELOG, Known limitations)",
             )

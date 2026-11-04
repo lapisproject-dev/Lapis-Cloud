@@ -1205,6 +1205,16 @@ window presets close this gap without inventing one), family memberships,
 deceased-member workflow (each its own later sub-wave with its own scoping decision). Honors
 management shipped as V1.4.4.3, see below.
 
+=== V1.9.276 -- Today's anniversaries (dashboard card)
+
+`IMemberAnniversaryService.getTodaysAnniversaries` answers "who has a birthday or a membership milestone today" for BOARD/ADMIN. No table, no migration.
+`loadTodaysCandidates(today)` selects the eligible members (`ANNIVERSARY_ELIGIBLE`, `anonymized_at IS NULL`) whose date of birth or join date has today's month and
+day, using Exposed's `month()`/`day()` functions (portable on H2 and PostgreSQL; `TodaysAnniversaryQueryScenarios` runs on both). On 28 February of a non-leap year the
+29 February dates are included as well; `AnniversaryCalendar.nextOccurrence` decides whether that day applies (no second leap-year rule). The candidates then go
+through the same entry builder as `getUpcomingAnniversaries` (`entriesFor`) and are cut to `occursOn == today`. `TodaysAnniversaryDto` carries id, name, kind, years and emphasis only
+(no date, no status); the response holds at most 50 entries and the uncapped `totalCount`. Rate limit 12 calls per minute and member (one shared `FederationInboxRateLimiter`).
+No index supports the filter; it is not a `DashboardSignalSource`.
+
 [source,kuml,name="member-anniversaries"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — Member Anniversaries read path (V1.4.4.2)") {

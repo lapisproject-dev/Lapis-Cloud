@@ -10400,6 +10400,34 @@ msgstr "Explotación vinculada al fin"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1116
 msgid "Zwischengespeichert (Cached)"
 msgstr "Almacenado en caché"
+
+msgid "%1 wird %2"
+msgid_plural "%1 wird %2"
+msgstr[0] "%1 cumple %2"
+msgstr[1] "%1 cumple %2"
+
+msgid "%1: seit %2 Jahr dabei"
+msgid_plural "%1: seit %2 Jahren dabei"
+msgstr[0] "%1: %2 año con nosotros"
+msgstr[1] "%1: %2 años con nosotros"
+
+msgid "und %1 weiterer Eintrag"
+msgid_plural "und %1 weitere Einträge"
+msgstr[0] "y %1 entrada más"
+msgstr[1] "y %1 entradas más"
+
+msgid "erstes Jahr"
+msgstr "primer año"
+
+msgid "Meilenstein"
+msgstr "hito"
+
+msgid "Geburtstage und Jubiläen heute"
+msgstr "Cumpleaños y aniversarios de hoy"
+
+msgid "Alle Geburtstage und Jubiläen"
+msgstr "Todos los cumpleaños y aniversarios"
+
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 a %2: %3 (%4)"
 

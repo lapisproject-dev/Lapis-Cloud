@@ -10677,6 +10677,34 @@ msgstr "Purpose-related operation"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1122
 msgid "Zwischengespeichert (Cached)"
 msgstr "Cached"
+
+msgid "%1 wird %2"
+msgid_plural "%1 wird %2"
+msgstr[0] "%1 turns %2"
+msgstr[1] "%1 turns %2"
+
+msgid "%1: seit %2 Jahr dabei"
+msgid_plural "%1: seit %2 Jahren dabei"
+msgstr[0] "%1: member for %2 year"
+msgstr[1] "%1: member for %2 years"
+
+msgid "und %1 weiterer Eintrag"
+msgid_plural "und %1 weitere Einträge"
+msgstr[0] "and %1 more entry"
+msgstr[1] "and %1 more entries"
+
+msgid "erstes Jahr"
+msgstr "first year"
+
+msgid "Meilenstein"
+msgstr "milestone"
+
+msgid "Geburtstage und Jubiläen heute"
+msgstr "Birthdays and anniversaries today"
+
+msgid "Alle Geburtstage und Jubiläen"
+msgstr "All birthdays and anniversaries"
+
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 to %2: %3 (%4)"
 

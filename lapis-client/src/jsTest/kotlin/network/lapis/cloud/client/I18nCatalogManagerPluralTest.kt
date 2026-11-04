@@ -159,4 +159,45 @@ class I18nCatalogManagerPluralTest {
             assertEquals(plural.replace("%1", "3"), I18n.manager.ngettext(singular, plural, 3, 3), plural)
         }
     }
+
+    // ── V1.9.276: the dashboard card "Heute" -- plural pairs with two placeholders (name, number), same selection rules.
+
+    private val todaysCardPairs =
+        listOf(
+            "%1 wird %2" to "%1 wird %2",
+            "%1: seit %2 Jahr dabei" to "%1: seit %2 Jahren dabei",
+            "und %1 weiterer Eintrag" to "und %1 weitere Einträge",
+        )
+
+    @Test
+    fun todaysCardMessages_polishAndRussian_selectOneFewManyAtOneTwoFiveEleven21() {
+        for (lang in listOf("pl", "ru")) {
+            todaysCardPairs.forEach { (singular, plural) ->
+                installCatalog(lang, mapOf(singular to js("['ONE', 'FEW', 'MANY']")))
+                val expected =
+                    listOf(
+                        1 to "ONE",
+                        2 to "FEW",
+                        5 to "MANY",
+                        11 to "MANY",
+                        // 21: Russian "one" (n%10==1, n%100!=11); Polish has no "one" beyond exactly 1.
+                        21 to if (lang == "ru") "ONE" else "MANY",
+                    )
+                expected.forEach { (n, form) ->
+                    assertEquals(form, I18n.manager.ngettext(singular, plural, n, "Anna", n), "$lang/$singular @ $n")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun todaysCardMessages_germanFallback_substitutesBothPlaceholders() {
+        installCatalog("de", emptyMap())
+        assertEquals("Anna wird 50", I18n.manager.ngettext("%1 wird %2", "%1 wird %2", 50, "Anna", 50))
+        assertEquals("Anna: seit 1 Jahr dabei", I18n.manager.ngettext("%1: seit %2 Jahr dabei", "%1: seit %2 Jahren dabei", 1, "Anna", 1))
+        assertEquals(
+            "Anna: seit 10 Jahren dabei",
+            I18n.manager.ngettext("%1: seit %2 Jahr dabei", "%1: seit %2 Jahren dabei", 10, "Anna", 10),
+        )
+    }
 }

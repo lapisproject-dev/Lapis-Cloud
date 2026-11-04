@@ -615,6 +615,10 @@ internal fun Application.module(
             rateLimiter = FederationInboxRateLimiter(maxRequests = DocumentStorageSpaceReader.MAX_CALLS, window = 1.minutes),
         )
 
+    // V1.9.276: one shared limiter for the dashboard card "Heute" RPC (MemberAnniversaryService is rebuilt per call).
+    val memberAnniversaryTodayLimiter =
+        FederationInboxRateLimiter(maxRequests = MemberAnniversaryService.TODAY_MAX_CALLS, window = 1.minutes)
+
     // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- reuses documentStorageRoot's
     // durable-volume guarantee with an "event-covers/" subdirectory as the default, same pattern
     // "travel-expenses/" (`registerTravelExpenseReceiptRoutes`) already establishes: logically a
@@ -2471,7 +2475,9 @@ internal fun Application.module(
         // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale".
         registerService(IVolunteerAllowanceService::class) { call -> VolunteerAllowanceService(call) }
         registerService(IMemberFinancialHistoryService::class) { call -> MemberFinancialHistoryService(call) }
-        registerService(IMemberAnniversaryService::class) { call -> MemberAnniversaryService(call = call) }
+        registerService(
+            IMemberAnniversaryService::class,
+        ) { call -> MemberAnniversaryService(call = call, todayRateLimiter = memberAnniversaryTodayLimiter) }
         registerService(
             IBoardMemberMapService::class,
         ) { call ->

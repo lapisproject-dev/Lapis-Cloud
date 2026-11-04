@@ -236,6 +236,23 @@ and guest. `DashboardHasNoMenuDuplicatesDomTest` pins that the dashboard repeats
 . Tests: a positive and a negative case in `DashboardSignalScenarios` (H2 and PostgreSQL), one case that the serialized signal contains no foreign title or name, and the
   statements are picked up by `DashboardQueryPlanPostgresTest` (extend its fixture so the new source reaches all its queries). A migration (V121) is justified only by a failure of that test.
 
+== Today (BOARD/ADMIN, V1.9.276)
+
+For BOARD and ADMIN a card "Heute" can appear below "Für Sie": today's birthdays and membership milestones (1 year and every 5th year) of members and
+donors. One RPC (`IMemberAnniversaryService.getTodaysAnniversaries`), no migration.
+
+* *Lines:* at most six, each `Name wird 50` or `Name: seit 10 Jahren dabei`, with a small word ("erstes Jahr", "Meilenstein") for a first year or a 10th/25th
+  anniversary. More than six: one sentence "und N weitere Einträge" (N from the uncapped `totalCount`; the server sends 50 at most) and the link "Alle
+  Geburtstage und Jubiläen" to the full list.
+* *Timing:* nothing is drawn until the answer is in and "Für Sie" has settled for the first time (answer or failure), in either order. The slot below "Für Sie" is
+  empty and invisible until then, so nothing moves. No empty card: without a hit nothing appears. No polling, not on the visibility refresh, no refresh over
+  midnight, no live region, no toast on a failure.
+* *Who:* MEMBER and TREASURER get neither the slot nor the call; the server checks BOARD/ADMIN again and limits 12 calls per minute and member.
+* *What leaves the server:* member id, name, kind, years, emphasis. No date, no status. Name plus age on the day itself still allows deriving the date of birth --
+  the same exposure the list "Geburtstage & Jubiläen" has for the same two roles (administrators included, see link:../architecture/admin-peer-protection.adoc[Peer protection]).
+* *Query:* a SQL filter on month and day (leap-day dates included on 28 February of a non-leap year), no supporting index: the database scans `member`, about N/365 rows are transferred.
+* *Known defect (not changed here):* the age of someone born on 29 February is one too low on 28 February of a non-leap year (see the CHANGELOG, V1.9.276).
+
 == Honest limits
 
 * Tested with unit tests, DOM tests in headless Chrome and PostgreSQL tests, plus one look in a local browser. Nothing was looked at on a real phone, with a real screen reader or on a real instance.

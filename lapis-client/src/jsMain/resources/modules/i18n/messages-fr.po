@@ -10694,6 +10694,34 @@ msgstr "Activité liée à l'objet social"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1117
 msgid "Zwischengespeichert (Cached)"
 msgstr "Mis en cache (Cached)"
+
+msgid "%1 wird %2"
+msgid_plural "%1 wird %2"
+msgstr[0] "%1 fête ses %2 ans"
+msgstr[1] "%1 fête ses %2 ans"
+
+msgid "%1: seit %2 Jahr dabei"
+msgid_plural "%1: seit %2 Jahren dabei"
+msgstr[0] "%1 : %2 an de présence"
+msgstr[1] "%1 : %2 ans de présence"
+
+msgid "und %1 weiterer Eintrag"
+msgid_plural "und %1 weitere Einträge"
+msgstr[0] "et %1 autre entrée"
+msgstr[1] "et %1 autres entrées"
+
+msgid "erstes Jahr"
+msgstr "première année"
+
+msgid "Meilenstein"
+msgstr "jalon"
+
+msgid "Geburtstage und Jubiläen heute"
+msgstr "Anniversaires et années de présence aujourd'hui"
+
+msgid "Alle Geburtstage und Jubiläen"
+msgstr "Tous les anniversaires et années de présence"
+
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 à %2 : %3 (%4)"
 

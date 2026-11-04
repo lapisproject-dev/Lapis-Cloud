@@ -67,6 +67,7 @@ internal fun renderDashboardScreen(
     signalsRpc: DashboardSignalsRpc = liveDashboardSignalsRpc(),
     visibility: DashboardVisibility = WindowDashboardVisibility,
     storageSpaceRpc: StorageSpaceRpc = liveStorageSpaceRpc(),
+    todaysAnniversariesRpc: TodaysAnniversariesRpc = liveTodaysAnniversariesRpc(),
 ) {
     val session = AppState.session
     if (session == null) {
@@ -101,7 +102,11 @@ internal fun renderDashboardScreen(
         renderOnlineCountsCard(online, rpc = onlineCountsRpc, scheduler = onlineCountsScheduler)
     }
 
-    renderSignals(root, session, signalsRpc, visibility, storageSpaceRpc)
+    // V1.9.276: only BOARD/ADMIN get the slot (and the RPC). It sits after "Für Sie" and is filled once "Für Sie" has settled for the
+    // first time (that happens in a coroutine, so the slot below exists by then).
+    var todaySlot: TodaysAnniversariesSlot? = null
+    renderSignals(root, session, signalsRpc, visibility, storageSpaceRpc, onFirstSettled = { todaySlot?.signalsSettled() })
+    if (showsTodaysAnniversaries(session)) todaySlot = TodaysAnniversariesSlot(root, todaysAnniversariesRpc)
 }
 
 private fun SimplePanel.statusChip(
@@ -145,6 +150,7 @@ private fun renderSignals(
     rpc: DashboardSignalsRpc,
     visibility: DashboardVisibility,
     storageRpc: StorageSpaceRpc,
+    onFirstSettled: () -> Unit = {},
 ) {
     val section = Div(className = "lapis-dashboard-signals-section")
     section.setAttribute("aria-live", "polite")
@@ -170,6 +176,7 @@ private fun renderSignals(
     var gone = false
     var started = false
     var inFlight = false
+    var firstSettled = false
     var shown = false
     var signalCount = 0
     var storageSignals = false
@@ -245,6 +252,10 @@ private fun renderSignals(
                 if (!gone && !shown) show(emptyList())
             } finally {
                 inFlight = false
+                if (!firstSettled) {
+                    firstSettled = true
+                    if (!gone) onFirstSettled()
+                }
             }
         }
     }

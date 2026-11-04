@@ -20,14 +20,22 @@ import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.number
+import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AnniversaryEmphasis
+import network.lapis.cloud.shared.domain.AnniversaryEntryKind
+import network.lapis.cloud.shared.domain.MemberAnniversaryOverviewDto
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.TodaysAnniversariesDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.RateLimitedException
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -108,7 +116,21 @@ class MemberAnniversaryServiceTest :
             }
         }
 
+        // V1.9.276: limiter handed to the "today" route; null = an unlimited one per request.
+        var todayLimiter: FederationInboxRateLimiter? = null
+
         fun Route.registerAnniversaryTestRoutes() {
+            get("/test/anniv/today") {
+                val day = LocalDate.parse(call.request.queryParameters["day"]!!)
+                val limiter = todayLimiter ?: FederationInboxRateLimiter(maxRequests = 100_000)
+                val dto = MemberAnniversaryService(call = call, clock = { day }, todayRateLimiter = limiter).getTodaysAnniversaries()
+                call.respondText(Json.encodeToString(TodaysAnniversariesDto.serializer(), dto))
+            }
+            get("/test/anniv/upcoming") {
+                val day = LocalDate.parse(call.request.queryParameters["day"]!!)
+                val dto = MemberAnniversaryService(call = call, clock = { day }).getUpcomingAnniversaries(1)
+                call.respondText(Json.encodeToString(MemberAnniversaryOverviewDto.serializer(), dto))
+            }
             get("/test/anniv/get") {
                 val windowDays = call.request.queryParameters["windowDays"]!!.toInt()
                 val dto = MemberAnniversaryService(call = call, clock = { today }).getUpcomingAnniversaries(windowDays)
@@ -454,9 +476,359 @@ class MemberAnniversaryServiceTest :
                 }
             }
         }
+
+        // ── V1.9.276: getTodaysAnniversaries (dashboard card "Heute") ──────
+
+        fun todayDay(n: Int) = LocalDate(2031, 9, 17).let { LocalDate(it.year + n, it.month, it.day) }
+
+        suspend fun io.ktor.client.HttpClient.todayOf(
+            member: Uuid,
+            day: LocalDate,
+        ): TodaysAnniversariesDto =
+            Json.decodeFromString(
+                TodaysAnniversariesDto.serializer(),
+                get("/test/anniv/today?day=$day") { header("X-Member-Id", member.toString()) }.bodyAsText(),
+            )
+
+        suspend fun io.ktor.client.HttpClient.upcomingTodayAsToday(
+            member: Uuid,
+            day: LocalDate,
+        ): List<network.lapis.cloud.shared.domain.TodaysAnniversaryDto> =
+            Json
+                .decodeFromString(
+                    MemberAnniversaryOverviewDto.serializer(),
+                    get("/test/anniv/upcoming?day=$day") { header("X-Member-Id", member.toString()) }.bodyAsText(),
+                ).entries
+                .filter { it.occursOn == day }
+                .map {
+                    network.lapis.cloud.shared.domain.TodaysAnniversaryDto(
+                        memberId = it.memberId,
+                        memberDisplayName = it.memberDisplayName,
+                        kind = it.kind,
+                        years = it.years,
+                        emphasis = it.emphasis,
+                    )
+                }
+
+        AccountRole.entries.forEach { role ->
+            test("today: Rolle $role -- nur BOARD und ADMIN, Rate-Limit wird bei abgelehnter Rolle nicht verbraucht") {
+                testApplication {
+                    application {
+                        install(StatusPages) { installAnniversaryExceptionHandlers() }
+                        routing { registerAnniversaryTestRoutes() }
+                    }
+                    todayLimiter = FederationInboxRateLimiter(maxRequests = 1)
+                    try {
+                        val caller = createMember(email = "anniv-today-role-$role-${Uuid.random()}@example.org", role = role)
+                        val allowed = role == AccountRole.BOARD || role == AccountRole.ADMIN
+                        val first = client.get("/test/anniv/today?day=${todayDay(0)}") { header("X-Member-Id", caller.toString()) }
+                        first.status shouldBe (if (allowed) HttpStatusCode.OK else HttpStatusCode.Forbidden)
+                        if (!allowed) {
+                            // a refused role must not have used the budget (maxRequests = 1): the same limiter still serves a BOARD member
+                            val board =
+                                createMember(email = "anniv-today-role-b-$role-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                            client.get("/test/anniv/today?day=${todayDay(0)}") { header("X-Member-Id", board.toString()) }.status shouldBe
+                                HttpStatusCode.OK
+                            // and the refused caller still gets Forbidden, never TooManyRequests
+                            client.get("/test/anniv/today?day=${todayDay(0)}") { header("X-Member-Id", caller.toString()) }.status shouldBe
+                                HttpStatusCode.Forbidden
+                        }
+                    } finally {
+                        todayLimiter = null
+                    }
+                }
+            }
+        }
+
+        test("today: gleiche Treffer wie getUpcomingAnniversaries(1) am selben Tag, gemischte Fixtures") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAnniversaryExceptionHandlers() }
+                    routing { registerAnniversaryTestRoutes() }
+                }
+                val day = todayDay(0)
+                val board = createMember(email = "anniv-today-eq-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val birthday =
+                    createMember(
+                        email = "anniv-today-eq-b-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        dateOfBirth = LocalDate(1976, day.month.number, day.day),
+                        joinedAt = LocalDate(2024, 2, 3),
+                    )
+                val jubilee =
+                    createMember(
+                        email = "anniv-today-eq-j-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        joinedAt = LocalDate(2021, day.month.number, day.day),
+                    )
+                val tomorrow =
+                    createMember(
+                        email = "anniv-today-eq-t-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        dateOfBirth = LocalDate(1976, day.month.number, day.day + 1),
+                    )
+                val today = client.todayOf(board, day)
+                val upcoming = client.upcomingTodayAsToday(board, day)
+                today.entries shouldBe upcoming.take(MemberAnniversaryService.TODAY_CAP)
+                today.totalCount shouldBe upcoming.size
+                today.entries.map { it.memberId }.containsAll(listOf(birthday.toString(), jubilee.toString())) shouldBe true
+                today.entries.none { it.memberId == tomorrow.toString() } shouldBe true
+            }
+        }
+
+        listOf(
+            LocalDate(2031, 2, 28) to Triple(true, true, false),
+            LocalDate(2032, 2, 29) to Triple(true, false, false),
+            LocalDate(2031, 3, 1) to Triple(false, false, true),
+        ).forEach { (day, expected) ->
+            test("today: Schalttag-Vorfilter am $day (29.02.-Geburtstag, 28.02., 01.03.) entspricht dem Kalender") {
+                testApplication {
+                    application {
+                        install(StatusPages) { installAnniversaryExceptionHandlers() }
+                        routing { registerAnniversaryTestRoutes() }
+                    }
+                    val board = createMember(email = "anniv-today-leap-$day-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                    val leap =
+                        createMember(
+                            email = "anniv-today-leap-a-${Uuid.random()}@example.org",
+                            role = AccountRole.MEMBER,
+                            dateOfBirth = LocalDate(2000, 2, 29),
+                            joinedAt = LocalDate(2024, 6, 15),
+                        )
+                    val feb28 =
+                        createMember(
+                            email = "anniv-today-leap-b-${Uuid.random()}@example.org",
+                            role = AccountRole.MEMBER,
+                            dateOfBirth = LocalDate(2000, 2, 28),
+                            joinedAt = LocalDate(2024, 6, 15),
+                        )
+                    val mar1 =
+                        createMember(
+                            email = "anniv-today-leap-c-${Uuid.random()}@example.org",
+                            role = AccountRole.MEMBER,
+                            dateOfBirth = LocalDate(2000, 3, 1),
+                            joinedAt = LocalDate(2024, 6, 15),
+                        )
+                    val today = client.todayOf(board, day)
+                    val ids = today.entries.map { it.memberId }.toSet()
+                    // only the memberIds and the equality of both paths -- no age is asserted (see the open leap-day finding)
+                    (leap.toString() in ids) shouldBe expected.first
+                    (feb28.toString() in ids) shouldBe (day.month.number == 2 && day.day == 28)
+                    (mar1.toString() in ids) shouldBe expected.third
+                    today.entries shouldBe client.upcomingTodayAsToday(board, day).take(MemberAnniversaryService.TODAY_CAP)
+                }
+            }
+        }
+
+        test("today: nur Meilenstein-Jubiläen (3 Jahre fehlt; 1, 5, 10, 25 Jahre mit passender Hervorhebung)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAnniversaryExceptionHandlers() }
+                    routing { registerAnniversaryTestRoutes() }
+                }
+                val day = todayDay(0)
+                val board = createMember(email = "anniv-today-ms-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val byYears =
+                    listOf(3, 1, 5, 10, 25).associateWith { years ->
+                        createMember(
+                            email = "anniv-today-ms-$years-${Uuid.random()}@example.org",
+                            role = AccountRole.MEMBER,
+                            joinedAt = LocalDate(day.year - years, day.month, day.day),
+                        )
+                    }
+                val entries = client.todayOf(board, day).entries.associateBy { it.memberId }
+                entries.containsKey(byYears.getValue(3).toString()) shouldBe false
+                entries.getValue(byYears.getValue(1).toString()).emphasis shouldBe AnniversaryEmphasis.FIRST_YEAR
+                entries.getValue(byYears.getValue(5).toString()).emphasis shouldBe AnniversaryEmphasis.STANDARD
+                entries.getValue(byYears.getValue(10).toString()).emphasis shouldBe AnniversaryEmphasis.NOTABLE
+                entries.getValue(byYears.getValue(25).toString()).emphasis shouldBe AnniversaryEmphasis.MAJOR
+                entries.getValue(byYears.getValue(25).toString()).kind shouldBe AnniversaryEntryKind.MEMBERSHIP_ANNIVERSARY
+            }
+        }
+
+        test("today: ausgeschlossen sind alle Status ausser ACTIVE/DONOR und anonymisierte Mitglieder; DONOR ist enthalten") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAnniversaryExceptionHandlers() }
+                    routing { registerAnniversaryTestRoutes() }
+                }
+                val day = todayDay(0)
+                val board = createMember(email = "anniv-today-ex-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val dob = LocalDate(1980, day.month.number, day.day)
+                val byStatus =
+                    MemberStatus.entries.associateWith { status ->
+                        createMember(
+                            email = "anniv-today-ex-$status-${Uuid.random()}@example.org",
+                            role = AccountRole.MEMBER,
+                            status = status,
+                            dateOfBirth = dob,
+                        )
+                    }
+                val anonymized =
+                    createMember(
+                        email = "anniv-today-ex-anon-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        dateOfBirth = dob,
+                        anonymizedAt = LocalDateTime(2030, 1, 1, 0, 0),
+                    )
+                val ids =
+                    client
+                        .todayOf(board, day)
+                        .entries
+                        .map { it.memberId }
+                        .toSet()
+                MemberStatus.entries.forEach { status ->
+                    (byStatus.getValue(status).toString() in ids) shouldBe (status == MemberStatus.ACTIVE || status == MemberStatus.DONOR)
+                }
+                (anonymized.toString() in ids) shouldBe false
+            }
+        }
+
+        test("today: Deckel 50 mit totalCount ueber dem Deckel") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAnniversaryExceptionHandlers() }
+                    routing { registerAnniversaryTestRoutes() }
+                }
+                val day = LocalDate(2033, 11, 23)
+                val board = createMember(email = "anniv-today-cap-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val before = client.todayOf(board, day).totalCount
+                repeat(53) { i ->
+                    createMember(
+                        email = "anniv-today-cap-$i-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        dateOfBirth = LocalDate(1950 + i, 11, 23),
+                        displayName = "Deckel Person $i",
+                    )
+                }
+                val dto = client.todayOf(board, day)
+                dto.entries.size shouldBe MemberAnniversaryService.TODAY_CAP
+                dto.totalCount shouldBe before + 53
+            }
+        }
+
+        test("today: Reihenfolge BIRTHDAY vor MEMBERSHIP_ANNIVERSARY, dann Name, dann memberId") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAnniversaryExceptionHandlers() }
+                    routing { registerAnniversaryTestRoutes() }
+                }
+                val day = LocalDate(2034, 4, 9)
+                val board = createMember(email = "anniv-today-ord-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val dob = LocalDate(1990, 4, 9)
+                val ids =
+                    listOf("Zora", "Anton", "Maja", "Maja").map { name ->
+                        createMember(
+                            email = "anniv-today-ord-$name-${Uuid.random()}@example.org",
+                            role = AccountRole.MEMBER,
+                            dateOfBirth = dob,
+                            displayName = "Ord $name",
+                        )
+                    }
+                val jubilee =
+                    createMember(
+                        email = "anniv-today-ord-j-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        joinedAt = LocalDate(2029, 4, 9),
+                        displayName = "Ord Aaa",
+                    )
+                val mine = ids.map { it.toString() }.toSet() + jubilee.toString()
+                val entries = client.todayOf(board, day).entries.filter { it.memberId in mine }
+                entries.map { it.memberDisplayName } shouldBe listOf("Ord Anton", "Ord Maja", "Ord Maja", "Ord Zora", "Ord Aaa")
+                entries.map { it.kind } shouldBe List(4) { AnniversaryEntryKind.BIRTHDAY } + AnniversaryEntryKind.MEMBERSHIP_ANNIVERSARY
+                val maja = entries.filter { it.memberDisplayName == "Ord Maja" }.map { it.memberId }
+                maja shouldBe maja.sorted()
+            }
+        }
+
+        test("today: JSON enthaelt kein Datum, keinen Status, kein occursOn/originalDate/memberStatus") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAnniversaryExceptionHandlers() }
+                    routing { registerAnniversaryTestRoutes() }
+                }
+                val day = todayDay(0)
+                val board = createMember(email = "anniv-today-json-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                createMember(
+                    email = "anniv-today-json-s-${Uuid.random()}@example.org",
+                    role = AccountRole.MEMBER,
+                    status = MemberStatus.DONOR,
+                    dateOfBirth = LocalDate(1970, day.month.number, day.day),
+                )
+                val raw = client.get("/test/anniv/today?day=$day") { header("X-Member-Id", board.toString()) }.bodyAsText()
+                (raw.length > 20) shouldBe true
+                Regex("""\d{4}-\d{2}-\d{2}""").containsMatchIn(raw) shouldBe false
+                MemberStatus.entries.forEach { raw.contains(it.name) shouldBe false }
+                listOf("occursOn", "originalDate", "memberStatus", "shiftedFromLeapDay").forEach { raw.contains(it) shouldBe false }
+            }
+        }
+
+        test("today: Log-Zeile enthaelt weder Namen noch Id noch Geburtsdatum") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAnniversaryExceptionHandlers() }
+                    routing { registerAnniversaryTestRoutes() }
+                }
+                val day = todayDay(0)
+                val board = createMember(email = "anniv-today-log-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val name = "SehrEinzigartigerHeuteLogName"
+                val dob = LocalDate(1960, day.month.number, day.day)
+                val subject =
+                    createMember(
+                        email = "anniv-today-log-s-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        dateOfBirth = dob,
+                        displayName = name,
+                    )
+                val events =
+                    captureRootLogEvents {
+                        runBlocking {
+                            client.get("/test/anniv/today?day=$day") { header("X-Member-Id", board.toString()) }.status shouldBe
+                                HttpStatusCode.OK
+                        }
+                    }
+                val relevant = events.filter { it.formattedMessage.contains("member anniversaries today read") }
+                relevant.isEmpty() shouldBe false
+                relevant.forEach {
+                    it.formattedMessage.contains(name) shouldBe false
+                    it.formattedMessage.contains(subject.toString()) shouldBe false
+                    it.formattedMessage.contains(dob.toString()) shouldBe false
+                }
+            }
+        }
+
+        test("today: nach TODAY_MAX_CALLS Aufrufen folgt RateLimitedException (429), je Mitglied") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAnniversaryExceptionHandlers() }
+                    routing { registerAnniversaryTestRoutes() }
+                }
+                todayLimiter = FederationInboxRateLimiter(maxRequests = MemberAnniversaryService.TODAY_MAX_CALLS)
+                try {
+                    val board = createMember(email = "anniv-today-rl-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                    val other = createMember(email = "anniv-today-rl-o-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                    repeat(MemberAnniversaryService.TODAY_MAX_CALLS) {
+                        client.get("/test/anniv/today?day=${todayDay(0)}") { header("X-Member-Id", board.toString()) }.status shouldBe
+                            HttpStatusCode.OK
+                    }
+                    client.get("/test/anniv/today?day=${todayDay(0)}") { header("X-Member-Id", board.toString()) }.status shouldBe
+                        HttpStatusCode.TooManyRequests
+                    client.get("/test/anniv/today?day=${todayDay(0)}") { header("X-Member-Id", other.toString()) }.status shouldBe
+                        HttpStatusCode.OK
+                } finally {
+                    todayLimiter = null
+                }
+            }
+        }
+
+        test("today: Application uebergibt den geteilten Limiter (kein Fallback pro Instanz in Produktion)") {
+            val application = java.io.File("src/main/kotlin/network/lapis/cloud/server/Application.kt").readText()
+            application.contains("todayRateLimiter = memberAnniversaryTodayLimiter") shouldBe true
+        }
     })
 
 private fun StatusPagesConfig.installAnniversaryExceptionHandlers() {
     exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
     exception<BadRequestException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.BadRequest) }
+    exception<RateLimitedException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.TooManyRequests) }
 }

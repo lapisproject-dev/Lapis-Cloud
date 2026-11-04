@@ -10631,6 +10631,37 @@ msgstr "Działalność statutowa uprzywilejowana"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1117
 msgid "Zwischengespeichert (Cached)"
 msgstr "Zbuforowane (Cached)"
+
+msgid "%1 wird %2"
+msgid_plural "%1 wird %2"
+msgstr[0] "%1 kończy %2 rok"
+msgstr[1] "%1 kończy %2 lata"
+msgstr[2] "%1 kończy %2 lat"
+
+msgid "%1: seit %2 Jahr dabei"
+msgid_plural "%1: seit %2 Jahren dabei"
+msgstr[0] "%1: %2 rok z nami"
+msgstr[1] "%1: %2 lata z nami"
+msgstr[2] "%1: %2 lat z nami"
+
+msgid "und %1 weiterer Eintrag"
+msgid_plural "und %1 weitere Einträge"
+msgstr[0] "i jeszcze %1 wpis"
+msgstr[1] "i jeszcze %1 wpisy"
+msgstr[2] "i jeszcze %1 wpisów"
+
+msgid "erstes Jahr"
+msgstr "pierwszy rok"
+
+msgid "Meilenstein"
+msgstr "kamień milowy"
+
+msgid "Geburtstage und Jubiläen heute"
+msgstr "Dzisiejsze urodziny i jubileusze"
+
+msgid "Alle Geburtstage und Jubiläen"
+msgstr "Wszystkie urodziny i jubileusze"
+
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 do %2: %3 (%4)"
 

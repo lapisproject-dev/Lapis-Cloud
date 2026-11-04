@@ -10624,6 +10624,37 @@ msgstr "Целевая деятельность"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1117
 msgid "Zwischengespeichert (Cached)"
 msgstr "Кэшировано"
+
+msgid "%1 wird %2"
+msgid_plural "%1 wird %2"
+msgstr[0] "%1 исполняется %2 год"
+msgstr[1] "%1 исполняется %2 года"
+msgstr[2] "%1 исполняется %2 лет"
+
+msgid "%1: seit %2 Jahr dabei"
+msgid_plural "%1: seit %2 Jahren dabei"
+msgstr[0] "%1: с нами %2 год"
+msgstr[1] "%1: с нами %2 года"
+msgstr[2] "%1: с нами %2 лет"
+
+msgid "und %1 weiterer Eintrag"
+msgid_plural "und %1 weitere Einträge"
+msgstr[0] "и ещё %1 запись"
+msgstr[1] "и ещё %1 записи"
+msgstr[2] "и ещё %1 записей"
+
+msgid "erstes Jahr"
+msgstr "первый год"
+
+msgid "Meilenstein"
+msgstr "веха"
+
+msgid "Geburtstage und Jubiläen heute"
+msgstr "Дни рождения и юбилеи сегодня"
+
+msgid "Alle Geburtstage und Jubiläen"
+msgstr "Все дни рождения и юбилеи"
+
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 – %2: %3 (%4)"
 

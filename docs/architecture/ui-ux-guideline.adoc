@@ -100,6 +100,11 @@ tiles: it shows status chips, for an ADMIN the "Gerade angemeldet" block, and "F
 leaving) are on "Meine Daten"; the earlier mentions of the password change on `DashboardScreen` in the wave records below are history.
 Feature description: link:../features/dashboard.adoc[Dashboard, signals and navigation registry].
 
+*Dashboard card "Heute" (V1.9.276, BOARD/ADMIN):* a Bootstrap card below "Für Sie", hung into an empty slot only after "Für Sie" has settled for the first time and the
+answer is in (either order), so nothing shifts. No live region (the sentence is not an event the person must hear), no polling, no toast on a failure, no card without a hit.
+Emphasis is a word ("erstes Jahr", "Meilenstein"), never only a type weight or a colour. The list has an `aria-label`, icons are `aria-hidden`, long names wrap (`text-break`).
+Names are text nodes (`ngettext` fills the placeholders in one pass over the original template).
+
 A live figure in the menu follows rule R63 (suffix = information, badge = request), see the rule list below.
 
 == Building blocks

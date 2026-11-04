@@ -210,6 +210,6 @@ attempts, refresh and logout write nothing, and no audit entry is created.
 
 See `CHANGELOG.md`, section V1.9.57. In short: a single administrator who lost mailbox and password and has no server access cannot be
 rescued; two colluding administrators who each held the role for 7 days can overrule a target that does not read its mail within 24 hours (the audit remains);
-the board still sees postal addresses in mail merge, contribution invoices and donation receipts, and birth dates in the anniversary list;
+the board still sees postal addresses in mail merge, contribution invoices and donation receipts, and birth dates in the anniversary list (the dashboard card "Heute" also names them with their age on their birthday, V1.9.276, no date shown);
 path B0 (no password) against an administrator stays open. (The console command inside the container, listed here as unverified until then, was checked
 on Staging on 2026-10-05 with a non-existent address: clean error, no data change.)

@@ -10677,6 +10677,34 @@ msgstr "Attività strumentale"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1117
 msgid "Zwischengespeichert (Cached)"
 msgstr "Memorizzato nella cache"
+
+msgid "%1 wird %2"
+msgid_plural "%1 wird %2"
+msgstr[0] "%1 compie %2 anni"
+msgstr[1] "%1 compie %2 anni"
+
+msgid "%1: seit %2 Jahr dabei"
+msgid_plural "%1: seit %2 Jahren dabei"
+msgstr[0] "%1: %2 anno con noi"
+msgstr[1] "%1: %2 anni con noi"
+
+msgid "und %1 weiterer Eintrag"
+msgid_plural "und %1 weitere Einträge"
+msgstr[0] "e %1 altra voce"
+msgstr[1] "e %1 altre voci"
+
+msgid "erstes Jahr"
+msgstr "primo anno"
+
+msgid "Meilenstein"
+msgstr "traguardo"
+
+msgid "Geburtstage und Jubiläen heute"
+msgstr "Compleanni e anniversari di oggi"
+
+msgid "Alle Geburtstage und Jubiläen"
+msgstr "Tutti i compleanni e anniversari"
+
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 - %2: %3 (%4)"
 

@@ -55,3 +55,27 @@ data class MemberAnniversaryOverviewDto(
     val eligibleMemberCount: Int,
     val membersWithoutDateOfBirth: Int,
 )
+
+/**
+ * V1.9.276 -- one line of the dashboard card "Heute" (BOARD/ADMIN): a greeting for TODAY, not a register. Deliberately
+ * NOT contained: `occursOn`, `originalDate`, `shiftedFromLeapDay` and `memberStatus` -- no date and no legal status
+ * leave the server through this DTO. Note that name plus "wird 50" on the day itself still lets the audience derive the
+ * full date of birth; that is no more than the existing anniversary list shows the same two roles (documented limitation,
+ * `admin-peer-protection.adoc`).
+ */
+@Serializable
+data class TodaysAnniversaryDto(
+    val memberId: String,
+    val memberDisplayName: String,
+    val kind: AnniversaryEntryKind,
+    /** BIRTHDAY: reached age. MEMBERSHIP_ANNIVERSARY: years of belonging. */
+    val years: Int,
+    val emphasis: AnniversaryEmphasis,
+)
+
+/** V1.9.276 -- [entries] is capped (server side); [totalCount] is the uncapped number of hits today. */
+@Serializable
+data class TodaysAnniversariesDto(
+    val entries: List<TodaysAnniversaryDto>,
+    val totalCount: Int,
+)
