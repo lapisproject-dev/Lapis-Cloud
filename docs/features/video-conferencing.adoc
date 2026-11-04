@@ -439,6 +439,16 @@ Details: link:../architecture/conference-recording.adoc[conference-recording.ado
 
 Facts about the platforms: Facebook and X show the comments on the page of the live broadcast; for YouTube and Twitch the chat opens as a small window. Not verified against the real platforms (see the changelog of V1.9.274).
 
+== Retry and reconnect of a stream target (V1.9.275)
+
+*Per target state.* Every target of a stream shows its own state: _Verbindung wird hergestellt_, _Live_, _Wird erneut verbunden (n von 3)_, _Fehlgeschlagen_ (with the reason) and _Beendet_. A target that is being retried is never shown as live; with two or more targets the line "Live auf n von m Zielen" says so when one is not live.
+
+*Automatic retry.* A target that fails within 45 seconds after the stream went live (start or resume) is added to the running broadcast again by the server, at the earliest after 5, 15 and 30 seconds (in practice about 10, 20 and 30 seconds because the server looks every 10 seconds), at most three times. A refused key is never retried. Only this target is touched; no second broadcast is started and the other targets keep running. A target that never recovers ends as _Fehlgeschlagen_, not as _Beendet_.
+
+*Neu verbinden (moderator).* A failed target of a running stream has the button "Neu verbinden". For a destination with a key _nur pro Sendung_ it opens a field for a new key (leave it empty to use the previous key again); a permanent destination reconnects at once. At most five times per ten minutes per person and stream. Facebook and X issue a one-time key: if the first connection used it up, a new key is needed (a hint says so); a permanent key is better where the platform offers one.
+
+*Limits.* A stream with only one target whose output fails still ends as failed. Not verified against a real platform or a real network break (see the changelog of V1.9.275).
+
 == Pause mode (V1.9.254)
 
 A moderator (room creator, BOARD, ADMIN) can pause the *recording* and the *live stream* of a room while everybody keeps talking. The *Pause* button sits next to "Moderation" in the sheet of the call controls; while the room is paused it reads *Fortsetzen*, and the banner of the call has a *Fortsetzen* button too.

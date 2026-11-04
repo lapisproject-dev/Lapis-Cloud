@@ -30287,3 +30287,96 @@ msgstr "%1 -- richiede una chiave per questa trasmissione, avviabile solo nella 
 #: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
 msgid "%1 -- Schlüssel fehlt, bitte in den Stream-Zielen eintragen"
 msgstr "%1 -- chiave mancante, la inserisca nelle destinazioni di streaming"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Wird erneut verbunden (%1 von %2) …"
+msgstr "Riconnessione (%1 di %2) …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Wird erneut verbunden"
+msgstr "Riconnessione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 hat die Verbindung abgelehnt. Prüfen Sie den Stream-Schlüssel und verbinden Sie neu."
+msgstr "%1 ha rifiutato la connessione. Controllate la chiave dello stream e riconnettete."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 hat nicht rechtzeitig geantwortet. Verbinden Sie neu."
+msgstr "%1 non ha risposto in tempo. Riconnettete."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Die Verbindung zu %1 ist fehlgeschlagen. Verbinden Sie neu."
+msgstr "La connessione a %1 non è riuscita. Riconnettete."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Die Übertragung zu %1 ist abgebrochen. Verbinden Sie neu."
+msgstr "La trasmissione verso %1 si è interrotta. Riconnettete."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Automatische Versuche: %1"
+msgstr "Tentativi automatici: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Ein Einmal-Schlüssel gilt bei Facebook nur für eine Verbindung. Geben Sie einen neuen Schlüssel ein und verbinden Sie neu. Besser: in Facebook einen dauerhaften Schlüssel einrichten."
+msgstr "Una chiave monouso su Facebook vale per una sola connessione. Inserite una nuova chiave e riconnettete. Meglio: configurate una chiave permanente in Facebook."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Ein Einmal-Schlüssel gilt bei X nur für eine Verbindung. Geben Sie einen neuen Schlüssel ein und verbinden Sie neu. Besser: in X Media Studio einen dauerhaften Schlüssel einrichten."
+msgstr "Una chiave monouso su X vale per una sola connessione. Inserite una nuova chiave e riconnettete. Meglio: configurate una chiave permanente in X Media Studio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Neu verbinden"
+msgstr "Riconnetti"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 neu verbinden"
+msgstr "Riconnetti %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Wird verbunden …"
+msgstr "Connessione …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Verbinden"
+msgstr "Connetti"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Leer lassen, um den bisherigen Schlüssel erneut zu verwenden."
+msgstr "Lasciate vuoto per usare di nuovo la chiave precedente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Neuer Stream-Schlüssel für %1 (optional)"
+msgstr "Nuova chiave dello stream per %1 (facoltativa)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Live auf %1 von %2 Zielen"
+msgstr "In diretta su %1 di %2 destinazioni"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 ist live."
+msgstr "%1 è in diretta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 wird erneut verbunden."
+msgstr "%1 viene riconnesso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 ist fehlgeschlagen."
+msgstr "%1 non è riuscito."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Neu verbinden geht nur während einer laufenden Übertragung."
+msgstr "La riconnessione è possibile solo durante una trasmissione in corso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Dieses Ziel ist nicht fehlgeschlagen."
+msgstr "Questa destinazione non è fallita."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Für dieses Ziel gilt ein dauerhafter Schlüssel; er wird unter Streaming-Ziele geändert."
+msgstr "Questa destinazione usa una chiave permanente; si modifica in Destinazioni di streaming."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Das Ziel konnte nicht neu verbunden werden. Bitte versuchen Sie es in einer Minute erneut."
+msgstr "Non è stato possibile riconnettere la destinazione. Riprovate tra un minuto."
+

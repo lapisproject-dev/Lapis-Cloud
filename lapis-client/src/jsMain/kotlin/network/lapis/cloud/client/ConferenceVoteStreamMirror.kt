@@ -182,8 +182,9 @@ internal fun secretOpenPreflightLines(status: ConferenceStreamStatus?): List<Str
 internal fun conferenceStreamNeedsPollWithBallot(
     stream: ConferenceStreamDto?,
     secretBallotOpen: Boolean,
+    canManage: Boolean = false,
 ): Boolean {
-    if (conferenceStreamNeedsPoll(stream)) return true
+    if (conferenceStreamNeedsPoll(stream, canManage)) return true
     return secretBallotOpen && stream?.status == ConferenceStreamStatus.LIVE
 }
 

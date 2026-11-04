@@ -2554,8 +2554,25 @@ private fun enterCall(
     val streamDetailLine = callPanel.div { addCssClasses("text-muted small lapis-conference-detail-line") }
     streamDetailLine.hide()
     // D7: one row per destination, honest interim/terminal states -- see [updateStreamTargetsPanel].
-    val streamTargetsPanel = callPanel.vPanel(spacing = 2) { addCssClasses("ms-2") }
-    streamTargetsPanel.hide()
+    // V1.9.275: retry state, reason and "Neu verbinden" per target -- see [StreamTargetsPanel]. The refresh hook is assigned further down,
+    // once the functions it calls exist (local functions cannot be referenced before their declaration).
+    var afterStreamReconnect: () -> Unit = {}
+    val streamTargetsPanel =
+        StreamTargetsPanel(
+            onReconnect = { destinationId, key ->
+                val stream = activeStreamDto
+                if (stream == null) {
+                    null
+                } else {
+                    val result = guarded { rpcService<IConferenceStreamingService>().reconnectStreamTarget(stream.id, destinationId, key) }
+                    if (result != null) {
+                        activeStreamDto = result
+                        afterStreamReconnect()
+                    }
+                    result
+                }
+            },
+        ).also { callPanel.add(it) }
     // V1.9.274: "Kommentare öffnen" per target -- moderators only, kept apart from [streamTargetsPanel] (which is hidden while PAUSED).
     val streamCommentsPanel = StreamCommentsPanel().also { callPanel.add(it) }
 
@@ -2864,23 +2881,7 @@ private fun enterCall(
      * communicate the state without a stale, contradicting "Live" chip underneath.
      */
     fun updateStreamTargetsPanel() {
-        streamTargetsPanel.removeAll()
-        val active = activeStreamDto
-        val targets = active?.targets.orEmpty()
-        if (targets.isEmpty() || active?.status == ConferenceStreamStatus.PAUSED) {
-            streamTargetsPanel.hide()
-        } else {
-            streamTargetsPanel.show()
-            targets.forEach { target ->
-                val row = streamTargetsPanel.hPanel(spacing = 6) { addCssClasses("align-items-center flex-wrap") }
-                row.statusBadge(conferenceStreamTargetStatusLabel(target.status), conferenceStreamTargetStatusColor(target.status))
-                // Security audit W6b follow-up round 3 (major finding A): stream target label/failure reason are
-                // admin-/provider-controlled free text rendered as raw widget content -- sanitize before KVision
-                // can resolve a forged marker on render.
-                row.div(sanitizeUntrustedI18nText(target.label)) { addCssClasses("small") }
-                target.failureReason?.let { reason -> row.div(sanitizeUntrustedI18nText(reason)) { addCssClasses("text-danger small") } }
-            }
-        }
+        streamTargetsPanel.update(activeStreamDto, canManage = moderation != null)
     }
 
     // V1.9.274 -- "Kommentare öffnen" and the viewer address editor, see [StreamCommentsPanel].
@@ -2984,6 +2985,12 @@ private fun enterCall(
             if (streamingAvailable && (showPause || showResume)) streamSheetSection.show() else streamSheetSection.hide()
         }
         updateActionStatusLine()
+    }
+
+    // V1.9.275: now that both functions exist, the reconnect hook of [streamTargetsPanel] can refresh the screen.
+    afterStreamReconnect = {
+        updateStreamDetailLine()
+        updateStreamButtonsVisibility()
     }
 
     fun onRecordButtonClicked() {
@@ -3468,7 +3475,9 @@ private fun enterCall(
         while (connectionState !is ConferenceConnectionState.Ended) {
             delay(conferenceStreamPollIntervalMs(activeStreamDto, secretBallotOpen()))
             if (!connectionState.isLive()) continue
-            val current = activeStreamDto?.takeIf { conferenceStreamNeedsPollWithBallot(it, secretBallotOpen()) } ?: continue
+            val current =
+                activeStreamDto?.takeIf { conferenceStreamNeedsPollWithBallot(it, secretBallotOpen(), canManage = moderation != null) }
+                    ?: continue
             val refreshed =
                 try {
                     rpcService<IConferenceStreamingService>().getActiveStream(room.id).singleOrNull()
@@ -4815,6 +4824,7 @@ private fun enterCall(
     // Browser-Vollbild"-Vermeidung). Muss textuell VOR der ersten returnToLobby(...)-Call-Site stehen.
     // V1.2.10 erweitert: räumt zusätzlich die vier Auto-Hide-Aktivitäts-Listener ab.
     fun cleanupFullscreen() {
+        streamTargetsPanel.dispose()
         reactionPopover.dispose()
         handController?.dispose()
         timerController?.dispose()
@@ -8548,8 +8558,13 @@ internal const val CONFERENCE_STREAM_POLL_INTERVAL_MS = 15_000L
  * need polling -- only a moderator's own click can resume it, and that click already updates
  * [activeStreamDto] directly (see [onStreamResumeClicked]).
  */
-internal fun conferenceStreamNeedsPoll(stream: ConferenceStreamDto?): Boolean {
+internal fun conferenceStreamNeedsPoll(
+    stream: ConferenceStreamDto?,
+    canManage: Boolean = false,
+): Boolean {
     if (stream == null) return false
+    // V1.9.275: a moderator sees a target fail (and the automatic retry run) while the stream is LIVE -- the room pushes nothing for that.
+    if (canManage && stream.status == ConferenceStreamStatus.LIVE) return true
     if (stream.status == ConferenceStreamStatus.STARTING || stream.status == ConferenceStreamStatus.STOPPING) return true
     if (stream.status == ConferenceStreamStatus.PAUSING) return true
     if (stream.status == ConferenceStreamStatus.PAUSED && stream.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT) return true

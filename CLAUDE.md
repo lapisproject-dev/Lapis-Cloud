@@ -501,6 +501,15 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **Im Client genau ein `window.open` für Zuschauerseiten** (`openConferenceViewerUrl`, Adresse aus dem Server-DTO, nie aus einem Eingabefeld). Das Schlüsselfeld ist `BroadcastKeyInput` (Text mit CSS-Maske, kein `<form>`), nie ein `LapisField`.
 - **V140 darf bis zum Release in place korrigiert werden**, danach nur per neuer Migration. Neue Rate-Limiter immer als gemeinsame Instanz in `Application.module` übergeben.
 
+## Neuverbinden und automatischer Retry (V1.9.275)
+
+- **`updateStream` hat genau einen Aufrufer: `reissueStreamTargetOutput` in `StreamTargetReconnector.kt`** (`StreamTargetReconnectorTripwireTest`). Neuverbinden und Retry starten nie einen Egress; die Regel "ein Egress pro Stream" und `PauseFeedTripwireTest` bleiben damit gültig.
+- **`auto_retry_attempt` und die Fehlerart schreibt nur der Poller bzw. `reconnectStreamTarget`, LiveKit nie.** LiveKit überschreibt `status`/`retries`/`failure_reason` jeden Tick und zählt pro Egress neu; deshalb wählt `StreamTargetRetryPolicy.pickResult` unter mehreren `stream_results` desselben Fingerprints und ignoriert Ergebnisse vor dem ausgelösten Versuch.
+- **Jede Stelle, die einen neuen Egress als LIVE festschreibt, ruft `openRetryWindowForStream` in derselben Transaktion** (Start, Resume/Restart, Waisen-Übernahme); jede Stelle, die den Stream aus LIVE nimmt, ruft `clearRetryScheduleForStream` (Hygiene: der Poller handelt nur auf einem LIVE-Stream mit derselben Egress-Id), jedes Stream-Ende `failUnrecoveredTargetsForStream` (nie "Beendet" für ein nie erholtes Ziel).
+- **Neue Limiter als gemeinsame Instanz in `Application.module`** (`streamingReconnectRateLimiter`). Die Grenze 3 steht in `ConferenceStreamRetryLimits` und im CHECK von V141 (Test hält beide gleich).
+- **V141 darf bis zum Release in place korrigiert werden**, nur auf einer Datenbank, die V141 noch nicht angewendet hat; V140 ist schon auf `master` und bleibt unverändert.
+- **DOM-Tests des Ziel-Panels räumen auf**: jeder Test ruft `dispose()` (Live-Region, Timer, Schlüsselfeld); der einzige Timer läuft über `StreamPanelScheduler`.
+
 ## Speicherplatz-Anzeige (V1.9.263, V1.9.273)
 
 - **Eine Messung:** freier und gesamter Platz werden nur über `StorageSpaceProbe` (Paket `server.documents`) gemessen. Außer dort kommen `usableSpace`, `totalSpace` und `FileStore` im Main-Code nicht vor; `RecordingDiskBudget`, `RecordingPoller`, `ConferenceRecordingService` und `PulpitRecordingCoordinator` nutzen `StorageSpaceProbe.usable`. Pin: `StorageSpaceTripwireTest`.

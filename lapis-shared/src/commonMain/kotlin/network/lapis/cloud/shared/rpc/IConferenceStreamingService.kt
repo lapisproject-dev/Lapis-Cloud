@@ -355,4 +355,19 @@ interface IConferenceStreamingService {
         destinationId: String,
         viewerUrl: String?,
     ): ConferenceStreamTargetStatusDto
+
+    // ── V1.9.275 (appended: routes are indexed by position) ───────────────────────────────────
+
+    /**
+     * Role: room creator OR global BOARD/ADMIN (encounter: office holders), checked first; then 5 per 10 minutes per member and stream.
+     * Only for a FAILED target of a LIVE stream. Re-adds THIS target's output to the running egress via `UpdateStream`, never starts a second egress,
+     * never touches the other targets. [broadcastKey]: only for a PER_BROADCAST destination; `null` or a blank `streamKey` = reuse the sealed key.
+     * A persistent destination with a key -> [ConferenceStreamTargetKeyPersistentException]; `broadcastKey.destinationId` must equal [destinationId]
+     * and `viewerUrl` must not be set ([BadRequestException]).
+     */
+    suspend fun reconnectStreamTarget(
+        streamId: String,
+        destinationId: String,
+        broadcastKey: ConferenceStreamBroadcastInput? = null,
+    ): ConferenceStreamDto
 }

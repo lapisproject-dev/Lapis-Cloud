@@ -95,6 +95,10 @@ internal class BkEgress(
     private val counter = AtomicInteger(0)
     val startedUrls = Collections.synchronizedList(mutableListOf<List<String>>())
 
+    /** V1.9.275 -- every `UpdateStream` call as (add, remove); [failAdd] makes the call that adds an output fail. */
+    val updates = Collections.synchronizedList(mutableListOf<Pair<List<String>, List<String>>>())
+    var failAdd = false
+
     override suspend fun startTrackEgress(
         roomName: String,
         trackId: String,
@@ -137,7 +141,11 @@ internal class BkEgress(
         egressId: String,
         addUrls: List<String>,
         removeUrls: List<String>,
-    ): LiveKitEgressInfo = error("unused")
+    ): LiveKitEgressInfo {
+        updates += addUrls to removeUrls
+        if (failAdd && addUrls.isNotEmpty()) throw LiveKitAdminException(message = "simulated UpdateStream refusal")
+        return LiveKitEgressInfo(egressId = egressId, status = "EGRESS_ACTIVE")
+    }
 }
 
 internal class Harness(
@@ -898,6 +906,7 @@ internal suspend fun runBkHarness(
     egress: LiveKitEgressClient = BkEgress(),
     inputLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
     exceptionSink: MutableList<String>? = null,
+    reconnectLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 10.minutes),
     body: suspend Harness.() -> Unit,
 ) {
     testApplication {
@@ -921,6 +930,7 @@ internal suspend fun runBkHarness(
                             config = BK_CONFERENCE_CONFIG,
                             streamingConfig = BK_STREAMING_CONFIG,
                             broadcastInputRateLimiter = inputLimiter,
+                            reconnectRateLimiter = reconnectLimiter,
                         )
                     result = pending!!.invoke(svc)
                     call.respondText("OK")

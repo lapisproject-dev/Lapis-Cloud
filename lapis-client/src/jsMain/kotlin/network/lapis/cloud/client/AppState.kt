@@ -26,7 +26,11 @@ import network.lapis.cloud.shared.rpc.ConferenceRoomPauseNothingToPauseException
 import network.lapis.cloud.shared.rpc.ConferenceRoomPausedException
 import network.lapis.cloud.shared.rpc.ConferenceStreamBroadcastKeyMissingException
 import network.lapis.cloud.shared.rpc.ConferenceStreamBroadcastKeyRejectedException
+import network.lapis.cloud.shared.rpc.ConferenceStreamReconnectFailedException
+import network.lapis.cloud.shared.rpc.ConferenceStreamReconnectNotLiveException
 import network.lapis.cloud.shared.rpc.ConferenceStreamStoredKeyMissingException
+import network.lapis.cloud.shared.rpc.ConferenceStreamTargetKeyPersistentException
+import network.lapis.cloud.shared.rpc.ConferenceStreamTargetNotFailedException
 import network.lapis.cloud.shared.rpc.ConferenceStreamViewerUrlRejectedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.DirectMessageGroupTooLargeException
@@ -288,6 +292,13 @@ internal fun typedRefusalText(e: Throwable): String? =
                 "Die Adresse wurde nicht übernommen. Bitte die Adresse der Live-Sendung einfügen.",
             )
         is ConferenceStreamBroadcastKeyRejectedException -> tr("Der Schlüssel enthält ungültige Zeichen oder ist zu lang.")
+        // V1.9.275 reconnect of one target: the fixed texts of its typed refusals.
+        is ConferenceStreamReconnectNotLiveException -> tr("Neu verbinden geht nur während einer laufenden Übertragung.")
+        is ConferenceStreamTargetNotFailedException -> tr("Dieses Ziel ist nicht fehlgeschlagen.")
+        is ConferenceStreamTargetKeyPersistentException ->
+            tr("Für dieses Ziel gilt ein dauerhafter Schlüssel; er wird unter Streaming-Ziele geändert.")
+        is ConferenceStreamReconnectFailedException ->
+            tr("Das Ziel konnte nicht neu verbunden werden. Bitte versuchen Sie es in einer Minute erneut.")
         else -> null
     }
 

@@ -1114,3 +1114,27 @@ class ConferenceStreamViewerUrlRejectedException(
 class ConferenceStreamBroadcastKeyRejectedException(
     override val message: String = "The key contains invalid characters or is too long",
 ) : AbstractServiceException()
+
+/** V1.9.275 -- distinct type. A target can only be reconnected while the stream is live. Fixed text. */
+@RpcServiceException
+class ConferenceStreamReconnectNotLiveException(
+    override val message: String = "Reconnecting is only possible during a running broadcast",
+) : AbstractServiceException()
+
+/** V1.9.275 -- distinct type. Only a failed target can be reconnected. Fixed text. */
+@RpcServiceException
+class ConferenceStreamTargetNotFailedException(
+    override val message: String = "This target has not failed",
+) : AbstractServiceException()
+
+/** V1.9.275 -- distinct type. A destination with a persistent key takes no new key when reconnecting. Fixed text, never echoes the input. */
+@RpcServiceException
+class ConferenceStreamTargetKeyPersistentException(
+    override val message: String = "This target uses a persistent key; it is changed under the streaming destinations",
+) : AbstractServiceException()
+
+/** V1.9.275 -- distinct type. LiveKit refused to add the target's output again. Fixed text. */
+@RpcServiceException
+class ConferenceStreamReconnectFailedException(
+    override val message: String = "The target could not be reconnected",
+) : AbstractServiceException()

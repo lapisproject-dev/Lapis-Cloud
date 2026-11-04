@@ -30282,3 +30282,96 @@ msgstr "%1 -- needs a key for this broadcast, can only be started in the confere
 #: src/jsMain/kotlin/network/lapis/cloud/client/StreamBroadcastKeyField.kt:1
 msgid "%1 -- Schlüssel fehlt, bitte in den Stream-Zielen eintragen"
 msgstr "%1 -- key missing, please enter it under stream destinations"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Wird erneut verbunden (%1 von %2) …"
+msgstr "Reconnecting (%1 of %2) …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Wird erneut verbunden"
+msgstr "Reconnecting"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 hat die Verbindung abgelehnt. Prüfen Sie den Stream-Schlüssel und verbinden Sie neu."
+msgstr "%1 refused the connection. Check the stream key and reconnect."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 hat nicht rechtzeitig geantwortet. Verbinden Sie neu."
+msgstr "%1 did not answer in time. Reconnect."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Die Verbindung zu %1 ist fehlgeschlagen. Verbinden Sie neu."
+msgstr "The connection to %1 failed. Reconnect."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Die Übertragung zu %1 ist abgebrochen. Verbinden Sie neu."
+msgstr "The transmission to %1 was interrupted. Reconnect."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Automatische Versuche: %1"
+msgstr "Automatic attempts: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Ein Einmal-Schlüssel gilt bei Facebook nur für eine Verbindung. Geben Sie einen neuen Schlüssel ein und verbinden Sie neu. Besser: in Facebook einen dauerhaften Schlüssel einrichten."
+msgstr "A one-time key on Facebook is valid for one connection only. Enter a new key and reconnect. Better: set up a persistent key in Facebook."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Ein Einmal-Schlüssel gilt bei X nur für eine Verbindung. Geben Sie einen neuen Schlüssel ein und verbinden Sie neu. Besser: in X Media Studio einen dauerhaften Schlüssel einrichten."
+msgstr "A one-time key on X is valid for one connection only. Enter a new key and reconnect. Better: set up a persistent key in X Media Studio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Neu verbinden"
+msgstr "Reconnect"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 neu verbinden"
+msgstr "Reconnect %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Wird verbunden …"
+msgstr "Connecting …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Verbinden"
+msgstr "Connect"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Leer lassen, um den bisherigen Schlüssel erneut zu verwenden."
+msgstr "Leave empty to use the previous key again."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Neuer Stream-Schlüssel für %1 (optional)"
+msgstr "New stream key for %1 (optional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Live auf %1 von %2 Zielen"
+msgstr "Live on %1 of %2 destinations"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 ist live."
+msgstr "%1 is live."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 wird erneut verbunden."
+msgstr "%1 is being reconnected."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "%1 ist fehlgeschlagen."
+msgstr "%1 has failed."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Neu verbinden geht nur während einer laufenden Übertragung."
+msgstr "Reconnecting is only possible during a running broadcast."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Dieses Ziel ist nicht fehlgeschlagen."
+msgstr "This destination has not failed."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Für dieses Ziel gilt ein dauerhafter Schlüssel; er wird unter Streaming-Ziele geändert."
+msgstr "This destination uses a persistent key; it is changed under Streaming destinations."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StreamTargetsPanel.kt:1
+msgid "Das Ziel konnte nicht neu verbunden werden. Bitte versuchen Sie es in einer Minute erneut."
+msgstr "The destination could not be reconnected. Please try again in a minute."
+

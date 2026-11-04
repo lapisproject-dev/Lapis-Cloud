@@ -9,14 +9,19 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.BroadcastKeys
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
+import network.lapis.cloud.server.conference.FAILURE_RECONNECT_FAILED
 import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.RoomPauseDb
 import network.lapis.cloud.server.conference.StreamKeyMissing
 import network.lapis.cloud.server.conference.StreamUrlFingerprint
 import network.lapis.cloud.server.conference.StreamViewerUrls
+import network.lapis.cloud.server.conference.clearRetryScheduleForStream
+import network.lapis.cloud.server.conference.failUnrecoveredTargetsForStream
+import network.lapis.cloud.server.conference.openRetryWindowForStream
 import network.lapis.cloud.server.conference.pausefeed.PauseFeedControl
 import network.lapis.cloud.server.conference.pausefeed.PauseFeeds
+import network.lapis.cloud.server.conference.reissueStreamTargetOutput
 import network.lapis.cloud.server.conference.targetRtmpUrl
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
@@ -59,7 +64,11 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConferenceRoomPausedException
 import network.lapis.cloud.shared.rpc.ConferenceStreamBroadcastKeyMissingException
+import network.lapis.cloud.shared.rpc.ConferenceStreamReconnectFailedException
+import network.lapis.cloud.shared.rpc.ConferenceStreamReconnectNotLiveException
 import network.lapis.cloud.shared.rpc.ConferenceStreamStoredKeyMissingException
+import network.lapis.cloud.shared.rpc.ConferenceStreamTargetKeyPersistentException
+import network.lapis.cloud.shared.rpc.ConferenceStreamTargetNotFailedException
 import network.lapis.cloud.shared.rpc.ConferenceStreamViewerUrlRejectedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -285,6 +294,9 @@ class ConferenceStreamingService(
     /** V1.9.274 -- limits [setBroadcastKey]/[setViewerUrl] per member and stream. Like the others: `Application.module` must pass ONE shared instance. */
     private val broadcastInputRateLimiter: FederationInboxRateLimiter =
         FederationInboxRateLimiter(maxRequests = DEFAULT_BROADCAST_INPUT_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
+    /** V1.9.275 -- limits [reconnectStreamTarget] per member and stream (5 per 10 minutes). `Application.module` must pass ONE shared instance. */
+    private val reconnectRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = DEFAULT_RECONNECT_RATE_MAX, window = DEFAULT_RECONNECT_RATE_WINDOW),
 ) : IConferenceStreamingService {
     /** See class KDoc "secretBox -- null unless streaming is fully configured". */
     private val secretBox: SecretBox? = streamingConfig.secretEncryptionKey?.let { SecretBox(it) }
@@ -1004,6 +1016,8 @@ class ConferenceStreamingService(
                             it[pauseReason] = ConferenceStreamPauseReason.SECRET_BALLOT
                         }
                     }
+                    // V1.9.275: a new egress went LIVE -- every target gets a fresh retry window.
+                    if (roomStillClean) openRetryWindowForStream(streamId = prep.streamId, now = now)
                 }.onFailure { e ->
                     logger.warn {
                         "startStream: LiveKit egress start failed for stream ${prep.streamId}: ${(e as? LiveKitAdminException)?.message}"
@@ -1355,6 +1369,8 @@ class ConferenceStreamingService(
                     val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
                     return@transaction streamRowToDto(row = row, roomTitle = prep.roomTitle, canManage = true)
                 }
+                // V1.9.275: a target that was being retried and never recovered ends FAILED, not FINISHED.
+                failUnrecoveredTargetsForStream(streamUuid)
                 ConferenceStreamTargetTable.update({
                     (ConferenceStreamTargetTable.streamId eq streamUuid) and
                         (
@@ -1364,6 +1380,7 @@ class ConferenceStreamingService(
                 }) {
                     it[status] = ConferenceStreamTargetStatus.FINISHED
                 }
+                clearRetryScheduleForStream(streamUuid)
                 // V1.9.274: ENDED is final -- the broadcast keys of this stream are deleted in the same transaction.
                 BroadcastKeys.clearForStream(streamUuid)
                 AuditLogRecorder.record(
@@ -1575,6 +1592,147 @@ class ConferenceStreamingService(
             targetDtos(streamId = streamUuid, canManage = true, streamTerminal = false)
                 .first { it.destinationId == destUuid.toString() }
         }
+    }
+
+    // ── V1.9.275: reconnect one failed target ───────────────────────────────────────
+
+    override suspend fun reconnectStreamTarget(
+        streamId: String,
+        destinationId: String,
+        broadcastKey: ConferenceStreamBroadcastInput?,
+    ): ConferenceStreamDto {
+        val current = resolveCurrentMember(call)
+        requireStreamingEnabled()
+        requireWithinRate(limiter = mutateRateLimiter, memberId = current.memberId)
+        val streamUuid = streamId.toStreamUuid()
+        val destUuid = destinationId.toStreamUuid()
+        if (broadcastKey != null) {
+            if (broadcastKey.destinationId != destinationId) throw BadRequestException("The key belongs to another destination")
+            if (broadcastKey.viewerUrl != null) throw BadRequestException("The viewer address is not changed when reconnecting")
+        }
+        val newKey = broadcastKey?.streamKey?.takeIf { it.isNotBlank() }
+        val prep =
+            transaction {
+                // Role first (before the rate limit counts anything and before the stream's existence is revealed).
+                val streamRow = lockStreamForModerator(streamUuid = streamUuid, current = current)
+                if (!reconnectRateLimiter.checkAndRecord("member:${current.memberId}:stream:$streamUuid")) {
+                    throw ConflictException("Too many requests -- try again later")
+                }
+                val egressId = streamRow[ConferenceStreamTable.livekitEgressId]
+                if (streamRow[ConferenceStreamTable.status] != ConferenceStreamStatus.LIVE || egressId == null) {
+                    throw ConferenceStreamReconnectNotLiveException()
+                }
+                val room =
+                    ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq streamRow[ConferenceStreamTable.roomId] }.single()
+                val target = targetRowOf(streamId = streamUuid, destinationId = destUuid)
+                val targetRowId = target[ConferenceStreamTargetTable.id]
+                if (target[ConferenceStreamTargetTable.status] != ConferenceStreamTargetStatus.FAILED) {
+                    throw ConferenceStreamTargetNotFailedException()
+                }
+                val keyKind = target[ConferenceStreamDestinationTable.keyKind]
+                val oldCiphertext = target[ConferenceStreamTargetTable.broadcastKeyCiphertext]
+                var newCiphertext: String? = oldCiphertext
+                when (keyKind) {
+                    ConferenceStreamKeyKind.PERSISTENT -> {
+                        if (newKey != null) throw ConferenceStreamTargetKeyPersistentException()
+                        if (target[ConferenceStreamDestinationTable.streamKeyCiphertext] == null) {
+                            throw ConferenceStreamStoredKeyMissingException(destinationId = destUuid.toString())
+                        }
+                    }
+                    ConferenceStreamKeyKind.PER_BROADCAST -> {
+                        if (newKey != null) {
+                            BroadcastKeys.validate(newKey)
+                        } else if (oldCiphertext == null) {
+                            throw ConferenceStreamBroadcastKeyMissingException(destinationId = destUuid.toString())
+                        }
+                    }
+                }
+                // The OLD url is built before the new key is sealed (a missing/unreadable old key only means: nothing to remove).
+                val removeUrl =
+                    try {
+                        targetRtmpUrl(
+                            destinationRow = target,
+                            targetId = targetRowId,
+                            broadcastKeyCiphertext = oldCiphertext,
+                            secretBox = secretBox!!,
+                        )
+                    } catch (e: StreamKeyMissing) {
+                        null
+                    }
+                if (newKey != null) newCiphertext = BroadcastKeys.seal(targetId = targetRowId, key = newKey, box = secretBox!!)
+                val addUrl =
+                    targetRtmpUrl(
+                        destinationRow = target,
+                        targetId = targetRowId,
+                        broadcastKeyCiphertext = newCiphertext,
+                        secretBox = secretBox!!,
+                    )
+                val now = nowLocalDateTime()
+                val claimed =
+                    ConferenceStreamTargetTable.update({
+                        (ConferenceStreamTargetTable.id eq targetRowId) and
+                            (ConferenceStreamTargetTable.status eq ConferenceStreamTargetStatus.FAILED)
+                    }) {
+                        it[status] = ConferenceStreamTargetStatus.PENDING
+                        it[urlFingerprint] = StreamUrlFingerprint.of(addUrl)
+                        it[failureReason] = null
+                        it[failureKind] = null
+                        it[retries] = 0
+                        it[startedAtEpochNanos] = null
+                        it[endedAtEpochNanos] = null
+                        it[autoRetryAttempt] = 0
+                        it[autoRetryNextAt] = null
+                        it[autoRetryIssuedAt] = now
+                        it[retryWindowStartedAt] = now
+                        if (newKey != null) it[broadcastKeyCiphertext] = newCiphertext
+                    }
+                if (claimed != 1) throw ConferenceStreamTargetNotFailedException()
+                // No payload: neither the key nor anything derived from it. Last lock-taking operation (see AuditLogRecorder KDoc).
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.CONFERENCE_STREAM,
+                    entityId = streamUuid,
+                    action = AuditAction.UPDATE,
+                    occurredAt = now,
+                )
+                ReconnectPreparation(
+                    roomName = room[ConferenceRoomTable.livekitRoomName],
+                    roomTitle = room[ConferenceRoomTable.title],
+                    egressId = egressId,
+                    targetRowId = targetRowId,
+                    issuedAt = now,
+                    removeUrl = removeUrl,
+                    addUrl = addUrl,
+                )
+            }
+
+        // OUTSIDE the transaction -- never a network call inside an open one. UpdateStream on the RUNNING egress: no second egress is started.
+        val ok =
+            reissueStreamTargetOutput(
+                liveKitEgressClient = liveKitEgressClient,
+                roomName = prep.roomName,
+                egressId = prep.egressId,
+                removeUrl = prep.removeUrl,
+                addUrl = prep.addUrl,
+            )
+        return transaction {
+            if (!ok) {
+                // Back to FAILED; an entered key stays sealed so the next attempt needs no retyping.
+                ConferenceStreamTargetTable.update({
+                    (ConferenceStreamTargetTable.id eq prep.targetRowId) and
+                        (ConferenceStreamTargetTable.autoRetryIssuedAt eq prep.issuedAt)
+                }) {
+                    it[status] = ConferenceStreamTargetStatus.FAILED
+                    it[failureReason] = FAILURE_RECONNECT_FAILED
+                    it[failureKind] = null
+                    it[autoRetryIssuedAt] = null
+                }
+            }
+            val row = ConferenceStreamTable.selectAll().where { ConferenceStreamTable.id eq streamUuid }.single()
+            if (!ok) return@transaction null
+            streamRowToDto(row = row, roomTitle = prep.roomTitle, canManage = true)
+        } ?: throw ConferenceStreamReconnectFailedException()
     }
 
     /** Loads (row-locked) the stream and its room, then requires the caller to be a moderator of that room BEFORE anything else is revealed. */
@@ -1811,6 +1969,22 @@ class ConferenceStreamingService(
                             kind == ConferenceStreamKeyKind.PER_BROADCAST &&
                             row[ConferenceStreamTargetTable.broadcastKeyCiphertext] == null,
                     viewerUrl = if (canManage) row[ConferenceStreamTargetTable.viewerUrl] else null,
+                    failureKind =
+                        if (row[ConferenceStreamTargetTable.status] == ConferenceStreamTargetStatus.FAILED) {
+                            row[ConferenceStreamTargetTable.failureKind]
+                        } else {
+                            null
+                        },
+                    autoRetryAttempt = row[ConferenceStreamTargetTable.autoRetryAttempt],
+                    keyHint =
+                        if (canManage) {
+                            keyHintOf(
+                                platform = row[ConferenceStreamDestinationTable.platform],
+                                rtmpUrl = row[ConferenceStreamDestinationTable.rtmpUrl],
+                            )
+                        } else {
+                            ConferenceStreamKeyHint.OTHER
+                        },
                 )
             }
 
@@ -1860,6 +2034,21 @@ private const val DEFAULT_MUTATE_RATE_MAX = 30
 private const val DEFAULT_READ_RATE_MAX = 60
 private const val DEFAULT_BROADCAST_INPUT_RATE_MAX = 10
 private val DEFAULT_ACTION_RATE_WINDOW = 1.minutes
+private const val DEFAULT_RECONNECT_RATE_MAX = 5
+private val DEFAULT_RECONNECT_RATE_WINDOW = 10.minutes
+
+/** Result of [ConferenceStreamingService.reconnectStreamTarget]'s first transaction. The URLs are plaintext: local values only, redacted in [toString]. */
+private class ReconnectPreparation(
+    val roomName: String,
+    val roomTitle: String,
+    val egressId: String,
+    val targetRowId: Uuid,
+    val issuedAt: LocalDateTime,
+    val removeUrl: String?,
+    val addUrl: String,
+) {
+    override fun toString(): String = "ReconnectPreparation(targetRowId=$targetRowId)"
+}
 
 private class PreparedTarget(
     val targetId: Uuid,
@@ -2125,6 +2314,10 @@ internal suspend fun restartEgressForStream(
                             it[endedAtEpochNanos] = null
                             it[retries] = 0
                             it[failureReason] = null
+                            it[failureKind] = null
+                            it[autoRetryAttempt] = 0
+                            it[autoRetryNextAt] = null
+                            it[autoRetryIssuedAt] = null
                         }
                         plaintextUrl
                     }
@@ -2321,6 +2514,8 @@ internal suspend fun restartEgressForStream(
                         it[pauseReason] = ConferenceStreamPauseReason.SECRET_BALLOT
                     }
                 }
+                // V1.9.275: the resumed egress is LIVE -- every target gets a fresh retry window.
+                if (roomStillClean) openRetryWindowForStream(streamId = streamId, now = now)
             }.onFailure { e ->
                 logger.warn {
                     "restartEgressForStream: LiveKit egress start failed for stream $streamId: ${(e as? LiveKitAdminException)?.message}"

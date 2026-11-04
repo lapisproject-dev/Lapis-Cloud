@@ -4,9 +4,12 @@
 package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ConferenceStreamFailureKind
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.datetime.datetime
 
 public object ConferenceStreamTargetTable : Table("conference_stream_target") {
     public val id: Column<Uuid> = uuid("id")
@@ -21,6 +24,12 @@ public object ConferenceStreamTargetTable : Table("conference_stream_target") {
     public val failureReason: Column<String?> = varchar("failure_reason", 500).nullable()
     public val broadcastKeyCiphertext: Column<String?> = varchar("broadcast_key_ciphertext", 1024).nullable()
     public val viewerUrl: Column<String?> = varchar("viewer_url", 512).nullable()
+    public val failureKind: Column<ConferenceStreamFailureKind?> =
+        enumerationByName<ConferenceStreamFailureKind>("failure_kind", 16).nullable()
+    public val autoRetryAttempt: Column<Int> = integer("auto_retry_attempt").default(0)
+    public val autoRetryNextAt: Column<LocalDateTime?> = datetime("auto_retry_next_at").nullable()
+    public val autoRetryIssuedAt: Column<LocalDateTime?> = datetime("auto_retry_issued_at").nullable()
+    public val retryWindowStartedAt: Column<LocalDateTime?> = datetime("retry_window_started_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

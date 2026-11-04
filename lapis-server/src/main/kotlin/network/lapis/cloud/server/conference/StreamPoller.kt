@@ -14,29 +14,37 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.pausefeed.PauseFeedControl
 import network.lapis.cloud.server.conference.pausefeed.PauseFeedWishes
 import network.lapis.cloud.server.conference.pausefeed.PauseFeeds
+import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.ConferenceStreamDestinationTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
+import network.lapis.cloud.server.db.truncatedToDbPrecision
 import network.lapis.cloud.server.rpc.ConferenceStreamPauseCoordinator
 import network.lapis.cloud.server.rpc.SecretBallotStreamLock
 import network.lapis.cloud.server.rpc.restartEgressForStream
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.ConferenceStreamFailureKind
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
@@ -56,12 +64,6 @@ private val NON_TERMINAL_STREAM_STATUSES =
 private val NON_TERMINAL_TARGET_STATUSES = listOf(ConferenceStreamTargetStatus.PENDING, ConferenceStreamTargetStatus.ACTIVE)
 
 private val TERMINAL_EGRESS_STATUSES = setOf("EGRESS_COMPLETE", "EGRESS_FAILED", "EGRESS_ABORTED", "EGRESS_LIMIT_REACHED")
-
-/** Fixed, sanitized German vocabulary -- see class KDoc "Per-target failure mapping". Raw LiveKit `stream_results[].error`/`EgressInfo.error` text NEVER reaches a DTO, only these four fixed strings, mirroring [network.lapis.cloud.shared.domain.ConferenceStreamTargetStatusDto.failureReason]'s own KDoc requirement. */
-private const val FAILURE_CONNECTION = "Die Verbindung zum Streaming-Ziel konnte nicht hergestellt werden."
-private const val FAILURE_REJECTED = "Das Streaming-Ziel hat die Verbindung abgelehnt (Stream-Schlüssel prüfen)."
-private const val FAILURE_TIMEOUT = "Der Stream wurde vom Server beendet (Zeitüberschreitung)."
-private const val FAILURE_GENERIC = "Der Stream konnte nicht gestartet werden."
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- the single application-scoped
@@ -163,6 +165,8 @@ class StreamPoller(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var loopJob: Job? = null
 
+    private val secretBox: SecretBox? = streamingConfig.secretEncryptionKey?.let { SecretBox(it) }
+
     /** Idempotent -- a second call while already running is a no-op. See class KDoc. */
     fun start() {
         if (loopJob != null) return
@@ -186,6 +190,9 @@ class StreamPoller(
      * -- so a caller (production loop or a test) never needs its own try/catch.
      */
     suspend fun tick() {
+        // V1.9.275 -- `UpdateStream` calls claimed in THIS tick (cap: [StreamTargetRetryPolicy.MAX_ISSUES_PER_TICK]).
+        // Local to the call, so overlapping ticks cannot reset each other's count.
+        val issuesThisTick = AtomicInteger(0)
         // V1.9.274 safety net (also covers the first tick after a server start): no broadcast key survives on a stream that already ended.
         try {
             val cleared = transaction { BroadcastKeys.clearForTerminalStreams() }
@@ -203,7 +210,7 @@ class StreamPoller(
                 }
             for (row in rows) {
                 try {
-                    handleStream(row)
+                    handleStream(row = row, issuesThisTick = issuesThisTick)
                 } catch (e: Throwable) {
                     logger.warn(e) { "StreamPoller: tick failed for stream ${row.id} (status ${row.status})" }
                 }
@@ -232,7 +239,10 @@ class StreamPoller(
         }
     }
 
-    private suspend fun handleStream(row: StreamRow) {
+    private suspend fun handleStream(
+        row: StreamRow,
+        issuesThisTick: AtomicInteger,
+    ) {
         val now = clock()
         val roomRow =
             transaction { ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row.roomId }.singleOrNull() }
@@ -263,7 +273,9 @@ class StreamPoller(
             // discovery handleStarting's own adoption logic performs -- see that method's own KDoc.
             ConferenceStreamStatus.STARTING -> handleStarting(row = row, roomName = roomName, now = now)
             ConferenceStreamStatus.LIVE -> {
-                if (!reconcileMissedSecretBallotPause(row)) handleLive(row = row, roomName = roomName, now = now)
+                if (!reconcileMissedSecretBallotPause(row)) {
+                    handleLive(row = row, roomName = roomName, now = now, issuesThisTick = issuesThisTick)
+                }
             }
             ConferenceStreamStatus.PAUSING -> handlePausing(row = row, roomName = roomName, now = now)
             ConferenceStreamStatus.PAUSED -> handlePaused(row = row, now = now)
@@ -402,6 +414,7 @@ class StreamPoller(
                         it[status] = ConferenceStreamStatus.LIVE
                     }
                 }
+                if (!hasOpenSecretBallot) openRetryWindowForStream(streamId = row.id, now = now)
             }
         } else {
             // confirmedEgressId = null -- same reasoning as the fingerprints.isEmpty() branch above:
@@ -538,6 +551,7 @@ class StreamPoller(
                     // moderator escalated it mid-PAUSING via ConferenceStreamingService.pauseStream),
                     // written by whoever moved this row into PAUSING in the first place.
                 }
+            clearRetryScheduleForStream(streamId)
             if (updated == 0) {
                 logger.warn {
                     "StreamPoller: stream $streamId was resurrected with a new egress id while its stop was " +
@@ -563,6 +577,7 @@ class StreamPoller(
         row: StreamRow,
         roomName: String,
         now: LocalDateTime,
+        issuesThisTick: AtomicInteger,
     ) {
         if (elapsed(from = row.startedAt, to = now) >= streamingConfig.maxDurationMinutes.minutes) {
             autoStop(row = row, roomName = roomName, now = now)
@@ -586,33 +601,17 @@ class StreamPoller(
             return
         }
 
-        val targetRows =
-            transaction {
-                ConferenceStreamTargetTable
-                    .selectAll()
-                    .where { ConferenceStreamTargetTable.streamId eq row.id }
-                    .map { it.toTargetRow() }
-            }
-        val byFingerprint = info.streamResults.associateBy { it.url }
-        transaction {
-            for (t in targetRows) {
-                val si = byFingerprint[t.urlFingerprint] ?: continue
-                val mappedStatus = mapStreamInfoStatus(si.status)
-                ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq t.id }) {
-                    it[status] = mappedStatus
-                    it[retries] = si.retries
-                    it[failureReason] = if (mappedStatus == ConferenceStreamTargetStatus.FAILED) sanitizeLiveKitError(si.error) else null
-                    si.startedAtEpochNanos
-                        .toLongOrNull()
-                        ?.takeIf { it != 0L }
-                        ?.let { nanos -> it[startedAtEpochNanos] = nanos }
-                    si.endedAtEpochNanos
-                        .toLongOrNull()
-                        ?.takeIf { it != 0L }
-                        ?.let { nanos -> it[endedAtEpochNanos] = nanos }
-                }
-            }
-        }
+        // V1.9.275: refresh the targets from stream_results and plan/claim the automatic retries -- see [refreshTargets].
+        val claims =
+            refreshTargets(
+                streamId = row.id,
+                egressId = egressId,
+                info = info,
+                now = now,
+                claimDue =
+                    info.status !in TERMINAL_EGRESS_STATUSES,
+                issuesThisTick = issuesThisTick,
+            )
 
         if (info.status in TERMINAL_EGRESS_STATUSES) {
             // The egress ended on its OWN account -- a moderator-initiated stop already moved this
@@ -620,6 +619,228 @@ class StreamPoller(
             // "StreamPoller drives LIVE -> FAILED"). confirmedEgressId = egressId -- this IS the
             // specific id whose terminal status this ListEgress call just observed, see markFailed KDoc.
             markFailed(streamId = row.id, reason = sanitizeLiveKitError(info.error), confirmedEgressId = egressId)
+            return
+        }
+        reissueClaims(claims = claims, roomName = roomName, egressId = egressId)
+    }
+
+    /**
+     * V1.9.275 -- ONE transaction per LIVE stream and tick. The stream row is locked first and must still be `LIVE` on the same egress (so a
+     * pause, stop, restart or quiesce that won the race makes this a no-op). Every target is refreshed from `stream_results`; LiveKit's raw
+     * status/retries are overwritten each tick, therefore the own state (`auto_retry_*`, `failure_kind`) lives in separate columns and a result
+     * that predates the last issued attempt is ignored ([StreamTargetRetryPolicy.pickResult]). A newly detected failure is either planned for a
+     * retry (PENDING, attempt + 1, `auto_retry_next_at`) or becomes FAILED; due attempts are claimed with a conditional UPDATE (so two ticks
+     * can never issue the same attempt twice) and returned for the call OUTSIDE of any transaction.
+     */
+    private fun refreshTargets(
+        streamId: Uuid,
+        egressId: String,
+        info: LiveKitEgressInfo,
+        now: LocalDateTime,
+        claimDue: Boolean,
+        issuesThisTick: AtomicInteger,
+    ): List<RetryClaim> =
+        transaction {
+            val current =
+                ConferenceStreamTable
+                    .selectAll()
+                    .where { ConferenceStreamTable.id eq streamId }
+                    .forUpdate()
+                    .singleOrNull() ?: return@transaction emptyList()
+            if (current[ConferenceStreamTable.status] != ConferenceStreamStatus.LIVE ||
+                current[ConferenceStreamTable.livekitEgressId] != egressId
+            ) {
+                return@transaction emptyList()
+            }
+            val nowDb = now.truncatedToDbPrecision()
+            val byFingerprint = info.streamResults.groupBy { it.url }
+            val targets =
+                ConferenceStreamTargetTable.selectAll().where { ConferenceStreamTargetTable.streamId eq streamId }.map {
+                    it
+                        .toTargetRow()
+                }
+            for (t in targets) {
+                // A planned attempt that is not due yet: LiveKit still reports the old failure, the row must stay as planned.
+                if (t.status == ConferenceStreamTargetStatus.PENDING && t.autoRetryNextAt != null && t.autoRetryIssuedAt == null) continue
+                // No entry for the fingerprint is NOT a reason to skip: an issued attempt without any fresh result must still time out.
+                val candidates = byFingerprint[t.urlFingerprint].orEmpty()
+                val picked = StreamTargetRetryPolicy.pickResult(candidates = candidates, issuedAt = t.autoRetryIssuedAt, zone = TZ)
+                val issued = t.autoRetryIssuedAt
+                val timedOut =
+                    picked == null &&
+                        issued != null &&
+                        elapsed(from = issued, to = nowDb) >= StreamTargetRetryPolicy.ATTEMPT_RESULT_TIMEOUT
+                if (picked == null && !timedOut) continue
+                val mapped = if (picked == null) ConferenceStreamTargetStatus.FAILED else mapStreamInfoStatus(picked.status)
+                if (mapped == ConferenceStreamTargetStatus.FAILED) {
+                    if (issued == null && t.status == ConferenceStreamTargetStatus.FAILED) continue // decided before, nothing new
+                    val kind = if (picked == null) ConferenceStreamFailureKind.TIMEOUT else StreamTargetRetryPolicy.classify(picked.error)
+                    applyTargetFailure(target = t, kind = kind, detectedAt = nowDb, liveKitRetries = picked?.retries, guardIssuedAt = null)
+                } else {
+                    val finished = mapped == ConferenceStreamTargetStatus.ACTIVE || mapped == ConferenceStreamTargetStatus.FINISHED
+                    ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq t.id }) {
+                        it[status] = mapped
+                        it[retries] = picked!!.retries
+                        it[failureReason] = null
+                        if (finished) {
+                            it[failureKind] = null
+                            it[autoRetryNextAt] = null
+                            it[autoRetryIssuedAt] = null
+                        }
+                        picked.startedAtEpochNanos
+                            .toLongOrNull()
+                            ?.takeIf { n -> n != 0L }
+                            ?.let { n -> it[startedAtEpochNanos] = n }
+                        picked.endedAtEpochNanos
+                            .toLongOrNull()
+                            ?.takeIf { n -> n != 0L }
+                            ?.let { n -> it[endedAtEpochNanos] = n }
+                    }
+                }
+            }
+            if (!claimDue) return@transaction emptyList()
+            claimDueAttempts(streamId = streamId, nowDb = nowDb, issuesThisTick = issuesThisTick)
+        }
+
+    /** Decides a newly detected failure of [target]: planned retry (PENDING) or FAILED. Runs inside the caller's transaction. */
+    private fun applyTargetFailure(
+        target: TargetRow,
+        kind: ConferenceStreamFailureKind,
+        detectedAt: LocalDateTime,
+        liveKitRetries: Int?,
+        guardIssuedAt: LocalDateTime?,
+    ) {
+        val next =
+            StreamTargetRetryPolicy.nextAttemptAt(
+                kind = kind,
+                attemptSoFar = target.autoRetryAttempt,
+                windowStartedAt = target.retryWindowStartedAt,
+                lastIssuedAt = target.autoRetryIssuedAt ?: guardIssuedAt,
+                detectedAt = detectedAt,
+                zone = TZ,
+            )
+        val where: Op<Boolean> =
+            (ConferenceStreamTargetTable.id eq target.id) and
+                (guardIssuedAt?.let { ConferenceStreamTargetTable.autoRetryIssuedAt eq it } ?: Op.TRUE)
+        ConferenceStreamTargetTable.update({ where }) {
+            it[failureKind] = kind
+            it[autoRetryIssuedAt] = null
+            if (liveKitRetries != null) it[retries] = liveKitRetries
+            if (next != null) {
+                it[status] = ConferenceStreamTargetStatus.PENDING
+                it[failureReason] = null
+                it[autoRetryAttempt] = target.autoRetryAttempt + 1
+                it[autoRetryNextAt] = next
+            } else {
+                it[status] = ConferenceStreamTargetStatus.FAILED
+                it[failureReason] = StreamTargetRetryPolicy.reasonText(kind)
+                it[autoRetryNextAt] = null
+            }
+        }
+        if (next != null) {
+            logger.info {
+                "StreamPoller: target ${target.id} failed (${kind.name}) -- retry ${target.autoRetryAttempt + 1} of " +
+                    "${StreamTargetRetryPolicy.MAX_ATTEMPTS} planned"
+            }
+        }
+    }
+
+    /** Claims (conditional UPDATE) the attempts that are due and builds their URLs. Runs inside [refreshTargets]' transaction. */
+    private fun claimDueAttempts(
+        streamId: Uuid,
+        nowDb: LocalDateTime,
+        issuesThisTick: AtomicInteger,
+    ): List<RetryClaim> {
+        val due =
+            ConferenceStreamTargetTable
+                .selectAll()
+                .where {
+                    (ConferenceStreamTargetTable.streamId eq streamId) and
+                        (ConferenceStreamTargetTable.status eq ConferenceStreamTargetStatus.PENDING) and
+                        ConferenceStreamTargetTable.autoRetryNextAt.isNotNull() and
+                        (ConferenceStreamTargetTable.autoRetryNextAt lessEq nowDb) and
+                        ConferenceStreamTargetTable.autoRetryIssuedAt.isNull()
+                }.map { it.toTargetRow() }
+        val claims = ArrayList<RetryClaim>()
+        for (t in due) {
+            if (issuesThisTick.get() >= StreamTargetRetryPolicy.MAX_ISSUES_PER_TICK) break
+            val claimed =
+                ConferenceStreamTargetTable.update({
+                    (ConferenceStreamTargetTable.id eq t.id) and
+                        (ConferenceStreamTargetTable.status eq ConferenceStreamTargetStatus.PENDING) and
+                        (ConferenceStreamTargetTable.autoRetryNextAt eq t.autoRetryNextAt) and
+                        ConferenceStreamTargetTable.autoRetryIssuedAt.isNull()
+                }) {
+                    it[autoRetryIssuedAt] = nowDb
+                    it[autoRetryNextAt] = null
+                }
+            if (claimed != 1) continue
+            val url =
+                try {
+                    val destRow =
+                        (ConferenceStreamTargetTable innerJoin ConferenceStreamDestinationTable)
+                            .selectAll()
+                            .where { ConferenceStreamTargetTable.id eq t.id }
+                            .single()
+                    targetRtmpUrl(
+                        destinationRow = destRow,
+                        targetId = t.id,
+                        broadcastKeyCiphertext = destRow[ConferenceStreamTargetTable.broadcastKeyCiphertext],
+                        secretBox = secretBox ?: throw StreamKeyMissing(),
+                    )
+                } catch (e: Exception) {
+                    logger.warn { "StreamPoller: no usable key for the retry of target ${t.id} (${e::class.simpleName})" }
+                    ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.id eq t.id }) {
+                        it[status] = ConferenceStreamTargetStatus.FAILED
+                        it[failureReason] = FAILURE_BROADCAST_KEY_MISSING_TEXT
+                        it[failureKind] = null
+                        it[autoRetryIssuedAt] = null
+                    }
+                    continue
+                }
+            issuesThisTick.incrementAndGet()
+            claims += RetryClaim(targetId = t.id, issuedAt = nowDb, url = url)
+            logger.info {
+                "StreamPoller: re-adding the output of target ${t.id} to egress of stream $streamId (attempt ${t.autoRetryAttempt})"
+            }
+        }
+        return claims
+    }
+
+    /** Outside of any transaction: the calls of the claimed attempts. A refused add counts at once as a failed attempt (UNKNOWN). */
+    private suspend fun reissueClaims(
+        claims: List<RetryClaim>,
+        roomName: String,
+        egressId: String,
+    ) {
+        for (claim in claims) {
+            val ok =
+                reissueStreamTargetOutput(
+                    liveKitEgressClient = liveKitEgressClient,
+                    roomName = roomName,
+                    egressId = egressId,
+                    removeUrl = claim.url,
+                    addUrl = claim.url,
+                )
+            if (ok) continue
+            val detectedAt = clock().truncatedToDbPrecision()
+            transaction {
+                val t =
+                    ConferenceStreamTargetTable
+                        .selectAll()
+                        .where {
+                            (ConferenceStreamTargetTable.id eq claim.targetId) and
+                                (ConferenceStreamTargetTable.autoRetryIssuedAt eq claim.issuedAt)
+                        }.singleOrNull()
+                        ?.toTargetRow() ?: return@transaction
+                applyTargetFailure(
+                    target = t,
+                    kind = ConferenceStreamFailureKind.UNKNOWN,
+                    detectedAt = detectedAt,
+                    liveKitRetries = null,
+                    guardIssuedAt = claim.issuedAt,
+                )
+            }
         }
     }
 
@@ -811,6 +1032,8 @@ class StreamPoller(
                 it[status] = ConferenceStreamStatus.ENDED
                 it[endedAt] = now
             }
+            // V1.9.275: a target that was being retried and never recovered ends FAILED, never "FINISHED" or "live".
+            failUnrecoveredTargetsForStream(streamId)
             ConferenceStreamTargetTable.update({
                 (ConferenceStreamTargetTable.streamId eq streamId) and
                     (ConferenceStreamTargetTable.status inList NON_TERMINAL_TARGET_STATUSES)
@@ -819,6 +1042,7 @@ class StreamPoller(
             }
             // V1.9.274: ENDED is final -- the broadcast keys go with it, in the same transaction.
             BroadcastKeys.clearForStream(streamId)
+            clearRetryScheduleForStream(streamId)
             // System-initiated (auto-stop), no acting member -- AuditLogRecorder.record accepts a
             // null actor for exactly this case, same as RecordingPoller.transitionToStopping. Must
             // be the LAST lock-taking operation -- see that object's KDoc "deadlock-avoidance
@@ -878,6 +1102,8 @@ class StreamPoller(
                 }
                 return@transaction
             }
+            // V1.9.275: a target that was being retried and never recovered ends FAILED, never "FINISHED" or "live".
+            failUnrecoveredTargetsForStream(streamId)
             ConferenceStreamTargetTable.update({
                 (ConferenceStreamTargetTable.streamId eq streamId) and
                     (ConferenceStreamTargetTable.status inList NON_TERMINAL_TARGET_STATUSES)
@@ -886,6 +1112,7 @@ class StreamPoller(
             }
             // V1.9.274: ENDED is final -- the broadcast keys go with it, in the same transaction.
             BroadcastKeys.clearForStream(streamId)
+            clearRetryScheduleForStream(streamId)
             RoomPauseDb.clearCaptureIfNothingPaused(roomId = current[ConferenceStreamTable.roomId])
             AuditLogRecorder.record(
                 actorMemberId = null,
@@ -954,6 +1181,7 @@ class StreamPoller(
             }
             // V1.9.274: FAILED is final -- the broadcast keys go with it, in the same transaction.
             BroadcastKeys.clearForStream(streamId)
+            clearRetryScheduleForStream(streamId)
             AuditLogRecorder.record(
                 actorMemberId = null,
                 actorRole = null,
@@ -990,7 +1218,21 @@ private data class StreamRow(
 private data class TargetRow(
     val id: Uuid,
     val urlFingerprint: String,
+    val status: ConferenceStreamTargetStatus,
+    val autoRetryAttempt: Int,
+    val autoRetryNextAt: LocalDateTime?,
+    val autoRetryIssuedAt: LocalDateTime?,
+    val retryWindowStartedAt: LocalDateTime?,
 )
+
+/** A claimed automatic attempt. [url] is the plaintext RTMP URL: a local value only, never logged, redacted in [toString]. */
+private class RetryClaim(
+    val targetId: Uuid,
+    val issuedAt: LocalDateTime,
+    val url: String,
+) {
+    override fun toString(): String = "RetryClaim(targetId=$targetId)"
+}
 
 private fun ResultRow.toStreamRow() =
     StreamRow(
@@ -1007,6 +1249,11 @@ private fun ResultRow.toTargetRow() =
     TargetRow(
         id = this[ConferenceStreamTargetTable.id],
         urlFingerprint = this[ConferenceStreamTargetTable.urlFingerprint],
+        status = this[ConferenceStreamTargetTable.status],
+        autoRetryAttempt = this[ConferenceStreamTargetTable.autoRetryAttempt],
+        autoRetryNextAt = this[ConferenceStreamTargetTable.autoRetryNextAt],
+        autoRetryIssuedAt = this[ConferenceStreamTargetTable.autoRetryIssuedAt],
+        retryWindowStartedAt = this[ConferenceStreamTargetTable.retryWindowStartedAt],
     )
 
 /** Maps `livekit.StreamInfo.Status` (`ACTIVE`/`FINISHED`/`FAILED`) onto this wave's own [ConferenceStreamTargetStatus]. An unrecognized value stays [ConferenceStreamTargetStatus.PENDING] (non-terminal, polling continues). */
@@ -1018,13 +1265,5 @@ private fun mapStreamInfoStatus(status: String): ConferenceStreamTargetStatus =
         else -> ConferenceStreamTargetStatus.PENDING
     }
 
-/** See class KDoc "Per-target failure mapping". */
-private fun sanitizeLiveKitError(raw: String): String {
-    val lower = raw.lowercase()
-    return when {
-        lower.contains("resolv") || lower.contains("connect") -> FAILURE_CONNECTION
-        lower.contains("refused") || lower.contains("unauthoriz") || lower.contains("403") || lower.contains("401") -> FAILURE_REJECTED
-        lower.contains("timeout") || lower.contains("timed out") -> FAILURE_TIMEOUT
-        else -> FAILURE_GENERIC
-    }
-}
+/** See class KDoc "Per-target failure mapping" -- V1.9.275: the class of the error is decided by [StreamTargetRetryPolicy.classify]. */
+private fun sanitizeLiveKitError(raw: String): String = StreamTargetRetryPolicy.reasonText(StreamTargetRetryPolicy.classify(raw))

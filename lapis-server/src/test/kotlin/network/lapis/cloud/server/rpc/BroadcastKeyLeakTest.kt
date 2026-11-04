@@ -52,6 +52,7 @@ class BroadcastKeyLeakTest :
         val canaryBroadcast = "CANARYk3y0123456789zz"
         val canaryPersistent = "CANARYpersist987654321"
         val canaryReplacement = "CANARYreplace55555555"
+        val canaryReconnect = "CANARYreconnect4444444"
         val memberIds = mutableListOf<Uuid>()
         val roomIds = mutableListOf<Uuid>()
         val destinationIds = mutableListOf<Uuid>()
@@ -138,6 +139,7 @@ class BroadcastKeyLeakTest :
             val exceptionMessages = mutableListOf<String>()
             val dtoJson = mutableListOf<String>()
             val json = Json
+            val egress = BkEgress()
             val input =
                 ConferenceStreamBroadcastInput(
                     destinationId = perBroadcast.toString(),
@@ -145,7 +147,7 @@ class BroadcastKeyLeakTest :
                     viewerUrl = "https://example.org/live",
                 )
             try {
-                runBkHarness(exceptionSink = exceptionMessages) {
+                runBkHarness(egress = egress, exceptionSink = exceptionMessages) {
                     val started =
                         call(member = owner) {
                             it.startStream(
@@ -206,6 +208,54 @@ class BroadcastKeyLeakTest :
                     call(member = owner) {
                         it.setBroadcastKey(streamId = started.id, destinationId = perBroadcast.toString(), streamKey = canaryReplacement)
                     } shouldBe true
+
+                    // V1.9.275: the reconnect action with a canary key -- success, a refused key, a refused UpdateStream
+                    fun failTheTarget() =
+                        transaction {
+                            ConferenceStreamTargetTable.update({ ConferenceStreamTargetTable.destinationId eq perBroadcast }) {
+                                it[status] = network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus.FAILED
+                            }
+                        }
+
+                    fun reconnectInput(key: String) =
+                        ConferenceStreamBroadcastInput(destinationId = perBroadcast.toString(), streamKey = key)
+                    failTheTarget()
+                    dtoJson +=
+                        json.encodeToString(
+                            ConferenceStreamDto.serializer(),
+                            call(
+                                member = owner,
+                            ) {
+                                it.reconnectStreamTarget(
+                                    streamId = started.id,
+                                    destinationId = perBroadcast.toString(),
+                                    broadcastKey = reconnectInput(canaryReconnect),
+                                )
+                            },
+                        )
+                    failTheTarget()
+                    shouldThrow<RemoteFailure> {
+                        call(member = owner) {
+                            it.reconnectStreamTarget(
+                                streamId = started.id,
+                                destinationId = perBroadcast.toString(),
+                                broadcastKey = reconnectInput("$canaryReconnect with space"),
+                            )
+                        }
+                    }
+                    egress.failAdd = true
+                    shouldThrow<RemoteFailure> {
+                        call(
+                            member = owner,
+                        ) {
+                            it.reconnectStreamTarget(
+                                streamId = started.id,
+                                destinationId = perBroadcast.toString(),
+                                broadcastKey = reconnectInput(canaryReconnect),
+                            )
+                        }
+                    }
+                    egress.failAdd = false
                     // a resume that cannot find the key
                     call(member = owner) { it.pauseStream(started.id) }
                     transaction {
@@ -264,7 +314,7 @@ class BroadcastKeyLeakTest :
                 }
             // The capture itself works (a vacuous "nothing found" would prove nothing).
             appender.list.isNotEmpty() shouldBe true
-            val canaries = listOf(canaryBroadcast, canaryPersistent, canaryReplacement)
+            val canaries = listOf(canaryBroadcast, canaryPersistent, canaryReplacement, canaryReconnect)
             val surfaces =
                 mapOf(
                     "log" to logged,

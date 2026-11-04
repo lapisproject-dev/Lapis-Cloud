@@ -195,6 +195,14 @@ classDiagram(name = "ConferenceStreaming") {
         literal(name = "PER_BROADCAST")
     }
 
+    // V1.9.275 -- literal order is load-bearing (matches network.lapis.cloud.shared.domain.ConferenceStreamFailureKind).
+    val conferenceStreamFailureKind = enumOf(name = "ConferenceStreamFailureKind") {
+        literal(name = "REJECTED")
+        literal(name = "TIMEOUT")
+        literal(name = "CONNECTION")
+        literal(name = "UNKNOWN")
+    }
+
     val conferenceStreamDestination = classOf(name = "ConferenceStreamDestination") {
         stereotype("Entity") {
             "tableName" to "conference_stream_destination"
@@ -475,6 +483,31 @@ classDiagram(name = "ConferenceStreaming") {
         attribute(name = "viewerUrl", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "viewer_url"; "sqlType" to "VARCHAR(512)" }
+        }
+        // V1.9.275 (V141): kind of the last failure (sanitised class, never the raw LiveKit text), set while the target is retried or FAILED.
+        attribute(name = "failureKind", type = conferenceStreamFailureKind) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "failure_kind"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceStreamFailureKind"
+            }
+        }
+        // V1.9.275 (V141): own automatic attempt counter 0..3 (LiveKit's retries column above is overwritten every tick and restarts with each egress).
+        attribute(name = "autoRetryAttempt", type = "Int") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "auto_retry_attempt" }
+        }
+        attribute(name = "autoRetryNextAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auto_retry_next_at" }
+        }
+        attribute(name = "autoRetryIssuedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auto_retry_issued_at" }
+        }
+        attribute(name = "retryWindowStartedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "retry_window_started_at" }
         }
     }
 }

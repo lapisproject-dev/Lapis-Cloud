@@ -8523,6 +8523,17 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
 .lapis-secret-mask {
     -webkit-text-security: disc;
 }
+/* V1.9.275: "Neu verbinden" eines Stream-Ziels -- mindestens 44 px Trefferflaeche, unter 480 px volle Breite (nur Layout, keine Farben). */
+.lapis-stream-target-row .lapis-stream-reconnect-btn {
+  min-height: 44px;
+}
+@media (max-width: 479.98px) {
+  .lapis-stream-target-row .lapis-stream-reconnect-btn,
+  .lapis-stream-target-row .lapis-stream-reconnect-actions .btn {
+    width: 100%;
+  }
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   body,

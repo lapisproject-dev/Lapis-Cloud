@@ -238,6 +238,15 @@ data class ConferenceStreamTargetStatusDto(
     val needsBroadcastKey: Boolean = false,
     /** V1.9.274 -- moderators only (always `null` for everybody else): the normalised viewer page address behind the "Kommentare öffnen" link. */
     val viewerUrl: String? = null,
+    /**
+     * V1.9.275 -- the sanitised class of the failure; only set while [status] is [ConferenceStreamTargetStatus.FAILED], otherwise `null`. Never a URL,
+     * never a key, never raw LiveKit text (see [failureReason]).
+     */
+    val failureKind: ConferenceStreamFailureKind? = null,
+    /** V1.9.275 -- number of automatic attempts of the current window (0..[ConferenceStreamRetryLimits.MAX_AUTO_ATTEMPTS]); while [status] is PENDING and this is above 0 the target is being retried. */
+    val autoRetryAttempt: Int = 0,
+    /** V1.9.275 -- moderators only (everybody else gets [ConferenceStreamKeyHint.OTHER]): derived server-side from the destination, used for the platform specific hint. */
+    val keyHint: ConferenceStreamKeyHint = ConferenceStreamKeyHint.OTHER,
 )
 
 /**
@@ -297,6 +306,18 @@ data class ConferenceStreamAvailabilityDto(
     val maxDestinations: Int,
     val configuredDestinationCount: Int,
 )
+
+/**
+ * V1.9.275 -- the sanitised class of the last failure of ONE target (derived from LiveKit's raw error text by the server, which never leaves the
+ * server). The order is load-bearing (it matches the kUML model `29-conference-streaming.kuml.kts`): only append.
+ */
+@Serializable
+enum class ConferenceStreamFailureKind { REJECTED, TIMEOUT, CONNECTION, UNKNOWN }
+
+/** V1.9.275 -- limits shared by server and client ("Wird erneut verbunden (n von 3)"). The SQL CHECK of V141 repeats [MAX_AUTO_ATTEMPTS] (a test keeps both equal). */
+object ConferenceStreamRetryLimits {
+    const val MAX_AUTO_ATTEMPTS = 3
+}
 
 /**
  * V1.9.274 -- what the moderator types for ONE destination when starting a stream: the key of this broadcast (required for a

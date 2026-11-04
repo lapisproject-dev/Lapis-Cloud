@@ -1064,3 +1064,6 @@ col:ActivismReportTable.resolvedAt	A	stamped by the server clock (DbClock/Server
 col:ActivismTaskTable.doneAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:OrganizationSettingsTable.pauseImageUpdatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:OrganizationSettingsTable.pauseMusicUpdatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceStreamTargetTable.autoRetryNextAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceStreamTargetTable.autoRetryIssuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceStreamTargetTable.retryWindowStartedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
