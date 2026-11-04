@@ -43,6 +43,9 @@ internal data class EmbedEventListWithPartnersResponse(
 /** Exactly one `quelle` parameter, exactly `alle`. Repeated, differently spelled or unknown values are the default feed. */
 internal fun wantsPartnerEvents(params: Parameters): Boolean = params.getAll("quelle")?.let { it.size == 1 && it[0] == "alle" } == true
 
+/** V1.9.278 -- exactly one `serien` parameter, exactly `eine`. Everything else (repeated, EINE, empty, alle, serien[]) is the default feed. */
+internal fun wantsOneEntryPerSeries(params: Parameters): Boolean = params.getAll("serien")?.let { it.size == 1 && it[0] == "eine" } == true
+
 /** Pure. `null` = the event is dropped (its link does not pass the re-validation). */
 internal fun PartnerEventView.toEmbedPartnerEventItem(): EmbedPartnerEventItemDto? {
     // The partner times are UTC already: format only (embedFeedUtc would convert a second time).

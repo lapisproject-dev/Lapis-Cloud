@@ -654,8 +654,10 @@ Response (`200`):
 * `onlineUrl` (V1.9.82) — only present when **all three** hold: an administrator explicitly ticked "show the online link
   publicly" for this event, the link is an `https://` URL, and the event is not cancelled. Otherwise the key is omitted;
   the link is never published automatically. The archive feed never carries it.
-* There is **no `seriesId`** on purpose: nobody needs it, and a stable public series key would make all dates of a
+* There is **no `seriesId`** on purpose (also with `?serien=eine`, see <<events-feed-one-per-series>>): nobody needs it, and a stable public series key would make all dates of a
   series permanently linkable — an interface that cannot be taken back later.
+* `seriesText` (V1.9.278) — only with `?serien=eine` and only on entries that belong to a series: the repeat sentence
+  ("jeden Dienstag"). Plain text; omitted otherwise.
 * No person data of any kind is part of the response (no creator, no registrations, no participant counts; `full` is a
   boolean only). A test pins the set of allowed keys.
 
@@ -788,6 +790,27 @@ Each `partnerEvents` entry has exactly these keys (`locationText`, `summary` and
 |===
 
 The events come from the same read-time filter as `/veranstaltungen` (`PartnerEventDisplay.loadVisible`): an inactive partner, a blocked origin or relay host, a switched-off recursion and a hop beyond the current depth hide an event at once, with no memo in between; at most 10 events per origin and 50 in total. The 365-day horizon is applied where the data is received and published, not as a further filter on read. CORS, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff` and the rate limiter are those of the default answer (one budget, one check per request). The scan behind the answer reads at most 5000 cached rows and is bounded by the rate limiter and the store limits of the partner servers.
+
+[[events-feed-one-per-series]]
+=== `?serien=eine`: one entry per series (wave V1.9.278)
+
+`GET /api/embed/v1/events?serien=eine` lists each recurring series once, with its next public date, instead of every date. Single events are unchanged. The parameter counts only when `serien` is given **exactly once** and is exactly `eine`; `EINE`, an empty value, `alle`, a repeated parameter and `serien[]` give the default answer, byte for byte as before (the value is never echoed back).
+
+[source,http]
+----
+GET /api/embed/v1/events?serien=eine
+----
+
+[source,json]
+----
+{"events": [{"slug": "stammtisch-2031-03-04", "title": "Stammtisch", "startsAt": "2031-03-04T18:00:00Z", "...": "...", "online": false, "seriesText": "jeden Dienstag"}]}
+----
+
+* `seriesText` is the repeat sentence the public pages already show for that event (for example "jeden Dienstag"); it is present only on entries that belong to a series. It contains no person data. There is still **no series id**: nothing links the dates of a series.
+* Cancelled, non-public, draft and ended dates never represent a series; if none is left the series disappears from the answer.
+* The cap of 50 counts **entries**, not dates. Ordering is unchanged (start, then id).
+* Combined with `quelle=alle` only the own `events` are reduced; `partnerEvents` is unchanged.
+* The `events` widget script (`lapis-widgets.js`) does not change; a website that reads the feed itself opts in by adding the parameter.
 
 [[articles-list-widget]]
 == Articles list widget (wave V1.4.34/V1.4.36)

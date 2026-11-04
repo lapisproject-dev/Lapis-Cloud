@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.278 -- Embed feed: one entry per series (`?serien=eine`)
+
+- **New query parameter on `GET /api/embed/v1/events`:** with exactly ONE `serien` parameter whose value is exactly `eine`, the own events are reduced to one entry per series -- the next public date, chosen by `PublicSeriesQueries.loadOverviewRepresentatives` (the query behind `/veranstaltungen`). Single events stay. Cancelled, non-public, draft and ended dates never represent a series; with none left the series disappears. A detached date stays a member (never listed in addition). Two dates in the same minute: the smaller id as text wins, so H2 and PostgreSQL agree.
+- **Strict reading:** `?serien=EINE`, `?serien=`, `?serien=alle`, a repeated `serien` and `serien[]` are the default feed, byte for byte as before (`EmbedEventsFeedGoldenTest` is unchanged and green). The value is never echoed.
+- **Optional `seriesText`:** only with `?serien=eine` and only on entries that belong to a series -- the repeat sentence ("jeden Dienstag", the same text the public pages and the partner feed show). New last field of the item, omitted otherwise (`explicitNulls = false`). **Still no `seriesId`**, no original start and no raw rule on the wire (tripwire test).
+- **Cost:** two extra statements (representatives, series statistics) independent of the number of series; the cap stays 50 entries (not 50 dates). The existing `countOccupied` fan-out per entry is unchanged. Combines with `quelle=alle`: only the own `events` are reduced.
+- **No migration, no widget or UI change.** The CORS, rate-limit, nosniff order is unchanged.
+- **Tests:** `EmbedEventsFeedSeriesScenarios` on H2 (`EmbedEventsFeedSeriesTest`) and PostgreSQL (`EmbedEventsFeedSeriesPostgresTest`): parameter parsing, single events, four-date series, skipped dates, detached date, same-minute tiebreak, one remaining date, cap of 50 entries with 51 two-date series, `quelle=alle`, tripwire, constant statements, strict spellings, CORS 403 / rate limit 429 / nosniff.
+- **Not verified:** the real PdV website is not switched over yet (`lapis-events.ts` in the website repo), no real browser.
+
 ### V1.9.277 -- Fix: leap-day anniversaries in non-leap years
 
 - **What was wrong:** `AnniversaryCalendar.yearsBetween` used `periodUntil`, which counts no full month from 29 February to 28 February. On 28 February of a non-leap year, a 29 February birth date or join date therefore counted one year too few (24 instead of 25 for 2000-02-29 to 2025-02-28). Only 29 February dates in non-leap years were affected; ordinary dates and leap years were correct.

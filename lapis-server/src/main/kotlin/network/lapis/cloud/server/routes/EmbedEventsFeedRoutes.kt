@@ -28,6 +28,7 @@ import network.lapis.cloud.server.embed.respondEmbedPreflight
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventText
+import network.lapis.cloud.server.events.series.PublicSeriesSummary
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.partner.PartnerEventDisplay
 import network.lapis.cloud.server.partner.PartnerEventView
@@ -36,6 +37,7 @@ import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventStatus
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
@@ -79,6 +81,11 @@ internal data class EmbedEventListItemDto(
     val onlineUrl: String? = null,
     /** V1.9.113 -- `true` iff the event can be attended online in some way. Only the NEUTRAL fact: never a link, a room id or a token (a Lapis conference is joined from the event page). Omitted when `false`. */
     val online: Boolean = false,
+    /**
+     * V1.9.278 -- only with `?serien=eine` and only on entries that belong to a series: the repeat sentence ("jeden Dienstag"), the same text the
+     * public pages show. Omitted otherwise. No series key is ever published.
+     */
+    val seriesText: String? = null,
 )
 
 /**
@@ -196,6 +203,11 @@ internal fun ResultRow.toEmbedEventCommonFields(
  * feed, byte-identical to before (golden test). No memoisation: a block acts on the very next request. DoS: `loadVisible` scans at most
  * `MAX_SCAN` rows; bounded by the unchanged rate limiter (one check per request) and the partner store limits.
  *
+ * **V1.9.278 `?serien=eine`**: with exactly ONE `serien` parameter whose value is exactly `eine`, the own events are reduced to one entry per series
+ * ([PublicSeriesQueries.loadOverviewRepresentatives], the query behind `/veranstaltungen`; single events stay) and series entries carry `seriesText`.
+ * Any other spelling is the default feed, byte-identical to before (golden test). Two extra statements, independent of the number of series;
+ * the cap stays 50 ENTRIES. No series id is ever published.
+ *
  * **`Cache-Control` stays `no-store`** -- [applyEmbedCors] itself sets `Cache-Control: no-store`
  * unconditionally, BEFORE this handler ever runs (see that function's own KDoc), and
  * `response.header(...)` APPENDS rather than replaces (the exact footgun every other file in this
@@ -243,16 +255,31 @@ internal fun Route.registerEmbedEventsFeedRoutes(
             val orgZone = OrganizationTimeZone.current()
             // V1.9.248 -- partner events only when the caller asked for exactly one `quelle=alle`; every other spelling is the default feed.
             val withPartners = wantsPartnerEvents(call.request.queryParameters)
+            // V1.9.278 -- one entry per series only for exactly one `serien=eine`.
+            val oneEntryPerSeries = wantsOneEntryPerSeries(call.request.queryParameters)
             var partnerViews: List<PartnerEventView> = emptyList()
             val items =
                 transaction {
                     // Same transaction, same `now` as /veranstaltungen. No memoisation: block list and switches are read per request.
                     if (withPartners) partnerViews = PartnerEventDisplay.loadVisible(nowUtc = now, orgZone = orgZone)
-                    EventIcsFeed
-                        .loadUpcomingPublicPublished(
-                            wallNow = OrganizationTimeZone.wallNowOf(now),
-                            limit = EmbedEventsFeedLimits.MAX_EVENTS,
-                        ).map { row ->
+                    val wallNow = OrganizationTimeZone.wallNowOf(now)
+                    var seriesStats: Map<Uuid, PublicSeriesQueries.SeriesStats> = emptyMap()
+                    val rows =
+                        if (oneEntryPerSeries) {
+                            PublicSeriesQueries
+                                .loadOverviewRepresentatives(wallNow = wallNow, limit = EmbedEventsFeedLimits.MAX_EVENTS)
+                                .also { reps ->
+                                    seriesStats =
+                                        PublicSeriesQueries.loadSeriesStats(
+                                            seriesIds = reps.mapNotNull { it[EventTable.seriesId] },
+                                            wallNow = wallNow,
+                                        )
+                                }
+                        } else {
+                            EventIcsFeed.loadUpcomingPublicPublished(wallNow = wallNow, limit = EmbedEventsFeedLimits.MAX_EVENTS)
+                        }
+                    rows
+                        .map { row ->
                             val eventId = row[EventTable.id]
                             // N+1 by design at MAX_EVENTS=50 -- not batched, see this file's own
                             // KDoc reference and EventStore.countOccupied's own KDoc. If this cap
@@ -283,6 +310,14 @@ internal fun Route.registerEmbedEventsFeedRoutes(
                                 coverImageAlt = common.coverImageAlt,
                                 onlineUrl = onlineUrl,
                                 online = common.online,
+                                seriesText =
+                                    if (oneEntryPerSeries) {
+                                        row[EventTable.seriesId]
+                                            ?.let { seriesStats[it] }
+                                            ?.let { PublicSeriesSummary.repeatSentenceOrFallback(it.rrule) }
+                                    } else {
+                                        null
+                                    },
                             )
                         }
                 }

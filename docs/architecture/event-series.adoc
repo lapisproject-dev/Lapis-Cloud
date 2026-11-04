@@ -303,7 +303,7 @@ overrides:
 `rrule`/`dtstart`/`timezone`/`durationMinutes`, plus every still-attached occurrence keyed by its
 original start) inside the SAME transaction as `loadUpcomingPublicPublished` -- `render` itself stays
 transaction-free, unchanged posture from before this wave. `EmbedEventsFeedRoutes.kt` reuses
-`loadUpcomingPublicPublished` verbatim and is therefore unaffected by (and does not need to call)
+`loadUpcomingPublicPublished` verbatim by default and is therefore unaffected by (and does not need to call)
 the new RRULE rendering path.
 
 Verified by `EventIcsFeedSeriesTest`, including a real `net.fortuna.ical4j.data.CalendarBuilder`
@@ -344,4 +344,13 @@ expanded, so there is no loop over occurrences.
 * **Reuse:** `PublicSeriesSummary` (public `object`, pure) builds the repeat sentence and the teaser value type from a rule; a partner
   server can use it for its own feed. That feed is not built here.
 * `EventIcsFeed.loadUpcomingPublicPublished` is unchanged: the ICS feed, the embed list and the navigation availability still see every
-  date.
+  date. Only the embed list can opt in to the reduced view with `?serien=eine` (see below).
+
+[[embed-feed]]
+== Embed feed (V1.9.278)
+
+By default `GET /api/embed/v1/events` still lists every public date and has no series field. With exactly one `serien=eine` it uses the
+overview query (`PublicSeriesQueries.loadOverviewRepresentatives`, then `loadSeriesStats` for the repeat sentence): one entry per series,
+single events unchanged, an optional `seriesText` on series entries. Two extra statements regardless of the number of series, cap 50 entries,
+no migration. A series id is never published (a stable public key would make all dates permanently linkable). Every other spelling is the
+default feed, byte for byte (`EmbedEventsFeedGoldenTest`); tests: `EmbedEventsFeedSeriesScenarios` (H2 and PostgreSQL).
