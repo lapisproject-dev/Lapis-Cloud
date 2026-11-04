@@ -517,9 +517,10 @@ internal object SocialPublicHtml {
         .auth-callout--success { border-left-color: #2e7d32; background: var(--lapis-surface-sunken); }
         /* #2e7d32 reaches only 2.85:1 on the dark sunken surface; #4caf50 clears 3:1 there. Public pages follow the OS (no data-theme). */
         @media (prefers-color-scheme: dark) { .auth-callout--success { border-left-color: #4caf50; } }
-        /* V1.9.265 logo variants in the public header: light/dark wordmark pair, switched by the OS colour scheme. */
-        .chrome-logo--dark { display: none; }
-        @media (prefers-color-scheme: dark) { .chrome-logo--light { display: none; } .chrome-logo--dark { display: inline; } }
+        /* V1.9.279 logo variants in the public header: light/dark wordmark pair, chosen by the lightness of the nav colour
+           (tokens from /theme.css). Without /theme.css the light image shows. */
+        .chrome-logo--light { display: var(--lapis-nav-logo-light-display, block); }
+        .chrome-logo--dark { display: var(--lapis-nav-logo-dark-display, none); }
         .auth-facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: 0 0 1rem 0; }
         .auth-facts dt { font-weight: 600; }
         .auth-facts dd { margin: 0; overflow-wrap: anywhere; }

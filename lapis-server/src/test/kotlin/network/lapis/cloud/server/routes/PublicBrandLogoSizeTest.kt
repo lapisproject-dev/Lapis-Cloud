@@ -76,9 +76,8 @@ class PublicBrandLogoSizeTest :
             m shouldContain "height: var(--lapis-brand-logo-size)"
             css shouldContain "@media (max-width: 767.98px) { .chrome-logo { max-width: 120px; } }"
             css shouldContain "max-width: 30rem"
-            css shouldContain ".chrome-logo--dark { display: none; }"
-            css shouldContain "@media (prefers-color-scheme: dark) { .chrome-logo--light { display: none; } "
-            css shouldContain ".chrome-logo--dark { display: inline; } }"
+            css shouldContain ".chrome-logo--light { display: var(--lapis-nav-logo-light-display, block); }"
+            css shouldContain ".chrome-logo--dark { display: var(--lapis-nav-logo-dark-display, none); }"
         }
 
         test("the stylesheet contains no stray interpolation") {

@@ -73,6 +73,10 @@
   --lapis-nav-hover-bg:    #1E242E;
   --lapis-nav-text:        #EDEAE3;
   --lapis-nav-muted:       #A8AEB8;
+  /* V1.9.279: which brand-logo variant sits on the nav bar. The server /theme.css overrides these per mode from the lightness of
+     `nav`; the defaults match the default (dark) nav. */
+  --lapis-nav-logo-light-display: none;
+  --lapis-nav-logo-dark-display:  block;
 
   /* Akzent -- Lapis, deutlich gesättigter als vorher, auf Weiß lesbar */
   --lapis-accent:          #1E56C8;
@@ -433,6 +437,13 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
    default mark above). Specificity (0,3,1) beats `.lapis-brand-logo img { display: block }` (0,1,1). Size rules above apply to both. */
 html[data-theme="dark"] .lapis-brand-logo .lapis-brand-logo--light,
 html:not([data-theme="dark"]) .lapis-brand-logo .lapis-brand-logo--dark { display: none; }
+
+/* V1.9.279: in the navbar the variant follows the surface under the logo (the lightness of `nav`), not the page mode. The tokens come
+   from the server /theme.css. Specificity (0,3,2) beats the data-theme rules above (0,3,1) and the built-in mark halves (0,2,1). */
+html body .lapis-navbar .lapis-brand-logo .lapis-brand-logo--light,
+html body .lapis-navbar .lapis-brand-logo .lapis-brand-mark--light { display: var(--lapis-nav-logo-light-display); }
+html body .lapis-navbar .lapis-brand-logo .lapis-brand-logo--dark,
+html body .lapis-navbar .lapis-brand-logo .lapis-brand-mark--dark { display: var(--lapis-nav-logo-dark-display); }
 
 /* V1.9.210: the brand link lays out mark/logo and title as a flex row with a real gap. Box: 4 + 32 + 4 + 2px border = 42px,
    exactly as high as before (5 + 30 + 5 + 2). On phones the title has font-size 0; see the mobile block. */

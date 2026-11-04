@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.279 -- Brand logo variant follows the lightness of the `nav` colour
+
+- **What changes:** the navbar signet and the public chrome-bar wordmark now choose between the light and the dark logo variant by the lightness of the `nav` colour of the current mode (WCAG equal-contrast rule: `ratio(nav, white) >= ratio(nav, black)` means dark, ties count as dark; a translucent `nav` is composited over `surface` and `bg` like the contrast check). Before, the SPA followed `data-theme` and the public pages followed the OS colour scheme, so a dark bar could show artwork meant for a light page. The sign-in lockup still follows the page mode.
+- **Visible consequence:** an instance with the default theme and logo variants now always shows the **dark** variant in the navbar and the public header, because the default `nav` is dark in both modes (#14181E / #0B0E12). This is deliberate. It affects PdV and any instance in that situation. Operators must check that their `*_DARK_PATH` files are real negatives (light artwork for a dark ground); the owner should look at what the PdV files contain.
+- **How:** `ThemeContrast.navIsDark` decides per mode; `ThemeCssRenderer` writes two fixed custom properties (`--lapis-nav-logo-light-display`, `--lapis-nav-logo-dark-display`) into the three blocks of `/theme.css` (one of two literals, no theme text reaches the CSS). The client `theme.css` and the public stylesheet read the tokens. Without `/theme.css` the public header shows the light image.
+- **`/theme.css` changes for every instance** (new custom properties), so its hash and ETag change, also for the default theme without variants. The HTML and the branding payload are unchanged.
+- **Tests:** `ThemeContrastTest` (threshold #757575 dark / #767676 light, alpha, missing nav), `ThemeCssRendererTest` (all three blocks, mixed light/dark nav, whitelist), `ThemeConsistencyTest` (client fallback tokens equal the renderer output, new selector present), the two public-CSS assertions rewritten, and `BrandLogoNavContrastDomTest` (computed style in both `data-theme` states, mixed slot, lockup unchanged). The `PublicThemeTripwireTest` now allows a `var()` fallback for these two tokens only.
+- **Follow-up (not in this wave):** the pure built-in Lapis mark in the navbar still follows `data-theme`; moving it changes the look of every default instance and needs an owner decision.
+- **Not verified:** a real browser, real PdV artwork. No migration.
+
 ### V1.9.278 -- Embed feed: one entry per series (`?serien=eine`)
 
 - **New query parameter on `GET /api/embed/v1/events`:** with exactly ONE `serien` parameter whose value is exactly `eine`, the own events are reduced to one entry per series -- the next public date, chosen by `PublicSeriesQueries.loadOverviewRepresentatives` (the query behind `/veranstaltungen`). Single events stay. Cancelled, non-public, draft and ended dates never represent a series; with none left the series disappears. A detached date stays a member (never listed in addition). Two dates in the same minute: the smaller id as text wins, so H2 and PostgreSQL agree.

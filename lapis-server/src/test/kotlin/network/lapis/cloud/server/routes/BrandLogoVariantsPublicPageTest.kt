@@ -15,6 +15,8 @@ import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.branding.ResolvedLogoFile
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.legal.LegalConfig
+import network.lapis.cloud.server.theme.ResolvedTheme
+import network.lapis.cloud.server.theme.ThemeCssRenderer
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -83,10 +85,20 @@ class BrandLogoVariantsPublicPageTest :
             }
         }
 
-        test("the stylesheet switches the two chrome logos by the colour scheme") {
-            SocialPublicHtml.STYLESHEET shouldContain ".chrome-logo--dark { display: none; }"
-            SocialPublicHtml.STYLESHEET shouldContain
-                "@media (prefers-color-scheme: dark) { .chrome-logo--light { display: none; } .chrome-logo--dark { display: inline; } }"
+        test("the stylesheet switches the two chrome logos by the nav lightness tokens") {
+            SocialPublicHtml.STYLESHEET shouldContain ".chrome-logo--light { display: var(--lapis-nav-logo-light-display, block); }"
+            SocialPublicHtml.STYLESHEET shouldContain ".chrome-logo--dark { display: var(--lapis-nav-logo-dark-display, none); }"
+            (SocialPublicHtml.STYLESHEET.contains(".chrome-logo--dark { display: none; }")) shouldBe false
+            (SocialPublicHtml.STYLESHEET.contains(".chrome-logo--dark { display: inline; }")) shouldBe false
+        }
+
+        test("the default theme (dark nav) serves the dark variant token in the light root block; a light nav keeps the light one") {
+            val darkNavCss = ResolvedTheme.DEFAULT.css
+            val rootBlock = darkNavCss.lines().single { it.startsWith("html:root{") }
+            rootBlock shouldContain "--lapis-nav-logo-dark-display:block"
+            rootBlock shouldContain "--lapis-nav-logo-light-display:none"
+            ThemeCssRenderer.navLogoDeclarations(dark = false) shouldBe
+                "--lapis-nav-logo-light-display:block;--lapis-nav-logo-dark-display:none"
         }
 
         test("no logo at all -> img-src stays data: only (unchanged)") {

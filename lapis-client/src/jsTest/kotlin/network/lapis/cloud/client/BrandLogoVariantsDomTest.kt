@@ -47,6 +47,7 @@ class BrandLogoVariantsDomTest {
 
     @AfterTest
     fun cleanup() {
+        clearNavLogoTokens()
         if (themeBefore ==
             null
         ) {
@@ -110,12 +111,14 @@ class BrandLogoVariantsDomTest {
         test {
             withProbe(navbar = true) { _, wrapper ->
                 document.documentElement?.setAttribute("data-theme", "light")
+                setNavLogoTokens(dark = false)
                 var shown = wrapper.images().filter { it.shown() }
                 assertEquals(1, shown.size)
                 assertTrue(shown.single().classList.contains("lapis-brand-logo--light"))
                 assertEquals(32.0, shown.single().getBoundingClientRect().height, 0.5)
 
                 document.documentElement?.setAttribute("data-theme", "dark")
+                setNavLogoTokens(dark = true)
                 shown = wrapper.images().filter { it.shown() }
                 assertEquals(1, shown.size)
                 assertTrue(shown.single().classList.contains("lapis-brand-logo--dark"))
@@ -123,6 +126,7 @@ class BrandLogoVariantsDomTest {
                 assertTrue(shown.single().getBoundingClientRect().width <= 180.5, "wide dark logo stays inside the cap")
 
                 document.documentElement?.setAttribute("data-theme", "light")
+                setNavLogoTokens(dark = false)
                 shown = wrapper.images().filter { it.shown() }
                 assertEquals(1, shown.size)
                 assertTrue(shown.single().classList.contains("lapis-brand-logo--light"))
@@ -134,6 +138,7 @@ class BrandLogoVariantsDomTest {
         test {
             withProbe(navbar = true) { _, wrapper ->
                 document.documentElement?.removeAttribute("data-theme")
+                setNavLogoTokens(dark = false)
                 val shown = wrapper.images().filter { it.shown() }
                 assertEquals(1, shown.size)
                 assertTrue(shown.single().classList.contains("lapis-brand-logo--light"))
@@ -159,8 +164,10 @@ class BrandLogoVariantsDomTest {
         test {
             withProbe(navbar = true) { container, _ ->
                 document.documentElement?.setAttribute("data-theme", "light")
+                setNavLogoTokens(dark = false)
                 val light = container.getBoundingClientRect().width
                 document.documentElement?.setAttribute("data-theme", "dark")
+                setNavLogoTokens(dark = true)
                 val dark = container.getBoundingClientRect().width
                 assertTrue(light <= 180.5 + 16.0 && dark <= 180.5 + 16.0, "brand link widths: $light / $dark")
             }
@@ -180,6 +187,7 @@ class BrandLogoVariantsDomTest {
         test {
             withProbe(navbar = true) { _, wrapper ->
                 document.documentElement?.setAttribute("data-theme", "dark")
+                setNavLogoTokens(dark = true)
                 val hidden = wrapper.images().filter { !it.shown() }
                 assertEquals(1, hidden.size)
                 assertEquals("Verein", wrapper.images().single { it.shown() }.alt)

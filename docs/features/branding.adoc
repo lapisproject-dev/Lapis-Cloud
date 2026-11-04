@@ -42,9 +42,10 @@ Limit: with only the other kind configured, a light file can end up on a dark pa
 
 === Behaviour
 
-* The SPA shows exactly one image per `data-theme` and switches live. The server-rendered public pages switch by `prefers-color-scheme`.
+* "Dark" means artwork made for a dark background (light strokes). In the signed-in navbar and in the public header the variant follows the lightness of the `nav` colour of the current mode, not the page mode: a dark `nav` shows the dark variant, a light `nav` the light one (WCAG equal-contrast rule, ties count as dark). The choice is written into `/theme.css`; without `/theme.css` the public header shows the light image. The sign-in lockup (on the page background) still follows `data-theme`. Exactly one image is shown at a time.
 * A wordmark that is used for both modes of a kind carries the name: the text label next to it is omitted and the image `alt` is the title.
-* The default theme's top bar (`nav` token) is dark in both modes. The mode follows the page theme, so check the light variant against your `nav` colour.
+* The default theme's top bar (`nav` token) is dark in both modes, so an instance with the default theme and logo variants always shows the *dark* variant in the navbar and the public header. Check that your `*_DARK_PATH` files are real negatives (light artwork for a dark ground).
+* Not yet covered: the built-in Lapis Cloud mark alone in the navbar (no logo configured) still follows `data-theme`; moving it to the `nav` rule is a separate decision.
 * `og:image` and the JSON-LD image use the first raster logo (wordmark-light, signet-light, wordmark-dark, signet-dark, legacy); an SVG is never used.
 * The video-overlay instance logo is the file `GET /api/branding/logo` serves (legacy logo, else the light signet of the chain); an SVG is not offered.
 * The sign-in and public pages allow `img-src 'self'` whenever any logo is served.

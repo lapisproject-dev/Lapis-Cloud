@@ -22,7 +22,8 @@ class ResolvedTheme(
 
 /**
  * Generates `/theme.css` from a validated [ThemeSpec]. The output is assembled from fixed templates only: normalised hex values,
- * enum-derived strings, regex-validated family names and hash-versioned font URLs. No free string from the theme file (name,
+ * enum-derived strings, regex-validated family names, hash-versioned font URLs and one of two fixed nav-logo literals
+ * (chosen by the lightness of `nav`). No free string from the theme file (name,
  * description, anything else) ever reaches the CSS, and the CSS contains no comments.
  *
  * Selectors use `html:root` so each rule beats the client's `:root` token blocks regardless of stylesheet order (the SPA's
@@ -61,6 +62,18 @@ object ThemeCssRenderer {
 
         fun declarations(entries: List<Pair<String, String>>) = entries.joinToString(";") { (k, v) -> "--lapis-$k:$v" }
 
+        fun navIsDark(
+            entries: List<Pair<String, String>>,
+            mode: String,
+        ): Boolean =
+            ThemeContrast.navIsDark(
+                mode = mode,
+                colors = entries.mapNotNull { (k, v) -> HexColor.parse(v)?.let { k to it } }.toMap(),
+            )
+
+        val lightNavLogo = navLogoDeclarations(dark = navIsDark(entries = light, mode = "light"))
+        val darkNavLogo = navLogoDeclarations(dark = navIsDark(entries = dark, mode = "dark"))
+
         val bodyStack =
             if (body ==
                 null
@@ -75,11 +88,30 @@ object ThemeCssRenderer {
         sb.append(";--lapis-font-display:").append(displayStack)
         sb.append(";--bs-border-radius:").append(radius.base)
         sb.append(";--bs-border-radius-sm:").append(radius.sm)
-        sb.append(";--bs-border-radius-lg:").append(radius.lg).append("}\n")
-        sb.append("@media (prefers-color-scheme: dark){html:root:not([data-theme=\"light\"]){").append(declarations(dark)).append("}}\n")
-        sb.append("html:root[data-theme=\"dark\"]{").append(declarations(dark)).append("}\n")
+        sb.append(";--bs-border-radius-lg:").append(radius.lg)
+        sb.append(";").append(lightNavLogo).append("}\n")
+        sb.append("@media (prefers-color-scheme: dark){html:root:not([data-theme=\"light\"]){")
+        sb
+            .append(declarations(dark))
+            .append(";")
+            .append(darkNavLogo)
+            .append("}}\n")
+        sb
+            .append("html:root[data-theme=\"dark\"]{")
+            .append(declarations(dark))
+            .append(";")
+            .append(darkNavLogo)
+            .append("}\n")
         return sb.toString()
     }
+
+    /** Which brand-logo variant the navbar and public chrome bar show; one of two fixed literals chosen by the `nav` lightness. */
+    fun navLogoDeclarations(dark: Boolean): String =
+        if (dark) {
+            "--lapis-nav-logo-light-display:none;--lapis-nav-logo-dark-display:block"
+        } else {
+            "--lapis-nav-logo-light-display:block;--lapis-nav-logo-dark-display:none"
+        }
 
     private fun stack(
         role: FontRoleSpec,

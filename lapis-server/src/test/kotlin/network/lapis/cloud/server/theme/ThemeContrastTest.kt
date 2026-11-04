@@ -63,4 +63,28 @@ class ThemeContrastTest :
                 )
             findings.none { it.code == ThemeErrorCode.THEME_CONTRAST && it.path.endsWith("nav-text") } shouldBe true
         }
+
+        test("navIsDark follows the WCAG equal-contrast point") {
+            listOf("#000000", "#757575", "#14181E", "#0B0E12").forEach { ThemeContrast.navIsDark(hex(it)) shouldBe true }
+            listOf("#FFFFFF", "#767676", "#EDEAE3").forEach { ThemeContrast.navIsDark(hex(it)) shouldBe false }
+        }
+        test("navIsDark composites a translucent nav over surface and bg") {
+            val translucent = "#00000040"
+            ThemeContrast.navIsDark(
+                mode = "light",
+                colors = colors(ThemeDefaults.LIGHT, "bg" to "#FFFFFF", "surface" to "#FFFFFF", "nav" to translucent),
+            ) shouldBe false
+            ThemeContrast.navIsDark(
+                mode = "dark",
+                colors = colors(ThemeDefaults.DARK, "bg" to "#000000", "surface" to "#000000", "nav" to "#FFFFFF40"),
+            ) shouldBe true
+        }
+        test("navIsDark treats a missing nav as dark") {
+            ThemeContrast.navIsDark(mode = "light", colors = emptyMap()) shouldBe true
+            ThemeContrast.navIsDark(mode = "dark", colors = colors(ThemeDefaults.DARK).minus("nav")) shouldBe true
+        }
+        test("the default nav is dark in both modes") {
+            ThemeContrast.navIsDark(mode = "light", colors = colors(ThemeDefaults.LIGHT)) shouldBe true
+            ThemeContrast.navIsDark(mode = "dark", colors = colors(ThemeDefaults.DARK)) shouldBe true
+        }
     })

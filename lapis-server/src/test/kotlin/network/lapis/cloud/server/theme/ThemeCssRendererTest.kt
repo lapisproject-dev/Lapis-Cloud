@@ -14,6 +14,8 @@ class ThemeCssRendererTest :
                     "--bs-border-radius",
                     "--bs-border-radius-sm",
                     "--bs-border-radius-lg",
+                    "--lapis-nav-logo-light-display",
+                    "--lapis-nav-logo-dark-display",
                 ) +
                 listOf("font-family", "src", "font-weight", "font-style", "font-display")
 
@@ -94,5 +96,80 @@ class ThemeCssRendererTest :
                     ).contains("--bs-border-radius:.75rem;--bs-border-radius-sm:.5rem;--bs-border-radius-lg:1rem")
             ) shouldBe
                 true
+        }
+
+        val darkNavTokens = "--lapis-nav-logo-light-display:none;--lapis-nav-logo-dark-display:block"
+        val lightNavTokens = "--lapis-nav-logo-light-display:block;--lapis-nav-logo-dark-display:none"
+
+        fun withNav(
+            light: String?,
+            dark: String?,
+        ): String {
+            var json = themeJson { }
+
+            fun set(
+                mode: String,
+                key: String,
+                value: String,
+            ) {
+                val root =
+                    kotlinx.serialization.json.Json
+                        .parseToJsonElement(json) as kotlinx.serialization.json.JsonObject
+                val colors = (root.getValue("colors") as kotlinx.serialization.json.JsonObject).toMutableMap()
+                val m = (colors.getValue(mode) as kotlinx.serialization.json.JsonObject).toMutableMap()
+                m[key] = kotlinx.serialization.json.JsonPrimitive(value)
+                colors[mode] = kotlinx.serialization.json.JsonObject(m)
+                val r = root.toMutableMap()
+                r["colors"] = kotlinx.serialization.json.JsonObject(colors)
+                json =
+                    kotlinx.serialization.json
+                        .JsonObject(r)
+                        .toString()
+            }
+            if (light != null) {
+                set("light", "nav", light)
+                set("light", "nav-hover-bg", "#00000010")
+            }
+            if (dark != null) set("dark", "nav", dark)
+            return json
+        }
+
+        fun blocks(css: String): Triple<String, String, String> {
+            val lines = css.lines().filter { it.isNotBlank() }
+            return Triple(
+                lines.single { it.startsWith("html:root{") },
+                lines.single { it.startsWith("@media") },
+                lines.single { it.startsWith("html:root[data-theme") },
+            )
+        }
+
+        test("the shipped default theme selects the dark logo variant in all three blocks") {
+            val spec = ThemeParser.parse(themeJson { }).spec!!
+            listOf(ThemeCssRenderer.render(spec = spec, fonts = emptyMap()), ResolvedTheme.DEFAULT.css).forEach { css ->
+                assertWhitelisted(css)
+                val (root, media, dark) = blocks(css)
+                listOf(root, media, dark).forEach { (it.contains(darkNavTokens)) shouldBe true }
+            }
+        }
+        test("a light nav in light mode and a dark nav in dark mode switch per block") {
+            val parsed = ThemeParser.parse(withNav(light = "#F2F2F2", dark = "#0B0E12"))
+            val spec = parsed.spec ?: error("theme rejected: ${parsed.findings}")
+            val css = ThemeCssRenderer.render(spec = spec, fonts = emptyMap())
+            assertWhitelisted(css)
+            val (root, media, dark) = blocks(css)
+            root.endsWith("$lightNavTokens}") shouldBe true
+            media.contains(darkNavTokens) shouldBe true
+            dark.contains(darkNavTokens) shouldBe true
+            root.contains(darkNavTokens) shouldBe false
+        }
+        test("a black nav in both modes selects the dark variant everywhere") {
+            val parsed = ThemeParser.parse(withNav(light = "#000000", dark = "#000000"))
+            val spec = parsed.spec ?: error("theme rejected: ${parsed.findings}")
+            val (root, media, dark) = blocks(ThemeCssRenderer.render(spec = spec, fonts = emptyMap()))
+            listOf(root, media, dark).forEach { (it.contains(darkNavTokens)) shouldBe true }
+        }
+        test("the nav logo literals are the only extra declarations and no theme text reaches them") {
+            ThemeCssRenderer.navLogoDeclarations(dark = true) shouldBe darkNavTokens
+            ThemeCssRenderer.navLogoDeclarations(dark = false) shouldBe lightNavTokens
         }
     })

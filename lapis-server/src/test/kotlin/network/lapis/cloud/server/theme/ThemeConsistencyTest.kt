@@ -2,6 +2,7 @@ package network.lapis.cloud.server.theme
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -118,6 +119,28 @@ class ThemeConsistencyTest :
             spec.light.mapValues { it.value.css } shouldBe ThemeDefaults.LIGHT
             spec.dark.mapValues { it.value.css } shouldBe ThemeDefaults.DARK
             ThemeCssRenderer.render(spec = spec, fonts = emptyMap()) shouldBe ResolvedTheme.DEFAULT.css
+        }
+
+        test("client :root fallback nav-logo tokens equal what the renderer emits for the default theme") {
+            val root = block(":root")
+            val declared =
+                Regex(
+                    """--lapis-nav-logo-(light|dark)-display:\s*(\w+)""",
+                ).findAll(root).associate { it.groupValues[1] to it.groupValues[2] }
+            val emitted =
+                ThemeCssRenderer
+                    .navLogoDeclarations(dark = true)
+                    .split(";")
+                    .associate {
+                        it.substringBefore(":").removePrefix("--lapis-nav-logo-").removeSuffix("-display") to
+                            it.substringAfter(":")
+                    }
+            declared shouldBe emitted
+        }
+        test("the client theme.css switches the navbar logo by the nav tokens with the raised selector") {
+            themeCss shouldContain "html body .lapis-navbar .lapis-brand-logo .lapis-brand-logo--light"
+            themeCss shouldContain "{ display: var(--lapis-nav-logo-light-display); }"
+            themeCss shouldContain "{ display: var(--lapis-nav-logo-dark-display); }"
         }
 
         val schema = Json.parseToJsonElement(repoFile("lapis-server/src/main/resources/theme/theme.schema.json").readText()).jsonObject

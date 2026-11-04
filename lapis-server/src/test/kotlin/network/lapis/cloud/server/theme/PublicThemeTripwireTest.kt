@@ -81,7 +81,9 @@ class PublicThemeTripwireTest :
             rule(".avatar-initials") shouldContain "var(--lapis-accent-strong)"
             rule(".cta-primary") shouldContain "var(--lapis-accent-contrast)"
             css.contains("var(--lapis-nav,") shouldBe false
-            css.contains(Regex("""var\(--lapis-[a-z-]+\s*,""")) shouldBe false
+            // V1.9.279: the two nav-logo display tokens are the only ones allowed a fallback (no /theme.css -> exactly the light image).
+            val withoutNavLogo = css.replace(Regex("""var\(--lapis-nav-logo-(light|dark)-display\s*,"""), "")
+            withoutNavLogo.contains(Regex("""var\(--lapis-[a-z-]+\s*,""")) shouldBe false
         }
         test("the former fixed grey and gold literals are gone from the shared stylesheet") {
             val css = SocialPublicHtml.STYLESHEET.lowercase()

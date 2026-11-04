@@ -36,12 +36,15 @@ object ThemeContrast {
         return (maxOf(la, lb) + 0.05) / (minOf(la, lb) + 0.05)
     }
 
-    /** Checks all pairs of one mode ("light" or "dark"); the colours must contain every token. */
-    fun check(
+    private val WHITE = HexColor.rgb(r = 255, g = 255, b = 255)
+    private val BLACK = HexColor.rgb(r = 0, g = 0, b = 0)
+
+    /** Resolves a token to its opaque colour: alpha over `surface`, over `bg`, over the white/black base of [mode]. */
+    private fun opaqueResolver(
         mode: String,
         colors: Map<String, HexColor>,
-    ): List<ThemeFinding> {
-        val base = if (mode == "dark") HexColor.rgb(r = 0, g = 0, b = 0) else HexColor.rgb(r = 255, g = 255, b = 255)
+    ): (String) -> HexColor? {
+        val base = if (mode == "dark") BLACK else WHITE
         val opaque = HashMap<String, HexColor>()
 
         fun resolved(key: String): HexColor? {
@@ -56,6 +59,30 @@ object ThemeContrast {
                 }
             return composite(fg = raw, bg = under).also { opaque[key] = it }
         }
+        return ::resolved
+    }
+
+    /**
+     * True when white text on [nav] has at least the contrast of black text (WCAG equal-contrast point, relative luminance
+     * about 0.1791). Ties count as dark.
+     */
+    fun navIsDark(nav: HexColor): Boolean = ratio(a = nav, b = WHITE) >= ratio(a = nav, b = BLACK)
+
+    /** [navIsDark] for the opaque `nav` of one mode (alpha composited like the contrast check). A missing `nav` is dark. */
+    fun navIsDark(
+        mode: String,
+        colors: Map<String, HexColor>,
+    ): Boolean {
+        val nav = opaqueResolver(mode = mode, colors = colors)("nav") ?: return true
+        return navIsDark(nav)
+    }
+
+    /** Checks all pairs of one mode ("light" or "dark"); the colours must contain every token. */
+    fun check(
+        mode: String,
+        colors: Map<String, HexColor>,
+    ): List<ThemeFinding> {
+        val resolved = opaqueResolver(mode = mode, colors = colors)
 
         val findings = mutableListOf<ThemeFinding>()
         for (pair in ThemeTokens.CONTRAST_PAIRS) {
