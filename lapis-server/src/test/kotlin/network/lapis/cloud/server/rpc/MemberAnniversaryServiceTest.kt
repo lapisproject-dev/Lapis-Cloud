@@ -611,12 +611,70 @@ class MemberAnniversaryServiceTest :
                         )
                     val today = client.todayOf(board, day)
                     val ids = today.entries.map { it.memberId }.toSet()
-                    // only the memberIds and the equality of both paths -- no age is asserted (see the open leap-day finding)
+                    // memberIds and equality of both paths; the age counts are covered by the leap-day years tests below
                     (leap.toString() in ids) shouldBe expected.first
                     (feb28.toString() in ids) shouldBe (day.month.number == 2 && day.day == 28)
                     (mar1.toString() in ids) shouldBe expected.third
                     today.entries shouldBe client.upcomingTodayAsToday(board, day).take(MemberAnniversaryService.TODAY_CAP)
                 }
+            }
+        }
+
+        listOf(
+            Triple(LocalDate(2025, 2, 28), 25, AnniversaryEmphasis.MAJOR),
+            Triple(LocalDate(2031, 2, 28), 31, AnniversaryEmphasis.STANDARD),
+            Triple(LocalDate(2032, 2, 29), 32, AnniversaryEmphasis.STANDARD),
+        ).forEach { (day, expectedYears, expectedEmphasis) ->
+            test("today: 29.02.-Geburtstag am $day zaehlt $expectedYears vollendete Jahre") {
+                testApplication {
+                    application {
+                        install(StatusPages) { installAnniversaryExceptionHandlers() }
+                        routing { registerAnniversaryTestRoutes() }
+                    }
+                    val board = createMember(email = "anniv-years-b-$day-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                    val born =
+                        createMember(
+                            email = "anniv-years-a-$day-${Uuid.random()}@example.org",
+                            role = AccountRole.MEMBER,
+                            dateOfBirth = LocalDate(2000, 2, 29),
+                        )
+                    val entry = client.todayOf(board, day).entries.single { it.memberId == born.toString() }
+                    entry.kind shouldBe AnniversaryEntryKind.BIRTHDAY
+                    entry.years shouldBe expectedYears
+                    entry.emphasis shouldBe expectedEmphasis
+                    client.upcomingTodayAsToday(board, day).single { it.memberId == born.toString() } shouldBe entry
+                }
+            }
+        }
+
+        test("today: 29.02.-Eintritt zaehlt am 28.02. eines Nicht-Schaltjahres 1 bzw. 5 Jahre (Meilensteine)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAnniversaryExceptionHandlers() }
+                    routing { registerAnniversaryTestRoutes() }
+                }
+                val day = LocalDate(2025, 2, 28)
+                val board = createMember(email = "anniv-years-ms-b-${Uuid.random()}@example.org", role = AccountRole.BOARD)
+                val one =
+                    createMember(
+                        email = "anniv-years-ms-1-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        joinedAt = LocalDate(2024, 2, 29),
+                    )
+                val five =
+                    createMember(
+                        email = "anniv-years-ms-5-${Uuid.random()}@example.org",
+                        role = AccountRole.MEMBER,
+                        joinedAt = LocalDate(2020, 2, 29),
+                    )
+                val entries = client.todayOf(board, day).entries.associateBy { it.memberId }
+                val first = entries.getValue(one.toString())
+                first.kind shouldBe AnniversaryEntryKind.MEMBERSHIP_ANNIVERSARY
+                first.years shouldBe 1
+                first.emphasis shouldBe AnniversaryEmphasis.FIRST_YEAR
+                val fifth = entries.getValue(five.toString())
+                fifth.kind shouldBe AnniversaryEntryKind.MEMBERSHIP_ANNIVERSARY
+                fifth.years shouldBe 5
             }
         }
 

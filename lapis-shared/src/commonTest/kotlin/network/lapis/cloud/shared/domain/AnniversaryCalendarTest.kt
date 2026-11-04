@@ -1,6 +1,10 @@
 package network.lapis.cloud.shared.domain
 
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.minus
+import kotlinx.datetime.periodUntil
+import kotlinx.datetime.plus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -132,6 +136,86 @@ class AnniversaryCalendarTest {
             35,
             AnniversaryCalendar.yearsBetween(anniversary = LocalDate(1990, 3, 1), onDate = LocalDate(2026, 2, 28)),
         )
+    }
+
+    private fun years(
+        anniversary: LocalDate,
+        onDate: LocalDate,
+    ) = AnniversaryCalendar.yearsBetween(anniversary = anniversary, onDate = onDate)
+
+    @Test
+    fun yearsBetween_leapDayAnniversary_matrix() {
+        val a = LocalDate(2000, 2, 29)
+        assertEquals(25, years(anniversary = a, onDate = LocalDate(2025, 2, 28)))
+        assertEquals(24, years(anniversary = a, onDate = LocalDate(2025, 2, 27)))
+        assertEquals(25, years(anniversary = a, onDate = LocalDate(2025, 3, 1)))
+        assertEquals(23, years(anniversary = a, onDate = LocalDate(2024, 2, 28)))
+        assertEquals(24, years(anniversary = a, onDate = LocalDate(2024, 2, 29)))
+        assertEquals(1, years(anniversary = a, onDate = LocalDate(2001, 2, 28)))
+        assertEquals(0, years(anniversary = a, onDate = LocalDate(2001, 2, 27)))
+        assertEquals(3, years(anniversary = a, onDate = LocalDate(2004, 2, 28)))
+        assertEquals(4, years(anniversary = a, onDate = LocalDate(2004, 2, 29)))
+        assertEquals(100, years(anniversary = a, onDate = LocalDate(2100, 2, 28)))
+        assertEquals(400, years(anniversary = a, onDate = LocalDate(2400, 2, 29)))
+        assertEquals(4, years(anniversary = LocalDate(1896, 2, 29), onDate = LocalDate(1900, 2, 28)))
+    }
+
+    @Test
+    fun yearsBetween_ordinaryDates_matchPeriodUntil() {
+        val anniversaries =
+            listOf(LocalDate(2000, 2, 28), LocalDate(2000, 3, 1), LocalDate(1990, 12, 31), LocalDate(1995, 1, 31))
+        for (a in anniversaries) {
+            var d = a.plus(DatePeriod(days = 1))
+            val end = a.plus(DatePeriod(years = 30))
+            while (d <= end) {
+                assertEquals(a.periodUntil(d).years, years(anniversary = a, onDate = d), "anniversary=$a onDate=$d")
+                d = d.plus(DatePeriod(days = 1))
+            }
+        }
+    }
+
+    @Test
+    fun yearsBetween_nonPositive_keepsPeriodUntilBehaviour() {
+        val a = LocalDate(2026, 2, 28)
+        assertEquals(0, years(anniversary = a, onDate = a))
+        val future = LocalDate(2030, 3, 1)
+        assertEquals(future.periodUntil(a).years, years(anniversary = future, onDate = a))
+        assertTrue(years(anniversary = future, onDate = a) < 0)
+        assertEquals(0, years(anniversary = LocalDate(2026, 3, 1), onDate = LocalDate(2026, 2, 28)))
+    }
+
+    @Test
+    fun yearsBetween_leapDayJoiner_reachesMilestonesOnShiftedDate() {
+        for (a in listOf(LocalDate(2000, 2, 29), LocalDate(2020, 2, 29))) {
+            for (n in listOf(1, 5, 10)) {
+                val d = AnniversaryCalendar.nthAnniversary(anniversary = a, years = n)
+                assertEquals(n, years(anniversary = a, onDate = d), "anniversary=$a n=$n")
+                assertTrue(AnniversaryCalendar.isMilestoneYear(years(anniversary = a, onDate = d)))
+            }
+        }
+        assertEquals(1, years(anniversary = LocalDate(2024, 2, 29), onDate = LocalDate(2025, 2, 28)))
+    }
+
+    @Test
+    fun yearsBetween_nthAnniversaryProperty_andMonotonicAroundOccurrence() {
+        val anniversaries =
+            listOf(
+                LocalDate(2000, 2, 29),
+                LocalDate(1996, 2, 29),
+                LocalDate(2000, 3, 1),
+                LocalDate(2000, 12, 31),
+                LocalDate(2000, 2, 28),
+            )
+        for (a in anniversaries) {
+            for (n in 1..200) {
+                val occ = AnniversaryCalendar.nthAnniversary(anniversary = a, years = n)
+                assertEquals(n, years(anniversary = a, onDate = occ), "anniversary=$a n=$n")
+                val before = years(anniversary = a, onDate = occ.minus(DatePeriod(days = 1)))
+                val after = years(anniversary = a, onDate = occ.plus(DatePeriod(days = 1)))
+                assertEquals(n - 1, before, "day before: anniversary=$a n=$n")
+                assertTrue(before <= n && n <= after, "monotonic: anniversary=$a n=$n")
+            }
+        }
     }
 
     @Test

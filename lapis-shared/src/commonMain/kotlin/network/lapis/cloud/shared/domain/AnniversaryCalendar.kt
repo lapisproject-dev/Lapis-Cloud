@@ -48,11 +48,19 @@ object AnniversaryCalendar {
 
     fun isLeapDayAnniversary(anniversary: LocalDate): Boolean = anniversary.month == Month.FEBRUARY && anniversary.day == 29
 
-    /** Erreichte Jahre zwischen [anniversary] und [onDate] -- ganzzahlige, kalendarisch korrekte Differenz. */
+    /**
+     * Erreichte Jahre zwischen [anniversary] und [onDate]. Ein 29.02.-Jubiläum gilt in Nicht-Schaltjahren
+     * bereits am 28.02. als erreicht (dieselbe Verschiebung wie [nextOccurrence]/[nthAnniversary]). Für
+     * `onDate <= anniversary` bleibt das bisherige (abschneidende) `periodUntil`-Ergebnis (0 oder negativ).
+     */
     fun yearsBetween(
         anniversary: LocalDate,
         onDate: LocalDate,
-    ): Int = anniversary.periodUntil(onDate).years
+    ): Int {
+        if (onDate <= anniversary) return anniversary.periodUntil(onDate).years
+        val years = onDate.year - anniversary.year
+        return if (onDate < occurrenceInYear(anniversary = anniversary, year = onDate.year)) years - 1 else years
+    }
 
     /** 1 Jahr ("erstes Jahr", kein "Jubiläum" im eigentlichen Sinn, siehe Zhuo/Rams) oder jedes 5. Jahr. */
     fun isMilestoneYear(years: Int): Boolean = years == 1 || (years > 0 && years % 5 == 0)

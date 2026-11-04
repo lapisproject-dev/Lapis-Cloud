@@ -251,7 +251,7 @@ donors. One RPC (`IMemberAnniversaryService.getTodaysAnniversaries`), no migrati
 * *What leaves the server:* member id, name, kind, years, emphasis. No date, no status. Name plus age on the day itself still allows deriving the date of birth --
   the same exposure the list "Geburtstage & Jubiläen" has for the same two roles (administrators included, see link:../architecture/admin-peer-protection.adoc[Peer protection]).
 * *Query:* a SQL filter on month and day (leap-day dates included on 28 February of a non-leap year), no supporting index: the database scans `member`, about N/365 rows are transferred.
-* *Known defect (not changed here):* the age of someone born on 29 February is one too low on 28 February of a non-leap year (see the CHANGELOG, V1.9.276).
+* *Leap day:* since V1.9.277 the age and membership year of someone born or joined on 29 February count 28 February as the anniversary in non-leap years (see the CHANGELOG, V1.9.277).
 
 == Honest limits
 

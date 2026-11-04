@@ -1192,6 +1192,7 @@ date arithmetic specifically, at member-table scale (~600 rows as of this wave; 
 need reconsidering at a much larger scale, that threshold is roughly 50,000 members). A Feb-29
 anniversary in a non-leap year is shown on Feb 28 (`shiftedFromLeapDay = true`, `originalDate`
 stays Feb 29) -- this is a reminder, not a legal deadline computation.
+`AnniversaryCalendar.yearsBetween` uses the same shifted occurrence as `nextOccurrence`, so a Feb-29 anniversary counts as reached on Feb 28 of non-leap years (fixed in V1.9.277).
 
 `windowDays` is validated server-side against `AnniversaryCalendar.MAX_WINDOW_DAYS` (90) --
 `BadRequestException` outside `1..90` -- a server invariant, not merely a client dropdown

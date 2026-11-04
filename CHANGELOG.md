@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.277 -- Fix: leap-day anniversaries in non-leap years
+
+- **What was wrong:** `AnniversaryCalendar.yearsBetween` used `periodUntil`, which counts no full month from 29 February to 28 February. On 28 February of a non-leap year, a 29 February birth date or join date therefore counted one year too few (24 instead of 25 for 2000-02-29 to 2025-02-28). Only 29 February dates in non-leap years were affected; ordinary dates and leap years were correct.
+- **Consequences:** a wrong "wird N" on the birthday list and on the dashboard card "Heute", and missed membership milestones (1, 5, 10, ...) for members who joined on 29 February (the year count was 0, which is filtered out, so they did not appear on 28 February at all).
+- **Fix:** `yearsBetween` now takes the year difference and subtracts one when `onDate` is before the occurrence in its own year, using the same shifted occurrence as `nextOccurrence`/`nthAnniversary` (29 February counts as reached on 28 February in non-leap years). No second leap-year rule. For `onDate <= anniversary` the old `periodUntil` result (0 or negative) is kept unchanged. Both callers in `MemberAnniversaryService` (list and card) use `yearsBetween`, so one change fixes both.
+- **No data migration:** nothing is stored, the years are recomputed on every call. No migration, DTO, UI or text change.
+- **Tests:** `AnniversaryCalendarTest` (matrix for 2000-02-29 incl. century years, ordinary dates against `periodUntil`, non-positive cases, milestones for 29 February joiners, property loop `yearsBetween(a, nthAnniversary(a, n)) == n` for n in 1..200 with the day before and after), `MemberAnniversaryServiceTest` (list and card on 2025-02-28, 2031-02-28 and 2032-02-29; joiners with 1 and 5 years on 2025-02-28).
+- **Not verified:** a real browser.
+
 ### V1.9.276 -- Dashboard: today's birthdays and anniversaries (BOARD/ADMIN)
 
 - **New RPC at the end of `IMemberAnniversaryService`:** `getTodaysAnniversaries()`. It returns `TodaysAnniversariesDto(entries, totalCount)`; each `TodaysAnniversaryDto` holds only `memberId`, `memberDisplayName`, `kind`, `years` and `emphasis` -- no date, no status (a test scans the serialized JSON for dates, status names and the field names `occursOn`/`originalDate`/`memberStatus`).
@@ -16,7 +25,7 @@ All notable changes to this project are documented here. Format follows
 - **Tests:** server (H2) 36 cases in `MemberAnniversaryServiceTest` (all four roles and an unused budget for refused roles, equality with the list, leap-day filter on 28 February / 29 February / 1 March, milestones, excluded statuses, cap 50 with `totalCount`, order, JSON and log content, rate limit, production wiring), `TodaysAnniversaryQueryScenarios` on H2 and PostgreSQL, 12 DOM cases in headless Chrome (`TodaysAnniversariesCardDomTest`), plural cases for the new messages in Polish and Russian. The tripwire allowlist of `PrivilegedPeerActionTripwireTest` follows the moved reads (`toRaw`, `loadTodaysCandidates`).
 - **i18n:** 3 plural pairs and 4 plain messages in all eight catalogs (the texts in the six non-German catalogs were written by the model, not by a native speaker).
 - **Not verified:** a real browser, a phone at 390 px, a screen reader.
-- **Open finding (not changed here):** `AnniversaryCalendar.yearsBetween` returns one year too few for someone born on 29 February on 28 February of a non-leap year (24 instead of 25 for 2000-02-29 to 2025-02-28: the period counts no month because the day 28 is before 29), so the card would say "wird 24"; the same defect makes such a member miss milestones in non-leap years on the existing page. Proposed as its own wave.
+- **Open finding (resolved in V1.9.277):** `AnniversaryCalendar.yearsBetween` returns one year too few for someone born on 29 February on 28 February of a non-leap year (24 instead of 25 for 2000-02-29 to 2025-02-28: the period counts no month because the day 28 is before 29), so the card would say "wird 24"; the same defect makes such a member miss milestones in non-leap years on the existing page. Resolved in V1.9.277.
 
 ### V1.9.275 -- Live stream: automatic retry after start/resume and reconnect of one target
 
