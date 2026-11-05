@@ -157,6 +157,18 @@ interface LiveKitAdminClient {
         trackSids: List<String>,
         subscribe: Boolean,
     ): Unit = throw UnsupportedOperationException("updateSubscriptions is not implemented by this LiveKitAdminClient")
+
+    /**
+     * `POST .../MutePublishedTrack` (V1.9.282) -- mutes one SCREEN SHARE track of an event guest whose share a moderator withdrew. Always
+     * `muted = true`, like [muteMicrophone]. A server-side mute is NOT a hard boundary (LiveKit has no server-side unpublish, a modified
+     * client can switch the track on again); the hard boundary is [removeParticipant], done by the guest screen share reconciler.
+     * The DEFAULT throws on purpose so that not every test fake has to grow an override.
+     */
+    suspend fun muteScreenShareTrack(
+        room: String,
+        identity: String,
+        trackSid: String,
+    ): Unit = throw UnsupportedOperationException("muteScreenShareTrack is not implemented by this LiveKitAdminClient")
 }
 
 /** Most destination identities of one targeted `SendData` call. */
@@ -184,6 +196,28 @@ fun conferencePermission(microphoneAllowed: Boolean): LiveKitParticipantPermissi
         canPublishData = true,
         canPublishSources =
             if (microphoneAllowed) CONFERENCE_SOURCES_WITHOUT_MICROPHONE + "MICROPHONE" else CONFERENCE_SOURCES_WITHOUT_MICROPHONE,
+    )
+
+/** The two screen share sources (LiveKit's protojson enum names). */
+internal val LIVEKIT_SCREEN_SHARE_SOURCES = setOf("SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+
+/**
+ * V1.9.282 -- the permission of an accountless EVENT GUEST (identity `evg-...`); the guest counterpart of [conferencePermission], which
+ * ALWAYS lists the screen share sources and must therefore never be applied to a guest. `CAMERA` is always listed, so the list is never
+ * empty (an empty list means "all sources" in LiveKit). The screen share sources appear only while [screenShareGranted] (a moderator's grant).
+ */
+fun guestConferencePermission(
+    microphoneAllowed: Boolean,
+    screenShareGranted: Boolean,
+): LiveKitParticipantPermissionUpdate =
+    LiveKitParticipantPermissionUpdate(
+        canSubscribe = true,
+        canPublish = true,
+        canPublishData = true,
+        canPublishSources =
+            listOf("CAMERA") +
+                (if (microphoneAllowed) listOf("MICROPHONE") else emptyList()) +
+                (if (screenShareGranted) listOf("SCREEN_SHARE", "SCREEN_SHARE_AUDIO") else emptyList()),
     )
 
 /**
@@ -309,6 +343,19 @@ class HttpLiveKitAdminClient(
         identity: String,
         trackSid: String,
     ) {
+        call<LiveKitMutePublishedTrackRequest, LiveKitEmptyResponse>(
+            method = "MutePublishedTrack",
+            room = room,
+            request = LiveKitMutePublishedTrackRequest(room = room, identity = identity, trackSid = trackSid),
+        )
+    }
+
+    override suspend fun muteScreenShareTrack(
+        room: String,
+        identity: String,
+        trackSid: String,
+    ) {
+        require(TRACK_SID_PATTERN.matches(trackSid)) { "MutePublishedTrack: not a LiveKit track sid" }
         call<LiveKitMutePublishedTrackRequest, LiveKitEmptyResponse>(
             method = "MutePublishedTrack",
             room = room,

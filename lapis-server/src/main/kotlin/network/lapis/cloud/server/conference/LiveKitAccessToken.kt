@@ -58,6 +58,14 @@ object LiveKitAccessToken {
      */
     const val ADMIN_TOKEN_TTL_SECONDS = 60L
 
+    /**
+     * V1.9.282 -- the publish-source policy of a participant token. [MEMBER] keeps the historic shape byte for byte (no `canPublishSources`
+     * key while the microphone is allowed = every source). [EVENT_GUEST] always sets a non-empty `canPublishSources` that never contains
+     * `screen_share`/`screen_share_audio`: before V1.9.282 an accountless guest token with the microphone allowed carried no source list
+     * and therefore allowed a screen share to anyone with their own LiveKit client. A moderator grants it later at runtime.
+     */
+    enum class ParticipantSourcePolicy { MEMBER, EVENT_GUEST }
+
     /** One minted participant token plus the [expiresAt] instant a caller needs to populate `ConferenceJoinTokenDto.expiresAt` without re-deriving it from [Clock] a second time. */
     data class ParticipantToken(
         val jwt: String,
@@ -88,6 +96,8 @@ object LiveKitAccessToken {
      *   byte-for-byte as before (no `canPublishSources` key = every source). `false` adds `canPublishSources = [camera, screen_share,
      *   screen_share_audio]` -- the microphone of a participant in a room the moderators locked. (JWT grants use the lower-case source
      *   names, `UpdateParticipant` uses the enum names, see [LiveKitAdminClient.updateParticipantPermission].)
+     * @param sourcePolicy (V1.9.282) REQUIRED, no default: [ParticipantSourcePolicy.EVENT_GUEST] for an accountless event guest (never a
+     *   screen share in the token), [ParticipantSourcePolicy.MEMBER] for everybody else.
      */
     fun mintParticipantToken(
         apiKey: String,
@@ -99,6 +109,7 @@ object LiveKitAccessToken {
         canPublish: Boolean,
         canPublishData: Boolean,
         microphoneAllowed: Boolean,
+        sourcePolicy: ParticipantSourcePolicy,
         now: Instant = Clock.System.now(),
     ): ParticipantToken {
         val expiresAt = now + ttl
@@ -111,7 +122,12 @@ object LiveKitAccessToken {
                 "canPublishData" to canPublishData,
                 "canUpdateOwnMetadata" to false,
             )
-        if (!microphoneAllowed) videoGrant["canPublishSources"] = listOf("camera", "screen_share", "screen_share_audio")
+        when (sourcePolicy) {
+            ParticipantSourcePolicy.MEMBER ->
+                if (!microphoneAllowed) videoGrant["canPublishSources"] = listOf("camera", "screen_share", "screen_share_audio")
+            ParticipantSourcePolicy.EVENT_GUEST ->
+                videoGrant["canPublishSources"] = if (microphoneAllowed) listOf("microphone", "camera") else listOf("camera")
+        }
         val claims =
             JWTClaimsSet
                 .Builder()

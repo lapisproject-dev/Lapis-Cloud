@@ -473,6 +473,46 @@ class LiveKitAdminClientTest :
             capturedBody shouldNotContain "\"name\""
         }
 
+        test("V1.9.282: guestConferencePermission never lists an empty source list and the screen share only when granted") {
+            guestConferencePermission(microphoneAllowed = false, screenShareGranted = false).canPublishSources shouldBe listOf("CAMERA")
+            guestConferencePermission(microphoneAllowed = true, screenShareGranted = false).canPublishSources shouldBe
+                listOf("CAMERA", "MICROPHONE")
+            guestConferencePermission(microphoneAllowed = false, screenShareGranted = true).canPublishSources shouldBe
+                listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+            guestConferencePermission(microphoneAllowed = true, screenShareGranted = true).canPublishSources shouldBe
+                listOf("CAMERA", "MICROPHONE", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+            listOf(true, false).forEach { mic ->
+                listOf(true, false).forEach { screen ->
+                    val permission = guestConferencePermission(microphoneAllowed = mic, screenShareGranted = screen)
+                    permission.canPublishSources.isNotEmpty() shouldBe true
+                    permission.canSubscribe shouldBe true
+                    permission.canPublish shouldBe true
+                    permission.canPublishData shouldBe true
+                    permission.canPublishSources.any { it.startsWith("SCREEN") } shouldBe screen
+                }
+            }
+        }
+
+        test("V1.9.282: muteScreenShareTrack POSTs MutePublishedTrack with muted:true on the wire and refuses a malformed track sid") {
+            var capturedBody = ""
+            var capturedUrl = ""
+            val client =
+                mockClient { request ->
+                    capturedUrl = request.url.toString()
+                    capturedBody = bodyText(request)
+                    jsonResponse("{}")
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+            admin.muteScreenShareTrack(room = ROOM_NAME, identity = "evg-1", trackSid = "TR_abc")
+            capturedUrl shouldBe "$API_URL/twirp/livekit.RoomService/MutePublishedTrack"
+            capturedBody shouldBe """{"room":"$ROOM_NAME","identity":"evg-1","track_sid":"TR_abc","muted":true}"""
+            capturedBody = ""
+            shouldThrow<IllegalArgumentException> {
+                admin.muteScreenShareTrack(room = ROOM_NAME, identity = "evg-1", trackSid = "not-a-sid")
+            }
+            capturedBody shouldBe ""
+        }
+
         test("conferencePermission lists the microphone only when it is allowed, and always keeps subscribe, publish and publish-data") {
             conferencePermission(microphoneAllowed = true).canPublishSources shouldBe
                 listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO", "MICROPHONE")

@@ -530,6 +530,7 @@ class ConferenceService(
                 canPublish = true,
                 canPublishData = true,
                 microphoneAllowed = prep.microphoneAllowed,
+                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
             )
         // Audit-round-1 fix: mint a fresh, short-lived TURN credential alongside the JWT, same TTL
         // -- see TurnCredentialMinter KDoc. Empty iff TURN is unconfigured (config.turnEnabled ==

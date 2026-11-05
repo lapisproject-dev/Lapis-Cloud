@@ -100,6 +100,8 @@ internal class EventGuestCallView(
     private val onLeft: () -> Unit,
     private val slug: String? = null,
     private val api: EventGuestApi = EventGuestHttp,
+    /** V1.9.282: whether this device can share a screen (`getDisplayMedia`); a seam for the DOM test. */
+    private val screenShareSupported: () -> Boolean = { screenShareAvailable() },
 ) {
     private var gridElement: HTMLElement? = null
     private val tiles = LinkedHashMap<String, HTMLElement>()
@@ -108,6 +110,17 @@ internal class EventGuestCallView(
     private var left = false
     private lateinit var micButton: Button
     private lateinit var cameraButton: Button
+
+    /** V1.9.282: built ONCE after the camera button and only shown / hidden afterwards. */
+    private var shareButton: Button? = null
+    private var shareAllowed = false
+    private var sharing = false
+    private var shareLiveRegion: Div? = null
+    private var shareNoticeTimer: Int? = null
+    private val shareThrottle = GuestNoticeThrottle({ window.performance.now() })
+
+    /** Seam for the DOM test: replaces the real [LiveKitRoomSession.setScreenShare]. */
+    internal var screenShareStarter: (suspend (Boolean) -> Unit)? = null
     private lateinit var statusLine: Div
     private lateinit var stateLine: GuestStateLine
     private var phase = GuestCallPhase.CONNECTING
@@ -145,6 +158,8 @@ internal class EventGuestCallView(
                 syncButtons()
             },
             onRecordingStatusChanged = { _ -> },
+            onLocalScreenSharePermission = { allowed -> onScreenSharePermission(allowed) },
+            onLocalScreenShareEnded = { onScreenShareEnded() },
             onEventCapture = { live -> captureBanner?.render(live) },
             onEventCaptureAsk = { askCaptureConsent() },
             onActiveSpeakersChanged = { _ -> },
@@ -210,6 +225,7 @@ internal class EventGuestCallView(
                 setStyle("min-height", "44px")
                 onClick { toggleCamera() }
             }
+        buildShareControl(controls)
         buildHandControl(controls)
         controls.button(tr("Geräte"), style = ButtonStyle.OUTLINESECONDARY) {
             setStyle("min-height", "44px")
@@ -221,6 +237,95 @@ internal class EventGuestCallView(
             setStyle("min-height", "44px")
             onClick { leave() }
         }
+    }
+
+    // ── screen share (V1.9.282) ───────────────────────────────────────────────────────────────
+
+    /** Built once, hidden until a moderator allows the share. The live region is a sibling, also built once. */
+    private fun buildShareControl(controls: Container) {
+        shareButton =
+            controls.actionButton(ActionIcon.SCREEN_SHARE, tr("Bildschirm teilen"), style = ButtonStyle.OUTLINESECONDARY) {
+                setStyle("min-height", "44px")
+                visible = false
+                onClick { toggleScreenShare() }
+            }
+        shareLiveRegion =
+            host.div {
+                setAttribute("role", "status")
+                setAttribute("aria-live", "polite")
+                addCssClasses("text-muted small")
+            }
+    }
+
+    private fun syncShareButton() {
+        val button = shareButton ?: return
+        button.text = if (sharing) tr("Teilen beenden") else tr("Bildschirm teilen")
+        button.visible = guestShareButtonVisible(allowed = shareAllowed, supported = screenShareSupported(), sharing = sharing)
+    }
+
+    private fun toggleScreenShare() {
+        if (left) return
+        val start = !sharing
+        // never start without the permission; ending is always possible
+        if (start && !shareAllowed) return
+        AppScope.launch {
+            try {
+                screenShareStarter?.invoke(start) ?: session.setScreenShare(start)
+                sharing = start
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // the person closed the picker or the browser refused: no sentence, the state stays as it was
+            }
+            syncShareButton()
+        }
+    }
+
+    /** The own permission changed (or was read after the connect). The server's grant is the only truth; nothing is cached. */
+    internal fun onScreenSharePermission(allowed: Boolean) {
+        val notice = guestShareNoticeFor(previous = shareAllowed, allowed = allowed, sharing = sharing, supported = screenShareSupported())
+        shareAllowed = allowed
+        if (!allowed && sharing) {
+            // the permission is gone while sharing: stop the share on this side at once
+            AppScope.launch {
+                runCatching { screenShareStarter?.invoke(false) ?: session.setScreenShare(false) }
+                sharing = false
+                syncShareButton()
+            }
+            sharing = false
+        }
+        syncShareButton()
+        if (notice != null && !left) announceShare(guestShareNoticeText(notice))
+    }
+
+    /** The own share ended by itself (the browser's "stop sharing"): the button goes back to its resting state. */
+    internal fun onScreenShareEnded() {
+        sharing = false
+        syncShareButton()
+    }
+
+    private fun announceShare(text: String) {
+        val region = shareLiveRegion ?: return
+        shareThrottle.offer(text)?.let {
+            region.content = it
+            return
+        }
+        if (shareNoticeTimer != null) return
+        shareNoticeTimer =
+            window.setTimeout({
+                shareNoticeTimer = null
+                if (!left) shareThrottle.flush()?.let { shareLiveRegion?.content = it }
+            }, shareThrottle.waitMs())
+    }
+
+    internal fun disposeShare() {
+        shareNoticeTimer?.let { window.clearTimeout(it) }
+        shareNoticeTimer = null
+        shareThrottle.clear()
+        sharing = false
+        shareAllowed = false
+        shareLiveRegion?.content = ""
+        shareButton?.visible = false
     }
 
     private val devicePort: GuestDevicePort =
@@ -345,6 +450,7 @@ internal class EventGuestCallView(
         if (left) return
         left = true
         endHands()
+        disposeShare()
         consentDialog?.dispose()
         consentDialog = null
         devicePanel?.dispose()
@@ -358,6 +464,7 @@ internal class EventGuestCallView(
         if (left) return
         left = true
         endHands()
+        disposeShare()
         consentDialog?.dispose()
         consentDialog = null
         devicePanel?.dispose()

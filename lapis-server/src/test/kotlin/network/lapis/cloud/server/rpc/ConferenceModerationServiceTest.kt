@@ -6,6 +6,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -29,11 +30,13 @@ import network.lapis.cloud.server.conference.ConferenceAudioGrantState
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceRoomPauseCoordinator
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
+import network.lapis.cloud.server.conference.EventGuestScreenShareGrants
 import network.lapis.cloud.server.conference.FakeLiveKitEgressClient
 import network.lapis.cloud.server.conference.LiveKitEgressInfo
 import network.lapis.cloud.server.conference.MAX_PAUSES_PER_RECORDING
 import network.lapis.cloud.server.conference.ModerationFakeLiveKit
 import network.lapis.cloud.server.conference.RoomPauseDb
+import network.lapis.cloud.server.conference.guestParticipant
 import network.lapis.cloud.server.conference.liveParticipant
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
@@ -47,9 +50,12 @@ import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
+import network.lapis.cloud.server.db.generated.EventConferenceStatus
+import network.lapis.cloud.server.db.generated.EventConferenceTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.reactionSetCsv
+import network.lapis.cloud.server.events.EventOnlineFixtures
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
@@ -110,6 +116,10 @@ private class ModerationRig(
     val reactions: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val pauseLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val egress: FakeLiveKitEgressClient = FakeLiveKitEgressClient(),
+    val screenShare: EventGuestScreenShareGrants = EventGuestScreenShareGrants(),
+    val guestShareLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+    val guestShareTargetLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+    val guestShareReadLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     /** How often the pause coordinator woke the recording poller. */
     val recordingTicks: AtomicInteger = AtomicInteger(),
 ) {
@@ -145,6 +155,11 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
             joinLeaveSoundsRateLimiter = rig.joinLeaveSounds,
             reactionsRateLimiter = rig.reactions,
             pauseCoordinator = rig.pauseCoordinator,
+            screenShareGrants = rig.screenShare,
+            guestScreenShareRateLimiter = rig.guestShareLimiter,
+            guestScreenShareTargetRateLimiter = rig.guestShareTargetLimiter,
+            guestScreenShareReadRateLimiter = rig.guestShareReadLimiter,
+            screenShareRecheckDelayMillis = 1,
         )
 
     fun conference(call: io.ktor.server.application.ApplicationCall) =
@@ -199,6 +214,18 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
         val q = call.request.queryParameters
         val dto = service(call).setRoomReactions(roomId = q["room"]!!, enabled = q["enabled"]!!.toBoolean())
         call.respondText("ok|${dto.reactionsEnabled}|${dto.myRole}")
+    }
+    post("/test/guest-share") {
+        val q = call.request.queryParameters
+        val dto =
+            service(
+                call,
+            ).setGuestScreenShare(roomId = q["room"]!!, guestIdentity = q["guest"]!!, allowed = q["allowed"]!!.toBoolean())
+        call.respondText("ok|${dto.outcome}")
+    }
+    post("/test/guest-share-state") {
+        val dto = service(call).guestScreenShareState(call.request.queryParameters["room"]!!)
+        call.respondText("ok|${dto.grantedIdentity}|${dto.sharing}")
     }
     post("/test/pause") {
         val dto = service(call).pauseRoomCapture(call.request.queryParameters["room"]!!)
@@ -278,6 +305,7 @@ class ConferenceModerationServiceTest :
     FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
         val createdSpaceIds = mutableListOf<Uuid>()
+        val eventFixtures = EventOnlineFixtures()
 
         beforeSpec {
             DatabaseConfig.connect()
@@ -285,6 +313,7 @@ class ConferenceModerationServiceTest :
         }
 
         afterSpec {
+            eventFixtures.cleanUp()
             transaction {
                 AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId inList createdMemberIds }) { it[actorMemberId] = null }
                 val roomIds =
@@ -1560,5 +1589,351 @@ class ConferenceModerationServiceTest :
             }
             streamRow(ballot)[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.ROOM_PAUSE
             streamRow(manual)[ConferenceStreamTable.pauseReason] shouldBe ConferenceStreamPauseReason.MANUAL
+        }
+
+        // -- V1.9.282: an account-less event guest may share the screen while a moderator allows it ------------------------------------
+
+        fun bindEvent(
+            room: RoomFx,
+            creator: Uuid,
+        ) {
+            val eventId = eventFixtures.event(createdBy = creator)
+            val now = DbClock.nowLocalDateTime()
+            transaction {
+                EventConferenceTable.insert {
+                    it[EventConferenceTable.eventId] = eventId
+                    it[conferenceRoomId] = room.id
+                    it[livekitRoomName] = room.name
+                    it[status] = EventConferenceStatus.ACTIVE
+                    it[claimToken] = Uuid.random()
+                    it[claimedAt] = now
+                    it[windowOpensAt] = LocalDateTime(2030, 6, 15, 17, 45)
+                    it[windowClosesAt] = LocalDateTime(2030, 6, 15, 21, 0)
+                    it[createdAt] = now
+                    it[endedAt] = null
+                }
+            }
+        }
+
+        fun eventRoom(creator: Uuid): RoomFx = newRoom(creator).also { bindEvent(it, creator) }
+
+        fun guestId() = "evg-${Uuid.random()}"
+
+        fun guestIn(
+            rig: ModerationRig,
+            room: RoomFx,
+            identity: String = guestId(),
+            sid: String = "PA_${Uuid.random().toString().take(8)}",
+            sharing: Boolean = false,
+            sources: List<String> = listOf("CAMERA", "MICROPHONE"),
+        ): String {
+            rig.liveKit.add(
+                room = room.name,
+                participant =
+                    guestParticipant(identity = identity, sid = sid, screenShareOpen = sharing, permissionSources = sources),
+            )
+            return identity
+        }
+
+        fun shareParams(
+            room: RoomFx,
+            guest: String,
+            allowed: Boolean,
+        ) = arrayOf("room" to room.id.toString(), "guest" to guest, "allowed" to allowed.toString())
+
+        test("V1.9.282: allowing changes the permission of exactly that one guest and nobody else's, and is audited by the HMAC key only") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val member = newMember()
+            val room = eventRoom(creator)
+            live(rig, room, member)
+            val guest = guestIn(rig, room)
+            val other = guestIn(rig, room)
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, true)) shouldBe
+                    (HttpStatusCode.OK to "ok|GRANTED")
+                rig.liveKit.permissionUpdates.map { it.identity } shouldContainExactly listOf(guest)
+                rig.liveKit.permissionUpdates
+                    .single()
+                    .permission.canPublishSources shouldContainExactly
+                    listOf("CAMERA", "MICROPHONE", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+                rig.screenShare.current(room.id)?.identity shouldBe guest
+                val entries = audits(room)
+                entries.size shouldBe 1
+                entries.single() shouldContain "GUEST_SCREEN_SHARE_GRANT"
+                entries.single() shouldContain "guestKey"
+                entries.single() shouldNotContain guest
+                entries.single() shouldNotContain "Gast"
+                entries.single() shouldNotContain other
+            }
+        }
+
+        test("V1.9.282: only one guest per room (TAKEN, no audit), a repeat for the same guest is idempotent") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = eventRoom(creator)
+            val first = guestIn(rig, room)
+            val second = guestIn(rig, room)
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, first, true)) shouldBe
+                    (HttpStatusCode.OK to "ok|GRANTED")
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, second, true)) shouldBe
+                    (HttpStatusCode.OK to "ok|TAKEN")
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, first, true)) shouldBe
+                    (HttpStatusCode.OK to "ok|ALREADY_GRANTED")
+                rig.liveKit.permissionUpdates.none { it.identity == second } shouldBe true
+                audits(room).size shouldBe 2
+            }
+        }
+
+        test("V1.9.282: a guest who is not in the room is NOT_IN_ROOM without an audit entry") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = eventRoom(creator)
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guestId(), true)) shouldBe
+                    (HttpStatusCode.OK to "ok|NOT_IN_ROOM")
+                audits(room).shouldBeEmpty()
+            }
+        }
+
+        test("V1.9.282: every refusal is the same forbidden answer (no authority, no event room, ended/encounter room, bad identities)") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val ordinary = newMember()
+            val target = newMember()
+            val room = eventRoom(creator)
+            val plain = newRoom(creator)
+            val ended = newRoom(creator, ended = true).also { bindEvent(it, creator) }
+            val encounter = newRoom(creator, encounter = true).also { bindEvent(it, creator) }
+            val guest = guestIn(rig, room)
+            listOf(plain, ended, encounter).forEach { guestIn(rig, it, identity = guest) }
+            moderationApp(rig = rig) {
+                val denied = HttpStatusCode.Forbidden to "forbidden"
+                act(path = "/test/guest-share", caller = ordinary, *shareParams(room, guest, true)) shouldBe denied
+                act(path = "/test/guest-share-state", caller = ordinary, "room" to room.id.toString()) shouldBe denied
+                listOf(plain, ended, encounter).forEach {
+                    act(path = "/test/guest-share", caller = creator, *shareParams(it, guest, true)) shouldBe denied
+                    act(path = "/test/guest-share-state", caller = creator, "room" to it.id.toString()) shouldBe denied
+                }
+                act(path = "/test/guest-share", caller = creator, "room" to "not-a-uuid", "guest" to guest, "allowed" to "true") shouldBe
+                    denied
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, target.toString(), true)) shouldBe denied
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, "evg-not-a-uuid", true)) shouldBe denied
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, "evg-" + "a".repeat(120), true)) shouldBe denied
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, " $guest", true)) shouldBe denied
+                rig.liveKit.permissionUpdates.shouldBeEmpty()
+                rig.screenShare.current(room.id) shouldBe null
+                audits(room).shouldBeEmpty()
+            }
+        }
+
+        test("V1.9.282: BOARD may moderate an event room it did not create") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val board = newMember(AccountRole.BOARD)
+            val room = eventRoom(creator)
+            val guest = guestIn(rig, room)
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = board, *shareParams(room, guest, true)) shouldBe
+                    (HttpStatusCode.OK to "ok|GRANTED")
+            }
+        }
+
+        test("V1.9.282: withdrawing resets the permission and mutes the share; a share that stops is REVOKED") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = eventRoom(creator)
+            val guest = guestIn(rig, room)
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, true)) shouldBe
+                    (HttpStatusCode.OK to "ok|GRANTED")
+                // the guest starts sharing
+                rig.liveKit.participants[room.name]!!.let { list ->
+                    list[0] =
+                        list[0].copy(
+                            tracks =
+                                list[0].tracks +
+                                    network.lapis.cloud.server.conference
+                                        .LiveKitTrackInfo(sid = "TR_scr_x", type = "VIDEO", source = "SCREEN_SHARE", muted = false),
+                        )
+                }
+                act(path = "/test/guest-share-state", caller = creator, "room" to room.id.toString()) shouldBe
+                    (HttpStatusCode.OK to "ok|$guest|true")
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, false)) shouldBe
+                    (HttpStatusCode.OK to "ok|REVOKED")
+                rig.liveKit.permissionUpdates
+                    .last()
+                    .permission.canPublishSources shouldContainExactly listOf("CAMERA", "MICROPHONE")
+                rig.liveKit.screenShareMutes.map { it.trackSid } shouldContainExactly listOf("TR_scr_x")
+                rig.screenShare.current(room.id) shouldBe null
+                audits(room).any { it.contains("GUEST_SCREEN_SHARE_REVOKE") } shouldBe true
+            }
+        }
+
+        test("V1.9.282: a share the mute does not stop (modified client) removes the guest: REVOKED_REMOVED") {
+            val rig = ModerationRig()
+            rig.liveKit.stubbornScreenShare = true
+            val creator = newMember()
+            val room = eventRoom(creator)
+            val guest = guestIn(rig, room, sharing = true, sources = listOf("CAMERA", "SCREEN_SHARE"))
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, false)) shouldBe
+                    (HttpStatusCode.OK to "ok|REVOKED_REMOVED")
+                rig.liveKit.roster(room.name).shouldBeEmpty()
+                audits(room).single() shouldContain "GUEST_SCREEN_SHARE_REVOKE_REMOVED"
+            }
+        }
+
+        test("V1.9.282: withdrawing when nothing was granted is a NOT_GRANTED no-op that is still audited") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = eventRoom(creator)
+            val guest = guestIn(rig, room)
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, false)) shouldBe
+                    (HttpStatusCode.OK to "ok|NOT_GRANTED")
+                audits(room).single() shouldContain "GUEST_SCREEN_SHARE_REVOKE"
+            }
+        }
+
+        test("V1.9.282: a guest who reconnects in the gap (new sid) does not keep the grant") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = eventRoom(creator)
+            val guest = guestIn(rig, room, sid = "PA_old")
+            var calls = 0
+            rig.liveKit.afterListSnapshot = {
+                if (++calls == 1) {
+                    rig.liveKit.participants[room.name]!!.let { list ->
+                        list.clear()
+                        list.add(guestParticipant(identity = guest, sid = "PA_new", permissionSources = listOf("CAMERA", "SCREEN_SHARE")))
+                    }
+                }
+            }
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, true)) shouldBe
+                    (HttpStatusCode.OK to "ok|NOT_IN_ROOM")
+                rig.screenShare.current(room.id) shouldBe null
+                rig.liveKit.permissionUpdates
+                    .last()
+                    .permission.canPublishSources
+                    .none { it.startsWith("SCREEN") } shouldBe true
+            }
+        }
+
+        test("V1.9.282: a LiveKit failure while allowing rolls the registry back and answers the conflict") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = eventRoom(creator)
+            val guest = guestIn(rig, room)
+            rig.liveKit.failPermission = true
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, true)).first shouldBe HttpStatusCode.Conflict
+                rig.screenShare.current(room.id) shouldBe null
+                audits(room).shouldBeEmpty()
+            }
+        }
+
+        test("V1.9.282: both rate limits apply before LiveKit is touched") {
+            val rig =
+                ModerationRig(
+                    guestShareLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 1.minutes),
+                    guestShareTargetLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes),
+                    guestShareReadLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes),
+                )
+            val creator = newMember()
+            val room = eventRoom(creator)
+            val guest = guestIn(rig, room)
+            val second = guestIn(rig, room)
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, true)).first shouldBe HttpStatusCode.OK
+                // the same guest again within the window: the per-guest limit
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, false)).second shouldContain "Too many requests"
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, second, true)).first shouldBe HttpStatusCode.OK
+                // 3 per moderator and room used up (two successes + one refused at the target limit)
+                val updates = rig.liveKit.permissionUpdates.size
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, second, true)).second shouldContain "Too many requests"
+                rig.liveKit.permissionUpdates.size shouldBe updates
+                act(path = "/test/guest-share-state", caller = creator, "room" to room.id.toString()).first shouldBe HttpStatusCode.OK
+                act(path = "/test/guest-share-state", caller = creator, "room" to room.id.toString()).second shouldContain
+                    "Too many requests"
+            }
+        }
+
+        test("V1.9.282: the state read reports the one granted guest, and nothing before a grant") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = eventRoom(creator)
+            val guest = guestIn(rig, room)
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share-state", caller = creator, "room" to room.id.toString()) shouldBe
+                    (HttpStatusCode.OK to "ok|null|false")
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, guest, true))
+                act(path = "/test/guest-share-state", caller = creator, "room" to room.id.toString()) shouldBe
+                    (HttpStatusCode.OK to "ok|$guest|false")
+            }
+        }
+
+        test("V1.9.282: a call without a member session (a guest has none) is refused and touches nothing") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = eventRoom(creator)
+            val guest = guestIn(rig, room)
+            moderationApp(rig = rig) {
+                val outcome =
+                    runCatching {
+                        client.post("/test/guest-share") {
+                            header("X-Lapis-Guest-Action", "any-token-a-guest-could-hold")
+                            url.parameters.append("room", room.id.toString())
+                            url.parameters.append("guest", guest)
+                            url.parameters.append("allowed", "true")
+                        }
+                    }
+                (outcome.getOrNull()?.status == HttpStatusCode.OK) shouldBe false
+                rig.liveKit.permissionUpdates.shouldBeEmpty()
+                rig.screenShare.current(room.id) shouldBe null
+            }
+        }
+
+        test("V1.9.282: locking the room keeps the allowed guest's share and never hands it to another guest; members are unchanged") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val member = newMember()
+            val room = eventRoom(creator)
+            live(rig, room, member)
+            val allowed = guestIn(rig, room)
+            val other = guestIn(rig, room)
+            moderationApp(rig = rig) {
+                act(path = "/test/guest-share", caller = creator, *shareParams(room, allowed, true)) shouldBe
+                    (HttpStatusCode.OK to "ok|GRANTED")
+                rig.liveKit.permissionUpdates.clear()
+                act(
+                    path = "/test/policy",
+                    caller = creator,
+                    "room" to room.id.toString(),
+                    "muteOnJoin" to "false",
+                    "mayUnmute" to "false",
+                ).first shouldBe
+                    HttpStatusCode.OK
+                val byIdentity = rig.liveKit.permissionUpdates.associate { it.identity to it.permission.canPublishSources }
+                byIdentity[allowed] shouldBe listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+                byIdentity[other] shouldBe listOf("CAMERA")
+                byIdentity[member.toString()] shouldBe listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+                act(
+                    path = "/test/policy",
+                    caller = creator,
+                    "room" to room.id.toString(),
+                    "muteOnJoin" to "false",
+                    "mayUnmute" to "true",
+                ).first shouldBe
+                    HttpStatusCode.OK
+                val unlocked =
+                    rig.liveKit.permissionUpdates
+                        .takeLast(3)
+                        .associate { it.identity to it.permission.canPublishSources }
+                unlocked[allowed] shouldBe listOf("CAMERA", "MICROPHONE", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+                unlocked[other] shouldBe listOf("CAMERA", "MICROPHONE")
+            }
         }
     })

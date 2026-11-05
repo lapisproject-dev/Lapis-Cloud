@@ -30450,3 +30450,83 @@ msgstr "Non è stato possibile riconnettere la destinazione. Riprovate tra un mi
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:1
 msgid "Die Hand kann erst nach dem Verbinden gehoben werden."
 msgstr "La mano può essere alzata solo dopo la connessione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:1
+msgid "Teilen beenden"
+msgstr "Interrompi la condivisione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Sie dürfen jetzt Ihren Bildschirm teilen."
+msgstr "Ora può condividere il suo schermo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Die Freigabe zum Bildschirmteilen wurde beendet."
+msgstr "L'autorizzazione a condividere lo schermo è terminata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Die Moderation hat Ihre Bildschirmfreigabe beendet."
+msgstr "La moderazione ha terminato la sua condivisione dello schermo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Bildschirm teilen ist auf diesem Gerät nicht möglich."
+msgstr "La condivisione dello schermo non è possibile su questo dispositivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Darf den Bildschirm nicht teilen"
+msgstr "Non può condividere lo schermo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Darf den Bildschirm teilen"
+msgstr "Può condividere lo schermo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Teilt gerade den Bildschirm"
+msgstr "Sta condividendo lo schermo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Bildschirm teilen erlauben"
+msgstr "Consenti la condivisione dello schermo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Freigabe entziehen"
+msgstr "Revoca l'autorizzazione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Bildschirm teilen erlauben für %1"
+msgstr "Consenti a %1 di condividere lo schermo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Freigabe entziehen für %1"
+msgstr "Revoca l'autorizzazione a %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Aufzeichnung und Livestream laufen: Ein geteilter Bildschirm ist in beiden zu sehen."
+msgstr "Registrazione e diretta sono in corso: uno schermo condiviso compare in entrambe."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Die Aufzeichnung läuft: Ein geteilter Bildschirm wird mit aufgezeichnet."
+msgstr "La registrazione è in corso: anche uno schermo condiviso viene registrato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Der Livestream läuft: Ein geteilter Bildschirm ist für alle Zuschauer zu sehen."
+msgstr "La diretta è in corso: uno schermo condiviso è visibile a tutti gli spettatori."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Der Gast darf jetzt den Bildschirm teilen."
+msgstr "L'ospite può ora condividere lo schermo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Die Freigabe wurde entzogen."
+msgstr "L'autorizzazione è stata revocata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Es darf immer nur ein Gast den Bildschirm teilen. Bitte entziehen Sie zuerst die andere Freigabe."
+msgstr "Solo un ospite alla volta può condividere lo schermo. Revochi prima l'altra autorizzazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Dieser Gast ist nicht mehr im Raum."
+msgstr "Questo ospite non è più nella stanza."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Das Teilen ließ sich nicht beenden. Der Gast wurde aus dem Raum entfernt."
+msgstr "Non è stato possibile interrompere la condivisione. L'ospite è stato rimosso dalla stanza."

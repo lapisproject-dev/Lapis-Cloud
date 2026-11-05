@@ -505,6 +505,14 @@ class LiveKitRoomSession(
      */
     private val onLocalMicrophonePermission: (allowed: Boolean) -> Unit = {},
     /**
+     * V1.9.282 -- whether the OWN permission lets this person publish a screen share ([screenShareAllowedByPermission]; an empty source list
+     * counts as NOT allowed here, the button is fail-closed); fired once after connect and on every `ParticipantPermissionsChanged` of the
+     * local participant. Used by the call view of an event guest, who may share only while a moderator allows it.
+     */
+    private val onLocalScreenSharePermission: (allowed: Boolean) -> Unit = {},
+    /** V1.9.282 -- the own screen share track was unpublished (the browser's "stop sharing", a withdrawn permission, or [setScreenShare] `false`). */
+    private val onLocalScreenShareEnded: () -> Unit = {},
+    /**
      * V1.9.127 -- the server-ordered raised-hand queue ([ConferenceHandQueueDto]); see [conferenceHandsPacket] for the strict acceptance rule
      * (never from a participant, validated shape, at most [CONFERENCE_HANDS_MAX_PAYLOAD_BYTES] bytes). The caller still drops an older `seq`.
      */
@@ -778,6 +786,7 @@ class LiveKitRoomSession(
                 presence.arm()
                 onAudioPlaybackChanged(newRoom.canPlaybackAudio)
                 onLocalMicrophonePermission(localMicrophoneAllowed(newRoom))
+                onLocalScreenSharePermission(localScreenShareAllowed(newRoom))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -864,7 +873,13 @@ class LiveKitRoomSession(
         // it is re-read from the SDK rather than trusted from the event arguments.
         room.onOwned(RoomEvent.ParticipantPermissionsChanged) { _, p1, _, _ ->
             val identity = p1.unsafeCast<RemoteParticipant>().identity
-            if (identity == room.localParticipant.identity) onLocalMicrophonePermission(localMicrophoneAllowed(room))
+            if (identity == room.localParticipant.identity) {
+                onLocalMicrophonePermission(localMicrophoneAllowed(room))
+                onLocalScreenSharePermission(localScreenShareAllowed(room))
+            }
+        }
+        room.onOwned(RoomEvent.LocalTrackUnpublished) { p0, _, _, _ ->
+            if (p0.unsafeCast<TrackPublication>().source == "screen_share") onLocalScreenShareEnded()
         }
         room.onOwned(RoomEvent.LocalTrackPublished) { p0, _, _, _ ->
             val publication = p0.unsafeCast<TrackPublication>()
@@ -1837,4 +1852,18 @@ private fun localMicrophoneAllowed(room: Room): Boolean {
     val sources: List<Int> =
         if (rawSources == null || rawSources == undefined) emptyList() else rawSources.unsafeCast<Array<Int>>().toList()
     return microphoneAllowedByPermission(canPublish = canPublish, publishSources = sources)
+}
+
+/**
+ * V1.9.282 -- reads the OWN permission off the SDK and applies [screenShareAllowedByPermission]. Unlike [localMicrophoneAllowed], an unknown
+ * permission counts as NOT allowed: the screen share button must never appear on a guess.
+ */
+private fun localScreenShareAllowed(room: Room): Boolean {
+    val permissions: dynamic = room.localParticipant.permissions
+    if (permissions == null || permissions == undefined) return false
+    val canPublish = permissions.canPublish.unsafeCast<Boolean?>() == true
+    val rawSources: dynamic = permissions.canPublishSources
+    val sources: List<Int> =
+        if (rawSources == null || rawSources == undefined) emptyList() else rawSources.unsafeCast<Array<Int>>().toList()
+    return screenShareAllowedByPermission(canPublish = canPublish, publishSources = sources)
 }

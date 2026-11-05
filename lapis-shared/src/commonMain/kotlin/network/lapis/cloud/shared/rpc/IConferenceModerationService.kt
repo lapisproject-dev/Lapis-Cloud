@@ -4,6 +4,8 @@ import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomPauseDto
+import network.lapis.cloud.shared.domain.GuestScreenShareResultDto
+import network.lapis.cloud.shared.domain.GuestScreenShareStateDto
 
 /**
  * V1.9.108 -- moderator audio controls of a running video conference: mute one person, mute everybody, ask somebody to switch the
@@ -94,4 +96,19 @@ interface IConferenceModerationService {
 
     /** V1.9.254 -- ends the pause: the recording continues in the same file, the stream starts again. Idempotent when the room is not paused. */
     suspend fun resumeRoomCapture(roomId: String): ConferenceRoomPauseDto
+
+    /**
+     * V1.9.282 -- allows ([allowed] `true`) or withdraws (`false`) the screen share of ONE account-less event guest ([guestIdentity], an
+     * `evg-...` LiveKit identity) in an EVENT room. At most one guest per room may share. Withdrawing stops the share (permission, mute,
+     * and removal of the guest if the share does not stop). Same single `ForbiddenException` for every refusal (no authority, unknown/ended
+     * room, not an event room, not a guest identity) -- no oracle; the distinguishable results are in the returned outcome.
+     */
+    suspend fun setGuestScreenShare(
+        roomId: String,
+        guestIdentity: String,
+        allowed: Boolean,
+    ): GuestScreenShareResultDto
+
+    /** V1.9.282 -- who may share right now and whether that guest does, so a second moderator or a freshly opened panel sees the server state. */
+    suspend fun guestScreenShareState(roomId: String): GuestScreenShareStateDto
 }

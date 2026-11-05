@@ -2016,6 +2016,53 @@ class RecordingPollerTest :
             }
         }
 
+        test(
+            "V1.9.282: the screen share of an account-less event guest (evg- identity) is recorded like a member's, a muted one is not",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-guest-share@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.RECORDING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val guestIdentity = "evg-${Uuid.random()}"
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(
+                        person(
+                            "PA_guest",
+                            guestIdentity,
+                            cam("TR_gc"),
+                            LiveKitTrackInfo(sid = "TR_gshare", type = "VIDEO", source = "SCREEN_SHARE", muted = false),
+                            LiveKitTrackInfo(sid = "TR_gshare_muted", type = "VIDEO", source = "SCREEN_SHARE", muted = true),
+                        ),
+                    )
+                val egressClient = FakeLiveKitEgressClient()
+                buildPoller(
+                    adminClient,
+                    egressClient,
+                    FakeRecordingComposer(),
+                    hostRawRoot,
+                    documentStorageRoot,
+                    egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                ).tickAndSettle()
+
+                egressClient.started.map { it.second } shouldBe listOf("TR_gshare")
+                val share = trackRowsOf(recordingId).single { it[ConferenceRecordingTrackTable.livekitTrackId] == "TR_gshare" }
+                share[ConferenceRecordingTrackTable.trackSource] shouldBe ConferenceRecordingTrackSource.SCREEN_SHARE
+                share[ConferenceRecordingTrackTable.egressKind] shouldBe ConferenceRecordingEgressMode.TRACK
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
         test("PARTICIPANT mode (d): a person who comes back with a NEW participant SID gets a second row and a second file") {
             val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
             val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()

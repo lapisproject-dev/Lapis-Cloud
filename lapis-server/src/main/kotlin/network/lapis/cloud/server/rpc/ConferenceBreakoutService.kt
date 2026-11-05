@@ -826,6 +826,7 @@ class ConferenceBreakoutService(
                 canPublish = true,
                 canPublishData = true,
                 microphoneAllowed = microphoneAllowed,
+                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
             )
         // Uses config.allTurnUrls (not config.turnUrls) so an optionally-configured `turns:` endpoint
         // travels in the SAME credential entry -- see ConferenceConfig.turnsUrls KDoc.

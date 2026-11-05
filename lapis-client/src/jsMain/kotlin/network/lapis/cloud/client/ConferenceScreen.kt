@@ -1534,6 +1534,9 @@ private fun enterCall(
     }
     var microphonePermitted = true
     var moderationPanel: ConferenceModerationPanel? = null
+    // V1.9.282 -- the guest screen share section of an EVENT room's moderation panel; the hook is called when a guest comes or goes or a share starts or stops
+    var guestShareController: GuestShareController? = null
+    var guestShareChanged: () -> Unit = {}
     var pauseToggleRef: () -> Unit = {}
     var toggleMicRef: () -> Unit = {}
     var cameraEnabled = initialDevices.camera
@@ -2470,6 +2473,8 @@ private fun enterCall(
                     }
                 },
                 onPause = { pauseToggleRef() },
+                onGuestShare = if (joinToken.eventId != null) { identity, allow -> guestShareController?.act(identity, allow) } else null,
+                onOpened = { guestShareController?.refreshNow() },
                 reactions = roomReactionsEnabled,
                 onReactions = { enabled, revert ->
                     moderationPanel?.setBusy(true)
@@ -2502,6 +2507,45 @@ private fun enterCall(
                     }
                 },
             )
+        // V1.9.282 -- the "Gäste" section (event rooms only): who may share, read from the server; the roster supplies who is there
+        moderationPanel?.guestShare?.let { section ->
+            val controller =
+                GuestShareController(
+                    scope = AppScope,
+                    section = section,
+                    loadState = { guarded { rpcService<IConferenceModerationService>().guestScreenShareState(room.id) } },
+                    setShare = { identity, allow ->
+                        guarded { rpcService<IConferenceModerationService>().setGuestScreenShare(room.id, identity, allow) }?.outcome
+                    },
+                    guests =
+                        {
+                            tiles.values
+                                .filter { it.identity.startsWith(GUEST_SHARE_IDENTITY_PREFIX) }
+                                .sortedBy { it.displayName }
+                                .map { GuestShareGuest(identity = it.identity, displayName = it.displayName) }
+                        },
+                    sharingIdentities = {
+                        activeScreenShare
+                            ?.first
+                            ?.takeIf {
+                                it.startsWith(
+                                    GUEST_SHARE_IDENTITY_PREFIX,
+                                )
+                            }?.let { setOf(it) }
+                            .orEmpty()
+                    },
+                    recordingActive = { activeRecordingDto != null },
+                    streamActive = { activeStreamDto != null },
+                    notify = { line ->
+                        notices.announce(line.text, assertive = line.error)
+                        if (line.error) notifyError(line.text) else notifySuccess(line.text)
+                    },
+                    failed = {},
+                )
+            guestShareController = controller
+            guestShareChanged = { controller.onRoomChanged() }
+            controller.render()
+        }
     }
 
     if (canModerate) {
@@ -5274,6 +5318,7 @@ private fun enterCall(
         entry.nameBadge.textContent = tileLabel(entry)
         setTileGuest(entry, guestHomeserverByIdentity[identity])
         tiles[identity] = entry
+        if (identity.startsWith(GUEST_SHARE_IDENTITY_PREFIX)) guestShareChanged()
         handController?.let {
             toggleHandBadge(entry.handBadge, identity in it.order)
             entry.element.classList.toggle(CONFERENCE_TILE_HAND_CLASS, identity in it.order)
@@ -5287,6 +5332,7 @@ private fun enterCall(
 
     fun removeTile(identity: String) {
         val entry = tiles.remove(identity) ?: return
+        if (identity.startsWith(GUEST_SHARE_IDENTITY_PREFIX)) guestShareChanged()
         speakingMark.forget(identity)
         viewController.participantLeft(identity)
         ConferenceDock.videoLedger.reclaimSlot(entry.mediaSlot)
@@ -5367,6 +5413,7 @@ private fun enterCall(
         entry.video = activeScreenShareVideo
         shareTile = entry
         activeScreenShare = identity to track
+        if (identity.startsWith(GUEST_SHARE_IDENTITY_PREFIX)) guestShareChanged()
         viewController.shareStarted(identity)
         applyConferenceGridReflow()
         resumeStalledVideos(entry.element.parentElement ?: entry.element)
@@ -5387,6 +5434,7 @@ private fun enterCall(
         shareTile = null
         activeScreenShare = null
         activeScreenShareVideo = null
+        if (identity.startsWith(GUEST_SHARE_IDENTITY_PREFIX)) guestShareChanged()
         viewController.shareEnded()
         applyConferenceGridReflow()
         ConferenceDock.notifyMediaChanged()

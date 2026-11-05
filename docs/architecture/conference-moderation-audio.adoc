@@ -155,6 +155,26 @@ The per-room budgets are consumed only AFTER the caller has been authorized, so 
 * Full screen: the heading row paints nothing (`.lapis-conference-fullscreen .lapis-conference-title-row`), the `h2` stays (clip pattern), "Bearbeiten" is
   `display:none`. The region keeps its `aria-label` "Besprechung" (not switched to `aria-labelledby`: that would change the behaviour outside full screen).
 
+== Guest screen share (V1.9.282)
+
+Account-less event guests (`evg-...` identities) have their own permission builder: `guestConferencePermission(microphoneAllowed, screenShareGranted)`.
+`conferencePermission` always lists the screen share sources and must never be applied to a guest; the room lock (`ConferenceModerationService.applyLock`),
+the audio reconciler (`enforceLock`, `healUnlock`) and the guest screen share reconciler all branch on the identity. `CAMERA` is always listed, so the source
+list of a guest is never empty (an empty list means "every source" in LiveKit).
+
+*One room lock for every whole replacement.* `UpdateParticipant` replaces the permission as a whole, so a lock pass could overwrite a fresh screen share grant
+and vice versa. Every whole replacement of a guest permission -- lock, unlock, heal, grant, withdrawal and the reconciler's pass -- runs under
+`ConferenceAudioGrantState.withRoomLock(roomId)`. The lock is not reentrant: no code path takes it twice for the same room.
+
+*Withdrawal.* `setGuestScreenShare(roomId, guestIdentity, false)`: (1) the registry entry is removed, (2) the permission is replaced without the screen share
+sources, (3) every screen share track that is switched on is muted with `muteScreenShareTrack`, (4) up to three re-reads 300 ms apart, (5) a track that is
+still on means `RemoveParticipant` and the outcome `REVOKED_REMOVED`. A server-side mute is not a hard boundary against a modified client (LiveKit has no
+server-side unpublish): `EventGuestScreenShareReconciler` (every 5 seconds, only event rooms) mutes any screen share without a valid grant, and removes the
+guest if the track was switched on again after its mute -- so a hostile client can be on the recording for at most about five seconds.
+
+*Reconciler.* Per event room it drops a grant whose sid is gone, corrects a guest permission that lists (or implies) a screen share without a valid grant, and
+mutes the tracks. Logs name counts and exception classes only (`EventGuestScreenShareTripwireTest`).
+
 == Known limitations
 
 * The room lock was verified against a real LiveKit 1.13.5 with a real MICROPHONE publisher for `MutePublishedTrack` and `UpdateParticipant` (see
@@ -168,3 +188,7 @@ The per-room budgets are consumed only AFTER the caller has been authorized, so 
 * Individual releases are in memory and disappear on a server restart.
 * There is no "raise hand" in the video conference (only in the encounter room), so there is no interplay to document. OPEN, outside this wave.
 * The mobile WebView is not tested with TalkBack or VoiceOver.
+* *Guest screen share (V1.9.282), not verified against a real LiveKit:* `UpdateParticipant` on a running server with a guest that publishes a screen share,
+  `MutePublishedTrack` on a screen share track, the token refresh semantics of LiveKit (assumed: a connected client is sent a token with its current permission),
+  that the participant sid changes at every join, and that the permission is visible in the remote `ParticipantInfo`. The registry is in memory: after a restart
+  every guest share is taken back and has to be allowed again.

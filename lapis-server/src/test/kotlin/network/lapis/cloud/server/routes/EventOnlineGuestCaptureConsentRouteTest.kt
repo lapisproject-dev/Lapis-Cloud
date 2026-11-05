@@ -210,6 +210,7 @@ class EventOnlineGuestCaptureConsentRouteTest :
                             canPublish = true,
                             canPublishData = true,
                             microphoneAllowed = false,
+                            sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                             now = at,
                         ).jwt
 
@@ -293,6 +294,7 @@ class EventOnlineGuestCaptureConsentRouteTest :
                                 canPublish = true,
                                 canPublishData = true,
                                 microphoneAllowed = false,
+                                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                                 now = Instant.parse(insideWindow),
                             ).jwt
                     client.consent(slugOf(event), forged, consentInput.consentVersion, consentInput.consentSha256).status shouldBe

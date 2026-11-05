@@ -342,6 +342,16 @@ Details: Abschnitt "Stage 3 wave 1" in `docs/architecture/encounter-space.adoc`.
 - **V1.9.167 (Kartenebene, Theater):** Die Karte steht nicht mehr in der Bühne, sondern in `EncounterMapOverlay` (Dialog, `position: fixed`, endet über dem Dock; Kind des Raums neben dem Dock, wie dieses mit `margin: 0 !important`). Der Dock-Knopf "Karte öffnen" und sein Zwilling in "Mehr" entstehen **nur** in `buildMapButton()`, das `ensureMap()` nach `if (me.isGuest) return` aufruft (Tripwire in `ClientEncounterPrivacyTripwireTest`); `EncounterMapOverlay.kt` gehört zu den Karten-Dateien (kein Speicher, keine Konsole, kein `title =`). Schließen verlässt die Karte nie. Der Saal MIT Tischen ist ein Theater (`EncounterSceneLayout(theatre = ...)`, einmal im Konstruktor aus `HALL && space.tables.enabled`; Halle = Gruppe "Sitzplan", Parterre mit den Tischen, linke/rechte Loge mit je einem Block jeder Reihe): kein `transform`/`filter`/`container-type`. Die Ebene hat nie ein eigenes Scroll-Verhalten außer dem Panel (Ledger E1).
 - Der Client baut die Karte nur, wenn `listPresent` zeigt, dass die Person kein Gast ist; er verzweigt nur auf `space.mapEnabled`, nie auf das Profil ("Zum Podium"/"Zur Kanzel" steht nur in `EncounterVocabulary`). Kein Name im Datenkanal, am Brett oder in einem Attribut; die Namen stehen nur in der Liste "In Ihrer Nähe". Figuren bewegen sich per `transform` auf der Figur selbst, nie auf einem Vorfahren des Docks; die Transition steht unter `prefers-reduced-motion: no-preference` und im einen Reduktionsblock (R54).
 
+## Bildschirmteilen für Veranstaltungsgäste (V1.9.282)
+
+Details: `docs/features/event-online-participation.adoc` (Abschnitt "Screen share of a guest without an account"), `docs/architecture/conference-moderation-audio.adoc`. Kurzregeln:
+
+- **Das Gast-Token enthält nie `screen_*`.** `LiveKitAccessToken.mintParticipantToken` hat den Pflichtparameter `sourcePolicy` (kein Default): `ParticipantSourcePolicy.EVENT_GUEST` setzt `canPublishSources` immer, nie leer (leer = alle Quellen in LiveKit), nie mit Bildschirm. Der Gast-Beitritt (`EventOnlineJoin.joinAccountless`) nutzt `EVENT_GUEST`, alle anderen `MEMBER`.
+- **Gast-Berechtigungen nur über `guestConferencePermission`** (nie `conferencePermission`, das immer `SCREEN_SHARE` nennt), und jede ganze Ersetzung unter `ConferenceAudioGrantState.withRoomLock(roomId)` (nicht reentrant).
+- **Die Freigabe läuft nur über `IConferenceModerationService.setGuestScreenShare` plus `EventGuestScreenShareGrants`** (im Speicher, an die LiveKit-Participant-SID gebunden, höchstens ein Gast je Raum). **Kein Gast-Routen-Pfad, kein Zweck im `EventGuestActionToken`.** Ein Entzug stoppt eine laufende Freigabe (Berechtigung, `muteScreenShareTrack`, notfalls `removeParticipant`); der `EventGuestScreenShareReconciler` nimmt jede Gast-Freigabe ohne gültigen Eintrag zurück (nach einem Neustart sind alle weg).
+- Audit nur mit dem HMAC-Gastschlüssel (`GUEST_SCREEN_SHARE_*`), keine Namen, keine Zeitlisten; Logs nur Zählwerte.
+- Tripwires: `EventGuestScreenShareTripwireTest`, `EventGuestScreenShareI18nCatalogTest`, `EventCapturePrivacyTripwireTest` (Aufrufer von `mintParticipantToken(`).
+
 ## Aufzeichnung in Veranstaltungsräumen (V1.9.156)
 
 Details: `docs/features/event-capture.adoc`, Abschnitt "Event rooms (V1.9.156)" in `docs/architecture/conference-recording.adoc`. Kurzregeln:

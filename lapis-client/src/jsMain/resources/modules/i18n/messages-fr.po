@@ -30468,3 +30468,83 @@ msgstr "La destination n'a pas pu être reconnectée. Veuillez réessayer dans u
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:1
 msgid "Die Hand kann erst nach dem Verbinden gehoben werden."
 msgstr "La main ne peut être levée qu'une fois la connexion établie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:1
+msgid "Teilen beenden"
+msgstr "Arrêter le partage"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Sie dürfen jetzt Ihren Bildschirm teilen."
+msgstr "Vous pouvez maintenant partager votre écran."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Die Freigabe zum Bildschirmteilen wurde beendet."
+msgstr "L'autorisation de partager l'écran a pris fin."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Die Moderation hat Ihre Bildschirmfreigabe beendet."
+msgstr "La modération a mis fin à votre partage d'écran."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Bildschirm teilen ist auf diesem Gerät nicht möglich."
+msgstr "Le partage d'écran n'est pas possible sur cet appareil."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Darf den Bildschirm nicht teilen"
+msgstr "Ne peut pas partager l'écran"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Darf den Bildschirm teilen"
+msgstr "Peut partager l'écran"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Teilt gerade den Bildschirm"
+msgstr "Partage actuellement l'écran"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Bildschirm teilen erlauben"
+msgstr "Autoriser le partage d'écran"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Freigabe entziehen"
+msgstr "Retirer l'autorisation"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Bildschirm teilen erlauben für %1"
+msgstr "Autoriser %1 à partager l'écran"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Freigabe entziehen für %1"
+msgstr "Retirer l'autorisation à %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Aufzeichnung und Livestream laufen: Ein geteilter Bildschirm ist in beiden zu sehen."
+msgstr "L'enregistrement et la diffusion en direct sont en cours : un écran partagé apparaît dans les deux."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Die Aufzeichnung läuft: Ein geteilter Bildschirm wird mit aufgezeichnet."
+msgstr "L'enregistrement est en cours : un écran partagé est également enregistré."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Der Livestream läuft: Ein geteilter Bildschirm ist für alle Zuschauer zu sehen."
+msgstr "La diffusion en direct est en cours : un écran partagé est visible par tous les spectateurs."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Der Gast darf jetzt den Bildschirm teilen."
+msgstr "L'invité peut maintenant partager l'écran."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Die Freigabe wurde entzogen."
+msgstr "L'autorisation a été retirée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Es darf immer nur ein Gast den Bildschirm teilen. Bitte entziehen Sie zuerst die andere Freigabe."
+msgstr "Un seul invité à la fois peut partager l'écran. Veuillez d'abord retirer l'autre autorisation."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Dieser Gast ist nicht mehr im Raum."
+msgstr "Cet invité n'est plus dans la salle."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Das Teilen ließ sich nicht beenden. Der Gast wurde aus dem Raum entfernt."
+msgstr "Le partage n'a pas pu être arrêté. L'invité a été retiré de la salle."

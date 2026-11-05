@@ -30491,3 +30491,83 @@ msgstr "De bestemming kon niet opnieuw worden verbonden. Probeer het over een mi
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:1
 msgid "Die Hand kann erst nach dem Verbinden gehoben werden."
 msgstr "De hand kan pas worden opgestoken zodra u verbonden bent."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:1
+msgid "Teilen beenden"
+msgstr "Delen stoppen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Sie dürfen jetzt Ihren Bildschirm teilen."
+msgstr "U mag nu uw scherm delen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Die Freigabe zum Bildschirmteilen wurde beendet."
+msgstr "De toestemming om het scherm te delen is beëindigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Die Moderation hat Ihre Bildschirmfreigabe beendet."
+msgstr "De moderatie heeft uw schermdeling beëindigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestScreenShare.kt:1
+msgid "Bildschirm teilen ist auf diesem Gerät nicht möglich."
+msgstr "Het scherm delen is op dit apparaat niet mogelijk."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Darf den Bildschirm nicht teilen"
+msgstr "Mag het scherm niet delen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Darf den Bildschirm teilen"
+msgstr "Mag het scherm delen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Teilt gerade den Bildschirm"
+msgstr "Deelt nu het scherm"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Bildschirm teilen erlauben"
+msgstr "Scherm delen toestaan"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Freigabe entziehen"
+msgstr "Toestemming intrekken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Bildschirm teilen erlauben für %1"
+msgstr "%1 toestaan het scherm te delen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Freigabe entziehen für %1"
+msgstr "Toestemming van %1 intrekken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Aufzeichnung und Livestream laufen: Ein geteilter Bildschirm ist in beiden zu sehen."
+msgstr "Opname en livestream lopen: een gedeeld scherm is in beide te zien."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Die Aufzeichnung läuft: Ein geteilter Bildschirm wird mit aufgezeichnet."
+msgstr "De opname loopt: een gedeeld scherm wordt ook opgenomen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Der Livestream läuft: Ein geteilter Bildschirm ist für alle Zuschauer zu sehen."
+msgstr "De livestream loopt: een gedeeld scherm is voor alle kijkers te zien."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Der Gast darf jetzt den Bildschirm teilen."
+msgstr "De gast mag nu het scherm delen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Die Freigabe wurde entzogen."
+msgstr "De toestemming is ingetrokken."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Es darf immer nur ein Gast den Bildschirm teilen. Bitte entziehen Sie zuerst die andere Freigabe."
+msgstr "Slechts één gast tegelijk mag het scherm delen. Trek eerst de andere toestemming in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Dieser Gast ist nicht mehr im Raum."
+msgstr "Deze gast is niet meer in de ruimte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceGuestShare.kt:1
+msgid "Das Teilen ließ sich nicht beenden. Der Gast wurde aus dem Raum entfernt."
+msgstr "Het delen kon niet worden gestopt. De gast is uit de ruimte verwijderd."

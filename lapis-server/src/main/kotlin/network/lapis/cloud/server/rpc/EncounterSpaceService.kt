@@ -877,6 +877,7 @@ class EncounterSpaceService(
                 canPublishData = prep.canPublishData,
                 // V1.9.108: encounter sessions are out of scope of the moderator mute / room lock (own audio model).
                 microphoneAllowed = true,
+                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
             )
         val turnServers = mintTurnServers(memberId = current.memberId, ttlMinutes = effectiveTtl)
         val now = nowLocalDateTime()

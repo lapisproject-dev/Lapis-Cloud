@@ -88,6 +88,43 @@ an event room outright any more but ask one decision function, `EventConferenceG
 conference), at exactly two places; every other function keeps the plain refusal. Tripwire tests
 (`EventConferenceGuardTripwireTest`) force a decision for every new room-id method.
 
+== Screen share of a guest without an account (V1.9.282)
+
+A person who joined without an account may share their screen **only while a moderator allows exactly this person** (the single most sensitive
+thing a guest can add to a room that may be recorded or live-streamed).
+
+* *The token never carries it.* The guest join mints its token with `ParticipantSourcePolicy.EVENT_GUEST`: `canPublishSources` is always set, never empty,
+  and lists only `microphone` and `camera` (`camera` alone while the room is locked). Before V1.9.282 a guest token with the microphone allowed carried no
+  source list at all, which LiveKit reads as "every source" -- a guest with their own LiveKit client could already share the screen. The reconciler
+  (below) also covers guest sessions that were still running with such a token at the deploy.
+* *Grant and withdrawal are moderator RPCs* (`IConferenceModerationService.setGuestScreenShare`, `guestScreenShareState`, appended at the end of the
+  interface). There is no guest route and no guest action token for it; a guest has no member session, so a forged call is refused like any other
+  unauthorised call. Order: member session, role (the room creator or BOARD/ADMIN, `ConferenceModeratorAuthority`), the room is an event room, rate limit,
+  the target must be an `evg-` identity, per-guest rate limit, then LiveKit. Every refusal is the same `ForbiddenException`.
+* *At most one guest per room.* A second request answers `TAKEN`. The grant lives in `EventGuestScreenShareGrants` (in memory, no table, no migration) **and**
+  in the LiveKit permission of that one participant (`guestConferencePermission`, which names `SCREEN_SHARE` and `SCREEN_SHARE_AUDIO`).
+* *Bound to the participant session.* The registry stores the LiveKit participant sid. LiveKit gives a new sid at every join and refreshes the token of a
+  connected client with its current permission, so a guest who reconnects (also with the same deterministic ticket identity, or with a token kept from the
+  time of the grant) loses the grant; an ICE resume keeps the sid and with it the grant. A server restart empties the registry and the reconciler then takes
+  every guest share back: *the moderator has to allow it again after a restart.*
+* *Withdrawal stops a running share.* Registry first, then the permission without the screen share sources, then a mute of every screen share track, a
+  bounded re-read (3 times, 300 ms apart) and, if a track is still switched on, `RemoveParticipant` (outcome `REVOKED_REMOVED`). A mute is **not** a hard
+  boundary (LiveKit has no server-side unpublish; a modified client can switch the track on again) -- see `EventGuestScreenShareReconciler`.
+* *Audit.* One entry per grant and per withdrawal (`GUEST_SCREEN_SHARE_GRANT`, `GUEST_SCREEN_SHARE_REVOKE`, `GUEST_SCREEN_SHARE_REVOKE_REMOVED`), carrying
+  the HMAC guest key of `EventCaptureAcknowledgments.guestKeyOf` -- no name, no raw identity, no time list.
+* *In the guest view* the button "Bildschirm teilen" is built once (after "Kamera", before "Hand") and shown only while the own LiveKit permission names the
+  screen share (an empty source list counts as *not* allowed) **and** the browser has `getDisplayMedia`. Phones therefore see no button and read one calm
+  sentence. "Teilen beenden" is always possible. Withdrawing the permission stops a running share on the guest's side at once. The sentences go through a
+  polite `role="status"` region at least one second apart.
+* *The moderator* sees a "Gäste" section in the Moderation sheet (event rooms only): one row per guest with the state in words ("Darf den Bildschirm nicht
+  teilen" / "Darf den Bildschirm teilen" / "Teilt gerade den Bildschirm") and the button "Bildschirm teilen erlauben" or "Freigabe entziehen"; while a
+  recording or a stream runs a standing hint says that a shared screen is part of it.
+* *What other participants can see.* LiveKit reports the permission of a participant in its `ParticipantInfo` to the other participants of the room, so other
+  guests may be able to tell who may share. This is accepted and not prevented.
+* *Recording and stream.* A guest's screen share is recorded and streamed exactly like a member's (`RecordingPoller` starts a track egress for every unmuted
+  `SCREEN_SHARE` track of an acceptable identity; `isScreenShare` picks the presentation layout). The consent text is **not** changed by this wave: it
+  covers the pictures of participants; a legal review of whether it also covers a shared screen is outstanding.
+
 == Configuration
 
 `LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS` (default 100, clamped to 2..1000). Seats are `min(event capacity or 25, ceiling)`.

@@ -150,3 +150,6 @@ The administration's reason has precedence, because the organizer could not help
 * The in-room texts are unreviewed drafts; whether such a question is sufficient depends on the law of the country. Their translations are model translations.
 * No per-person opt-out of the picture inside the room (a person who does not want to be recorded leaves, or keeps camera and microphone off).
 * The built-in consent text is a draft; the translations are model translations.
+* *A guest's screen share (V1.9.282).* A screen share that a moderator allowed to one guest without an account is recorded and streamed like the share of a member
+  (it shows that person's desktop). The moderator sees a standing hint while a recording or stream runs. The consent text is unchanged and covers the pictures of
+  participants; whether it also covers a shared screen needs a legal review, which is outstanding.

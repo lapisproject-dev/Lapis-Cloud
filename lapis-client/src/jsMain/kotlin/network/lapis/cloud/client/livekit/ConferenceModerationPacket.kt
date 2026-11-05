@@ -104,3 +104,17 @@ internal fun microphoneAllowedByPermission(
     canPublish: Boolean,
     publishSources: List<Int>,
 ): Boolean = canPublish && (publishSources.isEmpty() || LIVEKIT_TRACK_SOURCE_MICROPHONE in publishSources)
+
+/** `TrackSource.SCREEN_SHARE` of @livekit/protocol (UNKNOWN 0, CAMERA 1, MICROPHONE 2, SCREEN_SHARE 3, SCREEN_SHARE_AUDIO 4). */
+internal const val LIVEKIT_TRACK_SOURCE_SCREEN_SHARE = 3
+
+/**
+ * V1.9.282 -- whether a participant permission lets the person publish a screen share. FAIL-CLOSED, unlike [microphoneAllowedByPermission]: an
+ * EMPTY source list means "every source" in LiveKit, but here it counts as NOT allowed, because the server never leaves a guest's list empty
+ * (it always names the camera) -- an empty list is an unknown state and the button must not appear on a guess. Only the event guest call view
+ * uses this; the server enforces the rule regardless.
+ */
+internal fun screenShareAllowedByPermission(
+    canPublish: Boolean,
+    publishSources: List<Int>,
+): Boolean = canPublish && LIVEKIT_TRACK_SOURCE_SCREEN_SHARE in publishSources

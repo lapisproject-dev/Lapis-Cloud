@@ -49,6 +49,15 @@ internal class ModerationFakeLiveKit : LiveKitAdminClient {
     /** Runs right after the roster snapshot of `listParticipants` was taken (simulates something committing while the call is in flight). */
     var afterListSnapshot: (() -> Unit)? = null
 
+    /** V1.9.282: the recorded `muteScreenShareTrack` calls (track sids). */
+    val screenShareMutes = CopyOnWriteArrayList<RecordedMute>()
+
+    /** V1.9.282: `true` simulates a modified client -- the screen share mute is recorded but the track stays switched on. */
+    var stubbornScreenShare = false
+
+    /** V1.9.282: `muteScreenShareTrack` throws. */
+    var failScreenShareMute = false
+
     /** Identities whose `muteMicrophone` throws (partial failure). */
     val failMuteFor = mutableSetOf<String>()
 
@@ -140,6 +149,19 @@ internal class ModerationFakeLiveKit : LiveKitAdminClient {
         }
     }
 
+    override suspend fun muteScreenShareTrack(
+        room: String,
+        identity: String,
+        trackSid: String,
+    ) {
+        if (failScreenShareMute) throw LiveKitAdminException(message = "simulated LiveKit failure")
+        screenShareMutes += RecordedMute(room = room, identity = identity, trackSid = trackSid)
+        if (stubbornScreenShare) return
+        replace(room = room, identity = identity) { p ->
+            p.copy(tracks = p.tracks.map { if (it.sid == trackSid) it.copy(muted = true) else it })
+        }
+    }
+
     override suspend fun updateParticipantPermission(
         room: String,
         identity: String,
@@ -198,5 +220,30 @@ internal fun liveParticipant(
                 canSubscribe = true,
                 canPublishSources = permissionSources,
             ),
+    )
+}
+
+/** V1.9.282: an account-less event guest (`evg-...` identity) with a camera and optionally an open (switched on) screen share track. */
+internal fun guestParticipant(
+    identity: String,
+    sid: String,
+    screenShareOpen: Boolean = false,
+    microphoneOpen: Boolean = false,
+    permissionSources: List<String>? = listOf("CAMERA"),
+    kind: String = "",
+): LiveKitParticipantInfo {
+    val tracks = mutableListOf<LiveKitTrackInfo>()
+    if (microphoneOpen) tracks += LiveKitTrackInfo(sid = "TR_mic_$sid", type = "AUDIO", source = "MICROPHONE", muted = false)
+    if (screenShareOpen) tracks += LiveKitTrackInfo(sid = "TR_scr_$sid", type = "VIDEO", source = "SCREEN_SHARE", muted = false)
+    return LiveKitParticipantInfo(
+        sid = sid,
+        identity = identity,
+        name = "Gast",
+        tracks = tracks,
+        kind = kind,
+        permission =
+            permissionSources?.let {
+                LiveKitParticipantPermission(canPublish = true, canPublishData = true, canSubscribe = true, canPublishSources = it)
+            },
     )
 }

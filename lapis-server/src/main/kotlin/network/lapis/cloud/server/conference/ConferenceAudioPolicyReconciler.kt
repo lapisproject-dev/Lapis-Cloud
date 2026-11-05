@@ -45,6 +45,7 @@ private val logger = KotlinLogging.logger {}
 class ConferenceAudioPolicyReconciler(
     private val liveKitAdminClient: LiveKitAdminClient,
     private val grants: ConferenceAudioGrantState,
+    private val screenShareGrants: EventGuestScreenShareGrants,
     private val liveKitEnabled: Boolean,
     private val intervalSeconds: Long = 5,
 ) {
@@ -202,13 +203,38 @@ class ConferenceAudioPolicyReconciler(
             liveKitAdminClient.updateParticipantPermission(
                 room = room.livekitRoomName,
                 identity = participant.identity,
-                permission = conferencePermission(microphoneAllowed = true),
+                permission = permissionFor(room = room, participant = participant, memberId = memberId, microphoneAllowed = true),
             )
             corrected++
         }
         grants.clearUnlockPending(room.id)
         return corrected
     }
+
+    /**
+     * V1.9.282 -- the whole permission to write back. An account-less event guest (no member id) NEVER gets [conferencePermission] (it always
+     * lists the screen share sources); it gets [guestConferencePermission] with the screen share only while a moderator's grant holds for
+     * exactly this participant sid.
+     */
+    private fun permissionFor(
+        room: LockedRoom,
+        participant: LiveKitParticipantInfo,
+        memberId: Uuid?,
+        microphoneAllowed: Boolean,
+    ): LiveKitParticipantPermissionUpdate =
+        if (memberId == null) {
+            guestConferencePermission(
+                microphoneAllowed = microphoneAllowed,
+                screenShareGranted =
+                    screenShareGrants.isGranted(
+                        roomId = room.id,
+                        identity = participant.identity,
+                        participantSid = participant.sid,
+                    ),
+            )
+        } else {
+            conferencePermission(microphoneAllowed = microphoneAllowed)
+        }
 
     private fun mayPublishMicrophone(participant: LiveKitParticipantInfo): Boolean {
         val permission = participant.permission
@@ -246,7 +272,7 @@ class ConferenceAudioPolicyReconciler(
                 liveKitAdminClient.updateParticipantPermission(
                     room = room.livekitRoomName,
                     identity = participant.identity,
-                    permission = conferencePermission(microphoneAllowed = false),
+                    permission = permissionFor(room = room, participant = participant, memberId = memberId, microphoneAllowed = false),
                 )
                 corrected++
             }

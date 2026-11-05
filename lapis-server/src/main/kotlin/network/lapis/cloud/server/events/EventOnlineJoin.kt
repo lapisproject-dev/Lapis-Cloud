@@ -326,6 +326,7 @@ internal class EventOnlineJoin(
                 canPublish = true,
                 canPublishData = true,
                 microphoneAllowed = prep.microphoneAllowed,
+                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                 now = now,
             )
         val turn = turnServers(label = current.memberId.toString(), ttl = ttl, now = now)
@@ -568,6 +569,7 @@ internal class EventOnlineJoin(
                 canPublish = true,
                 canPublishData = true,
                 microphoneAllowed = roomRow[ConferenceRoomTable.participantsMayUnmute],
+                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.EVENT_GUEST,
                 now = now,
             )
         return EventGuestJoinResponseDto(

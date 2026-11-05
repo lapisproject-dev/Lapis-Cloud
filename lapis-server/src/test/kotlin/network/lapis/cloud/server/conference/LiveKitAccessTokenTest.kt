@@ -45,6 +45,7 @@ class LiveKitAccessTokenTest :
                     canPublish = true,
                     canPublishData = true,
                     microphoneAllowed = true,
+                    sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                     now = now,
                 )
 
@@ -88,6 +89,7 @@ class LiveKitAccessTokenTest :
                                 canPublish = true,
                                 canPublishData = true,
                                 microphoneAllowed = microphoneAllowed,
+                                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                             ).jwt,
                     ),
                 )
@@ -97,6 +99,32 @@ class LiveKitAccessTokenTest :
             locked["canPublishData"] shouldBe true
             locked["canSubscribe"] shouldBe true
             mint(microphoneAllowed = true).containsKey("canPublishSources").shouldBeFalse()
+        }
+
+        test("V1.9.282: an EVENT_GUEST token always carries a non-empty source list that never names a screen share") {
+            fun mint(microphoneAllowed: Boolean) =
+                videoGrant(
+                    verify(
+                        LiveKitAccessToken
+                            .mintParticipantToken(
+                                apiKey = API_KEY,
+                                apiSecret = API_SECRET,
+                                roomName = ROOM_NAME,
+                                identity = "evg-1",
+                                displayName = DISPLAY_NAME,
+                                ttl = 240.minutes,
+                                canPublish = true,
+                                canPublishData = true,
+                                microphoneAllowed = microphoneAllowed,
+                                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.EVENT_GUEST,
+                            ).jwt,
+                    ),
+                )
+            mint(microphoneAllowed = true)["canPublishSources"] shouldBe listOf("microphone", "camera")
+            mint(microphoneAllowed = false)["canPublishSources"] shouldBe listOf("camera")
+            listOf(true, false).forEach { mic ->
+                (mint(mic)["canPublishSources"] as List<*>).none { it.toString().startsWith("screen") } shouldBe true
+            }
         }
 
         test("mintAdminToken without a room: no room claim, all three admin grants, never roomJoin") {
@@ -189,6 +217,7 @@ class LiveKitAccessTokenTest :
                     canPublish = true,
                     canPublishData = true,
                     microphoneAllowed = true,
+                    sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                 )
             val parts = minted.jwt.split(".")
             val tamperedSignature = parts[2].reversed()
@@ -209,6 +238,7 @@ class LiveKitAccessTokenTest :
                     canPublish = true,
                     canPublishData = true,
                     microphoneAllowed = true,
+                    sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                 )
             val parts = minted.jwt.split(".")
             // Attempt to smuggle in an admin grant by editing the (unsigned) payload segment --
@@ -234,6 +264,7 @@ class LiveKitAccessTokenTest :
                     canPublish = true,
                     canPublishData = true,
                     microphoneAllowed = true,
+                    sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                 )
             val wrongSecret = "wrong-secret-but-still-at-least-32-bytes-long!!"
             SignedJWT.parse(minted.jwt).verify(MACVerifier(wrongSecret.toByteArray(Charsets.UTF_8))).shouldBeFalse()
@@ -260,6 +291,7 @@ class LiveKitAccessTokenTest :
                     canPublish = true,
                     canPublishData = true,
                     microphoneAllowed = true,
+                    sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                     now = fixedNow,
                 )
             minted.expiresAt shouldBe Instant.fromEpochMilliseconds(0) + 5.minutes
@@ -292,6 +324,7 @@ class LiveKitAccessTokenTest :
                     canPublish = true,
                     canPublishData = true,
                     microphoneAllowed = true,
+                    sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                 )
             minted.jwt.shouldNotContain(API_SECRET)
         }
@@ -313,6 +346,7 @@ class LiveKitAccessTokenTest :
                         canPublish = false,
                         canPublishData = true,
                         microphoneAllowed = true,
+                        sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                     ).jwt
             val grant = videoGrant(verify(jwt))
             grant["room"] shouldBe ROOM_NAME
@@ -341,6 +375,7 @@ class LiveKitAccessTokenTest :
                                 canPublish = false,
                                 canPublishData = false,
                                 microphoneAllowed = true,
+                                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                             ).jwt,
                     ),
                 )
@@ -365,6 +400,7 @@ class LiveKitAccessTokenTest :
                                 canPublish = true,
                                 canPublishData = true,
                                 microphoneAllowed = true,
+                                sourcePolicy = LiveKitAccessToken.ParticipantSourcePolicy.MEMBER,
                                 now = now,
                             ).jwt,
                     ),

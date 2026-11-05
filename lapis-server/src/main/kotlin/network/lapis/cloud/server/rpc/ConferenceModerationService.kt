@@ -2,24 +2,32 @@ package network.lapis.cloud.server.rpc
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
+import kotlinx.coroutines.delay
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.ConferenceAudioGrantState
 import network.lapis.cloud.server.conference.ConferenceAudioPolicy
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceModerationPackets
 import network.lapis.cloud.server.conference.ConferenceRoomPauseCoordinator
+import network.lapis.cloud.server.conference.EventGuestScreenShareGrants
+import network.lapis.cloud.server.conference.LIVEKIT_KIND_EGRESS
 import network.lapis.cloud.server.conference.LIVEKIT_MICROPHONE_SOURCE
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitParticipantInfo
 import network.lapis.cloud.server.conference.MAX_SEND_DATA_DESTINATIONS
 import network.lapis.cloud.server.conference.conferencePermission
+import network.lapis.cloud.server.conference.guestConferencePermission
 import network.lapis.cloud.server.conference.isEventGuestIdentity
 import network.lapis.cloud.server.conference.liveKitIdentityAsMemberId
+import network.lapis.cloud.server.conference.mayPublishMicrophoneNow
+import network.lapis.cloud.server.conference.openScreenShareTracks
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.EventConferenceTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
+import network.lapis.cloud.server.events.EventCaptureAcknowledgments
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
@@ -30,6 +38,9 @@ import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomPauseDto
+import network.lapis.cloud.shared.domain.GuestScreenShareOutcome
+import network.lapis.cloud.shared.domain.GuestScreenShareResultDto
+import network.lapis.cloud.shared.domain.GuestScreenShareStateDto
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceModerationService
@@ -58,6 +69,15 @@ internal const val AUDIT_AUDIO_POLICY = "audio_policy"
 internal const val AUDIT_BROADCAST_VIEW = "BROADCAST_VIEW"
 internal const val AUDIT_JOIN_LEAVE_SOUNDS = "JOIN_LEAVE_SOUNDS"
 internal const val AUDIT_REACTIONS = "REACTIONS"
+internal const val AUDIT_GUEST_SCREEN_SHARE_GRANT = "GUEST_SCREEN_SHARE_GRANT"
+internal const val AUDIT_GUEST_SCREEN_SHARE_REVOKE = "GUEST_SCREEN_SHARE_REVOKE"
+internal const val AUDIT_GUEST_SCREEN_SHARE_REVOKE_REMOVED = "GUEST_SCREEN_SHARE_REVOKE_REMOVED"
+
+/** The exact shape of an account-less guest identity: `evg-` plus a UUID (random guest) or 32 hex characters (ticket guest). */
+private val GUEST_IDENTITY_PATTERN =
+    Regex("^evg-(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-f]{32})$")
+private const val GUEST_IDENTITY_MAX_LENGTH = 100
+private const val SCREEN_SHARE_RECHECKS = 3
 
 /**
  * V1.9.108 -- see [IConferenceModerationService]. Every call follows the same three phases (pitfall S6: LiveKit is NEVER called inside a
@@ -92,6 +112,11 @@ class ConferenceModerationService(
     private val joinLeaveSoundsRateLimiter: FederationInboxRateLimiter,
     private val reactionsRateLimiter: FederationInboxRateLimiter,
     private val pauseCoordinator: ConferenceRoomPauseCoordinator,
+    private val screenShareGrants: EventGuestScreenShareGrants,
+    private val guestScreenShareRateLimiter: FederationInboxRateLimiter,
+    private val guestScreenShareTargetRateLimiter: FederationInboxRateLimiter,
+    private val guestScreenShareReadRateLimiter: FederationInboxRateLimiter,
+    private val screenShareRecheckDelayMillis: Long = 300,
 ) : IConferenceModerationService {
     private data class RoomContext(
         val roomId: Uuid,
@@ -417,6 +442,163 @@ class ConferenceModerationService(
         return pauseCoordinator.resume(roomId = roomId, current = current)
     }
 
+    // -- V1.9.282 guest screen share ------------------------------------------------------------------------------------------------
+
+    override suspend fun setGuestScreenShare(
+        roomId: String,
+        guestIdentity: String,
+        allowed: Boolean,
+    ): GuestScreenShareResultDto {
+        // Order is binding: role -> event binding -> rate limit -> identity shape -> per-target rate limit -> LiveKit (never inside a transaction).
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        val room = transaction { authorizeRoom(roomId = roomId, current = current).also { requireEventRoom(it) } }
+        requireWithinRate(limiter = guestScreenShareRateLimiter, key = "room:${room.roomId}:mod:${current.memberId}")
+        if (guestIdentity.length > GUEST_IDENTITY_MAX_LENGTH || !GUEST_IDENTITY_PATTERN.matches(guestIdentity)) {
+            throw ForbiddenException(MODERATION_DENIED)
+        }
+        val guestKey = EventCaptureAcknowledgments.guestKeyOf(identity = guestIdentity, serverSecret = config.apiSecret)
+        requireWithinRate(limiter = guestScreenShareTargetRateLimiter, key = "room:${room.roomId}:target:$guestKey")
+        val outcome =
+            audioGrantState.withRoomLock(roomId = room.roomId) {
+                if (allowed) {
+                    grantGuestScreenShare(
+                        room = room,
+                        identity = guestIdentity,
+                    )
+                } else {
+                    revokeGuestScreenShare(room = room, identity = guestIdentity)
+                }
+            }
+        // After and outside the room lock; the guest is named by the HMAC key only (never a name, never the raw identity).
+        val discriminator =
+            when (outcome) {
+                GuestScreenShareOutcome.GRANTED, GuestScreenShareOutcome.ALREADY_GRANTED -> AUDIT_GUEST_SCREEN_SHARE_GRANT
+                GuestScreenShareOutcome.REVOKED, GuestScreenShareOutcome.NOT_GRANTED -> AUDIT_GUEST_SCREEN_SHARE_REVOKE
+                GuestScreenShareOutcome.REVOKED_REMOVED -> AUDIT_GUEST_SCREEN_SHARE_REVOKE_REMOVED
+                GuestScreenShareOutcome.TAKEN, GuestScreenShareOutcome.NOT_IN_ROOM -> null
+            }
+        if (discriminator != null) {
+            recordAudit(current = current, room = room, after = """{"moderation":"$discriminator","guestKey":"$guestKey"}""")
+        }
+        return GuestScreenShareResultDto(outcome)
+    }
+
+    override suspend fun guestScreenShareState(roomId: String): GuestScreenShareStateDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        val room = transaction { authorizeRoom(roomId = roomId, current = current).also { requireEventRoom(it) } }
+        requireWithinRate(limiter = guestScreenShareReadRateLimiter, key = "room:${room.roomId}:mod:${current.memberId}")
+        val grant = screenShareGrants.current(room.roomId) ?: return GuestScreenShareStateDto()
+        val sharing =
+            try {
+                liveKitAdminClient
+                    .listParticipants(room.livekitRoomName)
+                    .firstOrNull { it.identity == grant.identity && it.sid == grant.participantSid }
+                    ?.openScreenShareTracks()
+                    ?.isNotEmpty() == true
+            } catch (e: LiveKitAdminException) {
+                false
+            }
+        return GuestScreenShareStateDto(grantedIdentity = grant.identity, sharing = sharing)
+    }
+
+    /** Runs under the room lock. Registry first, permission second; on a LiveKit failure the registry is rolled back. */
+    private suspend fun grantGuestScreenShare(
+        room: RoomContext,
+        identity: String,
+    ): GuestScreenShareOutcome {
+        val target = findGuest(room = room, identity = identity) ?: return GuestScreenShareOutcome.NOT_IN_ROOM
+        val outcome =
+            when (screenShareGrants.tryGrant(roomId = room.roomId, identity = identity, participantSid = target.sid)) {
+                EventGuestScreenShareGrants.TryGrant.Taken -> return GuestScreenShareOutcome.TAKEN
+                EventGuestScreenShareGrants.TryGrant.AlreadyHeld -> GuestScreenShareOutcome.ALREADY_GRANTED
+                EventGuestScreenShareGrants.TryGrant.Granted -> GuestScreenShareOutcome.GRANTED
+            }
+        try {
+            liveKitCall {
+                liveKitAdminClient.updateParticipantPermission(
+                    room = room.livekitRoomName,
+                    identity = identity,
+                    permission = guestConferencePermission(microphoneAllowed = target.mayPublishMicrophoneNow(), screenShareGranted = true),
+                )
+            }
+            // A guest who reconnected in the gap has a new sid: the grant does not apply to that session. Withdraw it.
+            val after = findGuest(room = room, identity = identity)
+            if (after == null || after.sid != target.sid) {
+                screenShareGrants.revoke(roomId = room.roomId, identity = identity)
+                if (after != null) resetGuestPermission(room = room, guest = after)
+                return GuestScreenShareOutcome.NOT_IN_ROOM
+            }
+        } catch (e: ConflictException) {
+            screenShareGrants.revoke(roomId = room.roomId, identity = identity)
+            throw e
+        }
+        return outcome
+    }
+
+    /** Runs under the room lock: registry, permission, mute, bounded re-read, and removal if the share does not stop. */
+    private suspend fun revokeGuestScreenShare(
+        room: RoomContext,
+        identity: String,
+    ): GuestScreenShareOutcome {
+        val had = screenShareGrants.revoke(roomId = room.roomId, identity = identity)
+        val target = findGuest(room = room, identity = identity)
+        if (target == null) return if (had) GuestScreenShareOutcome.REVOKED else GuestScreenShareOutcome.NOT_GRANTED
+        resetGuestPermission(room = room, guest = target)
+        var snapshot: LiveKitParticipantInfo? = target
+        repeat(SCREEN_SHARE_RECHECKS) {
+            val open = snapshot?.openScreenShareTracks().orEmpty()
+            if (open.isEmpty()) return@repeat
+            open.forEach {
+                try {
+                    liveKitAdminClient.muteScreenShareTrack(room = room.livekitRoomName, identity = identity, trackSid = it.sid)
+                } catch (e: LiveKitAdminException) {
+                    logger.warn { "conference moderation: a guest screen share track could not be muted" }
+                }
+            }
+            delay(screenShareRecheckDelayMillis)
+            snapshot = findGuest(room = room, identity = identity)
+        }
+        val stillOpen = snapshot?.openScreenShareTracks().orEmpty().isNotEmpty()
+        if (stillOpen) {
+            liveKitCall { liveKitAdminClient.removeParticipant(room = room.livekitRoomName, identity = identity) }
+            return GuestScreenShareOutcome.REVOKED_REMOVED
+        }
+        return if (had) GuestScreenShareOutcome.REVOKED else GuestScreenShareOutcome.NOT_GRANTED
+    }
+
+    private suspend fun resetGuestPermission(
+        room: RoomContext,
+        guest: LiveKitParticipantInfo,
+    ) {
+        liveKitCall {
+            liveKitAdminClient.updateParticipantPermission(
+                room = room.livekitRoomName,
+                identity = guest.identity,
+                permission = guestConferencePermission(microphoneAllowed = guest.mayPublishMicrophoneNow(), screenShareGranted = false),
+            )
+        }
+    }
+
+    private suspend fun findGuest(
+        room: RoomContext,
+        identity: String,
+    ): LiveKitParticipantInfo? =
+        liveKitCall { liveKitAdminClient.listParticipants(room.livekitRoomName) }
+            .firstOrNull { it.identity == identity && it.kind != LIVEKIT_KIND_EGRESS }
+
+    /** The room is the conference room of an EVENT; every other room answers the one uniform refusal. */
+    private fun requireEventRoom(room: RoomContext) {
+        val bound =
+            EventConferenceTable
+                .selectAll()
+                .where { EventConferenceTable.conferenceRoomId eq room.roomId }
+                .limit(1)
+                .any()
+        if (!bound) throw ForbiddenException(MODERATION_DENIED)
+    }
+
     // -- LiveKit-side application of a lock change ------------------------------------------------------------------------------------
 
     /**
@@ -443,7 +625,21 @@ class ConferenceModerationService(
                 liveKitAdminClient.updateParticipantPermission(
                     room = room.livekitRoomName,
                     identity = participant.identity,
-                    permission = conferencePermission(microphoneAllowed = !locked),
+                    permission =
+                        if (isEventGuestIdentity(participant.identity)) {
+                            // V1.9.282: conferencePermission always lists the screen share; a guest only has it while a moderator's grant holds.
+                            guestConferencePermission(
+                                microphoneAllowed = !locked,
+                                screenShareGranted =
+                                    screenShareGrants.isGranted(
+                                        roomId = room.roomId,
+                                        identity = participant.identity,
+                                        participantSid = participant.sid,
+                                    ),
+                            )
+                        } else {
+                            conferencePermission(microphoneAllowed = !locked)
+                        },
                 )
                 if (locked) {
                     val open = participant.openMicrophones()

@@ -81,6 +81,8 @@ import network.lapis.cloud.server.conference.ConferenceTimerReconciler
 import network.lapis.cloud.server.conference.ConferenceTimerState
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard
+import network.lapis.cloud.server.conference.EventGuestScreenShareGrants
+import network.lapis.cloud.server.conference.EventGuestScreenShareReconciler
 import network.lapis.cloud.server.conference.FfmpegBlankVideoDetector
 import network.lapis.cloud.server.conference.FfmpegProcessRunner
 import network.lapis.cloud.server.conference.FfmpegSegmentedComposer
@@ -1172,6 +1174,12 @@ internal fun Application.module(
     // a single mute 20/min per moderator; "Bitten" 1 per room+person per 30 s; the room policy 1 per room per 5 s; the dialog's count
     // preview 30/min per moderator.
     val conferenceAudioGrantState = ConferenceAudioGrantState()
+    // V1.9.282 -- the one guest per room a moderator allowed to share the screen (in memory, bound to the participant sid), and the
+    // limiters of the two moderation RPCs (30/min per moderator+room, 6/min per guest, 60/min for reading the state).
+    val eventGuestScreenShareGrants = EventGuestScreenShareGrants()
+    val guestScreenShareRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val guestScreenShareTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 6, window = 1.minutes)
+    val guestScreenShareReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
     val conferenceMuteAllRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 10.seconds)
     val conferenceMuteOneRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
     val conferenceRequestUnmuteRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 30.seconds)
@@ -1703,10 +1711,21 @@ internal fun Application.module(
         ConferenceAudioPolicyReconciler(
             liveKitAdminClient = liveKitAdminClient,
             grants = conferenceAudioGrantState,
+            screenShareGrants = eventGuestScreenShareGrants,
             liveKitEnabled = conferenceConfig.enabled,
         )
     conferenceAudioPolicyReconciler.start()
     monitor.subscribe(ApplicationStopping) { conferenceAudioPolicyReconciler.stop() }
+    // V1.9.282 -- an event guest shares the screen only while a moderator allowed exactly this session (see EventGuestScreenShareReconciler KDoc).
+    val eventGuestScreenShareReconciler =
+        EventGuestScreenShareReconciler(
+            liveKitAdminClient = liveKitAdminClient,
+            grants = conferenceAudioGrantState,
+            screenShareGrants = eventGuestScreenShareGrants,
+            liveKitEnabled = conferenceConfig.enabled,
+        )
+    eventGuestScreenShareReconciler.start()
+    monitor.subscribe(ApplicationStopping) { eventGuestScreenShareReconciler.stop() }
     // V1.9.127 -- drops raised hands of people who left the room (20 s grace) and tells newly arrived people the queue (see KDoc).
     val conferenceHandQueueReconciler =
         ConferenceHandQueueReconciler(
@@ -2756,6 +2775,10 @@ internal fun Application.module(
                 reactionsRateLimiter = conferenceReactionsRateLimiter,
                 pauseCoordinator = conferenceRoomPauseCoordinator,
                 previewRateLimiter = conferenceMutePreviewRateLimiter,
+                screenShareGrants = eventGuestScreenShareGrants,
+                guestScreenShareRateLimiter = guestScreenShareRateLimiter,
+                guestScreenShareTargetRateLimiter = guestScreenShareTargetRateLimiter,
+                guestScreenShareReadRateLimiter = guestScreenShareReadRateLimiter,
             )
         }
         registerService(IConferenceHandService::class) { call ->

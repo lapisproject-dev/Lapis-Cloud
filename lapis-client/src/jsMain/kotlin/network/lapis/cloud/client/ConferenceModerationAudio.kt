@@ -405,6 +405,10 @@ internal class ConferenceModerationPanel(
     reactions: Boolean = true,
     private val onReactions: (enabled: Boolean, revert: () -> Unit) -> Unit = { _, _ -> },
     private val onPause: () -> Unit = {},
+    /** V1.9.282: only an EVENT room passes this; then the panel shows the "Gäste" section. The panel only reports the wish, the server decides. */
+    onGuestShare: ((identity: String, allow: Boolean) -> Unit)? = null,
+    /** V1.9.282: the panel was opened by the person (the guest section reads the server's state then). */
+    private val onOpened: () -> Unit = {},
     private val onMuteOnJoin: (value: Boolean, revert: () -> Unit) -> Unit,
     private val onLock: (locked: Boolean, revert: () -> Unit) -> Unit,
 ) {
@@ -466,6 +470,9 @@ internal class ConferenceModerationPanel(
         ) { reactionsState }
     private var broadcastViewState = broadcastView
 
+    /** V1.9.282 -- the guest screen share part (event rooms only), below the switches; `null` in every other room. */
+    val guestShare: ConferenceGuestShareSection? = onGuestShare?.let { ConferenceGuestShareSection(body, it) }
+
     // V1.9.115 -- "Ansicht bei Aufzeichnung und Stream": one of two radios. The state lives here (a closed body is not rendered).
     private val viewFieldset: Tag = body.tag(TAG.FIELDSET, className = "lapis-conference-moderation-view")
     val rasterInput: Widget
@@ -490,7 +497,12 @@ internal class ConferenceModerationPanel(
         toggle.setAttribute("type", "button")
         toggle.setAttribute("aria-controls", BODY_ID)
         body.setAttribute("id", BODY_ID)
-        toggle.onEvent { click = { setOpen(!expanded) } }
+        toggle.onEvent {
+            click = {
+                setOpen(!expanded)
+                if (expanded) onOpened()
+            }
+        }
         muteOnJoinInput.onEvent {
             change = {
                 muteOnJoinState = muteOnJoinInput.isChecked()

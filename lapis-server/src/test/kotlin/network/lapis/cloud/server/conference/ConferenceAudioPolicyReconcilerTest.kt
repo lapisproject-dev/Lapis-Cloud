@@ -95,7 +95,13 @@ class ConferenceAudioPolicyReconcilerTest :
         fun reconciler(
             lk: ModerationFakeLiveKit,
             grants: ConferenceAudioGrantState = ConferenceAudioGrantState(),
-        ) = ConferenceAudioPolicyReconciler(liveKitAdminClient = lk, grants = grants, liveKitEnabled = true)
+            screenShare: EventGuestScreenShareGrants = EventGuestScreenShareGrants(),
+        ) = ConferenceAudioPolicyReconciler(
+            liveKitAdminClient = lk,
+            grants = grants,
+            screenShareGrants = screenShare,
+            liveKitEnabled = true,
+        )
 
         test("a stale permission (microphone still in it) is replaced and an open microphone is muted -- for a non-moderator only") {
             val lk = ModerationFakeLiveKit()
@@ -180,11 +186,48 @@ class ConferenceAudioPolicyReconcilerTest :
             lk.add(room = name, participant = liveParticipant(identity = guest))
             reconciler(lk).tick()
             lk.permissionUpdates.map { it.identity } shouldContainExactly listOf(guest)
+            // V1.9.282: a guest NEVER gets conferencePermission (it always lists the screen share) -- camera only while locked and not granted
             lk.permissionUpdates
                 .single()
                 .permission.canPublishSources shouldContainExactly
-                listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+                listOf("CAMERA")
             lk.mutes.map { it.identity } shouldContainExactly listOf(guest)
+        }
+
+        test("V1.9.282: a locked room keeps the screen share of the one guest a moderator allowed, and never gives it to another guest") {
+            val lk = ModerationFakeLiveKit()
+            val creator = member()
+            val (roomId, name) = room(creator)
+            val allowed = "evg-${Uuid.random()}"
+            val other = "evg-${Uuid.random()}"
+            lk.add(
+                room = name,
+                participant = guestParticipant(identity = allowed, sid = "PA_a", permissionSources = listOf("CAMERA", "MICROPHONE")),
+            )
+            lk.add(
+                room = name,
+                participant = guestParticipant(identity = other, sid = "PA_b", permissionSources = listOf("CAMERA", "MICROPHONE")),
+            )
+            val shares = EventGuestScreenShareGrants()
+            shares.tryGrant(roomId = roomId, identity = allowed, participantSid = "PA_a")
+            reconciler(lk, screenShare = shares).tick()
+            val byIdentity = lk.permissionUpdates.associate { it.identity to it.permission.canPublishSources }
+            byIdentity[allowed] shouldBe listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+            byIdentity[other] shouldBe listOf("CAMERA")
+        }
+
+        test("V1.9.282: the heal after an unlock hands a guest the microphone but not the screen share without a grant") {
+            val lk = ModerationFakeLiveKit()
+            val creator = member()
+            val (roomId, name) = room(creator, locked = false)
+            val guest = "evg-${Uuid.random()}"
+            lk.add(room = name, participant = guestParticipant(identity = guest, sid = "PA_g", permissionSources = listOf("CAMERA")))
+            val grants = ConferenceAudioGrantState()
+            grants.markUnlockPending(roomId)
+            reconciler(lk, grants).tick()
+            lk.permissionUpdates
+                .single()
+                .permission.canPublishSources shouldBe listOf("CAMERA", "MICROPHONE")
         }
 
         test("a person who is already correct (no microphone permission, microphone muted) is not touched") {
@@ -241,7 +284,12 @@ class ConferenceAudioPolicyReconcilerTest :
             val a = member()
             val (_, name) = room(creator)
             lk.add(room = name, participant = liveParticipant(identity = a.toString()))
-            ConferenceAudioPolicyReconciler(liveKitAdminClient = lk, grants = ConferenceAudioGrantState(), liveKitEnabled = false).tick()
+            ConferenceAudioPolicyReconciler(
+                liveKitAdminClient = lk,
+                grants = ConferenceAudioGrantState(),
+                screenShareGrants = EventGuestScreenShareGrants(),
+                liveKitEnabled = false,
+            ).tick()
             lk.permissionUpdates.shouldBeEmpty()
         }
 
