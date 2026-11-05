@@ -3,7 +3,7 @@
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
-Waves R1, R2 and R3 of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
+Waves R1, R2, R3 and R3b of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
 hand or imported from an Excel file. R2 (V1.9.256) turns them into a **draft** of the report as a PDF or an Excel file. The draft is marked "ENTWURF -- nicht amtlich" on every page and in
 every file; nothing on the page promises a finished, official or audited report.
 
@@ -139,9 +139,9 @@ and always show a symbol **and** words (amber "Bitte prüfen", neutral "Zur Info
 
 At most 2,000 hints; when P05 would exceed that, the remaining ones are cut off and a single P05 info without position marks the cut. Units without any data produce no deduction hint, so 100 untouched chapters do not create noise.
 
-== What R1, R2 and R3 do not do
+== What R1 to R3b do not do
 
-* R2 and R3 produce a draft only. No official, filed or audited report; no consolidation of the subsidies between branches (R5); no signature, no submission (R6).
+* R2, R3 and R3b produce a draft only. No official, filed or audited report; no consolidation of the subsidies between branches (R5); no signature, no submission (R6).
 * **R3b (done):** C sponsoring and F youth organisations. **R3c (open):** D enterprise activity. **Pre-fill of B: not built** (no unit on the booking tables, see above), goes to R5.
 * **R4:** mapping from the ledger accounts to the positions. **R5:** consolidation and combining a person over units. **R6:** workflow, auditor access, deadlines and the deletion routine after the retention period.
 * R3 deletes nothing automatically: the board removes a row by hand; the ten-year retention (section 24 (2) PartG, per the concept note) is not enforced by code.
