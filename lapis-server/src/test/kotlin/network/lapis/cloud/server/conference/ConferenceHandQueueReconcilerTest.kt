@@ -188,6 +188,37 @@ class ConferenceHandQueueReconcilerTest :
             hands(lk).size shouldBe 1
         }
 
+        test(
+            "V1.9.281: the hand of a guest who raised through EventGuestHands and then left is removed after the grace, and the room is told",
+        ) {
+            val lk = ModerationFakeLiveKit()
+            val s = state()
+            val (roomId, name) = room(member())
+            val guest = "evg-${Uuid.random()}"
+            lk.add(room = name, participant = liveParticipant(identity = guest))
+            val hands =
+                network.lapis.cloud.server.events
+                    .EventGuestHands(config = network.lapis.cloud.server.events.EVENT_ONLINE_CONFIG, liveKit = lk, state = s)
+            kotlinx.coroutines.runBlocking {
+                hands.act(
+                    guest =
+                        network.lapis.cloud.server.events.EventGuestHands
+                            .Verified(identity = guest, roomId = roomId, livekitRoomName = name),
+                    raise = true,
+                )
+            }
+            s.contains(roomId = roomId, identity = guest) shouldBe true
+            val r = reconciler(lk, s)
+            r.tick()
+            lk.packets.clear()
+            lk.participants[name]!!.clear()
+            r.tick()
+            clock += 25_000
+            r.tick()
+            s.contains(roomId = roomId, identity = guest) shouldBe false
+            hands(lk).size shouldBe 1
+        }
+
         test("a room without a raised hand is not even listed in LiveKit; an ended room is dropped from the state") {
             val lk = ModerationFakeLiveKit()
             val s = state()

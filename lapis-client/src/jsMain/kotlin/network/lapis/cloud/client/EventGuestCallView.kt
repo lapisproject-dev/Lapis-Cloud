@@ -16,8 +16,11 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
 import network.lapis.cloud.client.livekit.DeviceEnumeration
+import network.lapis.cloud.client.livekit.HandAnnouncementThrottle
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.Track
+import network.lapis.cloud.shared.conference.orderTilesByRaisedHands
+import network.lapis.cloud.shared.domain.ConferenceHandQueueDto
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import org.w3c.dom.HTMLElement
 
@@ -118,6 +121,14 @@ internal class EventGuestCallView(
 
     /** V1.9.280: the open in-room consent dialog, if any (at most one). */
     private var consentDialog: InRoomConsentHandle? = null
+
+    /**
+     * V1.9.281: the raised-hand logic of this guest (the OWN hand through [GuestHandGateway], the others' hands from the server's packets). Built in
+     * [show] once the identity is known; `null` before and after the call. Declared BEFORE [session], whose packet callback reaches it.
+     */
+    private var handController: ConferenceHandController? = null
+    private var handButton: Button? = null
+    private val handHintId = "guest-hand-hint-${nextHandHintId++}"
     private val session: LiveKitRoomSession =
         LiveKitRoomSession(
             onRemoteTrack = { identity, displayName, track, _ -> attachRemote(identity, displayName, track) },
@@ -137,6 +148,8 @@ internal class EventGuestCallView(
             onEventCapture = { live -> captureBanner?.render(live) },
             onEventCaptureAsk = { askCaptureConsent() },
             onActiveSpeakersChanged = { _ -> },
+            // V1.9.281: the server-ordered queue; the sender check (never from a participant) stays in LiveKitRoomSession
+            onHandQueue = { dto -> onHandBroadcast(dto) },
             onActiveDeviceChanged = { kind, deviceId -> devicePanel?.syncActive(kind, deviceId) },
             onMediaDevicesChanged = { devicePanel?.let { panel -> AppScope.launch { panel.refresh(preserveFocus = true) } } },
             // Fires for the "enable" paths (microphone / camera switched on), so the "aktiviert" wording is the right one.
@@ -197,6 +210,7 @@ internal class EventGuestCallView(
                 setStyle("min-height", "44px")
                 onClick { toggleCamera() }
             }
+        buildHandControl(controls)
         controls.button(tr("Geräte"), style = ButtonStyle.OUTLINESECONDARY) {
             setStyle("min-height", "44px")
             setAttribute("aria-controls", panel.panelId)
@@ -223,9 +237,10 @@ internal class EventGuestCallView(
             ): ConferenceDeviceFailure? = session.switchDevice(kind, deviceId)
         }
 
-    private fun setPhase(next: GuestCallPhase) {
+    internal fun setPhase(next: GuestCallPhase) {
         phase = next
         renderState()
+        syncHandButton()
     }
 
     private fun renderState() {
@@ -329,6 +344,7 @@ internal class EventGuestCallView(
     private fun leave() {
         if (left) return
         left = true
+        endHands()
         consentDialog?.dispose()
         consentDialog = null
         devicePanel?.dispose()
@@ -341,6 +357,7 @@ internal class EventGuestCallView(
     private fun onConnectionEnded(ended: GuestCallPhase = GuestCallPhase.ENDED) {
         if (left) return
         left = true
+        endHands()
         consentDialog?.dispose()
         consentDialog = null
         devicePanel?.dispose()
@@ -353,14 +370,16 @@ internal class EventGuestCallView(
 
     // ── tiles (plain DOM) ─────────────────────────────────────────────────────────────────────
 
-    private fun ensureTile(
+    internal fun ensureTile(
         identity: String,
         displayName: String,
     ): HTMLElement {
         tiles[identity]?.let { return it }
         val grid = gridElement ?: return document.createElement("div") as HTMLElement
         val tile = document.createElement("div") as HTMLElement
-        tile.style.cssText = "width:240px;max-width:100%;border:1px solid var(--bs-border-color);border-radius:6px;overflow:hidden;"
+        // position:relative: the hand badge and the hand ring of the tile are positioned against it
+        tile.style.cssText =
+            "width:240px;max-width:100%;border:1px solid var(--bs-border-color);border-radius:6px;overflow:hidden;position:relative;"
         val media = document.createElement("div") as HTMLElement
         media.setAttribute("data-role", "media")
         media.style.cssText = "background:var(--bs-tertiary-bg);min-height:135px;"
@@ -370,13 +389,107 @@ internal class EventGuestCallView(
         label.textContent = displayName
         tile.appendChild(media)
         tile.appendChild(label)
+        // V1.9.281: built ONCE with the tile and only shown / hidden afterwards (no node is added, removed or moved by a hand change)
+        tile.appendChild(createHandBadge().also { it.setAttribute("data-role", "hand-badge") })
         grid.appendChild(tile)
         tiles[identity] = tile
+        refreshHand()
         return tile
     }
 
     private fun removeTile(identity: String) {
         tiles.remove(identity)?.let { it.parentNode?.removeChild(it) }
+        refreshHand()
+    }
+
+    // ── raised hands (V1.9.281) ───────────────────────────────────────────────────────────────
+
+    /** The LiveKit identity a tile stands for: the own tile is keyed [LOCAL_TILE_ID], not by the identity. */
+    private fun identityOfTile(key: String): String = if (key == LOCAL_TILE_ID) response.identity ?: key else key
+
+    private fun buildHandControl(controls: Container) {
+        val ownIdentity = response.identity
+        val ownSlug = slug
+        val token = response.handToken
+        if (ownIdentity != null && ownSlug != null && token != null) {
+            handController =
+                ConferenceHandController(
+                    self = ownIdentity,
+                    gateway = GuestHandGateway(api = api, slug = ownSlug, handToken = token),
+                    scope = AppScope,
+                    onChanged = { refreshHand() },
+                    announceSelf = { statusLine.content = it },
+                    announceModerators = {},
+                    notifyError = { statusLine.content = it },
+                    isModerator = false,
+                    announceEnabled = { false },
+                    nameOf = { it },
+                    throttle = HandAnnouncementThrottle({ window.performance.now() }),
+                )
+        }
+        // The hint is visually hidden text the button points at while it cannot be used yet (a title alone is no accessible description on touch).
+        controls.div(className = "visually-hidden") {
+            id = handHintId
+            content = tr("Die Hand kann erst nach dem Verbinden gehoben werden.")
+        }
+        handButton =
+            controls.actionButton(ActionIcon.HAND, tr("Hand heben"), style = ButtonStyle.OUTLINESECONDARY) {
+                setStyle("min-height", "44px")
+                onClick { AppScope.launch { handController?.toggleSelf() } }
+            }
+        syncHandButton()
+    }
+
+    /** The button is usable only while connected, with a token and while the call is on; before that it says why (title + described-by). */
+    private fun syncHandButton() {
+        val button = handButton ?: return
+        val controller = handController
+        val connected = phase == GuestCallPhase.CONNECTED
+        button.text = if (controller?.selfRaised == true) tr("Hand senken") else tr("Hand heben")
+        button.disabled = !connected || controller == null || left || controller.busy
+        if (!connected && phase != GuestCallPhase.ENDED && !left) {
+            val hint = resolvedAttributeText(tr("Die Hand kann erst nach dem Verbinden gehoben werden."))
+            button.setAttribute("title", hint)
+            button.setAttribute("aria-describedby", handHintId)
+        } else {
+            button.removeAttribute("title")
+            button.removeAttribute("aria-describedby")
+        }
+    }
+
+    /** A hands packet of the server (already validated by the session); also the seam of the DOM test. */
+    internal fun onHandBroadcast(dto: ConferenceHandQueueDto) {
+        handController?.onBroadcast(dto)
+    }
+
+    /**
+     * Redraws everything the hands show: badge and ring per tile, the visual order (CSS `order`, the DOM is NOT reordered -- a `<video>` must
+     * never be re-attached for a hand), and the button.
+     */
+    internal fun refreshHand() {
+        val raised = handController?.order.orEmpty()
+        val raisedSet = raised.toSet()
+        val byIdentity = LinkedHashMap<String, HTMLElement>()
+        for ((key, tile) in tiles) byIdentity[identityOfTile(key)] = tile
+        for ((identity, tile) in byIdentity) {
+            val up = identity in raisedSet
+            (tile.querySelector("[data-role=hand-badge]") as? HTMLElement)?.let { toggleHandBadge(it, up) }
+            tile.classList.toggle(CONFERENCE_TILE_HAND_CLASS, up)
+        }
+        if (raised.isEmpty()) {
+            byIdentity.values.forEach { it.style.removeProperty("order") }
+        } else {
+            val ordered = orderTilesByRaisedHands(base = byIdentity.keys.toList(), raisedInOrder = raised, selfId = response.identity)
+            ordered.forEachIndexed { index, identity -> byIdentity[identity]?.style?.setProperty("order", index.toString()) }
+        }
+        syncHandButton()
+    }
+
+    /** The call is over: nothing may announce or ask any more, the button is off. */
+    internal fun endHands() {
+        handController?.dispose()
+        handController = null
+        syncHandButton()
     }
 
     private fun attachRemote(
@@ -418,5 +531,8 @@ internal class EventGuestCallView(
 
     private companion object {
         const val LOCAL_TILE_ID = "local"
+
+        /** Distinguishes the hint element of several views in one document (an id must be unique). */
+        var nextHandHintId = 0
     }
 }

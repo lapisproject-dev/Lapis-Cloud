@@ -59,6 +59,7 @@ class ConferenceHandServiceEventGuardTripwireTest :
                     "ConferenceHandQueueState.kt",
                     "ConferenceHandQueueReconciler.kt",
                     "ConferenceHandService.kt",
+                    "EventGuestHands.kt",
                     "Application.kt",
                 )
             val topicUsers =
@@ -68,7 +69,8 @@ class ConferenceHandServiceEventGuardTripwireTest :
                     .map { it.name }
                     .toSet()
             // LiveKitAdminClient.kt only names the topic in `sendDataPayloadLimit` (V1.9.133: one SendData size limit per topic)
-            topicUsers shouldBe setOf("ConferenceHandQueueReconciler.kt", "ConferenceHandService.kt", "LiveKitAdminClient.kt")
+            topicUsers shouldBe
+                setOf("ConferenceHandQueueReconciler.kt", "ConferenceHandService.kt", "EventGuestHands.kt", "LiveKitAdminClient.kt")
             EncounterSourceScan
                 .functions(EncounterSourceScan.mainFile("rpc/ConferenceHandService.kt"))
                 .size shouldBeGreaterThan 5
@@ -81,5 +83,37 @@ class ConferenceHandServiceEventGuardTripwireTest :
             }
             val reconciler = SourceScan.blank(EncounterSourceScan.mainFile("conference/ConferenceHandQueueReconciler.kt").readText())
             listOf("AuditLogRecorder", ".insert", ".update(", "deleteWhere").forEach { (reconciler.contains(it)) shouldBe false }
+        }
+
+        test(
+            "V1.9.281: EventGuestHands verifies event, room and token before it acts, takes LiveKit only inside the lock and writes nothing",
+        ) {
+            val code = SourceScan.blank(EncounterSourceScan.mainFile("events/EventGuestHands.kt").readText())
+            val fns = EncounterSourceScan.functions(EncounterSourceScan.mainFile("events/EventGuestHands.kt"))
+            val verify = fns.first { it.name == "verify" }.body
+            listOf(
+                "EventConferenceGuard.eventIdOfRoom",
+                "EncounterRoomGuard.isEncounterRoom",
+                "endedAt",
+                "EventGuestActionToken.verify",
+            ).forEach {
+                verify shouldContain it
+            }
+            // the token is checked OUTSIDE the DB transaction, after it
+            (verify.indexOf("EventGuestActionToken.verify") > verify.lastIndexOf("transaction {")) shouldBe true
+            val act = fns.first { it.name == "act" }.body
+            act shouldContain "withRoomLock"
+            (act.indexOf("listParticipants") > act.indexOf("withRoomLock")) shouldBe true
+            act.contains("transaction {") shouldBe false
+            listOf("AuditLogRecorder", ".insert", ".update(", "deleteWhere", "logger.info", "logger.debug").forEach {
+                code.contains(it) shouldBe false
+            }
+        }
+
+        test("V1.9.281: the guest route names neither the hand state nor the hands topic; it talks to EventGuestHands only") {
+            val route = SourceScan.blank(EncounterSourceScan.mainFile("routes/EventOnlineGuestRoutes.kt").readText())
+            route.contains("ConferenceHandQueueState") shouldBe false
+            route.contains("CONFERENCE_HANDS_TOPIC") shouldBe false
+            route shouldContain "EventGuestHands"
         }
     })

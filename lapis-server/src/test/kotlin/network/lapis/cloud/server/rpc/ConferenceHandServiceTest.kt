@@ -38,6 +38,7 @@ import network.lapis.cloud.server.db.generated.EventConferenceTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.reactionSetCsv
+import network.lapis.cloud.server.events.EventGuestHands
 import network.lapis.cloud.server.events.EventOnlineFixtures
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
@@ -365,6 +366,38 @@ class ConferenceHandServiceTest :
                 act(path = "/test/lower-of", caller = creator, "room" to r, "identity" to "not an identity") shouldBe denied
                 act(path = "/test/lower-of", caller = creator, "room" to r, "identity" to "\",\"x") shouldBe denied
                 act(path = "/test/lower-all", caller = admin, "room" to r) shouldBe (HttpStatusCode.OK to "ok|5|")
+                handsPackets(rig).last().payload shouldBe """{"v":1,"e":"${rig.state.epoch}","seq":5,"ids":[]}"""
+            }
+        }
+
+        test(
+            "V1.9.281: a moderator lowers the hand of a guest who raised through EventGuestHands, one by one and all at once; the room is told",
+        ) {
+            val rig = HandRig()
+            val creator = newMember()
+            val member = newMember()
+            val room = newRoom(creator)
+            val guestA = "evg-${Uuid.random()}"
+            val guestB = "evg-" + "ab".repeat(16)
+            present(rig, room, member)
+            rig.liveKit.add(room = room.name, participant = liveParticipant(identity = guestA))
+            rig.liveKit.add(room = room.name, participant = liveParticipant(identity = guestB))
+            val guests = EventGuestHands(config = HAND_CONFIG, liveKit = rig.liveKit, state = rig.state)
+            kotlinx.coroutines.runBlocking {
+                listOf(guestA, guestB).forEach {
+                    guests.act(guest = EventGuestHands.Verified(identity = it, roomId = room.id, livekitRoomName = room.name), raise = true)
+                }
+            }
+            handApp(rig = rig) {
+                val r = room.id.toString()
+                act(path = "/test/raise", caller = member, "room" to r) shouldBe (HttpStatusCode.OK to "ok|3|$guestA,$guestB,$member")
+                act(path = "/test/lower-of", caller = creator, "room" to r, "identity" to guestA) shouldBe
+                    (HttpStatusCode.OK to "ok|4|$guestB,$member")
+                act(path = "/test/lower-all", caller = creator, "room" to r) shouldBe (HttpStatusCode.OK to "ok|5|")
+                rig.state
+                    .snapshot(room.id)
+                    .identities
+                    .shouldBeEmpty()
                 handsPackets(rig).last().payload shouldBe """{"v":1,"e":"${rig.state.epoch}","seq":5,"ids":[]}"""
             }
         }

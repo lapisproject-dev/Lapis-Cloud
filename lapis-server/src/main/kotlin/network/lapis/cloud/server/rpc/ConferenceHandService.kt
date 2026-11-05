@@ -47,8 +47,9 @@ internal const val HAND_DENIED = "Raised-hand action not possible"
  *
  * No audit entry on purpose, not even when a moderator lowers a hand: the list is volatile and an audit would tie people to speaking requests.
  *
- * Account-less event guests (`evg-`) have no session and therefore no way into this RPC; they are served by the read-only snapshot the
- * reconciler pushes to them (`ConferenceHandQueueReconciler`). The state and the rate limiters are process-wide singletons wired in
+ * Account-less event guests (`evg-`) have no session and therefore no way into this RPC. They raise or lower their OWN hand through
+ * `POST /api/events/{slug}/online-guest/hand` with the guest-action token (`EventGuestHands`: the same state under the same room lock). They can
+ * read the queue only through the packets of the reconciler, the broadcasts and the answer to their own action. The state and the rate limiters are process-wide singletons wired in
  * `Application.module` -- NO defaults on purpose (Kilua builds this service per RPC call).
  */
 class ConferenceHandService(

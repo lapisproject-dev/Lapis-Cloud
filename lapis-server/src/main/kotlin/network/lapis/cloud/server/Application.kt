@@ -145,6 +145,7 @@ import network.lapis.cloud.server.events.EventCaptureConsentGate
 import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventConferencePoller
 import network.lapis.cloud.server.events.EventCoverStorage
+import network.lapis.cloud.server.events.EventGuestHands
 import network.lapis.cloud.server.events.EventNoticeMailLimiter
 import network.lapis.cloud.server.events.EventOnlineServices
 import network.lapis.cloud.server.events.EventRegistrationMessageNotifier
@@ -1188,6 +1189,17 @@ internal fun Application.module(
     // conferenceAudioGrantState (Kilua builds the service per RPC call). Budgets: raise/lower 10/min per person+room, reading the queue
     // 30/min per person, a moderator lowering one hand 30/min per room, lowering all hands 6/min per room.
     val conferenceHandQueueState = ConferenceHandQueueState()
+    // V1.9.281 -- account-less event guests raise/lower their own hand through EventGuestHands (same state, same room lock; stateless token, no RPC).
+    val eventGuestHands =
+        if (conferenceConfig.enabled) {
+            EventGuestHands(
+                config = conferenceConfig,
+                liveKit = liveKitAdminClient,
+                state = conferenceHandQueueState,
+            )
+        } else {
+            null
+        }
     val conferenceHandOwnRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val conferenceHandReadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val conferenceHandLowerOneRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
@@ -3344,6 +3356,10 @@ internal fun Application.module(
             ipRateLimiter = eventGuestJoinIpRateLimiter,
             eventRateLimiter = eventGuestJoinEventRateLimiter,
             stateRateLimiter = eventGuestStateRateLimiter,
+            // V1.9.281 -- own raised hand of a guest: 30/min per IP, 20/min per verified identity.
+            guestHands = eventGuestHands,
+            handIpRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000),
+            handIdentityRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes, maxTrackedKeys = 50_000),
         )
         // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- registered as its own, always-on
         // literal route family (NOT inside registerEmbedRoutes, which early-returns to

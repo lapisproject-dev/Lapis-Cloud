@@ -18,6 +18,8 @@ class ConferenceHandsLogPrivacyTripwireTest :
                 "rpc/ConferenceHandService.kt",
                 "conference/ConferenceHandQueueReconciler.kt",
                 "conference/ConferenceHandQueueState.kt",
+                "events/EventGuestHands.kt",
+                "events/EventGuestActionToken.kt",
             )
         val allowedInterpolations = setOf("removed", "failedRooms", "e::class.simpleName")
 
@@ -43,6 +45,8 @@ class ConferenceHandsLogPrivacyTripwireTest :
                 "rpc/ConferenceHandService.kt",
                 "conference/ConferenceHandQueueReconciler.kt",
                 "conference/ConferenceHandQueueState.kt",
+                "events/EventGuestHands.kt",
+                "events/EventGuestActionToken.kt",
             ).forEach { name ->
                 val code = EncounterSourceScan.mainFile(name).readText()
                 listOf("println(", "e.message", "e.stackTrace", "printStackTrace").forEach { forbidden ->

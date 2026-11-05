@@ -25,11 +25,28 @@ internal interface ConferenceHandGateway {
 
     suspend fun lower(): ConferenceHandQueueDto?
 
+    /**
+     * The own lowering, with the distinction [lower] cannot make: a gateway that has no queue to read after a successful lowering (the guest's 204)
+     * answers [OwnLowerResult.Lowered]; the default maps [lower] (`null` = failed).
+     */
+    suspend fun lowerOwn(): OwnLowerResult = lower()?.let { OwnLowerResult.Queue(it) } ?: OwnLowerResult.Failed
+
     suspend fun queue(): ConferenceHandQueueDto?
 
     suspend fun lowerOf(identity: String): ConferenceHandQueueDto?
 
     suspend fun lowerAll(): ConferenceHandQueueDto?
+}
+
+/** The outcome of lowering the own hand: the server's queue, "lowered" without a queue (the hand IS down), or a failure. */
+internal sealed interface OwnLowerResult {
+    data class Queue(
+        val dto: ConferenceHandQueueDto,
+    ) : OwnLowerResult
+
+    data object Lowered : OwnLowerResult
+
+    data object Failed : OwnLowerResult
 }
 
 /** A call whose failure must not toast (a periodic read, the own raise whose failure the controller reports in its own words): `null` on failure. */
@@ -122,10 +139,20 @@ internal class ConferenceHandController(
     private suspend fun lowerSelf() {
         lowerOwnPending = true
         try {
-            val dto = gateway.lower() ?: return
-            believedRaised = false
-            raisedInEpoch = null
-            apply(dto)
+            when (val result = gateway.lowerOwn()) {
+                is OwnLowerResult.Queue -> {
+                    believedRaised = false
+                    raisedInEpoch = null
+                    apply(result.dto)
+                }
+                OwnLowerResult.Lowered -> {
+                    // the server confirmed the hand is down but has no queue to show: the next packet corrects the rest
+                    believedRaised = false
+                    raisedInEpoch = null
+                    onChanged()
+                }
+                OwnLowerResult.Failed -> return
+            }
         } finally {
             lowerOwnPending = false
         }

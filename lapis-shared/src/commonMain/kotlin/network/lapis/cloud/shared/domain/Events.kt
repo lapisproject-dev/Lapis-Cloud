@@ -251,7 +251,22 @@ data class EventGuestJoinResponseDto(
     val opensAt: String? = null,
     /** V1.9.156 -- initial banner state, `null` unless the event allows capture. */
     val captureLive: EventCaptureLiveDto? = null,
+    /**
+     * V1.9.281 -- the guest-action token for `POST /api/events/{slug}/online-guest/hand` (raise / lower the own hand), only on [EventOnlineOutcome.JOINED].
+     * Keep it in memory only; it never belongs in a URL, a log or a storage.
+     */
+    val handToken: String? = null,
 )
+
+/** V1.9.281 -- body of `POST /api/events/{slug}/online-guest/hand`: [EVENT_GUEST_HAND_RAISE] or [EVENT_GUEST_HAND_LOWER]. The token travels in the [EVENT_GUEST_ACTION_HEADER] header. */
+@Serializable
+data class EventGuestHandRequestDto(
+    val action: String,
+)
+
+const val EVENT_GUEST_HAND_RAISE = "raise"
+const val EVENT_GUEST_HAND_LOWER = "lower"
+const val EVENT_GUEST_ACTION_HEADER = "X-Lapis-Guest-Action"
 
 /** V1.9.113 -- public, token-free state of an event's online window (`GET /api/events/{slug}/online-state`). */
 @Serializable

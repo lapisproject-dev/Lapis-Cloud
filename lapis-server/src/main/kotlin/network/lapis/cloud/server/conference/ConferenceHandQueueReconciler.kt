@@ -30,7 +30,7 @@ private val logger = KotlinLogging.logger {}
  *  - removes everybody who has been missing for [ConferenceHandQueueState.DEFAULT_GRACE_SECONDS] (a reconnect with the same identity
  *    within the grace keeps the position; a random `evg-<uuid>` guest who rejoins gets a NEW identity and loses the hand; a ticket guest keeps a deterministic `evg-<32 hex>` identity), then broadcasts;
  *  - sends the current snapshot, point to point, to every identity seen in the room for the first time: an account-less event guest
- *    has no RPC read access, so this packet is how they learn the queue.
+ *    has no RPC read access, so this packet is how they learn the queue (and the answer of their own hand action).
  *
  * Rooms that ended are dropped from the state. Identities that are neither a member UUID nor an `evg-` guest identity (egress, recorder) are ignored.
  * An unreachable LiveKit is a single warning without ids.

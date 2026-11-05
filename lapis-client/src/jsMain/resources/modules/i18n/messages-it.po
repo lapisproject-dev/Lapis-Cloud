@@ -30447,3 +30447,6 @@ msgstr "Questa destinazione usa una chiave permanente; si modifica in Destinazio
 msgid "Das Ziel konnte nicht neu verbunden werden. Bitte versuchen Sie es in einer Minute erneut."
 msgstr "Non è stato possibile riconnettere la destinazione. Riprovate tra un minuto."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:1
+msgid "Die Hand kann erst nach dem Verbinden gehoben werden."
+msgstr "La mano può essere alzata solo dopo la connessione."

@@ -30488,3 +30488,6 @@ msgstr "Deze bestemming gebruikt een permanente sleutel; die wijzigt u onder Str
 msgid "Das Ziel konnte nicht neu verbunden werden. Bitte versuchen Sie es in einer Minute erneut."
 msgstr "De bestemming kon niet opnieuw worden verbonden. Probeer het over een minuut opnieuw."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:1
+msgid "Die Hand kann erst nach dem Verbinden gehoben werden."
+msgstr "De hand kan pas worden opgestoken zodra u verbonden bent."

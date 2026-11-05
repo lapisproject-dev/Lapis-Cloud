@@ -579,6 +579,15 @@ internal class EventOnlineJoin(
             expiresAt = minted.expiresAt.toString(),
             turnServers = turnServers(label = identity, ttl = ttl, now = now),
             captureLive = if (capture) transaction { EventCaptureLock.liveState(room.roomId) } else null,
+            // V1.9.281: the stateless token with which this guest raises or lowers their own hand; bound to this event, this room and this identity.
+            handToken =
+                EventGuestActionToken.issue(
+                    serverSecret = config.apiSecret,
+                    eventId = eventId,
+                    roomId = room.roomId,
+                    identity = identity,
+                    expiresAt = EventGuestActionToken.expiryFor(windowClosesAt = window.closesAt, now = now),
+                ),
         )
     }
 

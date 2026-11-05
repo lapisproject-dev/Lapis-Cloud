@@ -329,7 +329,16 @@ Two small things that make a large call feel like a room: a *reaction* (applause
 ** Moderators only: a polite live announcement for new hands ("Hand gehoben: Anna", or "3 neue Wortmeldungen" when several arrive within ten seconds; never for the first snapshot of an epoch or for the own hand). The personal switch is remembered in the browser only (`localStorage` key `lapis.conference.announceHands`, only the value `off` is written, every access in `try/catch`; a blocked storage means "on" for this page). Reactions are never announced.
 ** Mini bar and floating window: "Ihre Hand ist gehoben" and "Gehobene Hände: N" (words, no names).
 * **Breakout rooms** have no raised-hand button: the queue belongs to the main room's LiveKit room and the presence rule would refuse a person who sits in a breakout room.
-* **An event guest without an account** sees the list, but the button is switched off ("Für Gäste ohne Konto nicht verfügbar"). A route that would let such a guest raise a hand with the LiveKit token they hold (`POST /api/conference/hand`, the token verified server side) was planned as an *optional step* and is *not built*: it needs a decision by the owner first (see the CHANGELOG, V1.9.127).
+* **An event guest without an account** has no session and therefore no way into `IConferenceHandService`; see the section "Event guests without an account (V1.9.281)" below.
+
+=== Event guests without an account (V1.9.281)
+
+* **They see the hands and raise their own.** The tile badge, the gold ring and "raised hands first" work as for members (the order is CSS `order`, the DOM is not reordered). The button "Hand heben" / "Hand senken" changes its words only after the server's snapshot arrived; before the connection it is off and says why. The hand of a guest is shown to everybody, like any other.
+* **Route.** `POST /api/events/{slug}/online-guest/hand` with `{"action":"raise"|"lower"}`; the token travels in the header `X-Lapis-Guest-Action`, never in a URL. The guards (own origin, strict JSON of at most 64 bytes, per-IP and per-identity limits) are the ones of the other guest routes. Every refusal -- no or wrong token, other event, ended room, not present, queue full -- is the same `403 {"error":"not-possible"}`.
+* **Token.** `v1.<identity>.<exp>.<mac>`, stateless, HMAC under a sub-key of the LiveKit API secret over `hand|<eventId>|<roomId>|<identity>|<exp>`. Event and room are put in by the server at verification, so the room id never reaches the guest. It lives until the window closes plus 15 minutes (at most 24 hours) and allows exactly this one action for this one identity. The join answer carries it as `handToken`; keep it in memory only.
+* **Same queue.** `EventGuestHands` uses the same `ConferenceHandQueueState` under the same room lock as the RPC and the reconciler. Raising needs presence in LiveKit, lowering does not. The answer is the snapshot in the format of the broadcast. A moderator lowers a guest's hand like any other (`lowerHandOf`, `lowerAllHands`). No audit, nothing stored.
+* **Known gap.** A guest who joins a room in which hands are already up learns the queue from the reconciler's next packet, up to 5 seconds after joining.
+* *Not verified:* a real call with real guests and a real LiveKit.
 
 === Raised hands stand out (V1.9.253)
 

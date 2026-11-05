@@ -124,6 +124,28 @@ class ConferenceHandControllerTest {
         }
 
     @Test
+    fun aLowerWithoutAnswer_asAGuestGetsItFromTheServerWhoIsGone_leavesNoStuckState() =
+        test {
+            // V1.9.281: the guest gateway answers null for a 204 ("lowered", no queue to read) and for a failure
+            val rig = Rig()
+            rig.gateway.next = dto(e1, 1, me)
+            rig.controller.toggleSelf()
+            assertTrue(rig.controller.selfRaised)
+            rig.gateway.next = null
+            rig.controller.toggleSelf()
+            assertFalse(rig.controller.busy, "the button must not wait forever")
+            // the next packet (the broadcast of the lowering) settles the picture
+            rig.controller.onBroadcast(dto(e1, 2, ben))
+            assertFalse(rig.controller.selfRaised)
+            assertNull(rig.controller.selfPosition)
+            // and the hand can be raised again afterwards
+            rig.gateway.next = dto(e1, 3, ben, me)
+            rig.controller.toggleSelf()
+            assertTrue(rig.controller.selfRaised)
+            assertEquals(listOf("raise", "lower", "raise"), rig.gateway.calls)
+        }
+
+    @Test
     fun loweringMyOwnHand_isNeverToldAsLoweredBySomebodyElse_evenWhenTheBroadcastComesFirst() =
         test {
             val rig = Rig()

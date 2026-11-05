@@ -8,6 +8,7 @@ import io.ktor.server.application.call
 import io.ktor.server.plugins.origin
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -20,6 +21,7 @@ import network.lapis.cloud.server.events.EVENT_GUEST_NAME_SUFFIX
 import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventCaptureLock
 import network.lapis.cloud.server.events.EventCaptureRequirement
+import network.lapis.cloud.server.events.EventGuestHands
 import network.lapis.cloud.server.events.EventOnlineJoin
 import network.lapis.cloud.server.events.EventOnlineServices
 import network.lapis.cloud.server.events.EventOnlineWindow
@@ -27,9 +29,13 @@ import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
+import network.lapis.cloud.shared.domain.EVENT_GUEST_ACTION_HEADER
+import network.lapis.cloud.shared.domain.EVENT_GUEST_HAND_LOWER
+import network.lapis.cloud.shared.domain.EVENT_GUEST_HAND_RAISE
 import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
 import network.lapis.cloud.shared.domain.EventCaptureLiveDto
 import network.lapis.cloud.shared.domain.EventGuestCaptureConsentRequestDto
+import network.lapis.cloud.shared.domain.EventGuestHandRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import network.lapis.cloud.shared.domain.EventGuestNotice
@@ -47,6 +53,7 @@ import network.lapis.cloud.shared.rpc.EventCaptureTextMissingException
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.net.URI
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 // Privacy rule of this file: the logs never name an event, a guest name, a ticket code, a token or an IP.
 private val logger = KotlinLogging.logger {}
@@ -55,6 +62,19 @@ private val logger = KotlinLogging.logger {}
 internal const val MAX_EVENT_GUEST_BODY_BYTES = 4096
 
 private val GUEST_JSON = Json { ignoreUnknownKeys = true }
+
+/** V1.9.281 -- the hand body is strict: an unknown field (e.g. an `identity`) is a 400, never silently ignored. */
+private val HAND_JSON =
+    Json {
+        ignoreUnknownKeys = false
+        isLenient = false
+    }
+
+/** V1.9.281 -- `{"action":"raise"}` is 18 bytes; anything bigger is not a legitimate request. */
+internal const val MAX_EVENT_GUEST_HAND_BODY_BYTES = 64
+
+/** The ONE refusal body of the hand route -- the same bytes for every reason, so nothing is an oracle for slugs, tokens, rooms or presence. */
+private const val HAND_REFUSED_BODY = """{"error":"not-possible"}"""
 
 /**
  * Welle V1.9.113 -- the two literal routes a person WITHOUT an account uses to take part in the online conference of a public event:
@@ -82,6 +102,12 @@ internal fun Route.registerEventOnlineGuestRoutes(
     // V1.9.280 -- budget of the in-room consent per event (a hall of guests is asked at the same moment, so it is wider than the join budget).
     consentEventRateLimiter: FederationInboxRateLimiter =
         FederationInboxRateLimiter(maxRequests = CONSENT_IDENTITY_MAX_PER_HOUR, window = 1.hours, maxTrackedKeys = 50_000),
+    // V1.9.281 -- raised hand of a guest: 30/min per IP, 20/min per verified guest identity. `null` = the feature is off (uniform 403).
+    guestHands: EventGuestHands? = null,
+    handIpRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = HAND_IP_MAX_PER_MINUTE, window = 1.minutes, maxTrackedKeys = 50_000),
+    handIdentityRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = HAND_IDENTITY_MAX_PER_MINUTE, window = 1.minutes, maxTrackedKeys = 50_000),
 ) {
     val ownOrigin = originOf(baseUrl)
     registerGuestConsentRoute(
@@ -89,6 +115,12 @@ internal fun Route.registerEventOnlineGuestRoutes(
         eventOnline = eventOnline,
         ipRateLimiter = ipRateLimiter,
         eventRateLimiter = consentEventRateLimiter,
+    )
+    registerGuestHandRoute(
+        ownOrigin = ownOrigin,
+        guestHands = guestHands,
+        ipRateLimiter = handIpRateLimiter,
+        identityRateLimiter = handIdentityRateLimiter,
     )
 
     get("/api/events/{slug}/online-state") {
@@ -305,6 +337,110 @@ private fun Route.registerGuestConsentRoute(
         }
     }
 }
+
+/**
+ * V1.9.281 -- `POST /api/events/{slug}/online-guest/hand`: a guest WITHOUT an account raises or lowers THEIR OWN hand. Body `{"action":"raise"|"lower"}`
+ * (strict JSON, at most [MAX_EVENT_GUEST_HAND_BODY_BYTES]); the guest-action token travels in the [EVENT_GUEST_ACTION_HEADER] header, never in a URL, and is
+ * the only source of the identity. Guards in this order: per-IP limit, slug, own Origin, JSON, size, strict body, action (unknown = 400; needs no secret), token header, event + room
+ * + token ([EventGuestHands.verify]), per-identity limit (charged only for a valid token). 200 = the queue in the format of the broadcast;
+ * 204 = lowered by somebody who is no longer in the room; 429 = throttled; EVERY other refusal is the same 403 with the same body. Logs nothing about
+ * the guest or the event. This file does not touch the hand state itself -- [EventGuestHands] does.
+ */
+private fun Route.registerGuestHandRoute(
+    ownOrigin: String,
+    guestHands: EventGuestHands?,
+    ipRateLimiter: FederationInboxRateLimiter,
+    identityRateLimiter: FederationInboxRateLimiter,
+) {
+    post("/api/events/{slug}/online-guest/hand") {
+        call.response.header(HttpHeaders.CacheControl, "no-store")
+        if (!ipRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+            call.respond(HttpStatusCode.TooManyRequests)
+            return@post
+        }
+        val slug = call.parameters["slug"]
+        val origin = call.request.headers[HttpHeaders.Origin]
+        if (slug == null || slug.length > MAX_SLUG_LENGTH || origin == null || originOf(origin) != ownOrigin) {
+            call.respond(HttpStatusCode.Forbidden)
+            return@post
+        }
+        if (call.request.headers[HttpHeaders.ContentType]?.startsWith("application/json", ignoreCase = true) != true) {
+            call.respond(HttpStatusCode.UnsupportedMediaType)
+            return@post
+        }
+        val declared = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+        if (declared == null || declared > MAX_EVENT_GUEST_HAND_BODY_BYTES) {
+            call.respond(HttpStatusCode.PayloadTooLarge)
+            return@post
+        }
+        val bytes = readCappedBody(call = call, maxBytes = MAX_EVENT_GUEST_HAND_BODY_BYTES)
+        if (bytes == null) {
+            call.respond(HttpStatusCode.PayloadTooLarge)
+            return@post
+        }
+        val text = bytes.toString(Charsets.UTF_8)
+        if (exceedsMaxJsonNestingDepth(text = text, maxDepth = MAX_JSON_DEPTH)) {
+            call.respond(HttpStatusCode.BadRequest)
+            return@post
+        }
+        val request =
+            try {
+                HAND_JSON.decodeFromString<EventGuestHandRequestDto>(text)
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
+        val raise =
+            when (request.action) {
+                EVENT_GUEST_HAND_RAISE -> true
+                EVENT_GUEST_HAND_LOWER -> false
+                else -> {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@post
+                }
+            }
+        val token = call.request.headers[EVENT_GUEST_ACTION_HEADER]
+        if (token == null || token.length > MAX_GUEST_ACTION_HEADER_LENGTH) {
+            call.respondHandRefused()
+            return@post
+        }
+        try {
+            val eventId = transaction { EventStore.getEventBySlugOrNull(slug)?.get(EventTable.id) }
+            val verified =
+                if (guestHands == null || eventId == null) {
+                    null
+                } else {
+                    guestHands.verify(eventId = eventId, token = token, now = ServerClock.nowInstant())
+                }
+            if (guestHands == null || verified == null) {
+                call.respondHandRefused()
+                return@post
+            }
+            if (!identityRateLimiter.checkAndRecord("hand:$slug:${verified.identity}")) {
+                call.respond(HttpStatusCode.TooManyRequests)
+                return@post
+            }
+            when (val result = guestHands.act(guest = verified, raise = raise)) {
+                is EventGuestHands.Result.Queue -> call.respondBytes(result.payload, ContentType.Application.Json)
+                EventGuestHands.Result.Lowered -> call.respond(HttpStatusCode.NoContent)
+                EventGuestHands.Result.Refused -> call.respondHandRefused()
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error { "event guest hand failed (${e::class.simpleName})" }
+            call.respondHandRefused()
+        }
+    }
+}
+
+private suspend fun io.ktor.server.application.ApplicationCall.respondHandRefused() {
+    respondText(text = HAND_REFUSED_BODY, contentType = ContentType.Application.Json, status = HttpStatusCode.Forbidden)
+}
+
+private const val HAND_IP_MAX_PER_MINUTE = 30
+private const val HAND_IDENTITY_MAX_PER_MINUTE = 20
+private const val MAX_GUEST_ACTION_HEADER_LENGTH = 256
 
 /** Per event AND guest identity (a real guest needs one or two calls). */
 private const val CONSENT_IDENTITY_MAX_PER_HOUR = 60

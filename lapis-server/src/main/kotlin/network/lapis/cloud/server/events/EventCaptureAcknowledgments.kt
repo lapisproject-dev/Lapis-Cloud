@@ -42,7 +42,8 @@ internal object EventCaptureAcknowledgments {
 
     private const val GUEST_KEY_DOMAIN = "lapis-event-capture-guest-key-v1"
 
-    private fun hmac(
+    /** HMAC-SHA256, a fresh [Mac] per call (thread-safe). Shared with [EventGuestActionToken]. */
+    internal fun hmac(
         key: ByteArray,
         data: ByteArray,
     ): ByteArray {

@@ -29837,3 +29837,6 @@ msgstr ""
 
 msgid "Alle Geburtstage und Jubiläen"
 msgstr ""
+
+msgid "Die Hand kann erst nach dem Verbinden gehoben werden."
+msgstr ""

@@ -2,8 +2,13 @@ package network.lapis.cloud.client
 
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.shared.domain.CONFERENCE_HANDS_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.EVENT_GUEST_ACTION_HEADER
+import network.lapis.cloud.shared.domain.EVENT_GUEST_HAND_LOWER
+import network.lapis.cloud.shared.domain.EVENT_GUEST_HAND_RAISE
 import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
 import network.lapis.cloud.shared.domain.EventGuestCaptureConsentRequestDto
+import network.lapis.cloud.shared.domain.EventGuestHandRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import network.lapis.cloud.shared.domain.EventOnlineStateDto
@@ -34,6 +39,17 @@ internal sealed interface EventGuestJoinHttpResult {
 /** V1.9.280 -- what the in-room consent endpoint answered (204 / 409 / everything else). */
 internal enum class EventGuestAckHttpResult { ACCEPTED, OUTDATED, FAILED }
 
+/** V1.9.281 -- what the own-hand endpoint answered: the queue (200, the bytes of a hands packet), "lowered" (204), or anything else. */
+internal sealed interface EventGuestHandHttpResult {
+    class Queue(
+        val bytes: ByteArray,
+    ) : EventGuestHandHttpResult
+
+    data object Lowered : EventGuestHandHttpResult
+
+    data object Failed : EventGuestHandHttpResult
+}
+
 /** The requests of the guest join page -- an interface so a DOM test can answer them without a server. */
 internal interface EventGuestApi {
     suspend fun state(slug: String): EventOnlineStateDto?
@@ -47,6 +63,16 @@ internal interface EventGuestApi {
         token: String,
         consent: EventCaptureAcknowledgmentInput,
     ): EventGuestAckHttpResult = EventGuestAckHttpResult.FAILED
+
+    /**
+     * V1.9.281 -- raises or lowers the OWN hand (`POST /api/events/{slug}/online-guest/hand`). The [handToken] of the join answer goes in the
+     * `X-Lapis-Guest-Action` header, never in a URL and never into a log. The default answers "failed" so a test double needs no override.
+     */
+    suspend fun hand(
+        slug: String,
+        handToken: String,
+        raise: Boolean,
+    ): EventGuestHandHttpResult = EventGuestHandHttpResult.Failed
 
     suspend fun join(
         slug: String,
@@ -98,6 +124,43 @@ internal object EventGuestHttp : EventGuestApi {
                     ),
                 ),
             )
+        }
+
+    override suspend fun hand(
+        slug: String,
+        handToken: String,
+        raise: Boolean,
+    ): EventGuestHandHttpResult =
+        suspendCancellableCoroutine { cont ->
+            val xhr = XMLHttpRequest()
+            xhr.open("POST", "/api/events/${encodeURIComponent(slug)}/online-guest/hand")
+            xhr.withCredentials = false
+            xhr.setRequestHeader("Content-Type", "application/json")
+            xhr.setRequestHeader(EVENT_GUEST_ACTION_HEADER, handToken)
+            xhr.onload = {
+                val result =
+                    when (xhr.status.toInt()) {
+                        200 -> {
+                            val bytes = xhr.responseText.encodeToByteArray()
+                            if (bytes.size in 1..CONFERENCE_HANDS_MAX_PAYLOAD_BYTES) {
+                                EventGuestHandHttpResult.Queue(bytes)
+                            } else {
+                                EventGuestHandHttpResult.Failed
+                            }
+                        }
+                        204 -> EventGuestHandHttpResult.Lowered
+                        else -> EventGuestHandHttpResult.Failed
+                    }
+                cont.resume(result)
+                Unit
+            }
+            xhr.onerror = {
+                cont.resume(EventGuestHandHttpResult.Failed)
+                Unit
+            }
+            cont.invokeOnCancellation { xhr.abort() }
+            val action = if (raise) EVENT_GUEST_HAND_RAISE else EVENT_GUEST_HAND_LOWER
+            xhr.send(json.encodeToString(EventGuestHandRequestDto.serializer(), EventGuestHandRequestDto(action = action)))
         }
 
     override suspend fun state(slug: String): EventOnlineStateDto? =

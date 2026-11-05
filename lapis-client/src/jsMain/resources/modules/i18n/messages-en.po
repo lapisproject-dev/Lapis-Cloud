@@ -30442,3 +30442,6 @@ msgstr "This destination uses a persistent key; it is changed under Streaming de
 msgid "Das Ziel konnte nicht neu verbunden werden. Bitte versuchen Sie es in einer Minute erneut."
 msgstr "The destination could not be reconnected. Please try again in a minute."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventGuestCallView.kt:1
+msgid "Die Hand kann erst nach dem Verbinden gehoben werden."
+msgstr "The hand can only be raised once you are connected."
