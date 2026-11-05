@@ -490,6 +490,45 @@ only in the erasable `member` / `member_email_change` rows.
   defaults do).
 . Remember the limits below: removing a user from the group, or disabling the user in Keycloak, does not remove the Lapis Cloud member.
 
+=== Troubleshooting: PROVISION_NAME_MISSING -- how to read the claims shape (V1.9.285)
+
+When just-in-time provisioning refuses a verified identity for `NAME_MISSING`, `EMAIL_NOT_VERIFIED`, `GROUP_MISSING` or
+`GROUP_WRONG_TYPE`, the WARN line carries a second part after the subject fingerprint:
+
+----
+Keycloak callback rejected: PROVISION_NAME_MISSING (subjectFingerprint=0123456789abcdef) idTokenClaims=[aud:array, email:string, email_verified:boolean, exp:number, iat:number, iss:string, preferred_username:string, sub:string] nameClaims=[name:absent, given_name:absent, family_name:absent, preferred_username:string-nonempty] groupClaim=array invalidClaimNames=0 omittedClaims=0
+----
+
+* `idTokenClaims`: every claim of the **verified** ID token (never the access token, never UserInfo) with a type word: `string`,
+  `boolean`, `number`, `array`, `object`, `null` or `other`. Sorted by name, at most 40 entries and 2048 characters; the rest is counted
+  in `omittedClaims`.
+* `nameClaims`: the four claims that matter for the display name, always in the order `name`, `given_name`, `family_name`,
+  `preferred_username`. States: `absent`, `string-nonempty`, `string-empty`, `string-sanitizes-to-empty` (only control or format
+  characters or blanks), `wrong-type:<type>`.
+* `groupClaim`: `not-configured` in open mode, otherwise `absent` or the type word of the configured group claim.
+* `invalidClaimNames`: how many claim names are not plain ASCII identifiers (letters, digits, `_ : . / -`, up to 64 characters). Such
+  names are **counted, never printed**.
+
+**Nothing but names and type words is logged:** no value, no length or count of a value, no element of an array, no key of a nested
+object, no group name, no address, no subject. A claim name is realm configuration, not a value, but which claims exist (for example
+`phone_number`) is a weak signal about the account; it stays in the operator log only.
+
+Because the line passes `%safeMsg` (see `logging-privacy.adoc`), a claim name that looks like an SQL marker (for example `Detail:`)
+cuts the line from that point on. Nothing leaks; the tail is just missing. The shape therefore always comes after the fingerprint.
+
+`email_verified:string` (Keycloak mappers sometimes emit `"true"` as text) is read as "not verified". With the default
+`LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL=true` the linker refuses first (`LINK_EMAIL_NOT_VERIFIED`, **no shape** in that line); the
+provisioner's own `PROVISION_EMAIL_NOT_VERIFIED` is reached only with that switch off.
+
+Fixes for `NAME_MISSING`:
+
+. In Keycloak, set the user's first and last name (or the full name).
+. Assign the client scope `profile` to the client as *Default* (not *Optional*), or request it.
+. Check the mappers `full name`, `given name` and `family name`: **Add to ID token** must be on.
+. `name:wrong-type:*`: the custom mapper must emit a JSON string.
+. `string-sanitizes-to-empty`: the value consists only of control or format characters or blanks.
+. `preferred_username` is deliberately **not** a fallback for the display name.
+
 === Limits (V1.9.73)
 
 * Only top-level claims; a nested claim path is not supported.
@@ -501,7 +540,7 @@ only in the erasable `member` / `member_email_change` rows.
 * **Open mode:** an account that is removed or disabled in the realm does not remove the member. After an Art. 17 erasure, a later login
   creates a new member, so delete the account in Keycloak first.
 * Not tested against a real Keycloak (or WABEO) -- only against a simulated identity provider in the test suite. Not verified: the real
-  token content (`name`, `email_verified`) of real accounts; accounts without a verified address are refused with the generic page.
+  token content (`name`, `email_verified`) of real accounts; accounts without a verified address are refused with the generic page. The claims-shape log line of V1.9.285 was likewise only exercised against the simulated provider.
 * The rate limit counts per database; there is no per-IP limit on top of the existing callback failure limiter.
 * The hourly count uses the history rows; erasing a member's history within the hour would reduce the count.
 

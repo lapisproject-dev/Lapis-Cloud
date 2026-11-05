@@ -79,6 +79,7 @@ Column values and detail values are never printed, not even partially.
 * Do not log `e.message` of a database exception into your own message when you can avoid it; the converters catch it anyway, but
   a shorter message is easier to read.
 * Do not add a `logback-test.xml`: the tests must load the production configuration, otherwise the guarantee is untested.
+* Diagnostic shapes (V1.9.285): the Keycloak provisioning refusal logs only allowlisted claim names and type words, never a value; see `keycloak-login.adoc`.
 
 == How the guarantee is kept
 

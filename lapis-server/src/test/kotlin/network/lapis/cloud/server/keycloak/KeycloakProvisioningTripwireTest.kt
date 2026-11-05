@@ -36,7 +36,8 @@ class KeycloakProvisioningTripwireTest :
         fun rawSource(name: String): String =
             SourceScan.mainFiles().single { it.invariantSeparatorsPath.endsWith("/keycloak/$name") }.readText()
 
-        val newFiles = listOf("KeycloakMemberProvisioner.kt", "KeycloakProfileSync.kt", "KeycloakProvisioningClaims.kt")
+        val newFiles =
+            listOf("KeycloakMemberProvisioner.kt", "KeycloakProfileSync.kt", "KeycloakProvisioningClaims.kt", "KeycloakClaimsShape.kt")
 
         test("the provisioner writes one account with the literal role MEMBER and names no other role") {
             val code = source("KeycloakMemberProvisioner.kt")
@@ -87,6 +88,30 @@ class KeycloakProvisioningTripwireTest :
             }
         }
 
+        test("V1.9.285 the claims-shape helper logs nothing, reads no claim value, and reuses sanitizeName") {
+            val code = source("KeycloakClaimsShape.kt")
+            Regex("""\blogger\b""").containsMatchIn(code) shouldBe false
+            Regex("""toString\s*\(\s*\)""").containsMatchIn(code) shouldBe false
+            Regex("""\$\{?\s*value""").containsMatchIn(code) shouldBe false
+            // never a length or a size of a claim value
+            Regex("""\bvalue\w*\s*\.\s*(size|length)\b""").containsMatchIn(code) shouldBe false
+            Regex("""claimMap\s*\[[^]]*]\s*\.\s*(size|length)\b""").containsMatchIn(code) shouldBe false
+            Regex("""getClaim|getStringClaim|getBooleanClaim""").containsMatchIn(code) shouldBe false
+            code.contains("KeycloakProvisioningClaims.sanitizeName") shouldBe true
+        }
+
+        test("V1.9.285 the route builds the shape once, from the verified claims, and logs only reason, fingerprint and shape") {
+            val route = SourceScan.blank(SourceScan.mainFiles().single { it.name == "KeycloakAuthRoutes.kt" }.readText())
+            Regex("""KeycloakClaimsShape\.describe""").findAll(route).count() shouldBe 1
+            val describeAt = route.indexOf("KeycloakClaimsShape.describe")
+            val validAt = route.indexOf("as OidcJwt.VerificationResult.Valid")
+            (validAt in 0 until describeAt) shouldBe true
+            val rawRoute = SourceScan.mainFiles().single { it.name == "KeycloakAuthRoutes.kt" }.readText()
+            val line = rawRoute.lines().single { it.contains("Keycloak callback rejected: PROVISION_") }
+            Regex("""\$\{?(\w+)""").findAll(line).map { it.groupValues[1] }.toList() shouldBe
+                listOf("rejection", "fingerprint", "idTokenShape")
+        }
+
         test("the pinned scan sees the files (self-check)") {
             newFiles.forEach { File(SourceScan.mainRoot(), "network/lapis/cloud/server/keycloak/$it").exists() shouldBe true }
         }
@@ -125,6 +150,10 @@ class KeycloakProvisioningTripwireTest :
                 (attempt(provisioner, "") as KeycloakMemberProvisioner.Outcome.Provisioned).memberId.also { created += it }
                 // refused: no group, unverified, rate-limited
                 attempt(provisioner, "x", groups = null)
+                // the claims shape of a nameless token is logged by the route; replay it here with the same secrets in the token
+                val shapeLog = LoggerFactory.getLogger("claims-shape-probe")
+                val nameless = idClaims(email = secretMail + "n", name = null, extra = mapOf("sub2" to secretSubject, "n" to secretName))
+                shapeLog.warn(KeycloakClaimsShape.describe(verifiedClaims = nameless, groupClaim = "groups"))
                 attempt(provisioner, "y", verified = false)
                 attempt(KeycloakMemberProvisioner(config = jitConfig(ratePerHour = 1), notifier = notifier), "z")
                 // sync: name + address of a protected account (logs the WARN) and of a normal one (applied, failing mailer)

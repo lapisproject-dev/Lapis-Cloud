@@ -1,5 +1,9 @@
 package network.lapis.cloud.server.routes
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.PlainJWT
 import io.kotest.core.spec.style.FunSpec
@@ -61,6 +65,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.slf4j.LoggerFactory
 import java.util.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -101,6 +106,7 @@ class KeycloakJitCallbackTest :
             ratePerHour: Int? = null,
             syncProfile: Boolean = false,
             group: String? = "apolda",
+            requireVerifiedEmail: Boolean = true,
         ): KeycloakConfig {
             val env =
                 buildMap {
@@ -110,6 +116,7 @@ class KeycloakJitCallbackTest :
                     put(KeycloakConfig.ENV_CLIENT_SECRET, "test-client-secret")
                     put(KeycloakConfig.ENV_AUTO_PROVISION, autoProvision.toString())
                     put(KeycloakConfig.ENV_SYNC_PROFILE, syncProfile.toString())
+                    if (!requireVerifiedEmail) put(KeycloakConfig.ENV_REQUIRE_VERIFIED_EMAIL, "false")
                     if (group != null) put(KeycloakConfig.ENV_PROVISION_GROUP, group)
                     put(KeycloakConfig.ENV_PROVISION_RATE_PER_HOUR, (ratePerHour ?: 500).toString())
                 }
@@ -701,5 +708,184 @@ class KeycloakJitCallbackTest :
                 withSync = true,
             ) { status, _, _ -> status shouldBe HttpStatusCode.Found }
             (fixture.emailOf(id) != oldMail) shouldBe true
+        }
+
+        /** Runs [action] while every log event is captured (root logger, level ALL); appender and level are restored afterwards. */
+        fun <T> captureLogs(action: () -> T): Pair<T, List<ILoggingEvent>> {
+            val root = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) as Logger
+            val appender = ListAppender<ILoggingEvent>()
+            appender.start()
+            val previousLevel = root.level
+            root.level = Level.ALL
+            root.addAppender(appender)
+            try {
+                return action() to appender.list.toList()
+            } finally {
+                root.detachAppender(appender)
+                root.level = previousLevel
+            }
+        }
+
+        fun ILoggingEvent.text() = formattedMessage + " " + (throwableProxy?.message ?: "")
+
+        val rejectedPrefix = "Keycloak callback rejected:"
+
+        test("V1.9.285 NAME_MISSING: the refusal log names the claims and types, never a value") {
+            val canary = "CANARY-VALUE-123"
+            val email = "$canary-" + Uuid.random().toString().take(8) + "@example.org"
+            val subject = "kc-$canary-${Uuid.random()}"
+            val nonce = "n-${Uuid.random()}"
+            var statusSeen: HttpStatusCode? = null
+            var bodySeen = ""
+            val (_, events) =
+                captureLogs {
+                    callback(
+                        cfg = config(),
+                        nonce = nonce,
+                        idToken = {
+                            sign(
+                                claims(
+                                    email = email,
+                                    nonce = nonce,
+                                    subject = subject,
+                                    name = "",
+                                    extra =
+                                        mapOf(
+                                            "given_name" to 42,
+                                            "family_name" to "\u200B",
+                                            "preferred_username" to canary,
+                                            "nested" to mapOf("CANARY-KEY-9" to canary),
+                                            "list" to listOf(canary, mapOf("CANARY-KEY-9" to canary)),
+                                        ),
+                                ),
+                            )
+                        },
+                    ) { status, body, _ ->
+                        statusSeen = status
+                        bodySeen = body
+                    }
+                }
+            statusSeen shouldBe HttpStatusCode.Unauthorized
+            bodySeen shouldContain "enthält keinen Namen"
+            val lines = events.map { it.text().trim() }.filter { it.startsWith(rejectedPrefix) }
+            lines.size shouldBe 1
+            Regex(
+                "^Keycloak callback rejected: PROVISION_NAME_MISSING \\(subjectFingerprint=[0-9a-f]{16}\\) idTokenClaims=\\[.*] " +
+                    "nameClaims=\\[name:string-empty, given_name:wrong-type:number, family_name:string-sanitizes-to-empty, " +
+                    "preferred_username:string-nonempty] groupClaim=array invalidClaimNames=0 omittedClaims=0$",
+            ).matches(lines.single()) shouldBe true
+            lines.single() shouldContain "nested:object"
+            lines.single() shouldContain "list:array"
+            events.forEach {
+                val t = it.text().lowercase()
+                t shouldNotContain "canary"
+                t shouldNotContain email.lowercase()
+                t shouldNotContain subject.lowercase()
+                t shouldNotContain "apolda"
+            }
+            events(type = OidcLoginEventType.KEYCLOAK_LOGIN_FAILED).first()[OidcGuestLoginEventTable.reason] shouldBe
+                "PROVISION_NAME_MISSING"
+        }
+
+        test("V1.9.285 EMAIL_NOT_VERIFIED: a string-typed email_verified is visible as email_verified:string") {
+            val email = "strverified-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            val (_, events) =
+                captureLogs {
+                    // the provisioner's own check is reached only when the linker does not refuse first (REQUIRE_VERIFIED_EMAIL=false)
+                    callback(
+                        cfg = config(requireVerifiedEmail = false),
+                        nonce = nonce,
+                        idToken = { sign(claims(email = email, nonce = nonce, extra = mapOf("email_verified" to "true"))) },
+                    ) { status, _, _ -> status shouldBe HttpStatusCode.Unauthorized }
+                }
+            val line = events.map { it.text().trim() }.single { it.startsWith(rejectedPrefix) }
+            line shouldContain "PROVISION_EMAIL_NOT_VERIFIED"
+            line shouldContain "email_verified:string"
+            transaction { MemberTable.selectAll().where { MemberTable.email eq email }.count() } shouldBe 0
+        }
+
+        test("V1.9.285 GROUP_MISSING: the line says groupClaim=absent and names no group") {
+            val email = "grpmiss-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            val (_, events) =
+                captureLogs {
+                    callback(
+                        cfg = config(),
+                        nonce = nonce,
+                        idToken = { sign(claims(email = email, nonce = nonce, groups = null)) },
+                    ) { status, _, _ -> status shouldBe HttpStatusCode.Unauthorized }
+                }
+            val line = events.map { it.text().trim() }.single { it.startsWith(rejectedPrefix) }
+            line shouldContain "PROVISION_GROUP_MISSING"
+            line shouldContain "groupClaim=absent"
+            line shouldNotContain "apolda"
+        }
+
+        test("V1.9.285 reasons outside the set (GROUP_NO_MATCH, RATE_LIMITED) keep the old line byte for byte") {
+            val email = "nomatch-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            val exact = Regex("^Keycloak callback rejected: PROVISION_GROUP_NO_MATCH \\(subjectFingerprint=[0-9a-f]{16}\\)$")
+            val (_, events) =
+                captureLogs {
+                    callback(
+                        cfg = config(),
+                        nonce = nonce,
+                        idToken = { sign(claims(email = email, nonce = nonce, groups = listOf("other"))) },
+                    ) { status, _, _ -> status shouldBe HttpStatusCode.Unauthorized }
+                }
+            exact.matches(events.map { it.text().trim() }.single { it.startsWith(rejectedPrefix) }) shouldBe true
+
+            val recent =
+                transaction {
+                    MemberStatusHistoryTable
+                        .selectAll()
+                        .where { MemberStatusHistoryTable.sourceKind eq "KEYCLOAK_JIT" }
+                        .count()
+                        .toInt()
+                }
+            val cfg = config(ratePerHour = recent + 1)
+            val first = "shape-rate1-" + Uuid.random().toString().take(10) + "@example.org"
+            val second = "shape-rate2-" + Uuid.random().toString().take(10) + "@example.org"
+            val n1 = "n-${Uuid.random()}"
+            val n2 = "n-${Uuid.random()}"
+            callback(cfg = cfg, nonce = n1, idToken = { sign(claims(email = first, nonce = n1)) }) { status, _, _ ->
+                status shouldBe HttpStatusCode.Found
+            }
+            trackNewMember(first)
+            val (_, rateEvents) =
+                captureLogs {
+                    callback(cfg = cfg, nonce = n2, idToken = { sign(claims(email = second, nonce = n2)) }) { status, _, _ ->
+                        status shouldBe HttpStatusCode.Unauthorized
+                    }
+                }
+            Regex("^Keycloak callback rejected: PROVISION_RATE_LIMITED \\(subjectFingerprint=[0-9a-f]{16}\\)$")
+                .matches(rateEvents.map { it.text().trim() }.single { it.startsWith(rejectedPrefix) }) shouldBe true
+        }
+
+        test("V1.9.285 a successful login and an invalid token log no claims shape") {
+            val email = "shape-ok-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            val (_, okEvents) =
+                captureLogs {
+                    callback(cfg = config(), nonce = nonce, idToken = { sign(claims(email = email, nonce = nonce)) }) { status, _, _ ->
+                        status shouldBe HttpStatusCode.Found
+                    }
+                }
+            trackNewMember(email)
+            okEvents.none { it.text().contains("idTokenClaims") || it.text().contains("nameClaims") } shouldBe true
+            okEvents.none { it.text().startsWith(rejectedPrefix) } shouldBe true
+
+            val email2 = "shape-bad-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce2 = "n-${Uuid.random()}"
+            val (_, badEvents) =
+                captureLogs {
+                    callback(
+                        cfg = config(),
+                        nonce = nonce2,
+                        idToken = { sign(claims(email = email2, nonce = nonce2, audience = "someone-else")) },
+                    ) { status, _, _ -> status shouldBe HttpStatusCode.Unauthorized }
+                }
+            badEvents.none { it.text().contains("idTokenClaims") } shouldBe true
         }
     })

@@ -34,6 +34,7 @@ import network.lapis.cloud.server.federation.OidcPkce
 import network.lapis.cloud.server.federation.OidcTokenResponseDto
 import network.lapis.cloud.server.federation.readCappedFederationBodyOrNull
 import network.lapis.cloud.server.keycloak.KeycloakAccountLinker
+import network.lapis.cloud.server.keycloak.KeycloakClaimsShape
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.keycloak.KeycloakIssuerUrlGuard
 import network.lapis.cloud.server.keycloak.KeycloakMemberProvisioner
@@ -658,12 +659,19 @@ internal fun Route.registerKeycloakAuthRoutes(
                     val rejection = provisionRejection
                     startRateLimiter.recordFailure(ipKey)
                     if (rejection != null) {
-                        // Reason code and subject fingerprint only -- never an address, a name or a claim value.
-                        logger.warn {
-                            "Keycloak callback rejected: PROVISION_$rejection (subjectFingerprint=${keycloakSubjectFingerprint(
-                                subject,
-                            )})"
-                        }
+                        val fingerprint = keycloakSubjectFingerprint(subject)
+                        val idTokenShape =
+                            if (rejection in KeycloakClaimsShape.LOGGED_REASONS) {
+                                " " +
+                                    KeycloakClaimsShape.describe(
+                                        verifiedClaims = claims,
+                                        groupClaim = config.provisionClaim.takeIf { config.provisionGroup != null },
+                                    )
+                            } else {
+                                ""
+                            }
+                        // Reason code, subject fingerprint and (for LOGGED_REASONS) claim NAMES and type words only -- never a value.
+                        logger.warn { "Keycloak callback rejected: PROVISION_$rejection (subjectFingerprint=$fingerprint)$idTokenShape" }
                         OidcLoginAuditRecorder.record(
                             eventType = OidcLoginEventType.KEYCLOAK_LOGIN_FAILED,
                             remoteParty = config.issuerUrl,
