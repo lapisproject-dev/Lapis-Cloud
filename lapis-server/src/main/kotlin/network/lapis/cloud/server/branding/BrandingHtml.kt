@@ -141,7 +141,7 @@ object BrandingHtml {
 
         fun pair(kind: LogoKind): String = "{\"light\":${slot(LogoMode.LIGHT, kind)},\"dark\":${slot(LogoMode.DARK, kind)}}"
         return ",\"logos\":{\"signet\":${pair(LogoKind.SIGNET)},\"wordmark\":${pair(LogoKind.WORDMARK)}," +
-            "\"wordmarkCarriesName\":{\"navbar\":${brand.wordmarkCarriesName(LogoKind.SIGNET)}," +
+            "\"wordmarkCarriesName\":{\"navbar\":${brand.wordmarkCarriesName(HEADER_LOGO_KIND)}," +
             "\"lockup\":${brand.wordmarkCarriesName(LogoKind.WORDMARK)}}}"
     }
 

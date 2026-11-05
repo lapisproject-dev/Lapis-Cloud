@@ -57,6 +57,12 @@ sealed interface LogoSource {
     data object DefaultMark : LogoSource
 }
 
+/**
+ * V1.9.284 -- the logo kind the header shows, on the public chrome and in the SPA navbar. The only place deciding it: the
+ * `navbar` flag of `wordmarkCarriesName` and the SPA navbar (which reads `logos.wordmark`) follow this constant.
+ */
+internal val HEADER_LOGO_KIND: LogoKind = LogoKind.WORDMARK
+
 private fun other(mode: LogoMode) = if (mode == LogoMode.LIGHT) LogoMode.DARK else LogoMode.LIGHT
 
 private fun other(kind: LogoKind) = if (kind == LogoKind.SIGNET) LogoKind.WORDMARK else LogoKind.SIGNET

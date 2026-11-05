@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.branding
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -59,6 +60,30 @@ class BrandLogoVariantsTest :
                 }
             }
             checked shouldBe 128
+        }
+
+        test("HEADER_LOGO_KIND is the wordmark and decides the navbar flag in every configuration") {
+            HEADER_LOGO_KIND shouldBe LogoKind.WORDMARK
+            val svg = { v: LogoVariant -> v to file(variant = v, ext = "svg") }
+            val configurations =
+                mapOf(
+                    "wordmark only" to (mapOf(svg(LogoVariant.WORDMARK_LIGHT)) to true),
+                    "signet only" to (mapOf(svg(LogoVariant.SIGNET_LIGHT)) to false),
+                    "both kinds" to (LogoVariant.entries.associate(svg) to true),
+                    "wordmark light + signet dark" to
+                        (mapOf(svg(LogoVariant.WORDMARK_LIGHT), svg(LogoVariant.SIGNET_DARK)) to true),
+                    "signet light + wordmark dark" to
+                        (mapOf(svg(LogoVariant.SIGNET_LIGHT), svg(LogoVariant.WORDMARK_DARK)) to true),
+                    "none" to (emptyMap<LogoVariant, ResolvedLogoFile>() to false),
+                )
+            for ((name, cfg) in configurations) {
+                val b = branding(variants = cfg.first)
+                withClue(name) { b.wordmarkCarriesName(HEADER_LOGO_KIND) shouldBe cfg.second }
+                // the header image of both modes is the wordmark chain, never a separate signet lookup
+                for (mode in LogoMode.entries) {
+                    b.resolveLogo(mode = mode, kind = HEADER_LOGO_KIND) shouldBe b.resolveLogo(mode = mode, kind = LogoKind.WORDMARK)
+                }
+            }
         }
 
         test("nothing configured -> default mark everywhere, no URL") {

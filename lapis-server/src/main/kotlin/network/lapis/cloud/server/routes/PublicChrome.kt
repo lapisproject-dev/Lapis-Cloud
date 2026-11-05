@@ -13,7 +13,7 @@ import kotlinx.html.nav
 import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.summary
-import network.lapis.cloud.server.branding.LogoKind
+import network.lapis.cloud.server.branding.HEADER_LOGO_KIND
 import network.lapis.cloud.server.branding.LogoMode
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.branding.resolveLogo
@@ -766,8 +766,8 @@ internal object PublicChrome {
         a(href = baseUrl, classes = "chrome-brand") {
             // V1.9.265: wordmark (or, via the fallback chain, signet/legacy logo) per colour scheme. Equal light/dark source -> one <img>
             // (a legacy-only instance renders exactly what it did before); different sources -> two <img>, switched by CSS.
-            val lightUrl = branding.urlFor(branding.resolveLogo(mode = LogoMode.LIGHT, kind = LogoKind.WORDMARK))
-            val darkUrl = branding.urlFor(branding.resolveLogo(mode = LogoMode.DARK, kind = LogoKind.WORDMARK))
+            val lightUrl = branding.urlFor(branding.resolveLogo(mode = LogoMode.LIGHT, kind = HEADER_LOGO_KIND))
+            val darkUrl = branding.urlFor(branding.resolveLogo(mode = LogoMode.DARK, kind = HEADER_LOGO_KIND))
             if (lightUrl != null && darkUrl != null && lightUrl == darkUrl) {
                 img(src = lightUrl, alt = branding.title, classes = "chrome-logo")
             } else if (lightUrl != null || darkUrl != null) {

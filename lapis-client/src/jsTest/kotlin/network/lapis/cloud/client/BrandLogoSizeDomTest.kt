@@ -36,6 +36,11 @@ class BrandLogoSizeDomTest {
         const val SQUARE_LOGO =
             "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E" +
                 "%3Crect width='200' height='200'/%3E%3C/svg%3E"
+
+        // V1.9.284: a 12.4:1 title lockup (no subtitle, tight crop), the shape the header cap was widened for.
+        const val TITLE_LOGO =
+            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1240' height='100' viewBox='0 0 1240 100'%3E" +
+                "%3Crect width='1240' height='100'/%3E%3C/svg%3E"
         const val WIDE_LOGO =
             "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='100'%3E" +
                 "%3Crect width='800' height='100'/%3E%3C/svg%3E"
@@ -184,12 +189,12 @@ class BrandLogoSizeDomTest {
         }
 
     @Test
-    fun wideLogo_onPhone_isCappedTo120px_and_nothingOverflows() =
+    fun wideLogo_onPhone_isCappedTo160px_and_nothingOverflows() =
         test {
             val old = legacyNavbarHeight(390)
             withNavbar(390, WIDE_LOGO) { p ->
                 val img = p.img!!.getBoundingClientRect()
-                assertTrue(img.width <= 120.5, "wide logo width on a phone: ${img.width}")
+                assertTrue(img.width <= 160.5, "wide logo width on a phone: ${img.width}")
                 assertTrue(p.navbar.scrollWidth <= p.navbar.clientWidth, "no horizontal overflow of the navbar")
                 assertTrue(p.navbar.getBoundingClientRect().height <= old + 0.5, "navbar height on a phone")
                 val host = p.host.getBoundingClientRect()
@@ -199,14 +204,35 @@ class BrandLogoSizeDomTest {
         }
 
     @Test
-    fun wideLogo_onDesktop_isCappedTo180px() =
+    fun wideLogo_onDesktop_isCappedTo240px() =
         test {
             withNavbar(1280, WIDE_LOGO) { p ->
                 val img = p.img!!.getBoundingClientRect()
-                assertTrue(img.width <= 180.5, "wide logo width on desktop: ${img.width}")
+                assertTrue(img.width <= 240.5, "wide logo width on desktop: ${img.width}")
                 assertEquals(32.0, img.height, 0.5)
             }
-            assertEquals("180px", declared(".lapis-brand-logo img", "max-width"))
+            assertEquals("240px", declared(".lapis-brand-logo img", "max-width"))
+        }
+
+    @Test
+    fun titleLogo_12to1_onDesktop_isAbout19pxTall_inA32pxBox_andOnPhoneNothingOverflows() =
+        test {
+            withNavbar(1280, TITLE_LOGO) { p ->
+                val img = p.img!!.getBoundingClientRect()
+                assertEquals(32.0, img.height, 0.5, "the image box is always 32px high")
+                assertTrue(img.width <= 240.5, "title logo width on desktop: ${img.width}")
+                // Karma's window is ~765px wide (inside the phone block): the 240px rule itself is checked by wideLogo_onDesktop.
+                val cap = if (window.innerWidth >= 768) 240.0 else 160.0
+                assertEquals(cap, img.width, 0.5)
+            }
+            val old = legacyNavbarHeight(390)
+            withNavbar(390, TITLE_LOGO) { p ->
+                val img = p.img!!.getBoundingClientRect()
+                assertTrue(img.width <= 160.5, "title logo width on a phone: ${img.width}")
+                assertTrue(img.height <= 32.5, "title logo height on a phone: ${img.height}")
+                assertTrue(p.navbar.scrollWidth <= p.navbar.clientWidth, "no horizontal overflow of the navbar at 390px")
+                assertTrue(p.navbar.getBoundingClientRect().height <= old + 0.5, "navbar height at 390px")
+            }
         }
 
     @Test

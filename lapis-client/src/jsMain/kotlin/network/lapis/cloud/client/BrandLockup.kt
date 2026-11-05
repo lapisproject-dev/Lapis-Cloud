@@ -46,6 +46,9 @@ fun SimplePanel.brandLockup(): Link {
     return lockup
 }
 
+/** V1.9.284 -- the slot pair the SPA navbar shows: the wordmark chain, the same the server resolves for the public chrome. */
+internal fun headerLogoPair(logos: BrandLogos?): LogoPair? = logos?.wordmark
+
 /** The HTML and CSS class of one brand-mark span (navbar signet or lockup wordmark), see [brandSlot]. */
 internal data class BrandSlot(
     val html: String,

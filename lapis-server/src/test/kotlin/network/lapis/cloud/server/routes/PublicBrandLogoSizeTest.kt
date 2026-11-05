@@ -63,7 +63,7 @@ class PublicBrandLogoSizeTest :
             val r = rule(".chrome-logo")
             r shouldContain "height: var(--lapis-brand-logo-size)"
             r shouldContain "width: auto"
-            r shouldContain "max-width: 180px"
+            r shouldContain "max-width: 240px"
             r shouldContain "object-fit: contain"
             r shouldNotContain "display:"
             css shouldNotContain "max-height: 22px"
@@ -74,7 +74,7 @@ class PublicBrandLogoSizeTest :
             val m = rule(".chrome-mark svg")
             m shouldContain "width: var(--lapis-brand-logo-size)"
             m shouldContain "height: var(--lapis-brand-logo-size)"
-            css shouldContain "@media (max-width: 767.98px) { .chrome-logo { max-width: 120px; } }"
+            css shouldContain "@media (max-width: 767.98px) { .chrome-logo { max-width: 160px; } }"
             css shouldContain "max-width: 30rem"
             css shouldContain ".chrome-logo--light { display: var(--lapis-nav-logo-light-display, block); }"
             css shouldContain ".chrome-logo--dark { display: var(--lapis-nav-logo-dark-display, none); }"

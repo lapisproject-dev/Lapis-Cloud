@@ -10,7 +10,7 @@ internal object PublicBrandLogoSize {
 
     /** For the mark SVG attributes and the budget test. */
     const val SIZE_PX = 32
-    const val MAX_WIDTH_PX = 180
-    const val PHONE_MAX_WIDTH_PX = 120
+    const val MAX_WIDTH_PX = 240
+    const val PHONE_MAX_WIDTH_PX = 160
     const val PHONE_BREAKPOINT = "767.98px"
 }

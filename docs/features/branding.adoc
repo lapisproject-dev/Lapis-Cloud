@@ -10,12 +10,15 @@ Colours, corner radius and fonts are a separate feature: see link:theming.adoc[T
 
 * Use a transparent PNG or an SVG. Any aspect ratio works.
 * The logo is shown *32 px tall* in the navbar (the height scales with the text zoom), at most
-  *180 px wide* (120 px on phones). In the login lockup it is *40 px tall*, at most 240 px wide.
+  *240 px wide* (160 px on phones). In the login lockup it is *40 px tall*, at most 240 px wide.
   A wider logo is scaled down to fit, never cropped.
 * The public pages (articles, events, transparency, sign-in and so on) use the same 32 px height and the same width
-  limits (180 px, 120 px under 768 px) since V1.9.267.
+  limits (240 px, 160 px under 768 px; 180/120 px before V1.9.284).
 * For sharp rendering use an SVG, or a PNG that is at least 96 px tall.
 * Do not add your own padding inside the image: the spacing to the title comes from the interface.
+* For a title logo supply a *tight crop*: no tagline or subtitle, no padding, about *12:1* and at least *1200 px wide*, in a light and a dark
+  variant. An SVG needs a `viewBox`, otherwise it renders as a wide area with margins. An image with a subtitle or padding looks small: the
+  box is 32 px high and the width is capped, so a 12.4:1 title is about 19 px tall at 240 px (about 13 px at 160 px on phones).
 
 == Logo variants (V1.9.265)
 
@@ -33,6 +36,13 @@ name, sign-in lockup and public page header), each for a *light* and a *dark* pa
 
 Each file is an absolute in-container path (`deploy/example/branding` is mounted at `/app/branding`), `.svg`, `.png` or `.webp`, at most 512 KiB, no `..`
 segment. A file that is missing, unreadable or too large disables that one variant with a `WARN` that names the variable (never the path).
+
+=== Which kind is used where (V1.9.284)
+
+The header (the public pages and the signed-in navbar) shows the *wordmark*: the same resolved chain, so both show the same logo. The signet is
+used only as a fallback when no wordmark is configured. Where the wordmark is shown it spells the name, so the text label next to it is left out.
+The sign-in lockup also uses the wordmark. Supply *both modes of the wordmark*: with only a light wordmark and a dark signet the dark navbar shows
+the light wordmark, i.e. dark artwork on a dark bar. An instance with only a signet is unchanged and keeps the title next to it.
 
 === Fallback chain
 

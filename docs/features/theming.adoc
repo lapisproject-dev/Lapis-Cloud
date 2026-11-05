@@ -144,7 +144,7 @@ with a strong ETag and no compression. `/theme.css` has a weak ETag and revalida
 
 == Limits
 
-* Logos for a light and a dark page are configured separately from the theme: see link:branding.adoc[Branding], section "Logo variants". In the signed-in navbar and in the server-rendered public chrome bar the variant follows the lightness of the `nav` colour of the current mode (WCAG equal-contrast rule: white text on `nav` at least as readable as black text selects the dark variant, i.e. artwork for a dark background). The generated `/theme.css` carries the choice as two fixed custom properties (`--lapis-nav-logo-light-display`, `--lapis-nav-logo-dark-display`). The sign-in lockup still follows the page theme.
+* Logos for a light and a dark page are configured separately from the theme: see link:branding.adoc[Branding], section "Logo variants". In the signed-in navbar and in the server-rendered public chrome bar (both show the wordmark chain since V1.9.284) the variant follows the lightness of the `nav` colour of the current mode (WCAG equal-contrast rule: white text on `nav` at least as readable as black text selects the dark variant, i.e. artwork for a dark background). The generated `/theme.css` carries the choice as two fixed custom properties (`--lapis-nav-logo-light-display`, `--lapis-nav-logo-dark-display`). The sign-in lockup still follows the page theme.
 
 * Only the 16 tokens are themable. Role colours, chart, encounter, map and gold ("fleck") tokens stay fixed until a `version` 2 of the format.
 * Corner radii written as literals in the client stay as they are.

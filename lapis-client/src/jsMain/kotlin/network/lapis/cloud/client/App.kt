@@ -254,7 +254,7 @@ class App : Application() {
             // `toggleButton` below would be confusing (which one opens what?).
             val navbar =
                 navbar(
-                    // V1.9.265: a signet-only operator logo keeps the title; a wordmark image that spells the name replaces it.
+                    // V1.9.284: a wordmark in the header spells the name and replaces the title; a signet-only logo keeps it.
                     label = if (Branding.logos?.wordmarkCarriesName?.navbar == true) "" else Branding.title,
                     // Nutzer-Entscheidung V1.4.7 ("überall, auch eingeloggt"): der Marken-Klick
                     // führt konsequent auf die öffentliche Startseite "/", auch aus einer
@@ -288,8 +288,9 @@ class App : Application() {
             // verified against this pinned KVision version (see V1.2.5 plan "Offene Frage 1").
             val navbarLogos = Branding.logos
             when {
-                navbarLogos?.signet != null -> {
-                    val slot = brandSlot(pair = navbarLogos.signet, alt = Branding.title)
+                headerLogoPair(navbarLogos) != null -> {
+                    // V1.9.284: the header shows the wordmark chain (same as the public pages), see HEADER_LOGO_KIND on the server.
+                    val slot = brandSlot(pair = headerLogoPair(navbarLogos)!!, alt = Branding.title)
                     navbar.brandLink.span(content = slot.html, rich = true, className = slot.className)
                 }
                 Branding.logoUrl != null ->

@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.284 -- One logo in the header and the navbar, wider cap
+
+- **Behaviour:** the signed-in SPA navbar now shows the same logo as the public pages: the resolved **wordmark** chain (new constant `HEADER_LOGO_KIND` on the server, single source). An instance with a wordmark shows it in the navbar too, with the text label off (`wordmarkCarriesName.navbar` follows the same constant). Signet-only, wordmark-only and legacy-only or default instances are byte-identical in the payload; an instance with both kinds changes the `navbar` flag from `false` to `true`. The `signet` pair stays in the payload for old cached clients. No migration.
+- **Cap:** the logo width cap rises from 180 to **240 px** (from 120 to **160 px** on phones) on the public pages and in the navbar, for all instances with wide logos. The height box stays 32 px and the navbar stays 42 px high; a 12.4:1 title becomes about 19 px tall (about 13 px on phones).
+- **Unchanged, with reasons:** the sign-in lockup (40 px / 240 px), `og:image` and JSON-LD (own raster order, no width cap), the video-overlay logo, routes and CSP, alt text, the V1.9.265 fallback chain.
+- **Docs:** `docs/features/branding.adoc` states which kind is used where and gives artwork advice (tight crop, no subtitle, about 12:1, at least 1200 px, light and dark, SVG with `viewBox`). With a mixed configuration (wordmark light, signet dark only) the dark navbar shows the light wordmark; please supply both modes of the wordmark.
+- **Open:** the size of the sign-in lockup (a wider cap of 320 px was proposed by the design review; not in this wave).
+- **Tests:** drift test for 240/160 and the untouched lockup in `theme.css` and the public stylesheet, `HEADER_LOGO_KIND` resolution matrix (wordmark only, signet only, both, mixed in both directions, none), exact JSON payload, 12.4:1 DOM test at desktop and 390 px, `headerLogoPair`. Golden snapshots: only the stylesheet numbers change.
+- **Not verified:** a real browser, a real phone at 390 px (the 160 px phone cap is an estimate; lower it if the language switcher is squeezed), the Apolda artwork at the new size.
+
 ### V1.9.283 -- Party accountability report R3b: statements C and F
 
 - **What is new:** the tab "Ausweise" of the accountability report gets statement **C (sponsoring)** and statement **F (youth organisations)** in the screen, the PDF and the XLSX, and a jump bar "A · Mitglieder · B · C · D · F" (buttons of at least 44 px, the number of hints per block as plain text, sticky below 640 px). Every block is a disclosure (`aria-expanded` / `aria-controls`); only the block with the most hints is open on load, otherwise A. The headings say "(Entwurf)" and carry **no section number**: the official layout is not verified.

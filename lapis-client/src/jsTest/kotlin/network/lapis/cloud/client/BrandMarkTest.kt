@@ -141,6 +141,16 @@ class BrandMarkTest {
     }
 
     @Test
+    fun headerLogoPair_isTheWordmarkChain_neverTheSignet() {
+        val signet = LogoPair(light = "/api/branding/logo/signet-light", dark = "/api/branding/logo/signet-dark")
+        val wordmark = LogoPair(light = "/api/branding/logo/wordmark-light", dark = "/api/branding/logo/wordmark-dark")
+        assertEquals(wordmark, headerLogoPair(BrandLogos(signet = signet, wordmark = wordmark)))
+        assertEquals(wordmark, headerLogoPair(BrandLogos(signet = null, wordmark = wordmark)))
+        assertEquals(null, headerLogoPair(BrandLogos(signet = signet, wordmark = null)))
+        assertEquals(null, headerLogoPair(null))
+    }
+
+    @Test
     fun brandSlot_bothNull_isTheDefaultMark() {
         val slot = brandSlot(LogoPair(), "X")
         assertEquals(LAPIS_CLOUD_MARK_SVG, slot.html)

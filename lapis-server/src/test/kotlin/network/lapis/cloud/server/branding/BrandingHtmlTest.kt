@@ -128,7 +128,7 @@ class BrandingHtmlTest :
                 out shouldNotContain "\"logos\""
             }
 
-            test("all four variants -> exact JSON block (wordmark carries the name in the lockup, not in the navbar)") {
+            test("all four variants -> exact JSON block (the wordmark carries the name in navbar and lockup)") {
                 val brand =
                     ResolvedBranding(
                         title = "T",
@@ -139,7 +139,7 @@ class BrandingHtmlTest :
                 BrandingHtml.inject(html = FIXTURE_HTML, brand = brand) shouldContain
                     """"emergencyAdminLoginEnabled":false,"logos":{"signet":{"light":"/api/branding/logo/signet-light",""" +
                     """"dark":"/api/branding/logo/signet-dark"},"wordmark":{"light":"/api/branding/logo/wordmark-light",""" +
-                    """"dark":"/api/branding/logo/wordmark-dark"},"wordmarkCarriesName":{"navbar":false,"lockup":true}}}</script>"""
+                    """"dark":"/api/branding/logo/wordmark-dark"},"wordmarkCarriesName":{"navbar":true,"lockup":true}}}</script>"""
             }
 
             test("a single variant fills every slot via the chain and never yields a null slot") {

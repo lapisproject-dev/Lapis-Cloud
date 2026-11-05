@@ -423,13 +423,13 @@ html:not([data-theme="dark"]) .lapis-brand-mark--dark {
   vertical-align: middle;
 }
 
-/* V1.9.210 "Logo in der Kopfleiste": the logo image is 32px (2rem) tall, any aspect ratio, capped at 180px wide
-   (120px on phones). The wrapper span carries no height or overflow of its own; only the img is sized. */
+/* V1.9.210 "Logo in der Kopfleiste": the logo image is 32px (2rem) tall, any aspect ratio, capped at 240px wide
+   (160px on phones; V1.9.284). The wrapper span carries no height or overflow of its own; only the img is sized. */
 .lapis-brand-logo img {
   display: block;
   height: var(--lapis-brand-logo-size);
   width: auto;
-  max-width: 180px;
+  max-width: 240px;
   object-fit: contain;
 }
 
@@ -680,7 +680,7 @@ html body .lapis-navbar .lapis-brand-logo .lapis-brand-mark--dark { display: var
   }
 
   .lapis-navbar .lapis-brand-logo img {
-    max-width: 120px;
+    max-width: 160px;
   }
 }
 

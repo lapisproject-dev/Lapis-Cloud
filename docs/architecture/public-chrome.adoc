@@ -114,7 +114,7 @@ The brand link shows the operator logo when `ResolvedBranding.logoAvailable` is 
 shows the Lapis Cloud mark followed by the title wordmark, whatever the title is. The mark is a 32 px inline SVG, dark variant
 only because the chrome bar is fixed `#14181E`, and decorative (`aria-hidden`); the link's accessible name is the wordmark.
 Colours are SVG presentation attributes, never `style=`, so the CSP stays unchanged. Geometry and palette come from
-`LapisCloudMark` in `lapis-shared`, which the client mark uses as well. The 32 px height equals `img.chrome-logo` (both follow `--lapis-brand-logo-size`, `PublicBrandLogoSize`), so the bar
+`LapisCloudMark` in `lapis-shared`, which the client mark uses as well. The kind shown is decided in one place, `HEADER_LOGO_KIND` (wordmark), which the SPA navbar follows too (V1.9.284). The width is capped at 240 px (160 px under 768 px, `PublicBrandLogoSize`). The 32 px height equals `img.chrome-logo` (both follow `--lapis-brand-logo-size`, `PublicBrandLogoSize`), so the bar
 does not jump between logo and mark. The `.chrome-brand` and `.chrome-mark` rules (spacing) live in the shared public
 stylesheet; the SVG is sized by its attributes and by `.chrome-mark svg`.
 
