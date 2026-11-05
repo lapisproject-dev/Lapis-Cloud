@@ -23,7 +23,9 @@ class PartgReportXlsxGoldenTest :
                     "Vermögen",
                     "Ausweis A",
                     "Ausweis B",
+                    "Ausweis C",
                     "Mitglieder",
+                    "Ausweis F",
                     "Erläuterungen",
                     "Hinweise",
                 )

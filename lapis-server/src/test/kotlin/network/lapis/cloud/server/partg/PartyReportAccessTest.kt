@@ -3,14 +3,18 @@ package network.lapis.cloud.server.partg
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
 import network.lapis.cloud.shared.domain.PartgPersonKind
+import network.lapis.cloud.shared.domain.PartgSponsorInputDto
+import network.lapis.cloud.shared.domain.PartgSponsoringEntryInputDto
 import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
+import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportNotEnabledException
@@ -73,6 +77,56 @@ class PartyReportAccessTest :
                     },
                 "deleteLargeDonor" to
                     { s -> s.deleteLargeDonor(year = year, unitKey = "FEDERAL", expectedRevision = 0, donorId = Uuid.random().toString()) },
+                // V1.9.283 (R3b)
+                "saveSponsor" to
+                    { s ->
+                        s.saveSponsor(
+                            year = year,
+                            unitKey = "FEDERAL",
+                            expectedRevision = 0,
+                            sponsor =
+                                PartgSponsorInputDto(
+                                    id = null,
+                                    personKind = PartgPersonKind.LEGAL,
+                                    name = "Zugriffstest Sponsor",
+                                    street = null,
+                                    postalCode = null,
+                                    city = null,
+                                    country = "DE",
+                                    entries =
+                                        listOf(
+                                            PartgSponsoringEntryInputDto(
+                                                id = null,
+                                                date = LocalDate(year, 2, 1),
+                                                amountCents = 80_000L,
+                                                purpose = null,
+                                            ),
+                                        ),
+                                ),
+                        )
+                    },
+                "deleteSponsor" to
+                    { s -> s.deleteSponsor(year = year, unitKey = "FEDERAL", expectedRevision = 0, sponsorId = Uuid.random().toString()) },
+                "saveYouthOrg" to
+                    { s ->
+                        s.saveYouthOrg(
+                            year = year,
+                            unitKey = "FEDERAL",
+                            expectedRevision = 0,
+                            youthOrg =
+                                PartgYouthOrgInputDto(
+                                    id = null,
+                                    name = "Zugriffstest Jugend",
+                                    relationship = null,
+                                    incomeCents = null,
+                                    expensesCents = null,
+                                ),
+                        )
+                    },
+                "deleteYouthOrg" to
+                    { s ->
+                        s.deleteYouthOrg(year = year, unitKey = "FEDERAL", expectedRevision = 0, youthOrgId = Uuid.random().toString())
+                    },
                 "getNotes" to { s -> s.getNotes(year) },
                 "saveNotes" to { s -> s.saveNotes(year = year, expectedRevision = 0, notes = emptyList(), holdings = emptyList()) },
                 "reportFindings" to { s -> s.reportFindings(year) },
@@ -91,7 +145,7 @@ class PartyReportAccessTest :
         test("the list of methods covers the whole interface") {
             val declared = network.lapis.cloud.shared.rpc.IPartyReportService::class.members.map { it.name }.toSet()
             (methods.map { it.first }.toSet() == declared.intersect(methods.map { it.first }.toSet())) shouldBe true
-            methods.size shouldBe 14
+            methods.size shouldBe 18
         }
 
         test("board and admin may call every method of a party") {

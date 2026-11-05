@@ -8580,6 +8580,26 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   }
 }
 
+/* V1.9.283 (R3b): the jump bar of the tab "Ausweise" stays on top on a phone while the blocks scroll. */
+.partg-annex-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    background: var(--bs-body-bg);
+    z-index: 2;
+}
+.partg-annex-nav .partg-annex-nav-button {
+    min-height: 44px;
+    min-width: 44px;
+}
+@media (max-width: 640px) {
+    .partg-annex-nav {
+        position: sticky;
+        top: 0;
+    }
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   body,
@@ -8595,3 +8615,4 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
     transition: none;
   }
 }
+

@@ -13,8 +13,10 @@ import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgSheetDto
+import network.lapis.cloud.shared.domain.PartgSponsorInputDto
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
+import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
 
 /**
  * V1.9.225 "Rechenschaftsbericht (PartG), R1" -- see `docs/features/partg-report.adoc`. New methods go to the END (Kilua numbers routes by
@@ -104,4 +106,38 @@ interface IPartyReportService {
 
     /** The plausibility hints P01..P06 over all units. Never carries a name, an address or an amount. */
     suspend fun reportFindings(year: Int): List<PartgFindingDto>
+
+    /**
+     * V1.9.283 (R3b): adds ([PartgSponsorInputDto.id] `null`) or replaces a sponsor of statement C together with the FULL list of its entries.
+     * ALL sponsors are stored (the yearly sum needs them); whether a sponsor is part of the report is computed. At most 500 sponsors, 100 entries per
+     * sponsor and 2000 entries per unit and year.
+     */
+    suspend fun saveSponsor(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        sponsor: PartgSponsorInputDto,
+    ): PartgAnnexDto
+
+    suspend fun deleteSponsor(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        sponsorId: String,
+    ): PartgAnnexDto
+
+    /** V1.9.283 (R3b): adds ([PartgYouthOrgInputDto.id] `null`) or changes a youth organisation of statement F. At most 20 per unit and year. */
+    suspend fun saveYouthOrg(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        youthOrg: PartgYouthOrgInputDto,
+    ): PartgAnnexDto
+
+    suspend fun deleteYouthOrg(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        youthOrgId: String,
+    ): PartgAnnexDto
 }

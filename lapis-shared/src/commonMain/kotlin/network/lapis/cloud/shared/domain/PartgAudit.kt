@@ -46,6 +46,10 @@ data class PartgReportExportAuditSnapshot(
     val byteSize: Int,
     /** V1.9.269: number of large-donor rows in the export (a counter, never a name). */
     val donorRowCount: Int = 0,
+    /** V1.9.283: number of sponsor rows in the export (only sponsors that are part of statement C). */
+    val sponsorRowCount: Int = 0,
+    /** V1.9.283: number of youth organisation rows in the export. */
+    val youthOrgRowCount: Int = 0,
     /** V1.9.269: number of plausibility hints shown in the export. */
     val findingCount: Int = 0,
 )
@@ -55,13 +59,22 @@ data class PartgReportExportAuditSnapshot(
 data class PartgAnnexAuditSnapshot(
     val year: Int,
     val unitKey: String,
-    /** `FIGURES`, `DONOR_ADDED`, `DONOR_UPDATED` or `DONOR_DELETED`. */
+    /**
+     * `FIGURES`, `DONOR_ADDED`, `DONOR_UPDATED`, `DONOR_DELETED`; since V1.9.283 also `SPONSOR_ADDED`, `SPONSOR_UPDATED`, `SPONSOR_DELETED`,
+     * `YOUTH_ORG_ADDED`, `YOUTH_ORG_UPDATED` and `YOUTH_ORG_DELETED`.
+     */
     val change: String,
     val changedFields: List<String> = emptyList(),
     val donorId: String? = null,
     val donorCount: Int,
     val memberCountEntered: Boolean,
     val deductionsEntered: Int,
+    /** V1.9.283: ids and counters only, never a name or an amount. */
+    val sponsorId: String? = null,
+    val sponsorCount: Int = 0,
+    val sponsoringEntryCount: Int = 0,
+    val youthOrgId: String? = null,
+    val youthOrgCount: Int = 0,
 )
 
 /** V1.9.269 audit snapshot of a change of the notes: which blocks, how many holdings. No text. */

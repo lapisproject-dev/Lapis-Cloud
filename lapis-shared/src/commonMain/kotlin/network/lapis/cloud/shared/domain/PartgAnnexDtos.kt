@@ -52,6 +52,78 @@ data class PartgLargeDonorInputDto(
     val amountCents: Long,
 )
 
+/** V1.9.283 (R3b): why a sponsor is part of statement C. Computed, never stored. */
+@Serializable
+enum class PartgSponsorQualification { SINGLE, YEARLY, BOTH, NONE }
+
+@Serializable
+data class PartgSponsoringEntryDto(
+    val id: String,
+    val date: LocalDate,
+    val amountCents: Long,
+    val purpose: String?,
+)
+
+@Serializable
+data class PartgSponsoringEntryInputDto(
+    /** `null` = a new entry. */
+    val id: String?,
+    val date: LocalDate,
+    val amountCents: Long,
+    val purpose: String?,
+)
+
+@Serializable
+data class PartgSponsorDto(
+    val id: String,
+    /** 1-based position in the list of the unit (yearly sum descending, name, id). Changes when an amount changes. */
+    val rowNumber: Int,
+    val personKind: PartgPersonKind,
+    val name: String,
+    val street: String?,
+    val postalCode: String?,
+    val city: String?,
+    val country: String,
+    /** Sorted: date, id. */
+    val entries: List<PartgSponsoringEntryDto>,
+    val yearlySumCents: Long,
+    val qualification: PartgSponsorQualification,
+)
+
+@Serializable
+data class PartgSponsorInputDto(
+    /** `null` = a new sponsor. */
+    val id: String?,
+    val personKind: PartgPersonKind,
+    val name: String,
+    val street: String?,
+    val postalCode: String?,
+    val city: String?,
+    val country: String,
+    /** The FULL list of entries of the sponsor (replace). */
+    val entries: List<PartgSponsoringEntryInputDto>,
+)
+
+@Serializable
+data class PartgYouthOrgDto(
+    val id: String,
+    val rowNumber: Int,
+    val name: String,
+    val relationship: String?,
+    val incomeCents: Long?,
+    val expensesCents: Long?,
+)
+
+@Serializable
+data class PartgYouthOrgInputDto(
+    /** `null` = a new row. */
+    val id: String?,
+    val name: String,
+    val relationship: String?,
+    val incomeCents: Long?,
+    val expensesCents: Long?,
+)
+
 @Serializable
 data class PartgMemberCountSuggestionDto(
     val count: Long,
@@ -70,6 +142,10 @@ data class PartgAnnexDto(
     val memberCountSuggestion: PartgMemberCountSuggestionDto?,
     /** Sorted: amount descending, name, id. */
     val donors: List<PartgLargeDonorDto>,
+    /** V1.9.283 (R3b): ALL sponsors of the unit (also those under both limits), sorted: yearly sum descending, name, id. Not paged: the unit is capped. */
+    val sponsors: List<PartgSponsorDto> = emptyList(),
+    /** V1.9.283 (R3b): the youth organisations of the unit, sorted: name, id. */
+    val youthOrgs: List<PartgYouthOrgDto> = emptyList(),
 )
 
 @Serializable
@@ -101,7 +177,7 @@ data class PartgNotesDto(
 )
 
 @Serializable
-enum class PartgFindingCode { P01, P02, P03, P04, P05, P06 }
+enum class PartgFindingCode { P01, P02, P03, P04, P05, P06, P07, P08, P09, P10 }
 
 @Serializable
 enum class PartgFindingLevel { CHECK, INFO }

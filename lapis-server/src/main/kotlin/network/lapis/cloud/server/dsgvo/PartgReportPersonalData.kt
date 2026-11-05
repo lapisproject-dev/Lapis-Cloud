@@ -10,7 +10,10 @@ import network.lapis.cloud.server.db.generated.PartgReportNoteTable
 import network.lapis.cloud.server.db.generated.PartgReportNotesSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportPositionTable
 import network.lapis.cloud.server.db.generated.PartgReportSheetTable
+import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
+import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
+import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.or
@@ -33,6 +36,10 @@ import kotlin.uuid.Uuid
  * `partg_report_holding`. Their member foreign keys (`updated_by`, `created_by`) are exported as "changed by you" with year, unit and kind of
  * change only -- NEVER a name, an address, an amount or a note text -- and retained on erasure for the same reason. The large-donor rows
  * themselves are personal data of THIRD PARTIES without a member key; that gap is listed in `PersonalDataRegistry.knownUncoveredSubjectRoots`.
+ *
+ * **V1.9.283 (R3b)** adds `partg_report_sponsor`, `partg_report_sponsoring_entry` and `partg_report_youth_org`: same treatment (member foreign keys
+ * exported as "changed by you" with year, unit and time only -- no name, no amount, no purpose; retained on erasure). Sponsor and sponsoring entry
+ * are personal data of THIRD PARTIES without a member key (listed in `knownUncoveredSubjectRoots`); the youth organisation holds organisation data.
  */
 object PartgReportPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "partyReport"
@@ -47,6 +54,9 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
             PartgReportNotesSheetTable,
             PartgReportNoteTable,
             PartgReportHoldingTable,
+            PartgReportSponsorTable,
+            PartgReportSponsoringEntryTable,
+            PartgReportYouthOrgTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -135,6 +145,77 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                         }
                 },
             )
+            val annexById = PartgReportAnnexTable.selectAll().toList().associateBy { it[PartgReportAnnexTable.id] }
+            put(
+                "sponsorsChangedByYou",
+                buildJsonArray {
+                    PartgReportSponsorTable
+                        .selectAll()
+                        .where { (PartgReportSponsorTable.updatedBy eq memberId) or (PartgReportSponsorTable.createdBy eq memberId) }
+                        .toList()
+                        .sortedWith(compareBy({ it[PartgReportSponsorTable.updatedAt] }, { it[PartgReportSponsorTable.id].toString() }))
+                        .forEach { row ->
+                            val annex = annexById[row[PartgReportSponsorTable.annexId]]
+                            add(
+                                buildJsonObject {
+                                    put("year", annex?.get(PartgReportAnnexTable.fiscalYear))
+                                    put("unit", annex?.get(PartgReportAnnexTable.unitKey))
+                                    put("changedAt", row[PartgReportSponsorTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "sponsoringEntriesChangedByYou",
+                buildJsonArray {
+                    val sponsorAnnex =
+                        PartgReportSponsorTable.selectAll().toList().associate {
+                            it[PartgReportSponsorTable.id] to annexById[it[PartgReportSponsorTable.annexId]]
+                        }
+                    PartgReportSponsoringEntryTable
+                        .selectAll()
+                        .where {
+                            (PartgReportSponsoringEntryTable.updatedBy eq memberId) or
+                                (PartgReportSponsoringEntryTable.createdBy eq memberId)
+                        }.toList()
+                        .sortedWith(
+                            compareBy(
+                                { it[PartgReportSponsoringEntryTable.updatedAt] },
+                                { it[PartgReportSponsoringEntryTable.id].toString() },
+                            ),
+                        ).forEach { row ->
+                            val annex = sponsorAnnex[row[PartgReportSponsoringEntryTable.sponsorId]]
+                            add(
+                                buildJsonObject {
+                                    put("year", annex?.get(PartgReportAnnexTable.fiscalYear))
+                                    put("unit", annex?.get(PartgReportAnnexTable.unitKey))
+                                    put("changedAt", row[PartgReportSponsoringEntryTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "youthOrgsChangedByYou",
+                buildJsonArray {
+                    PartgReportYouthOrgTable
+                        .selectAll()
+                        .where { (PartgReportYouthOrgTable.updatedBy eq memberId) or (PartgReportYouthOrgTable.createdBy eq memberId) }
+                        .toList()
+                        .sortedWith(compareBy({ it[PartgReportYouthOrgTable.updatedAt] }, { it[PartgReportYouthOrgTable.id].toString() }))
+                        .forEach { row ->
+                            val annex = annexById[row[PartgReportYouthOrgTable.annexId]]
+                            add(
+                                buildJsonObject {
+                                    put("year", annex?.get(PartgReportAnnexTable.fiscalYear))
+                                    put("unit", annex?.get(PartgReportAnnexTable.unitKey))
+                                    put("changedAt", row[PartgReportYouthOrgTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
             put(
                 "notesChangedByYou",
                 buildJsonArray {
@@ -217,6 +298,38 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                     PartgReportLargeDonorTable
                         .selectAll()
                         .where { (PartgReportLargeDonorTable.updatedBy eq memberId) or (PartgReportLargeDonorTable.createdBy eq memberId) }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_sponsor",
+                rowsRetained =
+                    PartgReportSponsorTable
+                        .selectAll()
+                        .where { (PartgReportSponsorTable.updatedBy eq memberId) or (PartgReportSponsorTable.createdBy eq memberId) }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_sponsoring_entry",
+                rowsRetained =
+                    PartgReportSponsoringEntryTable
+                        .selectAll()
+                        .where {
+                            (PartgReportSponsoringEntryTable.updatedBy eq memberId) or
+                                (PartgReportSponsoringEntryTable.createdBy eq memberId)
+                        }.count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_youth_org",
+                rowsRetained =
+                    PartgReportYouthOrgTable
+                        .selectAll()
+                        .where { (PartgReportYouthOrgTable.updatedBy eq memberId) or (PartgReportYouthOrgTable.createdBy eq memberId) }
                         .count()
                         .toInt(),
                 retentionReason = reason,

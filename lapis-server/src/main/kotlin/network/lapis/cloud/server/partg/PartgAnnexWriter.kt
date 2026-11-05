@@ -14,7 +14,10 @@ import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
 import network.lapis.cloud.shared.domain.PartgNoteBlock
 import network.lapis.cloud.shared.domain.PartgNoteDto
 import network.lapis.cloud.shared.domain.PartgNotesAuditSnapshot
+import network.lapis.cloud.shared.domain.PartgSponsorInputDto
+import network.lapis.cloud.shared.domain.PartgStatementRules
 import network.lapis.cloud.shared.domain.PartgUnit
+import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportInvalidInputException
 import network.lapis.cloud.shared.rpc.PartyReportRevisionConflictException
@@ -33,6 +36,12 @@ internal object PartgAnnexWriter {
     private const val CHANGE_ADDED = "DONOR_ADDED"
     private const val CHANGE_UPDATED = "DONOR_UPDATED"
     private const val CHANGE_DELETED = "DONOR_DELETED"
+    private const val CHANGE_SPONSOR_ADDED = "SPONSOR_ADDED"
+    private const val CHANGE_SPONSOR_UPDATED = "SPONSOR_UPDATED"
+    private const val CHANGE_SPONSOR_DELETED = "SPONSOR_DELETED"
+    private const val CHANGE_YOUTH_ADDED = "YOUTH_ORG_ADDED"
+    private const val CHANGE_YOUTH_UPDATED = "YOUTH_ORG_UPDATED"
+    private const val CHANGE_YOUTH_DELETED = "YOUTH_ORG_DELETED"
     private const val MEMBER_COUNT_FIELD = "MEMBER_COUNT"
 
     fun <T> saveFigures(
@@ -162,6 +171,198 @@ internal object PartgAnnexWriter {
             result()
         }
 
+    /**
+     * V1.9.283 (R3b): adds or replaces ONE sponsor with the full list of its entries. The caps are checked under the lock of the annex row, so
+     * there is no gap between the check and the write.
+     */
+    fun <T> saveSponsor(
+        current: CurrentMember,
+        year: Int,
+        unit: PartgUnit,
+        expectedRevision: Long,
+        sponsor: PartgSponsorInputDto,
+        now: LocalDateTime,
+        result: () -> T,
+    ): T =
+        transaction {
+            PartgReportStore.lockChapter(unit)
+            val annex = PartgAnnexStore.lockOrCreateAnnex(year = year, unit = unit, actor = current.memberId, now = now)
+            if (annex.revision != expectedRevision) throw PartyReportRevisionConflictException()
+            val adding = sponsor.id == null
+            val sponsorId = sponsor.id?.let { parseId(it) } ?: Uuid.random()
+            val old =
+                if (adding) {
+                    null
+                } else {
+                    PartgStatementStore.findSponsor(annexId = annex.id, sponsorId = sponsorId)
+                        ?: throw NotFoundException("Row not found")
+                }
+            if (adding && PartgStatementStore.sponsorCount(annex.id) >= PartgStatementRules.MAX_SPONSORS_PER_UNIT) {
+                throw PartyReportInvalidInputException("TOO_MANY")
+            }
+            val oldEntryIds =
+                old
+                    ?.entries
+                    ?.map { it.id }
+                    ?.toSet()
+                    .orEmpty()
+            val entries =
+                sponsor.entries.map { e ->
+                    val entryId = e.id?.let { parseId(it) }
+                    // an entry id that is not an entry of THIS sponsor is not reachable (also not by a sponsor of another unit)
+                    if (entryId != null && entryId !in oldEntryIds) throw NotFoundException("Row not found")
+                    PartgStatementStore.EntryRow(
+                        id = entryId ?: Uuid.random(),
+                        sponsorId = sponsorId,
+                        date = e.date,
+                        amountCents = e.amountCents,
+                        purpose = PartgAnnexRules.normalize(e.purpose),
+                    )
+                }
+            // the rules compare the raw strings, but Uuid.parse also accepts other spellings of the same id (case, with or without dashes)
+            if (entries.map { it.id }.toSet().size != entries.size) throw PartyReportInvalidInputException("DUPLICATE_ID")
+            val total = PartgStatementStore.entryCountOfAnnex(annex.id) - oldEntryIds.size + entries.size
+            if (total > PartgStatementRules.MAX_ENTRIES_PER_UNIT) throw PartyReportInvalidInputException("TOO_MANY")
+            val row =
+                PartgStatementStore.SponsorRow(
+                    id = sponsorId,
+                    annexId = annex.id,
+                    personKind = sponsor.personKind,
+                    name = PartgAnnexRules.normalize(sponsor.name).orEmpty(),
+                    street = PartgAnnexRules.normalize(sponsor.street),
+                    postalCode = PartgAnnexRules.normalize(sponsor.postalCode),
+                    city = PartgAnnexRules.normalize(sponsor.city),
+                    country = sponsor.country,
+                    entries = emptyList(),
+                )
+            if (adding) {
+                PartgStatementStore.insertSponsor(sponsor = row, actor = current.memberId, now = now)
+            } else {
+                PartgStatementStore.updateSponsorHead(sponsor = row, actor = current.memberId, now = now)
+            }
+            PartgStatementStore.replaceEntries(sponsorId = sponsorId, entries = entries, actor = current.memberId, now = now)
+            PartgAnnexStore.bumpAnnexRevision(annex = annex, actor = current.memberId, now = now)
+            audit(
+                current = current,
+                annexId = annex.id,
+                action = if (adding) AuditAction.CREATE else AuditAction.UPDATE,
+                snapshot =
+                    statementSnapshot(
+                        annex = annex,
+                        year = year,
+                        unit = unit,
+                        change = if (adding) CHANGE_SPONSOR_ADDED else CHANGE_SPONSOR_UPDATED,
+                        sponsorId = sponsorId,
+                    ),
+                now = now,
+            )
+            result()
+        }
+
+    fun <T> deleteSponsor(
+        current: CurrentMember,
+        year: Int,
+        unit: PartgUnit,
+        expectedRevision: Long,
+        sponsorId: String,
+        now: LocalDateTime,
+        result: () -> T,
+    ): T =
+        transaction {
+            PartgReportStore.lockChapter(unit)
+            val annex = PartgAnnexStore.lockAnnex(year = year, unit = unit) ?: throw NotFoundException("Row not found")
+            if (annex.revision != expectedRevision) throw PartyReportRevisionConflictException()
+            val id = parseId(sponsorId)
+            PartgStatementStore.findSponsor(annexId = annex.id, sponsorId = id) ?: throw NotFoundException("Row not found")
+            PartgStatementStore.deleteSponsor(annexId = annex.id, sponsorId = id)
+            PartgAnnexStore.bumpAnnexRevision(annex = annex, actor = current.memberId, now = now)
+            audit(
+                current = current,
+                annexId = annex.id,
+                action = AuditAction.VOID,
+                snapshot = statementSnapshot(annex = annex, year = year, unit = unit, change = CHANGE_SPONSOR_DELETED, sponsorId = id),
+                now = now,
+            )
+            result()
+        }
+
+    fun <T> saveYouthOrg(
+        current: CurrentMember,
+        year: Int,
+        unit: PartgUnit,
+        expectedRevision: Long,
+        youthOrg: PartgYouthOrgInputDto,
+        now: LocalDateTime,
+        result: () -> T,
+    ): T =
+        transaction {
+            PartgReportStore.lockChapter(unit)
+            val annex = PartgAnnexStore.lockOrCreateAnnex(year = year, unit = unit, actor = current.memberId, now = now)
+            if (annex.revision != expectedRevision) throw PartyReportRevisionConflictException()
+            val adding = youthOrg.id == null
+            val row =
+                PartgStatementStore.YouthOrgRow(
+                    id = youthOrg.id?.let { parseId(it) } ?: Uuid.random(),
+                    annexId = annex.id,
+                    name = PartgAnnexRules.normalize(youthOrg.name).orEmpty(),
+                    relationship = PartgAnnexRules.normalize(youthOrg.relationship),
+                    incomeCents = youthOrg.incomeCents,
+                    expensesCents = youthOrg.expensesCents,
+                )
+            if (adding) {
+                if (PartgStatementStore.youthOrgCount(annex.id) >= PartgStatementRules.MAX_YOUTH_ORGS_PER_UNIT) {
+                    throw PartyReportInvalidInputException("TOO_MANY")
+                }
+                PartgStatementStore.insertYouthOrg(youthOrg = row, actor = current.memberId, now = now)
+            } else {
+                PartgStatementStore.findYouthOrg(annexId = annex.id, youthOrgId = row.id) ?: throw NotFoundException("Row not found")
+                PartgStatementStore.updateYouthOrg(youthOrg = row, actor = current.memberId, now = now)
+            }
+            PartgAnnexStore.bumpAnnexRevision(annex = annex, actor = current.memberId, now = now)
+            audit(
+                current = current,
+                annexId = annex.id,
+                action = if (adding) AuditAction.CREATE else AuditAction.UPDATE,
+                snapshot =
+                    statementSnapshot(
+                        annex = annex,
+                        year = year,
+                        unit = unit,
+                        change = if (adding) CHANGE_YOUTH_ADDED else CHANGE_YOUTH_UPDATED,
+                        youthOrgId = row.id,
+                    ),
+                now = now,
+            )
+            result()
+        }
+
+    fun <T> deleteYouthOrg(
+        current: CurrentMember,
+        year: Int,
+        unit: PartgUnit,
+        expectedRevision: Long,
+        youthOrgId: String,
+        now: LocalDateTime,
+        result: () -> T,
+    ): T =
+        transaction {
+            PartgReportStore.lockChapter(unit)
+            val annex = PartgAnnexStore.lockAnnex(year = year, unit = unit) ?: throw NotFoundException("Row not found")
+            if (annex.revision != expectedRevision) throw PartyReportRevisionConflictException()
+            val id = parseId(youthOrgId)
+            PartgStatementStore.findYouthOrg(annexId = annex.id, youthOrgId = id) ?: throw NotFoundException("Row not found")
+            PartgStatementStore.deleteYouthOrg(annexId = annex.id, youthOrgId = id)
+            PartgAnnexStore.bumpAnnexRevision(annex = annex, actor = current.memberId, now = now)
+            audit(
+                current = current,
+                annexId = annex.id,
+                action = AuditAction.VOID,
+                snapshot = statementSnapshot(annex = annex, year = year, unit = unit, change = CHANGE_YOUTH_DELETED, youthOrgId = id),
+                now = now,
+            )
+            result()
+        }
+
     fun <T> saveNotes(
         current: CurrentMember,
         year: Int,
@@ -239,6 +440,27 @@ internal object PartgAnnexWriter {
         donorCount = PartgAnnexStore.donorCount(annex.id),
         memberCountEntered = annex.memberCount != null,
         deductionsEntered = annex.deductions.values.count { it != null },
+    )
+
+    private fun statementSnapshot(
+        annex: PartgAnnexStore.AnnexRow,
+        year: Int,
+        unit: PartgUnit,
+        change: String,
+        sponsorId: Uuid? = null,
+        youthOrgId: Uuid? = null,
+    ) = PartgAnnexAuditSnapshot(
+        year = year,
+        unitKey = unit.key(),
+        change = change,
+        donorCount = PartgAnnexStore.donorCount(annex.id),
+        memberCountEntered = annex.memberCount != null,
+        deductionsEntered = annex.deductions.values.count { it != null },
+        sponsorId = sponsorId?.toString(),
+        sponsorCount = PartgStatementStore.sponsorCount(annex.id),
+        sponsoringEntryCount = PartgStatementStore.entryCountOfAnnex(annex.id),
+        youthOrgId = youthOrgId?.toString(),
+        youthOrgCount = PartgStatementStore.youthOrgCount(annex.id),
     )
 
     private fun audit(

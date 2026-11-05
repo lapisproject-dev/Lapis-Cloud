@@ -21,9 +21,12 @@ import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgPositions
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgSheetDto
+import network.lapis.cloud.shared.domain.PartgSponsorInputDto
+import network.lapis.cloud.shared.domain.PartgSponsoringEntryInputDto
 import network.lapis.cloud.shared.domain.PartgUnitCompletenessDto
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
+import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IPartyReportService
 
@@ -151,6 +154,41 @@ internal object PartyReportDomSupport {
         donors = donors,
     )
 
+    fun sponsor(
+        id: String,
+        row: Int,
+        name: String,
+        amounts: List<Long>,
+        city: String? = "Hamburg",
+    ) = network.lapis.cloud.shared.domain.PartgSponsorDto(
+        id = id,
+        rowNumber = row,
+        personKind = PartgPersonKind.LEGAL,
+        name = name,
+        street = null,
+        postalCode = null,
+        city = city,
+        country = "DE",
+        entries =
+            amounts.mapIndexed { i, cents ->
+                network.lapis.cloud.shared.domain
+                    .PartgSponsoringEntryDto("$id-e$i", kotlinx.datetime.LocalDate(2025, 3, 1 + i), cents, "Zweck $i")
+            },
+        yearlySumCents = amounts.sum(),
+        qualification =
+            network.lapis.cloud.shared.domain.PartgStatementRules
+                .qualification(amounts),
+    )
+
+    fun youth(
+        id: String,
+        row: Int,
+        name: String,
+        income: Long? = null,
+        expenses: Long? = null,
+    ) = network.lapis.cloud.shared.domain
+        .PartgYouthOrgDto(id, row, name, "Jugendverband", income, expenses)
+
     fun notesDto() =
         PartgNotesDto(
             year = 2025,
@@ -175,6 +213,10 @@ internal object PartyReportDomSupport {
         val getNotes: String,
         val saveNotes: String,
         val findings: String,
+        val saveSponsor: String,
+        val deleteSponsor: String,
+        val saveYouthOrg: String,
+        val deleteYouthOrg: String,
     )
 
     suspend fun routes() =
@@ -211,6 +253,30 @@ internal object PartyReportDomSupport {
             getNotes = routeOf { rpcService<IPartyReportService>().getNotes(2025) },
             saveNotes = routeOf { rpcService<IPartyReportService>().saveNotes(2025, 0, emptyList(), emptyList()) },
             findings = routeOf { rpcService<IPartyReportService>().reportFindings(2025) },
+            saveSponsor =
+                routeOf {
+                    rpcService<IPartyReportService>().saveSponsor(
+                        2025,
+                        "FEDERAL",
+                        0,
+                        PartgSponsorInputDto(
+                            null,
+                            PartgPersonKind.LEGAL,
+                            "x",
+                            null,
+                            null,
+                            null,
+                            "DE",
+                            listOf(PartgSponsoringEntryInputDto(null, kotlinx.datetime.LocalDate(2025, 1, 1), 1L, null)),
+                        ),
+                    )
+                },
+            deleteSponsor = routeOf { rpcService<IPartyReportService>().deleteSponsor(2025, "FEDERAL", 0, "x") },
+            saveYouthOrg =
+                routeOf {
+                    rpcService<IPartyReportService>().saveYouthOrg(2025, "FEDERAL", 0, PartgYouthOrgInputDto(null, "x", null, null, null))
+                },
+            deleteYouthOrg = routeOf { rpcService<IPartyReportService>().deleteYouthOrg(2025, "FEDERAL", 0, "x") },
         )
 
     fun answer(
@@ -234,7 +300,13 @@ internal object PartyReportDomSupport {
                     jsonOf(PartgSaveResultDto.serializer(), PartgSaveResultDto(revision = 1, priorRevision = 0, changed = 2)),
                 )
             request.rpcRoute == routes.getAnnex -> request.answerWith(jsonOf(PartgAnnexDto.serializer(), annex))
-            request.rpcRoute == routes.saveFigures || request.rpcRoute == routes.saveDonor || request.rpcRoute == routes.deleteDonor ->
+            request.rpcRoute == routes.saveFigures ||
+                request.rpcRoute == routes.saveDonor ||
+                request.rpcRoute == routes.deleteDonor ||
+                request.rpcRoute == routes.saveSponsor ||
+                request.rpcRoute == routes.deleteSponsor ||
+                request.rpcRoute == routes.saveYouthOrg ||
+                request.rpcRoute == routes.deleteYouthOrg ->
                 request.answerWith(jsonOf(PartgAnnexDto.serializer(), annex))
             request.rpcRoute == routes.getNotes || request.rpcRoute == routes.saveNotes ->
                 request.answerWith(jsonOf(PartgNotesDto.serializer(), notes))

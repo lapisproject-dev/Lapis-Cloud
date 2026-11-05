@@ -7,6 +7,8 @@ import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgReportComputation
 import network.lapis.cloud.shared.domain.PartgReportScope
+import network.lapis.cloud.shared.domain.PartgSponsorQualification
+import network.lapis.cloud.shared.domain.PartgStatementRules
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -152,7 +154,49 @@ internal object PartgReportAssembler {
                     )
                 }
             }
-        return AnnexSection(units = pages, wholeParty = whole, donors = donors)
+        val sponsors =
+            selected.flatMap { unit ->
+                val label = unitLabel(unit)
+                data[unit.unitKey]?.sponsors.orEmpty().mapIndexedNotNull { index, sponsor ->
+                    val amounts = sponsor.entries.map { it.amountCents }
+                    val qualification = PartgStatementRules.qualification(amounts)
+                    if (qualification == PartgSponsorQualification.NONE) return@mapIndexedNotNull null
+                    SponsorLine(
+                        unitLabel = label,
+                        rowNumber = index + 1,
+                        personKind = sponsor.personKind,
+                        name = sponsor.name,
+                        addressLine =
+                            listOfNotNull(
+                                sponsor.street,
+                                listOfNotNull(sponsor.postalCode, sponsor.city).joinToString(" ").ifEmpty { null },
+                            ).joinToString(", "),
+                        country = sponsor.country,
+                        yearlySumCents = sponsor.yearlySumCents,
+                        entryCount = sponsor.entries.size,
+                        qualification = qualification,
+                        singleEntries =
+                            sponsor.entries
+                                .filter { it.amountCents > PartgStatementRules.SPONSORING_SINGLE_THRESHOLD_CENTS }
+                                .map { SponsorEntryLine(date = it.date, amountCents = it.amountCents, purpose = it.purpose) },
+                    )
+                }
+            }
+        val youthOrgs =
+            selected.flatMap { unit ->
+                val label = unitLabel(unit)
+                data[unit.unitKey]?.youthOrgs.orEmpty().mapIndexed { index, y ->
+                    YouthOrgLine(
+                        unitLabel = label,
+                        rowNumber = index + 1,
+                        name = y.name,
+                        relationship = y.relationship,
+                        incomeCents = y.incomeCents,
+                        expensesCents = y.expensesCents,
+                    )
+                }
+            }
+        return AnnexSection(units = pages, wholeParty = whole, donors = donors, sponsors = sponsors, youthOrgs = youthOrgs)
     }
 
     /** Value when every unit entered the figure, NotEntered when none did, else Partial (the same rule as the positions). */

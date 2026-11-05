@@ -22,7 +22,10 @@ import network.lapis.cloud.server.db.generated.PartgReportNoteTable
 import network.lapis.cloud.server.db.generated.PartgReportNotesSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportPositionTable
 import network.lapis.cloud.server.db.generated.PartgReportSheetTable
+import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
+import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
+import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
@@ -167,6 +170,22 @@ internal class PartgFixtures(
                     .where {
                         PartgReportAnnexTable.updatedBy inList memberIds
                     }.map { it[PartgReportAnnexTable.id] }
+            // V1.9.283: sponsoring entries, then sponsors, then youth organisations
+            val sponsorIds =
+                PartgReportSponsorTable
+                    .selectAll()
+                    .where { PartgReportSponsorTable.annexId inList annexIds }
+                    .map { it[PartgReportSponsorTable.id] }
+            PartgReportSponsoringEntryTable.deleteWhere {
+                (PartgReportSponsoringEntryTable.sponsorId inList sponsorIds) or
+                    (PartgReportSponsoringEntryTable.createdBy inList memberIds)
+            }
+            PartgReportSponsorTable.deleteWhere {
+                (PartgReportSponsorTable.id inList sponsorIds) or (PartgReportSponsorTable.createdBy inList memberIds)
+            }
+            PartgReportYouthOrgTable.deleteWhere {
+                (PartgReportYouthOrgTable.annexId inList annexIds) or (PartgReportYouthOrgTable.createdBy inList memberIds)
+            }
             PartgReportLargeDonorTable.deleteWhere {
                 (PartgReportLargeDonorTable.annexId inList annexIds) or (PartgReportLargeDonorTable.createdBy inList memberIds)
             }

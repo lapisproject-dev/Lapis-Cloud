@@ -146,6 +146,8 @@ private suspend fun ApplicationCall.export(
                             },
                         donorRowCount = document.annex.donors.size,
                         findingCount = findings.size,
+                        sponsorRowCount = document.annex.sponsors.size,
+                        youthOrgRowCount = document.annex.youthOrgs.size,
                     )
                 }
             } catch (e: NotFoundException) {
@@ -157,7 +159,7 @@ private suspend fun ApplicationCall.export(
             } catch (e: PartgReportTooLargeException) {
                 return rejectExport(status = HttpStatusCode.PayloadTooLarge, code = PartgImportRejectionCode.TOO_LARGE)
             }
-        val (bytes, unitCount, missingCount, donorRowCount, findingCount) = rendered
+        val (bytes, unitCount, missingCount, donorRowCount, findingCount, sponsorRowCount, youthOrgRowCount) = rendered
         val now = ServerClock.now()
         transaction {
             AuditLogRecorder.record(
@@ -178,6 +180,8 @@ private suspend fun ApplicationCall.export(
                             byteSize = bytes.size,
                             donorRowCount = donorRowCount,
                             findingCount = findingCount,
+                            sponsorRowCount = sponsorRowCount,
+                            youthOrgRowCount = youthOrgRowCount,
                         ),
                     ),
                 occurredAt = now,
@@ -201,6 +205,8 @@ private data class Counters(
     val missingCount: Int,
     val donorRowCount: Int,
     val findingCount: Int,
+    val sponsorRowCount: Int,
+    val youthOrgRowCount: Int,
 )
 
 private suspend fun ApplicationCall.rejectExport(

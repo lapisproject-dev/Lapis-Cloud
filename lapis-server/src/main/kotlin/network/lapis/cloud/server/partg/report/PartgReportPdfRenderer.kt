@@ -130,7 +130,10 @@ internal class PartgReportPdfRenderer(
                 assetSection(c = c, doc = document)
                 annexASection(c = c, doc = document)
                 annexBSection(c = c, doc = document)
+                annexCSection(c = c, doc = document)
+                annexDSection(c = c)
                 annexESection(c = c, doc = document)
+                annexFSection(c = c, doc = document)
                 notesSection(c = c, doc = document)
             } finally {
                 c.close()
@@ -686,6 +689,116 @@ internal class PartgReportPdfRenderer(
                             d.country,
                             contributionText(d.contributionKind),
                             PartgReportNumberFormat.euro(d.amountCents),
+                        ),
+                )
+            }
+        table(c = c, title = null, cols = cols, rows = rows)
+    }
+
+    private fun dateText(d: kotlinx.datetime.LocalDate): String = "%02d.%02d.%04d".format(d.day, (d.month.ordinal + 1), d.year)
+
+    private fun annexCSection(
+        c: Canvas,
+        doc: PartgReportDocument,
+    ) {
+        c.y -= 8f
+        heading(c = c, text = PartgReportTexts.ANNEX_C, size = 10f)
+        paragraph(c = c, text = PartgReportTexts.C_NOTE, size = 7.5f)
+        if (doc.annex.sponsors.isEmpty()) {
+            paragraph(c = c, text = PartgReportTexts.NO_ENTRIES)
+            return
+        }
+        val cols =
+            listOf(
+                Col(title = PartgReportTexts.COL_UNIT, width = 110f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_ROW, width = 30f, right = true),
+                Col(title = PartgReportTexts.COL_PERSON_KIND, width = 50f, right = false),
+                Col(title = PartgReportTexts.COL_NAME, width = 140f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_ADDRESS, width = 190f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_COUNTRY, width = 30f, right = false),
+                Col(title = PartgReportTexts.COL_YEARLY_SUM, width = 90f, right = true),
+                Col(title = PartgReportTexts.COL_ENTRY_COUNT, width = 50f, right = true),
+                Col(title = PartgReportTexts.COL_REASON, width = 70f, right = false),
+            )
+        val rows = mutableListOf<Row>()
+        doc.annex.sponsors.forEach { sp ->
+            rows +=
+                Row(
+                    cells =
+                        listOf(
+                            sp.unitLabel,
+                            sp.rowNumber.toString(),
+                            personKindText(sp.personKind),
+                            sp.name,
+                            sp.addressLine,
+                            sp.country,
+                            PartgReportNumberFormat.euro(sp.yearlySumCents),
+                            sp.entryCount.toString(),
+                            PartgReportTexts.reason(sp.qualification),
+                        ),
+                )
+            // the single services above the limit stand indented below their sponsor: date, purpose, amount
+            sp.singleEntries.forEach { e ->
+                rows +=
+                    Row(
+                        cells =
+                            listOf(
+                                "",
+                                "",
+                                "",
+                                "    " + dateText(e.date),
+                                e.purpose.orEmpty(),
+                                "",
+                                PartgReportNumberFormat.euro(e.amountCents),
+                                "",
+                                PartgReportTexts.REASON_SINGLE,
+                            ),
+                    )
+            }
+        }
+        table(c = c, title = null, cols = cols, rows = rows)
+    }
+
+    private fun annexDSection(c: Canvas) {
+        c.y -= 8f
+        heading(c = c, text = PartgReportTexts.ANNEX_D_SHORT, size = 10f)
+        paragraph(c = c, text = PartgReportTexts.ANNEX_D_PLACEHOLDER)
+    }
+
+    private fun annexFSection(
+        c: Canvas,
+        doc: PartgReportDocument,
+    ) {
+        c.y -= 8f
+        heading(c = c, text = PartgReportTexts.ANNEX_F, size = 10f)
+        if (doc.annex.youthOrgs.isEmpty()) {
+            paragraph(c = c, text = PartgReportTexts.NO_ENTRIES)
+            return
+        }
+        val cols =
+            listOf(
+                Col(title = PartgReportTexts.COL_UNIT, width = 130f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_ROW, width = 30f, right = true),
+                Col(title = PartgReportTexts.COL_NAME, width = 160f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_RELATIONSHIP, width = 170f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_INCOME, width = 80f, right = true),
+                Col(title = PartgReportTexts.COL_EXPENSES, width = 80f, right = true),
+                Col(title = PartgReportTexts.COL_RESULT, width = 80f, right = true),
+            )
+
+        fun euroOrNone(cents: Long?) = cents?.let { PartgReportNumberFormat.euro(it) } ?: PartgReportTexts.NOT_ENTERED
+        val rows =
+            doc.annex.youthOrgs.map { y ->
+                Row(
+                    cells =
+                        listOf(
+                            y.unitLabel,
+                            y.rowNumber.toString(),
+                            y.name,
+                            y.relationship.orEmpty(),
+                            euroOrNone(y.incomeCents),
+                            euroOrNone(y.expensesCents),
+                            y.resultCents?.let { PartgReportNumberFormat.euro(it) } ?: PartgReportTexts.NOT_COMPUTABLE,
                         ),
                 )
             }

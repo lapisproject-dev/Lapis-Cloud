@@ -31,6 +31,11 @@ class PartyReportAnnexTabDomTest {
         withFetchStub(respond = { request -> PartyReportDomSupport.answer(routes, request, 2025) }) { requests ->
             mountedForm(id) { root, element ->
                 renderPartyReportScreen(root)
+                // block B is closed on load when no hint points to it; the donor tests work inside it (a user opens it first)
+                awaitUntil("the jump bar") { element().allOf("#partg-block-b-toggle").isNotEmpty() }
+                element().allOf("#partg-block-b-toggle").single().let {
+                    if (it.getAttribute("aria-expanded") != "true") it.click()
+                }
                 awaitUntil("the donor table") { element().allOf("tbody tr").size == PartyReportDomSupport.annex.donors.size }
                 block(root.getElement() as HTMLElement, element, requests)
             }

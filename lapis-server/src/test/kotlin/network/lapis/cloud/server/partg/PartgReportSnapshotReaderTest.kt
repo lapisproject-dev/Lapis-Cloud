@@ -79,6 +79,61 @@ class PartgReportSnapshotReaderTest :
             snapshot.annex[year]?.get(PartgUnit.FEDERAL_KEY)?.memberCount shouldBe 22
         }
 
+        test("V1.9.283: a sponsor saved between the reads makes the read repeat; sponsors and youth organisations are in the annex data") {
+            val member = fx.member()
+
+            fun writeSponsor(
+                name: String,
+                revisionOffset: Long = 0L,
+            ) {
+                val revision = transaction { PartgAnnexStore.findAnnex(year = year, unit = unit)?.revision ?: 0L } + revisionOffset
+                PartgAnnexWriter.saveSponsor(
+                    current = fx.currentOf(memberId = member),
+                    year = year,
+                    unit = unit,
+                    expectedRevision = revision,
+                    sponsor =
+                        network.lapis.cloud.shared.domain.PartgSponsorInputDto(
+                            id = null,
+                            personKind = network.lapis.cloud.shared.domain.PartgPersonKind.LEGAL,
+                            name = name,
+                            street = null,
+                            postalCode = null,
+                            city = null,
+                            country = "DE",
+                            entries =
+                                listOf(
+                                    network.lapis.cloud.shared.domain.PartgSponsoringEntryInputDto(
+                                        id = null,
+                                        date = kotlinx.datetime.LocalDate(year, 2, 2),
+                                        amountCents = 90_000L,
+                                        purpose = null,
+                                    ),
+                                ),
+                        ),
+                    now = ServerClock.now(),
+                ) {}
+            }
+            writeSponsor("Erster")
+            var attempts = 0
+            PartgReportSnapshotReader.betweenReadsHook = { attempt ->
+                attempts++
+                if (attempt == 0) {
+                    val worker = Thread { writeSponsor("Zweiter") }
+                    worker.start()
+                    worker.join()
+                }
+            }
+            val snapshot = PartgReportSnapshotReader.read(listOf(year))
+            attempts shouldBe 2
+            snapshot.annex[year]
+                ?.get(PartgUnit.FEDERAL_KEY)
+                ?.sponsors
+                ?.map { it.name }
+                ?.toSet() shouldBe setOf("Erster", "Zweiter")
+            snapshot.annex[year]?.get(PartgUnit.FEDERAL_KEY)?.youthOrgs shouldBe emptyList()
+        }
+
         test("a write in every attempt ends in a revision conflict after exactly three attempts") {
             val member = fx.member()
             var attempts = 0

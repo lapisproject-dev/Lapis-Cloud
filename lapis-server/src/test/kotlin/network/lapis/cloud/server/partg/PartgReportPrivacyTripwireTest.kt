@@ -16,7 +16,8 @@ class PartgReportPrivacyTripwireTest :
                 val p = it.path.replace('\\', '/')
                 "/server/partg/" in p || it.name == "PartyReportService.kt" || it.name == "PartgReportExportRoutes.kt"
             }
-        val sensitive = Regex("""\b(name|street|city|postalCode|body|addressLine|donor|donors)\b""")
+        val sensitive =
+            Regex("""\b(name|street|city|postalCode|body|addressLine|donor|donors|sponsor|sponsors|purpose|relationship|entries)\b""")
 
         // raw text: the interpolated names live INSIDE string literals, which SourceScan.blank erases. Comment lines are dropped.
         fun codeLines(text: String): List<String> =
@@ -48,8 +49,11 @@ class PartgReportPrivacyTripwireTest :
             scanned
                 .flatMap { file ->
                     codeLines(file.readText())
-                        .filter { Regex("""throw \w+Exception\(.*(?<!it\.)\b(name|street|city|postalCode|body)\b""").containsMatchIn(it) }
-                        .map { file.name + ": " + it.trim() }
+                        .filter {
+                            Regex(
+                                """throw \w+Exception\(.*(?<!it\.)\b(name|street|city|postalCode|body|purpose|relationship)\b""",
+                            ).containsMatchIn(it)
+                        }.map { file.name + ": " + it.trim() }
                 }.shouldBeEmpty()
         }
     })

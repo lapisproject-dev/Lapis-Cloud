@@ -15,6 +15,7 @@ internal object PartgReportTexts {
     const val NOT_COMPUTABLE = "n. b."
     const val INCOMPLETE_SHORT = "(unvollst.)"
     const val NOT_ENTERED_LONG = "nicht erfasst"
+    const val NOT_COMPUTABLE_LONG = "nicht berechenbar"
     const val INCOMPLETE_LONG = "unvollständig"
 
     const val TITLE = "Rechenschaftsbericht"
@@ -103,6 +104,36 @@ internal object PartgReportTexts {
     const val ORGANIZATION = "Organisation"
     const val FINDINGS_NONE = "Keine Hinweise."
 
+    // V1.9.283 (R3b): the headings carry no section number on purpose (the official layout is not verified)
+    const val ANNEX_C = "Gesonderter Ausweis C: Sponsoring (Entwurf)"
+    const val ANNEX_D_PLACEHOLDER =
+        "Ausweis D (Unternehmenstätigkeit) ist in diesem Entwurf nicht erfasst. Beteiligungen stehen unter Erläuterungen."
+    const val ANNEX_D_SHORT = "Ausweis D: nicht erfasst"
+    const val ANNEX_F = "Gesonderter Ausweis F: Jugendorganisationen (Entwurf)"
+    const val C_NOTE =
+        "Aufgenommen ist ein Sponsor mit einer Leistung über 750,00 EUR oder mit mehr als 6.000,00 EUR im Jahr bei dieser Gliederung. " +
+            "Einzeln aufgeführt sind Leistungen über 750,00 EUR. Leistungen an mehrere Gliederungen werden nicht zusammengeführt."
+    const val COL_YEARLY_SUM = "Jahressumme EUR"
+    const val COL_ENTRY_COUNT = "Anzahl Leistungen"
+    const val COL_REASON = "Grund"
+    const val COL_DATE = "Datum"
+    const val COL_PURPOSE = "Zweck"
+    const val COL_RELATIONSHIP = "Verhältnis zur Partei"
+    const val COL_INCOME = "Einnahmen EUR"
+    const val COL_EXPENSES = "Ausgaben EUR"
+    const val COL_RESULT = "Ergebnis EUR"
+    const val REASON_SINGLE = "Einzelleistung"
+    const val REASON_YEARLY = "Jahressumme"
+    const val REASON_BOTH = "beides"
+
+    fun reason(q: network.lapis.cloud.shared.domain.PartgSponsorQualification): String =
+        when (q) {
+            network.lapis.cloud.shared.domain.PartgSponsorQualification.SINGLE -> REASON_SINGLE
+            network.lapis.cloud.shared.domain.PartgSponsorQualification.YEARLY -> REASON_YEARLY
+            network.lapis.cloud.shared.domain.PartgSponsorQualification.BOTH -> REASON_BOTH
+            network.lapis.cloud.shared.domain.PartgSponsorQualification.NONE -> ""
+        }
+
     fun finding(code: network.lapis.cloud.shared.domain.PartgFindingCode): String =
         when (code) {
             network.lapis.cloud.shared.domain.PartgFindingCode.P01 -> "Anschrift fehlt vollständig"
@@ -111,5 +142,9 @@ internal object PartgReportTexts {
             network.lapis.cloud.shared.domain.PartgFindingCode.P04 -> "Juristische Person"
             network.lapis.cloud.shared.domain.PartgFindingCode.P05 -> "Deutliche Abweichung zum Vorjahr"
             network.lapis.cloud.shared.domain.PartgFindingCode.P06 -> "Angabe fehlt"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P07 -> "Anschrift fehlt vollständig (Sponsor)"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P08 -> "Anschrift unvollständig (Sponsor)"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P09 -> "Sponsor unter beiden Grenzen, nicht im Bericht"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P10 -> "Jugendorganisation ohne Zahlen"
         }
 }

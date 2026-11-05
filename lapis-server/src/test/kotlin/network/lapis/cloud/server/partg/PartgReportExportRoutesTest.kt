@@ -326,6 +326,103 @@ class PartgReportExportRoutesTest :
                 (snapshot.findingCount >= 1) shouldBe true // at least P01 (no address) and P04 (legal person)
             }
         }
+
+        test(
+            "V1.9.283: the export carries statements C and F; the audit entry counts only the sponsors in the report and holds no name or amount",
+        ) {
+            val board = fx.member()
+            val chapter = fx.chapter()
+            val unit = PartgUnit.State(chapter.toString())
+            val current = fx.currentOf(memberId = board)
+            val now =
+                network.lapis.cloud.server.time.ServerClock
+                    .now()
+
+            fun sponsorInput(
+                name: String,
+                cents: Long,
+            ) = network.lapis.cloud.shared.domain.PartgSponsorInputDto(
+                id = null,
+                personKind = network.lapis.cloud.shared.domain.PartgPersonKind.LEGAL,
+                name = name,
+                street = null,
+                postalCode = null,
+                city = null,
+                country = "DE",
+                entries =
+                    listOf(
+                        network.lapis.cloud.shared.domain.PartgSponsoringEntryInputDto(
+                            id = null,
+                            date = kotlinx.datetime.LocalDate(year, 5, 5),
+                            amountCents = cents,
+                            purpose = "Exportzweck Geheim",
+                        ),
+                    ),
+            )
+            PartgAnnexWriter.saveSponsor(
+                current = current,
+                year = year,
+                unit = unit,
+                expectedRevision = 0,
+                sponsor = sponsorInput("Sponsorprobe Geheimfirma", 4_444_444L),
+                now = now,
+            ) {
+            }
+            PartgAnnexWriter.saveSponsor(
+                current = current,
+                year = year,
+                unit = unit,
+                expectedRevision = 1,
+                sponsor = sponsorInput("Unsichtbar Unterhalb", 100L),
+                now = now,
+            ) {
+            }
+            PartgAnnexWriter.saveYouthOrg(
+                current = current,
+                year = year,
+                unit = unit,
+                expectedRevision = 2,
+                youthOrg =
+                    network.lapis.cloud.shared.domain
+                        .PartgYouthOrgInputDto(
+                            id = null,
+                            name = "Jugendprobe Geheim",
+                            relationship = null,
+                            incomeCents = 5_555_555L,
+                            expensesCents = 1L,
+                        ),
+                now = now,
+            ) {}
+            withRoutes {
+                val pdf = export(board, "pdf", query = "year=$year&scope=${unit.key()}")
+                pdf.status shouldBe HttpStatusCode.OK
+                val pdfText =
+                    org.apache.pdfbox.Loader
+                        .loadPDF(pdf.readRawBytes())
+                        .use {
+                            org.apache.pdfbox.text
+                                .PDFTextStripper()
+                                .getText(it)
+                        }
+                pdfText shouldContain "Sponsorprobe Geheimfirma"
+                pdfText shouldContain "44.444,44"
+                pdfText shouldContain "Jugendprobe Geheim"
+                pdfText shouldNotContain "Unsichtbar Unterhalb"
+                val xlsx = export(board, "xlsx", query = "year=$year&scope=${unit.key()}")
+                xlsx.status shouldBe HttpStatusCode.OK
+                val sheets = readXlsxForRoute(xlsx.readRawBytes())
+                sheets shouldContain "Ausweis C"
+                sheets shouldContain "Ausweis F"
+            }
+            val audits = exportAudits(board)
+            audits.size shouldBe 2
+            audits.forEach { (after, _) ->
+                listOf("Geheim", "4444444", "Sponsorprobe", "Exportzweck").forEach { after shouldNotContain it }
+                val snapshot = json.decodeFromString(PartgReportExportAuditSnapshot.serializer(), after)
+                snapshot.sponsorRowCount shouldBe 1
+                snapshot.youthOrgRowCount shouldBe 1
+            }
+        }
     })
 
 private fun readXlsxForRoute(bytes: ByteArray): String {

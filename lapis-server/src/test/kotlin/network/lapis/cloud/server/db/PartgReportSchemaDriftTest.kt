@@ -14,7 +14,10 @@ import network.lapis.cloud.server.db.generated.PartgReportNoteTable
 import network.lapis.cloud.server.db.generated.PartgReportNotesSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportPositionTable
 import network.lapis.cloud.server.db.generated.PartgReportSheetTable
+import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
+import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
+import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgKind
@@ -41,7 +44,7 @@ class PartgReportSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("the model declares the eight report entities plus the Member and RegionalChapter stubs") {
+        test("the model declares the eleven report entities plus the Member and RegionalChapter stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -54,6 +57,9 @@ class PartgReportSchemaDriftTest :
                     "partg_report_notes_sheet",
                     "partg_report_note",
                     "partg_report_holding",
+                    "partg_report_sponsor",
+                    "partg_report_sponsoring_entry",
+                    "partg_report_youth_org",
                 )
         }
 
@@ -147,6 +153,37 @@ class PartgReportSchemaDriftTest :
                 expectedForeignKeys = mapOf("notes_sheet_id" to "partg_report_notes_sheet", "updated_by" to "member"),
                 sqlOnlyForeignKeys = emptyMap(),
             )
+        }
+
+        test("partg_report_sponsor matches the migrated schema and PartgReportSponsorTable 1:1") {
+            check(
+                table = "partg_report_sponsor",
+                exposedColumns = PartgReportSponsorTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("annex_id" to "partg_report_annex", "created_by" to "member", "updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+        }
+
+        test("partg_report_sponsoring_entry matches the migrated schema and PartgReportSponsoringEntryTable 1:1") {
+            check(
+                table = "partg_report_sponsoring_entry",
+                exposedColumns = PartgReportSponsoringEntryTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("sponsor_id" to "partg_report_sponsor", "created_by" to "member", "updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+        }
+
+        test("partg_report_youth_org matches the migrated schema and PartgReportYouthOrgTable 1:1") {
+            check(
+                table = "partg_report_youth_org",
+                exposedColumns = PartgReportYouthOrgTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("annex_id" to "partg_report_annex", "created_by" to "member", "updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+        }
+
+        test("the R3b person kind of the sponsor is sized by its sqlType") {
+            transaction { PartgReportSponsorTable.personKind.columnType.sqlType() } shouldBe "VARCHAR(7)"
         }
 
         test("the R3 enums are in exactly the order of the shared enums and sized by their sqlType") {

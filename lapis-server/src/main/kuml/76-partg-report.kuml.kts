@@ -22,6 +22,10 @@
 // partg_report_note (five fixed blocks) and partg_report_holding (structured holdings). NOT expressible in the ERM profile (SQL only, V139): every
 // CHECK (year, unit consistency, revision, ranges, enum literals, amount > 1,000,000 cents of a large donor, relief fields only in RELIEF_28), and
 // the row limits (500 donors, 50 holdings; checked by the service under the lock of the header row).
+// Welle V1.9.283 "Rechenschaftsbericht R3b" (V142__partg_report_r3b.sql) adds THREE tables: partg_report_sponsor + partg_report_sponsoring_entry
+// (statement C) and partg_report_youth_org (statement F). NOT expressible in the ERM profile (SQL only, V142): every CHECK and the row limits
+// (500 sponsors, 100 entries per sponsor, 2000 entries per annex, 20 youth organisations; checked by the service under the lock of the annex).
+// DSGVO (R3b): sponsor and sponsoring entry are PERSONAL DATA OF THIRD PARTIES (listed in knownUncoveredSubjectRoots); youth_org is organisation data.
 // DSGVO (R3): partg_report_large_donor is PERSONAL DATA OF THIRD PARTIES (name, address, yearly sum above 10,000 EUR); no member foreign key,
 // listed in PersonalDataRegistry.knownUncoveredSubjectRoots; created_by/updated_by of all R3 tables are "changed by you" data.
 //
@@ -467,6 +471,140 @@ classDiagram(name = "PartgReport") {
         attribute(name = "resultCents", type = "Long") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "result_cents" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.283 (R3b)
+    classOf(name = "PartgReportSponsor") {
+        stereotype("Entity") { "tableName" to "partg_report_sponsor"; "kotlinObjectName" to "PartgReportSponsorTable" }
+        stereotype("Index") { "columns" to listOf("annex_id"); "name" to "ix_partg_report_sponsor_annex" }
+        stereotype("Index") { "columns" to listOf("created_by"); "name" to "ix_partg_report_sponsor_created_by" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_sponsor_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "annexId", type = "UUID") {
+            stereotype("Column") { "columnName" to "annex_id"; "fkEntity" to "PartgReportAnnex" }
+        }
+        attribute(name = "personKind", type = partgPersonKind) {
+            stereotype("Column") {
+                "columnName" to "person_kind"
+                "sqlType" to "VARCHAR(7)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgPersonKind"
+            }
+        }
+        attribute(name = "name", type = "String") {
+            stereotype("Column") { "columnName" to "name"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "street", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "street"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "postalCode", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "postal_code"; "sqlType" to "VARCHAR(10)" }
+        }
+        attribute(name = "city", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "city"; "sqlType" to "VARCHAR(100)" }
+        }
+        attribute(name = "country", type = "String") {
+            stereotype("Column") { "columnName" to "country"; "sqlType" to "VARCHAR(2)" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.283 (R3b)
+    classOf(name = "PartgReportSponsoringEntry") {
+        stereotype("Entity") { "tableName" to "partg_report_sponsoring_entry"; "kotlinObjectName" to "PartgReportSponsoringEntryTable" }
+        stereotype("Index") { "columns" to listOf("sponsor_id"); "name" to "ix_partg_report_sponsoring_entry_sponsor" }
+        stereotype("Index") { "columns" to listOf("created_by"); "name" to "ix_partg_report_sponsoring_entry_created_by" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_sponsoring_entry_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "sponsorId", type = "UUID") {
+            stereotype("Column") { "columnName" to "sponsor_id"; "fkEntity" to "PartgReportSponsor" }
+        }
+        attribute(name = "sponsoredOn", type = "LocalDate") {
+            stereotype("Column") { "columnName" to "sponsored_on" }
+        }
+        attribute(name = "amountCents", type = "Long") {
+            stereotype("Column") { "columnName" to "amount_cents" }
+        }
+        attribute(name = "purpose", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "purpose"; "sqlType" to "VARCHAR(500)" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.283 (R3b)
+    classOf(name = "PartgReportYouthOrg") {
+        stereotype("Entity") { "tableName" to "partg_report_youth_org"; "kotlinObjectName" to "PartgReportYouthOrgTable" }
+        stereotype("Index") { "columns" to listOf("annex_id"); "name" to "ix_partg_report_youth_org_annex" }
+        stereotype("Index") { "columns" to listOf("created_by"); "name" to "ix_partg_report_youth_org_created_by" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_youth_org_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "annexId", type = "UUID") {
+            stereotype("Column") { "columnName" to "annex_id"; "fkEntity" to "PartgReportAnnex" }
+        }
+        attribute(name = "name", type = "String") {
+            stereotype("Column") { "columnName" to "name"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "relationship", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "relationship"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "incomeCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "income_cents" }
+        }
+        attribute(name = "expensesCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "expenses_cents" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
         }
         attribute(name = "updatedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "updated_at" }

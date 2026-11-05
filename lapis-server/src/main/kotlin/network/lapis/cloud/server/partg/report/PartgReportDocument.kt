@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.partg.report
 
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.PartgCell
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgContributionKind
@@ -9,6 +10,7 @@ import network.lapis.cloud.shared.domain.PartgHoldingDto
 import network.lapis.cloud.shared.domain.PartgNoteDto
 import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgReportScope
+import network.lapis.cloud.shared.domain.PartgSponsorQualification
 import network.lapis.cloud.shared.domain.PartgUnitLevel
 
 /** One reporting unit (or the consolidated party) with the cells of the report year and the year before. Sums only, no persons. */
@@ -46,12 +48,50 @@ internal data class DonorLine(
     val amountCents: Long,
 )
 
-/** The separate statements A, B and E over the units in scope. */
+/** One single service above the single limit, listed under its sponsor in statement C. */
+internal data class SponsorEntryLine(
+    val date: LocalDate,
+    val amountCents: Long,
+    val purpose: String?,
+)
+
+/**
+ * One row of statement C (V1.9.283). PERSONAL DATA OF A THIRD PARTY. Only sponsors with a [qualification] other than NONE are in the report.
+ * [rowNumber] is the position in the sorted list of the unit as the user interface shows it (also counting sponsors that are not in the report).
+ */
+internal data class SponsorLine(
+    val unitLabel: String,
+    val rowNumber: Int,
+    val personKind: PartgPersonKind,
+    val name: String,
+    val addressLine: String,
+    val country: String,
+    val yearlySumCents: Long,
+    val entryCount: Int,
+    val qualification: PartgSponsorQualification,
+    val singleEntries: List<SponsorEntryLine>,
+)
+
+/** One row of statement F (V1.9.283). [resultCents] is computed, `null` when income or expenses is not entered. */
+internal data class YouthOrgLine(
+    val unitLabel: String,
+    val rowNumber: Int,
+    val name: String,
+    val relationship: String?,
+    val incomeCents: Long?,
+    val expensesCents: Long?,
+) {
+    val resultCents: Long? get() = if (incomeCents != null && expensesCents != null) incomeCents - expensesCents else null
+}
+
+/** The separate statements A, B, C, F and E over the units in scope. */
 internal data class AnnexSection(
     val units: List<AnnexPage>,
     /** Only for the scope ALL: the deductions are partial sums, the member count is the federal value. */
     val wholeParty: AnnexPage?,
     val donors: List<DonorLine>,
+    val sponsors: List<SponsorLine> = emptyList(),
+    val youthOrgs: List<YouthOrgLine> = emptyList(),
 )
 
 /** The notes that were switched on, plus the holdings. */

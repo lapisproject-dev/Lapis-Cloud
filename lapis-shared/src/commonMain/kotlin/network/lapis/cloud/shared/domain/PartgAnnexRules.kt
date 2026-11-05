@@ -10,6 +10,9 @@ enum class PartgAnnexViolation {
     COUNTRY_INVALID,
     TOO_MANY,
     OUT_OF_RANGE,
+    ENTRIES_EMPTY,
+    DATE_OUTSIDE_YEAR,
+    DUPLICATE_ID,
 }
 
 /** Pure rules of the R3 inputs, shared by client and server (same function on both sides, pinned by `PartgAnnexRulesTest`). */
@@ -41,7 +44,7 @@ object PartgAnnexRules {
             it.isISOControl() || it == ' ' || it == ' ' || it in '‪'..'‮' || it in '⁦'..'⁩'
         }
 
-    private fun badText(
+    internal fun badText(
         value: String?,
         max: Int,
     ): PartgAnnexViolation? =

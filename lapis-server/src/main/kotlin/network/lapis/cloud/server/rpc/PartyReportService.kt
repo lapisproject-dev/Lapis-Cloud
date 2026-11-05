@@ -10,6 +10,7 @@ import network.lapis.cloud.server.partg.PartgMemberCountSuggestion
 import network.lapis.cloud.server.partg.PartgReportSnapshotReader
 import network.lapis.cloud.server.partg.PartgReportStore
 import network.lapis.cloud.server.partg.PartgSheetWriter
+import network.lapis.cloud.server.partg.PartgStatementStore
 import network.lapis.cloud.server.partg.PartgYearRules
 import network.lapis.cloud.server.partg.report.PartgPlausibility
 import network.lapis.cloud.server.partg.requirePartyReportAccess
@@ -33,10 +34,16 @@ import network.lapis.cloud.shared.domain.PartgPositionHintSnapshot
 import network.lapis.cloud.shared.domain.PartgPositions
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgSheetDto
+import network.lapis.cloud.shared.domain.PartgSponsorDto
+import network.lapis.cloud.shared.domain.PartgSponsorInputDto
+import network.lapis.cloud.shared.domain.PartgSponsoringEntryDto
+import network.lapis.cloud.shared.domain.PartgStatementRules
 import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
 import network.lapis.cloud.shared.domain.PartgValueSource
+import network.lapis.cloud.shared.domain.PartgYouthOrgDto
+import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
 import network.lapis.cloud.shared.rpc.IPartyReportService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportInvalidInputException
@@ -292,6 +299,90 @@ class PartyReportService internal constructor(
         )
     }
 
+    // ---------------------------------------------------------------- R3b (V1.9.283)
+
+    override suspend fun saveSponsor(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        sponsor: PartgSponsorInputDto,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        PartgStatementRules.validateSponsor(input = sponsor, year = year)?.let { throw PartyReportInvalidInputException(it.name) }
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.saveSponsor(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            sponsor = sponsor,
+            now = ServerClock.now(),
+        ) { annexDto(year = year, unit = unit) }
+    }
+
+    override suspend fun deleteSponsor(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        sponsorId: String,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.deleteSponsor(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            sponsorId = sponsorId,
+            now = ServerClock.now(),
+        ) { annexDto(year = year, unit = unit) }
+    }
+
+    override suspend fun saveYouthOrg(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        youthOrg: PartgYouthOrgInputDto,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        PartgStatementRules.validateYouthOrg(youthOrg)?.let { throw PartyReportInvalidInputException(it.name) }
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.saveYouthOrg(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            youthOrg = youthOrg,
+            now = ServerClock.now(),
+        ) { annexDto(year = year, unit = unit) }
+    }
+
+    override suspend fun deleteYouthOrg(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        youthOrgId: String,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.deleteYouthOrg(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            youthOrgId = youthOrgId,
+            now = ServerClock.now(),
+        ) { annexDto(year = year, unit = unit) }
+    }
+
     /** Must run inside a transaction. */
     private fun annexDto(
         year: Int,
@@ -323,6 +414,47 @@ class PartyReportService internal constructor(
                             country = d.country,
                             contributionKind = d.contributionKind,
                             amountCents = d.amountCents,
+                        )
+                    },
+            sponsors =
+                annex
+                    ?.let { PartgStatementStore.sponsors(it.id) }
+                    .orEmpty()
+                    .mapIndexed { index, sp ->
+                        PartgSponsorDto(
+                            id = sp.id.toString(),
+                            rowNumber = index + 1,
+                            personKind = sp.personKind,
+                            name = sp.name,
+                            street = sp.street,
+                            postalCode = sp.postalCode,
+                            city = sp.city,
+                            country = sp.country,
+                            entries =
+                                sp.entries.map {
+                                    PartgSponsoringEntryDto(
+                                        id = it.id.toString(),
+                                        date = it.date,
+                                        amountCents = it.amountCents,
+                                        purpose = it.purpose,
+                                    )
+                                },
+                            yearlySumCents = sp.yearlySumCents,
+                            qualification = PartgStatementRules.qualification(sp.entries.map { it.amountCents }),
+                        )
+                    },
+            youthOrgs =
+                annex
+                    ?.let { PartgStatementStore.youthOrgs(it.id) }
+                    .orEmpty()
+                    .mapIndexed { index, y ->
+                        PartgYouthOrgDto(
+                            id = y.id.toString(),
+                            rowNumber = index + 1,
+                            name = y.name,
+                            relationship = y.relationship,
+                            incomeCents = y.incomeCents,
+                            expensesCents = y.expensesCents,
                         )
                     },
         )

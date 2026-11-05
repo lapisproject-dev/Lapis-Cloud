@@ -965,6 +965,15 @@ col:PartgReportLargeDonorTable.updatedAt	A	PartgAnnexStore: stamped by ServerClo
 col:PartgReportNotesSheetTable.updatedAt	A	PartgAnnexStore: stamped by ServerClock.now()
 col:PartgReportNoteTable.updatedAt	A	PartgAnnexStore: stamped by ServerClock.now()
 col:PartgReportHoldingTable.updatedAt	A	PartgAnnexStore: stamped by ServerClock.now()
+col:PartgReportSponsorTable.createdAt	A	PartgStatementStore: stamped by ServerClock.now()
+col:PartgReportSponsorTable.updatedAt	A	PartgStatementStore: stamped by ServerClock.now()
+col:PartgReportSponsoringEntryTable.createdAt	A	PartgStatementStore: stamped by ServerClock.now()
+col:PartgReportSponsoringEntryTable.updatedAt	A	PartgStatementStore: stamped by ServerClock.now()
+col:PartgReportYouthOrgTable.createdAt	A	PartgStatementStore: stamped by ServerClock.now()
+col:PartgReportYouthOrgTable.updatedAt	A	PartgStatementStore: stamped by ServerClock.now()
+col:PartgReportSponsoringEntryTable.sponsoredOn	D	calendar date (LocalDate); never converted
+dto:PartgSponsoringEntryDto.date	D	calendar date (LocalDate); never converted
+dto:PartgSponsoringEntryInputDto.date	D	calendar date (LocalDate); never converted
 dto:LupaBbSyncStatusDto.setAt	A	when the credentials were stored: ServerClock.now()
 dto:LupaBbLastRunDto.finishedAt	A	end of the applied run: ServerClock.now()
 dto:LupaBbPreviewSummaryDto.expiresAt	A	end of the preview time to live, derived from the server clock

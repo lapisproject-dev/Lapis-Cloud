@@ -326,6 +326,8 @@ class ScrollSurfaceTripwireTest :
                     // V1.9.225: the save bar of the party report entry sticks to the bottom edge of the page while values are being typed in;
                     // it is a plain block (no overflow, no max-height), so it is no scroller either.
                     ".lapis-partg-savebar",
+                    // V1.9.283: the jump bar of the party report tab "Ausweise" sticks to the top edge below 640 px (a plain flex row, no overflow).
+                    ".partg-annex-nav",
                 )
             for (selector in listOf(".lapis-encounter-dock", ".lapis-room-bar-dock")) {
                 val dock = sticky.single { it.selector == selector }

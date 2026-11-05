@@ -58,6 +58,7 @@ internal fun PartyReportContext.openFinding(
     unit: PartgUnitDto?,
 ) {
     if (unit != null) this.unit = unit
+    if (finding.target == PartgFindingTarget.ANNEX) annexFocusBlock = partgFindingBlock(finding)
     openTab(
         when (finding.target) {
             PartgFindingTarget.ANNEX -> PartyReportTab.AUSWEISE

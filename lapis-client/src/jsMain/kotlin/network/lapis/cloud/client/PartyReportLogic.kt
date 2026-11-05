@@ -220,6 +220,10 @@ internal fun partgFindingShortLabel(finding: network.lapis.cloud.shared.domain.P
                 "DEDUCTIONS" -> io.kvision.i18n.gettext("Mindestens ein Abzug fehlt")
                 else -> io.kvision.i18n.gettext("Die allgemeinen Angaben zur Rechnungslegung fehlen")
             }
+        network.lapis.cloud.shared.domain.PartgFindingCode.P07 -> io.kvision.i18n.gettext("Anschrift des Sponsors fehlt")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P08 -> io.kvision.i18n.gettext("Anschrift des Sponsors unvollständig")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P09 -> io.kvision.i18n.gettext("Sponsor unter beiden Grenzen, nicht im Bericht")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P10 -> io.kvision.i18n.gettext("Jugendorganisation ohne Zahlen")
     }
 
 private fun partgNumberLabelOf(code: String): String = PartgPositions.find(code)?.numberLabel ?: code
@@ -252,6 +256,12 @@ internal fun partgAnnexViolationText(violation: network.lapis.cloud.shared.domai
             io.kvision.i18n.gettext(
                 "Der Wert liegt außerhalb des erlaubten Bereichs.",
             )
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.ENTRIES_EMPTY ->
+            io.kvision.i18n.gettext("Bitte mindestens eine Leistung eintragen.")
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.DATE_OUTSIDE_YEAR ->
+            io.kvision.i18n.gettext("Das Datum muss im Berichtsjahr liegen.")
+        network.lapis.cloud.shared.domain.PartgAnnexViolation.DUPLICATE_ID ->
+            io.kvision.i18n.gettext("Eine Leistung kommt doppelt vor.")
     }
 
 /** The order of the tabs on screen; the enum order is only the storage order (new tabs are appended there). */

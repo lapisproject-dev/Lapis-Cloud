@@ -10,6 +10,8 @@ import network.lapis.cloud.shared.domain.PartgFindingTarget
 import network.lapis.cloud.shared.domain.PartgNoteBlock
 import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgPositions
+import network.lapis.cloud.shared.domain.PartgSponsorQualification
+import network.lapis.cloud.shared.domain.PartgStatementRules
 import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
@@ -26,6 +28,12 @@ import kotlin.math.abs
  *  - P05 (INFO): a LEAF position differs from the year before by more than 1,000.00 EUR AND more than 50 percent (integer arithmetic).
  *  - P06 (CHECK): a gap -- member count missing (federal always, state units that have any data), a deduction field missing (units that have an
  *    annex or values), or the accounting-principles note is not included (organisation).
+ *
+ *  - P07 (CHECK): a sponsor of statement C has street, postal code and city all empty (ALL sponsors, also those not in the report).
+ *  - P08 (CHECK): a sponsor has at least one, but not all, of the three empty.
+ *  - P09 (INFO): a sponsor is under both limits and therefore NOT in the report (so the board can delete the row; data minimisation).
+ *  - P10 (CHECK): a youth organisation has neither income nor expenses entered.
+ *    P07..P10 refer to the row number of the sorted list of the unit as the user interface shows it, and carry no name and no amount.
  *
  * At most [PartgAnnexRules.MAX_FINDINGS] findings: when the P05 hints would exceed it they are cut off and ONE P05 INFO without position marks
  * the cut.
@@ -47,6 +55,8 @@ internal object PartgPlausibility {
             if (data != null) {
                 addDonorFindings(unitKey = unit.unitKey, data = data, out = base)
                 addCash(unitKey = unit.unitKey, data = data, out = base)
+                addSponsorFindings(unitKey = unit.unitKey, data = data, out = base)
+                addYouthFindings(unitKey = unit.unitKey, data = data, out = base)
             }
             if (data != null || values.isNotEmpty()) addGapFindings(unit = unit, data = data, out = base)
             if (unit.level == PartgUnitLevel.FEDERAL && data == null) addMemberGap(unitKey = unit.unitKey, out = base)
@@ -112,6 +122,54 @@ internal object PartgPlausibility {
                 finding(code = PartgFindingCode.P02, level = PartgFindingLevel.CHECK, unitKey = unitKey, rows = partial)
         }
         if (legal.isNotEmpty()) out += finding(code = PartgFindingCode.P04, level = PartgFindingLevel.INFO, unitKey = unitKey, rows = legal)
+    }
+
+    private fun addSponsorFindings(
+        unitKey: String,
+        data: PartgAnnexStore.AnnexData,
+        out: MutableList<PartgFindingDto>,
+    ) {
+        val numbered = data.sponsors.withIndex().map { (index, sponsor) -> (index + 1) to sponsor }
+
+        fun empty(s: String?) = s.isNullOrBlank()
+        val noAddress = numbered.filter { (_, d) -> empty(d.street) && empty(d.postalCode) && empty(d.city) }.map { it.first }
+        val partial =
+            numbered
+                .filter { (_, d) -> listOf(d.street, d.postalCode, d.city).count { empty(it) } in 1..2 }
+                .map { it.first }
+        val notInReport =
+            numbered
+                .filter { (_, d) ->
+                    PartgStatementRules.qualification(d.entries.map { it.amountCents }) == PartgSponsorQualification.NONE
+                }.map { it.first }
+        if (noAddress.isNotEmpty()) {
+            out +=
+                finding(code = PartgFindingCode.P07, level = PartgFindingLevel.CHECK, unitKey = unitKey, rows = noAddress)
+        }
+        if (partial.isNotEmpty()) {
+            out +=
+                finding(code = PartgFindingCode.P08, level = PartgFindingLevel.CHECK, unitKey = unitKey, rows = partial)
+        }
+        if (notInReport.isNotEmpty()) {
+            out +=
+                finding(code = PartgFindingCode.P09, level = PartgFindingLevel.INFO, unitKey = unitKey, rows = notInReport)
+        }
+    }
+
+    private fun addYouthFindings(
+        unitKey: String,
+        data: PartgAnnexStore.AnnexData,
+        out: MutableList<PartgFindingDto>,
+    ) {
+        val noFigures =
+            data.youthOrgs
+                .withIndex()
+                .filter { (_, y) -> y.incomeCents == null && y.expensesCents == null }
+                .map { it.index + 1 }
+        if (noFigures.isNotEmpty()) {
+            out +=
+                finding(code = PartgFindingCode.P10, level = PartgFindingLevel.CHECK, unitKey = unitKey, rows = noFigures)
+        }
     }
 
     private fun finding(

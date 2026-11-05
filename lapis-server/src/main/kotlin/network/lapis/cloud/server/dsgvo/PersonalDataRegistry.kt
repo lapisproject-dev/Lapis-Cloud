@@ -152,6 +152,17 @@ object PersonalDataRegistry {
                 "Loeschung erfolgen nur ueber den Vorstand: Zeile ansehen oder loeschen im Reiter 'Ausweise'. Ein " +
                 "Betroffenen-Selbstbedienungsweg ist nicht vorgesehen, eine Loeschroutine nach Fristablauf folgt mit R6. " +
                 "Sichtbar gemacht, nicht geschlossen.",
+            "partg_report_sponsor" to
+                "Welle V1.9.283. PII Dritter (Name, Anschrift) der Sponsoren fuer den gesonderten Ausweis C des " +
+                "Rechenschaftsberichts; kein member-FK. Gespeichert werden ALLE Sponsoren, auch die unter beiden Grenzen " +
+                "(750 EUR einzeln, 6.000 EUR im Jahr), weil die Jahressumme sonst nicht berechenbar ist; der Hinweis P09 " +
+                "macht diese Zeilen sichtbar, damit der Vorstand sie loeschen kann. Auskunft und Loeschung nur ueber den " +
+                "Vorstand im Reiter 'Ausweise'; eine Loeschroutine nach Fristablauf folgt mit R6. Sichtbar gemacht, " +
+                "nicht geschlossen.",
+            "partg_report_sponsoring_entry" to
+                "Welle V1.9.283. Einzelne Leistung eines Sponsors (Datum, Betrag, Zweck als Freitext) und damit " +
+                "personenbezogene Daten Dritter ueber den Sponsor; kein member-FK. Wird zusammen mit dem Sponsor " +
+                "geloescht (partg_report_sponsor). Sichtbar gemacht, nicht geschlossen.",
         )
 
     /**
@@ -169,6 +180,8 @@ object PersonalDataRegistry {
             "open_item",
             "mail_outbox",
             "partg_report_large_donor",
+            "partg_report_sponsor",
+            "partg_report_sponsoring_entry",
         )
 
     /**

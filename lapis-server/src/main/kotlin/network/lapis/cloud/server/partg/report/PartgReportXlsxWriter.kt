@@ -36,6 +36,8 @@ internal object PartgReportXlsxWriter {
     const val SHEET_ANNEX_B = "Ausweis B"
     const val SHEET_MEMBERS = "Mitglieder"
     const val SHEET_EXPLANATIONS = "Erläuterungen"
+    const val SHEET_ANNEX_C = "Ausweis C"
+    const val SHEET_ANNEX_F = "Ausweis F"
 
     private val SHEET_NAMES =
         listOf(
@@ -46,7 +48,9 @@ internal object PartgReportXlsxWriter {
             SHEET_ASSETS,
             SHEET_ANNEX_A,
             SHEET_ANNEX_B,
+            SHEET_ANNEX_C,
             SHEET_MEMBERS,
+            SHEET_ANNEX_F,
             SHEET_EXPLANATIONS,
             SHEET_NOTES,
         )
@@ -111,7 +115,9 @@ internal object PartgReportXlsxWriter {
                 assets(document),
                 annexA(document),
                 annexB(document),
+                annexC(document),
                 members(document),
+                annexF(document),
                 explanations(document),
                 notes(document),
             )
@@ -216,6 +222,9 @@ internal object PartgReportXlsxWriter {
                 note?.let { X.Text(value = it) },
             )
         }
+        // V1.9.283: statement D is not part of this draft; say so instead of leaving the gap silent
+        s.blank()
+        s.add(X.Text(value = PartgReportTexts.ANNEX_D_PLACEHOLDER))
         return s
     }
 
@@ -392,6 +401,92 @@ internal object PartgReportXlsxWriter {
                         },
                 ),
                 X.Euro(cents = d.amountCents),
+            )
+        }
+        return s
+    }
+
+    private fun dateText(d: kotlinx.datetime.LocalDate): String = "%02d.%02d.%04d".format(d.day, (d.month.ordinal + 1), d.year)
+
+    private fun annexC(doc: PartgReportDocument): Sheet {
+        val s = Sheet(listOf(40, 8, 12, 40, 50, 8, 18, 10, 16))
+        s.add(X.Text(value = PartgReportTexts.ANNEX_C, bold = true))
+        s.add(X.Text(value = PartgReportTexts.C_NOTE))
+        s.add(
+            X.Text(value = PartgReportTexts.COL_UNIT, bold = true),
+            X.Text(value = PartgReportTexts.COL_ROW, bold = true),
+            X.Text(value = PartgReportTexts.COL_PERSON_KIND, bold = true),
+            X.Text(value = PartgReportTexts.COL_NAME, bold = true),
+            X.Text(value = PartgReportTexts.COL_ADDRESS, bold = true),
+            X.Text(value = PartgReportTexts.COL_COUNTRY, bold = true),
+            X.Text(value = PartgReportTexts.COL_YEARLY_SUM, bold = true),
+            X.Text(value = PartgReportTexts.COL_ENTRY_COUNT, bold = true),
+            X.Text(value = PartgReportTexts.COL_REASON, bold = true),
+        )
+        if (doc.annex.sponsors.isEmpty()) s.add(X.Text(value = PartgReportTexts.NO_ENTRIES))
+        doc.annex.sponsors.forEach { sp ->
+            s.add(
+                X.Text(value = sp.unitLabel),
+                X.Text(value = sp.rowNumber.toString()),
+                X.Text(
+                    value =
+                        if (sp.personKind ==
+                            PartgPersonKind.LEGAL
+                        ) {
+                            PartgReportTexts.PERSON_LEGAL
+                        } else {
+                            PartgReportTexts.PERSON_NATURAL
+                        },
+                ),
+                X.Text(value = sp.name),
+                X.Text(value = sp.addressLine),
+                X.Text(value = sp.country),
+                X.Euro(cents = sp.yearlySumCents),
+                X.Num(value = sp.entryCount.toLong()),
+                X.Text(value = PartgReportTexts.reason(sp.qualification)),
+            )
+            // the single services above the limit: no person columns, date / amount / purpose in the columns of name, address and sum
+            sp.singleEntries.forEach { e ->
+                s.add(
+                    null,
+                    null,
+                    null,
+                    X.Text(value = "${PartgReportTexts.COL_DATE}: ${dateText(e.date)}"),
+                    X.Text(value = "${PartgReportTexts.COL_PURPOSE}: ${e.purpose.orEmpty()}"),
+                    null,
+                    X.Euro(cents = e.amountCents),
+                    null,
+                    X.Text(value = PartgReportTexts.REASON_SINGLE),
+                )
+            }
+        }
+        return s
+    }
+
+    private fun annexF(doc: PartgReportDocument): Sheet {
+        val s = Sheet(listOf(40, 8, 40, 40, 18, 18, 18))
+        s.add(X.Text(value = PartgReportTexts.ANNEX_F, bold = true))
+        s.add(
+            X.Text(value = PartgReportTexts.COL_UNIT, bold = true),
+            X.Text(value = PartgReportTexts.COL_ROW, bold = true),
+            X.Text(value = PartgReportTexts.COL_NAME, bold = true),
+            X.Text(value = PartgReportTexts.COL_RELATIONSHIP, bold = true),
+            X.Text(value = PartgReportTexts.COL_INCOME, bold = true),
+            X.Text(value = PartgReportTexts.COL_EXPENSES, bold = true),
+            X.Text(value = PartgReportTexts.COL_RESULT, bold = true),
+        )
+        if (doc.annex.youthOrgs.isEmpty()) s.add(X.Text(value = PartgReportTexts.NO_ENTRIES))
+
+        fun euroOrNone(cents: Long?): X = cents?.let { X.Euro(cents = it) } ?: X.Text(value = PartgReportTexts.NOT_ENTERED_LONG)
+        doc.annex.youthOrgs.forEach { y ->
+            s.add(
+                X.Text(value = y.unitLabel),
+                X.Text(value = y.rowNumber.toString()),
+                X.Text(value = y.name),
+                X.Text(value = y.relationship.orEmpty()),
+                euroOrNone(y.incomeCents),
+                euroOrNone(y.expensesCents),
+                y.resultCents?.let { X.Euro(cents = it) } ?: X.Text(value = PartgReportTexts.NOT_COMPUTABLE_LONG),
             )
         }
         return s

@@ -1,6 +1,8 @@
 package network.lapis.cloud.server.partg.report
 
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.partg.PartgAnnexStore
+import network.lapis.cloud.server.partg.PartgStatementStore
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgHoldingDto
@@ -138,6 +140,99 @@ internal object ReportFixtures {
                         ),
                 ),
         )
+
+    fun entry(
+        date: LocalDate = LocalDate(YEAR, 3, 1),
+        cents: Long,
+        purpose: String? = null,
+    ) = PartgStatementStore.EntryRow(id = Uuid.random(), sponsorId = Uuid.random(), date = date, amountCents = cents, purpose = purpose)
+
+    fun sponsor(
+        name: String,
+        entries: List<PartgStatementStore.EntryRow>,
+        kind: PartgPersonKind = PartgPersonKind.LEGAL,
+        street: String? = "Hauptstraße 1",
+        postal: String? = "10115",
+        city: String? = "Berlin",
+    ) = PartgStatementStore.SponsorRow(
+        id = Uuid.random(),
+        annexId = Uuid.random(),
+        personKind = kind,
+        name = name,
+        street = street,
+        postalCode = postal,
+        city = city,
+        country = "DE",
+        entries = PartgStatementStore.sortEntries(entries),
+    )
+
+    /** Hostile names and purposes on purpose; one sponsor under both limits (must NOT be exported), one with a single service, one yearly. */
+    fun federalSponsors(): List<PartgStatementStore.SponsorRow> =
+        PartgStatementStore.sortSponsors(
+            listOf(
+                sponsor(
+                    name = "=cmd|' /C calc'!A0",
+                    entries = listOf(entry(cents = 75_001L, purpose = "+1 Zweck"), entry(cents = 10_000L)),
+                ),
+                sponsor(name = "Jahres GmbH", entries = List(9) { entry(cents = 75_000L, purpose = "@x") }),
+                sponsor(name = "Beide & Söhne <AG>", entries = listOf(entry(cents = 700_000L, purpose = "Иван"))),
+                sponsor(name = "Unter den Grenzen", entries = List(8) { entry(cents = 74_999L) }, street = null),
+            ),
+        )
+
+    fun federalYouthOrgs(): List<PartgStatementStore.YouthOrgRow> =
+        PartgStatementStore.sortYouthOrgs(
+            listOf(
+                PartgStatementStore.YouthOrgRow(
+                    id = Uuid.random(),
+                    annexId = Uuid.random(),
+                    name = "-Jugend Alpha",
+                    relationship = "=Vereinigung",
+                    incomeCents = 500_000L,
+                    expensesCents = 400_000L,
+                ),
+                PartgStatementStore.YouthOrgRow(
+                    id = Uuid.random(),
+                    annexId = Uuid.random(),
+                    name = "Jugend Beta",
+                    relationship = null,
+                    incomeCents = null,
+                    expensesCents = null,
+                ),
+            ),
+        )
+
+    /** The R3 data plus statements C and F of the federal unit. */
+    fun annexDataR3b(): Map<Int, Map<String, PartgAnnexStore.AnnexData>> {
+        val base = annexData()
+        val federal = base.getValue(YEAR).getValue(PartgUnit.FEDERAL_KEY)
+        return mapOf(
+            YEAR to
+                base.getValue(YEAR) +
+                (PartgUnit.FEDERAL_KEY to federal.copy(sponsors = federalSponsors(), youthOrgs = federalYouthOrgs())),
+        )
+    }
+
+    fun docR3b(scope: PartgReportScope = PartgReportScope.All): PartgReportDocument {
+        val findings =
+            PartgPlausibility.check(
+                year = YEAR,
+                units = units(),
+                entered = entered(),
+                annex = annexDataR3b(),
+                notes = notesData(),
+            )
+        return PartgReportAssembler.assemble(
+            organizationName = "Test Partei e.V.",
+            year = YEAR,
+            scope = scope,
+            units = units(),
+            entered = entered(),
+            annex = annexDataR3b(),
+            notes = notesData(),
+            findings = findings,
+        )
+    }
 
     fun notesData(): Map<Int, PartgAnnexStore.NotesData> =
         mapOf(

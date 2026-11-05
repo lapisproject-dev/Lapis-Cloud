@@ -70,6 +70,10 @@ internal object PartgAnnexStore {
         val memberCount: Int?,
         /** Sorted like [sortDonors]. */
         val donors: List<DonorRow>,
+        /** V1.9.283: sorted like [PartgStatementStore.sortSponsors]. */
+        val sponsors: List<PartgStatementStore.SponsorRow> = emptyList(),
+        /** V1.9.283: sorted like [PartgStatementStore.sortYouthOrgs]. */
+        val youthOrgs: List<PartgStatementStore.YouthOrgRow> = emptyList(),
     )
 
     data class NotesData(
@@ -512,6 +516,8 @@ internal object PartgAnnexStore {
                     .map(::toDonorRow)
                     .groupBy { it.annexId }
             }
+        val sponsorsByAnnex = PartgStatementStore.sponsorsByAnnex(headers.map { it.id })
+        val youthOrgsByAnnex = PartgStatementStore.youthOrgsByAnnex(headers.map { it.id })
         val annex = HashMap<Int, HashMap<String, AnnexData>>()
         headers.forEach { header ->
             annex.getOrPut(header.year) { HashMap() }[header.unitKey] =
@@ -520,6 +526,8 @@ internal object PartgAnnexStore {
                     deductions = header.deductions,
                     memberCount = header.memberCount,
                     donors = sortDonors(donorsByAnnex[header.id].orEmpty()),
+                    sponsors = sponsorsByAnnex[header.id].orEmpty(),
+                    youthOrgs = youthOrgsByAnnex[header.id].orEmpty(),
                 )
         }
         val notes = HashMap<Int, NotesData>()

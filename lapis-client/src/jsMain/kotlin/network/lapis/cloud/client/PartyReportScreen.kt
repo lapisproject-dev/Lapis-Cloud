@@ -35,6 +35,9 @@ internal class PartyReportContext(
 
     /** V1.9.269: switches to a tab (set by the page); the link of a plausibility hint uses it. */
     var openTab: (PartyReportTab) -> Unit = {}
+
+    /** V1.9.283: the block of the tab "Ausweise" that a hint link asks to open; consumed (reset) when the tab is rendered. */
+    var annexFocusBlock: AnnexBlock? = null
 }
 
 private const val TAB_STORAGE_KEY = "lapis.partyReport.tab"

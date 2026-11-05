@@ -145,7 +145,8 @@ class PartgReportR3XlsxTest :
         val xlsx = readXlsx(PartgReportXlsxWriter.write(ReportFixtures.docR3()))
 
         test("the new sheets come before the hints sheet in the documented order") {
-            xlsx.sheetNames.takeLast(5) shouldContainExactly listOf("Ausweis A", "Ausweis B", "Mitglieder", "Erläuterungen", "Hinweise")
+            xlsx.sheetNames.takeLast(7) shouldContainExactly
+                listOf("Ausweis A", "Ausweis B", "Ausweis C", "Mitglieder", "Ausweis F", "Erläuterungen", "Hinweise")
         }
 
         test("no cell is a formula, whatever the donor name looks like") {

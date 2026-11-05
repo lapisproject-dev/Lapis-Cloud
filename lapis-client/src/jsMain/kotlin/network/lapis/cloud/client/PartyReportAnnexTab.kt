@@ -35,14 +35,11 @@ private class AnnexLoad(
 )
 
 /** The element that gets the focus once the next render of the tab is done (the row that was just saved, or the add button). */
-private var pendingFocusId: String? = null
+internal var pendingFocusId: String? = null
 
-private const val FOCUS_RETRY_MS = 120
+internal const val ANNEX_FOCUS_RETRY_MS = 120
 
-/** Counts the open donor forms: a late focus call of a form that is closed (or replaced) by now must do nothing. */
-private var formGeneration = 0
-
-private fun focusElement(id: String) {
+internal fun focusElement(id: String) {
     window.setTimeout({ (document.getElementById(id) as? HTMLElement)?.focus() }, 0)
 }
 
@@ -59,7 +56,7 @@ private fun deductionLabel(deduction: PartgDeduction): String =
         PartgDeduction.WRONGLY_REPORTED -> tr("Fälschlich gemeldete Spenden")
     }
 
-private fun amountRule(text: String): FieldCheck =
+internal fun amountRule(text: String): FieldCheck =
     if (text.isBlank()) {
         FieldCheck.Ok
     } else {
@@ -69,7 +66,7 @@ private fun amountRule(text: String): FieldCheck =
         }
     }
 
-private fun centsOf(text: String): Long? = (parseGermanAmount(text) as? AmountParse.Ok)?.cents.takeIf { text.isNotBlank() }
+internal fun centsOf(text: String): Long? = (parseGermanAmount(text) as? AmountParse.Ok)?.cents.takeIf { text.isNotBlank() }
 
 private fun memberCountRule(text: String): FieldCheck =
     if (text.isBlank() || text.trim().toIntOrNull()?.let { it in 0..PartgAnnexRules.MEMBER_COUNT_MAX } == true) {
@@ -156,172 +153,242 @@ private fun SimplePanel.renderAnnexBody(
 ) {
     val annex = loaded.annex
     val unit = annex.unit
-    var donorFormOpen = false
+    // ONE open form for the whole tab (donor, sponsor, youth organisation)
+    val guard = AnnexEditorGuard()
     // every save bumps the server revision; the tab stays rendered when the user keeps editing, so it must follow along
     var currentAnnex = annex
     var currentRevision = annex.revision
     var renderDonors: () -> Unit = {}
     lateinit var figureFields: List<LapisField>
     var initialFigures: List<String> = emptyList()
-    context.hasUnsavedChanges = { donorFormOpen || (figureFields.map { it.value } != initialFigures) }
+    context.hasUnsavedChanges = { guard.open || (figureFields.map { it.value } != initialFigures) }
     // a reload after one section was saved must not silently drop the other section's unsaved input
-    val reload = { if (context.hasUnsavedChanges()) confirmDiscardInputs(reloadUnchecked) else reloadUnchecked() }
+    // [block] is the block the user was working in: it stays open after the reload (and keeps the focus target visible)
+    val reloadIn = { block: AnnexBlock? ->
+        val doReload = {
+            if (block != null) context.annexFocusBlock = block
+            reloadUnchecked()
+        }
+        if (context.hasUnsavedChanges()) confirmDiscardInputs(doReload) else doReload()
+    }
 
     div(unitLabel(unit), className = "fw-semibold")
 
+    val counts = partgBlockCounts(loaded.findings, unit.unitKey)
+    val focus = context.annexFocusBlock
+    context.annexFocusBlock = null
+    val openBlock = partgDefaultOpenBlock(counts, focus)
+    val blocks = HashMap<AnnexBlock, CollapsibleBlock>()
+    annexNav(counts) { target ->
+        blocks[target.host]?.setOpen(true)
+        window.setTimeout(
+            {
+                (document.getElementById(target.anchor) as? HTMLElement)?.scrollIntoView()
+                blocks[target.host]?.focusToggle()
+            },
+            0,
+        )
+    }
+
     // ---- A and E
-    div(tr("A: Abzüge bei der Spendenbehandlung"), className = "fw-semibold mt-2")
-    val figures = lapisForm()
-    figures.panel.div(tr("Leer bedeutet nicht erfasst, 0 ist ein Wert."), className = "small text-muted")
-    val deductionFields =
-        PartgDeduction.entries.map { d ->
-            figures.textField(
-                label = deductionLabel(d),
-                value = annex.deductions[d]?.let(::partgInputText),
-                rule = ::amountRule,
-                init = { it.inputMode("decimal") },
-            )
-        }
-    figures.panel.div(tr("Mitgliederzahl zum 31.12."), className = "fw-semibold mt-2")
-    val memberField =
-        figures.textField(
-            label = tr("Mitgliederzahl zum 31.12."),
-            value = annex.memberCount?.toString(),
-            rule = ::memberCountRule,
-            init = { it.inputMode("numeric") },
-        )
-    val suggestion = annex.memberCountSuggestion
-    if (suggestion != null) {
-        figures.panel.div(className = "small d-flex flex-wrap align-items-center gap-2") {
-            setAttribute("data-partg-suggestion", "1")
-            span(
-                gettext("Heute im Mitgliederregister: %1 (Stand %2, nicht der 31.12.)", suggestion.count, partgGermanDate(suggestion.asOf)),
-            )
-            actionButton(ActionIcon.ADD, tr("Vorschlag übernehmen"), small = true) {
-                onClick { memberField.setValue(suggestion.count.toString()) }
+    blocks[AnnexBlock.A] =
+        collapsibleBlock(AnnexBlock.A, tr("A: Abzüge bei der Spendenbehandlung"), openBlock == AnnexBlock.A) {
+            val figures = lapisForm()
+            figures.panel.div(tr("Leer bedeutet nicht erfasst, 0 ist ein Wert."), className = "small text-muted")
+            val deductionFields =
+                PartgDeduction.entries.map { d ->
+                    figures.textField(
+                        label = deductionLabel(d),
+                        value = annex.deductions[d]?.let(::partgInputText),
+                        rule = ::amountRule,
+                        init = { it.inputMode("decimal") },
+                    )
+                }
+            figures.panel.div(tr("Mitgliederzahl zum 31.12."), className = "fw-semibold mt-2") { id = AnnexBlock.MEMBERS.anchor }
+            val memberField =
+                figures.textField(
+                    label = tr("Mitgliederzahl zum 31.12."),
+                    value = annex.memberCount?.toString(),
+                    rule = ::memberCountRule,
+                    init = { it.inputMode("numeric") },
+                )
+            val suggestion = annex.memberCountSuggestion
+            if (suggestion != null) {
+                figures.panel.div(className = "small d-flex flex-wrap align-items-center gap-2") {
+                    setAttribute("data-partg-suggestion", "1")
+                    span(
+                        gettext(
+                            "Heute im Mitgliederregister: %1 (Stand %2, nicht der 31.12.)",
+                            suggestion.count,
+                            partgGermanDate(suggestion.asOf),
+                        ),
+                    )
+                    actionButton(ActionIcon.ADD, tr("Vorschlag übernehmen"), small = true) {
+                        onClick { memberField.setValue(suggestion.count.toString()) }
+                    }
+                }
+            } else if (unit.level == network.lapis.cloud.shared.domain.PartgUnitLevel.SUBORDINATE) {
+                figures.panel.div(
+                    tr("Für nachgeordnete Gebietsverbände kennt das Mitgliederregister keine Zahl."),
+                    className = "small text-muted",
+                )
+            }
+            figureFields = deductionFields + memberField
+            initialFigures = figureFields.map { it.value }
+            val saveFigures = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
+            val discardFigures = newActionButton(ActionIcon.UNDO, tr("Verwerfen"))
+            figures.buttons(primary = saveFigures, cancel = discardFigures)
+            discardFigures.onClick { figureFields.forEachIndexed { i, f -> f.setValue(initialFigures[i]) } }
+            saveFigures.onClick {
+                figures.submit(saveFigures) {
+                    val deductions = PartgDeduction.entries.zip(deductionFields).associate { (d, f) -> d to centsOf(f.value) }
+                    val members =
+                        memberField.value
+                            .trim()
+                            .ifEmpty { null }
+                            ?.toIntOrNull()
+                    PartgAnnexRules.validateFigures(deductions, members)?.let {
+                        figures.showFormError(partgAnnexViolationText(it))
+                        return@submit
+                    }
+                    val result =
+                        guarded { partyReportRpc().saveAnnexFigures(annex.year, unit.unitKey, currentRevision, deductions, members) }
+                    if (result != null) {
+                        currentRevision = result.revision
+                        currentAnnex = result
+                        // the saved values are the new baseline, so later edits are still detected as unsaved
+                        initialFigures = figureFields.map { it.value }
+                        renderDonors()
+                        notifySuccess(tr("Gespeichert."))
+                        reloadIn(AnnexBlock.A)
+                    } else {
+                        figures.showFormError(saveFailedText())
+                    }
+                }
             }
         }
-    } else if (unit.level == network.lapis.cloud.shared.domain.PartgUnitLevel.SUBORDINATE) {
-        figures.panel.div(
-            tr("Für nachgeordnete Gebietsverbände kennt das Mitgliederregister keine Zahl."),
-            className = "small text-muted",
-        )
-    }
-    figureFields = deductionFields + memberField
-    initialFigures = figureFields.map { it.value }
-    val saveFigures = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
-    val discardFigures = newActionButton(ActionIcon.UNDO, tr("Verwerfen"))
-    figures.buttons(primary = saveFigures, cancel = discardFigures)
-    discardFigures.onClick { figureFields.forEachIndexed { i, f -> f.setValue(initialFigures[i]) } }
-    saveFigures.onClick {
-        figures.submit(saveFigures) {
-            val deductions = PartgDeduction.entries.zip(deductionFields).associate { (d, f) -> d to centsOf(f.value) }
-            val members =
-                memberField.value
-                    .trim()
-                    .ifEmpty { null }
-                    ?.toIntOrNull()
-            PartgAnnexRules.validateFigures(deductions, members)?.let {
-                figures.showFormError(partgAnnexViolationText(it))
-                return@submit
-            }
-            val result = guarded { partyReportRpc().saveAnnexFigures(annex.year, unit.unitKey, currentRevision, deductions, members) }
-            if (result != null) {
-                currentRevision = result.revision
-                currentAnnex = result
-                // the saved values are the new baseline, so later edits are still detected as unsaved
-                initialFigures = figureFields.map { it.value }
-                renderDonors()
-                notifySuccess(tr("Gespeichert."))
-                reload()
-            } else {
-                figures.showFormError(saveFailedText())
-            }
-        }
-    }
 
     // ---- B
-    div(tr("B: Spenden und Beiträge über 10.000 € je Person und Jahr"), className = "fw-semibold mt-3")
-    div(
-        tr(
-            "Nur Vorstand und Admin sehen diese Liste. Aufzunehmen sind Personen mit mehr als 10.000 € pro Jahr an diese Gliederung. " +
-                "Beträge an mehrere Gebietsverbände werden noch nicht zusammengeführt.",
-        ),
-        className = "small text-muted",
-    )
-    val formHost = simplePanel()
-    val donorHost = simplePanel()
+    blocks[AnnexBlock.B] =
+        collapsibleBlock(AnnexBlock.B, tr("B: Spenden und Beiträge über 10.000 € je Person und Jahr"), openBlock == AnnexBlock.B) {
+            div(
+                tr(
+                    "Nur Vorstand und Admin sehen diese Liste. Aufzunehmen sind Personen mit mehr als 10.000 € " +
+                        "pro Jahr an diese Gliederung. " +
+                        "Beträge an mehrere Gebietsverbände werden noch nicht zusammengeführt.",
+                ),
+                className = "small text-muted",
+            )
+            val formHost = simplePanel()
+            val donorHost = simplePanel()
 
-    fun closeDonorForm(focusId: String) {
-        formGeneration++
-        formHost.removeAll()
-        donorFormOpen = false
-        focusElement(focusId)
-    }
+            fun closeDonorForm(focusId: String) {
+                formHost.removeAll()
+                guard.close()
+                focusElement(focusId)
+            }
 
-    fun openDonorForm(existing: PartgLargeDonorDto?) {
-        val open = {
-            formGeneration++
-            formHost.removeAll()
-            donorFormOpen = true
-            formHost.renderDonorForm(
-                annex = currentAnnex,
-                revision = { currentRevision },
-                existing = existing,
-                onCancel = { closeDonorForm(existing?.let { "partg-donor-edit-${it.id}" } ?: "partg-donor-add") },
-                onSaved = { saved ->
-                    currentRevision = saved.revision
-                    currentAnnex = saved
-                    renderDonors()
-                    formGeneration++
+            fun openDonorForm(existing: PartgLargeDonorDto?) {
+                val open = {
+                    guard.begin { formHost.removeAll() }
                     formHost.removeAll()
-                    donorFormOpen = false
-                    pendingFocusId = existing?.let { "partg-donor-edit-${it.id}" } ?: "partg-donor-add"
-                    reload()
-                },
-            )
-        }
-        if (donorFormOpen) confirmDiscardInputs(open) else open()
-    }
+                    formHost.renderDonorForm(
+                        annex = currentAnnex,
+                        revision = { currentRevision },
+                        guard = guard,
+                        existing = existing,
+                        onCancel = { closeDonorForm(existing?.let { "partg-donor-edit-${it.id}" } ?: "partg-donor-add") },
+                        onSaved = { saved ->
+                            currentRevision = saved.revision
+                            currentAnnex = saved
+                            renderDonors()
+                            formHost.removeAll()
+                            guard.close()
+                            pendingFocusId = existing?.let { "partg-donor-edit-${it.id}" } ?: "partg-donor-add"
+                            reloadIn(AnnexBlock.B)
+                        },
+                    )
+                }
+                if (guard.open) confirmDiscardInputs(open) else open()
+            }
 
-    val unitFindings = loaded.findings.filter { it.unitKey == unit.unitKey && it.rowNumbers.isNotEmpty() }
-    // the table follows the latest server answer, so it stays correct when a reload is declined after a save
-    renderDonors = {
-        donorHost.removeAll()
-        if (currentAnnex.donors.isEmpty()) {
-            donorHost.div(tr("Noch keine Einträge."), className = "small text-muted")
-        } else {
-            donorHost.renderDonorTable(
-                currentAnnex,
-                unitFindings,
-                revision = { currentRevision },
-                onEdit = ::openDonorForm,
-                onDeleted = {
-                    currentRevision = it.revision
-                    currentAnnex = it
-                    renderDonors()
-                    reload()
-                },
-            )
+            val unitFindings =
+                loaded.findings.filter {
+                    partgFindingBlock(it) == AnnexBlock.B &&
+                        it.unitKey == unit.unitKey &&
+                        it.rowNumbers.isNotEmpty()
+                }
+            // the table follows the latest server answer, so it stays correct when a reload is declined after a save
+            renderDonors = {
+                donorHost.removeAll()
+                if (currentAnnex.donors.isEmpty()) {
+                    donorHost.div(tr("Noch keine Einträge."), className = "small text-muted")
+                } else {
+                    donorHost.renderDonorTable(
+                        currentAnnex,
+                        unitFindings,
+                        revision = { currentRevision },
+                        onEdit = ::openDonorForm,
+                        onDeleted = {
+                            currentRevision = it.revision
+                            currentAnnex = it
+                            renderDonors()
+                            reloadIn(AnnexBlock.B)
+                        },
+                    )
+                }
+            }
+            renderDonors()
+            add(donorHost)
+            actionGroup {
+                actionButton(ActionIcon.ADD, tr("Zeile hinzufügen")) {
+                    id = "partg-donor-add"
+                    onClick { openDonorForm(null) }
+                }
+                actionButton(ActionIcon.REFRESH, tr("Neu laden")) { onClick { reloadIn(AnnexBlock.B) } }
+            }
+            add(formHost)
         }
-    }
-    renderDonors()
-    add(donorHost)
-    actionGroup {
-        actionButton(ActionIcon.ADD, tr("Zeile hinzufügen")) {
-            id = "partg-donor-add"
-            onClick { openDonorForm(null) }
+
+    // ---- C, D, F
+    val env =
+        StatementEnv(
+            annex = { currentAnnex },
+            revision = { currentRevision },
+            apply = {
+                currentRevision = it.revision
+                currentAnnex = it
+            },
+            reload = reloadIn,
+            guard = guard,
+            findings = loaded.findings.filter { it.unitKey == unit.unitKey },
+        )
+    blocks[AnnexBlock.C] =
+        collapsibleBlock(AnnexBlock.C, tr("C: Sponsoring (Entwurf)"), openBlock == AnnexBlock.C) { renderSponsoringBlock(env) }
+    blocks[AnnexBlock.D] =
+        collapsibleBlock(AnnexBlock.D, tr("D: Unternehmenstätigkeit (Entwurf)"), openBlock == AnnexBlock.D) {
+            // not editable: statement D follows with R3c; the holdings are entered in the notes
+            div(
+                tr(
+                    "Ausweis D (Unternehmenstätigkeit) ist noch nicht erfasst. Folgt mit R3c. " +
+                        "Beteiligungen tragen Sie unter Erläuterungen ein.",
+                ),
+                className = "small",
+            ) { setAttribute("data-partg-annex-d", "placeholder") }
+            actionGroup {
+                actionButton(ActionIcon.NEXT, tr("Zu den Erläuterungen")) { onClick { context.openTab(PartyReportTab.ERLAEUTERUNGEN) } }
+            }
         }
-        actionButton(ActionIcon.REFRESH, tr("Neu laden")) { onClick { reload() } }
-    }
-    add(formHost)
+    blocks[AnnexBlock.F] =
+        collapsibleBlock(AnnexBlock.F, tr("F: Jugendorganisationen (Entwurf)"), openBlock == AnnexBlock.F) { renderYouthBlock(env) }
+
     pendingFocusId?.let { focusId ->
         pendingFocusId = null
         focusElement(focusId)
     }
 }
 
-private fun saveFailedText(): String =
+internal fun saveFailedText(): String =
     gettext(
         "Das Speichern ist nicht gelungen, oder die Daten wurden inzwischen von jemand anderem geändert. " +
             "Mit „Neu laden“ sehen Sie den aktuellen Stand; Ihre Eingaben gehen dabei verloren.",
@@ -403,6 +470,7 @@ private fun deleteDonor(
 private fun Container.renderDonorForm(
     annex: PartgAnnexDto,
     revision: () -> Long,
+    guard: AnnexEditorGuard,
     existing: PartgLargeDonorDto?,
     onCancel: () -> Unit,
     onSaved: (PartgAnnexDto) -> Unit,
@@ -497,8 +565,8 @@ private fun Container.renderDonorForm(
     kindField.focusWhenInserted()
     // the insert hook alone is not reliable for a select that is added to a page which is already on screen: ask again a moment later,
     // but only while this very form is still the open one
-    val mine = formGeneration
-    window.setTimeout({ if (mine == formGeneration) kindField.focus() }, FOCUS_RETRY_MS)
+    val mine = guard.generation
+    window.setTimeout({ if (mine == guard.generation) kindField.focus() }, ANNEX_FOCUS_RETRY_MS)
 }
 
 private fun personKindLabel(kind: PartgPersonKind): String =

@@ -1,4 +1,4 @@
-= Party accountability report: positions, entry, Excel import, report draft and separate statements (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3)
+= Party accountability report: positions, entry, Excel import, report draft and separate statements (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3, V1.9.283 R3b)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -47,7 +47,7 @@ and `(unvollst.)`, and a footnote names the missing positions per unit. A share 
 surplus, with shares of the total income and the total expenses, the year before beside it, and a table by level); the income matrix (one row per unit and the whole party, one column per income
 position, report year first, then the year before); the expenses per unit; the assets and liabilities per unit (without share columns). Every page carries the header line, "Seite x von y", the
 legend and a diagonal watermark behind the content. All sums include the subsidies between branches and are **not consolidated** (that follows in a later wave); the summary says so.
-*Layout of the XLSX*:: ten fixed sheets: Vollständigkeit, Zusammenfassung, Einnahmen, Ausgaben, Vermögen, Ausweis A, Ausweis B, Mitglieder, Erläuterungen, Hinweise (the last four of the first block are R3). Row 1 of every sheet is the PDF header line, the table starts in row 3 in the order
+*Layout of the XLSX*:: twelve fixed sheets: Vollständigkeit, Zusammenfassung, Einnahmen, Ausgaben, Vermögen, Ausweis A, Ausweis B, Ausweis C, Mitglieder, Ausweis F, Erläuterungen, Hinweise (from Ausweis A on they are R3/R3b; D has no sheet, the completeness sheet says it is not recorded). Row 1 of every sheet is the PDF header line, the table starts in row 3 in the order
 of the PDF. Amounts are real numbers (euro format, a negative result stays negative), shares are fractions with the format `0.0%`. There is no formula, no macro and no shared string; text that starts with
 `=`, `+`, `-` or `@` is stored with the quote-prefix style.
 *Audit*:: every successful export writes one entry (`PARTG_REPORT_EXPORT`, action `CREATE`) with the format, year, scope and counters. It holds no amount and no name.
@@ -105,6 +105,14 @@ amount. **Only more than 10,000.00 EUR is stored** (client, service and a databa
 amount (descending), name, id, so the *row number* of a hint changes when an amount changes. The PDF replaces characters outside WinAnsi (for instance Cyrillic) by `?`; the Excel file keeps them.
 *Limit*:: the rule is applied **per unit and row**. A person with 6,000 EUR to the federal unit and 6,000 EUR to a state unit is in neither list; combining a person over units is R5 (open question Q1).
 
+== Statements C and F (R3b, V1.9.283)
+
+*C, sponsoring (draft)*:: one row per sponsor and unit with all of its services (date in the report year, amount, optional purpose). **All** sponsors and services are stored; whether a sponsor is part of the report is *computed*: a single service strictly above 750.00 EUR, or a yearly sum strictly above 6,000.00 EUR, per sponsor and unit (like B, services to several units are not combined). The PDF and XLSX list only these sponsors, with the reason (Einzelleistung, Jahressumme, beides) and, indented below, the single services above 750.00 EUR. The screen shows the state while typing (debounced 400 ms, `aria-live="polite"`, symbol plus words). Caps: 500 sponsors, 100 services per sponsor, 2000 per unit and year. Hints: P07/P08 (address missing/incomplete, all sponsors), P09 (under both limits, not in the report).
+*D, business activity*:: *not recorded*. The screen shows a non-editable placeholder, the PDF a paragraph and the XLSX completeness sheet a line. Reason: the totals of the business activity already exist as the R1 positions E05 and A02F and the holdings are in the notes (name, seat, share, capital, result); a third form would risk double entry, and the columns of the official sample for D are unknown. Follows with R3c.
+*F, youth organisations (draft)*:: name, relationship to the party (free text), income, expenses (each optional, empty = not entered); the result is computed (income minus expenses) and "nicht berechenbar" when one figure is missing. At most 20 per unit and year. Hint P10 (no figures).
+*Pre-fill of B*:: not built. `journal_entry` has person keys, but neither it nor `posting`, `ledger_account` or `cost_center` has a reference to `regional_chapter`; a suggestion per unit would have to guess the unit (R5).
+*Headings*:: "(Entwurf)" and no section number: the official layout and the paragraph references (section 24 (8a) and (12) PartG, per the owner's summary) are *unverified*.
+
 [[notes]]
 == Notes (R3)
 
@@ -134,7 +142,7 @@ At most 2,000 hints; when P05 would exceed that, the remaining ones are cut off 
 == What R1, R2 and R3 do not do
 
 * R2 and R3 produce a draft only. No official, filed or audited report; no consolidation of the subsidies between branches (R5); no signature, no submission (R6).
-* **R3b (not done yet):** C sponsoring report (over 750 EUR single, over 6,000 EUR per year and unit), D enterprise activity, F youth organisations, and an optional pre-fill of B from `external_donor` or booked donations.
+* **R3b (done):** C sponsoring and F youth organisations. **R3c (open):** D enterprise activity. **Pre-fill of B: not built** (no unit on the booking tables, see above), goes to R5.
 * **R4:** mapping from the ledger accounts to the positions. **R5:** consolidation and combining a person over units. **R6:** workflow, auditor access, deadlines and the deletion routine after the retention period.
 * R3 deletes nothing automatically: the board removes a row by hand; the ten-year retention (section 24 (2) PartG, per the concept note) is not enforced by code.
 
@@ -154,6 +162,14 @@ At most 2,000 hints; when P05 would exceed that, the remaining ones are cut off 
 . **Q3 (R3): who is a member?** The suggestion counts `ACTIVE` members that are not anonymised (as the public statistics do). Family members, guests, friends and donors do not count. The board has to confirm that.
 . **Q4 (R3): who deletes after the retention period?** Nothing is deleted automatically; a deletion routine would come with R6.
 . **Q5 (R3): are P05 and P06 part of the sample or only a convenience?** They are hints only; the risk of a wrong one is low.
+. **Q6 (R3b): C per unit or for the whole party?** Implemented per sponsor and unit (like B); combining a sponsor over units would be R5.
+. **Q7 (R3b): sponsoring versus donation.** What counts as sponsoring (service in return) and what as a donation is a legal question; the board decides per entry.
+. **Q8 (R3b): which services does the sample list** when the yearly-sum rule applies? R3b lists only services above 750.00 EUR singly.
+. **Q9 (R3b): official layout of C, D and F** (columns, order, headings) is unknown.
+. **Q10 (R3b): relationship to the party in F** is free text; how the sample determines it is unknown.
+. **Q11 (R3b): D versus the holdings and E05/A02F:** what D asks beyond them.
+. **Q12 (R3b): pre-fill of B without a unit on the bookings** (R5).
+. **Q13 (R3b): data minimisation.** Sponsors under both limits are stored (the yearly sum needs them) although their data is not in the report; P09 makes them visible. Is that acceptable?
 . **Before R4 (not decided here):** are the books kept centrally at the federal unit or in separate ledgers of the units?
 
 . **Summary content.** The sample was read as: income Nr. 1 to 9 and expenses Nr. 1 to 2 for the whole party, with totals with and without subsidies from branches. R2 shows Nr. 1 to 10
@@ -171,6 +187,7 @@ At most 2,000 hints; when P05 would exceed that, the remaining ones are cut off 
 == Not verified
 
 * R3: the separate statements, the notes and the hints were **not compared with the Bundestag sample**, **not opened in real Excel or LibreOffice**, **not seen by an auditor**; the legal reading of sections 24 and 25 PartG was **not checked by a lawyer**. The translations of the new texts are model-written.
+* R3b: C, D and F were **not compared with the official sample**, not accepted by the administration, not legally reviewed; section 24 (8a) and (12) PartG are unverified. Translations are model-written.
 * R3: the PostgreSQL lane of the new tests runs only with `LAPIS_TEST_POSTGRES_URL`.
 
 * The PDF and the XLSX of R2 were **not compared pixel by pixel with the Bundestag sample**, **not opened in real Excel, LibreOffice or Word**, **not accepted by the Bundestag administration** and **not seen by the auditor**.

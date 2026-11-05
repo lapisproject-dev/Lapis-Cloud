@@ -181,6 +181,16 @@ classDiagram(name = "PartgReportR3Model") {
 * **Client:** `PartyReportTab` got `AUSWEISE` and `ERLAEUTERUNGEN` appended (the remembered tab is read by name); the display order is `PARTG_TAB_DISPLAY_ORDER`. Below 640 px a select with the label "Bereich" replaces the buttons (CSS shows exactly one of the two).
   The input rules are `PartgAnnexRules` in lapis-shared, called by client and server (`PartgAnnexRulesTest`).
 
+== Statements C and F (R3b, V1.9.283)
+
+* `V142__partg_report_r3b.sql` (V139 is on master and untouched): `partg_report_sponsor`, `partg_report_sponsoring_entry` (no `annex_id`: the sponsor carries the assignment), `partg_report_youth_org`. No amount CHECK for the limits (computed), no `ON DELETE CASCADE`.
+* **Store monopol:** `PartgStatementStore` is the only reader/writer of the three tables (`PartgAnnexStoreTripwireTest`; exception `PartgReportPersonalData`). It is used only by `PartgAnnexStore` (snapshot), `PartgAnnexWriter`, `PartyReportService`, `PartgReportAssembler` and `PartgPlausibility`.
+* **Write path:** `PartgAnnexWriter.saveSponsor/deleteSponsor/saveYouthOrg/deleteYouthOrg`: lock order regional chapter row, then the annex header; revision compared under the lock; caps (500 sponsors, 2000 entries per annex, 20 youth organisations) checked under the same lock; entries replaced by id (ids kept, unknown ids are `NotFound`); revision bumped in the same transaction; audit last (`PARTG_REPORT_ANNEX`, counters and ids only).
+* **Rules:** `PartgStatementRules` (lapis-shared) computes the qualification (strictly above 75,000 cents single, strictly above 600,000 cents yearly, `Long` only, bounded by the caps).
+* **Sorting** in Kotlin: sponsors by yearly sum descending, name, id; entries by date, id; youth organisations by name, id. The `rowNumber` is the position in the full list of the unit (also counting sponsors that are not in the report), so hints and exports agree with the screen.
+* **Document:** `AnnexSection` gets `sponsors` (only those in the report) and `youthOrgs`. The XLSX order is A, B, C, Mitglieder, F, Erläuterungen, Hinweise (12 sheets); D is a placeholder paragraph in the PDF and a line on the completeness sheet. `PartgAnnexDto` is not paged: the caps bound it.
+* **Client:** `PartyReportAnnexNav` (jump bar, disclosure blocks, `AnnexEditorGuard` = one open form for the whole tab), `PartyReportSponsoringBlock`, `PartyReportYouthBlock`.
+
 === Dependency view
 
 [kuml, partg-report-r3-flow, svg]
