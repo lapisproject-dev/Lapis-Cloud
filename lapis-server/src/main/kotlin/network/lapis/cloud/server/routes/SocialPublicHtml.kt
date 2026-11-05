@@ -504,7 +504,7 @@ internal object SocialPublicHtml {
         .auth-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.2rem; }
         .auth-primary, .auth-secondary {
             display: inline-block; box-sizing: border-box; padding: 0.6rem 1.2rem; font: inherit; font-weight: 600;
-            text-align: center; text-decoration: none; cursor: pointer; border-radius: 0.35rem;
+            text-align: center; text-decoration: none; cursor: pointer; border-radius: 0.35rem; line-height: 1.5rem;
         }
         .auth-primary { background: var(--lapis-accent); color: var(--lapis-accent-contrast); border: 1px solid var(--lapis-accent); }
         .auth-primary:hover { background: var(--lapis-accent-strong); border-color: var(--lapis-accent-strong); color: var(--lapis-accent-contrast); }

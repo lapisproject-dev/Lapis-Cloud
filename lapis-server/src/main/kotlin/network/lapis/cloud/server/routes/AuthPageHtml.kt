@@ -120,16 +120,24 @@ internal fun FlowContent.authSuccessCallout(block: DIV.() -> Unit) {
     }
 }
 
+/** V1.9.286: an optional primary action of the error page; [label] and [href] are fixed constants, never request data. */
+internal data class AuthErrorAction(
+    val label: String,
+    val href: String,
+)
+
 /** The shared error page. [message] must be a fixed constant, never a user-controlled value. */
 internal fun authErrorPageHtml(
     message: String,
     branding: ResolvedBranding,
     baseUrl: String,
+    primaryAction: AuthErrorAction? = null,
 ): String =
     renderAuthPage(title = "Anmeldung fehlgeschlagen", branding = branding, baseUrl = baseUrl) {
         h1 { +"Anmeldung fehlgeschlagen" }
         authErrorCallout(message)
         authActions {
+            primaryAction?.let { a(href = it.href, classes = "auth-primary") { +it.label } }
             a(href = baseUrl, classes = "auth-secondary") { +"Zur Startseite" }
         }
     }

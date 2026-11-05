@@ -292,18 +292,18 @@ internal fun Route.registerKeycloakAuthRoutes(
             }
         }
 
+        // V1.9.286: `?konto=andere` (and nothing else) asks the IdP for a fresh sign-in via `prompt=login`.
         val authorizeUrl =
-            buildString {
-                append(authorizationEndpoint)
-                append("?response_type=code")
-                append("&client_id=").append(URLEncoder.encode(config.clientId, "UTF-8"))
-                append("&redirect_uri=").append(URLEncoder.encode(redirectUri, "UTF-8"))
-                append("&scope=").append(URLEncoder.encode(config.scopes, "UTF-8"))
-                append("&state=").append(URLEncoder.encode(state, "UTF-8"))
-                append("&nonce=").append(URLEncoder.encode(nonce, "UTF-8"))
-                append("&code_challenge=").append(URLEncoder.encode(codeChallenge, "UTF-8"))
-                append("&code_challenge_method=S256")
-            }
+            keycloakAuthorizeUrl(
+                authorizationEndpoint = authorizationEndpoint,
+                clientId = requireNotNull(config.clientId),
+                redirectUri = redirectUri,
+                scopes = config.scopes,
+                state = state,
+                nonce = nonce,
+                codeChallenge = codeChallenge,
+                forceLogin = isOtherAccountRequest(call.request.queryParameters),
+            )
         // Security-audit fix (MAJOR 1): SameSite=Lax, NOT Strict -- the callback arrives as a
         // cross-site TOP-LEVEL GET redirect from Keycloak, which a Strict cookie would not be sent
         // on, defeating the binding entirely. HttpOnly/Secure/Path=/ mirror the session cookie
@@ -847,26 +847,69 @@ private fun provisionRejection(reason: KeycloakMemberProvisioner.RejectReason): 
         else -> KeycloakLoginError.NO_MEMBER
     }
 
+internal const val KEYCLOAK_OTHER_ACCOUNT_PARAM = "konto"
+internal const val KEYCLOAK_OTHER_ACCOUNT_VALUE = "andere"
+
+private const val KEYCLOAK_RETRY_LABEL = "Erneut anmelden"
+private const val KEYCLOAK_OTHER_ACCOUNT_LABEL = "Mit einem anderen Konto anmelden"
+private const val KEYCLOAK_START_PATH = "/auth/keycloak/start"
+
+/**
+ * V1.9.286: builds the authorization request; [forceLogin] appends ONLY the constant `&prompt=login` (OIDC Core 3.1.2.1).
+ * Keycloak knows `prompt=login` (forces a fresh sign-in) but not `select_account`, hence `login`.
+ */
+internal fun keycloakAuthorizeUrl(
+    authorizationEndpoint: String,
+    clientId: String,
+    redirectUri: String,
+    scopes: String,
+    state: String,
+    nonce: String,
+    codeChallenge: String,
+    forceLogin: Boolean,
+): String =
+    buildString {
+        append(authorizationEndpoint)
+        append("?response_type=code")
+        append("&client_id=").append(URLEncoder.encode(clientId, "UTF-8"))
+        append("&redirect_uri=").append(URLEncoder.encode(redirectUri, "UTF-8"))
+        append("&scope=").append(URLEncoder.encode(scopes, "UTF-8"))
+        append("&state=").append(URLEncoder.encode(state, "UTF-8"))
+        append("&nonce=").append(URLEncoder.encode(nonce, "UTF-8"))
+        append("&code_challenge=").append(URLEncoder.encode(codeChallenge, "UTF-8"))
+        append("&code_challenge_method=S256")
+        if (forceLogin) append("&prompt=login") // last, constant, never request data
+    }
+
+/** V1.9.286: true only for a query of exactly one parameter `konto` with exactly one value `andere` (case-sensitive). */
+internal fun isOtherAccountRequest(query: io.ktor.http.Parameters): Boolean =
+    query.names() == setOf(KEYCLOAK_OTHER_ACCOUNT_PARAM) &&
+        query.getAll(KEYCLOAK_OTHER_ACCOUNT_PARAM) == listOf(KEYCLOAK_OTHER_ACCOUNT_VALUE)
+
+/** V1.9.286: which button, if any, the error page offers. */
+private enum class KeycloakRetryAction { NONE, RETRY, OTHER_ACCOUNT }
+
 /**
  * Welle V1.9.135 -- every text of the Keycloak error page, an enum so that nothing user-controlled can be reflected into it.
  * (Umlauts are real umlauts since this wave; before, the texts were ASCII-transliterated.)
  */
 private enum class KeycloakLoginError(
     val text: String,
+    val retry: KeycloakRetryAction = KeycloakRetryAction.NONE,
 ) {
     IDP_UNREACHABLE("Der externe Anmeldedienst ist derzeit nicht erreichbar."),
-    INVALID_ATTEMPT("Ungültiger oder abgelaufener Anmeldeversuch."),
-    NOT_COMPLETED("Die Anmeldung wurde nicht abgeschlossen."),
+    INVALID_ATTEMPT("Ungültiger oder abgelaufener Anmeldeversuch.", KeycloakRetryAction.RETRY),
+    NOT_COMPLETED("Die Anmeldung wurde nicht abgeschlossen.", KeycloakRetryAction.RETRY),
     CODE_EXCHANGE_FAILED("Der Autorisierungscode konnte nicht eingelöst werden."),
     UNKNOWN_KEY("Unbekannter Signaturschlüssel."),
     VERIFICATION_FAILED("Die Signatur der Anmeldung konnte nicht geprüft werden."),
     MISSING_SUBJECT("Die Anmeldung enthält kein Subjekt."),
-    MISSING_EMAIL("Die Anmeldung enthält keine E-Mail-Adresse."),
-    NO_MEMBER("Kein zugeordnetes Mitgliedskonto – bitte an die Verwaltung wenden."),
+    MISSING_EMAIL("Die Anmeldung enthält keine E-Mail-Adresse.", KeycloakRetryAction.OTHER_ACCOUNT),
+    NO_MEMBER("Kein zugeordnetes Mitgliedskonto – bitte an die Verwaltung wenden.", KeycloakRetryAction.OTHER_ACCOUNT),
     PROVISION_RATE_LIMITED(
         "Die automatische Anlage ist vorübergehend ausgelastet, bitte später erneut versuchen oder die Verwaltung kontaktieren.",
     ),
-    NAME_MISSING("Ihr Anmeldekonto enthält keinen Namen – bitte an die Verwaltung wenden."),
+    NAME_MISSING("Ihr Anmeldekonto enthält keinen Namen – bitte an die Verwaltung wenden.", KeycloakRetryAction.OTHER_ACCOUNT),
 }
 
 private suspend fun ApplicationCall.respondKeycloakErrorPage(
@@ -877,7 +920,21 @@ private suspend fun ApplicationCall.respondKeycloakErrorPage(
 ) {
     applyAuthPageHeaders(formAction = AuthFormAction.SELF, imgSrcSelf = branding.servesAnyLogo)
     respondText(
-        authErrorPageHtml(message = error.text, branding = branding, baseUrl = baseUrl),
+        authErrorPageHtml(
+            message = error.text,
+            branding = branding,
+            baseUrl = baseUrl,
+            primaryAction =
+                when (error.retry) {
+                    KeycloakRetryAction.NONE -> null
+                    KeycloakRetryAction.RETRY -> AuthErrorAction(label = KEYCLOAK_RETRY_LABEL, href = "$baseUrl$KEYCLOAK_START_PATH")
+                    KeycloakRetryAction.OTHER_ACCOUNT ->
+                        AuthErrorAction(
+                            label = KEYCLOAK_OTHER_ACCOUNT_LABEL,
+                            href = "$baseUrl$KEYCLOAK_START_PATH?$KEYCLOAK_OTHER_ACCOUNT_PARAM=$KEYCLOAK_OTHER_ACCOUNT_VALUE",
+                        )
+                },
+        ),
         contentType = ContentType.Text.Html,
         status = status,
     )

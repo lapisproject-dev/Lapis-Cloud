@@ -169,7 +169,25 @@ class AuthPagesTest :
             val html = authErrorPageHtml(message = "Die Heimatserver-Adresse ist ungültig.", branding = branding, baseUrl = base)
             html shouldContain "role=\"alert\""
             html shouldContain "Zur Startseite"
+            html shouldNotContain "auth-primary"
             listOf("http://evil", "Exception", "Invalid", "Could not").forEach { html shouldNotContain it }
+        }
+
+        test("V1.9.286 error page without an action is exactly the old page; with an action the primary link comes first, escaped") {
+            val plain = authErrorPageHtml(message = "x", branding = branding, baseUrl = base)
+            val withNull = authErrorPageHtml(message = "x", branding = branding, baseUrl = base, primaryAction = null)
+            withNull shouldBe plain
+            val html =
+                authErrorPageHtml(
+                    message = "x",
+                    branding = branding,
+                    baseUrl = base,
+                    primaryAction = AuthErrorAction(label = "<b>&", href = "$base/auth/keycloak/start"),
+                )
+            html shouldContain "&lt;b&gt;&amp;"
+            html shouldNotContain "<b>&"
+            html shouldContain "href=\"$base/auth/keycloak/start\" class=\"auth-primary\""
+            (html.indexOf("auth-primary") < html.indexOf("auth-secondary")) shouldBe true
         }
 
         // ---- header strings via routes ----

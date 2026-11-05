@@ -189,6 +189,49 @@ It is deliberately *not signed*: the `+__Host-+` prefix stops a sibling subdomai
 write and on read, and the only reachable target is this server's own consent page, which still requires an explicit click. A
 forged cookie can do no more than a direct link to that page. The value is never logged.
 
+=== Error page, retry and the single-sign-on loop (V1.9.286)
+
+A refused sign-in used to end on a page with only "Zur Startseite". Starting again then often looped: the single-sign-on session at
+the identity provider answered every new `/auth/keycloak/start` without asking, so the same (refused) identity came back at once.
+
+The error page now carries a primary action, chosen from a fixed constant per error class (never from request data):
+
+[cols="2,3,3"]
+|===
+| Class | Errors | Primary action
+
+| Another account
+| `NAME_MISSING`, `NO_MEMBER` (every automatic-creation and linking refusal), `MISSING_EMAIL`
+| "Mit einem anderen Konto anmelden" -> `/auth/keycloak/start?konto=andere`
+
+| Try again
+| `INVALID_ATTEMPT` (unknown, expired or replayed state, binding mismatch), `NOT_COMPLETED` (`error` parameter or no `code`)
+| "Erneut anmelden" -> `/auth/keycloak/start`
+
+| None
+| `IDP_UNREACHABLE`, `CODE_EXCHANGE_FAILED`, `UNKNOWN_KEY`, `VERIFICATION_FAILED`, `MISSING_SUBJECT`, `PROVISION_RATE_LIMITED`
+| only "Zur Startseite"
+|===
+
+All account refusals look alike, so the page still does not reveal whether an identity is in the required group (as since V1.9.73).
+
+`/auth/keycloak/start?konto=andere` appends the constant `&prompt=login` to the authorization request (OpenID Connect Core 3.1.2.1),
+which makes the identity provider ask for a fresh sign-in despite an existing single-sign-on session. Keycloak supports
+`prompt=login`; it does not support `select_account`, hence `login`. The query is recognised strictly: exactly one parameter `konto`
+with exactly one value `andere`, case-sensitive. Anything else (other casing, empty or repeated value, extra parameters such as
+`returnTo`) is a normal start. Consequently a pending `returnTo` is deliberately dropped for this form, and the return-to cookie is
+expired as for any start without one.
+
+Security: `prompt=login` only forces a new authentication and grants nothing. State, nonce, PKCE, the browser-binding cookie, both
+rate limiters (counted before the branch) and the account linking are unchanged. There is no new redirect parameter (the button
+`href` is constant, no open redirect), no request value is reflected into the page or the authorization URL (no parameter or header
+injection), and nothing new is logged. A third party who triggers `?konto=andere` can at most cause a sign-in prompt for the victim;
+the binding cookie behaves as for any start. A start without parameters is byte-identical to before.
+
+For operators: whether a given Keycloak version lets the person switch to a different user inside the existing session (some answer
+"already authenticated as different user") is not guaranteed; a single-sign-on session is still ended by logging out at the identity
+provider itself.
+
 === Sequence
 
 [source,kuml,name="keycloak-login-flow"]
@@ -656,6 +699,10 @@ the trust statement an operator can rely on:
 | An address is taken over only if verified, free, not on a BOARD/TREASURER/ADMIN account and not while another change is open; the write
   goes through `EmailChangeStore`; the link stays keyed on the subject, never on the address.
 
+| Fresh sign-in on request (V1.9.286)
+| `?konto=andere` appends only the constant `prompt=login`; strict query recognition, constant button targets, nothing reflected,
+  both rate limiters count first. See "Error page, retry and the single-sign-on loop".
+
 | Token persistence
 | `id_token`/`access_token` are read once in memory and never written to any table or log --
   session strategy stays the existing cookie-based 8h Lapis Cloud session, unchanged by this
@@ -680,6 +727,9 @@ of what Waves 1-3 deliver:
   `/auth/keycloak/logout-redirect` exists but is not wired into the client's logout flow yet. On a
   shared computer the next click on the SSO button therefore logs straight back in without asking
   for a password.
+* **Rate limit applies to the new buttons (V1.9.286).** After 20 refused callbacks in 15 minutes per IP (per /64 network for IPv6)
+  `/start` answers 429 as plain text, also for "Erneut anmelden" and "Mit einem anderen Konto anmelden". The budgets are unchanged.
+  Not verified against a real Keycloak or WABEO: whether `prompt=login` lets the person switch accounts depends on the Keycloak version.
 * **Unlinking is not durable if the email still matches.** After `unlinkMember`, the member's next
   Keycloak login re-creates the link automatically as long as their Keycloak email still matches the
   Lapis Cloud member email. To cut access for good, change or remove the Keycloak user.

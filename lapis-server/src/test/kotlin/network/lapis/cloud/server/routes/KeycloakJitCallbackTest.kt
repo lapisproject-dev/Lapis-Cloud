@@ -415,6 +415,9 @@ class KeycloakJitCallbackTest :
                 status shouldBe HttpStatusCode.Unauthorized
                 body shouldContain "Kein zugeordnetes Mitgliedskonto"
                 body shouldNotContain "Gruppe"
+                // V1.9.286: the same button as every other account refusal -- nothing reveals the group
+                body shouldContain "href=\"http://localhost/auth/keycloak/start?konto=andere\" class=\"auth-primary\""
+                body shouldContain ">Mit einem anderen Konto anmelden</a>"
             }
             transaction { MemberTable.selectAll().where { MemberTable.email eq email }.count() } shouldBe 0
             events(type = OidcLoginEventType.KEYCLOAK_LOGIN_FAILED).first()[OidcGuestLoginEventTable.reason] shouldBe
@@ -432,6 +435,7 @@ class KeycloakJitCallbackTest :
             ) { status, body, _ ->
                 status shouldBe HttpStatusCode.Unauthorized
                 body shouldContain "enthält keinen Namen"
+                body shouldContain "href=\"http://localhost/auth/keycloak/start?konto=andere\" class=\"auth-primary\""
             }
             transaction { MemberTable.selectAll().where { MemberTable.email eq email }.count() } shouldBe 0
         }

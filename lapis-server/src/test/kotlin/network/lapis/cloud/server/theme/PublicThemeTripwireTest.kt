@@ -70,6 +70,7 @@ class PublicThemeTripwireTest :
             rule("body") shouldContain "var(--lapis-font-body)"
             rule(".auth-primary") shouldContain "var(--lapis-accent)"
             rule(".auth-primary") shouldContain "var(--lapis-accent-contrast)"
+            rule(".auth-primary, .auth-secondary") shouldContain "line-height: 1.5rem"
             rule(".event-submit") shouldContain "var(--lapis-accent)"
             rule("body") shouldContain "var(--lapis-bg)"
             rule("body") shouldContain "var(--lapis-text)"

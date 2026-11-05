@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.286 -- Keycloak login: retry and another account after a refused sign-in
+
+- **Behaviour:** the Keycloak error page now offers a primary button next to "Zur Startseite": "Erneut anmelden" (`/auth/keycloak/start`) after `INVALID_ATTEMPT` and `NOT_COMPLETED`, and "Mit einem anderen Konto anmelden" (`/auth/keycloak/start?konto=andere`) after `NAME_MISSING`, `NO_MEMBER` (all creation and linking refusals, indistinguishable as before) and `MISSING_EMAIL`. Infrastructure and verification errors keep only "Zur Startseite".
+- **`?konto=andere`:** appends the constant `&prompt=login` to the authorization request, so the identity provider asks again instead of silently reusing its single-sign-on session (the cause of the loop). Recognised strictly: exactly one parameter `konto` with the value `andere`; anything else is a normal start. `returnTo` is deliberately dropped for this form. Keycloak knows `prompt=login`, not `select_account`.
+- **Unchanged:** a normal `/start` is byte-identical; state, nonce, PKCE, binding cookie, both rate limiters (still counted first), HTTP statuses, audit reasons and error texts. `OidcRoutes` untouched.
+- **Styling:** the auth buttons get `line-height: 1.5rem` (about 45 px click height) on **all** sign-in and consent pages; the stylesheet and thus its ETag change.
+- No migration, no new environment variable. Docs: `docs/architecture/keycloak-login.adoc`.
+- **Not verified** against a real Keycloak or WABEO, only against the simulated identity provider of the test suite. Whether `prompt=login` lets the person switch users inside an existing session depends on the Keycloak version.
+
 ### V1.9.285 -- Keycloak login: claim names in the provisioning refusal log
 
 - **What is logged:** when just-in-time provisioning refuses a verified identity for `NAME_MISSING`, `EMAIL_NOT_VERIFIED`, `GROUP_MISSING` or `GROUP_WRONG_TYPE`, the WARN line now continues after `(subjectFingerprint=...)` with `idTokenClaims=[name:type, ...] nameClaims=[...] groupClaim=... invalidClaimNames=N omittedClaims=N`: the claim **names** of the verified ID token (allowlisted, sorted, at most 40 and 2048 characters) with a type word, the state of `name`, `given_name`, `family_name` and `preferred_username` (`absent`, `string-empty`, `string-sanitizes-to-empty`, `wrong-type:...`), and the type of the group claim. This answers "why was a WABEO user without a name refused" without a debugger.

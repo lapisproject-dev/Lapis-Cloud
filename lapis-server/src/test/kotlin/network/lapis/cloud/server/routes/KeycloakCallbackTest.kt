@@ -334,6 +334,10 @@ class KeycloakCallbackTest :
                 body shouldContain "Ungültiger oder abgelaufener Anmeldeversuch."
                 body shouldContain "class=\"chrome\""
                 body shouldContain "Zur Startseite"
+                // V1.9.286: a refused attempt offers a fresh start, before the secondary link
+                body shouldContain "href=\"http://localhost/auth/keycloak/start\" class=\"auth-primary\""
+                body shouldContain ">Erneut anmelden</a>"
+                (body.indexOf("auth-primary") < body.indexOf("auth-secondary")) shouldBe true
             }
         }
 
@@ -1206,6 +1210,269 @@ class KeycloakCallbackTest :
                     }
                 wrongBinding.status shouldBe HttpStatusCode.Unauthorized
                 returnToSetCookies(wrongBinding).single().maxAge shouldBe 0
+            }
+        }
+
+        // ── V1.9.286: sign in again / with another account ──────────────────────────────
+
+        fun io.ktor.server.routing.Route.registerForRetryTests(
+            flood: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+            rate: LoginRateLimiter = LoginRateLimiter(),
+            tokenFactory: (() -> HttpClient)? = null,
+            metadata: KeycloakOidcMetadata = mockMetadata(),
+        ) {
+            if (tokenFactory != null) {
+                registerKeycloakAuthRoutes(
+                    branding = TEST_AUTH_BRANDING,
+                    baseUrl = "http://localhost",
+                    config = testConfig(),
+                    metadata = metadata,
+                    startRateLimiter = rate,
+                    startFloodLimiter = flood,
+                    tokenHttpClientFactory = tokenFactory,
+                )
+            } else {
+                registerKeycloakAuthRoutes(
+                    branding = TEST_AUTH_BRANDING,
+                    baseUrl = "http://localhost",
+                    config = testConfig(),
+                    metadata = metadata,
+                    startRateLimiter = rate,
+                    startFloodLimiter = flood,
+                )
+            }
+        }
+
+        val expectedKeys =
+            listOf("response_type", "client_id", "redirect_uri", "scope", "state", "nonce", "code_challenge", "code_challenge_method")
+
+        fun queryKeys(location: String): List<String> = location.substringAfter('?').split('&').map { it.substringBefore('=') }
+
+        val retryHref = "http://localhost/auth/keycloak/start"
+        val otherAccountHref = "http://localhost/auth/keycloak/start?konto=andere"
+
+        test("V1.9.286 /start without parameter: exactly the eight keys, no prompt") {
+            testApplication {
+                application { routing { registerForRetryTests() } }
+                val c = createClient { followRedirects = false }
+                val r = c.get("/auth/keycloak/start")
+                r.status shouldBe HttpStatusCode.Found
+                queryKeys(requireNotNull(r.headers[HttpHeaders.Location])) shouldBe expectedKeys
+            }
+        }
+
+        test("V1.9.286 /start?konto=andere: same keys plus a single prompt=login, new attempt row and binding cookie, no return-to") {
+            testApplication {
+                application { routing { registerForRetryTests() } }
+                val c = createClient { followRedirects = false }
+                val before = transaction { KeycloakLoginAttemptTable.selectAll().count() }
+                val r = c.get("/auth/keycloak/start?konto=andere")
+                r.status shouldBe HttpStatusCode.Found
+                val location = requireNotNull(r.headers[HttpHeaders.Location])
+                location shouldContain "$ISSUER/"
+                queryKeys(location) shouldBe expectedKeys + "prompt"
+                location.endsWith("&prompt=login") shouldBe true
+                transaction { KeycloakLoginAttemptTable.selectAll().count() } shouldBe before + 1
+                val cookies = r.headers.getAll(HttpHeaders.SetCookie).orEmpty()
+                cookies.any { it.startsWith("$KEYCLOAK_LOGIN_BINDING_COOKIE_NAME=") } shouldBe true
+                val returnTo = cookies.single { it.startsWith("$KEYCLOAK_LOGIN_RETURN_TO_COOKIE_NAME=") }
+                returnTo shouldContain "Max-Age=0"
+            }
+        }
+
+        test("V1.9.286 /start: anything but exactly konto=andere is a normal start without prompt") {
+            testApplication {
+                application { routing { registerForRetryTests() } }
+                val c = createClient { followRedirects = false }
+                listOf(
+                    "konto=Andere",
+                    "KONTO=andere",
+                    "konto=",
+                    "konto",
+                    "konto=andere&konto=andere",
+                    "konto=andere&x=1",
+                    "konto=andere%0d%0aX:1",
+                ).forEach { q ->
+                    val r = c.get("/auth/keycloak/start?$q")
+                    r.status shouldBe HttpStatusCode.Found
+                    val location = requireNotNull(r.headers[HttpHeaders.Location])
+                    (location.contains("prompt=")) shouldBe false
+                }
+            }
+        }
+
+        test("V1.9.286 /start?konto=andere&returnTo=...: no prompt, return-to cookie set as before") {
+            testApplication {
+                application { routing { registerForRetryTests() } }
+                val c = createClient { followRedirects = false }
+                val r = c.get("/auth/keycloak/start?konto=andere&returnTo=%2Ffederation%2Foidc%2Fauthorize%3Fx%3D1")
+                r.status shouldBe HttpStatusCode.Found
+                requireNotNull(r.headers[HttpHeaders.Location]).contains("prompt=") shouldBe false
+                val returnTo =
+                    r.headers
+                        .getAll(
+                            HttpHeaders.SetCookie,
+                        ).orEmpty()
+                        .single { it.startsWith("$KEYCLOAK_LOGIN_RETURN_TO_COOKIE_NAME=") }
+                returnTo.contains("Max-Age=0") shouldBe false
+            }
+        }
+
+        test("V1.9.286 /start flood limiter counts both forms in one budget; konto=andere over budget -> 429") {
+            testApplication {
+                application {
+                    routing { registerForRetryTests(flood = FederationInboxRateLimiter(maxRequests = 3, window = 1.minutes)) }
+                }
+                val c = createClient { followRedirects = false }
+                c.get("/auth/keycloak/start").status shouldBe HttpStatusCode.Found
+                c.get("/auth/keycloak/start?konto=andere").status shouldBe HttpStatusCode.Found
+                c.get("/auth/keycloak/start").status shouldBe HttpStatusCode.Found
+                val over = c.get("/auth/keycloak/start?konto=andere")
+                over.status shouldBe HttpStatusCode.TooManyRequests
+                over.headers[HttpHeaders.Location] shouldBe null
+            }
+        }
+
+        test("V1.9.286 /start startRateLimiter saturated by refused callbacks -> konto=andere also gets 429") {
+            testApplication {
+                val rate = LoginRateLimiter(maxFailures = 2)
+                application { routing { registerForRetryTests(rate = rate) } }
+                val c = createClient { followRedirects = false }
+                c.get("/auth/keycloak/start?konto=andere").status shouldBe HttpStatusCode.Found
+                repeat(2) { c.get("/auth/keycloak/callback?state=never-issued&code=x").status shouldBe HttpStatusCode.Unauthorized }
+                c.get("/auth/keycloak/start?konto=andere").status shouldBe HttpStatusCode.TooManyRequests
+                c.get("/auth/keycloak/start").status shouldBe HttpStatusCode.TooManyRequests
+            }
+        }
+
+        test("V1.9.286 /start?konto=andere with an authorization_endpoint outside the issuer -> 502, no Location") {
+            testApplication {
+                val bad =
+                    KeycloakDiscoveryDto(
+                        issuer = ISSUER,
+                        authorization_endpoint = "https://attacker.example.net/x",
+                        token_endpoint = "$ISSUER/protocol/openid-connect/token",
+                        jwks_uri = "$ISSUER/protocol/openid-connect/certs",
+                    )
+                application { routing { registerForRetryTests(metadata = mockMetadataWithDiscovery(bad)) } }
+                val c = createClient { followRedirects = false }
+                val r = c.get("/auth/keycloak/start?konto=andere")
+                r.status shouldBe HttpStatusCode.BadGateway
+                r.headers[HttpHeaders.Location] shouldBe null
+                r.bodyAsText().contains("auth-primary") shouldBe false
+            }
+        }
+
+        fun hrefs(body: String): List<String> {
+            val actions = body.substringAfter("class=\"auth-actions\"").substringBefore("</div>")
+            return Regex("href=\"([^\"]*)\"").findAll(actions).map { it.groupValues[1] }.toList()
+        }
+
+        fun primaryOf(body: String): String? = Regex("<a[^>]*class=\"auth-primary\"[^>]*>").find(body)?.value
+
+        test("V1.9.286 error page INVALID_ATTEMPT offers 'Erneut anmelden' before 'Zur Startseite'") {
+            testApplication {
+                application { routing { registerForRetryTests() } }
+                val r = client.get("/auth/keycloak/callback?state=never-issued&code=whatever")
+                r.status shouldBe HttpStatusCode.Unauthorized
+                val body = r.bodyAsText()
+                val primary = requireNotNull(primaryOf(body))
+                primary shouldContain "href=\"$retryHref\""
+                body shouldContain ">Erneut anmelden</a>"
+                (body.indexOf("auth-primary") < body.indexOf("auth-secondary")) shouldBe true
+            }
+        }
+
+        test("V1.9.286 error page NOT_COMPLETED (error=access_denied) offers 'Erneut anmelden'") {
+            testApplication {
+                application { routing { registerForRetryTests() } }
+                val f = createLoginAttempt()
+                val r =
+                    client.get("/auth/keycloak/callback?state=${f.state}&error=access_denied") { withBindingCookie(f.bindingCookieValue) }
+                r.status shouldBe HttpStatusCode.Unauthorized
+                val body = r.bodyAsText()
+                requireNotNull(primaryOf(body)) shouldContain "href=\"$retryHref\""
+                body shouldContain ">Erneut anmelden</a>"
+            }
+        }
+
+        test("V1.9.286 error page NO_MEMBER offers 'Mit einem anderen Konto anmelden' with the exact konto=andere href") {
+            testApplication {
+                val nonce = "nonce-nomember-${Uuid.random()}"
+                val email = "nobody-${Uuid.random()}@example.org"
+                lateinit var idToken: String
+                application { routing { registerForRetryTests(tokenFactory = tokenEndpointClientFactory(idTokenProvider = { idToken })) } }
+                idToken = signIdToken(claimsBuilder(email = email, nonce = nonce))
+                val f = createLoginAttempt(nonce = nonce)
+                val r = client.get("/auth/keycloak/callback?state=${f.state}&code=x") { withBindingCookie(f.bindingCookieValue) }
+                r.status shouldBe HttpStatusCode.Unauthorized
+                val body = r.bodyAsText()
+                requireNotNull(primaryOf(body)) shouldContain "href=\"$otherAccountHref\""
+                body shouldContain ">Mit einem anderen Konto anmelden</a>"
+            }
+        }
+
+        test("V1.9.286 error page MISSING_EMAIL offers 'Mit einem anderen Konto anmelden'") {
+            testApplication {
+                val nonce = "nonce-noemail-${Uuid.random()}"
+                lateinit var idToken: String
+                application { routing { registerForRetryTests(tokenFactory = tokenEndpointClientFactory(idTokenProvider = { idToken })) } }
+                val now = Clock.System.now()
+                idToken =
+                    signIdToken(
+                        JWTClaimsSet
+                            .Builder()
+                            .issuer(ISSUER)
+                            .subject("kc-subject-${Uuid.random()}")
+                            .audience(CLIENT_ID)
+                            .claim("nonce", nonce)
+                            .issueTime(OidcJwt.toJavaDate(now))
+                            .expirationTime(OidcJwt.toJavaDate(now.plus(10.minutes)))
+                            .build(),
+                    )
+                val f = createLoginAttempt(nonce = nonce)
+                val r = client.get("/auth/keycloak/callback?state=${f.state}&code=x") { withBindingCookie(f.bindingCookieValue) }
+                r.status shouldBe HttpStatusCode.Unauthorized
+                val body = r.bodyAsText()
+                body shouldContain "keine E-Mail-Adresse"
+                requireNotNull(primaryOf(body)) shouldContain "href=\"$otherAccountHref\""
+            }
+        }
+
+        test("V1.9.286 error pages without a retry (token endpoint down, wrong audience, discovery tampered) show only 'Zur Startseite'") {
+            testApplication {
+                application {
+                    routing {
+                        registerForRetryTests(
+                            tokenFactory = tokenEndpointClientFactory(tokenEndpointStatus = HttpStatusCode.InternalServerError),
+                        )
+                    }
+                }
+                val f = createLoginAttempt()
+                val r = client.get("/auth/keycloak/callback?state=${f.state}&code=x") { withBindingCookie(f.bindingCookieValue) }
+                r.status shouldBe HttpStatusCode.BadGateway
+                val body = r.bodyAsText()
+                body.contains("auth-primary") shouldBe false
+                body shouldContain "Zur Startseite"
+            }
+        }
+
+        test("V1.9.286 nothing is reflected: hostile error and returnTo values leave only constant hrefs, status stays 401") {
+            testApplication {
+                application { routing { registerForRetryTests() } }
+                val f = createLoginAttempt()
+                val r =
+                    client.get(
+                        "/auth/keycloak/callback?state=${f.state}&error=%3Cscript%3Ealert(1)%3C%2Fscript%3E" +
+                            "&returnTo=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E",
+                    ) { withBindingCookie(f.bindingCookieValue) }
+                r.status shouldBe HttpStatusCode.Unauthorized
+                val body = r.bodyAsText()
+                body.contains("alert(1)") shouldBe false
+                body.contains("<script>") shouldBe false
+                val allowed = setOf("http://localhost", retryHref, otherAccountHref)
+                hrefs(body).isNotEmpty() shouldBe true
+                hrefs(body).forEach { allowed.contains(it) shouldBe true }
             }
         }
     })
