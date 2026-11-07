@@ -112,6 +112,11 @@ internal object EventPublicHtml {
         val feeCurrency: String = "EUR",
         /** End of the registration window (JSON-LD `Offer.validThrough`); `null` when open-ended. */
         val registrationClosesAt: LocalDateTime? = null,
+        /**
+         * Offer start for JSON-LD `Offer.validFrom`: the wall-time creation moment of the event, NOT a publication timestamp
+         * (the data model has none). `null` omits `validFrom`.
+         */
+        val registrationOpensAt: LocalDateTime? = null,
         /** V1.9.243 -- the "Weitere Termine dieser Serie" block; `null` for a single event or when no other public upcoming date exists. */
         val series: SeriesSection? = null,
         /** V1.9.259 -- the event's id, for the signed-in visitor's link into the member area; `null` where a render test does not need it. */

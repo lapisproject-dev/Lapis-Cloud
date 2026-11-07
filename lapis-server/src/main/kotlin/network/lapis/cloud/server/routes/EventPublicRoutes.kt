@@ -1006,6 +1006,7 @@ private fun loadPublicEventView(
             feeAmount = fee,
             feeCurrency = row[EventTable.feeCurrency],
             registrationClosesAt = row[EventTable.registrationClosesAt],
+            registrationOpensAt = OrganizationTimeZone.wallNowOf(row[EventTable.createdAt]),
             full = full,
             registrationOpen = registrationOpen,
             hasEnded = row[EventTable.endsAt] <= wallNow,

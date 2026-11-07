@@ -143,8 +143,11 @@ internal object EventShareMeta {
     }
 
     /**
-     * The schema.org Offer, or `null` when no honest statement is possible (event over, or registration closed). There is no
-     * registration-start field in the data model, so `validFrom` is never emitted.
+     * The schema.org Offer, or `null` when no honest statement is possible (event over, or registration closed).
+     * `validFrom` is the creation moment of the event (organisation wall time), clamped to at most `validThrough` and
+     * `startDate`. The data model has no publication timestamp, so for a draft published later it can precede the real
+     * publication. For structured data this is acceptable (the time from which the offer exists at the earliest). It is
+     * omitted if the view carries no timestamp.
      */
     private fun offer(
         view: EventPublicHtml.View,
@@ -159,6 +162,10 @@ internal object EventShareMeta {
             put("price", if (free) "0" else view.feeAmount.toPlainString())
             put("priceCurrency", view.feeCurrency.takeIf { CURRENCY.matches(it) } ?: "EUR")
             put("availability", if (view.full) "https://schema.org/SoldOut" else "https://schema.org/InStock")
+            view.registrationOpensAt?.let { opens ->
+                val upper = listOfNotNull(view.registrationClosesAt, view.startsAt).min()
+                put("validFrom", iso(dt = minOf(opens, upper), zone = orgZone))
+            }
             view.registrationClosesAt?.let { put("validThrough", iso(dt = it, zone = orgZone)) }
         }
     }

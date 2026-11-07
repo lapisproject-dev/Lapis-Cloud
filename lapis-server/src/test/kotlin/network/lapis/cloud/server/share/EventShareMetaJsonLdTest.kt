@@ -28,14 +28,16 @@ private fun view(
     ended: Boolean = false,
     closes: LocalDateTime? = null,
     cover: String? = null,
+    starts: LocalDateTime = LocalDateTime(2030, 11, 12, 19, 0),
+    opens: LocalDateTime? = null,
 ) = EventPublicHtml.View(
     title = title,
     slug = "x",
     description = "Text",
     locationText = "Ort",
     onlineUrl = null,
-    startsAt = LocalDateTime(2030, 11, 12, 19, 0),
-    endsAt = LocalDateTime(2030, 11, 12, 21, 0),
+    startsAt = starts,
+    endsAt = LocalDateTime(starts.year, starts.monthNumber, starts.dayOfMonth, 23, 0),
     feeLabel = "x",
     full = full,
     registrationOpen = open,
@@ -44,6 +46,7 @@ private fun view(
     feeAmount = fee,
     feeCurrency = currency,
     registrationClosesAt = closes,
+    registrationOpensAt = opens,
 )
 
 private fun branding(
@@ -81,7 +84,7 @@ class EventShareMetaJsonLdTest :
             o["priceCurrency"]!!.jsonPrimitive.content shouldBe "EUR"
             o["availability"]!!.jsonPrimitive.content shouldBe "https://schema.org/InStock"
             o["url"]!!.jsonPrimitive.content shouldBe SHARE_URL
-            o.containsKey("validFrom") shouldBe false
+            o.containsKey("validFrom") shouldBe false // default view carries no timestamp
             o.containsKey("validThrough") shouldBe false
         }
 
@@ -142,6 +145,63 @@ class EventShareMetaJsonLdTest :
                 ld(view = view(cover = "$BASE/c.png"), brand = branding(variants = mapOf(v(wl, "png")))),
             )["image"]!!.jsonPrimitive.content shouldBe
                 "$BASE/c.png"
+        }
+
+        val offsetRegex = Regex("^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d(:\\d\\d)?[+-]\\d\\d:\\d\\d$")
+
+        fun offers(v: EventPublicHtml.View): JsonObject = parse(ld(view = v))["offers"]!!.jsonObject
+
+        fun validFrom(v: EventPublicHtml.View): String = offers(v)["validFrom"]!!.jsonPrimitive.content
+
+        test("validFrom: summer is +02:00, winter +01:00, matches the format") {
+            val summer = validFrom(view(starts = LocalDateTime(2030, 7, 20, 19, 0), opens = LocalDateTime(2030, 7, 1, 10, 0)))
+            summer shouldStartWith "2030-07-01T10:00"
+            summer shouldContain "+02:00"
+            offsetRegex.matches(summer) shouldBe true
+            val winter = validFrom(view(opens = LocalDateTime(2030, 11, 1, 0, 0)))
+            winter shouldStartWith "2030-11-01T00:00"
+            winter shouldContain "+01:00"
+            offsetRegex.matches(winter) shouldBe true
+        }
+
+        test("validFrom: both sides of the daylight-saving boundaries") {
+            val s = LocalDateTime(2030, 12, 1, 19, 0)
+            validFrom(view(starts = s, opens = LocalDateTime(2030, 3, 30, 12, 0))) shouldContain "+01:00"
+            validFrom(view(starts = s, opens = LocalDateTime(2030, 4, 1, 12, 0))) shouldContain "+02:00"
+            validFrom(view(starts = s, opens = LocalDateTime(2030, 10, 26, 12, 0))) shouldContain "+02:00"
+            validFrom(view(starts = s, opens = LocalDateTime(2030, 10, 28, 12, 0))) shouldContain "+01:00"
+        }
+
+        test("validFrom: absent without a timestamp, other offer fields unchanged") {
+            offers(view(opens = null)).containsKey("validFrom") shouldBe false
+            val without = offers(view(fee = BigDecimal("5"), closes = LocalDateTime(2030, 11, 10, 12, 0)))
+            val withOpens =
+                offers(
+                    view(fee = BigDecimal("5"), closes = LocalDateTime(2030, 11, 10, 12, 0), opens = LocalDateTime(2030, 11, 1, 8, 0)),
+                )
+            withOpens.containsKey("validFrom") shouldBe true
+            JsonObject(withOpens.filterKeys { it != "validFrom" }) shouldBe without
+        }
+
+        test("validFrom is clamped to validThrough and startDate") {
+            val closes = LocalDateTime(2030, 11, 10, 12, 0)
+            val a = offers(view(closes = closes, opens = LocalDateTime(2030, 11, 11, 9, 0)))
+            a["validFrom"] shouldBe a["validThrough"]
+            val b = parse(ld(view = view(opens = LocalDateTime(2030, 11, 13, 9, 0))))
+            b["offers"]!!.jsonObject["validFrom"] shouldBe b["startDate"]
+            val c = parse(ld(view = view(closes = closes, opens = LocalDateTime(2030, 11, 1, 9, 0))))
+            val o = c["offers"]!!.jsonObject
+            val from = java.time.OffsetDateTime.parse(o["validFrom"]!!.jsonPrimitive.content)
+            (from <= java.time.OffsetDateTime.parse(o["validThrough"]!!.jsonPrimitive.content)) shouldBe true
+            (from <= java.time.OffsetDateTime.parse(c["startDate"]!!.jsonPrimitive.content)) shouldBe true
+        }
+
+        test("validFrom: ended or closed events have no offer; paid and full events still carry it") {
+            val opens = LocalDateTime(2030, 11, 1, 8, 0)
+            parse(ld(view = view(ended = true, opens = opens))).containsKey("offers") shouldBe false
+            parse(ld(view = view(open = false, opens = opens))).containsKey("offers") shouldBe false
+            offers(view(fee = BigDecimal("12.50"), opens = opens)).containsKey("validFrom") shouldBe true
+            offers(view(full = true, opens = opens)).containsKey("validFrom") shouldBe true
         }
 
         test("hostile titles and currency cannot break out of the script block") {

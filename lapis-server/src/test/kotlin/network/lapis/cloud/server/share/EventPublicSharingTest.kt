@@ -315,6 +315,13 @@ class EventPublicSharingTest :
                 json["performer"]!!.jsonObject["url"]!!.jsonPrimitive.content shouldBe BASE
                 json["offers"]!!.jsonObject["price"]!!.jsonPrimitive.content shouldBe "0"
                 json["offers"]!!.jsonObject["availability"]!!.jsonPrimitive.content shouldBe "https://schema.org/InStock"
+                // V1.9.288: validFrom from created_at (organisation wall time), never after the start date
+                val validFrom = json["offers"]!!.jsonObject["validFrom"]!!.jsonPrimitive.content
+                Regex("^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d(:\\d\\d)?[+-]\\d\\d:\\d\\d$").matches(validFrom) shouldBe true
+                (
+                    java.time.OffsetDateTime.parse(validFrom) <=
+                        java.time.OffsetDateTime.parse(json["startDate"]!!.jsonPrimitive.content)
+                ) shouldBe true
                 // no logo and no cover: og:image stays absent, JSON-LD image falls back to the icon
                 doc.select("meta[property=og:image]").size shouldBe 0
                 json["image"]!!.jsonPrimitive.content shouldBe "$BASE/apple-touch-icon.png"

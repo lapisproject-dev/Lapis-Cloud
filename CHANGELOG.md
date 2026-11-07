@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.288 -- Event JSON-LD: `Offer.validFrom`
+
+- **Changed:** the schema.org `Event` JSON-LD of the public event page now carries `offers.validFrom` (Search Console hint for the missing field). The value is the event's `created_at`, converted to organisation wall time (not passed raw, so the UTC offset is right across daylight saving) and **clamped** to at most `validThrough` and `startDate`, so `validFrom` is never after either. It is omitted only if the view carries no timestamp. The other offer fields are unchanged.
+- **Honest limit:** the data model has no publication timestamp, so for a draft published later `validFrom` can **precede** the real publication. A real timestamp would need a new column and a migration (possible follow-up wave).
+- **No migration, no new environment variable, no new dependency.** No personal data: only a timestamp is published, never the creator.
+- **Docs:** `docs/features/public-sharing.adoc` and the KDoc of `EventShareMeta.offer` no longer say that `validFrom` is never emitted.
+- **Tests:** summer and winter offsets, both sides of the March and October daylight-saving boundaries, clamping to `validThrough` and to `startDate`, absence without timestamp, no offer for ended or closed events, other fields unchanged, format regex, and the public route test.
+- **Not verified:** **not validated** with the Google Rich Results Test or Search Console. The owner starts the validation in Search Console.
+
 ### V1.9.287 -- Party accountability report R3c: statement D (enterprise activity)
 
 - **New:** in the tab "Ausweise" the block D "Unternehmenstätigkeit (Entwurf)" is no longer a placeholder. A board member or admin enters the **own business operations** of a unit and year: name (required), legal form, seat, share of the party in percent, income and expenses (each optional: empty = not entered, 0 = a value). The result (income minus expenses) is computed, may be negative, and is "nicht berechenbar" when a figure is missing. At most **50 rows per unit and year** (checked under the lock of the annex row), sorted by creation time then id. A fixed help text says what belongs here (E05 and A02F) and what belongs into the notes (holdings, BP03 and E05A) and asks not to enter names of persons.
