@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
@@ -189,6 +190,16 @@ internal object PartyReportDomSupport {
     ) = network.lapis.cloud.shared.domain
         .PartgYouthOrgDto(id, row, name, "Jugendverband", income, expenses)
 
+    fun enterprise(
+        id: String,
+        row: Int,
+        name: String,
+        income: Long? = null,
+        expenses: Long? = null,
+        share: Int? = null,
+    ) = network.lapis.cloud.shared.domain
+        .PartgEnterpriseDto(id, row, name, "GmbH", "Berlin", share, income, expenses)
+
     fun notesDto() =
         PartgNotesDto(
             year = 2025,
@@ -217,6 +228,8 @@ internal object PartyReportDomSupport {
         val deleteSponsor: String,
         val saveYouthOrg: String,
         val deleteYouthOrg: String,
+        val saveEnterprise: String,
+        val deleteEnterprise: String,
     )
 
     suspend fun routes() =
@@ -277,6 +290,12 @@ internal object PartyReportDomSupport {
                     rpcService<IPartyReportService>().saveYouthOrg(2025, "FEDERAL", 0, PartgYouthOrgInputDto(null, "x", null, null, null))
                 },
             deleteYouthOrg = routeOf { rpcService<IPartyReportService>().deleteYouthOrg(2025, "FEDERAL", 0, "x") },
+            saveEnterprise =
+                routeOf {
+                    rpcService<IPartyReportService>()
+                        .saveEnterprise(2025, "FEDERAL", 0, PartgEnterpriseInputDto(null, "x", null, null, null, null, null))
+                },
+            deleteEnterprise = routeOf { rpcService<IPartyReportService>().deleteEnterprise(2025, "FEDERAL", 0, "x") },
         )
 
     fun answer(
@@ -306,7 +325,9 @@ internal object PartyReportDomSupport {
                 request.rpcRoute == routes.saveSponsor ||
                 request.rpcRoute == routes.deleteSponsor ||
                 request.rpcRoute == routes.saveYouthOrg ||
-                request.rpcRoute == routes.deleteYouthOrg ->
+                request.rpcRoute == routes.deleteYouthOrg ||
+                request.rpcRoute == routes.saveEnterprise ||
+                request.rpcRoute == routes.deleteEnterprise ->
                 request.answerWith(jsonOf(PartgAnnexDto.serializer(), annex))
             request.rpcRoute == routes.getNotes || request.rpcRoute == routes.saveNotes ->
                 request.answerWith(jsonOf(PartgNotesDto.serializer(), notes))

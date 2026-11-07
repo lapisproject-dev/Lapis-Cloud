@@ -191,6 +191,16 @@ classDiagram(name = "PartgReportR3Model") {
 * **Document:** `AnnexSection` gets `sponsors` (only those in the report) and `youthOrgs`. The XLSX order is A, B, C, Mitglieder, F, Erläuterungen, Hinweise (12 sheets); D is a placeholder paragraph in the PDF and a line on the completeness sheet. `PartgAnnexDto` is not paged: the caps bound it.
 * **Client:** `PartyReportAnnexNav` (jump bar, disclosure blocks, `AnnexEditorGuard` = one open form for the whole tab), `PartyReportSponsoringBlock`, `PartyReportYouthBlock`.
 
+== Statement D (R3c, V1.9.287)
+
+* `V143__partg_report_r3c.sql` (V142 shipped with 0.46.0 and is untouched; while V143 is unreleased it may be corrected in place on the branch, afterwards only by a new migration): one table `partg_report_enterprise` on the annex (`annex_id`), no link to `partg_report_holding`, no `ON DELETE CASCADE` (annex rows are never deleted; a chapter with an annex cannot be deleted). CHECKs for the text lengths, the share (0..10000) and the amounts (0..99999999999999 or NULL).
+* **Store monopol:** `PartgStatementStore` also owns `partg_report_enterprise` (`PartgAnnexStoreTripwireTest`, exception `PartgReportPersonalData`). Sorting in Kotlin (created at, id), never in SQL.
+* **Write path:** `PartgAnnexWriter.saveEnterprise/deleteEnterprise`, an exact copy of the youth organisation path: chapter lock, annex lock, revision compare, the cap of 50 under the lock, `NotFound` for an id of another annex, revision bump in the same commit (so the snapshot reader's revision fence covers D without a change), audit last with ids and counters only.
+* **One rule:** `PartgEnterpriseRules` (lapis-shared) holds validation, the computed result, the complete sum and the adjustment status (`check`); the screen, the server hints P11 to P13 and the DTO use the same function. Integer arithmetic only (50 * 99,999,999,999,999 fits a `Long`); a difference counts only when strictly greater than 100 cents.
+* **Adjustment against R1:** `PartyReportService.annexDto` reads `E05` and `A02F` of the sheet (read only) and returns `enterpriseChecks` with a status per position, never an amount. The PDF and the XLSX read no R1 value in D.
+* **Document:** `AnnexSection` gets `enterprises` and `enterpriseTotals` (one per unit that has a row, no whole-party sum). The XLSX has 13 sheets (`Ausweis D` after `Ausweis C`, so the sheet index of the following sheets moved by one); the completeness sheet only counts the enterprises.
+* **Client:** `PartyReportEnterpriseBlock` in the `Ausweise` tab (block D, same one-form guard as C and F).
+
 === Dependency view
 
 [kuml, partg-report-r3-flow, svg]

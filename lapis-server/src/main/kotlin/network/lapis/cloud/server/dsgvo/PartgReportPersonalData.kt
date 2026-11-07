@@ -4,6 +4,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
+import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
 import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
 import network.lapis.cloud.server.db.generated.PartgReportNoteTable
@@ -40,6 +41,10 @@ import kotlin.uuid.Uuid
  * **V1.9.283 (R3b)** adds `partg_report_sponsor`, `partg_report_sponsoring_entry` and `partg_report_youth_org`: same treatment (member foreign keys
  * exported as "changed by you" with year, unit and time only -- no name, no amount, no purpose; retained on erasure). Sponsor and sponsoring entry
  * are personal data of THIRD PARTIES without a member key (listed in `knownUncoveredSubjectRoots`); the youth organisation holds organisation data.
+ *
+ * **V1.9.287 (R3c)** adds `partg_report_enterprise` (statement D): organisation data, same treatment as the youth organisation ("changed by
+ * you" with year, unit and time only -- no name, no amount; retained on erasure). Whether a free-text name can contain a person's name
+ * (sole proprietorship) is an open question (Q16), not claimed as covered.
  */
 object PartgReportPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "partyReport"
@@ -57,6 +62,7 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
             PartgReportSponsorTable,
             PartgReportSponsoringEntryTable,
             PartgReportYouthOrgTable,
+            PartgReportEnterpriseTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -217,6 +223,27 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                 },
             )
             put(
+                "enterprisesChangedByYou",
+                buildJsonArray {
+                    PartgReportEnterpriseTable
+                        .selectAll()
+                        .where { (PartgReportEnterpriseTable.updatedBy eq memberId) or (PartgReportEnterpriseTable.createdBy eq memberId) }
+                        .toList()
+                        .sortedWith(
+                            compareBy({ it[PartgReportEnterpriseTable.updatedAt] }, { it[PartgReportEnterpriseTable.id].toString() }),
+                        ).forEach { row ->
+                            val annex = annexById[row[PartgReportEnterpriseTable.annexId]]
+                            add(
+                                buildJsonObject {
+                                    put("year", annex?.get(PartgReportAnnexTable.fiscalYear))
+                                    put("unit", annex?.get(PartgReportAnnexTable.unitKey))
+                                    put("changedAt", row[PartgReportEnterpriseTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
                 "notesChangedByYou",
                 buildJsonArray {
                     PartgReportNotesSheetTable
@@ -330,6 +357,16 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                     PartgReportYouthOrgTable
                         .selectAll()
                         .where { (PartgReportYouthOrgTable.updatedBy eq memberId) or (PartgReportYouthOrgTable.createdBy eq memberId) }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_enterprise",
+                rowsRetained =
+                    PartgReportEnterpriseTable
+                        .selectAll()
+                        .where { (PartgReportEnterpriseTable.updatedBy eq memberId) or (PartgReportEnterpriseTable.createdBy eq memberId) }
                         .count()
                         .toInt(),
                 retentionReason = reason,

@@ -1483,7 +1483,7 @@ msgid "%1 (%2 Bytes)"
 msgstr "%1 (%2 byte)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:386
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:728
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:729
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:321
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:7516
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:7652
@@ -1509,7 +1509,7 @@ msgstr "%1 (%2): manca %3"
 msgid "%1 (Freund-Konto seit %2)"
 msgstr "%1 (account amico dal %2)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:726
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:727
 msgid "%1 (Gast)"
 msgstr "%1 (ospite)"
 
@@ -1816,11 +1816,12 @@ msgstr "Disiscritto il %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:127
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:294
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1560
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:528
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:524
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:306
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:79
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:339
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:212
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:357
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:223
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:314
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:334
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:553
@@ -1948,7 +1949,7 @@ msgstr ""
 msgid "Ablehnungsgrund: %1"
 msgstr "Motivo del rifiuto: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:691
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:692
 msgid "Abmelden"
 msgstr "Disconnetti"
 
@@ -2030,10 +2031,11 @@ msgstr "Responsabile: %1 · Socio interessato: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:257
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:154
 #: src/jsMain/kotlin/network/lapis/cloud/client/OrganizationScreen.kt:164
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:405
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:401
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:124
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:21
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:148
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:81
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:166
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:86
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:394
 #: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:241
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt:56
@@ -2427,7 +2429,7 @@ msgstr "Termine di preavviso: %1 giorni"
 msgid "Anlegen"
 msgstr "Crea"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:635
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:636
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:124
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:40
 #: src/jsMain/kotlin/network/lapis/cloud/client/MyVolunteerShiftsScreen.kt:131
@@ -2779,8 +2781,9 @@ msgstr "Uscita"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:392
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:110
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:232
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:121
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:18
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:83
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:201
 msgid "Ausgaben"
 msgstr "Uscite"
@@ -2955,9 +2958,10 @@ msgstr "Richiesto da %1 il %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1006
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:111
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:432
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:174
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:97
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:428
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:146
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:192
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt:144
 msgid "Bearbeiten"
@@ -3074,7 +3078,7 @@ msgstr "Assessorato"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:86
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:150
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:571
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:567
 msgid "Beitrag"
 msgstr "Contributo"
 
@@ -3417,7 +3421,7 @@ msgstr "Conferma in elaborazione ..."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1024
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:270
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:356
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:403
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:399
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt:209
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:446
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:725
@@ -3485,6 +3489,8 @@ msgstr "Valutazione ritirata."
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:138
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:318
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:309
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:116
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:275
 msgid "Bezeichnung"
 msgstr "Denominazione"
 
@@ -3621,6 +3627,7 @@ msgid "Bitte eine Begründung angeben."
 msgstr "Indicare una motivazione."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:80
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:278
 msgid "Bitte eine Bezeichnung angeben."
 msgstr "Indicare una denominazione."
 
@@ -3695,11 +3702,11 @@ msgstr "Inserire un contenuto."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:186
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:246
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:494
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:248
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:490
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:256
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:273
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:246
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:192
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:264
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:203
 msgid "Bitte einen Namen angeben."
 msgstr "Indicare un nome."
 
@@ -4096,7 +4103,7 @@ msgstr "Stato dei dati"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:265
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:256
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1025
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:286
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:304
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:857
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:340
 msgid "Datum"
@@ -4922,8 +4929,9 @@ msgstr "Entrata"
 #: src/jsMain/kotlin/network/lapis/cloud/client/I18nCatalogManager.kt:230
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:109
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:231
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:120
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:17
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:77
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:82
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:200
 msgid "Einnahmen"
 msgstr "Entrate"
@@ -5070,7 +5078,7 @@ msgstr "Scoperto il: %1 · Categorie di dati interessate: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:169
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:174
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:196
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:317
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:335
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegionalChaptersScreen.kt:286
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:205
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:785
@@ -5221,7 +5229,8 @@ msgstr "Necessità/proporzionalità (opzionale)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt:68
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1109
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:111
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:79
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:122
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:84
 #: src/jsMain/kotlin/network/lapis/cloud/client/PollRatingResultView.kt:35
 #: src/jsMain/kotlin/network/lapis/cloud/client/PollResultView.kt:36
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:202
@@ -5509,7 +5518,7 @@ msgstr "Formato"
 msgid "Freie Rücklage (%1)"
 msgstr "Riserva libera (%1)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:665
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:666
 #: src/jsMain/kotlin/network/lapis/cloud/client/GuestBadge.kt:70
 #: src/jsMain/kotlin/network/lapis/cloud/client/GuestBadge.kt:72
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:27
@@ -5581,7 +5590,7 @@ msgid "Gast eines anderen Lapis-Cloud-Servers? Mit Heimatserver anmelden."
 msgstr ""
 "Ospite di un altro server Lapis Cloud? Accedi con il server di provenienza."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:659
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:660
 #: src/jsMain/kotlin/network/lapis/cloud/client/GuestBadge.kt:63
 #: src/jsMain/kotlin/network/lapis/cloud/client/GuestBadge.kt:65
 msgid "Gast von %1"
@@ -5824,11 +5833,12 @@ msgstr "Salvato -- la chiave non verrà mostrata nuovamente."
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:363
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:373
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:303
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:255
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:551
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:262
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:547
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:327
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:255
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:369
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:231
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:387
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:242
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:714
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDefaultsSettings.kt:87
 msgid "Gespeichert."
@@ -6359,7 +6369,7 @@ msgid "Jahresergebnis (dieses Geschäftsjahr)"
 msgstr "Risultato dell'esercizio (esercizio corrente)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:470
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:145
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:163
 msgid "Jahressumme"
 msgstr "Totale annuo"
 
@@ -7035,12 +7045,14 @@ msgstr "Richiesta di cancellazione inviata."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:486
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:308
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPublicProfileCard.kt:202
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:430
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:434
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:438
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:109
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:177
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:103
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:99
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:150
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:155
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:116
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:195
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:106
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:110
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegionalChaptersScreen.kt:186
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegionalChaptersScreen.kt:196
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseDocumentsAdmin.kt:237
@@ -7263,7 +7275,7 @@ msgstr "I miei contributi"
 msgid "Meine Buchungen"
 msgstr "Le mie registrazioni"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:682
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:683
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:97
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:70
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:111
@@ -7441,7 +7453,7 @@ msgstr "Il membro è stato aggiunto."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingRuleBuilder.kt:113
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:315
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:116
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexNav.kt:143
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexNav.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:307
 msgid "Mitglieder"
 msgstr "Membri"
@@ -7647,12 +7659,12 @@ msgstr "Messaggi"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:141
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:187
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1140
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:401
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:491
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:143
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:243
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:189
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:76
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:397
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:487
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:161
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:261
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:200
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:81
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:191
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:299
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:85
@@ -8231,10 +8243,10 @@ msgstr "Impostazioni dell'organizzazione"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:241
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:389
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:115
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:402
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:499
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:144
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:251
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:398
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:495
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:162
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:269
 msgid "Ort"
 msgstr "Luogo"
 
@@ -30677,3 +30689,69 @@ msgstr "La data deve rientrare nell'anno di riferimento."
 
 msgid "Eine Leistung kommt doppelt vor."
 msgstr "Una prestazione compare due volte."
+
+msgid "Hier tragen Sie eigene Geschäftsbetriebe ein (Positionen E05 und A02F). Beteiligungen an Unternehmen (BP03, E05A) gehören in die Erläuterungen. Bitte keine Namen von Personen eintragen."
+msgstr "Inserisca qui le attività imprenditoriali proprie (posizioni E05 e A02F). Le partecipazioni in imprese (BP03, E05A) vanno nelle note. Non inserisca nomi di persone."
+
+msgid "Keine Unternehmen erfasst."
+msgstr "Nessuna impresa registrata."
+
+msgid "Rechtsform"
+msgstr "Forma giuridica"
+
+msgid "Anteil"
+msgstr "Quota"
+
+msgid "Einnahmen %1"
+msgstr "Entrate %1"
+
+msgid "Ausgaben %1"
+msgstr "Uscite %1"
+
+msgid "Ergebnis %1"
+msgstr "Risultato %1"
+
+msgid "Unternehmen hinzufügen"
+msgstr "Aggiungi impresa"
+
+msgid "Neues Unternehmen"
+msgstr "Nuova impresa"
+
+msgid "Rechtsform (optional)"
+msgstr "Forma giuridica (facoltativo)"
+
+msgid "Sitz (optional)"
+msgstr "Sede (facoltativo)"
+
+msgid "Anteil der Partei in % (optional)"
+msgstr "Quota del partito in % (facoltativo)"
+
+msgid "Es sind höchstens 50 Unternehmen je Gliederung und Jahr möglich."
+msgstr "Sono possibili al massimo 50 imprese per unità e anno."
+
+msgid "%1: stimmt überein"
+msgstr "%1: corrisponde"
+
+msgid "%1: weicht ab (mehr als 1,00 EUR)"
+msgstr "%1: differisce (più di 1,00 EUR)"
+
+msgid "%1: weicht ab (Position im Bericht nicht erfasst)"
+msgstr "%1: differisce (posizione non registrata nella relazione)"
+
+msgid "%1: nicht vergleichbar, Angaben fehlen"
+msgstr "%1: non confrontabile, dati mancanti"
+
+msgid "Unternehmen weichen von Position %1 ab"
+msgstr "Le imprese differiscono dalla posizione %1"
+
+msgid "Unternehmen weichen von der Position ab"
+msgstr "Le imprese differiscono dalla posizione"
+
+msgid "Unternehmen ohne vollständige Zahlen"
+msgstr "Imprese senza cifre complete"
+
+msgid "Position %1 erfasst, aber kein Unternehmen in Ausweis D"
+msgstr "Posizione %1 registrata, ma nessuna impresa nel prospetto D"
+
+msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
+msgstr "Posizione registrata, ma nessuna impresa nel prospetto D"

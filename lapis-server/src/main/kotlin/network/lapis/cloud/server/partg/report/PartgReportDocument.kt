@@ -5,6 +5,7 @@ import network.lapis.cloud.shared.domain.PartgCell
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgEnterpriseRules
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgHoldingDto
 import network.lapis.cloud.shared.domain.PartgNoteDto
@@ -84,7 +85,29 @@ internal data class YouthOrgLine(
     val resultCents: Long? get() = if (incomeCents != null && expensesCents != null) incomeCents - expensesCents else null
 }
 
-/** The separate statements A, B, C, F and E over the units in scope. */
+/** One row of statement D (V1.9.287). [resultCents] is computed, `null` when income or expenses is not entered; it may be negative. */
+internal data class EnterpriseLine(
+    val unitLabel: String,
+    val rowNumber: Int,
+    val name: String,
+    val legalForm: String?,
+    val seat: String?,
+    val shareBasisPoints: Int?,
+    val incomeCents: Long?,
+    val expensesCents: Long?,
+) {
+    val resultCents: Long? get() = PartgEnterpriseRules.resultCents(income = incomeCents, expenses = expensesCents)
+}
+
+/** The sum of statement D of ONE unit (never a sum over the whole party); `null` = not computable because a figure is missing. */
+internal data class EnterpriseTotal(
+    val unitLabel: String,
+    val incomeCents: Long?,
+    val expensesCents: Long?,
+    val resultCents: Long?,
+)
+
+/** The separate statements A, B, C, D, F and E over the units in scope. */
 internal data class AnnexSection(
     val units: List<AnnexPage>,
     /** Only for the scope ALL: the deductions are partial sums, the member count is the federal value. */
@@ -92,6 +115,9 @@ internal data class AnnexSection(
     val donors: List<DonorLine>,
     val sponsors: List<SponsorLine> = emptyList(),
     val youthOrgs: List<YouthOrgLine> = emptyList(),
+    val enterprises: List<EnterpriseLine> = emptyList(),
+    /** One per unit that has at least one enterprise. */
+    val enterpriseTotals: List<EnterpriseTotal> = emptyList(),
 )
 
 /** The notes that were switched on, plus the holdings. */

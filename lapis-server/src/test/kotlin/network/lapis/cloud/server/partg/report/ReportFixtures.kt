@@ -202,6 +202,87 @@ internal object ReportFixtures {
             ),
         )
 
+    fun enterprise(
+        name: String,
+        income: Long?,
+        expenses: Long?,
+        legalForm: String? = null,
+        seat: String? = null,
+        share: Int? = null,
+        createdAt: kotlinx.datetime.LocalDateTime = kotlinx.datetime.LocalDateTime(2025, 1, 1, 10, 0),
+    ) = PartgStatementStore.EnterpriseRow(
+        id = Uuid.random(),
+        annexId = Uuid.random(),
+        name = name,
+        legalForm = legalForm,
+        seat = seat,
+        shareBasisPoints = share,
+        incomeCents = income,
+        expensesCents = expenses,
+        createdAt = createdAt,
+    )
+
+    /** Statement D of the federal unit: hostile names, a negative result, a missing income figure. Sorted like the store. */
+    fun federalEnterprises(): List<PartgStatementStore.EnterpriseRow> =
+        PartgStatementStore.sortEnterprises(
+            listOf(
+                enterprise(
+                    name = "=SUM(A1) Verlag",
+                    income = 100_000L,
+                    expenses = 40_000L,
+                    legalForm = "GmbH",
+                    seat = "Berlin",
+                    share = 2_500,
+                ),
+                enterprise(
+                    name = "+1 Medien Иван",
+                    income = 5_000L,
+                    expenses = 7_000L,
+                    createdAt = kotlinx.datetime.LocalDateTime(2025, 1, 2, 10, 0),
+                ),
+                enterprise(
+                    name = "-Gastro",
+                    income = null,
+                    expenses = 1_000L,
+                    createdAt = kotlinx.datetime.LocalDateTime(2025, 1, 3, 10, 0),
+                ),
+                enterprise(
+                    name = "@x Immobilien",
+                    income = 20_000L,
+                    expenses = 10_000L,
+                    createdAt = kotlinx.datetime.LocalDateTime(2025, 1, 4, 10, 0),
+                ),
+            ),
+        )
+
+    /** The R3b data plus statement D of the federal unit. */
+    fun annexDataR3c(): Map<Int, Map<String, PartgAnnexStore.AnnexData>> {
+        val base = annexDataR3b()
+        val federal = base.getValue(YEAR).getValue(PartgUnit.FEDERAL_KEY)
+        return mapOf(YEAR to base.getValue(YEAR) + (PartgUnit.FEDERAL_KEY to federal.copy(enterprises = federalEnterprises())))
+    }
+
+    fun docR3c(scope: PartgReportScope = PartgReportScope.All): PartgReportDocument {
+        val findings =
+            PartgPlausibility.check(
+                year = YEAR,
+                units = units(),
+                entered = entered(),
+                annex = annexDataR3c(),
+                notes = notesData(),
+            )
+        return PartgReportAssembler.assemble(
+            organizationName = "Test Partei e.V.",
+            year = YEAR,
+            scope = scope,
+            units = units(),
+            entered = entered(),
+            annex = annexDataR3c(),
+            notes = notesData(),
+            findings = findings,
+        )
+    }
+
     /** The R3 data plus statements C and F of the federal unit. */
     fun annexDataR3b(): Map<Int, Map<String, PartgAnnexStore.AnnexData>> {
         val base = annexData()

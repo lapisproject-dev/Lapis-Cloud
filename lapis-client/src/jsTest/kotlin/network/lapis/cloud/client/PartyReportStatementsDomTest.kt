@@ -296,12 +296,15 @@ class PartyReportStatementsDomTest {
         }
 
     @Test
-    fun statementD_isAPlaceholder_withoutAnyInput(): Promise<Unit> =
+    fun statementD_isEditable_withTheFixedHelpText_andALinkToTheNotes(): Promise<Unit> =
         formTest {
             withAnnexTab("stmt-d") { element, _ ->
                 val region = element().regionOf("partg-block-d")
-                assertTrue(region.shows("Ausweis D (Unternehmenstätigkeit) ist noch nicht erfasst. Folgt mit R3c."))
-                assertEquals(0, region.allOf("input, textarea, select, form").size, "not editable")
+                assertTrue(region.shows("Hier tragen Sie eigene Geschäftsbetriebe ein (Positionen E05 und A02F)."))
+                assertTrue(region.shows("Bitte keine Namen von Personen eintragen."))
+                assertTrue(region.shows("Keine Unternehmen erfasst."))
+                assertFalse(region.shows("Folgt mit R3c"), "no placeholder any more")
+                assertNotNull(region.allOf("button").firstOrNull { it.shows("Unternehmen hinzufügen") })
                 assertNotNull(region.allOf("button").firstOrNull { it.shows("Zu den Erläuterungen") })
                 assertTrue((element().allOf("#partg-block-d-toggle").single() as HTMLElement).shows("D: Unternehmenstätigkeit (Entwurf)"))
                 assertTrue(element().shows("C: Sponsoring (Entwurf)") && element().shows("F: Jugendorganisationen (Entwurf)"))

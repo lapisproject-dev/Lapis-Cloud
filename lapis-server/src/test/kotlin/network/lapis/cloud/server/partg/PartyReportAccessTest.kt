@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PartgContributionKind
+import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
 import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgSponsorInputDto
@@ -127,6 +128,28 @@ class PartyReportAccessTest :
                     { s ->
                         s.deleteYouthOrg(year = year, unitKey = "FEDERAL", expectedRevision = 0, youthOrgId = Uuid.random().toString())
                     },
+                "saveEnterprise" to
+                    { s ->
+                        s.saveEnterprise(
+                            year = year,
+                            unitKey = "FEDERAL",
+                            expectedRevision = 0,
+                            enterprise =
+                                PartgEnterpriseInputDto(
+                                    id = null,
+                                    name = "Zugriffstest Betrieb",
+                                    legalForm = null,
+                                    seat = null,
+                                    shareBasisPoints = null,
+                                    incomeCents = null,
+                                    expensesCents = null,
+                                ),
+                        )
+                    },
+                "deleteEnterprise" to
+                    { s ->
+                        s.deleteEnterprise(year = year, unitKey = "FEDERAL", expectedRevision = 0, enterpriseId = Uuid.random().toString())
+                    },
                 "getNotes" to { s -> s.getNotes(year) },
                 "saveNotes" to { s -> s.saveNotes(year = year, expectedRevision = 0, notes = emptyList(), holdings = emptyList()) },
                 "reportFindings" to { s -> s.reportFindings(year) },
@@ -145,7 +168,7 @@ class PartyReportAccessTest :
         test("the list of methods covers the whole interface") {
             val declared = network.lapis.cloud.shared.rpc.IPartyReportService::class.members.map { it.name }.toSet()
             (methods.map { it.first }.toSet() == declared.intersect(methods.map { it.first }.toSet())) shouldBe true
-            methods.size shouldBe 18
+            methods.size shouldBe 20
         }
 
         test("board and admin may call every method of a party") {

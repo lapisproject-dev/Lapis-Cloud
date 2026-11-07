@@ -25,6 +25,9 @@
 // Welle V1.9.283 "Rechenschaftsbericht R3b" (V142__partg_report_r3b.sql) adds THREE tables: partg_report_sponsor + partg_report_sponsoring_entry
 // (statement C) and partg_report_youth_org (statement F). NOT expressible in the ERM profile (SQL only, V142): every CHECK and the row limits
 // (500 sponsors, 100 entries per sponsor, 2000 entries per annex, 20 youth organisations; checked by the service under the lock of the annex).
+// Welle V1.9.287 "Rechenschaftsbericht R3c" (V143__partg_report_r3c.sql) adds ONE table: partg_report_enterprise (statement D, own business
+// operations per annex). NOT expressible in the ERM profile (SQL only, V143): every CHECK and the row limit (50 per annex; checked by the service
+// under the lock of the annex). DSGVO (R3c): organisation data; created_by/updated_by are "changed by you" data.
 // DSGVO (R3b): sponsor and sponsoring entry are PERSONAL DATA OF THIRD PARTIES (listed in knownUncoveredSubjectRoots); youth_org is organisation data.
 // DSGVO (R3): partg_report_large_donor is PERSONAL DATA OF THIRD PARTIES (name, address, yearly sum above 10,000 EUR); no member foreign key,
 // listed in PersonalDataRegistry.knownUncoveredSubjectRoots; created_by/updated_by of all R3 tables are "changed by you" data.
@@ -591,6 +594,57 @@ classDiagram(name = "PartgReport") {
         attribute(name = "relationship", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "relationship"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "incomeCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "income_cents" }
+        }
+        attribute(name = "expensesCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "expenses_cents" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.287 (R3c)
+    classOf(name = "PartgReportEnterprise") {
+        stereotype("Entity") { "tableName" to "partg_report_enterprise"; "kotlinObjectName" to "PartgReportEnterpriseTable" }
+        stereotype("Index") { "columns" to listOf("annex_id"); "name" to "ix_partg_report_enterprise_annex" }
+        stereotype("Index") { "columns" to listOf("created_by"); "name" to "ix_partg_report_enterprise_created_by" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_enterprise_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "annexId", type = "UUID") {
+            stereotype("Column") { "columnName" to "annex_id"; "fkEntity" to "PartgReportAnnex" }
+        }
+        attribute(name = "name", type = "String") {
+            stereotype("Column") { "columnName" to "name"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "legalForm", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "legal_form"; "sqlType" to "VARCHAR(60)" }
+        }
+        attribute(name = "seat", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "seat"; "sqlType" to "VARCHAR(100)" }
+        }
+        attribute(name = "shareBasisPoints", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "share_basis_points" }
         }
         attribute(name = "incomeCents", type = "Long") {
             multiplicity = Multiplicity(0, 1)

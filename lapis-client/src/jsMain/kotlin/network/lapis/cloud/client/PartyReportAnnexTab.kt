@@ -362,23 +362,12 @@ private fun SimplePanel.renderAnnexBody(
             reload = reloadIn,
             guard = guard,
             findings = loaded.findings.filter { it.unitKey == unit.unitKey },
+            openNotes = { context.openTab(PartyReportTab.ERLAEUTERUNGEN) },
         )
     blocks[AnnexBlock.C] =
         collapsibleBlock(AnnexBlock.C, tr("C: Sponsoring (Entwurf)"), openBlock == AnnexBlock.C) { renderSponsoringBlock(env) }
     blocks[AnnexBlock.D] =
-        collapsibleBlock(AnnexBlock.D, tr("D: Unternehmenstätigkeit (Entwurf)"), openBlock == AnnexBlock.D) {
-            // not editable: statement D follows with R3c; the holdings are entered in the notes
-            div(
-                tr(
-                    "Ausweis D (Unternehmenstätigkeit) ist noch nicht erfasst. Folgt mit R3c. " +
-                        "Beteiligungen tragen Sie unter Erläuterungen ein.",
-                ),
-                className = "small",
-            ) { setAttribute("data-partg-annex-d", "placeholder") }
-            actionGroup {
-                actionButton(ActionIcon.NEXT, tr("Zu den Erläuterungen")) { onClick { context.openTab(PartyReportTab.ERLAEUTERUNGEN) } }
-            }
-        }
+        collapsibleBlock(AnnexBlock.D, tr("D: Unternehmenstätigkeit (Entwurf)"), openBlock == AnnexBlock.D) { renderEnterpriseBlock(env) }
     blocks[AnnexBlock.F] =
         collapsibleBlock(AnnexBlock.F, tr("F: Jugendorganisationen (Entwurf)"), openBlock == AnnexBlock.F) { renderYouthBlock(env) }
 

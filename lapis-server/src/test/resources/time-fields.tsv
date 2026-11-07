@@ -971,6 +971,8 @@ col:PartgReportSponsoringEntryTable.createdAt	A	PartgStatementStore: stamped by 
 col:PartgReportSponsoringEntryTable.updatedAt	A	PartgStatementStore: stamped by ServerClock.now()
 col:PartgReportYouthOrgTable.createdAt	A	PartgStatementStore: stamped by ServerClock.now()
 col:PartgReportYouthOrgTable.updatedAt	A	PartgStatementStore: stamped by ServerClock.now()
+col:PartgReportEnterpriseTable.createdAt	A	PartgStatementStore: stamped by ServerClock.now()
+col:PartgReportEnterpriseTable.updatedAt	A	PartgStatementStore: stamped by ServerClock.now()
 col:PartgReportSponsoringEntryTable.sponsoredOn	D	calendar date (LocalDate); never converted
 dto:PartgSponsoringEntryDto.date	D	calendar date (LocalDate); never converted
 dto:PartgSponsoringEntryInputDto.date	D	calendar date (LocalDate); never converted

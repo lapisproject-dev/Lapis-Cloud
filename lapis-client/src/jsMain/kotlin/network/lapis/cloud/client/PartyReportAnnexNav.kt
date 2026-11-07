@@ -45,6 +45,7 @@ internal fun partgFindingBlock(finding: PartgFindingDto): AnnexBlock? =
         PartgFindingCode.P01, PartgFindingCode.P02, PartgFindingCode.P04 -> AnnexBlock.B
         PartgFindingCode.P07, PartgFindingCode.P08, PartgFindingCode.P09 -> AnnexBlock.C
         PartgFindingCode.P10 -> AnnexBlock.F
+        PartgFindingCode.P11, PartgFindingCode.P12, PartgFindingCode.P13 -> AnnexBlock.D
         PartgFindingCode.P05 -> null
     }
 

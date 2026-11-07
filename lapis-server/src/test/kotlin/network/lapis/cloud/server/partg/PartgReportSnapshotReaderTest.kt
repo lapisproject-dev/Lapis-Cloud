@@ -134,6 +134,49 @@ class PartgReportSnapshotReaderTest :
             snapshot.annex[year]?.get(PartgUnit.FEDERAL_KEY)?.youthOrgs shouldBe emptyList()
         }
 
+        test("V1.9.287: an enterprise saved between the reads makes the read repeat; statement D is in the annex data") {
+            val member = fx.member()
+
+            fun writeEnterprise(name: String) {
+                val revision = transaction { PartgAnnexStore.findAnnex(year = year, unit = unit)?.revision ?: 0L }
+                PartgAnnexWriter.saveEnterprise(
+                    current = fx.currentOf(memberId = member),
+                    year = year,
+                    unit = unit,
+                    expectedRevision = revision,
+                    enterprise =
+                        network.lapis.cloud.shared.domain
+                            .PartgEnterpriseInputDto(
+                                id = null,
+                                name = name,
+                                legalForm = null,
+                                seat = null,
+                                shareBasisPoints = null,
+                                incomeCents = 100L,
+                                expensesCents = 50L,
+                            ),
+                    now = ServerClock.now(),
+                ) {}
+            }
+            writeEnterprise("Erster Betrieb")
+            var attempts = 0
+            PartgReportSnapshotReader.betweenReadsHook = { attempt ->
+                attempts++
+                if (attempt == 0) {
+                    val worker = Thread { writeEnterprise("Zweiter Betrieb") }
+                    worker.start()
+                    worker.join()
+                }
+            }
+            val snapshot = PartgReportSnapshotReader.read(listOf(year))
+            attempts shouldBe 2
+            snapshot.annex[year]
+                ?.get(PartgUnit.FEDERAL_KEY)
+                ?.enterprises
+                ?.map { it.name }
+                ?.toSet() shouldBe setOf("Erster Betrieb", "Zweiter Betrieb")
+        }
+
         test("a write in every attempt ends in a revision conflict after exactly three attempts") {
             val member = fx.member()
             var attempts = 0

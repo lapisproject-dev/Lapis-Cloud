@@ -124,6 +124,42 @@ data class PartgYouthOrgInputDto(
     val expensesCents: Long?,
 )
 
+/** V1.9.287 (R3c): one enterprise of statement D. */
+@Serializable
+data class PartgEnterpriseDto(
+    val id: String,
+    val rowNumber: Int,
+    val name: String,
+    val legalForm: String?,
+    val seat: String?,
+    /** Share in hundredths of a percent, 0..10000. */
+    val shareBasisPoints: Int?,
+    val incomeCents: Long?,
+    val expensesCents: Long?,
+)
+
+@Serializable
+data class PartgEnterpriseInputDto(
+    /** `null` = a new row. */
+    val id: String?,
+    val name: String,
+    val legalForm: String?,
+    val seat: String?,
+    val shareBasisPoints: Int?,
+    val incomeCents: Long?,
+    val expensesCents: Long?,
+)
+
+@Serializable
+enum class PartgEnterpriseCheckStatus { MATCHES, DIFFERS, POSITION_NOT_ENTERED, NOT_COMPARABLE }
+
+/** The check of statement D against ONE R1 position. Carries NO amount (neither the D sum nor the R1 value). */
+@Serializable
+data class PartgEnterpriseCheckDto(
+    val positionCode: String,
+    val status: PartgEnterpriseCheckStatus,
+)
+
 @Serializable
 data class PartgMemberCountSuggestionDto(
     val count: Long,
@@ -146,6 +182,10 @@ data class PartgAnnexDto(
     val sponsors: List<PartgSponsorDto> = emptyList(),
     /** V1.9.283 (R3b): the youth organisations of the unit, sorted: name, id. */
     val youthOrgs: List<PartgYouthOrgDto> = emptyList(),
+    /** V1.9.287 (R3c): statement D of the unit, sorted: created_at, id. */
+    val enterprises: List<PartgEnterpriseDto> = emptyList(),
+    /** V1.9.287 (R3c): E05 and A02F, in that order; empty when D has no row. */
+    val enterpriseChecks: List<PartgEnterpriseCheckDto> = emptyList(),
 )
 
 @Serializable
@@ -177,7 +217,7 @@ data class PartgNotesDto(
 )
 
 @Serializable
-enum class PartgFindingCode { P01, P02, P03, P04, P05, P06, P07, P08, P09, P10 }
+enum class PartgFindingCode { P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, P12, P13 }
 
 @Serializable
 enum class PartgFindingLevel { CHECK, INFO }

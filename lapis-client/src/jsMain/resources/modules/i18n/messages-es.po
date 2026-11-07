@@ -1482,7 +1482,7 @@ msgid "%1 (%2 Bytes)"
 msgstr "%1 (%2 bytes)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:386
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:728
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:729
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:321
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:7516
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:7652
@@ -1508,7 +1508,7 @@ msgstr "%1 (%2): falta %3"
 msgid "%1 (Freund-Konto seit %2)"
 msgstr "%1 (cuenta de amigo desde %2)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:726
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:727
 msgid "%1 (Gast)"
 msgstr "%1 (invitado)"
 
@@ -1818,11 +1818,12 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:127
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:294
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1560
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:528
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:524
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:306
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:79
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:339
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:212
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:357
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:223
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:314
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:334
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:553
@@ -1949,7 +1950,7 @@ msgstr ""
 msgid "Ablehnungsgrund: %1"
 msgstr "Motivo del rechazo: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:691
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:692
 msgid "Abmelden"
 msgstr "Cerrar sesión"
 
@@ -2031,10 +2032,11 @@ msgstr "Actor: %1 · Miembro afectado: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:257
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:154
 #: src/jsMain/kotlin/network/lapis/cloud/client/OrganizationScreen.kt:164
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:405
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:401
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:124
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:21
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:148
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:81
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:166
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:86
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:394
 #: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:241
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseAttachments.kt:56
@@ -2429,7 +2431,7 @@ msgstr "Plazo de aviso: %1 días"
 msgid "Anlegen"
 msgstr "Crear"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:635
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:636
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:124
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:40
 #: src/jsMain/kotlin/network/lapis/cloud/client/MyVolunteerShiftsScreen.kt:131
@@ -2781,8 +2783,9 @@ msgstr "Gasto"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:392
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:110
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:232
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:121
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportOverview.kt:18
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:83
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:201
 msgid "Ausgaben"
 msgstr "Gastos"
@@ -2957,9 +2960,10 @@ msgstr "Solicitado por %1 el %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1006
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:111
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:432
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:174
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:97
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:428
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:146
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:192
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt:144
 msgid "Bearbeiten"
@@ -3073,7 +3077,7 @@ msgstr "Vocalía"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:86
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:150
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:571
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:567
 msgid "Beitrag"
 msgstr "Cuota"
 
@@ -3417,7 +3421,7 @@ msgstr "Procesando confirmación ..."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1024
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:270
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:356
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:403
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:399
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt:209
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:446
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:725
@@ -3485,6 +3489,8 @@ msgstr "Valoración retirada."
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:138
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:318
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:309
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:116
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:275
 msgid "Bezeichnung"
 msgstr "Denominación"
 
@@ -3621,6 +3627,7 @@ msgid "Bitte eine Begründung angeben."
 msgstr "Indique una justificación."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:80
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:278
 msgid "Bitte eine Bezeichnung angeben."
 msgstr "Indique una denominación."
 
@@ -3695,11 +3702,11 @@ msgstr "Introduzca un contenido."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:186
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:246
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:494
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:248
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:490
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:256
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:273
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:246
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:192
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:264
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:203
 msgid "Bitte einen Namen angeben."
 msgstr "Indique un nombre."
 
@@ -4097,7 +4104,7 @@ msgstr "Estado de los datos"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:265
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:256
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1025
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:286
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:304
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:857
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:340
 msgid "Datum"
@@ -30369,3 +30376,69 @@ msgstr "La fecha debe estar dentro del año del informe."
 
 msgid "Eine Leistung kommt doppelt vor."
 msgstr "Una prestación aparece dos veces."
+
+msgid "Hier tragen Sie eigene Geschäftsbetriebe ein (Positionen E05 und A02F). Beteiligungen an Unternehmen (BP03, E05A) gehören in die Erläuterungen. Bitte keine Namen von Personen eintragen."
+msgstr "Introduzca aquí las actividades empresariales propias (posiciones E05 y A02F). Las participaciones en empresas (BP03, E05A) van en las notas. No introduzca nombres de personas."
+
+msgid "Keine Unternehmen erfasst."
+msgstr "No se han registrado empresas."
+
+msgid "Rechtsform"
+msgstr "Forma jurídica"
+
+msgid "Anteil"
+msgstr "Participación"
+
+msgid "Einnahmen %1"
+msgstr "Ingresos %1"
+
+msgid "Ausgaben %1"
+msgstr "Gastos %1"
+
+msgid "Ergebnis %1"
+msgstr "Resultado %1"
+
+msgid "Unternehmen hinzufügen"
+msgstr "Añadir empresa"
+
+msgid "Neues Unternehmen"
+msgstr "Nueva empresa"
+
+msgid "Rechtsform (optional)"
+msgstr "Forma jurídica (opcional)"
+
+msgid "Sitz (optional)"
+msgstr "Domicilio (opcional)"
+
+msgid "Anteil der Partei in % (optional)"
+msgstr "Participación del partido en % (opcional)"
+
+msgid "Es sind höchstens 50 Unternehmen je Gliederung und Jahr möglich."
+msgstr "Se permiten como máximo 50 empresas por unidad y año."
+
+msgid "%1: stimmt überein"
+msgstr "%1: coincide"
+
+msgid "%1: weicht ab (mehr als 1,00 EUR)"
+msgstr "%1: difiere (más de 1,00 EUR)"
+
+msgid "%1: weicht ab (Position im Bericht nicht erfasst)"
+msgstr "%1: difiere (posición no registrada en el informe)"
+
+msgid "%1: nicht vergleichbar, Angaben fehlen"
+msgstr "%1: no comparable, faltan datos"
+
+msgid "Unternehmen weichen von Position %1 ab"
+msgstr "Las empresas difieren de la posición %1"
+
+msgid "Unternehmen weichen von der Position ab"
+msgstr "Las empresas difieren de la posición"
+
+msgid "Unternehmen ohne vollständige Zahlen"
+msgstr "Empresas sin cifras completas"
+
+msgid "Position %1 erfasst, aber kein Unternehmen in Ausweis D"
+msgstr "Posición %1 registrada, pero ninguna empresa en el anexo D"
+
+msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
+msgstr "Posición registrada, pero ninguna empresa en el anexo D"

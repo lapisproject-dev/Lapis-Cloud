@@ -8,6 +8,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
+import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
 import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
 import network.lapis.cloud.server.db.generated.PartgReportNoteTable
@@ -44,7 +45,7 @@ class PartgReportSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("the model declares the eleven report entities plus the Member and RegionalChapter stubs") {
+        test("the model declares the twelve report entities plus the Member and RegionalChapter stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -60,6 +61,7 @@ class PartgReportSchemaDriftTest :
                     "partg_report_sponsor",
                     "partg_report_sponsoring_entry",
                     "partg_report_youth_org",
+                    "partg_report_enterprise",
                 )
         }
 
@@ -177,6 +179,15 @@ class PartgReportSchemaDriftTest :
             check(
                 table = "partg_report_youth_org",
                 exposedColumns = PartgReportYouthOrgTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("annex_id" to "partg_report_annex", "created_by" to "member", "updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+        }
+
+        test("partg_report_enterprise matches the migrated schema and PartgReportEnterpriseTable 1:1") {
+            check(
+                table = "partg_report_enterprise",
+                exposedColumns = PartgReportEnterpriseTable.columns.map { it.name },
                 expectedForeignKeys = mapOf("annex_id" to "partg_report_annex", "created_by" to "member", "updated_by" to "member"),
                 sqlOnlyForeignKeys = emptyMap(),
             )

@@ -37,6 +37,7 @@ internal object PartgReportXlsxWriter {
     const val SHEET_MEMBERS = "Mitglieder"
     const val SHEET_EXPLANATIONS = "Erläuterungen"
     const val SHEET_ANNEX_C = "Ausweis C"
+    const val SHEET_ANNEX_D = "Ausweis D"
     const val SHEET_ANNEX_F = "Ausweis F"
 
     private val SHEET_NAMES =
@@ -49,6 +50,7 @@ internal object PartgReportXlsxWriter {
             SHEET_ANNEX_A,
             SHEET_ANNEX_B,
             SHEET_ANNEX_C,
+            SHEET_ANNEX_D,
             SHEET_MEMBERS,
             SHEET_ANNEX_F,
             SHEET_EXPLANATIONS,
@@ -116,6 +118,7 @@ internal object PartgReportXlsxWriter {
                 annexA(document),
                 annexB(document),
                 annexC(document),
+                annexD(document),
                 members(document),
                 annexF(document),
                 explanations(document),
@@ -222,9 +225,9 @@ internal object PartgReportXlsxWriter {
                 note?.let { X.Text(value = it) },
             )
         }
-        // V1.9.283: statement D is not part of this draft; say so instead of leaving the gap silent
+        // V1.9.287: statement D has its own sheet; here only the number of enterprises (a count, no amounts)
         s.blank()
-        s.add(X.Text(value = PartgReportTexts.ANNEX_D_PLACEHOLDER))
+        s.add(X.Text(value = PartgReportTexts.D_COMPLETENESS.format(doc.annex.enterprises.size)))
         return s
     }
 
@@ -457,6 +460,61 @@ internal object PartgReportXlsxWriter {
                     X.Euro(cents = e.amountCents),
                     null,
                     X.Text(value = PartgReportTexts.REASON_SINGLE),
+                )
+            }
+        }
+        return s
+    }
+
+    private fun annexD(doc: PartgReportDocument): Sheet {
+        val s = Sheet(listOf(40, 8, 40, 20, 24, 12, 18, 18, 18))
+        s.add(X.Text(value = PartgReportTexts.ANNEX_D, bold = true))
+        s.add(X.Text(value = PartgReportTexts.D_NOTE))
+        s.add(
+            X.Text(value = PartgReportTexts.COL_UNIT, bold = true),
+            X.Text(value = PartgReportTexts.COL_ROW, bold = true),
+            X.Text(value = PartgReportTexts.COL_NAME, bold = true),
+            X.Text(value = PartgReportTexts.COL_LEGAL_FORM, bold = true),
+            X.Text(value = PartgReportTexts.COL_SEAT, bold = true),
+            X.Text(value = PartgReportTexts.COL_SHARE, bold = true),
+            X.Text(value = PartgReportTexts.COL_INCOME, bold = true),
+            X.Text(value = PartgReportTexts.COL_EXPENSES, bold = true),
+            X.Text(value = PartgReportTexts.COL_RESULT, bold = true),
+        )
+        if (doc.annex.enterprises.isEmpty()) s.add(X.Text(value = PartgReportTexts.NO_ENTRIES))
+
+        fun euroOrNone(cents: Long?): X = cents?.let { X.Euro(cents = it) } ?: X.Text(value = PartgReportTexts.NOT_ENTERED_LONG)
+
+        fun euroOrNotComputable(
+            cents: Long?,
+            bold: Boolean = false,
+        ): X = cents?.let { X.Euro(cents = it, bold = bold) } ?: X.Text(value = PartgReportTexts.NOT_COMPUTABLE_LONG, bold = bold)
+        doc.annex.enterprises.groupBy { it.unitLabel }.forEach { (unitLabel, lines) ->
+            lines.forEach { e ->
+                s.add(
+                    X.Text(value = e.unitLabel),
+                    X.Text(value = e.rowNumber.toString()),
+                    X.Text(value = e.name),
+                    X.Text(value = e.legalForm.orEmpty()),
+                    X.Text(value = e.seat.orEmpty()),
+                    e.shareBasisPoints?.let { X.Pct(tenths = it.toLong(), bold = false, scale = 4) }
+                        ?: X.Text(value = PartgReportTexts.NOT_ENTERED_LONG),
+                    euroOrNone(e.incomeCents),
+                    euroOrNone(e.expensesCents),
+                    euroOrNotComputable(e.resultCents),
+                )
+            }
+            doc.annex.enterpriseTotals.firstOrNull { it.unitLabel == unitLabel }?.let { t ->
+                s.add(
+                    X.Text(value = unitLabel, bold = true),
+                    null,
+                    X.Text(value = PartgReportTexts.COL_TOTAL, bold = true),
+                    null,
+                    null,
+                    null,
+                    euroOrNotComputable(t.incomeCents, bold = true),
+                    euroOrNotComputable(t.expensesCents, bold = true),
+                    euroOrNotComputable(t.resultCents, bold = true),
                 )
             }
         }

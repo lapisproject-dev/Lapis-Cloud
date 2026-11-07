@@ -50,6 +50,8 @@ data class PartgReportExportAuditSnapshot(
     val sponsorRowCount: Int = 0,
     /** V1.9.283: number of youth organisation rows in the export. */
     val youthOrgRowCount: Int = 0,
+    /** V1.9.287 (R3c): number of enterprise rows of statement D in the export. */
+    val enterpriseRowCount: Int = 0,
     /** V1.9.269: number of plausibility hints shown in the export. */
     val findingCount: Int = 0,
 )
@@ -75,6 +77,9 @@ data class PartgAnnexAuditSnapshot(
     val sponsoringEntryCount: Int = 0,
     val youthOrgId: String? = null,
     val youthOrgCount: Int = 0,
+    /** V1.9.287 (R3c): `ENTERPRISE_ADDED`, `ENTERPRISE_UPDATED`, `ENTERPRISE_REMOVED`; id and counter only. */
+    val enterpriseId: String? = null,
+    val enterpriseCount: Int = 0,
 )
 
 /** V1.9.269 audit snapshot of a change of the notes: which blocks, how many holdings. No text. */

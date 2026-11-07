@@ -224,6 +224,14 @@ internal fun partgFindingShortLabel(finding: network.lapis.cloud.shared.domain.P
         network.lapis.cloud.shared.domain.PartgFindingCode.P08 -> io.kvision.i18n.gettext("Anschrift des Sponsors unvollständig")
         network.lapis.cloud.shared.domain.PartgFindingCode.P09 -> io.kvision.i18n.gettext("Sponsor unter beiden Grenzen, nicht im Bericht")
         network.lapis.cloud.shared.domain.PartgFindingCode.P10 -> io.kvision.i18n.gettext("Jugendorganisation ohne Zahlen")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P11 ->
+            finding.positionCode?.let { io.kvision.i18n.gettext("Unternehmen weichen von Position %1 ab", partgNumberLabelOf(it)) }
+                ?: io.kvision.i18n.gettext("Unternehmen weichen von der Position ab")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P12 -> io.kvision.i18n.gettext("Unternehmen ohne vollständige Zahlen")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P13 ->
+            finding.positionCode?.let {
+                io.kvision.i18n.gettext("Position %1 erfasst, aber kein Unternehmen in Ausweis D", partgNumberLabelOf(it))
+            } ?: io.kvision.i18n.gettext("Position erfasst, aber kein Unternehmen in Ausweis D")
     }
 
 private fun partgNumberLabelOf(code: String): String = PartgPositions.find(code)?.numberLabel ?: code

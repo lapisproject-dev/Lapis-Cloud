@@ -65,15 +65,15 @@ class PartgReportR3bPdfTest :
         val bytes = PartgReportPdfRenderer().render(doc)
         val all = pdfText(bytes)
 
-        test("C, the placeholder of D and F have their own headings, in this order, E in between") {
+        test("C, D and F have their own headings, in this order, E in between") {
             all shouldContain "Ausweis C: Sponsoring (Entwurf)"
-            all shouldContain "Ausweis D (Unternehmenstätigkeit) ist in diesem Entwurf nicht erfasst"
+            all shouldContain "Ausweis D: Unternehmenstätigkeit (Entwurf)"
             all shouldContain "Ausweis F: Jugendorganisationen (Entwurf)"
             val order =
                 listOf(
                     "Gesonderter Ausweis B",
                     "Gesonderter Ausweis C",
-                    "Ausweis D: nicht erfasst",
+                    "Gesonderter Ausweis D",
                     "Mitgliederzahl zum 31.12.",
                     "Gesonderter Ausweis F",
                 )
@@ -108,7 +108,7 @@ class PartgReportR3bPdfTest :
 
         test("empty C and F say so") {
             val empty = pdfText(PartgReportPdfRenderer().render(ReportFixtures.doc()))
-            empty.split("Keine Einträge erfasst").size - 1 shouldBe 3 // B, C, F
+            empty.split("Keine Einträge erfasst").size - 1 shouldBe 4 // B, C, D, F
         }
 
         test("the same document gives the same bytes") {
@@ -126,7 +126,7 @@ class PartgReportR3bXlsxTest :
     FunSpec({
         val xlsx = readXlsx(PartgReportXlsxWriter.write(ReportFixtures.docR3b()))
 
-        test("twelve sheets in the order of the statutes; D has no sheet of its own") {
+        test("thirteen sheets since R3c: D has a sheet of its own after C") {
             xlsx.sheetNames shouldContainExactly
                 listOf(
                     "Vollständigkeit",
@@ -137,19 +137,23 @@ class PartgReportR3bXlsxTest :
                     "Ausweis A",
                     "Ausweis B",
                     "Ausweis C",
+                    "Ausweis D",
                     "Mitglieder",
                     "Ausweis F",
                     "Erläuterungen",
                     "Hinweise",
                 )
-            xlsx.sheetNames.size shouldBe 12
+            xlsx.sheetNames.size shouldBe 13
         }
 
-        test("the completeness sheet says that D is not recorded") {
-            xlsx.sheets.getValue("Vollständigkeit").values.any {
-                it.value.startsWith("Ausweis D (Unternehmenstätigkeit) ist in diesem Entwurf nicht erfasst")
-            } shouldBe
-                true
+        test("the completeness sheet no longer carries the placeholder of D, only a count") {
+            val texts =
+                xlsx.sheets
+                    .getValue("Vollständigkeit")
+                    .values
+                    .map { it.value }
+            texts.none { it.contains("nicht erfasst. Beteiligungen") || it.contains("ist in diesem Entwurf nicht erfasst") } shouldBe true
+            ("Ausweis D: 0 Unternehmen erfasst" in texts) shouldBe true
         }
 
         test("formula starters in name, purpose and relationship are inline strings with the quote prefix, and no cell is a formula") {
@@ -203,11 +207,11 @@ class PartgReportR3bXlsxTest :
                 true
         }
 
-        test("the single-unit export has the same twelve sheets") {
+        test("the single-unit export has the same thirteen sheets") {
             readXlsx(
                 PartgReportXlsxWriter.write(ReportFixtures.docR3b(PartgReportScope.Single(PartgUnit.Federal))),
             ).sheetNames.size shouldBe
-                12
+                13
         }
     })
 

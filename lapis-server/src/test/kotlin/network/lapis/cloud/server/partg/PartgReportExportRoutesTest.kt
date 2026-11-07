@@ -423,6 +423,60 @@ class PartgReportExportRoutesTest :
                 snapshot.youthOrgRowCount shouldBe 1
             }
         }
+
+        test("V1.9.287: the export carries statement D; the audit entry counts the enterprises and holds no name or amount") {
+            val board = fx.member()
+            val chapter = fx.chapter()
+            val unit = PartgUnit.State(chapter.toString())
+            val current = fx.currentOf(memberId = board)
+            val now =
+                network.lapis.cloud.server.time.ServerClock
+                    .now()
+            listOf("Betriebsprobe Geheimfirma" to 4_444_444L, "Zweiter Geheimbetrieb" to 1_111L).forEachIndexed { index, (name, cents) ->
+                PartgAnnexWriter.saveEnterprise(
+                    current = current,
+                    year = year,
+                    unit = unit,
+                    expectedRevision = index.toLong(),
+                    enterprise =
+                        network.lapis.cloud.shared.domain
+                            .PartgEnterpriseInputDto(
+                                id = null,
+                                name = name,
+                                legalForm = null,
+                                seat = null,
+                                shareBasisPoints = null,
+                                incomeCents = cents,
+                                expensesCents = 1L,
+                            ),
+                    now = now,
+                ) {}
+            }
+            withRoutes {
+                val pdf = export(board, "pdf", query = "year=$year&scope=${unit.key()}")
+                pdf.status shouldBe HttpStatusCode.OK
+                val pdfText =
+                    org.apache.pdfbox.Loader
+                        .loadPDF(pdf.readRawBytes())
+                        .use {
+                            org.apache.pdfbox.text
+                                .PDFTextStripper()
+                                .getText(it)
+                        }
+                pdfText shouldContain "Betriebsprobe Geheimfirma"
+                pdfText shouldContain "44.444,44"
+                val xlsx = export(board, "xlsx", query = "year=$year&scope=${unit.key()}")
+                xlsx.status shouldBe HttpStatusCode.OK
+                readXlsxForRoute(xlsx.readRawBytes()) shouldContain "Ausweis D"
+            }
+            val audits = exportAudits(board)
+            audits.size shouldBe 2
+            audits.forEach { (after, _) ->
+                listOf("Geheim", "4444444", "Betriebsprobe").forEach { after shouldNotContain it }
+                val snapshot = json.decodeFromString(PartgReportExportAuditSnapshot.serializer(), after)
+                snapshot.enterpriseRowCount shouldBe 2
+            }
+        }
     })
 
 private fun readXlsxForRoute(bytes: ByteArray): String {

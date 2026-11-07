@@ -4,6 +4,7 @@ import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.server.partg.PartgCompletenessCalculator
 import network.lapis.cloud.shared.domain.PartgCell
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgEnterpriseRules
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgReportComputation
 import network.lapis.cloud.shared.domain.PartgReportScope
@@ -196,7 +197,44 @@ internal object PartgReportAssembler {
                     )
                 }
             }
-        return AnnexSection(units = pages, wholeParty = whole, donors = donors, sponsors = sponsors, youthOrgs = youthOrgs)
+        val enterprises =
+            selected.flatMap { unit ->
+                val label = unitLabel(unit)
+                data[unit.unitKey]?.enterprises.orEmpty().mapIndexed { index, e ->
+                    EnterpriseLine(
+                        unitLabel = label,
+                        rowNumber = index + 1,
+                        name = e.name,
+                        legalForm = e.legalForm,
+                        seat = e.seat,
+                        shareBasisPoints = e.shareBasisPoints,
+                        incomeCents = e.incomeCents,
+                        expensesCents = e.expensesCents,
+                    )
+                }
+            }
+        val enterpriseTotals =
+            selected.mapNotNull { unit ->
+                val rows = data[unit.unitKey]?.enterprises.orEmpty()
+                if (rows.isEmpty()) return@mapNotNull null
+                val income = PartgEnterpriseRules.completeSum(rows.map { it.incomeCents })
+                val expenses = PartgEnterpriseRules.completeSum(rows.map { it.expensesCents })
+                EnterpriseTotal(
+                    unitLabel = unitLabel(unit),
+                    incomeCents = income,
+                    expensesCents = expenses,
+                    resultCents = PartgEnterpriseRules.resultCents(income = income, expenses = expenses),
+                )
+            }
+        return AnnexSection(
+            units = pages,
+            wholeParty = whole,
+            donors = donors,
+            sponsors = sponsors,
+            youthOrgs = youthOrgs,
+            enterprises = enterprises,
+            enterpriseTotals = enterpriseTotals,
+        )
     }
 
     /** Value when every unit entered the figure, NotEntered when none did, else Partial (the same rule as the positions). */

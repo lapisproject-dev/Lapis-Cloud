@@ -106,9 +106,13 @@ internal object PartgReportTexts {
 
     // V1.9.283 (R3b): the headings carry no section number on purpose (the official layout is not verified)
     const val ANNEX_C = "Gesonderter Ausweis C: Sponsoring (Entwurf)"
-    const val ANNEX_D_PLACEHOLDER =
-        "Ausweis D (Unternehmenstätigkeit) ist in diesem Entwurf nicht erfasst. Beteiligungen stehen unter Erläuterungen."
-    const val ANNEX_D_SHORT = "Ausweis D: nicht erfasst"
+    const val ANNEX_D = "Gesonderter Ausweis D: Unternehmenstätigkeit (Entwurf)"
+    const val D_NOTE = "Eigene Geschäftsbetriebe der Gliederung. Beteiligungen stehen unter Erläuterungen."
+    const val D_COMPLETENESS = "Ausweis D: %d Unternehmen erfasst"
+    const val COL_LEGAL_FORM = "Rechtsform"
+    const val COL_SEAT = "Sitz"
+    const val COL_SHARE = "Anteil %"
+    const val COL_TOTAL = "Summe"
     const val ANNEX_F = "Gesonderter Ausweis F: Jugendorganisationen (Entwurf)"
     const val C_NOTE =
         "Aufgenommen ist ein Sponsor mit einer Leistung über 750,00 EUR oder mit mehr als 6.000,00 EUR im Jahr bei dieser Gliederung. " +
@@ -146,5 +150,8 @@ internal object PartgReportTexts {
             network.lapis.cloud.shared.domain.PartgFindingCode.P08 -> "Anschrift unvollständig (Sponsor)"
             network.lapis.cloud.shared.domain.PartgFindingCode.P09 -> "Sponsor unter beiden Grenzen, nicht im Bericht"
             network.lapis.cloud.shared.domain.PartgFindingCode.P10 -> "Jugendorganisation ohne Zahlen"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P11 -> "Unternehmen weichen von Position ab"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P12 -> "Unternehmen ohne vollständige Zahlen"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P13 -> "Position erfasst, aber kein Unternehmen in Ausweis D"
         }
 }

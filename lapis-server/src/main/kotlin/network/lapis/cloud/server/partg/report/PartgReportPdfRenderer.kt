@@ -131,7 +131,7 @@ internal class PartgReportPdfRenderer(
                 annexASection(c = c, doc = document)
                 annexBSection(c = c, doc = document)
                 annexCSection(c = c, doc = document)
-                annexDSection(c = c)
+                annexDSection(c = c, doc = document)
                 annexESection(c = c, doc = document)
                 annexFSection(c = c, doc = document)
                 notesSection(c = c, doc = document)
@@ -759,10 +759,72 @@ internal class PartgReportPdfRenderer(
         table(c = c, title = null, cols = cols, rows = rows)
     }
 
-    private fun annexDSection(c: Canvas) {
+    private fun annexDSection(
+        c: Canvas,
+        doc: PartgReportDocument,
+    ) {
         c.y -= 8f
-        heading(c = c, text = PartgReportTexts.ANNEX_D_SHORT, size = 10f)
-        paragraph(c = c, text = PartgReportTexts.ANNEX_D_PLACEHOLDER)
+        heading(c = c, text = PartgReportTexts.ANNEX_D, size = 10f)
+        paragraph(c = c, text = PartgReportTexts.D_NOTE, size = 7.5f)
+        if (doc.annex.enterprises.isEmpty()) {
+            paragraph(c = c, text = PartgReportTexts.NO_ENTRIES)
+            return
+        }
+        val cols =
+            listOf(
+                Col(title = PartgReportTexts.COL_UNIT, width = 100f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_ROW, width = 26f, right = true),
+                Col(title = PartgReportTexts.COL_NAME, width = 130f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_LEGAL_FORM, width = 66f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_SEAT, width = 80f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_SHARE, width = 44f, right = true),
+                Col(title = PartgReportTexts.COL_INCOME, width = 80f, right = true),
+                Col(title = PartgReportTexts.COL_EXPENSES, width = 80f, right = true),
+                Col(title = PartgReportTexts.COL_RESULT, width = 80f, right = true),
+            )
+
+        fun euroOrNone(cents: Long?) = cents?.let { PartgReportNumberFormat.euro(it) } ?: PartgReportTexts.NOT_ENTERED
+
+        fun euroOrNotComputable(cents: Long?) = cents?.let { PartgReportNumberFormat.euro(it) } ?: PartgReportTexts.NOT_COMPUTABLE
+        val rows = mutableListOf<Row>()
+        doc.annex.enterprises.groupBy { it.unitLabel }.forEach { (unitLabel, lines) ->
+            lines.forEach { e ->
+                rows +=
+                    Row(
+                        cells =
+                            listOf(
+                                e.unitLabel,
+                                e.rowNumber.toString(),
+                                e.name,
+                                e.legalForm.orEmpty(),
+                                e.seat.orEmpty(),
+                                e.shareBasisPoints?.let { PartgReportNumberFormat.percentBasisPoints(it) } ?: PartgReportTexts.NOT_ENTERED,
+                                euroOrNone(e.incomeCents),
+                                euroOrNone(e.expensesCents),
+                                euroOrNotComputable(e.resultCents),
+                            ),
+                    )
+            }
+            doc.annex.enterpriseTotals.firstOrNull { it.unitLabel == unitLabel }?.let { t ->
+                rows +=
+                    Row(
+                        cells =
+                            listOf(
+                                unitLabel,
+                                "",
+                                PartgReportTexts.COL_TOTAL,
+                                "",
+                                "",
+                                "",
+                                euroOrNotComputable(t.incomeCents),
+                                euroOrNotComputable(t.expensesCents),
+                                euroOrNotComputable(t.resultCents),
+                            ),
+                        bold = true,
+                    )
+            }
+        }
+        table(c = c, title = null, cols = cols, rows = rows)
     }
 
     private fun annexFSection(

@@ -36,6 +36,8 @@ internal class StatementEnv(
     val reload: (AnnexBlock) -> Unit,
     val guard: AnnexEditorGuard,
     val findings: List<PartgFindingDto>,
+    /** V1.9.287 (R3c): switches to the tab "Erläuterungen" (the block D points there for holdings). */
+    val openNotes: () -> Unit = {},
 )
 
 private const val STATUS_DEBOUNCE_MS = 400

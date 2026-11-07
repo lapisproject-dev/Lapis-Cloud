@@ -9,6 +9,8 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.PartgAnnexAuditSnapshot
 import network.lapis.cloud.shared.domain.PartgAnnexRules
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
+import network.lapis.cloud.shared.domain.PartgEnterpriseRules
 import network.lapis.cloud.shared.domain.PartgHoldingDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
 import network.lapis.cloud.shared.domain.PartgNoteBlock
@@ -42,6 +44,9 @@ internal object PartgAnnexWriter {
     private const val CHANGE_YOUTH_ADDED = "YOUTH_ORG_ADDED"
     private const val CHANGE_YOUTH_UPDATED = "YOUTH_ORG_UPDATED"
     private const val CHANGE_YOUTH_DELETED = "YOUTH_ORG_DELETED"
+    private const val CHANGE_ENTERPRISE_ADDED = "ENTERPRISE_ADDED"
+    private const val CHANGE_ENTERPRISE_UPDATED = "ENTERPRISE_UPDATED"
+    private const val CHANGE_ENTERPRISE_REMOVED = "ENTERPRISE_REMOVED"
     private const val MEMBER_COUNT_FIELD = "MEMBER_COUNT"
 
     fun <T> saveFigures(
@@ -363,6 +368,94 @@ internal object PartgAnnexWriter {
             result()
         }
 
+    /** V1.9.287 (R3c): adds or changes an enterprise of statement D. The cap of 50 is checked under the lock of the annex. */
+    fun <T> saveEnterprise(
+        current: CurrentMember,
+        year: Int,
+        unit: PartgUnit,
+        expectedRevision: Long,
+        enterprise: PartgEnterpriseInputDto,
+        now: LocalDateTime,
+        result: () -> T,
+    ): T =
+        transaction {
+            PartgReportStore.lockChapter(unit)
+            val annex = PartgAnnexStore.lockOrCreateAnnex(year = year, unit = unit, actor = current.memberId, now = now)
+            if (annex.revision != expectedRevision) throw PartyReportRevisionConflictException()
+            val adding = enterprise.id == null
+            val row =
+                PartgStatementStore.EnterpriseRow(
+                    id = enterprise.id?.let { parseId(it) } ?: Uuid.random(),
+                    annexId = annex.id,
+                    name = PartgAnnexRules.normalize(enterprise.name).orEmpty(),
+                    legalForm = PartgAnnexRules.normalize(enterprise.legalForm),
+                    seat = PartgAnnexRules.normalize(enterprise.seat),
+                    shareBasisPoints = enterprise.shareBasisPoints,
+                    incomeCents = enterprise.incomeCents,
+                    expensesCents = enterprise.expensesCents,
+                    createdAt = now,
+                )
+            if (adding) {
+                if (PartgStatementStore.enterpriseCount(annex.id) >= PartgEnterpriseRules.MAX_ENTERPRISES_PER_UNIT) {
+                    throw PartyReportInvalidInputException("TOO_MANY")
+                }
+                PartgStatementStore.insertEnterprise(enterprise = row, actor = current.memberId, now = now)
+            } else {
+                PartgStatementStore.findEnterprise(annexId = annex.id, enterpriseId = row.id) ?: throw NotFoundException("Row not found")
+                PartgStatementStore.updateEnterprise(enterprise = row, actor = current.memberId, now = now)
+            }
+            PartgAnnexStore.bumpAnnexRevision(annex = annex, actor = current.memberId, now = now)
+            audit(
+                current = current,
+                annexId = annex.id,
+                action = if (adding) AuditAction.CREATE else AuditAction.UPDATE,
+                snapshot =
+                    statementSnapshot(
+                        annex = annex,
+                        year = year,
+                        unit = unit,
+                        change = if (adding) CHANGE_ENTERPRISE_ADDED else CHANGE_ENTERPRISE_UPDATED,
+                        enterpriseId = row.id,
+                    ),
+                now = now,
+            )
+            result()
+        }
+
+    fun <T> deleteEnterprise(
+        current: CurrentMember,
+        year: Int,
+        unit: PartgUnit,
+        expectedRevision: Long,
+        enterpriseId: String,
+        now: LocalDateTime,
+        result: () -> T,
+    ): T =
+        transaction {
+            PartgReportStore.lockChapter(unit)
+            val annex = PartgAnnexStore.lockAnnex(year = year, unit = unit) ?: throw NotFoundException("Row not found")
+            if (annex.revision != expectedRevision) throw PartyReportRevisionConflictException()
+            val id = parseId(enterpriseId)
+            PartgStatementStore.findEnterprise(annexId = annex.id, enterpriseId = id) ?: throw NotFoundException("Row not found")
+            PartgStatementStore.deleteEnterprise(annexId = annex.id, enterpriseId = id)
+            PartgAnnexStore.bumpAnnexRevision(annex = annex, actor = current.memberId, now = now)
+            audit(
+                current = current,
+                annexId = annex.id,
+                action = AuditAction.VOID,
+                snapshot =
+                    statementSnapshot(
+                        annex = annex,
+                        year = year,
+                        unit = unit,
+                        change = CHANGE_ENTERPRISE_REMOVED,
+                        enterpriseId = id,
+                    ),
+                now = now,
+            )
+            result()
+        }
+
     fun <T> saveNotes(
         current: CurrentMember,
         year: Int,
@@ -449,6 +542,7 @@ internal object PartgAnnexWriter {
         change: String,
         sponsorId: Uuid? = null,
         youthOrgId: Uuid? = null,
+        enterpriseId: Uuid? = null,
     ) = PartgAnnexAuditSnapshot(
         year = year,
         unitKey = unit.key(),
@@ -461,6 +555,8 @@ internal object PartgAnnexWriter {
         sponsoringEntryCount = PartgStatementStore.entryCountOfAnnex(annex.id),
         youthOrgId = youthOrgId?.toString(),
         youthOrgCount = PartgStatementStore.youthOrgCount(annex.id),
+        enterpriseId = enterpriseId?.toString(),
+        enterpriseCount = PartgStatementStore.enterpriseCount(annex.id),
     )
 
     private fun audit(

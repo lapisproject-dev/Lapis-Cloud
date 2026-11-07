@@ -21,6 +21,9 @@ internal object PartgReportNumberFormat {
         return (if (cents < 0) "-" else "") + grouped + "," + digits.takeLast(2)
     }
 
+    /** Hundredths of a percent as `25,00` (without the percent sign; the column says `%`). */
+    fun percentBasisPoints(basisPoints: Int): String = euro(basisPoints.toLong())
+
     /** `12,3` (without the percent sign; the column says `%`) or `n. b.`. */
     fun percent(p: PartgPercent?): String =
         when (p) {

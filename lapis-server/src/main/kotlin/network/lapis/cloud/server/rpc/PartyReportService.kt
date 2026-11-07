@@ -22,6 +22,10 @@ import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgAnnexRules
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgEnterpriseCheckDto
+import network.lapis.cloud.shared.domain.PartgEnterpriseDto
+import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
+import network.lapis.cloud.shared.domain.PartgEnterpriseRules
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgHoldingDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorDto
@@ -383,6 +387,47 @@ class PartyReportService internal constructor(
         ) { annexDto(year = year, unit = unit) }
     }
 
+    override suspend fun saveEnterprise(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        enterprise: PartgEnterpriseInputDto,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        PartgEnterpriseRules.validate(enterprise)?.let { throw PartyReportInvalidInputException(it.name) }
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.saveEnterprise(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            enterprise = enterprise,
+            now = ServerClock.now(),
+        ) { annexDto(year = year, unit = unit) }
+    }
+
+    override suspend fun deleteEnterprise(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        enterpriseId: String,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.deleteEnterprise(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            enterpriseId = enterpriseId,
+            now = ServerClock.now(),
+        ) { annexDto(year = year, unit = unit) }
+    }
+
     /** Must run inside a transaction. */
     private fun annexDto(
         year: Int,
@@ -391,6 +436,9 @@ class PartyReportService internal constructor(
         val dto = PartgReportStore.unitDto(unit)
         val annex = PartgAnnexStore.findAnnex(year = year, unit = unit)
         val today = ServerClock.todayIn(OrganizationTimeZone.current())
+        val enterpriseRows = annex?.let { PartgStatementStore.enterprises(it.id) }.orEmpty()
+        // R1 is only READ here, never written. The check carries a status, never an amount.
+        val r1Values = PartgReportStore.findSheet(year = year, unit = unit)?.let { PartgReportStore.values(it.id) }.orEmpty()
         return PartgAnnexDto(
             year = year,
             unit = dto,
@@ -457,8 +505,43 @@ class PartyReportService internal constructor(
                             expensesCents = y.expensesCents,
                         )
                     },
+            enterprises =
+                enterpriseRows.mapIndexed { index, e ->
+                    PartgEnterpriseDto(
+                        id = e.id.toString(),
+                        rowNumber = index + 1,
+                        name = e.name,
+                        legalForm = e.legalForm,
+                        seat = e.seat,
+                        shareBasisPoints = e.shareBasisPoints,
+                        incomeCents = e.incomeCents,
+                        expensesCents = e.expensesCents,
+                    )
+                },
+            enterpriseChecks =
+                listOfNotNull(
+                    enterpriseCheck(
+                        positionCode = PartgEnterpriseRules.INCOME_POSITION,
+                        figures = enterpriseRows.map { it.incomeCents },
+                        r1Values = r1Values,
+                    ),
+                    enterpriseCheck(
+                        positionCode = PartgEnterpriseRules.EXPENSE_POSITION,
+                        figures = enterpriseRows.map { it.expensesCents },
+                        r1Values = r1Values,
+                    ),
+                ),
         )
     }
+
+    private fun enterpriseCheck(
+        positionCode: String,
+        figures: List<Long?>,
+        r1Values: Map<String, Long>,
+    ): PartgEnterpriseCheckDto? =
+        PartgEnterpriseRules.check(figures = figures, positionCents = r1Values[positionCode])?.let {
+            PartgEnterpriseCheckDto(positionCode = positionCode, status = it)
+        }
 
     private fun notesDto(year: Int): PartgNotesDto {
         val sheet = PartgAnnexStore.findNotes(year)

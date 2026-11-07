@@ -3,6 +3,8 @@ package network.lapis.cloud.server.partg.report
 import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.shared.domain.PartgAnnexRules
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgEnterpriseCheckStatus
+import network.lapis.cloud.shared.domain.PartgEnterpriseRules
 import network.lapis.cloud.shared.domain.PartgFindingCode
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgFindingLevel
@@ -35,6 +37,11 @@ import kotlin.math.abs
  *  - P10 (CHECK): a youth organisation has neither income nor expenses entered.
  *    P07..P10 refer to the row number of the sorted list of the unit as the user interface shows it, and carry no name and no amount.
  *
+ *  - P11 (CHECK): the sum of the enterprises of statement D differs from the R1 position E05 or A02F by MORE than 1.00 EUR, or the position is
+ *    not entered. Carries the position code, no row numbers and NO amount.
+ *  - P12 (CHECK): an enterprise of statement D lacks income or expenses (row numbers).
+ *  - P13 (INFO): E05 or A02F is entered with a value above zero, but statement D has no enterprise (position code).
+ *
  * At most [PartgAnnexRules.MAX_FINDINGS] findings: when the P05 hints would exceed it they are cut off and ONE P05 INFO without position marks
  * the cut.
  */
@@ -58,6 +65,7 @@ internal object PartgPlausibility {
                 addSponsorFindings(unitKey = unit.unitKey, data = data, out = base)
                 addYouthFindings(unitKey = unit.unitKey, data = data, out = base)
             }
+            addEnterpriseFindings(unitKey = unit.unitKey, data = data, values = values, out = base)
             if (data != null || values.isNotEmpty()) addGapFindings(unit = unit, data = data, out = base)
             if (unit.level == PartgUnitLevel.FEDERAL && data == null) addMemberGap(unitKey = unit.unitKey, out = base)
             addVariance(unitKey = unit.unitKey, current = values, prior = entered[year - 1]?.get(unit.unitKey).orEmpty(), out = p05)
@@ -171,6 +179,49 @@ internal object PartgPlausibility {
                 finding(code = PartgFindingCode.P10, level = PartgFindingLevel.CHECK, unitKey = unitKey, rows = noFigures)
         }
     }
+
+    /** Also called without an annex row: P13 applies when statement D is empty. */
+    private fun addEnterpriseFindings(
+        unitKey: String,
+        data: PartgAnnexStore.AnnexData?,
+        values: Map<String, Long>,
+        out: MutableList<PartgFindingDto>,
+    ) {
+        val rows = data?.enterprises.orEmpty()
+        val incomplete =
+            rows
+                .withIndex()
+                .filter { (_, e) -> e.incomeCents == null || e.expensesCents == null }
+                .map { it.index + 1 }
+        if (incomplete.isNotEmpty()) {
+            out += finding(code = PartgFindingCode.P12, level = PartgFindingLevel.CHECK, unitKey = unitKey, rows = incomplete)
+        }
+        listOf(
+            PartgEnterpriseRules.INCOME_POSITION to rows.map { it.incomeCents },
+            PartgEnterpriseRules.EXPENSE_POSITION to rows.map { it.expensesCents },
+        ).forEach { (code, figures) ->
+            val status = PartgEnterpriseRules.check(figures = figures, positionCents = values[code])
+            if (status == PartgEnterpriseCheckStatus.DIFFERS || status == PartgEnterpriseCheckStatus.POSITION_NOT_ENTERED) {
+                out += positionFinding(code = PartgFindingCode.P11, level = PartgFindingLevel.CHECK, unitKey = unitKey, positionCode = code)
+            }
+            if (rows.isEmpty() && (values[code] ?: 0L) > 0L) {
+                out += positionFinding(code = PartgFindingCode.P13, level = PartgFindingLevel.INFO, unitKey = unitKey, positionCode = code)
+            }
+        }
+    }
+
+    private fun positionFinding(
+        code: PartgFindingCode,
+        level: PartgFindingLevel,
+        unitKey: String,
+        positionCode: String,
+    ) = PartgFindingDto(
+        code = code,
+        level = level,
+        unitKey = unitKey,
+        positionCode = positionCode,
+        target = PartgFindingTarget.ANNEX,
+    )
 
     private fun finding(
         code: PartgFindingCode,

@@ -4,6 +4,7 @@ import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgHoldingDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
@@ -139,5 +140,20 @@ interface IPartyReportService {
         unitKey: String,
         expectedRevision: Long,
         youthOrgId: String,
+    ): PartgAnnexDto
+
+    /** V1.9.287 (R3c): adds ([PartgEnterpriseInputDto.id] `null`) or changes an enterprise of statement D. At most 50 per unit and year. */
+    suspend fun saveEnterprise(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        enterprise: PartgEnterpriseInputDto,
+    ): PartgAnnexDto
+
+    suspend fun deleteEnterprise(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        enterpriseId: String,
     ): PartgAnnexDto
 }

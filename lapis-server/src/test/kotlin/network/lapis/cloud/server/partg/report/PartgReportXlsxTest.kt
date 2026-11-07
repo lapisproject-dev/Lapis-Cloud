@@ -24,6 +24,7 @@ class PartgReportXlsxGoldenTest :
                     "Ausweis A",
                     "Ausweis B",
                     "Ausweis C",
+                    "Ausweis D",
                     "Mitglieder",
                     "Ausweis F",
                     "Erläuterungen",

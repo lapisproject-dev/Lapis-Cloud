@@ -16,6 +16,7 @@ import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
+import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
 import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
 import network.lapis.cloud.server.db.generated.PartgReportNoteTable
@@ -182,6 +183,9 @@ internal class PartgFixtures(
             }
             PartgReportSponsorTable.deleteWhere {
                 (PartgReportSponsorTable.id inList sponsorIds) or (PartgReportSponsorTable.createdBy inList memberIds)
+            }
+            PartgReportEnterpriseTable.deleteWhere {
+                (PartgReportEnterpriseTable.annexId inList annexIds) or (PartgReportEnterpriseTable.createdBy inList memberIds)
             }
             PartgReportYouthOrgTable.deleteWhere {
                 (PartgReportYouthOrgTable.annexId inList annexIds) or (PartgReportYouthOrgTable.createdBy inList memberIds)
