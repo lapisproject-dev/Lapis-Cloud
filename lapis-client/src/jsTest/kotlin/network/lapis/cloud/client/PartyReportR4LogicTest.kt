@@ -24,6 +24,7 @@ class PartyReportR4LogicTest {
         balance: Long? = null,
         postings: Int = 0,
         active: Boolean = true,
+        nameSuggestion: String? = null,
     ) = PartgAccountMappingRowDto(
         accountId = id,
         number = "4$id",
@@ -36,6 +37,8 @@ class PartyReportR4LogicTest {
         templateSuggestsExcluded = suggestExcluded,
         balanceCents = balance,
         postingCount = postings,
+        nameSuggestion = nameSuggestion,
+        nameSuggestionKeyword = nameSuggestion?.let { "wort" },
     )
 
     @Test
@@ -92,6 +95,30 @@ class PartyReportR4LogicTest {
     }
 
     @Test
+    fun aNameGuessIsOnlyTheFallback_isNeverTickedInBulk_andNeverOverridesTheChart() {
+        val draft =
+            PartgMappingDraft(
+                listOf(
+                    row("1", suggestion = "E01", nameSuggestion = "E02"), // the chart wins
+                    row("2", type = LedgerAccountType.EXPENSE, nameSuggestion = "A01"),
+                    row("3", type = LedgerAccountType.EXPENSE, nameSuggestion = "E01"), // a position the type may not take: ignored
+                ),
+            )
+        assertEquals(MappingChoice.Position("E01"), draft.suggestionOf(row("1", suggestion = "E01", nameSuggestion = "E02")))
+        assertEquals(2, draft.showSuggestions())
+        draft.tickAllChart()
+        assertTrue(draft.isTicked("1"))
+        assertFalse(draft.isTicked("2"), "a guess is never ticked in bulk")
+        draft.toggleTick("2")
+        assertEquals(2, draft.acceptTicked())
+        assertEquals(setOf("E01", "A01"), draft.changes().map { it.newPositionCode }.toSet())
+        val empty = PartgMappingDraft(emptyList())
+        assertEquals(SuggestionSource.NAME, empty.suggestionSourceOf(row("2", type = LedgerAccountType.EXPENSE, nameSuggestion = "A01")))
+        assertEquals(SuggestionSource.CHART, empty.suggestionSourceOf(row("1", suggestion = "E01", nameSuggestion = "E02")))
+        assertNull(empty.suggestionSourceOf(row("9")))
+    }
+
+    @Test
     fun theUnmappedBlockIsSortedByTheAbsoluteBalance_andSkipsInactiveAccountsWithoutPostings() {
         val rows =
             listOf(
@@ -118,12 +145,12 @@ class PartyReportR4LogicTest {
     }
 
     @Test
-    fun aChapterTreasurerSeesThreeTabs_everyoneElseAll() {
+    fun aChapterTreasurerSeesFourTabs_everyoneElseAll() {
         val scopes = listOf(RegionalChapterRefDto("c1", "Nord"))
         val treasurer = PartyReportDomSupport.session(role = AccountRole.MEMBER, chapterTreasurerScopes = scopes)
         assertTrue(partgChapterTreasurerOnly(treasurer))
         assertEquals(
-            listOf(PartyReportTab.OVERVIEW, PartyReportTab.SHEET, PartyReportTab.KONTENZUORDNUNG),
+            listOf(PartyReportTab.OVERVIEW, PartyReportTab.SHEET, PartyReportTab.KONTENZUORDNUNG, PartyReportTab.REPORT),
             partgVisibleTabs(treasurer),
         )
         // a board member with a grant keeps everything

@@ -5,6 +5,7 @@ import network.lapis.cloud.server.pdf.PdfLimitExceeded
 import network.lapis.cloud.shared.domain.PartgCell
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgFindingLevel
 import network.lapis.cloud.shared.domain.PartgMatchState
 import network.lapis.cloud.shared.domain.PartgNoteBlock
 import network.lapis.cloud.shared.domain.PartgPersonKind
@@ -124,43 +125,68 @@ internal class PartgReportPdfRenderer(
     fun render(
         document: PartgReportDocument,
         footer: String = PartgReportTexts.WORKING_STATE_FOOTER,
+        audience: PartgReportAudience = PartgReportAudience.FULL,
     ): ByteArray {
+        val unitPart = audience == PartgReportAudience.UNIT_PART
+        val title =
+            if (unitPart) {
+                PartgReportTexts.unitPartTitle(unitLabel = document.units.single().label, year = document.year)
+            } else {
+                "${PartgReportTexts.TITLE} ${document.year} – ${PartgReportTexts.DRAFT_MARK}"
+            }
         PDDocument().use { pdf ->
             val c = Canvas(pdf)
             try {
-                completenessSection(c = c, doc = document)
-                summarySection(c = c, doc = document)
+                completenessSection(c = c, doc = document, title = title)
+                summarySection(c = c, doc = document, unitPart = unitPart)
                 matrixSection(c = c, doc = document)
                 expenseSection(c = c, doc = document)
                 assetSection(c = c, doc = document)
-                annexASection(c = c, doc = document)
-                annexBSection(c = c, doc = document)
-                annexCSection(c = c, doc = document)
-                annexDSection(c = c, doc = document)
-                annexESection(c = c, doc = document)
-                annexFSection(c = c, doc = document)
-                notesSection(c = c, doc = document)
-                // V1.9.290 (R5): appended AFTER everything else, so the pages before it are unchanged
-                consolidationSection(c = c, doc = document)
+                if (unitPart) {
+                    // V1.9.292 (R4b): the unit part ends here: no statements, no notes, no consolidation; only the hints of the unit
+                    findingsSection(c = c, doc = document)
+                } else {
+                    annexASection(c = c, doc = document)
+                    annexBSection(c = c, doc = document)
+                    annexCSection(c = c, doc = document)
+                    annexDSection(c = c, doc = document)
+                    annexESection(c = c, doc = document)
+                    annexFSection(c = c, doc = document)
+                    notesSection(c = c, doc = document)
+                    // V1.9.290 (R5): appended AFTER everything else, so the pages before it are unchanged
+                    consolidationSection(c = c, doc = document)
+                }
             } finally {
                 c.close()
             }
-            decorate(pdf = pdf, doc = document, footer = footer)
-            val info = PDDocumentInformation()
-            info.title = PdfFontText.sanitize(text = "${PartgReportTexts.TITLE} ${document.year} (Entwurf)", font = regular)
-            info.producer = "Lapis Cloud"
-            pdf.documentInformation = info
-            val digest =
-                MessageDigest.getInstance("SHA-256").digest((document.toString() + footer).toByteArray(Charsets.UTF_8)).copyOf(ID_BYTES)
-            val id = COSArray()
-            id.add(COSString(digest))
-            id.add(COSString(digest))
-            pdf.document.setDocumentID(id)
-            val out = ByteArrayOutputStream()
-            pdf.save(out)
-            if (out.size() > maxBytes) throw PdfLimitExceeded("size limit")
-            return out.toByteArray()
+            return finish(pdf = pdf, doc = document, footer = footer, title = title, unitPart = unitPart)
         }
+    }
+
+    /** The second pass and the serialisation, shared by both audiences. */
+    private fun finish(
+        pdf: PDDocument,
+        doc: PartgReportDocument,
+        footer: String,
+        title: String,
+        unitPart: Boolean,
+    ): ByteArray {
+        decorate(pdf = pdf, doc = doc, footer = footer, headerTitle = if (unitPart) title else null)
+        val info = PDDocumentInformation()
+        info.title =
+            PdfFontText.sanitize(text = if (unitPart) title else "${PartgReportTexts.TITLE} ${doc.year} (Entwurf)", font = regular)
+        info.producer = "Lapis Cloud"
+        pdf.documentInformation = info
+        val digest =
+            MessageDigest.getInstance("SHA-256").digest((doc.toString() + footer).toByteArray(Charsets.UTF_8)).copyOf(ID_BYTES)
+        val id = COSArray()
+        id.add(COSString(digest))
+        id.add(COSString(digest))
+        pdf.document.setDocumentID(id)
+        val out = ByteArrayOutputStream()
+        pdf.save(out)
+        if (out.size() > maxBytes) throw PdfLimitExceeded("size limit")
+        return out.toByteArray()
     }
 
     // ---------------------------------------------------------------- text helpers
@@ -366,10 +392,11 @@ internal class PartgReportPdfRenderer(
     private fun completenessSection(
         c: Canvas,
         doc: PartgReportDocument,
+        title: String,
     ) {
         c.newPage()
         c.text(
-            value = "${PartgReportTexts.TITLE} ${doc.year} – ${PartgReportTexts.DRAFT_MARK}",
+            value = title,
             x = MARGIN,
             baseline = c.y - 15f,
             font = bold,
@@ -459,6 +486,7 @@ internal class PartgReportPdfRenderer(
     private fun summarySection(
         c: Canvas,
         doc: PartgReportDocument,
+        unitPart: Boolean,
     ) {
         c.newPage()
         heading(c = c, text = PartgReportTexts.SUMMARY)
@@ -467,7 +495,7 @@ internal class PartgReportPdfRenderer(
             listOf(sectionRow("Einnahmen")) + PartgReportLayout.summaryIncome(page).map(::lineRow) +
                 sectionRow("Ausgaben") + PartgReportLayout.summaryExpenses(page).map(::lineRow)
         table(c = c, title = page.label, cols = standardCols, rows = rows)
-        paragraph(c = c, text = PartgReportTexts.SUBSIDY_NOTE, size = 7.5f)
+        paragraph(c = c, text = if (unitPart) PartgReportTexts.SUBSIDY_NOTE_UNIT else PartgReportTexts.SUBSIDY_NOTE, size = 7.5f)
         PartgReportLayout
             .missingFootnote(
                 document = doc,
@@ -902,6 +930,21 @@ internal class PartgReportPdfRenderer(
         table(c = c, title = null, cols = cols, rows = rows)
     }
 
+    /** V1.9.292 (R4b): the hints of the unit part. Codes, levels and position numbers only: never a name, an address or an amount. */
+    private fun findingsSection(
+        c: Canvas,
+        doc: PartgReportDocument,
+    ) {
+        c.newPage()
+        heading(c = c, text = PartgReportTexts.NOTES, size = 11f)
+        if (doc.findings.isEmpty()) paragraph(c = c, text = PartgReportTexts.FINDINGS_NONE)
+        doc.findings.forEach { f ->
+            val position = f.positionCode?.let { " Position " + PartgReportLayout.numberText(it) }.orEmpty()
+            val level = if (f.level == PartgFindingLevel.CHECK) PartgReportTexts.LEVEL_CHECK else PartgReportTexts.LEVEL_INFO
+            paragraph(c = c, text = "${f.code.name} · $level · ${PartgReportTexts.finding(f.code)}$position")
+        }
+    }
+
     private fun notesSection(
         c: Canvas,
         doc: PartgReportDocument,
@@ -1136,14 +1179,20 @@ internal class PartgReportPdfRenderer(
         pdf: PDDocument,
         doc: PartgReportDocument,
         footer: String,
+        headerTitle: String? = null,
     ) {
         val footerLine = PdfFontText.sanitize(text = footer, font = regular)
         val total = pdf.numberOfPages
         val header =
             PdfFontText.sanitize(
-                text = "${doc.organizationName.take(
-                    MAX_NAME_CHARS,
-                )} · ${PartgReportTexts.TITLE} ${doc.year} · ${PartgReportTexts.HEADER_SUFFIX}",
+                text =
+                    if (headerTitle != null) {
+                        "${doc.organizationName.take(MAX_NAME_CHARS)} · $headerTitle"
+                    } else {
+                        "${doc.organizationName.take(
+                            MAX_NAME_CHARS,
+                        )} · ${PartgReportTexts.TITLE} ${doc.year} · ${PartgReportTexts.HEADER_SUFFIX}"
+                    },
                 font = regular,
             )
         for (i in 0 until total) {

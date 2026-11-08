@@ -186,6 +186,23 @@ data class PartgCompletenessDto(
     val units: List<PartgUnitCompletenessDto>,
 )
 
+/**
+ * V1.9.292 (R4b) -- the read-only unit-part preview of ONE unit (what the chapter treasurer's PDF/XLSX contains; the same source). No statements A-F,
+ * no notes, no consolidation. [findings] only holds the hints P05, P14, P15 and P16 of this unit.
+ */
+@Serializable
+data class PartgUnitStatementDto(
+    val year: Int,
+    val unit: PartgUnitDto,
+    val mode: PartgBookkeepingMode,
+    val current: Map<String, PartgCell>,
+    val prior: Map<String, PartgCell>,
+    val missingCurrent: List<String>,
+    val findings: List<PartgFindingDto>,
+    /** Number of POSTED bookings of the unit in the year (always 0 for a `SUB:` unit). */
+    val postedEntryCount: Int,
+)
+
 /** V1.9.256 -- limits of the report export. */
 object PartgReportLimits {
     const val MAX_PDF_PAGES = 600

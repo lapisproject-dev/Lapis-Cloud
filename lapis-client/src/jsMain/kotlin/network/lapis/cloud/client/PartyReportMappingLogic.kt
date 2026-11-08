@@ -23,6 +23,9 @@ internal sealed interface MappingChoice {
 internal const val MAPPING_NONE = ""
 internal const val MAPPING_EXCLUDED = "EXCLUDED"
 
+/** V1.9.292 (R4b): where a shown suggestion comes from: the standard chart of accounts (an exact hit) or a GUESS from the account name. */
+internal enum class SuggestionSource { CHART, NAME }
+
 /** The LEAF positions an account of [type] may be mapped to (shared rule); empty for an equity account. */
 internal fun partgMappingTargets(type: LedgerAccountType): List<PartgPositions.Position> =
     PartgPositions.ALL.filter { PartgLedgerRules.allowedTarget(type, it) }
@@ -82,11 +85,21 @@ internal class PartgMappingDraft(
         return shownSuggestions.size
     }
 
+    /** The standard chart wins; the name guess is only the fallback. Its position is checked against the shared rule once more. */
     fun suggestionOf(row: PartgAccountMappingRowDto): MappingChoice? =
         when {
             row.templateSuggestsExcluded -> MappingChoice.Excluded
             row.templateSuggestion != null -> MappingChoice.Position(row.templateSuggestion!!)
+            row.nameSuggestion != null && PartgLedgerRules.allowedTarget(row.type, row.nameSuggestion!!) ->
+                MappingChoice.Position(row.nameSuggestion!!)
             else -> null
+        }
+
+    fun suggestionSourceOf(row: PartgAccountMappingRowDto): SuggestionSource? =
+        when {
+            suggestionOf(row) == null -> null
+            row.templateSuggestsExcluded || row.templateSuggestion != null -> SuggestionSource.CHART
+            else -> SuggestionSource.NAME
         }
 
     fun isSuggestionShown(accountId: String): Boolean = accountId in shownSuggestions
@@ -107,8 +120,12 @@ internal class PartgMappingDraft(
         if (value) ticked += accountId else ticked.remove(accountId)
     }
 
-    fun tickAll() {
-        ticked += shownSuggestions
+    /** Ticks only the suggestions that come from the standard chart; a guess from the account name is never ticked in bulk. */
+    fun tickAllChart() {
+        shownSuggestions.forEach { id ->
+            val row = byId[id] ?: return@forEach
+            if (suggestionSourceOf(row) == SuggestionSource.CHART) ticked += id
+        }
     }
 
     /** Moves the ticked suggestions into the draft (this only MARKS them; saving is a separate step). Returns how many. */

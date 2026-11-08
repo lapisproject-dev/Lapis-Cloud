@@ -202,6 +202,15 @@ internal object PartgReportTexts {
     const val SHEET_RECONCILIATION = "Abgleich"
     const val SHEET_B_CONSOLIDATED = "Ausweis B (konsolidiert)"
 
+    // V1.9.292 (R4b): the unit part a chapter treasurer downloads
+    const val UNIT_PART_FOOTER = "Entwurf · nicht geprüft · kein amtliches Formular"
+    const val SUBSIDY_NOTE_UNIT = "Einschließlich innerparteilicher Zuschüsse (Einnahmen Nr. 10, Ausgaben Nr. 3), nicht bereinigt."
+
+    fun unitPartTitle(
+        unitLabel: String,
+        year: Int,
+    ): String = "Teilbericht $unitLabel $year – Entwurf"
+
     // V1.9.291 (R6): the footer line of every exported page / sheet
     const val WORKING_STATE_FOOTER = "Arbeitsstand, keine festgehaltene Version"
 

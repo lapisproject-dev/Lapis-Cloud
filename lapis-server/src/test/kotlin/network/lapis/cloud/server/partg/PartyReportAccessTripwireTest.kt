@@ -37,7 +37,7 @@ class PartyReportAccessTripwireTest :
                         .first()
                 }.toList()
 
-        test("the RPC surface is exactly the thirty-eight known methods") {
+        test("the RPC surface is exactly the thirty-nine known methods") {
             IPartyReportService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }
@@ -87,13 +87,15 @@ class PartyReportAccessTripwireTest :
                     "confirmDeadline",
                     "previewVersionDeletion",
                     "deleteOldVersions",
+                    // V1.9.292 (R4b)
+                    "unitStatementPreview",
                 )
         }
 
         test("every RPC method of the service starts with the access gate") {
             val code = source("PartyReportService.kt")
             val starts = firstStatements(code, Regex("""override suspend fun \w+\([^)]*\)\s*:\s*[\w<>?, ]+\s*"""))
-            (starts.size) shouldBe 38
+            (starts.size) shouldBe 39
             // exactly one of the two gates, and the scoped gate only for the pinned set of methods (a chapter treasurer reaches nothing else)
             starts
                 .filterNot { it.contains("requirePartyReportAccess(call)") || it.contains("requirePartyReportScopedAccess(call)") }
@@ -117,8 +119,10 @@ class PartyReportAccessTripwireTest :
                     "getAccountMappings",
                     "proposeFromLedger",
                     "applyLedgerProposal",
+                    // V1.9.292 (R4b)
+                    "unitStatementPreview",
                 )
-            code.split("requirePartyReportScopedAccess(call)").size - 1 shouldBe 8
+            code.split("requirePartyReportScopedAccess(call)").size - 1 shouldBe 9
         }
 
         test("every HTTP handler of the routes starts with the access gate") {
@@ -126,30 +130,34 @@ class PartyReportAccessTripwireTest :
             fun handlersOf(
                 file: String,
                 marker: String,
-            ): List<String> {
+            ): List<Pair<String, String>> {
                 val code =
                     SourceScan
                         .mainFiles()
                         .single { it.name == file }
                         .readText()
                         .substringAfter(marker)
-                return Regex("""\b(get|post)\("/api/partg-report/[^"]*"\)\s*\{""")
+                return Regex("""\b(get|post)\("(/api/partg-report/[^"]*)"\)\s*\{""")
                     .findAll(code)
-                    .map { m ->
-                        code.substring(m.range.last + 1).trimStart()
-                    }.toList()
+                    .map { m -> m.groupValues[2] to code.substring(m.range.last + 1).trimStart() }
+                    .toList()
             }
 
             val import = handlersOf("PartgReportRoutes.kt", "fun Route.registerPartgReportRoutes")
             val export = handlersOf("PartgReportExportRoutes.kt", "fun Route.registerPartgReportExportRoutes")
             import.size shouldBe 3
-            export.size shouldBe 4
-            (import + export).forEach { body ->
-                // the gate may sit inside `val current = try { requirePartyReportAccess(call) } ...` -- it must be the first call of the handler
+            // V1.9.292 (R4b): the journal CSV is the fifth export route
+            export.size shouldBe 5
+            // V1.9.292 (R4b): exactly these three exports are reachable by a chapter treasurer (scoped gate); everything else stays federal-only
+            val scopedPaths = setOf("/api/partg-report/export/pdf", "/api/partg-report/export/xlsx", "/api/partg-report/export/journal.csv")
+            (import + export).forEach { (path, body) ->
+                val scoped = path in scopedPaths
+                val gateName = if (scoped) "requirePartyReportScopedAccess(call)" else "requirePartyReportAccess(call)"
+                // the gate may sit inside `val current = try { ... } ...` -- it must be the first call of the handler
                 val firstCall = Regex("""\w+\(""").find(body)!!.value
-                (firstCall == "try(" || body.startsWith("val current =")) shouldBe true
-                body.substringBefore("return@").contains("requirePartyReportAccess(call)") shouldBe true
-                val gate = body.indexOf("requirePartyReportAccess(call)")
+                (firstCall == "try(" || body.startsWith("val current =") || body.startsWith("val actor =")) shouldBe true
+                body.substringBefore("return@").contains(gateName) shouldBe true
+                val gate = body.indexOf(gateName)
                 val later =
                     listOf(
                         "receiveMultipart",
@@ -160,6 +168,10 @@ class PartyReportAccessTripwireTest :
                     ).map { body.indexOf(it) }.filter { it >= 0 }
                 later.all { gate < it } shouldBe true
             }
+            // the kept versions are federal-only and keep their 403 for a chapter treasurer (not a 404): they never use the scoped gate
+            val versions = export.filter { it.first.startsWith("/api/partg-report/version/") }
+            versions.size shouldBe 2
+            versions.forEach { (_, body) -> body.substringBefore("return@").contains("requirePartyReportScopedAccess") shouldBe false }
         }
 
         test("the gate checks the role BEFORE the organisation switch") {

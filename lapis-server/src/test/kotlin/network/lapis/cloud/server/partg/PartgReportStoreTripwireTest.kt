@@ -55,6 +55,8 @@ class PartgReportStoreTripwireTest :
                         "PartgReportSnapshotReader.kt",
                         // V1.9.290 (R5): locks the chapter rows of a transfer pair
                         "PartgConsolidationWriter.kt",
+                        // V1.9.292 (R4b): `ledgerFacts` (reads the sheet of a unit) moved here from the service without a change of behaviour
+                        "PartgLedgerProposals.kt",
                     ),
                 ).shouldBeEmpty()
         }

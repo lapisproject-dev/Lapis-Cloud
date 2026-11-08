@@ -351,3 +351,9 @@ Backup: since V1.9.65 the crest files travel in the ADMIN backup bundle (`assets
 see the "Backup" section there.
 
 See xref:public-profiles.adoc[Public pages: board, politicians, regional chapters] (new tabs, touch fix, consumers of the photo/crest, chapter description and crest).
+
+== The journal CSV and the bridges (R4b, V1.9.292)
+
+The party report reads the posted journal of a chapter as a CSV (`GET /api/partg-report/export/journal.csv`, see `partg-report.adoc`). The scope is the same `BookingScope` as the booking screens: a chapter treasurer reads only the chapters of their active grants and must name one of them (anything else is a uniform 404), a federal role reads everything or one unit. A `SUB:` unit has no bookings (Q20). `journalCondition(` and `BookingScope.Chapters(` are used only by the accounting service and this export (`BookingScopeAllowlistScanTest`).
+
+The automatic bridges (`DonationPostingBridge`, `ContributionPostingBridge` and the other posting bridges) **stay on the federal level** (`regional_chapter_id` is `NULL`). Giving them a chapter was considered and **rejected**: the allocation key between the federal level and the chapters is fixed in the financial rules of the party and cannot be derived from the data, so old and new entries of one year would be treated unequally; setting the chapter on an existing entry afterwards would rewrite a posted entry, which GoBD forbids (a posted entry is immutable and the chapter is set only at creation). The federal treasurer books the subsidy to a chapter by hand. DATEV stays without the chapter.

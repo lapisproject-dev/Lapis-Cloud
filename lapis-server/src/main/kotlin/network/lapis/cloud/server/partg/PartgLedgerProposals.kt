@@ -1,12 +1,15 @@
 package network.lapis.cloud.server.partg
 
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.server.partg.report.PartgLedgerFacts
 import network.lapis.cloud.server.partg.report.PartgLedgerProposal
 import network.lapis.cloud.server.partg.report.PartgProposalAccount
 import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgLedgerRules
 import network.lapis.cloud.shared.domain.PartgUnit
+import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
+import network.lapis.cloud.shared.domain.PartgValueSource
 import kotlin.uuid.Uuid
 
 /**
@@ -76,5 +79,79 @@ internal object PartgLedgerProposals {
                     mode != PartgBookkeepingMode.C &&
                     (counts[chapterOf(unit)] ?: 0) > 0
             }.toSet()
+    }
+
+    /**
+     * V1.9.292 (R4b): moved here from `PartyReportService` without a change of behaviour (the unit-part export uses it too). Must run inside a
+     * transaction. The bookings-related facts of the plausibility assistant, per federal or state unit that books in Lapis or has bookings anyway.
+     */
+    fun ledgerFacts(
+        year: Int,
+        units: List<PartgUnitDto>,
+    ): Map<String, PartgLedgerFacts> {
+        val modes = PartgLedgerLinkStore.modes(year)
+        val counts = PartgLedgerReader.postedCountsByChapter(year)
+        val result = HashMap<String, PartgLedgerFacts>()
+        units.forEach { dto ->
+            val unit = PartgUnit.parse(dto.unitKey) ?: return@forEach
+            if (unit.level == PartgUnitLevel.SUBORDINATE) return@forEach
+            val mode = modes[unit.key()] ?: PartgBookkeepingMode.C
+            val bookings = counts[chapterOf(unit)] ?: 0
+            if (mode == PartgBookkeepingMode.C && bookings == 0) return@forEach
+            result[unit.key()] =
+                if (mode == PartgBookkeepingMode.C) {
+                    PartgLedgerFacts(
+                        mode = mode,
+                        bookingCount = bookings,
+                        unmappedWithActivity = 0,
+                        proposal = emptyMap(),
+                        ledgerSourced = emptySet(),
+                    )
+                } else {
+                    val sheet = PartgReportStore.findSheet(year = year, unit = unit)
+                    PartgLedgerFacts(
+                        mode = mode,
+                        bookingCount = bookings,
+                        unmappedWithActivity = unmappedWithActivity(year = year, unit = unit),
+                        proposal = proposalFor(year = year, unit = unit),
+                        ledgerSourced =
+                            sheet
+                                ?.let { PartgReportStore.valueSources(it.id) }
+                                .orEmpty()
+                                .filterValues { it == PartgValueSource.LEDGER }
+                                .keys,
+                    )
+                }
+        }
+        return result
+    }
+
+    /** What the unit part of one unit needs from the bookings (V1.9.292, R4b). */
+    class UnitPartFacts(
+        val ledger: Map<String, PartgLedgerFacts>,
+        val mode: PartgBookkeepingMode,
+        val postedEntryCount: Int,
+    )
+
+    /** V1.9.292 (R4b): the ledger facts, the mode and the POSTED count of ONE unit. A subordinate summary has no bookings. Run inside a transaction. */
+    fun unitPartFacts(
+        year: Int,
+        unit: PartgUnit,
+        units: List<PartgUnitDto>,
+    ): UnitPartFacts {
+        val key = unit.key()
+        val posted =
+            if (unit.level ==
+                PartgUnitLevel.SUBORDINATE
+            ) {
+                0
+            } else {
+                PartgLedgerReader.postedCount(year = year, chapterId = chapterOf(unit))
+            }
+        return UnitPartFacts(
+            ledger = ledgerFacts(year = year, units = units.filter { it.unitKey == key }),
+            mode = PartgLedgerLinkStore.modes(year)[key] ?: PartgBookkeepingMode.C,
+            postedEntryCount = posted,
+        )
     }
 }

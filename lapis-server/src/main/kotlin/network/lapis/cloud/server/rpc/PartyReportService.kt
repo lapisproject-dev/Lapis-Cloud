@@ -23,8 +23,8 @@ import network.lapis.cloud.server.partg.PartgYearRules
 import network.lapis.cloud.server.partg.PartyReportActor
 import network.lapis.cloud.server.partg.report.PartgConsolidation
 import network.lapis.cloud.server.partg.report.PartgDonorConsolidation
-import network.lapis.cloud.server.partg.report.PartgLedgerFacts
 import network.lapis.cloud.server.partg.report.PartgPlausibility
+import network.lapis.cloud.server.partg.report.PartgUnitPart
 import network.lapis.cloud.server.partg.requirePartyReportAccess
 import network.lapis.cloud.server.partg.requirePartyReportScopedAccess
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -71,6 +71,7 @@ import network.lapis.cloud.shared.domain.PartgStatementRules
 import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
+import network.lapis.cloud.shared.domain.PartgUnitStatementDto
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
 import network.lapis.cloud.shared.domain.PartgValueSource
 import network.lapis.cloud.shared.domain.PartgVersionDeletionPreviewDto
@@ -79,6 +80,7 @@ import network.lapis.cloud.shared.domain.PartgVersionDto
 import network.lapis.cloud.shared.domain.PartgVersionOverviewDto
 import network.lapis.cloud.shared.domain.PartgYouthOrgDto
 import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
+import network.lapis.cloud.shared.domain.PartyAccountNameHeuristic
 import network.lapis.cloud.shared.domain.StandardPartyChart
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IPartyReportService
@@ -351,7 +353,7 @@ class PartyReportService internal constructor(
         PartgYearRules.requireValid(year)
         if (!findingsRateLimiter.checkAndRecord("partg:findings:${current.memberId}")) throw RateLimitedException()
         val snapshot = PartgReportSnapshotReader.read(listOf(year, year - 1))
-        val ledger = transaction { ledgerFacts(year = year, units = snapshot.units) }
+        val ledger = transaction { PartgLedgerProposals.ledgerFacts(year = year, units = snapshot.units) }
         // V1.9.290 (R5): the hints P17..P21 are for the federal view only. A chapter treasurer gets none (not even for their own unit): the
         // consolidation reads the data of all units, which they may not see.
         val consolidationInput =
@@ -924,6 +926,38 @@ class PartyReportService internal constructor(
         return versions.deleteOld(current = current, olderThanYears = olderThanYears, expectedVersionIds = expectedVersionIds)
     }
 
+    // ---------------------------------------------------------------- R4b (V1.9.292)
+
+    override suspend fun unitStatementPreview(
+        year: Int,
+        unitKey: String,
+    ): PartgUnitStatementDto {
+        val actor = requirePartyReportScopedAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey)
+        // a chapter treasurer does not learn what exists: a key that is unparsable, FEDERAL, foreign or unknown is one and the same 404
+        if (actor is PartyReportActor.ChapterTreasurer && (unit == null || !actor.allows(unit))) throw NotFoundException("Unit not found")
+        if (unit == null) throw PartyReportInvalidInputException("Invalid unit")
+        if (!findingsRateLimiter.checkAndRecord("partg:findings:${actor.current.memberId}")) throw RateLimitedException()
+        val snapshot = PartgReportSnapshotReader.read(listOf(year, year - 1))
+        val dto = snapshot.units.firstOrNull { it.unitKey == unit.key() } ?: throw NotFoundException("Unit not found")
+        val built = PartgUnitPart.build(snapshot = snapshot, year = year, unit = unit)
+        val page = built.document.units.single()
+        return PartgUnitStatementDto(
+            year = year,
+            unit = dto,
+            mode = built.mode,
+            current = page.current,
+            prior = page.prior,
+            missingCurrent =
+                built.document.completeness.units
+                    .single()
+                    .missingCurrent,
+            findings = built.document.findings,
+            postedEntryCount = built.postedEntryCount,
+        )
+    }
+
     /** Must run inside a transaction (the writer's): the caller returns exactly the state it wrote. */
     private fun consolidationWithin(year: Int): PartgConsolidationDto {
         val snapshot = PartgReportSnapshotReader.readWithin(listOf(year, year - 1))
@@ -1024,6 +1058,20 @@ class PartyReportService internal constructor(
                         )
                     }
                 val template = templates[account.number]?.takeIf { mapping == null && it.account.type == account.type }
+                val templateSuggestion =
+                    template?.suggestedPosition?.takeIf {
+                        PartgLedgerRules.allowedTarget(accountType = account.type, positionCode = it)
+                    }
+                // V1.9.292 (R4b): a guess from the NAME, only for a federal caller, only for an unmapped account the standard chart says nothing
+                // about (the exact chart hit always wins); the position is checked against the account type once more
+                val byName =
+                    if (editable && mapping == null && templateSuggestion == null && template?.suggestExcluded != true) {
+                        PartyAccountNameHeuristic
+                            .suggest(name = account.name, type = account.type)
+                            ?.takeIf { PartgLedgerRules.allowedTarget(accountType = account.type, positionCode = it.position) }
+                    } else {
+                        null
+                    }
                 PartgAccountMappingRowDto(
                     accountId = account.id.toString(),
                     number = account.number,
@@ -1032,16 +1080,12 @@ class PartyReportService internal constructor(
                     active = account.active,
                     positionCode = mapping?.positionCode,
                     excluded = mapping?.excluded ?: false,
-                    templateSuggestion =
-                        template?.suggestedPosition?.takeIf {
-                            PartgLedgerRules.allowedTarget(
-                                accountType = account.type,
-                                positionCode = it,
-                            )
-                        },
+                    templateSuggestion = templateSuggestion,
                     templateSuggestsExcluded = template?.suggestExcluded ?: false,
                     balanceCents = balance,
                     postingCount = flows[account.id]?.postingCount ?: 0,
+                    nameSuggestion = byName?.position,
+                    nameSuggestionKeyword = byName?.keyword,
                 )
             }
         val unmapped = rows.filter { it.positionCode == null && !it.excluded && (it.active || it.postingCount > 0) }
@@ -1053,48 +1097,6 @@ class PartyReportService internal constructor(
             year = year,
             unitKey = unit.key(),
         )
-    }
-
-    /** The bookings-related facts of the plausibility assistant, per federal or state unit that books in Lapis or has bookings anyway. */
-    private fun ledgerFacts(
-        year: Int,
-        units: List<PartgUnitDto>,
-    ): Map<String, PartgLedgerFacts> {
-        val modes = PartgLedgerLinkStore.modes(year)
-        val counts = PartgLedgerReader.postedCountsByChapter(year)
-        val result = HashMap<String, PartgLedgerFacts>()
-        units.forEach { dto ->
-            val unit = PartgUnit.parse(dto.unitKey) ?: return@forEach
-            if (unit.level == PartgUnitLevel.SUBORDINATE) return@forEach
-            val mode = modes[unit.key()] ?: PartgBookkeepingMode.C
-            val bookings = counts[PartgLedgerProposals.chapterOf(unit)] ?: 0
-            if (mode == PartgBookkeepingMode.C && bookings == 0) return@forEach
-            result[unit.key()] =
-                if (mode == PartgBookkeepingMode.C) {
-                    PartgLedgerFacts(
-                        mode = mode,
-                        bookingCount = bookings,
-                        unmappedWithActivity = 0,
-                        proposal = emptyMap(),
-                        ledgerSourced = emptySet(),
-                    )
-                } else {
-                    val sheet = PartgReportStore.findSheet(year = year, unit = unit)
-                    PartgLedgerFacts(
-                        mode = mode,
-                        bookingCount = bookings,
-                        unmappedWithActivity = PartgLedgerProposals.unmappedWithActivity(year = year, unit = unit),
-                        proposal = PartgLedgerProposals.proposalFor(year = year, unit = unit),
-                        ledgerSourced =
-                            sheet
-                                ?.let { PartgReportStore.valueSources(it.id) }
-                                .orEmpty()
-                                .filterValues { it == PartgValueSource.LEDGER }
-                                .keys,
-                    )
-                }
-        }
-        return result
     }
 
     /** Must run inside a transaction. */

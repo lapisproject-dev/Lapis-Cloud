@@ -71,6 +71,28 @@ class BookingScopeAllowlistScanTest :
                 .shouldBeEmpty()
         }
 
+        test("journalCondition( is used only by the accounting service and the journal CSV of the party report (V1.9.292, R4b)") {
+            files
+                .filter { it.name != "BookingScope.kt" }
+                .filter { Regex("""\.journalCondition\(""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .toSet() shouldBe setOf("AccountingService.kt", "PartgJournalCsvExport.kt")
+        }
+
+        test("BookingScope.Chapters( is constructed only by the scope itself and the journal CSV (V1.9.292, R4b)") {
+            files
+                .filter { Regex("""\bBookingScope\.Chapters\(""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .toSet() shouldBe setOf("BookingScope.kt", "PartgJournalCsvExport.kt")
+        }
+
+        test("the journal CSV derives its scope from the actor's grants, not from a second lookup (V1.9.292, R4b)") {
+            val code = blanked("PartgJournalCsvExport.kt")
+            Regex("""\bactiveChapterTreasurerIds\(""").containsMatchIn(code) shouldBe false
+            Regex("""\bbookingScope\(""").containsMatchIn(code) shouldBe false
+            code.contains("actor.chapterIds") shouldBe true
+        }
+
         test("the memberVisibility allowlist is untouched: BookingScope does not call memberVisibility") {
             Regex("""\bmemberVisibility\(""").containsMatchIn(blanked("BookingScope.kt")) shouldBe false
         }

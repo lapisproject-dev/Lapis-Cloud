@@ -31597,3 +31597,30 @@ msgstr "Versions and approval"
 
 msgid "Der Rechenschaftsbericht ist noch nicht intern final."
 msgstr "The accountability report is not yet internally final."
+
+msgid "Alle Kontenplan-Vorschläge auswählen"
+msgstr "Select all chart-of-accounts suggestions"
+
+msgid "Vermutung nach Kontoname („%1“)"
+msgstr "Guess from the account name (“%1”)"
+
+msgid "Vermutung"
+msgstr "Guess"
+
+msgid "Teilbericht Ihrer Gliederung – Entwurf"
+msgstr "Part report of your unit – draft"
+
+msgid "Berichtsjahr"
+msgstr "Report year"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er enthält nur die Zahlen Ihrer Gliederung, ohne gesonderte Ausweise und ohne Erläuterungen. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "This is a draft and not an official report. It contains only the figures of your unit, without separate statements and without explanations. Values not entered appear as “n. e.”, not as 0."
+
+msgid "Buchungsjournal (CSV)"
+msgstr "Journal of entries (CSV)"
+
+msgid "Für nachgeordnete Gliederungen gibt es kein Buchungsjournal."
+msgstr "There is no journal of entries for subordinate units."
+
+msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
+msgstr "Contributions and donations are booked at the federal level. The federal treasurer books your unit's share as a subsidy."

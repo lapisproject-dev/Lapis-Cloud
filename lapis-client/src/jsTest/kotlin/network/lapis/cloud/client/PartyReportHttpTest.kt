@@ -63,4 +63,20 @@ class PartyReportHttpTest {
             PartyReportHttp.exportUrl(network.lapis.cloud.shared.domain.PartgReportFormat.XLSX, 2024, "STATE:abc"),
         )
     }
+
+    @Test
+    fun theJournalCsvUrl_hasYearAndAnEscapedUnit_orNoUnitForTheWholeParty() {
+        assertEquals("/api/partg-report/export/journal.csv?year=2025", PartyReportHttp.journalCsvUrl(2025, null))
+        assertEquals(
+            "/api/partg-report/export/journal.csv?year=2024&unit=STATE%3Aabc",
+            PartyReportHttp.journalCsvUrl(2024, "STATE:abc"),
+        )
+    }
+
+    @Test
+    fun theReportUrls_refuseTheCsvFormat() {
+        val csv = network.lapis.cloud.shared.domain.PartgReportFormat.CSV
+        kotlin.test.assertFailsWith<IllegalArgumentException> { PartyReportHttp.exportUrl(csv, 2025, "ALL") }
+        kotlin.test.assertFailsWith<IllegalArgumentException> { PartyReportHttp.versionUrl(csv, "id") }
+    }
 }

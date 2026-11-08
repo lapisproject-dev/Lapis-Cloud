@@ -31643,3 +31643,30 @@ msgstr "Versies en vrijgave"
 
 msgid "Der Rechenschaftsbericht ist noch nicht intern final."
 msgstr "Het verantwoordingsverslag is nog niet intern definitief."
+
+msgid "Alle Kontenplan-Vorschläge auswählen"
+msgstr "Alle suggesties uit het rekeningschema selecteren"
+
+msgid "Vermutung nach Kontoname („%1“)"
+msgstr "Vermoeden op basis van de rekeningnaam (“%1”)"
+
+msgid "Vermutung"
+msgstr "Vermoeden"
+
+msgid "Teilbericht Ihrer Gliederung – Entwurf"
+msgstr "Deelverslag van uw eenheid – concept"
+
+msgid "Berichtsjahr"
+msgstr "Verslagjaar"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er enthält nur die Zahlen Ihrer Gliederung, ohne gesonderte Ausweise und ohne Erläuterungen. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Dit is een concept en geen officieel verslag. Het bevat alleen de cijfers van uw eenheid, zonder afzonderlijke overzichten en zonder toelichting. Niet ingevoerde waarden verschijnen als “n. e.”, niet als 0."
+
+msgid "Buchungsjournal (CSV)"
+msgstr "Boekingsjournaal (CSV)"
+
+msgid "Für nachgeordnete Gliederungen gibt es kein Buchungsjournal."
+msgstr "Voor nageschikte eenheden bestaat geen boekingsjournaal."
+
+msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
+msgstr "Bijdragen en donaties worden op federaal niveau geboekt. De federale penningmeester boekt het aandeel van uw eenheid als subsidie."

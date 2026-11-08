@@ -24,6 +24,7 @@ import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgSheetDto
 import network.lapis.cloud.shared.domain.PartgSponsorInputDto
 import network.lapis.cloud.shared.domain.PartgUnitDto
+import network.lapis.cloud.shared.domain.PartgUnitStatementDto
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
 import network.lapis.cloud.shared.domain.PartgVersionDeletionPreviewDto
 import network.lapis.cloud.shared.domain.PartgVersionDiffDto
@@ -312,4 +313,15 @@ interface IPartyReportService {
         olderThanYears: Int,
         expectedVersionIds: List<String>,
     ): Int
+
+    // ---------------------------------------------------------------- R4b (V1.9.292)
+
+    /**
+     * V1.9.292 (R4b): read-only unit-part preview (one unit, same source as the PDF/XLSX export of a chapter treasurer). Scoped gate: a chapter
+     * treasurer gets a 404 for every unit that is not theirs (and for `FEDERAL`, `ALL` or an unparsable key); a federal caller may ask for any unit.
+     */
+    suspend fun unitStatementPreview(
+        year: Int,
+        unitKey: String,
+    ): PartgUnitStatementDto
 }

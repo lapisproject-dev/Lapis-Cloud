@@ -31582,3 +31582,30 @@ msgstr "Versioni e approvazione"
 
 msgid "Der Rechenschaftsbericht ist noch nicht intern final."
 msgstr "Il rendiconto non è ancora finale a uso interno."
+
+msgid "Alle Kontenplan-Vorschläge auswählen"
+msgstr "Seleziona tutti i suggerimenti del piano dei conti"
+
+msgid "Vermutung nach Kontoname („%1“)"
+msgstr "Ipotesi dal nome del conto («%1»)"
+
+msgid "Vermutung"
+msgstr "Ipotesi"
+
+msgid "Teilbericht Ihrer Gliederung – Entwurf"
+msgstr "Rendiconto parziale della sua unità – bozza"
+
+msgid "Berichtsjahr"
+msgstr "Anno del rendiconto"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er enthält nur die Zahlen Ihrer Gliederung, ohne gesonderte Ausweise und ohne Erläuterungen. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Questa è una bozza e non un rendiconto ufficiale. Contiene solo le cifre della sua unità, senza prospetti separati e senza spiegazioni. I valori non inseriti compaiono come «n. e.», non come 0."
+
+msgid "Buchungsjournal (CSV)"
+msgstr "Giornale delle registrazioni (CSV)"
+
+msgid "Für nachgeordnete Gliederungen gibt es kein Buchungsjournal."
+msgstr "Per le unità subordinate non esiste un giornale delle registrazioni."
+
+msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
+msgstr "Le quote e le donazioni vengono registrate a livello federale. Il tesoriere federale registra la quota della sua unità come contributo."

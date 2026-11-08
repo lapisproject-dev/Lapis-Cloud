@@ -3,8 +3,11 @@ package network.lapis.cloud.server.partg
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
+import io.ktor.server.application.install
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -71,7 +74,7 @@ import kotlin.uuid.Uuid
  * that request (`X-Member-Id` resolves the caller) and stores the [Result], so tests assert on real exception TYPES. Works on H2 and PostgreSQL.
  */
 internal class PartgApp(
-    private val client: HttpClient,
+    val client: HttpClient,
     private val ops: ConcurrentHashMap<String, suspend (ApplicationCall) -> Any?>,
     private val results: ConcurrentHashMap<String, Result<Any?>>,
     val fixtures: PartgFixtures,
@@ -99,13 +102,16 @@ internal class PartgApp(
 
 internal fun partgTestApplication(
     fixtures: PartgFixtures,
+    routes: io.ktor.server.routing.Route.() -> Unit = {},
     block: suspend PartgApp.() -> Unit,
 ) {
     val ops = ConcurrentHashMap<String, suspend (ApplicationCall) -> Any?>()
     val results = ConcurrentHashMap<String, Result<Any?>>()
     testApplication {
         application {
+            install(ContentNegotiation) { json() }
             routing {
+                routes()
                 post("/partg-op/{id}") {
                     val id = call.parameters["id"]!!
                     val op = ops.getValue(id)

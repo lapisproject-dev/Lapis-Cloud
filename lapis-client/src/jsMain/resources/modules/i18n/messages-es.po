@@ -31249,3 +31249,30 @@ msgstr "Versiones y aprobación"
 
 msgid "Der Rechenschaftsbericht ist noch nicht intern final."
 msgstr "El informe de rendición de cuentas aún no es final a nivel interno."
+
+msgid "Alle Kontenplan-Vorschläge auswählen"
+msgstr "Seleccionar todas las sugerencias del plan de cuentas"
+
+msgid "Vermutung nach Kontoname („%1“)"
+msgstr "Suposición según el nombre de la cuenta («%1»)"
+
+msgid "Vermutung"
+msgstr "Suposición"
+
+msgid "Teilbericht Ihrer Gliederung – Entwurf"
+msgstr "Informe parcial de su unidad – borrador"
+
+msgid "Berichtsjahr"
+msgstr "Año del informe"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er enthält nur die Zahlen Ihrer Gliederung, ohne gesonderte Ausweise und ohne Erläuterungen. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Esto es un borrador y no un informe oficial. Contiene solo las cifras de su unidad, sin estados separados ni explicaciones. Los valores no registrados aparecen como «n. e.», no como 0."
+
+msgid "Buchungsjournal (CSV)"
+msgstr "Diario de asientos (CSV)"
+
+msgid "Für nachgeordnete Gliederungen gibt es kein Buchungsjournal."
+msgstr "No hay diario de asientos para las unidades subordinadas."
+
+msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
+msgstr "Las cuotas y donaciones se contabilizan a nivel federal. El tesorero federal contabiliza la parte de su unidad como subvención."

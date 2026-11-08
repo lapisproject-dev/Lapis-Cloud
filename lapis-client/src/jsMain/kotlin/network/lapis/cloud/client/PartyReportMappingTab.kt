@@ -183,9 +183,9 @@ private fun SimplePanel.renderMappingBody(
                     if (shown == 0) notifyInfo(tr("Es gibt keine Vorschläge für die offenen Konten.")) else repaintTables()
                 }
             }
-            actionButton(ActionIcon.APPROVE, tr("Alle Vorschläge auswählen"), ButtonStyle.OUTLINESECONDARY) {
+            actionButton(ActionIcon.APPROVE, tr("Alle Kontenplan-Vorschläge auswählen"), ButtonStyle.OUTLINESECONDARY) {
                 onClick {
-                    draft.tickAll()
+                    draft.tickAllChart()
                     repaintTables()
                 }
             }
@@ -277,9 +277,18 @@ private fun SimplePanel.mappingTable(
                 if (suggestionShown) {
                     addCssClass("lapis-partg-suggestion")
                     setAttribute("data-partg-suggestion", row.accountId)
+                    val source = draft.suggestionSourceOf(row)
+                    setAttribute("data-partg-suggestion-source", if (source == SuggestionSource.NAME) "name" else "chart")
                     val proposed = draft.suggestionOf(row)
                     cellText(mappingChoiceText(proposed))
-                    cellText(" · " + gettext("aus Parteien-Kontenplan"), "small text-muted")
+                    if (source == SuggestionSource.NAME) {
+                        cellText(
+                            " · " + gettext("Vermutung nach Kontoname („%1“)", row.nameSuggestionKeyword.orEmpty()),
+                            "small text-muted",
+                        )
+                    } else {
+                        cellText(" · " + gettext("aus Parteien-Kontenplan"), "small text-muted")
+                    }
                     val box = checkBox(value = draft.isTicked(row.accountId))
                     val pickLabel = resolvedAttributeText(tr("Vorschlag übernehmen")) + " " + row.number
                     box.setAttribute("aria-label", pickLabel)
@@ -312,7 +321,8 @@ private fun SimplePanel.mappingTable(
             }
             textCell(
                 when {
-                    draft.isSuggestionShown(row.accountId) -> tr("Vorschlag")
+                    draft.isSuggestionShown(row.accountId) ->
+                        if (draft.suggestionSourceOf(row) == SuggestionSource.NAME) tr("Vermutung") else tr("Vorschlag")
                     draft.effective(row.accountId) == null -> ""
                     row.positionCode != null || row.excluded ->
                         if (draft.hasUnsaved &&

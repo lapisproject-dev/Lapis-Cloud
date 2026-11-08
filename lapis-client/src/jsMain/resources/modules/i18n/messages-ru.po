@@ -31549,3 +31549,30 @@ msgstr "Версии и утверждение"
 
 msgid "Der Rechenschaftsbericht ist noch nicht intern final."
 msgstr "Отчёт о финансировании ещё не окончательный внутри."
+
+msgid "Alle Kontenplan-Vorschläge auswählen"
+msgstr "Выбрать все варианты из плана счетов"
+
+msgid "Vermutung nach Kontoname („%1“)"
+msgstr "Предположение по названию счёта («%1»)"
+
+msgid "Vermutung"
+msgstr "Предположение"
+
+msgid "Teilbericht Ihrer Gliederung – Entwurf"
+msgstr "Частичный отчёт вашего подразделения – черновик"
+
+msgid "Berichtsjahr"
+msgstr "Отчётный год"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er enthält nur die Zahlen Ihrer Gliederung, ohne gesonderte Ausweise und ohne Erläuterungen. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Это черновик, а не официальный отчёт. Он содержит только данные вашего подразделения, без отдельных приложений и без пояснений. Не внесённые значения отображаются как «n. e.», а не как 0."
+
+msgid "Buchungsjournal (CSV)"
+msgstr "Журнал проводок (CSV)"
+
+msgid "Für nachgeordnete Gliederungen gibt es kein Buchungsjournal."
+msgstr "Для подчинённых подразделений журнала проводок нет."
+
+msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
+msgstr "Взносы и пожертвования проводятся на федеральном уровне. Федеральный казначей проводит долю вашего подразделения как субсидию."

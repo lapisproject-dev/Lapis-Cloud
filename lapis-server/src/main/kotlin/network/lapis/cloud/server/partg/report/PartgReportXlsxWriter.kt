@@ -125,37 +125,62 @@ internal object PartgReportXlsxWriter {
         }
     }
 
+    /** V1.9.292 (R4b): the six sheets of the unit part of a chapter treasurer (no statements, no explanations, no consolidation). */
+    val UNIT_PART_SHEET_NAMES: List<String> =
+        listOf(SHEET_COMPLETENESS, SHEET_SUMMARY, SHEET_INCOME, SHEET_EXPENSES, SHEET_ASSETS, SHEET_NOTES)
+
     fun write(
         document: PartgReportDocument,
         footer: String = PartgReportTexts.WORKING_STATE_FOOTER,
+        audience: PartgReportAudience = PartgReportAudience.FULL,
     ): ByteArray {
+        val unitPart = audience == PartgReportAudience.UNIT_PART
         val sheets =
-            listOf(
-                completeness(document),
-                summary(document),
-                income(document),
-                expenses(document),
-                assets(document),
-                annexA(document),
-                annexB(document),
-                annexC(document),
-                annexD(document),
-                members(document),
-                annexF(document),
-                explanations(document),
-                notes(document),
-            ) +
-                (
-                    document.consolidation?.let {
-                        listOf(
-                            consolidation(doc = document, section = it),
-                            reconciliation(doc = document, section = it),
-                            consolidatedDonors(it),
-                        )
-                    } ?: emptyList()
+            if (unitPart) {
+                listOf(
+                    completeness(doc = document, unitPart = true),
+                    summary(doc = document, unitPart = true),
+                    income(document),
+                    expenses(document),
+                    assets(document),
+                    notes(doc = document, unitPart = true),
                 )
-        val names = sheetNames(withConsolidation = document.consolidation != null)
-        val header = headerLine(document)
+            } else {
+                listOf(
+                    completeness(doc = document),
+                    summary(doc = document),
+                    income(document),
+                    expenses(document),
+                    assets(document),
+                    annexA(document),
+                    annexB(document),
+                    annexC(document),
+                    annexD(document),
+                    members(document),
+                    annexF(document),
+                    explanations(document),
+                    notes(doc = document),
+                ) +
+                    (
+                        document.consolidation?.let {
+                            listOf(
+                                consolidation(doc = document, section = it),
+                                reconciliation(doc = document, section = it),
+                                consolidatedDonors(it),
+                            )
+                        } ?: emptyList()
+                    )
+            }
+        val names = if (unitPart) UNIT_PART_SHEET_NAMES else sheetNames(withConsolidation = document.consolidation != null)
+        val header =
+            if (unitPart) {
+                "${document.organizationName.take(MAX_NAME_CHARS)} · ${PartgReportTexts.unitPartTitle(
+                    unitLabel = document.units.single().label,
+                    year = document.year,
+                )}"
+            } else {
+                headerLine(document)
+            }
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
             entry(zip = zip, name = "[Content_Types].xml", content = contentTypes(names))
@@ -234,7 +259,10 @@ internal object PartgReportXlsxWriter {
 
     // ------------------------------------------------------------------ sheets
 
-    private fun completeness(doc: PartgReportDocument): Sheet {
+    private fun completeness(
+        doc: PartgReportDocument,
+        unitPart: Boolean = false,
+    ): Sheet {
         val s = Sheet(listOf(48, 22, 40, 22, 30))
         s.add(X.Text(value = PartgReportTexts.COMPLETENESS, bold = true))
         s.add(
@@ -260,13 +288,18 @@ internal object PartgReportXlsxWriter {
                 note?.let { X.Text(value = it) },
             )
         }
-        // V1.9.287: statement D has its own sheet; here only the number of enterprises (a count, no amounts)
-        s.blank()
-        s.add(X.Text(value = PartgReportTexts.D_COMPLETENESS.format(doc.annex.enterprises.size)))
+        // V1.9.287: statement D has its own sheet; here only the number of enterprises (a count). Not in the unit part (no statements).
+        if (!unitPart) {
+            s.blank()
+            s.add(X.Text(value = PartgReportTexts.D_COMPLETENESS.format(doc.annex.enterprises.size)))
+        }
         return s
     }
 
-    private fun summary(doc: PartgReportDocument): Sheet {
+    private fun summary(
+        doc: PartgReportDocument,
+        unitPart: Boolean = false,
+    ): Sheet {
         val s = Sheet(listOf(10, 70, 24, 10, 24, 10, 36))
         val page = doc.summaryPage
         s.add(X.Text(value = PartgReportTexts.SUMMARY, bold = true))
@@ -277,7 +310,7 @@ internal object PartgReportXlsxWriter {
         s.add(null, X.Text(value = "Ausgaben", bold = true))
         PartgReportLayout.summaryExpenses(page).forEach { s.add(*lineCells(it)) }
         s.blank()
-        s.add(null, X.Text(value = PartgReportTexts.SUBSIDY_NOTE))
+        s.add(null, X.Text(value = if (unitPart) PartgReportTexts.SUBSIDY_NOTE_UNIT else PartgReportTexts.SUBSIDY_NOTE))
         if (doc.levels.isNotEmpty()) {
             s.blank()
             s.add(X.Text(value = "${PartgReportTexts.BY_LEVEL} (Berichtsjahr ${doc.year})", bold = true))
@@ -656,11 +689,14 @@ internal object PartgReportXlsxWriter {
             else -> PartgReportTexts.UNSPECIFIED
         }
 
-    private fun notes(doc: PartgReportDocument): Sheet {
+    private fun notes(
+        doc: PartgReportDocument,
+        unitPart: Boolean = false,
+    ): Sheet {
         val s = Sheet(listOf(120))
         s.add(X.Text(value = PartgReportTexts.NOTES, bold = true))
         s.add(X.Text(value = PartgReportTexts.DRAFT_NOTICE))
-        s.add(X.Text(value = PartgReportTexts.SUBSIDY_NOTE))
+        s.add(X.Text(value = if (unitPart) PartgReportTexts.SUBSIDY_NOTE_UNIT else PartgReportTexts.SUBSIDY_NOTE))
         s.add(X.Text(value = PartgReportTexts.LEGEND))
         PartgReportLayout
             .missingFootnote(

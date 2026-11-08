@@ -30988,3 +30988,30 @@ msgstr ""
 
 msgid "Der Rechenschaftsbericht ist noch nicht intern final."
 msgstr ""
+
+msgid "Alle Kontenplan-Vorschläge auswählen"
+msgstr ""
+
+msgid "Vermutung nach Kontoname („%1“)"
+msgstr ""
+
+msgid "Vermutung"
+msgstr ""
+
+msgid "Teilbericht Ihrer Gliederung – Entwurf"
+msgstr ""
+
+msgid "Berichtsjahr"
+msgstr ""
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er enthält nur die Zahlen Ihrer Gliederung, ohne gesonderte Ausweise und ohne Erläuterungen. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr ""
+
+msgid "Buchungsjournal (CSV)"
+msgstr ""
+
+msgid "Für nachgeordnete Gliederungen gibt es kein Buchungsjournal."
+msgstr ""
+
+msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
+msgstr ""

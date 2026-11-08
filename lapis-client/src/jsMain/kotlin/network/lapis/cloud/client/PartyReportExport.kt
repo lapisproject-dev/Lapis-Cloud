@@ -30,6 +30,11 @@ private class ExportSetup(
  * markers, which is what the finance board wants to see). The notice says plainly that the draft is no official report.
  */
 internal fun SimplePanel.renderPartyReportExport(context: PartyReportContext) {
+    // V1.9.292 (R4b): a chapter treasurer gets the unit part (the whole-party calls below are 403 for them)
+    if (partgChapterTreasurerOnly(AppState.session)) {
+        renderChapterUnitReport(context)
+        return
+    }
     p(yearHint(context.year)) { addCssClasses("text-muted small mb-0") }
     dataSection<ExportSetup>(
         isEmpty = { false },
@@ -93,6 +98,18 @@ private fun SimplePanel.renderExportBody(
         }
         actionButton(ActionIcon.DOWNLOAD, tr("Excel herunterladen"), ButtonStyle.OUTLINEPRIMARY, labelMode = ActionLabelMode.RESPONSIVE) {
             onClick { downloadAttachment(PartyReportHttp.exportUrl(PartgReportFormat.XLSX, context.year, context.reportScope)) }
+        }
+        // V1.9.292 (R4b): the journal of the chosen unit (the whole party = no unit given); a subordinate summary has no bookings
+        actionButton(ActionIcon.DOWNLOAD, tr("Buchungsjournal (CSV)"), ButtonStyle.OUTLINEPRIMARY, labelMode = ActionLabelMode.RESPONSIVE) {
+            setAttribute("data-partg-journal-csv", "1")
+            onClick {
+                val scope = context.reportScope
+                if (scope.startsWith("SUB:")) {
+                    notifyInfo(tr("Für nachgeordnete Gliederungen gibt es kein Buchungsjournal."))
+                } else {
+                    downloadAttachment(PartyReportHttp.journalCsvUrl(context.year, scope.takeIf { it != PartgReportScope.ALL_KEY }))
+                }
+            }
         }
     }
 }

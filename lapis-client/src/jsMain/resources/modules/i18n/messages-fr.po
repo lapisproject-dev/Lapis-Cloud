@@ -31600,3 +31600,30 @@ msgstr "Versions et validation"
 
 msgid "Der Rechenschaftsbericht ist noch nicht intern final."
 msgstr "Le rapport de comptes n'est pas encore final en interne."
+
+msgid "Alle Kontenplan-Vorschläge auswählen"
+msgstr "Sélectionner toutes les suggestions du plan comptable"
+
+msgid "Vermutung nach Kontoname („%1“)"
+msgstr "Hypothèse d'après le nom du compte (« %1 »)"
+
+msgid "Vermutung"
+msgstr "Hypothèse"
+
+msgid "Teilbericht Ihrer Gliederung – Entwurf"
+msgstr "Rapport partiel de votre entité – brouillon"
+
+msgid "Berichtsjahr"
+msgstr "Année du rapport"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er enthält nur die Zahlen Ihrer Gliederung, ohne gesonderte Ausweise und ohne Erläuterungen. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "Ceci est un brouillon et non un rapport officiel. Il ne contient que les chiffres de votre entité, sans états distincts ni explications. Les valeurs non saisies apparaissent comme « n. e. », et non comme 0."
+
+msgid "Buchungsjournal (CSV)"
+msgstr "Journal des écritures (CSV)"
+
+msgid "Für nachgeordnete Gliederungen gibt es kein Buchungsjournal."
+msgstr "Il n'y a pas de journal des écritures pour les entités subordonnées."
+
+msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
+msgstr "Les cotisations et les dons sont comptabilisés au niveau fédéral. Le trésorier fédéral comptabilise la part de votre entité comme subvention."

@@ -31559,3 +31559,30 @@ msgstr "Wersje i zatwierdzenie"
 
 msgid "Der Rechenschaftsbericht ist noch nicht intern final."
 msgstr "Sprawozdanie finansowe nie jest jeszcze wewnętrznie ostateczne."
+
+msgid "Alle Kontenplan-Vorschläge auswählen"
+msgstr "Zaznacz wszystkie podpowiedzi z planu kont"
+
+msgid "Vermutung nach Kontoname („%1“)"
+msgstr "Domysł na podstawie nazwy konta („%1”)"
+
+msgid "Vermutung"
+msgstr "Domysł"
+
+msgid "Teilbericht Ihrer Gliederung – Entwurf"
+msgstr "Raport częściowy Państwa jednostki – wersja robocza"
+
+msgid "Berichtsjahr"
+msgstr "Rok sprawozdawczy"
+
+msgid "Das ist ein Entwurf und kein amtlicher Bericht. Er enthält nur die Zahlen Ihrer Gliederung, ohne gesonderte Ausweise und ohne Erläuterungen. Nicht erfasste Werte erscheinen als „n. e.“, nicht als 0."
+msgstr "To jest wersja robocza, a nie oficjalne sprawozdanie. Zawiera tylko liczby Państwa jednostki, bez odrębnych zestawień i bez objaśnień. Niewprowadzone wartości pojawiają się jako „n. e.”, a nie jako 0."
+
+msgid "Buchungsjournal (CSV)"
+msgstr "Dziennik księgowań (CSV)"
+
+msgid "Für nachgeordnete Gliederungen gibt es kein Buchungsjournal."
+msgstr "Dla jednostek podległych nie ma dziennika księgowań."
+
+msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
+msgstr "Składki i darowizny są księgowane na szczeblu federalnym. Skarbnik federalny księguje udział Państwa jednostki jako dotację."

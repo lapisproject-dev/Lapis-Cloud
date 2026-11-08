@@ -94,6 +94,12 @@ internal object PartyReportDomSupport {
     /** V1.9.291 (R6): the requests of the version writes (route name to the whole request), in order. */
     val versionWrites = mutableListOf<Pair<String, RecordedRequest>>()
 
+    /** V1.9.292 (R4b): the answer of `unitStatementPreview`; `null` = the stub answers "null" (the call fails). */
+    var unitStatement: network.lapis.cloud.shared.domain.PartgUnitStatementDto? = null
+
+    /** V1.9.292 (R4b): when set, `listUnits` answers with this list instead of the federal and the state unit. */
+    var unitsOverride: List<PartgUnitDto>? = null
+
     fun resetR6() {
         versionOverview = null
         versionDiff = null
@@ -105,6 +111,8 @@ internal object PartyReportDomSupport {
 
     fun resetR4() {
         resetR6()
+        unitStatement = null
+        unitsOverride = null
         overviewOverride = null
         mappingView = null
         proposal = null
@@ -293,6 +301,7 @@ internal object PartyReportDomSupport {
         val confirmDeadline: String,
         val previewDeletion: String,
         val deleteOld: String,
+        val unitStatement: String,
     )
 
     suspend fun routes() =
@@ -396,6 +405,7 @@ internal object PartyReportDomSupport {
             confirmDeadline = routeOf { rpcService<IPartyReportService>().confirmDeadline(2025, "2026-09-30") },
             previewDeletion = routeOf { rpcService<IPartyReportService>().previewVersionDeletion(10) },
             deleteOld = routeOf { rpcService<IPartyReportService>().deleteOldVersions(10, emptyList()) },
+            unitStatement = routeOf { rpcService<IPartyReportService>().unitStatementPreview(2025, "FEDERAL") },
         )
 
     fun answer(
@@ -504,13 +514,23 @@ internal object PartyReportDomSupport {
                     } ?: "null",
                 )
             }
+            request.rpcRoute == routes.unitStatement ->
+                request.answerWith(
+                    unitStatement?.let {
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgUnitStatementDto
+                                .serializer(),
+                            it,
+                        )
+                    } ?: "null",
+                )
             request.rpcRoute == routes.deleteOld -> {
                 versionWrites += request.rpcRoute to request
                 request.answerWith("1")
             }
             request.rpcRoute == routes.units ->
                 request.answerWith(
-                    jsonOf(ListSerializer(PartgUnitDto.serializer()), listOf(federal, state)),
+                    jsonOf(ListSerializer(PartgUnitDto.serializer()), unitsOverride ?: listOf(federal, state)),
                 )
             request.rpcRoute == routes.completeness ->
                 request.answerWith(jsonOf(PartgCompletenessDto.serializer(), completeness(year)))

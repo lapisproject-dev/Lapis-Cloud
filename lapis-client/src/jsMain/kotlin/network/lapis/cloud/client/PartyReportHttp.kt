@@ -55,13 +55,29 @@ internal object PartyReportHttp {
         format: PartgReportFormat,
         year: Int,
         scope: String,
-    ): String = "/api/partg-report/export/${format.name.lowercase()}?year=$year&scope=${encodeURIComponent(scope)}"
+    ): String {
+        // the journal CSV has its own URL ([journalCsvUrl]); it is not a report format
+        require(format != PartgReportFormat.CSV) { "Use journalCsvUrl for the journal CSV" }
+        return "/api/partg-report/export/${format.name.lowercase()}?year=$year&scope=${encodeURIComponent(scope)}"
+    }
+
+    /**
+     * V1.9.292 (R4b): the relative download URL of the journal CSV. [unitKey] is a strictly validated unit key; `null` = everything (federal roles
+     * only: the server answers a chapter treasurer who names no unit with 404). The file is always CSV, so the format is not a parameter.
+     */
+    fun journalCsvUrl(
+        year: Int,
+        unitKey: String?,
+    ): String = "/api/partg-report/export/journal.csv?year=$year" + (unitKey?.let { "&unit=${encodeURIComponent(it)}" } ?: "")
 
     /** V1.9.291 (R6): the relative download URL of a KEPT version; the id is a server UUID, still escaped. */
     fun versionUrl(
         format: PartgReportFormat,
         versionId: String,
-    ): String = "/api/partg-report/version/${format.name.lowercase()}?id=${encodeURIComponent(versionId)}"
+    ): String {
+        require(format != PartgReportFormat.CSV) { "A kept version has no CSV" }
+        return "/api/partg-report/version/${format.name.lowercase()}?id=${encodeURIComponent(versionId)}"
+    }
 
     suspend fun preview(
         year: Int,

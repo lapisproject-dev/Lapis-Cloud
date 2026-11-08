@@ -319,11 +319,12 @@ internal val PARTG_TAB_DISPLAY_ORDER: List<PartyReportTab> =
 
 /**
  * V1.9.289 (R4a): the tabs a person sees. A chapter treasurer (a plain member with a grant, never BOARD/ADMIN) sees the overview, the entry of
- * their units and the mapping (read only); the server refuses everything else anyway, this only hides the doors.
+ * their units, the mapping (read only) and, since V1.9.292 (R4b), the unit part; the server refuses everything else anyway, this only hides the doors.
  */
 internal fun partgVisibleTabs(session: network.lapis.cloud.shared.domain.SessionInfoDto?): List<PartyReportTab> =
     if (partgChapterTreasurerOnly(session)) {
-        listOf(PartyReportTab.OVERVIEW, PartyReportTab.SHEET, PartyReportTab.KONTENZUORDNUNG)
+        // V1.9.292 (R4b): plus the unit part ("Bericht"): their own unit as PDF/Excel/CSV, never the whole party or the versions
+        listOf(PartyReportTab.OVERVIEW, PartyReportTab.SHEET, PartyReportTab.KONTENZUORDNUNG, PartyReportTab.REPORT)
     } else {
         PARTG_TAB_DISPLAY_ORDER
     }

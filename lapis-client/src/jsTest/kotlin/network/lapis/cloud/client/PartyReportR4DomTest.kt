@@ -32,16 +32,21 @@ class PartyReportR4DomTest {
         suggestion: String? = null,
         postings: Int = 0,
         balance: Long? = null,
+        name: String = "Konto $id",
+        nameSuggestion: String? = null,
+        nameKeyword: String? = null,
     ) = PartgAccountMappingRowDto(
         accountId = id,
         number = "4000$id",
-        name = "Konto $id",
+        name = name,
         type = type,
         active = true,
         positionCode = code,
         templateSuggestion = suggestion,
         balanceCents = balance,
         postingCount = postings,
+        nameSuggestion = nameSuggestion,
+        nameSuggestionKeyword = nameKeyword,
     )
 
     private fun view(
@@ -89,7 +94,7 @@ class PartyReportR4DomTest {
                     assertTrue(element().shows("Vorschläge. Bitte prüfen, bevor Sie sie übernehmen."))
                     assertFalse(element().shows("Nicht gespeichert"), "a suggestion is no mapping")
                     // taking the ticked suggestion over only MARKS it: the save bar says "Nicht gespeichert"
-                    element().buttonNamed("Alle Vorschläge auswählen").click()
+                    element().buttonNamed("Alle Kontenplan-Vorschläge auswählen").click()
                     element().buttonNamed("Ausgewählte übernehmen").click()
                     awaitUntil("the unsaved mark", detail = { element().textContent.orEmpty().take(600) }) {
                         element().shows("Nicht gespeichert")
@@ -98,6 +103,62 @@ class PartyReportR4DomTest {
             }
             runCatching { window.localStorage.removeItem("lapis.partyReport.tab") }
         }
+
+    @Test
+    fun aGuessFromTheAccountName_isLabelledAsAGuess_andTheBulkTickTakesOnlyTheChartSuggestions(): Promise<Unit> =
+        formTest {
+            PartyReportDomSupport.resetR4()
+            runCatching { window.localStorage.setItem("lapis.partyReport.tab", "KONTENZUORDNUNG") }
+            AppState.setSession(PartyReportDomSupport.session())
+            PartyReportDomSupport.mappingView =
+                view(
+                    editable = true,
+                    rows =
+                        listOf(
+                            mappingRow("1", suggestion = "E01", postings = 3, balance = 12_000),
+                            mappingRow(
+                                "2",
+                                type = LedgerAccountType.EXPENSE,
+                                name = "Personal",
+                                nameSuggestion = "A01",
+                                nameKeyword = "personal",
+                                postings = 1,
+                                balance = 500,
+                            ),
+                        ),
+                )
+            val routes = PartyReportDomSupport.routes()
+            withFetchStub(respond = { request -> PartyReportDomSupport.answer(routes, request, 2025) }) {
+                mountedForm("party-report-mapping-name") { root, element ->
+                    renderPartyReportScreen(root)
+                    awaitUntil("the mapping block") { element().allOf("[data-partg-unmapped]").isNotEmpty() }
+                    element().buttonNamed("Vorschläge anzeigen").click()
+                    awaitUntil("both suggestions") { element().allOf("[data-partg-suggestion]").size == 2 }
+                    val sources =
+                        element().allOf("[data-partg-suggestion]").associate {
+                            it.getAttribute("data-partg-suggestion").orEmpty() to it.getAttribute("data-partg-suggestion-source").orEmpty()
+                        }
+                    assertEquals(mapOf("1" to "chart", "2" to "name"), sources)
+                    assertTrue(element().shows("Vermutung nach Kontoname („personal“)"), "the guess names the word it came from")
+                    assertTrue(element().shows("aus Parteien-Kontenplan"))
+                    // the bulk tick takes the chart suggestion only; a guess stays unticked
+                    element().buttonNamed("Alle Kontenplan-Vorschläge auswählen").click()
+                    val ticked =
+                        element().allOf("[data-partg-pick]").associate {
+                            it.getAttribute("data-partg-pick").orEmpty() to
+                                it.isChecked()
+                        }
+                    assertEquals(mapOf("1" to true, "2" to false), ticked)
+                    element().buttonNamed("Ausgewählte übernehmen").click()
+                    awaitUntil("the chart suggestion is taken over, the guess is not") { element().shows("Nicht gespeichert") }
+                    assertEquals(1, element().allOf("[data-partg-suggestion]").size, "the guess is still only a suggestion")
+                }
+            }
+            runCatching { window.localStorage.removeItem("lapis.partyReport.tab") }
+        }
+
+    private fun HTMLElement.isChecked(): Boolean =
+        (this as? org.w3c.dom.HTMLInputElement)?.checked ?: (querySelector("input") as? org.w3c.dom.HTMLInputElement)?.checked ?: false
 
     @Test
     fun theMappingTab_isReadOnlyForAChapterTreasurer_andSaysWho(): Promise<Unit> =
@@ -121,9 +182,9 @@ class PartyReportR4DomTest {
                     assertEquals(0, page.allOf("tbody select").size, "no editing control")
                     assertFalse(page.buttons().contains("Zuordnung speichern") && page.allOf(".lapis-partg-savebar").any { it.isVisible() })
                     assertFalse(page.buttons().contains("Vorschläge anzeigen"))
-                    // the tabs of a chapter treasurer: overview, entry, mapping
+                    // the tabs of a chapter treasurer: overview, entry, mapping and (V1.9.292, R4b) the unit part
                     val tabs = page.allOf(".btn-group button").map { it.textContent?.trim() }
-                    assertEquals(listOf("Übersicht", "Werte erfassen", "Kontenzuordnung"), tabs)
+                    assertEquals(listOf("Übersicht", "Werte erfassen", "Kontenzuordnung", "Bericht"), tabs)
                 }
             }
             runCatching { window.localStorage.removeItem("lapis.partyReport.tab") }

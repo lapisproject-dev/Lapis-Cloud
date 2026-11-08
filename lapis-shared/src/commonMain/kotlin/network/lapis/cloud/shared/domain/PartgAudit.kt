@@ -29,9 +29,9 @@ data class PartgImportAuditSnapshot(
     val unitKey: String,
 )
 
-/** The file format of a report export (V1.9.256). */
+/** The file format of a report export (V1.9.256); [CSV] (V1.9.292, R4b) is the journal CSV, served by its own route. */
 @Serializable
-enum class PartgReportFormat { PDF, XLSX }
+enum class PartgReportFormat { PDF, XLSX, CSV }
 
 /** Audit snapshot of ONE export of the report draft (V1.9.256). Counts and ids only: never an amount, never a name. */
 @Serializable
@@ -57,6 +57,10 @@ data class PartgReportExportAuditSnapshot(
     /** V1.9.291 (R6): set only for the export of a KEPT version (id and number); the default keeps the bytes of every older export unchanged. */
     val versionId: String? = null,
     val versionNumber: Int? = null,
+    /** V1.9.292 (R4b): `true` for an export a chapter treasurer made (unit part or journal CSV); the default keeps older payloads unchanged. */
+    val chapterScoped: Boolean = false,
+    /** V1.9.292 (R4b): number of posting rows of a journal CSV (a count, never an amount). */
+    val rowCount: Int? = null,
 )
 
 /** V1.9.269 audit snapshot of a change of the separate statements: counters, ids and codes only. */

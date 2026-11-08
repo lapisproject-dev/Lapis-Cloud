@@ -116,6 +116,47 @@ sequenceDiagram(name = "R6: keep, declare and finalise a version (V1.9.291)") {
 *Deletion*:: `PartgVersionRetention.eligible` needs `today.year > fiscalYear + N` **and** `today.year > frozenAtYear + N` (N from 10 to 30); the declarations are removed first (no cascade).
 *Client*:: tab `FREIGABE` appended to `PartyReportTab` and `PARTG_TAB_DISPLAY_ORDER` (the remembered tab is read by name; the chapter treasurer's list is unchanged), `PartyReportStatusLine` (on every tab, refreshed on year, tab and `PartyReportContext.onSaved`), `PartyReportVersionsTab`, `PartyReportVersionDialogs`, `PartyReportVersionCompare`, `PartyReportVersionLogic`.
 
+== R4b: the unit part, the journal CSV and the name guess (V1.9.292)
+
+*No migration*:: no table, no column; the latest migration stays V146, so the schema-drift test and the kUML schema model (`10-accounting.kuml.kts`) are unchanged and the DSGVO registry and the backup round trip have nothing new to cover.
+*Gate matrix*::
++
+[cols="3,2,2,2",options="header"]
+|===
+|Route / method |Gate |Federal role |Chapter treasurer
+|`GET /export/pdf`, `/export/xlsx` |`requirePartyReportScopedAccess` |any `scope` (full report, as before) |one unit of theirs (unit part), else 404
+|`GET /export/journal.csv` |`requirePartyReportScopedAccess` |everything or one `unit` |one unit of theirs (required), else 404; `SUB:` 400
+|`GET /version/pdf`, `/version/xlsx` |`requirePartyReportAccess` (unchanged) |kept versions |403
+|`unitStatementPreview` (RPC) |`requirePartyReportScopedAccess` |any unit |one unit of theirs, else `NotFoundException`
+|`getAccountMappings` |scoped (R4a) |with `nameSuggestion` |without `nameSuggestion`
+|===
+`PartyReportAccessTripwireTest` pins 39 methods, nine scoped ones, five export routes (three scoped, two federal) and that the version routes never use the scoped gate.
+*One source*:: `PartgUnitPart.build(snapshot, year, unit)` assembles the document of ONE unit (`PartgReportAssembler` with `Single(unit)`, empty annex and notes, no consolidation) and filters the hints to the unit and to `ALLOWED_FINDINGS` (P05, P14, P15, P16). The bookings facts come from `PartgLedgerProposals.unitPartFacts` (`ledgerFacts` moved there from `PartyReportService` without a change of behaviour). `PartgReportDocument` is **not** extended: it is stored canonically in kept versions, so the audience is a render parameter, `PartgReportAudience { FULL, UNIT_PART }`. `FULL` output is byte-identical (the golden files and the export tests are unchanged).
+*Renderers*:: `UNIT_PART` skips the statements, the notes and the consolidation, names the unit in title and header, writes the part footer, replaces the subsidy note by a variant without the pointer to the consolidation, and the PDF ends with a short hints page (the XLSX has the sheet *Hinweise*; six sheets instead of 13).
+*Journal CSV*:: `routes/PartgJournalCsvExport.kt`. The scope is `BookingScope` (`Federal`, or `Chapters(actor.chapterIds)`); `journalCondition` throws `ForbiddenException`/`NotFoundException`, both mapped to 404. The entries are read once (posted, year, scope; ordered by date, voucher with nulls first, id) and their postings in chunks of 10,000 with the cap pulled into the query (`limit(remaining + 1)`), like `buildJournalExportRequest`. `BookingScopeAllowlistScanTest` pins that `journalCondition(` and `BookingScope.Chapters(` appear only in the scope itself, the accounting service and this file, and that the file derives its scope from the actor.
+*Name guess*:: shared `PartyAccountNameHeuristic`; the server fills `nameSuggestion` and `nameSuggestionKeyword` (new DTO fields at the end) only for `editable` callers.
+
+[kuml, partg-report-r4b-flow, svg]
+----
+sequenceDiagram(name = "R4b: a chapter treasurer downloads the unit part (V1.9.292)") {
+    val treasurer = participant(name = "Chapter treasurer")
+    val route = participant(name = "PartgReportExportRoutes")
+    val reader = participant(name = "PartgReportSnapshotReader")
+    val part = participant(name = "PartgUnitPart")
+    val renderer = participant(name = "PDF / XLSX renderer")
+    val db = participant(name = "Database")
+
+    message(from = treasurer, to = route, text = "GET /export/pdf?year=&scope=<unit key>")
+    message(from = route, to = route, text = "scoped gate (role, grant read fresh, party switch), rate limit, year, unit of the grants or 404")
+    message(from = route, to = reader, text = "read(year, year - 1) behind the revision fence")
+    message(from = route, to = part, text = "build(snapshot, year, unit): one unit, no statements, hints P05 P14 P15 P16 only")
+    message(from = part, to = db, text = "ledger facts, mode and posted count of that unit (one read transaction)")
+    message(from = route, to = renderer, text = "render(document, part footer, UNIT_PART) outside the transaction")
+    message(from = route, to = db, text = "audit entry (counters, chapterScoped = true) BEFORE sending")
+    message(from = route, to = treasurer, text = "attachment teilbericht-<year>-<unit>-entwurf.pdf")
+}
+----
+
 == The XLSX reader (no spreadsheet library)
 
 No Apache POI: a general spreadsheet library is a large attack surface for a file that is only ever read as a fixed template. The reader is small and strict.

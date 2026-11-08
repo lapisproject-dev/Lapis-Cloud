@@ -22,6 +22,12 @@ data class PartgAccountMappingRowDto(
     val templateSuggestsExcluded: Boolean = false,
     val balanceCents: Long? = null,
     val postingCount: Int = 0,
+    /**
+     * V1.9.292 (R4b): a GUESS from the account name ([PartyAccountNameHeuristic]), only for federal callers and only for an unmapped account
+     * without a hit in the standard chart. Never applied by itself; [nameSuggestionKeyword] is the word of the name that triggered it.
+     */
+    val nameSuggestion: String? = null,
+    val nameSuggestionKeyword: String? = null,
 )
 
 @Serializable

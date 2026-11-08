@@ -263,3 +263,10 @@ internal object PartgReportScopeKeySerializer : KSerializer<PartgReportScope> {
     override fun deserialize(decoder: Decoder): PartgReportScope =
         PartgReportScope.parse(decoder.decodeString()) ?: throw IllegalArgumentException("Unknown report scope")
 }
+
+/**
+ * V1.9.292 (R4b): who the rendered file is for. [FULL] is the report as before (byte-identical output); [UNIT_PART] is the draft part of ONE unit for
+ * a chapter treasurer: title, header and footer name it, and the statements A-F, the notes and the consolidation are left out. A render parameter
+ * on purpose: [PartgReportDocument] is stored canonically in kept versions and must not grow a field.
+ */
+internal enum class PartgReportAudience { FULL, UNIT_PART }

@@ -15,18 +15,24 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.accounting.export.MAX_TOTAL_POSTINGS
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.partg.PartgReportSnapshotReader
 import network.lapis.cloud.server.partg.PartgVersionFormat
 import network.lapis.cloud.server.partg.PartgVersionStore
 import network.lapis.cloud.server.partg.PartgYearRules
+import network.lapis.cloud.server.partg.PartyReportActor
+import network.lapis.cloud.server.partg.report.PartgReportAudience
+import network.lapis.cloud.server.partg.report.PartgReportDocument
 import network.lapis.cloud.server.partg.report.PartgReportDocuments
 import network.lapis.cloud.server.partg.report.PartgReportPdfRenderer
 import network.lapis.cloud.server.partg.report.PartgReportTexts
 import network.lapis.cloud.server.partg.report.PartgReportTooLargeException
 import network.lapis.cloud.server.partg.report.PartgReportXlsxWriter
+import network.lapis.cloud.server.partg.report.PartgUnitPart
 import network.lapis.cloud.server.partg.requirePartyReportAccess
+import network.lapis.cloud.server.partg.requirePartyReportScopedAccess
 import network.lapis.cloud.server.pdf.PdfLimitExceeded
 import network.lapis.cloud.server.pdf.formatGermanDate
 import network.lapis.cloud.server.security.CurrentMember
@@ -39,6 +45,7 @@ import network.lapis.cloud.shared.domain.PartgImportRejectionDto
 import network.lapis.cloud.shared.domain.PartgReportExportAuditSnapshot
 import network.lapis.cloud.shared.domain.PartgReportFormat
 import network.lapis.cloud.shared.domain.PartgReportScope
+import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportInvalidInputException
@@ -56,8 +63,9 @@ private const val XLSX_EXPORT_TYPE = "application/vnd.openxmlformats-officedocum
 /**
  * V1.9.256 "Rechenschaftsbericht (PartG), R2" -- the report draft as a PDF or XLSX download.
  *
- * EVERY handler starts with `requirePartyReportAccess(call)` (role BOARD/ADMIN first, then the organisation switch; pinned by
- * `PartyReportAccessTripwireTest`) BEFORE a query parameter is read. Order: gate, rate limit (10 per minute and member), input check, concurrency
+ * EVERY handler starts with a gate (pinned by `PartyReportAccessTripwireTest`) BEFORE a query parameter is read: `requirePartyReportAccess(call)`
+ * (role BOARD/ADMIN first, then the organisation switch) for the kept versions, `requirePartyReportScopedAccess(call)` for the three exports a
+ * chapter treasurer may also reach (V1.9.292, R4b: the unit part as PDF/XLSX and the journal CSV, each restricted to their own unit). Order: gate, rate limit (10 per minute and member), input check, concurrency
  * permit (2 exports at a time), ONE read transaction, assemble and render OUTSIDE the transaction, audit entry (in its own transaction, BEFORE
  * anything is sent), response. The file name is fixed; nothing user-supplied reaches a header or the file system. Only format, year, scope key
  * and counters are logged: no name, no amount.
@@ -65,29 +73,45 @@ private const val XLSX_EXPORT_TYPE = "application/vnd.openxmlformats-officedocum
 fun Route.registerPartgReportExportRoutes(
     rateLimiter: FederationInboxRateLimiter,
     concurrency: Semaphore,
+    maxJournalPostings: Int = MAX_TOTAL_POSTINGS,
 ) {
+    // V1.9.292 (R4b): these three use the SCOPED gate (federal roles, or a member with an active chapter-treasurer grant). A chapter treasurer gets
+    // the unit part of THEIR unit only (`scope=<unit key>`); everything else for them is a uniform 404. The version routes below stay federal-only.
     get("/api/partg-report/export/pdf") {
-        val current =
+        val actor =
             try {
-                requirePartyReportAccess(call)
+                requirePartyReportScopedAccess(call)
             } catch (e: ForbiddenException) {
                 return@get call.rejectExport(status = HttpStatusCode.Forbidden, code = PartgImportRejectionCode.FORBIDDEN)
             } catch (e: PartyReportNotEnabledException) {
                 return@get call.rejectExport(status = HttpStatusCode.Forbidden, code = PartgImportRejectionCode.NOT_ENABLED)
             }
-        call.export(format = PartgReportFormat.PDF, current = current, rateLimiter = rateLimiter, concurrency = concurrency)
+        call.export(format = PartgReportFormat.PDF, actor = actor, rateLimiter = rateLimiter, concurrency = concurrency)
     }
 
     get("/api/partg-report/export/xlsx") {
-        val current =
+        val actor =
             try {
-                requirePartyReportAccess(call)
+                requirePartyReportScopedAccess(call)
             } catch (e: ForbiddenException) {
                 return@get call.rejectExport(status = HttpStatusCode.Forbidden, code = PartgImportRejectionCode.FORBIDDEN)
             } catch (e: PartyReportNotEnabledException) {
                 return@get call.rejectExport(status = HttpStatusCode.Forbidden, code = PartgImportRejectionCode.NOT_ENABLED)
             }
-        call.export(format = PartgReportFormat.XLSX, current = current, rateLimiter = rateLimiter, concurrency = concurrency)
+        call.export(format = PartgReportFormat.XLSX, actor = actor, rateLimiter = rateLimiter, concurrency = concurrency)
+    }
+
+    // V1.9.292 (R4b): the journal of ONE unit (or, for a federal role, of everything) as a CSV with a "Gliederung" column
+    get("/api/partg-report/export/journal.csv") {
+        val actor =
+            try {
+                requirePartyReportScopedAccess(call)
+            } catch (e: ForbiddenException) {
+                return@get call.rejectExport(status = HttpStatusCode.Forbidden, code = PartgImportRejectionCode.FORBIDDEN)
+            } catch (e: PartyReportNotEnabledException) {
+                return@get call.rejectExport(status = HttpStatusCode.Forbidden, code = PartgImportRejectionCode.NOT_ENABLED)
+            }
+        call.exportJournalCsv(actor = actor, rateLimiter = rateLimiter, concurrency = concurrency, maxTotalPostings = maxJournalPostings)
     }
 
     // V1.9.291 (R6): a KEPT version as PDF / XLSX, rendered from the stored document (never from a recomputation)
@@ -176,6 +200,7 @@ private suspend fun ApplicationCall.exportVersion(
                         when (format) {
                             PartgReportFormat.PDF -> PartgReportPdfRenderer().render(document = document, footer = footer)
                             PartgReportFormat.XLSX -> PartgReportXlsxWriter.write(document = document, footer = footer)
+                            PartgReportFormat.CSV -> throw IllegalStateException("CSV is not a report format")
                         }
                     Counters(
                         bytes = bytes,
@@ -246,18 +271,32 @@ private const val HASH_PREFIX_CHARS = 12
 
 private suspend fun ApplicationCall.export(
     format: PartgReportFormat,
-    current: CurrentMember,
+    actor: PartyReportActor,
     rateLimiter: FederationInboxRateLimiter,
     concurrency: Semaphore,
 ) {
+    val current = actor.current
     if (!rateLimiter.checkAndRecord("partg:export:${current.memberId}")) {
         return rejectExport(status = HttpStatusCode.TooManyRequests, code = PartgImportRejectionCode.RATE_LIMITED)
     }
     val year = request.queryParameters["year"]?.toIntOrNull()
-    val scope = request.queryParameters["scope"]?.let { PartgReportScope.parse(it) }
-    if (year == null || scope == null || year < PartgYearRules.MIN_YEAR || year > PartgYearRules.maxYear()) {
+    val rawScope = request.queryParameters["scope"]
+    val chapterTreasurer = actor is PartyReportActor.ChapterTreasurer
+    val yearValid = year != null && year >= PartgYearRules.MIN_YEAR && year <= PartgYearRules.maxYear()
+    // a chapter treasurer: only the year can be a 400; EVERYTHING about the unit (missing, unparsable, ALL, FEDERAL, foreign, unknown) is one 404
+    val unit: PartgUnit? =
+        if (chapterTreasurer) rawScope?.let { PartgUnit.parse(it) }?.takeIf { actor.allows(it) } else null
+    val scope = if (chapterTreasurer) null else rawScope?.let { PartgReportScope.parse(it) }
+    if (!yearValid) {
         return rejectExport(status = HttpStatusCode.BadRequest, code = PartgImportRejectionCode.INVALID_INPUT)
     }
+    if (chapterTreasurer && unit == null) {
+        return rejectExport(status = HttpStatusCode.NotFound, code = PartgImportRejectionCode.NOT_FOUND)
+    }
+    if (!chapterTreasurer && scope == null) {
+        return rejectExport(status = HttpStatusCode.BadRequest, code = PartgImportRejectionCode.INVALID_INPUT)
+    }
+    checkNotNull(year)
     if (!concurrency.tryAcquire()) {
         return rejectExport(status = HttpStatusCode.TooManyRequests, code = PartgImportRejectionCode.RATE_LIMITED)
     }
@@ -271,13 +310,42 @@ private suspend fun ApplicationCall.export(
         val rendered =
             try {
                 withContext(Dispatchers.Default) {
-                    val built = PartgReportDocuments.buildWithCounters(snapshot = snapshot, year = year, scope = scope)
-                    val document = built.document
-                    val findingCount = built.findingCount
+                    val audience = if (unit != null) PartgReportAudience.UNIT_PART else PartgReportAudience.FULL
+                    val document: PartgReportDocument
+                    val findingCount: Int
+                    if (unit != null) {
+                        val built = PartgUnitPart.build(snapshot = snapshot, year = year, unit = unit)
+                        document = built.document
+                        findingCount = built.findingCount
+                    } else {
+                        val built = PartgReportDocuments.buildWithCounters(snapshot = snapshot, year = year, scope = checkNotNull(scope))
+                        document = built.document
+                        findingCount = built.findingCount
+                    }
                     val bytes =
                         when (format) {
-                            PartgReportFormat.PDF -> PartgReportPdfRenderer().render(document = document)
-                            PartgReportFormat.XLSX -> PartgReportXlsxWriter.write(document = document)
+                            PartgReportFormat.PDF ->
+                                if (unit != null) {
+                                    PartgReportPdfRenderer().render(
+                                        document = document,
+                                        footer = PartgReportTexts.UNIT_PART_FOOTER,
+                                        audience = audience,
+                                    )
+                                } else {
+                                    PartgReportPdfRenderer().render(document = document)
+                                }
+                            PartgReportFormat.XLSX ->
+                                if (unit != null) {
+                                    PartgReportXlsxWriter.write(
+                                        document = document,
+                                        footer = PartgReportTexts.UNIT_PART_FOOTER,
+                                        audience = audience,
+                                    )
+                                } else {
+                                    PartgReportXlsxWriter.write(document = document)
+                                }
+                            // the journal CSV has its own route; it never reaches the report renderers
+                            PartgReportFormat.CSV -> throw IllegalStateException("CSV is not a report format")
                         }
                     Counters(
                         bytes = bytes,
@@ -304,6 +372,7 @@ private suspend fun ApplicationCall.export(
             }
         val (bytes, unitCount, missingCount, donorRowCount, findingCount, sponsorRowCount, youthOrgRowCount, enterpriseRowCount) =
             rendered
+        val scopeKey = unit?.key() ?: checkNotNull(scope).key()
         val now = ServerClock.now()
         transaction {
             AuditLogRecorder.record(
@@ -318,7 +387,7 @@ private suspend fun ApplicationCall.export(
                         PartgReportExportAuditSnapshot(
                             format = format,
                             year = year,
-                            scope = scope.key(),
+                            scope = scopeKey,
                             unitCount = unitCount,
                             missingCount = missingCount,
                             byteSize = bytes.size,
@@ -327,14 +396,23 @@ private suspend fun ApplicationCall.export(
                             sponsorRowCount = sponsorRowCount,
                             youthOrgRowCount = youthOrgRowCount,
                             enterpriseRowCount = enterpriseRowCount,
+                            chapterScoped = chapterTreasurer,
                         ),
                     ),
                 occurredAt = now,
             )
         }
-        logger.info { "partg report export format=$format year=$year scope=${scope.key()} units=$unitCount bytes=${bytes.size}" }
+        logger.info { "partg report export format=$format year=$year scope=$scopeKey units=$unitCount bytes=${bytes.size}" }
         val extension = if (format == PartgReportFormat.PDF) "pdf" else "xlsx"
-        response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"rechenschaftsbericht-$year-entwurf.$extension\"")
+        val fileName =
+            if (unit !=
+                null
+            ) {
+                "teilbericht-$year-${scopeKey.replace(':', '-')}-entwurf.$extension"
+            } else {
+                "rechenschaftsbericht-$year-entwurf.$extension"
+            }
+        response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"$fileName\"")
         response.header(HttpHeaders.CacheControl, "no-store")
         response.header("X-Content-Type-Options", "nosniff")
         respondBytes(bytes, ContentType.parse(if (format == PartgReportFormat.PDF) PDF_EXPORT_TYPE else XLSX_EXPORT_TYPE))
@@ -355,7 +433,7 @@ private data class Counters(
     val enterpriseRowCount: Int,
 )
 
-private suspend fun ApplicationCall.rejectExport(
+internal suspend fun ApplicationCall.rejectExport(
     status: HttpStatusCode,
     code: PartgImportRejectionCode,
 ) = respond(status, PartgImportRejectionDto(code = code))
