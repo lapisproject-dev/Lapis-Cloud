@@ -82,6 +82,47 @@ class EventConferenceGuardTripwireTest :
             source shouldContain "private fun notAnEventRoom()"
         }
 
+        test(
+            "V1.9.295: the lobby list of running event conferences leaks no room id, no LiveKit name and no token, and decides through the one function",
+        ) {
+            val query = SourceScan.blank(EncounterSourceScan.mainFile("rpc/RunningEventConferenceQuery.kt").readText())
+            listOf("livekitRoomName", "claimToken", "ConferenceRoomTable.id", "mintToken", "JoinToken", "selectAll").forEach {
+                query shouldNotContain it
+            }
+            query shouldContain "decideEventOnlineAccess("
+            query shouldContain "EventMemberVisibility.visibleWithoutManageScopePredicate()"
+            val fns = EncounterSourceScan.functions(EncounterSourceScan.mainFile("rpc/ConferenceService.kt"))
+            val list = fns.first { it.isOverride && it.name == "listRunningEventConferences" }.body
+            list shouldContain "RunningEventConferenceQuery.list("
+            list shouldContain "requireActiveMembership("
+            listOf("fetchLiveRooms", "liveKitCall", "reconcile", "joinRoom").forEach { list shouldNotContain it }
+        }
+
+        test("V1.9.295: listRunningEventConferences is the LAST declared method of IConferenceService (route order is declaration order)") {
+            val file =
+                java.io.File("../lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/rpc/IConferenceService.kt").let {
+                    if (it.exists()) {
+                        it
+                    } else {
+                        java.io.File(
+                            "lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/rpc/IConferenceService.kt",
+                        )
+                    }
+                }
+            val names = Regex("""suspend fun (\w+)\(""").findAll(SourceScan.blank(file.readText())).map { it.groupValues[1] }.toList()
+            names.last() shouldBe "listRunningEventConferences"
+            names.count { it == "listRunningEventConferences" } shouldBe 1
+        }
+
+        test("V1.9.295: getEvent decides the member visibility through EventMemberVisibility") {
+            val getEvent =
+                EncounterSourceScan
+                    .functions(EncounterSourceScan.mainFile("rpc/EventService.kt"))
+                    .first { it.isOverride && it.name == "getEvent" }
+                    .body
+            getEvent shouldContain "EventMemberVisibility.visibleWithoutManageScope("
+        }
+
         test("a recording, a stream and the return to the main room of a breakout all consult the event guard") {
             // V1.9.156: the recording and the stream no longer refuse an event room outright -- they ask the ONE decision function, and the plain
             // refusal (requireNotEventRoom) must be gone from exactly these two places.

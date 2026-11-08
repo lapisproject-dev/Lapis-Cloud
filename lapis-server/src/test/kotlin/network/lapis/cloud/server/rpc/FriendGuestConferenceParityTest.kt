@@ -285,6 +285,7 @@ class FriendGuestConferenceParityTest :
                 s("12 backgrounds listMine", "backgrounds")
                 s("13a getRoom", "getRoom")
                 s("13b listActiveRooms", "listActiveRooms")
+                s("13c listRunningEventConferences", "listRunningEventConferences")
                 s("14a leaveRoom", "leave")
                 s("14b join again with consent", "join", consent)
                 steps += client.step("15 moderator closes guest access", "guestAccess", moderator, roomId, "&allow=false")
@@ -333,6 +334,7 @@ class FriendGuestConferenceParityTest :
                 listOf("8a", "8b", "9a", "9b", "10a", "10b", "11a", "11b", "12").forEach { steps.byName(it).outcome shouldBe Outcome.OK }
                 steps.byName("13a").outcome shouldBe Outcome.FORBIDDEN
                 steps.byName("13b").outcome shouldBe Outcome.FORBIDDEN
+                steps.byName("13c").outcome shouldBe Outcome.FORBIDDEN
                 steps.byName("14a").outcome shouldBe Outcome.OK
                 steps.byName("14b").outcome shouldBe Outcome.OK
                 steps.byName("15 open").detail shouldBe "0"
@@ -537,6 +539,7 @@ private fun Route.registerParityRoutes(
                     ConferenceBackgroundService(call = call, storageRoot = storageRoot).listMine().let { "n=${it.size}" }
                 "getRoom" -> conference(call).getRoom(roomId).let { "ok" }
                 "listActiveRooms" -> conference(call).listActiveRooms().let { "n=${it.size}" }
+                "listRunningEventConferences" -> conference(call).listRunningEventConferences().let { "n=${it.size}" }
                 "leave" -> conference(call).leaveRoom(roomId).let { "ok" }
                 "guestAccess" ->
                     conference(call)

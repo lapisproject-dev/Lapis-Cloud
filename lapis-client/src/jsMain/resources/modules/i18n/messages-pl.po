@@ -31688,3 +31688,18 @@ msgstr "Sprawozdanie rozliczeniowe: propozycję dla zestawienia B przejęto"
 
 msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
 msgstr "Nagranie pokazuje tylko tę osobę i udostępnione ekrany. Słychać wszystkich. Jeśli jej kamera jest wyłączona, obraz pozostaje pusty."
+
+msgid "Zur Veranstaltung"
+msgstr "Przejdź do wydarzenia"
+
+msgid "Zur Veranstaltung „%1“"
+msgstr "Przejdź do wydarzenia „%1”"
+
+msgid "Die Videokonferenz läuft. Sie nehmen über die Veranstaltungsseite teil."
+msgstr "Wideokonferencja trwa. Udział w niej bierze się ze strony wydarzenia."
+
+msgid "Die Videokonferenz läuft. Teilnehmen kann nur, wer zur Veranstaltung angemeldet und bestätigt ist."
+msgstr "Wideokonferencja trwa. Uczestniczyć mogą tylko osoby zapisane na wydarzenie i potwierdzone."
+
+msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
+msgstr "Wideokonferencja jest przygotowywana. Udział będzie możliwy na stronie wydarzenia."

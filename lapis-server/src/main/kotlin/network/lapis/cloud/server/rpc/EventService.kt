@@ -24,6 +24,7 @@ import network.lapis.cloud.server.events.EventCaptureLock
 import network.lapis.cloud.server.events.EventCaptureRequirement
 import network.lapis.cloud.server.events.EventCheckIn
 import network.lapis.cloud.server.events.EventCoverPolicy
+import network.lapis.cloud.server.events.EventMemberVisibility
 import network.lapis.cloud.server.events.EventOnlineJoin
 import network.lapis.cloud.server.events.EventOnlineLifecycle
 import network.lapis.cloud.server.events.EventOnlineServices
@@ -254,7 +255,7 @@ class EventService(
                         EventManageScope.MEETING_OFFICER
                     else -> EventManageScope.NONE
                 }
-            if (scope == EventManageScope.NONE && row[EventTable.status] != EventStatus.PUBLISHED) {
+            if (scope == EventManageScope.NONE && !EventMemberVisibility.visibleWithoutManageScope(row[EventTable.status])) {
                 throw NotFoundException("Event $id not found")
             }
             row

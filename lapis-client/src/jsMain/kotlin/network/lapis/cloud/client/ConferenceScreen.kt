@@ -89,6 +89,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
 import network.lapis.cloud.shared.domain.EventCaptureLiveDto
+import network.lapis.cloud.shared.domain.EventConferenceParticipation
 import network.lapis.cloud.shared.domain.EventGuestNotice
 import network.lapis.cloud.shared.domain.EventGuestNoticeCapture
 import network.lapis.cloud.shared.domain.EventOnlineJoinResultDto
@@ -101,6 +102,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomPauseScope
+import network.lapis.cloud.shared.domain.RunningEventConferenceDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.domain.toRecordingLayout
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
@@ -133,6 +135,7 @@ import org.w3c.dom.get
 import org.w3c.dom.set
 import org.w3c.files.File
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 1 -- LiveKit-backed room list, plain create-room form,
@@ -704,15 +707,22 @@ private fun renderLobby(
     // LOBBY, not only inside a live call -- see ConferenceRecordingsPanel.kt's own file KDoc.
     val recordingsSection = lobbyPanel.vPanel(spacing = 8)
 
+    // V1.9.295: a second refresh while the first is still on its way must not paint twice (two requests per refresh now)
+    var loadGeneration = 0
+
     fun loadRooms() {
+        val generation = ++loadGeneration
         roomsPanel.removeAll()
         roomsPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
             val rooms = guarded { rpcService<IConferenceService>().listActiveRooms() } ?: return@launch
+            val events = loadRunningEventConferences()
+            if (generation != loadGeneration) return@launch
             roomsPanel.removeAll()
-            if (rooms.isEmpty()) {
+            if (rooms.isEmpty() && events.isEmpty()) {
                 roomsPanel.div(tr("Derzeit keine aktive Besprechung.")) { addCssClasses("text-muted small") }
             } else {
+                events.forEach { entry -> renderEventConferenceRow(roomsPanel, entry) }
                 rooms.forEach { room ->
                     renderRoomCard(roomsPanel, room, lobbyPanel, callPanel, setActiveSession, rejoinGuard) {
                         loadRooms()
@@ -839,6 +849,52 @@ private fun renderRoomCard(
             joinButton.disabled = false
         }
     }
+}
+
+private external fun encodeURIComponent(value: String): String
+
+/** V1.9.295 -- an old server (no route) or any failure is an empty list: no toast, the room list still renders. */
+internal suspend fun loadRunningEventConferences(): List<RunningEventConferenceDto> =
+    try {
+        rpcService<IConferenceService>().listRunningEventConferences()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Throwable) {
+        emptyList()
+    }
+
+/**
+ * V1.9.295 -- one running event conference in the lobby. Information and a link to the event page ONLY: no join button, no click handler
+ * on the card; taking part stays `IEventService.joinEventOnline` on the event page. The server sends no room id.
+ */
+internal fun renderEventConferenceRow(
+    panel: SimplePanel,
+    entry: RunningEventConferenceDto,
+) {
+    val eventUuid = runCatching { Uuid.parse(entry.eventId) }.getOrNull() ?: return
+    val title = sanitizeUntrustedI18nText(entry.eventTitle)
+    val card = panel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center flex-wrap") }
+    val infoCell = card.vPanel(spacing = 2) { addCssClasses("flex-grow-1") }
+    infoCell.div(title) { addCssClasses("fw-bold") }
+    infoCell.div {
+        addCssClasses("text-muted small")
+        weekdayDateTimeSpan(entry.startsAt)
+        span(" – ")
+        if (entry.startsAt.date == entry.endsAt.date) span(timeToken(entry.endsAt)) else weekdayDateTimeSpan(entry.endsAt)
+    }
+    val hint =
+        when (entry.participation) {
+            EventConferenceParticipation.OPEN_TO_YOU -> tr("Die Videokonferenz läuft. Sie nehmen über die Veranstaltungsseite teil.")
+            EventConferenceParticipation.REGISTRATION_REQUIRED ->
+                tr("Die Videokonferenz läuft. Teilnehmen kann nur, wer zur Veranstaltung angemeldet und bestätigt ist.")
+            EventConferenceParticipation.NOT_YET_OPEN ->
+                tr("Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite.")
+        }
+    infoCell.div(hint) { addCssClasses("text-muted small") }
+    infoCell.statusBadge(tr("Veranstaltung"), "secondary")
+    val link = card.actionLink(ActionIcon.NEXT, tr("Zur Veranstaltung"), "#/events/${encodeURIComponent(eventUuid.toString())}")
+    link.addCssClasses("btn btn-outline-primary")
+    link.setAttribute("aria-label", gettext("Zur Veranstaltung „%1“", title))
 }
 
 /**

@@ -37,6 +37,7 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.isActiveCommitteeMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -58,6 +59,7 @@ import network.lapis.cloud.shared.domain.RoomBallotKind
 import network.lapis.cloud.shared.domain.RoomBallotOptionDto
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
+import network.lapis.cloud.shared.domain.RunningEventConferenceDto
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import network.lapis.cloud.shared.domain.VoteStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
@@ -222,6 +224,8 @@ private data class RevokePlan(
  * its OWN budget ([guestInfoRateLimiter]) rather than joining [listRateLimiter] because -- unlike
  * listActiveRooms/getRoom/listParticipants -- it performs no outbound LiveKit call at all; it is
  * throttled purely as a cheap pre-join probe surface reachable by a federated guest.
+ * V1.9.295: [listRunningEventConferences] also shares [listRateLimiter] (a lobby refresh costs two units); it makes NO LiveKit call, so there
+ * the limiter throttles DB load only -- the "outbound LiveKit call" reasoning above does not apply to it.
  * [setRoomGuestAccess] (Wave 5) gets its own, much STRICTER budget ([guestAccessRateLimiter],
  * security-audit fix) rather than joining any of the above -- unlike a single LiveKit admin call,
  * one invocation can fan out to up to [ConferenceConfig.maxParticipants] outbound `RemoveParticipant`
@@ -329,6 +333,21 @@ class ConferenceService(
                 .limit(MAX_LIST_RESULTS)
                 .map { row -> rowToDto(row = row, current = current, liveRooms = liveRooms) }
         }
+    }
+
+    /**
+     * V1.9.295 -- see [IConferenceService.listRunningEventConferences]. Pure DB read, NO LiveKit call, no reconcile (the lifetime of event
+     * rooms belongs to `EventConferenceProvisioner`/poller). Shares [listRateLimiter] with [listActiveRooms]: one refresh of the lobby costs
+     * two units of the 60/min budget. Here the limiter throttles DB load, not a LiveKit call.
+     */
+    override suspend fun listRunningEventConferences(): List<RunningEventConferenceDto> {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireWithinRate(limiter = listRateLimiter, memberId = current.memberId)
+        transaction { requireActiveMembership(memberId = current.memberId) }
+        val now = ServerClock.nowInstant()
+        val orgZone = OrganizationTimeZone.current()
+        return transaction { RunningEventConferenceQuery.list(current = current, now = now, orgZone = orgZone) }
     }
 
     override suspend fun getRoom(roomId: String): ConferenceRoomDto {

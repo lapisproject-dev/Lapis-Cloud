@@ -9,6 +9,7 @@ import network.lapis.cloud.shared.domain.ConferenceParticipantDto
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
+import network.lapis.cloud.shared.domain.RunningEventConferenceDto
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 1 -- LiveKit-backed video conferencing for the
@@ -353,4 +354,11 @@ interface IConferenceService {
      * Sitzung: the client asks with the main room id.
      */
     suspend fun getRoomVotingState(roomId: String): RoomVotingStateDto
+
+    /**
+     * V1.9.295 -- running conferences of PUBLISHED Lapis online events (LAPIS_CONFERENCE) the caller may see, at most 50, ordered by start.
+     * ACTIVE members only (same gates as [listActiveRooms]). No LiveKit call. Does NOT open a way into the room: [joinRoom] keeps refusing
+     * event rooms; the entry is IEventService.joinEventOnline on the event page.
+     */
+    suspend fun listRunningEventConferences(): List<RunningEventConferenceDto>
 }

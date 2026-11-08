@@ -251,6 +251,9 @@ class FriendDeniedEverywhereElseTest :
                     HttpStatusCode.Forbidden
                 client.get("/test/get-room?roomId=${Uuid.random()}") { header("X-Member-Id", friend.toString()) }.status shouldBe
                     HttpStatusCode.Forbidden
+                // V1.9.295: the lobby list of running event conferences is ACTIVE-only as well
+                client.get("/test/list-running-event-conferences") { header("X-Member-Id", friend.toString()) }.status shouldBe
+                    HttpStatusCode.Forbidden
             }
         }
 
@@ -565,6 +568,10 @@ private fun Route.registerDeniedConferenceTestRoutes() {
     }
     get("/test/list-active-rooms") {
         service(call).listActiveRooms()
+        call.respondText("ok")
+    }
+    get("/test/list-running-event-conferences") {
+        service(call).listRunningEventConferences()
         call.respondText("ok")
     }
     get("/test/get-room") {

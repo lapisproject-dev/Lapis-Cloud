@@ -31772,3 +31772,18 @@ msgstr "Verantwoordingsverslag: voorstel voor bijlage B overgenomen"
 
 msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
 msgstr "De opname toont alleen deze persoon en gedeelde schermen. Iedereen is te horen. Is de camera uit, dan blijft het beeld leeg."
+
+msgid "Zur Veranstaltung"
+msgstr "Naar het evenement"
+
+msgid "Zur Veranstaltung „%1“"
+msgstr "Naar het evenement “%1”"
+
+msgid "Die Videokonferenz läuft. Sie nehmen über die Veranstaltungsseite teil."
+msgstr "De videoconferentie loopt. U neemt deel via de evenementpagina."
+
+msgid "Die Videokonferenz läuft. Teilnehmen kann nur, wer zur Veranstaltung angemeldet und bestätigt ist."
+msgstr "De videoconferentie loopt. Alleen wie voor het evenement is aangemeld en bevestigd, kan deelnemen."
+
+msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
+msgstr "De videoconferentie wordt voorbereid. Deelname opent op de evenementpagina."

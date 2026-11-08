@@ -6,6 +6,21 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.295 -- Running event conferences in the conference lobby
+
+**Behaviour changes first:** (1) a new RPC method `IConferenceService.listRunningEventConferences()` (declared last, so existing routes keep their numbers) returns the running conferences of *published* `LAPIS_CONFERENCE` events as `RunningEventConferenceDto` (event id, title, start, end, one of `OPEN_TO_YOU` / `REGISTRATION_REQUIRED` / `NOT_YET_OPEN`); (2) the lobby shows these as information rows above the ordinary rooms, each with a link to the event page and **no** join button; (3) **no migration**.
+
+- **Visibility:** only `PUBLISHED` events, for every role (board, admin and Sitzung officer included); the rule lives in `EventMemberVisibility` and `EventService.getEvent` now uses it too (behaviour unchanged).
+- **Decision:** `decideEventOnlineAccess` (`JOINED` -> open to you, `NOT_YET` -> not yet open, `FORBIDDEN` -> registration required). A finished event is dropped before that call, because the function checks the registration before the window. The SQL also keeps only rows whose stored window has not closed, so finished events that the poller has not ended yet do not use up the limit of 50 (rows dropped after the limit can still make the list shorter).
+- **Not sent:** no conference room id, no LiveKit room name, no token, no organiser, no participant count. The columns read are listed explicitly; no LiveKit call, no reconciliation.
+- **Rate limit:** shares the per-member list budget (60 per minute) with `listActiveRooms`; a lobby refresh costs two units. The class KDoc says that here the limiter protects the database, not a LiveKit call.
+- **Client:** an old server or any failing request yields an empty event list without a toast; a generation counter keeps two quick refreshes from painting rows twice. Event titles are sanitised like room titles.
+- **Departure from the design note:** `startsAt`/`endsAt` are `LocalDateTime` in the organisation's wall clock (as in `EventDto`), not `Instant`, and `endsAt` is not nullable (`event.ends_at` is NOT NULL); the client date helper takes `LocalDateTime`.
+- **Tests:** `ConferenceRunningEventListTest` (open / registration / moderator / not yet / hidden cases / finished event with deadline / leak check on the JSON / limit 50 and order / refusals equal to `listActiveRooms` / `joinRoom` still refuses an event room / shared budget), new rows in `EventConferenceGuardTripwireTest`, `FriendGuestConferenceParityTest` and `FriendDeniedEverywhereElseTest`, `EventConferenceLobbyI18nCatalogTest`, `ConferenceLobbyEventConferenceDomTest`.
+- **Docs and catalogs:** `docs/features/video-conferencing.adoc`, `CLAUDE.md`; five new msgids in `messages.pot` and the seven language catalogs -- the translations are **model-written**, not reviewed by a native speaker.
+- **Unchanged:** the side-navigation live counter (ordinary rooms only), `listActiveRooms`, `joinRoom`, the mobile routes.
+- **Not verified:** against a real LiveKit server, on a real phone, with a screen reader (headless browser only).
+
 ### V1.9.294 -- Layout choice when a conference recording starts
 
 **Behaviour changes first:** (1) a new migration **`V148__conference_recording_layout.sql`** adds `layout` (`GRID` default, CHECK on `GRID`/`SPEAKER`/`SINGLE_PARTICIPANT`) and `single_participant_identity` (nullable, 64) to `conference_recording`, with a CHECK that pairs the identity with `SINGLE_PARTICIPANT`; old rows get `SPEAKER` where their frozen `broadcast_view` was `SPEAKER`, otherwise `GRID`; (2) the start dialog of a recording now asks for the layout and, for *Einzelne Person*, for the person; the new RPC method **`startRecordingWithLayout`** is appended at the END of `IConferenceRecordingService`; (3) the notice banner and the detail line of a running recording now name the **layout** the recording was started with, not the room view (the words stay "Raster" and "Sprecher groß", the new one is "Einzelne Person"); (4) the old `startRecording` stays for old clients and derives the layout from the room view (RASTER gives GRID, SPEAKER gives SPEAKER); (5) the composer accepts a spec **without** a video input for the single-image layout only (GRID and SPEAKER still refuse it).

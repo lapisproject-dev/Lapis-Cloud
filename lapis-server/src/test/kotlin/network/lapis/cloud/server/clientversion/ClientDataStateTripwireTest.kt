@@ -163,8 +163,11 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * Welle V1.9.280 "Zustimmung im Raum" adds TWO reads in the (already counted) `ConferenceScreen.kt`: `getEventCaptureState(` once to fetch the consent text when the
  * server asks (a one-shot inside the dialog's flow, a failure toasts through `guarded`) and once to reload it when the text changed under the dialog. Neither has a
  * list or a section to show a loading/empty/error state for. 197 -> 199.
+ * Welle V1.9.295 "Laufende Veranstaltungskonferenzen in der Übersicht" adds ONE read in the (already counted) `ConferenceScreen.kt`:
+ * `listRunningEventConferences(` next to `listActiveRooms(` inside the lobby's own load. A failure is deliberately silent (an old server has no such
+ * route; the room list must still draw), so there is no error block to present. 199 -> 200.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 199
+private const val READ_OUTSIDE_STATE_REGION_MAX = 200
 private const val FILES_OUTSIDE_STATE_REGION_MAX = 66
 
 /**

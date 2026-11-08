@@ -882,6 +882,8 @@ dto:MemberFacts.joinedOn	D	MemberFactsLoader: member.joined_at, a calendar DATE 
 col:VoteTable.electorateFrozenAt	A	GovernanceService.openVote: DbClock.nowLocalDateTime() (UTC), the moment the electorate of the vote was frozen into vote_eligible_voter
 dto:EventDto.onlineWindowOpensAt	B	derived from event.starts_at (class B) by EventOnlineWindow; organization-zone wall clock, shown unconverted
 dto:EventDto.onlineWindowClosesAt	B	derived from event.ends_at (class B) by EventOnlineWindow; organization-zone wall clock, shown unconverted
+dto:RunningEventConferenceDto.startsAt	B	copy of event.starts_at (class B) from RunningEventConferenceQuery; organization-zone wall clock, shown unconverted (as EventDto.startsAt)
+dto:RunningEventConferenceDto.endsAt	B	copy of event.ends_at (class B) from RunningEventConferenceQuery; organization-zone wall clock, shown unconverted (as EventDto.endsAt)
 dto:EventOnlineJoinResultDto.opensAt	B	derived from event.starts_at (class B) by EventOnlineWindow; organization-zone wall clock, shown unconverted
 col:EventConferenceTable.claimedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:EventConferenceTable.windowOpensAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

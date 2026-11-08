@@ -510,3 +510,15 @@ Since V1.9.242 the panel no longer rebuilds a section while a control in it has 
 leaves or the pointer is released, so a click is not lost to a poll. Who is in the room is patched in place (the small marker of a row). A join or leave still changes the counters "Alle Verbundenen übernehmen (n)" and
 "+n weitere Verbundene", which redraws the attendance section after the interaction -- this is not a diff engine. In the room menu, "Sitzung zuordnen" shows a spinner and "Sitzungen werden geladen ..." while the list of planned
 Sitzungen is fetched and ignores a second click.
+
+== Running event conferences in the lobby (V1.9.295)
+
+The lobby ("Aktive Besprechungen") lists the running video conferences of Lapis online events above the ordinary rooms. Each row names the event, shows its time span and links to the event page; there is *no* join button in the list. Taking part stays `IEventService.joinEventOnline` on the event page, where the registration rule is enforced. `joinRoom` keeps refusing event rooms.
+
+* *What is shown:* conferences with `event_conference.status = ACTIVE`, an open room, a *published* event of the kind `LAPIS_CONFERENCE`, and a window that has not closed. Drafts and cancelled events are hidden for every role, including board, admin and the Sitzung officer (this list is not a management view). At most 50 rows, ordered by start, then title.
+* *Three hints per row:* "open to you" (the caller would be let in now), "registration required" (the event has a registration deadline and the caller has no confirmed registration), "not yet open" (before the window opens). The decision is made by the one function `decideEventOnlineAccess`; an event whose window is over is dropped first, because that function checks the registration before the window.
+* *What is not sent:* no conference room id, no LiveKit room name, no token, no organiser, no participant count.
+* *No LiveKit call* and no reconciliation: the lifetime of event rooms belongs to the event conference provisioner. The method shares the per-member list budget (60 per minute) with `listActiveRooms`, so one refresh of the lobby costs two units.
+* *Old server:* a client that talks to a server without the new route shows the ordinary rooms and no error.
+* *Unchanged:* the live counter in the side navigation counts ordinary rooms only.
+* *Not verified:* against a real LiveKit server, on a real phone, with a screen reader (headless browser tests only).

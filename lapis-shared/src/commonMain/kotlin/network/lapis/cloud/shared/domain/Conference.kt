@@ -544,3 +544,21 @@ data class ConferenceTimerDto(
     val remainingMs: Long,
     val serverNowEpochMs: Long,
 )
+
+/** V1.9.295 -- how the viewer can take part in a running event conference. Exactly three values (design decision); new literals only at the END. */
+@Serializable
+enum class EventConferenceParticipation { OPEN_TO_YOU, REGISTRATION_REQUIRED, NOT_YET_OPEN }
+
+/**
+ * V1.9.295 -- one running event conference in the conference lobby. Deliberately slim: NO conference room id, NO LiveKit room name,
+ * NO token, NO organiser, NO participant count. The entry links to the event page; joining stays IEventService.joinEventOnline.
+ * Times are organisation wall clock, as in [EventDto]. New fields only with defaults.
+ */
+@Serializable
+data class RunningEventConferenceDto(
+    val eventId: String,
+    val eventTitle: String,
+    val startsAt: LocalDateTime,
+    val endsAt: LocalDateTime,
+    val participation: EventConferenceParticipation,
+)

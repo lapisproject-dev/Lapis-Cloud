@@ -31117,3 +31117,18 @@ msgstr ""
 
 msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
 msgstr ""
+
+msgid "Zur Veranstaltung"
+msgstr ""
+
+msgid "Zur Veranstaltung „%1“"
+msgstr ""
+
+msgid "Die Videokonferenz läuft. Sie nehmen über die Veranstaltungsseite teil."
+msgstr ""
+
+msgid "Die Videokonferenz läuft. Teilnehmen kann nur, wer zur Veranstaltung angemeldet und bestätigt ist."
+msgstr ""
+
+msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
+msgstr ""

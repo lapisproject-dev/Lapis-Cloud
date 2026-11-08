@@ -31678,3 +31678,18 @@ msgstr "Отчёт о доходах и расходах: предложение
 
 msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
 msgstr "В записи будет виден только этот человек и демонстрация экрана. Слышно всех. Если его камера выключена, изображение остаётся пустым."
+
+msgid "Zur Veranstaltung"
+msgstr "Перейти к мероприятию"
+
+msgid "Zur Veranstaltung „%1“"
+msgstr "Перейти к мероприятию «%1»"
+
+msgid "Die Videokonferenz läuft. Sie nehmen über die Veranstaltungsseite teil."
+msgstr "Видеоконференция идёт. Вы участвуете через страницу мероприятия."
+
+msgid "Die Videokonferenz läuft. Teilnehmen kann nur, wer zur Veranstaltung angemeldet und bestätigt ist."
+msgstr "Видеоконференция идёт. Участвовать могут только те, кто зарегистрирован на мероприятие и подтверждён."
+
+msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
+msgstr "Видеоконференция готовится. Участие откроется на странице мероприятия."

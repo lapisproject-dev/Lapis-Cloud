@@ -31729,3 +31729,18 @@ msgstr "Rapport de comptes : proposition pour l'état B reprise"
 
 msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
 msgstr "L'enregistrement montre uniquement cette personne et les écrans partagés. Tout le monde est audible. Si sa caméra est éteinte, l'image reste vide."
+
+msgid "Zur Veranstaltung"
+msgstr "Aller à l’événement"
+
+msgid "Zur Veranstaltung „%1“"
+msgstr "Aller à l’événement « %1 »"
+
+msgid "Die Videokonferenz läuft. Sie nehmen über die Veranstaltungsseite teil."
+msgstr "La visioconférence est en cours. Vous y participez depuis la page de l’événement."
+
+msgid "Die Videokonferenz läuft. Teilnehmen kann nur, wer zur Veranstaltung angemeldet und bestätigt ist."
+msgstr "La visioconférence est en cours. Seules les personnes inscrites à l’événement et confirmées peuvent y participer."
+
+msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
+msgstr "La visioconférence est en préparation. La participation s’ouvre sur la page de l’événement."

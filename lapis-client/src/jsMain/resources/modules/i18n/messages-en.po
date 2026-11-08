@@ -31726,3 +31726,18 @@ msgstr "Accountability report: proposal for statement B taken over"
 
 msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
 msgstr "The recording shows only this person and shared screens. Everyone can be heard. If their camera is off, the picture stays empty."
+
+msgid "Zur Veranstaltung"
+msgstr "Go to the event"
+
+msgid "Zur Veranstaltung „%1“"
+msgstr "Go to the event “%1”"
+
+msgid "Die Videokonferenz läuft. Sie nehmen über die Veranstaltungsseite teil."
+msgstr "The video conference is running. You take part from the event page."
+
+msgid "Die Videokonferenz läuft. Teilnehmen kann nur, wer zur Veranstaltung angemeldet und bestätigt ist."
+msgstr "The video conference is running. Only people who are registered for the event and confirmed can take part."
+
+msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
+msgstr "The video conference is being prepared. Taking part opens on the event page."

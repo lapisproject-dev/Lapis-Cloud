@@ -31378,3 +31378,18 @@ msgstr "Informe de rendición de cuentas: propuesta para el anexo B aplicada"
 
 msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
 msgstr "La grabación muestra solo a esta persona y las pantallas compartidas. Se oye a todos. Si su cámara está apagada, la imagen queda vacía."
+
+msgid "Zur Veranstaltung"
+msgstr "Ir al evento"
+
+msgid "Zur Veranstaltung „%1“"
+msgstr "Ir al evento «%1»"
+
+msgid "Die Videokonferenz läuft. Sie nehmen über die Veranstaltungsseite teil."
+msgstr "La videoconferencia está en curso. Usted participa desde la página del evento."
+
+msgid "Die Videokonferenz läuft. Teilnehmen kann nur, wer zur Veranstaltung angemeldet und bestätigt ist."
+msgstr "La videoconferencia está en curso. Solo pueden participar quienes estén inscritos en el evento y confirmados."
+
+msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
+msgstr "La videoconferencia se está preparando. La participación se abre en la página del evento."
