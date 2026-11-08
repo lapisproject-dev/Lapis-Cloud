@@ -8,6 +8,8 @@ import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgConsolidationDto
 import network.lapis.cloud.shared.domain.PartgDeadlineDto
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgDonorProposalDto
+import network.lapis.cloud.shared.domain.PartgDonorProposalPickDto
 import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgHoldingDto
@@ -324,4 +326,24 @@ interface IPartyReportService {
         year: Int,
         unitKey: String,
     ): PartgUnitStatementDto
+
+    // ---------------------------------------------------------------- R5b (V1.9.293)
+
+    /**
+     * V1.9.293 (R5b, federal gate only -- a chapter treasurer gets 403): the proposal for statement B of the FEDERAL unit, computed from the
+     * bookings of the federal level (yearly sum per donor strictly above 10,000.00 EUR). [PartyReportProposalNotAvailableException] in mode C.
+     * Read only; rows entered by hand stay as they are.
+     */
+    suspend fun largeDonorProposal(year: Int): PartgDonorProposalDto
+
+    /**
+     * V1.9.293 (R5b): takes over the chosen rows of the proposal into statement B of the federal unit. The server recomputes the whole proposal
+     * UNDER THE LOCK of the annex; when [expectedChecksum] no longer matches, nothing is written ([PartyReportProposalStaleException]). One
+     * transaction, one revision bump, one audit entry with counters only. Returns the annex as saved.
+     */
+    suspend fun applyLargeDonorProposal(
+        year: Int,
+        expectedChecksum: String,
+        picks: List<PartgDonorProposalPickDto>,
+    ): PartgAnnexDto
 }

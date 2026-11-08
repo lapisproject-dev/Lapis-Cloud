@@ -31015,3 +31015,102 @@ msgstr ""
 
 msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
 msgstr ""
+
+msgid "Betrag weicht ab"
+msgstr ""
+
+msgid "Ähnliche Zeile vorhanden"
+msgstr ""
+
+msgid "Nur von Hand erfasst"
+msgstr ""
+
+msgid "Nicht übernehmbar"
+msgstr ""
+
+msgid "Art der Person uneinheitlich"
+msgstr ""
+
+msgid "Land fehlt in den Stammdaten"
+msgstr ""
+
+msgid "Stammdaten zu lang oder ungültig"
+msgstr ""
+
+msgid "Beiträge enthalten, Betrag bleibt unverändert"
+msgstr ""
+
+msgid "%1 anlegen"
+msgstr ""
+
+msgid "%1 Betrag ersetzen"
+msgstr ""
+
+msgid "%1 verknüpfen"
+msgstr ""
+
+msgid "Von Hand"
+msgstr ""
+
+msgid "Aus Buchungen (übernommen am %1)"
+msgstr ""
+
+msgid "Aus Buchungen, danach geändert"
+msgstr ""
+
+msgid "Neu anlegen"
+msgstr ""
+
+msgid "Betrag ersetzen"
+msgstr ""
+
+msgid "Der Vorschlag zählt nur die Buchungen der Bundesgliederung zusammen. Mehrere kleinere Beträge an verschiedene Gliederungen werden nicht erkannt; diese Rechtsfrage ist offen (Q1, Q40). Entwurf, nicht geprüft."
+msgstr ""
+
+msgid "Vorschlag für Ausweis B aus Buchungen: %1"
+msgstr ""
+
+msgid "Keine Person liegt über 10.000 € und es ist keine Zeile erfasst."
+msgstr ""
+
+msgid "Laut Buchungen"
+msgstr ""
+
+msgid "Übernahme"
+msgstr ""
+
+msgid "%1 anonymisierte Spender sind nicht aufgeführt."
+msgstr ""
+
+msgid "%1 Spendenbuchungen ohne Spender sind nicht enthalten."
+msgstr ""
+
+msgid "Der Vorschlag wurde übernommen."
+msgstr ""
+
+msgid "Der Vorschlag ist veraltet. Bitte neu laden."
+msgstr ""
+
+msgid "Verknüpft; die Buchungen liegen derzeit nicht über 10.000 €."
+msgstr ""
+
+msgid "bleibt unverändert"
+msgstr ""
+
+msgid "keine Übernahme"
+msgstr ""
+
+msgid "Betrag ersetzen: %1"
+msgstr ""
+
+msgid "Übernehmen: %1"
+msgstr ""
+
+msgid "Verknüpfen mit Zeile %1"
+msgstr ""
+
+msgid "Die Bundesgliederung bucht nicht in Lapis – kein Vorschlag möglich."
+msgstr ""
+
+msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
+msgstr ""

@@ -58,6 +58,8 @@ class PartgAnnexStoreTripwireTest :
                         // consolidation is a pure consumer of its value classes
                         "PartgConsolidationWriter.kt",
                         "PartgDonorConsolidation.kt",
+                        // V1.9.293 (R5b): the proposal for statement B is a pure consumer of the store's value classes (no query)
+                        "PartgDonorProposals.kt",
                     ),
                 ).shouldBeEmpty()
         }

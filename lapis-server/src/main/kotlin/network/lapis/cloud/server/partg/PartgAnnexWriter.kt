@@ -8,7 +8,13 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.PartgAnnexAuditSnapshot
 import network.lapis.cloud.shared.domain.PartgAnnexRules
+import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgDonorProposalAction
+import network.lapis.cloud.shared.domain.PartgDonorProposalAuditSnapshot
+import network.lapis.cloud.shared.domain.PartgDonorProposalDto
+import network.lapis.cloud.shared.domain.PartgDonorProposalPickDto
+import network.lapis.cloud.shared.domain.PartgDonorProposalRules
 import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
 import network.lapis.cloud.shared.domain.PartgEnterpriseRules
 import network.lapis.cloud.shared.domain.PartgHoldingDto
@@ -22,6 +28,8 @@ import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportInvalidInputException
+import network.lapis.cloud.shared.rpc.PartyReportProposalNotAvailableException
+import network.lapis.cloud.shared.rpc.PartyReportProposalStaleException
 import network.lapis.cloud.shared.rpc.PartyReportRevisionConflictException
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.uuid.Uuid
@@ -454,6 +462,128 @@ internal object PartgAnnexWriter {
                         enterpriseId = id,
                     ),
                 now = now,
+            )
+            result()
+        }
+
+    /** Test seam (like `PartgVersionWriter.beforeWriteHook`): runs under the lock of the annex, before the proposal is recomputed. No-op in production. */
+    @Volatile
+    internal var afterLockHook: () -> Unit = {}
+
+    /**
+     * V1.9.293 (R5b): takes over picked rows of the proposal for statement B into the FEDERAL annex -- ONE transaction. Order: lock (or create) the
+     * annex, check that the federal unit books in Lapis (mode A or B), recompute the WHOLE proposal under the lock and compare its checksum (a
+     * mismatch is [PartyReportProposalStaleException], and the rollback also removes an annex created a moment ago), validate the picks against the
+     * recomputed rows, check the cap of 500 rows, write, bump the revision ONCE, audit LAST (counters only). A unique violation is not caught: the
+     * annex lock excludes it. No `withSavepoint` path.
+     */
+
+    fun <T> applyDonorProposal(
+        current: CurrentMember,
+        year: Int,
+        expectedChecksum: String,
+        picks: List<PartgDonorProposalPickDto>,
+        now: LocalDateTime,
+        recompute: () -> PartgDonorProposalDto,
+        result: () -> T,
+    ): T =
+        transaction {
+            val unit = PartgUnit.Federal
+            PartgReportStore.lockChapter(unit)
+            val annex = PartgAnnexStore.lockOrCreateAnnex(year = year, unit = unit, actor = current.memberId, now = now)
+            val mode = PartgLedgerLinkStore.modeOf(year = year, unit = unit)
+            if (!PartgLedgerProposals.available(unit = unit, mode = mode)) throw PartyReportProposalNotAvailableException()
+            afterLockHook()
+            val fresh = recompute()
+            if (fresh.checksum != expectedChecksum) throw PartyReportProposalStaleException()
+            PartgDonorProposalRules.validatePicks(rows = fresh.rows, picks = picks)?.let { throw PartyReportInvalidInputException(it) }
+            val counts = PartgDonorProposalRules.counts(picks)
+            if (PartgAnnexStore.donorCount(annex.id) + counts.created > PartgAnnexRules.MAX_DONORS_PER_UNIT) {
+                throw PartyReportInvalidInputException("TOO_MANY")
+            }
+            val byRef = fresh.rows.filter { it.ref != null }.associateBy { it.ref }
+            picks.sortedBy { it.ref }.forEach { pick ->
+                val row = byRef.getValue(pick.ref)
+                val key = pick.ref
+                when (pick.action) {
+                    PartgDonorProposalAction.CREATE -> {
+                        val donor =
+                            PartgAnnexStore.DonorRow(
+                                id = Uuid.random(),
+                                annexId = annex.id,
+                                personKind = row.personKind ?: throw PartyReportProposalStaleException(),
+                                name = row.name,
+                                street = row.street,
+                                postalCode = row.postalCode,
+                                city = row.city,
+                                country = row.country ?: throw PartyReportProposalStaleException(),
+                                contributionKind = PartgContributionKind.DONATION,
+                                amountCents = row.bookedCents ?: throw PartyReportProposalStaleException(),
+                            )
+                        // the recomputed row is transferable, so this cannot fail; the check is a second line of defence
+                        PartgAnnexRules
+                            .validateDonor(
+                                PartgLargeDonorInputDto(
+                                    id = null,
+                                    personKind = donor.personKind,
+                                    name = donor.name,
+                                    street = donor.street,
+                                    postalCode = donor.postalCode,
+                                    city = donor.city,
+                                    country = donor.country,
+                                    contributionKind = donor.contributionKind,
+                                    amountCents = donor.amountCents,
+                                ),
+                            )?.let { throw PartyReportProposalStaleException() }
+                        PartgAnnexStore.insertDonorFromLedger(
+                            annexId = annex.id,
+                            donor = donor,
+                            key = key,
+                            actor = current.memberId,
+                            now = now,
+                        )
+                    }
+                    PartgDonorProposalAction.REPLACE_AMOUNT -> {
+                        val rowId = row.linkedRowId?.let { parseId(it) } ?: throw PartyReportProposalStaleException()
+                        val changed =
+                            PartgAnnexStore.replaceDonorAmountFromLedger(
+                                annexId = annex.id,
+                                donorId = rowId,
+                                key = key,
+                                amountCents = row.bookedCents ?: throw PartyReportProposalStaleException(),
+                                actor = current.memberId,
+                                now = now,
+                            )
+                        if (changed != 1) throw PartyReportProposalStaleException()
+                    }
+                    PartgDonorProposalAction.LINK -> {
+                        val target = pick.targetRowId?.let { parseId(it) } ?: throw PartyReportProposalStaleException()
+                        if (PartgAnnexStore.linkDonor(annexId = annex.id, donorId = target, key = key) != 1) {
+                            throw PartyReportProposalStaleException()
+                        }
+                    }
+                }
+            }
+            PartgAnnexStore.bumpAnnexRevision(annex = annex, actor = current.memberId, now = now)
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.PARTG_LARGE_DONOR_PROPOSAL,
+                entityId = annex.id,
+                action = AuditAction.UPDATE,
+                after =
+                    Json.encodeToString(
+                        PartgDonorProposalAuditSnapshot.serializer(),
+                        PartgDonorProposalAuditSnapshot(
+                            year = year,
+                            created = counts.created,
+                            replaced = counts.replaced,
+                            linked = counts.linked,
+                            annexRevisionBefore = annex.revision,
+                            annexRevisionAfter = annex.revision + 1,
+                        ),
+                    ),
+                occurredAt = now,
             )
             result()
         }

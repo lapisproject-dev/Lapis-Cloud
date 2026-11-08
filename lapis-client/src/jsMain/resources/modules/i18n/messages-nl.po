@@ -31670,3 +31670,102 @@ msgstr "Voor nageschikte eenheden bestaat geen boekingsjournaal."
 
 msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
 msgstr "Bijdragen en donaties worden op federaal niveau geboekt. De federale penningmeester boekt het aandeel van uw eenheid als subsidie."
+
+msgid "Betrag weicht ab"
+msgstr "Bedrag wijkt af"
+
+msgid "Ähnliche Zeile vorhanden"
+msgstr "Vergelijkbare rij aanwezig"
+
+msgid "Nur von Hand erfasst"
+msgstr "Alleen handmatig ingevoerd"
+
+msgid "Nicht übernehmbar"
+msgstr "Niet over te nemen"
+
+msgid "Art der Person uneinheitlich"
+msgstr "Soort persoon inconsistent"
+
+msgid "Land fehlt in den Stammdaten"
+msgstr "Land ontbreekt in de stamgegevens"
+
+msgid "Stammdaten zu lang oder ungültig"
+msgstr "Stamgegevens te lang of ongeldig"
+
+msgid "Beiträge enthalten, Betrag bleibt unverändert"
+msgstr "Bevat bijdragen, bedrag blijft ongewijzigd"
+
+msgid "%1 anlegen"
+msgstr "%1 aanmaken"
+
+msgid "%1 Betrag ersetzen"
+msgstr "%1 bedrag(en) vervangen"
+
+msgid "%1 verknüpfen"
+msgstr "%1 koppelen"
+
+msgid "Von Hand"
+msgstr "Handmatig"
+
+msgid "Aus Buchungen (übernommen am %1)"
+msgstr "Uit boekingen (overgenomen op %1)"
+
+msgid "Aus Buchungen, danach geändert"
+msgstr "Uit boekingen, daarna gewijzigd"
+
+msgid "Neu anlegen"
+msgstr "Nieuw aanmaken"
+
+msgid "Betrag ersetzen"
+msgstr "Bedrag vervangen"
+
+msgid "Der Vorschlag zählt nur die Buchungen der Bundesgliederung zusammen. Mehrere kleinere Beträge an verschiedene Gliederungen werden nicht erkannt; diese Rechtsfrage ist offen (Q1, Q40). Entwurf, nicht geprüft."
+msgstr "Het voorstel telt alleen de boekingen van de bondseenheid op. Meerdere kleinere bedragen aan verschillende eenheden worden niet herkend; deze juridische vraag is open (Q1, Q40). Concept, niet gecontroleerd."
+
+msgid "Vorschlag für Ausweis B aus Buchungen: %1"
+msgstr "Voorstel voor bijlage B uit de boekingen: %1"
+
+msgid "Keine Person liegt über 10.000 € und es ist keine Zeile erfasst."
+msgstr "Niemand ligt boven € 10.000 en er is geen rij ingevoerd."
+
+msgid "Laut Buchungen"
+msgstr "Volgens boekingen"
+
+msgid "Übernahme"
+msgstr "Overname"
+
+msgid "%1 anonymisierte Spender sind nicht aufgeführt."
+msgstr "%1 geanonimiseerde donateurs staan niet in de lijst."
+
+msgid "%1 Spendenbuchungen ohne Spender sind nicht enthalten."
+msgstr "%1 donatieboekingen zonder donateur zijn niet opgenomen."
+
+msgid "Der Vorschlag wurde übernommen."
+msgstr "Het voorstel is overgenomen."
+
+msgid "Der Vorschlag ist veraltet. Bitte neu laden."
+msgstr "Het voorstel is verouderd. Laad opnieuw."
+
+msgid "Verknüpft; die Buchungen liegen derzeit nicht über 10.000 €."
+msgstr "Gekoppeld; de boekingen liggen momenteel niet boven € 10.000."
+
+msgid "bleibt unverändert"
+msgstr "blijft ongewijzigd"
+
+msgid "keine Übernahme"
+msgstr "geen overname"
+
+msgid "Betrag ersetzen: %1"
+msgstr "Bedrag vervangen: %1"
+
+msgid "Übernehmen: %1"
+msgstr "Overnemen: %1"
+
+msgid "Verknüpfen mit Zeile %1"
+msgstr "Koppelen aan rij %1"
+
+msgid "Die Bundesgliederung bucht nicht in Lapis – kein Vorschlag möglich."
+msgstr "De bondseenheid boekt niet in Lapis – geen voorstel mogelijk."
+
+msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
+msgstr "Verantwoordingsverslag: voorstel voor bijlage B overgenomen"

@@ -100,6 +100,19 @@ internal object PartyReportDomSupport {
     /** V1.9.292 (R4b): when set, `listUnits` answers with this list instead of the federal and the state unit. */
     var unitsOverride: List<PartgUnitDto>? = null
 
+    /** V1.9.293 (R5b): the answer of `largeDonorProposal` (`null` = the call fails) and what `applyLargeDonorProposal` does. */
+    var donorProposal: network.lapis.cloud.shared.domain.PartgDonorProposalDto? = null
+
+    /** `true`: `applyLargeDonorProposal` answers with [network.lapis.cloud.shared.rpc.PartyReportProposalStaleException]. */
+    var donorApplyStale: Boolean = false
+    val donorWrites = mutableListOf<RecordedRequest>()
+
+    fun resetR5b() {
+        donorProposal = null
+        donorApplyStale = false
+        donorWrites.clear()
+    }
+
     fun resetR6() {
         versionOverview = null
         versionDiff = null
@@ -111,6 +124,7 @@ internal object PartyReportDomSupport {
 
     fun resetR4() {
         resetR6()
+        resetR5b()
         unitStatement = null
         unitsOverride = null
         overviewOverride = null
@@ -180,6 +194,8 @@ internal object PartyReportDomSupport {
         city: String? = "Braunschweig",
         cents: Long = 1_200_000L,
         kind: PartgPersonKind = PartgPersonKind.NATURAL,
+        origin: network.lapis.cloud.shared.domain.PartgLargeDonorOrigin = network.lapis.cloud.shared.domain.PartgLargeDonorOrigin.MANUAL,
+        appliedAt: LocalDateTime? = null,
     ) = PartgLargeDonorDto(
         id = id,
         rowNumber = row,
@@ -191,6 +207,8 @@ internal object PartyReportDomSupport {
         country = "DE",
         contributionKind = PartgContributionKind.DONATION,
         amountCents = cents,
+        origin = origin,
+        sourceAppliedAt = appliedAt,
     )
 
     fun annexDto(
@@ -198,6 +216,8 @@ internal object PartyReportDomSupport {
         suggestion: Boolean = true,
         donors: List<PartgLargeDonorDto> =
             listOf(donor("d1", 1, "Fixture Person Eins"), donor("d2", 2, "Fixture Firma Zwei", null, 1_100_000L, PartgPersonKind.LEGAL)),
+        proposal: network.lapis.cloud.shared.domain.PartgDonorProposalAvailability =
+            network.lapis.cloud.shared.domain.PartgDonorProposalAvailability.NOT_APPLICABLE,
     ) = PartgAnnexDto(
         year = year,
         unit = federal,
@@ -206,6 +226,7 @@ internal object PartyReportDomSupport {
         memberCount = null,
         memberCountSuggestion = if (suggestion) PartgMemberCountSuggestionDto(1234, kotlinx.datetime.LocalDate(2025, 6, 15)) else null,
         donors = donors,
+        donorProposal = proposal,
     )
 
     fun sponsor(
@@ -302,6 +323,8 @@ internal object PartyReportDomSupport {
         val previewDeletion: String,
         val deleteOld: String,
         val unitStatement: String,
+        val largeProposal: String,
+        val applyDonorProposal: String,
     )
 
     suspend fun routes() =
@@ -406,6 +429,8 @@ internal object PartyReportDomSupport {
             previewDeletion = routeOf { rpcService<IPartyReportService>().previewVersionDeletion(10) },
             deleteOld = routeOf { rpcService<IPartyReportService>().deleteOldVersions(10, emptyList()) },
             unitStatement = routeOf { rpcService<IPartyReportService>().unitStatementPreview(2025, "FEDERAL") },
+            largeProposal = routeOf { rpcService<IPartyReportService>().largeDonorProposal(2025) },
+            applyDonorProposal = routeOf { rpcService<IPartyReportService>().applyLargeDonorProposal(2025, "x", emptyList()) },
         )
 
     fun answer(
@@ -527,6 +552,24 @@ internal object PartyReportDomSupport {
             request.rpcRoute == routes.deleteOld -> {
                 versionWrites += request.rpcRoute to request
                 request.answerWith("1")
+            }
+            request.rpcRoute == routes.largeProposal ->
+                request.answerWith(
+                    donorProposal?.let {
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgDonorProposalDto
+                                .serializer(),
+                            it,
+                        )
+                    } ?: "null",
+                )
+            request.rpcRoute == routes.applyDonorProposal -> {
+                donorWrites += request
+                if (donorApplyStale) {
+                    serviceExceptionResult(request.json.id as Int, "network.lapis.cloud.shared.rpc.PartyReportProposalStaleException")
+                } else {
+                    request.answerWith(jsonOf(PartgAnnexDto.serializer(), annex))
+                }
             }
             request.rpcRoute == routes.units ->
                 request.answerWith(

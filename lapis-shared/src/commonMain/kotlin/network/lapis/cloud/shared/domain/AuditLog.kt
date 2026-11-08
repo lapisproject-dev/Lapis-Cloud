@@ -658,6 +658,13 @@ enum class AuditEntityType {
 
     /** Welle V1.9.291 (R6) -- the submission deadline of a report year was confirmed or changed; `entityId` = the deadline row. 21 chars. Appended LAST. */
     PARTG_REPORT_DEADLINE,
+
+    /**
+     * Welle V1.9.293 (R5b) -- a proposal for statement B was taken over from the bookings (CREATE rows, REPLACE amounts, LINK rows); `entityId` = the
+     * annex. Snapshot [PartgDonorProposalAuditSnapshot]: counters and annex revisions only -- never a name, an amount or a donor key. 26 chars.
+     * Appended LAST.
+     */
+    PARTG_LARGE_DONOR_PROPOSAL,
 }
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */

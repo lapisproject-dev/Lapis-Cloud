@@ -1,4 +1,4 @@
-= Party accountability report: positions, entry, Excel import, report draft, separate statements, the link to the bookings, consolidation and kept versions (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3, V1.9.283 R3b, V1.9.287 R3c, V1.9.289 R4a, V1.9.290 R5, V1.9.291 R6)
+= Party accountability report: positions, entry, Excel import, report draft, separate statements, the link to the bookings, consolidation and kept versions (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3, V1.9.283 R3b, V1.9.287 R3c, V1.9.289 R4a, V1.9.290 R5, V1.9.291 R6, V1.9.293 R5b)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -195,6 +195,20 @@ R4b finishes what R4a left for the chapter treasurer. It adds **no migration** (
 * **Chapter on the bridge bookings** (contributions, donations, event fees, open items, travel expenses, volunteer allowances): **rejected**. The allocation key between the federal level and the chapters is set in the financial rules of the party and cannot be derived from the data; old and new entries of one year would be treated unequally, and setting the chapter afterwards would rewrite a posted entry, which GoBD forbids. `DonationPostingBridge` and `ContributionPostingBridge` stay on the federal level; the federal treasurer books the subsidy to the chapter by hand.
 * **DATEV** stays without the chapter.
 
+[[donor-proposal]]
+== Proposal for statement B from the bookings (R5b, V1.9.293)
+
+R5b gives the board a **proposal for statement B** (persons with more than 10,000.00 EUR in a year) computed from the donation bookings of the **federal unit**. It adds **no table**; migration `V147__partg_report_r5b.sql` adds two nullable columns to `partg_report_large_donor` and one normal unique index.
+
+*What is added up*:: POSTED entries of the year with a `donor_category` that is not `ANONYMOUS` and `regional_chapter_id IS NULL` (federal level). The amount of an entry is the signed sum of its INCOME postings (a reversal lowers the sum) -- the same figure as the donation duty report; a test pins the parity. The sum per donor key (`M:<member uuid>` or `X:<external donor uuid>`) must be **strictly greater** than `PartgAnnexRules.LARGE_DONOR_THRESHOLD_CENTS`. No new reading of the law and no paragraph number is added. Only donation bookings are in the proposal: contributions and mandate-holder contributions are not, so a linked row of kind `FEE` or `BOTH` never gets "replace amount".
+*Statuses and actions*:: `NEW` (CREATE, pre-ticked), `DIFFERENT` (REPLACE_AMOUNT, not ticked), `UNCHANGED`, `SIMILAR` (LINK with one of the similar rows, or CREATE; nothing chosen), `ENTERED_ONLY` (a row entered by hand; shown, never changed) and `NOT_TRANSFERABLE` with a reason: kind of person not clear (natural and legal categories mixed), country missing (no two-letter code; "Deutschland" is **not** guessed), master data too long or invalid (never shortened), fees contained. "Similar" means the same kind, a non-empty equal normalised name, a non-empty equal postal code and the same country, in a row without a key. An **anonymised member** is only counted ("n anonymised donors are not listed"), never named. The rule lives in the shared `PartgDonorProposalRules` (server and client).
+*Taking over*:: `applyLargeDonorProposal(year, expectedChecksum, picks)`. One transaction: lock (or create) the federal annex, check mode A or B, **recompute the whole proposal under the lock** and compare its SHA-256 checksum, validate the picks against the recomputed rows, check the cap of 500 rows, write, bump the revision **once**, audit **last**. A changed booking or entered row between loading and taking over is `PartyReportProposalStaleException` and nothing is written (the rollback also removes an annex created a moment before). Every other change of the federal annex (deductions, member count, statement C) also makes a loaded proposal stale; that is intended.
+*Origin*:: the list of B shows "Von Hand", "Aus Buchungen (übernommen am TT.MM.JJJJ)" or "Aus Buchungen, danach geändert" (display only). It comes from `source_applied_at` and `updated_at` and is **not** part of `PartgReportDocument`, so the exports and the kept versions (hash!) are byte-identical to before. LINK sets only the key (`updated_at` and `updated_by` stay), so it does not trigger finding P21 and leaves a kept version unchanged; REPLACE changes the amount and shows a deviation; a new row is a candidate for P20.
+*Mode C*:: donations are always booked on the federal level, whatever the mode; the proposal is still **switched off in mode C** (the default when no mode is set), with the visible text "Die Bundesgliederung bucht nicht in Lapis – kein Vorschlag möglich." Set the mode to A or B first.
+*Not built (deliberately)*:: the entry of **partial amounts below 10,000 EUR**. The case 6,000 + 6,000 EUR within the federal unit is recognised without any new data. The case of smaller amounts to **several units** would need personal data below the legal threshold; that is a legal question and is not built on suspicion (Q40). There is no new table and no new collection of data below the threshold.
+*Audit*:: entity `PARTG_LARGE_DONOR_PROPOSAL` (UPDATE, `entityId` = the annex): year, unit, three counters and the annex revision before and after. **Never** a name, an amount, a donor key or a checksum (a checksum over names and amounts would let a reader guess "did X give exactly Y").
+*Data protection*:: `source_donor_key` is a pseudonymous reference to master data that already exists. The access request of a member lists the rows linked to them (`listedInStatementB`: year, unit, kind, amount; Q41). On erasure the row stays (retention duty) and the key stays as a reference to the anonymised member. Rows with an `X:` key and rows entered by hand remain the documented gap.
+
 [[consolidation]]
 == Consolidation over the units (R5, V1.9.290)
 
@@ -237,12 +251,12 @@ The auditor receives the **PDF or the XLSX of a kept version**; the footer (vers
 
 The design for R6b, for the owner to decide: the same team as for every screen designed it as a view with the tab *Versionen*, the comparison and the downloads only, no entry, no hints, no names beyond what the version contains; access by a personal, expiring invitation of the board, revocable at once, every use audited without content, a visible line "Lesezugang für die Prüfung" on every page. The open point is the identity check: link only, link plus e-mail one-time code, or a guest account.
 
-== What R1 to R6 (and R4b) do not do
+== What R1 to R6 (and R4b, R5b) do not do
 
 * R2 to R6 produce a draft only. No official, filed or audited report, no signature, no submission. R6 adds kept versions, an internal assurance and an internal final mark; none of them is a filing.
 * **R4b (done):** name guess, unit part and journal CSV for the chapter treasurer. **Not built:** bookings for `SUB:` units (Q20), the chapter on the bridge bookings (rejected, see <<chapter-report>>), the chapter in the DATEV file.
 * **R6 (done):** versions, comparison, assurance, internal final mark, deadlines, dashboard card, deletion routine. **R6b (not built):** read access for the auditor (see <<reviewer-access>>). The official Bundestag layout and the submission form are **not in the repository**; the PDF is a layout of our own.
-* **R5 (done):** consolidation over the units, matching table, combining donor rows by hand. **R5b (not built):** a proposal for B from the bookings (only the federal level, through the donor keys of the donation) and the entry of **partial amounts below 10,000 EUR**. The partial amounts are a new collection of data below the legal threshold and therefore a legal question of its own (Q1). **The case 6,000 + 6,000 EUR is still not recognised.**
+* **R5 (done):** consolidation over the units, matching table, combining donor rows by hand. **R5b (done, V1.9.293):** a proposal for B from the bookings of the federal level (see <<donor-proposal>>). **Not built:** the entry of **partial amounts below 10,000 EUR**. The partial amounts are a new collection of data below the legal threshold and therefore a legal question of its own (Q1). **The case 6,000 + 6,000 EUR is still not recognised.**
 * Not in R5: C over units (Q6), a whole-party sum of D (Q15), transfers inside the units of one `SUB:` summary (Q25).
 
 == Older limits (R1, R2)
@@ -267,7 +281,7 @@ The design for R6b, for the owner to decide: the same team as for every screen d
 . **Q9 (R3b): official layout of C, D and F** (columns, order, headings) is unknown.
 . **Q10 (R3b): relationship to the party in F** is free text; how the sample determines it is unknown.
 . **Q11 (R3b, R3c): D versus the holdings and E05/A02F:** R3c implements D as a breakdown of E05 and A02F by own business operation and keeps holdings in the notes. Whether the official sample also asks D for holdings, or for a breakdown by media or real estate, cannot be said without the sample.
-. **Q12 (R3b): pre-fill of B without a unit on the bookings** (R5).
+. **Q12 (R3b): pre-fill of B without a unit on the bookings.** Answered for the **federal level** by R5b (the donor keys of the donation, see <<donor-proposal>>); for the other units it stays open, because the bookings of a unit carry no donor key of its own.
 . **Q13 (R3b): data minimisation.** Sponsors under both limits are stored (the yearly sum needs them) although their data is not in the report; P09 makes them visible. Is that acceptable?
 . **Q14 (R3c): is the tolerance of 1.00 EUR appropriate** for the adjustment of D against E05/A02F (strictly more than 100 cents counts as a difference)?
 . **Q15 (R3c): are the columns right, and is a whole-party sum needed?** D lists name, legal form, seat, share, income, expenses and the computed result, with one sum per unit and none over the whole party (that would be a consolidation, R5).
@@ -297,6 +311,8 @@ The design for R6b, for the owner to decide: the same team as for every screen d
 . **Q37 (R4b): chapter on the bridge bookings.** Rejected for now (see above); the federal treasurer decides whether and how the subsidy to chapters is booked.
 . **Q38 (R4b): the counter-account of a split entry.** Left empty instead of "diverse". Is that enough for the federal treasurer? Default: empty.
 . **Q39 (R4b): the name of the unit parameter.** PDF and XLSX keep `scope` (the federal role and the existing client use it); only the journal CSV uses `unit`. Default: keep both names.
+. **Q40 (R5b): partial amounts below 10,000 EUR over several units.** Is a person who gives 6,000 EUR to the federal unit and 6,000 EUR to a state unit listed in B? That needs personal data below the legal threshold (a new collection of data) and is a legal question of its own (with Q1). R5b recognises the case only **inside the federal unit** (the bookings are added up per donor key and year) and builds nothing for the other case. Default: not built. The fixed note of the dialog says so ("Q1, Q40").
+. **Q41 (R5b): content of the access request for linked rows.** A row of B linked to a member (`M:<uuid>`) is listed in the access request of that member with year, unit, kind and amount (their own data, like the donations in the accounting export); the name is not repeated. Is that the right content, and does the row have to be deleted on request after the retention period? Default: as built; on erasure the row stays.
 
 . **Summary content.** The sample was read as: income Nr. 1 to 9 and expenses Nr. 1 to 2 for the whole party, with totals with and without subsidies from branches. R2 shows Nr. 1 to 10
   and Nr. 1 to 3, each on its own labelled line, the totals "including subsidies, not consolidated (follows in R5)" and the table by level only in that variant. A column "without subsidies"
@@ -312,6 +328,7 @@ The design for R6b, for the owner to decide: the same team as for every screen d
 [[not-verified]]
 == Not verified
 
+* R5b: the proposal was **not tested against a real party's books**, **not legally reviewed** (Q1, Q40, Q41), **not tried on a real phone** and **not with a screen reader**; the dialog was seen only in a headless browser. Translations are model-written. The PostgreSQL lane of the new scenarios runs only with `LAPIS_TEST_POSTGRES_URL`. The origin words and the mode-C text were not reviewed by the federal treasurer.
 * R4b: the keywords of the name guess, the content of the unit part and the CSV layout were **not confirmed by a tax advisor, the federal treasurer or an auditor**. The CSV was **not opened in real Excel or LibreOffice** (formula guard and format are tested by reading the text back); the unit-part PDF was **not seen by a real federal treasurer**; the screens were **not tried on a real phone** and **not with a screen reader**. Translations are model-written. The PostgreSQL lane of the new scenarios runs only with `LAPIS_TEST_POSTGRES_URL`. No migration (the latest stays V146).
 * R6: the assurance text, the deadline, the retention of 10 years and the erasure answer for the copy of B and C were **not confirmed by a lawyer or the data protection officer**; the footers and the comparison were tested by reading the files back, **not opened in real Excel or LibreOffice**, **not compared with the Bundestag sample** (which is not in the repository), not tried on a phone or with a screen reader. Translations are model-written. The PostgreSQL lane of the new scenarios runs only with `LAPIS_TEST_POSTGRES_URL`.
 

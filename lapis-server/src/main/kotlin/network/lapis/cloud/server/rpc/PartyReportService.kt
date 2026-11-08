@@ -10,6 +10,8 @@ import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.server.partg.PartgAnnexWriter
 import network.lapis.cloud.server.partg.PartgConsolidationView
 import network.lapis.cloud.server.partg.PartgConsolidationWriter
+import network.lapis.cloud.server.partg.PartgDonorMasterData
+import network.lapis.cloud.server.partg.PartgDonorProposals
 import network.lapis.cloud.server.partg.PartgLedgerLinkStore
 import network.lapis.cloud.server.partg.PartgLedgerProposals
 import network.lapis.cloud.server.partg.PartgLedgerReader
@@ -40,6 +42,10 @@ import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgConsolidationDto
 import network.lapis.cloud.shared.domain.PartgDeadlineDto
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgDonorProposalAvailability
+import network.lapis.cloud.shared.domain.PartgDonorProposalDto
+import network.lapis.cloud.shared.domain.PartgDonorProposalPickDto
+import network.lapis.cloud.shared.domain.PartgDonorProposalRules
 import network.lapis.cloud.shared.domain.PartgEnterpriseCheckDto
 import network.lapis.cloud.shared.domain.PartgEnterpriseDto
 import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
@@ -958,6 +964,56 @@ class PartyReportService internal constructor(
         )
     }
 
+    // ---------------------------------------------------------------- R5b (V1.9.293)
+
+    override suspend fun largeDonorProposal(year: Int): PartgDonorProposalDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        if (!findingsRateLimiter.checkAndRecord("partg:donorproposal:${current.memberId}")) throw RateLimitedException()
+        return transaction {
+            val unit = PartgUnit.Federal
+            if (!PartgLedgerProposals.available(unit = unit, mode = PartgLedgerLinkStore.modeOf(year = year, unit = unit))) {
+                throw PartyReportProposalNotAvailableException()
+            }
+            donorProposalWithin(year)
+        }
+    }
+
+    override suspend fun applyLargeDonorProposal(
+        year: Int,
+        expectedChecksum: String,
+        picks: List<PartgDonorProposalPickDto>,
+    ): PartgAnnexDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        if (!PartgDonorProposalRules.validChecksum(expectedChecksum)) throw PartyReportInvalidInputException("INVALID_CHECKSUM")
+        if (picks.size > PartgDonorProposalRules.MAX_PICKS) throw PartyReportInvalidInputException("TOO_MANY_PICKS")
+        if (picks.any { !PartgDonorProposalRules.validRef(it.ref) }) throw PartyReportInvalidInputException("INVALID_REF")
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgAnnexWriter.applyDonorProposal(
+            current = current,
+            year = year,
+            expectedChecksum = expectedChecksum,
+            picks = picks,
+            now = ServerClock.now(),
+            recompute = { donorProposalWithin(year) },
+        ) { annexDto(year = year, unit = PartgUnit.Federal) }
+    }
+
+    /** Must run inside a transaction. Reads the bookings, the master data and the entered rows of the FEDERAL unit; writes nothing. */
+    private fun donorProposalWithin(year: Int): PartgDonorProposalDto {
+        val annex = PartgAnnexStore.findAnnex(year = year, unit = PartgUnit.Federal)
+        val donors = annex?.let { PartgAnnexStore.donors(it.id) }.orEmpty()
+        val donations = PartgLedgerReader.federalDonationTotals(year = year)
+        val candidates = PartgDonorProposals.candidateKeys(donations)
+        val master =
+            PartgDonorMasterData.load(
+                memberIds = candidates.mapNotNull { it.donorMemberId },
+                externalIds = candidates.mapNotNull { it.externalDonorId },
+            )
+        return PartgDonorProposals.compute(year = year, annex = annex, donors = donors, donations = donations, master = master)
+    }
+
     /** Must run inside a transaction (the writer's): the caller returns exactly the state it wrote. */
     private fun consolidationWithin(year: Int): PartgConsolidationDto {
         val snapshot = PartgReportSnapshotReader.readWithin(listOf(year, year - 1))
@@ -1133,6 +1189,8 @@ class PartyReportService internal constructor(
                             country = d.country,
                             contributionKind = d.contributionKind,
                             amountCents = d.amountCents,
+                            origin = PartgDonorProposalRules.originOf(sourceAppliedAt = d.sourceAppliedAt, updatedAt = d.updatedAt),
+                            sourceAppliedAt = d.sourceAppliedAt,
                         )
                     },
             sponsors =
@@ -1202,6 +1260,13 @@ class PartyReportService internal constructor(
                         r1Values = r1Values,
                     ),
                 ),
+            donorProposal =
+                when {
+                    unit !is PartgUnit.Federal -> PartgDonorProposalAvailability.NOT_APPLICABLE
+                    PartgLedgerProposals.available(unit = unit, mode = PartgLedgerLinkStore.modeOf(year = year, unit = unit)) ->
+                        PartgDonorProposalAvailability.AVAILABLE
+                    else -> PartgDonorProposalAvailability.MODE_C
+                },
         )
     }
 

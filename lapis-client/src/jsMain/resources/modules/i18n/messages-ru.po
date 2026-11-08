@@ -31576,3 +31576,102 @@ msgstr "Для подчинённых подразделений журнала 
 
 msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
 msgstr "Взносы и пожертвования проводятся на федеральном уровне. Федеральный казначей проводит долю вашего подразделения как субсидию."
+
+msgid "Betrag weicht ab"
+msgstr "Сумма отличается"
+
+msgid "Ähnliche Zeile vorhanden"
+msgstr "Есть похожая строка"
+
+msgid "Nur von Hand erfasst"
+msgstr "Только введено вручную"
+
+msgid "Nicht übernehmbar"
+msgstr "Нельзя перенести"
+
+msgid "Art der Person uneinheitlich"
+msgstr "Тип лица неоднозначен"
+
+msgid "Land fehlt in den Stammdaten"
+msgstr "В основных данных нет страны"
+
+msgid "Stammdaten zu lang oder ungültig"
+msgstr "Основные данные слишком длинные или недопустимы"
+
+msgid "Beiträge enthalten, Betrag bleibt unverändert"
+msgstr "Содержит взносы, сумма остаётся прежней"
+
+msgid "%1 anlegen"
+msgstr "создать: %1"
+
+msgid "%1 Betrag ersetzen"
+msgstr "заменить сумм: %1"
+
+msgid "%1 verknüpfen"
+msgstr "связать: %1"
+
+msgid "Von Hand"
+msgstr "Вручную"
+
+msgid "Aus Buchungen (übernommen am %1)"
+msgstr "Из проводок (перенесено %1)"
+
+msgid "Aus Buchungen, danach geändert"
+msgstr "Из проводок, затем изменено"
+
+msgid "Neu anlegen"
+msgstr "Создать новую"
+
+msgid "Betrag ersetzen"
+msgstr "Заменить сумму"
+
+msgid "Der Vorschlag zählt nur die Buchungen der Bundesgliederung zusammen. Mehrere kleinere Beträge an verschiedene Gliederungen werden nicht erkannt; diese Rechtsfrage ist offen (Q1, Q40). Entwurf, nicht geprüft."
+msgstr "Предложение суммирует только проводки федерального уровня. Несколько меньших сумм разным подразделениям не распознаются; этот правовой вопрос открыт (Q1, Q40). Черновик, не проверен."
+
+msgid "Vorschlag für Ausweis B aus Buchungen: %1"
+msgstr "Предложение для ведомости B из проводок: %1"
+
+msgid "Keine Person liegt über 10.000 € und es ist keine Zeile erfasst."
+msgstr "Нет лиц свыше 10 000 €, и ни одна строка не введена."
+
+msgid "Laut Buchungen"
+msgstr "По проводкам"
+
+msgid "Übernahme"
+msgstr "Перенос"
+
+msgid "%1 anonymisierte Spender sind nicht aufgeführt."
+msgstr "%1 анонимизированных жертвователей не указаны."
+
+msgid "%1 Spendenbuchungen ohne Spender sind nicht enthalten."
+msgstr "%1 проводок пожертвований без жертвователя не включены."
+
+msgid "Der Vorschlag wurde übernommen."
+msgstr "Предложение перенесено."
+
+msgid "Der Vorschlag ist veraltet. Bitte neu laden."
+msgstr "Предложение устарело. Загрузите его снова."
+
+msgid "Verknüpft; die Buchungen liegen derzeit nicht über 10.000 €."
+msgstr "Связано; проводки сейчас не превышают 10 000 €."
+
+msgid "bleibt unverändert"
+msgstr "остаётся без изменений"
+
+msgid "keine Übernahme"
+msgstr "без переноса"
+
+msgid "Betrag ersetzen: %1"
+msgstr "Заменить сумму: %1"
+
+msgid "Übernehmen: %1"
+msgstr "Перенести: %1"
+
+msgid "Verknüpfen mit Zeile %1"
+msgstr "Связать со строкой %1"
+
+msgid "Die Bundesgliederung bucht nicht in Lapis – kein Vorschlag möglich."
+msgstr "Федеральный уровень не ведёт учёт в Lapis – предложение невозможно."
+
+msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
+msgstr "Отчёт о доходах и расходах: предложение для ведомости B перенесено"

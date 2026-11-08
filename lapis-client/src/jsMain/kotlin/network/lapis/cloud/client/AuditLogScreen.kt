@@ -633,6 +633,7 @@ fun decodeAuditSnapshot(
             AuditEntityType.PARTG_REPORT_VERSION -> null
             AuditEntityType.PARTG_REPORT_DECLARATION -> null
             AuditEntityType.PARTG_REPORT_DEADLINE -> null
+            AuditEntityType.PARTG_LARGE_DONOR_PROPOSAL -> null
         }
     }.getOrNull()
 

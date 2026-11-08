@@ -31276,3 +31276,102 @@ msgstr "No hay diario de asientos para las unidades subordinadas."
 
 msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
 msgstr "Las cuotas y donaciones se contabilizan a nivel federal. El tesorero federal contabiliza la parte de su unidad como subvención."
+
+msgid "Betrag weicht ab"
+msgstr "El importe difiere"
+
+msgid "Ähnliche Zeile vorhanden"
+msgstr "Existe una fila similar"
+
+msgid "Nur von Hand erfasst"
+msgstr "Solo introducida a mano"
+
+msgid "Nicht übernehmbar"
+msgstr "No se puede aplicar"
+
+msgid "Art der Person uneinheitlich"
+msgstr "Tipo de persona incoherente"
+
+msgid "Land fehlt in den Stammdaten"
+msgstr "Falta el país en los datos maestros"
+
+msgid "Stammdaten zu lang oder ungültig"
+msgstr "Datos maestros demasiado largos o no válidos"
+
+msgid "Beiträge enthalten, Betrag bleibt unverändert"
+msgstr "Contiene cuotas, el importe no cambia"
+
+msgid "%1 anlegen"
+msgstr "crear %1"
+
+msgid "%1 Betrag ersetzen"
+msgstr "reemplazar %1 importe(s)"
+
+msgid "%1 verknüpfen"
+msgstr "vincular %1"
+
+msgid "Von Hand"
+msgstr "A mano"
+
+msgid "Aus Buchungen (übernommen am %1)"
+msgstr "De los asientos (aplicado el %1)"
+
+msgid "Aus Buchungen, danach geändert"
+msgstr "De los asientos, modificado después"
+
+msgid "Neu anlegen"
+msgstr "Crear nueva"
+
+msgid "Betrag ersetzen"
+msgstr "Reemplazar importe"
+
+msgid "Der Vorschlag zählt nur die Buchungen der Bundesgliederung zusammen. Mehrere kleinere Beträge an verschiedene Gliederungen werden nicht erkannt; diese Rechtsfrage ist offen (Q1, Q40). Entwurf, nicht geprüft."
+msgstr "La propuesta suma solo los asientos de la unidad federal. Varios importes menores a distintas unidades no se detectan; esta cuestión jurídica está abierta (Q1, Q40). Borrador, sin revisar."
+
+msgid "Vorschlag für Ausweis B aus Buchungen: %1"
+msgstr "Propuesta para el anexo B a partir de los asientos: %1"
+
+msgid "Keine Person liegt über 10.000 € und es ist keine Zeile erfasst."
+msgstr "Ninguna persona supera los 10.000 € y no hay ninguna fila introducida."
+
+msgid "Laut Buchungen"
+msgstr "Según asientos"
+
+msgid "Übernahme"
+msgstr "Aplicación"
+
+msgid "%1 anonymisierte Spender sind nicht aufgeführt."
+msgstr "%1 donantes anonimizados no figuran en la lista."
+
+msgid "%1 Spendenbuchungen ohne Spender sind nicht enthalten."
+msgstr "%1 asientos de donación sin donante no están incluidos."
+
+msgid "Der Vorschlag wurde übernommen."
+msgstr "La propuesta se ha aplicado."
+
+msgid "Der Vorschlag ist veraltet. Bitte neu laden."
+msgstr "La propuesta está desactualizada. Vuelva a cargarla."
+
+msgid "Verknüpft; die Buchungen liegen derzeit nicht über 10.000 €."
+msgstr "Vinculada; los asientos no superan actualmente los 10.000 €."
+
+msgid "bleibt unverändert"
+msgstr "permanece sin cambios"
+
+msgid "keine Übernahme"
+msgstr "sin aplicación"
+
+msgid "Betrag ersetzen: %1"
+msgstr "Reemplazar importe: %1"
+
+msgid "Übernehmen: %1"
+msgstr "Aplicar: %1"
+
+msgid "Verknüpfen mit Zeile %1"
+msgstr "Vincular con la fila %1"
+
+msgid "Die Bundesgliederung bucht nicht in Lapis – kein Vorschlag möglich."
+msgstr "La unidad federal no contabiliza en Lapis: no es posible una propuesta."
+
+msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
+msgstr "Informe de rendición de cuentas: propuesta para el anexo B aplicada"

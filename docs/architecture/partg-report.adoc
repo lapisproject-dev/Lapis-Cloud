@@ -292,6 +292,35 @@ classDiagram(name = "PartgReportR3Model") {
 * **Document:** `AnnexSection` gets `sponsors` (only those in the report) and `youthOrgs`. The XLSX order is A, B, C, Mitglieder, F, Erläuterungen, Hinweise (12 sheets); D is a placeholder paragraph in the PDF and a line on the completeness sheet. `PartgAnnexDto` is not paged: the caps bound it.
 * **Client:** `PartyReportAnnexNav` (jump bar, disclosure blocks, `AnnexEditorGuard` = one open form for the whole tab), `PartyReportSponsoringBlock`, `PartyReportYouthBlock`.
 
+== R5b: the proposal for statement B from the bookings (V1.9.293)
+
+*Migration*:: `V147__partg_report_r5b.sql` (V146 is on `master` and untouched): two nullable columns on `partg_report_large_donor` (`source_donor_key` VARCHAR(80), `source_applied_at` TIMESTAMP), two CHECKs (`chk_partg_donor_source_key`: `M:`/`X:` plus a 36 character UUID; `chk_partg_donor_source_applied`: a take-over time needs a key), one **normal** unique index `(annex_id, source_donor_key)` (several NULL keys stay allowed on H2 and PostgreSQL, so the house rule against partial indexes holds) and the audit CHECK with `PARTG_LARGE_DONOR_PROPOSAL`. No new table, no backfill.
+*Readers and writers*:: `PartgLedgerReader.federalDonationTotals` is still the only reader of the booking tables (cap 200,000 entries, `TOO_MANY_BOOKINGS`); `PartgDonorMasterData` is the only reader of `external_donor` in the package `partg` and reads the member master data for the proposal; `PartgDonorProposals` is pure (no table). The only writer is `PartgAnnexWriter.applyDonorProposal` through three functions of `PartgAnnexStore` (`insertDonorFromLedger`, `replaceDonorAmountFromLedger`, `linkDonor`); the existing `updateDonor` never writes the two new columns, so a hand change keeps the key and the take-over time and turns the origin into "changed afterwards" (`updated_at` > `source_applied_at`). `PartgDonorProposalTripwireTest` pins the monopolies and that no key, name or amount reaches a log line or an exception text.
+*Checksum*:: SHA-256 (a new `MessageDigest` per call) over a canonical, length-prefixed text: year, annex revision, the two counters, every entered row of the federal annex (sorted by id) and every row of the proposal (sorted by key). It travels to the client and back and is never stored or audited.
+*Lock order*:: federal annex row (`lockOrCreateAnnex`; the federal level has no chapter row to lock), then the mode is read again (a state change of the mode is not blocked by this lock, like in R4a), then the proposal is recomputed, the picks are validated, the rows are written, the revision is bumped once, the audit entry is written last. Two parallel take-overs with the same checksum: one wins, the other is stale; `PartgAnnexWriter.afterLockHook` is the test seam.
+*Gate*:: `largeDonorProposal` and `applyLargeDonorProposal` (methods 40 and 41) start with `requirePartyReportAccess(call)` -- the federal gate. A chapter treasurer reaches neither (`PartyReportAccessTripwireTest`: 41 methods, nine scoped).
+*Kept versions*:: `PartgReportDocument` and `PartgReportSnapshotReader` are unchanged: the origin is not part of the stored document, so no hash of a kept version and no byte of a PDF or XLSX changes.
+
+[kuml, partg-report-r5b-flow, svg]
+----
+sequenceDiagram(name = "R5b: take over a proposal for statement B (V1.9.293)") {
+    val board = participant(name = "Board member")
+    val service = participant(name = "PartyReportService")
+    val writer = participant(name = "PartgAnnexWriter")
+    val db = participant(name = "Database")
+
+    message(from = board, to = service, text = "largeDonorProposal(year)")
+    message(from = service, to = db, text = "read federal donation sums, master data, entered rows")
+    message(from = service, to = board, text = "proposal with checksum")
+    message(from = board, to = service, text = "applyLargeDonorProposal(year, checksum, picks)")
+    message(from = service, to = writer, text = "applyDonorProposal")
+    message(from = writer, to = db, text = "lock or create annex row, check mode A or B")
+    message(from = writer, to = db, text = "recompute proposal, compare checksum (else stale)")
+    message(from = writer, to = db, text = "create / replace amount / link, bump revision once, audit last")
+    message(from = writer, to = service, text = "annex as written")
+}
+----
+
 == Statement D (R3c, V1.9.287)
 
 * `V143__partg_report_r3c.sql` (V142 shipped with 0.46.0 and is untouched; while V143 is unreleased it may be corrected in place on the branch, afterwards only by a new migration): one table `partg_report_enterprise` on the annex (`annex_id`), no link to `partg_report_holding`, no `ON DELETE CASCADE` (annex rows are never deleted; a chapter with an annex cannot be deleted). CHECKs for the text lengths, the share (0..10000) and the amounts (0..99999999999999 or NULL).

@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.domain
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 
 /**
@@ -36,6 +37,10 @@ data class PartgLargeDonorDto(
     val country: String,
     val contributionKind: PartgContributionKind,
     val amountCents: Long,
+    /** V1.9.293 (R5b): where the row comes from. Display only; NOT part of the stored report version or the exports. */
+    val origin: PartgLargeDonorOrigin = PartgLargeDonorOrigin.MANUAL,
+    /** V1.9.293 (R5b): when the row was last written from the bookings. */
+    val sourceAppliedAt: LocalDateTime? = null,
 )
 
 @Serializable
@@ -186,6 +191,8 @@ data class PartgAnnexDto(
     val enterprises: List<PartgEnterpriseDto> = emptyList(),
     /** V1.9.287 (R3c): E05 and A02F, in that order; empty when D has no row. */
     val enterpriseChecks: List<PartgEnterpriseCheckDto> = emptyList(),
+    /** V1.9.293 (R5b): whether a proposal for statement B from the bookings is available (FEDERAL only). */
+    val donorProposal: PartgDonorProposalAvailability = PartgDonorProposalAvailability.NOT_APPLICABLE,
 )
 
 @Serializable

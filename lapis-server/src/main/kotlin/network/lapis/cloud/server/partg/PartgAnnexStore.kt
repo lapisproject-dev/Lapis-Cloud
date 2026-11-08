@@ -20,6 +20,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -57,6 +58,10 @@ internal object PartgAnnexStore {
         val amountCents: Long,
         /** V1.9.290 (R5): when the row was last changed (`null` for rows built by hand in tests); P21 compares it with the age of a combination. */
         val updatedAt: LocalDateTime? = null,
+        /** V1.9.293 (R5b): the donor key `M:<uuid>` / `X:<uuid>` of the booking donor this row was taken from or linked to; `null` = by hand. */
+        val sourceDonorKey: String? = null,
+        /** V1.9.293 (R5b): when the row was last written FROM the bookings; a later [updatedAt] means "changed afterwards". */
+        val sourceAppliedAt: LocalDateTime? = null,
     )
 
     data class NotesRow(
@@ -131,6 +136,8 @@ internal object PartgAnnexStore {
             contributionKind = row[PartgReportLargeDonorTable.contributionKind],
             amountCents = row[PartgReportLargeDonorTable.amountCents],
             updatedAt = row[PartgReportLargeDonorTable.updatedAt],
+            sourceDonorKey = row[PartgReportLargeDonorTable.sourceDonorKey],
+            sourceAppliedAt = row[PartgReportLargeDonorTable.sourceAppliedAt],
         )
 
     // ---------------------------------------------------------------- annex
@@ -274,6 +281,77 @@ internal object PartgAnnexStore {
             it[updatedBy] = actor
         }
     }
+
+    /**
+     * V1.9.293 (R5b): a new row taken from the bookings. `updated_at` and `source_applied_at` get the SAME [now], so the row reads "from the
+     * bookings" until somebody changes it by hand.
+     */
+    fun insertDonorFromLedger(
+        annexId: Uuid,
+        donor: DonorRow,
+        key: String,
+        actor: Uuid,
+        now: LocalDateTime,
+    ) {
+        PartgReportLargeDonorTable.insert {
+            it[id] = donor.id
+            it[PartgReportLargeDonorTable.annexId] = annexId
+            it[personKind] = donor.personKind
+            it[name] = donor.name
+            it[street] = donor.street
+            it[postalCode] = donor.postalCode
+            it[city] = donor.city
+            it[country] = donor.country
+            it[contributionKind] = donor.contributionKind
+            it[amountCents] = donor.amountCents
+            it[createdAt] = now
+            it[createdBy] = actor
+            it[updatedAt] = now
+            it[updatedBy] = actor
+            it[sourceDonorKey] = key
+            it[sourceAppliedAt] = now
+        }
+    }
+
+    /** V1.9.293 (R5b): replaces the amount of the row that carries [key]; returns the number of rows changed (0 = the row is gone or has another key). */
+    fun replaceDonorAmountFromLedger(
+        annexId: Uuid,
+        donorId: Uuid,
+        key: String,
+        amountCents: Long,
+        actor: Uuid,
+        now: LocalDateTime,
+    ): Int =
+        PartgReportLargeDonorTable.update(
+            {
+                (PartgReportLargeDonorTable.id eq donorId) and (PartgReportLargeDonorTable.annexId eq annexId) and
+                    (PartgReportLargeDonorTable.sourceDonorKey eq key)
+            },
+        ) {
+            it[PartgReportLargeDonorTable.amountCents] = amountCents
+            it[updatedAt] = now
+            it[updatedBy] = actor
+            it[sourceAppliedAt] = now
+        }
+
+    /**
+     * V1.9.293 (R5b): links an entered row to a booking donor -- sets ONLY the key. `updated_at`, `updated_by` and the amount stay as they are
+     * (a link is not a change of the row; touching `updated_at` would make the donor combination look changed, finding P21). Returns the number of
+     * rows changed (0 = the row is gone or already carries a key).
+     */
+    fun linkDonor(
+        annexId: Uuid,
+        donorId: Uuid,
+        key: String,
+    ): Int =
+        PartgReportLargeDonorTable.update(
+            {
+                (PartgReportLargeDonorTable.id eq donorId) and (PartgReportLargeDonorTable.annexId eq annexId) and
+                    PartgReportLargeDonorTable.sourceDonorKey.isNull()
+            },
+        ) {
+            it[sourceDonorKey] = key
+        }
 
     fun updateDonor(
         annexId: Uuid,

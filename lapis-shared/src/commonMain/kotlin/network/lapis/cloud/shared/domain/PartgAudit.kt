@@ -89,6 +89,21 @@ data class PartgAnnexAuditSnapshot(
     val enterpriseCount: Int = 0,
 )
 
+/**
+ * V1.9.293 (R5b) audit snapshot of a taken-over proposal for statement B: the unit, three counters and the revisions of the annex before and after.
+ * NEVER a name, an amount, a donor key or a checksum (a checksum over names and amounts would let someone guess "did X give exactly Y").
+ */
+@Serializable
+data class PartgDonorProposalAuditSnapshot(
+    val year: Int,
+    val unitKey: String = "FEDERAL",
+    val created: Int,
+    val replaced: Int,
+    val linked: Int,
+    val annexRevisionBefore: Long,
+    val annexRevisionAfter: Long,
+)
+
 /** V1.9.269 audit snapshot of a change of the notes: which blocks, how many holdings. No text. */
 @Serializable
 data class PartgNotesAuditSnapshot(

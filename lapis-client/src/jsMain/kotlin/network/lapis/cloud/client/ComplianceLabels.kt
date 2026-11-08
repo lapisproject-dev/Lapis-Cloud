@@ -226,6 +226,7 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_REPORT_VERSION -> gettext("Rechenschaftsbericht: Version")
         AuditEntityType.PARTG_REPORT_DECLARATION -> gettext("Rechenschaftsbericht: Versicherung")
         AuditEntityType.PARTG_REPORT_DEADLINE -> gettext("Rechenschaftsbericht: Frist")
+        AuditEntityType.PARTG_LARGE_DONOR_PROPOSAL -> gettext("Rechenschaftsbericht: Vorschlag für Ausweis B übernommen")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -376,6 +377,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_REPORT_VERSION -> "secondary"
         AuditEntityType.PARTG_REPORT_DECLARATION -> "secondary"
         AuditEntityType.PARTG_REPORT_DEADLINE -> "secondary"
+        AuditEntityType.PARTG_LARGE_DONOR_PROPOSAL -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

@@ -48,6 +48,10 @@
 // rules checked by the service (<= 200 versions per scope, whole-party-only declaration and finalisation). DSGVO: partg_report_version holds a
 // COPY OF STATEMENTS B AND C (names and addresses of third parties; see PersonalDataRegistry); the other three are organisation data;
 // frozen_by/finalized_by/declared_by/confirmed_by/updated_by are "changed by you" data.
+// Welle V1.9.293 "Rechenschaftsbericht R5b" (V147__partg_report_r5b.sql) adds NO table: partg_report_large_donor gets source_donor_key (the
+// pseudonymous donor key "M:<member uuid>" / "X:<external donor uuid>" of the booking donor a row was taken from or linked to; NULL = by hand) and
+// source_applied_at (when the row was last written from the bookings), plus a normal unique index (annex_id, source_donor_key). DSGVO (R5b): the key
+// is a pseudonymous REFERENCE to master data that already exists; nothing below the 10,000 EUR threshold is recorded. CHECKs are SQL only (V147).
 // DSGVO (R3b): sponsor and sponsoring entry are PERSONAL DATA OF THIRD PARTIES (listed in knownUncoveredSubjectRoots); youth_org is organisation data.
 // DSGVO (R3): partg_report_large_donor is PERSONAL DATA OF THIRD PARTIES (name, address, yearly sum above 10,000 EUR); no member foreign key,
 // listed in PersonalDataRegistry.knownUncoveredSubjectRoots; created_by/updated_by of all R3 tables are "changed by you" data.
@@ -343,6 +347,12 @@ classDiagram(name = "PartgReport") {
         stereotype("Index") { "columns" to listOf("annex_id"); "name" to "ix_partg_report_large_donor_annex" }
         stereotype("Index") { "columns" to listOf("created_by"); "name" to "ix_partg_report_large_donor_created_by" }
         stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_large_donor_updated_by" }
+        // V1.9.293 (R5b): one row per donor key and annex (a NORMAL unique index: several NULL keys stay allowed)
+        stereotype("Index") {
+            "columns" to listOf("annex_id", "source_donor_key")
+            "unique" to true
+            "name" to "uq_partg_report_large_donor_source"
+        }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -397,6 +407,16 @@ classDiagram(name = "PartgReport") {
         }
         attribute(name = "updatedBy", type = "UUID") {
             stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+        // V1.9.293 (R5b): a PSEUDONYMOUS reference ("M:<member uuid>" / "X:<external donor uuid>") to master data that already exists; R5b adds no
+        // new collection of personal data. NULL = entered by hand and never linked.
+        attribute(name = "sourceDonorKey", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "source_donor_key"; "sqlType" to "VARCHAR(80)" }
+        }
+        attribute(name = "sourceAppliedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "source_applied_at" }
         }
     }
 

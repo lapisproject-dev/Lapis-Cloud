@@ -1099,3 +1099,5 @@ col:PartgReportVersionTable.finalizedAt	A	PartgVersionStore: stamped by ServerCl
 col:PartgReportDeclarationTable.declaredAt	A	PartgVersionStore: stamped by ServerClock.now()
 col:PartgReportDeadlineTable.deadline	D	calendar date (LocalDate) of the submission deadline; never converted
 col:PartgReportDeadlineTable.confirmedAt	A	PartgVersionStore: stamped by ServerClock.now()
+col:PartgReportLargeDonorTable.sourceAppliedAt	A	PartgAnnexStore.insertDonorFromLedger/replaceDonorAmountFromLedger (PartgAnnexWriter.applyDonorProposal): stamped by ServerClock.now()
+dto:PartgLargeDonorDto.sourceAppliedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

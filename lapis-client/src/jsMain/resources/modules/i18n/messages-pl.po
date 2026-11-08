@@ -31586,3 +31586,102 @@ msgstr "Dla jednostek podległych nie ma dziennika księgowań."
 
 msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
 msgstr "Składki i darowizny są księgowane na szczeblu federalnym. Skarbnik federalny księguje udział Państwa jednostki jako dotację."
+
+msgid "Betrag weicht ab"
+msgstr "Kwota różni się"
+
+msgid "Ähnliche Zeile vorhanden"
+msgstr "Istnieje podobny wiersz"
+
+msgid "Nur von Hand erfasst"
+msgstr "Wprowadzony tylko ręcznie"
+
+msgid "Nicht übernehmbar"
+msgstr "Nie można przejąć"
+
+msgid "Art der Person uneinheitlich"
+msgstr "Niespójny rodzaj osoby"
+
+msgid "Land fehlt in den Stammdaten"
+msgstr "Brak kraju w danych podstawowych"
+
+msgid "Stammdaten zu lang oder ungültig"
+msgstr "Dane podstawowe zbyt długie lub nieprawidłowe"
+
+msgid "Beiträge enthalten, Betrag bleibt unverändert"
+msgstr "Zawiera składki, kwota pozostaje bez zmian"
+
+msgid "%1 anlegen"
+msgstr "utwórz: %1"
+
+msgid "%1 Betrag ersetzen"
+msgstr "zastąp kwoty: %1"
+
+msgid "%1 verknüpfen"
+msgstr "powiąż: %1"
+
+msgid "Von Hand"
+msgstr "Ręcznie"
+
+msgid "Aus Buchungen (übernommen am %1)"
+msgstr "Z księgowań (przejęto %1)"
+
+msgid "Aus Buchungen, danach geändert"
+msgstr "Z księgowań, później zmieniono"
+
+msgid "Neu anlegen"
+msgstr "Utwórz nowy"
+
+msgid "Betrag ersetzen"
+msgstr "Zastąp kwotę"
+
+msgid "Der Vorschlag zählt nur die Buchungen der Bundesgliederung zusammen. Mehrere kleinere Beträge an verschiedene Gliederungen werden nicht erkannt; diese Rechtsfrage ist offen (Q1, Q40). Entwurf, nicht geprüft."
+msgstr "Propozycja sumuje tylko księgowania jednostki federalnej. Kilku mniejszych kwot na rzecz różnych jednostek nie rozpoznaje; to pytanie prawne jest otwarte (Q1, Q40). Wersja robocza, niesprawdzona."
+
+msgid "Vorschlag für Ausweis B aus Buchungen: %1"
+msgstr "Propozycja dla zestawienia B z księgowań: %1"
+
+msgid "Keine Person liegt über 10.000 € und es ist keine Zeile erfasst."
+msgstr "Nikt nie przekracza 10 000 € i nie wprowadzono żadnego wiersza."
+
+msgid "Laut Buchungen"
+msgstr "Według księgowań"
+
+msgid "Übernahme"
+msgstr "Przejęcie"
+
+msgid "%1 anonymisierte Spender sind nicht aufgeführt."
+msgstr "%1 zanonimizowanych darczyńców nie ma na liście."
+
+msgid "%1 Spendenbuchungen ohne Spender sind nicht enthalten."
+msgstr "%1 księgowań darowizn bez darczyńcy nie uwzględniono."
+
+msgid "Der Vorschlag wurde übernommen."
+msgstr "Propozycję przejęto."
+
+msgid "Der Vorschlag ist veraltet. Bitte neu laden."
+msgstr "Propozycja jest nieaktualna. Proszę załadować ponownie."
+
+msgid "Verknüpft; die Buchungen liegen derzeit nicht über 10.000 €."
+msgstr "Powiązany; księgowania nie przekraczają obecnie 10 000 €."
+
+msgid "bleibt unverändert"
+msgstr "pozostaje bez zmian"
+
+msgid "keine Übernahme"
+msgstr "brak przejęcia"
+
+msgid "Betrag ersetzen: %1"
+msgstr "Zastąp kwotę: %1"
+
+msgid "Übernehmen: %1"
+msgstr "Przejmij: %1"
+
+msgid "Verknüpfen mit Zeile %1"
+msgstr "Powiąż z wierszem %1"
+
+msgid "Die Bundesgliederung bucht nicht in Lapis – kein Vorschlag möglich."
+msgstr "Jednostka federalna nie księguje w Lapis – propozycja niemożliwa."
+
+msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
+msgstr "Sprawozdanie rozliczeniowe: propozycję dla zestawienia B przejęto"

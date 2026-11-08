@@ -25,9 +25,11 @@ public object PartgReportLargeDonorTable : Table("partg_report_large_donor") {
     public val createdBy: Column<Uuid> = reference("created_by", MemberTable.id)
     public val updatedAt: Column<LocalDateTime> = datetime("updated_at")
     public val updatedBy: Column<Uuid> = reference("updated_by", MemberTable.id)
+    public val sourceDonorKey: Column<String?> = varchar("source_donor_key", 80).nullable()
+    public val sourceAppliedAt: Column<LocalDateTime?> = datetime("source_applied_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 3 index(es) declared on this entity are not emitted —
+    // Note: 4 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 }

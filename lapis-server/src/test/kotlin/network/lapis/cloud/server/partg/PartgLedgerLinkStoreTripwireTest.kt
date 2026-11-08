@@ -40,6 +40,8 @@ class PartgLedgerLinkStoreTripwireTest :
                         "PartgSheetWriter.kt",
                         "PartgLedgerProposals.kt",
                         "RegionalChapterService.kt",
+                        // V1.9.293 (R5b): the writer re-reads the mode of the federal unit under the lock of the annex
+                        "PartgAnnexWriter.kt",
                     ),
                 ).shouldBeEmpty()
         }

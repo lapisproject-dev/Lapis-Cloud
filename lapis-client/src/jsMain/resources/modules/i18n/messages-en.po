@@ -31624,3 +31624,102 @@ msgstr "There is no journal of entries for subordinate units."
 
 msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
 msgstr "Contributions and donations are booked at the federal level. The federal treasurer books your unit's share as a subsidy."
+
+msgid "Betrag weicht ab"
+msgstr "Amount differs"
+
+msgid "Ähnliche Zeile vorhanden"
+msgstr "Similar row exists"
+
+msgid "Nur von Hand erfasst"
+msgstr "Entered by hand only"
+
+msgid "Nicht übernehmbar"
+msgstr "Cannot be taken over"
+
+msgid "Art der Person uneinheitlich"
+msgstr "Kind of person inconsistent"
+
+msgid "Land fehlt in den Stammdaten"
+msgstr "Country missing in the master data"
+
+msgid "Stammdaten zu lang oder ungültig"
+msgstr "Master data too long or invalid"
+
+msgid "Beiträge enthalten, Betrag bleibt unverändert"
+msgstr "Contains fees, amount stays unchanged"
+
+msgid "%1 anlegen"
+msgstr "create %1"
+
+msgid "%1 Betrag ersetzen"
+msgstr "replace %1 amount(s)"
+
+msgid "%1 verknüpfen"
+msgstr "link %1"
+
+msgid "Von Hand"
+msgstr "By hand"
+
+msgid "Aus Buchungen (übernommen am %1)"
+msgstr "From bookings (taken over on %1)"
+
+msgid "Aus Buchungen, danach geändert"
+msgstr "From bookings, changed afterwards"
+
+msgid "Neu anlegen"
+msgstr "Create new"
+
+msgid "Betrag ersetzen"
+msgstr "Replace amount"
+
+msgid "Der Vorschlag zählt nur die Buchungen der Bundesgliederung zusammen. Mehrere kleinere Beträge an verschiedene Gliederungen werden nicht erkannt; diese Rechtsfrage ist offen (Q1, Q40). Entwurf, nicht geprüft."
+msgstr "The proposal adds up only the bookings of the federal unit. Several smaller amounts to different units are not recognised; this legal question is open (Q1, Q40). Draft, not reviewed."
+
+msgid "Vorschlag für Ausweis B aus Buchungen: %1"
+msgstr "Proposal for statement B from the bookings: %1"
+
+msgid "Keine Person liegt über 10.000 € und es ist keine Zeile erfasst."
+msgstr "No person is above €10,000 and no row has been entered."
+
+msgid "Laut Buchungen"
+msgstr "Per bookings"
+
+msgid "Übernahme"
+msgstr "Take over"
+
+msgid "%1 anonymisierte Spender sind nicht aufgeführt."
+msgstr "%1 anonymised donors are not listed."
+
+msgid "%1 Spendenbuchungen ohne Spender sind nicht enthalten."
+msgstr "%1 donation bookings without a donor are not included."
+
+msgid "Der Vorschlag wurde übernommen."
+msgstr "The proposal has been taken over."
+
+msgid "Der Vorschlag ist veraltet. Bitte neu laden."
+msgstr "The proposal is out of date. Please reload."
+
+msgid "Verknüpft; die Buchungen liegen derzeit nicht über 10.000 €."
+msgstr "Linked; the bookings are currently not above €10,000."
+
+msgid "bleibt unverändert"
+msgstr "stays unchanged"
+
+msgid "keine Übernahme"
+msgstr "no take-over"
+
+msgid "Betrag ersetzen: %1"
+msgstr "Replace amount: %1"
+
+msgid "Übernehmen: %1"
+msgstr "Take over: %1"
+
+msgid "Verknüpfen mit Zeile %1"
+msgstr "Link to row %1"
+
+msgid "Die Bundesgliederung bucht nicht in Lapis – kein Vorschlag möglich."
+msgstr "The federal unit does not book in Lapis – no proposal possible."
+
+msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
+msgstr "Accountability report: proposal for statement B taken over"

@@ -151,6 +151,9 @@ object PersonalDataRegistry {
                 "Ausweis B nach § 25 Abs. 3 PartG, laut Konzept 10 Jahre aufzubewahren; kein member-FK. Auskunft und " +
                 "Loeschung erfolgen nur ueber den Vorstand: Zeile ansehen oder loeschen im Reiter 'Ausweise'. Ein " +
                 "Betroffenen-Selbstbedienungsweg ist nicht vorgesehen, eine Loeschroutine nach Fristablauf folgt mit R6. " +
+                "Seit V1.9.293 (R5b) kann eine Zeile ueber source_donor_key (M:<Mitglied>) auf ein Mitglied verweisen: solche " +
+                "Zeilen sind ueber die Auskunft des Mitglieds abgedeckt (Abschnitt listedInStatementB), Zeilen mit X:-Schluessel " +
+                "und von Hand erfasste Zeilen bleiben die dokumentierte Luecke. " +
                 "Sichtbar gemacht, nicht geschlossen.",
             "partg_report_sponsor" to
                 "Welle V1.9.283. PII Dritter (Name, Anschrift) der Sponsoren fuer den gesonderten Ausweis C des " +

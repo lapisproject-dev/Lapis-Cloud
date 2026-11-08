@@ -21,6 +21,7 @@ import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgAnnexRules
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgDonorProposalAvailability
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
@@ -347,6 +348,27 @@ private fun SimplePanel.renderAnnexBody(
                     onClick { openDonorForm(null) }
                 }
                 actionButton(ActionIcon.REFRESH, tr("Neu laden")) { onClick { reloadIn(AnnexBlock.B) } }
+                if (unit.level == network.lapis.cloud.shared.domain.PartgUnitLevel.FEDERAL) {
+                    donorProposalButton(
+                        availability = currentAnnex.donorProposal,
+                        year = annex.year,
+                        rowNumbers = { currentAnnex.donors.associate { donor -> donor.id to donor.rowNumber } },
+                        onApplied = { saved ->
+                            currentRevision = saved.revision
+                            currentAnnex = saved
+                            renderDonors()
+                            reloadIn(AnnexBlock.B)
+                        },
+                    )
+                }
+            }
+            if (unit.level == network.lapis.cloud.shared.domain.PartgUnitLevel.FEDERAL &&
+                currentAnnex.donorProposal == PartgDonorProposalAvailability.MODE_C
+            ) {
+                div(
+                    tr("Die Bundesgliederung bucht nicht in Lapis – kein Vorschlag möglich."),
+                    className = "small text-muted",
+                ) { setAttribute("data-partg-donor-proposal-note", "MODE_C") }
             }
             add(formHost)
         }
@@ -398,6 +420,7 @@ private fun SimplePanel.renderDonorTable(
                 TableHeader(title = tr("Name")),
                 TableHeader(title = tr("Ort")),
                 TableHeader(title = tr("Betrag"), numeric = true),
+                TableHeader(title = tr("Herkunft")),
                 TableHeader(title = tr("Hinweise")),
                 TableHeader(title = tr("Aktionen")),
             ),
@@ -408,6 +431,7 @@ private fun SimplePanel.renderDonorTable(
             textCell(donor.name)
             textCell(donor.city.orEmpty())
             numCell { moneySpan(centsToDecimal(donor.amountCents)) }
+            textCell(partgDonorOriginLabel(donor)) { setAttribute("data-partg-donor-origin", donor.origin.name) }
             cell {
                 findings.filter { donor.rowNumber in it.rowNumbers }.forEach { f ->
                     div(className = "small d-flex align-items-center gap-1") {
@@ -569,3 +593,35 @@ private fun contributionLabel(kind: PartgContributionKind): String =
         PartgContributionKind.FEE -> tr("Beitrag")
         PartgContributionKind.BOTH -> tr("Spende und Beitrag")
     }
+
+/**
+ * V1.9.293 (R5b): the button "Vorschlag aus Buchungen" of statement B (federal unit only). In mode C it is switched off and the text next to it says
+ * why (the caller writes that text). The proposal is loaded on click and shown in [openPartgDonorProposalDialog]; "Neu laden" there loads it again.
+ */
+private fun Container.donorProposalButton(
+    availability: PartgDonorProposalAvailability,
+    year: Int,
+    rowNumbers: () -> Map<String, Int>,
+    onApplied: (PartgAnnexDto) -> Unit,
+) {
+    if (availability == PartgDonorProposalAvailability.NOT_APPLICABLE) return
+    val available = availability == PartgDonorProposalAvailability.AVAILABLE
+    lateinit var open: () -> Unit
+    open = {
+        AppScope.launch {
+            val proposal = guarded { partyReportRpc().largeDonorProposal(year) }
+            if (proposal != null) {
+                openPartgDonorProposalDialog(proposal = proposal, rowNumbers = rowNumbers(), onApplied = onApplied, onReload = { open() })
+            }
+        }
+    }
+    actionButton(ActionIcon.SEARCH, tr("Vorschlag aus Buchungen")) {
+        id = "partg-donor-proposal"
+        if (available) {
+            onClick { open() }
+        } else {
+            disabled = true
+            setAttribute("aria-disabled", "true")
+        }
+    }
+}

@@ -69,6 +69,12 @@ import kotlin.uuid.Uuid
  * `PersonalDataRegistry.knownUncoveredSubjectRoots`; it is removed only by the ADMIN deletion routine after the retention period. The other three
  * tables are organisation data.
  *
+ * **V1.9.293 (R5b)** adds NO table and NO new collection of personal data: `partg_report_large_donor.source_donor_key` (`M:<member uuid>` /
+ * `X:<external donor uuid>`) is a pseudonymous REFERENCE to master data that already exists. The export of a member gains the section
+ * `listedInStatementB` (year, unit, kind and amount of the rows linked to THIS member -- their own data, like the donations in the accounting
+ * export). On erasure the row stays (retention duty, Art. 17 (3) (b) GDPR) and the key stays as a pseudonymous reference; the member row is
+ * anonymised. Rows with an `X:` key and rows entered by hand remain the documented gap in `knownUncoveredSubjectRoots`.
+ *
  * **V1.9.287 (R3c)** adds `partg_report_enterprise` (statement D): organisation data, same treatment as the youth organisation ("changed by
  * you" with year, unit and time only -- no name, no amount; retained on erasure). Whether a free-text name can contain a person's name
  * (sole proprietorship) is an open question (Q16), not claimed as covered.
@@ -183,6 +189,34 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                                     put("year", annex?.get(PartgReportAnnexTable.fiscalYear))
                                     put("unit", annex?.get(PartgReportAnnexTable.unitKey))
                                     put("changedAt", row[PartgReportLargeDonorTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            // V1.9.293 (R5b): rows of statement B that are linked to THIS member as a donor (`source_donor_key = M:<member>`). They are the member's
+            // own data -- year, unit, kind and amount, like the donations in the accounting export -- never a row of another person.
+            put(
+                "listedInStatementB",
+                buildJsonArray {
+                    val annexes = PartgReportAnnexTable.selectAll().toList().associateBy { it[PartgReportAnnexTable.id] }
+                    PartgReportLargeDonorTable
+                        .selectAll()
+                        .where { PartgReportLargeDonorTable.sourceDonorKey eq "M:$memberId" }
+                        .toList()
+                        .sortedWith(
+                            compareBy(
+                                { it[PartgReportLargeDonorTable.annexId].toString() },
+                                { it[PartgReportLargeDonorTable.id].toString() },
+                            ),
+                        ).forEach { row ->
+                            val annex = annexes[row[PartgReportLargeDonorTable.annexId]]
+                            add(
+                                buildJsonObject {
+                                    put("year", annex?.get(PartgReportAnnexTable.fiscalYear))
+                                    put("unit", annex?.get(PartgReportAnnexTable.unitKey))
+                                    put("contributionKind", row[PartgReportLargeDonorTable.contributionKind].name)
+                                    put("amountCents", row[PartgReportLargeDonorTable.amountCents])
                                 },
                             )
                         }

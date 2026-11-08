@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.PostingTable
+import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.PartgLedgerRules
@@ -14,8 +15,11 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.sum
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -27,6 +31,21 @@ internal data class PartgDebitCredit(
     val debitCents: Long,
     val creditCents: Long,
     val postingCount: Int,
+)
+
+/** V1.9.293 (R5b): the yearly donation sum of ONE donor of the federal level. [donorMemberId] xor [externalDonorId] is set. */
+internal data class PartgDonationTotal(
+    val donorMemberId: Uuid?,
+    val externalDonorId: Uuid?,
+    val categories: Set<DonorCategory>,
+    /** Signed: a reversal lowers the sum. */
+    val totalCents: Long,
+)
+
+/** V1.9.293 (R5b): all donors of the federal level in one year, plus the number of donation bookings without any donor. */
+internal data class PartgDonationYear(
+    val totals: List<PartgDonationTotal>,
+    val withoutDonorCount: Int,
 )
 
 /**
@@ -138,4 +157,89 @@ internal object PartgLedgerReader {
             }.groupBy(JournalEntryTable.regionalChapterId)
             .associate { it[JournalEntryTable.regionalChapterId] to it[entryCount].toInt() }
     }
+
+    /**
+     * V1.9.293 (R5b): the donation sums per donor of the FEDERAL level (`regional_chapter_id IS NULL`) in [year]: POSTED entries with a
+     * `donor_category` that is not `ANONYMOUS`, each entry's amount being the signed sum of its INCOME postings (the same figure as
+     * `AccountingService.getDonationDutyReport`; `PartgReportR5bScenarios` pins the parity). More than [maxEntries] entries is a clean
+     * [PartyReportInvalidInputException] ("TOO_MANY_BOOKINGS"). Never logs and never puts a donor or an amount into an exception.
+     */
+    fun federalDonationTotals(
+        year: Int,
+        maxEntries: Int = 200_000,
+    ): PartgDonationYear {
+        val entries =
+            JournalEntryTable
+                .select(
+                    JournalEntryTable.id,
+                    JournalEntryTable.donorMemberId,
+                    JournalEntryTable.externalDonorId,
+                    JournalEntryTable.donorCategory,
+                ).where {
+                    (JournalEntryTable.status eq JournalEntryStatus.POSTED) and
+                        (JournalEntryTable.entryDate greaterEq LocalDate(year, 1, 1)) and
+                        (JournalEntryTable.entryDate lessEq LocalDate(year, 12, 31)) and
+                        JournalEntryTable.donorCategory.isNotNull() and
+                        (JournalEntryTable.donorCategory neq DonorCategory.ANONYMOUS) and
+                        JournalEntryTable.regionalChapterId.isNull()
+                }.limit(maxEntries + 1)
+                .toList()
+        if (entries.size > maxEntries) throw PartyReportInvalidInputException("TOO_MANY_BOOKINGS")
+        if (entries.isEmpty()) return PartgDonationYear(totals = emptyList(), withoutDonorCount = 0)
+        val incomeByEntry = HashMap<Uuid, BigDecimal>()
+        entries.map { it[JournalEntryTable.id] }.chunked(ID_CHUNK).forEach { ids ->
+            (PostingTable innerJoin LedgerAccountTable)
+                .select(PostingTable.journalEntryId, PostingTable.side, PostingTable.amount)
+                .where { (PostingTable.journalEntryId inList ids) and (LedgerAccountTable.type eq LedgerAccountType.INCOME) }
+                .forEach { row ->
+                    val amount = row[PostingTable.amount]
+                    // INCOME is a credit-normal account: a credit adds, a debit (a reversal) subtracts
+                    val signed = if (row[PostingTable.side] == PostingSide.CREDIT) amount else amount.negate()
+                    incomeByEntry.merge(row[PostingTable.journalEntryId], signed, BigDecimal::add)
+                }
+        }
+
+        class Acc(
+            val member: Uuid?,
+            val external: Uuid?,
+        ) {
+            var sum: BigDecimal = BigDecimal.ZERO
+            val categories = HashSet<DonorCategory>()
+        }
+        val byDonor = LinkedHashMap<String, Acc>()
+        var withoutDonor = 0
+        entries.forEach { row ->
+            val member = row[JournalEntryTable.donorMemberId]
+            val external = row[JournalEntryTable.externalDonorId]
+            if (member == null && external == null) {
+                withoutDonor += 1
+                return@forEach
+            }
+            val key = if (member != null) "M:$member" else "X:$external"
+            val acc = byDonor.getOrPut(key) { Acc(member = member, external = if (member != null) null else external) }
+            acc.sum = acc.sum.add(incomeByEntry[row[JournalEntryTable.id]] ?: BigDecimal.ZERO)
+            acc.categories += row[JournalEntryTable.donorCategory]!!
+        }
+        val totals =
+            byDonor.values.map { acc ->
+                val cents =
+                    try {
+                        acc.sum.movePointRight(2).longValueExact()
+                    } catch (e: ArithmeticException) {
+                        throw PartyReportInvalidInputException("Booking amount out of range")
+                    }
+                if (cents > PartgLedgerRules.MAX_CENTS || cents < -PartgLedgerRules.MAX_CENTS) {
+                    throw PartyReportInvalidInputException("Booking sum out of range")
+                }
+                PartgDonationTotal(
+                    donorMemberId = acc.member,
+                    externalDonorId = acc.external,
+                    categories = acc.categories.toSet(),
+                    totalCents = cents,
+                )
+            }
+        return PartgDonationYear(totals = totals, withoutDonorCount = withoutDonor)
+    }
+
+    private const val ID_CHUNK = 1000
 }

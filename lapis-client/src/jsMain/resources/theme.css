@@ -8263,6 +8263,71 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   }
 }
 
+/* V1.9.293 "Rechenschaftsbericht R5b": the proposal for statement B. A row is a grid on wide screens (seven columns, labels in a head row) and a card
+   below 640 px (every cell carries its label from data-label; the dialog fills the screen). Tokens only, no hex values, nothing animates (R54). */
+.lapis-partg-proposal-modal .modal-dialog {
+  max-width: min(96vw, 72rem);
+}
+
+.lapis-partg-prop-head,
+.lapis-partg-prop-row {
+  display: grid;
+  grid-template-columns: 9rem minmax(10rem, 2fr) 8rem 8rem 8rem 7rem minmax(11rem, 1.6fr);
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.lapis-partg-prop-head {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--lapis-muted);
+  border-bottom: 1px solid var(--lapis-border);
+}
+
+.lapis-partg-prop-row {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--lapis-border);
+}
+
+.lapis-partg-prop-cell {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639.98px) {
+  .lapis-partg-proposal-modal .modal-dialog {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    margin: 0;
+  }
+
+  .lapis-partg-proposal-modal .modal-content {
+    min-height: 100%;
+    border-radius: 0;
+  }
+
+  .lapis-partg-prop-head {
+    display: none;
+  }
+
+  .lapis-partg-prop-row {
+    grid-template-columns: 1fr;
+    margin: 0 0 0.5rem;
+    border: 1px solid var(--lapis-border);
+    border-radius: 0.5rem;
+    background-color: var(--lapis-surface);
+  }
+
+  .lapis-partg-prop-cell[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--lapis-muted);
+    font-size: 0.8125rem;
+  }
+}
+
 /* V1.9.226 "LupaBB-Abgleich": the field comparison of a record ("Feld | bisher | neu"). The old value is muted and struck through, the new one is
    plain; tokens only, no colour literals (R9), no transition (R54). */
 .lapis-lupabb-diff {

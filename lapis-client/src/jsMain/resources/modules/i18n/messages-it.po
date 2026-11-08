@@ -31609,3 +31609,102 @@ msgstr "Per le unità subordinate non esiste un giornale delle registrazioni."
 
 msgid "Beiträge und Spenden werden auf Bundesebene gebucht. Den Anteil Ihrer Gliederung bucht der Bundesschatzmeister als Zuschuss."
 msgstr "Le quote e le donazioni vengono registrate a livello federale. Il tesoriere federale registra la quota della sua unità come contributo."
+
+msgid "Betrag weicht ab"
+msgstr "Importo diverso"
+
+msgid "Ähnliche Zeile vorhanden"
+msgstr "Esiste una riga simile"
+
+msgid "Nur von Hand erfasst"
+msgstr "Solo inserita a mano"
+
+msgid "Nicht übernehmbar"
+msgstr "Non riportabile"
+
+msgid "Art der Person uneinheitlich"
+msgstr "Tipo di persona incoerente"
+
+msgid "Land fehlt in den Stammdaten"
+msgstr "Paese mancante nei dati anagrafici"
+
+msgid "Stammdaten zu lang oder ungültig"
+msgstr "Dati anagrafici troppo lunghi o non validi"
+
+msgid "Beiträge enthalten, Betrag bleibt unverändert"
+msgstr "Contiene quote, l'importo resta invariato"
+
+msgid "%1 anlegen"
+msgstr "creare %1"
+
+msgid "%1 Betrag ersetzen"
+msgstr "sostituire %1 importo/i"
+
+msgid "%1 verknüpfen"
+msgstr "collegare %1"
+
+msgid "Von Hand"
+msgstr "A mano"
+
+msgid "Aus Buchungen (übernommen am %1)"
+msgstr "Dalle registrazioni (riportato il %1)"
+
+msgid "Aus Buchungen, danach geändert"
+msgstr "Dalle registrazioni, modificato in seguito"
+
+msgid "Neu anlegen"
+msgstr "Crea nuova"
+
+msgid "Betrag ersetzen"
+msgstr "Sostituisci importo"
+
+msgid "Der Vorschlag zählt nur die Buchungen der Bundesgliederung zusammen. Mehrere kleinere Beträge an verschiedene Gliederungen werden nicht erkannt; diese Rechtsfrage ist offen (Q1, Q40). Entwurf, nicht geprüft."
+msgstr "La proposta somma solo le registrazioni dell'unità federale. Più importi minori a diverse unità non vengono riconosciuti; questa questione giuridica è aperta (Q1, Q40). Bozza, non verificata."
+
+msgid "Vorschlag für Ausweis B aus Buchungen: %1"
+msgstr "Proposta per l'allegato B dalle registrazioni: %1"
+
+msgid "Keine Person liegt über 10.000 € und es ist keine Zeile erfasst."
+msgstr "Nessuna persona supera 10.000 € e non è stata inserita alcuna riga."
+
+msgid "Laut Buchungen"
+msgstr "Secondo le registrazioni"
+
+msgid "Übernahme"
+msgstr "Riporto"
+
+msgid "%1 anonymisierte Spender sind nicht aufgeführt."
+msgstr "%1 donatori anonimizzati non sono elencati."
+
+msgid "%1 Spendenbuchungen ohne Spender sind nicht enthalten."
+msgstr "%1 registrazioni di donazioni senza donatore non sono incluse."
+
+msgid "Der Vorschlag wurde übernommen."
+msgstr "La proposta è stata riportata."
+
+msgid "Der Vorschlag ist veraltet. Bitte neu laden."
+msgstr "La proposta è obsoleta. Ricaricare."
+
+msgid "Verknüpft; die Buchungen liegen derzeit nicht über 10.000 €."
+msgstr "Collegata; le registrazioni al momento non superano 10.000 €."
+
+msgid "bleibt unverändert"
+msgstr "resta invariato"
+
+msgid "keine Übernahme"
+msgstr "nessun riporto"
+
+msgid "Betrag ersetzen: %1"
+msgstr "Sostituisci importo: %1"
+
+msgid "Übernehmen: %1"
+msgstr "Riporta: %1"
+
+msgid "Verknüpfen mit Zeile %1"
+msgstr "Collega alla riga %1"
+
+msgid "Die Bundesgliederung bucht nicht in Lapis – kein Vorschlag möglich."
+msgstr "L'unità federale non registra in Lapis: nessuna proposta possibile."
+
+msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
+msgstr "Rendiconto: proposta per l'allegato B riportata"

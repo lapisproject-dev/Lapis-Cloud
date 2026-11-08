@@ -151,6 +151,9 @@ class PartgReportSchemaDriftTest :
                 expectedForeignKeys = mapOf("annex_id" to "partg_report_annex", "created_by" to "member", "updated_by" to "member"),
                 sqlOnlyForeignKeys = emptyMap(),
             )
+            // V1.9.293 (R5b): the two new columns are nullable (checked by `check`) and the key is unique per annex (a NORMAL unique index)
+            transaction { introspectPartgTable("partg_report_large_donor") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("annex_id", "source_donor_key"))
         }
 
         test("partg_report_notes_sheet matches the migrated schema and PartgReportNotesSheetTable 1:1") {
