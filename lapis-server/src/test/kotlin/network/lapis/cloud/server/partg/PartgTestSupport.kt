@@ -13,8 +13,13 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.DsgvoAuditLogTable
+import network.lapis.cloud.server.db.generated.ErasureRequestTable
+import network.lapis.cloud.server.db.generated.JournalEntryTable
+import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.db.generated.PartgAccountMappingTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
 import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
@@ -25,13 +30,19 @@ import network.lapis.cloud.server.db.generated.PartgReportPositionTable
 import network.lapis.cloud.server.db.generated.PartgReportSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
+import network.lapis.cloud.server.db.generated.PartgReportUnitModeTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
+import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTreasurerTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PartyReportService
+import network.lapis.cloud.server.rpc.RegionalChapterService
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -109,8 +120,67 @@ internal class PartgFixtures(
 ) {
     val memberIds = mutableListOf<Uuid>()
     val chapterIds = mutableListOf<Uuid>()
+    val accountIds = mutableListOf<Uuid>()
 
     fun service(call: ApplicationCall) = PartyReportService(call = call, writeRateLimiter = limiter)
+
+    fun accounting(call: ApplicationCall) = AccountingService(call)
+
+    fun chapterService(call: ApplicationCall) = RegionalChapterService(call)
+
+    /** A ledger account with a unique number (V1.9.289: the booking and mapping scenarios). */
+    fun ledgerAccount(
+        type: LedgerAccountType,
+        name: String = "Test ${Uuid.random()}",
+        active: Boolean = true,
+        cashRegister: Boolean = false,
+    ): Uuid {
+        val id = Uuid.random()
+        val number = (10_000_000 + (Math.abs(id.hashCode()) % 80_000_000)).toString()
+        transaction {
+            LedgerAccountTable.insert {
+                it[LedgerAccountTable.id] = id
+                it[accountNumber] = number
+                it[LedgerAccountTable.name] = name
+                it[accountClass] = number.first().digitToInt()
+                it[LedgerAccountTable.type] = type
+                it[LedgerAccountTable.active] = active
+                it[reserveType] = null
+                it[isCashRegister] = cashRegister
+            }
+        }
+        accountIds += id
+        return id
+    }
+
+    /** An ACTIVE chapter-treasurer grant, inserted directly (the RPC is tested on its own). */
+    fun grantTreasurer(
+        member: Uuid,
+        chapter: Uuid,
+    ): Uuid {
+        val id = Uuid.random()
+        transaction {
+            RegionalChapterTreasurerTable.insert {
+                it[RegionalChapterTreasurerTable.id] = id
+                it[memberId] = member
+                it[regionalChapterId] = chapter
+                it[grantedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                it[grantedByMemberId] = null
+                it[revokedAt] = null
+                it[activeKey] = "$member:$chapter"
+            }
+        }
+        return id
+    }
+
+    fun revokeTreasurer(grantId: Uuid) {
+        transaction {
+            RegionalChapterTreasurerTable.update({ RegionalChapterTreasurerTable.id eq grantId }) {
+                it[revokedAt] = LocalDateTime(2026, 2, 1, 0, 0)
+                it[activeKey] = null
+            }
+        }
+    }
 
     fun member(
         label: String = "m",
@@ -164,6 +234,21 @@ internal class PartgFixtures(
 
     fun cleanUp() {
         transaction {
+            // V1.9.289: bookings, mapping, modes, grants and the accounts of the test first (they point to members, chapters and accounts)
+            val entryIds =
+                JournalEntryTable
+                    .selectAll()
+                    .where {
+                        JournalEntryTable.createdBy inList memberIds
+                    }.map { it[JournalEntryTable.id] }
+            PostingTable.deleteWhere { PostingTable.journalEntryId inList entryIds }
+            JournalEntryTable.deleteWhere { JournalEntryTable.id inList entryIds }
+            PartgAccountMappingTable.deleteWhere { (ledgerAccountId inList accountIds) or (updatedBy inList memberIds) }
+            LedgerAccountTable.deleteWhere { LedgerAccountTable.id inList accountIds }
+            PartgReportUnitModeTable.deleteWhere { (regionalChapterId inList chapterIds) or (updatedBy inList memberIds) }
+            RegionalChapterTreasurerTable.deleteWhere {
+                (memberId inList memberIds) or (regionalChapterId inList chapterIds) or (grantedByMemberId inList memberIds)
+            }
             // V1.9.269: the R3 rows first (children before headers)
             val annexIds =
                 PartgReportAnnexTable
@@ -215,6 +300,9 @@ internal class PartgFixtures(
                 it[orgHintUpdatedAt] = null
                 it[orgHintUpdatedBy] = null
             }
+            // the erasure scenarios (executeErasure end to end): the DSGVO audit rows and requests of the test members
+            DsgvoAuditLogTable.deleteWhere { (subjectMemberId inList memberIds) or (actorMemberId inList memberIds) }
+            ErasureRequestTable.deleteWhere { (subjectMemberId inList memberIds) or (requestedBy inList memberIds) }
             AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId inList memberIds }) { it[actorMemberId] = null }
             MemberTable.update({ MemberTable.regionalChapterId inList chapterIds }) { it[regionalChapterId] = null }
             RegionalChapterTable.deleteWhere { RegionalChapterTable.id inList chapterIds }

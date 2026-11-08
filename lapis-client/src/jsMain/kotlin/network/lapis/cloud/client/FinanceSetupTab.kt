@@ -474,8 +474,10 @@ private fun renderChartStep(
     reload: () -> Unit,
 ) {
     val activeCount = accounts.count { it.active }
+    val party = AppState.session?.politicalParty == true
     if (activeCount > 0) {
         cardDiv.p(gettext("%1 aktive Konten im Kontenplan.", activeCount)) { addCssClasses("text-muted small") }
+        if (party) renderPartyChartOffer(cardDiv, access, accounts, reload)
         return
     }
     if (access == FinanceSetupAccess.READ_ONLY) {
@@ -518,6 +520,75 @@ private fun renderChartStep(
             },
         )
     }
+    if (party) renderPartyChartOffer(cardDiv, access, accounts, reload)
+}
+
+/** The proposed party accounts that do not exist yet (by number): what "Parteien-Kontenplan anlegen" would create. */
+internal fun partyChartToCreate(existingNumbers: Set<String>): List<network.lapis.cloud.shared.domain.StandardPartyChartAccount> =
+    network.lapis.cloud.shared.domain.StandardPartyChart.accounts
+        .filter { it.account.accountNumber !in existingNumbers }
+
+/**
+ * V1.9.289 (R4a): the party chart (SKR42 plus the party accounts) and the way on to the mapping of the accounts to the report positions. Only for a
+ * political party and only for those who may create accounts; the chart is a proposal that the tax advisor has to confirm.
+ */
+private fun renderPartyChartOffer(
+    cardDiv: Div,
+    access: FinanceSetupAccess,
+    accounts: List<LedgerAccountDto>,
+    reload: () -> Unit,
+) {
+    if (access != FinanceSetupAccess.READ_ONLY) {
+        val button =
+            cardDiv.actionButton(ActionIcon.ADD, tr("Parteien-Kontenplan anlegen"), style = ButtonStyle.OUTLINEPRIMARY)
+        button.onClick {
+            val toCreate = partyChartToCreate(accounts.map { it.accountNumber }.toSet())
+            val total = network.lapis.cloud.shared.domain.StandardPartyChart.accounts.size
+            confirmDialog(
+                title = tr("Parteien-Kontenplan anlegen"),
+                message =
+                    gettext(
+                        "%1 Konten werden angelegt, %2 sind schon vorhanden und bleiben unverändert",
+                        toCreate.size,
+                        total - toCreate.size,
+                    ),
+                confirmLabel = tr("Kontenplan anlegen"),
+                confirmStyle = ButtonStyle.PRIMARY,
+                extraLines =
+                    toCreate.map { a ->
+                        gettext("%1 %2 (%3)", a.account.accountNumber, a.account.name, ledgerAccountTypeLabel(a.account.type))
+                    } +
+                        listOf(
+                            tr("Angelegte Konten lassen sich später nicht löschen, nur deaktivieren."),
+                            tr("Der Kontenplan ist ein Vorschlag; bitte von Ihrer Steuerberatung bestätigen lassen."),
+                        ),
+                focusCancel = true,
+                onConfirm = {
+                    AppScope.launch {
+                        try {
+                            val result = rpcService<IAccountingService>().createStandardPartyChart()
+                            notifySuccess(gettext("%1 Konten angelegt, %2 schon vorhanden.", result.created.size, result.skipped.size))
+                            if (result.conflicting.isNotEmpty()) {
+                                notifyWarning(gettext("Übersprungen (anderer Name): %1", result.conflicting.joinToString(", ")))
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: ConflictException) {
+                            notifyWarning(tr("Der Kontenplan wurde inzwischen geändert. Bitte prüfen."))
+                        } catch (e: Throwable) {
+                            guarded<Unit> { throw e }
+                        }
+                        reload()
+                    }
+                },
+            )
+        }
+    }
+    cardDiv.link(
+        tr("Konten den Positionen des Rechenschaftsberichts zuordnen"),
+        url = "#" + Routes.PARTY_REPORT + "?tab=" + PartyReportTab.KONTENZUORDNUNG.name,
+        dataNavigo = true,
+    )
 }
 
 private class AdvancedFields(

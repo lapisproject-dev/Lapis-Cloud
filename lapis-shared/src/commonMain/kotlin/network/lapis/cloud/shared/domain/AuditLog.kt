@@ -616,6 +616,19 @@ enum class AuditEntityType {
 
     /** Welle V1.9.269 -- the notes of one year (`partg_report_notes_sheet`); snapshot [PartgNotesAuditSnapshot], no text. 18 chars. Appended LAST. */
     PARTG_REPORT_NOTES,
+
+    /**
+     * Welle V1.9.289 (R4a) -- a ledger account was mapped to a report position (or to "not in the report") or the mapping was removed;
+     * `entityId` = the `partg_account_mapping` row (or the ledger account for a removed one). Snapshot [PartgMappingAuditSnapshot]: account
+     * number and position codes only. 22 chars. Appended LAST.
+     */
+    PARTG_ACCOUNT_MAPPING,
+
+    /** Welle V1.9.289 (R4a) -- the bookkeeping mode of a unit and year changed; snapshot [PartgModeAuditSnapshot]. 16 chars. Appended LAST. */
+    PARTG_UNIT_MODE,
+
+    /** Welle V1.9.289 (R4a) -- a chapter-treasurer grant was given or revoked; ids only, no name. 26 chars. Appended LAST. */
+    REGIONAL_CHAPTER_TREASURER,
 }
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */
@@ -755,6 +768,11 @@ data class JournalEntrySnapshot(
     val externalDonorId: String?,
     val donorCategory: DonorCategory?,
     val postings: List<PostingSnapshot>,
+    /**
+     * V1.9.289 (R4a): the reporting chapter, `null` = federal level. Has a DEFAULT (and the audit JSON encoder keeps `encodeDefaults = false`)
+     * so the payload of a federal entry stays BYTE-IDENTICAL to the one written before this field existed.
+     */
+    val regionalChapterId: String? = null,
 )
 
 /** One Soll/Haben line within a [JournalEntrySnapshot] -- mirrors [PostingDto]'s own shape, id-only.
@@ -1493,6 +1511,8 @@ data class StandardChartAppliedSnapshot(
     val chartVersion: String,
     val created: List<String>,
     val skipped: List<String>,
+    /** V1.9.289 (R4a): numbers that exist with another name (party chart only); omitted from the JSON while empty. */
+    val conflicting: List<String> = emptyList(),
 )
 
 /** Welle V1.9.226 -- after-snapshot of an [AuditEntityType.LUPABB_SYNC_RUN] entry: counters and the SHA-256 of the normalised data. */

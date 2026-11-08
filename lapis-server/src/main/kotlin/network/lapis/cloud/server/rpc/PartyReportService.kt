@@ -3,23 +3,33 @@ package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.server.partg.PartgAnnexWriter
+import network.lapis.cloud.server.partg.PartgLedgerLinkStore
+import network.lapis.cloud.server.partg.PartgLedgerProposals
+import network.lapis.cloud.server.partg.PartgLedgerReader
 import network.lapis.cloud.server.partg.PartgMemberCountSuggestion
 import network.lapis.cloud.server.partg.PartgReportSnapshotReader
 import network.lapis.cloud.server.partg.PartgReportStore
 import network.lapis.cloud.server.partg.PartgSheetWriter
 import network.lapis.cloud.server.partg.PartgStatementStore
 import network.lapis.cloud.server.partg.PartgYearRules
+import network.lapis.cloud.server.partg.PartyReportActor
+import network.lapis.cloud.server.partg.report.PartgLedgerFacts
 import network.lapis.cloud.server.partg.report.PartgPlausibility
 import network.lapis.cloud.server.partg.requirePartyReportAccess
+import network.lapis.cloud.server.partg.requirePartyReportScopedAccess
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.PartgAccountMappingRowDto
+import network.lapis.cloud.shared.domain.PartgAccountMappingViewDto
 import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgAnnexRules
+import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgEnterpriseCheckDto
@@ -30,12 +40,19 @@ import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgHoldingDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
+import network.lapis.cloud.shared.domain.PartgLedgerProposalDto
+import network.lapis.cloud.shared.domain.PartgLedgerProposalRowDto
+import network.lapis.cloud.shared.domain.PartgLedgerRules
+import network.lapis.cloud.shared.domain.PartgMappingAuditSnapshot
+import network.lapis.cloud.shared.domain.PartgMappingChangeDto
+import network.lapis.cloud.shared.domain.PartgModeAuditSnapshot
 import network.lapis.cloud.shared.domain.PartgNoteDto
 import network.lapis.cloud.shared.domain.PartgNotesDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgPositionHintSnapshot
 import network.lapis.cloud.shared.domain.PartgPositions
+import network.lapis.cloud.shared.domain.PartgProposalPickDto
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgSheetDto
 import network.lapis.cloud.shared.domain.PartgSponsorDto
@@ -44,15 +61,24 @@ import network.lapis.cloud.shared.domain.PartgSponsoringEntryDto
 import network.lapis.cloud.shared.domain.PartgStatementRules
 import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgUnitDto
+import network.lapis.cloud.shared.domain.PartgUnitLevel
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
 import network.lapis.cloud.shared.domain.PartgValueSource
 import network.lapis.cloud.shared.domain.PartgYouthOrgDto
 import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
+import network.lapis.cloud.shared.domain.StandardPartyChart
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IPartyReportService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportInvalidInputException
+import network.lapis.cloud.shared.rpc.PartyReportModeConfirmationRequiredException
+import network.lapis.cloud.shared.rpc.PartyReportProposalNotAvailableException
+import network.lapis.cloud.shared.rpc.PartyReportRevisionConflictException
 import network.lapis.cloud.shared.rpc.RateLimitedException
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import kotlin.uuid.Uuid
 
 /**
  * V1.9.225 -- see [IPartyReportService] and `docs/features/partg-report.adoc`. EVERY method starts with `requirePartyReportAccess(call)`
@@ -106,23 +132,25 @@ class PartyReportService internal constructor(
     }
 
     override suspend fun listUnits(): List<PartgUnitDto> {
-        requirePartyReportAccess(call)
-        return transaction { PartgReportStore.units() }
+        val actor = requirePartyReportScopedAccess(call)
+        return transaction { PartgReportStore.units().filter { actor.allowsKey(it.unitKey) } }
     }
 
     override suspend fun overview(year: Int): List<PartgOverviewRowDto> {
-        requirePartyReportAccess(call)
+        val actor = requirePartyReportScopedAccess(call)
         PartgYearRules.requireValid(year)
-        return transaction { PartgReportStore.overview(year) }
+        return transaction { enrichOverview(year = year, rows = PartgReportStore.overview(year), actor = actor) }
     }
 
     override suspend fun getSheet(
         year: Int,
         unitKey: String,
     ): PartgSheetDto {
-        requirePartyReportAccess(call)
+        val actor = requirePartyReportScopedAccess(call)
         PartgYearRules.requireValid(year)
         val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        // a chapter treasurer does not learn that another unit exists: 404
+        if (!actor.allows(unit)) throw NotFoundException("Unit not found")
         return transaction {
             val dto = PartgReportStore.unitDto(unit)
             val sheet = PartgReportStore.findSheet(year = year, unit = unit)
@@ -135,6 +163,7 @@ class PartyReportService internal constructor(
                 priorYear = year - 1,
                 priorValues = prior?.let { PartgReportStore.values(it.id) }.orEmpty(),
                 priorRevision = prior?.revision ?: 0L,
+                valueSources = sheet?.let { PartgReportStore.valueSources(it.id) }.orEmpty(),
             )
         }
     }
@@ -146,9 +175,11 @@ class PartyReportService internal constructor(
         expectedPriorRevision: Long,
         changes: List<PartgValueChangeDto>,
     ): PartgSaveResultDto {
-        val current = requirePartyReportAccess(call)
+        val actor = requirePartyReportScopedAccess(call)
+        val current = actor.current
         PartgYearRules.requireValid(year)
         val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (!actor.allows(unit)) throw ForbiddenException()
         if (changes.size > MAX_CHANGES) throw PartyReportInvalidInputException("Too many changes")
         val currentChanges = LinkedHashMap<String, Long?>()
         val priorChanges = LinkedHashMap<String, Long?>()
@@ -290,17 +321,29 @@ class PartyReportService internal constructor(
     }
 
     override suspend fun reportFindings(year: Int): List<PartgFindingDto> {
-        val current = requirePartyReportAccess(call)
+        val actor = requirePartyReportScopedAccess(call)
+        val current = actor.current
         PartgYearRules.requireValid(year)
         if (!findingsRateLimiter.checkAndRecord("partg:findings:${current.memberId}")) throw RateLimitedException()
         val snapshot = PartgReportSnapshotReader.read(listOf(year, year - 1))
-        return PartgPlausibility.check(
-            year = year,
-            units = snapshot.units,
-            entered = snapshot.entered.values,
-            annex = snapshot.annex,
-            notes = snapshot.notes,
-        )
+        val ledger = transaction { ledgerFacts(year = year, units = snapshot.units) }
+        val findings =
+            PartgPlausibility.check(
+                year = year,
+                units = snapshot.units,
+                entered = snapshot.entered.values,
+                annex = snapshot.annex,
+                notes = snapshot.notes,
+                ledger = ledger,
+            )
+        // a chapter treasurer sees only the hints of their own units; the hints of the whole organisation (unitKey null) are not theirs
+        return if (actor is PartyReportActor.Federal) {
+            findings
+        } else {
+            findings.filter { f ->
+                f.unitKey != null && actor.allowsKey(f.unitKey!!)
+            }
+        }
     }
 
     // ---------------------------------------------------------------- R3b (V1.9.283)
@@ -426,6 +469,418 @@ class PartyReportService internal constructor(
             enterpriseId = enterpriseId,
             now = ServerClock.now(),
         ) { annexDto(year = year, unit = unit) }
+    }
+
+    // ---------------------------------------------------------------- R4a (V1.9.289)
+
+    override suspend fun getAccountMappings(
+        year: Int,
+        unitKey: String,
+    ): PartgAccountMappingViewDto {
+        val actor = requirePartyReportScopedAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (!actor.allows(unit)) throw NotFoundException("Unit not found")
+        return transaction { mappingView(year = year, unit = unit, editable = actor is PartyReportActor.Federal) }
+    }
+
+    override suspend fun saveAccountMappings(
+        year: Int,
+        unitKey: String,
+        changes: List<PartgMappingChangeDto>,
+    ): PartgAccountMappingViewDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (changes.size > MAX_MAPPING_CHANGES) throw PartyReportInvalidInputException("Too many changes")
+        if (changes.map { it.accountId }.toSet().size != changes.size) throw PartyReportInvalidInputException("Duplicate account")
+        val parsed =
+            changes.map { change ->
+                change to
+                    (runCatching { Uuid.parse(change.accountId) }.getOrNull() ?: throw NotFoundException("Account not found"))
+            }
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        val now = ServerClock.now()
+        return transaction {
+            // serialises all mapping writers (same settings-row lock every settings writer takes BEFORE the audit chain row)
+            OrganizationSettingsTable
+                .selectAll()
+                .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                .forUpdate()
+                .single()
+            val accounts = PartgLedgerReader.accounts().associateBy { it.id }
+            val stored = PartgLedgerLinkStore.mappings()
+            // validate EVERYTHING before the first write: all or nothing
+            val plan =
+                parsed.map { (change, accountId) ->
+                    val account = accounts[accountId] ?: throw NotFoundException("Account not found")
+                    val old = stored[accountId]
+                    if (change.expectedMapped != (old != null)) throw PartyReportRevisionConflictException()
+                    if (old != null && (change.expectedPositionCode != old.positionCode || change.expectedExcluded != old.excluded)) {
+                        throw PartyReportRevisionConflictException()
+                    }
+                    when {
+                        change.clear -> Unit
+                        change.newExcluded ->
+                            if (change.newPositionCode !=
+                                null
+                            ) {
+                                throw PartyReportInvalidInputException("Excluded has no position")
+                            }
+                        else -> {
+                            val code = change.newPositionCode ?: throw PartyReportInvalidInputException("Position missing")
+                            if (!PartgLedgerRules.allowedTarget(
+                                    accountType = account.type,
+                                    positionCode = code,
+                                )
+                            ) {
+                                throw PartyReportInvalidInputException("Not a valid target")
+                            }
+                        }
+                    }
+                    Triple(change, account, old)
+                }
+            plan.forEach { (change, account, old) ->
+                val accountId = account.id
+                when {
+                    change.clear && old == null -> Unit
+                    change.clear -> {
+                        PartgLedgerLinkStore.delete(accountId)
+                        recordMappingAudit(
+                            current = current,
+                            rowId = old!!.id,
+                            action = AuditAction.VOID,
+                            before =
+                                PartgMappingAuditSnapshot(
+                                    accountNumber = account.number,
+                                    oldCode = old.positionCode,
+                                    oldExcluded = old.excluded,
+                                    newCode = null,
+                                    newExcluded = null,
+                                ),
+                            after = null,
+                            now = now,
+                        )
+                    }
+                    old != null && old.excluded == change.newExcluded && old.positionCode == change.newPositionCode -> Unit
+                    else -> {
+                        val rowId =
+                            PartgLedgerLinkStore.upsert(
+                                accountId = accountId,
+                                positionCode = if (change.newExcluded) null else change.newPositionCode,
+                                excluded = change.newExcluded,
+                                actor = current.memberId,
+                                now = now,
+                            )
+                        recordMappingAudit(
+                            current = current,
+                            rowId = rowId,
+                            action = if (old == null) AuditAction.CREATE else AuditAction.UPDATE,
+                            before =
+                                old?.let {
+                                    PartgMappingAuditSnapshot(
+                                        accountNumber = account.number,
+                                        oldCode = it.positionCode,
+                                        oldExcluded = it.excluded,
+                                        newCode = null,
+                                        newExcluded = null,
+                                    )
+                                },
+                            after =
+                                PartgMappingAuditSnapshot(
+                                    accountNumber = account.number,
+                                    newCode = if (change.newExcluded) null else change.newPositionCode,
+                                    newExcluded = change.newExcluded,
+                                ),
+                            now = now,
+                        )
+                    }
+                }
+            }
+            mappingView(year = year, unit = unit, editable = true)
+        }
+    }
+
+    override suspend fun setUnitMode(
+        year: Int,
+        unitKey: String,
+        mode: PartgBookkeepingMode,
+        confirmedBookingCount: Int,
+    ): PartgOverviewRowDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (!PartgLedgerRules.modeAllowed(
+                level = unit.level,
+                mode = mode,
+            )
+        ) {
+            throw PartyReportInvalidInputException("A summary of sub-units is always mode C")
+        }
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        val now = ServerClock.now()
+        return transaction {
+            if (unit.chapterId != null) {
+                PartgReportStore.lockChapter(unit)
+            } else {
+                OrganizationSettingsTable
+                    .selectAll()
+                    .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                    .forUpdate()
+                    .single()
+            }
+            val old = PartgLedgerLinkStore.modeOf(year = year, unit = unit)
+            if (unit.level != PartgUnitLevel.SUBORDINATE && old != mode) {
+                val count = PartgLedgerReader.postedCount(year = year, chapterId = PartgLedgerProposals.chapterOf(unit))
+                if (count > 0 && confirmedBookingCount != count) throw PartyReportModeConfirmationRequiredException()
+                val rowId = PartgLedgerLinkStore.setMode(year = year, unit = unit, mode = mode, actor = current.memberId, now = now)
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.PARTG_UNIT_MODE,
+                    entityId = rowId,
+                    action = AuditAction.UPDATE,
+                    before = null,
+                    after =
+                        Json.encodeToString(
+                            PartgModeAuditSnapshot.serializer(),
+                            PartgModeAuditSnapshot(year = year, unitKey = unit.key(), old = old, new = mode, bookingCount = count),
+                        ),
+                    occurredAt = now,
+                )
+            }
+            enrichOverview(year = year, rows = PartgReportStore.overview(year), actor = PartyReportActor.Federal(current))
+                .single { it.unit.unitKey == unit.key() }
+        }
+    }
+
+    override suspend fun proposeFromLedger(
+        year: Int,
+        unitKey: String,
+    ): PartgLedgerProposalDto {
+        val actor = requirePartyReportScopedAccess(call)
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (!actor.allows(unit)) throw NotFoundException("Unit not found")
+        return transaction {
+            val mode = PartgLedgerLinkStore.modeOf(year = year, unit = unit)
+            if (!PartgLedgerProposals.available(unit = unit, mode = mode)) throw PartyReportProposalNotAvailableException()
+            val sheet = PartgReportStore.findSheet(year = year, unit = unit)
+            val prior = PartgReportStore.findSheet(year = year - 1, unit = unit)
+            val entered = sheet?.let { PartgReportStore.values(it.id) }.orEmpty()
+            val sources = sheet?.let { PartgReportStore.valueSources(it.id) }.orEmpty()
+            val proposal = PartgLedgerProposals.proposalFor(year = year, unit = unit)
+            val rows =
+                proposal.entries
+                    .mapNotNull { (code, proposed) ->
+                        val have = entered[code]
+                        if (have == proposed || (have == null && proposed == 0L)) {
+                            null
+                        } else {
+                            PartgLedgerProposalRowDto(
+                                positionCode = code,
+                                enteredCents = have,
+                                enteredSource = if (have == null) null else sources[code],
+                                proposedCents = proposed,
+                                preselected = PartgLedgerRules.preselect(entered = have, source = sources[code], proposed = proposed),
+                                transferable = PartgLedgerRules.transferable(proposed),
+                            )
+                        }
+                    }.sortedBy { PartgPositions.find(it.positionCode)?.sortOrder ?: Int.MAX_VALUE }
+            PartgLedgerProposalDto(
+                year = year,
+                unitKey = unit.key(),
+                rows = rows,
+                revision = sheet?.revision ?: 0L,
+                priorRevision = prior?.revision ?: 0L,
+                mode = mode,
+                unmappedWithActivityCount = PartgLedgerProposals.unmappedWithActivity(year = year, unit = unit),
+            )
+        }
+    }
+
+    override suspend fun applyLedgerProposal(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        expectedPriorRevision: Long,
+        picks: List<PartgProposalPickDto>,
+    ): PartgSaveResultDto {
+        val actor = requirePartyReportScopedAccess(call)
+        val current = actor.current
+        PartgYearRules.requireValid(year)
+        val unit = PartgUnit.parse(unitKey) ?: throw PartyReportInvalidInputException("Invalid unit")
+        if (!actor.allows(unit)) throw ForbiddenException()
+        if (picks.size > PartgPositions.LEAF_COUNT) throw PartyReportInvalidInputException("Too many picks")
+        val byCode = LinkedHashMap<String, Long>()
+        picks.forEach { pick ->
+            if (pick.positionCode !in PartgPositions.LEAF_CODES) throw PartyReportInvalidInputException("Not a typed-in position")
+            if (byCode.put(pick.positionCode, pick.proposedCents) != null) throw PartyReportInvalidInputException("Duplicate pick")
+        }
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgSheetWriter.writeLedgerProposal(
+            current = current,
+            year = year,
+            unit = unit,
+            expectedRevision = expectedRevision,
+            expectedPriorRevision = expectedPriorRevision,
+            picks = byCode,
+            now = ServerClock.now(),
+        )
+    }
+
+    private fun PartyReportActor.allowsKey(unitKey: String): Boolean = PartgUnit.parse(unitKey)?.let { allows(it) } == true
+
+    private fun recordMappingAudit(
+        current: network.lapis.cloud.server.security.CurrentMember,
+        rowId: Uuid,
+        action: AuditAction,
+        before: PartgMappingAuditSnapshot?,
+        after: PartgMappingAuditSnapshot?,
+        now: kotlinx.datetime.LocalDateTime,
+    ) {
+        AuditLogRecorder.record(
+            actorMemberId = current.memberId,
+            actorRole = current.role,
+            entityType = AuditEntityType.PARTG_ACCOUNT_MAPPING,
+            entityId = rowId,
+            action = action,
+            before = before?.let { Json.encodeToString(PartgMappingAuditSnapshot.serializer(), it) },
+            after = after?.let { Json.encodeToString(PartgMappingAuditSnapshot.serializer(), it) },
+            occurredAt = now,
+        )
+    }
+
+    /** Adds mode, booking count and editability to the overview rows and drops the units the actor may not see. */
+    private fun enrichOverview(
+        year: Int,
+        rows: List<PartgOverviewRowDto>,
+        actor: PartyReportActor,
+    ): List<PartgOverviewRowDto> {
+        val modes = PartgLedgerLinkStore.modes(year)
+        val counts = PartgLedgerReader.postedCountsByChapter(year)
+        return rows
+            .filter { actor.allowsKey(it.unit.unitKey) }
+            .map { row ->
+                val unit = PartgUnit.parse(row.unit.unitKey)
+                if (unit == null || unit.level == PartgUnitLevel.SUBORDINATE) {
+                    row
+                } else {
+                    row.copy(
+                        mode = modes[unit.key()] ?: PartgBookkeepingMode.C,
+                        bookingCount = counts[PartgLedgerProposals.chapterOf(unit)] ?: 0,
+                        modeEditable = actor is PartyReportActor.Federal,
+                    )
+                }
+            }
+    }
+
+    private fun mappingView(
+        year: Int,
+        unit: PartgUnit,
+        editable: Boolean,
+    ): PartgAccountMappingViewDto {
+        PartgReportStore.unitDto(unit)
+        val accounts = PartgLedgerReader.accounts().sortedBy { it.number }
+        val mappings = PartgLedgerLinkStore.mappings()
+        val chapterId = PartgLedgerProposals.chapterOf(unit)
+        val noBookings = unit.level == PartgUnitLevel.SUBORDINATE
+        val flows = if (noBookings) emptyMap() else PartgLedgerReader.flowsByAccount(year = year, chapterId = chapterId)
+        val balances =
+            if (noBookings) {
+                emptyMap()
+            } else {
+                PartgLedgerReader.balancesByAccount(asOf = kotlinx.datetime.LocalDate(year, 12, 31), chapterId = chapterId)
+            }
+        val templates = StandardPartyChart.accounts.associateBy { it.account.accountNumber }
+        val rows =
+            accounts.map { account ->
+                val mapping = mappings[account.id]
+                val section = PartgLedgerRules.sectionOf(account.type)
+                val sums = if (section != null && PartgLedgerRules.isFlow(section)) flows[account.id] else balances[account.id]
+                val balance =
+                    if (section == null) {
+                        null
+                    } else {
+                        PartgLedgerRules.signedAmountCents(
+                            section = section,
+                            debitCents = sums?.debitCents ?: 0L,
+                            creditCents =
+                                sums?.creditCents ?: 0L,
+                        )
+                    }
+                val template = templates[account.number]?.takeIf { mapping == null && it.account.type == account.type }
+                PartgAccountMappingRowDto(
+                    accountId = account.id.toString(),
+                    number = account.number,
+                    name = account.name,
+                    type = account.type,
+                    active = account.active,
+                    positionCode = mapping?.positionCode,
+                    excluded = mapping?.excluded ?: false,
+                    templateSuggestion =
+                        template?.suggestedPosition?.takeIf {
+                            PartgLedgerRules.allowedTarget(
+                                accountType = account.type,
+                                positionCode = it,
+                            )
+                        },
+                    templateSuggestsExcluded = template?.suggestExcluded ?: false,
+                    balanceCents = balance,
+                    postingCount = flows[account.id]?.postingCount ?: 0,
+                )
+            }
+        val unmapped = rows.filter { it.positionCode == null && !it.excluded && (it.active || it.postingCount > 0) }
+        return PartgAccountMappingViewDto(
+            rows = rows,
+            unmappedCount = unmapped.size,
+            unmappedWithActivityCount = unmapped.count { it.postingCount > 0 },
+            editable = editable,
+            year = year,
+            unitKey = unit.key(),
+        )
+    }
+
+    /** The bookings-related facts of the plausibility assistant, per federal or state unit that books in Lapis or has bookings anyway. */
+    private fun ledgerFacts(
+        year: Int,
+        units: List<PartgUnitDto>,
+    ): Map<String, PartgLedgerFacts> {
+        val modes = PartgLedgerLinkStore.modes(year)
+        val counts = PartgLedgerReader.postedCountsByChapter(year)
+        val result = HashMap<String, PartgLedgerFacts>()
+        units.forEach { dto ->
+            val unit = PartgUnit.parse(dto.unitKey) ?: return@forEach
+            if (unit.level == PartgUnitLevel.SUBORDINATE) return@forEach
+            val mode = modes[unit.key()] ?: PartgBookkeepingMode.C
+            val bookings = counts[PartgLedgerProposals.chapterOf(unit)] ?: 0
+            if (mode == PartgBookkeepingMode.C && bookings == 0) return@forEach
+            result[unit.key()] =
+                if (mode == PartgBookkeepingMode.C) {
+                    PartgLedgerFacts(
+                        mode = mode,
+                        bookingCount = bookings,
+                        unmappedWithActivity = 0,
+                        proposal = emptyMap(),
+                        ledgerSourced = emptySet(),
+                    )
+                } else {
+                    val sheet = PartgReportStore.findSheet(year = year, unit = unit)
+                    PartgLedgerFacts(
+                        mode = mode,
+                        bookingCount = bookings,
+                        unmappedWithActivity = PartgLedgerProposals.unmappedWithActivity(year = year, unit = unit),
+                        proposal = PartgLedgerProposals.proposalFor(year = year, unit = unit),
+                        ledgerSourced =
+                            sheet
+                                ?.let { PartgReportStore.valueSources(it.id) }
+                                .orEmpty()
+                                .filterValues { it == PartgValueSource.LEDGER }
+                                .keys,
+                    )
+                }
+        }
+        return result
     }
 
     /** Must run inside a transaction. */
@@ -563,6 +1018,7 @@ class PartyReportService internal constructor(
 
     private companion object {
         const val MAX_CHANGES = 2 * 35
+        const val MAX_MAPPING_CHANGES = 2000
         const val MAX_HINT_LENGTH = 500
         const val PARTG_MAX_CENTS = network.lapis.cloud.shared.domain.PARTG_MAX_AMOUNT_CENTS
     }

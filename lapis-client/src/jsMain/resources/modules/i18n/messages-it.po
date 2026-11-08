@@ -30755,3 +30755,207 @@ msgstr "Posizione %1 registrata, ma nessuna impresa nel prospetto D"
 
 msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
 msgstr "Posizione registrata, ma nessuna impresa nel prospetto D"
+
+msgid "%1 %2 (%3)"
+msgstr "%1 %2 (%3)"
+
+msgid "%1 Buchungen vorhanden, die Buchführung steht auf Modus C"
+msgstr "Ci sono %1 registrazioni, ma la contabilità è in modalità C"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet"
+msgstr "%1 conti con registrazioni non sono assegnati a nessuna posizione"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet. Ihre Beträge fehlen im Vorschlag."
+msgstr "%1 conti con registrazioni non sono assegnati a nessuna posizione. I loro importi mancano nella proposta."
+
+msgid "%1 Konten werden angelegt, %2 sind schon vorhanden und bleiben unverändert"
+msgstr "Verranno creati %1 conti; %2 esistono già e restano invariati"
+
+msgid "%1 Werte übernehmen"
+msgstr "Applica %1 valori"
+
+msgid "%1 Zuordnungen gespeichert."
+msgstr "%1 assegnazioni salvate."
+
+msgid "%1 darf für %2 buchen und deren Journal lesen. Der Vorgang wird protokolliert."
+msgstr "%1 può registrare per %2 e leggerne il giornale. L'operazione viene registrata."
+
+msgid "%1 verliert sofort den Zugriff auf die Buchungen von %2."
+msgstr "%1 perde subito l'accesso alle registrazioni di %2."
+
+msgid "%1 wurde als Kassenwart eingetragen."
+msgstr "%1 è stato registrato come tesoriere."
+
+msgid "A – Zentral gebucht"
+msgstr "A – Registrato centralmente"
+
+msgid "Alle Vorschläge auswählen"
+msgstr "Seleziona tutti i suggerimenti"
+
+msgid "Als Kassenwart eintragen"
+msgstr "Registra come tesoriere"
+
+msgid "Aus Buchungen"
+msgstr "Dalle registrazioni"
+
+msgid "Ausgewählte übernehmen"
+msgstr "Applica la selezione"
+
+msgid "B – Eigene Kasse in Lapis"
+msgstr "B – Cassa propria in Lapis"
+
+msgid "Bewusst nicht im Bericht"
+msgstr "Volutamente escluso dal rendiconto"
+
+msgid "Bitte speichern oder verwerfen Sie zuerst Ihre Eingaben."
+msgstr "Salvi o scarti prima i suoi inserimenti."
+
+msgid "Buchführung"
+msgstr "Contabilità"
+
+msgid "Buchführung gespeichert."
+msgstr "Contabilità salvata."
+
+msgid "Buchführung ändern?"
+msgstr "Modificare la contabilità?"
+
+msgid "Buchungen haben sich geändert, Vorschlag neu laden"
+msgstr "Le registrazioni sono cambiate, ricarichi la proposta"
+
+msgid "Bund"
+msgstr "Livello federale"
+
+msgid "C – Eigene Kasse außerhalb"
+msgstr "C – Cassa propria fuori da Lapis"
+
+msgid "Die Buchungen stimmen mit den erfassten Werten überein. Es gibt nichts zu übernehmen."
+msgstr "Le registrazioni corrispondono ai valori inseriti. Non c'è nulla da applicare."
+
+msgid "Die Gesamtheit der nachgeordneten Gliederungen wird immer außerhalb von Lapis geführt."
+msgstr "L'insieme delle unità subordinate è sempre tenuto fuori da Lapis."
+
+msgid "Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu."
+msgstr "Il numero di registrazioni è cambiato. Ricarichi la panoramica."
+
+msgid "Die Zuordnung der Konten pflegt der Vorstand. Sie sehen sie hier nur zur Information."
+msgstr "Il consiglio direttivo gestisce l'assegnazione dei conti. Qui è mostrata solo a titolo informativo."
+
+msgid "Differenz"
+msgstr "Differenza"
+
+msgid "Ein Kassenwart darf für diese Gliederung buchen und das Journal, das Hauptbuch und das Kassenbuch der Gliederung lesen. Andere Bereiche der Buchhaltung bleiben ihm verschlossen."
+msgstr "Un tesoriere può registrare per questa unità e leggere il giornale, il libro mastro e il libro cassa dell'unità. Le altre aree della contabilità gli restano precluse."
+
+msgid "Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
+msgstr "Un valore preso dalle registrazioni differisce dalla proposta attuale"
+
+msgid "Entwurf, kein amtliches Formular. Die Zuordnung ist eine Arbeitshilfe und ersetzt keine Prüfung durch Ihre Steuerberatung."
+msgstr "Bozza, non un modulo ufficiale. L'assegnazione è un ausilio di lavoro e non sostituisce la verifica del suo consulente fiscale."
+
+msgid "Es gibt keine Vorschläge für die offenen Konten."
+msgstr "Non ci sono suggerimenti per i conti aperti."
+
+msgid "Es ist kein Vorschlag ausgewählt."
+msgstr "Nessun suggerimento è selezionato."
+
+msgid "Für %1 gibt es im Jahr %2 bereits %3 Buchungen. Die Buchungen bleiben unverändert."
+msgstr "Per %1 ci sono già %3 registrazioni nel %2. Le registrazioni restano invariate."
+
+msgid "Für diese Einheit gibt es keinen Vorschlag aus Buchungen."
+msgstr "Per questa unità non c'è alcuna proposta dalle registrazioni."
+
+msgid "Herkunft"
+msgstr "Origine"
+
+msgid "Im Modus C werden keine Werte aus Buchungen vorgeschlagen."
+msgstr "In modalità C non vengono proposti valori dalle registrazioni."
+
+msgid "Kassenwart der Gliederung"
+msgstr "Tesoriere dell'unità"
+
+msgid "Kassenwart eintragen"
+msgstr "Registra tesoriere"
+
+msgid "Kassenwart entfernen"
+msgstr "Rimuovi tesoriere"
+
+msgid "Kassenwart verwalten"
+msgstr "Gestisci tesoriere"
+
+msgid "Keine Konten vorhanden. Legen Sie zuerst den Kontenplan an."
+msgstr "Nessun conto presente. Crei prima il piano dei conti."
+
+msgid "Konten den Positionen des Rechenschaftsberichts zuordnen"
+msgstr "Assegna i conti alle posizioni del rendiconto"
+
+msgid "Mitglied suchen"
+msgstr "Cerca un membro"
+
+msgid "Negativ, nicht übertragbar. Bitte Zuordnung oder Buchungen prüfen."
+msgstr "Negativo, non trasferibile. Verifichi l'assegnazione o le registrazioni."
+
+msgid "Nicht zugeordnet: %1 Konten"
+msgstr "Non assegnati: %1 conti"
+
+msgid "Noch kein Kassenwart eingetragen."
+msgstr "Nessun tesoriere ancora registrato."
+
+msgid "Parteien-Kontenplan anlegen"
+msgstr "Crea il piano dei conti del partito"
+
+msgid "Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab"
+msgstr "La posizione %1 differisce dalla proposta attuale dalle registrazioni"
+
+msgid "Position für Konto"
+msgstr "Posizione del conto"
+
+msgid "Rechenschaftsbericht: Buchführung der Einheit"
+msgstr "Rendiconto: contabilità dell'unità"
+
+msgid "Rechenschaftsbericht: Kontenzuordnung"
+msgstr "Rendiconto: assegnazione dei conti"
+
+msgid "Spenden können nur auf Bundesebene gebucht werden."
+msgstr "Le donazioni possono essere registrate solo a livello federale."
+
+msgid "Vorschlag aus Buchungen"
+msgstr "Proposta dalle registrazioni"
+
+msgid "Vorschlag aus Buchungen: %1"
+msgstr "Proposta dalle registrazioni: %1"
+
+msgid "Vorschläge. Bitte prüfen, bevor Sie sie übernehmen."
+msgstr "Suggerimenti. Li verifichi prima di applicarli."
+
+msgid "Wert übernehmen"
+msgstr "Applica valore"
+
+msgid "Werte übernehmen"
+msgstr "Applica valori"
+
+msgid "Zugeordnet"
+msgstr "Assegnato"
+
+msgid "aus Buchungen"
+msgstr "dalle registrazioni"
+
+msgid "aus Parteien-Kontenplan"
+msgstr "dal piano dei conti del partito"
+
+msgid "davon %1 mit Buchungen im Jahr %2"
+msgstr "di cui %1 con registrazioni nel %2"
+
+msgid "gespeichert"
+msgstr "salvato"
+
+msgid "geändert"
+msgstr "modificato"
+
+msgid "Ändern"
+msgstr "Modifica"
+
+msgid "Übersprungen (anderer Name): %1"
+msgstr "Saltati (nome diverso): %1"
+
+msgid "Bundesebene"
+msgstr "Livello federale"

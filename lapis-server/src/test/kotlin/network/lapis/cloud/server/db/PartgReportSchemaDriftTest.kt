@@ -7,6 +7,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.PartgAccountMappingTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
 import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
@@ -17,8 +18,10 @@ import network.lapis.cloud.server.db.generated.PartgReportPositionTable
 import network.lapis.cloud.server.db.generated.PartgReportSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
+import network.lapis.cloud.server.db.generated.PartgReportUnitModeTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
+import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgKind
@@ -45,7 +48,7 @@ class PartgReportSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("the model declares the twelve report entities plus the Member and RegionalChapter stubs") {
+        test("the model declares the fourteen report entities plus the Member, RegionalChapter and LedgerAccount stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -62,6 +65,9 @@ class PartgReportSchemaDriftTest :
                     "partg_report_sponsoring_entry",
                     "partg_report_youth_org",
                     "partg_report_enterprise",
+                    "ledger_account",
+                    "partg_account_mapping",
+                    "partg_report_unit_mode",
                 )
         }
 
@@ -193,6 +199,30 @@ class PartgReportSchemaDriftTest :
             )
         }
 
+        test("partg_account_mapping matches the migrated schema and PartgAccountMappingTable 1:1") {
+            check(
+                table = "partg_account_mapping",
+                exposedColumns = PartgAccountMappingTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("ledger_account_id" to "ledger_account", "updated_by" to "member"),
+                sqlOnlyForeignKeys = mapOf("position_code" to "partg_report_position"),
+            )
+            transaction { introspectPartgTable("partg_account_mapping") }.uniqueConstraints.distinct() shouldContainExactlyInAnyOrder
+                listOf(setOf("ledger_account_id"))
+        }
+
+        test("partg_report_unit_mode matches the migrated schema and PartgReportUnitModeTable 1:1") {
+            check(
+                table = "partg_report_unit_mode",
+                exposedColumns = PartgReportUnitModeTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("regional_chapter_id" to "regional_chapter", "updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_report_unit_mode") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("fiscal_year", "unit_key"))
+            PartgBookkeepingMode.entries.map { it.name } shouldBe listOf("A", "B", "C")
+            transaction { PartgReportUnitModeTable.bookkeepingMode.columnType.sqlType() } shouldBe "VARCHAR(1)"
+        }
+
         test("the R3b person kind of the sponsor is sized by its sqlType") {
             transaction { PartgReportSponsorTable.personKind.columnType.sqlType() } shouldBe "VARCHAR(7)"
         }
@@ -232,7 +262,7 @@ class PartgReportSchemaDriftTest :
             PartgSection.entries.map { it.name } shouldBe listOf("INCOME", "EXPENSE", "ASSET", "LIABILITY")
             PartgKind.entries.map { it.name } shouldBe listOf("LEAF", "SUM")
             PartgUnitLevel.entries.map { it.name } shouldBe listOf("FEDERAL", "STATE", "SUBORDINATE")
-            PartgValueSource.entries.map { it.name } shouldBe listOf("MANUAL", "IMPORT")
+            PartgValueSource.entries.map { it.name } shouldBe listOf("MANUAL", "IMPORT", "LEDGER")
             model.entities
                 .single { it.name == "partg_report_position" }
                 .attributeByName("section")

@@ -282,10 +282,10 @@ class ReportGoldenTest {
         val rows = kassenbuchRows(kassenbuch)
         assertEquals(
             listOf(
-                listOf("", "", t("Eröffnungssaldo"), "", "", "", m(50.0)),
-                listOf("1", dateToken(LocalDate(2026, 4, 1)), "Spende Fest", "B-17", m(30.5), "", m(80.5)),
-                listOf("2", dateToken(LocalDate(2026, 4, 2)), "Getränke", "--", "", m(20.0), m(60.5)),
-                listOf("", "", t("Schlusssaldo"), "", "", "", m(60.5)),
+                listOf("", "", "", t("Eröffnungssaldo"), "", "", "", m(50.0)),
+                listOf("1", t("Bundesebene"), dateToken(LocalDate(2026, 4, 1)), "Spende Fest", "B-17", m(30.5), "", m(80.5)),
+                listOf("2", "Kreis Nord", dateToken(LocalDate(2026, 4, 2)), "Getränke", "--", "", m(20.0), m(60.5)),
+                listOf("", "", "", t("Schlusssaldo"), "", "", "", m(60.5)),
             ),
             rows.cellTexts(),
         )

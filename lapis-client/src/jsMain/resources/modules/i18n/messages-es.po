@@ -30442,3 +30442,207 @@ msgstr "Posición %1 registrada, pero ninguna empresa en el anexo D"
 
 msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
 msgstr "Posición registrada, pero ninguna empresa en el anexo D"
+
+msgid "%1 %2 (%3)"
+msgstr "%1 %2 (%3)"
+
+msgid "%1 Buchungen vorhanden, die Buchführung steht auf Modus C"
+msgstr "Hay %1 asientos, pero la contabilidad está en el modo C"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet"
+msgstr "%1 cuentas con asientos no están asignadas a ninguna posición"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet. Ihre Beträge fehlen im Vorschlag."
+msgstr "%1 cuentas con asientos no están asignadas a ninguna posición. Sus importes faltan en la propuesta."
+
+msgid "%1 Konten werden angelegt, %2 sind schon vorhanden und bleiben unverändert"
+msgstr "Se crearán %1 cuentas; %2 ya existen y permanecen sin cambios"
+
+msgid "%1 Werte übernehmen"
+msgstr "Aplicar %1 valores"
+
+msgid "%1 Zuordnungen gespeichert."
+msgstr "%1 asignaciones guardadas."
+
+msgid "%1 darf für %2 buchen und deren Journal lesen. Der Vorgang wird protokolliert."
+msgstr "%1 puede registrar asientos para %2 y leer su diario. La operación queda registrada."
+
+msgid "%1 verliert sofort den Zugriff auf die Buchungen von %2."
+msgstr "%1 pierde de inmediato el acceso a los asientos de %2."
+
+msgid "%1 wurde als Kassenwart eingetragen."
+msgstr "%1 se registró como tesorero."
+
+msgid "A – Zentral gebucht"
+msgstr "A – Contabilizado centralmente"
+
+msgid "Alle Vorschläge auswählen"
+msgstr "Seleccionar todas las sugerencias"
+
+msgid "Als Kassenwart eintragen"
+msgstr "Registrar como tesorero"
+
+msgid "Aus Buchungen"
+msgstr "De los asientos"
+
+msgid "Ausgewählte übernehmen"
+msgstr "Aplicar la selección"
+
+msgid "B – Eigene Kasse in Lapis"
+msgstr "B – Caja propia en Lapis"
+
+msgid "Bewusst nicht im Bericht"
+msgstr "Deliberadamente fuera del informe"
+
+msgid "Bitte speichern oder verwerfen Sie zuerst Ihre Eingaben."
+msgstr "Guarde o descarte primero sus entradas."
+
+msgid "Buchführung"
+msgstr "Contabilidad"
+
+msgid "Buchführung gespeichert."
+msgstr "Contabilidad guardada."
+
+msgid "Buchführung ändern?"
+msgstr "¿Cambiar la contabilidad?"
+
+msgid "Buchungen haben sich geändert, Vorschlag neu laden"
+msgstr "Los asientos han cambiado, recargue la propuesta"
+
+msgid "Bund"
+msgstr "Nivel federal"
+
+msgid "C – Eigene Kasse außerhalb"
+msgstr "C – Caja propia fuera de Lapis"
+
+msgid "Die Buchungen stimmen mit den erfassten Werten überein. Es gibt nichts zu übernehmen."
+msgstr "Los asientos coinciden con los valores registrados. No hay nada que aplicar."
+
+msgid "Die Gesamtheit der nachgeordneten Gliederungen wird immer außerhalb von Lapis geführt."
+msgstr "El conjunto de las unidades subordinadas se lleva siempre fuera de Lapis."
+
+msgid "Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu."
+msgstr "El número de asientos ha cambiado. Recargue el resumen."
+
+msgid "Die Zuordnung der Konten pflegt der Vorstand. Sie sehen sie hier nur zur Information."
+msgstr "La junta directiva mantiene la asignación de cuentas. Aquí solo se muestra a título informativo."
+
+msgid "Differenz"
+msgstr "Diferencia"
+
+msgid "Ein Kassenwart darf für diese Gliederung buchen und das Journal, das Hauptbuch und das Kassenbuch der Gliederung lesen. Andere Bereiche der Buchhaltung bleiben ihm verschlossen."
+msgstr "Un tesorero puede registrar asientos para esta unidad y leer el diario, el libro mayor y el libro de caja de la unidad. Las demás áreas de la contabilidad le permanecen cerradas."
+
+msgid "Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
+msgstr "Un valor tomado de los asientos difiere de la propuesta actual"
+
+msgid "Entwurf, kein amtliches Formular. Die Zuordnung ist eine Arbeitshilfe und ersetzt keine Prüfung durch Ihre Steuerberatung."
+msgstr "Borrador, no es un formulario oficial. La asignación es una ayuda de trabajo y no sustituye la revisión de su asesoría fiscal."
+
+msgid "Es gibt keine Vorschläge für die offenen Konten."
+msgstr "No hay sugerencias para las cuentas abiertas."
+
+msgid "Es ist kein Vorschlag ausgewählt."
+msgstr "No hay ninguna sugerencia seleccionada."
+
+msgid "Für %1 gibt es im Jahr %2 bereits %3 Buchungen. Die Buchungen bleiben unverändert."
+msgstr "Para %1 ya hay %3 asientos en %2. Los asientos permanecen sin cambios."
+
+msgid "Für diese Einheit gibt es keinen Vorschlag aus Buchungen."
+msgstr "No hay propuesta a partir de asientos para esta unidad."
+
+msgid "Herkunft"
+msgstr "Origen"
+
+msgid "Im Modus C werden keine Werte aus Buchungen vorgeschlagen."
+msgstr "En el modo C no se proponen valores a partir de asientos."
+
+msgid "Kassenwart der Gliederung"
+msgstr "Tesorero de la unidad"
+
+msgid "Kassenwart eintragen"
+msgstr "Registrar tesorero"
+
+msgid "Kassenwart entfernen"
+msgstr "Quitar tesorero"
+
+msgid "Kassenwart verwalten"
+msgstr "Gestionar tesorero"
+
+msgid "Keine Konten vorhanden. Legen Sie zuerst den Kontenplan an."
+msgstr "No hay cuentas. Cree primero el plan de cuentas."
+
+msgid "Konten den Positionen des Rechenschaftsberichts zuordnen"
+msgstr "Asignar las cuentas a las posiciones del informe"
+
+msgid "Mitglied suchen"
+msgstr "Buscar un miembro"
+
+msgid "Negativ, nicht übertragbar. Bitte Zuordnung oder Buchungen prüfen."
+msgstr "Negativo, no transferible. Revise la asignación o los asientos."
+
+msgid "Nicht zugeordnet: %1 Konten"
+msgstr "Sin asignar: %1 cuentas"
+
+msgid "Noch kein Kassenwart eingetragen."
+msgstr "Todavía no hay ningún tesorero registrado."
+
+msgid "Parteien-Kontenplan anlegen"
+msgstr "Crear plan de cuentas del partido"
+
+msgid "Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab"
+msgstr "La posición %1 difiere de la propuesta actual a partir de los asientos"
+
+msgid "Position für Konto"
+msgstr "Posición de la cuenta"
+
+msgid "Rechenschaftsbericht: Buchführung der Einheit"
+msgstr "Informe de rendición de cuentas: contabilidad de la unidad"
+
+msgid "Rechenschaftsbericht: Kontenzuordnung"
+msgstr "Informe de rendición de cuentas: asignación de cuentas"
+
+msgid "Spenden können nur auf Bundesebene gebucht werden."
+msgstr "Las donaciones solo se pueden contabilizar a nivel federal."
+
+msgid "Vorschlag aus Buchungen"
+msgstr "Propuesta a partir de asientos"
+
+msgid "Vorschlag aus Buchungen: %1"
+msgstr "Propuesta a partir de asientos: %1"
+
+msgid "Vorschläge. Bitte prüfen, bevor Sie sie übernehmen."
+msgstr "Sugerencias. Revíselas antes de aplicarlas."
+
+msgid "Wert übernehmen"
+msgstr "Aplicar valor"
+
+msgid "Werte übernehmen"
+msgstr "Aplicar valores"
+
+msgid "Zugeordnet"
+msgstr "Asignado"
+
+msgid "aus Buchungen"
+msgstr "de los asientos"
+
+msgid "aus Parteien-Kontenplan"
+msgstr "del plan de cuentas del partido"
+
+msgid "davon %1 mit Buchungen im Jahr %2"
+msgstr "de ellas %1 con asientos en %2"
+
+msgid "gespeichert"
+msgstr "guardado"
+
+msgid "geändert"
+msgstr "modificado"
+
+msgid "Ändern"
+msgstr "Cambiar"
+
+msgid "Übersprungen (anderer Name): %1"
+msgstr "Omitidas (otro nombre): %1"
+
+msgid "Bundesebene"
+msgstr "Nivel federal"

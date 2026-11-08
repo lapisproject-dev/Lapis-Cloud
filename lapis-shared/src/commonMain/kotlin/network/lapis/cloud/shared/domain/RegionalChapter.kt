@@ -80,6 +80,12 @@ object RegionalChapterRules {
     const val MAX_CHAPTERS = 50
     const val MAX_ACTIVE_OFFICERS_PER_CHAPTER = 25
 
+    /** V1.9.289 (R4a): at most this many ACTIVE chapter-treasurer grants per member. */
+    const val MAX_TREASURER_GRANTS_PER_MEMBER = 10
+
+    /** V1.9.289 (R4a): at most this many ACTIVE chapter-treasurer grants per chapter. */
+    const val MAX_TREASURER_GRANTS_PER_CHAPTER = 5
+
     /**
      * §0.7 -- which [MemberStatus] values may be assigned to a chapter at all. Deliberately
      * excludes DONOR/FRIEND/GUEST (not members) and does not distinguish further beyond that --

@@ -101,11 +101,13 @@ object NavVisibility {
     fun showsTenders(status: MemberStatus): Boolean = status in MemberStatusSets.LTR_ELIGIBLE
 
     /**
-     * "Rechenschaftsbericht (PartG)" (V1.9.225) -- BOARD and ADMIN of an organisation that is a political party. The server enforces both on every
+     * "Rechenschaftsbericht (PartG)" (V1.9.225) -- BOARD and ADMIN of an organisation that is a political party (V1.9.289: also a chapter treasurer). The server enforces both on every
      * call (role first, then the switch); this only decides whether the sidebar offers the door.
      */
     fun showsPartyReport(session: network.lapis.cloud.shared.domain.SessionInfoDto?): Boolean =
-        session != null && session.politicalParty && session.role in setOf(AccountRole.BOARD, AccountRole.ADMIN)
+        session != null &&
+            session.politicalParty &&
+            (session.role in setOf(AccountRole.BOARD, AccountRole.ADMIN) || session.chapterTreasurerScopes.isNotEmpty())
 
     /** Crowdfunding/Auktion/Politiker -- bleiben ORGANIZATION_MEMBER-exklusiv. */
     fun showsMemberOnlyEconomy(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER

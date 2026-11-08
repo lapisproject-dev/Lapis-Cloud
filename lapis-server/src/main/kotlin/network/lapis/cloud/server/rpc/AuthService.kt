@@ -13,9 +13,11 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.security.activeChapterTreasurerIds
 import network.lapis.cloud.server.security.extractSessionToken
 import network.lapis.cloud.server.security.memberVisibility
 import network.lapis.cloud.server.security.resolveChapterScopeRef
+import network.lapis.cloud.server.security.resolveChapterTreasurerRefs
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
@@ -157,6 +159,7 @@ class AuthService internal constructor(
                     homeserverUrl = row.getOrNull(OidcGuestProfileTable.homeserverUrl),
                     ownRegionalChapter = ownChapter,
                     chapterScope = resolveChapterScopeRef(visibility),
+                    chapterTreasurerScopes = resolveChapterTreasurerRefs(current.activeChapterTreasurerIds()),
                     regionalChaptersExist = RegionalChapterTable.selectAll().count() > 0,
                     organizationCountryCode =
                         (
@@ -201,6 +204,7 @@ class AuthService internal constructor(
             regionalChaptersExist = sessionExtras.regionalChaptersExist,
             ownRegionalChapter = sessionExtras.ownRegionalChapter,
             chapterScope = sessionExtras.chapterScope,
+            chapterTreasurerScopes = sessionExtras.chapterTreasurerScopes,
             organizationTimeZone = OrganizationTimeZone.current().id,
             organizationCountryCode = sessionExtras.organizationCountryCode,
             politicalParty = sessionExtras.politicalParty,
@@ -214,6 +218,7 @@ private data class SessionExtras(
     val homeserverUrl: String?,
     val ownRegionalChapter: RegionalChapterRefDto?,
     val chapterScope: RegionalChapterRefDto?,
+    val chapterTreasurerScopes: List<RegionalChapterRefDto>,
     val regionalChaptersExist: Boolean,
     val organizationCountryCode: String?,
     val politicalParty: Boolean,

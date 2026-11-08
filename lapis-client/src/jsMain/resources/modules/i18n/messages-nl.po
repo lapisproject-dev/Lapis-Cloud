@@ -30810,3 +30810,207 @@ msgstr "Positie %1 ingevoerd, maar geen onderneming in staat D"
 
 msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
 msgstr "Positie ingevoerd, maar geen onderneming in staat D"
+
+msgid "%1 %2 (%3)"
+msgstr "%1 %2 (%3)"
+
+msgid "%1 Buchungen vorhanden, die Buchführung steht auf Modus C"
+msgstr "Er zijn %1 boekingen, maar de boekhouding staat op modus C"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet"
+msgstr "%1 rekeningen met boekingen zijn aan geen enkele positie toegewezen"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet. Ihre Beträge fehlen im Vorschlag."
+msgstr "%1 rekeningen met boekingen zijn aan geen enkele positie toegewezen. Hun bedragen ontbreken in het voorstel."
+
+msgid "%1 Konten werden angelegt, %2 sind schon vorhanden und bleiben unverändert"
+msgstr "%1 rekeningen worden aangemaakt, %2 bestaan al en blijven ongewijzigd"
+
+msgid "%1 Werte übernehmen"
+msgstr "%1 waarden overnemen"
+
+msgid "%1 Zuordnungen gespeichert."
+msgstr "%1 toewijzingen opgeslagen."
+
+msgid "%1 darf für %2 buchen und deren Journal lesen. Der Vorgang wird protokolliert."
+msgstr "%1 mag boekingen maken voor %2 en het journaal ervan lezen. De handeling wordt vastgelegd."
+
+msgid "%1 verliert sofort den Zugriff auf die Buchungen von %2."
+msgstr "%1 verliest direct de toegang tot de boekingen van %2."
+
+msgid "%1 wurde als Kassenwart eingetragen."
+msgstr "%1 is geregistreerd als penningmeester."
+
+msgid "A – Zentral gebucht"
+msgstr "A – Centraal geboekt"
+
+msgid "Alle Vorschläge auswählen"
+msgstr "Alle suggesties selecteren"
+
+msgid "Als Kassenwart eintragen"
+msgstr "Registreren als penningmeester"
+
+msgid "Aus Buchungen"
+msgstr "Uit boekingen"
+
+msgid "Ausgewählte übernehmen"
+msgstr "Selectie overnemen"
+
+msgid "B – Eigene Kasse in Lapis"
+msgstr "B – Eigen kas in Lapis"
+
+msgid "Bewusst nicht im Bericht"
+msgstr "Bewust niet in het verslag"
+
+msgid "Bitte speichern oder verwerfen Sie zuerst Ihre Eingaben."
+msgstr "Sla uw invoer eerst op of verwerp deze."
+
+msgid "Buchführung"
+msgstr "Boekhouding"
+
+msgid "Buchführung gespeichert."
+msgstr "Boekhouding opgeslagen."
+
+msgid "Buchführung ändern?"
+msgstr "Boekhouding wijzigen?"
+
+msgid "Buchungen haben sich geändert, Vorschlag neu laden"
+msgstr "De boekingen zijn gewijzigd, laad het voorstel opnieuw"
+
+msgid "Bund"
+msgstr "Federaal niveau"
+
+msgid "C – Eigene Kasse außerhalb"
+msgstr "C – Eigen kas buiten Lapis"
+
+msgid "Die Buchungen stimmen mit den erfassten Werten überein. Es gibt nichts zu übernehmen."
+msgstr "De boekingen komen overeen met de ingevoerde waarden. Er valt niets over te nemen."
+
+msgid "Die Gesamtheit der nachgeordneten Gliederungen wird immer außerhalb von Lapis geführt."
+msgstr "Het geheel van de nageschikte eenheden wordt altijd buiten Lapis bijgehouden."
+
+msgid "Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu."
+msgstr "Het aantal boekingen is gewijzigd. Laad het overzicht opnieuw."
+
+msgid "Die Zuordnung der Konten pflegt der Vorstand. Sie sehen sie hier nur zur Information."
+msgstr "Het bestuur beheert de rekeningtoewijzing. U ziet deze hier alleen ter informatie."
+
+msgid "Differenz"
+msgstr "Verschil"
+
+msgid "Ein Kassenwart darf für diese Gliederung buchen und das Journal, das Hauptbuch und das Kassenbuch der Gliederung lesen. Andere Bereiche der Buchhaltung bleiben ihm verschlossen."
+msgstr "Een penningmeester mag voor deze eenheid boeken en het journaal, het grootboek en het kasboek van de eenheid lezen. Andere onderdelen van de boekhouding blijven voor hem gesloten."
+
+msgid "Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
+msgstr "Een waarde uit de boekingen wijkt af van het huidige voorstel"
+
+msgid "Entwurf, kein amtliches Formular. Die Zuordnung ist eine Arbeitshilfe und ersetzt keine Prüfung durch Ihre Steuerberatung."
+msgstr "Concept, geen officieel formulier. De toewijzing is een hulpmiddel en vervangt geen controle door uw belastingadviseur."
+
+msgid "Es gibt keine Vorschläge für die offenen Konten."
+msgstr "Er zijn geen suggesties voor de openstaande rekeningen."
+
+msgid "Es ist kein Vorschlag ausgewählt."
+msgstr "Er is geen suggestie geselecteerd."
+
+msgid "Für %1 gibt es im Jahr %2 bereits %3 Buchungen. Die Buchungen bleiben unverändert."
+msgstr "Voor %1 zijn er in %2 al %3 boekingen. De boekingen blijven ongewijzigd."
+
+msgid "Für diese Einheit gibt es keinen Vorschlag aus Buchungen."
+msgstr "Voor deze eenheid is er geen voorstel uit boekingen."
+
+msgid "Herkunft"
+msgstr "Herkomst"
+
+msgid "Im Modus C werden keine Werte aus Buchungen vorgeschlagen."
+msgstr "In modus C worden geen waarden uit boekingen voorgesteld."
+
+msgid "Kassenwart der Gliederung"
+msgstr "Penningmeester van de eenheid"
+
+msgid "Kassenwart eintragen"
+msgstr "Penningmeester registreren"
+
+msgid "Kassenwart entfernen"
+msgstr "Penningmeester verwijderen"
+
+msgid "Kassenwart verwalten"
+msgstr "Penningmeester beheren"
+
+msgid "Keine Konten vorhanden. Legen Sie zuerst den Kontenplan an."
+msgstr "Geen rekeningen aanwezig. Maak eerst het rekeningschema aan."
+
+msgid "Konten den Positionen des Rechenschaftsberichts zuordnen"
+msgstr "Rekeningen aan de posities van het verslag toewijzen"
+
+msgid "Mitglied suchen"
+msgstr "Zoek een lid"
+
+msgid "Negativ, nicht übertragbar. Bitte Zuordnung oder Buchungen prüfen."
+msgstr "Negatief, niet over te nemen. Controleer de toewijzing of de boekingen."
+
+msgid "Nicht zugeordnet: %1 Konten"
+msgstr "Niet toegewezen: %1 rekeningen"
+
+msgid "Noch kein Kassenwart eingetragen."
+msgstr "Nog geen penningmeester geregistreerd."
+
+msgid "Parteien-Kontenplan anlegen"
+msgstr "Rekeningschema voor partijen aanmaken"
+
+msgid "Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab"
+msgstr "Positie %1 wijkt af van het huidige voorstel uit de boekingen"
+
+msgid "Position für Konto"
+msgstr "Positie voor rekening"
+
+msgid "Rechenschaftsbericht: Buchführung der Einheit"
+msgstr "Verantwoordingsverslag: boekhouding van de eenheid"
+
+msgid "Rechenschaftsbericht: Kontenzuordnung"
+msgstr "Verantwoordingsverslag: rekeningtoewijzing"
+
+msgid "Spenden können nur auf Bundesebene gebucht werden."
+msgstr "Donaties kunnen alleen op federaal niveau worden geboekt."
+
+msgid "Vorschlag aus Buchungen"
+msgstr "Voorstel uit boekingen"
+
+msgid "Vorschlag aus Buchungen: %1"
+msgstr "Voorstel uit boekingen: %1"
+
+msgid "Vorschläge. Bitte prüfen, bevor Sie sie übernehmen."
+msgstr "Suggesties. Controleer ze voordat u ze overneemt."
+
+msgid "Wert übernehmen"
+msgstr "Waarde overnemen"
+
+msgid "Werte übernehmen"
+msgstr "Waarden overnemen"
+
+msgid "Zugeordnet"
+msgstr "Toegewezen"
+
+msgid "aus Buchungen"
+msgstr "uit boekingen"
+
+msgid "aus Parteien-Kontenplan"
+msgstr "uit rekeningschema voor partijen"
+
+msgid "davon %1 mit Buchungen im Jahr %2"
+msgstr "waarvan %1 met boekingen in %2"
+
+msgid "gespeichert"
+msgstr "opgeslagen"
+
+msgid "geändert"
+msgstr "gewijzigd"
+
+msgid "Ändern"
+msgstr "Wijzigen"
+
+msgid "Übersprungen (anderer Name): %1"
+msgstr "Overgeslagen (andere naam): %1"
+
+msgid "Bundesebene"
+msgstr "Federaal niveau"

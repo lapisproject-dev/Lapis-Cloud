@@ -15,8 +15,14 @@ import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.db.isUniqueViolation
+import network.lapis.cloud.server.security.BookingScope
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.security.FEDERAL_UNIT_FILTER
+import network.lapis.cloud.server.security.bookingScope
+import network.lapis.cloud.server.security.covers
+import network.lapis.cloud.server.security.journalCondition
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -54,16 +60,20 @@ import network.lapis.cloud.shared.domain.PostingDto
 import network.lapis.cloud.shared.domain.PostingInput
 import network.lapis.cloud.shared.domain.PostingSide
 import network.lapis.cloud.shared.domain.PostingSnapshot
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.ReserveType
 import network.lapis.cloud.shared.domain.StandardAssociationChart
 import network.lapis.cloud.shared.domain.StandardChartAppliedSnapshot
 import network.lapis.cloud.shared.domain.StandardChartResultDto
+import network.lapis.cloud.shared.domain.StandardPartyChart
 import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
 import network.lapis.cloud.shared.domain.VatNotApplicableReason
 import network.lapis.cloud.shared.domain.VatRate
 import network.lapis.cloud.shared.domain.VatReturnPreviewDto
 import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.ChapterDonationFederalOnlyException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.Op
@@ -234,6 +244,71 @@ class AccountingService(
         return result
     }
 
+    /**
+     * V1.9.289 (R4a). Same contract as [createStandardChart] for the [StandardPartyChart]: TREASURY_ROLES, only for a political party, idempotent,
+     * one transaction under the settings row lock, at most one aggregated ORGANIZATION_SETTINGS/UPDATE audit entry. A number that exists with the
+     * SAME name is `skipped`; one that exists with ANOTHER name is `conflicting` -- nothing is renamed or renumbered. No mapping to report positions
+     * is created: those stay a proposal in the report's "Kontenzuordnung" tab.
+     */
+    override suspend fun createStandardPartyChart(): StandardChartResultDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TREASURY_ROLES)
+        StandardPartyChart.accounts.forEach { validateLedgerAccountInput(StandardPartyChart.toInput(it)) }
+        val result =
+            transaction {
+                OrganizationSettingsTable
+                    .selectAll()
+                    .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                    .forUpdate()
+                    .single()
+                if (!isPoliticalParty()) throw BadRequestException("The party chart is only available to political parties")
+                val existing =
+                    LedgerAccountTable
+                        .select(LedgerAccountTable.accountNumber, LedgerAccountTable.name)
+                        .associate { it[LedgerAccountTable.accountNumber] to it[LedgerAccountTable.name] }
+                val created = mutableListOf<String>()
+                val skipped = mutableListOf<String>()
+                val conflicting = mutableListOf<String>()
+                for (proposed in StandardPartyChart.accounts) {
+                    val number = proposed.account.accountNumber
+                    val existingName = existing[number]
+                    when {
+                        existingName == null -> {
+                            insertLedgerAccountInTx(StandardPartyChart.toInput(proposed))
+                            created += number
+                        }
+                        existingName == proposed.account.name -> skipped += number
+                        else -> conflicting += number
+                    }
+                }
+                if (created.isNotEmpty()) {
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = null,
+                        after =
+                            Json.encodeToString(
+                                StandardChartAppliedSnapshot.serializer(),
+                                StandardChartAppliedSnapshot(
+                                    chartVersion = StandardPartyChart.VERSION,
+                                    created = created,
+                                    skipped = skipped,
+                                    conflicting = conflicting,
+                                ),
+                            ),
+                    )
+                }
+                StandardChartResultDto(created = created, skipped = skipped, conflicting = conflicting)
+            }
+        logger.info {
+            "standard party chart applied: created=${result.created.size} skipped=${result.skipped.size} conflicting=${result.conflicting.size}"
+        }
+        return result
+    }
+
     override suspend fun getFinanceSetupStatus(): FinanceSetupStatusDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*ACCOUNTING_READ_ROLES)
@@ -275,8 +350,9 @@ class AccountingService(
 
     override suspend fun listLedgerAccounts(activeOnly: Boolean): List<LedgerAccountDto> {
         val current = resolveCurrentMember(call)
-        current.requireRole(*ACCOUNTING_READ_ROLES)
         return transaction {
+            // V1.9.289: a chapter treasurer may read the chart of accounts (master data, no amounts) to book.
+            current.bookingScope(ACCOUNTING_READ_ROLES)
             val baseQuery = LedgerAccountTable.selectAll()
             val query = if (activeOnly) baseQuery.where { LedgerAccountTable.active eq true } else baseQuery
             query.orderBy(LedgerAccountTable.accountNumber, SortOrder.ASC).map { it.toLedgerAccountDto() }
@@ -330,10 +406,23 @@ class AccountingService(
         }
     }
 
+    override suspend fun listBookingUnits(): List<RegionalChapterRefDto> {
+        val current = resolveCurrentMember(call)
+        return transaction {
+            val scope = current.bookingScope(ACCOUNTING_READ_ROLES)
+            RegionalChapterTable
+                .selectAll()
+                .let { query ->
+                    if (scope is BookingScope.Chapters) query.where { RegionalChapterTable.id inList scope.ids } else query
+                }.map { RegionalChapterRefDto(id = it[RegionalChapterTable.id].toString(), name = it[RegionalChapterTable.name]) }
+                .sortedWith(compareBy({ it.name.lowercase() }, { it.id }))
+        }
+    }
+
     override suspend fun listCostCenters(activeOnly: Boolean): List<CostCenterDto> {
         val current = resolveCurrentMember(call)
-        current.requireRole(*ACCOUNTING_READ_ROLES)
         return transaction {
+            current.bookingScope(ACCOUNTING_READ_ROLES)
             val baseQuery = CostCenterTable.selectAll()
             val query = if (activeOnly) baseQuery.where { CostCenterTable.active eq true } else baseQuery
             query.orderBy(CostCenterTable.code, SortOrder.ASC).map { it.toCostCenterDto() }
@@ -416,8 +505,9 @@ class AccountingService(
 
     override suspend fun saveDraftEntry(input: JournalEntryInput): JournalEntryDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(*TREASURY_ROLES)
         return transaction {
+            val scope = current.bookingScope(TREASURY_ROLES)
+            val chapterId = resolveEntryChapter(scope = scope, input = input)
             // A draft need not balance yet ([requireBalanced] is deliberately NOT called here,
             // unlike postJournalEntry/postDraftEntry), but every amount must still round-trip
             // through DECIMAL(15,2) unchanged -- see [requireValidScale] KDoc for why skipping
@@ -450,14 +540,16 @@ class AccountingService(
                 donorMemberId = donorMemberId,
                 externalDonorId = externalDonorId,
                 donorCategory = effectiveDonorCategory,
+                regionalChapterId = chapterId,
             )
         }
     }
 
     override suspend fun postJournalEntry(input: JournalEntryInput): JournalEntryDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(*TREASURY_ROLES)
         return transaction {
+            val scope = current.bookingScope(TREASURY_ROLES)
+            val chapterId = resolveEntryChapter(scope = scope, input = input)
             requireValidTextLengths(input)
             requireWithinMaxAmount(input.postings)
             requireBalanced(input.postings)
@@ -468,7 +560,11 @@ class AccountingService(
                     input.postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") },
                 )
             CashRegisterGuard.requireVoucherForCashPostings(voucherReference = input.voucherReference, cashAccountIds = cashAccountIds)
-            CashRegisterGuard.requireNonNegativeCashBalances(postings = input.postings, cashAccountIds = cashAccountIds)
+            CashRegisterGuard.requireNonNegativeCashBalances(
+                postings = input.postings,
+                cashAccountIds = cashAccountIds,
+                regionalChapterId = chapterId,
+            )
             val donorMemberId = input.donorMemberId?.toAccountingUuid("Member")
             val externalDonorId = input.externalDonorId?.toAccountingUuid("ExternalDonor")
             if (donorMemberId != null) requireExistingMember(donorMemberId)
@@ -512,6 +608,7 @@ class AccountingService(
                     donorMemberId = donorMemberId,
                     externalDonorId = externalDonorId,
                     donorCategory = effectiveDonorCategory,
+                    regionalChapterId = chapterId,
                 )
             // V0.5.3 GoBD audit log: only ever reached for an ALLOWED verdict -- a PROHIBITED
             // attempt throws inside requirePartyDonationAllowed above and rolls the whole
@@ -535,10 +632,22 @@ class AccountingService(
 
     override suspend fun postDraftEntry(id: String): JournalEntryDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(*TREASURY_ROLES)
         val entryId = id.toAccountingUuid("JournalEntry")
         return transaction {
+            val scope = current.bookingScope(TREASURY_ROLES)
             val entryRow = requireJournalEntryRow(entryId)
+            val entryChapterId = entryRow[JournalEntryTable.regionalChapterId]
+            // V1.9.289: an entry outside the scope does not exist for a chapter treasurer (404, not 403: nothing can be enumerated).
+            if (!scope.covers(entryChapterId)) throw NotFoundException("JournalEntry $id not found")
+            if (scope is BookingScope.Chapters &&
+                (
+                    entryRow[JournalEntryTable.donorMemberId] != null ||
+                        entryRow[JournalEntryTable.externalDonorId] != null ||
+                        entryRow[JournalEntryTable.donorCategory] != null
+                )
+            ) {
+                throw ChapterDonationFederalOnlyException()
+            }
             if (entryRow[JournalEntryTable.status] != JournalEntryStatus.DRAFT) {
                 throw ConflictException("JournalEntry $id is ${entryRow[JournalEntryTable.status]}, expected DRAFT")
             }
@@ -578,7 +687,11 @@ class AccountingService(
                 voucherReference = entryRow[JournalEntryTable.voucherReference],
                 cashAccountIds = cashAccountIds,
             )
-            CashRegisterGuard.requireNonNegativeCashBalances(postings = postings, cashAccountIds = cashAccountIds)
+            CashRegisterGuard.requireNonNegativeCashBalances(
+                postings = postings,
+                cashAccountIds = cashAccountIds,
+                regionalChapterId = entryChapterId,
+            )
             val donorCategory = entryRow[JournalEntryTable.donorCategory]
             requireDonationIncomePosting(postings = postings, donorCategory = donorCategory)
             var partyDonationVerdict: DonationComplianceResult? = null
@@ -618,6 +731,7 @@ class AccountingService(
                     donorMemberId = entryRow[JournalEntryTable.donorMemberId]?.toString(),
                     externalDonorId = entryRow[JournalEntryTable.externalDonorId]?.toString(),
                     donorCategory = donorCategory,
+                    regionalChapterId = entryChapterId?.toString(),
                     postings =
                         postingRows.map { row ->
                             PostingSnapshot(
@@ -709,9 +823,13 @@ class AccountingService(
 
     override suspend fun getJournalEntry(id: String): JournalEntryDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(*ACCOUNTING_READ_ROLES)
         val entryId = id.toAccountingUuid("JournalEntry")
-        return transaction { loadJournalEntry(entryId) }
+        return transaction {
+            val scope = current.bookingScope(ACCOUNTING_READ_ROLES)
+            val row = requireJournalEntryRow(entryId)
+            if (!scope.covers(row[JournalEntryTable.regionalChapterId])) throw NotFoundException("JournalEntry $id not found")
+            loadJournalEntry(entryId).forScope(scope)
+        }
     }
 
     override suspend fun listJournal(
@@ -719,12 +837,16 @@ class AccountingService(
         to: LocalDate?,
         status: JournalEntryStatus?,
         donorMemberId: String?,
+        unitFilter: String?,
     ): List<JournalEntryDto> {
         val current = resolveCurrentMember(call)
-        current.requireRole(*ACCOUNTING_READ_ROLES)
         val donorId = donorMemberId?.toAccountingUuid("Member")
         return transaction {
+            val scope = current.bookingScope(ACCOUNTING_READ_ROLES)
+            // V1.9.289: the donor filter would reveal who donated; a chapter treasurer never sees donors.
+            if (scope is BookingScope.Chapters && donorMemberId != null) throw ForbiddenException()
             val conditions = mutableListOf<Op<Boolean>>()
+            scope.journalCondition(unitFilter)?.let { conditions += it }
             if (from != null) conditions += (JournalEntryTable.entryDate greaterEq from)
             if (to != null) conditions += (JournalEntryTable.entryDate lessEq to)
             if (status != null) conditions += (JournalEntryTable.status eq status)
@@ -734,7 +856,7 @@ class AccountingService(
             query
                 .orderBy(JournalEntryTable.entryDate to SortOrder.ASC, JournalEntryTable.createdAt to SortOrder.ASC)
                 .map { it[JournalEntryTable.id] }
-                .map { loadJournalEntry(it) }
+                .map { loadJournalEntry(it).forScope(scope) }
         }
     }
 
@@ -742,11 +864,12 @@ class AccountingService(
         ledgerAccountId: String,
         from: LocalDate?,
         to: LocalDate?,
+        unitFilter: String?,
     ): GeneralLedgerDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(*ACCOUNTING_READ_ROLES)
         val accountId = ledgerAccountId.toAccountingUuid("LedgerAccount")
         return transaction {
+            val scope = current.bookingScope(ACCOUNTING_READ_ROLES)
             val accountRow =
                 LedgerAccountTable.selectAll().where { LedgerAccountTable.id eq accountId }.singleOrNull()
                     ?: throw NotFoundException("LedgerAccount $ledgerAccountId not found")
@@ -760,6 +883,7 @@ class AccountingService(
                 )
             if (from != null) conditions += (JournalEntryTable.entryDate greaterEq from)
             if (to != null) conditions += (JournalEntryTable.entryDate lessEq to)
+            scope.journalCondition(unitFilter)?.let { conditions += it }
 
             val rows =
                 (PostingTable innerJoin JournalEntryTable)
@@ -935,11 +1059,12 @@ class AccountingService(
         ledgerAccountId: String,
         from: LocalDate?,
         to: LocalDate?,
+        unitFilter: String?,
     ): KassenbuchDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(*ACCOUNTING_READ_ROLES)
         val accountId = ledgerAccountId.toAccountingUuid("LedgerAccount")
         return transaction {
+            val scope = current.bookingScope(ACCOUNTING_READ_ROLES)
             val accountRow =
                 LedgerAccountTable.selectAll().where { LedgerAccountTable.id eq accountId }.singleOrNull()
                     ?: throw NotFoundException("LedgerAccount $ledgerAccountId not found")
@@ -959,27 +1084,72 @@ class AccountingService(
             // the query window, undermining the GoBD "gapless numbering" guarantee this feature
             // exists to provide. from/to only narrow which of the already-numbered lines are
             // *returned*, plus derive openingBalance/closingBalance for that window.
+            //
+            // The gapless number has ONE fixed basis: per (cash account, chapter) -- the same unit
+            // as the cash-stock check (CashRegisterGuard). It is assigned over the full history of
+            // that unit BEFORE the unit filter narrows the view, so a posting carries the same
+            // number for every caller and every filter. The scope filter only restricts WHICH
+            // units are loaded (a chapter treasurer never sees another unit's rows, hence no gaps
+            // leak). An unfiltered federal view that spans several units therefore shows each
+            // unit's own number sequence side by side.
+            // Validates the filter (Forbidden/NotFound) exactly as before; the narrowing itself
+            // happens in memory after numbering.
+            scope.journalCondition(unitFilter)
+            val wantedUnit: Uuid? = unitFilter?.takeIf { it != FEDERAL_UNIT_FILTER }?.let { Uuid.parse(it) }
+            val visibleUnit: (Uuid?) -> Boolean =
+                { unit -> unitFilter == null || unit == wantedUnit }
             val rows =
                 (PostingTable innerJoin JournalEntryTable)
                     .selectAll()
                     .where {
-                        (PostingTable.ledgerAccountId eq accountId) and
-                            (JournalEntryTable.status eq JournalEntryStatus.POSTED)
+                        val base =
+                            (PostingTable.ledgerAccountId eq accountId) and
+                                (JournalEntryTable.status eq JournalEntryStatus.POSTED)
+                        scope.journalCondition(null)?.let { base and it } ?: base
                     }.orderBy(JournalEntryTable.entryDate to SortOrder.ASC, JournalEntryTable.createdAt to SortOrder.ASC)
                     .toList()
 
-            val sourceLines =
-                rows.map { row ->
-                    KassenbuchCalculator.KassenbuchSourceLine(
-                        journalEntryId = row[JournalEntryTable.id].toString(),
-                        entryDate = row[JournalEntryTable.entryDate],
-                        description = row[JournalEntryTable.description],
-                        voucherReference = row[JournalEntryTable.voucherReference],
-                        side = row[PostingTable.side],
-                        amount = row[PostingTable.amount],
+            fun sourceLine(row: ResultRow) =
+                KassenbuchCalculator.KassenbuchSourceLine(
+                    journalEntryId = row[JournalEntryTable.id].toString(),
+                    entryDate = row[JournalEntryTable.entryDate],
+                    description = row[JournalEntryTable.description],
+                    voucherReference = row[JournalEntryTable.voucherReference],
+                    side = row[PostingTable.side],
+                    amount = row[PostingTable.amount],
+                )
+            // Number per unit over its full history, then keep the requested units, back in
+            // chronological order (the DB order above is the tie-breaker via the original index).
+            val numbered =
+                rows
+                    .withIndex()
+                    .groupBy { it.value[JournalEntryTable.regionalChapterId] }
+                    .flatMap { (unit, indexed) ->
+                        KassenbuchCalculator
+                            .kassenbuch(lines = indexed.map { sourceLine(it.value) })
+                            .mapIndexed { i, line -> Triple(indexed[i].index, unit, line) }
+                    }.filter { visibleUnit(it.second) }
+                    .sortedBy { it.first }
+            // Running balance over the lines the caller actually sees; the number stays per unit.
+            val visibleIndexes = numbered.map { it.first }.toSet()
+            val viewRows = rows.filterIndexed { i, _ -> i in visibleIndexes }
+            val viewLines = KassenbuchCalculator.kassenbuch(lines = viewRows.map(::sourceLine))
+            // Every line names the unit its number belongs to (null = federal level), so the
+            // otherwise ambiguous duplicate numbers of a multi-unit view stay verifiable.
+            val chapterNames =
+                RegionalChapterTable
+                    .selectAll()
+                    .where { RegionalChapterTable.id inList numbered.mapNotNull { it.second }.distinct() }
+                    .associate { it[RegionalChapterTable.id] to it[RegionalChapterTable.name] }
+            val allLines =
+                viewLines.mapIndexed { i, line ->
+                    val unit = numbered[i].second
+                    line.copy(
+                        kassenbuchNumber = numbered[i].third.kassenbuchNumber,
+                        regionalChapterId = unit?.toString(),
+                        unitName = unit?.let { chapterNames[it] },
                     )
                 }
-            val allLines = KassenbuchCalculator.kassenbuch(lines = sourceLines)
             val windowedLines =
                 allLines.filter { line ->
                     (from == null || line.entryDate >= from) && (to == null || line.entryDate <= to)
@@ -1278,6 +1448,7 @@ class AccountingService(
         donorMemberId: Uuid? = null,
         externalDonorId: Uuid? = null,
         donorCategory: DonorCategory? = null,
+        regionalChapterId: Uuid? = null,
     ): JournalEntryDto {
         val id = Uuid.random()
         JournalEntryTable.insert {
@@ -1292,6 +1463,7 @@ class AccountingService(
             it[JournalEntryTable.donorMemberId] = donorMemberId
             it[JournalEntryTable.externalDonorId] = externalDonorId
             it[JournalEntryTable.donorCategory] = donorCategory
+            it[JournalEntryTable.regionalChapterId] = regionalChapterId
         }
         // Welle V1.4.13: while VAT is not active for this organization (feature disabled OR
         // Kleinunternehmer), EVERY posting is normalized to UNCLASSIFIED/0.00, unconditionally --
@@ -1346,6 +1518,7 @@ class AccountingService(
                         externalDonorId = externalDonorId?.toString(),
                         donorCategory = donorCategory,
                         postings = effectivePostings.map { it.toAuditSnapshot() },
+                        regionalChapterId = regionalChapterId?.toString(),
                     ),
                 ),
         )
@@ -1911,6 +2084,54 @@ class AccountingService(
         return entryRow.toJournalEntryDto(postings)
     }
 
+    /**
+     * V1.9.289 (R4a): which chapter a new entry is booked into. A federal caller names `null` (federal level) or an EXISTING chapter ([NotFoundException]
+     * before the insert, never a foreign-key error). A chapter treasurer MUST name one of their chapters ([ForbiddenException] otherwise, also for `null`)
+     * and may not book donations ([ChapterDonationFederalOnlyException]): the organisation-wide party donation checks would otherwise disclose
+     * the prior donation totals of other units. Runs inside the caller's transaction.
+     */
+    private fun resolveEntryChapter(
+        scope: BookingScope,
+        input: JournalEntryInput,
+    ): Uuid? {
+        val requested =
+            input.regionalChapterId?.let {
+                runCatching { Uuid.parse(it) }.getOrNull()
+                    ?: throw NotFoundException("Invalid RegionalChapter id")
+            }
+        when (scope) {
+            is BookingScope.Federal -> {
+                if (requested != null &&
+                    RegionalChapterTable.selectAll().where { RegionalChapterTable.id eq requested }.count() == 0L
+                ) {
+                    throw NotFoundException("RegionalChapter not found")
+                }
+            }
+            is BookingScope.Chapters -> {
+                if (requested == null || requested !in scope.ids) throw ForbiddenException()
+                if (input.donorMemberId != null || input.externalDonorId != null || input.donorCategory != null) {
+                    throw ChapterDonationFederalOnlyException()
+                }
+            }
+        }
+        return requested
+    }
+
+    /** V1.9.289 (R4a): a chapter treasurer never sees who donated (the category stays: it is not personal). */
+    private fun JournalEntryDto.forScope(scope: BookingScope): JournalEntryDto =
+        if (scope is BookingScope.Chapters) {
+            copy(donorMemberId = null, donorMemberDisplayName = null, externalDonorId = null, externalDonorDisplayName = null)
+        } else {
+            this
+        }
+
+    private fun chapterName(chapterId: Uuid): String? =
+        RegionalChapterTable
+            .selectAll()
+            .where { RegionalChapterTable.id eq chapterId }
+            .singleOrNull()
+            ?.get(RegionalChapterTable.name)
+
     private fun memberDisplayName(memberId: Uuid): String =
         MemberTable
             .selectAll()
@@ -1991,6 +2212,7 @@ class AccountingService(
         val createdBy = this[JournalEntryTable.createdBy]
         val donorMemberId = this[JournalEntryTable.donorMemberId]
         val externalDonorId = this[JournalEntryTable.externalDonorId]
+        val chapterId = this[JournalEntryTable.regionalChapterId]
         return JournalEntryDto(
             id = this[JournalEntryTable.id].toString(),
             entryDate = this[JournalEntryTable.entryDate],
@@ -2007,6 +2229,8 @@ class AccountingService(
             externalDonorId = externalDonorId?.toString(),
             externalDonorDisplayName = externalDonorId?.let { externalDonorDisplayName(it) },
             donorCategory = this[JournalEntryTable.donorCategory],
+            regionalChapterId = chapterId?.toString(),
+            regionalChapterName = chapterId?.let { chapterName(it) },
         )
     }
 

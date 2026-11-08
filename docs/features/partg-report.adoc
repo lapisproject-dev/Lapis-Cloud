@@ -1,9 +1,9 @@
-= Party accountability report: positions, entry, Excel import, report draft and separate statements (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3, V1.9.283 R3b, V1.9.287 R3c)
+= Party accountability report: positions, entry, Excel import, report draft, separate statements and the link to the bookings (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3, V1.9.283 R3b, V1.9.287 R3c, V1.9.289 R4a)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
-Waves R1, R2, R3, R3b and R3c of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
+Waves R1, R2, R3, R3b, R3c and R4a of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
 hand or imported from an Excel file. R2 (V1.9.256) turns them into a **draft** of the report as a PDF or an Excel file. The draft is marked "ENTWURF -- nicht amtlich" on every page and in
 every file; nothing on the page promises a finished, official or audited report.
 
@@ -12,7 +12,8 @@ and the statute text, and the auditor has not seen the result (see <<not-verifie
 
 == Who sees it
 
-* Only an organisation with the setting *political party* (`isPoliticalParty`), and there only the roles **BOARD** and **ADMIN**. A treasurer does not see it.
+* Only an organisation with the setting *political party* (`isPoliticalParty`), and there only the roles **BOARD** and **ADMIN**. A treasurer does not see it (R4a keeps this unchanged, see Q21).
+* **R4a, the chapter treasurer:** a plain organization member with an active *chapter-treasurer grant* (given by an ADMIN per chapter) reaches the *Übersicht*, *Werte erfassen* and *Kontenzuordnung* (read only) for the units `STATE:<chapter>` and `SUB:<chapter>` of the chapters granted. Every other unit answers "not found" on reading and "forbidden" on writing; the other tabs and every other method stay federal (BOARD/ADMIN). The gate order is: role (BOARD/ADMIN), then the grant (read fresh on every call, so a revoke is effective at once), then the party switch.
 * The server checks the **role first** and the organisation switch second, on every RPC method and every HTTP route. The gate itself therefore reveals nothing to a person below the board
   (they get "forbidden", never "not enabled"). The fact is not secret otherwise: the session info (`politicalParty`) is sent to every logged-in member. Switching the setting off keeps all stored values; they are readable again after
   switching it on.
@@ -20,13 +21,14 @@ and the statute text, and the auditor has not seen the result (see <<not-verifie
 
 == What a person does
 
-Six tabs (below 640 px a select with the label "Bereich" replaces the buttons), and a year picker (default: last year; 2001 up to the current year).
+Seven tabs (below 640 px a select with the label "Bereich" replaces the buttons), and a year picker (default: last year; 2001 up to the current year).
 
 *Übersicht*:: one row per reporting unit (the federal level, each regional chapter, and the *summary* of its subordinate regional units), with a fill state
 ("Nicht erfasst", "Teilweise (n von 35)", "Vollständig"), the totals for income, expenses and net assets, and three icon actions: enter values, download the Excel
 template, import an Excel file. A button *Bericht erzeugen* leads to the fourth tab.
 *Werte erfassen*:: the 42 positions in the order of the statute. 35 are typed in, 7 are sums shown live (total income, material expenses, total expenses, surplus or
 deficit, total assets, total liabilities, net assets). Every typed-in position has a field for the report year **and** one for the year before.
+*Kontenzuordnung*:: which ledger account feeds which position, see <<ledger-link>>.
 *Positionen*:: the fixed catalogue with the statute reference and the organisation's own hint per position (up to 500 characters, plain text), shown during entry.
 *Ausweise*:: the separate statements A and B and the member count of one unit and year, see <<separate-statements>>.
 *Erläuterungen*:: the notes of the organisation for the year, see <<notes>>.
@@ -155,11 +157,29 @@ At most 2,000 hints; when P05 would exceed that, the remaining ones are cut off 
 *Data protection*:: the rows are organisation data; `created_by` and `updated_by` are "changed by you" data (exported without name and amount, retained on erasure). Whether a free-text name can hold a person's name is open, see Q16.
 *Help text on the screen*:: "Hier tragen Sie eigene Geschäftsbetriebe ein (Positionen E05 und A02F). Beteiligungen an Unternehmen (BP03, E05A) gehören in die Erläuterungen. Bitte keine Namen von Personen eintragen."
 
-== What R1 to R3c do not do
+[[ledger-link]]
+== The link to the bookings (R4a, V1.9.289)
+
+R4a connects the ledger to the report. It proposes values from the bookings; **nothing is written without a person taking it over**, and the proposal is recomputed on the server at that moment.
+
+*Chapter on the booking*:: `journal_entry.regional_chapter_id` (nullable; `NULL` = federal level). It is set **only when the entry is created and never changed** (a posted entry is immutable and no RPC updates a chapter). Existing entries stay federal (no backfill). A federal caller books into the federal level or into an existing chapter; a chapter treasurer must name one of the chapters granted. The automatic bridges (contributions, donations, event fees, open items, travel expenses, volunteer allowances) always book on the federal level in R4a.
+*Chapter treasurer*:: table `regional_chapter_treasurer`; a member may hold several active grants (at most 10 per member and 5 per chapter); only an ADMIN gives or revokes (*Gliederungsverwaltung*, "Kassenwart verwalten"). The treasurer sees *Kontenplan & Journal* with the journal, the general ledger and the cash book **of the granted chapters only**; the sidebar shows nothing else of the finance group. What the server allows is a fixed allowlist (`BookingScopeAllowlistScanTest`): the master data (accounts, cost centres, booking units), booking (draft, post, post a draft) and reading the journal, one entry, the general ledger and the cash book. Everything else (income statement, balance sheet, four-sphere statement, cost-centre report, donation duty, use of funds, annual statement, DATEV, VAT preview, exports, bank import, set-up, account maintenance, external donors) is **federal and unchanged**: those reports consolidate over all units. A single entry or a draft of a foreign chapter answers "not found". **Donations are federal only** (`ChapterDonationFederalOnlyException`): the party donation checks are organisation-wide and would disclose prior donation totals of other units; the donor fields are also hidden from the treasurer's journal view (the category stays).
+*Cash check per unit*:: the rule "the cash stock never becomes negative" is checked per (account, chapter). A chapter should keep its own cash accounts; the cash book of the federal level without a filter shows the sum of all units, the filter separates them.
+*Mapping account -> position*:: table `partg_account_mapping` (one row per account; a missing row = not mapped). The target is a **LEAF** position of the matching section (income account -> income leaf, expense -> expense, asset -> asset, liability -> liability); a sum is never a target; an equity account can only be "Bewusst nicht im Bericht". The rule is `PartgLedgerRules` (shared, used by the client and re-checked by the server). Federal roles save (at most 2000 changes per call, one transaction under the settings-row lock, each change names the expected old state, a mismatch is a conflict). Audit entity `PARTG_ACCOUNT_MAPPING` with account number and codes, no amount, no name.
+*Suggestions*:: only "aus Parteien-Kontenplan": the template `StandardPartyChart` (version `partei-skr42-2026-11`) suggests a position per account number. A suggestion fills only unmapped accounts, is drawn dashed with a tick box, and marks nothing until it is ticked, taken over ("Ausgewählte übernehmen") **and saved** ("Zuordnung speichern"; the bar says "Nicht gespeichert"). The button "Parteien-Kontenplan anlegen" (set-up step *Kontenplan*, TREASURER/ADMIN, parties only) creates the missing accounts idempotently: a number that exists with the same name is skipped, one with another name is reported ("Übersprungen (anderer Name)") and never renamed. It creates **no mapping**.
+*Mode per unit and year*:: `partg_report_unit_mode`: **A** central booking in Lapis, **B** own cash booked in Lapis, **C** own cash outside Lapis (default; a missing row = C). A summary of sub-units (`SUB:`) is always C and never stored. Only federal roles change a mode. With bookings in that unit and year the caller must confirm the **current number** of bookings ("Für %1 gibt es im Jahr %2 bereits %3 Buchungen. Die Buchungen bleiben unverändert."); a stale or missing number is refused. The bookings are never touched. Audit entity `PARTG_UNIT_MODE` (the count, no amount).
+*Proposal*:: only in mode A or B for a federal or state unit. Income and expense positions are the **flows of the report year** (posted entries, entry date in the year), asset and liability positions the **balances at 31 December** (cumulative). The sign follows the section (income and liability: credit minus debit; expense and asset: debit minus credit). A position gets a proposal iff at least one account is mapped to it. A **negative** value is shown but cannot be taken over. The dialog "Vorschlag aus Buchungen" lists only the differences (entered | from the bookings | difference). A value that was typed in or imported is **never pre-ticked**; an empty value or one that itself came from the bookings is.
+*Taking over*:: `applyLedgerProposal` takes the chosen positions with source **`LEDGER`**. The server **recomputes under the lock** (chapter row, sheet of the year before, sheet of the year; revisions compared) and refuses a pick whose amount differs, is negative or does not exist (`PartyReportProposalStaleException`: "Buchungen haben sich geändert, Vorschlag neu laden"). Only values of the report year are written. A hand change turns a `LEDGER` value into `MANUAL`; an unchanged value keeps its source. The entry tab shows "aus Buchungen" below such a value. Audit: one entry per value and a collective entry with the count and the codes.
+*Hints*:: **P14** (check, mode A/B): accounts without a position that have postings in the year (a count, target: the mapping tab). **P15** (check, mode C): the unit has bookings in the year (a count, target: the overview). **P16** (info): a value taken from the bookings no longer equals the current proposal. None carries an amount or a name. **Behaviour change:** an existing party organisation that already books in Lapis gets P15 for the federal unit at once (the default is C); that is intended.
+*Exports*:: the DATEV export, the Lexoffice/sevDesk push and the R2 PDF/XLSX are unchanged; the chapter is **not** exported (Q21-follow-up). The R2 export is still federal.
+*Data protection*:: all new tables are organisation data. `updated_by` of the mapping and the mode and `granted_by_member_id` of a grant are "changed by you" data (exported without amount and name); the active grants of an erased member are revoked at once, the rows stay as history.
+
+== What R1 to R4a do not do
 
 * R2, R3, R3b and R3c produce a draft only. No official, filed or audited report; no consolidation of the subsidies between branches (R5); no signature, no submission (R6).
 * **R3b (done):** C sponsoring and F youth organisations. **R3c (done):** D enterprise activity. **Pre-fill of B: not built** (no unit on the booking tables, see above), goes to R5.
-* **R4:** mapping from the ledger accounts to the positions. **R5:** consolidation and combining a person over units. **R6:** workflow, auditor access, deadlines and the deletion routine after the retention period.
+* **R4a (done):** accounts -> positions, mode per unit and year, the proposal and the chapter treasurer. **R4b (not built):** the name heuristic "Vermutung nach Kontoname" for unmapped accounts; the treasurer's own R2 export, statements and a journal CSV with a "Gliederung" column; donations booked by a chapter treasurer; bookings for `SUB:` units (a sub-unit is always C); chapters on the automatic bridge bookings.
+* **R5:** consolidation and combining a person over units. **R6:** workflow, auditor access, deadlines and the deletion routine after the retention period.
 * R3 deletes nothing automatically: the board removes a row by hand; the ten-year retention (section 24 (2) PartG, per the concept note) is not enforced by code.
 
 == Older limits (R1, R2)
@@ -189,7 +209,13 @@ At most 2,000 hints; when P05 would exceed that, the remaining ones are cut off 
 . **Q14 (R3c): is the tolerance of 1.00 EUR appropriate** for the adjustment of D against E05/A02F (strictly more than 100 cents counts as a difference)?
 . **Q15 (R3c): are the columns right, and is a whole-party sum needed?** D lists name, legal form, seat, share, income, expenses and the computed result, with one sum per unit and none over the whole party (that would be a consolidation, R5).
 . **Q16 (R3c): names of persons.** The name of a sole proprietorship can be the name of a person. The help text asks not to enter names of persons; nothing prevents it technically. How to treat this under data protection law is open; the table is not registered as a third-party data root.
-. **Before R4 (not decided here):** are the books kept centrally at the federal unit or in separate ledgers of the units?
+. **Q17 (R4a): cash basis or accrual?** The PartG asks for income and expenses; the proposal sums the posted income and expense accounts of the year. Whether receivables, liabilities and deferrals falsify that is open.
+. **Q18 (R4a): valuation of assets at the closing date.** The asset and liability positions are the cumulative book balances at 31 December. Valuation rules (depreciation, provisions) are not applied.
+. **Q19 (R4a): transfers between units.** Subsidies between branches (E10 / A03) and receivables from or liabilities to branches (BP05, SP04) are booked by hand; a consolidation is R5.
+. **Q20 (R4a): bookings of sub-units.** A summary of sub-units is always mode C; whether a level below the state unit is needed on the booking is open.
+. **Q21 (R4a): who may edit mapping and mode?** The design names TREASURER and ADMIN, the report is BOARD and ADMIN since R1. R4a keeps BOARD/ADMIN. The treasurer's access to the report, their own exports and a journal CSV with the "Gliederung" column are R4b.
+. **Q22 (R4a): chart of accounts and positions.** The numbers, names and suggested positions of the party chart are assumptions (confidence LOW or MED) and must be confirmed by the tax advisor or auditor.
+. **Q23 (R4a): booking of cash per chapter.** Is a per-(account, chapter) cash check what the finance board wants, or should chapters be forced to own cash accounts?
 
 . **Summary content.** The sample was read as: income Nr. 1 to 9 and expenses Nr. 1 to 2 for the whole party, with totals with and without subsidies from branches. R2 shows Nr. 1 to 10
   and Nr. 1 to 3, each on its own labelled line, the totals "including subsidies, not consolidated (follows in R5)" and the table by level only in that variant. A column "without subsidies"
@@ -209,6 +235,7 @@ At most 2,000 hints; when P05 would exceed that, the remaining ones are cut off 
 * R3b: C, D and F were **not compared with the official sample**, not accepted by the administration, not legally reviewed; section 24 (8a) and (12) PartG are unverified. Translations are model-written.
 * R3c: D was **not compared with the official sample**, not accepted by the administration, not legally reviewed; the adjustment rule (1.00 EUR) and the columns are assumptions (Q14, Q15). Translations are model-written. The screen was **not tried on a real phone** and **not with a screen reader**; the new DOM tests read attributes, text and focus only.
 * R3: the PostgreSQL lane of the new tests runs only with `LAPIS_TEST_POSTGRES_URL`.
+* R4a: the chart of accounts, the suggested positions, the cash basis (Q17) and the closing-date balances (Q18) were **not confirmed by a tax advisor or an auditor**, and the proposal was **not compared with a real party's books**. Nothing here claims an official or audited report. The screens were **not tried on a real phone** and **not with a screen reader**. Translations are model-written. The DATEV file is unchanged and does not carry the chapter.
 
 * The PDF and the XLSX of R2 were **not compared pixel by pixel with the Bundestag sample**, **not opened in real Excel, LibreOffice or Word**, **not accepted by the Bundestag administration** and **not seen by the auditor**.
   They are tested by reading them back (text extraction of the PDF, XML parse of the XLSX).

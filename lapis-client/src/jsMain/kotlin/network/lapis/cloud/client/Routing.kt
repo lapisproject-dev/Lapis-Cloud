@@ -1066,7 +1066,7 @@ fun initRouting(pageContainer: SimplePanel) {
         // Navigo runs this handler BEFORE it pushes the new URL, so `window.location.hash` is still the previous page's here:
         // the deep link (`?tab=`/`?step=`) is taken from the match itself and handed to the screen.
         val hash = ledgerHashOfMatch(params.asDynamic().queryString as? String)
-        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+        requireRoleOrChapterTreasurer(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.LEDGER) { container -> renderLedgerScreen(container, hash) }
         }
     }
@@ -1080,9 +1080,10 @@ fun initRouting(pageContainer: SimplePanel) {
             show(Routes.COMPLIANCE_REPORTS, ::renderNonprofitComplianceReportsScreen)
         }
     }
-    routing.kvOn(Routes.PARTY_REPORT) {
-        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
-            show(Routes.PARTY_REPORT, ::renderPartyReportScreen)
+    routing.kvOn(Routes.PARTY_REPORT) { params ->
+        val requestedTab = partgTabOfQuery(params.asDynamic().queryString as? String)
+        requireRoleOrChapterTreasurer(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.PARTY_REPORT) { container -> renderPartyReportScreen(container, requestedTab) }
         }
     }
     routing.kvOn(Routes.COST_CENTERS) {
@@ -1538,6 +1539,25 @@ private inline fun requireRole(
     if (!AppState.isAuthenticated) {
         routing.navigate(Routes.LOGIN)
     } else if (!AppState.hasRole(*roles)) {
+        notifyError(tr("Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."))
+        routing.navigate(Routes.DASHBOARD)
+    } else {
+        body()
+    }
+}
+
+/**
+ * V1.9.289 (R4a) -- like [requireRole], but a plain member with an active chapter-treasurer grant also passes (the session lists their chapters).
+ * Only the DOOR: the server decides on every call what the chapter treasurer may read or write.
+ */
+private inline fun requireRoleOrChapterTreasurer(
+    routing: Routing,
+    vararg roles: AccountRole,
+    body: () -> Unit,
+) {
+    if (!AppState.isAuthenticated) {
+        routing.navigate(Routes.LOGIN)
+    } else if (!AppState.hasRole(*roles) && AppState.session?.chapterTreasurerScopes.isNullOrEmpty()) {
         notifyError(tr("Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."))
         routing.navigate(Routes.DASHBOARD)
     } else {

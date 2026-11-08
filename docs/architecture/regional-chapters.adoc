@@ -223,6 +223,12 @@ erasure, both appear in the export (`officerGrantsIssued`). See `docs/architectu
   `RegionalChaptersScreen.kt`), not live/immediately in another already-open browser tab.
 
 [[crest-svg]]
+== Chapter treasurer (V1.9.289, R4a)
+
+A plain organization member (role `MEMBER`) may hold one or several *chapter-treasurer grants* (`regional_chapter_treasurer`). Unlike the officer grant (one per member, tied to the member's own chapter) the treasurer grant is **per (member, chapter)**: at most 10 active grants per member and 5 per chapter, the member need not belong to the chapter, only an ADMIN gives or revokes (`grantChapterTreasurer`, `revokeChapterTreasurer`, `listChapterTreasurers`), the effect of a revoke is immediate, and the uniqueness guard is the key `member_id:regional_chapter_id` while active (`NULL` once revoked; H2 has no partial index).
+
+The grant opens exactly two doors: **booking into** and **reading the journal, the general ledger and the cash book of** the granted chapters, and (read/enter only) the party report of the units `STATE:<chapter>` and `SUB:<chapter>`. Everything else in the books is federal. The scope is `security/BookingScope.kt`, see link:partg-report.adoc[the report architecture]. The role wins first: a TREASURER, BOARD or ADMIN who also holds a grant is never narrowed by it, and a BOARD member gains no write right from it. `deleteChapter` refuses a chapter with bookings, a bookkeeping mode or an active grant. `RegionalChapterVisibility` and its allowlist are untouched.
+
 == Crest: SVG policy (V1.9.21)
 
 A chapter crest may be uploaded as SVG. The SVG path is deliberately separate from the raster pipeline: `ChapterCrestFormat`

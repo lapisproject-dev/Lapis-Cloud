@@ -260,7 +260,7 @@ internal val kassenbuch =
         lines =
             listOf(
                 KassenbuchLineDto(1, "je-1", LocalDate(2026, 4, 1), "Spende Fest", "B-17", d(30.5), d(0.0), d(80.5)),
-                KassenbuchLineDto(2, "je-2", LocalDate(2026, 4, 2), "Getränke", null, d(0.0), d(20.0), d(60.5)),
+                KassenbuchLineDto(2, "je-2", LocalDate(2026, 4, 2), "Getränke", null, d(0.0), d(20.0), d(60.5), "ch-1", "Kreis Nord"),
             ),
     )
 

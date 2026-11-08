@@ -17,9 +17,20 @@ enum class PartgKind { LEAF, SUM }
 @Serializable
 enum class PartgUnitLevel { FEDERAL, STATE, SUBORDINATE }
 
-/** Where a stored value comes from: typed in by a person, or taken over from an Excel file. */
+/**
+ * Where a stored value comes from: typed in by a person, taken over from an Excel file, or (V1.9.289, R4a) taken over from the bookings.
+ * Literal order is load-bearing (stored as VARCHAR(6), a CHECK): [LEDGER] was appended LAST.
+ */
 @Serializable
-enum class PartgValueSource { MANUAL, IMPORT }
+enum class PartgValueSource { MANUAL, IMPORT, LEDGER }
+
+/**
+ * V1.9.289 (R4a) -- how a reporting unit keeps its books. A: all bookings are made centrally in Lapis (the unit's report is proposed from
+ * the bookings); B: the unit has its own cash but books it in Lapis; C: the unit keeps its own cash OUTSIDE Lapis (values are typed in or
+ * imported, nothing is proposed). A missing row means C. Stored as `VARCHAR(1)`.
+ */
+@Serializable
+enum class PartgBookkeepingMode { A, B, C }
 
 /**
  * The fixed catalogue of the positions of the report (sections 24 (4) income, (5) expenses, (6) assets and liabilities PartG), in the order

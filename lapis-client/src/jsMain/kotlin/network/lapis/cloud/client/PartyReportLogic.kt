@@ -232,6 +232,15 @@ internal fun partgFindingShortLabel(finding: network.lapis.cloud.shared.domain.P
             finding.positionCode?.let {
                 io.kvision.i18n.gettext("Position %1 erfasst, aber kein Unternehmen in Ausweis D", partgNumberLabelOf(it))
             } ?: io.kvision.i18n.gettext("Position erfasst, aber kein Unternehmen in Ausweis D")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P14 ->
+            io.kvision.i18n.gettext("%1 Konten mit Buchungen sind keiner Position zugeordnet", (finding.count ?: 0).toString())
+        network.lapis.cloud.shared.domain.PartgFindingCode.P15 ->
+            io.kvision.i18n.gettext("%1 Buchungen vorhanden, die Buchführung steht auf Modus C", (finding.count ?: 0).toString())
+        network.lapis.cloud.shared.domain.PartgFindingCode.P16 ->
+            finding.positionCode?.let {
+                io.kvision.i18n.gettext("Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab", partgNumberLabelOf(it))
+            }
+                ?: io.kvision.i18n.gettext("Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab")
     }
 
 private fun partgNumberLabelOf(code: String): String = PartgPositions.find(code)?.numberLabel ?: code
@@ -280,8 +289,37 @@ internal val PARTG_TAB_DISPLAY_ORDER: List<PartyReportTab> =
         PartyReportTab.AUSWEISE,
         PartyReportTab.ERLAEUTERUNGEN,
         PartyReportTab.POSITIONS,
+        PartyReportTab.KONTENZUORDNUNG,
         PartyReportTab.REPORT,
     )
+
+/**
+ * V1.9.289 (R4a): the tabs a person sees. A chapter treasurer (a plain member with a grant, never BOARD/ADMIN) sees the overview, the entry of
+ * their units and the mapping (read only); the server refuses everything else anyway, this only hides the doors.
+ */
+internal fun partgVisibleTabs(session: network.lapis.cloud.shared.domain.SessionInfoDto?): List<PartyReportTab> =
+    if (partgChapterTreasurerOnly(session)) {
+        listOf(PartyReportTab.OVERVIEW, PartyReportTab.SHEET, PartyReportTab.KONTENZUORDNUNG)
+    } else {
+        PARTG_TAB_DISPLAY_ORDER
+    }
+
+/** `true` iff the person reaches the report only through a chapter-treasurer grant. A missing session is NOT restricted (tests, loading). */
+internal fun partgChapterTreasurerOnly(session: network.lapis.cloud.shared.domain.SessionInfoDto?): Boolean =
+    session != null &&
+        session.role != network.lapis.cloud.shared.domain.AccountRole.BOARD &&
+        session.role != network.lapis.cloud.shared.domain.AccountRole.ADMIN &&
+        session.chapterTreasurerScopes.isNotEmpty()
+
+/** V1.9.289: the tab a deep link asks for (`?tab=KONTENZUORDNUNG`); `null` for anything else. Strict: an exact tab name. */
+internal fun partgTabOfQuery(queryString: String?): PartyReportTab? =
+    queryString
+        ?.removePrefix("?")
+        ?.split("&")
+        ?.firstNotNullOfOrNull { pair ->
+            val (key, value) = pair.split("=", limit = 2).let { it.first() to it.getOrNull(1) }
+            if (key == "tab") PartyReportTab.entries.firstOrNull { it.name == value } else null
+        }
 
 /** The number of hints that ask for a look, per unit key. */
 internal fun partgCheckCounts(findings: List<network.lapis.cloud.shared.domain.PartgFindingDto>): Map<String, Int> =

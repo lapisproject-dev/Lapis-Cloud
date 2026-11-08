@@ -8228,6 +8228,12 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
 
 /* V1.9.225 "Rechenschaftsbericht (PartG)": the save bar sticks to the bottom of the scrolling page while values are being entered. It sits in the
    page's scroll surface (not fixed above the dock) and has no transition and no animation (R54). Tokens only, no colour literals (R9). */
+/* V1.9.289 (R4a): a template suggestion in the mapping tab is a proposal, not yet a mapping: dashed outline, current text colour. */
+.lapis-partg-suggestion {
+  outline: 1px dashed currentcolor;
+  outline-offset: -2px;
+}
+
 .lapis-partg-savebar {
   position: sticky;
   bottom: 0;

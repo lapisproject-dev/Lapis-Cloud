@@ -213,6 +213,14 @@ internal object PartgReportStore {
             .orderBy(PartgReportValueTable.positionCode to SortOrder.ASC)
             .associate { it[PartgReportValueTable.positionCode] to it[PartgReportValueTable.amountCents] }
 
+    /** The source of every stored value of a sheet (V1.9.289, R4a): typed in, imported or taken from the bookings. */
+    fun valueSources(sheetId: Uuid): Map<String, PartgValueSource> =
+        PartgReportValueTable
+            .selectAll()
+            .where { PartgReportValueTable.sheetId eq sheetId }
+            .orderBy(PartgReportValueTable.positionCode to SortOrder.ASC)
+            .associate { it[PartgReportValueTable.positionCode] to it[PartgReportValueTable.valueSource] }
+
     /**
      * Applies [changes] (code -> cents, `null` deletes) to the locked [sheet] and bumps its revision once, only if something changed.
      * Returns the effective differences (empty = nothing changed, the revision stays).

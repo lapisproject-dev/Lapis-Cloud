@@ -30732,3 +30732,207 @@ msgstr "Pozycja %1 wprowadzona, ale brak przedsiębiorstwa w zestawieniu D"
 
 msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
 msgstr "Pozycja wprowadzona, ale brak przedsiębiorstwa w zestawieniu D"
+
+msgid "%1 %2 (%3)"
+msgstr "%1 %2 (%3)"
+
+msgid "%1 Buchungen vorhanden, die Buchführung steht auf Modus C"
+msgstr "Istnieje %1 księgowań, ale księgowość jest ustawiona na tryb C"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet"
+msgstr "%1 kont z księgowaniami nie jest przypisanych do żadnej pozycji"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet. Ihre Beträge fehlen im Vorschlag."
+msgstr "%1 kont z księgowaniami nie jest przypisanych do żadnej pozycji. Ich kwot nie ma w propozycji."
+
+msgid "%1 Konten werden angelegt, %2 sind schon vorhanden und bleiben unverändert"
+msgstr "Zostanie utworzonych kont: %1; kont %2 już istnieje i pozostaje bez zmian"
+
+msgid "%1 Werte übernehmen"
+msgstr "Zastosuj wartości: %1"
+
+msgid "%1 Zuordnungen gespeichert."
+msgstr "Zapisano przypisania: %1."
+
+msgid "%1 darf für %2 buchen und deren Journal lesen. Der Vorgang wird protokolliert."
+msgstr "%1 może księgować dla %2 i czytać jej dziennik. Operacja jest rejestrowana."
+
+msgid "%1 verliert sofort den Zugriff auf die Buchungen von %2."
+msgstr "%1 natychmiast traci dostęp do księgowań %2."
+
+msgid "%1 wurde als Kassenwart eingetragen."
+msgstr "%1 został zarejestrowany jako skarbnik."
+
+msgid "A – Zentral gebucht"
+msgstr "A – Księgowane centralnie"
+
+msgid "Alle Vorschläge auswählen"
+msgstr "Zaznacz wszystkie podpowiedzi"
+
+msgid "Als Kassenwart eintragen"
+msgstr "Zarejestruj jako skarbnika"
+
+msgid "Aus Buchungen"
+msgstr "Z księgowań"
+
+msgid "Ausgewählte übernehmen"
+msgstr "Zastosuj zaznaczone"
+
+msgid "B – Eigene Kasse in Lapis"
+msgstr "B – Własna kasa w Lapis"
+
+msgid "Bewusst nicht im Bericht"
+msgstr "Celowo poza sprawozdaniem"
+
+msgid "Bitte speichern oder verwerfen Sie zuerst Ihre Eingaben."
+msgstr "Najpierw zapisz lub odrzuć wprowadzone dane."
+
+msgid "Buchführung"
+msgstr "Księgowość"
+
+msgid "Buchführung gespeichert."
+msgstr "Księgowość zapisana."
+
+msgid "Buchführung ändern?"
+msgstr "Zmienić księgowość?"
+
+msgid "Buchungen haben sich geändert, Vorschlag neu laden"
+msgstr "Księgowania uległy zmianie, załaduj propozycję ponownie"
+
+msgid "Bund"
+msgstr "Szczebel federalny"
+
+msgid "C – Eigene Kasse außerhalb"
+msgstr "C – Własna kasa poza Lapis"
+
+msgid "Die Buchungen stimmen mit den erfassten Werten überein. Es gibt nichts zu übernehmen."
+msgstr "Księgowania zgadzają się z wprowadzonymi wartościami. Nie ma nic do zastosowania."
+
+msgid "Die Gesamtheit der nachgeordneten Gliederungen wird immer außerhalb von Lapis geführt."
+msgstr "Ogół jednostek podległych jest zawsze prowadzony poza Lapis."
+
+msgid "Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu."
+msgstr "Liczba księgowań uległa zmianie. Załaduj przegląd ponownie."
+
+msgid "Die Zuordnung der Konten pflegt der Vorstand. Sie sehen sie hier nur zur Information."
+msgstr "Przypisanie kont prowadzi zarząd. Jest tu widoczne tylko informacyjnie."
+
+msgid "Differenz"
+msgstr "Różnica"
+
+msgid "Ein Kassenwart darf für diese Gliederung buchen und das Journal, das Hauptbuch und das Kassenbuch der Gliederung lesen. Andere Bereiche der Buchhaltung bleiben ihm verschlossen."
+msgstr "Skarbnik może księgować dla tej jednostki oraz czytać jej dziennik, księgę główną i księgę kasową. Pozostałe obszary księgowości pozostają dla niego zamknięte."
+
+msgid "Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
+msgstr "Wartość z księgowań różni się od bieżącej propozycji"
+
+msgid "Entwurf, kein amtliches Formular. Die Zuordnung ist eine Arbeitshilfe und ersetzt keine Prüfung durch Ihre Steuerberatung."
+msgstr "Wersja robocza, nie oficjalny formularz. Przypisanie jest pomocą roboczą i nie zastępuje weryfikacji przez Państwa doradcę podatkowego."
+
+msgid "Es gibt keine Vorschläge für die offenen Konten."
+msgstr "Brak podpowiedzi dla otwartych kont."
+
+msgid "Es ist kein Vorschlag ausgewählt."
+msgstr "Nie zaznaczono żadnej podpowiedzi."
+
+msgid "Für %1 gibt es im Jahr %2 bereits %3 Buchungen. Die Buchungen bleiben unverändert."
+msgstr "Dla %1 istnieje już %3 księgowań w roku %2. Księgowania pozostają bez zmian."
+
+msgid "Für diese Einheit gibt es keinen Vorschlag aus Buchungen."
+msgstr "Dla tej jednostki nie ma propozycji z księgowań."
+
+msgid "Herkunft"
+msgstr "Pochodzenie"
+
+msgid "Im Modus C werden keine Werte aus Buchungen vorgeschlagen."
+msgstr "W trybie C nie proponuje się wartości z księgowań."
+
+msgid "Kassenwart der Gliederung"
+msgstr "Skarbnik jednostki"
+
+msgid "Kassenwart eintragen"
+msgstr "Zarejestruj skarbnika"
+
+msgid "Kassenwart entfernen"
+msgstr "Usuń skarbnika"
+
+msgid "Kassenwart verwalten"
+msgstr "Zarządzaj skarbnikiem"
+
+msgid "Keine Konten vorhanden. Legen Sie zuerst den Kontenplan an."
+msgstr "Brak kont. Najpierw utwórz plan kont."
+
+msgid "Konten den Positionen des Rechenschaftsberichts zuordnen"
+msgstr "Przypisz konta do pozycji sprawozdania"
+
+msgid "Mitglied suchen"
+msgstr "Wyszukaj członka"
+
+msgid "Negativ, nicht übertragbar. Bitte Zuordnung oder Buchungen prüfen."
+msgstr "Ujemne, nie można zastosować. Sprawdź przypisanie lub księgowania."
+
+msgid "Nicht zugeordnet: %1 Konten"
+msgstr "Nieprzypisane: %1 kont"
+
+msgid "Noch kein Kassenwart eingetragen."
+msgstr "Nie zarejestrowano jeszcze skarbnika."
+
+msgid "Parteien-Kontenplan anlegen"
+msgstr "Utwórz plan kont partii"
+
+msgid "Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab"
+msgstr "Pozycja %1 różni się od bieżącej propozycji z księgowań"
+
+msgid "Position für Konto"
+msgstr "Pozycja dla konta"
+
+msgid "Rechenschaftsbericht: Buchführung der Einheit"
+msgstr "Sprawozdanie finansowe: księgowość jednostki"
+
+msgid "Rechenschaftsbericht: Kontenzuordnung"
+msgstr "Sprawozdanie finansowe: przypisanie kont"
+
+msgid "Spenden können nur auf Bundesebene gebucht werden."
+msgstr "Darowizny można księgować wyłącznie na szczeblu federalnym."
+
+msgid "Vorschlag aus Buchungen"
+msgstr "Propozycja z księgowań"
+
+msgid "Vorschlag aus Buchungen: %1"
+msgstr "Propozycja z księgowań: %1"
+
+msgid "Vorschläge. Bitte prüfen, bevor Sie sie übernehmen."
+msgstr "Podpowiedzi. Sprawdź je przed zastosowaniem."
+
+msgid "Wert übernehmen"
+msgstr "Zastosuj wartość"
+
+msgid "Werte übernehmen"
+msgstr "Zastosuj wartości"
+
+msgid "Zugeordnet"
+msgstr "Przypisane"
+
+msgid "aus Buchungen"
+msgstr "z księgowań"
+
+msgid "aus Parteien-Kontenplan"
+msgstr "z planu kont partii"
+
+msgid "davon %1 mit Buchungen im Jahr %2"
+msgstr "w tym %1 z księgowaniami w roku %2"
+
+msgid "gespeichert"
+msgstr "zapisano"
+
+msgid "geändert"
+msgstr "zmieniono"
+
+msgid "Ändern"
+msgstr "Zmień"
+
+msgid "Übersprungen (anderer Name): %1"
+msgstr "Pominięto (inna nazwa): %1"
+
+msgid "Bundesebene"
+msgstr "Poziom federalny"

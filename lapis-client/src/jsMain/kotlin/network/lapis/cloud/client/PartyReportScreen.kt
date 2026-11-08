@@ -15,7 +15,7 @@ import network.lapis.cloud.shared.rpc.IPartyReportService
 import org.w3c.dom.events.Event
 
 /** The tabs of the party report page. New tabs are appended: the remembered tab is read back by name. */
-internal enum class PartyReportTab { OVERVIEW, SHEET, POSITIONS, REPORT, AUSWEISE, ERLAEUTERUNGEN }
+internal enum class PartyReportTab { OVERVIEW, SHEET, POSITIONS, REPORT, AUSWEISE, ERLAEUTERUNGEN, KONTENZUORDNUNG }
 
 /**
  * The state the tabs share (V1.9.225): the report year and the unit picked for entry, plus a probe the page asks before something would
@@ -43,7 +43,14 @@ internal class PartyReportContext(
 private const val TAB_STORAGE_KEY = "lapis.partyReport.tab"
 
 private fun rememberedTab(): PartyReportTab =
-    runCatching { window.localStorage.getItem(TAB_STORAGE_KEY)?.let { PartyReportTab.valueOf(it) } }.getOrNull() ?: PartyReportTab.OVERVIEW
+    (
+        runCatching {
+            window.localStorage
+                .getItem(
+                    TAB_STORAGE_KEY,
+                )?.let { PartyReportTab.valueOf(it) }
+        }.getOrNull() ?: PartyReportTab.OVERVIEW
+    ).takeIf { it in partgVisibleTabs(AppState.session) } ?: PartyReportTab.OVERVIEW
 
 private fun rememberTab(tab: PartyReportTab) {
     runCatching { window.localStorage.setItem(TAB_STORAGE_KEY, tab.name) }
@@ -57,7 +64,10 @@ private fun rememberTab(tab: PartyReportTab) {
  * Reachable for BOARD and ADMIN when the organisation is a political party (`SessionInfoDto.politicalParty`); the server enforces both on every
  * call. Six tabs: the overview of all units, entry of one unit, the separate statements (A, B, member count), the notes, the positions with the organisation's own hints, and the report draft.
  */
-fun renderPartyReportScreen(container: SimplePanel) {
+internal fun renderPartyReportScreen(
+    container: SimplePanel,
+    requestedTab: PartyReportTab? = null,
+) {
     val root = container.dataScreenRoot(spacing = 14)
     root.pageHeader(tr("Rechenschaftsbericht nach Parteiengesetz"), intro = PageIntros.forRoute(Routes.PARTY_REPORT))
     if (AppState.session?.politicalParty != true) {
@@ -81,7 +91,11 @@ fun renderPartyReportScreen(container: SimplePanel) {
     val years = (organizationToday().year downTo 2001).map { it.toString() to it.toString() }
     val segmentHost = root.simplePanel()
     val tabPanel = root.vPanel(spacing = 10)
-    var tab = rememberedTab()
+    var tab = requestedTab?.takeIf { it in partgVisibleTabs(AppState.session) } ?: rememberedTab()
+    if (requestedTab != null) {
+        // the deep link has done its job: the address goes back to the plain page (a reload keeps the remembered tab)
+        runCatching { window.history.replaceState(null, "", "#" + Routes.PARTY_REPORT) }
+    }
 
     fun guardedChange(
         proceed: () -> Unit,
@@ -116,11 +130,12 @@ fun renderPartyReportScreen(container: SimplePanel) {
             PartyReportTab.ERLAEUTERUNGEN -> tr("Erläuterungen")
             PartyReportTab.POSITIONS -> tr("Positionen")
             PartyReportTab.REPORT -> tr("Bericht")
+            PartyReportTab.KONTENZUORDNUNG -> tr("Kontenzuordnung")
         }
 
     fun paintSegments() {
         segmentHost.removeAll()
-        val options = PARTG_TAB_DISPLAY_ORDER.map { it to tabLabel(it) }
+        val options = partgVisibleTabs(AppState.session).map { it to tabLabel(it) }
         // wide screens: the segmented buttons; below 640 px: a select (the CSS shows exactly one of the two, so the other one is not in
         // the accessibility tree)
         segmentHost.div(className = "lapis-partg-tabs-wide") {
@@ -164,6 +179,7 @@ fun renderPartyReportScreen(container: SimplePanel) {
             PartyReportTab.REPORT -> tabPanel.renderPartyReportExport(context)
             PartyReportTab.AUSWEISE -> tabPanel.renderPartyReportAnnex(context)
             PartyReportTab.ERLAEUTERUNGEN -> tabPanel.renderPartyReportNotes(context)
+            PartyReportTab.KONTENZUORDNUNG -> tabPanel.renderPartyReportMappingTab(context)
         }
     }
     showTab = { chosen ->

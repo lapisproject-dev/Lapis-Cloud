@@ -474,7 +474,11 @@ internal object OpenItemPostingBridge {
         val cashAccountIds = CashRegisterGuard.loadCashRegisterAccountIds(listOf(debitAccountId, creditAccountId))
         try {
             CashRegisterGuard.requireVoucherForCashPostings(voucherReference = voucherReference, cashAccountIds = cashAccountIds)
-            CashRegisterGuard.requireNonNegativeCashBalances(postings = postingInputs, cashAccountIds = cashAccountIds)
+            CashRegisterGuard.requireNonNegativeCashBalances(
+                postings = postingInputs,
+                cashAccountIds = cashAccountIds,
+                regionalChapterId = null,
+            )
         } catch (e: ConflictException) {
             val reason =
                 if (e.message.contains(

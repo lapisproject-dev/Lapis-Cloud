@@ -26,6 +26,7 @@ import network.lapis.cloud.shared.domain.RegionalChapterOverviewDto
 import network.lapis.cloud.shared.domain.RegionalChapterPublicRules
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegionalChapterRules
+import network.lapis.cloud.shared.domain.RegionalChapterTreasurerDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.IMemberService
@@ -178,6 +179,25 @@ private fun renderChapterStructureControls(
             officerPanel.show()
         } else {
             officerPanel.hide()
+        }
+    }
+
+    // ── Kassenwart der Gliederung (V1.9.289, R4a) ──
+    val treasurerButton = actionsRow.button(tr("Kassenwart verwalten"), style = ButtonStyle.OUTLINESECONDARY)
+    val treasurerPanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
+    treasurerPanel.hide()
+    var treasurerOpen = false
+    var treasurerLoaded = false
+    treasurerButton.onClick {
+        treasurerOpen = !treasurerOpen
+        if (treasurerOpen) {
+            if (!treasurerLoaded) {
+                treasurerLoaded = true
+                renderTreasurerPanel(treasurerPanel, chapter)
+            }
+            treasurerPanel.show()
+        } else {
+            treasurerPanel.hide()
         }
     }
 
@@ -390,6 +410,129 @@ private fun renderOfficerPanel(
     host.div { addCssClass("mt-2") }
     host.p(tr("Mitglied dieses Landesverbands suchen")) { addCssClasses("fw-bold small mb-1") }
     renderOfficerGrantSearch(host, chapter, ::reloadAll)
+}
+
+/**
+ * V1.9.289 (R4a): "Kassenwart der Gliederung" -- a member who may book into and read the journal of THIS chapter (and only this one per grant; a member
+ * may hold several grants). ADMIN only, the effect is immediate. The member does not have to belong to the chapter.
+ */
+private fun renderTreasurerPanel(
+    host: SimplePanel,
+    chapter: RegionalChapterDto,
+) {
+    host.removeAll()
+    host.p(tr("Kassenwart der Gliederung")) { addCssClasses("fw-bold mb-1") }
+    host.p(
+        tr(
+            "Ein Kassenwart darf für diese Gliederung buchen und das Journal, das Hauptbuch und das Kassenbuch der Gliederung lesen. " +
+                "Andere Bereiche der Buchhaltung bleiben ihm verschlossen.",
+        ),
+    ) { addCssClasses("text-muted small") }
+    lateinit var listSection: DataSection
+    listSection =
+        host.dataSection<List<RegionalChapterTreasurerDto>>(
+            emptyText = tr("Noch kein Kassenwart eingetragen."),
+            isEmpty = { it.isEmpty() },
+            load = { regionalChapterGuarded { rpcService<IRegionalChapterService>().listChapterTreasurers(chapter.id) } },
+            render = { panel, treasurers ->
+                treasurers.forEach { treasurer ->
+                    val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center border-bottom py-1 flex-wrap") }
+                    row.untrustedSpan(treasurer.displayName)
+                    row.span(gettext("seit %1", formatDate(systemDate(treasurer.grantedAt)))) { addCssClasses("text-muted small") }
+                    row.actionButton(ActionIcon.REVOKE, tr("Zugang entziehen"), style = ButtonStyle.OUTLINEDANGER) {
+                        onClick {
+                            confirmDialog(
+                                title = tr("Kassenwart entfernen"),
+                                message =
+                                    gettext(
+                                        "%1 verliert sofort den Zugriff auf die Buchungen von %2.",
+                                        treasurer.displayName,
+                                        chapter.name,
+                                    ),
+                                confirmLabel = tr("Zugang entziehen"),
+                                confirmIcon = ActionIcon.REVOKE,
+                            ) {
+                                AppScope.launch {
+                                    val result =
+                                        regionalChapterGuarded {
+                                            rpcService<IRegionalChapterService>().revokeChapterTreasurer(treasurer.grantId)
+                                        }
+                                    if (result != null) listSection.reload()
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        )
+    listSection.reload()
+    host.p(tr("Mitglied suchen")) { addCssClasses("fw-bold small mb-1 mt-2") }
+    val searchField = host.lapisForm().textField(label = tr("Suche"))
+    val resultsPanel = host.vPanel(spacing = 4) { addCssClass("mt-1") }
+    var generation = 0
+
+    fun runSearch(term: String) {
+        generation++
+        val mine = generation
+        AppScope.launch {
+            val page =
+                guarded {
+                    rpcService<IMemberService>().listMembersForAdministration(
+                        MemberAdminQuery(search = term.ifBlank { null }, statuses = setOf(MemberStatus.ACTIVE), limit = 10),
+                    )
+                } ?: return@launch
+            if (mine != generation) return@launch
+            resultsPanel.removeAll()
+            page.rows.forEach { row ->
+                val rowPanel = resultsPanel.hPanel(spacing = 8) { addCssClasses("align-items-center border-bottom py-1") }
+                rowPanel.untrustedSpan(row.displayName)
+                if (row.role == null) {
+                    rowPanel.button(tr("kein Login-Konto"), style = ButtonStyle.OUTLINESECONDARY).disabled = true
+                } else {
+                    rowPanel.actionButton(ActionIcon.ADD, tr("Als Kassenwart eintragen"), style = ButtonStyle.OUTLINEPRIMARY) {
+                        onClick {
+                            confirmDialog(
+                                title = tr("Kassenwart eintragen"),
+                                message =
+                                    gettext(
+                                        "%1 darf für %2 buchen und deren Journal lesen. Der Vorgang wird protokolliert.",
+                                        row.displayName,
+                                        chapter.name,
+                                    ),
+                                confirmLabel = tr("Zugang erteilen"),
+                            ) {
+                                AppScope.launch {
+                                    val result =
+                                        regionalChapterGuarded {
+                                            rpcService<IRegionalChapterService>().grantChapterTreasurer(
+                                                chapter.id,
+                                                row.id,
+                                            )
+                                        }
+                                    if (result != null) {
+                                        notifySuccess(gettext("%1 wurde als Kassenwart eingetragen.", row.displayName))
+                                        listSection.reload()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    var isInitialEvent = true
+    var debounceHandle: Int? = null
+    searchField.subscribe { value ->
+        if (isInitialEvent) {
+            isInitialEvent = false
+            runSearch("")
+            return@subscribe
+        }
+        debounceHandle?.let { kotlinx.browser.window.clearTimeout(it) }
+        debounceHandle = kotlinx.browser.window.setTimeout({ runSearch(value) }, 300)
+    }
 }
 
 private fun renderOfficerRow(

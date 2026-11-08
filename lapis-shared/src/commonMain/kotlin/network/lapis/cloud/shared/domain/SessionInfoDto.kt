@@ -83,6 +83,12 @@ data class SessionInfoDto(
      */
     val chapterScope: RegionalChapterRefDto? = null,
     /**
+     * V1.9.289 (R4a) -- the chapters for which the caller currently holds an ACTIVE chapter-treasurer grant (and is an organization member).
+     * Empty for everyone else. A BOARD/TREASURER/ADMIN never gets entries here: the role wins first. Drives the restricted bookkeeping and
+     * report navigation; the server enforces every restriction.
+     */
+    val chapterTreasurerScopes: List<RegionalChapterRefDto> = emptyList(),
+    /**
      * Welle V1.9.38 "Einheitliche Zeitzonen" -- the organization's IANA zone id. The client displays every
      * class-A system timestamp (stored as UTC) in this zone. Defaulted for serialization compatibility
      * between an old client and a new server and vice versa.

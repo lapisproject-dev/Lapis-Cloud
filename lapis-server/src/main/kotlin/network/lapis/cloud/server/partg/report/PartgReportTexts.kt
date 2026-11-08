@@ -153,5 +153,8 @@ internal object PartgReportTexts {
             network.lapis.cloud.shared.domain.PartgFindingCode.P11 -> "Unternehmen weichen von Position ab"
             network.lapis.cloud.shared.domain.PartgFindingCode.P12 -> "Unternehmen ohne vollständige Zahlen"
             network.lapis.cloud.shared.domain.PartgFindingCode.P13 -> "Position erfasst, aber kein Unternehmen in Ausweis D"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P14 -> "Konten mit Buchungen ohne Zuordnung zu einer Position"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P15 -> "Buchungen vorhanden, Buchführung steht auf Modus C"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P16 -> "Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
         }
 }

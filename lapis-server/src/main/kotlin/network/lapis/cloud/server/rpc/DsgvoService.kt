@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PoliticianProfileTable
 import network.lapis.cloud.server.dsgvo.DataSubject
 import network.lapis.cloud.server.dsgvo.PersonalDataRegistry
+import network.lapis.cloud.server.dsgvo.RegionalChapterPersonalData
 import network.lapis.cloud.server.dsgvo.TableErasureOutcome
 import network.lapis.cloud.server.dsgvo.nowUtc
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -231,11 +232,18 @@ class DsgvoService(
                 // administrator could otherwise erase the only account that can operate the instance). A concurrent promotion is
                 // serialized by the same lock.
                 PeerGuard.require(actor = current, targetId = subjectId, action = PeerAction.ERASE, mailConfigured = false)
+                val revokedTreasurerGrants = RegionalChapterPersonalData.activeTreasurerGrants(subjectId)
                 val outcomeDtos =
                     PersonalDataRegistry.contributors
                         .filter { DsgvoSubjectKind.MEMBER in it.handledSubjects }
                         .flatMap { it.erase(subject = DataSubject.Member(subjectId), mode = mode) }
                         .map { it.toDto() }
+                RegionalChapterPersonalData.recordRevocationAudit(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    subjectMemberId = subjectId,
+                    grants = revokedTreasurerGrants,
+                )
                 ErasureRequestTable.update({ ErasureRequestTable.id eq id }) {
                     it[status] = ErasureStatus.COMPLETED
                     it[executedAt] = nowUtc()

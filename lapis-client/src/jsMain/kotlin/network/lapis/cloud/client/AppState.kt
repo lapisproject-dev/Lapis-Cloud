@@ -19,6 +19,7 @@ import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
 import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.ChapterDonationFederalOnlyException
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
 import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConferenceRoomPauseLimitException
@@ -89,7 +90,10 @@ import network.lapis.cloud.shared.rpc.MemberPublicBioRateLimitedException
 import network.lapis.cloud.shared.rpc.MemberPublicBioValidationException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PartyReportInvalidInputException
+import network.lapis.cloud.shared.rpc.PartyReportModeConfirmationRequiredException
 import network.lapis.cloud.shared.rpc.PartyReportNotEnabledException
+import network.lapis.cloud.shared.rpc.PartyReportProposalNotAvailableException
+import network.lapis.cloud.shared.rpc.PartyReportProposalStaleException
 import network.lapis.cloud.shared.rpc.PartyReportRevisionConflictException
 import network.lapis.cloud.shared.rpc.RateLimitedException
 import network.lapis.cloud.shared.rpc.RecordingRawFilesMissingException
@@ -234,6 +238,12 @@ internal fun typedRefusalText(e: Throwable): String? =
         is PartyReportRevisionConflictException ->
             tr("Die Werte wurden inzwischen von jemand anderem geändert -- bitte laden Sie das Blatt neu.")
         is PartyReportInvalidInputException -> tr("Jahr, Gliederung oder Betrag sind ungültig.")
+        // V1.9.289 (R4a)
+        is PartyReportModeConfirmationRequiredException ->
+            tr("Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu.")
+        is PartyReportProposalStaleException -> tr("Buchungen haben sich geändert, Vorschlag neu laden")
+        is PartyReportProposalNotAvailableException -> tr("Für diese Einheit gibt es keinen Vorschlag aus Buchungen.")
+        is ChapterDonationFederalOnlyException -> tr("Spenden können nur auf Bundesebene gebucht werden.")
         is RegionalChapterHasPartyReportValuesException ->
             tr("Für diesen Landesverband sind Werte im Rechenschaftsbericht erfasst. Er kann nicht gelöscht werden.")
         // V1.9.226 LupaBB sync: the fixed texts of its typed refusals.

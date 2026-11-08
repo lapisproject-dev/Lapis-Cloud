@@ -21,6 +21,7 @@ import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.KassenbuchDto
 import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.LedgerAccountInput
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.StandardChartResultDto
 import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
 import network.lapis.cloud.shared.domain.VatReturnPreviewDto
@@ -96,6 +97,8 @@ interface IAccountingService {
         to: LocalDate? = null,
         status: JournalEntryStatus? = null,
         donorMemberId: String? = null,
+        /** V1.9.289 (R4a): `null` = everything in the caller's scope, `"FEDERAL"` = only federal entries, otherwise a chapter id. */
+        unitFilter: String? = null,
     ): List<JournalEntryDto>
 
     /**
@@ -109,6 +112,8 @@ interface IAccountingService {
         ledgerAccountId: String,
         from: LocalDate? = null,
         to: LocalDate? = null,
+        /** V1.9.289 (R4a): see [listJournal]. */
+        unitFilter: String? = null,
     ): GeneralLedgerDto
 
     /**
@@ -184,6 +189,8 @@ interface IAccountingService {
         ledgerAccountId: String,
         from: LocalDate? = null,
         to: LocalDate? = null,
+        /** V1.9.289 (R4a): see [listJournal]. */
+        unitFilter: String? = null,
     ): KassenbuchDto
 
     /**
@@ -296,4 +303,18 @@ interface IAccountingService {
 
     /** V1.9.206. TREASURER/BOARD/ADMIN, read only. State of the six finance-setup steps. */
     suspend fun getFinanceSetupStatus(): FinanceSetupStatusDto
+
+    /**
+     * V1.9.289 (R4a). TREASURER/ADMIN, party only (else [BadRequestException]). Applies the
+     * [network.lapis.cloud.shared.domain.StandardPartyChart]: creates every proposed account whose number does not exist yet. Idempotent --
+     * a number that exists (active or inactive) is skipped and never changed or renamed; one that exists with ANOTHER name is reported in
+     * `conflicting`. Creates NO mapping to report positions (those are only suggested in the report's "Kontenzuordnung" tab).
+     */
+    suspend fun createStandardPartyChart(): StandardChartResultDto
+
+    /**
+     * V1.9.289 (R4a). TREASURER/BOARD/ADMIN: every regional chapter; a chapter treasurer: only the chapters granted. The units a booking can be
+     * made into or filtered by (the federal level, "Bund", is not listed: it is `null`). Empty while no chapter exists.
+     */
+    suspend fun listBookingUnits(): List<RegionalChapterRefDto>
 }

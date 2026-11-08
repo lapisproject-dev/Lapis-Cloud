@@ -30764,3 +30764,207 @@ msgstr "Position %1 entered, but no enterprise in statement D"
 
 msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
 msgstr "Position entered, but no enterprise in statement D"
+
+msgid "%1 %2 (%3)"
+msgstr "%1 %2 (%3)"
+
+msgid "%1 Buchungen vorhanden, die Buchführung steht auf Modus C"
+msgstr "%1 entries exist, but bookkeeping is set to mode C"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet"
+msgstr "%1 accounts with entries are not assigned to a position"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet. Ihre Beträge fehlen im Vorschlag."
+msgstr "%1 accounts with entries are not assigned to a position. Their amounts are missing from the proposal."
+
+msgid "%1 Konten werden angelegt, %2 sind schon vorhanden und bleiben unverändert"
+msgstr "%1 accounts will be created, %2 already exist and remain unchanged"
+
+msgid "%1 Werte übernehmen"
+msgstr "Apply %1 values"
+
+msgid "%1 Zuordnungen gespeichert."
+msgstr "%1 assignments saved."
+
+msgid "%1 darf für %2 buchen und deren Journal lesen. Der Vorgang wird protokolliert."
+msgstr "%1 may make entries for %2 and read its journal. The action is logged."
+
+msgid "%1 verliert sofort den Zugriff auf die Buchungen von %2."
+msgstr "%1 immediately loses access to the entries of %2."
+
+msgid "%1 wurde als Kassenwart eingetragen."
+msgstr "%1 was registered as treasurer."
+
+msgid "A – Zentral gebucht"
+msgstr "A – Booked centrally"
+
+msgid "Alle Vorschläge auswählen"
+msgstr "Select all suggestions"
+
+msgid "Als Kassenwart eintragen"
+msgstr "Register as treasurer"
+
+msgid "Aus Buchungen"
+msgstr "From entries"
+
+msgid "Ausgewählte übernehmen"
+msgstr "Take over selected"
+
+msgid "B – Eigene Kasse in Lapis"
+msgstr "B – Own cash in Lapis"
+
+msgid "Bewusst nicht im Bericht"
+msgstr "Deliberately not in the report"
+
+msgid "Bitte speichern oder verwerfen Sie zuerst Ihre Eingaben."
+msgstr "Please save or discard your input first."
+
+msgid "Buchführung"
+msgstr "Bookkeeping"
+
+msgid "Buchführung gespeichert."
+msgstr "Bookkeeping saved."
+
+msgid "Buchführung ändern?"
+msgstr "Change bookkeeping?"
+
+msgid "Buchungen haben sich geändert, Vorschlag neu laden"
+msgstr "Entries have changed, reload the proposal"
+
+msgid "Bund"
+msgstr "Federal level"
+
+msgid "C – Eigene Kasse außerhalb"
+msgstr "C – Own cash outside Lapis"
+
+msgid "Die Buchungen stimmen mit den erfassten Werten überein. Es gibt nichts zu übernehmen."
+msgstr "The entries match the recorded values. There is nothing to apply."
+
+msgid "Die Gesamtheit der nachgeordneten Gliederungen wird immer außerhalb von Lapis geführt."
+msgstr "The totality of subordinate units is always kept outside Lapis."
+
+msgid "Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu."
+msgstr "The number of entries has changed. Please reload the overview."
+
+msgid "Die Zuordnung der Konten pflegt der Vorstand. Sie sehen sie hier nur zur Information."
+msgstr "The board maintains the account assignment. You see it here for information only."
+
+msgid "Differenz"
+msgstr "Difference"
+
+msgid "Ein Kassenwart darf für diese Gliederung buchen und das Journal, das Hauptbuch und das Kassenbuch der Gliederung lesen. Andere Bereiche der Buchhaltung bleiben ihm verschlossen."
+msgstr "A treasurer may make entries for this unit and read the unit's journal, general ledger and cash book. Other areas of bookkeeping remain closed to them."
+
+msgid "Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
+msgstr "A value taken from entries differs from the current proposal"
+
+msgid "Entwurf, kein amtliches Formular. Die Zuordnung ist eine Arbeitshilfe und ersetzt keine Prüfung durch Ihre Steuerberatung."
+msgstr "Draft, not an official form. The assignment is a working aid and does not replace a review by your tax advisor."
+
+msgid "Es gibt keine Vorschläge für die offenen Konten."
+msgstr "There are no suggestions for the open accounts."
+
+msgid "Es ist kein Vorschlag ausgewählt."
+msgstr "No suggestion is selected."
+
+msgid "Für %1 gibt es im Jahr %2 bereits %3 Buchungen. Die Buchungen bleiben unverändert."
+msgstr "For %1 there are already %3 entries in %2. The entries remain unchanged."
+
+msgid "Für diese Einheit gibt es keinen Vorschlag aus Buchungen."
+msgstr "There is no proposal from entries for this unit."
+
+msgid "Herkunft"
+msgstr "Source"
+
+msgid "Im Modus C werden keine Werte aus Buchungen vorgeschlagen."
+msgstr "In mode C no values are proposed from entries."
+
+msgid "Kassenwart der Gliederung"
+msgstr "Unit treasurer"
+
+msgid "Kassenwart eintragen"
+msgstr "Register treasurer"
+
+msgid "Kassenwart entfernen"
+msgstr "Remove treasurer"
+
+msgid "Kassenwart verwalten"
+msgstr "Manage treasurer"
+
+msgid "Keine Konten vorhanden. Legen Sie zuerst den Kontenplan an."
+msgstr "No accounts yet. Create the chart of accounts first."
+
+msgid "Konten den Positionen des Rechenschaftsberichts zuordnen"
+msgstr "Assign accounts to the positions of the report"
+
+msgid "Mitglied suchen"
+msgstr "Search for a member"
+
+msgid "Negativ, nicht übertragbar. Bitte Zuordnung oder Buchungen prüfen."
+msgstr "Negative, cannot be applied. Please check the assignment or the entries."
+
+msgid "Nicht zugeordnet: %1 Konten"
+msgstr "Unassigned: %1 accounts"
+
+msgid "Noch kein Kassenwart eingetragen."
+msgstr "No treasurer registered yet."
+
+msgid "Parteien-Kontenplan anlegen"
+msgstr "Create party chart of accounts"
+
+msgid "Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab"
+msgstr "Position %1 differs from the current proposal from the entries"
+
+msgid "Position für Konto"
+msgstr "Position for account"
+
+msgid "Rechenschaftsbericht: Buchführung der Einheit"
+msgstr "Accountability report: bookkeeping of the unit"
+
+msgid "Rechenschaftsbericht: Kontenzuordnung"
+msgstr "Accountability report: account assignment"
+
+msgid "Spenden können nur auf Bundesebene gebucht werden."
+msgstr "Donations can only be booked at the federal level."
+
+msgid "Vorschlag aus Buchungen"
+msgstr "Proposal from entries"
+
+msgid "Vorschlag aus Buchungen: %1"
+msgstr "Proposal from entries: %1"
+
+msgid "Vorschläge. Bitte prüfen, bevor Sie sie übernehmen."
+msgstr "Suggestions. Please check them before you apply them."
+
+msgid "Wert übernehmen"
+msgstr "Apply value"
+
+msgid "Werte übernehmen"
+msgstr "Apply values"
+
+msgid "Zugeordnet"
+msgstr "Assigned"
+
+msgid "aus Buchungen"
+msgstr "from entries"
+
+msgid "aus Parteien-Kontenplan"
+msgstr "from party chart of accounts"
+
+msgid "davon %1 mit Buchungen im Jahr %2"
+msgstr "of which %1 with entries in %2"
+
+msgid "gespeichert"
+msgstr "saved"
+
+msgid "geändert"
+msgstr "changed"
+
+msgid "Ändern"
+msgstr "Change"
+
+msgid "Übersprungen (anderer Name): %1"
+msgstr "Skipped (different name): %1"
+
+msgid "Bundesebene"
+msgstr "Federal level"

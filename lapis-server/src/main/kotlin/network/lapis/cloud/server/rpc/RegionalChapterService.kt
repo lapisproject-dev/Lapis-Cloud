@@ -10,12 +10,17 @@ import network.lapis.cloud.server.chapters.ChapterCrestStore
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTreasurerTable
+import network.lapis.cloud.server.db.isUniqueViolation
+import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.partg.PartgAnnexStore
+import network.lapis.cloud.server.partg.PartgLedgerLinkStore
 import network.lapis.cloud.server.partg.PartgReportStore
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.requireRole
@@ -25,6 +30,7 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.MemberRegionalChapterSnapshot
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.PublicTextNormalization
 import network.lapis.cloud.shared.domain.PublicTextRules
 import network.lapis.cloud.shared.domain.RegionalChapterDto
@@ -34,6 +40,8 @@ import network.lapis.cloud.shared.domain.RegionalChapterOverviewDto
 import network.lapis.cloud.shared.domain.RegionalChapterPublicRules
 import network.lapis.cloud.shared.domain.RegionalChapterRules
 import network.lapis.cloud.shared.domain.RegionalChapterSnapshot
+import network.lapis.cloud.shared.domain.RegionalChapterTreasurerDto
+import network.lapis.cloud.shared.domain.RegionalChapterTreasurerSnapshot
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IRegionalChapterService
@@ -257,11 +265,32 @@ class RegionalChapterService internal constructor(
             ) {
                 throw RegionalChapterHasPartyReportValuesException()
             }
+            // V1.9.289 (R4a): bookings, a bookkeeping mode or an ACTIVE chapter-treasurer grant also block the delete (a clean refusal, never a
+            // foreign-key error that would poison the PostgreSQL transaction).
+            if (PartgLedgerLinkStore.hasUnitModeForChapter(id) ||
+                JournalEntryTable
+                    .selectAll()
+                    .where { JournalEntryTable.regionalChapterId eq id }
+                    .limit(1)
+                    .any()
+            ) {
+                throw ConflictException("Regional chapter $chapterId has bookings or a bookkeeping mode")
+            }
+            if (RegionalChapterTreasurerTable
+                    .selectAll()
+                    .where { (RegionalChapterTreasurerTable.regionalChapterId eq id) and RegionalChapterTreasurerTable.revokedAt.isNull() }
+                    .limit(1)
+                    .any()
+            ) {
+                throw RegionalChapterInUseException()
+            }
 
             // Only revoked officer grants can remain at this point (their history stays in the
             // audit log) -- delete them so a later chapter of the SAME name is not haunted by
             // stale rows; harmless no-op if there are none.
             RegionalChapterOfficerTable.deleteWhere { RegionalChapterOfficerTable.regionalChapterId eq id }
+            // Only revoked chapter-treasurer grants can remain here (checked above); their history stays in the audit log.
+            RegionalChapterTreasurerTable.deleteWhere { RegionalChapterTreasurerTable.regionalChapterId eq id }
 
             RegionalChapterTable.deleteWhere { RegionalChapterTable.id eq id }
             // VOID, not a DELETE literal -- see AuditAction KDoc "VOID" and
@@ -595,6 +624,180 @@ class RegionalChapterService internal constructor(
                 ),
             after = null,
             occurredAt = now,
+        )
+    }
+
+    // ---------------------------------------------------------------- V1.9.289 (R4a): chapter treasurer
+
+    override suspend fun listChapterTreasurers(chapterId: String): List<RegionalChapterTreasurerDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val cId = chapterId.toChapterUuidOrThrow()
+        return transaction {
+            RegionalChapterTable.selectAll().where { RegionalChapterTable.id eq cId }.singleOrNull()
+                ?: throw NotFoundException("Regional chapter $chapterId not found")
+            RegionalChapterTreasurerTable
+                .selectAll()
+                .where { (RegionalChapterTreasurerTable.regionalChapterId eq cId) and RegionalChapterTreasurerTable.revokedAt.isNull() }
+                .map { it.toTreasurerDto() }
+                .sortedWith(compareBy({ it.displayName.lowercase() }, { it.grantId }))
+        }
+    }
+
+    /**
+     * ADMIN only. Lock order like [grantOfficer]: member row, then chapter row. The caps (10 per member, 5 per chapter) are counted under both
+     * locks. A duplicate active grant is looked up first (idempotent); the insert runs under a savepoint so a parallel winner of the unique key
+     * `active_key` only rolls back the insert (PostgreSQL would otherwise poison the transaction), then the winner's row is returned.
+     */
+    override suspend fun grantChapterTreasurer(
+        chapterId: String,
+        memberId: String,
+    ): RegionalChapterTreasurerDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        val cId = chapterId.toChapterUuidOrThrow()
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            val memberRow =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq targetId }
+                    .forMemberUpdate()
+                    .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+            RegionalChapterTable
+                .selectAll()
+                .where { RegionalChapterTable.id eq cId }
+                .forUpdate()
+                .singleOrNull() ?: throw NotFoundException("Regional chapter $chapterId not found")
+            val hasAccount = AccountTable.selectAll().where { AccountTable.memberId eq targetId }.count() > 0
+            if (memberRow[MemberTable.status] !in MemberStatusSets.ORGANIZATION_MEMBER || !hasAccount) {
+                throw RegionalChapterOfficerIneligibleException()
+            }
+            findActiveTreasurerGrant(memberId = targetId, chapterId = cId)?.let { return@transaction it.toTreasurerDto() }
+            val perMember =
+                RegionalChapterTreasurerTable
+                    .selectAll()
+                    .where { (RegionalChapterTreasurerTable.memberId eq targetId) and RegionalChapterTreasurerTable.revokedAt.isNull() }
+                    .count()
+            val perChapter =
+                RegionalChapterTreasurerTable
+                    .selectAll()
+                    .where { (RegionalChapterTreasurerTable.regionalChapterId eq cId) and RegionalChapterTreasurerTable.revokedAt.isNull() }
+                    .count()
+            if (perMember >= RegionalChapterRules.MAX_TREASURER_GRANTS_PER_MEMBER ||
+                perChapter >= RegionalChapterRules.MAX_TREASURER_GRANTS_PER_CHAPTER
+            ) {
+                throw RegionalChapterLimitReachedException()
+            }
+            val grantId = Uuid.random()
+            try {
+                withSavepoint(name = "rct_grant") {
+                    RegionalChapterTreasurerTable.insert {
+                        it[id] = grantId
+                        it[RegionalChapterTreasurerTable.memberId] = targetId
+                        it[regionalChapterId] = cId
+                        it[grantedAt] = now
+                        it[grantedByMemberId] = current.memberId
+                        it[revokedAt] = null
+                        it[activeKey] = "$targetId:$cId"
+                    }
+                }
+            } catch (e: Exception) {
+                if (!e.isUniqueViolation()) throw e
+                return@transaction findActiveTreasurerGrant(memberId = targetId, chapterId = cId)!!.toTreasurerDto()
+            }
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.REGIONAL_CHAPTER_TREASURER,
+                entityId = grantId,
+                action = AuditAction.CREATE,
+                before = null,
+                after =
+                    Json.encodeToString(
+                        RegionalChapterTreasurerSnapshot.serializer(),
+                        RegionalChapterTreasurerSnapshot(memberId = targetId.toString(), regionalChapterId = cId.toString()),
+                    ),
+                occurredAt = now,
+            )
+            RegionalChapterTreasurerTable
+                .selectAll()
+                .where { RegionalChapterTreasurerTable.id eq grantId }
+                .single()
+                .toTreasurerDto()
+        }
+    }
+
+    override suspend fun revokeChapterTreasurer(grantId: String) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val id = grantId.toGrantUuidOrThrow()
+        val now = DbClock.nowLocalDateTime()
+        transaction {
+            val row =
+                RegionalChapterTreasurerTable
+                    .selectAll()
+                    .where { RegionalChapterTreasurerTable.id eq id }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("Treasurer grant $grantId not found")
+            if (row[RegionalChapterTreasurerTable.revokedAt] != null) return@transaction // idempotent no-op
+            RegionalChapterTreasurerTable.update({ RegionalChapterTreasurerTable.id eq id }) {
+                it[revokedAt] = now
+                it[activeKey] = null
+            }
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.REGIONAL_CHAPTER_TREASURER,
+                entityId = id,
+                action = AuditAction.UPDATE,
+                before =
+                    Json.encodeToString(
+                        RegionalChapterTreasurerSnapshot.serializer(),
+                        RegionalChapterTreasurerSnapshot(
+                            memberId = row[RegionalChapterTreasurerTable.memberId].toString(),
+                            regionalChapterId = row[RegionalChapterTreasurerTable.regionalChapterId].toString(),
+                        ),
+                    ),
+                after =
+                    Json.encodeToString(
+                        RegionalChapterTreasurerSnapshot.serializer(),
+                        RegionalChapterTreasurerSnapshot(
+                            memberId = row[RegionalChapterTreasurerTable.memberId].toString(),
+                            regionalChapterId = row[RegionalChapterTreasurerTable.regionalChapterId].toString(),
+                            revoked = true,
+                        ),
+                    ),
+                occurredAt = now,
+            )
+        }
+    }
+
+    private fun findActiveTreasurerGrant(
+        memberId: Uuid,
+        chapterId: Uuid,
+    ): ResultRow? =
+        RegionalChapterTreasurerTable
+            .selectAll()
+            .where {
+                (RegionalChapterTreasurerTable.memberId eq memberId) and
+                    (RegionalChapterTreasurerTable.regionalChapterId eq chapterId) and
+                    RegionalChapterTreasurerTable.revokedAt.isNull()
+            }.singleOrNull()
+
+    private fun ResultRow.toTreasurerDto(): RegionalChapterTreasurerDto {
+        val displayName =
+            MemberTable
+                .select(MemberTable.displayName)
+                .where { MemberTable.id eq this[RegionalChapterTreasurerTable.memberId] }
+                .single()[MemberTable.displayName]
+        return RegionalChapterTreasurerDto(
+            grantId = this[RegionalChapterTreasurerTable.id].toString(),
+            memberId = this[RegionalChapterTreasurerTable.memberId].toString(),
+            displayName = displayName,
+            chapterId = this[RegionalChapterTreasurerTable.regionalChapterId].toString(),
+            grantedAt = this[RegionalChapterTreasurerTable.grantedAt],
         )
     }
 

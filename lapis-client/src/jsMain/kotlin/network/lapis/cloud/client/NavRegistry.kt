@@ -14,6 +14,9 @@ internal data class NavContext(
 ) {
     /** Same meaning as [AppState.hasRole], but for the session of this context. */
     fun hasRole(vararg roles: AccountRole): Boolean = session.role in roles
+
+    /** V1.9.289 (R4a): a plain member with an active chapter-treasurer grant (the server refills this list on every session call). */
+    val isChapterTreasurer: Boolean get() = session.chapterTreasurerScopes.isNotEmpty()
 }
 
 /** Label and icon of a sidebar group (shared by the sidebar header and the headings of the dashboard). */
@@ -68,7 +71,9 @@ internal object NavRegistry {
             SidebarGroupId.MEMBERSHIP to { ctx -> NavVisibility.showsMembershipSection(ctx.session.status) },
             SidebarGroupId.SELF_GOVERNANCE to { ctx -> NavVisibility.showsSelfGovernance(ctx.session.status) },
             SidebarGroupId.ECONOMY to { ctx -> NavVisibility.showsEconomySection(ctx.session.status) },
-            SidebarGroupId.FINANCE to { ctx -> ctx.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) },
+            SidebarGroupId.FINANCE to { ctx ->
+                ctx.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) || ctx.isChapterTreasurer
+            },
             SidebarGroupId.ADMINISTRATION to { ctx -> ctx.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) },
             SidebarGroupId.SYSTEM to { ctx -> ctx.hasRole(AccountRole.ADMIN) },
         )
@@ -254,6 +259,17 @@ internal object NavRegistry {
             add(entry(Routes.RECEIVABLE_DUNNING_SETTINGS, tr("Forderungs-Mahnstufen"), "fas fa-bell", y))
             add(entry(Routes.EMBED_INTEGRATION, tr("Website-Integration"), "fas fa-code", y))
             add(entry(Routes.MAIL_DELIVERY, tr("E-Mail-Versand"), "fas fa-envelopes-bulk", y))
+        }.map { navEntry ->
+            // V1.9.289 (R4a): a chapter treasurer sees ONLY the journal and the party report in the finance group; every other finance entry keeps
+            // its finance-role gate (the server refuses a chapter treasurer there anyway -- this only hides the door).
+            if (navEntry.group == SidebarGroupId.FINANCE && navEntry.route != Routes.LEDGER && navEntry.route != Routes.PARTY_REPORT) {
+                val original = navEntry.visible
+                navEntry.copy(
+                    visible = { ctx -> ctx.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) && original(ctx) },
+                )
+            } else {
+                navEntry
+            }
         }
 
     /** The flat (top-level) entries [ctx] may see, in sidebar order. */

@@ -30155,3 +30155,207 @@ msgstr ""
 
 msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
 msgstr ""
+
+msgid "%1 %2 (%3)"
+msgstr ""
+
+msgid "%1 Buchungen vorhanden, die Buchführung steht auf Modus C"
+msgstr ""
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet"
+msgstr ""
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet. Ihre Beträge fehlen im Vorschlag."
+msgstr ""
+
+msgid "%1 Konten werden angelegt, %2 sind schon vorhanden und bleiben unverändert"
+msgstr ""
+
+msgid "%1 Werte übernehmen"
+msgstr ""
+
+msgid "%1 Zuordnungen gespeichert."
+msgstr ""
+
+msgid "%1 darf für %2 buchen und deren Journal lesen. Der Vorgang wird protokolliert."
+msgstr ""
+
+msgid "%1 verliert sofort den Zugriff auf die Buchungen von %2."
+msgstr ""
+
+msgid "%1 wurde als Kassenwart eingetragen."
+msgstr ""
+
+msgid "A – Zentral gebucht"
+msgstr ""
+
+msgid "Alle Vorschläge auswählen"
+msgstr ""
+
+msgid "Als Kassenwart eintragen"
+msgstr ""
+
+msgid "Aus Buchungen"
+msgstr ""
+
+msgid "Ausgewählte übernehmen"
+msgstr ""
+
+msgid "B – Eigene Kasse in Lapis"
+msgstr ""
+
+msgid "Bewusst nicht im Bericht"
+msgstr ""
+
+msgid "Bitte speichern oder verwerfen Sie zuerst Ihre Eingaben."
+msgstr ""
+
+msgid "Buchführung"
+msgstr ""
+
+msgid "Buchführung gespeichert."
+msgstr ""
+
+msgid "Buchführung ändern?"
+msgstr ""
+
+msgid "Buchungen haben sich geändert, Vorschlag neu laden"
+msgstr ""
+
+msgid "Bund"
+msgstr ""
+
+msgid "C – Eigene Kasse außerhalb"
+msgstr ""
+
+msgid "Die Buchungen stimmen mit den erfassten Werten überein. Es gibt nichts zu übernehmen."
+msgstr ""
+
+msgid "Die Gesamtheit der nachgeordneten Gliederungen wird immer außerhalb von Lapis geführt."
+msgstr ""
+
+msgid "Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu."
+msgstr ""
+
+msgid "Die Zuordnung der Konten pflegt der Vorstand. Sie sehen sie hier nur zur Information."
+msgstr ""
+
+msgid "Differenz"
+msgstr ""
+
+msgid "Ein Kassenwart darf für diese Gliederung buchen und das Journal, das Hauptbuch und das Kassenbuch der Gliederung lesen. Andere Bereiche der Buchhaltung bleiben ihm verschlossen."
+msgstr ""
+
+msgid "Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
+msgstr ""
+
+msgid "Entwurf, kein amtliches Formular. Die Zuordnung ist eine Arbeitshilfe und ersetzt keine Prüfung durch Ihre Steuerberatung."
+msgstr ""
+
+msgid "Es gibt keine Vorschläge für die offenen Konten."
+msgstr ""
+
+msgid "Es ist kein Vorschlag ausgewählt."
+msgstr ""
+
+msgid "Für %1 gibt es im Jahr %2 bereits %3 Buchungen. Die Buchungen bleiben unverändert."
+msgstr ""
+
+msgid "Für diese Einheit gibt es keinen Vorschlag aus Buchungen."
+msgstr ""
+
+msgid "Herkunft"
+msgstr ""
+
+msgid "Im Modus C werden keine Werte aus Buchungen vorgeschlagen."
+msgstr ""
+
+msgid "Kassenwart der Gliederung"
+msgstr ""
+
+msgid "Kassenwart eintragen"
+msgstr ""
+
+msgid "Kassenwart entfernen"
+msgstr ""
+
+msgid "Kassenwart verwalten"
+msgstr ""
+
+msgid "Keine Konten vorhanden. Legen Sie zuerst den Kontenplan an."
+msgstr ""
+
+msgid "Konten den Positionen des Rechenschaftsberichts zuordnen"
+msgstr ""
+
+msgid "Mitglied suchen"
+msgstr ""
+
+msgid "Negativ, nicht übertragbar. Bitte Zuordnung oder Buchungen prüfen."
+msgstr ""
+
+msgid "Nicht zugeordnet: %1 Konten"
+msgstr ""
+
+msgid "Noch kein Kassenwart eingetragen."
+msgstr ""
+
+msgid "Parteien-Kontenplan anlegen"
+msgstr ""
+
+msgid "Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab"
+msgstr ""
+
+msgid "Position für Konto"
+msgstr ""
+
+msgid "Rechenschaftsbericht: Buchführung der Einheit"
+msgstr ""
+
+msgid "Rechenschaftsbericht: Kontenzuordnung"
+msgstr ""
+
+msgid "Spenden können nur auf Bundesebene gebucht werden."
+msgstr ""
+
+msgid "Vorschlag aus Buchungen"
+msgstr ""
+
+msgid "Vorschlag aus Buchungen: %1"
+msgstr ""
+
+msgid "Vorschläge. Bitte prüfen, bevor Sie sie übernehmen."
+msgstr ""
+
+msgid "Wert übernehmen"
+msgstr ""
+
+msgid "Werte übernehmen"
+msgstr ""
+
+msgid "Zugeordnet"
+msgstr ""
+
+msgid "aus Buchungen"
+msgstr ""
+
+msgid "aus Parteien-Kontenplan"
+msgstr ""
+
+msgid "davon %1 mit Buchungen im Jahr %2"
+msgstr ""
+
+msgid "gespeichert"
+msgstr ""
+
+msgid "geändert"
+msgstr ""
+
+msgid "Ändern"
+msgstr ""
+
+msgid "Übersprungen (anderer Name): %1"
+msgstr ""
+
+msgid "Bundesebene"
+msgstr ""

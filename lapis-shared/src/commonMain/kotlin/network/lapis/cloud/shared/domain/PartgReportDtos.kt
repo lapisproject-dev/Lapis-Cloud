@@ -36,6 +36,12 @@ data class PartgOverviewRowDto(
     val expenseTotalCents: Long? = null,
     val netAssetsCents: Long? = null,
     val updatedAt: LocalDateTime? = null,
+    /** V1.9.289 (R4a): the bookkeeping mode of the unit and year (a missing row = C; SUB units are always C). */
+    val mode: PartgBookkeepingMode = PartgBookkeepingMode.C,
+    /** V1.9.289 (R4a): number of POSTED bookings of the unit in the year (0 for SUB units). A count, never an amount. */
+    val bookingCount: Int = 0,
+    /** V1.9.289 (R4a): `true` iff the caller may change [mode] (federal roles only, never for SUB units). */
+    val modeEditable: Boolean = false,
 )
 
 /** The values of one unit for year [year] and the year before, each with its own revision (optimistic locking). */
@@ -48,6 +54,8 @@ data class PartgSheetDto(
     val priorYear: Int,
     val priorValues: Map<String, Long>,
     val priorRevision: Long,
+    /** V1.9.289 (R4a): where each value of [values] comes from (positions without an entry never occur: every stored value has a source). */
+    val valueSources: Map<String, PartgValueSource> = emptyMap(),
 )
 
 /** One changed cell. [year] is the report year or the year before; a `null` [amountCents] deletes the value (manual input only). */

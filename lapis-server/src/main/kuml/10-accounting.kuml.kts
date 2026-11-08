@@ -214,6 +214,11 @@
 // - `vat_compliance_acknowledgment` ist der exakte strukturelle Spiegel von
 //   `dunning_compliance_acknowledgment` (34-dunning.kuml.kts) -- siehe der Entity-Kommentar dort
 //   fuer die volle append-only-Begruendung.
+//
+// **Welle V1.9.289 (Rechenschaftsbericht R4a)** (V144__partg_report_r4.sql) adds `journal_entry.regional_chapter_id`: the reporting chapter of
+// a booking, NULL = federal level. Set ONLY when the entry is inserted, never changed afterwards (a posted entry is immutable and no RPC
+// updates it). No backfill: every pre-existing entry stays federal. Real FK -> regional_chapter, no cascade. A chapter treasurer (a plain
+// member with a grant, see 58-regional-chapter.kuml.kts) may only book into and read the entries of the chapters granted.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -227,6 +232,15 @@ classDiagram(name = "Accounting") {
     // journal_entry.created_by's FK target within this single-file evaluation.
     val member = classOf(name = "Member") {
         stereotype("Entity") { "tableName" to "member"; "kotlinObjectName" to "MemberTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
+    // Foundation-owned stub (V1.9.289, R4a) -- id-only, so UmlToErmTransformer can resolve journal_entry.regional_chapter_id.
+    val regionalChapter = classOf(name = "RegionalChapter") {
+        stereotype("Entity") { "tableName" to "regional_chapter"; "kotlinObjectName" to "RegionalChapterTable" }
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
             stereotype("Column") { "columnName" to "id" }
@@ -483,6 +497,7 @@ classDiagram(name = "Accounting") {
         stereotype("Entity") { "tableName" to "journal_entry"; "kotlinObjectName" to "JournalEntryTable" }
         stereotype("Index") { "columns" to listOf("entry_date"); "name" to "idx_journal_entry_date" }
         stereotype("Index") { "columns" to listOf("status"); "name" to "idx_journal_entry_status" }
+        stereotype("Index") { "columns" to listOf("regional_chapter_id", "entry_date"); "name" to "ix_journal_entry_chapter_date" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -541,6 +556,11 @@ classDiagram(name = "Accounting") {
                 "columnName" to "donor_category"
                 "enumType" to "network.lapis.cloud.shared.domain.DonorCategory"
             }
+        }
+        // V1.9.289 (R4a): reporting chapter, NULL = federal. See the file header addendum.
+        attribute(name = "regionalChapterId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "regional_chapter_id"; "fkEntity" to "RegionalChapter" }
         }
     }
 

@@ -45,6 +45,7 @@ internal object PartyReportDomSupport {
     fun session(
         role: AccountRole = AccountRole.BOARD,
         party: Boolean = true,
+        chapterTreasurerScopes: List<network.lapis.cloud.shared.domain.RegionalChapterRefDto> = emptyList(),
     ) = SessionInfoDto(
         memberId = "member-1",
         displayName = "Dana Keller",
@@ -52,6 +53,7 @@ internal object PartyReportDomSupport {
         status = MemberStatus.ACTIVE,
         expiresAt = LocalDateTime(2099, 1, 1, 0, 0),
         politicalParty = party,
+        chapterTreasurerScopes = chapterTreasurerScopes,
     )
 
     val positions: List<PartgPositionDto> =
@@ -67,6 +69,21 @@ internal object PartyReportDomSupport {
                 orgHint = if (it.code == "E01") "Nur Pflichtbeiträge" else null,
             )
         }
+
+    /** V1.9.289 (R4a): when set, the overview answers with this list instead of [overview]. */
+    var overviewOverride: List<PartgOverviewRowDto>? = null
+
+    /** V1.9.289 (R4a): the answers of the mapping, mode and proposal calls; every R4 test sets what it needs first. */
+    var mappingView: network.lapis.cloud.shared.domain.PartgAccountMappingViewDto? = null
+    var proposal: network.lapis.cloud.shared.domain.PartgLedgerProposalDto? = null
+    val modeCalls = mutableListOf<Triple<String, network.lapis.cloud.shared.domain.PartgBookkeepingMode, Int>>()
+
+    fun resetR4() {
+        overviewOverride = null
+        mappingView = null
+        proposal = null
+        modeCalls.clear()
+    }
 
     val overview: List<PartgOverviewRowDto> =
         listOf(
@@ -230,6 +247,11 @@ internal object PartyReportDomSupport {
         val deleteYouthOrg: String,
         val saveEnterprise: String,
         val deleteEnterprise: String,
+        val getMappings: String,
+        val saveMappings: String,
+        val setMode: String,
+        val propose: String,
+        val applyProposal: String,
     )
 
     suspend fun routes() =
@@ -296,6 +318,15 @@ internal object PartyReportDomSupport {
                         .saveEnterprise(2025, "FEDERAL", 0, PartgEnterpriseInputDto(null, "x", null, null, null, null, null))
                 },
             deleteEnterprise = routeOf { rpcService<IPartyReportService>().deleteEnterprise(2025, "FEDERAL", 0, "x") },
+            getMappings = routeOf { rpcService<IPartyReportService>().getAccountMappings(2025, "FEDERAL") },
+            saveMappings = routeOf { rpcService<IPartyReportService>().saveAccountMappings(2025, "FEDERAL", emptyList()) },
+            setMode =
+                routeOf {
+                    rpcService<IPartyReportService>()
+                        .setUnitMode(2025, "FEDERAL", network.lapis.cloud.shared.domain.PartgBookkeepingMode.A, 0)
+                },
+            propose = routeOf { rpcService<IPartyReportService>().proposeFromLedger(2025, "FEDERAL") },
+            applyProposal = routeOf { rpcService<IPartyReportService>().applyLedgerProposal(2025, "FEDERAL", 0, 0, emptyList()) },
         )
 
     fun answer(
@@ -305,7 +336,29 @@ internal object PartyReportDomSupport {
     ): StubResponse =
         when {
             !request.isRpc -> StubResponse()
-            request.rpcRoute == routes.overview -> request.answerWith(jsonOf(ListSerializer(PartgOverviewRowDto.serializer()), overview))
+            request.rpcRoute == routes.overview ->
+                request.answerWith(jsonOf(ListSerializer(PartgOverviewRowDto.serializer()), overviewOverride ?: overview))
+            request.rpcRoute == routes.getMappings || request.rpcRoute == routes.saveMappings ->
+                request.answerWith(
+                    jsonOf(
+                        network.lapis.cloud.shared.domain.PartgAccountMappingViewDto
+                            .serializer(),
+                        checkNotNull(mappingView) { "the test did not set a mapping view" },
+                    ),
+                )
+            request.rpcRoute == routes.propose ->
+                request.answerWith(
+                    jsonOf(
+                        network.lapis.cloud.shared.domain.PartgLedgerProposalDto
+                            .serializer(),
+                        checkNotNull(proposal) { "the test did not set a proposal" },
+                    ),
+                )
+            request.rpcRoute == routes.applyProposal ->
+                request.answerWith(
+                    jsonOf(PartgSaveResultDto.serializer(), PartgSaveResultDto(revision = 1, priorRevision = 0, changed = 1)),
+                )
+            request.rpcRoute == routes.setMode -> request.answerWith(jsonOf(PartgOverviewRowDto.serializer(), overview.first()))
             request.rpcRoute == routes.units ->
                 request.answerWith(
                     jsonOf(ListSerializer(PartgUnitDto.serializer()), listOf(federal, state)),

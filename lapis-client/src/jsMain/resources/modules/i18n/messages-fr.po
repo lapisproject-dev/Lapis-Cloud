@@ -30773,3 +30773,207 @@ msgstr "Position %1 saisie, mais aucune entreprise dans l'état D"
 
 msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
 msgstr "Position saisie, mais aucune entreprise dans l'état D"
+
+msgid "%1 %2 (%3)"
+msgstr "%1 %2 (%3)"
+
+msgid "%1 Buchungen vorhanden, die Buchführung steht auf Modus C"
+msgstr "%1 écritures existent, mais la comptabilité est en mode C"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet"
+msgstr "%1 comptes avec écritures ne sont affectés à aucune position"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet. Ihre Beträge fehlen im Vorschlag."
+msgstr "%1 comptes avec écritures ne sont affectés à aucune position. Leurs montants manquent dans la proposition."
+
+msgid "%1 Konten werden angelegt, %2 sind schon vorhanden und bleiben unverändert"
+msgstr "%1 comptes seront créés, %2 existent déjà et restent inchangés"
+
+msgid "%1 Werte übernehmen"
+msgstr "Appliquer %1 valeurs"
+
+msgid "%1 Zuordnungen gespeichert."
+msgstr "%1 rattachements enregistrés."
+
+msgid "%1 darf für %2 buchen und deren Journal lesen. Der Vorgang wird protokolliert."
+msgstr "%1 peut passer des écritures pour %2 et lire son journal. L'opération est consignée."
+
+msgid "%1 verliert sofort den Zugriff auf die Buchungen von %2."
+msgstr "%1 perd immédiatement l'accès aux écritures de %2."
+
+msgid "%1 wurde als Kassenwart eingetragen."
+msgstr "%1 a été enregistré comme trésorier."
+
+msgid "A – Zentral gebucht"
+msgstr "A – Comptabilisé centralement"
+
+msgid "Alle Vorschläge auswählen"
+msgstr "Sélectionner toutes les suggestions"
+
+msgid "Als Kassenwart eintragen"
+msgstr "Enregistrer comme trésorier"
+
+msgid "Aus Buchungen"
+msgstr "Issu des écritures"
+
+msgid "Ausgewählte übernehmen"
+msgstr "Reprendre la sélection"
+
+msgid "B – Eigene Kasse in Lapis"
+msgstr "B – Caisse propre dans Lapis"
+
+msgid "Bewusst nicht im Bericht"
+msgstr "Volontairement exclu du rapport"
+
+msgid "Bitte speichern oder verwerfen Sie zuerst Ihre Eingaben."
+msgstr "Veuillez d'abord enregistrer ou rejeter vos saisies."
+
+msgid "Buchführung"
+msgstr "Comptabilité"
+
+msgid "Buchführung gespeichert."
+msgstr "Comptabilité enregistrée."
+
+msgid "Buchführung ändern?"
+msgstr "Modifier la comptabilité ?"
+
+msgid "Buchungen haben sich geändert, Vorschlag neu laden"
+msgstr "Les écritures ont changé, rechargez la proposition"
+
+msgid "Bund"
+msgstr "Niveau fédéral"
+
+msgid "C – Eigene Kasse außerhalb"
+msgstr "C – Caisse propre hors de Lapis"
+
+msgid "Die Buchungen stimmen mit den erfassten Werten überein. Es gibt nichts zu übernehmen."
+msgstr "Les écritures correspondent aux valeurs saisies. Il n'y a rien à reprendre."
+
+msgid "Die Gesamtheit der nachgeordneten Gliederungen wird immer außerhalb von Lapis geführt."
+msgstr "L'ensemble des entités subordonnées est toujours tenu hors de Lapis."
+
+msgid "Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu."
+msgstr "Le nombre d'écritures a changé. Veuillez recharger l'aperçu."
+
+msgid "Die Zuordnung der Konten pflegt der Vorstand. Sie sehen sie hier nur zur Information."
+msgstr "Le conseil d'administration gère l'affectation des comptes. Elle n'est affichée ici qu'à titre d'information."
+
+msgid "Differenz"
+msgstr "Différence"
+
+msgid "Ein Kassenwart darf für diese Gliederung buchen und das Journal, das Hauptbuch und das Kassenbuch der Gliederung lesen. Andere Bereiche der Buchhaltung bleiben ihm verschlossen."
+msgstr "Un trésorier peut passer des écritures pour cette entité et lire son journal, son grand livre et son livre de caisse. Les autres domaines de la comptabilité lui restent fermés."
+
+msgid "Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
+msgstr "Une valeur issue des écritures diffère de la proposition actuelle"
+
+msgid "Entwurf, kein amtliches Formular. Die Zuordnung ist eine Arbeitshilfe und ersetzt keine Prüfung durch Ihre Steuerberatung."
+msgstr "Brouillon, pas un formulaire officiel. L'affectation est une aide au travail et ne remplace pas la vérification par votre conseil fiscal."
+
+msgid "Es gibt keine Vorschläge für die offenen Konten."
+msgstr "Il n'y a pas de suggestions pour les comptes ouverts."
+
+msgid "Es ist kein Vorschlag ausgewählt."
+msgstr "Aucune suggestion n'est sélectionnée."
+
+msgid "Für %1 gibt es im Jahr %2 bereits %3 Buchungen. Die Buchungen bleiben unverändert."
+msgstr "Pour %1, il y a déjà %3 écritures en %2. Les écritures restent inchangées."
+
+msgid "Für diese Einheit gibt es keinen Vorschlag aus Buchungen."
+msgstr "Il n'y a pas de proposition issue des écritures pour cette entité."
+
+msgid "Herkunft"
+msgstr "Origine"
+
+msgid "Im Modus C werden keine Werte aus Buchungen vorgeschlagen."
+msgstr "En mode C, aucune valeur n'est proposée à partir des écritures."
+
+msgid "Kassenwart der Gliederung"
+msgstr "Trésorier de l'entité"
+
+msgid "Kassenwart eintragen"
+msgstr "Enregistrer un trésorier"
+
+msgid "Kassenwart entfernen"
+msgstr "Retirer le trésorier"
+
+msgid "Kassenwart verwalten"
+msgstr "Gérer le trésorier"
+
+msgid "Keine Konten vorhanden. Legen Sie zuerst den Kontenplan an."
+msgstr "Aucun compte. Créez d'abord le plan comptable."
+
+msgid "Konten den Positionen des Rechenschaftsberichts zuordnen"
+msgstr "Affecter les comptes aux positions du rapport"
+
+msgid "Mitglied suchen"
+msgstr "Rechercher un membre"
+
+msgid "Negativ, nicht übertragbar. Bitte Zuordnung oder Buchungen prüfen."
+msgstr "Négatif, non reprenable. Veuillez vérifier l'affectation ou les écritures."
+
+msgid "Nicht zugeordnet: %1 Konten"
+msgstr "Non affectés : %1 comptes"
+
+msgid "Noch kein Kassenwart eingetragen."
+msgstr "Aucun trésorier enregistré pour l'instant."
+
+msgid "Parteien-Kontenplan anlegen"
+msgstr "Créer le plan comptable du parti"
+
+msgid "Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab"
+msgstr "La position %1 diffère de la proposition actuelle issue des écritures"
+
+msgid "Position für Konto"
+msgstr "Position du compte"
+
+msgid "Rechenschaftsbericht: Buchführung der Einheit"
+msgstr "Rapport de reddition des comptes : comptabilité de l'entité"
+
+msgid "Rechenschaftsbericht: Kontenzuordnung"
+msgstr "Rapport de reddition des comptes : affectation des comptes"
+
+msgid "Spenden können nur auf Bundesebene gebucht werden."
+msgstr "Les dons ne peuvent être comptabilisés qu'au niveau fédéral."
+
+msgid "Vorschlag aus Buchungen"
+msgstr "Proposition à partir des écritures"
+
+msgid "Vorschlag aus Buchungen: %1"
+msgstr "Proposition à partir des écritures : %1"
+
+msgid "Vorschläge. Bitte prüfen, bevor Sie sie übernehmen."
+msgstr "Suggestions. Veuillez les vérifier avant de les reprendre."
+
+msgid "Wert übernehmen"
+msgstr "Appliquer la valeur"
+
+msgid "Werte übernehmen"
+msgstr "Appliquer les valeurs"
+
+msgid "Zugeordnet"
+msgstr "Affecté"
+
+msgid "aus Buchungen"
+msgstr "issu des écritures"
+
+msgid "aus Parteien-Kontenplan"
+msgstr "du plan comptable du parti"
+
+msgid "davon %1 mit Buchungen im Jahr %2"
+msgstr "dont %1 avec des écritures en %2"
+
+msgid "gespeichert"
+msgstr "enregistré"
+
+msgid "geändert"
+msgstr "modifié"
+
+msgid "Ändern"
+msgstr "Modifier"
+
+msgid "Übersprungen (anderer Name): %1"
+msgstr "Ignorés (autre nom) : %1"
+
+msgid "Bundesebene"
+msgstr "Niveau fédéral"

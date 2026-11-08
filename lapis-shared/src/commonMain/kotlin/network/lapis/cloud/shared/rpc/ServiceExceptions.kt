@@ -883,6 +883,33 @@ class PartyReportInvalidInputException(
     override val message: String = "Invalid input for the party report",
 ) : AbstractServiceException()
 
+/**
+ * V1.9.289 (R4a) -- distinct type. Changing the bookkeeping mode of a unit that already has bookings needs the caller to confirm the
+ * CURRENT number of bookings (the number they saw is stale or missing).
+ */
+@RpcServiceException
+class PartyReportModeConfirmationRequiredException(
+    override val message: String = "The number of bookings changed or was not confirmed",
+) : AbstractServiceException()
+
+/** V1.9.289 (R4a) -- distinct type. The proposal from the bookings is out of date (the bookings or the mapping changed). */
+@RpcServiceException
+class PartyReportProposalStaleException(
+    override val message: String = "The proposal from the bookings is out of date",
+) : AbstractServiceException()
+
+/** V1.9.289 (R4a) -- distinct type. No proposal exists for this unit: mode C, or a sub-unit. */
+@RpcServiceException
+class PartyReportProposalNotAvailableException(
+    override val message: String = "No proposal from the bookings exists for this unit",
+) : AbstractServiceException()
+
+/** V1.9.289 (R4a) -- distinct type. A chapter treasurer must not book donations (the party donation rules are organisation-wide). */
+@RpcServiceException
+class ChapterDonationFederalOnlyException(
+    override val message: String = "Donations can only be booked on the federal level",
+) : AbstractServiceException()
+
 /** V1.9.225 -- distinct type. A regional chapter with party-report values (or an empty sheet) cannot be deleted. */
 @RpcServiceException
 class RegionalChapterHasPartyReportValuesException(

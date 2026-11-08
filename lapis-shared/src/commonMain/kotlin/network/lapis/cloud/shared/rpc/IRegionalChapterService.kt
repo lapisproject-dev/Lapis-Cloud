@@ -4,6 +4,7 @@ import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.RegionalChapterDto
 import network.lapis.cloud.shared.domain.RegionalChapterOfficerDto
 import network.lapis.cloud.shared.domain.RegionalChapterOverviewDto
+import network.lapis.cloud.shared.domain.RegionalChapterTreasurerDto
 
 /**
  * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- ADMIN maintains the flat chapter list
@@ -70,4 +71,19 @@ interface IRegionalChapterService {
 
     /** Welle V1.9.20 -- BOARD/ADMIN. Removes the crest image of [chapterId] (idempotent). The upload itself is `POST /api/regional-chapters/{id}/crest`. */
     suspend fun removeChapterCrest(chapterId: String): RegionalChapterDto
+
+    /** V1.9.289 (R4a). ADMIN only. The ACTIVE chapter-treasurer grants of [chapterId]. */
+    suspend fun listChapterTreasurers(chapterId: String): List<RegionalChapterTreasurerDto>
+
+    /**
+     * V1.9.289 (R4a). ADMIN only. Grants [memberId] (an organization member) the right to book into and read the journal of [chapterId]. At most 10
+     * active grants per member and 5 per chapter ([RegionalChapterLimitReachedException]); idempotent for an existing active grant.
+     */
+    suspend fun grantChapterTreasurer(
+        chapterId: String,
+        memberId: String,
+    ): RegionalChapterTreasurerDto
+
+    /** V1.9.289 (R4a). ADMIN only. Idempotent for an already-revoked grant. The effect is immediate. */
+    suspend fun revokeChapterTreasurer(grantId: String)
 }

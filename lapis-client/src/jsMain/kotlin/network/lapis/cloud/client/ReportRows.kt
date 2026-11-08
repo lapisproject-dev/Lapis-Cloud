@@ -14,6 +14,7 @@ import network.lapis.cloud.shared.domain.FourSphereIncomeStatementDto
 import network.lapis.cloud.shared.domain.GeneralLedgerDto
 import network.lapis.cloud.shared.domain.IncomeStatementDto
 import network.lapis.cloud.shared.domain.KassenbuchDto
+import network.lapis.cloud.shared.domain.KassenbuchLineDto
 import network.lapis.cloud.shared.domain.PostingDto
 import network.lapis.cloud.shared.domain.PostingSide
 import network.lapis.cloud.shared.domain.PostingSnapshot
@@ -419,12 +420,23 @@ fun generalLedgerRows(dto: GeneralLedgerDto): List<ReportRow> =
         add(row(ReportRowKind.BALANCE, BLANK, text(tr("Schlusssaldo")), BLANK, BLANK, money(dto.closingBalance)))
     }
 
+/** The unit a Kassenbuch number belongs to: the chapter name, "Bundesebene" for the federal level. */
+private fun kassenbuchUnitCell(line: KassenbuchLineDto): ReportCell.Text {
+    val name = line.unitName
+    return when {
+        name != null -> untrustedText(name)
+        line.regionalChapterId == null -> text(tr("Bundesebene"))
+        else -> text("--")
+    }
+}
+
 /** Nr. is the GoBD sequence -- rendered in server order, never sorted. */
 fun kassenbuchRows(dto: KassenbuchDto): List<ReportRow> =
     buildList {
         add(
             row(
                 ReportRowKind.BALANCE,
+                BLANK,
                 BLANK,
                 BLANK,
                 ReportCell.Text(tr("Eröffnungssaldo"), muted = true, italic = true),
@@ -440,6 +452,7 @@ fun kassenbuchRows(dto: KassenbuchDto): List<ReportRow> =
                 row(
                     ReportRowKind.DATA,
                     text(line.kassenbuchNumber.toString()),
+                    kassenbuchUnitCell(line),
                     text(dateToken(line.entryDate)),
                     untrustedText(line.description),
                     untrustedText(line.voucherReference ?: "--"),
@@ -449,7 +462,7 @@ fun kassenbuchRows(dto: KassenbuchDto): List<ReportRow> =
                 ),
             )
         }
-        add(row(ReportRowKind.BALANCE, BLANK, BLANK, text(tr("Schlusssaldo")), BLANK, BLANK, BLANK, money(dto.closingBalance)))
+        add(row(ReportRowKind.BALANCE, BLANK, BLANK, BLANK, text(tr("Schlusssaldo")), BLANK, BLANK, BLANK, money(dto.closingBalance)))
     }
 
 /**

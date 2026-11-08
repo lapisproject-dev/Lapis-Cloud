@@ -2,6 +2,7 @@ package network.lapis.cloud.server.partg.report
 
 import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.shared.domain.PartgAnnexRules
+import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgEnterpriseCheckStatus
 import network.lapis.cloud.shared.domain.PartgEnterpriseRules
@@ -42,6 +43,10 @@ import kotlin.math.abs
  *  - P12 (CHECK): an enterprise of statement D lacks income or expenses (row numbers).
  *  - P13 (INFO): E05 or A02F is entered with a value above zero, but statement D has no enterprise (position code).
  *
+ *  - P14 (CHECK, R4a): a unit in mode A/B has accounts without a position that have postings in the year (count, target: mapping tab).
+ *  - P15 (CHECK, R4a): a unit in mode C (also the default) has bookings in the year (count, target: overview).
+ *  - P16 (INFO, R4a): a value taken from the bookings no longer equals the current proposal (position code).
+ *
  * At most [PartgAnnexRules.MAX_FINDINGS] findings: when the P05 hints would exceed it they are cut off and ONE P05 INFO without position marks
  * the cut.
  */
@@ -52,6 +57,7 @@ internal object PartgPlausibility {
         entered: Map<Int, Map<String, Map<String, Long>>>,
         annex: Map<Int, Map<String, PartgAnnexStore.AnnexData>>,
         notes: Map<Int, PartgAnnexStore.NotesData>,
+        ledger: Map<String, PartgLedgerFacts> = emptyMap(),
     ): List<PartgFindingDto> {
         val order = units.withIndex().associate { it.value.unitKey to it.index }
         val base = mutableListOf<PartgFindingDto>()
@@ -69,6 +75,7 @@ internal object PartgPlausibility {
             if (data != null || values.isNotEmpty()) addGapFindings(unit = unit, data = data, out = base)
             if (unit.level == PartgUnitLevel.FEDERAL && data == null) addMemberGap(unitKey = unit.unitKey, out = base)
             addVariance(unitKey = unit.unitKey, current = values, prior = entered[year - 1]?.get(unit.unitKey).orEmpty(), out = p05)
+            ledger[unit.unitKey]?.let { addLedgerFindings(unit = unit, facts = it, values = values, out = base) }
         }
         val generalIncluded = notes[year]?.notes?.firstOrNull { it.block == PartgNoteBlock.GENERAL_ACCOUNTING }?.included == true
         if (!generalIncluded) {
@@ -103,6 +110,52 @@ internal object PartgPlausibility {
                     .thenBy { it.positionCode.orEmpty() }
                     .thenBy { it.gap.orEmpty() },
             ).take(PartgAnnexRules.MAX_FINDINGS)
+    }
+
+    /**
+     * R4a: P14 (CHECK) unmapped accounts with postings in a unit that books in Lapis (mode A/B), count only; P15 (CHECK) a unit in mode C that has
+     * bookings (never a sub-unit); P16 (INFO) a value taken from the bookings that no longer equals the current proposal. No amount, ever.
+     */
+    private fun addLedgerFindings(
+        unit: PartgUnitDto,
+        facts: PartgLedgerFacts,
+        values: Map<String, Long>,
+        out: MutableList<PartgFindingDto>,
+    ) {
+        if (unit.level == PartgUnitLevel.SUBORDINATE) return
+        if (facts.mode != PartgBookkeepingMode.C) {
+            if (facts.unmappedWithActivity > 0) {
+                out +=
+                    PartgFindingDto(
+                        code = PartgFindingCode.P14,
+                        level = PartgFindingLevel.CHECK,
+                        unitKey = unit.unitKey,
+                        target = PartgFindingTarget.MAPPING,
+                        count = facts.unmappedWithActivity,
+                    )
+            }
+            facts.ledgerSourced.sorted().forEach { code ->
+                if (values[code] != facts.proposal[code]) {
+                    out +=
+                        PartgFindingDto(
+                            code = PartgFindingCode.P16,
+                            level = PartgFindingLevel.INFO,
+                            unitKey = unit.unitKey,
+                            positionCode = code,
+                            target = PartgFindingTarget.SHEET,
+                        )
+                }
+            }
+        } else if (facts.bookingCount > 0) {
+            out +=
+                PartgFindingDto(
+                    code = PartgFindingCode.P15,
+                    level = PartgFindingLevel.CHECK,
+                    unitKey = unit.unitKey,
+                    target = PartgFindingTarget.OVERVIEW,
+                    count = facts.bookingCount,
+                )
+        }
     }
 
     private fun addDonorFindings(

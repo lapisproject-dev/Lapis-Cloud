@@ -30722,3 +30722,207 @@ msgstr "Позиция %1 внесена, но в ведомости D нет п
 
 msgid "Position erfasst, aber kein Unternehmen in Ausweis D"
 msgstr "Позиция внесена, но в ведомости D нет предприятий"
+
+msgid "%1 %2 (%3)"
+msgstr "%1 %2 (%3)"
+
+msgid "%1 Buchungen vorhanden, die Buchführung steht auf Modus C"
+msgstr "Есть проводок: %1, но учёт установлен в режиме C"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet"
+msgstr "Счетов с проводками, не привязанных к позиции: %1"
+
+msgid "%1 Konten mit Buchungen sind keiner Position zugeordnet. Ihre Beträge fehlen im Vorschlag."
+msgstr "Счетов с проводками, не привязанных к позиции: %1. Их суммы в предложении отсутствуют."
+
+msgid "%1 Konten werden angelegt, %2 sind schon vorhanden und bleiben unverändert"
+msgstr "Будет создано счетов: %1; уже существуют и остаются без изменений: %2"
+
+msgid "%1 Werte übernehmen"
+msgstr "Применить значений: %1"
+
+msgid "%1 Zuordnungen gespeichert."
+msgstr "Сохранено назначений: %1."
+
+msgid "%1 darf für %2 buchen und deren Journal lesen. Der Vorgang wird protokolliert."
+msgstr "%1 может вносить проводки для %2 и читать её журнал. Действие протоколируется."
+
+msgid "%1 verliert sofort den Zugriff auf die Buchungen von %2."
+msgstr "%1 немедленно теряет доступ к проводкам %2."
+
+msgid "%1 wurde als Kassenwart eingetragen."
+msgstr "%1 назначен казначеем."
+
+msgid "A – Zentral gebucht"
+msgstr "A – Проводится централизованно"
+
+msgid "Alle Vorschläge auswählen"
+msgstr "Выбрать все варианты"
+
+msgid "Als Kassenwart eintragen"
+msgstr "Назначить казначеем"
+
+msgid "Aus Buchungen"
+msgstr "Из проводок"
+
+msgid "Ausgewählte übernehmen"
+msgstr "Применить выбранные"
+
+msgid "B – Eigene Kasse in Lapis"
+msgstr "B – Собственная касса в Lapis"
+
+msgid "Bewusst nicht im Bericht"
+msgstr "Намеренно не включено в отчёт"
+
+msgid "Bitte speichern oder verwerfen Sie zuerst Ihre Eingaben."
+msgstr "Сначала сохраните или отбросьте введённые данные."
+
+msgid "Buchführung"
+msgstr "Учёт"
+
+msgid "Buchführung gespeichert."
+msgstr "Учёт сохранён."
+
+msgid "Buchführung ändern?"
+msgstr "Изменить учёт?"
+
+msgid "Buchungen haben sich geändert, Vorschlag neu laden"
+msgstr "Проводки изменились, загрузите предложение заново"
+
+msgid "Bund"
+msgstr "Федеральный уровень"
+
+msgid "C – Eigene Kasse außerhalb"
+msgstr "C – Собственная касса вне Lapis"
+
+msgid "Die Buchungen stimmen mit den erfassten Werten überein. Es gibt nichts zu übernehmen."
+msgstr "Проводки совпадают с введёнными значениями. Применять нечего."
+
+msgid "Die Gesamtheit der nachgeordneten Gliederungen wird immer außerhalb von Lapis geführt."
+msgstr "Совокупность подчинённых подразделений всегда ведётся вне Lapis."
+
+msgid "Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu."
+msgstr "Число проводок изменилось. Обновите обзор."
+
+msgid "Die Zuordnung der Konten pflegt der Vorstand. Sie sehen sie hier nur zur Information."
+msgstr "Назначение счетов ведёт правление. Здесь оно показано только для сведения."
+
+msgid "Differenz"
+msgstr "Разница"
+
+msgid "Ein Kassenwart darf für diese Gliederung buchen und das Journal, das Hauptbuch und das Kassenbuch der Gliederung lesen. Andere Bereiche der Buchhaltung bleiben ihm verschlossen."
+msgstr "Казначей может вносить проводки для этого подразделения и читать его журнал, главную книгу и кассовую книгу. Остальные разделы бухгалтерии ему недоступны."
+
+msgid "Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
+msgstr "Значение из проводок отличается от текущего предложения"
+
+msgid "Entwurf, kein amtliches Formular. Die Zuordnung ist eine Arbeitshilfe und ersetzt keine Prüfung durch Ihre Steuerberatung."
+msgstr "Черновик, не официальная форма. Назначение — рабочий инструмент и не заменяет проверку вашим налоговым консультантом."
+
+msgid "Es gibt keine Vorschläge für die offenen Konten."
+msgstr "Для открытых счетов вариантов нет."
+
+msgid "Es ist kein Vorschlag ausgewählt."
+msgstr "Ни один вариант не выбран."
+
+msgid "Für %1 gibt es im Jahr %2 bereits %3 Buchungen. Die Buchungen bleiben unverändert."
+msgstr "Для %1 в %2 году уже есть проводок: %3. Проводки остаются без изменений."
+
+msgid "Für diese Einheit gibt es keinen Vorschlag aus Buchungen."
+msgstr "Для этого подразделения предложения из проводок нет."
+
+msgid "Herkunft"
+msgstr "Источник"
+
+msgid "Im Modus C werden keine Werte aus Buchungen vorgeschlagen."
+msgstr "В режиме C значения из проводок не предлагаются."
+
+msgid "Kassenwart der Gliederung"
+msgstr "Казначей подразделения"
+
+msgid "Kassenwart eintragen"
+msgstr "Назначить казначея"
+
+msgid "Kassenwart entfernen"
+msgstr "Удалить казначея"
+
+msgid "Kassenwart verwalten"
+msgstr "Управление казначеем"
+
+msgid "Keine Konten vorhanden. Legen Sie zuerst den Kontenplan an."
+msgstr "Счетов нет. Сначала создайте план счетов."
+
+msgid "Konten den Positionen des Rechenschaftsberichts zuordnen"
+msgstr "Сопоставить счета с позициями отчёта"
+
+msgid "Mitglied suchen"
+msgstr "Поиск участника"
+
+msgid "Negativ, nicht übertragbar. Bitte Zuordnung oder Buchungen prüfen."
+msgstr "Отрицательное значение, применить нельзя. Проверьте назначение или проводки."
+
+msgid "Nicht zugeordnet: %1 Konten"
+msgstr "Не назначено: счетов %1"
+
+msgid "Noch kein Kassenwart eingetragen."
+msgstr "Казначей пока не назначен."
+
+msgid "Parteien-Kontenplan anlegen"
+msgstr "Создать план счетов партии"
+
+msgid "Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab"
+msgstr "Позиция %1 отличается от текущего предложения из проводок"
+
+msgid "Position für Konto"
+msgstr "Позиция для счёта"
+
+msgid "Rechenschaftsbericht: Buchführung der Einheit"
+msgstr "Отчёт: учёт подразделения"
+
+msgid "Rechenschaftsbericht: Kontenzuordnung"
+msgstr "Отчёт: назначение счетов"
+
+msgid "Spenden können nur auf Bundesebene gebucht werden."
+msgstr "Пожертвования можно проводить только на федеральном уровне."
+
+msgid "Vorschlag aus Buchungen"
+msgstr "Предложение из проводок"
+
+msgid "Vorschlag aus Buchungen: %1"
+msgstr "Предложение из проводок: %1"
+
+msgid "Vorschläge. Bitte prüfen, bevor Sie sie übernehmen."
+msgstr "Варианты. Проверьте их, прежде чем применять."
+
+msgid "Wert übernehmen"
+msgstr "Применить значение"
+
+msgid "Werte übernehmen"
+msgstr "Применить значения"
+
+msgid "Zugeordnet"
+msgstr "Назначено"
+
+msgid "aus Buchungen"
+msgstr "из проводок"
+
+msgid "aus Parteien-Kontenplan"
+msgstr "из плана счетов партии"
+
+msgid "davon %1 mit Buchungen im Jahr %2"
+msgstr "из них с проводками в %2 году: %1"
+
+msgid "gespeichert"
+msgstr "сохранено"
+
+msgid "geändert"
+msgstr "изменено"
+
+msgid "Ändern"
+msgstr "Изменить"
+
+msgid "Übersprungen (anderer Name): %1"
+msgstr "Пропущено (другое имя): %1"
+
+msgid "Bundesebene"
+msgstr "Федеральный уровень"

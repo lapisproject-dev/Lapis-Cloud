@@ -217,13 +217,13 @@ data class PartgNotesDto(
 )
 
 @Serializable
-enum class PartgFindingCode { P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, P12, P13 }
+enum class PartgFindingCode { P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, P12, P13, P14, P15, P16 }
 
 @Serializable
 enum class PartgFindingLevel { CHECK, INFO }
 
 @Serializable
-enum class PartgFindingTarget { ANNEX, NOTES, SHEET }
+enum class PartgFindingTarget { ANNEX, NOTES, SHEET, MAPPING, OVERVIEW }
 
 /** A plausibility hint. Carries NEVER a name, an address or an amount: only row numbers, position codes and gap codes. */
 @Serializable
@@ -237,4 +237,6 @@ data class PartgFindingDto(
     /** `MEMBER_COUNT`, `DEDUCTIONS` or `GENERAL_ACCOUNTING`. */
     val gap: String? = null,
     val target: PartgFindingTarget,
+    /** V1.9.289 (R4a): a COUNT (e.g. accounts without a position, bookings in mode C). Never an amount. */
+    val count: Int? = null,
 )

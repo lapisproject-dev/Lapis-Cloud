@@ -1,18 +1,32 @@
 package network.lapis.cloud.server.dsgvo
 
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTreasurerTable
+import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ErasureMode
+import network.lapis.cloud.shared.domain.RegionalChapterTreasurerSnapshot
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 /**
+ * **V1.9.289 (R4a) chapter treasurer** (`regional_chapter_treasurer`): the export lists the subject's own grants (`treasurerGrants`) and those the
+ * subject issued (`treasurerGrantsIssued`, without the recipient). On erasure the ACTIVE grants of the subject are REVOKED at once (the access
+ * must end), the revoked rows STAY as history (the bookings and the audit trail refer to the member), and `granted_by_member_id` is cleared.
+ *
  * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- `regional_chapter_officer.member_id`/
  * `granted_by_member_id` carry personal data (who was granted regional-chapter-officer access to
  * what, by whom, and when). `regional_chapter` itself is NOT covered here -- its own `name` is an
@@ -42,7 +56,7 @@ import kotlin.uuid.Uuid
 object RegionalChapterPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "regionalChapter"
     override val displayName = "Gliederungsverwaltung (Landesverbände)"
-    override val coveredTables = setOf(RegionalChapterOfficerTable)
+    override val coveredTables = setOf(RegionalChapterOfficerTable, RegionalChapterTreasurerTable)
 
     override fun exportMember(memberId: Uuid) =
         buildJsonObject {
@@ -57,6 +71,34 @@ object RegionalChapterPersonalData : MemberPersonalDataContributor {
                                 put("grantedAt", row[RegionalChapterOfficerTable.grantedAt].toString())
                                 put("revokedAt", row[RegionalChapterOfficerTable.revokedAt]?.toString())
                                 put("grantedBySelf", row[RegionalChapterOfficerTable.grantedByMemberId] == memberId)
+                            },
+                        )
+                    }
+            }
+            putJsonArray("treasurerGrants") {
+                (RegionalChapterTreasurerTable innerJoin RegionalChapterTable)
+                    .selectAll()
+                    .where { RegionalChapterTreasurerTable.memberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("chapterName", row[RegionalChapterTable.name])
+                                put("grantedAt", row[RegionalChapterTreasurerTable.grantedAt].toString())
+                                put("revokedAt", row[RegionalChapterTreasurerTable.revokedAt]?.toString())
+                            },
+                        )
+                    }
+            }
+            putJsonArray("treasurerGrantsIssued") {
+                (RegionalChapterTreasurerTable innerJoin RegionalChapterTable)
+                    .selectAll()
+                    .where { RegionalChapterTreasurerTable.grantedByMemberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("chapterName", row[RegionalChapterTable.name])
+                                put("grantedAt", row[RegionalChapterTreasurerTable.grantedAt].toString())
+                                put("revokedAt", row[RegionalChapterTreasurerTable.revokedAt]?.toString())
                             },
                         )
                     }
@@ -89,8 +131,91 @@ object RegionalChapterPersonalData : MemberPersonalDataContributor {
             RegionalChapterOfficerTable.update({ RegionalChapterOfficerTable.grantedByMemberId eq memberId }) {
                 it[grantedByMemberId] = null
             }
+        val now = DbClock.nowLocalDateTime()
+        val revoked =
+            RegionalChapterTreasurerTable.update(
+                { (RegionalChapterTreasurerTable.memberId eq memberId) and RegionalChapterTreasurerTable.revokedAt.isNull() },
+            ) {
+                it[revokedAt] = now
+                it[activeKey] = null
+            }
+        val treasurerAnonymized =
+            RegionalChapterTreasurerTable.update({ RegionalChapterTreasurerTable.grantedByMemberId eq memberId }) {
+                it[grantedByMemberId] = null
+            }
+        val retained =
+            RegionalChapterTreasurerTable
+                .selectAll()
+                .where { RegionalChapterTreasurerTable.memberId eq memberId }
+                .count()
+                .toInt()
         return listOf(
             TableErasureOutcome(table = "regional_chapter_officer", rowsDeleted = deleted, rowsAnonymized = anonymized),
+            TableErasureOutcome(
+                table = "regional_chapter_treasurer",
+                rowsAnonymized = treasurerAnonymized + revoked,
+                rowsRetained = retained,
+                retentionReason = "Active grants are revoked at once; revoked rows stay as history of who could book (GoBD).",
+            ),
         )
+    }
+
+    /** An active chapter-treasurer grant, as read before [eraseMember] revokes it. */
+    data class ActiveTreasurerGrant(
+        val grantId: Uuid,
+        val chapterId: Uuid,
+    )
+
+    /** The ACTIVE chapter-treasurer grants of [memberId]. Call BEFORE the contributor walk revokes them. */
+    fun activeTreasurerGrants(memberId: Uuid): List<ActiveTreasurerGrant> =
+        RegionalChapterTreasurerTable
+            .selectAll()
+            .where { (RegionalChapterTreasurerTable.memberId eq memberId) and RegionalChapterTreasurerTable.revokedAt.isNull() }
+            .map {
+                ActiveTreasurerGrant(
+                    grantId = it[RegionalChapterTreasurerTable.id],
+                    chapterId = it[RegionalChapterTreasurerTable.regionalChapterId],
+                )
+            }
+
+    /**
+     * GoBD: writes the `REGIONAL_CHAPTER_TREASURER`/`UPDATE` audit entry (same shape as `revokeChapterTreasurer`) for each grant that
+     * [eraseMember] revoked. Deliberately NOT called from [eraseMember] itself: the audit chain lock must not be taken in the middle of
+     * the contributor walk (deadlock contract of [AuditLogRecorder]); the erasure executor calls this AFTER the walk, in the same transaction.
+     */
+    fun recordRevocationAudit(
+        actorMemberId: Uuid,
+        actorRole: AccountRole,
+        subjectMemberId: Uuid,
+        grants: List<ActiveTreasurerGrant>,
+    ) {
+        val now = DbClock.nowLocalDateTime()
+        grants.forEach { grant ->
+            AuditLogRecorder.record(
+                actorMemberId = actorMemberId,
+                actorRole = actorRole,
+                entityType = AuditEntityType.REGIONAL_CHAPTER_TREASURER,
+                entityId = grant.grantId,
+                action = AuditAction.UPDATE,
+                before =
+                    Json.encodeToString(
+                        RegionalChapterTreasurerSnapshot.serializer(),
+                        RegionalChapterTreasurerSnapshot(
+                            memberId = subjectMemberId.toString(),
+                            regionalChapterId = grant.chapterId.toString(),
+                        ),
+                    ),
+                after =
+                    Json.encodeToString(
+                        RegionalChapterTreasurerSnapshot.serializer(),
+                        RegionalChapterTreasurerSnapshot(
+                            memberId = subjectMemberId.toString(),
+                            regionalChapterId = grant.chapterId.toString(),
+                            revoked = true,
+                        ),
+                    ),
+                occurredAt = now,
+            )
+        }
     }
 }

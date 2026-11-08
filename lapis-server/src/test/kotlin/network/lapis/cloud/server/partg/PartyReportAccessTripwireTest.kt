@@ -37,7 +37,7 @@ class PartyReportAccessTripwireTest :
                         .first()
                 }.toList()
 
-        test("the RPC surface is exactly the twenty known methods") {
+        test("the RPC surface is exactly the twenty-five known methods") {
             IPartyReportService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }
@@ -66,14 +66,44 @@ class PartyReportAccessTripwireTest :
                     // V1.9.287 (R3c)
                     "saveEnterprise",
                     "deleteEnterprise",
+                    // V1.9.289 (R4a)
+                    "getAccountMappings",
+                    "saveAccountMappings",
+                    "setUnitMode",
+                    "proposeFromLedger",
+                    "applyLedgerProposal",
                 )
         }
 
         test("every RPC method of the service starts with the access gate") {
             val code = source("PartyReportService.kt")
             val starts = firstStatements(code, Regex("""override suspend fun \w+\([^)]*\)\s*:\s*[\w<>?, ]+\s*"""))
-            (starts.size) shouldBe 20
-            starts.filterNot { it.contains("requirePartyReportAccess(call)") }.shouldBeEmpty()
+            (starts.size) shouldBe 25
+            // exactly one of the two gates, and the scoped gate only for the pinned set of methods (a chapter treasurer reaches nothing else)
+            starts
+                .filterNot { it.contains("requirePartyReportAccess(call)") || it.contains("requirePartyReportScopedAccess(call)") }
+                .shouldBeEmpty()
+        }
+
+        test("only the pinned methods use the scoped gate (the one a chapter treasurer passes)") {
+            val code = source("PartyReportService.kt")
+            val scoped =
+                Regex("""override suspend fun (\w+)\([^)]*\)\s*:\s*[\w<>?, ]+\s*\{\s*val \w+ = requirePartyReportScopedAccess\(call\)""")
+                    .findAll(code)
+                    .map { it.groupValues[1] }
+                    .toSet()
+            scoped shouldBe
+                setOf(
+                    "listUnits",
+                    "overview",
+                    "getSheet",
+                    "saveSheet",
+                    "reportFindings",
+                    "getAccountMappings",
+                    "proposeFromLedger",
+                    "applyLedgerProposal",
+                )
+            code.split("requirePartyReportScopedAccess(call)").size - 1 shouldBe 8
         }
 
         test("every HTTP handler of the routes starts with the access gate") {

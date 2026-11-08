@@ -218,6 +218,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // V1.9.269 -- the separate statements and the notes of the report draft; counters and codes only.
         AuditEntityType.PARTG_REPORT_ANNEX -> gettext("Rechenschaftsbericht: Ausweise")
         AuditEntityType.PARTG_REPORT_NOTES -> gettext("Rechenschaftsbericht: Erläuterungen")
+        AuditEntityType.PARTG_ACCOUNT_MAPPING -> gettext("Rechenschaftsbericht: Kontenzuordnung")
+        AuditEntityType.PARTG_UNIT_MODE -> gettext("Rechenschaftsbericht: Buchführung der Einheit")
+        AuditEntityType.REGIONAL_CHAPTER_TREASURER -> gettext("Kassenwart der Gliederung")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -360,6 +363,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_REPORT_EXPORT -> "secondary"
         AuditEntityType.PARTG_REPORT_ANNEX -> "secondary"
         AuditEntityType.PARTG_REPORT_NOTES -> "secondary"
+        AuditEntityType.PARTG_ACCOUNT_MAPPING -> "secondary"
+        AuditEntityType.PARTG_UNIT_MODE -> "secondary"
+        AuditEntityType.REGIONAL_CHAPTER_TREASURER -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

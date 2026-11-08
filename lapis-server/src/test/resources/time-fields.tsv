@@ -1078,3 +1078,8 @@ col:OrganizationSettingsTable.pauseMusicUpdatedAt	A	stamped by the server clock 
 col:ConferenceStreamTargetTable.autoRetryNextAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceStreamTargetTable.autoRetryIssuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceStreamTargetTable.retryWindowStartedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:RegionalChapterTreasurerDto.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:RegionalChapterTreasurerTable.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:RegionalChapterTreasurerTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartgAccountMappingTable.updatedAt	A	PartyReportService: stamped by ServerClock.now()
+col:PartgReportUnitModeTable.updatedAt	A	PartyReportService: stamped by ServerClock.now()

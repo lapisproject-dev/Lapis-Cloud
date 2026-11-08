@@ -137,4 +137,44 @@ classDiagram(name = "RegionalChapter") {
                 stereotype("Column") { "columnName" to "active_for_member_id" }
             }
         }
+
+    // V1.9.289 (R4a, V144): "chapter treasurer" -- a plain member may book into and read the journal of the chapters granted. Unlike the
+    // officer a member may hold SEVERAL active grants, so the uniqueness guard is the PAIR: active_key = member_id || ':' ||
+    // regional_chapter_id while active, NULL once revoked (chk_regional_chapter_treasurer_active, SQL only; again NOT a foreign key).
+    classOf(name = "RegionalChapterTreasurer") {
+        stereotype("Entity") {
+            "tableName" to "regional_chapter_treasurer"
+            "kotlinObjectName" to "RegionalChapterTreasurerTable"
+        }
+        stereotype("Index") { "columns" to listOf("active_key"); "unique" to true; "name" to "uq_rct_active_key" }
+        stereotype("Index") { "columns" to listOf("member_id"); "name" to "ix_rct_member" }
+        stereotype("Index") { "columns" to listOf("regional_chapter_id"); "name" to "ix_rct_chapter" }
+        stereotype("Index") { "columns" to listOf("granted_by_member_id"); "name" to "ix_rct_granted_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "memberId", type = "UUID") {
+            stereotype("Column") { "columnName" to "member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "regionalChapterId", type = "UUID") {
+            stereotype("Column") { "columnName" to "regional_chapter_id"; "fkEntity" to "RegionalChapter" }
+        }
+        attribute(name = "grantedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "granted_at" }
+        }
+        attribute(name = "grantedByMemberId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "granted_by_member_id"; "fkEntity" to "Member" }
+        }
+        attribute(name = "revokedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "revoked_at" }
+        }
+        attribute(name = "activeKey", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "active_key"; "sqlType" to "VARCHAR(73)" }
+        }
+    }
 }

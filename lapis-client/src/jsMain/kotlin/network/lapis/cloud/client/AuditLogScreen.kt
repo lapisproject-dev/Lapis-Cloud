@@ -624,6 +624,10 @@ fun decodeAuditSnapshot(
             // V1.9.269 -- annex and notes snapshots: counters, ids and codes only; raw-text display, no link.
             AuditEntityType.PARTG_REPORT_ANNEX -> null
             AuditEntityType.PARTG_REPORT_NOTES -> null
+            // V1.9.289 -- account number and position codes / year, unit and booking count / ids only; raw-text display, no link.
+            AuditEntityType.PARTG_ACCOUNT_MAPPING -> null
+            AuditEntityType.PARTG_UNIT_MODE -> null
+            AuditEntityType.REGIONAL_CHAPTER_TREASURER -> null
         }
     }.getOrNull()
 

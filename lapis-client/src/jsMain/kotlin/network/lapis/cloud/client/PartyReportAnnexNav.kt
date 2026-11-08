@@ -46,7 +46,7 @@ internal fun partgFindingBlock(finding: PartgFindingDto): AnnexBlock? =
         PartgFindingCode.P07, PartgFindingCode.P08, PartgFindingCode.P09 -> AnnexBlock.C
         PartgFindingCode.P10 -> AnnexBlock.F
         PartgFindingCode.P11, PartgFindingCode.P12, PartgFindingCode.P13 -> AnnexBlock.D
-        PartgFindingCode.P05 -> null
+        PartgFindingCode.P05, PartgFindingCode.P14, PartgFindingCode.P15, PartgFindingCode.P16 -> null
     }
 
 /** The number of hints per block for one unit; read from the hints that are already loaded, no extra call. */

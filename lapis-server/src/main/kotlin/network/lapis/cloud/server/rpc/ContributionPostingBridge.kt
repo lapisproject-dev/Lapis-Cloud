@@ -242,7 +242,11 @@ object ContributionPostingBridge {
         // computed above for the active-account check; reused here rather than recomputed.
         val cashAccountIds = CashRegisterGuard.loadCashRegisterAccountIds(referencedAccountIds)
         CashRegisterGuard.requireVoucherForCashPostings(voucherReference = resolvedVoucherReference, cashAccountIds = cashAccountIds)
-        CashRegisterGuard.requireNonNegativeCashBalances(postings = postingInputs, cashAccountIds = cashAccountIds)
+        CashRegisterGuard.requireNonNegativeCashBalances(
+            postings = postingInputs,
+            cashAccountIds = cashAccountIds,
+            regionalChapterId = null,
+        )
 
         val journalEntryId = Uuid.random()
         val entryDate = paidAt.date

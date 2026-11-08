@@ -3,6 +3,7 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import network.lapis.cloud.server.db.generated.PartgAccountMappingTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
 import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
@@ -13,6 +14,7 @@ import network.lapis.cloud.server.db.generated.PartgReportPositionTable
 import network.lapis.cloud.server.db.generated.PartgReportSheetTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
+import network.lapis.cloud.server.db.generated.PartgReportUnitModeTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
 import network.lapis.cloud.shared.domain.ErasureMode
@@ -42,6 +44,9 @@ import kotlin.uuid.Uuid
  * exported as "changed by you" with year, unit and time only -- no name, no amount, no purpose; retained on erasure). Sponsor and sponsoring entry
  * are personal data of THIRD PARTIES without a member key (listed in `knownUncoveredSubjectRoots`); the youth organisation holds organisation data.
  *
+ * **V1.9.289 (R4a)** adds `partg_account_mapping` and `partg_report_unit_mode`: organisation data; `updated_by` is exported as "changed by you"
+ * (mapping: time only; mode: year, unit and time) -- never an amount, never an account name -- and retained on erasure.
+ *
  * **V1.9.287 (R3c)** adds `partg_report_enterprise` (statement D): organisation data, same treatment as the youth organisation ("changed by
  * you" with year, unit and time only -- no name, no amount; retained on erasure). Whether a free-text name can contain a person's name
  * (sole proprietorship) is an open question (Q16), not claimed as covered.
@@ -63,6 +68,8 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
             PartgReportSponsoringEntryTable,
             PartgReportYouthOrgTable,
             PartgReportEnterpriseTable,
+            PartgAccountMappingTable,
+            PartgReportUnitModeTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -244,6 +251,38 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                 },
             )
             put(
+                "accountMappingsChangedByYou",
+                buildJsonArray {
+                    PartgAccountMappingTable
+                        .selectAll()
+                        .where { PartgAccountMappingTable.updatedBy eq memberId }
+                        .toList()
+                        .sortedWith(compareBy({ it[PartgAccountMappingTable.updatedAt] }, { it[PartgAccountMappingTable.id].toString() }))
+                        .forEach { row ->
+                            add(buildJsonObject { put("changedAt", row[PartgAccountMappingTable.updatedAt].toString()) })
+                        }
+                },
+            )
+            put(
+                "unitModesChangedByYou",
+                buildJsonArray {
+                    PartgReportUnitModeTable
+                        .selectAll()
+                        .where { PartgReportUnitModeTable.updatedBy eq memberId }
+                        .toList()
+                        .sortedWith(compareBy({ it[PartgReportUnitModeTable.fiscalYear] }, { it[PartgReportUnitModeTable.unitKey] }))
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("year", row[PartgReportUnitModeTable.fiscalYear])
+                                    put("unit", row[PartgReportUnitModeTable.unitKey])
+                                    put("changedAt", row[PartgReportUnitModeTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
                 "notesChangedByYou",
                 buildJsonArray {
                     PartgReportNotesSheetTable
@@ -397,6 +436,26 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                     PartgReportHoldingTable
                         .selectAll()
                         .where { PartgReportHoldingTable.updatedBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_account_mapping",
+                rowsRetained =
+                    PartgAccountMappingTable
+                        .selectAll()
+                        .where { PartgAccountMappingTable.updatedBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_unit_mode",
+                rowsRetained =
+                    PartgReportUnitModeTable
+                        .selectAll()
+                        .where { PartgReportUnitModeTable.updatedBy eq memberId }
                         .count()
                         .toInt(),
                 retentionReason = reason,

@@ -6,10 +6,14 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.PartgLedgerProposalAppliedSnapshot
+import network.lapis.cloud.shared.domain.PartgLedgerRules
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgUnit
 import network.lapis.cloud.shared.domain.PartgValueAuditSnapshot
 import network.lapis.cloud.shared.domain.PartgValueSource
+import network.lapis.cloud.shared.rpc.PartyReportProposalNotAvailableException
+import network.lapis.cloud.shared.rpc.PartyReportProposalStaleException
 import network.lapis.cloud.shared.rpc.PartyReportRevisionConflictException
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
@@ -72,6 +76,81 @@ internal object PartgSheetWriter {
                 revision = currentSheet?.let { PartgReportStore.revisionOf(it.id) } ?: 0L,
                 priorRevision = prior?.let { PartgReportStore.revisionOf(it.id) } ?: 0L,
                 changed = total,
+            )
+        }
+
+    /**
+     * V1.9.289 (R4a) -- takes over the chosen positions of the proposal from the bookings, source `LEDGER`. Same lock order and revision rules as
+     * [write]. **The proposal is recomputed UNDER THE LOCK**: a pick must equal the freshly computed value exactly, be non-negative and within the column
+     * range, else [PartyReportProposalStaleException]; the client's amounts are never believed. Only values of [year] are written (the year before is
+     * never touched). Mode C and subordinate summaries have no proposal ([PartyReportProposalNotAvailableException]).
+     */
+    fun writeLedgerProposal(
+        current: CurrentMember,
+        year: Int,
+        unit: PartgUnit,
+        expectedRevision: Long,
+        expectedPriorRevision: Long,
+        picks: Map<String, Long>,
+        now: LocalDateTime,
+    ): PartgSaveResultDto =
+        transaction {
+            PartgReportStore.lockChapter(unit)
+            val priorYear = year - 1
+            val prior = PartgReportStore.lockSheet(year = priorYear, unit = unit)
+            val existing = PartgReportStore.lockSheet(year = year, unit = unit)
+            if ((prior?.revision ?: 0L) != expectedPriorRevision || (existing?.revision ?: 0L) != expectedRevision) {
+                throw PartyReportRevisionConflictException()
+            }
+            val mode = PartgLedgerLinkStore.modeOf(year = year, unit = unit)
+            if (!PartgLedgerProposals.available(unit = unit, mode = mode)) throw PartyReportProposalNotAvailableException()
+            val fresh = PartgLedgerProposals.proposalFor(year = year, unit = unit)
+            picks.forEach { (code, cents) ->
+                if (!PartgLedgerRules.transferable(cents) || fresh[code] != cents) throw PartyReportProposalStaleException()
+            }
+            val sheet =
+                if (picks.isEmpty()) {
+                    existing
+                } else {
+                    existing ?: PartgReportStore.lockOrCreateSheet(year = year, unit = unit, actor = current.memberId, now = now)
+                }
+            val diffs =
+                sheet
+                    ?.let {
+                        PartgReportStore.applyChanges(
+                            sheet = it,
+                            changes = picks,
+                            source = PartgValueSource.LEDGER,
+                            actor = current.memberId,
+                            now = now,
+                        )
+                    }.orEmpty()
+            // audit LAST: one entry per effective value, then the collective one (counts and codes only)
+            sheet?.let { audit(current = current, sheet = it, unit = unit, year = year, diffs = diffs, now = now) }
+            if (sheet != null && diffs.isNotEmpty()) {
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.PARTG_REPORT_SHEET,
+                    entityId = sheet.id,
+                    action = AuditAction.UPDATE,
+                    after =
+                        Json.encodeToString(
+                            PartgLedgerProposalAppliedSnapshot.serializer(),
+                            PartgLedgerProposalAppliedSnapshot(
+                                year = year,
+                                unitKey = unit.key(),
+                                count = diffs.size,
+                                codes = diffs.map { it.positionCode },
+                            ),
+                        ),
+                    occurredAt = now,
+                )
+            }
+            PartgSaveResultDto(
+                revision = sheet?.let { PartgReportStore.revisionOf(it.id) } ?: 0L,
+                priorRevision = prior?.let { PartgReportStore.revisionOf(it.id) } ?: 0L,
+                changed = diffs.size,
             )
         }
 

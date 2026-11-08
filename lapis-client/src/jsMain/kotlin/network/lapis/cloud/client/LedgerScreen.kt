@@ -51,6 +51,7 @@ import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.domain.PostingDto
 import network.lapis.cloud.shared.domain.PostingInput
 import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.ReserveType
 import network.lapis.cloud.shared.domain.VatRate
 import network.lapis.cloud.shared.domain.slug
@@ -114,6 +115,9 @@ fun renderLedgerScreen(
     deepLinkHash: String = window.location.hash,
 ) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
+    // V1.9.289 (R4a): a chapter treasurer books and reads the journal of their chapters, nothing else (no set-up tab, no accounts to maintain).
+    val chapterOnly = ledgerChapterOnly()
+    val canBook = canManage || chapterOnly
     val access = financeSetupAccessOf(AppState.hasRole(AccountRole.ADMIN), AppState.hasRole(AccountRole.TREASURER))
 
     val root = container.dataScreenRoot()
@@ -124,7 +128,7 @@ fun renderLedgerScreen(
     val explicitStep = parseSetupStepAnchor(deepLinkHash)
 
     AppScope.launch {
-        val initialStatus = guarded { rpcService<IAccountingService>().getFinanceSetupStatus() }
+        val initialStatus = if (chapterOnly) null else guarded { rpcService<IAccountingService>().getFinanceSetupStatus() }
         loadingRegion.clearStatus()
         var setupStatus: FinanceSetupStatusDto? = initialStatus
         val hintHosts = mutableListOf<SimplePanel>()
@@ -168,13 +172,18 @@ fun renderLedgerScreen(
 
         fun newHintHost(): SimplePanel = SimplePanel().also { hintHosts += it }
 
-        val initialTab = defaultLedgerTab(explicitTab, initialStatus, canManage)
+        val initialTab =
+            if (chapterOnly) {
+                explicitTab?.takeIf { it != LedgerTab.SETUP } ?: LedgerTab.JOURNAL
+            } else {
+                defaultLedgerTab(explicitTab, initialStatus, canManage)
+            }
         var initialSelectionDone = false
         val handle =
             root.pageTabs(
                 tabs =
-                    listOf(
-                        PageTab(LedgerTab.SETUP, setupTabLabel(), "ledger-tab-setup", "ledger-panel-setup"),
+                    listOfNotNull(
+                        if (chapterOnly) null else PageTab(LedgerTab.SETUP, setupTabLabel(), "ledger-tab-setup", "ledger-panel-setup"),
                         PageTab(LedgerTab.ACCOUNTS, tr("Konten"), "ledger-tab-accounts", "ledger-panel-accounts"),
                         PageTab(LedgerTab.JOURNAL, tr("Journal"), "ledger-tab-journal", "ledger-panel-journal"),
                     ),
@@ -194,7 +203,7 @@ fun renderLedgerScreen(
                                 repaintHints()
                             }
                         LedgerTab.ACCOUNTS -> renderLedgerAccountsTab(panel, canManage, newHintHost())
-                        LedgerTab.JOURNAL -> renderLedgerJournalTab(panel, canManage, newHintHost())
+                        LedgerTab.JOURNAL -> renderLedgerJournalTab(panel, canBook, newHintHost())
                     }
                     repaintHints()
                 }
@@ -407,6 +416,10 @@ internal fun renderLedgerAccountsTab(
     }
 }
 
+/** Loads the units the caller may book into or filter by (V1.9.289, R4a); an empty list on failure or while there are no chapters. */
+internal suspend fun loadLedgerUnits(): List<RegionalChapterRefDto> =
+    guarded { rpcService<IAccountingService>().listBookingUnits() } ?: emptyList()
+
 /**
  * V1.9.206: the "Journal" tab -- filter row, list, details and "Neue Buchung". Moved out of [renderLedgerScreen]; the filter row is one
  * [inlineFieldRow] (no nested toolbar), so search, status, dates and the refresh button share one centre line.
@@ -431,6 +444,8 @@ internal fun renderLedgerJournalTab(
             span(tr("Status"), className = "fw-semibold")
         }
     val journalDateFilter = journalFilterRow.dateRangeFields(fromLabel = tr("Von"), toLabel = tr("Bis"))
+    // V1.9.289 (R4a): the filter "Gliederung" is added as soon as the units are known (and only if there are any)
+    val journalUnitHost = journalFilterRow.simplePanel()
     val journalRefreshButton = journalFilterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val journalCountsLabel = root.div().apply { addCssClasses("text-muted small") }
     val journalStatusRegion = root.dataStatusRegion()
@@ -472,6 +487,8 @@ internal fun renderLedgerJournalTab(
     // clientseitig darauf wirken können, ohne pro Tastendruck erneut `listJournal` zu rufen.
     var loadedJournal: List<JournalEntryDto> = emptyList()
     var journalStatusFilter: JournalEntryStatus? = null
+    var journalUnitFilter: String? = null
+    var journalUnits: List<RegionalChapterRefDto> = emptyList()
     var journalSearchTerm = ""
     var journalSort = SortState(key = JOURNAL_SORT_DATE, direction = SortDirection.DESC)
     var pendingJournalSortFocus: String? = null
@@ -511,7 +528,7 @@ internal fun renderLedgerJournalTab(
         // (Datum, Beschreibung) -- `listJournal` liefert die gefilterte Menge vollständig und kennt
         // keinen Sortierparameter.
         journalListPanel.dataTable(
-            columns = journalEntryColumns(),
+            columns = journalEntryColumns(showUnit = journalUnits.isNotEmpty()),
             rows = sortJournalEntries(filtered, journalSort),
             sort = journalSort,
             onSort = { clicked ->
@@ -546,7 +563,13 @@ internal fun renderLedgerJournalTab(
         AppScope.launch {
             val entries =
                 guarded {
-                    rpcService<IAccountingService>().listJournal(journalDateFilter.parseFrom(), journalDateFilter.parseTo(), status)
+                    rpcService<IAccountingService>().listJournal(
+                        journalDateFilter.parseFrom(),
+                        journalDateFilter.parseTo(),
+                        status,
+                        null,
+                        journalUnitFilter,
+                    )
                 }
             if (mine != journalGeneration) return@launch // ein neuerer Ladevorgang hat übernommen
             journalStatusRegion.clearStatus()
@@ -575,6 +598,16 @@ internal fun renderLedgerJournalTab(
         refreshJournal()
     }
     journalRefreshButton.onClick { refreshJournal() }
+    AppScope.launch {
+        journalUnits = loadLedgerUnits()
+        if (journalUnits.isNotEmpty()) {
+            journalUnitHost.ledgerUnitFilter(journalUnits, ledgerChapterOnly()) { argument ->
+                journalUnitFilter = argument
+                refreshJournal()
+            }
+            renderJournalList()
+        }
+    }
 
     var isInitialJournalSearchEvent = true
     journalSearchInput.subscribe { value ->
@@ -596,6 +629,7 @@ internal fun renderLedgerJournalTab(
             val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
             val externalDonors = guarded { rpcService<IAccountingService>().listExternalDonors(activeOnly = true) } ?: emptyList()
             val settings = guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() }
+            val bookingUnits = journalUnits.ifEmpty { loadLedgerUnits() }
 
             if (accounts.isEmpty()) {
                 root.p(tr("Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen.")) {
@@ -622,6 +656,7 @@ internal fun renderLedgerJournalTab(
                             settings?.isKleinunternehmer ?: false,
                             collapse = close,
                             onSaved = { refreshJournal() },
+                            bookingUnits = bookingUnits,
                         )
                     prefill?.let(handle.prefill)
                     handle.snapshot
@@ -956,21 +991,43 @@ private fun renderAccountDrillDown(
     val kassenbuchButton = if (account.isCashRegister) toggleRow.button(tr("Kassenbuch"), style = ButtonStyle.OUTLINEPRIMARY) else null
     val contentPanel = panel.vPanel(spacing = 8)
 
-    hauptbuchButton.onClick {
+    // V1.9.289 (R4a): the units are loaded once; the views get the filter "Gliederung" as soon as there are any
+    var units: List<RegionalChapterRefDto> = emptyList()
+    var showingKassenbuch = false
+
+    fun showHauptbuch() {
+        showingKassenbuch = false
         contentPanel.removeAll()
-        renderHauptbuchView(contentPanel, account)
+        renderHauptbuchView(contentPanel, account, units)
     }
-    kassenbuchButton?.onClick {
+
+    fun showKassenbuch() {
+        showingKassenbuch = true
         contentPanel.removeAll()
-        renderKassenbuchView(contentPanel, account)
+        renderKassenbuchView(contentPanel, account, units)
     }
-    renderHauptbuchView(contentPanel, account)
+    hauptbuchButton.onClick { showHauptbuch() }
+    kassenbuchButton?.onClick { showKassenbuch() }
+    showHauptbuch()
+    AppScope.launch {
+        units = loadLedgerUnits()
+        if (units.isNotEmpty()) {
+            if (showingKassenbuch) showKassenbuch() else showHauptbuch()
+        }
+    }
 }
 
 internal fun renderHauptbuchView(
     panel: SimplePanel,
     account: LedgerAccountDto,
+    units: List<RegionalChapterRefDto> = emptyList(),
 ) {
+    var unitFilter: String? = null
+    lateinit var reloadSection: () -> Unit
+    panel.ledgerUnitFilter(units, ledgerChapterOnly()) { argument ->
+        unitFilter = argument
+        reloadSection()
+    }
     val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
     panel.div(gettext("Format: %1", localeDatePattern())) { addCssClasses("text-muted small") }
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
@@ -984,11 +1041,13 @@ internal fun renderHauptbuchView(
                         account.id,
                         filterControls.parseFrom(),
                         filterControls.parseTo(),
+                        unitFilter,
                     )
                 }
             },
             render = { body, ledger -> renderHauptbuchLines(body, ledger) },
         )
+    reloadSection = { section.reload() }
     loadButton.onClick { section.reload() }
     section.reload()
 }
@@ -1025,7 +1084,14 @@ internal fun renderHauptbuchLines(
 internal fun renderKassenbuchView(
     panel: SimplePanel,
     account: LedgerAccountDto,
+    units: List<RegionalChapterRefDto> = emptyList(),
 ) {
+    var unitFilter: String? = null
+    lateinit var reloadSection: () -> Unit
+    panel.ledgerUnitFilter(units, ledgerChapterOnly()) { argument ->
+        unitFilter = argument
+        reloadSection()
+    }
     val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
     panel.div(gettext("Format: %1", localeDatePattern())) { addCssClasses("text-muted small") }
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
@@ -1034,11 +1100,17 @@ internal fun renderKassenbuchView(
             isEmpty = { false },
             load = {
                 guarded {
-                    rpcService<IAccountingService>().getKassenbuch(account.id, filterControls.parseFrom(), filterControls.parseTo())
+                    rpcService<IAccountingService>().getKassenbuch(
+                        account.id,
+                        filterControls.parseFrom(),
+                        filterControls.parseTo(),
+                        unitFilter,
+                    )
                 }
             },
             render = { body, kassenbuch -> renderKassenbuchLines(body, kassenbuch) },
         )
+    reloadSection = { section.reload() }
     loadButton.onClick { section.reload() }
     section.reload()
 }
@@ -1046,6 +1118,7 @@ internal fun renderKassenbuchView(
 private val KASSENBUCH_HEADERS =
     listOf(
         TableHeader(title = tr("Nr.")),
+        TableHeader(title = tr("Gliederung")),
         TableHeader(title = tr("Datum")),
         TableHeader(title = tr("Beschreibung")),
         TableHeader(title = tr("Beleg")),
@@ -1153,8 +1226,8 @@ internal fun journalEntryMetaText(entry: JournalEntryDto): String {
  * damit weder sortierbar noch als Datum erkennbar. Die Aktion ist ein Icon-Knopf statt des vorherigen
  * Volltext-Knopfes „Details anzeigen" in der Tabellenzeile (R38).
  */
-private fun journalEntryColumns(): List<DataColumn<JournalEntryDto>> =
-    listOf(
+private fun journalEntryColumns(showUnit: Boolean = false): List<DataColumn<JournalEntryDto>> =
+    listOfNotNull(
         DataColumn(
             title = tr("Buchung"),
             primary = true,
@@ -1168,6 +1241,14 @@ private fun journalEntryColumns(): List<DataColumn<JournalEntryDto>> =
                 container.statusBadge(journalEntryStatusLabel(entry.status), journalEntryStatusColor(entry.status))
             },
         ),
+        if (showUnit) {
+            DataColumn(
+                title = tr("Gliederung"),
+                cell = { container, entry -> container.untrustedSpan(ledgerUnitLabel(entry), className = "small") },
+            )
+        } else {
+            null
+        },
         DataColumn(
             title = tr("Details"),
             cell = { container, entry -> container.cellText(journalEntryMetaText(entry), "text-muted small") },
@@ -1469,6 +1550,7 @@ internal fun buildJournalEntryInput(
     voucherText: String?,
     postings: List<PostingInput>,
     donor: Triple<String?, String?, DonorCategory?>,
+    regionalChapterId: String? = null,
 ): JournalEntryInput? {
     val entryDate = parseLocalDateOrNull(dateText) ?: return null
     val trimmedDescription = description.trim()
@@ -1482,6 +1564,7 @@ internal fun buildJournalEntryInput(
         donorMemberId = donorMemberId,
         externalDonorId = externalDonorId,
         donorCategory = donorCategory,
+        regionalChapterId = regionalChapterId,
     )
 }
 
@@ -1506,6 +1589,9 @@ internal fun renderNewEntryForm(
     // both hold, exactly the condition under which the server would keep a sent rate anyway.
     vatEnabled: Boolean,
     isKleinunternehmer: Boolean,
+    // V1.9.289 (R4a): the units the person may book into (`listBookingUnits`); empty = no chapters = no field. Before `collapse`/`onSaved`, so the
+    // trailing lambda of existing callers still binds to `onSaved`.
+    bookingUnits: List<RegionalChapterRefDto> = emptyList(),
     collapse: ((saved: Boolean) -> Unit)? = null,
     onSaved: () -> Unit,
 ): NewEntryFormHandle {
@@ -1526,6 +1612,20 @@ internal fun renderNewEntryForm(
         )
     val voucherField =
         form.textField(label = tr("Belegnummer"), rule = { FormRules.maxLength(it, MAX_JOURNAL_VOUCHER_LENGTH) })
+    val chapterOnly = ledgerChapterOnly()
+    val unitOptions = ledgerUnitFormOptions(bookingUnits, chapterOnly)
+    val unitField =
+        if (unitOptions.isEmpty()) {
+            null
+        } else {
+            form.selectField(
+                label = tr("Gliederung"),
+                options = unitOptions,
+                value = ledgerUnitFormDefault(bookingUnits, chapterOnly),
+                required = chapterOnly,
+                init = { select -> if (ledgerUnitFormLocked(bookingUnits, chapterOnly)) select.disabled = true },
+            )
+        }
 
     panel.p(tr("Buchungszeilen")) { addCssClass("fw-bold") }
     // Die EINE sichtbare Spaltenkopfzeile über dem Block (unter 768 px ausgeblendet, dort trägt jede Karte ihre Beschriftung selbst).
@@ -1775,7 +1875,14 @@ internal fun renderNewEntryForm(
     fun buildInput(): JournalEntryInput? {
         val postings = collectPostings() ?: return null
         val donor = collectDonor() ?: return null
-        return buildJournalEntryInput(dateField.value, descriptionField.value, voucherField.value, postings, donor)
+        return buildJournalEntryInput(
+            dateField.value,
+            descriptionField.value,
+            voucherField.value,
+            postings,
+            donor,
+            ledgerUnitInputId(unitField?.value),
+        )
     }
 
     fun resetForm() {

@@ -39,11 +39,12 @@ class AccountingSchemaDriftTest :
 
         test(
             "model declares exactly ledger_account, journal_entry, posting, cost_center, external_donor, " +
-                "vat_compliance_acknowledgment and the member stub",
+                "vat_compliance_acknowledgment and the member and regional_chapter stubs",
         ) {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
+                    "regional_chapter",
                     "ledger_account",
                     "journal_entry",
                     "posting",
@@ -216,6 +217,16 @@ class AccountingSchemaDriftTest :
                 "external_donor"
             entity.attributeByName("external_donor_id")?.nullable shouldBe true
             real.columns.getValue("external_donor_id").nullable shouldBe true
+        }
+
+        test("journal_entry.regional_chapter_id is a nullable FK -> regional_chapter (V1.9.289, R4a)") {
+            val entity = model.entities.single { it.name == "journal_entry" }
+            val real = transaction { introspectAccountingTable("journal_entry") }
+
+            real.foreignKeys["regional_chapter_id"] shouldBe "regional_chapter"
+            model.entityNameOf(entity.attributeByName("regional_chapter_id")?.foreignKey?.targetEntityId ?: "") shouldBe "regional_chapter"
+            entity.attributeByName("regional_chapter_id")?.nullable shouldBe true
+            real.columns.getValue("regional_chapter_id").nullable shouldBe true
         }
 
         test("journal_entry.donor_category is nullable -- most entries are not a donation at all (V0.5.1 §25 PartG)") {

@@ -1,17 +1,22 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.PartgAccountMappingViewDto
 import network.lapis.cloud.shared.domain.PartgAnnexDto
+import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgHoldingDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
+import network.lapis.cloud.shared.domain.PartgLedgerProposalDto
+import network.lapis.cloud.shared.domain.PartgMappingChangeDto
 import network.lapis.cloud.shared.domain.PartgNoteDto
 import network.lapis.cloud.shared.domain.PartgNotesDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
+import network.lapis.cloud.shared.domain.PartgProposalPickDto
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgSheetDto
 import network.lapis.cloud.shared.domain.PartgSponsorInputDto
@@ -156,4 +161,56 @@ interface IPartyReportService {
         expectedRevision: Long,
         enterpriseId: String,
     ): PartgAnnexDto
+
+    // ---------------------------------------------------------------- R4a (V1.9.289)
+
+    /**
+     * V1.9.289 (R4a): the ledger accounts with their mapping to the report positions, the template suggestions (only for unmapped accounts) and the
+     * balances of [year]. Federal roles and a chapter treasurer (read only, for the units of the chapters granted).
+     */
+    suspend fun getAccountMappings(
+        year: Int,
+        unitKey: String,
+    ): PartgAccountMappingViewDto
+
+    /**
+     * V1.9.289 (R4a): saves the mapping changes atomically (federal roles only, at most 2000 per call) and returns the view of [year] and [unitKey]
+     * afterwards. Every change names the expected old state; a mismatch is [PartyReportRevisionConflictException]. A target must be a LEAF position
+     * of the matching section; an equity account can only be "not in the report".
+     */
+    suspend fun saveAccountMappings(
+        year: Int,
+        unitKey: String,
+        changes: List<PartgMappingChangeDto>,
+    ): PartgAccountMappingViewDto
+
+    /**
+     * V1.9.289 (R4a): sets the bookkeeping mode of a federal or state unit for [year] (federal roles only; a SUB unit is always C). When the unit
+     * already has POSTED bookings in the year, [confirmedBookingCount] must equal their current number, else
+     * [PartyReportModeConfirmationRequiredException]. The bookings are never changed.
+     */
+    suspend fun setUnitMode(
+        year: Int,
+        unitKey: String,
+        mode: PartgBookkeepingMode,
+        confirmedBookingCount: Int,
+    ): PartgOverviewRowDto
+
+    /** V1.9.289 (R4a): the positions where the bookings differ from the entered values. [PartyReportProposalNotAvailableException] in mode C. */
+    suspend fun proposeFromLedger(
+        year: Int,
+        unitKey: String,
+    ): PartgLedgerProposalDto
+
+    /**
+     * V1.9.289 (R4a): takes over the chosen positions with source `LEDGER`. The server recomputes every amount UNDER THE LOCK; a pick whose amount
+     * differs, is negative or does not exist is [PartyReportProposalStaleException].
+     */
+    suspend fun applyLedgerProposal(
+        year: Int,
+        unitKey: String,
+        expectedRevision: Long,
+        expectedPriorRevision: Long,
+        picks: List<PartgProposalPickDto>,
+    ): PartgSaveResultDto
 }

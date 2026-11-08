@@ -264,7 +264,7 @@ class PartyReportLogicTest {
     @Test
     fun theTabsAreDisplayedInTheDocumentedOrder_whileTheEnumKeepsItsStorageOrder() {
         assertEquals(
-            listOf("OVERVIEW", "SHEET", "AUSWEISE", "ERLAEUTERUNGEN", "POSITIONS", "REPORT"),
+            listOf("OVERVIEW", "SHEET", "AUSWEISE", "ERLAEUTERUNGEN", "POSITIONS", "KONTENZUORDNUNG", "REPORT"),
             PARTG_TAB_DISPLAY_ORDER.map { it.name },
         )
         // new tabs are appended: the four stored names of R1/R2 keep their position

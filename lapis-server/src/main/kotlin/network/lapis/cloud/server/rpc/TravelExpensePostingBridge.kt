@@ -228,7 +228,11 @@ internal object TravelExpensePostingBridge {
         val cashAccountIds = CashRegisterGuard.loadCashRegisterAccountIds(referencedAccountIds)
         try {
             CashRegisterGuard.requireVoucherForCashPostings(voucherReference = resolvedVoucherReference, cashAccountIds = cashAccountIds)
-            CashRegisterGuard.requireNonNegativeCashBalances(postings = postingInputs, cashAccountIds = cashAccountIds)
+            CashRegisterGuard.requireNonNegativeCashBalances(
+                postings = postingInputs,
+                cashAccountIds = cashAccountIds,
+                regionalChapterId = null,
+            )
         } catch (e: ConflictException) {
             val reason =
                 if (e.message.contains("voucherReference", ignoreCase = true)) {

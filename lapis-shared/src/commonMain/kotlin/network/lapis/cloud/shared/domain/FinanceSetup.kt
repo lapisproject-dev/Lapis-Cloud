@@ -164,4 +164,6 @@ fun financeSetupStatusOf(
 data class StandardChartResultDto(
     val created: List<String>,
     val skipped: List<String>,
+    /** V1.9.289 (R4a): numbers that exist already but with ANOTHER name (never renamed, never renumbered). Only the party chart sets it. */
+    val conflicting: List<String> = emptyList(),
 )

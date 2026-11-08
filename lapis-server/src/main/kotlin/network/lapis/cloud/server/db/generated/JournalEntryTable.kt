@@ -25,6 +25,10 @@ public object JournalEntryTable : Table("journal_entry") {
     public val donorCategory: Column<DonorCategory?> = enumerationByName<DonorCategory>("donor_category", 41).nullable()
     public val externalDonorId: Column<Uuid?> = optReference("external_donor_id", ExternalDonorTable.id)
 
+    // V1.9.289 (R4a) -- hand-edited, see 10-accounting.kuml.kts file header addendum. The reporting chapter of the booking, NULL = federal
+    // level. Set only on insert and never changed afterwards.
+    public val regionalChapterId: Column<Uuid?> = optReference("regional_chapter_id", RegionalChapterTable.id)
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 2 index(es) declared on this entity are not emitted —

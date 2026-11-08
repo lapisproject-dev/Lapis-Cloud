@@ -245,6 +245,9 @@ data class JournalEntryDto(
     val externalDonorId: String? = null,
     val externalDonorDisplayName: String? = null,
     val donorCategory: DonorCategory? = null,
+    /** V1.9.289 (R4a): the reporting chapter of the booking, `null` = federal level. */
+    val regionalChapterId: String? = null,
+    val regionalChapterName: String? = null,
 )
 
 /**
@@ -274,6 +277,11 @@ data class JournalEntryInput(
     val donorMemberId: String? = null,
     val externalDonorId: String? = null,
     val donorCategory: DonorCategory? = null,
+    /**
+     * V1.9.289 (R4a): the reporting chapter of the new entry. `null` = federal level (only allowed for a federal caller; a chapter treasurer
+     * must set one of the chapters granted to them). It is set on creation and never changed afterwards.
+     */
+    val regionalChapterId: String? = null,
 )
 
 /** One row of the Hauptbuch (general ledger) for a single [GeneralLedgerDto.ledgerAccountId]. */
@@ -309,9 +317,13 @@ data class GeneralLedgerDto(
  * over one [PostingDto] against a [LedgerAccountDto.isCashRegister] account. Exactly one of
  * [amountIn] (Einnahme)/[amountOut] (Ausgabe) is non-zero, the other is always `0` -- see
  * `network.lapis.cloud.server.rpc.KassenbuchCalculator` KDoc. [kassenbuchNumber] is a 1-based,
- * gapless sequential line number derived purely from chronological ordering of the account's
- * existing immutable `POSTED` postings -- no new persisted sequence, safe because a `POSTED` entry
- * can never be reordered or renumbered. [voucherReference] is carried through unchanged (including
+ * gapless sequential line number derived purely from chronological ordering of the existing
+ * immutable `POSTED` postings of ONE unit of the account -- the sequence basis is per (cash account,
+ * chapter), the federal level being its own unit -- no new persisted sequence, safe because a
+ * `POSTED` entry can never be reordered or renumbered. Because a view spanning several units shows
+ * each unit's own sequence side by side, a number is only unique together with its unit:
+ * [regionalChapterId]/[unitName] name that unit (both `null` = federal level; [unitName] is also
+ * `null` if the chapter name is unavailable). [voucherReference] is carried through unchanged (including
  * `null` for a pre-V0.3.5 posting that predates the "kein Buchen ohne Beleg" guard). The mandatory
  * [PostingDto.sphere] is deliberately NOT surfaced here -- the Kassenbuch is a cash-audit view, not
  * a Gemeinnützigkeit-sphere report.
@@ -326,6 +338,8 @@ data class KassenbuchLineDto(
     val amountIn: Decimal,
     val amountOut: Decimal,
     val runningBalance: Decimal,
+    val regionalChapterId: String? = null,
+    val unitName: String? = null,
 )
 
 /**
@@ -334,9 +348,11 @@ data class KassenbuchLineDto(
  * running balance of the last full-history posting strictly before `from` (or `0` if `from` is
  * null/inception, or no such posting exists); [closingBalance] equals the last returned
  * [KassenbuchLineDto.runningBalance] within `[from, to]`, or [openingBalance] if [lines] is empty.
- * `kassenbuchNumber`/running balances are always computed over the account's FULL posted history
- * first, then narrowed to `[from, to]` -- never numbered/balanced over a filtered subset -- so a
- * posting's `kassenbuchNumber` never changes depending on the query window. This is a
+ * `kassenbuchNumber` is always computed over the FULL posted history of the line's unit (per cash
+ * account and chapter, see [KassenbuchLineDto]) first, then narrowed to `[from, to]` and to the
+ * visible units -- never numbered over a filtered subset -- so a posting's `kassenbuchNumber` never
+ * changes depending on the query window or unit filter. The running balances, by contrast, are
+ * computed over the units visible in the view (the combined balance of all of them when unfiltered). This is a
  * GoBD-informed view (foundational for V0.5's full GoBD bundle) -- cryptographic tamper-evidence,
  * retention enforcement, and TSE integration are explicitly out of scope this wave, see
  * `10-accounting.kuml.kts` file header.

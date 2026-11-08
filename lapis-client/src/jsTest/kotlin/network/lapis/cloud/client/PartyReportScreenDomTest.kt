@@ -29,9 +29,12 @@ class PartyReportScreenDomTest {
                     assertTrue(page.shows("Rechenschaftsbericht nach Parteiengesetz"))
                     // the notice says plainly that this is a working aid
                     assertTrue(page.allOf(".alert-info").single().shows("keine Rechtsberatung"))
-                    // six tabs in the display order (not the enum order), the overview is active
+                    // seven tabs in the display order (not the enum order), the overview is active
                     val tabs = page.allOf(".btn-group button").map { it.textContent?.trim() }
-                    assertEquals(listOf("Übersicht", "Werte erfassen", "Ausweise", "Erläuterungen", "Positionen", "Bericht"), tabs)
+                    assertEquals(
+                        listOf("Übersicht", "Werte erfassen", "Ausweise", "Erläuterungen", "Positionen", "Kontenzuordnung", "Bericht"),
+                        tabs,
+                    )
                     val rows = page.allOf("tbody tr")
                     assertTrue(rows[0].shows("Bundesverband") && rows[0].shows("Nicht erfasst"))
                     assertTrue(rows[1].shows("Landesverband Nord") && rows[1].shows("Teilweise (12 von 35)"))
@@ -46,6 +49,7 @@ class PartyReportScreenDomTest {
                             .replace("nicht amtlich", "")
                             .replace("ersetzt nicht den geprüften", "")
                             .replace("kein amtlicher", "")
+                            .replace("kein amtliches", "")
                     listOf("amtlich", "fertig", "geprüft", "einreichen").forEach {
                         assertFalse(withoutNegations.contains(it), "no claim of '$it' without a negation")
                     }
@@ -103,7 +107,7 @@ class PartyReportScreenDomTest {
         }
 
     @Test
-    fun theTabSelect_forNarrowScreens_hasTheLabelBereich_andTheSameSixChoices(): Promise<Unit> =
+    fun theTabSelect_forNarrowScreens_hasTheLabelBereich_andTheSameSevenChoices(): Promise<Unit> =
         formTest {
             runCatching { window.localStorage.removeItem("lapis.partyReport.tab") }
             AppState.setSession(PartyReportDomSupport.session())
@@ -120,7 +124,10 @@ class PartyReportScreenDomTest {
                                 ?.textContent
                                 ?.trim()
                         }
-                    assertEquals(listOf("Übersicht", "Werte erfassen", "Ausweise", "Erläuterungen", "Positionen", "Bericht"), labels)
+                    assertEquals(
+                        listOf("Übersicht", "Werte erfassen", "Ausweise", "Erläuterungen", "Positionen", "Kontenzuordnung", "Bericht"),
+                        labels,
+                    )
                     assertEquals("OVERVIEW", select.value)
                     // the wide and the narrow variant sit in their own containers; the stylesheet shows exactly one of them
                     assertEquals(1, element().allOf(".lapis-partg-tabs-wide").size)

@@ -28,6 +28,12 @@
 // Welle V1.9.287 "Rechenschaftsbericht R3c" (V143__partg_report_r3c.sql) adds ONE table: partg_report_enterprise (statement D, own business
 // operations per annex). NOT expressible in the ERM profile (SQL only, V143): every CHECK and the row limit (50 per annex; checked by the service
 // under the lock of the annex). DSGVO (R3c): organisation data; created_by/updated_by are "changed by you" data.
+// Welle V1.9.289 "Rechenschaftsbericht R4a" (V144__partg_report_r4.sql) adds TWO tables: partg_account_mapping (ledger account -> report
+// position, n:1, or "deliberately not in the report"; a missing row = not mapped) and partg_report_unit_mode (bookkeeping mode A/B/C per unit
+// and year; a missing row = C; sub-units are never stored). value_source gains LEDGER (a value proposed from the bookings). NOT expressible in
+// the ERM profile (SQL only, V144): the foreign key position_code -> partg_report_position.code (natural key), every CHECK, and the rule that
+// the target is a LEAF of the matching section (shared PartgLedgerRules, enforced by the service). DSGVO: organisation data; updated_by is
+// "changed by you" data.
 // DSGVO (R3b): sponsor and sponsoring entry are PERSONAL DATA OF THIRD PARTIES (listed in knownUncoveredSubjectRoots); youth_org is organisation data.
 // DSGVO (R3): partg_report_large_donor is PERSONAL DATA OF THIRD PARTIES (name, address, yearly sum above 10,000 EUR); no member foreign key,
 // listed in PersonalDataRegistry.knownUncoveredSubjectRoots; created_by/updated_by of all R3 tables are "changed by you" data.
@@ -84,6 +90,15 @@ classDiagram(name = "PartgReport") {
         enumOf(name = "PartgValueSource") {
             literal(name = "MANUAL")
             literal(name = "IMPORT")
+            literal(name = "LEDGER")
+        }
+
+    // V1.9.289 (R4a). Literal order is load-bearing (= network.lapis.cloud.shared.domain.PartgBookkeepingMode).
+    val partgBookkeepingMode =
+        enumOf(name = "PartgBookkeepingMode") {
+            literal(name = "A")
+            literal(name = "B")
+            literal(name = "C")
         }
 
     // V1.9.269 (R3). Literal order is load-bearing (= network.lapis.cloud.shared.domain.*).
@@ -659,6 +674,80 @@ classDiagram(name = "PartgReport") {
         }
         attribute(name = "createdBy", type = "UUID") {
             stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.289 (R4a)
+    val ledgerAccountStub =
+        classOf(name = "LedgerAccount") {
+            stereotype("Entity") { "tableName" to "ledger_account"; "kotlinObjectName" to "LedgerAccountTable" }
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+        }
+
+    classOf(name = "PartgAccountMapping") {
+        stereotype("Entity") { "tableName" to "partg_account_mapping"; "kotlinObjectName" to "PartgAccountMappingTable" }
+        stereotype("Index") { "columns" to listOf("ledger_account_id"); "unique" to true; "name" to "uq_partg_account_mapping_account" }
+        stereotype("Index") { "columns" to listOf("position_code"); "name" to "ix_partg_account_mapping_position" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_account_mapping_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "ledgerAccountId", type = "UUID") {
+            stereotype("Column") { "columnName" to "ledger_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        // FK to partg_report_position.code (natural key, SQL only). NULL iff `excluded`.
+        attribute(name = "positionCode", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "position_code"; "sqlType" to "VARCHAR(16)" }
+        }
+        attribute(name = "excluded", type = "Boolean") {
+            stereotype("Column") { "columnName" to "excluded" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    classOf(name = "PartgReportUnitMode") {
+        stereotype("Entity") { "tableName" to "partg_report_unit_mode"; "kotlinObjectName" to "PartgReportUnitModeTable" }
+        stereotype("Index") { "columns" to listOf("fiscal_year", "unit_key"); "unique" to true; "name" to "uq_partg_report_unit_mode_year_unit" }
+        stereotype("Index") { "columns" to listOf("regional_chapter_id"); "name" to "ix_partg_report_unit_mode_chapter" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_unit_mode_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "fiscalYear", type = "Int") {
+            stereotype("Column") { "columnName" to "fiscal_year" }
+        }
+        attribute(name = "unitKey", type = "String") {
+            stereotype("Column") { "columnName" to "unit_key"; "sqlType" to "VARCHAR(48)" }
+        }
+        attribute(name = "regionalChapterId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "regional_chapter_id"; "fkEntity" to "RegionalChapter" }
+        }
+        attribute(name = "bookkeepingMode", type = partgBookkeepingMode) {
+            stereotype("Column") {
+                "columnName" to "bookkeeping_mode"
+                "sqlType" to "VARCHAR(1)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgBookkeepingMode"
+            }
         }
         attribute(name = "updatedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "updated_at" }

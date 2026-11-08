@@ -64,6 +64,8 @@ internal fun PartyReportContext.openFinding(
             PartgFindingTarget.ANNEX -> PartyReportTab.AUSWEISE
             PartgFindingTarget.NOTES -> PartyReportTab.ERLAEUTERUNGEN
             PartgFindingTarget.SHEET -> PartyReportTab.SHEET
+            PartgFindingTarget.MAPPING -> PartyReportTab.KONTENZUORDNUNG
+            PartgFindingTarget.OVERVIEW -> PartyReportTab.OVERVIEW
         },
     )
 }

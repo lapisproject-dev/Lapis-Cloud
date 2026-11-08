@@ -11,6 +11,7 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
@@ -26,6 +27,8 @@ import kotlin.uuid.Uuid
  * `paymentFeeAccountId`/`contributionIncomeAccountId` and every `markContributionPaid` would then
  * drive that till negative with no application-level check and no DB-level backup (the "sum of
  * postings >= 0" invariant cannot be expressed as a single-row `CHECK`/`UNIQUE` constraint).
+ *
+ * V1.9.289 (R4a): the stock is checked per (account, chapter) -- see [requireNonNegativeCashBalances].
  *
  * Same "pure/DB logic extracted to a sibling file, reused rather than duplicated" idiom
  * [JournalEntryBalance] already established for the Sigma-debit = Sigma-credit invariant --
@@ -94,6 +97,7 @@ internal object CashRegisterGuard {
     fun requireNonNegativeCashBalances(
         postings: List<PostingInput>,
         cashAccountIds: Set<Uuid>,
+        regionalChapterId: Uuid?,
     ) {
         if (cashAccountIds.isEmpty()) return
         lockCashRegisterAccounts(cashAccountIds)
@@ -108,7 +112,8 @@ internal object CashRegisterGuard {
                     val signed = if (posting.side == normalSide) posting.amount else posting.amount.negate()
                     acc + signed
                 }
-            val projectedBalance = currentPostedBalance(accountId = accountId, normalSide = normalSide) + entryDelta
+            val projectedBalance =
+                currentPostedBalance(accountId = accountId, normalSide = normalSide, regionalChapterId = regionalChapterId) + entryDelta
             if (projectedBalance.signum() < 0) {
                 throw ConflictException(
                     "Posting would drive cash-register LedgerAccount $accountId negative (projected balance $projectedBalance)",
@@ -139,12 +144,23 @@ internal object CashRegisterGuard {
     private fun currentPostedBalance(
         accountId: Uuid,
         normalSide: PostingSide,
+        regionalChapterId: Uuid?,
     ): BigDecimal {
+        // V1.9.289 (R4a): the stock is checked PER (account, chapter): an entry of the federal level (NULL) is only covered by the federal
+        // stock of the account and an entry of a chapter only by that chapter's stock. For existing data (every entry is federal) nothing changes.
+        val chapterCondition =
+            if (regionalChapterId == null) {
+                JournalEntryTable.regionalChapterId.isNull()
+            } else {
+                JournalEntryTable.regionalChapterId eq regionalChapterId
+            }
         val rows =
             (PostingTable innerJoin JournalEntryTable)
                 .selectAll()
-                .where { (PostingTable.ledgerAccountId eq accountId) and (JournalEntryTable.status eq JournalEntryStatus.POSTED) }
-                .toList()
+                .where {
+                    (PostingTable.ledgerAccountId eq accountId) and (JournalEntryTable.status eq JournalEntryStatus.POSTED) and
+                        chapterCondition
+                }.toList()
         return rows.fold(BigDecimal.ZERO) { acc, row ->
             val amount = row[PostingTable.amount]
             val signed = if (row[PostingTable.side] == normalSide) amount else amount.negate()

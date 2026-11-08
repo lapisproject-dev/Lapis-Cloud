@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTreasurerTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -53,6 +54,7 @@ class RegionalChapterPersonalDataTest :
         afterSpec {
             transaction {
                 RegionalChapterOfficerTable.deleteWhere { memberId inList createdMemberIds }
+                RegionalChapterTreasurerTable.deleteWhere { memberId inList createdMemberIds }
                 if (createdMemberIds.isNotEmpty()) {
                     AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
                     MemberTable.deleteWhere { MemberTable.id inList createdMemberIds }
@@ -103,8 +105,66 @@ class RegionalChapterPersonalDataTest :
             return id
         }
 
-        test("coveredTables covers exactly regional_chapter_officer") {
-            RegionalChapterPersonalData.coveredTables.map { it.tableName }.toSet() shouldBe setOf("regional_chapter_officer")
+        fun insertTreasurerGrant(
+            memberId: Uuid,
+            grantedByMemberId: Uuid?,
+        ): Uuid {
+            val id = Uuid.random()
+            val cId = requireNotNull(chapterId)
+            transaction {
+                RegionalChapterTreasurerTable.insert {
+                    it[RegionalChapterTreasurerTable.id] = id
+                    it[RegionalChapterTreasurerTable.memberId] = memberId
+                    it[regionalChapterId] = cId
+                    it[grantedAt] = DbClock.nowLocalDateTime()
+                    it[RegionalChapterTreasurerTable.grantedByMemberId] = grantedByMemberId
+                    it[revokedAt] = null
+                    it[activeKey] = "$memberId:$cId"
+                }
+            }
+            return id
+        }
+
+        test("V1.9.289: eraseMember REVOKES the active treasurer grants of the subject (access ends), keeps the row, clears granted_by") {
+            val holder = createMember("rcpd-treasurer-holder-${Uuid.random()}@example.org")
+            val granter = createMember("rcpd-treasurer-granter-${Uuid.random()}@example.org")
+            val grantId = insertTreasurerGrant(memberId = holder, grantedByMemberId = granter)
+
+            val outcome =
+                transaction { RegionalChapterPersonalData.eraseMember(memberId = holder, mode = ErasureMode.ANONYMIZE) }
+                    .single { it.table == "regional_chapter_treasurer" }
+            outcome.rowsRetained shouldBe 1
+            val row =
+                transaction { RegionalChapterTreasurerTable.selectAll().where { RegionalChapterTreasurerTable.id eq grantId }.single() }
+            (row[RegionalChapterTreasurerTable.revokedAt] != null) shouldBe true
+            row[RegionalChapterTreasurerTable.activeKey] shouldBe null
+
+            transaction { RegionalChapterPersonalData.eraseMember(memberId = granter, mode = ErasureMode.ANONYMIZE) }
+            val after =
+                transaction { RegionalChapterTreasurerTable.selectAll().where { RegionalChapterTreasurerTable.id eq grantId }.single() }
+            after[RegionalChapterTreasurerTable.grantedByMemberId] shouldBe null
+        }
+
+        test(
+            "V1.9.289: exportMember lists the treasurer grants of the subject (chapter name, times; no recipient identity in the issued list)",
+        ) {
+            val holder = createMember("rcpd-treasurer-export-${Uuid.random()}@example.org")
+            val granter = createMember("rcpd-treasurer-export-g-${Uuid.random()}@example.org")
+            insertTreasurerGrant(memberId = holder, grantedByMemberId = granter)
+
+            val own = transaction { RegionalChapterPersonalData.exportMember(holder) }["treasurerGrants"]!!.jsonArray
+            own.size shouldBe 1
+            val issued = transaction { RegionalChapterPersonalData.exportMember(granter) }["treasurerGrantsIssued"]!!.jsonArray
+            issued.size shouldBe 1
+            issued
+                .single()
+                .jsonObject.keys
+                .contains("memberId") shouldBe false
+        }
+
+        test("coveredTables covers exactly regional_chapter_officer and regional_chapter_treasurer") {
+            RegionalChapterPersonalData.coveredTables.map { it.tableName }.toSet() shouldBe
+                setOf("regional_chapter_officer", "regional_chapter_treasurer")
         }
 
         test("exportMember includes only the subject's OWN grants, with chapterName/grantedBySelf") {
@@ -172,7 +232,11 @@ class RegionalChapterPersonalDataTest :
             val granter = createMember("rcpd-erase-granter-${Uuid.random()}@example.org")
             val grantId = insertGrant(memberId = holder, grantedByMemberId = granter)
 
-            val outcome = transaction { RegionalChapterPersonalData.eraseMember(memberId = holder, mode = ErasureMode.ANONYMIZE) }.single()
+            val outcome =
+                transaction { RegionalChapterPersonalData.eraseMember(memberId = holder, mode = ErasureMode.ANONYMIZE) }.single {
+                    it.table ==
+                        "regional_chapter_officer"
+                }
             outcome.table shouldBe "regional_chapter_officer"
             outcome.rowsDeleted shouldBe 1
 
@@ -186,7 +250,11 @@ class RegionalChapterPersonalDataTest :
             val holder = createMember("rcpd-erase-holder2-${Uuid.random()}@example.org")
             val grantId = insertGrant(memberId = holder, grantedByMemberId = granter)
 
-            val outcome = transaction { RegionalChapterPersonalData.eraseMember(memberId = granter, mode = ErasureMode.ANONYMIZE) }.single()
+            val outcome =
+                transaction { RegionalChapterPersonalData.eraseMember(memberId = granter, mode = ErasureMode.ANONYMIZE) }.single {
+                    it.table ==
+                        "regional_chapter_officer"
+                }
             outcome.table shouldBe "regional_chapter_officer"
             outcome.rowsAnonymized shouldBe 1
             // Not the granter's own grant -- nothing of THEIRS is deleted, only the
@@ -208,7 +276,10 @@ class RegionalChapterPersonalDataTest :
             val grantId = insertGrant(memberId = selfHolder, grantedByMemberId = selfHolder)
 
             val outcome =
-                transaction { RegionalChapterPersonalData.eraseMember(memberId = selfHolder, mode = ErasureMode.ANONYMIZE) }.single()
+                transaction { RegionalChapterPersonalData.eraseMember(memberId = selfHolder, mode = ErasureMode.ANONYMIZE) }.single {
+                    it.table ==
+                        "regional_chapter_officer"
+                }
             outcome.rowsDeleted shouldBe 1
             outcome.rowsAnonymized shouldBe 0
 

@@ -16,11 +16,15 @@ import io.kvision.panel.simplePanel
 import io.kvision.table.cell
 import io.kvision.table.row
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgKind
+import network.lapis.cloud.shared.domain.PartgLedgerRules
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgPositions
 import network.lapis.cloud.shared.domain.PartgSheetDto
 import network.lapis.cloud.shared.domain.PartgUnitDto
+import network.lapis.cloud.shared.domain.PartgValueSource
+import network.lapis.cloud.shared.rpc.PartyReportProposalNotAvailableException
 
 private class EditorSetup(
     val units: List<PartgUnitDto>,
@@ -37,12 +41,30 @@ internal fun SimplePanel.renderPartyReportSheetEditor(context: PartyReportContex
         isEmpty = { false },
         load = {
             guarded {
-                EditorSetup(units = partyReportRpc().listUnits(), positions = partyReportRpc().listPositions())
+                EditorSetup(
+                    units = partyReportRpc().listUnits(),
+                    // the catalogue with the organisation's hints is a federal call; a chapter treasurer gets the fixed catalogue without hints
+                    positions = if (partgChapterTreasurerOnly(AppState.session)) partgCatalogue() else partyReportRpc().listPositions(),
+                )
             }
         },
         render = { body, setup -> body.renderEditorShell(context, setup) },
     ).reload()
 }
+
+/** The fixed catalogue of the 42 positions without the organisation's hints (V1.9.289: for a chapter treasurer, who may not call `listPositions`). */
+internal fun partgCatalogue(): List<PartgPositionDto> =
+    PartgPositions.ALL.map {
+        PartgPositionDto(
+            code = it.code,
+            section = it.section,
+            kind = it.kind,
+            parentCode = it.parent,
+            sortOrder = it.sortOrder,
+            numberLabel = it.numberLabel,
+            legalRef = it.legalRef,
+        )
+    }
 
 private fun SimplePanel.renderEditorShell(
     context: PartyReportContext,
@@ -94,10 +116,19 @@ private fun SimplePanel.renderSheet(
     context.hasUnsavedChanges = { false }
     lateinit var section: DataSection
     section =
-        dataSection<PartgSheetDto>(
+        dataSection<Pair<PartgSheetDto, PartgBookkeepingMode>>(
             isEmpty = { false },
-            load = { guarded { partyReportRpc().getSheet(context.year, unit.unitKey) } },
-            render = { body, sheet -> body.renderSheetTable(context, unit, positions, sheet) { section.reload() } },
+            load = {
+                guarded {
+                    val sheet = partyReportRpc().getSheet(context.year, unit.unitKey)
+                    // the mode is an extra (it decides whether the proposal button exists): if it cannot be read, the sheet is still usable
+                    val mode =
+                        runCatching { partyReportRpc().overview(context.year).firstOrNull { it.unit.unitKey == unit.unitKey }?.mode }
+                            .getOrNull() ?: PartgBookkeepingMode.C
+                    sheet to mode
+                }
+            },
+            render = { body, (sheet, mode) -> body.renderSheetTable(context, unit, positions, sheet, mode) { section.reload() } },
         )
     section.reload()
 }
@@ -112,6 +143,7 @@ private fun SimplePanel.renderSheetTable(
     unit: PartgUnitDto,
     positions: List<PartgPositionDto>,
     sheet: PartgSheetDto,
+    mode: PartgBookkeepingMode,
     reload: () -> Unit,
 ) {
     val draft = PartgSheetDraft(year = sheet.year, saved = sheet.values, savedPrior = sheet.priorValues)
@@ -154,6 +186,31 @@ private fun SimplePanel.renderSheetTable(
         }
     }
 
+    if (PartgLedgerRules.proposalAvailable(unit.level, mode)) {
+        zeroGroup.apply {
+            actionButton(ActionIcon.SEARCH, tr("Vorschlag aus Buchungen"), labelMode = ActionLabelMode.RESPONSIVE) {
+                onClick {
+                    if (context.hasUnsavedChanges()) {
+                        notifyError(tr("Bitte speichern oder verwerfen Sie zuerst Ihre Eingaben."))
+                        return@onClick
+                    }
+                    AppScope.launch {
+                        try {
+                            val proposal = partyReportRpc().proposeFromLedger(sheet.year, unit.unitKey)
+                            openPartgLedgerProposalDialog(proposal = proposal, onApplied = reload, onReload = reload)
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: PartyReportProposalNotAvailableException) {
+                            notifyInfo(tr("Für diese Einheit gibt es keinen Vorschlag aus Buchungen."))
+                        } catch (e: Throwable) {
+                            guarded<Unit> { throw e }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     val headers =
         listOf(
             TableHeader(title = tr("Nr.")),
@@ -187,6 +244,15 @@ private fun SimplePanel.renderSheetTable(
                                 (if (column == PartgColumn.PRIOR) sheet.priorYear else sheet.year),
                         )
                         add(input)
+                        if (column == PartgColumn.CURRENT && sheet.valueSources[position.code] == PartgValueSource.LEDGER) {
+                            val fromLedger = tr("aus Buchungen")
+                            div(fromLedger, className = "small text-muted") { setAttribute("data-partg-source", "LEDGER") }
+                            input.setAttribute(
+                                "aria-label",
+                                resolvedAttributeText(partgLabel(position.code)) + " – " + sheet.year + ", " +
+                                    resolvedAttributeText(fromLedger),
+                            )
+                        }
                         val error = div(className = "small text-danger")
                         errorBoxes[column to position.code] = error
                         input.onEvent {
