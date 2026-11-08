@@ -31685,3 +31685,6 @@ msgstr "Jednostka federalna nie księguje w Lapis – propozycja niemożliwa."
 
 msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
 msgstr "Sprawozdanie rozliczeniowe: propozycję dla zestawienia B przejęto"
+
+msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
+msgstr "Nagranie pokazuje tylko tę osobę i udostępnione ekrany. Słychać wszystkich. Jeśli jej kamera jest wyłączona, obraz pozostaje pusty."

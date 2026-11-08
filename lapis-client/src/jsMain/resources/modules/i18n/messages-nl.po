@@ -31769,3 +31769,6 @@ msgstr "De bondseenheid boekt niet in Lapis – geen voorstel mogelijk."
 
 msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
 msgstr "Verantwoordingsverslag: voorstel voor bijlage B overgenomen"
+
+msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
+msgstr "De opname toont alleen deze persoon en gedeelde schermen. Iedereen is te horen. Is de camera uit, dan blijft het beeld leeg."

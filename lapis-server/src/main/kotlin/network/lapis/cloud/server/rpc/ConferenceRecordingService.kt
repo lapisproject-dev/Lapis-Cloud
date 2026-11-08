@@ -5,6 +5,8 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceRecordingAccess
@@ -14,7 +16,9 @@ import network.lapis.cloud.server.conference.RecordingDiskBudget
 import network.lapis.cloud.server.conference.RecordingRawFiles
 import network.lapis.cloud.server.conference.RecordingSpeakerTimelineStore
 import network.lapis.cloud.server.conference.RoomPauseDb
+import network.lapis.cloud.server.conference.liveKitIdentityAsMemberId
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -40,12 +44,14 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceRecordingAvailabilityDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
+import network.lapis.cloud.shared.domain.ConferenceRecordingLayout
 import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
 import network.lapis.cloud.shared.domain.ConferenceRecordingPageDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingSnapshot
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.toRecordingLayout
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
 import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConferenceRoomPausedException
@@ -95,6 +101,10 @@ private val ACTIVE_RECORDING_STATUSES = listOf(ConferenceRecordingStatus.RECORDI
 private val TERMINAL_RECORDING_STATUSES = listOf(ConferenceRecordingStatus.READY, ConferenceRecordingStatus.FAILED)
 
 private val DEFAULT_ACTION_RATE_WINDOW = 1.minutes
+
+/** V1.9.294: length of the `conference_recording.single_participant_identity` column. */
+private const val MAX_SINGLE_PARTICIPANT_IDENTITY_LENGTH = 64
+
 private const val DEFAULT_STOP_RATE_MAX = 30
 
 /**
@@ -205,6 +215,30 @@ class ConferenceRecordingService(
     override suspend fun startRecording(
         roomId: String,
         accessLevel: DocumentAccessLevel,
+    ): ConferenceRecordingDto = startRecordingInternal(roomId = roomId, accessLevel = accessLevel, layoutRequest = null)
+
+    override suspend fun startRecordingWithLayout(
+        roomId: String,
+        accessLevel: DocumentAccessLevel,
+        layout: ConferenceRecordingLayout,
+        singleParticipantIdentity: String?,
+    ): ConferenceRecordingDto =
+        startRecordingInternal(
+            roomId = roomId,
+            accessLevel = accessLevel,
+            layoutRequest = LayoutRequest(layout = layout, singleParticipantIdentity = singleParticipantIdentity),
+        )
+
+    /** The layout asked for by [startRecordingWithLayout]; `null` in [startRecordingInternal] means "derive it from the room view". */
+    private data class LayoutRequest(
+        val layout: ConferenceRecordingLayout,
+        val singleParticipantIdentity: String?,
+    )
+
+    private suspend fun startRecordingInternal(
+        roomId: String,
+        accessLevel: DocumentAccessLevel,
+        layoutRequest: LayoutRequest?,
     ): ConferenceRecordingDto {
         val current = resolveCurrentMember(call)
         requireRecordingEnabled()
@@ -215,6 +249,8 @@ class ConferenceRecordingService(
         // Every attempt (successful or not) counts against the throttle -- same reuse
         // ConferenceService.createRoom's own throttle already establishes.
         startRecordingRateLimiter.recordFailure(throttleKey)
+        // V1.9.294: the SHAPE of the layout request is checked after the throttle and before anything else; the message never echoes the input.
+        if (layoutRequest != null) requireValidLayoutShape(layoutRequest)
 
         // Named "roomUuid", NOT "id" -- deliberately avoids colliding with
         // ConferenceRecordingTable.id's own column property name below (verified empirically in
@@ -227,7 +263,13 @@ class ConferenceRecordingService(
         val present = EventCaptureConsentGate.collectForRoom(roomUuid)
         val dto =
             transaction {
-                startRecordingInTransaction(roomUuid = roomUuid, accessLevel = accessLevel, current = current, present = present)
+                startRecordingInTransaction(
+                    roomUuid = roomUuid,
+                    accessLevel = accessLevel,
+                    current = current,
+                    present = present,
+                    layoutRequest = layoutRequest,
+                )
             }
         // Only reached once the row is committed -- a poller tick woken BEFORE the commit would not
         // see the new RECORDING row yet and the wake-up would be wasted.
@@ -242,6 +284,7 @@ class ConferenceRecordingService(
         accessLevel: DocumentAccessLevel,
         current: CurrentMember,
         present: EventRoomPresence,
+        layoutRequest: LayoutRequest?,
     ): ConferenceRecordingDto {
         // `.forUpdate()` locks the room row for the rest of this transaction -- closes the
         // check-then-act race on the "one active recording per room" invariant below: two
@@ -281,6 +324,19 @@ class ConferenceRecordingService(
             throw EventRoomRecordingAccessLevelNotAllowedException()
         }
 
+        // V1.9.294: the layout. Without a request (old clients) it follows the room view; a chosen person must be in the room right now
+        // (after the moderator, pause and event checks, so a stranger learns nothing; the room-row lock is held).
+        val layout = layoutRequest?.layout ?: room[ConferenceRoomTable.broadcastView].toRecordingLayout()
+        val chosenIdentity = layoutRequest?.singleParticipantIdentity
+        if (layout == ConferenceRecordingLayout.SINGLE_PARTICIPANT &&
+            (
+                chosenIdentity == null ||
+                    !SingleParticipantPresence.isPresent(identity = chosenIdentity, roomUuid = roomUuid, present = present)
+            )
+        ) {
+            throw ConflictException("The chosen person is not in the room")
+        }
+
         val alreadyActive =
             ConferenceRecordingTable
                 .selectAll()
@@ -315,6 +371,9 @@ class ConferenceRecordingService(
             // V1.9.115: the room's broadcast view is FROZEN here (read from the room row locked above); a later change of the room setting
             // does not touch this recording, and a recompute uses this value.
             it[ConferenceRecordingTable.broadcastView] = room[ConferenceRoomTable.broadcastView]
+            // V1.9.294: the chosen layout is stored; compose, retry and recompute read this, not the room view.
+            it[ConferenceRecordingTable.layout] = layout
+            it[singleParticipantIdentity] = if (layout == ConferenceRecordingLayout.SINGLE_PARTICIPANT) chosenIdentity else null
         }
         // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction --
         // see that object's KDoc "deadlock-avoidance contract".
@@ -324,6 +383,8 @@ class ConferenceRecordingService(
             entityType = AuditEntityType.CONFERENCE_RECORDING,
             entityId = recordingId,
             action = AuditAction.CREATE,
+            // V1.9.294: layout and (for a single image) the chosen member UUID; no display names, no tokens.
+            after = recordingLayoutAuditPayload(layout = layout, identity = chosenIdentity),
             occurredAt = now,
         )
         val row = ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingId }.single()
@@ -1086,6 +1147,17 @@ class ConferenceRecordingService(
         ConferenceModeratorAuthority.requireModerator(row = room, current = current)
     }
 
+    private fun requireValidLayoutShape(request: LayoutRequest) {
+        val identity = request.singleParticipantIdentity
+        val valid =
+            if (request.layout == ConferenceRecordingLayout.SINGLE_PARTICIPANT) {
+                identity != null && identity.isNotBlank() && identity.length <= MAX_SINGLE_PARTICIPANT_IDENTITY_LENGTH
+            } else {
+                identity == null
+            }
+        if (!valid) throw ConflictException("Invalid recording layout")
+    }
+
     private fun rowToDto(
         row: ResultRow,
         roomTitle: String,
@@ -1165,6 +1237,7 @@ class ConferenceRecordingService(
         val rawAvailable: Boolean? =
             if (mayRetry || mayRecompute) rawFilesAvailable(row = row, hostRawRoot = File(recordingConfig.outputHostDir)) else null
         val recomputeRunning = row[ConferenceRecordingTable.recomputeStartedAt] != null
+        val layout = row[ConferenceRecordingTable.layout]
         return ConferenceRecordingDto(
             id = recordingId.toString(),
             roomId = row[ConferenceRecordingTable.roomId].toString(),
@@ -1193,6 +1266,16 @@ class ConferenceRecordingService(
             recomputedAt = if (status == ConferenceRecordingStatus.READY) row[ConferenceRecordingTable.recomputedAt] else null,
             broadcastView = row[ConferenceRecordingTable.broadcastView],
             paused = status == ConferenceRecordingStatus.RECORDING && row[ConferenceRecordingTable.pausedAt] != null,
+            layout = layout,
+            // V1.9.294: the member UUID only for those who may moderate the room (the banner needs only the layout).
+            singleParticipantIdentity =
+                if (layout == ConferenceRecordingLayout.SINGLE_PARTICIPANT &&
+                    roomRowFor(row)?.let { ConferenceModeratorAuthority.isModerator(row = it, current = current) } == true
+                ) {
+                    row[ConferenceRecordingTable.singleParticipantIdentity]
+                } else {
+                    null
+                },
         )
     }
 
@@ -1298,5 +1381,39 @@ object ConferenceRecordingCoordinator {
                 occurredAt = now,
             )
         }
+    }
+}
+
+/** V1.9.294: audit `after` payload of a recording start: the layout and, for a single image, the chosen identity (a member UUID); nothing else. */
+internal fun recordingLayoutAuditPayload(
+    layout: ConferenceRecordingLayout,
+    identity: String?,
+): String =
+    buildJsonObject {
+        put("layout", layout.name)
+        if (layout == ConferenceRecordingLayout.SINGLE_PARTICIPANT && identity != null) put("singleParticipantIdentity", identity)
+    }.toString()
+
+/**
+ * V1.9.294: is the person chosen for a single-image recording in the room right now? DB-based, no LiveKit call: a member identity (a
+ * member UUID) needs an open `conference_participation` row in this room; for an event room the snapshot collected before the transaction
+ * (members and guests without an account) counts too. Must run inside the transaction that holds the room-row lock.
+ */
+internal object SingleParticipantPresence {
+    fun isPresent(
+        identity: String,
+        roomUuid: Uuid,
+        present: EventRoomPresence,
+    ): Boolean {
+        if (identity in present.liveKitIdentities || identity in present.pendingGuestIdentities) return true
+        val memberId = liveKitIdentityAsMemberId(identity) ?: return false
+        return ConferenceParticipationTable
+            .selectAll()
+            .where {
+                (ConferenceParticipationTable.roomId eq roomUuid) and
+                    (ConferenceParticipationTable.memberId eq memberId) and
+                    ConferenceParticipationTable.leftAt.isNull()
+            }.limit(1)
+            .any()
     }
 }

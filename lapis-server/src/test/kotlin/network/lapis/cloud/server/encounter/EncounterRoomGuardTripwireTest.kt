@@ -61,8 +61,18 @@ class EncounterRoomGuardTripwireTest :
                     .filter { it.isOverride && Regex("""\b(roomId|breakoutRoomId)\b""").containsMatchIn(it.params) }
                     .forEach { fn ->
                         inspected++
-                        // one level of indirection: a private helper of the same file that the method calls (e.g. startRecordingInTransaction)
-                        val viaHelper = helpers.values.any { h -> Regex("""\b${h.name}\(""").containsMatchIn(fn.body) && guarded(h.body) }
+
+                        // indirection through private helpers of the same file (e.g. startRecordingInternal -> startRecordingInTransaction); any depth
+                        fun reaches(
+                            body: String,
+                            seen: Set<String>,
+                        ): Boolean =
+                            helpers.values.any { h ->
+                                h.name !in seen &&
+                                    Regex("""\b${h.name}\(""").containsMatchIn(body) &&
+                                    (guarded(h.body) || reaches(h.body, seen + h.name))
+                            }
+                        val viaHelper = reaches(fn.body, emptySet())
                         if (!guarded(fn.body) && !viaHelper && allowlist[rel]?.containsKey(fn.name) != true) unguarded += "$rel#${fn.name}"
                     }
             }

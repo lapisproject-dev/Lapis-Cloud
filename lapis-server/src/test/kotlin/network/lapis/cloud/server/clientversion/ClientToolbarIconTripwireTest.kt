@@ -605,7 +605,8 @@ class ClientToolbarIconTripwireTest :
                 screen.contains("stopStreamConfirmDialog(labels)") shouldBe true
                 screen.contains("pauseStreamConfirmDialog(labels)") shouldBe true
                 screen.contains("resumeStreamConfirmDialog {") shouldBe true
-                screen.contains("startRecordingConfirmDialog(eventCapture) {") shouldBe true
+                screen.contains("startRecordingConfirmDialog(") shouldBe true
+                screen.contains(".startRecordingWithLayout(") shouldBe true
                 screen.contains("stopRecordingConfirmDialog {") shouldBe true
             }
             withClue("'Mehr' names a recording / stream whose control sits in the sheet, and the observer is disconnected with the call") {

@@ -24,13 +24,18 @@ class ConferenceUnavailableOptionsDomTest {
 
     private fun modalOptionValues(): List<String> {
         val options = document.querySelectorAll(".modal option")
-        return (0 until options.length).map { (options.item(it) as HTMLElement).getAttribute("value").orEmpty() }
+        val accessLevels = DocumentAccessLevel.entries.map { it.name }.toSet()
+        // V1.9.294: the dialog also holds the layout select; this helper looks at the access select only
+        return (0 until options.length).map { (options.item(it) as HTMLElement).getAttribute("value").orEmpty() }.filter {
+            it in
+                accessLevels
+        }
     }
 
     @Test
     fun theStartDialogOfAnEventRoom_offersBoardAndAdministrationOnly_andExplainsWhy() {
         withMountedRoot("unavailable-dialog-event") { _, _ ->
-            startRecordingConfirmDialog(ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_AVAILABLE) {}
+            startRecordingConfirmDialog(ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_AVAILABLE) { _, _, _ -> }
             try {
                 assertEquals(listOf("BOARD_ONLY", "ADMIN_ONLY"), modalOptionValues())
                 assertNotNull(document.querySelector("[aria-describedby='recording-access-hint']"))
@@ -46,7 +51,7 @@ class ConferenceUnavailableOptionsDomTest {
     @Test
     fun theStartDialogOfAnOrdinaryRoom_isUnchanged_threeLevelsAndTheOldAdvice() {
         withMountedRoot("unavailable-dialog-ordinary") { _, _ ->
-            startRecordingConfirmDialog(ConferenceEventCaptureState.NONE) {}
+            startRecordingConfirmDialog(ConferenceEventCaptureState.NONE) { _, _, _ -> }
             try {
                 assertEquals(DocumentAccessLevel.entries.map { it.name }, modalOptionValues())
                 val hint = assertNotNull(document.getElementById("recording-access-hint"))

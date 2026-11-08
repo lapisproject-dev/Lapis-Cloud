@@ -554,3 +554,11 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **Überlagerungen:** `VideoOverlayInstanceLogo` liest `legacyRouteFile()`, also die Datei, die `/api/branding/logo` ausliefert; SVG wird weiter nicht angeboten.
 - **Neue Variablen loggen nur den Namen**, nie den Pfad. Jede der fünf Variablen lehnt ein `..`-Segment ab.
 
+
+## Aufzeichnungs-Layout (V1.9.294)
+
+- **Ein einziger Einfüger:** nur `ConferenceRecordingService.startRecordingInTransaction` legt `conference_recording`-Zeilen an (beide Start-Methoden laufen über `startRecordingInternal`, gleiche Reihenfolge: Drosselung, Form-Prüfung, Einwilligungs-Sammlung vor der Transaktion, dann Transaktion). Kanzel-Aufzeichnung nutzt ein eigenes Egress und berührt die Tabelle nicht.
+- **Der Poller liest `layout`, nie `broadcast_view`** (Compose, Retry und Recompute teilen `buildSpec`). `broadcast_view` bleibt nur als Information.
+- **Composer-Wächter:** `FfmpegSegmentedComposer.compose` lehnt eine Spec ohne Video-Eingang ab, außer bei `SINGLE_PARTICIPANT` (leeres Bild = schwarz, Ton bleibt). Die EDL kennt nur GRID und SPEAKER; der Composer bildet SINGLE_PARTICIPANT auf GRID ab. EDL nicht anfassen.
+- **Anwesenheitsprüfung der gewählten Person:** nur aus der Datenbank (offene `conference_participation`-Zeile bzw. Ereignisraum-Schnappschuss), kein LiveKit-Aufruf; Fehlertexte geben die Eingabe nie wieder. Log-Zeilen des Pollers nennen keine Identität (`SpeakerTimelineAccessTripwireTest`).
+- **V148 darf bis zum Release noch an Ort und Stelle korrigiert werden**; danach nur neue Migrationen.

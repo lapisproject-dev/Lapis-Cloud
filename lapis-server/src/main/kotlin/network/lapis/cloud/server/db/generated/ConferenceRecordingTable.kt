@@ -8,6 +8,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
+import network.lapis.cloud.shared.domain.ConferenceRecordingLayout
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import org.jetbrains.exposed.v1.core.Column
@@ -53,6 +54,13 @@ public object ConferenceRecordingTable : Table("conference_recording") {
 
     /** V1.9.254 -- V134. The current stage; every pause ends one (the egresses of the next stage start after the resume). */
     public val stage: Column<Short> = short("stage").default(0.toShort())
+
+    /** V1.9.294 -- V148. The layout chosen at the start; compose, retry and recompute all read it. */
+    public val layout: Column<ConferenceRecordingLayout> =
+        enumerationByName<ConferenceRecordingLayout>("layout", 18).default(ConferenceRecordingLayout.GRID)
+
+    /** V1.9.294 -- V148. The chosen person's LiveKit identity, set iff [layout] is SINGLE_PARTICIPANT (CHECK). A plain string echo, no FK. */
+    public val singleParticipantIdentity: Column<String?> = varchar("single_participant_identity", 64).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

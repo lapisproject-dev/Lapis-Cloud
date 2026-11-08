@@ -27,9 +27,9 @@ import network.lapis.cloud.server.routes.archiveNewVersionOfFile
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
-import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
+import network.lapis.cloud.shared.domain.ConferenceRecordingLayout
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
@@ -1219,7 +1219,29 @@ class RecordingPoller(
             logger.warn { "RecordingPoller: nothing but pauses left of recording ${row.id} -- FAILED" }
             return SpecResult.NoVideo
         }
-        if (row.broadcastView == ConferenceBroadcastView.SPEAKER) {
+        if (row.layout == ConferenceRecordingLayout.SINGLE_PARTICIPANT && row.singleParticipantIdentity != null) {
+            // V1.9.294: only the chosen person's pictures (and every screen share); ALL audio stays.
+            val filtered =
+                filterForSingleParticipant(
+                    videoInputs = videoInputs,
+                    identityByTrackId = resolved.associate { it.track.id.toString() to it.track.participantIdentity },
+                    identity = row.singleParticipantIdentity,
+                )
+            if (filtered.none { !it.isScreenShare }) {
+                // Counts only (privacy): never the identity, a name or a file name.
+                logger.warn { "RecordingPoller: recording ${row.id} single image has no camera of the chosen person" }
+            }
+            return SpecResult.Ready(
+                RecordingComposeSpec(
+                    videoInputs = filtered,
+                    audioInputs = audioInputs,
+                    outputDurationSeconds = outputDurationSeconds,
+                    layout = RecordingLayout.SINGLE_PARTICIPANT,
+                    cutOuts = cutOuts,
+                ),
+            )
+        }
+        if (row.layout == ConferenceRecordingLayout.SPEAKER) {
             val plan =
                 speakerPlan(
                     row = row,
@@ -1755,8 +1777,10 @@ private data class RecordingRow(
     val fileSizeBytes: Long?,
     val recomputeStartedAt: LocalDateTime?,
     val egressMode: ConferenceRecordingEgressMode,
-    /** V1.9.115: the room's view frozen when the recording started. */
-    val broadcastView: ConferenceBroadcastView,
+    /** V1.9.294: the layout chosen when the recording started (compose, retry and recompute all read it). */
+    val layout: ConferenceRecordingLayout,
+    /** V1.9.294: the chosen person's identity, only for [ConferenceRecordingLayout.SINGLE_PARTICIPANT]; never logged. */
+    val singleParticipantIdentity: String?,
     /** V1.9.254: set while the recording is paused. */
     val pausedAt: LocalDateTime?,
     /** V1.9.254: the current stage (see [ConferenceRecordingTable.stage]). */
@@ -1797,7 +1821,8 @@ private fun ResultRow.toRecordingRow() =
         fileSizeBytes = this[ConferenceRecordingTable.fileSizeBytes],
         recomputeStartedAt = this[ConferenceRecordingTable.recomputeStartedAt],
         egressMode = this[ConferenceRecordingTable.egressMode],
-        broadcastView = this[ConferenceRecordingTable.broadcastView],
+        layout = this[ConferenceRecordingTable.layout],
+        singleParticipantIdentity = this[ConferenceRecordingTable.singleParticipantIdentity],
         pausedAt = this[ConferenceRecordingTable.pausedAt],
         stage = this[ConferenceRecordingTable.stage],
     )

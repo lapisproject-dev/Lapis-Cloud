@@ -122,11 +122,35 @@ data class ConferenceRecordingDto(
     val lastRecomputeFailed: Boolean = false,
     /** V1.9.109: when the last recompute finished (UTC system timestamp), `null` if there never was one. */
     val recomputedAt: LocalDateTime? = null,
-    /** V1.9.115: the view frozen when the recording started (the room setting at that moment); a recompute uses this one, not the current room setting. */
+    /**
+     * V1.9.115: the room view frozen when the recording started. Informational since V1.9.294: the [layout] decides what the video
+     * shows (the poller reads the stored layout for compose, retry and recompute).
+     */
     val broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
     /** V1.9.254: the recording is paused by the room's pause mode (status RECORDING); nothing is recorded until the room is resumed. */
     val paused: Boolean = false,
+    /** V1.9.294: the layout chosen when the recording started; compose, retry and recompute all use this one. */
+    val layout: ConferenceRecordingLayout = ConferenceRecordingLayout.GRID,
+    /**
+     * V1.9.294: the chosen person's LiveKit identity (a member UUID) for [ConferenceRecordingLayout.SINGLE_PARTICIPANT]. Only set for
+     * callers who may moderate or recompute; everybody else gets `null` (the banner needs only [layout]).
+     */
+    val singleParticipantIdentity: String? = null,
 )
+
+/**
+ * V1.9.294: what the composed video shows. Persisted by name (appended-only: never reorder). [SINGLE_PARTICIPANT] shows only the
+ * chosen person (plus shared screens); all audio is always mixed in.
+ */
+@Serializable
+enum class ConferenceRecordingLayout { GRID, SPEAKER, SINGLE_PARTICIPANT }
+
+/** V1.9.294: the default recording layout derived from a room view (RASTER -> GRID, SPEAKER -> SPEAKER); one rule for server and client. */
+fun ConferenceBroadcastView.toRecordingLayout(): ConferenceRecordingLayout =
+    when (this) {
+        ConferenceBroadcastView.RASTER -> ConferenceRecordingLayout.GRID
+        ConferenceBroadcastView.SPEAKER -> ConferenceRecordingLayout.SPEAKER
+    }
 
 /**
  * Bündelt [network.lapis.cloud.shared.rpc.IConferenceRecordingService.listRecordings]'s filter plus

@@ -27,6 +27,7 @@ acknowledges it; a running recording is not interrupted.
 
 == Recording
 
+* *No layout dialog (V1.9.294):* the layout choice of the conference recording (grid, speaker, single person) does not apply here. The pulpit recording has no start dialog and uses its own egress, not `conference_recording`, so it is not affected.
 * *Who starts and stops:* an ACTIVE PULPIT or STEWARD who is present in the room, with the toggle "Aufzeichnung starten/beenden" in the bar. BOARD/ADMIN without an
   office have no control (their access is the list of stored recordings).
 * *Who is recorded:* only an ACTIVE PULPIT holder who is present and connected. A steward is never recorded, nobody of the congregation is, a person with a temporary

@@ -58,7 +58,8 @@ class FfmpegSegmentedComposer(
         spec: RecordingComposeSpec,
         outputFile: File,
     ) {
-        if (spec.videoInputs.isEmpty() ||
+        // V1.9.294: a single-image recording of a person without a camera legitimately has no video input -- it renders as black.
+        if ((spec.videoInputs.isEmpty() && spec.layout != RecordingLayout.SINGLE_PARTICIPANT) ||
             !spec.outputDurationSeconds.isFinite() ||
             spec.outputDurationSeconds <= 0.0 ||
             spec.frameRate <= 0 ||
@@ -192,7 +193,8 @@ class FfmpegSegmentedComposer(
                 fps = fps,
                 canvasW = canvas.width,
                 canvasH = canvas.height,
-                layout = spec.layout,
+                // SINGLE_PARTICIPANT is the plain grid over the already filtered inputs; the EDL itself knows only GRID and SPEAKER.
+                layout = if (spec.layout == RecordingLayout.SPEAKER) RecordingLayout.SPEAKER else RecordingLayout.GRID,
                 speakerSpans = spec.speakerSpans,
                 cutOuts = spec.cutOuts,
             )

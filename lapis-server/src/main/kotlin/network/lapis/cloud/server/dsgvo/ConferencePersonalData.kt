@@ -31,7 +31,8 @@ import kotlin.uuid.Uuid
  * `conference_guest_consent_acknowledgment.member_id`) -- same "actor plus subject(s)" shape
  * [PeerTransferPersonalData]/[AuctionPersonalData] already establish.
  * [ConferenceRecordingTrackTable]/[ConferenceStreamTargetTable] carry NO member FK of their own
- * (the former's `participant_identity` is a plain string echo of a LiveKit identity, the latter
+ * (the former's `participant_identity` -- like `conference_recording.single_participant_identity` since V1.9.294, the person chosen for a
+ * single-image recording -- is a plain string echo of a LiveKit identity, the latter
  * only resolves to `conference_stream`/`conference_stream_destination`, never to `member`
  * directly -- see `28-conference-recording.kuml.kts`/`29-conference-streaming.kuml.kts` file
  * headers) but both are covered here anyway for completeness (one contributor per domain section,

@@ -32,6 +32,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
+import network.lapis.cloud.shared.domain.ConferenceRecordingLayout
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
@@ -39,6 +40,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.toRecordingLayout
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -339,11 +341,15 @@ class RecordingPollerTest :
             composeAttempts: Int = 0,
             egressMode: ConferenceRecordingEgressMode = ConferenceRecordingEgressMode.TRACK,
             broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
+            layout: ConferenceRecordingLayout = broadcastView.toRecordingLayout(),
+            singleParticipantIdentity: String? = null,
         ): Uuid {
             val id = Uuid.random()
             transaction {
                 ConferenceRecordingTable.insert {
                     it[ConferenceRecordingTable.broadcastView] = broadcastView
+                    it[ConferenceRecordingTable.layout] = layout
+                    it[ConferenceRecordingTable.singleParticipantIdentity] = singleParticipantIdentity
                     it[ConferenceRecordingTable.id] = id
                     it[ConferenceRecordingTable.roomId] = roomId
                     it[ConferenceRecordingTable.startedByMemberId] = startedByMemberId
@@ -2705,6 +2711,8 @@ class RecordingPollerTest :
             hostRawRoot: File,
             view: ConferenceBroadcastView,
             composeAttempts: Int = 0,
+            layout: ConferenceRecordingLayout = view.toRecordingLayout(),
+            singleParticipantIdentity: String? = null,
         ): Triple<Uuid, Pair<Uuid, Uuid>, Pair<File, File>> {
             val member = createMember("poller-speaker-${Uuid.random()}@example.org")
             val (roomId, _) = createRoom(member)
@@ -2715,6 +2723,8 @@ class RecordingPollerTest :
                     ConferenceRecordingStatus.PROCESSING,
                     composeAttempts = composeAttempts,
                     broadcastView = view,
+                    layout = layout,
+                    singleParticipantIdentity = singleParticipantIdentity,
                 )
             val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
             val camA = rawDir.resolve("a__CAMERA__TR_ca.webm").apply { writeBytes(byteArrayOf(1)) }
@@ -2825,6 +2835,83 @@ class RecordingPollerTest :
                 stored.map { it.trackId } shouldBe listOf(cams.first, cams.second)
                 recordingRow(recordingId)[ConferenceRecordingTable.speakerTimelineComputed] shouldBe true
                 recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "V1.9.294 SINGLE_PARTICIPANT: only the chosen person's camera reaches the composer, ALL audio stays, no speaker analysis, no identity in the spec",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val (recordingId, cams, _) =
+                    seedTwoPeople(
+                        hostRawRoot,
+                        ConferenceBroadcastView.RASTER,
+                        layout = ConferenceRecordingLayout.SINGLE_PARTICIPANT,
+                        singleParticipantIdentity = "person-b",
+                    )
+                val analyzer = CountingAnalyzer(emptyMap())
+                var captured: RecordingComposeSpec? = null
+                val composer =
+                    FakeRecordingComposer { spec, out ->
+                        captured = spec
+                        out.writeBytes(byteArrayOf(1))
+                    }
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    composer,
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = true,
+                    speechAnalyzer = analyzer,
+                ).tickAndSettle()
+
+                val spec = captured ?: error("composer was not invoked")
+                spec.layout shouldBe RecordingLayout.SINGLE_PARTICIPANT
+                spec.videoInputs.map { it.trackId } shouldBe listOf(cams.second.toString())
+                spec.audioInputs.size shouldBe 2
+                spec.speakerSpans shouldBe emptyList()
+                analyzer.calls shouldBe 0
+                recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("V1.9.294 compose, retry and recompute read the STORED layout, not the room's current view") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                // view says SPEAKER, the chosen layout is GRID -> plain grid, and no analysis happens
+                val (recordingId, _, _) =
+                    seedTwoPeople(hostRawRoot, ConferenceBroadcastView.SPEAKER, layout = ConferenceRecordingLayout.GRID)
+                val analyzer = CountingAnalyzer(emptyMap())
+                var captured: RecordingComposeSpec? = null
+                val composer =
+                    FakeRecordingComposer { spec, out ->
+                        captured = spec
+                        out.writeBytes(byteArrayOf(1))
+                    }
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    composer,
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = true,
+                    speechAnalyzer = analyzer,
+                ).tickAndSettle()
+                val spec = captured ?: error("composer was not invoked")
+                spec.layout shouldBe RecordingLayout.GRID
+                analyzer.calls shouldBe 0
                 recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
             } finally {
                 hostRawRoot.deleteRecursively()

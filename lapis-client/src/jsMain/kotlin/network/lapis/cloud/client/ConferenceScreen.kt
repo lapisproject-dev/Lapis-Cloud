@@ -71,6 +71,7 @@ import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceMeetingStateDto
 import network.lapis.cloud.shared.domain.ConferenceReaction
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
+import network.lapis.cloud.shared.domain.ConferenceRecordingLayout
 import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRole
@@ -101,6 +102,7 @@ import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomPauseScope
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.domain.toRecordingLayout
 import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
 import network.lapis.cloud.shared.rpc.ConferenceStreamBroadcastKeyMissingException
 import network.lapis.cloud.shared.rpc.ConferenceStreamViewerUrlRejectedException
@@ -2911,8 +2913,8 @@ private fun enterCall(
         if (active != null) {
             recordingDetailLine.content =
                 conferenceRecordingStartedLabel(active.startedByDisplayName, active.startedAt) + " · " +
-                gettext("Ansicht: %1.", conferenceBroadcastViewLabel(active.broadcastView))
-            recordingBannerText.content = conferenceRecordingBannerText(active.broadcastView)
+                gettext("Ansicht: %1.", conferenceRecordingLayoutLabel(active.layout))
+            recordingBannerText.content = conferenceRecordingBannerText(active.layout)
             recordingDetailLine.show()
         } else {
             recordingDetailLine.hide()
@@ -3064,13 +3066,30 @@ private fun enterCall(
             ) {
                 return
             }
-            startRecordingConfirmDialog(eventCapture) { accessLevel ->
+            val participantOptions =
+                untrustedOptions(
+                    tiles.values.map { entry ->
+                        entry.identity to (if (entry.isLocal) gettext("%1 (Sie)", entry.displayName) else entry.displayName)
+                    },
+                )
+            startRecordingConfirmDialog(
+                eventCapture = eventCapture,
+                participantOptions = participantOptions,
+                // pre-selected from the room's setting (RASTER = grid, SPEAKER = speaker); the dialog can still choose any layout
+                defaultLayout = roomBroadcastView.toRecordingLayout(),
+                selfIdentity = tiles.values.firstOrNull { it.isLocal }?.identity,
+            ) { accessLevel, layout, chosenIdentity ->
                 group.setRecordingBusy(true)
                 AppScope.launch {
                     val result =
                         guarded {
                             try {
-                                rpcService<IConferenceRecordingService>().startRecording(room.id, accessLevel)
+                                rpcService<IConferenceRecordingService>().startRecordingWithLayout(
+                                    room.id,
+                                    accessLevel,
+                                    layout,
+                                    chosenIdentity,
+                                )
                             } catch (e: ConferenceRecordingAlreadyActiveException) {
                                 // a second moderator was faster: say so, then show the recording that runs
                                 notifyError(tr("Es läuft bereits eine Aufzeichnung."))
@@ -7420,7 +7439,10 @@ private fun removeParticipantConfirmDialog(
  */
 internal fun startRecordingConfirmDialog(
     eventCapture: ConferenceEventCaptureState = ConferenceEventCaptureState.NONE,
-    onConfirm: (DocumentAccessLevel) -> Unit,
+    participantOptions: List<Pair<String, String>> = emptyList(),
+    defaultLayout: ConferenceRecordingLayout = ConferenceRecordingLayout.GRID,
+    selfIdentity: String? = null,
+    onConfirm: (DocumentAccessLevel, ConferenceRecordingLayout, String?) -> Unit,
 ) {
     val modal = Modal(caption = tr("Aufzeichnung starten"))
     modal.div(
@@ -7432,6 +7454,41 @@ internal fun startRecordingConfirmDialog(
                 "davon, wer die Aufzeichnung startet.",
         ),
     ) { addCssClasses("small mb-2") }
+    // V1.9.294: the layout of the video. "Einzelne Person" is only offered when there is somebody to choose.
+    val layoutOptions =
+        ConferenceRecordingLayout.entries
+            .filter { it != ConferenceRecordingLayout.SINGLE_PARTICIPANT || participantOptions.isNotEmpty() }
+            .map { it.name to conferenceRecordingLayoutLabel(it) }
+    val startLayout = if (layoutOptions.any { it.first == defaultLayout.name }) defaultLayout else ConferenceRecordingLayout.GRID
+    val layoutSelect = modal.select(options = layoutOptions, value = startLayout.name, label = tr("Layout"))
+    val participantSelect =
+        modal.searchableSelect(
+            options = participantOptions,
+            value = selfIdentity?.takeIf { id -> participantOptions.any { it.first == id } },
+            label = tr("Person"),
+        )
+    val participantHint =
+        modal.div(
+            tr(
+                "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. " +
+                    "Ist ihre Kamera aus, bleibt das Bild leer.",
+            ),
+        ) { addCssClasses("text-muted small mb-2") }
+    val layoutErrorBox = modal.div("") { addCssClasses("text-danger small mb-2") }
+    layoutErrorBox.hide()
+
+    fun updatePersonVisibility() {
+        layoutErrorBox.hide()
+        if (layoutSelect.value == ConferenceRecordingLayout.SINGLE_PARTICIPANT.name) {
+            participantSelect.show()
+            participantHint.show()
+        } else {
+            participantSelect.hide()
+            participantHint.hide()
+        }
+    }
+    updatePersonVisibility()
+    layoutSelect.subscribe { updatePersonVisibility() }
     // V1.9.158: an option that cannot work here is not offered (an event recording is for the board / administration only).
     val accessOptions = conferenceRecordingAccessOptions(eventCapture).map { it.name to conferenceRecordingAccessLevelLabel(it) }
     val accessSelect =
@@ -7457,8 +7514,15 @@ internal fun startRecordingConfirmDialog(
         Button(tr("Aufzeichnung jetzt starten"), style = ButtonStyle.WARNING).apply {
             onClick {
                 val level = accessSelect.value?.let { DocumentAccessLevel.valueOf(it) } ?: DocumentAccessLevel.BOARD_ONLY
+                val layout = layoutSelect.value?.let { ConferenceRecordingLayout.valueOf(it) } ?: ConferenceRecordingLayout.GRID
+                val person = if (layout == ConferenceRecordingLayout.SINGLE_PARTICIPANT) participantSelect.value else null
+                if (layout == ConferenceRecordingLayout.SINGLE_PARTICIPANT && person.isNullOrBlank()) {
+                    layoutErrorBox.content = tr("Bitte eine Person für \"Einzelne Person\" auswählen.")
+                    layoutErrorBox.show()
+                    return@onClick
+                }
                 modal.hide()
-                onConfirm(level)
+                onConfirm(level, layout, person)
             }
         },
     )
@@ -8201,11 +8265,22 @@ internal fun conferenceBroadcastViewLabel(view: ConferenceBroadcastView): String
     }
 
 /** V1.9.115 -- the notice banner: the fixed sentence of D3, extended by the view the recording shows once it is known. */
-internal fun conferenceRecordingBannerText(view: ConferenceBroadcastView?): String =
-    if (view == null) {
+internal fun conferenceRecordingBannerText(layout: ConferenceRecordingLayout?): String =
+    if (layout == null) {
         CONFERENCE_RECORDING_BANNER_TEXT
     } else {
-        CONFERENCE_RECORDING_BANNER_TEXT + " " + gettext("Ansicht: %1.", conferenceBroadcastViewLabel(view))
+        CONFERENCE_RECORDING_BANNER_TEXT + " " + gettext("Ansicht: %1.", conferenceRecordingLayoutLabel(layout))
+    }
+
+/**
+ * V1.9.294 -- the name of the layout a recording shows (chosen when it started). The words of the former view labels are kept
+ * ("Raster", "Sprecher groß") so the notice for everybody in the room reads as before; the dialog select uses the same labels.
+ */
+internal fun conferenceRecordingLayoutLabel(layout: ConferenceRecordingLayout): String =
+    when (layout) {
+        ConferenceRecordingLayout.GRID -> conferenceBroadcastViewLabel(ConferenceBroadcastView.RASTER)
+        ConferenceRecordingLayout.SPEAKER -> conferenceBroadcastViewLabel(ConferenceBroadcastView.SPEAKER)
+        ConferenceRecordingLayout.SINGLE_PARTICIPANT -> gettext("Einzelne Person")
     }
 
 /** V1.9.115 -- the layout the start dialog of a stream pre-selects for the room's view setting. */

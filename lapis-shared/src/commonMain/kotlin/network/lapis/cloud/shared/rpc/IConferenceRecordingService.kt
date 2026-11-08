@@ -3,6 +3,7 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.ConferenceRecordingAvailabilityDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
+import network.lapis.cloud.shared.domain.ConferenceRecordingLayout
 import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
 import network.lapis.cloud.shared.domain.ConferenceRecordingPageDto
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
@@ -241,4 +242,20 @@ interface IConferenceRecordingService {
      * the CONFERENCE_RECORDING entity without paths or titles (request, completion and failure).
      */
     suspend fun recomputeRecording(recordingId: String): ConferenceRecordingDto
+
+    /**
+     * V1.9.294. Same role, rate limit (SAME budget as [startRecording]), consent gate and one-active-recording rule as
+     * [startRecording], plus the chosen [layout]. [startRecording] stays for old clients and derives the layout from the room view.
+     *
+     * [singleParticipantIdentity] (a LiveKit identity = member UUID) is required (non-blank, at most 64 characters) for
+     * [ConferenceRecordingLayout.SINGLE_PARTICIPANT] and must be `null` otherwise (a mismatch is a [ConflictException], nothing is
+     * dropped silently; the DB CHECK pairs them the same way). The identity must be present in the room at start (open participation
+     * row, or in the event snapshot). Errors never echo the input.
+     */
+    suspend fun startRecordingWithLayout(
+        roomId: String,
+        accessLevel: DocumentAccessLevel,
+        layout: ConferenceRecordingLayout,
+        singleParticipantIdentity: String?,
+    ): ConferenceRecordingDto
 }

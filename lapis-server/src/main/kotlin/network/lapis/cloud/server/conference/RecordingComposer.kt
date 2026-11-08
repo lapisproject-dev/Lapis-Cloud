@@ -126,8 +126,12 @@ data class RecordingComposeSpec(
             ).coerceAtLeast(0.0)
 }
 
-/** V1.9.115 -- how the people are laid out in a recording (a screen share is always shown large, whatever the layout). */
-enum class RecordingLayout { GRID, SPEAKER }
+/**
+ * V1.9.115 -- how the people are laid out in a recording (a screen share is always shown large, whatever the layout).
+ * V1.9.294: [SINGLE_PARTICIPANT] -- the poller already filtered the video inputs down to the chosen person (plus screen shares), so the
+ * composer lays them out as the plain grid; with no picture at all the stretch is black. All audio is mixed in.
+ */
+enum class RecordingLayout { GRID, SPEAKER, SINGLE_PARTICIPANT }
 
 /** V1.9.115 -- [personKey] was the large tile from [startSeconds] to [endSeconds] of the recording's wall clock. */
 data class RecordingSpeakerSpan(

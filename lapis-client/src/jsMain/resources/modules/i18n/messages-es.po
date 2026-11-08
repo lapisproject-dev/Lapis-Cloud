@@ -31375,3 +31375,6 @@ msgstr "La unidad federal no contabiliza en Lapis: no es posible una propuesta."
 
 msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
 msgstr "Informe de rendición de cuentas: propuesta para el anexo B aplicada"
+
+msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
+msgstr "La grabación muestra solo a esta persona y las pantallas compartidas. Se oye a todos. Si su cámara está apagada, la imagen queda vacía."

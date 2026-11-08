@@ -174,6 +174,13 @@ classDiagram(name = "ConferenceRecording") {
         literal(name = "SPEAKER")
     }
 
+    // V1.9.294 (V148): literal order is load-bearing (appended-only), matching network.lapis.cloud.shared.domain.ConferenceRecordingLayout.
+    val conferenceRecordingLayout = enumOf(name = "ConferenceRecordingLayout") {
+        literal(name = "GRID")
+        literal(name = "SPEAKER")
+        literal(name = "SINGLE_PARTICIPANT")
+    }
+
     val conferenceRecording = classOf(name = "ConferenceRecording") {
         stereotype("Entity") { "tableName" to "conference_recording"; "kotlinObjectName" to "ConferenceRecordingTable" }
         stereotype("Index") { "columns" to listOf("room_id"); "name" to "idx_conference_recording_room" }
@@ -339,6 +346,20 @@ classDiagram(name = "ConferenceRecording") {
         attribute(name = "speakerTimelineComputed", type = "Boolean") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "speaker_timeline_computed" }
+        }
+        // V1.9.294 (V148): the layout chosen when the recording started (compose, retry and recompute read this one), and for
+        // SINGLE_PARTICIPANT the chosen person's LiveKit identity (a plain string echo, no FK -- like conference_recording_track.participant_identity).
+        // Paired by CHECK: the identity is set iff the layout is SINGLE_PARTICIPANT.
+        attribute(name = "layout", type = conferenceRecordingLayout) {
+            defaultValue = "GRID"
+            stereotype("Column") {
+                "columnName" to "layout"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingLayout"
+            }
+        }
+        attribute(name = "singleParticipantIdentity", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "single_participant_identity"; "sqlType" to "VARCHAR(64)" }
         }
     }
 

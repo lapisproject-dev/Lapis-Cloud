@@ -31708,3 +31708,6 @@ msgstr "L'unità federale non registra in Lapis: nessuna proposta possibile."
 
 msgid "Rechenschaftsbericht: Vorschlag für Ausweis B übernommen"
 msgstr "Rendiconto: proposta per l'allegato B riportata"
+
+msgid "Die Aufzeichnung zeigt nur diese Person und geteilte Bildschirme. Zu hören sind alle. Ist ihre Kamera aus, bleibt das Bild leer."
+msgstr "La registrazione mostra solo questa persona e gli schermi condivisi. Si sentono tutti. Se la sua videocamera è spenta, l'immagine resta vuota."
