@@ -628,6 +628,8 @@ fun decodeAuditSnapshot(
             AuditEntityType.PARTG_ACCOUNT_MAPPING -> null
             AuditEntityType.PARTG_UNIT_MODE -> null
             AuditEntityType.REGIONAL_CHAPTER_TREASURER -> null
+            AuditEntityType.PARTG_INTRA_TRANSFER -> null
+            AuditEntityType.PARTG_DONOR_COMBINATION -> null
         }
     }.getOrNull()
 

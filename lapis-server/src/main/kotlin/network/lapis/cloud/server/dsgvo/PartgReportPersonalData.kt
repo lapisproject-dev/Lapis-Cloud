@@ -4,6 +4,10 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import network.lapis.cloud.server.db.generated.PartgAccountMappingTable
+import network.lapis.cloud.server.db.generated.PartgConsolidationSheetTable
+import network.lapis.cloud.server.db.generated.PartgDonorCombinationRowTable
+import network.lapis.cloud.server.db.generated.PartgDonorCombinationTable
+import network.lapis.cloud.server.db.generated.PartgIntraTransferTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
 import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
@@ -47,6 +51,12 @@ import kotlin.uuid.Uuid
  * **V1.9.289 (R4a)** adds `partg_account_mapping` and `partg_report_unit_mode`: organisation data; `updated_by` is exported as "changed by you"
  * (mapping: time only; mode: year, unit and time) -- never an amount, never an account name -- and retained on erasure.
  *
+ * **V1.9.290 (R5)** adds `partg_consolidation_sheet`, `partg_intra_transfer`, `partg_donor_combination` and `partg_donor_combination_row`:
+ * organisation data. `updated_by` / `created_by` are exported as "changed by you" with year and time only -- never an amount, never the
+ * free-text note of a pair (it may name a person), never a donor id or name -- and retained on erasure. `partg_donor_combination_row` holds only
+ * two ids (the group and a large-donor row): it points at personal data of THIRD PARTIES but contains none; the donor row itself is listed in
+ * `PersonalDataRegistry.knownUncoveredSubjectRoots`.
+ *
  * **V1.9.287 (R3c)** adds `partg_report_enterprise` (statement D): organisation data, same treatment as the youth organisation ("changed by
  * you" with year, unit and time only -- no name, no amount; retained on erasure). Whether a free-text name can contain a person's name
  * (sole proprietorship) is an open question (Q16), not claimed as covered.
@@ -70,6 +80,10 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
             PartgReportEnterpriseTable,
             PartgAccountMappingTable,
             PartgReportUnitModeTable,
+            PartgConsolidationSheetTable,
+            PartgIntraTransferTable,
+            PartgDonorCombinationTable,
+            PartgDonorCombinationRowTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -301,6 +315,71 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                 },
             )
             put(
+                "consolidationChangedByYou",
+                buildJsonArray {
+                    PartgConsolidationSheetTable
+                        .selectAll()
+                        .where { PartgConsolidationSheetTable.updatedBy eq memberId }
+                        .toList()
+                        .sortedBy { it[PartgConsolidationSheetTable.fiscalYear] }
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("year", row[PartgConsolidationSheetTable.fiscalYear])
+                                    put("changedAt", row[PartgConsolidationSheetTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "intraTransfersChangedByYou",
+                buildJsonArray {
+                    val sheets = PartgConsolidationSheetTable.selectAll().toList().associateBy { it[PartgConsolidationSheetTable.id] }
+                    PartgIntraTransferTable
+                        .selectAll()
+                        .where { (PartgIntraTransferTable.updatedBy eq memberId) or (PartgIntraTransferTable.createdBy eq memberId) }
+                        .toList()
+                        .sortedWith(compareBy({ it[PartgIntraTransferTable.updatedAt] }, { it[PartgIntraTransferTable.id].toString() }))
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put(
+                                        "year",
+                                        sheets[row[PartgIntraTransferTable.consolidationId]]?.get(PartgConsolidationSheetTable.fiscalYear),
+                                    )
+                                    put("changedAt", row[PartgIntraTransferTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "donorCombinationsChangedByYou",
+                buildJsonArray {
+                    val sheets = PartgConsolidationSheetTable.selectAll().toList().associateBy { it[PartgConsolidationSheetTable.id] }
+                    PartgDonorCombinationTable
+                        .selectAll()
+                        .where { PartgDonorCombinationTable.createdBy eq memberId }
+                        .toList()
+                        .sortedWith(
+                            compareBy({ it[PartgDonorCombinationTable.createdAt] }, { it[PartgDonorCombinationTable.id].toString() }),
+                        ).forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put(
+                                        "year",
+                                        sheets[row[PartgDonorCombinationTable.consolidationId]]?.get(
+                                            PartgConsolidationSheetTable.fiscalYear,
+                                        ),
+                                    )
+                                    put("changedAt", row[PartgDonorCombinationTable.createdAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
                 "positionHintsChangedByYou",
                 buildJsonArray {
                     PartgReportPositionTable
@@ -456,6 +535,36 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                     PartgReportUnitModeTable
                         .selectAll()
                         .where { PartgReportUnitModeTable.updatedBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_consolidation_sheet",
+                rowsRetained =
+                    PartgConsolidationSheetTable
+                        .selectAll()
+                        .where { PartgConsolidationSheetTable.updatedBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_intra_transfer",
+                rowsRetained =
+                    PartgIntraTransferTable
+                        .selectAll()
+                        .where { (PartgIntraTransferTable.updatedBy eq memberId) or (PartgIntraTransferTable.createdBy eq memberId) }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_donor_combination",
+                rowsRetained =
+                    PartgDonorCombinationTable
+                        .selectAll()
+                        .where { PartgDonorCombinationTable.createdBy eq memberId }
                         .count()
                         .toInt(),
                 retentionReason = reason,

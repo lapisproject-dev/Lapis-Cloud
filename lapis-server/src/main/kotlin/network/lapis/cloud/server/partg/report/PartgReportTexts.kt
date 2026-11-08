@@ -6,7 +6,7 @@ internal object PartgReportTexts {
     const val STATE_PREFIX = "Landesverband"
     const val SUBORDINATE_PREFIX = "Nachgeordnete Gebietsverbände in"
     const val SUBORDINATE_SUFFIX = "(zusammengefasst)"
-    const val WHOLE_PARTY = "Gesamtpartei"
+    const val WHOLE_PARTY = "Summe der Einheiten (nicht konsolidiert)"
     const val LEVEL_FEDERAL = "Bundesverband"
     const val LEVEL_STATE = "Landesverbände (Summe)"
     const val LEVEL_SUBORDINATE = "Nachgeordnete Gebietsverbände (Summe)"
@@ -32,7 +32,8 @@ internal object PartgReportTexts {
     const val NOTES = "Hinweise"
 
     const val SUBSIDY_NOTE =
-        "Einschließlich innerparteilicher Zuschüsse (Einnahmen Nr. 10, Ausgaben Nr. 3), nicht bereinigt (folgt in einer späteren Ausbaustufe)."
+        "Einschließlich innerparteilicher Zuschüsse (Einnahmen Nr. 10, Ausgaben Nr. 3), nicht bereinigt. Die Bereinigung steht im " +
+            "Abschnitt Konsolidierung des Gesamtberichts."
     const val DRAFT_NOTICE =
         "Dies ist ein Entwurf als Arbeitshilfe. Er ist nicht amtlich, nicht geprüft und ersetzt weder den geprüften " +
             "Rechenschaftsbericht noch eine Rechtsberatung."
@@ -75,9 +76,9 @@ internal object PartgReportTexts {
     const val CONTRIBUTION_BOTH = "Spende und Beitrag"
     const val B_NOTE =
         "Aufgenommen sind nur Zeilen über 10.000,00 EUR je Gebietsverband und Jahr. Beträge einer Person an mehrere Gebietsverbände " +
-            "werden noch nicht zusammengeführt."
+            "werden hier nicht zusammengeführt; die Zusammenführung steht im Abschnitt Konsolidierung des Gesamtberichts."
     const val E_NOTE = "Die Mitgliederzahl wird je Gliederung erfasst und nicht addiert."
-    const val E_NOTE_ALL = "Bei der Gesamtpartei steht der Wert des Bundesverbands."
+    const val E_NOTE_ALL = "Bei der Summe der Einheiten steht der Wert des Bundesverbands."
     const val NOTE_GENERAL = "Allgemeine Angaben zur Rechnungslegung"
     const val NOTE_RELIEF = "Erleichterungen nach § 28 PartG"
     const val NOTE_HOLDINGS = "Beteiligungen"
@@ -156,5 +157,48 @@ internal object PartgReportTexts {
             network.lapis.cloud.shared.domain.PartgFindingCode.P14 -> "Konten mit Buchungen ohne Zuordnung zu einer Position"
             network.lapis.cloud.shared.domain.PartgFindingCode.P15 -> "Buchungen vorhanden, Buchführung steht auf Modus C"
             network.lapis.cloud.shared.domain.PartgFindingCode.P16 -> "Wert aus Buchungen weicht vom aktuellen Vorschlag ab"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P17 -> "Übertragungen weichen vom Wert der Position ab"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P18 -> "Übertragung nur einseitig oder Einheit ohne Daten"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P19 -> "Position erfasst, aber keine Übertragung eingetragen"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P20 -> "Mögliche Zusammenführungen von Großspendern"
+            network.lapis.cloud.shared.domain.PartgFindingCode.P21 -> "Zusammenführung von Großspendern prüfen"
         }
+
+    // V1.9.290 (R5): the consolidated whole party. A draft, like everything else in this document.
+    const val CONSOLIDATION_TITLE = "Gesamtpartei (konsolidiert) – Entwurf, nicht geprüft"
+    const val CONSOLIDATION_NOTE =
+        "Konsolidiert heißt: Übertragungen zwischen den Gliederungen sind herausgerechnet, soweit beide Seiten erfasst sind. " +
+            "Nicht berechenbare Werte (n. b.) sind nicht 0. Dies ist kein amtlicher Bericht."
+    const val CONSOLIDATION_INCLUDED = "Einbezogene Gliederungen"
+    const val CONSOLIDATION_EXCLUDED = "Nicht einbezogen"
+    const val CONSOLIDATION_REASON_NO_DATA = "keine Daten"
+    const val CONSOLIDATION_REASON_BOOKINGS = "Buchungen vorhanden, nicht übernommen"
+    const val CONSOLIDATION_PRIOR_NOTE =
+        "Vorjahr: Für das Vorjahr sind keine Übertragungen erfasst; die Spalte Vorjahr ist nicht bereinigt."
+    const val COL_UNIT_SUM = "Summe der Einheiten EUR"
+    const val COL_ELIMINATED = "Eliminiert EUR"
+    const val COL_CONSOLIDATED = "Konsolidiert EUR"
+    const val RECONCILIATION = "Abgleich der Übertragungen"
+    const val COL_KIND = "Art"
+    const val COL_PAYER = "Zahler"
+    const val COL_PAYEE = "Empfänger"
+    const val COL_PAYER_AMOUNT = "Betrag Zahler EUR"
+    const val COL_PAYEE_AMOUNT = "Betrag Empfänger EUR"
+    const val COL_STATE = "Stand"
+    const val COL_DIFFERENCE = "Differenz EUR"
+    const val KIND_SUBSIDY = "Zuschuss"
+    const val KIND_BALANCE = "Forderung/Verbindlichkeit"
+    const val MATCH_MATCH = "abgeglichen"
+    const val MATCH_DIFFERS = "weicht ab"
+    const val MATCH_MISSING = "Gegenseite fehlt"
+    const val UNMATCHED_TITLE = "Nicht abgeglichen"
+    const val ANNEX_B_CONSOLIDATED = "Ausweis B (konsolidiert): Spenden und Beiträge über 10.000 EUR je Person und Jahr (Entwurf)"
+    const val COL_UNITS = "Gliederungen"
+    const val B_CONSOLIDATED_NOTE =
+        "Zusammengeführt sind nur Zeilen, die der Vorstand von Hand zusammengeführt hat. " +
+            "Teilbeträge unter 10.000,00 EUR je Gliederung werden nicht erfasst; ein Fall wie 6.000 + 6.000 EUR bleibt unerkannt. " +
+            "Ob die Schwelle für die ganze Partei gilt, ist offen."
+    const val SHEET_CONSOLIDATION = "Konsolidierung"
+    const val SHEET_RECONCILIATION = "Abgleich"
+    const val SHEET_B_CONSOLIDATED = "Ausweis B (konsolidiert)"
 }

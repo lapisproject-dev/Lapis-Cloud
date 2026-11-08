@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.partg.PartgAnnexStore
+import network.lapis.cloud.server.partg.PartgConsolidationStore
 import network.lapis.cloud.server.partg.PartgLedgerLinkStore
 import network.lapis.cloud.server.partg.PartgReportStore
 import network.lapis.cloud.server.security.ESCALATED_ROLES
@@ -260,8 +261,10 @@ class RegionalChapterService internal constructor(
             // V1.9.225: report sheets of this chapter (even an empty header) block the delete with their own typed refusal; checked up front so
             // no foreign key violation poisons the PostgreSQL transaction.
             // V1.9.269: the separate statements (annex) of this chapter block it the same way.
+            // V1.9.290 (R5): an intra-party transfer pair that names the chapter blocks it as well.
             if (PartgReportStore.hasValuesForChapter(id) ||
-                PartgAnnexStore.hasAnnexForChapter(id)
+                PartgAnnexStore.hasAnnexForChapter(id) ||
+                PartgConsolidationStore.hasTransferForChapter(id)
             ) {
                 throw RegionalChapterHasPartyReportValuesException()
             }

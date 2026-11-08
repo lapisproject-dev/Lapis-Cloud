@@ -90,3 +90,25 @@ data class PartgNotesAuditSnapshot(
     val changedBlocks: List<PartgNoteBlock>,
     val holdingCount: Int,
 )
+
+/** V1.9.290 (R5) audit snapshot of a change of an intra-party transfer pair. `change`: `TRANSFER_ADDED`, `TRANSFER_UPDATED`, `TRANSFER_DELETED`. No amount, no note. */
+@Serializable
+data class PartgIntraTransferAuditSnapshot(
+    val year: Int,
+    val change: String,
+    val kind: String,
+    val payerUnit: String,
+    val payeeUnit: String,
+    val hasPayerAmount: Boolean,
+    val hasPayeeAmount: Boolean,
+)
+
+/** V1.9.290 (R5) audit snapshot of a donor combination. `change`: `COMBINATION_CREATED`, `COMBINATION_DISSOLVED`. Ids and counters only: no name. */
+@Serializable
+data class PartgDonorCombinationAuditSnapshot(
+    val year: Int,
+    val change: String,
+    val rowCount: Int,
+    val unitKeys: List<String>,
+    val largeDonorIds: List<String>,
+)

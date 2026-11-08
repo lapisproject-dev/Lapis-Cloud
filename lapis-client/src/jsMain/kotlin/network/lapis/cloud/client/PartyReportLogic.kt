@@ -241,6 +241,26 @@ internal fun partgFindingShortLabel(finding: network.lapis.cloud.shared.domain.P
                 io.kvision.i18n.gettext("Position %1 weicht vom aktuellen Vorschlag aus den Buchungen ab", partgNumberLabelOf(it))
             }
                 ?: io.kvision.i18n.gettext("Ein Wert aus Buchungen weicht vom aktuellen Vorschlag ab")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P17 ->
+            finding.positionCode?.let {
+                io.kvision.i18n.gettext(
+                    "Die Übertragungen weichen vom Wert der Position %1 ab oder die Position fehlt",
+                    partgNumberLabelOf(it),
+                )
+            } ?: io.kvision.i18n.gettext("Die Übertragungen weichen vom Wert einer Position ab")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P18 ->
+            io.kvision.i18n.gettext(
+                "%1 Übertragungen sind einseitig oder nennen eine Gliederung ohne Daten",
+                (finding.count ?: 0).toString(),
+            )
+        network.lapis.cloud.shared.domain.PartgFindingCode.P19 ->
+            finding.positionCode?.let {
+                io.kvision.i18n.gettext("Position %1 ist erfasst, aber es ist keine Übertragung eingetragen", partgNumberLabelOf(it))
+            } ?: io.kvision.i18n.gettext("Eine Position ist erfasst, aber es ist keine Übertragung eingetragen")
+        network.lapis.cloud.shared.domain.PartgFindingCode.P20 ->
+            io.kvision.i18n.gettext("%1 mögliche Zusammenführungen von Großspendern", (finding.count ?: 0).toString())
+        network.lapis.cloud.shared.domain.PartgFindingCode.P21 ->
+            io.kvision.i18n.gettext("%1 Zusammenführungen von Großspendern prüfen", (finding.count ?: 0).toString())
     }
 
 private fun partgNumberLabelOf(code: String): String = PartgPositions.find(code)?.numberLabel ?: code
@@ -291,6 +311,8 @@ internal val PARTG_TAB_DISPLAY_ORDER: List<PartyReportTab> =
         PartyReportTab.POSITIONS,
         PartyReportTab.KONTENZUORDNUNG,
         PartyReportTab.REPORT,
+        // V1.9.290 (R5): last, rightmost; a chapter treasurer never gets it (see partgVisibleTabs)
+        PartyReportTab.KONSOLIDIERUNG,
     )
 
 /**

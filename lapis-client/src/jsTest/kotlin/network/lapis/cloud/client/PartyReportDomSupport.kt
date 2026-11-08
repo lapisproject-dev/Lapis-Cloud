@@ -78,11 +78,19 @@ internal object PartyReportDomSupport {
     var proposal: network.lapis.cloud.shared.domain.PartgLedgerProposalDto? = null
     val modeCalls = mutableListOf<Triple<String, network.lapis.cloud.shared.domain.PartgBookkeepingMode, Int>>()
 
+    /** V1.9.290 (R5): the answer of `getConsolidation` and of the four consolidation writes; `null` = the stub answers "null" (the call fails). */
+    var consolidation: network.lapis.cloud.shared.domain.PartgConsolidationDto? = null
+
+    /** V1.9.290 (R5): the requests of the four consolidation writes, in order (route name to the whole request). */
+    val consolidationWrites = mutableListOf<Pair<String, RecordedRequest>>()
+
     fun resetR4() {
         overviewOverride = null
         mappingView = null
         proposal = null
         modeCalls.clear()
+        consolidation = null
+        consolidationWrites.clear()
     }
 
     val overview: List<PartgOverviewRowDto> =
@@ -252,6 +260,11 @@ internal object PartyReportDomSupport {
         val setMode: String,
         val propose: String,
         val applyProposal: String,
+        val getConsolidation: String,
+        val saveTransfer: String,
+        val deleteTransfer: String,
+        val createCombination: String,
+        val dissolveCombination: String,
     )
 
     suspend fun routes() =
@@ -327,6 +340,26 @@ internal object PartyReportDomSupport {
                 },
             propose = routeOf { rpcService<IPartyReportService>().proposeFromLedger(2025, "FEDERAL") },
             applyProposal = routeOf { rpcService<IPartyReportService>().applyLedgerProposal(2025, "FEDERAL", 0, 0, emptyList()) },
+            getConsolidation = routeOf { rpcService<IPartyReportService>().getConsolidation(2025) },
+            saveTransfer =
+                routeOf {
+                    rpcService<IPartyReportService>().saveIntraTransfer(
+                        2025,
+                        0,
+                        network.lapis.cloud.shared.domain.PartgIntraTransferInputDto(
+                            null,
+                            network.lapis.cloud.shared.domain.PartgTransferKind.SUBSIDY,
+                            "FEDERAL",
+                            "x",
+                            1,
+                            null,
+                            null,
+                        ),
+                    )
+                },
+            deleteTransfer = routeOf { rpcService<IPartyReportService>().deleteIntraTransfer(2025, 0, "x") },
+            createCombination = routeOf { rpcService<IPartyReportService>().createDonorCombination(2025, 0, emptyMap(), emptyList()) },
+            dissolveCombination = routeOf { rpcService<IPartyReportService>().dissolveDonorCombination(2025, 0, "x") },
         )
 
     fun answer(
@@ -359,6 +392,28 @@ internal object PartyReportDomSupport {
                     jsonOf(PartgSaveResultDto.serializer(), PartgSaveResultDto(revision = 1, priorRevision = 0, changed = 1)),
                 )
             request.rpcRoute == routes.setMode -> request.answerWith(jsonOf(PartgOverviewRowDto.serializer(), overview.first()))
+            request.rpcRoute in
+                listOf(
+                    routes.getConsolidation,
+                    routes.saveTransfer,
+                    routes.deleteTransfer,
+                    routes.createCombination,
+                    routes.dissolveCombination,
+                ) -> {
+                if (request.rpcRoute != routes.getConsolidation) consolidationWrites += request.rpcRoute to request
+                val dto = consolidation
+                if (dto == null) {
+                    request.answerWith("null")
+                } else {
+                    request.answerWith(
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgConsolidationDto
+                                .serializer(),
+                            dto,
+                        ),
+                    )
+                }
+            }
             request.rpcRoute == routes.units ->
                 request.answerWith(
                     jsonOf(ListSerializer(PartgUnitDto.serializer()), listOf(federal, state)),

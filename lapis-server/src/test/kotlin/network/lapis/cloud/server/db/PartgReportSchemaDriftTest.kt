@@ -8,6 +8,10 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.PartgAccountMappingTable
+import network.lapis.cloud.server.db.generated.PartgConsolidationSheetTable
+import network.lapis.cloud.server.db.generated.PartgDonorCombinationRowTable
+import network.lapis.cloud.server.db.generated.PartgDonorCombinationTable
+import network.lapis.cloud.server.db.generated.PartgIntraTransferTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
 import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
@@ -28,6 +32,7 @@ import network.lapis.cloud.shared.domain.PartgKind
 import network.lapis.cloud.shared.domain.PartgNoteBlock
 import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgSection
+import network.lapis.cloud.shared.domain.PartgTransferKind
 import network.lapis.cloud.shared.domain.PartgTriState
 import network.lapis.cloud.shared.domain.PartgUnitLevel
 import network.lapis.cloud.shared.domain.PartgValueSource
@@ -48,7 +53,7 @@ class PartgReportSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("the model declares the fourteen report entities plus the Member, RegionalChapter and LedgerAccount stubs") {
+        test("the model declares the eighteen report entities plus the Member, RegionalChapter and LedgerAccount stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -68,6 +73,10 @@ class PartgReportSchemaDriftTest :
                     "ledger_account",
                     "partg_account_mapping",
                     "partg_report_unit_mode",
+                    "partg_consolidation_sheet",
+                    "partg_intra_transfer",
+                    "partg_donor_combination",
+                    "partg_donor_combination_row",
                 )
         }
 
@@ -221,6 +230,51 @@ class PartgReportSchemaDriftTest :
                 listOf(setOf("fiscal_year", "unit_key"))
             PartgBookkeepingMode.entries.map { it.name } shouldBe listOf("A", "B", "C")
             transaction { PartgReportUnitModeTable.bookkeepingMode.columnType.sqlType() } shouldBe "VARCHAR(1)"
+        }
+
+        test("the four R5 consolidation tables match the migrated schema and their Exposed objects 1:1") {
+            check(
+                table = "partg_consolidation_sheet",
+                exposedColumns = PartgConsolidationSheetTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_consolidation_sheet") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("fiscal_year"))
+            check(
+                table = "partg_intra_transfer",
+                exposedColumns = PartgIntraTransferTable.columns.map { it.name },
+                expectedForeignKeys =
+                    mapOf(
+                        "consolidation_id" to "partg_consolidation_sheet",
+                        "payer_chapter_id" to "regional_chapter",
+                        "payee_chapter_id" to "regional_chapter",
+                        "created_by" to "member",
+                        "updated_by" to "member",
+                    ),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_intra_transfer") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("consolidation_id", "transfer_kind", "payer_unit_key", "payee_unit_key"))
+            check(
+                table = "partg_donor_combination",
+                exposedColumns = PartgDonorCombinationTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("consolidation_id" to "partg_consolidation_sheet", "created_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            check(
+                table = "partg_donor_combination_row",
+                exposedColumns = PartgDonorCombinationRowTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("combination_id" to "partg_donor_combination", "large_donor_id" to "partg_report_large_donor"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_donor_combination_row") }.uniqueConstraints.distinct() shouldContainExactlyInAnyOrder
+                listOf(setOf("large_donor_id"))
+            PartgTransferKind.entries.map { it.name } shouldBe listOf("SUBSIDY", "BALANCE")
+            transaction {
+                PartgIntraTransferTable.transferKind.columnType.sqlType() shouldBe "VARCHAR(7)"
+                PartgIntraTransferTable.payerLevel.columnType.sqlType() shouldBe "VARCHAR(11)"
+            }
         }
 
         test("the R3b person kind of the sponsor is sized by its sqlType") {

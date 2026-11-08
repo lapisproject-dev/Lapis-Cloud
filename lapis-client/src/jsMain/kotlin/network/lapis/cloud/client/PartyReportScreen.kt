@@ -15,7 +15,7 @@ import network.lapis.cloud.shared.rpc.IPartyReportService
 import org.w3c.dom.events.Event
 
 /** The tabs of the party report page. New tabs are appended: the remembered tab is read back by name. */
-internal enum class PartyReportTab { OVERVIEW, SHEET, POSITIONS, REPORT, AUSWEISE, ERLAEUTERUNGEN, KONTENZUORDNUNG }
+internal enum class PartyReportTab { OVERVIEW, SHEET, POSITIONS, REPORT, AUSWEISE, ERLAEUTERUNGEN, KONTENZUORDNUNG, KONSOLIDIERUNG }
 
 /**
  * The state the tabs share (V1.9.225): the report year and the unit picked for entry, plus a probe the page asks before something would
@@ -131,6 +131,7 @@ internal fun renderPartyReportScreen(
             PartyReportTab.POSITIONS -> tr("Positionen")
             PartyReportTab.REPORT -> tr("Bericht")
             PartyReportTab.KONTENZUORDNUNG -> tr("Kontenzuordnung")
+            PartyReportTab.KONSOLIDIERUNG -> tr("Konsolidierung")
         }
 
     fun paintSegments() {
@@ -180,6 +181,7 @@ internal fun renderPartyReportScreen(
             PartyReportTab.AUSWEISE -> tabPanel.renderPartyReportAnnex(context)
             PartyReportTab.ERLAEUTERUNGEN -> tabPanel.renderPartyReportNotes(context)
             PartyReportTab.KONTENZUORDNUNG -> tabPanel.renderPartyReportMappingTab(context)
+            PartyReportTab.KONSOLIDIERUNG -> tabPanel.renderPartyReportConsolidation(context)
         }
     }
     showTab = { chosen ->

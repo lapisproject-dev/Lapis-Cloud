@@ -164,6 +164,8 @@ internal object PartgAnnexWriter {
             if (annex.revision != expectedRevision) throw PartyReportRevisionConflictException()
             val id = parseId(donorId)
             PartgAnnexStore.findDonor(annexId = annex.id, donorId = id) ?: throw NotFoundException("Row not found")
+            // V1.9.290 (R5): there is no cascade, so the row leaves its donor combination first (under the annex lock held here)
+            PartgConsolidationStore.detachDonor(id)
             PartgAnnexStore.deleteDonor(annexId = annex.id, donorId = id)
             PartgAnnexStore.bumpAnnexRevision(annex = annex, actor = current.memberId, now = now)
             audit(

@@ -20,6 +20,10 @@ import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PartgAccountMappingTable
+import network.lapis.cloud.server.db.generated.PartgConsolidationSheetTable
+import network.lapis.cloud.server.db.generated.PartgDonorCombinationRowTable
+import network.lapis.cloud.server.db.generated.PartgDonorCombinationTable
+import network.lapis.cloud.server.db.generated.PartgIntraTransferTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
 import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
@@ -256,6 +260,28 @@ internal class PartgFixtures(
                     .where {
                         PartgReportAnnexTable.updatedBy inList memberIds
                     }.map { it[PartgReportAnnexTable.id] }
+            // V1.9.290 (R5): the donor combinations (rows, heads), the transfer pairs and the headers of the test come first
+            val testDonorIds =
+                PartgReportLargeDonorTable
+                    .selectAll()
+                    .where {
+                        (PartgReportLargeDonorTable.annexId inList annexIds) or (PartgReportLargeDonorTable.createdBy inList memberIds)
+                    }.map { it[PartgReportLargeDonorTable.id] }
+            val comboIds =
+                PartgDonorCombinationTable
+                    .selectAll()
+                    .where { PartgDonorCombinationTable.createdBy inList memberIds }
+                    .map { it[PartgDonorCombinationTable.id] }
+            PartgDonorCombinationRowTable.deleteWhere {
+                (PartgDonorCombinationRowTable.largeDonorId inList testDonorIds) or
+                    (PartgDonorCombinationRowTable.combinationId inList comboIds)
+            }
+            PartgDonorCombinationTable.deleteWhere { PartgDonorCombinationTable.id inList comboIds }
+            PartgIntraTransferTable.deleteWhere {
+                (PartgIntraTransferTable.createdBy inList memberIds) or (PartgIntraTransferTable.updatedBy inList memberIds) or
+                    (PartgIntraTransferTable.payerChapterId inList chapterIds) or (PartgIntraTransferTable.payeeChapterId inList chapterIds)
+            }
+            PartgConsolidationSheetTable.deleteWhere { PartgConsolidationSheetTable.updatedBy inList memberIds }
             // V1.9.283: sponsoring entries, then sponsors, then youth organisations
             val sponsorIds =
                 PartgReportSponsorTable

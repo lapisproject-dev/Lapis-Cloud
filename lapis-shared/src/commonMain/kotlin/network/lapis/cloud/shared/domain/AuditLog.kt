@@ -629,6 +629,18 @@ enum class AuditEntityType {
 
     /** Welle V1.9.289 (R4a) -- a chapter-treasurer grant was given or revoked; ids only, no name. 26 chars. Appended LAST. */
     REGIONAL_CHAPTER_TREASURER,
+
+    /**
+     * Welle V1.9.290 (R5) -- an intra-party transfer pair of the consolidation was added, changed or deleted; `entityId` = the pair. Snapshot
+     * [PartgIntraTransferAuditSnapshot]: year, kind, unit keys and two flags -- never an amount, never the note. 20 chars. Appended LAST.
+     */
+    PARTG_INTRA_TRANSFER,
+
+    /**
+     * Welle V1.9.290 (R5) -- large-donor rows of several units were combined to one person or the combination was dissolved; `entityId` = the
+     * group. Snapshot [PartgDonorCombinationAuditSnapshot]: ids and counters, never a name. 23 chars. Appended LAST.
+     */
+    PARTG_DONOR_COMBINATION,
 }
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */

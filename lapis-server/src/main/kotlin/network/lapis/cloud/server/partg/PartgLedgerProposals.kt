@@ -57,4 +57,24 @@ internal object PartgLedgerProposals {
         val flows = PartgLedgerReader.flowsByAccount(year = year, chapterId = chapterOf(unit))
         return flows.entries.count { (accountId, sums) -> accountId !in mapped && sums.postingCount > 0 }
     }
+
+    /**
+     * V1.9.290 (R5): the units of [year] that book in Lapis (mode A or B, never a subordinate summary) and HAVE posted bookings. If such a unit has
+     * no stored value, its bookings were never taken over, and the consolidation says so instead of "no data". Must run inside a transaction.
+     */
+    fun takeOverPending(
+        year: Int,
+        unitKeys: Collection<String>,
+    ): Set<String> {
+        val modes = PartgLedgerLinkStore.modes(year)
+        val counts = PartgLedgerReader.postedCountsByChapter(year)
+        return unitKeys
+            .filter { key ->
+                val unit = PartgUnit.parse(key) ?: return@filter false
+                val mode = modes[key] ?: PartgBookkeepingMode.C
+                unit.level != PartgUnitLevel.SUBORDINATE &&
+                    mode != PartgBookkeepingMode.C &&
+                    (counts[chapterOf(unit)] ?: 0) > 0
+            }.toSet()
+    }
 }

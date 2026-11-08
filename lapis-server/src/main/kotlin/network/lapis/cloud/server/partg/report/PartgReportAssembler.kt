@@ -2,10 +2,14 @@ package network.lapis.cloud.server.partg.report
 
 import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.server.partg.PartgCompletenessCalculator
+import network.lapis.cloud.shared.domain.PartgAnnexRules
 import network.lapis.cloud.shared.domain.PartgCell
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgEnterpriseRules
+import network.lapis.cloud.shared.domain.PartgExclusionReason
 import network.lapis.cloud.shared.domain.PartgFindingDto
+import network.lapis.cloud.shared.domain.PartgKind
+import network.lapis.cloud.shared.domain.PartgPositions
 import network.lapis.cloud.shared.domain.PartgReportComputation
 import network.lapis.cloud.shared.domain.PartgReportScope
 import network.lapis.cloud.shared.domain.PartgSponsorQualification
@@ -34,6 +38,8 @@ internal object PartgReportAssembler {
         annex: Map<Int, Map<String, PartgAnnexStore.AnnexData>> = emptyMap(),
         notes: Map<Int, PartgAnnexStore.NotesData> = emptyMap(),
         findings: List<PartgFindingDto> = emptyList(),
+        consolidation: ConsolidationResult? = null,
+        consolidatedDonors: DonorConsolidation? = null,
     ): PartgReportDocument {
         if (units.size > PartgReportComputation.MAX_UNITS) throw PartyReportInvalidInputException("Too many units")
         val selected =
@@ -57,7 +63,7 @@ internal object PartgReportAssembler {
                 )
             }
         val all = scope is PartgReportScope.All
-        val consolidated =
+        val unitSum =
             if (all) {
                 UnitPage(
                     label = PartgReportTexts.WHOLE_PARTY,
@@ -94,12 +100,97 @@ internal object PartgReportAssembler {
             priorYear = year - 1,
             scope = scope,
             units = pages,
-            consolidated = consolidated,
+            unitSum = unitSum,
             levels = levels,
             completeness = PartgCompletenessCalculator.compute(year = year, units = selected, entered = entered),
             annex = annexSection(year = year, selected = selected, all = all, annex = annex),
             notes = notesSection(notes[year]),
             findings = findings,
+            consolidation =
+                if (all && consolidation != null && consolidatedDonors != null) {
+                    consolidationSection(units = units, result = consolidation, donors = consolidatedDonors)
+                } else {
+                    null
+                },
+        )
+    }
+
+    /** V1.9.290 (R5): the consolidated whole party for the exports. Budget: the donor list is bounded by the unit caps (500 rows per unit). */
+    private fun consolidationSection(
+        units: List<PartgUnitDto>,
+        result: ConsolidationResult,
+        donors: DonorConsolidation,
+    ): ConsolidationSection {
+        val labels = units.associate { it.unitKey to unitLabel(it) }
+
+        fun label(key: String) = labels[key] ?: key
+        if (donors.donors.size > PartgReportComputation.MAX_UNITS * PartgAnnexRules.MAX_DONORS_PER_UNIT) {
+            throw PartgReportTooLargeException("consolidated donors")
+        }
+        return ConsolidationSection(
+            included = result.included.map(::label),
+            excluded =
+                result.excluded.map {
+                    ExcludedLine(
+                        unitLabel = label(it.unitKey),
+                        reason =
+                            if (it.reason == PartgExclusionReason.NO_DATA) {
+                                PartgReportTexts.CONSOLIDATION_REASON_NO_DATA
+                            } else {
+                                PartgReportTexts.CONSOLIDATION_REASON_BOOKINGS
+                            },
+                    )
+                },
+            priorTransfersUnmatched = result.priorTransfersUnmatched,
+            lines =
+                result.rows.map { row ->
+                    val position = checkNotNull(PartgPositions.find(row.code))
+                    ConsolidationLine(
+                        code = row.code,
+                        numberText = PartgReportLayout.numberText(row.code),
+                        label = position.labelDe,
+                        unitSum = row.unitSum,
+                        eliminatedCents = row.eliminatedCents,
+                        consolidated = row.consolidated,
+                        prior = row.priorConsolidated,
+                        bold = position.kind == PartgKind.SUM,
+                    )
+                },
+            reconciliation =
+                result.transfers.map {
+                    ReconciliationLine(
+                        kind = it.kind,
+                        payerLabel = label(it.payerUnitKey),
+                        payeeLabel = label(it.payeeUnitKey),
+                        payerAmountCents = it.payerAmountCents,
+                        payeeAmountCents = it.payeeAmountCents,
+                        match = it.match,
+                    )
+                },
+            unmatched =
+                result.unmatched.map {
+                    UnmatchedLine(
+                        unitLabel = label(it.unitKey),
+                        positionLabel =
+                            PartgReportLayout.numberText(it.positionCode) + " " + PartgPositions.find(it.positionCode)?.labelDe.orEmpty(),
+                        differenceCents = it.differenceCents,
+                    )
+                },
+            donors =
+                donors.donors.map { d ->
+                    ConsolidatedDonorLine(
+                        unitLabels = d.unitKeys.joinToString("; ") { label(it) },
+                        personKind = d.personKind,
+                        name = d.name,
+                        addressLine =
+                            listOfNotNull(d.street, listOfNotNull(d.postalCode, d.city).joinToString(" ").ifEmpty { null })
+                                .joinToString(", "),
+                        country = d.country,
+                        contributionKind = d.contributionKind,
+                        totalCents = d.totalCents,
+                        rowCount = d.donorIds.size,
+                    )
+                },
         )
     }
 

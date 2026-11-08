@@ -1,4 +1,4 @@
-= Party accountability report, R1 to R4a: architecture (V1.9.225, V1.9.256, V1.9.269, V1.9.289)
+= Party accountability report, R1 to R5: architecture (V1.9.225, V1.9.256, V1.9.269, V1.9.289, V1.9.290)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -69,6 +69,16 @@ classDiagram(name = "PartgReportModel") {
 * **Mode change** (`setUnitMode`): lock of the chapter row (or the settings row for the federal unit), the count of posted entries read under it, upsert under a savepoint, audit.
 * **Deleting a chapter** is refused with a clean exception when a booking, a mode row or an active treasurer grant refers to it; revoked grants go with the chapter (their history stays in the audit log).
 * **Session:** `SessionInfoDto.chapterTreasurerScopes` (empty for BOARD/TREASURER/ADMIN); the client uses it only to show or hide doors, the server enforces everything.
+
+== R5: consolidation over the units (V1.9.290)
+
+*Tables and monopoly*:: `partg_consolidation_sheet` (header per year: lock and revision), `partg_intra_transfer`, `partg_donor_combination`, `partg_donor_combination_row` (migration V145; no cascade, no `organization_id` -- the installation is single-tenant like every `partg_*` table). `PartgConsolidationStore` is the only reader and writer (exception: `PartgReportPersonalData`); users: `PartgConsolidationWriter`, `PartgReportSnapshotReader`, `PartyReportService`, `RegionalChapterService` (delete guard), `PartgAnnexWriter` (**only** `detachDonor`) and the pure consumers of its value classes (`PartgConsolidationStoreTripwireTest`).
+*One write path*:: `PartgConsolidationWriter`: (1) lock the header of the year, (2) compare `expectedRevision` under the lock, (3) validate, (4) write, (5) bump the revision **in the same commit**, (6) audit last. **Lock order:** consolidation header, then the chapter rows of a pair (sorted by unit key) or the annex headers of a combination (sorted by unit key). The annex writer never takes the consolidation header; it locks chapter and annex header and, when a donor row is deleted, calls `detachDonor` under its own lock (there is no cascade). So there is no cycle: the combination writer inserts rows only after it holds all annex locks. The caps (1000 pairs, 500 groups) are checked under the header lock.
+*Fence*:: `PartgReportSnapshotReader` also reads the consolidation tables and compares `CONS:<year>` revisions; `readWithin` is the same fence inside a writer's transaction (the writer returns exactly the state it wrote).
+*Computation*:: `partg/report/PartgConsolidation` (pure, no table, no clock): included and excluded units, leaf cells (value or n. b.), elimination per pair (minimum, both units included, both amounts stated), sums only through `PartgPositions.sums` and `PartgReportComputation.inputsOf`, **never capped** (an elimination above the sum is n. b.). `PartgDonorConsolidation`: groups, display row, candidates (NFKD normalisation exists only on the JVM, so it is computed on the server; sorting is done in Kotlin because the collation of H2 and PostgreSQL differs). `PartgConsolidationView` turns one snapshot into the screen model. The rules of both sides are `PartgConsolidationRules` (shared).
+*Access*:: the five RPC methods start with `requirePartyReportAccess(call)` (BOARD, ADMIN, then the party switch), **not** the scoped gate (`PartyReportAccessTripwireTest` still pins exactly eight scoped methods). `reportFindings` is scoped, so the hints P17 to P21 are computed **only** for `PartyReportActor.Federal`; the chapter-treasurer branch passes `consolidation = null`.
+*Export*:: `PartgReportDocument.consolidated` was renamed `unitSum`; the new `consolidation` section is only set for the scope ALL. The PDF section is appended last; the XLSX sheet names are a function of the scope (`sheetNames(withConsolidation)`), content types, workbook and relations are generated from it.
+*Migration*:: V145 may be corrected in place on the feature branch until the release; after it every correction is a new migration.
 
 == The XLSX reader (no spreadsheet library)
 

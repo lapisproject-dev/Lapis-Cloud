@@ -40,7 +40,12 @@ internal object PartgReportXlsxWriter {
     const val SHEET_ANNEX_D = "Ausweis D"
     const val SHEET_ANNEX_F = "Ausweis F"
 
-    private val SHEET_NAMES =
+    /** V1.9.290 (R5): the three sheets of the consolidated whole party; they come AFTER "Hinweise" and only for the scope ALL. */
+    const val SHEET_CONSOLIDATION = PartgReportTexts.SHEET_CONSOLIDATION
+    const val SHEET_RECONCILIATION = PartgReportTexts.SHEET_RECONCILIATION
+    const val SHEET_B_CONSOLIDATED = PartgReportTexts.SHEET_B_CONSOLIDATED
+
+    private val BASE_SHEET_NAMES =
         listOf(
             SHEET_COMPLETENESS,
             SHEET_SUMMARY,
@@ -56,6 +61,19 @@ internal object PartgReportXlsxWriter {
             SHEET_EXPLANATIONS,
             SHEET_NOTES,
         )
+
+    /** 13 sheets for a single unit, 16 for the whole party. */
+    fun sheetNames(withConsolidation: Boolean): List<String> =
+        if (withConsolidation) {
+            BASE_SHEET_NAMES +
+                listOf(
+                    SHEET_CONSOLIDATION,
+                    SHEET_RECONCILIATION,
+                    SHEET_B_CONSOLIDATED,
+                )
+        } else {
+            BASE_SHEET_NAMES
+        }
 
     // cellXfs indices -- kept in ONE place, STYLES below must match
     const val S_DEFAULT = 0
@@ -123,15 +141,25 @@ internal object PartgReportXlsxWriter {
                 annexF(document),
                 explanations(document),
                 notes(document),
-            )
+            ) +
+                (
+                    document.consolidation?.let {
+                        listOf(
+                            consolidation(doc = document, section = it),
+                            reconciliation(doc = document, section = it),
+                            consolidatedDonors(it),
+                        )
+                    } ?: emptyList()
+                )
+        val names = sheetNames(withConsolidation = document.consolidation != null)
         val header = headerLine(document)
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
-            entry(zip = zip, name = "[Content_Types].xml", content = contentTypes())
+            entry(zip = zip, name = "[Content_Types].xml", content = contentTypes(names))
             entry(zip = zip, name = "_rels/.rels", content = ROOT_RELS)
             entry(zip = zip, name = "docProps/app.xml", content = APP_XML)
-            entry(zip = zip, name = "xl/workbook.xml", content = workbook())
-            entry(zip = zip, name = "xl/_rels/workbook.xml.rels", content = workbookRels())
+            entry(zip = zip, name = "xl/workbook.xml", content = workbook(names))
+            entry(zip = zip, name = "xl/_rels/workbook.xml.rels", content = workbookRels(names))
             entry(zip = zip, name = "xl/styles.xml", content = STYLES)
             sheets.forEachIndexed {
                 i,
@@ -278,7 +306,7 @@ internal object PartgReportXlsxWriter {
             )
             doc.pages.forEach { page ->
                 val cells = codes.map { (if (current) page.current else page.prior).getValue(it) }
-                val bold = page === doc.consolidated
+                val bold = page === doc.unitSum
                 val partial =
                     codes.filter { (if (current) page.current else page.prior).getValue(it) is PartgCell.Partial }
                 val note =
@@ -659,6 +687,162 @@ internal object PartgReportXlsxWriter {
         return s
     }
 
+    // ------------------------------------------------------------------ V1.9.290 (R5): the consolidated whole party
+
+    private fun consolidatedCell(
+        c: network.lapis.cloud.shared.domain.PartgConsolidatedCell,
+        bold: Boolean,
+    ): X =
+        when (c) {
+            is network.lapis.cloud.shared.domain.PartgConsolidatedCell.Value -> X.Euro(cents = c.cents, bold = bold)
+            // never 0 for "unknown": the text n. b.
+            is network.lapis.cloud.shared.domain.PartgConsolidatedCell.NotComputable ->
+                X.Text(value = PartgReportTexts.NOT_COMPUTABLE, bold = bold)
+        }
+
+    private fun consolidation(
+        doc: PartgReportDocument,
+        section: ConsolidationSection,
+    ): Sheet {
+        val s = Sheet(listOf(10, 70, 26, 22, 26, 26))
+        s.add(X.Text(value = PartgReportTexts.CONSOLIDATION_TITLE, bold = true))
+        s.add(X.Text(value = PartgReportTexts.CONSOLIDATION_NOTE))
+        s.add(X.Text(value = "${PartgReportTexts.CONSOLIDATION_INCLUDED}: " + section.included.joinToString("; ").ifEmpty { "-" }))
+        if (section.excluded.isNotEmpty()) {
+            s.add(
+                X.Text(
+                    value =
+                        "${PartgReportTexts.CONSOLIDATION_EXCLUDED}: " +
+                            section.excluded.joinToString("; ") { "${it.unitLabel} (${it.reason})" },
+                ),
+            )
+        }
+        if (section.priorTransfersUnmatched) s.add(X.Text(value = PartgReportTexts.CONSOLIDATION_PRIOR_NOTE))
+        s.blank()
+        s.add(
+            X.Text(value = PartgReportTexts.COL_NUMBER, bold = true),
+            X.Text(value = PartgReportTexts.COL_POSITION, bold = true),
+            X.Text(value = PartgReportTexts.COL_UNIT_SUM, bold = true),
+            X.Text(value = PartgReportTexts.COL_ELIMINATED, bold = true),
+            X.Text(value = PartgReportTexts.COL_CONSOLIDATED, bold = true),
+            X.Text(value = "${PartgReportTexts.COL_PRIOR} (${doc.priorYear})", bold = true),
+        )
+        section.lines.forEach { l ->
+            s.add(
+                X.Text(value = l.numberText, bold = l.bold),
+                X.Text(value = l.label, bold = l.bold),
+                consolidatedCell(c = l.unitSum, bold = l.bold),
+                X.Euro(cents = l.eliminatedCents, bold = l.bold),
+                consolidatedCell(c = l.consolidated, bold = l.bold),
+                consolidatedCell(c = l.prior, bold = l.bold),
+            )
+        }
+        return s
+    }
+
+    private fun reconciliation(
+        doc: PartgReportDocument,
+        section: ConsolidationSection,
+    ): Sheet {
+        val s = Sheet(listOf(26, 48, 48, 24, 24, 22))
+        s.add(X.Text(value = PartgReportTexts.RECONCILIATION, bold = true))
+        s.add(
+            X.Text(value = PartgReportTexts.COL_KIND, bold = true),
+            X.Text(value = PartgReportTexts.COL_PAYER, bold = true),
+            X.Text(value = PartgReportTexts.COL_PAYEE, bold = true),
+            X.Text(value = PartgReportTexts.COL_PAYER_AMOUNT, bold = true),
+            X.Text(value = PartgReportTexts.COL_PAYEE_AMOUNT, bold = true),
+            X.Text(value = PartgReportTexts.COL_STATE, bold = true),
+        )
+        if (section.reconciliation.isEmpty()) s.add(X.Text(value = PartgReportTexts.NO_ENTRIES))
+        section.reconciliation.forEach { r ->
+            s.add(
+                X.Text(
+                    value =
+                        if (r.kind ==
+                            network.lapis.cloud.shared.domain.PartgTransferKind.SUBSIDY
+                        ) {
+                            PartgReportTexts.KIND_SUBSIDY
+                        } else {
+                            PartgReportTexts.KIND_BALANCE
+                        },
+                ),
+                X.Text(value = r.payerLabel),
+                X.Text(value = r.payeeLabel),
+                r.payerAmountCents?.let { X.Euro(cents = it) } ?: X.Text(value = PartgReportTexts.NOT_ENTERED_LONG),
+                r.payeeAmountCents?.let { X.Euro(cents = it) } ?: X.Text(value = PartgReportTexts.NOT_ENTERED_LONG),
+                X.Text(
+                    value =
+                        when (r.match) {
+                            network.lapis.cloud.shared.domain.PartgMatchState.MATCH -> PartgReportTexts.MATCH_MATCH
+                            network.lapis.cloud.shared.domain.PartgMatchState.DIFFERS -> PartgReportTexts.MATCH_DIFFERS
+                            network.lapis.cloud.shared.domain.PartgMatchState.COUNTERPART_MISSING -> PartgReportTexts.MATCH_MISSING
+                        },
+                ),
+            )
+        }
+        if (section.unmatched.isNotEmpty()) {
+            s.blank()
+            s.add(X.Text(value = PartgReportTexts.UNMATCHED_TITLE, bold = true))
+            s.add(
+                X.Text(value = PartgReportTexts.COL_UNIT, bold = true),
+                X.Text(value = PartgReportTexts.COL_POSITION, bold = true),
+                null,
+                X.Text(value = PartgReportTexts.COL_DIFFERENCE, bold = true),
+            )
+            section.unmatched.forEach {
+                s.add(X.Text(value = it.unitLabel), X.Text(value = it.positionLabel), null, X.Euro(cents = it.differenceCents))
+            }
+        }
+        return s
+    }
+
+    private fun consolidatedDonors(section: ConsolidationSection): Sheet {
+        val s = Sheet(listOf(50, 12, 40, 50, 8, 20, 18, 10))
+        s.add(X.Text(value = PartgReportTexts.ANNEX_B_CONSOLIDATED, bold = true))
+        s.add(X.Text(value = PartgReportTexts.B_CONSOLIDATED_NOTE))
+        s.add(
+            X.Text(value = PartgReportTexts.COL_UNITS, bold = true),
+            X.Text(value = PartgReportTexts.COL_PERSON_KIND, bold = true),
+            X.Text(value = PartgReportTexts.COL_NAME, bold = true),
+            X.Text(value = PartgReportTexts.COL_ADDRESS, bold = true),
+            X.Text(value = PartgReportTexts.COL_COUNTRY, bold = true),
+            X.Text(value = PartgReportTexts.COL_CONTRIBUTION, bold = true),
+            X.Text(value = PartgReportTexts.COL_AMOUNT, bold = true),
+            X.Text(value = PartgReportTexts.COL_ROW, bold = true),
+        )
+        if (section.donors.isEmpty()) s.add(X.Text(value = PartgReportTexts.NO_ENTRIES))
+        section.donors.forEach { d ->
+            s.add(
+                X.Text(value = d.unitLabels),
+                X.Text(
+                    value =
+                        if (d.personKind ==
+                            PartgPersonKind.LEGAL
+                        ) {
+                            PartgReportTexts.PERSON_LEGAL
+                        } else {
+                            PartgReportTexts.PERSON_NATURAL
+                        },
+                ),
+                X.Text(value = d.name),
+                X.Text(value = d.addressLine),
+                X.Text(value = d.country),
+                X.Text(
+                    value =
+                        when (d.contributionKind) {
+                            PartgContributionKind.DONATION -> PartgReportTexts.CONTRIBUTION_DONATION
+                            PartgContributionKind.FEE -> PartgReportTexts.CONTRIBUTION_FEE
+                            PartgContributionKind.BOTH -> PartgReportTexts.CONTRIBUTION_BOTH
+                        },
+                ),
+                X.Euro(cents = d.totalCents),
+                X.Num(value = d.rowCount.toLong()),
+            )
+        }
+        return s
+    }
+
     // ------------------------------------------------------------------ xml
 
     private fun column(index: Int): String = ('A' + index).toString()
@@ -738,14 +922,14 @@ internal object PartgReportXlsxWriter {
     private const val MAX_NAME_CHARS = 80
     private const val XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"""
 
-    private fun contentTypes(): String =
+    private fun contentTypes(names: List<String>): String =
         XML +
             """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">""" +
             """<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>""" +
             """<Default Extension="xml" ContentType="application/xml"/>""" +
             """<Override PartName="/xl/workbook.xml" """ +
             """ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>""" +
-            SHEET_NAMES.indices.joinToString("") {
+            names.indices.joinToString("") {
                 """<Override PartName="/xl/worksheets/sheet${it + 1}.xml" """ +
                     """ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>"""
             } +
@@ -755,23 +939,23 @@ internal object PartgReportXlsxWriter {
             """ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>""" +
             "</Types>"
 
-    private fun workbook(): String =
+    private fun workbook(names: List<String>): String =
         XML +
             """<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" """ +
             """xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>""" +
-            SHEET_NAMES.withIndex().joinToString("") {
+            names.withIndex().joinToString("") {
                 """<sheet name="${PartgXlsxWriter.escape(it.value)}" sheetId="${it.index + 1}" r:id="rId${it.index + 1}"/>"""
             } +
             "</sheets></workbook>"
 
-    private fun workbookRels(): String =
+    private fun workbookRels(names: List<String>): String =
         XML +
             """<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">""" +
-            SHEET_NAMES.indices.joinToString("") {
+            names.indices.joinToString("") {
                 """<Relationship Id="rId${it + 1}" """ +
                     """Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${it + 1}.xml"/>"""
             } +
-            """<Relationship Id="rId${SHEET_NAMES.size + 1}" """ +
+            """<Relationship Id="rId${names.size + 1}" """ +
             """Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>""" +
             "</Relationships>"
 

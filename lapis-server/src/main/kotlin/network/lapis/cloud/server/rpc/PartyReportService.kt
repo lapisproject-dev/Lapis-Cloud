@@ -7,6 +7,8 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.server.partg.PartgAnnexWriter
+import network.lapis.cloud.server.partg.PartgConsolidationView
+import network.lapis.cloud.server.partg.PartgConsolidationWriter
 import network.lapis.cloud.server.partg.PartgLedgerLinkStore
 import network.lapis.cloud.server.partg.PartgLedgerProposals
 import network.lapis.cloud.server.partg.PartgLedgerReader
@@ -17,6 +19,8 @@ import network.lapis.cloud.server.partg.PartgSheetWriter
 import network.lapis.cloud.server.partg.PartgStatementStore
 import network.lapis.cloud.server.partg.PartgYearRules
 import network.lapis.cloud.server.partg.PartyReportActor
+import network.lapis.cloud.server.partg.report.PartgConsolidation
+import network.lapis.cloud.server.partg.report.PartgDonorConsolidation
 import network.lapis.cloud.server.partg.report.PartgLedgerFacts
 import network.lapis.cloud.server.partg.report.PartgPlausibility
 import network.lapis.cloud.server.partg.requirePartyReportAccess
@@ -31,6 +35,7 @@ import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgAnnexRules
 import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
+import network.lapis.cloud.shared.domain.PartgConsolidationDto
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgEnterpriseCheckDto
 import network.lapis.cloud.shared.domain.PartgEnterpriseDto
@@ -38,6 +43,7 @@ import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
 import network.lapis.cloud.shared.domain.PartgEnterpriseRules
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgHoldingDto
+import network.lapis.cloud.shared.domain.PartgIntraTransferInputDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
 import network.lapis.cloud.shared.domain.PartgLedgerProposalDto
@@ -327,6 +333,25 @@ class PartyReportService internal constructor(
         if (!findingsRateLimiter.checkAndRecord("partg:findings:${current.memberId}")) throw RateLimitedException()
         val snapshot = PartgReportSnapshotReader.read(listOf(year, year - 1))
         val ledger = transaction { ledgerFacts(year = year, units = snapshot.units) }
+        // V1.9.290 (R5): the hints P17..P21 are for the federal view only. A chapter treasurer gets none (not even for their own unit): the
+        // consolidation reads the data of all units, which they may not see.
+        val consolidationInput =
+            if (actor is PartyReportActor.Federal) {
+                PartgConsolidation.findings(
+                    year = year,
+                    units = snapshot.units,
+                    entered = snapshot.entered.values,
+                    consolidation = snapshot.consolidation,
+                    donors =
+                        PartgDonorConsolidation.compute(
+                            units = snapshot.units,
+                            annex = snapshot.annex[year].orEmpty(),
+                            combinations = snapshot.consolidation[year]?.combinations.orEmpty(),
+                        ),
+                )
+            } else {
+                null
+            }
         val findings =
             PartgPlausibility.check(
                 year = year,
@@ -335,6 +360,7 @@ class PartyReportService internal constructor(
                 annex = snapshot.annex,
                 notes = snapshot.notes,
                 ledger = ledger,
+                consolidation = consolidationInput,
             )
         // a chapter treasurer sees only the hints of their own units; the hints of the whole organisation (unitKey null) are not theirs
         return if (actor is PartyReportActor.Federal) {
@@ -727,6 +753,106 @@ class PartyReportService internal constructor(
             picks = byCode,
             now = ServerClock.now(),
         )
+    }
+
+    // ---------------------------------------------------------------- R5 (V1.9.290)
+
+    override suspend fun getConsolidation(year: Int): PartgConsolidationDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        if (!findingsRateLimiter.checkAndRecord("partg:consolidation:${current.memberId}")) throw RateLimitedException()
+        val snapshot = PartgReportSnapshotReader.read(listOf(year, year - 1))
+        val pending = transaction { takeOverPending(year = year, units = snapshot.units) }
+        return PartgConsolidationView.build(year = year, snapshot = snapshot, takeOverPending = pending)
+    }
+
+    override suspend fun saveIntraTransfer(
+        year: Int,
+        expectedRevision: Long,
+        transfer: PartgIntraTransferInputDto,
+    ): PartgConsolidationDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgConsolidationWriter.saveTransfer(
+            current = current,
+            year = year,
+            expectedRevision = expectedRevision,
+            transfer = transfer,
+            now = ServerClock.now(),
+        ) { consolidationWithin(year) }
+    }
+
+    override suspend fun deleteIntraTransfer(
+        year: Int,
+        expectedRevision: Long,
+        transferId: String,
+    ): PartgConsolidationDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgConsolidationWriter.deleteTransfer(
+            current = current,
+            year = year,
+            expectedRevision = expectedRevision,
+            transferId = transferId,
+            now = ServerClock.now(),
+        ) { consolidationWithin(year) }
+    }
+
+    override suspend fun createDonorCombination(
+        year: Int,
+        expectedRevision: Long,
+        expectedAnnexRevisions: Map<String, Long>,
+        largeDonorIds: List<String>,
+    ): PartgConsolidationDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgConsolidationWriter.createCombination(
+            current = current,
+            year = year,
+            expectedRevision = expectedRevision,
+            expectedAnnexRevisions = expectedAnnexRevisions,
+            largeDonorIds = largeDonorIds,
+            now = ServerClock.now(),
+        ) { consolidationWithin(year) }
+    }
+
+    override suspend fun dissolveDonorCombination(
+        year: Int,
+        expectedRevision: Long,
+        combinationId: String,
+    ): PartgConsolidationDto {
+        val current = requirePartyReportAccess(call)
+        PartgYearRules.requireValid(year)
+        if (!writeRateLimiter.checkAndRecord("partg:write:${current.memberId}")) throw RateLimitedException()
+        return PartgConsolidationWriter.dissolveCombination(
+            current = current,
+            year = year,
+            expectedRevision = expectedRevision,
+            combinationId = combinationId,
+            now = ServerClock.now(),
+        ) { consolidationWithin(year) }
+    }
+
+    /** Must run inside a transaction (the writer's): the caller returns exactly the state it wrote. */
+    private fun consolidationWithin(year: Int): PartgConsolidationDto {
+        val snapshot = PartgReportSnapshotReader.readWithin(listOf(year, year - 1))
+        return PartgConsolidationView.build(
+            year = year,
+            snapshot = snapshot,
+            takeOverPending = takeOverPending(year = year, units = snapshot.units),
+        )
+    }
+
+    /** Must run inside a transaction. Read outside the revision fence on purpose: informative only, and posted bookings are immutable. */
+    private fun takeOverPending(
+        year: Int,
+        units: List<PartgUnitDto>,
+    ): Map<Int, Set<String>> {
+        val keys = units.map { it.unitKey }
+        return listOf(year, year - 1).associateWith { PartgLedgerProposals.takeOverPending(year = it, unitKeys = keys) }
     }
 
     private fun PartyReportActor.allowsKey(unitKey: String): Boolean = PartgUnit.parse(unitKey)?.let { allows(it) } == true

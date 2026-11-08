@@ -17,6 +17,9 @@ enum class ActionIcon(
     /** V1.9.226: link one record to one member ("Mit diesem Mitglied verknüpfen" in the LupaBB sync). Assigned to this purpose only. */
     LINK("fas fa-link"),
     EDIT("fas fa-pen"),
+
+    /** V1.9.290: combine rows of several units to one person ("Zusammenführen" in the consolidation of the party report). Assigned to this purpose only. */
+    COMBINE("fas fa-code-merge"),
     DELETE("fas fa-trash"),
 
     /** Detach an assignment (remove a member from a list); NOT the bin -- the object itself survives. */

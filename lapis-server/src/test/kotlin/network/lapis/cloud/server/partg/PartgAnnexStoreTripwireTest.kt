@@ -54,6 +54,10 @@ class PartgAnnexStoreTripwireTest :
                         // pure consumers of the store's value classes (no query): the assembler and the plausibility check
                         "PartgReportAssembler.kt",
                         "PartgPlausibility.kt",
+                        // V1.9.290 (R5): the consolidation writer locks annex headers and looks rows up through the store; the donor
+                        // consolidation is a pure consumer of its value classes
+                        "PartgConsolidationWriter.kt",
+                        "PartgDonorConsolidation.kt",
                     ),
                 ).shouldBeEmpty()
         }

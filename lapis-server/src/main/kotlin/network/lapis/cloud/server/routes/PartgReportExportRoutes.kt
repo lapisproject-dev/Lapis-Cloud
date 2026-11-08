@@ -17,8 +17,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.partg.PartgLedgerProposals
 import network.lapis.cloud.server.partg.PartgReportSnapshotReader
 import network.lapis.cloud.server.partg.PartgYearRules
+import network.lapis.cloud.server.partg.report.PartgConsolidation
+import network.lapis.cloud.server.partg.report.PartgDonorConsolidation
 import network.lapis.cloud.server.partg.report.PartgPlausibility
 import network.lapis.cloud.server.partg.report.PartgReportAssembler
 import network.lapis.cloud.server.partg.report.PartgReportPdfRenderer
@@ -113,6 +116,38 @@ private suspend fun ApplicationCall.export(
         val rendered =
             try {
                 withContext(Dispatchers.Default) {
+                    // V1.9.290 (R5): the whole-party export also carries the consolidation (the route is federal-only: the gate above)
+                    val whole = scope is PartgReportScope.All
+                    val donors =
+                        if (whole) {
+                            PartgDonorConsolidation.compute(
+                                units = snapshot.units,
+                                annex = snapshot.annex[year].orEmpty(),
+                                combinations = snapshot.consolidation[year]?.combinations.orEmpty(),
+                            )
+                        } else {
+                            null
+                        }
+                    val consolidation =
+                        if (whole) {
+                            val keys = snapshot.units.map { it.unitKey }
+                            val pending =
+                                transaction {
+                                    listOf(
+                                        year,
+                                        year - 1,
+                                    ).associateWith { PartgLedgerProposals.takeOverPending(year = it, unitKeys = keys) }
+                                }
+                            PartgConsolidation.compute(
+                                year = year,
+                                units = snapshot.units,
+                                entered = snapshot.entered.values,
+                                consolidation = snapshot.consolidation,
+                                takeOverPending = pending,
+                            )
+                        } else {
+                            null
+                        }
                     val findings =
                         PartgPlausibility.check(
                             year = year,
@@ -120,6 +155,16 @@ private suspend fun ApplicationCall.export(
                             entered = snapshot.entered.values,
                             annex = snapshot.annex,
                             notes = snapshot.notes,
+                            consolidation =
+                                donors?.let {
+                                    PartgConsolidation.findings(
+                                        year = year,
+                                        units = snapshot.units,
+                                        entered = snapshot.entered.values,
+                                        consolidation = snapshot.consolidation,
+                                        donors = it,
+                                    )
+                                },
                         )
                     val document =
                         PartgReportAssembler.assemble(
@@ -131,6 +176,8 @@ private suspend fun ApplicationCall.export(
                             annex = snapshot.annex,
                             notes = snapshot.notes,
                             findings = findings,
+                            consolidation = consolidation,
+                            consolidatedDonors = donors,
                         )
                     val bytes =
                         when (format) {

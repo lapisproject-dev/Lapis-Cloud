@@ -15,6 +15,8 @@ internal class ReportSnapshot(
     val entered: PartgReportStore.EnteredSnapshot,
     val annex: Map<Int, Map<String, PartgAnnexStore.AnnexData>>,
     val notes: Map<Int, PartgAnnexStore.NotesData>,
+    /** V1.9.290 (R5): the transfer pairs and donor combinations per year. */
+    val consolidation: Map<Int, PartgConsolidationStore.ConsolidationData> = emptyMap(),
 )
 
 /**
@@ -33,38 +35,50 @@ internal object PartgReportSnapshotReader {
 
     fun read(years: Collection<Int>): ReportSnapshot {
         repeat(MAX_ATTEMPTS) { attempt ->
-            val snapshot =
-                transaction {
-                    val before = revisions(years)
-                    val organization =
-                        OrganizationSettingsTable
-                            .selectAll()
-                            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
-                            .singleOrNull()
-                            ?.get(OrganizationSettingsTable.name)
-                            .orEmpty()
-                    val units = PartgReportStore.units()
-                    val entered = PartgReportStore.enteredSnapshot(years)
-                    val annex = PartgAnnexStore.annexSnapshot(years)
-                    betweenReadsHook(attempt)
-                    val after = revisions(years)
-                    if (before == after) {
-                        ReportSnapshot(
-                            organizationName = organization,
-                            units = units,
-                            entered = entered,
-                            annex = annex.annex,
-                            notes = annex.notes,
-                        )
-                    } else {
-                        null
-                    }
-                }
+            val snapshot = transaction { attemptRead(years = years, attempt = attempt) }
             if (snapshot != null) return snapshot
         }
         throw PartyReportRevisionConflictException()
     }
 
+    /** Same fence, for a caller that already holds a transaction (a writer that returns the state it wrote). */
+    fun readWithin(years: Collection<Int>): ReportSnapshot {
+        repeat(MAX_ATTEMPTS) { attempt -> attemptRead(years = years, attempt = attempt)?.let { return it } }
+        throw PartyReportRevisionConflictException()
+    }
+
+    private fun attemptRead(
+        years: Collection<Int>,
+        attempt: Int,
+    ): ReportSnapshot? {
+        val before = revisions(years)
+        val organization =
+            OrganizationSettingsTable
+                .selectAll()
+                .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                .singleOrNull()
+                ?.get(OrganizationSettingsTable.name)
+                .orEmpty()
+        val units = PartgReportStore.units()
+        val entered = PartgReportStore.enteredSnapshot(years)
+        val annex = PartgAnnexStore.annexSnapshot(years)
+        val consolidation = PartgConsolidationStore.snapshot(years)
+        betweenReadsHook(attempt)
+        val after = revisions(years)
+        return if (before == after) {
+            ReportSnapshot(
+                organizationName = organization,
+                units = units,
+                entered = entered,
+                annex = annex.annex,
+                notes = annex.notes,
+                consolidation = consolidation,
+            )
+        } else {
+            null
+        }
+    }
+
     private fun revisions(years: Collection<Int>): Map<String, Long> =
-        PartgReportStore.sheetRevisions(years) + PartgAnnexStore.headerRevisions(years)
+        PartgReportStore.sheetRevisions(years) + PartgAnnexStore.headerRevisions(years) + PartgConsolidationStore.revisions(years)
 }

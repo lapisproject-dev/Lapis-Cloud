@@ -1083,3 +1083,7 @@ col:RegionalChapterTreasurerTable.grantedAt	A	stamped by the server clock (DbClo
 col:RegionalChapterTreasurerTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PartgAccountMappingTable.updatedAt	A	PartyReportService: stamped by ServerClock.now()
 col:PartgReportUnitModeTable.updatedAt	A	PartyReportService: stamped by ServerClock.now()
+col:PartgConsolidationSheetTable.updatedAt	A	PartgConsolidationStore: stamped by ServerClock.now()
+col:PartgIntraTransferTable.createdAt	A	PartgConsolidationStore: stamped by ServerClock.now()
+col:PartgIntraTransferTable.updatedAt	A	PartgConsolidationStore: stamped by ServerClock.now()
+col:PartgDonorCombinationTable.createdAt	A	PartgConsolidationStore: stamped by ServerClock.now()

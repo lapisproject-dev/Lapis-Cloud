@@ -5,10 +5,12 @@ import network.lapis.cloud.shared.domain.PartgAccountMappingViewDto
 import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
+import network.lapis.cloud.shared.domain.PartgConsolidationDto
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgHoldingDto
+import network.lapis.cloud.shared.domain.PartgIntraTransferInputDto
 import network.lapis.cloud.shared.domain.PartgLargeDonorInputDto
 import network.lapis.cloud.shared.domain.PartgLedgerProposalDto
 import network.lapis.cloud.shared.domain.PartgMappingChangeDto
@@ -213,4 +215,42 @@ interface IPartyReportService {
         expectedPriorRevision: Long,
         picks: List<PartgProposalPickDto>,
     ): PartgSaveResultDto
+
+    // ---------------------------------------------------------------- R5 (V1.9.290)
+
+    /**
+     * V1.9.290 (R5): the whole party consolidated over its units (federal roles only): completeness list, 42 positions with the eliminated
+     * transfers, the matching table, the computed statement B across all units and the hints P17..P21. A DRAFT, no official report.
+     */
+    suspend fun getConsolidation(year: Int): PartgConsolidationDto
+
+    /** V1.9.290 (R5): adds ([PartgIntraTransferInputDto.id] `null`) or changes one pair; one pair per (year, kind, payer, payee). At most 1000 per year. */
+    suspend fun saveIntraTransfer(
+        year: Int,
+        expectedRevision: Long,
+        transfer: PartgIntraTransferInputDto,
+    ): PartgConsolidationDto
+
+    suspend fun deleteIntraTransfer(
+        year: Int,
+        expectedRevision: Long,
+        transferId: String,
+    ): PartgConsolidationDto
+
+    /**
+     * V1.9.290 (R5): combines 2..20 large-donor rows of DIFFERENT units of [year] to one person. [expectedAnnexRevisions] (as in
+     * [PartgConsolidationDto.annexRevisions]) must still be current for the units involved, else [PartyReportRevisionConflictException].
+     */
+    suspend fun createDonorCombination(
+        year: Int,
+        expectedRevision: Long,
+        expectedAnnexRevisions: Map<String, Long>,
+        largeDonorIds: List<String>,
+    ): PartgConsolidationDto
+
+    suspend fun dissolveDonorCombination(
+        year: Int,
+        expectedRevision: Long,
+        combinationId: String,
+    ): PartgConsolidationDto
 }

@@ -3,15 +3,18 @@ package network.lapis.cloud.server.partg.report
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.PartgCell
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
+import network.lapis.cloud.shared.domain.PartgConsolidatedCell
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgEnterpriseRules
 import network.lapis.cloud.shared.domain.PartgFindingDto
 import network.lapis.cloud.shared.domain.PartgHoldingDto
+import network.lapis.cloud.shared.domain.PartgMatchState
 import network.lapis.cloud.shared.domain.PartgNoteDto
 import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgReportScope
 import network.lapis.cloud.shared.domain.PartgSponsorQualification
+import network.lapis.cloud.shared.domain.PartgTransferKind
 import network.lapis.cloud.shared.domain.PartgUnitLevel
 
 /** One reporting unit (or the consolidated party) with the cells of the report year and the year before. Sums only, no persons. */
@@ -134,8 +137,8 @@ internal data class PartgReportDocument(
     val scope: PartgReportScope,
     /** In the order of `PartgReportStore.units()`. */
     val units: List<UnitPage>,
-    /** Only for the scope ALL: the whole party. */
-    val consolidated: UnitPage?,
+    /** Only for the scope ALL: the SUM OF THE UNITS (not consolidated: the transfers between the units are still in it). */
+    val unitSum: UnitPage?,
     /** Only for the scope ALL. */
     val levels: List<LevelRow>,
     /** Restricted to the units in scope. */
@@ -144,13 +147,73 @@ internal data class PartgReportDocument(
     val notes: NotesSection = NotesSection(blocks = emptyList(), holdings = emptyList()),
     /** The plausibility hints (codes and row numbers only). */
     val findings: List<PartgFindingDto> = emptyList(),
+    /** V1.9.290 (R5): the consolidated whole party; only for the scope ALL. */
+    val consolidation: ConsolidationSection? = null,
 ) {
     /** The pages in report order: every unit, then (scope ALL) the whole party. */
-    val pages: List<UnitPage> get() = units + listOfNotNull(consolidated)
+    val pages: List<UnitPage> get() = units + listOfNotNull(unitSum)
 
     /** The page the summary is about: the whole party, or the single unit. */
-    val summaryPage: UnitPage get() = consolidated ?: units.single()
+    val summaryPage: UnitPage get() = unitSum ?: units.single()
 }
+
+/** One of the 42 positions in the consolidation (V1.9.290, R5). The cells are rendered by the PDF and XLSX writers; "not computable" is never 0. */
+internal data class ConsolidationLine(
+    val code: String,
+    val numberText: String,
+    val label: String,
+    val unitSum: PartgConsolidatedCell,
+    val eliminatedCents: Long,
+    val consolidated: PartgConsolidatedCell,
+    val prior: PartgConsolidatedCell,
+    val bold: Boolean,
+)
+
+/** A unit that is not part of the consolidated total, with the German reason text. */
+internal data class ExcludedLine(
+    val unitLabel: String,
+    val reason: String,
+)
+
+/** One pair of the matching table. The free-text note is NOT exported (it may hold personal data). */
+internal data class ReconciliationLine(
+    val kind: PartgTransferKind,
+    val payerLabel: String,
+    val payeeLabel: String,
+    val payerAmountCents: Long?,
+    val payeeAmountCents: Long?,
+    val match: PartgMatchState,
+)
+
+/** A difference that stays visible: the entered value of a position minus what the pairs eliminate. */
+internal data class UnmatchedLine(
+    val unitLabel: String,
+    val positionLabel: String,
+    val differenceCents: Long,
+)
+
+/** One person of the consolidated statement B. PERSONAL DATA OF A THIRD PARTY: never logged. */
+internal data class ConsolidatedDonorLine(
+    val unitLabels: String,
+    val personKind: PartgPersonKind,
+    val name: String,
+    val addressLine: String,
+    val country: String,
+    val contributionKind: PartgContributionKind,
+    val totalCents: Long,
+    val rowCount: Int,
+)
+
+/** V1.9.290 (R5): the consolidated whole party; only present for the scope ALL. A draft, never an official statement. */
+internal data class ConsolidationSection(
+    val included: List<String>,
+    val excluded: List<ExcludedLine>,
+    val priorTransfersUnmatched: Boolean,
+    val lines: List<ConsolidationLine>,
+    val reconciliation: List<ReconciliationLine>,
+    val unmatched: List<UnmatchedLine>,
+    val donors: List<ConsolidatedDonorLine>,
+)
 
 /** A generated export grew beyond its size budget; the work was stopped. Carries no content. */
 internal class PartgReportTooLargeException(

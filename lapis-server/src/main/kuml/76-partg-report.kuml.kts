@@ -34,6 +34,13 @@
 // the ERM profile (SQL only, V144): the foreign key position_code -> partg_report_position.code (natural key), every CHECK, and the rule that
 // the target is a LEAF of the matching section (shared PartgLedgerRules, enforced by the service). DSGVO: organisation data; updated_by is
 // "changed by you" data.
+// Welle V1.9.290 "Rechenschaftsbericht R5" (V145__partg_report_r5.sql) adds FOUR tables: partg_consolidation_sheet (header per year: lock and
+// revision fence), partg_intra_transfer (one pair per year, kind, payer unit and payee unit: the matching table for the elimination of
+// transfers between units), partg_donor_combination and partg_donor_combination_row (a manual group of large-donor rows of DIFFERENT units that
+// are one person; ids only, never a name). NOT expressible in the ERM profile (SQL only, V145): every CHECK, the unit consistency of both sides,
+// and the rules checked by the service (same year as the header, rows of one group from different units, 2..20 rows per group, at most 1000
+// pairs and 500 groups per year). DSGVO: organisation data; created_by/updated_by are "changed by you" data; the free-text note of a pair
+// may hold personal data and is never logged or audited.
 // DSGVO (R3b): sponsor and sponsoring entry are PERSONAL DATA OF THIRD PARTIES (listed in knownUncoveredSubjectRoots); youth_org is organisation data.
 // DSGVO (R3): partg_report_large_donor is PERSONAL DATA OF THIRD PARTIES (name, address, yearly sum above 10,000 EUR); no member foreign key,
 // listed in PersonalDataRegistry.knownUncoveredSubjectRoots; created_by/updated_by of all R3 tables are "changed by you" data.
@@ -99,6 +106,13 @@ classDiagram(name = "PartgReport") {
             literal(name = "A")
             literal(name = "B")
             literal(name = "C")
+        }
+
+    // V1.9.290 (R5). Literal order is load-bearing (= network.lapis.cloud.shared.domain.PartgTransferKind).
+    val partgTransferKind =
+        enumOf(name = "PartgTransferKind") {
+            literal(name = "SUBSIDY")
+            literal(name = "BALANCE")
         }
 
     // V1.9.269 (R3). Literal order is load-bearing (= network.lapis.cloud.shared.domain.*).
@@ -754,6 +768,148 @@ classDiagram(name = "PartgReport") {
         }
         attribute(name = "updatedBy", type = "UUID") {
             stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // V1.9.290 (R5)
+    classOf(name = "PartgConsolidationSheet") {
+        stereotype("Entity") { "tableName" to "partg_consolidation_sheet"; "kotlinObjectName" to "PartgConsolidationSheetTable" }
+        stereotype("Index") { "columns" to listOf("fiscal_year"); "unique" to true; "name" to "uq_partg_consolidation_sheet_year" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_consolidation_sheet_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "fiscalYear", type = "Int") {
+            stereotype("Column") { "columnName" to "fiscal_year" }
+        }
+        attribute(name = "revision", type = "Long") {
+            stereotype("Column") { "columnName" to "revision" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    classOf(name = "PartgIntraTransfer") {
+        stereotype("Entity") { "tableName" to "partg_intra_transfer"; "kotlinObjectName" to "PartgIntraTransferTable" }
+        stereotype("Index") {
+            "columns" to listOf("consolidation_id", "transfer_kind", "payer_unit_key", "payee_unit_key")
+            "unique" to true
+            "name" to "uq_partg_intra_transfer_pair"
+        }
+        stereotype("Index") { "columns" to listOf("consolidation_id"); "name" to "ix_partg_intra_transfer_consolidation" }
+        stereotype("Index") { "columns" to listOf("payer_chapter_id"); "name" to "ix_partg_intra_transfer_payer_chapter" }
+        stereotype("Index") { "columns" to listOf("payee_chapter_id"); "name" to "ix_partg_intra_transfer_payee_chapter" }
+        stereotype("Index") { "columns" to listOf("created_by"); "name" to "ix_partg_intra_transfer_created_by" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_intra_transfer_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "consolidationId", type = "UUID") {
+            stereotype("Column") { "columnName" to "consolidation_id"; "fkEntity" to "PartgConsolidationSheet" }
+        }
+        attribute(name = "transferKind", type = partgTransferKind) {
+            stereotype("Column") {
+                "columnName" to "transfer_kind"
+                "sqlType" to "VARCHAR(7)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgTransferKind"
+            }
+        }
+        attribute(name = "payerLevel", type = partgUnitLevel) {
+            stereotype("Column") {
+                "columnName" to "payer_level"
+                "sqlType" to "VARCHAR(11)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgUnitLevel"
+            }
+        }
+        attribute(name = "payerChapterId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payer_chapter_id"; "fkEntity" to "RegionalChapter" }
+        }
+        attribute(name = "payerUnitKey", type = "String") {
+            stereotype("Column") { "columnName" to "payer_unit_key"; "sqlType" to "VARCHAR(48)" }
+        }
+        attribute(name = "payeeLevel", type = partgUnitLevel) {
+            stereotype("Column") {
+                "columnName" to "payee_level"
+                "sqlType" to "VARCHAR(11)"
+                "enumType" to "network.lapis.cloud.shared.domain.PartgUnitLevel"
+            }
+        }
+        attribute(name = "payeeChapterId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payee_chapter_id"; "fkEntity" to "RegionalChapter" }
+        }
+        attribute(name = "payeeUnitKey", type = "String") {
+            stereotype("Column") { "columnName" to "payee_unit_key"; "sqlType" to "VARCHAR(48)" }
+        }
+        attribute(name = "payerAmountCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payer_amount_cents" }
+        }
+        attribute(name = "payeeAmountCents", type = "Long") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "payee_amount_cents" }
+        }
+        attribute(name = "note", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "note"; "sqlType" to "VARCHAR(200)" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    classOf(name = "PartgDonorCombination") {
+        stereotype("Entity") { "tableName" to "partg_donor_combination"; "kotlinObjectName" to "PartgDonorCombinationTable" }
+        stereotype("Index") { "columns" to listOf("consolidation_id"); "name" to "ix_partg_donor_combination_consolidation" }
+        stereotype("Index") { "columns" to listOf("created_by"); "name" to "ix_partg_donor_combination_created_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "consolidationId", type = "UUID") {
+            stereotype("Column") { "columnName" to "consolidation_id"; "fkEntity" to "PartgConsolidationSheet" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    classOf(name = "PartgDonorCombinationRow") {
+        stereotype("Entity") { "tableName" to "partg_donor_combination_row"; "kotlinObjectName" to "PartgDonorCombinationRowTable" }
+        stereotype("Index") { "columns" to listOf("combination_id"); "name" to "ix_partg_donor_combination_row_combination" }
+        stereotype("Index") { "columns" to listOf("large_donor_id"); "unique" to true; "name" to "uq_partg_donor_combination_row_donor" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "combinationId", type = "UUID") {
+            stereotype("Column") { "columnName" to "combination_id"; "fkEntity" to "PartgDonorCombination" }
+        }
+        attribute(name = "largeDonorId", type = "UUID") {
+            stereotype("Column") { "columnName" to "large_donor_id"; "fkEntity" to "PartgReportLargeDonor" }
         }
     }
 }

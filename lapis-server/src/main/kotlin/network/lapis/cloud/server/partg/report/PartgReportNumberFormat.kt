@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.partg.report
 
 import network.lapis.cloud.shared.domain.PartgCell
+import network.lapis.cloud.shared.domain.PartgConsolidatedCell
 import network.lapis.cloud.shared.domain.PartgPercent
 
 /**
@@ -49,5 +50,12 @@ internal object PartgReportNumberFormat {
             is PartgCell.Value -> euro(c.cents)
             is PartgCell.Partial -> euro(c.cents) + "*"
             is PartgCell.NotEntered -> PartgReportTexts.NOT_ENTERED
+        }
+
+    /** A consolidated cell (V1.9.290, R5): the amount, or `n. b.` -- never 0 for "unknown". */
+    fun consolidated(c: PartgConsolidatedCell): String =
+        when (c) {
+            is PartgConsolidatedCell.Value -> euro(c.cents)
+            is PartgConsolidatedCell.NotComputable -> PartgReportTexts.NOT_COMPUTABLE
         }
 }

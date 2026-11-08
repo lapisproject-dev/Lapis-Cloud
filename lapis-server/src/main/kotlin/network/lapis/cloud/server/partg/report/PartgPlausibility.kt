@@ -47,6 +47,11 @@ import kotlin.math.abs
  *  - P15 (CHECK, R4a): a unit in mode C (also the default) has bookings in the year (count, target: overview).
  *  - P16 (INFO, R4a): a value taken from the bookings no longer equals the current proposal (position code).
  *
+ *  - P17..P21 (R5, federal view only, target CONSOLIDATION): see [PartgConsolidation.findings]. A count or a position code, never an amount.
+ *    P17 (CHECK) the pairs of a unit differ from A03/E10/BP05/SP04 by more than 100 cents or the position is not entered; P18 (CHECK) a pair
+ *    has one amount only or names a unit without data; P19 (INFO) a position is above zero but there is no pair; P20 (INFO) candidates for
+ *    combining donor rows exist (count); P21 (CHECK) a donor combination is broken or a row changed after it was made (count).
+ *
  * At most [PartgAnnexRules.MAX_FINDINGS] findings: when the P05 hints would exceed it they are cut off and ONE P05 INFO without position marks
  * the cut.
  */
@@ -58,6 +63,7 @@ internal object PartgPlausibility {
         annex: Map<Int, Map<String, PartgAnnexStore.AnnexData>>,
         notes: Map<Int, PartgAnnexStore.NotesData>,
         ledger: Map<String, PartgLedgerFacts> = emptyMap(),
+        consolidation: PartgConsolidationFindingsInput? = null,
     ): List<PartgFindingDto> {
         val order = units.withIndex().associate { it.value.unitKey to it.index }
         val base = mutableListOf<PartgFindingDto>()
@@ -77,6 +83,8 @@ internal object PartgPlausibility {
             addVariance(unitKey = unit.unitKey, current = values, prior = entered[year - 1]?.get(unit.unitKey).orEmpty(), out = p05)
             ledger[unit.unitKey]?.let { addLedgerFindings(unit = unit, facts = it, values = values, out = base) }
         }
+        // R5: the hints of the consolidation (federal view only; the caller passes null for a chapter treasurer). They share the cap with the rest.
+        consolidation?.let { base += it.findings }
         val generalIncluded = notes[year]?.notes?.firstOrNull { it.block == PartgNoteBlock.GENERAL_ACCOUNTING }?.included == true
         if (!generalIncluded) {
             base +=

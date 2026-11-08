@@ -53,6 +53,8 @@ class PartgReportStoreTripwireTest :
                         // V1.9.269: the annex writer takes the chapter lock, the snapshot reader reads the sheet revisions
                         "PartgAnnexWriter.kt",
                         "PartgReportSnapshotReader.kt",
+                        // V1.9.290 (R5): locks the chapter rows of a transfer pair
+                        "PartgConsolidationWriter.kt",
                     ),
                 ).shouldBeEmpty()
         }

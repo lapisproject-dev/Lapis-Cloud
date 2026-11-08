@@ -5,10 +5,12 @@ import network.lapis.cloud.server.pdf.PdfLimitExceeded
 import network.lapis.cloud.shared.domain.PartgCell
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
+import network.lapis.cloud.shared.domain.PartgMatchState
 import network.lapis.cloud.shared.domain.PartgNoteBlock
 import network.lapis.cloud.shared.domain.PartgPersonKind
 import network.lapis.cloud.shared.domain.PartgReportLimits
 import network.lapis.cloud.shared.domain.PartgSection
+import network.lapis.cloud.shared.domain.PartgTransferKind
 import network.lapis.cloud.shared.domain.PartgTriState
 import org.apache.pdfbox.cos.COSArray
 import org.apache.pdfbox.cos.COSString
@@ -135,6 +137,8 @@ internal class PartgReportPdfRenderer(
                 annexESection(c = c, doc = document)
                 annexFSection(c = c, doc = document)
                 notesSection(c = c, doc = document)
+                // V1.9.290 (R5): appended AFTER everything else, so the pages before it are unchanged
+                consolidationSection(c = c, doc = document)
             } finally {
                 c.close()
             }
@@ -378,7 +382,7 @@ internal class PartgReportPdfRenderer(
         )
         c.y -= 14f
         val scopeText =
-            if (doc.consolidated != null) {
+            if (doc.unitSum != null) {
                 "Umfang: ${PartgReportTexts.WHOLE_PARTY} (${doc.units.size} Einheiten)"
             } else {
                 "Umfang: ${doc.units.single().label}"
@@ -550,7 +554,7 @@ internal class PartgReportPdfRenderer(
                     pages.map { page ->
                         Row(
                             cells = listOf(page.label) + block.map { PartgReportNumberFormat.cellShort(cellOf(page, it)) },
-                            bold = page === doc.consolidated,
+                            bold = page === doc.unitSum,
                         )
                     }
                 val suffix =
@@ -942,6 +946,158 @@ internal class PartgReportPdfRenderer(
             }
             c.y -= 4f
         }
+    }
+
+    // ---------------------------------------------------------------- V1.9.290 (R5): the consolidated whole party
+
+    private fun transferKindText(kind: PartgTransferKind) =
+        if (kind == PartgTransferKind.SUBSIDY) PartgReportTexts.KIND_SUBSIDY else PartgReportTexts.KIND_BALANCE
+
+    private fun matchText(state: PartgMatchState) =
+        when (state) {
+            PartgMatchState.MATCH -> PartgReportTexts.MATCH_MATCH
+            PartgMatchState.DIFFERS -> PartgReportTexts.MATCH_DIFFERS
+            PartgMatchState.COUNTERPART_MISSING -> PartgReportTexts.MATCH_MISSING
+        }
+
+    private fun consolidationSection(
+        c: Canvas,
+        doc: PartgReportDocument,
+    ) {
+        val section = doc.consolidation ?: return
+        c.newPage()
+        heading(c = c, text = PartgReportTexts.CONSOLIDATION_TITLE, size = 11f)
+        paragraph(c = c, text = PartgReportTexts.CONSOLIDATION_NOTE, size = 7.5f)
+        c.y -= 4f
+        paragraph(
+            c = c,
+            text = "${PartgReportTexts.CONSOLIDATION_INCLUDED}: " + section.included.joinToString("; ").ifEmpty { "-" },
+            size = 7.5f,
+        )
+        if (section.excluded.isNotEmpty()) {
+            paragraph(
+                c = c,
+                text =
+                    "${PartgReportTexts.CONSOLIDATION_EXCLUDED}: " +
+                        section.excluded.joinToString("; ") { "${it.unitLabel} (${it.reason})" },
+                size = 7.5f,
+            )
+        }
+        if (section.priorTransfersUnmatched) paragraph(c = c, text = PartgReportTexts.CONSOLIDATION_PRIOR_NOTE, size = 7.5f)
+        c.y -= 6f
+        val cols =
+            listOf(
+                Col(title = PartgReportTexts.COL_NUMBER, width = 55f, right = false),
+                Col(title = PartgReportTexts.COL_POSITION, width = 270f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_UNIT_SUM, width = 115f, right = true),
+                Col(title = PartgReportTexts.COL_ELIMINATED, width = 100f, right = true),
+                Col(title = PartgReportTexts.COL_CONSOLIDATED, width = 115f, right = true),
+                Col(title = PartgReportTexts.COL_PRIOR, width = 115f, right = true),
+            )
+        val rows =
+            section.lines.map { l ->
+                Row(
+                    cells =
+                        listOf(
+                            l.numberText,
+                            l.label,
+                            PartgReportNumberFormat.consolidated(l.unitSum),
+                            PartgReportNumberFormat.euro(l.eliminatedCents),
+                            PartgReportNumberFormat.consolidated(l.consolidated),
+                            PartgReportNumberFormat.consolidated(l.prior),
+                        ),
+                    bold = l.bold,
+                )
+            }
+        table(c = c, title = PartgReportTexts.CONSOLIDATION_TITLE, cols = cols, rows = rows)
+        c.y -= 6f
+        heading(c = c, text = PartgReportTexts.RECONCILIATION, size = 10f)
+        if (section.reconciliation.isEmpty()) {
+            paragraph(c = c, text = PartgReportTexts.NO_ENTRIES)
+        } else {
+            val reconCols =
+                listOf(
+                    Col(title = PartgReportTexts.COL_KIND, width = 110f, right = false, wrap = true),
+                    Col(title = PartgReportTexts.COL_PAYER, width = 190f, right = false, wrap = true),
+                    Col(title = PartgReportTexts.COL_PAYEE, width = 190f, right = false, wrap = true),
+                    Col(title = PartgReportTexts.COL_PAYER_AMOUNT, width = 95f, right = true),
+                    Col(title = PartgReportTexts.COL_PAYEE_AMOUNT, width = 95f, right = true),
+                    Col(title = PartgReportTexts.COL_STATE, width = 90f, right = false, wrap = true),
+                )
+            table(
+                c = c,
+                title = null,
+                cols = reconCols,
+                rows =
+                    section.reconciliation.map { r ->
+                        Row(
+                            cells =
+                                listOf(
+                                    transferKindText(r.kind),
+                                    r.payerLabel,
+                                    r.payeeLabel,
+                                    r.payerAmountCents?.let { PartgReportNumberFormat.euro(it) } ?: PartgReportTexts.NOT_ENTERED,
+                                    r.payeeAmountCents?.let { PartgReportNumberFormat.euro(it) } ?: PartgReportTexts.NOT_ENTERED,
+                                    matchText(r.match),
+                                ),
+                        )
+                    },
+            )
+        }
+        if (section.unmatched.isNotEmpty()) {
+            val unmatchedCols =
+                listOf(
+                    Col(title = PartgReportTexts.COL_UNIT, width = 290f, right = false, wrap = true),
+                    Col(title = PartgReportTexts.COL_POSITION, width = 360f, right = false, wrap = true),
+                    Col(title = PartgReportTexts.COL_DIFFERENCE, width = 120f, right = true),
+                )
+            table(
+                c = c,
+                title = PartgReportTexts.UNMATCHED_TITLE,
+                cols = unmatchedCols,
+                rows =
+                    section.unmatched.map {
+                        Row(cells = listOf(it.unitLabel, it.positionLabel, PartgReportNumberFormat.euro(it.differenceCents)))
+                    },
+            )
+        }
+        c.y -= 6f
+        heading(c = c, text = PartgReportTexts.ANNEX_B_CONSOLIDATED, size = 10f)
+        paragraph(c = c, text = PartgReportTexts.B_CONSOLIDATED_NOTE, size = 7.5f)
+        if (section.donors.isEmpty()) {
+            paragraph(c = c, text = PartgReportTexts.NO_ENTRIES)
+            return
+        }
+        val donorCols =
+            listOf(
+                Col(title = PartgReportTexts.COL_UNITS, width = 200f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_PERSON_KIND, width = 50f, right = false),
+                Col(title = PartgReportTexts.COL_NAME, width = 130f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_ADDRESS, width = 190f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_COUNTRY, width = 30f, right = false),
+                Col(title = PartgReportTexts.COL_CONTRIBUTION, width = 70f, right = false, wrap = true),
+                Col(title = PartgReportTexts.COL_AMOUNT, width = 100f, right = true),
+            )
+        table(
+            c = c,
+            title = null,
+            cols = donorCols,
+            rows =
+                section.donors.map { d ->
+                    Row(
+                        cells =
+                            listOf(
+                                d.unitLabels,
+                                personKindText(d.personKind),
+                                d.name,
+                                d.addressLine,
+                                d.country,
+                                contributionText(d.contributionKind),
+                                PartgReportNumberFormat.euro(d.totalCents),
+                            ),
+                    )
+                },
+        )
     }
 
     private fun personKindText(kind: PartgPersonKind) =

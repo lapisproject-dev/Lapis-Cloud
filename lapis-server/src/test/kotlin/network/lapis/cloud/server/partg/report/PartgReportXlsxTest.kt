@@ -76,7 +76,7 @@ class PartgReportXlsxGoldenTest :
         test("the matrix is in the order of the units plus the whole party, current year block first") {
             val income = xlsx.sheets.getValue("Einnahmen")
             income.getValue("A7").value shouldBe "Bundesverband"
-            income.getValue("A12").value shouldBe "Gesamtpartei"
+            income.getValue("A12").value shouldBe "Summe der Einheiten (nicht konsolidiert)"
             income.values.any { it.value == "Vorjahr 2024" } shouldBe true
         }
 

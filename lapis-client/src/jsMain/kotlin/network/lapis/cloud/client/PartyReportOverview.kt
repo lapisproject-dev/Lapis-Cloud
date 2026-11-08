@@ -11,6 +11,8 @@ import io.kvision.table.cell
 import io.kvision.table.row
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.PartgBookkeepingMode
+import network.lapis.cloud.shared.domain.PartgConsolidatedCell
+import network.lapis.cloud.shared.domain.PartgConsolidationDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
@@ -31,6 +33,8 @@ private val OVERVIEW_HEADERS =
 private class OverviewLoad(
     val rows: List<PartgOverviewRowDto>,
     val checks: Map<String, Int>,
+    /** V1.9.290 (R5): the consolidated whole party; `null` for a chapter treasurer or when it could not be read. */
+    val consolidation: PartgConsolidationDto? = null,
 )
 
 /** The three bookkeeping modes as the person reads them (V1.9.289, R4a). */
@@ -76,12 +80,15 @@ internal fun SimplePanel.renderPartyReportOverview(
                     val rows = rpc.overview(context.year)
                     // the hints are an extra: if they cannot be read, the table is still complete (no badge)
                     val checks = partgCheckCounts(runCatching { rpc.reportFindings(context.year) }.getOrDefault(emptyList()))
-                    OverviewLoad(rows, checks)
+                    // R5: the consolidated whole party only for the federal view (a chapter treasurer never calls it); an extra like the hints
+                    val consolidation = if (restricted) null else runCatching { rpc.getConsolidation(context.year) }.getOrNull()
+                    OverviewLoad(rows, checks, consolidation)
                 }
             },
             render = { body, loaded ->
                 val rows = loaded.rows
                 val table = body.standardTable(OVERVIEW_HEADERS)
+                loaded.consolidation?.let { table.consolidatedRow(it) { context.openTab(PartyReportTab.KONSOLIDIERUNG) } }
                 rows.forEach { row ->
                     table.row {
                         textCell(unitLabel(row.unit))
@@ -181,6 +188,34 @@ private fun io.kvision.core.Container.modeCell(
             )
         } else {
             apply()
+        }
+    }
+}
+
+/** V1.9.290 (R5): the first row of the overview, the whole party consolidated (a draft), with the link to the tab. */
+private fun io.kvision.table.Table.consolidatedRow(
+    dto: PartgConsolidationDto,
+    openTab: () -> Unit,
+) {
+    fun cellOf(code: String) = dto.rows.firstOrNull { it.code == code }?.consolidated
+    row {
+        textCell(tr("Gesamtpartei (konsolidiert, Entwurf)"))
+        cell { statusBadge(tr("Entwurf"), "secondary") }
+        textCell("")
+        listOf("E11", "A04", "NET").forEach { code ->
+            numCell {
+                when (val c = cellOf(code)) {
+                    is PartgConsolidatedCell.Value -> moneySpan(centsToDecimal(c.cents), warnIfNegative = true)
+                    else -> add(io.kvision.html.Span(tr("n. b."), className = "text-muted"))
+                }
+            }
+        }
+        textCell("")
+        cell {
+            addCssClass(TABLE_ACTIONS_CELL_CLASS)
+            tableActionGroup().apply {
+                tableActionButton(ActionIcon.NEXT, tr("Zur Konsolidierung")).onClick { openTab() }
+            }
         }
     }
 }

@@ -153,6 +153,38 @@ class PartyReportAccessTest :
                 "getNotes" to { s -> s.getNotes(year) },
                 "saveNotes" to { s -> s.saveNotes(year = year, expectedRevision = 0, notes = emptyList(), holdings = emptyList()) },
                 "reportFindings" to { s -> s.reportFindings(year) },
+                // V1.9.290 (R5): the consolidation is gated like the rest (not scoped: a chapter treasurer is refused)
+                "getConsolidation" to { s -> s.getConsolidation(year) },
+                "saveIntraTransfer" to
+                    { s ->
+                        s.saveIntraTransfer(
+                            year = year,
+                            expectedRevision = 0,
+                            transfer =
+                                network.lapis.cloud.shared.domain.PartgIntraTransferInputDto(
+                                    id = null,
+                                    kind = network.lapis.cloud.shared.domain.PartgTransferKind.SUBSIDY,
+                                    payerUnitKey = "FEDERAL",
+                                    payeeUnitKey = PartgUnit.State(Uuid.random().toString()).key(),
+                                    payerAmountCents = 100L,
+                                    payeeAmountCents = null,
+                                    note = null,
+                                ),
+                        )
+                    },
+                "deleteIntraTransfer" to
+                    { s -> s.deleteIntraTransfer(year = year, expectedRevision = 0, transferId = Uuid.random().toString()) },
+                "createDonorCombination" to
+                    { s ->
+                        s.createDonorCombination(
+                            year = year,
+                            expectedRevision = 0,
+                            expectedAnnexRevisions = emptyMap(),
+                            largeDonorIds = listOf(Uuid.random().toString(), Uuid.random().toString()),
+                        )
+                    },
+                "dissolveDonorCombination" to
+                    { s -> s.dissolveDonorCombination(year = year, expectedRevision = 0, combinationId = Uuid.random().toString()) },
                 "saveSheet" to
                     { s ->
                         s.saveSheet(
@@ -168,7 +200,7 @@ class PartyReportAccessTest :
         test("the list of methods covers the whole interface") {
             val declared = network.lapis.cloud.shared.rpc.IPartyReportService::class.members.map { it.name }.toSet()
             (methods.map { it.first }.toSet() == declared.intersect(methods.map { it.first }.toSet())) shouldBe true
-            methods.size shouldBe 20
+            methods.size shouldBe 25
         }
 
         test("board and admin may call every method of a party") {

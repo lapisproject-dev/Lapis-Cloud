@@ -55,6 +55,8 @@ internal object PartgAnnexStore {
         val country: String,
         val contributionKind: PartgContributionKind,
         val amountCents: Long,
+        /** V1.9.290 (R5): when the row was last changed (`null` for rows built by hand in tests); P21 compares it with the age of a combination. */
+        val updatedAt: LocalDateTime? = null,
     )
 
     data class NotesRow(
@@ -128,6 +130,7 @@ internal object PartgAnnexStore {
             country = row[PartgReportLargeDonorTable.country],
             contributionKind = row[PartgReportLargeDonorTable.contributionKind],
             amountCents = row[PartgReportLargeDonorTable.amountCents],
+            updatedAt = row[PartgReportLargeDonorTable.updatedAt],
         )
 
     // ---------------------------------------------------------------- annex
@@ -543,5 +546,54 @@ internal object PartgAnnexStore {
                 notes[sheet.year] = NotesData(revision = sheet.revision, notes = notes(sheet.id), holdings = holdings(sheet.id))
             }
         return AnnexSnapshot(annex = annex, notes = notes)
+    }
+
+    // ---------------------------------------------------------------- V1.9.290 (R5): lookups for the consolidation
+
+    /** Where a donor row lives: its annex (year, unit) and the row itself. */
+    data class DonorLocation(
+        val annexId: Uuid,
+        val year: Int,
+        val unitKey: String,
+        val donor: DonorRow,
+    )
+
+    /** The donor rows [ids] with year and unit of their annex; unknown ids are simply missing in the result. Reads without a lock. */
+    fun donorLocations(ids: Collection<Uuid>): Map<Uuid, DonorLocation> {
+        if (ids.isEmpty()) return emptyMap()
+        val donors =
+            PartgReportLargeDonorTable
+                .selectAll()
+                .where { PartgReportLargeDonorTable.id inList ids.toList() }
+                .map(::toDonorRow)
+        if (donors.isEmpty()) return emptyMap()
+        val headers =
+            PartgReportAnnexTable
+                .selectAll()
+                .where { PartgReportAnnexTable.id inList donors.map { it.annexId }.distinct() }
+                .associate { it[PartgReportAnnexTable.id] to (it[PartgReportAnnexTable.fiscalYear] to it[PartgReportAnnexTable.unitKey]) }
+        return donors.associate { donor ->
+            val (year, unitKey) = headers.getValue(donor.annexId)
+            donor.id to DonorLocation(annexId = donor.annexId, year = year, unitKey = unitKey, donor = donor)
+        }
+    }
+
+    /**
+     * Locks the existing annex headers of [year] for [unitKeys] (FOR UPDATE, always in `unit_key` order, so two writers cannot deadlock) and
+     * returns them keyed by unit key. A unit without a header is missing in the result.
+     */
+    fun lockAnnexHeaders(
+        year: Int,
+        unitKeys: Collection<String>,
+    ): Map<String, AnnexRow> {
+        if (unitKeys.isEmpty()) return emptyMap()
+        val result = LinkedHashMap<String, AnnexRow>()
+        PartgReportAnnexTable
+            .selectAll()
+            .where { (PartgReportAnnexTable.fiscalYear eq year) and (PartgReportAnnexTable.unitKey inList unitKeys.toList()) }
+            .orderBy(PartgReportAnnexTable.unitKey to SortOrder.ASC)
+            .forUpdate()
+            .forEach { result[it[PartgReportAnnexTable.unitKey]] = toAnnexRow(it) }
+        return result
     }
 }

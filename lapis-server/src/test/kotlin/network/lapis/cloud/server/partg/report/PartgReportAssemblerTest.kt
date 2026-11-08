@@ -23,7 +23,7 @@ class PartgReportAssemblerTest :
                     "Landesverband Beta",
                     "Nachgeordnete Gebietsverbände in Beta (zusammengefasst)",
                 )
-            doc.consolidated?.label shouldBe "Gesamtpartei"
+            doc.unitSum?.label shouldBe "Summe der Einheiten (nicht konsolidiert)"
             doc.levels.map { it.level } shouldBe listOf(PartgUnitLevel.FEDERAL, PartgUnitLevel.STATE, PartgUnitLevel.SUBORDINATE)
             doc.completeness.units.size shouldBe 5
         }
@@ -31,7 +31,7 @@ class PartgReportAssemblerTest :
         test("a unit that entered nothing is NotEntered, never 0; the whole party is partial") {
             val doc = ReportFixtures.doc()
             doc.units[2].current.getValue("E11") shouldBe PartgCell.NotEntered
-            doc.consolidated!!
+            doc.unitSum!!
                 .current
                 .getValue("E01")
                 .shouldBeInstanceOf<PartgCell.Partial>()
@@ -45,7 +45,7 @@ class PartgReportAssemblerTest :
             val key = PartgUnit.State(ReportFixtures.CHAPTER_A)
             val doc = ReportFixtures.doc(scope = PartgReportScope.Single(key))
             doc.units.size shouldBe 1
-            doc.consolidated shouldBe null
+            doc.unitSum shouldBe null
             doc.levels shouldBe emptyList()
             doc.completeness.units
                 .single()

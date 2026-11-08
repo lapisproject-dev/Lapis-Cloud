@@ -37,7 +37,7 @@ class PartyReportAccessTripwireTest :
                         .first()
                 }.toList()
 
-        test("the RPC surface is exactly the twenty-five known methods") {
+        test("the RPC surface is exactly the thirty known methods") {
             IPartyReportService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }
@@ -72,13 +72,19 @@ class PartyReportAccessTripwireTest :
                     "setUnitMode",
                     "proposeFromLedger",
                     "applyLedgerProposal",
+                    // V1.9.290 (R5)
+                    "getConsolidation",
+                    "saveIntraTransfer",
+                    "deleteIntraTransfer",
+                    "createDonorCombination",
+                    "dissolveDonorCombination",
                 )
         }
 
         test("every RPC method of the service starts with the access gate") {
             val code = source("PartyReportService.kt")
             val starts = firstStatements(code, Regex("""override suspend fun \w+\([^)]*\)\s*:\s*[\w<>?, ]+\s*"""))
-            (starts.size) shouldBe 25
+            (starts.size) shouldBe 30
             // exactly one of the two gates, and the scoped gate only for the pinned set of methods (a chapter treasurer reaches nothing else)
             starts
                 .filterNot { it.contains("requirePartyReportAccess(call)") || it.contains("requirePartyReportScopedAccess(call)") }

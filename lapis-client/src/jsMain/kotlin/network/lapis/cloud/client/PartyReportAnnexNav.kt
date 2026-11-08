@@ -47,6 +47,8 @@ internal fun partgFindingBlock(finding: PartgFindingDto): AnnexBlock? =
         PartgFindingCode.P10 -> AnnexBlock.F
         PartgFindingCode.P11, PartgFindingCode.P12, PartgFindingCode.P13 -> AnnexBlock.D
         PartgFindingCode.P05, PartgFindingCode.P14, PartgFindingCode.P15, PartgFindingCode.P16 -> null
+        // V1.9.290 (R5): the hints of the consolidation belong to no block of this tab
+        PartgFindingCode.P17, PartgFindingCode.P18, PartgFindingCode.P19, PartgFindingCode.P20, PartgFindingCode.P21 -> null
     }
 
 /** The number of hints per block for one unit; read from the hints that are already loaded, no extra call. */

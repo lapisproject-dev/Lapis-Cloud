@@ -221,6 +221,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_ACCOUNT_MAPPING -> gettext("Rechenschaftsbericht: Kontenzuordnung")
         AuditEntityType.PARTG_UNIT_MODE -> gettext("Rechenschaftsbericht: Buchführung der Einheit")
         AuditEntityType.REGIONAL_CHAPTER_TREASURER -> gettext("Kassenwart der Gliederung")
+        AuditEntityType.PARTG_INTRA_TRANSFER -> gettext("Rechenschaftsbericht: Übertragung zwischen Gliederungen")
+        AuditEntityType.PARTG_DONOR_COMBINATION -> gettext("Rechenschaftsbericht: Zusammenführung von Großspendern")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -366,6 +368,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_ACCOUNT_MAPPING -> "secondary"
         AuditEntityType.PARTG_UNIT_MODE -> "secondary"
         AuditEntityType.REGIONAL_CHAPTER_TREASURER -> "secondary"
+        AuditEntityType.PARTG_INTRA_TRANSFER -> "secondary"
+        AuditEntityType.PARTG_DONOR_COMBINATION -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

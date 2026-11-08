@@ -112,6 +112,18 @@ class PartgReportExportRoutesTest :
             }
         }
 
+        test("V1.9.290: a chapter treasurer (an active grant) may not export the whole party, PDF or XLSX") {
+            val treasurer = fx.member(role = AccountRole.MEMBER)
+            fx.grantTreasurer(member = treasurer, chapter = fx.chapter())
+            withRoutes {
+                for (format in listOf("pdf", "xlsx")) {
+                    val response = export(treasurer, format)
+                    response.status shouldBe HttpStatusCode.Forbidden
+                    response.code() shouldBe PartgImportRejectionCode.FORBIDDEN
+                }
+            }
+        }
+
         test("the board of a non-party gets NOT_ENABLED") {
             fx.setParty(false)
             withRoutes {
