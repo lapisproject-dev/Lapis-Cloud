@@ -385,6 +385,7 @@ private fun Container.renderSponsorForm(
             val result = guarded { partyReportRpc().saveSponsor(year, annex.unit.unitKey, env.revision(), input) }
             if (result != null) {
                 notifySuccess(tr("Gespeichert."))
+                PartyReportSaveSignal.saved()
                 onSaved(result)
             } else {
                 form.showFormError(saveFailedText())

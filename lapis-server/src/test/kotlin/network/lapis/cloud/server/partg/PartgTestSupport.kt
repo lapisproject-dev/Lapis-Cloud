@@ -25,6 +25,8 @@ import network.lapis.cloud.server.db.generated.PartgDonorCombinationRowTable
 import network.lapis.cloud.server.db.generated.PartgDonorCombinationTable
 import network.lapis.cloud.server.db.generated.PartgIntraTransferTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
+import network.lapis.cloud.server.db.generated.PartgReportDeadlineTable
+import network.lapis.cloud.server.db.generated.PartgReportDeclarationTable
 import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
 import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
@@ -36,6 +38,8 @@ import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
 import network.lapis.cloud.server.db.generated.PartgReportUnitModeTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
+import network.lapis.cloud.server.db.generated.PartgReportVersionCounterTable
+import network.lapis.cloud.server.db.generated.PartgReportVersionTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
@@ -54,6 +58,7 @@ import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -238,6 +243,18 @@ internal class PartgFixtures(
 
     fun cleanUp() {
         transaction {
+            // V1.9.291 (R6): the kept versions of the test (declarations, versions, counters) and the deadlines come first
+            val versionIds =
+                PartgReportVersionTable
+                    .select(PartgReportVersionTable.id)
+                    .where { (PartgReportVersionTable.frozenBy inList memberIds) or (PartgReportVersionTable.finalizedBy inList memberIds) }
+                    .map { it[PartgReportVersionTable.id] }
+            PartgReportDeclarationTable.deleteWhere {
+                (PartgReportDeclarationTable.versionId inList versionIds) or (PartgReportDeclarationTable.declaredBy inList memberIds)
+            }
+            PartgReportVersionTable.deleteWhere { PartgReportVersionTable.id inList versionIds }
+            PartgReportVersionCounterTable.deleteWhere { PartgReportVersionCounterTable.updatedBy inList memberIds }
+            PartgReportDeadlineTable.deleteWhere { PartgReportDeadlineTable.confirmedBy inList memberIds }
             // V1.9.289: bookings, mapping, modes, grants and the accounts of the test first (they point to members, chapters and accounts)
             val entryIds =
                 JournalEntryTable

@@ -37,7 +37,7 @@ class PartyReportAccessTripwireTest :
                         .first()
                 }.toList()
 
-        test("the RPC surface is exactly the thirty known methods") {
+        test("the RPC surface is exactly the thirty-eight known methods") {
             IPartyReportService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }
@@ -78,13 +78,22 @@ class PartyReportAccessTripwireTest :
                     "deleteIntraTransfer",
                     "createDonorCombination",
                     "dissolveDonorCombination",
+                    // V1.9.291 (R6)
+                    "versionOverview",
+                    "freezeVersion",
+                    "compareVersions",
+                    "declareVersion",
+                    "finalizeVersion",
+                    "confirmDeadline",
+                    "previewVersionDeletion",
+                    "deleteOldVersions",
                 )
         }
 
         test("every RPC method of the service starts with the access gate") {
             val code = source("PartyReportService.kt")
             val starts = firstStatements(code, Regex("""override suspend fun \w+\([^)]*\)\s*:\s*[\w<>?, ]+\s*"""))
-            (starts.size) shouldBe 30
+            (starts.size) shouldBe 38
             // exactly one of the two gates, and the scoped gate only for the pinned set of methods (a chapter treasurer reaches nothing else)
             starts
                 .filterNot { it.contains("requirePartyReportAccess(call)") || it.contains("requirePartyReportScopedAccess(call)") }
@@ -134,7 +143,7 @@ class PartyReportAccessTripwireTest :
             val import = handlersOf("PartgReportRoutes.kt", "fun Route.registerPartgReportRoutes")
             val export = handlersOf("PartgReportExportRoutes.kt", "fun Route.registerPartgReportExportRoutes")
             import.size shouldBe 3
-            export.size shouldBe 2
+            export.size shouldBe 4
             (import + export).forEach { body ->
                 // the gate may sit inside `val current = try { requirePartyReportAccess(call) } ...` -- it must be the first call of the handler
                 val firstCall = Regex("""\w+\(""").find(body)!!.value
@@ -164,6 +173,18 @@ class PartyReportAccessTripwireTest :
         test("no RPC method of the service logs an amount, a hint or a name") {
             source("PartyReportService.kt").lines().filter { "logger." in it }.shouldBeEmpty()
             source("PartgReportRoutes.kt").lines().filter { "logger." in it }.shouldBeEmpty()
-            source("PartgReportExportRoutes.kt").lines().filter { "logger." in it && "logger.info" !in it }.shouldBeEmpty()
+            // the export routes log counters and ids only; the one WARN statement is the integrity failure of a kept version (its id)
+            source("PartgReportExportRoutes.kt")
+                .lines()
+                .filter { "logger." in it && "logger.info" !in it && "logger.warn" !in it }
+                .shouldBeEmpty()
+            val rawWarnings =
+                SourceScan
+                    .mainFiles()
+                    .single { it.name == "PartgReportExportRoutes.kt" }
+                    .readLines()
+                    .filter { "logger.warn" in it }
+            rawWarnings.size shouldBe 2
+            rawWarnings.all { it.trim() == "logger.warn { \"partg version integrity failure version=\$versionId\" }" } shouldBe true
         }
     })

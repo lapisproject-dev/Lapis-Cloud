@@ -641,6 +641,23 @@ enum class AuditEntityType {
      * group. Snapshot [PartgDonorCombinationAuditSnapshot]: ids and counters, never a name. 23 chars. Appended LAST.
      */
     PARTG_DONOR_COMBINATION,
+
+    /**
+     * Welle V1.9.291 (R6) -- a draft version of the party accountability report was kept (CREATE), finalised internally (UPDATE) or voided (removed) by
+     * the ADMIN deletion routine after the retention period (VOID); `entityId` = the version (for VOID: the first removed version).
+     * Snapshots [PartgVersionAuditSnapshot] / [PartgVersionDeletionAuditSnapshot]: ids, numbers, hash and counters -- never a comment, a name or
+     * an amount. 20 chars. Appended LAST.
+     */
+    PARTG_REPORT_VERSION,
+
+    /**
+     * Welle V1.9.291 (R6) -- the Finanzvorstand's assurance on one version was recorded; `entityId` = the declaration. Snapshot
+     * [PartgDeclarationAuditSnapshot]. 24 chars. Appended LAST.
+     */
+    PARTG_REPORT_DECLARATION,
+
+    /** Welle V1.9.291 (R6) -- the submission deadline of a report year was confirmed or changed; `entityId` = the deadline row. 21 chars. Appended LAST. */
+    PARTG_REPORT_DEADLINE,
 }
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */

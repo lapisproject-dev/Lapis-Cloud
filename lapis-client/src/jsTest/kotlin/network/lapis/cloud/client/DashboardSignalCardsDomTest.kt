@@ -218,6 +218,35 @@ class DashboardSignalCardsDomTest {
         }
 
     @Test
+    fun thePartyReportCard_leadsToTheVersionTab_forTheBoardOfAParty(): Promise<Unit> =
+        run(
+            "signals-partg",
+            FakeRpc {
+                listOf(
+                    signal(
+                        DashboardModuleKeys.PARTG,
+                        DashboardReasonKeys.PARTG_REPORT_DEADLINE,
+                        priority = DashboardPriority.URGENT,
+                        params = mapOf("year" to "2025", "statusCode" to "1", "confirmed" to "1", "deadline" to "2031-09-30"),
+                    ),
+                )
+            },
+            session(role = AccountRole.BOARD).copy(politicalParty = true),
+        ) { el, _, _ ->
+            awaitUntil("the card appears") { el.cards().size == 1 }
+            // the card leads to the tab "Versionen und Freigabe" (the menu check still uses the list route)
+            assertEquals("#${Routes.PARTY_REPORT}?tab=FREIGABE", el.cards().single().getAttribute("href"))
+            assertTrue(
+                el
+                    .cards()
+                    .single()
+                    .textContent
+                    .orEmpty()
+                    .contains("2025"),
+            )
+        }
+
+    @Test
     fun theRoute_isBuiltFromAFixedTable_aWrongIdLeadsToTheList_aRightIdToTheDetail_andAnAuctionHasNoDetail(): Promise<Unit> {
         val id = "0b1f2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
         val rpc =

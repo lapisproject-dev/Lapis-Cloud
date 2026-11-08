@@ -1,9 +1,9 @@
-= Party accountability report: positions, entry, Excel import, report draft, separate statements and the link to the bookings (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3, V1.9.283 R3b, V1.9.287 R3c, V1.9.289 R4a)
+= Party accountability report: positions, entry, Excel import, report draft, separate statements, the link to the bookings, consolidation and kept versions (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3, V1.9.283 R3b, V1.9.287 R3c, V1.9.289 R4a, V1.9.290 R5, V1.9.291 R6)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
-Waves R1, R2, R3, R3b, R3c and R4a of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
+Waves R1, R2, R3, R3b, R3c, R4a, R5 and R6 of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
 hand or imported from an Excel file. R2 (V1.9.256) turns them into a **draft** of the report as a PDF or an Excel file. The draft is marked "ENTWURF -- nicht amtlich" on every page and in
 every file; nothing on the page promises a finished, official or audited report.
 
@@ -12,7 +12,7 @@ and the statute text, and the auditor has not seen the result (see <<not-verifie
 
 == Who sees it
 
-* Only an organisation with the setting *political party* (`isPoliticalParty`), and there only the roles **BOARD** and **ADMIN**. A treasurer does not see it (R4a keeps this unchanged, see Q21; the consolidation of R5 is federal only as well).
+* Only an organisation with the setting *political party* (`isPoliticalParty`), and there only the roles **BOARD** and **ADMIN**. A treasurer does not see it (R4a keeps this unchanged, see Q21; the consolidation of R5 and the kept versions of R6 are federal only as well).
 * **R4a, the chapter treasurer:** a plain organization member with an active *chapter-treasurer grant* (given by an ADMIN per chapter) reaches the *Übersicht*, *Werte erfassen* and *Kontenzuordnung* (read only) for the units `STATE:<chapter>` and `SUB:<chapter>` of the chapters granted. Every other unit answers "not found" on reading and "forbidden" on writing; the other tabs and every other method stay federal (BOARD/ADMIN). The gate order is: role (BOARD/ADMIN), then the grant (read fresh on every call, so a revoke is effective at once), then the party switch.
 * The server checks the **role first** and the organisation switch second, on every RPC method and every HTTP route. The gate itself therefore reveals nothing to a person below the board
   (they get "forbidden", never "not enabled"). The fact is not secret otherwise: the session info (`politicalParty`) is sent to every logged-in member. Switching the setting off keeps all stored values; they are readable again after
@@ -21,7 +21,7 @@ and the statute text, and the auditor has not seen the result (see <<not-verifie
 
 == What a person does
 
-Seven tabs (below 640 px a select with the label "Bereich" replaces the buttons), and a year picker (default: last year; 2001 up to the current year).
+Nine tabs (below 640 px a select with the label "Bereich" replaces the buttons), and a year picker (default: last year; 2001 up to the current year).
 
 *Übersicht*:: one row per reporting unit (the federal level, each regional chapter, and the *summary* of its subordinate regional units), with a fill state
 ("Nicht erfasst", "Teilweise (n von 35)", "Vollständig"), the totals for income, expenses and net assets, and three icon actions: enter values, download the Excel
@@ -33,6 +33,8 @@ deficit, total assets, total liabilities, net assets). Every typed-in position h
 *Ausweise*:: the separate statements A and B and the member count of one unit and year, see <<separate-statements>>.
 *Erläuterungen*:: the notes of the organisation for the year, see <<notes>>.
 *Bericht*:: see <<report-draft>>.
+*Konsolidierung*:: see <<consolidation>> (R5).
+*Versionen und Freigabe*:: the last tab, see <<versions>> (R6). Beside the year picker, on every tab, a status line shows where the report of the year stands.
 
 [[report-draft]]
 == The report draft (R2)
@@ -174,6 +176,7 @@ R4a connects the ledger to the report. It proposes values from the bookings; **n
 *Exports*:: the DATEV export, the Lexoffice/sevDesk push and the R2 PDF/XLSX are unchanged; the chapter is **not** exported (Q21-follow-up). The R2 export is still federal.
 *Data protection*:: all new tables are organisation data. `updated_by` of the mapping and the mode and `granted_by_member_id` of a grant are "changed by you" data (exported without amount and name); the active grants of an erased member are revoked at once, the rows stay as history.
 
+[[consolidation]]
 == Consolidation over the units (R5, V1.9.290)
 
 R5 puts the units together to the **whole party** and takes the transfers between them out. It is a **draft**: nothing here is an official, filed or audited statement, and a value that cannot be computed is "n. b.", never 0.
@@ -188,9 +191,37 @@ R5 puts the units together to the **whole party** and takes the transfers betwee
 *Audit and data protection*:: audit entities `PARTG_INTRA_TRANSFER` (codes `TRANSFER_ADDED/_UPDATED/_DELETED`; year, kind, both unit keys, two flags) and `PARTG_DONOR_COMBINATION` (codes `COMBINATION_CREATED/_DISSOLVED`; year, row count, unit keys, donor row ids). **Never a name, a note or an amount.** The four new tables are organisation data; `created_by` and `updated_by` are "changed by you" data (year and time), retained on erasure. The combination row holds only two ids; the donor rows stay the documented third-party gap.
 *GoBD*:: no journal entry is read for writing or changed. A "counter-unit on the booking" was deliberately not built.
 
-== What R1 to R5 do not do
+[[versions]]
+== Kept versions, assurance, internal final mark and deadline (R6, V1.9.291)
 
-* R2 to R5 produce a draft only. No official, filed or audited report, no signature, no submission (R6).
+R6 lets the board **keep** the computed draft as a numbered, unchangeable version, compare versions, record the Finanzvorstand's **assurance** on one, mark it **internally final** and watch the **deadline**. It is a working aid. Nothing here files, signs or submits a report, and the texts never say so: "Intern final" is a note inside Lapis, the footer of every export says "nicht eingereicht".
+
+*Who sees it*:: BOARD and ADMIN of a political party, on the last tab *Versionen und Freigabe*. The eight calls and the two download routes use the federal gate (role first, then the party switch); a plain member, a treasurer and a **chapter treasurer** are refused, the status line is not drawn for them. The deletion routine is for an **ADMIN** only.
+*What a version is*:: the report document that the PDF and the XLSX render, as canonical JSON, with its SHA-256 (lower-case hex) and a size of at most 4 MiB. It is the **computed result**, not a recipe: a later change of positions, mappings, consolidation rules or bookings does not change an old version. A version is of the whole party (`ALL`) or of one unit. Keeping an unchanged report (same checksum as the newest version of the same year and scope) is refused. At most 200 versions per year and scope; numbers are given by a counter row that is never deleted, so a number is never used twice, not even after a deletion.
+*An honest limit*:: the **numbers** of a version are fixed. The **look** of its PDF or XLSX comes from the renderer of the day: after an update the same version can look different with the same figures. The golden test pins the stored format; a change of the document model must bump the format number and keep a decoder.
+*Data of third parties*:: a version contains statements B and C with names and addresses. The list says so ("Enthält Namen und Anschriften aus Ausweis B"). See Q31.
+*Status line*:: year, status as a symbol **and** a word (bookmark "Festgehalten", shield "Versichert", closed lock "Intern final"), the deadline, and in a polite live region the warning "Der Arbeitsstand weicht von der letzten festgehaltenen Version ab" when the live state differs from the newest whole-party version (the server recomputes it for the overview; at a rate limit it says nothing instead of failing; a version of an older format says "Vergleich nicht möglich (älteres Format)").
+*Downloads*:: `GET /api/partg-report/version/pdf?id=` and `/version/xlsx?id=`: the file is rendered from the **stored** document after its checksum was verified (a mismatch is `409 INTEGRITY`, nothing is rendered), with the fixed name `rechenschaftsbericht-<year>-version-<n>.<ext>`. Every PDF page has a footer and every XLSX sheet has it in row 2 and in the print footer: "Version n · festgehalten TT.MM.JJJJ · Prüfsumme xxxxxxxxxxxx · Entwurf als Arbeitshilfe, nicht eingereicht" (final: "Intern final, nicht eingereicht"). The export of the working state carries "Arbeitsstand, keine festgehaltene Version". An unknown id is `404`; every download writes one audit entry with the version id and number.
+*Comparison*:: two versions cell by cell: the 42 positions per unit (matched by the stable unit key, so a renamed chapter stays the same row), the sum of the units and the consolidated column. A difference is a number only when both sides are plain values; "n. e." (not entered), "n. b." (not computable) and a partial value give no difference, never 0. By default only changed rows are shown; a switch shows all.
+*Assurance ("Versichern")*:: only for a whole-party version. The dialog shows the fixed template text (code `ENTWURF-V1`, never edited: a new wording gets a new code), the checksum and a required tick. The server checks the tick, the expected checksum and that the stored text still hashes to it, and stores the template code, the checksum, who and when. Once per version. **Unreviewed draft wording, no qualified electronic signature** (Q29, Q30).
+*Internal final ("Final setzen")*:: only after the assurance, irreversible, with the typed version number as confirmation. It is the only change a version ever gets (the finalisation pair, set once). A final year is quiet on the dashboard.
+*Deadline*:: the year's status and the deadline come from the whole-party versions only. The deadline is a **proposal** (30 September of the year after, Q28) until the board confirms or changes it; a confirmed date must lie between 1 January of the next year and 31 December of the third year after. The notice is a word and a symbol, never colour alone: more than 90 days "none", up to 90 "Frist in Sicht", up to 30 "Frist bald", overdue "Frist überschritten". A text template for a request to extend the deadline can be copied; it is only a text (no recipient field, nothing stored or sent, no section number quoted).
+*Dashboard*:: BOARD and ADMIN of a party get one card for the **earliest** report year (last year and the five before that have a version or a deadline) that is not internally final; priority urgent when overdue, action within 30 days, otherwise info; no card when that year is final or its confirmed deadline is more than 90 days away. The dashboard is cached for a short time, so the card can be a little stale.
+*Deletion routine (ADMIN)*:: a version may be deleted only when **both** its report year **and** the year it was kept lie more than N years back (N from 10 to 30). The preview lists exactly what would go (ids and numbers, no content); the deletion recomputes the set under the lock of every counter row and refuses with "stale" when it differs. One audit entry with the count and the ids. The 10 years are a floor taken from the concept (Q4, Q32), not legal advice.
+*Audit and data protection*:: entities `PARTG_REPORT_VERSION` (kept = CREATE, finalised = UPDATE, deleted = VOID), `PARTG_REPORT_DECLARATION` and `PARTG_REPORT_DEADLINE`. The snapshots hold ids, numbers, the checksum, codes and counters: **never** the comment, a name or an amount. `frozen_by`, `finalized_by`, `declared_by` and `confirmed_by` are "changed by you" data (year, scope, number, time), retained on erasure; the version table is registered as third-party data without a member key (a copy of B and C).
+*GoBD*:: no journal entry is read for writing or changed.
+
+[[reviewer-access]]
+=== Not built: read access for the auditor (R6b)
+
+The auditor receives the **PDF or the XLSX of a kept version**; the footer (version number and checksum) identifies the file. A read-only access without a Lapis account is **not built** and no table, route or code exists for it. Reasons: the repository has no tested pattern for readers without an account (only API keys, OIDC guests and share links), the identity check of the auditor is a decision of the owner (Q33), and such access would be a new public attack surface.
+
+The design for R6b, for the owner to decide: the same team as for every screen designed it as a view with the tab *Versionen*, the comparison and the downloads only, no entry, no hints, no names beyond what the version contains; access by a personal, expiring invitation of the board, revocable at once, every use audited without content, a visible line "Lesezugang für die Prüfung" on every page. The open point is the identity check: link only, link plus e-mail one-time code, or a guest account.
+
+== What R1 to R6 do not do
+
+* R2 to R6 produce a draft only. No official, filed or audited report, no signature, no submission. R6 adds kept versions, an internal assurance and an internal final mark; none of them is a filing.
+* **R6 (done):** versions, comparison, assurance, internal final mark, deadlines, dashboard card, deletion routine. **R6b (not built):** read access for the auditor (see <<reviewer-access>>). The official Bundestag layout and the submission form are **not in the repository**; the PDF is a layout of our own.
 * **R5 (done):** consolidation over the units, matching table, combining donor rows by hand. **R5b (not built):** a proposal for B from the bookings (only the federal level, through the donor keys of the donation) and the entry of **partial amounts below 10,000 EUR**. The partial amounts are a new collection of data below the legal threshold and therefore a legal question of its own (Q1). **The case 6,000 + 6,000 EUR is still not recognised.**
 * Not in R5: C over units (Q6), a whole-party sum of D (Q15), transfers inside the units of one `SUB:` summary (Q25).
 
@@ -208,7 +239,7 @@ R5 puts the units together to the **whole party** and takes the transfers betwee
 . **Q1 (R3): per unit or for the whole party?** Does the 10,000 EUR limit of section 25 (3) PartG apply per regional unit or for the whole party? R3 implements per unit and row and says so in the UI, because section 25 was not read in full. Combining a person over units would be R5.
 . **Q2 (R3): member count.** Entered per unit; the whole-party row shows the federal value and is **not summed**. Whether the Bundestag sample wants a split by state is open. P06 asks for a count only for the federal and state units.
 . **Q3 (R3): who is a member?** The suggestion counts `ACTIVE` members that are not anonymised (as the public statistics do). Family members, guests, friends and donors do not count. The board has to confirm that.
-. **Q4 (R3): who deletes after the retention period?** Nothing is deleted automatically; a deletion routine would come with R6.
+. **Q4 (R3, R6): who deletes after the retention period?** R6 has a manual routine for the kept versions (ADMIN only, preview, both years past, 10 to 30 years). Nothing is deleted automatically and the rows of statements B, C and the sheets are not touched by it. The repository names "10 years according to the concept" only; the period is not confirmed.
 . **Q5 (R3): are P05 and P06 part of the sample or only a convenience?** They are hints only; the risk of a wrong one is low.
 . **Q6 (R3b): C per unit or for the whole party?** Implemented per sponsor and unit (like B); combining a sponsor over units would be R5.
 . **Q7 (R3b): sponsoring versus donation.** What counts as sponsoring (service in return) and what as a donation is a legal question; the board decides per entry.
@@ -233,6 +264,14 @@ R5 puts the units together to the **whole party** and takes the transfers betwee
 . **Q26 (R5): audit without amounts.** The audit entries carry no amount (the design forbids it), so "who changed an amount" is only visible through `updated_by` and `updated_at` of the row. Is that enough for the GoBD review? Default: keep it.
 . **Q27 (R5): the free-text note of a pair.** Kept (at most 200 characters, never in the audit, a log or an export) or dropped for data minimisation? The help text asks not to enter names of persons; nothing prevents it technically.
 
+. **Q28 (R6): the deadline.** The proposal is 30 September of the year after the report year, without a section number. Not confirmed by a lawyer; the board confirms or changes the date. *Status: open.*
+. **Q29 (R6): who may declare?** There is no role "Finanzvorstand" in the repository; any BOARD or ADMIN member may declare. The name is resolved from the member id at read time, it is not stored as a name. *Status: open.*
+. **Q30 (R6): the wording of the assurance.** The text of `ENTWURF-V1` is a draft, unreviewed, and no qualified electronic signature. A lawyer has to review it. Default: keep as an internal note. *Status: open.*
+. **Q31 (R6): the copy of statements B and C in a version.** A kept version holds names and addresses of third parties. A request for erasure of an affected person is answered with the retention reason; the legal basis has to be confirmed by the controller or the data protection officer. *Status: open.*
+. **Q32 (R6): the minimum retention.** 10 years, both the report year and the keeping year must be past. *Status: open.*
+. **Q33 (R6b): identity check of the auditor.** Link only, link plus one-time code, or guest account: the owner decides. *Status: open.*
+. **Q34 (R6): a page with the assurance in the PDF?** Default: no, only the footer and the display on the card.
+
 . **Summary content.** The sample was read as: income Nr. 1 to 9 and expenses Nr. 1 to 2 for the whole party, with totals with and without subsidies from branches. R2 shows Nr. 1 to 10
   and Nr. 1 to 3, each on its own labelled line, the totals "including subsidies, not consolidated (follows in R5)" and the table by level only in that variant. A column "without subsidies"
   (E11 minus E10, A04 minus A03) is trivial to add. The row order lives in `PartgReportLayout.SUMMARY_INCOME_CODES` / `SUMMARY_EXPENSE_CODES`.
@@ -246,6 +285,8 @@ R5 puts the units together to the **whole party** and takes the transfers betwee
 
 [[not-verified]]
 == Not verified
+
+* R6: the assurance text, the deadline, the retention of 10 years and the erasure answer for the copy of B and C were **not confirmed by a lawyer or the data protection officer**; the footers and the comparison were tested by reading the files back, **not opened in real Excel or LibreOffice**, **not compared with the Bundestag sample** (which is not in the repository), not tried on a phone or with a screen reader. Translations are model-written. The PostgreSQL lane of the new scenarios runs only with `LAPIS_TEST_POSTGRES_URL`.
 
 * R3: the separate statements, the notes and the hints were **not compared with the Bundestag sample**, **not opened in real Excel or LibreOffice**, **not seen by an auditor**; the legal reading of sections 24 and 25 PartG was **not checked by a lawyer**. The translations of the new texts are model-written.
 * R3b: C, D and F were **not compared with the official sample**, not accepted by the administration, not legally reviewed; section 24 (8a) and (12) PartG are unverified. Translations are model-written.

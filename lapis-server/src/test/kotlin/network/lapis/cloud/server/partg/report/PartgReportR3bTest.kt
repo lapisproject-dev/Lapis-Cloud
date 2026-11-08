@@ -62,7 +62,7 @@ class PartgReportR3bAssemblerTest :
 class PartgReportR3bPdfTest :
     FunSpec({
         val doc = ReportFixtures.docR3b()
-        val bytes = PartgReportPdfRenderer().render(doc)
+        val bytes = PartgReportPdfRenderer().render(document = doc)
         val all = pdfText(bytes)
 
         test("C, D and F have their own headings, in this order, E in between") {
@@ -107,24 +107,24 @@ class PartgReportR3bPdfTest :
         }
 
         test("empty C and F say so") {
-            val empty = pdfText(PartgReportPdfRenderer().render(ReportFixtures.doc()))
+            val empty = pdfText(PartgReportPdfRenderer().render(document = ReportFixtures.doc()))
             empty.split("Keine Einträge erfasst").size - 1 shouldBe 4 // B, C, D, F
         }
 
         test("the same document gives the same bytes") {
-            PartgReportPdfRenderer().render(ReportFixtures.docR3b()).contentEquals(bytes) shouldBe true
+            PartgReportPdfRenderer().render(document = ReportFixtures.docR3b()).contentEquals(bytes) shouldBe true
         }
 
         test("the page limit also bounds the new sections") {
             io.kotest.assertions.throwables.shouldThrow<network.lapis.cloud.server.pdf.PdfLimitExceeded> {
-                PartgReportPdfRenderer(maxPages = 2).render(ReportFixtures.docR3b())
+                PartgReportPdfRenderer(maxPages = 2).render(document = ReportFixtures.docR3b())
             }
         }
     })
 
 class PartgReportR3bXlsxTest :
     FunSpec({
-        val xlsx = readXlsx(PartgReportXlsxWriter.write(ReportFixtures.docR3b()))
+        val xlsx = readXlsx(PartgReportXlsxWriter.write(document = ReportFixtures.docR3b()))
 
         test("thirteen sheets since R3c: D has a sheet of its own after C") {
             xlsx.sheetNames shouldContainExactly
@@ -202,14 +202,14 @@ class PartgReportR3bXlsxTest :
         test("the same document gives the same bytes") {
             PartgReportXlsxWriter
                 .write(
-                    ReportFixtures.docR3b(),
-                ).contentEquals(PartgReportXlsxWriter.write(ReportFixtures.docR3b())) shouldBe
+                    document = ReportFixtures.docR3b(),
+                ).contentEquals(PartgReportXlsxWriter.write(document = ReportFixtures.docR3b())) shouldBe
                 true
         }
 
         test("the single-unit export has the same thirteen sheets") {
             readXlsx(
-                PartgReportXlsxWriter.write(ReportFixtures.docR3b(PartgReportScope.Single(PartgUnit.Federal))),
+                PartgReportXlsxWriter.write(document = ReportFixtures.docR3b(PartgReportScope.Single(PartgUnit.Federal))),
             ).sheetNames.size shouldBe
                 13
         }

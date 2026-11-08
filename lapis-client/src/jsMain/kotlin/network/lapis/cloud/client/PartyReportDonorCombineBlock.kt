@@ -92,6 +92,7 @@ internal fun SimplePanel.renderDonorCombineBlock(
                                             guarded { partyReportRpc().dissolveDonorCombination(context.year, dto.revision, combinationId) }
                                         if (result != null) {
                                             notifySuccess(tr("Zusammenführung aufgelöst."))
+                                            PartyReportSaveSignal.saved()
                                             onChanged(result)
                                         }
                                     }
@@ -189,6 +190,7 @@ private fun Container.combineAfterConfirmation(
                     }
                 if (result != null) {
                     notifySuccess(tr("Zeilen zusammengeführt."))
+                    PartyReportSaveSignal.saved()
                     onChanged(result)
                 } else {
                     notifyError(saveFailedText())

@@ -9,6 +9,8 @@ import network.lapis.cloud.server.db.generated.PartgDonorCombinationRowTable
 import network.lapis.cloud.server.db.generated.PartgDonorCombinationTable
 import network.lapis.cloud.server.db.generated.PartgIntraTransferTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
+import network.lapis.cloud.server.db.generated.PartgReportDeadlineTable
+import network.lapis.cloud.server.db.generated.PartgReportDeclarationTable
 import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
 import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
@@ -20,10 +22,13 @@ import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
 import network.lapis.cloud.server.db.generated.PartgReportUnitModeTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
+import network.lapis.cloud.server.db.generated.PartgReportVersionCounterTable
+import network.lapis.cloud.server.db.generated.PartgReportVersionTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
 
@@ -57,6 +62,13 @@ import kotlin.uuid.Uuid
  * two ids (the group and a large-donor row): it points at personal data of THIRD PARTIES but contains none; the donor row itself is listed in
  * `PersonalDataRegistry.knownUncoveredSubjectRoots`.
  *
+ * **V1.9.291 (R6)** adds `partg_report_version_counter`, `partg_report_version`, `partg_report_declaration` and `partg_report_deadline`.
+ * `frozen_by`, `finalized_by`, `declared_by`, `confirmed_by` and `updated_by` are exported as "changed by you" with year, scope, version number
+ * and time only -- NEVER the content, the comment, a name or an amount -- and retained on erasure (the kept versions are the material of the
+ * report). `partg_report_version` itself holds a COPY of statements B and C (names and addresses of THIRD PARTIES, no member key): it is listed in
+ * `PersonalDataRegistry.knownUncoveredSubjectRoots`; it is removed only by the ADMIN deletion routine after the retention period. The other three
+ * tables are organisation data.
+ *
  * **V1.9.287 (R3c)** adds `partg_report_enterprise` (statement D): organisation data, same treatment as the youth organisation ("changed by
  * you" with year, unit and time only -- no name, no amount; retained on erasure). Whether a free-text name can contain a person's name
  * (sole proprietorship) is an open question (Q16), not claimed as covered.
@@ -84,6 +96,10 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
             PartgIntraTransferTable,
             PartgDonorCombinationTable,
             PartgDonorCombinationRowTable,
+            PartgReportVersionCounterTable,
+            PartgReportVersionTable,
+            PartgReportDeclarationTable,
+            PartgReportDeadlineTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -380,6 +396,122 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                 },
             )
             put(
+                "versionsChangedByYou",
+                buildJsonArray {
+                    // metadata only: the stored content (a copy of statements B and C) is never read here
+                    PartgReportVersionTable
+                        .select(
+                            PartgReportVersionTable.fiscalYear,
+                            PartgReportVersionTable.scopeKey,
+                            PartgReportVersionTable.versionNumber,
+                            PartgReportVersionTable.frozenAt,
+                            PartgReportVersionTable.frozenBy,
+                            PartgReportVersionTable.finalizedAt,
+                            PartgReportVersionTable.finalizedBy,
+                        ).where { (PartgReportVersionTable.frozenBy eq memberId) or (PartgReportVersionTable.finalizedBy eq memberId) }
+                        .toList()
+                        .sortedWith(
+                            compareBy(
+                                { it[PartgReportVersionTable.fiscalYear] },
+                                { it[PartgReportVersionTable.scopeKey] },
+                                { it[PartgReportVersionTable.versionNumber] },
+                            ),
+                        ).forEach { row ->
+                            if (row[PartgReportVersionTable.frozenBy] == memberId) {
+                                add(
+                                    buildJsonObject {
+                                        put("year", row[PartgReportVersionTable.fiscalYear])
+                                        put("scope", row[PartgReportVersionTable.scopeKey])
+                                        put("versionNumber", row[PartgReportVersionTable.versionNumber])
+                                        put("change", "KEPT")
+                                        put("changedAt", row[PartgReportVersionTable.frozenAt].toString())
+                                    },
+                                )
+                            }
+                            if (row[PartgReportVersionTable.finalizedBy] == memberId) {
+                                add(
+                                    buildJsonObject {
+                                        put("year", row[PartgReportVersionTable.fiscalYear])
+                                        put("scope", row[PartgReportVersionTable.scopeKey])
+                                        put("versionNumber", row[PartgReportVersionTable.versionNumber])
+                                        put("change", "FINALISED")
+                                        put("changedAt", row[PartgReportVersionTable.finalizedAt]?.toString())
+                                    },
+                                )
+                            }
+                        }
+                },
+            )
+            put(
+                "versionDeclarationsByYou",
+                buildJsonArray {
+                    val versions =
+                        PartgReportVersionTable
+                            .select(
+                                PartgReportVersionTable.id,
+                                PartgReportVersionTable.fiscalYear,
+                                PartgReportVersionTable.scopeKey,
+                                PartgReportVersionTable.versionNumber,
+                            ).toList()
+                            .associateBy { it[PartgReportVersionTable.id] }
+                    PartgReportDeclarationTable
+                        .selectAll()
+                        .where { PartgReportDeclarationTable.declaredBy eq memberId }
+                        .toList()
+                        .sortedWith(
+                            compareBy({ it[PartgReportDeclarationTable.declaredAt] }, { it[PartgReportDeclarationTable.id].toString() }),
+                        ).forEach { row ->
+                            val version = versions[row[PartgReportDeclarationTable.versionId]]
+                            add(
+                                buildJsonObject {
+                                    put("year", version?.get(PartgReportVersionTable.fiscalYear))
+                                    put("scope", version?.get(PartgReportVersionTable.scopeKey))
+                                    put("versionNumber", version?.get(PartgReportVersionTable.versionNumber))
+                                    put("changedAt", row[PartgReportDeclarationTable.declaredAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "versionCountersChangedByYou",
+                buildJsonArray {
+                    PartgReportVersionCounterTable
+                        .selectAll()
+                        .where { PartgReportVersionCounterTable.updatedBy eq memberId }
+                        .toList()
+                        .sortedWith(
+                            compareBy({ it[PartgReportVersionCounterTable.fiscalYear] }, { it[PartgReportVersionCounterTable.scopeKey] }),
+                        ).forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("year", row[PartgReportVersionCounterTable.fiscalYear])
+                                    put("scope", row[PartgReportVersionCounterTable.scopeKey])
+                                    put("changedAt", row[PartgReportVersionCounterTable.updatedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
+                "deadlinesConfirmedByYou",
+                buildJsonArray {
+                    PartgReportDeadlineTable
+                        .selectAll()
+                        .where { PartgReportDeadlineTable.confirmedBy eq memberId }
+                        .toList()
+                        .sortedBy { it[PartgReportDeadlineTable.fiscalYear] }
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("year", row[PartgReportDeadlineTable.fiscalYear])
+                                    put("changedAt", row[PartgReportDeadlineTable.confirmedAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
                 "positionHintsChangedByYou",
                 buildJsonArray {
                     PartgReportPositionTable
@@ -565,6 +697,46 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                     PartgDonorCombinationTable
                         .selectAll()
                         .where { PartgDonorCombinationTable.createdBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_version",
+                rowsRetained =
+                    PartgReportVersionTable
+                        .select(PartgReportVersionTable.id)
+                        .where { (PartgReportVersionTable.frozenBy eq memberId) or (PartgReportVersionTable.finalizedBy eq memberId) }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_version_counter",
+                rowsRetained =
+                    PartgReportVersionCounterTable
+                        .selectAll()
+                        .where { PartgReportVersionCounterTable.updatedBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_declaration",
+                rowsRetained =
+                    PartgReportDeclarationTable
+                        .selectAll()
+                        .where { PartgReportDeclarationTable.declaredBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_report_deadline",
+                rowsRetained =
+                    PartgReportDeadlineTable
+                        .selectAll()
+                        .where { PartgReportDeadlineTable.confirmedBy eq memberId }
                         .count()
                         .toInt(),
                 retentionReason = reason,

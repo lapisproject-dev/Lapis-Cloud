@@ -14,7 +14,10 @@ class PartgReportPrivacyTripwireTest :
         val scanned =
             SourceScan.mainFiles().filter {
                 val p = it.path.replace('\\', '/')
-                "/server/partg/" in p || it.name == "PartyReportService.kt" || it.name == "PartgReportExportRoutes.kt"
+                "/server/partg/" in p ||
+                    it.name == "PartyReportService.kt" ||
+                    it.name == "PartgReportExportRoutes.kt" ||
+                    it.name == "PartyReportSignals.kt"
             }
         val sensitive =
             Regex("""\b(name|street|city|postalCode|body|addressLine|donor|donors|sponsor|sponsors|purpose|relationship|entries)\b""")
@@ -33,6 +36,41 @@ class PartgReportPrivacyTripwireTest :
                             it.trim()
                     }
                 }.shouldBeEmpty()
+        }
+
+        // V1.9.291 (R6): the audit snapshots of versions are ids, numbers, the checksum and counters
+        test("no audit snapshot of a kept version has a field for the comment, a name or an amount") {
+            val serializers =
+                listOf(
+                    network.lapis.cloud.shared.domain.PartgVersionAuditSnapshot
+                        .serializer()
+                        .descriptor,
+                    network.lapis.cloud.shared.domain.PartgDeclarationAuditSnapshot
+                        .serializer()
+                        .descriptor,
+                    network.lapis.cloud.shared.domain.PartgDeadlineAuditSnapshot
+                        .serializer()
+                        .descriptor,
+                    network.lapis.cloud.shared.domain.PartgVersionDeletionAuditSnapshot
+                        .serializer()
+                        .descriptor,
+                )
+            serializers
+                .flatMap { d -> (0 until d.elementsCount).map { d.getElementName(it) } }
+                .filter {
+                    it.lowercase() in
+                        setOf("comment", "name", "displayname", "amount", "cents", "content", "contentjson", "text", "note", "address")
+                }.shouldBeEmpty()
+        }
+
+        test("the version writer and the view never log") {
+            scanned
+                .filter {
+                    it.name in
+                        setOf("PartgVersionWriter.kt", "PartgVersionStore.kt", "PartgVersionView.kt", "PartgVersionOperations.kt")
+                }.filter { "logger." in it.readText() }
+                .map { it.name }
+                .shouldBeEmpty()
         }
 
         test("no log statement passes an exception as its first argument") {

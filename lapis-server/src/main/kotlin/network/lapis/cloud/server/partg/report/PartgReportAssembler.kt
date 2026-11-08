@@ -2,6 +2,7 @@ package network.lapis.cloud.server.partg.report
 
 import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.server.partg.PartgCompletenessCalculator
+import network.lapis.cloud.server.partg.PartgVersionKeys
 import network.lapis.cloud.shared.domain.PartgAnnexRules
 import network.lapis.cloud.shared.domain.PartgCell
 import network.lapis.cloud.shared.domain.PartgDeduction
@@ -57,6 +58,7 @@ internal object PartgReportAssembler {
         val pages =
             selected.map { unit ->
                 UnitPage(
+                    unitKey = unit.unitKey,
                     label = unitLabel(unit),
                     current = PartgReportComputation.cells(values(year, unit)),
                     prior = PartgReportComputation.cells(values(year - 1, unit)),
@@ -66,6 +68,7 @@ internal object PartgReportAssembler {
         val unitSum =
             if (all) {
                 UnitPage(
+                    unitKey = PartgVersionKeys.SUM_ROW_KEY,
                     label = PartgReportTexts.WHOLE_PARTY,
                     current = PartgReportComputation.aggregate(selected.map { values(year, it) }),
                     prior = PartgReportComputation.aggregate(selected.map { values(year - 1, it) }),

@@ -121,7 +121,10 @@ internal class PartgReportPdfRenderer(
         }
     }
 
-    fun render(document: PartgReportDocument): ByteArray {
+    fun render(
+        document: PartgReportDocument,
+        footer: String = PartgReportTexts.WORKING_STATE_FOOTER,
+    ): ByteArray {
         PDDocument().use { pdf ->
             val c = Canvas(pdf)
             try {
@@ -142,12 +145,13 @@ internal class PartgReportPdfRenderer(
             } finally {
                 c.close()
             }
-            decorate(pdf = pdf, doc = document)
+            decorate(pdf = pdf, doc = document, footer = footer)
             val info = PDDocumentInformation()
             info.title = PdfFontText.sanitize(text = "${PartgReportTexts.TITLE} ${document.year} (Entwurf)", font = regular)
             info.producer = "Lapis Cloud"
             pdf.documentInformation = info
-            val digest = MessageDigest.getInstance("SHA-256").digest(document.toString().toByteArray(Charsets.UTF_8)).copyOf(ID_BYTES)
+            val digest =
+                MessageDigest.getInstance("SHA-256").digest((document.toString() + footer).toByteArray(Charsets.UTF_8)).copyOf(ID_BYTES)
             val id = COSArray()
             id.add(COSString(digest))
             id.add(COSString(digest))
@@ -1131,7 +1135,9 @@ internal class PartgReportPdfRenderer(
     private fun decorate(
         pdf: PDDocument,
         doc: PartgReportDocument,
+        footer: String,
     ) {
+        val footerLine = PdfFontText.sanitize(text = footer, font = regular)
         val total = pdf.numberOfPages
         val header =
             PdfFontText.sanitize(
@@ -1178,6 +1184,12 @@ internal class PartgReportPdfRenderer(
                 cs.setFont(regular, 6.5f)
                 cs.newLineAtOffset(MARGIN, 22f)
                 cs.showText(PdfFontText.sanitize(text = PartgReportTexts.LEGEND, font = regular))
+                cs.endText()
+                // V1.9.291 (R6): the version line, BELOW the legend and the page number (y = 12 against 22), on every page
+                cs.beginText()
+                cs.setFont(regular, 6.5f)
+                cs.newLineAtOffset(MARGIN, 12f)
+                cs.showText(footerLine)
                 cs.endText()
                 val pageText = "Seite ${i + 1} von $total"
                 cs.beginText()

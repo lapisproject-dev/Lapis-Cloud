@@ -154,6 +154,9 @@ enum class PartgImportRejectionCode {
     TOKEN_INVALID,
     REVISION_CONFLICT,
     NOT_FOUND,
+
+    /** V1.9.291 (R6): the stored content of a kept version no longer matches its checksum; nothing is rendered. Appended LAST. */
+    INTEGRITY,
 }
 
 @Serializable

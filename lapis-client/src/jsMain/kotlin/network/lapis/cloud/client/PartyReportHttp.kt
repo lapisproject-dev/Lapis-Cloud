@@ -57,6 +57,12 @@ internal object PartyReportHttp {
         scope: String,
     ): String = "/api/partg-report/export/${format.name.lowercase()}?year=$year&scope=${encodeURIComponent(scope)}"
 
+    /** V1.9.291 (R6): the relative download URL of a KEPT version; the id is a server UUID, still escaped. */
+    fun versionUrl(
+        format: PartgReportFormat,
+        versionId: String,
+    ): String = "/api/partg-report/version/${format.name.lowercase()}?id=${encodeURIComponent(versionId)}"
+
     suspend fun preview(
         year: Int,
         unitKey: String,

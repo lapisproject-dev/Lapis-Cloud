@@ -34,6 +34,8 @@ internal data class SignalModuleFlags(
     val conferenceEnabled: Boolean,
     val mcpEnabled: Boolean,
     val dunningEnabled: Boolean,
+    /** V1.9.291 (R6): the organisation is a political party (the party report signal). */
+    val politicalParty: Boolean = false,
 )
 
 /**

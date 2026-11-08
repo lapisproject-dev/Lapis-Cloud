@@ -253,6 +253,7 @@ private fun SimplePanel.renderNotesBody(
             if (result != null) {
                 context.hasUnsavedChanges = { false }
                 notifySuccess(tr("Gespeichert."))
+                PartyReportSaveSignal.saved()
                 reload()
             } else {
                 form.showFormError(

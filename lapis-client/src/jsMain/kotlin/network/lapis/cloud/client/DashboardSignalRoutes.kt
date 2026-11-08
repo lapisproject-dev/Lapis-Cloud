@@ -11,6 +11,8 @@ internal object DashboardSignalRoutes {
     private data class Target(
         val list: String,
         val detail: String?,
+        /** Where the card leads when it differs from the list route (a deep link with `?tab=`); the menu check still uses [list]. */
+        val link: String? = null,
     )
 
     private val UUID = Regex("""^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$""")
@@ -32,6 +34,7 @@ internal object DashboardSignalRoutes {
             DashboardModuleKeys.AI to Target(Routes.AI_DRAFTS, null),
             DashboardModuleKeys.APPLICATIONS to Target(Routes.MEMBERS, null),
             DashboardModuleKeys.TREASURY to Target(Routes.DUNNING_CASES, null),
+            DashboardModuleKeys.PARTG to Target(Routes.PARTY_REPORT, null, link = Routes.PARTY_REPORT + "?tab=FREIGABE"),
         )
 
     /** The list route of [moduleKey], `null` for a module this client does not know. */
@@ -44,7 +47,7 @@ internal object DashboardSignalRoutes {
     ): String? {
         val target = targets[moduleKey] ?: return null
         val id = objectId?.takeIf { UUID.matches(it) }
-        return if (id != null && target.detail != null) detailRoute(base = target.list, id = id) else target.list
+        return if (id != null && target.detail != null) detailRoute(base = target.list, id = id) else target.link ?: target.list
     }
 
     /**

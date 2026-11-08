@@ -6,6 +6,7 @@ import network.lapis.cloud.shared.domain.PartgAnnexDto
 import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgConsolidationDto
+import network.lapis.cloud.shared.domain.PartgDeadlineDto
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgEnterpriseInputDto
 import network.lapis.cloud.shared.domain.PartgFindingDto
@@ -24,6 +25,10 @@ import network.lapis.cloud.shared.domain.PartgSheetDto
 import network.lapis.cloud.shared.domain.PartgSponsorInputDto
 import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
+import network.lapis.cloud.shared.domain.PartgVersionDeletionPreviewDto
+import network.lapis.cloud.shared.domain.PartgVersionDiffDto
+import network.lapis.cloud.shared.domain.PartgVersionDto
+import network.lapis.cloud.shared.domain.PartgVersionOverviewDto
 import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
 
 /**
@@ -253,4 +258,58 @@ interface IPartyReportService {
         expectedRevision: Long,
         combinationId: String,
     ): PartgConsolidationDto
+
+    // ---------------------------------------------------------------- R6 (V1.9.291)
+    // All of these start with the federal gate (BOARD/ADMIN), never with the scoped gate: a chapter treasurer reaches none of them.
+
+    /** V1.9.291 (R6): the kept versions of [year], the year's status, the deadline and whether the live state deviates from the newest kept version. */
+    suspend fun versionOverview(year: Int): PartgVersionOverviewDto
+
+    /**
+     * V1.9.291 (R6): keeps the current computed report of [year] and [scopeKey] (`ALL` or a unit key) as a new, numbered, unchangeable version.
+     * Refused with [PartyReportVersionUnchangedException] when it equals the newest version, with [PartyReportVersionTooLargeException] above 4 MiB.
+     */
+    suspend fun freezeVersion(
+        year: Int,
+        scopeKey: String,
+        comment: String?,
+    ): PartgVersionDto
+
+    /** V1.9.291 (R6): compares two kept versions cell by cell (read only). */
+    suspend fun compareVersions(
+        versionIdA: String,
+        versionIdB: String,
+    ): PartgVersionDiffDto
+
+    /**
+     * V1.9.291 (R6): records the Finanzvorstand's assurance on a whole-party version. [reviewed] must be `true`; [expectedContentHash] must equal the
+     * stored checksum. Once only per version.
+     */
+    suspend fun declareVersion(
+        versionId: String,
+        expectedContentHash: String,
+        reviewed: Boolean,
+    ): PartgVersionDto
+
+    /** V1.9.291 (R6): marks a declared whole-party version as internally final. [typedVersionNumber] must be the version's number. Irreversible. */
+    suspend fun finalizeVersion(
+        versionId: String,
+        typedVersionNumber: Int,
+        expectedContentHash: String,
+    ): PartgVersionDto
+
+    /** V1.9.291 (R6): confirms or changes the deadline of [year]; [deadline] is a strict ISO date. */
+    suspend fun confirmDeadline(
+        year: Int,
+        deadline: String,
+    ): PartgDeadlineDto
+
+    /** V1.9.291 (R6, ADMIN only): the versions the deletion routine would remove with this retention in years (10..30). */
+    suspend fun previewVersionDeletion(olderThanYears: Int): PartgVersionDeletionPreviewDto
+
+    /** V1.9.291 (R6, ADMIN only): removes exactly [expectedVersionIds] if the recomputed set is identical; returns how many. */
+    suspend fun deleteOldVersions(
+        olderThanYears: Int,
+        expectedVersionIds: List<String>,
+    ): Int
 }

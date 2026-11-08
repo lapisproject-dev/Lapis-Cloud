@@ -10,6 +10,7 @@ import network.lapis.cloud.server.dashboard.sources.ElectionSignals
 import network.lapis.cloud.server.dashboard.sources.EventSignals
 import network.lapis.cloud.server.dashboard.sources.MeetingSignals
 import network.lapis.cloud.server.dashboard.sources.MotionVoteSignals
+import network.lapis.cloud.server.dashboard.sources.PartyReportSignals
 import network.lapis.cloud.server.dashboard.sources.PollSignals
 import network.lapis.cloud.server.dashboard.sources.TenderSignals
 import network.lapis.cloud.server.dashboard.sources.TravelExpenseSignals
@@ -33,5 +34,6 @@ internal object DashboardSources {
             AiDraftSignals,
             ApplicationSignals,
             TreasurySignals,
+            PartyReportSignals,
         )
 }

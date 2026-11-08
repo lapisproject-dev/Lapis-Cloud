@@ -41,6 +41,13 @@
 // and the rules checked by the service (same year as the header, rows of one group from different units, 2..20 rows per group, at most 1000
 // pairs and 500 groups per year). DSGVO: organisation data; created_by/updated_by are "changed by you" data; the free-text note of a pair
 // may hold personal data and is never logged or audited.
+// Welle V1.9.291 "Rechenschaftsbericht R6" (V146__partg_report_r6.sql) adds FOUR tables: partg_report_version_counter (the lock row and number source
+// per year and scope; never deleted, so numbers are never reused), partg_report_version (one KEPT version: the computed report as canonical JSON
+// plus its SHA-256; only the finalized_* pair ever changes), partg_report_declaration (the Finanzvorstand's assurance, once per version) and
+// partg_report_deadline (the confirmed submission deadline of a year). NOT expressible in the ERM profile (SQL only, V146): every CHECK and the
+// rules checked by the service (<= 200 versions per scope, whole-party-only declaration and finalisation). DSGVO: partg_report_version holds a
+// COPY OF STATEMENTS B AND C (names and addresses of third parties; see PersonalDataRegistry); the other three are organisation data;
+// frozen_by/finalized_by/declared_by/confirmed_by/updated_by are "changed by you" data.
 // DSGVO (R3b): sponsor and sponsoring entry are PERSONAL DATA OF THIRD PARTIES (listed in knownUncoveredSubjectRoots); youth_org is organisation data.
 // DSGVO (R3): partg_report_large_donor is PERSONAL DATA OF THIRD PARTIES (name, address, yearly sum above 10,000 EUR); no member foreign key,
 // listed in PersonalDataRegistry.knownUncoveredSubjectRoots; created_by/updated_by of all R3 tables are "changed by you" data.
@@ -910,6 +917,144 @@ classDiagram(name = "PartgReport") {
         }
         attribute(name = "largeDonorId", type = "UUID") {
             stereotype("Column") { "columnName" to "large_donor_id"; "fkEntity" to "PartgReportLargeDonor" }
+        }
+    }
+
+    // V1.9.291 (R6)
+    classOf(name = "PartgReportVersionCounter") {
+        stereotype("Entity") { "tableName" to "partg_report_version_counter"; "kotlinObjectName" to "PartgReportVersionCounterTable" }
+        stereotype("Index") { "columns" to listOf("fiscal_year", "scope_key"); "unique" to true; "name" to "uq_partg_report_version_counter_scope" }
+        stereotype("Index") { "columns" to listOf("updated_by"); "name" to "ix_partg_report_version_counter_updated_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "fiscalYear", type = "Int") {
+            stereotype("Column") { "columnName" to "fiscal_year" }
+        }
+        attribute(name = "scopeKey", type = "String") {
+            stereotype("Column") { "columnName" to "scope_key"; "sqlType" to "VARCHAR(48)" }
+        }
+        attribute(name = "lastNumber", type = "Int") {
+            stereotype("Column") { "columnName" to "last_number" }
+        }
+        attribute(name = "updatedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "updated_at" }
+        }
+        attribute(name = "updatedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "updated_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    classOf(name = "PartgReportVersion") {
+        stereotype("Entity") { "tableName" to "partg_report_version"; "kotlinObjectName" to "PartgReportVersionTable" }
+        stereotype("Index") {
+            "columns" to listOf("fiscal_year", "scope_key", "version_number")
+            "unique" to true
+            "name" to "uq_partg_report_version_number"
+        }
+        stereotype("Index") { "columns" to listOf("counter_id"); "name" to "ix_partg_report_version_counter" }
+        stereotype("Index") { "columns" to listOf("frozen_by"); "name" to "ix_partg_report_version_frozen_by" }
+        stereotype("Index") { "columns" to listOf("finalized_by"); "name" to "ix_partg_report_version_finalized_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "counterId", type = "UUID") {
+            stereotype("Column") { "columnName" to "counter_id"; "fkEntity" to "PartgReportVersionCounter" }
+        }
+        attribute(name = "fiscalYear", type = "Int") {
+            stereotype("Column") { "columnName" to "fiscal_year" }
+        }
+        attribute(name = "scopeKey", type = "String") {
+            stereotype("Column") { "columnName" to "scope_key"; "sqlType" to "VARCHAR(48)" }
+        }
+        attribute(name = "versionNumber", type = "Int") {
+            stereotype("Column") { "columnName" to "version_number" }
+        }
+        attribute(name = "formatVersion", type = "Int") {
+            stereotype("Column") { "columnName" to "format_version" }
+        }
+        attribute(name = "contentJson", type = "String") {
+            stereotype("Column") { "columnName" to "content_json"; "sqlType" to "TEXT" }
+        }
+        attribute(name = "contentHash", type = "String") {
+            stereotype("Column") { "columnName" to "content_hash"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "byteSize", type = "Int") {
+            stereotype("Column") { "columnName" to "byte_size" }
+        }
+        attribute(name = "hasThirdPartyData", type = "Boolean") {
+            stereotype("Column") { "columnName" to "has_third_party_data" }
+        }
+        attribute(name = "comment", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "comment"; "sqlType" to "VARCHAR(500)" }
+        }
+        attribute(name = "frozenAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "frozen_at" }
+        }
+        attribute(name = "frozenBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "frozen_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "finalizedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "finalized_at" }
+        }
+        attribute(name = "finalizedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "finalized_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    classOf(name = "PartgReportDeclaration") {
+        stereotype("Entity") { "tableName" to "partg_report_declaration"; "kotlinObjectName" to "PartgReportDeclarationTable" }
+        stereotype("Index") { "columns" to listOf("version_id"); "unique" to true; "name" to "uq_partg_report_declaration_version" }
+        stereotype("Index") { "columns" to listOf("declared_by"); "name" to "ix_partg_report_declaration_declared_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "versionId", type = "UUID") {
+            stereotype("Column") { "columnName" to "version_id"; "fkEntity" to "PartgReportVersion" }
+        }
+        attribute(name = "templateCode", type = "String") {
+            stereotype("Column") { "columnName" to "template_code"; "sqlType" to "VARCHAR(32)" }
+        }
+        attribute(name = "contentHash", type = "String") {
+            stereotype("Column") { "columnName" to "content_hash"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "declaredAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "declared_at" }
+        }
+        attribute(name = "declaredBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "declared_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    classOf(name = "PartgReportDeadline") {
+        stereotype("Entity") { "tableName" to "partg_report_deadline"; "kotlinObjectName" to "PartgReportDeadlineTable" }
+        stereotype("Index") { "columns" to listOf("fiscal_year"); "unique" to true; "name" to "uq_partg_report_deadline_year" }
+        stereotype("Index") { "columns" to listOf("confirmed_by"); "name" to "ix_partg_report_deadline_confirmed_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "fiscalYear", type = "Int") {
+            stereotype("Column") { "columnName" to "fiscal_year" }
+        }
+        attribute(name = "deadline", type = "LocalDate") {
+            stereotype("Column") { "columnName" to "deadline" }
+        }
+        attribute(name = "confirmedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "confirmed_at" }
+        }
+        attribute(name = "confirmedBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "confirmed_by"; "fkEntity" to "Member" }
         }
     }
 }

@@ -33,7 +33,7 @@ private fun pages(bytes: ByteArray): List<String> =
 class PartgReportPdfGoldenTest :
     FunSpec({
         val doc = ReportFixtures.doc()
-        val bytes = PartgReportPdfRenderer().render(doc)
+        val bytes = PartgReportPdfRenderer().render(document = doc)
         val texts = pages(bytes)
         val all = texts.joinToString("\n")
 
@@ -94,11 +94,11 @@ class PartgReportPdfGoldenTest :
         }
 
         test("the same document gives the same bytes") {
-            PartgReportPdfRenderer().render(ReportFixtures.doc()).contentEquals(bytes) shouldBe true
+            PartgReportPdfRenderer().render(document = ReportFixtures.doc()).contentEquals(bytes) shouldBe true
         }
 
         test("a single unit report has the unit page and no whole party") {
-            val single = PartgReportPdfRenderer().render(ReportFixtures.doc(scope = PartgReportScope.Single(PartgUnit.Federal)))
+            val single = PartgReportPdfRenderer().render(document = ReportFixtures.doc(scope = PartgReportScope.Single(PartgUnit.Federal)))
             val text = pages(single).joinToString("\n")
             text shouldContain "Umfang: Bundesverband"
             text shouldNotContain "Gesamtpartei"
@@ -127,21 +127,21 @@ class PartgReportPdfLimitsTest :
         test("the maximum of 201 units renders and stays far below the page limit") {
             val units = manyUnits(PartgReportComputationLimit.MAX)
             val doc = ReportFixtures.doc(units = units, entered = fullEntered(units, 12_345_67L))
-            val bytes = PartgReportPdfRenderer().render(doc)
+            val bytes = PartgReportPdfRenderer().render(document = doc)
             Loader.loadPDF(bytes).use { it.numberOfPages shouldBeLessThan PartgReportLimits.MAX_PDF_PAGES }
         }
 
         test("more pages than allowed throw PdfLimitExceeded") {
-            shouldThrow<PdfLimitExceeded> { PartgReportPdfRenderer(maxPages = 3).render(ReportFixtures.doc()) }
+            shouldThrow<PdfLimitExceeded> { PartgReportPdfRenderer(maxPages = 3).render(document = ReportFixtures.doc()) }
         }
 
         test("a byte limit that is too small throws PdfLimitExceeded") {
-            shouldThrow<PdfLimitExceeded> { PartgReportPdfRenderer(maxBytes = 100).render(ReportFixtures.doc()) }
+            shouldThrow<PdfLimitExceeded> { PartgReportPdfRenderer(maxBytes = 100).render(document = ReportFixtures.doc()) }
         }
 
         test("hostile organisation names render without an exception and without markup leaking") {
             val name = "ტესტი 😀 (Partei) \\ \n zeile\t) Tj BT ${"x".repeat(500)}"
-            val bytes = PartgReportPdfRenderer().render(ReportFixtures.doc(org = name))
+            val bytes = PartgReportPdfRenderer().render(document = ReportFixtures.doc(org = name))
             val text = pages(bytes).first()
             text shouldContain "?"
             text shouldNotContain "x".repeat(100)
@@ -150,7 +150,7 @@ class PartgReportPdfLimitsTest :
         test("the maximum amounts are never cut off and never overlap their neighbour") {
             val units = manyUnits(6)
             val doc = ReportFixtures.doc(units = units, entered = fullEntered(units, PartgPositionsMax.CENTS))
-            val bytes = PartgReportPdfRenderer().render(doc)
+            val bytes = PartgReportPdfRenderer().render(document = doc)
             val overlaps = mutableListOf<String>()
             Loader.loadPDF(bytes).use { pdf ->
                 object : PDFTextStripper() {

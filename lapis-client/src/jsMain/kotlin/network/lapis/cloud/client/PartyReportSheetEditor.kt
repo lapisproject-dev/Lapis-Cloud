@@ -299,6 +299,7 @@ private fun SimplePanel.renderSheetTable(
                     if (result != null) {
                         context.hasUnsavedChanges = { false }
                         notifySuccess(gettext("%1 Werte gespeichert.", result.changed))
+                        PartyReportSaveSignal.saved()
                         reload()
                     } else {
                         disabled = false

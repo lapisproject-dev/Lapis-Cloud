@@ -47,6 +47,13 @@ class DashboardTripwireTest :
             }
         }
 
+        test("the party report source gates on the role and the party switch, hands out no id and no text") {
+            val text = SourceScan.blank(sourceFiles.single { it.name == "PartyReportSignals.kt" }.readText())
+            text.contains("SignalGates.isBoardOrAdmin(ctx.role)") shouldBe true
+            text.contains("ctx.flags.politicalParty") shouldBe true
+            text.contains("objectId") shouldBe false
+        }
+
         test("no status is decided inline: the gates go through SignalGates / MemberStatusSets") {
             val offenders =
                 dashboardFiles

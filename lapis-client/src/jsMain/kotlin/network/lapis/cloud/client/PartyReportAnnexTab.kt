@@ -260,6 +260,7 @@ private fun SimplePanel.renderAnnexBody(
                         initialFigures = figureFields.map { it.value }
                         renderDonors()
                         notifySuccess(tr("Gespeichert."))
+                        PartyReportSaveSignal.saved()
                         reloadIn(AnnexBlock.A)
                     } else {
                         figures.showFormError(saveFailedText())
@@ -545,6 +546,7 @@ private fun Container.renderDonorForm(
             val result = guarded { partyReportRpc().saveLargeDonor(annex.year, annex.unit.unitKey, revision(), input) }
             if (result != null) {
                 notifySuccess(tr("Gespeichert."))
+                PartyReportSaveSignal.saved()
                 onSaved(result)
             } else {
                 form.showFormError(saveFailedText())

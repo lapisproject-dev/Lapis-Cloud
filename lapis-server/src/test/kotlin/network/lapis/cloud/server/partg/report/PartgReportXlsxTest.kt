@@ -10,7 +10,7 @@ import network.lapis.cloud.shared.domain.PartgUnitLevel
 class PartgReportXlsxGoldenTest :
     FunSpec({
         val doc = ReportFixtures.doc()
-        val bytes = PartgReportXlsxWriter.write(doc)
+        val bytes = PartgReportXlsxWriter.write(document = doc)
         val xlsx = readXlsx(bytes)
 
         test("the sheets have fixed names in a fixed order") {
@@ -50,7 +50,7 @@ class PartgReportXlsxGoldenTest :
             val full =
                 readXlsx(
                     PartgReportXlsxWriter.write(
-                        ReportFixtures.doc(scope = PartgReportScope.Single(PartgUnit.State(ReportFixtures.CHAPTER_A))),
+                        document = ReportFixtures.doc(scope = PartgReportScope.Single(PartgUnit.State(ReportFixtures.CHAPTER_A))),
                     ),
                 ).sheets.getValue("Zusammenfassung")
             full.getValue("D7").style shouldBe PartgReportXlsxWriter.S_PERCENT
@@ -68,7 +68,7 @@ class PartgReportXlsxGoldenTest :
         test("a negative result stays a negative number") {
             val federalPage =
                 ReportFixtures.doc(scope = PartgReportScope.Single(PartgUnit.Federal))
-            val sheet = readXlsx(PartgReportXlsxWriter.write(federalPage)).sheets.getValue("Zusammenfassung")
+            val sheet = readXlsx(PartgReportXlsxWriter.write(document = federalPage)).sheets.getValue("Zusammenfassung")
             // RES is the last expense line: title 3, label 4, header 5, 'Einnahmen' 6, 12 lines (7-18), 'Ausgaben' 19, 5 lines (20-24)
             sheet.getValue("C24").value.startsWith("-") shouldBe true
         }
@@ -81,7 +81,7 @@ class PartgReportXlsxGoldenTest :
         }
 
         test("the same document gives the same bytes") {
-            PartgReportXlsxWriter.write(ReportFixtures.doc()).contentEquals(bytes) shouldBe true
+            PartgReportXlsxWriter.write(document = ReportFixtures.doc()).contentEquals(bytes) shouldBe true
         }
 
         test("no formula, no shared strings, no macro part, plain sheet content type") {
@@ -116,7 +116,7 @@ class PartgReportXlsxInjectionTest :
                         ReportFixtures.unitDto(level = PartgUnitLevel.STATE, chapter = ReportFixtures.CHAPTER_A, name = name),
                     )
                 val doc = ReportFixtures.doc(org = name, units = units)
-                val bytes = PartgReportXlsxWriter.write(doc)
+                val bytes = PartgReportXlsxWriter.write(document = doc)
                 val xlsx = readXlsx(bytes) // well-formed (DTD-free StAX parse)
                 xlsx.parts.forEach { (part, data) ->
                     if (part.endsWith(".xml")) {

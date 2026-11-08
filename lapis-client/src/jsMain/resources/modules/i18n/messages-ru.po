@@ -675,7 +675,7 @@ msgid "Archivierte anzeigen"
 msgstr "Показать архивные"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:810
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:813
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:403
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:234
@@ -1492,6 +1492,7 @@ msgstr "%1 (%2 байт)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:592
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:534
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:735
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionCompare.kt:108
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:529
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:962
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:167
@@ -1827,12 +1828,16 @@ msgstr "Подписка отменена %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:294
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1560
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartgLedgerProposalDialog.kt:100
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:524
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:525
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:79
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:357
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTransferDialog.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTransferDialog.kt:83
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionDialogs.kt:124
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionDialogs.kt:171
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionDialogs.kt:238
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionDialogs.kt:72
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:223
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:314
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:334
@@ -1879,7 +1884,7 @@ msgstr "Истёк"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismTexts.kt:49
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt:44
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolParticipationUi.kt:58
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:570
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:576
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt:146
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt:215
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:111
@@ -1906,8 +1911,8 @@ msgid "Abgerechnet"
 msgstr "Зачислено"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismTexts.kt:33
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:466
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:486
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:472
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:492
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt:304
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:16
 #: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:146
@@ -1996,7 +2001,7 @@ msgstr "Отменить"
 msgid "Absender"
 msgstr "Отправитель"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:720
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:723
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusScreen.kt:129
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionPhase.kt:47
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:941
@@ -2043,7 +2048,7 @@ msgstr "Инициатор: %1 · Затронутый участник: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:257
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:159
 #: src/jsMain/kotlin/network/lapis/cloud/client/OrganizationScreen.kt:164
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:401
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:402
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:162
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportDonorCombineBlock.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:123
@@ -2178,7 +2183,7 @@ msgstr "Текущий вес (распад 10 %/день)"
 msgid "Aktuelles Passwort"
 msgstr "Текущий пароль"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:337
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:351
 msgid "Aktuelles Passwort ist falsch."
 msgstr "Текущий пароль неверен."
 
@@ -2472,11 +2477,11 @@ msgstr "Анонимно"
 msgid "Anonyme öffentliche Meldung"
 msgstr "Анонимная публичная жалоба"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:586
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:592
 msgid "Anonymisierung"
 msgstr "Анонимизация"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:587
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:593
 msgid "Anonymisierung + Hartlöschung eigener Nachrichten"
 msgstr "Анонимизация + необратимое удаление собственных сообщений"
 
@@ -2649,14 +2654,14 @@ msgstr "Подтвердите отзыв ключа API"
 msgid "Art der Löschung"
 msgstr "Тип удаления"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:484
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:490
 msgid "Aufsichtsbehörde benachrichtigt"
 msgstr "Надзорный орган уведомлён"
 
 msgid "Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Надзорный орган уведомлён (ГГГГ-ММ-ДДTЧЧ:ММ:СС, необязательно)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:445
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:451
 msgid "Auftragskontrolle"
 msgstr "Контроль поручений"
 
@@ -2799,7 +2804,7 @@ msgstr "Расход"
 msgid "Ausgaben"
 msgstr "Расходы"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:571
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:577
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:512
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:523
@@ -2815,7 +2820,7 @@ msgstr "Исполнено %1"
 msgid "Ausgelöst am: %1"
 msgstr "Инициировано: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:652
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:658
 msgid "Ausgeschieden"
 msgstr "Выбыл(а)"
 
@@ -2836,7 +2841,7 @@ msgstr "Выбыл"
 msgid "Auskunft"
 msgstr "Справка"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:623
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:629
 msgid "Auskunft exportiert"
 msgstr "Справка экспортирована"
 
@@ -2918,7 +2923,7 @@ msgstr "Файл резервной копии (.zip)"
 msgid "Bankkonto"
 msgstr "Банковский счёт"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:789
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:792
 msgid "Bankkonto (LedgerAccount-ID)"
 msgstr "Банковский счёт (ID счёта учёта)"
 
@@ -2926,7 +2931,7 @@ msgstr "Банковский счёт (ID счёта учёта)"
 msgid "Beantragen"
 msgstr "Подать заявку"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:568
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:574
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:510
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:521
@@ -2968,7 +2973,7 @@ msgstr "Запрошено %1, %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1006
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:111
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:428
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:429
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:182
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:145
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:192
@@ -2986,7 +2991,7 @@ msgid "Beendet"
 msgstr "Завершено"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismFormScreen.kt:73
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:752
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:755
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt:381
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventImportScreen.kt:154
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventOfficerForm.kt:39
@@ -3087,7 +3092,7 @@ msgstr "Заседатель"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:86
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:150
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:567
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:569
 msgid "Beitrag"
 msgstr "Взнос"
 
@@ -3173,7 +3178,7 @@ msgstr "Заявки на удаление записей"
 msgid "Beitragserlöskonto"
 msgstr "Счёт доходов от взносов"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:792
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:795
 msgid "Beitragserlöskonto (LedgerAccount-ID)"
 msgstr "Счёт доходов от взносов (ID счёта учёта)"
 
@@ -3206,7 +3211,7 @@ msgstr "Загрузка договора о вступлении …"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:502
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:580
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:682
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:685
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1124
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:354
 msgid "Beleg"
@@ -3314,7 +3319,7 @@ msgstr "Текст решения"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismFormScreen.kt:69
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:52
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:681
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:684
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:210
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:277
@@ -3409,8 +3414,8 @@ msgstr "Подтверждение обрабатывается ..."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:502
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:580
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:705
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:809
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:708
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:812
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:201
@@ -3429,7 +3434,7 @@ msgstr "Подтверждение обрабатывается ..."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1024
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:270
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:356
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:399
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:400
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportDonorCombineBlock.kt:55
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt:209
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:446
@@ -3545,7 +3550,7 @@ msgstr "По (ГГГГ-ММ-ДД)"
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "По (ГГГГ-ММ-ДДTЧЧ:ММ:СС, необязательно)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:772
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:775
 msgid "Bisherige Jahressumme (vor dieser Spende)"
 msgstr "Сумма за предыдущий год (до этого пожертвования)"
 
@@ -3712,9 +3717,9 @@ msgstr "Введите содержимое."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:186
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:246
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:490
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:279
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:273
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:491
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:285
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:274
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:264
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:203
 msgid "Bitte einen Namen angeben."
@@ -3953,7 +3958,7 @@ msgstr "Добавить строку проводки"
 msgid "Buchungszeilen"
 msgstr "Строки проводок"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:696
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:699
 msgid "Buchungszeilen:"
 msgstr "Строки проводки:"
 
@@ -4095,7 +4100,7 @@ msgstr "Состояние данных"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:502
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:678
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:681
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt:378
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:476
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:179
@@ -4282,7 +4287,7 @@ msgstr "Диагностика: текущий курс"
 msgid "Dick"
 msgstr "Жирный"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:335
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:349
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:200
 msgid ""
 "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht "
@@ -4852,7 +4857,7 @@ msgstr ""
 "Опубликованную запись больше нельзя редактировать -- опечатки остаются "
 "опечатками или исправляются в новой записи."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:444
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:450
 msgid "Eingabekontrolle"
 msgstr "Контроль ввода"
 
@@ -4874,7 +4879,7 @@ msgstr "Подано %1, %2"
 msgid "Eingeschränkt (Degraded)"
 msgstr "Ограничено (Degraded)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:651
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:657
 msgid "Eingetreten"
 msgstr "Вступил(а)"
 
@@ -4971,7 +4976,7 @@ msgstr "Дата списания %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:638
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:799
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:158
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTransferDialog.kt:40
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTransferDialog.kt:45
 msgid "Empfänger"
 msgstr "Получатель"
 
@@ -4980,7 +4985,7 @@ msgid "Empfänger:"
 msgstr "Получатель:"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismFormScreen.kt:74
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:756
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:759
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt:382
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventOfficerForm.kt:40
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:217
@@ -5120,7 +5125,7 @@ msgstr "Примечание к решению: %1"
 msgid "Entschieden"
 msgstr "Решено"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:738
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:741
 msgid "Entschieden am"
 msgstr "Дата решения"
 
@@ -5131,8 +5136,8 @@ msgstr "Решено %1, %2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt:41
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:471
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:422
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:465
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:428
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:471
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventLabels.kt:18
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2381
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportMappingTab.kt:325
@@ -5189,7 +5194,7 @@ msgstr ""
 msgid "Erfasst von"
 msgstr "Зарегистрировано"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:690
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:693
 msgid "Erfasst von (Mitglieds-ID)"
 msgstr "Зафиксировано (ID участника)"
 
@@ -5197,7 +5202,7 @@ msgstr "Зафиксировано (ID участника)"
 msgid "Erfasst von %1 in Ihrem Namen."
 msgstr "Зарегистрировано пользователем %1 от вашего имени."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:402
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:408
 #: src/jsMain/kotlin/network/lapis/cloud/client/Notify.kt:27
 msgid "Erfolgreich"
 msgstr "Успешно"
@@ -5349,7 +5354,7 @@ msgstr "Гражданин(ка) ЕС / юридическое лицо ЕС"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:316
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:46
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:387
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:393
 msgid "Export"
 msgstr "Экспорт"
 
@@ -5378,7 +5383,7 @@ msgstr ""
 msgid "Externer Spender"
 msgstr "Внешний донор"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:692
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:695
 msgid "Externer Spender (ID)"
 msgstr "Внешний донор (ID)"
 
@@ -5425,7 +5430,7 @@ msgid "fehlgeschlagen"
 msgstr "не удалось"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:474
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:403
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:409
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:8253
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:8519
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:8544
@@ -5518,19 +5523,21 @@ msgstr "Регистрация отправлена"
 msgid "Freund-Konto anlegen"
 msgstr "Создать аккаунт друга"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:505
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:511
 msgid "Frist bald fällig"
 msgstr "Срок скоро истекает"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:504
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:510
 msgid "Frist läuft"
 msgstr "Срок идёт"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:506
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:512
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionLogic.kt:42
 msgid "Frist überschritten"
 msgstr "Срок просрочен"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:417
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionLogic.kt:54
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:171
 msgid "Frist: %1"
 msgstr "Срок: %1"
@@ -5676,7 +5683,7 @@ msgstr "Ставка сохранена."
 msgid "Gebucht"
 msgstr "Проведено"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:686
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:689
 msgid "Gebucht am"
 msgstr "Дата проводки"
 
@@ -5696,7 +5703,7 @@ msgstr "Комиссия"
 msgid "Gebührenkonto"
 msgstr "Счёт комиссий"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:790
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:793
 msgid "Gebührenkonto (LedgerAccount-ID)"
 msgstr "Счёт комиссий (ID счёта учёта)"
 
@@ -5721,7 +5728,7 @@ msgid "gemeldet"
 msgstr "сообщено"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismTexts.kt:47
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:482
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:488
 msgid "Gemeldet"
 msgstr "Сообщено"
 
@@ -5746,7 +5753,7 @@ msgstr "Выпущено:"
 msgid "Genehmigen"
 msgstr "Одобрить"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:569
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:575
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:502
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:627
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:399
@@ -5817,11 +5824,11 @@ msgstr "Сохранено — ключ больше не будет отобр�
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:373
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:303
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:262
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:547
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:548
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:326
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:255
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:387
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTransferDialog.kt:102
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTransferDialog.kt:107
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:242
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:714
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDefaultsSettings.kt:87
@@ -6032,8 +6039,8 @@ msgstr "Версия текста-уведомления %1"
 msgid "Hinzufügen"
 msgstr "Добавить"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:526
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:546
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:532
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:552
 msgid "Hoch"
 msgstr "Высокий"
 
@@ -6200,7 +6207,7 @@ msgstr ""
 "Ваша заявка на членство подана и рассматривается правлением. Вы ещё не вошли "
 "в систему — после одобрения вы сможете войти с выбранным вами паролем."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:603
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:609
 msgid ""
 "Ihr Mitgliedsdatensatz bleibt als anonymer Platzhalter bestehen (z. B. damit "
 "Beitragshistorie und Buchungen konsistent bleiben). Persönliche Felder "
@@ -6230,7 +6237,7 @@ msgstr "Ваша реакция:"
 msgid "In Bearbeitung"
 msgstr "В обработке"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:483
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:489
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:383
 msgid "In Prüfung"
 msgstr "На проверке"
@@ -6304,7 +6311,7 @@ msgid "ist wegen geheimer Abstimmung unterbrochen"
 msgstr "приостановлено из-за тайного голосования"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:307
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:730
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:733
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:302
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:244
 #: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:175
@@ -6330,7 +6337,7 @@ msgstr "Да"
 msgid "Ja-Stimmen"
 msgstr "Голоса «за»"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:727
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:730
 msgid "Ja: %1 · Nein: %2 · Enthaltung: %3"
 msgstr "За: %1 · Против: %2 · Воздержались: %3"
 
@@ -6415,7 +6422,7 @@ msgstr "Без срока действия"
 msgid "Kein aktives Mandat"
 msgstr "Нет активного мандата"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:421
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:427
 msgid "Kein AVV"
 msgstr "AVV отсутствует"
 
@@ -6483,7 +6490,7 @@ msgstr "Взносы отсутствуют."
 msgid "Keine berechtigten Mitglieder gefunden."
 msgstr "Правомочные участники не найдены."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:333
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:347
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:36
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:57
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:39
@@ -6599,7 +6606,7 @@ msgstr "Нет центров затрат с проводками за выбр
 msgid "Keine Löschanträge für diese Filter gefunden."
 msgstr "По этим фильтрам заявки на удаление не найдены."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:485
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:491
 msgid "Keine Meldung erforderlich"
 msgstr "Уведомление не требуется"
 
@@ -6707,7 +6714,7 @@ msgstr "Счёт"
 msgid "Konto \"%1 · %2\" wurde angelegt."
 msgstr "Счёт «%1 · %2» создан."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:703
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:706
 msgid "Konto (ID)"
 msgstr "Счёт (ID)"
 
@@ -6816,7 +6823,7 @@ msgstr "Центры затрат"
 msgid "Kostenstellenbericht"
 msgstr "Отчёт по центрам затрат"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:527
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:533
 msgid "Kritisch"
 msgstr "Критично"
 
@@ -6908,7 +6915,7 @@ msgstr "Партии"
 msgid "Läuft ab am"
 msgstr "Истекает"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:757
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:760
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatisticsScreen.kt:185
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatisticsScreen.kt:194
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatisticsScreen.kt:269
@@ -7027,14 +7034,15 @@ msgstr "Заявка на удаление отправлена."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:486
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:308
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPublicProfileCard.kt:202
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:430
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:434
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:431
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:435
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:185
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:222
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:149
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:154
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:116
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:195
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionsTab.kt:314
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:106
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:110
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegionalChaptersScreen.kt:206
@@ -7045,11 +7053,11 @@ msgstr "Заявка на удаление отправлена."
 msgid "Löschen"
 msgstr "Удалить"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:626
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:632
 msgid "Löschung abgelehnt"
 msgstr "Удаление отклонено"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:627
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:633
 msgid "Löschung ausgeführt"
 msgstr "Удаление выполнено"
 
@@ -7062,7 +7070,7 @@ msgstr "Запросить удаление"
 msgid "Löschung beantragen (DSGVO)"
 msgstr "Запросить удаление (GDPR)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:624
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:630
 msgid "Löschung beantragt"
 msgstr "Удаление запрошено"
 
@@ -7074,7 +7082,7 @@ msgstr "Запросить удаление содержимого записи 
 msgid "Löschung endgültig ausführen"
 msgstr "Окончательно выполнить удаление"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:625
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:631
 msgid "Löschung genehmigt"
 msgstr "Удаление одобрено"
 
@@ -7300,7 +7308,7 @@ msgstr "Требуется уведомление надзорного орга�
 msgid "Meldung an Aufsichtsbehörde erforderlich: %1"
 msgstr "Требуется уведомление надзорного органа: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:507
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:513
 msgid "Meldung erfolgt"
 msgstr "Уведомление отправлено"
 
@@ -7381,8 +7389,8 @@ msgstr "Требуется не менее двух участников."
 msgid "Mitglied"
 msgstr "Участник"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:749
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:812
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:752
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:815
 msgid "Mitglied (ID)"
 msgstr "Участник (ID)"
 
@@ -7496,8 +7504,8 @@ msgstr "Действительно прекратить членство «%1»?
 msgid "Mitgliedschaft von %1 wurde beendet."
 msgstr "Членство %1 прекращено."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:525
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:545
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:531
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:551
 msgid "Mittel"
 msgstr "Средства"
 
@@ -7641,8 +7649,8 @@ msgstr "Сообщения"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:141
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:187
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1140
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:397
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:487
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:398
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:488
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportDonorCombineBlock.kt:53
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportMappingTab.kt:28
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:161
@@ -7665,7 +7673,7 @@ msgid "Natürliche Person außerhalb der EU"
 msgstr "Физическое лицо за пределами ЕС"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:307
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:730
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:733
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:304
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:244
 #: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:176
@@ -7809,7 +7817,7 @@ msgstr "Новый пароль (не менее %1 символов)"
 msgid "Neues Passwort bestätigen"
 msgstr "Подтвердите новый пароль"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:339
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:353
 msgid ""
 "Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, "
 "nicht die E-Mail-Adresse)."
@@ -7834,7 +7842,7 @@ msgstr "Создать новую цель трансляции"
 msgid "Nicht festgelegt"
 msgstr "Не задано"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:334
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:348
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:39
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:60
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:42
@@ -7848,16 +7856,16 @@ msgstr "Не задано"
 msgid "Nicht gefunden."
 msgstr "Не найдено."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:789
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:790
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:792
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:793
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:796
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:130
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:170
 msgid "nicht konfiguriert"
 msgstr "не настроено"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:524
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:544
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:530
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:550
 msgid "Niedrig"
 msgstr "Низкий"
 
@@ -8098,7 +8106,7 @@ msgstr "Сохранить заметки как документ"
 msgid "Nr."
 msgstr "№"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:716
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:719
 msgid "Nummer"
 msgstr "Номер"
 
@@ -8230,8 +8238,8 @@ msgstr "Настройки организации"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:241
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:389
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:115
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:398
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:495
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:399
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:496
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:162
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:269
 msgid "Ort"
@@ -8333,7 +8341,7 @@ msgstr "Обязанность"
 msgid "Pflichten"
 msgstr "Обязанности"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:775
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:778
 msgid "Pflichten:"
 msgstr "Обязанности:"
 
@@ -8413,6 +8421,7 @@ msgstr "Подтвердите отзыв статуса политика"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportMappingTab.kt:30
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:22
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSheetEditor.kt:217
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionCompare.kt:84
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:886
 msgid "Position"
 msgstr "Позиция"
@@ -8421,7 +8430,7 @@ msgstr "Позиция"
 msgid "Position auf der Tagesordnung"
 msgstr "Позиция в повестке дня"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:131
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportScreen.kt:168
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:501
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:616
 msgid "Positionen"
@@ -8572,11 +8581,11 @@ msgstr "Сформировать черновик протокола"
 msgid "Protokollführung: %1"
 msgstr "Ведение протокола: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:741
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:744
 msgid "Protokolliert von (ID)"
 msgstr "Запротоколировано (ID)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:773
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:776
 msgid "Prüfergebnis"
 msgstr "Результат проверки"
 
@@ -8604,7 +8613,7 @@ msgstr "Проверка"
 msgid "Quellen: %1"
 msgstr "Источники: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:730
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:733
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1722
 msgid "Quorum erreicht"
 msgstr "Кворум достигнут"
@@ -8685,11 +8694,11 @@ msgstr "Оценка риска (необязательно)"
 msgid "Risikostufe"
 msgstr "Уровень риска"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:829
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:832
 msgid "Rohdaten ein-/ausblenden"
 msgstr "Показать/скрыть исходные данные"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:750
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:753
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:284
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:680
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:748
@@ -31249,3 +31258,294 @@ msgstr "Удалить перевод?"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:1
 msgid "Der Eintrag wird aus der Liste entfernt. Danach wird dieser Betrag nicht mehr herausgerechnet."
 msgstr "Запись будет удалена из списка. Эта сумма больше не будет исключаться."
+
+msgid "Arbeitsstand"
+msgstr "Рабочая версия"
+
+msgid "Festgehalten"
+msgstr "Зафиксирована"
+
+msgid "Versichert"
+msgstr "Заверена"
+
+msgid "Intern final"
+msgstr "Окончательная внутри"
+
+msgid "Frist in Sicht"
+msgstr "Срок приближается"
+
+msgid "Frist bald"
+msgstr "Срок скоро"
+
+msgid "Gesamtpartei"
+msgstr "Вся партия"
+
+msgid "Frist: %1 (Vorschlag, nicht bestätigt)"
+msgstr "Срок: %1 (предложение, не подтверждено)"
+
+msgid "%1, seit %2 Tagen überschritten"
+msgstr "%1, просрочено на %2 дн."
+
+msgid "%1, heute"
+msgstr "%1, сегодня"
+
+msgid "%1, noch ein Tag"
+msgstr "%1, остался один день"
+
+msgid "%1, noch %2 Tage"
+msgstr "%1, осталось %2 дн."
+
+msgid "Der Arbeitsstand weicht von der letzten festgehaltenen Version ab. Halten Sie ihn fest, wenn er in den Bericht eingehen soll."
+msgstr "Рабочая версия отличается от последней зафиксированной. Зафиксируйте её, если она должна войти в отчёт."
+
+msgid "Vergleich nicht möglich (älteres Format)."
+msgstr "Сравнение невозможно (более старый формат)."
+
+msgid "Intern final, nicht eingereicht"
+msgstr "Окончательная внутри, не подана"
+
+msgid "Entwurf als Arbeitshilfe, nicht eingereicht"
+msgstr "Черновик как рабочее пособие, не подан"
+
+msgid "Version %1 · festgehalten %2 · Prüfsumme %3 · %4"
+msgstr "Версия %1 · зафиксирована %2 · контрольная сумма %3 · %4"
+
+msgid "%1 (unvollst.)"
+msgstr "%1 (неполн.)"
+
+msgid "n. e."
+msgstr "н/в"
+
+msgid "unverändert"
+msgstr "без изменений"
+
+msgid "entfallen"
+msgstr "исключено"
+
+msgid "Version %1, %2, %3"
+msgstr "Версия %1, %2, %3"
+
+msgid "Rechnungsjahr %1:"
+msgstr "Отчётный год %1:"
+
+msgid "Version festhalten"
+msgstr "Зафиксировать версию"
+
+msgid "Der aktuelle Arbeitsstand wird als nummerierte Version gespeichert. Eine festgehaltene Version lässt sich nicht mehr ändern. Sie enthält die Ausweise B und C mit Namen und Anschriften Dritter."
+msgstr "Текущая рабочая версия сохраняется как пронумерованная версия. Зафиксированную версию больше нельзя изменить. Она содержит ведомости B и C с именами и адресами третьих лиц."
+
+msgid "Kommentar (freiwillig)"
+msgstr "Комментарий (необязательно)"
+
+msgid "Höchstens 500 Zeichen, eine Zeile. Bitte keine Namen von Personen eintragen; der Kommentar steht in der Versionsliste."
+msgstr "Не более 500 символов, одна строка. Не указывайте имена людей; комментарий виден в списке версий."
+
+msgid "Höchstens 500 Zeichen, ohne Zeilenumbruch."
+msgstr "Не более 500 символов, без перевода строки."
+
+msgid "Auf jeder Seite des Exports steht: Version, Tag des Festhaltens, Prüfsumme und der Hinweis, dass der Entwurf nicht eingereicht ist."
+msgstr "На каждой странице экспорта указаны: версия, день фиксации, контрольная сумма и пометка, что черновик не подан."
+
+msgid "Festhalten"
+msgstr "Зафиксировать"
+
+msgid "Version %1 versichern"
+msgstr "Заверить версию %1"
+
+msgid "Entwurf einer Versicherung. Rechtlich nicht geprüft, keine qualifizierte elektronische Signatur."
+msgstr "Проект заверения. Юридически не проверен, не является квалифицированной электронной подписью."
+
+msgid "Ich habe den Inhalt dieser Version geprüft und versichere ihn."
+msgstr "Я проверил(а) содержание этой версии и заверяю его."
+
+msgid "Versichern"
+msgstr "Заверить"
+
+msgid "Version %1 intern final setzen"
+msgstr "Пометить версию %1 как окончательную внутри"
+
+msgid "Das lässt sich nicht rückgängig machen. Die Version gilt danach intern als final. Das ist ein interner Vermerk: Der Bericht ist damit nicht eingereicht."
+msgstr "Это нельзя отменить. После этого версия считается окончательной внутри. Это внутренняя пометка: отчёт тем самым не подан."
+
+msgid "Tippen Sie zur Bestätigung die Nummer %1 ein"
+msgstr "Для подтверждения введите номер %1"
+
+msgid "Final setzen"
+msgstr "Сделать окончательной"
+
+msgid "Frist bestätigen"
+msgstr "Подтвердить срок"
+
+msgid "Der Vorschlag beruht auf der Annahme, dass der Bericht bis zum 30. September des Folgejahres einzureichen ist. Das ist nicht rechtlich geprüft. Tragen Sie hier die Frist ein, die für Sie gilt."
+msgstr "Предложение исходит из предположения, что отчёт нужно подать до 30 сентября следующего года. Юридически это не проверено. Укажите срок, который действует для вас."
+
+msgid "Die Frist muss zwischen %1 und %2 liegen."
+msgstr "Срок должен приходиться на период между %1 и %2."
+
+msgid "Eine festgehaltene Version ist ein unveränderlicher Stand des Entwurfs, mit Prüfsumme. Sie ist als Arbeitshilfe gedacht und kein eingereichter Bericht. Die Zahlen einer Version bleiben, das Aussehen einer Datei kann sich nach einem Update ändern."
+msgstr "Зафиксированная версия — это неизменяемое состояние черновика с контрольной суммой. Она служит рабочим пособием и не является поданным отчётом. Числа версии остаются, а вид файла может измениться после обновления."
+
+msgid "Version %1 wurde festgehalten."
+msgstr "Версия %1 зафиксирована."
+
+msgid "Stand und Frist"
+msgstr "Состояние и срок"
+
+msgid "Frist bestätigt: %1"
+msgstr "Срок подтверждён: %1"
+
+msgid "Vorlage: Antrag auf Fristverlängerung"
+msgstr "Шаблон: заявка на продление срока"
+
+msgid "[Name der Partei]"
+msgstr "[Название партии]"
+
+msgid "Text zum Kopieren"
+msgstr "Текст для копирования"
+
+msgid "Text kopieren"
+msgstr "Копировать текст"
+
+msgid "Text kopiert."
+msgstr "Текст скопирован."
+
+msgid "Festgehaltene Versionen"
+msgstr "Зафиксированные версии"
+
+msgid "Noch keine Version festgehalten."
+msgstr "Пока ни одной версии не зафиксировано."
+
+msgid "Festgehalten von %1 am %2"
+msgstr "Зафиксировано: %1, %2"
+
+msgid "Versichert von %1 am %2"
+msgstr "Заверено: %1, %2"
+
+msgid "Intern final gesetzt von %1 am %2"
+msgstr "Помечено окончательной внутри: %1, %2"
+
+msgid "Enthält Namen und Anschriften aus Ausweis B"
+msgstr "Содержит имена и адреса из ведомости B"
+
+msgid "Version %1 wurde versichert."
+msgstr "Версия %1 заверена."
+
+msgid "Version %1 ist jetzt intern final."
+msgstr "Версия %1 теперь окончательная внутри."
+
+msgid "Alte Versionen löschen (nur Administration)"
+msgstr "Удалить старые версии (только администрирование)"
+
+msgid "Gelöscht werden kann eine Version erst, wenn sowohl ihr Berichtsjahr als auch der Tag des Festhaltens länger als die gewählte Zahl von Jahren zurückliegen. Die Mindestfrist von 10 Jahren ist eine Annahme und rechtlich nicht geprüft."
+msgstr "Версию можно удалить, только если и её отчётный год, и день фиксации отстоят дальше, чем выбранное число лет. Минимальный срок в 10 лет — это предположение, юридически не проверенное."
+
+msgid "Aufbewahrung in Jahren"
+msgstr "Срок хранения в годах"
+
+msgid "Keine Version erfüllt die Bedingungen."
+msgstr "Ни одна версия не соответствует условиям."
+
+msgid "%1 Versionen würden gelöscht:"
+msgstr "Будет удалено версий: %1:"
+
+msgid "Jahr %1, %2, Version %3"
+msgstr "Год %1, %2, версия %3"
+
+msgid "Es gibt weitere; sie werden in mehreren Durchgängen gelöscht."
+msgstr "Есть и другие; они удаляются в несколько приёмов."
+
+msgid "Diese Versionen endgültig löschen"
+msgstr "Безвозвратно удалить эти версии"
+
+msgid "Versionen endgültig löschen?"
+msgstr "Безвозвратно удалить версии?"
+
+msgid "%1 Versionen werden unwiderruflich gelöscht. Die Nummern werden nicht wieder vergeben."
+msgstr "%1 версий будут удалены безвозвратно. Номера повторно не присваиваются."
+
+msgid "%1 Versionen gelöscht."
+msgstr "Удалено версий: %1."
+
+msgid "Versionen vergleichen"
+msgstr "Сравнить версии"
+
+msgid "Zum Vergleichen werden mindestens zwei festgehaltene Versionen gebraucht."
+msgstr "Для сравнения нужно не менее двух зафиксированных версий."
+
+msgid "Version A (älter)"
+msgstr "Версия A (более ранняя)"
+
+msgid "Version B (neuer)"
+msgstr "Версия B (более поздняя)"
+
+msgid "Vergleichen"
+msgstr "Сравнить"
+
+msgid "Keine Unterschiede in den Zahlen."
+msgstr "Различий в числах нет."
+
+msgid "Vergleich geladen."
+msgstr "Сравнение загружено."
+
+msgid "Die beiden Versionen gehören zu verschiedenen Jahren oder Umfängen. Verglichen werden nur die Zellen, die beide haben."
+msgstr "Эти две версии относятся к разным годам или охватам. Сравниваются только ячейки, имеющиеся в обеих."
+
+msgid "Alle Zeilen zeigen"
+msgstr "Показать все строки"
+
+msgid "Version A"
+msgstr "Версия A"
+
+msgid "Version B"
+msgstr "Версия B"
+
+msgid "Unterschied"
+msgstr "Разница"
+
+msgid "Die Liste ist gekürzt."
+msgstr "Список сокращён."
+
+msgid "Seit der letzten festgehaltenen Version hat sich nichts geändert. Es gibt nichts Neues festzuhalten."
+msgstr "С последней зафиксированной версии ничего не изменилось. Фиксировать нечего."
+
+msgid "Dieser Schritt ist für die Version gerade nicht möglich. Bitte laden Sie die Ansicht neu und prüfen Sie den Stand."
+msgstr "Этот шаг сейчас невозможен для версии. Перезагрузите страницу и проверьте состояние."
+
+msgid "Der Bericht ist zu groß, um ihn als Version festzuhalten."
+msgstr "Отчёт слишком велик, чтобы зафиксировать его как версию."
+
+msgid "Der gespeicherte Inhalt dieser Version passt nicht mehr zu ihrer Prüfsumme. Bitte wenden Sie sich an die Administration."
+msgstr "Сохранённое содержание этой версии больше не совпадает с её контрольной суммой. Обратитесь к администрации."
+
+msgid "Die Liste der zu löschenden Versionen hat sich geändert. Bitte öffnen Sie die Vorschau neu."
+msgstr "Список удаляемых версий изменился. Откройте предпросмотр заново."
+
+msgid "Rechenschaftsbericht: Version"
+msgstr "Отчёт о финансировании: версия"
+
+msgid "Rechenschaftsbericht: Versicherung"
+msgstr "Отчёт о финансировании: заверение"
+
+msgid "Rechenschaftsbericht: Frist"
+msgstr "Отчёт о финансировании: срок"
+
+msgid "Rechenschaftsbericht %1: versichert, aber noch nicht intern final. Frist: %2"
+msgstr "Отчёт о финансировании %1: заверен, но ещё не окончательный внутри. Срок: %2"
+
+msgid "Rechenschaftsbericht %1: Version festgehalten, noch nicht versichert. Frist: %2"
+msgstr "Отчёт о финансировании %1: версия зафиксирована, ещё не заверена. Срок: %2"
+
+msgid "Rechenschaftsbericht %1: noch keine Version festgehalten. Frist: %2"
+msgstr "Отчёт о финансировании %1: ни одна версия ещё не зафиксирована. Срок: %2"
+
+msgid "Rechenschaftsbericht %1: noch keine Version festgehalten. Frist (Vorschlag): %2"
+msgstr "Отчёт о финансировании %1: ни одна версия ещё не зафиксирована. Срок (предложение): %2"
+
+msgid "Der gespeicherte Inhalt dieser Version passt nicht mehr zu ihrer Prüfsumme. Es wurde nichts erzeugt."
+msgstr "Сохранённое содержание этой версии больше не совпадает с её контрольной суммой. Ничего не создано."
+
+msgid "Versionen und Freigabe"
+msgstr "Версии и утверждение"
+
+msgid "Der Rechenschaftsbericht ist noch nicht intern final."
+msgstr "Отчёт о финансировании ещё не окончательный внутри."

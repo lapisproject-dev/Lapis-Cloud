@@ -159,6 +159,12 @@ object PersonalDataRegistry {
                 "macht diese Zeilen sichtbar, damit der Vorstand sie loeschen kann. Auskunft und Loeschung nur ueber den " +
                 "Vorstand im Reiter 'Ausweise'; eine Loeschroutine nach Fristablauf folgt mit R6. Sichtbar gemacht, " +
                 "nicht geschlossen.",
+            "partg_report_version" to
+                "Welle V1.9.291. Festgehaltene Fassung des Rechenschaftsberichts als kanonisches JSON; enthaelt eine Kopie " +
+                "der Ausweise B und C und damit PII Dritter (Name, Anschrift, Betrag) ohne member-FK. Aufbewahrung; " +
+                "Loeschung nur ueber die ADMIN-Routine nach Fristablauf (Mindestfrist 10 Jahre, beide Jahre), Auskunft " +
+                "nur ueber den Vorstand. Eine Loeschanfrage einer betroffenen Person wird mit dem Aufbewahrungsgrund " +
+                "beantwortet (Rechtsgrundlage vom Verantwortlichen zu bestaetigen). Sichtbar gemacht, nicht geschlossen.",
             "partg_report_sponsoring_entry" to
                 "Welle V1.9.283. Einzelne Leistung eines Sponsors (Datum, Betrag, Zweck als Freitext) und damit " +
                 "personenbezogene Daten Dritter ueber den Sponsor; kein member-FK. Wird zusammen mit dem Sponsor " +
@@ -182,6 +188,7 @@ object PersonalDataRegistry {
             "partg_report_large_donor",
             "partg_report_sponsor",
             "partg_report_sponsoring_entry",
+            "partg_report_version",
         )
 
     /**

@@ -676,7 +676,7 @@ msgid "Archivierte anzeigen"
 msgstr "Mostrar archivados"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:810
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:813
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:403
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:234
@@ -1496,6 +1496,7 @@ msgstr "%1 (%2 bytes)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:592
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:534
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:735
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionCompare.kt:108
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:529
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:962
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:167
@@ -1827,12 +1828,16 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:294
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1560
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartgLedgerProposalDialog.kt:100
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:524
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:525
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportImportDialog.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportPositions.kt:79
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:357
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTransferDialog.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportTransferDialog.kt:83
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionDialogs.kt:124
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionDialogs.kt:171
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionDialogs.kt:238
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionDialogs.kt:72
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:223
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:314
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:334
@@ -1879,7 +1884,7 @@ msgstr "Caducado"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismTexts.kt:49
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleLabels.kt:44
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolParticipationUi.kt:58
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:570
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:576
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt:146
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingMotions.kt:215
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:111
@@ -1906,8 +1911,8 @@ msgid "Abgerechnet"
 msgstr "Contabilizado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismTexts.kt:33
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:466
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:486
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:472
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:492
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeetingPanel.kt:304
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:16
 #: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:146
@@ -1995,7 +2000,7 @@ msgstr "Suspender"
 msgid "Absender"
 msgstr "Remitente"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:720
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:723
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusScreen.kt:129
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionPhase.kt:47
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:941
@@ -2042,7 +2047,7 @@ msgstr "Actor: %1 · Miembro afectado: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:257
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:159
 #: src/jsMain/kotlin/network/lapis/cloud/client/OrganizationScreen.kt:164
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:401
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:402
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:162
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportDonorCombineBlock.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:123
@@ -2177,7 +2182,7 @@ msgstr "Peso actual (decaimiento del 10 %/día)"
 msgid "Aktuelles Passwort"
 msgstr "Contraseña actual"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:337
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:351
 msgid "Aktuelles Passwort ist falsch."
 msgstr "La contraseña actual es incorrecta."
 
@@ -2476,11 +2481,11 @@ msgstr "Anónimo"
 msgid "Anonyme öffentliche Meldung"
 msgstr "Informe público anónimo"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:586
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:592
 msgid "Anonymisierung"
 msgstr "Anonimización"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:587
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:593
 msgid "Anonymisierung + Hartlöschung eigener Nachrichten"
 msgstr "Anonimización + eliminación definitiva de los propios mensajes"
 
@@ -2653,14 +2658,14 @@ msgstr "Confirmar revocación de la clave de API"
 msgid "Art der Löschung"
 msgstr "Tipo de eliminación"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:484
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:490
 msgid "Aufsichtsbehörde benachrichtigt"
 msgstr "Autoridad de control notificada"
 
 msgid "Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Autoridad de control notificada el (AAAA-MM-DDTHH:MM:SS, opcional)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:445
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:451
 msgid "Auftragskontrolle"
 msgstr "Control de encargo de tratamiento"
 
@@ -2803,7 +2808,7 @@ msgstr "Gasto"
 msgid "Ausgaben"
 msgstr "Gastos"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:571
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:577
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:512
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:523
@@ -2819,7 +2824,7 @@ msgstr "Ejecutado el %1"
 msgid "Ausgelöst am: %1"
 msgstr "Activado el: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:652
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:658
 msgid "Ausgeschieden"
 msgstr "Dado de baja"
 
@@ -2840,7 +2845,7 @@ msgstr "Baja"
 msgid "Auskunft"
 msgstr "Solicitud de acceso"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:623
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:629
 msgid "Auskunft exportiert"
 msgstr "Solicitud de acceso exportada"
 
@@ -2923,7 +2928,7 @@ msgstr "Archivo de copia de seguridad (.zip)"
 msgid "Bankkonto"
 msgstr "Cuenta bancaria"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:789
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:792
 msgid "Bankkonto (LedgerAccount-ID)"
 msgstr "Cuenta bancaria (ID de cuenta contable)"
 
@@ -2931,7 +2936,7 @@ msgstr "Cuenta bancaria (ID de cuenta contable)"
 msgid "Beantragen"
 msgstr "Solicitar"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:568
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:574
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:510
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:521
@@ -2973,7 +2978,7 @@ msgstr "Solicitado por %1 el %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1006
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:111
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:428
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:429
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:182
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportEnterpriseBlock.kt:145
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:192
@@ -2991,7 +2996,7 @@ msgid "Beendet"
 msgstr "Finalizado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismFormScreen.kt:73
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:752
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:755
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt:381
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventImportScreen.kt:154
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventOfficerForm.kt:39
@@ -3091,7 +3096,7 @@ msgstr "Vocalía"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:86
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:150
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:567
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:569
 msgid "Beitrag"
 msgstr "Cuota"
 
@@ -3177,7 +3182,7 @@ msgstr "Solicitudes de eliminación de publicaciones"
 msgid "Beitragserlöskonto"
 msgstr "Cuenta de ingresos por cuotas"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:792
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:795
 msgid "Beitragserlöskonto (LedgerAccount-ID)"
 msgstr "Cuenta de ingresos por cuotas (ID de cuenta contable)"
 
@@ -3210,7 +3215,7 @@ msgstr "Cargando el contrato de adhesión..."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:502
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:580
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:682
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:685
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1124
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:354
 msgid "Beleg"
@@ -3320,7 +3325,7 @@ msgstr "Texto de la resolución"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ActivismFormScreen.kt:69
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:52
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:681
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:684
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:210
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:277
@@ -3415,8 +3420,8 @@ msgstr "Procesando confirmación ..."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:502
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:580
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:705
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:809
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:708
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:812
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:201
@@ -3435,7 +3440,7 @@ msgstr "Procesando confirmación ..."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1024
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:270
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:356
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:399
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:400
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportDonorCombineBlock.kt:55
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt:209
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:446
@@ -3551,7 +3556,7 @@ msgstr "Hasta (AAAA-MM-DD)"
 msgid "Bis (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Hasta (AAAA-MM-DDTHH:MM:SS, opcional)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:772
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:775
 msgid "Bisherige Jahressumme (vor dieser Spende)"
 msgstr "Importe anual acumulado hasta ahora (antes de este donativo)"
 
@@ -3717,9 +3722,9 @@ msgstr "Introduzca un contenido."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:186
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:246
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:490
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:279
-#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:273
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportAnnexTab.kt:491
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportLogic.kt:285
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:274
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportSponsoringBlock.kt:264
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportYouthBlock.kt:203
 msgid "Bitte einen Namen angeben."
@@ -3962,7 +3967,7 @@ msgstr "Añadir línea de asiento"
 msgid "Buchungszeilen"
 msgstr "Líneas de asiento"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:696
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:699
 msgid "Buchungszeilen:"
 msgstr "Líneas de asiento:"
 
@@ -4106,7 +4111,7 @@ msgstr "Estado de los datos"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:502
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:678
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:681
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceProtocolDraftSection.kt:378
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:476
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:179
@@ -30953,3 +30958,294 @@ msgstr "¿Eliminar la transferencia?"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportConsolidationTab.kt:1
 msgid "Der Eintrag wird aus der Liste entfernt. Danach wird dieser Betrag nicht mehr herausgerechnet."
 msgstr "La entrada se elimina de la lista. Después este importe ya no se elimina del cómputo."
+
+msgid "Arbeitsstand"
+msgstr "Borrador de trabajo"
+
+msgid "Festgehalten"
+msgstr "Guardada"
+
+msgid "Versichert"
+msgstr "Declarada"
+
+msgid "Intern final"
+msgstr "Final a nivel interno"
+
+msgid "Frist in Sicht"
+msgstr "Plazo a la vista"
+
+msgid "Frist bald"
+msgstr "Plazo próximo"
+
+msgid "Gesamtpartei"
+msgstr "Todo el partido"
+
+msgid "Frist: %1 (Vorschlag, nicht bestätigt)"
+msgstr "Plazo: %1 (propuesta, sin confirmar)"
+
+msgid "%1, seit %2 Tagen überschritten"
+msgstr "%1, vencido desde hace %2 días"
+
+msgid "%1, heute"
+msgstr "%1, hoy"
+
+msgid "%1, noch ein Tag"
+msgstr "%1, queda un día"
+
+msgid "%1, noch %2 Tage"
+msgstr "%1, quedan %2 días"
+
+msgid "Der Arbeitsstand weicht von der letzten festgehaltenen Version ab. Halten Sie ihn fest, wenn er in den Bericht eingehen soll."
+msgstr "El borrador de trabajo difiere de la última versión guardada. Guárdelo si debe pasar al informe."
+
+msgid "Vergleich nicht möglich (älteres Format)."
+msgstr "Comparación no posible (formato anterior)."
+
+msgid "Intern final, nicht eingereicht"
+msgstr "Final a nivel interno, no presentado"
+
+msgid "Entwurf als Arbeitshilfe, nicht eingereicht"
+msgstr "Borrador como ayuda de trabajo, no presentado"
+
+msgid "Version %1 · festgehalten %2 · Prüfsumme %3 · %4"
+msgstr "Versión %1 · guardada %2 · suma de verificación %3 · %4"
+
+msgid "%1 (unvollst.)"
+msgstr "%1 (incompl.)"
+
+msgid "n. e."
+msgstr "n/r"
+
+msgid "unverändert"
+msgstr "sin cambios"
+
+msgid "entfallen"
+msgstr "eliminado"
+
+msgid "Version %1, %2, %3"
+msgstr "Versión %1, %2, %3"
+
+msgid "Rechnungsjahr %1:"
+msgstr "Ejercicio %1:"
+
+msgid "Version festhalten"
+msgstr "Guardar versión"
+
+msgid "Der aktuelle Arbeitsstand wird als nummerierte Version gespeichert. Eine festgehaltene Version lässt sich nicht mehr ändern. Sie enthält die Ausweise B und C mit Namen und Anschriften Dritter."
+msgstr "El borrador de trabajo actual se guarda como versión numerada. Una versión guardada ya no se puede modificar. Contiene los anexos B y C con nombres y direcciones de terceros."
+
+msgid "Kommentar (freiwillig)"
+msgstr "Comentario (opcional)"
+
+msgid "Höchstens 500 Zeichen, eine Zeile. Bitte keine Namen von Personen eintragen; der Kommentar steht in der Versionsliste."
+msgstr "Como máximo 500 caracteres, una línea. No introduzca nombres de personas; el comentario aparece en la lista de versiones."
+
+msgid "Höchstens 500 Zeichen, ohne Zeilenumbruch."
+msgstr "Como máximo 500 caracteres, sin salto de línea."
+
+msgid "Auf jeder Seite des Exports steht: Version, Tag des Festhaltens, Prüfsumme und der Hinweis, dass der Entwurf nicht eingereicht ist."
+msgstr "En cada página de la exportación figura: versión, día de guardado, suma de verificación y la indicación de que el borrador no se ha presentado."
+
+msgid "Festhalten"
+msgstr "Conservar"
+
+msgid "Version %1 versichern"
+msgstr "Declarar la versión %1"
+
+msgid "Entwurf einer Versicherung. Rechtlich nicht geprüft, keine qualifizierte elektronische Signatur."
+msgstr "Borrador de una declaración. Sin revisión jurídica, no es una firma electrónica cualificada."
+
+msgid "Ich habe den Inhalt dieser Version geprüft und versichere ihn."
+msgstr "He revisado el contenido de esta versión y lo declaro."
+
+msgid "Versichern"
+msgstr "Declarar"
+
+msgid "Version %1 intern final setzen"
+msgstr "Marcar la versión %1 como final a nivel interno"
+
+msgid "Das lässt sich nicht rückgängig machen. Die Version gilt danach intern als final. Das ist ein interner Vermerk: Der Bericht ist damit nicht eingereicht."
+msgstr "Esto no se puede deshacer. La versión pasa a considerarse final a nivel interno. Es una nota interna: con ello el informe no queda presentado."
+
+msgid "Tippen Sie zur Bestätigung die Nummer %1 ein"
+msgstr "Para confirmar, escriba el número %1"
+
+msgid "Final setzen"
+msgstr "Marcar como final"
+
+msgid "Frist bestätigen"
+msgstr "Confirmar plazo"
+
+msgid "Der Vorschlag beruht auf der Annahme, dass der Bericht bis zum 30. September des Folgejahres einzureichen ist. Das ist nicht rechtlich geprüft. Tragen Sie hier die Frist ein, die für Sie gilt."
+msgstr "La propuesta parte de la suposición de que el informe debe presentarse antes del 30 de septiembre del año siguiente. Esto no se ha revisado jurídicamente. Introduzca el plazo que le corresponda."
+
+msgid "Die Frist muss zwischen %1 und %2 liegen."
+msgstr "El plazo debe estar entre %1 y %2."
+
+msgid "Eine festgehaltene Version ist ein unveränderlicher Stand des Entwurfs, mit Prüfsumme. Sie ist als Arbeitshilfe gedacht und kein eingereichter Bericht. Die Zahlen einer Version bleiben, das Aussehen einer Datei kann sich nach einem Update ändern."
+msgstr "Una versión guardada es un estado inmutable del borrador, con suma de verificación. Es una ayuda de trabajo y no un informe presentado. Las cifras de una versión se mantienen; el aspecto de un archivo puede cambiar tras una actualización."
+
+msgid "Version %1 wurde festgehalten."
+msgstr "La versión %1 se ha guardado."
+
+msgid "Stand und Frist"
+msgstr "Estado y plazo"
+
+msgid "Frist bestätigt: %1"
+msgstr "Plazo confirmado: %1"
+
+msgid "Vorlage: Antrag auf Fristverlängerung"
+msgstr "Plantilla: solicitud de prórroga del plazo"
+
+msgid "[Name der Partei]"
+msgstr "[Nombre del partido]"
+
+msgid "Text zum Kopieren"
+msgstr "Texto para copiar"
+
+msgid "Text kopieren"
+msgstr "Copiar texto"
+
+msgid "Text kopiert."
+msgstr "Texto copiado."
+
+msgid "Festgehaltene Versionen"
+msgstr "Versiones guardadas"
+
+msgid "Noch keine Version festgehalten."
+msgstr "Todavía no se ha guardado ninguna versión."
+
+msgid "Festgehalten von %1 am %2"
+msgstr "Guardada por %1 el %2"
+
+msgid "Versichert von %1 am %2"
+msgstr "Declarada por %1 el %2"
+
+msgid "Intern final gesetzt von %1 am %2"
+msgstr "Marcada como final a nivel interno por %1 el %2"
+
+msgid "Enthält Namen und Anschriften aus Ausweis B"
+msgstr "Contiene nombres y direcciones del anexo B"
+
+msgid "Version %1 wurde versichert."
+msgstr "La versión %1 se ha declarado."
+
+msgid "Version %1 ist jetzt intern final."
+msgstr "La versión %1 es ahora final a nivel interno."
+
+msgid "Alte Versionen löschen (nur Administration)"
+msgstr "Eliminar versiones antiguas (solo administración)"
+
+msgid "Gelöscht werden kann eine Version erst, wenn sowohl ihr Berichtsjahr als auch der Tag des Festhaltens länger als die gewählte Zahl von Jahren zurückliegen. Die Mindestfrist von 10 Jahren ist eine Annahme und rechtlich nicht geprüft."
+msgstr "Una versión solo se puede eliminar cuando tanto su ejercicio como el día de guardado quedan más atrás que el número de años elegido. El plazo mínimo de 10 años es una suposición y no se ha revisado jurídicamente."
+
+msgid "Aufbewahrung in Jahren"
+msgstr "Conservación en años"
+
+msgid "Keine Version erfüllt die Bedingungen."
+msgstr "Ninguna versión cumple las condiciones."
+
+msgid "%1 Versionen würden gelöscht:"
+msgstr "Se eliminarían %1 versiones:"
+
+msgid "Jahr %1, %2, Version %3"
+msgstr "Año %1, %2, versión %3"
+
+msgid "Es gibt weitere; sie werden in mehreren Durchgängen gelöscht."
+msgstr "Hay más; se eliminan en varias rondas."
+
+msgid "Diese Versionen endgültig löschen"
+msgstr "Eliminar estas versiones definitivamente"
+
+msgid "Versionen endgültig löschen?"
+msgstr "¿Eliminar las versiones definitivamente?"
+
+msgid "%1 Versionen werden unwiderruflich gelöscht. Die Nummern werden nicht wieder vergeben."
+msgstr "Se eliminarán %1 versiones de forma irrevocable. Los números no se vuelven a asignar."
+
+msgid "%1 Versionen gelöscht."
+msgstr "%1 versiones eliminadas."
+
+msgid "Versionen vergleichen"
+msgstr "Comparar versiones"
+
+msgid "Zum Vergleichen werden mindestens zwei festgehaltene Versionen gebraucht."
+msgstr "Para comparar se necesitan al menos dos versiones guardadas."
+
+msgid "Version A (älter)"
+msgstr "Versión A (anterior)"
+
+msgid "Version B (neuer)"
+msgstr "Versión B (posterior)"
+
+msgid "Vergleichen"
+msgstr "Comparar"
+
+msgid "Keine Unterschiede in den Zahlen."
+msgstr "Sin diferencias en las cifras."
+
+msgid "Vergleich geladen."
+msgstr "Comparación cargada."
+
+msgid "Die beiden Versionen gehören zu verschiedenen Jahren oder Umfängen. Verglichen werden nur die Zellen, die beide haben."
+msgstr "Las dos versiones pertenecen a ejercicios o ámbitos distintos. Solo se comparan las celdas que tienen ambas."
+
+msgid "Alle Zeilen zeigen"
+msgstr "Mostrar todas las filas"
+
+msgid "Version A"
+msgstr "Versión A"
+
+msgid "Version B"
+msgstr "Versión B"
+
+msgid "Unterschied"
+msgstr "Diferencia"
+
+msgid "Die Liste ist gekürzt."
+msgstr "La lista está acortada."
+
+msgid "Seit der letzten festgehaltenen Version hat sich nichts geändert. Es gibt nichts Neues festzuhalten."
+msgstr "No ha cambiado nada desde la última versión guardada. No hay nada nuevo que guardar."
+
+msgid "Dieser Schritt ist für die Version gerade nicht möglich. Bitte laden Sie die Ansicht neu und prüfen Sie den Stand."
+msgstr "Este paso no es posible ahora para la versión. Recargue la vista y compruebe su estado."
+
+msgid "Der Bericht ist zu groß, um ihn als Version festzuhalten."
+msgstr "El informe es demasiado grande para guardarlo como versión."
+
+msgid "Der gespeicherte Inhalt dieser Version passt nicht mehr zu ihrer Prüfsumme. Bitte wenden Sie sich an die Administration."
+msgstr "El contenido guardado de esta versión ya no coincide con su suma de verificación. Póngase en contacto con la administración."
+
+msgid "Die Liste der zu löschenden Versionen hat sich geändert. Bitte öffnen Sie die Vorschau neu."
+msgstr "La lista de versiones que se van a eliminar ha cambiado. Abra de nuevo la vista previa."
+
+msgid "Rechenschaftsbericht: Version"
+msgstr "Informe de rendición de cuentas: versión"
+
+msgid "Rechenschaftsbericht: Versicherung"
+msgstr "Informe de rendición de cuentas: declaración"
+
+msgid "Rechenschaftsbericht: Frist"
+msgstr "Informe de rendición de cuentas: plazo"
+
+msgid "Rechenschaftsbericht %1: versichert, aber noch nicht intern final. Frist: %2"
+msgstr "Informe de rendición de cuentas %1: declarado, pero aún no final a nivel interno. Plazo: %2"
+
+msgid "Rechenschaftsbericht %1: Version festgehalten, noch nicht versichert. Frist: %2"
+msgstr "Informe de rendición de cuentas %1: versión guardada, aún sin declarar. Plazo: %2"
+
+msgid "Rechenschaftsbericht %1: noch keine Version festgehalten. Frist: %2"
+msgstr "Informe de rendición de cuentas %1: aún no hay ninguna versión guardada. Plazo: %2"
+
+msgid "Rechenschaftsbericht %1: noch keine Version festgehalten. Frist (Vorschlag): %2"
+msgstr "Informe de rendición de cuentas %1: aún no hay ninguna versión guardada. Plazo (propuesta): %2"
+
+msgid "Der gespeicherte Inhalt dieser Version passt nicht mehr zu ihrer Prüfsumme. Es wurde nichts erzeugt."
+msgstr "El contenido guardado de esta versión ya no coincide con su suma de verificación. No se ha generado nada."
+
+msgid "Versionen und Freigabe"
+msgstr "Versiones y aprobación"
+
+msgid "Der Rechenschaftsbericht ist noch nicht intern final."
+msgstr "El informe de rendición de cuentas aún no es final a nivel interno."

@@ -324,6 +324,7 @@ private fun Container.renderEnterpriseForm(
             val result = guarded { partyReportRpc().saveEnterprise(annex.year, annex.unit.unitKey, env.revision(), input) }
             if (result != null) {
                 notifySuccess(tr("Gespeichert."))
+                PartyReportSaveSignal.saved()
                 onSaved(result)
             } else {
                 form.showFormError(saveFailedText())

@@ -1,4 +1,4 @@
-= Party accountability report, R1 to R5: architecture (V1.9.225, V1.9.256, V1.9.269, V1.9.289, V1.9.290)
+= Party accountability report, R1 to R6: architecture (V1.9.225, V1.9.256, V1.9.269, V1.9.289, V1.9.290, V1.9.291)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -79,6 +79,42 @@ classDiagram(name = "PartgReportModel") {
 *Access*:: the five RPC methods start with `requirePartyReportAccess(call)` (BOARD, ADMIN, then the party switch), **not** the scoped gate (`PartyReportAccessTripwireTest` still pins exactly eight scoped methods). `reportFindings` is scoped, so the hints P17 to P21 are computed **only** for `PartyReportActor.Federal`; the chapter-treasurer branch passes `consolidation = null`.
 *Export*:: `PartgReportDocument.consolidated` was renamed `unitSum`; the new `consolidation` section is only set for the scope ALL. The PDF section is appended last; the XLSX sheet names are a function of the scope (`sheetNames(withConsolidation)`), content types, workbook and relations are generated from it.
 *Migration*:: V145 may be corrected in place on the feature branch until the release; after it every correction is a new migration.
+
+== R6: kept versions, assurance, internal final mark, deadline (V1.9.291)
+
+*Storage decision*:: a version stores the **computed document** (`PartgReportDocument`, the one thing the PDF and the XLSX render) as canonical JSON, not a recipe for a recomputation. A recomputation would depend on positions, mappings, consolidation rules, unit names, hint rules and the bookings (`takeOverPending`); every later change would silently change an old version. The document also holds only what is exported (statement B: name, address line, country, kind, amount -- no ids, no `created_by`, no free-text note). Honest limit: the **numbers** are unchangeable, the **rendering** by a later renderer is not.
+*Format*:: `PartgVersionFormat`: one `Json` instance (`encodeDefaults = true`, `explicitNulls = true`, no pretty printing), the hash is SHA-256 over the UTF-8 bytes of exactly the stored text (a new `MessageDigest` per call), the budget is 4 MiB (also a CHECK). `format_version` starts at 1. **Rule:** fields are added to the document only with a default; renaming, removing or changing the meaning needs a new `CURRENT` and a decoder for the old format that stays. `PartgVersionFormatGoldenTest` pins the bytes of a fixed document (`src/test/resources/partg/version-format-1.json`) and fails on purpose with "bump PartgVersionFormat.CURRENT"; `PARTG_GOLDEN_WRITE=1` rewrites the file after the bump. A version of another format shows `UNKNOWN_FORMAT` in the status line, never "deviates". `UnitPage` carries a stable `unitKey` so that the comparison survives a rename.
+*Tables and monopoly*:: V146: `partg_report_version_counter`, `partg_report_version`, `partg_report_declaration`, `partg_report_deadline` (V145 is on `master` and untouched; V146 may be corrected on the branch until the release). `PartgVersionStore` is the only reader and writer (exception `PartgReportPersonalData`; `PartgVersionStoreTripwireTest`). It has **no function that changes content, checksum, number, year, scope or the keeping stamp**: the only UPDATE of a version is `markFinal` (`WHERE finalized_at IS NULL`), and a version is removed only by `deleteVersions`. The counter row is never deleted, so numbers are never reused.
+*Write path*:: `PartgVersionWriter` (one transaction per call, audit last, no external effect). Keeping: the document is built **outside** the write transaction through the revision fence of `PartgReportSnapshotReader`; inside, the counter row is locked (created under a savepoint, only the unique violation is swallowed), the cap of 200 and "same hash as the newest" are checked under the lock, then the number is `last_number + 1`. Declaring and finalising lock the counter row, then the version row, and re-hash the stored text before they write. **Lock order:** counter rows sorted by (year, scope key), then the version row. The writer takes no sheet, annex, notes or consolidation lock, so there is no cycle with the writers of R1 to R5. The deletion routine locks all counter rows in that order and recomputes the candidates under the locks.
+
+[kuml, partg-report-r6-flow, svg]
+----
+sequenceDiagram(name = "R6: keep, declare and finalise a version (V1.9.291)") {
+    val board = participant(name = "Board member")
+    val service = participant(name = "PartyReportService")
+    val reader = participant(name = "PartgReportSnapshotReader")
+    val writer = participant(name = "PartgVersionWriter")
+    val db = participant(name = "Database")
+
+    message(from = board, to = service, text = "freezeVersion(year, scope, comment)")
+    message(from = service, to = service, text = "federal gate, rate limit, permit, comment rules")
+    message(from = service, to = reader, text = "read(year, year - 1) behind the revision fence")
+    message(from = service, to = writer, text = "freeze: build document, encode, hash, size budget")
+    message(from = writer, to = db, text = "lock counter row, check cap and unchanged, insert version, bump counter, audit last")
+    message(from = board, to = service, text = "declareVersion(id, expectedHash, reviewed)")
+    message(from = service, to = writer, text = "declare: lock counter then version, re-hash the stored text")
+    message(from = writer, to = db, text = "insert declaration once, audit last")
+    message(from = board, to = service, text = "finalizeVersion(id, typedNumber, expectedHash)")
+    message(from = writer, to = db, text = "markFinal WHERE finalized_at IS NULL, audit last")
+}
+----
+
+*Access*:: eight new RPC methods at the end of `IPartyReportService`; each starts with `requirePartyReportAccess(call)` (BOARD, ADMIN, then the party switch), **not** the scoped gate (`PartyReportAccessTripwireTest` pins 38 methods and exactly eight scoped ones). The two deletion methods add `requireRole(ADMIN)`. The work sits in `PartgVersionOperations`; the shared limiters come from `Application.module` (keeping 10 per member and minute under `partg:version:<id>`, reading and comparing 60, the other writes the existing write limiter, and the shared export semaphore).
+*Downloads*:: `GET /api/partg-report/version/pdf|xlsx?id=`: gate first, rate limit, strict UUID, permit, one read transaction, **integrity check** (the stored text is hashed again; a mismatch is `409 INTEGRITY` with only the version id in the log), decode, render on `Dispatchers.Default`, audit before sending, fixed file name. `PartgReportDocuments.build` is the single assembly of the document, shared with the working-state export (a pure refactor; the audit bytes of an export without a version are unchanged because the new snapshot fields default to `null`).
+*Footer*:: `PartgReportPdfRenderer.render(document, footer)` writes the line at y = 12 on every page (below the legend and the page number at y = 22); `PartgReportXlsxWriter.write(document, footer)` writes it in row 2 of every sheet as an `inlineStr` and in `<headerFooter><oddFooter>` with `&` doubled (it is a control character in an Excel footer).
+*Dashboard*:: `PartyReportSignals` (last in `DashboardSources.all`): BOARD/ADMIN of a party only; `params` carry only digits and ISO dates (the collector drops anything else), so the status travels as `statusCode` 0..3. The dashboard is cached with a TTL: the card can be a little stale (documented limit).
+*Deletion*:: `PartgVersionRetention.eligible` needs `today.year > fiscalYear + N` **and** `today.year > frozenAtYear + N` (N from 10 to 30); the declarations are removed first (no cascade).
+*Client*:: tab `FREIGABE` appended to `PartyReportTab` and `PARTG_TAB_DISPLAY_ORDER` (the remembered tab is read by name; the chapter treasurer's list is unchanged), `PartyReportStatusLine` (on every tab, refreshed on year, tab and `PartyReportContext.onSaved`), `PartyReportVersionsTab`, `PartyReportVersionDialogs`, `PartyReportVersionCompare`, `PartyReportVersionLogic`.
 
 == The XLSX reader (no spreadsheet library)
 

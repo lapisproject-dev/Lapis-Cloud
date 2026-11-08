@@ -630,6 +630,9 @@ fun decodeAuditSnapshot(
             AuditEntityType.REGIONAL_CHAPTER_TREASURER -> null
             AuditEntityType.PARTG_INTRA_TRANSFER -> null
             AuditEntityType.PARTG_DONOR_COMBINATION -> null
+            AuditEntityType.PARTG_REPORT_VERSION -> null
+            AuditEntityType.PARTG_REPORT_DECLARATION -> null
+            AuditEntityType.PARTG_REPORT_DEADLINE -> null
         }
     }.getOrNull()
 

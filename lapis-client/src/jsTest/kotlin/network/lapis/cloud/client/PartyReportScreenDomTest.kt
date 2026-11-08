@@ -29,7 +29,7 @@ class PartyReportScreenDomTest {
                     assertTrue(page.shows("Rechenschaftsbericht nach Parteiengesetz"))
                     // the notice says plainly that this is a working aid
                     assertTrue(page.allOf(".alert-info").single().shows("keine Rechtsberatung"))
-                    // eight tabs in the display order (V1.9.290: Konsolidierung is the last, rightmost one) (not the enum order), the overview is active
+                    // nine tabs in the display order (V1.9.290: Konsolidierung is the last, rightmost one) (not the enum order), the overview is active
                     val tabs = page.allOf(".btn-group button").map { it.textContent?.trim() }
                     assertEquals(
                         listOf(
@@ -41,6 +41,7 @@ class PartyReportScreenDomTest {
                             "Kontenzuordnung",
                             "Bericht",
                             "Konsolidierung",
+                            "Versionen und Freigabe",
                         ),
                         tabs,
                     )
@@ -145,6 +146,7 @@ class PartyReportScreenDomTest {
                             "Kontenzuordnung",
                             "Bericht",
                             "Konsolidierung",
+                            "Versionen und Freigabe",
                         ),
                         labels,
                     )

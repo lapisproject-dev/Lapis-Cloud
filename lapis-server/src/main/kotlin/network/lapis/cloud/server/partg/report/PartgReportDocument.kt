@@ -1,6 +1,13 @@
 package network.lapis.cloud.server.partg.report
 
 import kotlinx.datetime.LocalDate
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import network.lapis.cloud.shared.domain.PartgCell
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgConsolidatedCell
@@ -18,13 +25,17 @@ import network.lapis.cloud.shared.domain.PartgTransferKind
 import network.lapis.cloud.shared.domain.PartgUnitLevel
 
 /** One reporting unit (or the consolidated party) with the cells of the report year and the year before. Sums only, no persons. */
+@Serializable
 internal data class UnitPage(
+    /** V1.9.291 (R6): the stable key the comparison of two kept versions matches on (a unit key, or `SUM`); a label changes when a chapter is renamed. */
+    val unitKey: String,
     val label: String,
     val current: Map<String, PartgCell>,
     val prior: Map<String, PartgCell>,
 )
 
 /** The sum over all units of one level (federal, all state units, all subordinate summaries). */
+@Serializable
 internal data class LevelRow(
     val level: PartgUnitLevel,
     val label: String,
@@ -33,6 +44,7 @@ internal data class LevelRow(
 )
 
 /** One unit in statement A and E. [memberCount] is `null` = not entered. */
+@Serializable
 internal data class AnnexPage(
     val label: String,
     val deductions: Map<PartgDeduction, PartgCell>,
@@ -40,6 +52,7 @@ internal data class AnnexPage(
 )
 
 /** One row of statement B. PERSONAL DATA OF A THIRD PARTY: never logged; the PDF and the XLSX are the only places it is written to. */
+@Serializable
 internal data class DonorLine(
     val unitLabel: String,
     val rowNumber: Int,
@@ -53,6 +66,7 @@ internal data class DonorLine(
 )
 
 /** One single service above the single limit, listed under its sponsor in statement C. */
+@Serializable
 internal data class SponsorEntryLine(
     val date: LocalDate,
     val amountCents: Long,
@@ -63,6 +77,7 @@ internal data class SponsorEntryLine(
  * One row of statement C (V1.9.283). PERSONAL DATA OF A THIRD PARTY. Only sponsors with a [qualification] other than NONE are in the report.
  * [rowNumber] is the position in the sorted list of the unit as the user interface shows it (also counting sponsors that are not in the report).
  */
+@Serializable
 internal data class SponsorLine(
     val unitLabel: String,
     val rowNumber: Int,
@@ -77,6 +92,7 @@ internal data class SponsorLine(
 )
 
 /** One row of statement F (V1.9.283). [resultCents] is computed, `null` when income or expenses is not entered. */
+@Serializable
 internal data class YouthOrgLine(
     val unitLabel: String,
     val rowNumber: Int,
@@ -89,6 +105,7 @@ internal data class YouthOrgLine(
 }
 
 /** One row of statement D (V1.9.287). [resultCents] is computed, `null` when income or expenses is not entered; it may be negative. */
+@Serializable
 internal data class EnterpriseLine(
     val unitLabel: String,
     val rowNumber: Int,
@@ -103,6 +120,7 @@ internal data class EnterpriseLine(
 }
 
 /** The sum of statement D of ONE unit (never a sum over the whole party); `null` = not computable because a figure is missing. */
+@Serializable
 internal data class EnterpriseTotal(
     val unitLabel: String,
     val incomeCents: Long?,
@@ -111,6 +129,7 @@ internal data class EnterpriseTotal(
 )
 
 /** The separate statements A, B, C, D, F and E over the units in scope. */
+@Serializable
 internal data class AnnexSection(
     val units: List<AnnexPage>,
     /** Only for the scope ALL: the deductions are partial sums, the member count is the federal value. */
@@ -124,16 +143,19 @@ internal data class AnnexSection(
 )
 
 /** The notes that were switched on, plus the holdings. */
+@Serializable
 internal data class NotesSection(
     val blocks: List<PartgNoteDto>,
     val holdings: List<PartgHoldingDto>,
 )
 
 /** Everything the PDF renderer and the XLSX writer need; both render the SAME document. */
+@Serializable
 internal data class PartgReportDocument(
     val organizationName: String,
     val year: Int,
     val priorYear: Int,
+    @Serializable(with = PartgReportScopeKeySerializer::class)
     val scope: PartgReportScope,
     /** In the order of `PartgReportStore.units()`. */
     val units: List<UnitPage>,
@@ -158,6 +180,7 @@ internal data class PartgReportDocument(
 }
 
 /** One of the 42 positions in the consolidation (V1.9.290, R5). The cells are rendered by the PDF and XLSX writers; "not computable" is never 0. */
+@Serializable
 internal data class ConsolidationLine(
     val code: String,
     val numberText: String,
@@ -170,12 +193,14 @@ internal data class ConsolidationLine(
 )
 
 /** A unit that is not part of the consolidated total, with the German reason text. */
+@Serializable
 internal data class ExcludedLine(
     val unitLabel: String,
     val reason: String,
 )
 
 /** One pair of the matching table. The free-text note is NOT exported (it may hold personal data). */
+@Serializable
 internal data class ReconciliationLine(
     val kind: PartgTransferKind,
     val payerLabel: String,
@@ -186,6 +211,7 @@ internal data class ReconciliationLine(
 )
 
 /** A difference that stays visible: the entered value of a position minus what the pairs eliminate. */
+@Serializable
 internal data class UnmatchedLine(
     val unitLabel: String,
     val positionLabel: String,
@@ -193,6 +219,7 @@ internal data class UnmatchedLine(
 )
 
 /** One person of the consolidated statement B. PERSONAL DATA OF A THIRD PARTY: never logged. */
+@Serializable
 internal data class ConsolidatedDonorLine(
     val unitLabels: String,
     val personKind: PartgPersonKind,
@@ -205,6 +232,7 @@ internal data class ConsolidatedDonorLine(
 )
 
 /** V1.9.290 (R5): the consolidated whole party; only present for the scope ALL. A draft, never an official statement. */
+@Serializable
 internal data class ConsolidationSection(
     val included: List<String>,
     val excluded: List<ExcludedLine>,
@@ -219,3 +247,19 @@ internal data class ConsolidationSection(
 internal class PartgReportTooLargeException(
     reason: String,
 ) : RuntimeException(reason, null, false, false)
+
+/**
+ * V1.9.291 (R6): the scope is stored as its key (`ALL` or a unit key); decoding goes through the strict [PartgReportScope.parse]. The shared class
+ * itself stays unchanged.
+ */
+internal object PartgReportScopeKeySerializer : KSerializer<PartgReportScope> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("PartgReportScopeKey", PrimitiveKind.STRING)
+
+    override fun serialize(
+        encoder: Encoder,
+        value: PartgReportScope,
+    ) = encoder.encodeString(value.key())
+
+    override fun deserialize(decoder: Decoder): PartgReportScope =
+        PartgReportScope.parse(decoder.decodeString()) ?: throw IllegalArgumentException("Unknown report scope")
+}

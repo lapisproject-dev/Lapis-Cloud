@@ -201,4 +201,20 @@ internal object PartgReportTexts {
     const val SHEET_CONSOLIDATION = "Konsolidierung"
     const val SHEET_RECONCILIATION = "Abgleich"
     const val SHEET_B_CONSOLIDATED = "Ausweis B (konsolidiert)"
+
+    // V1.9.291 (R6): the footer line of every exported page / sheet
+    const val WORKING_STATE_FOOTER = "Arbeitsstand, keine festgehaltene Version"
+
+    /**
+     * The footer of a KEPT version: number, day it was kept, the first 12 characters of the checksum and the status. [final] only means the
+     * internal mark; the sentence never says the report was filed.
+     */
+    fun versionFooter(
+        versionNumber: Int,
+        keptOn: String,
+        hash12: String,
+        final: Boolean,
+    ): String =
+        "Version $versionNumber · festgehalten $keptOn · Prüfsumme $hash12 · " +
+            if (final) "Intern final, nicht eingereicht" else "Entwurf als Arbeitshilfe, nicht eingereicht"
 }

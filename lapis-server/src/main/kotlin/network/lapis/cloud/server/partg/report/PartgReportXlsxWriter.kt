@@ -125,7 +125,10 @@ internal object PartgReportXlsxWriter {
         }
     }
 
-    fun write(document: PartgReportDocument): ByteArray {
+    fun write(
+        document: PartgReportDocument,
+        footer: String = PartgReportTexts.WORKING_STATE_FOOTER,
+    ): ByteArray {
         val sheets =
             listOf(
                 completeness(document),
@@ -165,7 +168,11 @@ internal object PartgReportXlsxWriter {
                 i,
                 sheet,
                 ->
-                entry(zip = zip, name = "xl/worksheets/sheet${i + 1}.xml", content = sheetXml(header = header, sheet = sheet))
+                entry(
+                    zip = zip,
+                    name = "xl/worksheets/sheet${i + 1}.xml",
+                    content = sheetXml(header = header, footer = footer, sheet = sheet),
+                )
             }
         }
         val bytes = out.toByteArray()
@@ -851,6 +858,7 @@ internal object PartgReportXlsxWriter {
 
     private fun sheetXml(
         header: String,
+        footer: String,
         sheet: Sheet,
     ): String {
         val sb = StringBuilder()
@@ -859,10 +867,16 @@ internal object PartgReportXlsxWriter {
         sb.append("""<sheetViews><sheetView workbookViewId="0"/></sheetViews><cols>""")
         sheet.widths.forEachIndexed { i, w -> sb.append("""<col min="${i + 1}" max="${i + 1}" width="$w" customWidth="1"/>""") }
         sb.append("</cols><sheetData>")
-        // row 1: the PDF header line, row 2 stays empty, the table starts in row 3
+        // row 1: the PDF header line, row 2: the version footer (V1.9.291), the table starts in row 3
         sb.append(rowXml(r = 1, cells = mapOf(0 to X.Text(value = header, bold = false))))
+        sb.append(rowXml(r = 2, cells = mapOf(0 to X.Text(value = footer, bold = false))))
         sheet.rows.forEachIndexed { i, cells -> if (cells.isNotEmpty()) sb.append(rowXml(r = i + 3, cells = cells)) }
-        sb.append("</sheetData></worksheet>")
+        // the printed footer; `&` is a control character in an Excel header/footer, so it is doubled
+        sb.append(
+            "</sheetData><headerFooter><oddFooter>&amp;L${PartgXlsxWriter.escape(
+                footer.replace("&", "&&"),
+            )}</oddFooter></headerFooter></worksheet>",
+        )
         return sb.toString()
     }
 

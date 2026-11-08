@@ -13,6 +13,8 @@ import network.lapis.cloud.server.db.generated.PartgDonorCombinationRowTable
 import network.lapis.cloud.server.db.generated.PartgDonorCombinationTable
 import network.lapis.cloud.server.db.generated.PartgIntraTransferTable
 import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
+import network.lapis.cloud.server.db.generated.PartgReportDeadlineTable
+import network.lapis.cloud.server.db.generated.PartgReportDeclarationTable
 import network.lapis.cloud.server.db.generated.PartgReportEnterpriseTable
 import network.lapis.cloud.server.db.generated.PartgReportHoldingTable
 import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
@@ -24,6 +26,8 @@ import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
 import network.lapis.cloud.server.db.generated.PartgReportUnitModeTable
 import network.lapis.cloud.server.db.generated.PartgReportValueTable
+import network.lapis.cloud.server.db.generated.PartgReportVersionCounterTable
+import network.lapis.cloud.server.db.generated.PartgReportVersionTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
 import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgContributionKind
@@ -53,7 +57,7 @@ class PartgReportSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("the model declares the eighteen report entities plus the Member, RegionalChapter and LedgerAccount stubs") {
+        test("the model declares the twenty-two report entities plus the Member, RegionalChapter and LedgerAccount stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -77,6 +81,10 @@ class PartgReportSchemaDriftTest :
                     "partg_intra_transfer",
                     "partg_donor_combination",
                     "partg_donor_combination_row",
+                    "partg_report_version_counter",
+                    "partg_report_version",
+                    "partg_report_declaration",
+                    "partg_report_deadline",
                 )
         }
 
@@ -275,6 +283,46 @@ class PartgReportSchemaDriftTest :
                 PartgIntraTransferTable.transferKind.columnType.sqlType() shouldBe "VARCHAR(7)"
                 PartgIntraTransferTable.payerLevel.columnType.sqlType() shouldBe "VARCHAR(11)"
             }
+        }
+
+        test("the four R6 version tables match the migrated schema and their Exposed objects 1:1") {
+            check(
+                table = "partg_report_version_counter",
+                exposedColumns = PartgReportVersionCounterTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("updated_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_report_version_counter") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("fiscal_year", "scope_key"))
+            check(
+                table = "partg_report_version",
+                exposedColumns = PartgReportVersionTable.columns.map { it.name },
+                expectedForeignKeys =
+                    mapOf(
+                        "counter_id" to "partg_report_version_counter",
+                        "frozen_by" to "member",
+                        "finalized_by" to "member",
+                    ),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_report_version") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("fiscal_year", "scope_key", "version_number"))
+            check(
+                table = "partg_report_declaration",
+                exposedColumns = PartgReportDeclarationTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("version_id" to "partg_report_version", "declared_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_report_declaration") }.uniqueConstraints.distinct() shouldContainExactlyInAnyOrder
+                listOf(setOf("version_id"))
+            check(
+                table = "partg_report_deadline",
+                exposedColumns = PartgReportDeadlineTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("confirmed_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_report_deadline") }.uniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("fiscal_year"))
         }
 
         test("the R3b person kind of the sponsor is sized by its sqlType") {

@@ -127,6 +127,7 @@ class DashboardService internal constructor(
                 conferenceEnabled = conferenceEnabled,
                 mcpEnabled = mcpEnabled,
                 dunningEnabled = row?.get(OrganizationSettingsTable.dunningEnabled) ?: false,
+                politicalParty = row?.get(OrganizationSettingsTable.isPoliticalParty) ?: false,
             )
         }
 

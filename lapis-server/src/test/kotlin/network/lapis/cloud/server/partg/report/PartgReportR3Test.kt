@@ -68,7 +68,7 @@ class PartgReportR3AssemblerTest :
 class PartgReportR3PdfTest :
     FunSpec({
         val doc = ReportFixtures.docR3()
-        val bytes = PartgReportPdfRenderer().render(doc)
+        val bytes = PartgReportPdfRenderer().render(document = doc)
         val all = text(bytes)
 
         test("the three statements and the notes have their own headings") {
@@ -95,25 +95,25 @@ class PartgReportR3PdfTest :
         }
 
         test("an empty statement B says so instead of printing a zero or nothing") {
-            val empty = text(PartgReportPdfRenderer().render(ReportFixtures.doc()))
+            val empty = text(PartgReportPdfRenderer().render(document = ReportFixtures.doc()))
             empty shouldContain "Keine Einträge erfasst"
             empty shouldContain "Erläuterungen"
             empty shouldContain "nicht erfasst"
         }
 
         test("a single-unit report has no whole-party member line") {
-            val single = text(PartgReportPdfRenderer().render(ReportFixtures.docR3(PartgReportScope.Single(PartgUnit.Federal))))
+            val single = text(PartgReportPdfRenderer().render(document = ReportFixtures.docR3(PartgReportScope.Single(PartgUnit.Federal))))
             single shouldNotContain "Gesamtpartei"
             single shouldContain "nicht addiert"
         }
 
         test("the same document gives the same bytes") {
-            PartgReportPdfRenderer().render(ReportFixtures.docR3()).contentEquals(bytes) shouldBe true
+            PartgReportPdfRenderer().render(document = ReportFixtures.docR3()).contentEquals(bytes) shouldBe true
         }
 
         test("the page limit also bounds the new sections; 4,000-character notes are wrapped over pages, not cut") {
             io.kotest.assertions.throwables.shouldThrow<network.lapis.cloud.server.pdf.PdfLimitExceeded> {
-                PartgReportPdfRenderer(maxPages = 2).render(ReportFixtures.docR3())
+                PartgReportPdfRenderer(maxPages = 2).render(document = ReportFixtures.docR3())
             }
             val longBody = (1..400).joinToString(" ") { "Wort$it" }
             val long =
@@ -134,7 +134,7 @@ class PartgReportR3PdfTest :
                             ),
                     )
                 }
-            val rendered = text(PartgReportPdfRenderer().render(long))
+            val rendered = text(PartgReportPdfRenderer().render(document = long))
             rendered shouldContain "Wort1 "
             rendered shouldContain "Wort400"
         }
@@ -142,7 +142,7 @@ class PartgReportR3PdfTest :
 
 class PartgReportR3XlsxTest :
     FunSpec({
-        val xlsx = readXlsx(PartgReportXlsxWriter.write(ReportFixtures.docR3()))
+        val xlsx = readXlsx(PartgReportXlsxWriter.write(document = ReportFixtures.docR3()))
 
         test("the new sheets come before the hints sheet in the documented order") {
             xlsx.sheetNames.takeLast(8) shouldContainExactly
@@ -202,7 +202,10 @@ class PartgReportR3XlsxTest :
         }
 
         test("the same document gives the same bytes") {
-            PartgReportXlsxWriter.write(ReportFixtures.docR3()).contentEquals(PartgReportXlsxWriter.write(ReportFixtures.docR3())) shouldBe
+            PartgReportXlsxWriter
+                .write(
+                    document = ReportFixtures.docR3(),
+                ).contentEquals(PartgReportXlsxWriter.write(document = ReportFixtures.docR3())) shouldBe
                 true
         }
     })

@@ -84,7 +84,27 @@ internal object PartyReportDomSupport {
     /** V1.9.290 (R5): the requests of the four consolidation writes, in order (route name to the whole request). */
     val consolidationWrites = mutableListOf<Pair<String, RecordedRequest>>()
 
+    /** V1.9.291 (R6): the answers of the version calls; `null` = the stub answers "null" (the call fails). */
+    var versionOverview: network.lapis.cloud.shared.domain.PartgVersionOverviewDto? = null
+    var versionDiff: network.lapis.cloud.shared.domain.PartgVersionDiffDto? = null
+    var deletionPreview: network.lapis.cloud.shared.domain.PartgVersionDeletionPreviewDto? = null
+    var versionAnswer: network.lapis.cloud.shared.domain.PartgVersionDto? = null
+    var deadlineAnswer: network.lapis.cloud.shared.domain.PartgDeadlineDto? = null
+
+    /** V1.9.291 (R6): the requests of the version writes (route name to the whole request), in order. */
+    val versionWrites = mutableListOf<Pair<String, RecordedRequest>>()
+
+    fun resetR6() {
+        versionOverview = null
+        versionDiff = null
+        deletionPreview = null
+        versionAnswer = null
+        deadlineAnswer = null
+        versionWrites.clear()
+    }
+
     fun resetR4() {
+        resetR6()
         overviewOverride = null
         mappingView = null
         proposal = null
@@ -265,6 +285,14 @@ internal object PartyReportDomSupport {
         val deleteTransfer: String,
         val createCombination: String,
         val dissolveCombination: String,
+        val versionOverview: String,
+        val freeze: String,
+        val compare: String,
+        val declare: String,
+        val finalize: String,
+        val confirmDeadline: String,
+        val previewDeletion: String,
+        val deleteOld: String,
     )
 
     suspend fun routes() =
@@ -360,6 +388,14 @@ internal object PartyReportDomSupport {
             deleteTransfer = routeOf { rpcService<IPartyReportService>().deleteIntraTransfer(2025, 0, "x") },
             createCombination = routeOf { rpcService<IPartyReportService>().createDonorCombination(2025, 0, emptyMap(), emptyList()) },
             dissolveCombination = routeOf { rpcService<IPartyReportService>().dissolveDonorCombination(2025, 0, "x") },
+            versionOverview = routeOf { rpcService<IPartyReportService>().versionOverview(2025) },
+            freeze = routeOf { rpcService<IPartyReportService>().freezeVersion(2025, "ALL", null) },
+            compare = routeOf { rpcService<IPartyReportService>().compareVersions("a", "b") },
+            declare = routeOf { rpcService<IPartyReportService>().declareVersion("a", "h", true) },
+            finalize = routeOf { rpcService<IPartyReportService>().finalizeVersion("a", 1, "h") },
+            confirmDeadline = routeOf { rpcService<IPartyReportService>().confirmDeadline(2025, "2026-09-30") },
+            previewDeletion = routeOf { rpcService<IPartyReportService>().previewVersionDeletion(10) },
+            deleteOld = routeOf { rpcService<IPartyReportService>().deleteOldVersions(10, emptyList()) },
         )
 
     fun answer(
@@ -413,6 +449,64 @@ internal object PartyReportDomSupport {
                         ),
                     )
                 }
+            }
+            request.rpcRoute == routes.versionOverview ->
+                request.answerWith(
+                    versionOverview?.let {
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgVersionOverviewDto
+                                .serializer(),
+                            it,
+                        )
+                    } ?: "null",
+                )
+            request.rpcRoute == routes.compare ->
+                request.answerWith(
+                    versionDiff?.let {
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgVersionDiffDto
+                                .serializer(),
+                            it,
+                        )
+                    } ?: "null",
+                )
+            request.rpcRoute == routes.previewDeletion ->
+                request.answerWith(
+                    deletionPreview?.let {
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgVersionDeletionPreviewDto
+                                .serializer(),
+                            it,
+                        )
+                    } ?: "null",
+                )
+            request.rpcRoute in listOf(routes.freeze, routes.declare, routes.finalize) -> {
+                versionWrites += request.rpcRoute to request
+                request.answerWith(
+                    versionAnswer?.let {
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgVersionDto
+                                .serializer(),
+                            it,
+                        )
+                    } ?: "null",
+                )
+            }
+            request.rpcRoute == routes.confirmDeadline -> {
+                versionWrites += request.rpcRoute to request
+                request.answerWith(
+                    deadlineAnswer?.let {
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgDeadlineDto
+                                .serializer(),
+                            it,
+                        )
+                    } ?: "null",
+                )
+            }
+            request.rpcRoute == routes.deleteOld -> {
+                versionWrites += request.rpcRoute to request
+                request.answerWith("1")
             }
             request.rpcRoute == routes.units ->
                 request.answerWith(

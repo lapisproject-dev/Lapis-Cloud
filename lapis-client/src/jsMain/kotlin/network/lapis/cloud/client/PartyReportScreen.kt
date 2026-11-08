@@ -15,7 +15,17 @@ import network.lapis.cloud.shared.rpc.IPartyReportService
 import org.w3c.dom.events.Event
 
 /** The tabs of the party report page. New tabs are appended: the remembered tab is read back by name. */
-internal enum class PartyReportTab { OVERVIEW, SHEET, POSITIONS, REPORT, AUSWEISE, ERLAEUTERUNGEN, KONTENZUORDNUNG, KONSOLIDIERUNG }
+internal enum class PartyReportTab {
+    OVERVIEW,
+    SHEET,
+    POSITIONS,
+    REPORT,
+    AUSWEISE,
+    ERLAEUTERUNGEN,
+    KONTENZUORDNUNG,
+    KONSOLIDIERUNG,
+    FREIGABE,
+}
 
 /**
  * The state the tabs share (V1.9.225): the report year and the unit picked for entry, plus a probe the page asks before something would
@@ -38,6 +48,21 @@ internal class PartyReportContext(
 
     /** V1.9.283: the block of the tab "Ausweise" that a hint link asks to open; consumed (reset) when the tab is rendered. */
     var annexFocusBlock: AnnexBlock? = null
+
+    /** V1.9.291 (R6): called after every successful save of a figure, a statement or a note; the status line refreshes itself on it. */
+    var onSaved: () -> Unit = {}
+}
+
+/**
+ * V1.9.291 (R6): the save sites of the tabs (some of them have no [PartyReportContext] in reach) report here; the page points [active] to its own
+ * context while it is shown and clears it again when it is destroyed.
+ */
+internal object PartyReportSaveSignal {
+    var active: PartyReportContext? = null
+
+    fun saved() {
+        active?.onSaved?.invoke()
+    }
 }
 
 private const val TAB_STORAGE_KEY = "lapis.partyReport.tab"
@@ -88,6 +113,18 @@ internal fun renderPartyReportScreen(
 
     val context = PartyReportContext(year = organizationToday().year - 1)
     val yearToolbar = root.lapisToolbar()
+    // V1.9.291 (R6): the line with the status of the year; a chapter treasurer reaches none of the version calls, so they get no line
+    val statusLine =
+        if (partgChapterTreasurerOnly(
+                AppState.session,
+            )
+        ) {
+            null
+        } else {
+            PartyReportStatusLine(host = root.simplePanel(), context = context)
+        }
+    context.onSaved = { statusLine?.refresh() }
+    PartyReportSaveSignal.active = context
     val years = (organizationToday().year downTo 2001).map { it.toString() to it.toString() }
     val segmentHost = root.simplePanel()
     val tabPanel = root.vPanel(spacing = 10)
@@ -132,6 +169,7 @@ internal fun renderPartyReportScreen(
             PartyReportTab.REPORT -> tr("Bericht")
             PartyReportTab.KONTENZUORDNUNG -> tr("Kontenzuordnung")
             PartyReportTab.KONSOLIDIERUNG -> tr("Konsolidierung")
+            PartyReportTab.FREIGABE -> tr("Versionen und Freigabe")
         }
 
     fun paintSegments() {
@@ -182,6 +220,7 @@ internal fun renderPartyReportScreen(
             PartyReportTab.ERLAEUTERUNGEN -> tabPanel.renderPartyReportNotes(context)
             PartyReportTab.KONTENZUORDNUNG -> tabPanel.renderPartyReportMappingTab(context)
             PartyReportTab.KONSOLIDIERUNG -> tabPanel.renderPartyReportConsolidation(context)
+            PartyReportTab.FREIGABE -> tabPanel.renderPartyReportVersions(context)
         }
     }
     showTab = { chosen ->
@@ -189,6 +228,7 @@ internal fun renderPartyReportScreen(
         rememberTab(chosen)
         paintSegments()
         renderTab()
+        statusLine?.refresh()
     }
 
     val yearSelect = yearToolbar.select(options = years, value = context.year.toString(), label = tr("Rechnungsjahr"))
@@ -199,6 +239,7 @@ internal fun renderPartyReportScreen(
             proceed = {
                 context.year = chosen
                 renderTab()
+                statusLine?.refresh()
             },
             revert = { yearSelect.value = context.year.toString() },
         )
@@ -206,6 +247,7 @@ internal fun renderPartyReportScreen(
 
     paintSegments()
     renderTab()
+    statusLine?.refresh()
 
     // Closing or reloading the browser tab with typed-in values: the browser's own question.
     val beforeUnload: (Event) -> Unit = { event ->
@@ -216,7 +258,13 @@ internal fun renderPartyReportScreen(
     }
     window.addEventListener("beforeunload", beforeUnload)
     // an empty marker whose destroy hook removes the listener (hook registered BEFORE the widget is added: addWithLifecycle)
-    root.addWithLifecycle(Div(), onDestroy = { window.removeEventListener("beforeunload", beforeUnload) })
+    root.addWithLifecycle(
+        Div(),
+        onDestroy = {
+            window.removeEventListener("beforeunload", beforeUnload)
+            if (PartyReportSaveSignal.active === context) PartyReportSaveSignal.active = null
+        },
+    )
 }
 
 /** The service as the page uses it; one place, so a test can see which calls the page makes. */

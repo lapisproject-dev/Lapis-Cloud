@@ -121,17 +121,18 @@ class PartgReportR5ExportTest :
             val plain =
                 pdfPages(
                     PartgReportPdfRenderer().render(
-                        PartgReportAssembler.assemble(
-                            organizationName = "Test Partei e.V.",
-                            year = year,
-                            scope = PartgReportScope.All,
-                            units = units,
-                            entered = entered,
-                            annex = annex,
-                        ),
+                        document =
+                            PartgReportAssembler.assemble(
+                                organizationName = "Test Partei e.V.",
+                                year = year,
+                                scope = PartgReportScope.All,
+                                units = units,
+                                entered = entered,
+                                annex = annex,
+                            ),
                     ),
                 )
-            val withConsolidation = pdfPages(PartgReportPdfRenderer().render(consolidated()))
+            val withConsolidation = pdfPages(PartgReportPdfRenderer().render(document = consolidated()))
             (withConsolidation.size > plain.size) shouldBe true
             plain.indices.forEach { i -> withoutPageCount(withConsolidation[i]) shouldBe withoutPageCount(plain[i]) }
             val tail = withConsolidation.drop(plain.size).joinToString("\n")
@@ -151,14 +152,14 @@ class PartgReportR5ExportTest :
         test("PDF: a single unit report has no consolidation") {
             val single =
                 pdfPages(
-                    PartgReportPdfRenderer().render(consolidated(PartgReportScope.Single(PartgUnit.Federal))),
+                    PartgReportPdfRenderer().render(document = consolidated(PartgReportScope.Single(PartgUnit.Federal))),
                 ).joinToString("\n")
             single shouldNotContain "Abgleich der Übertragungen"
             single shouldNotContain "Gesamtpartei (konsolidiert)"
         }
 
         test("PDF: no amount or header cell is cut off in the new tables") {
-            val text = pdfPages(PartgReportPdfRenderer().render(consolidated())).joinToString("\n")
+            val text = pdfPages(PartgReportPdfRenderer().render(document = consolidated())).joinToString("\n")
             // the long header of the first table is whole, and the unit labels of the matching table are not truncated with an ellipsis
             text shouldContain "Summe der Einheiten EUR"
             text shouldContain "Konsolidiert EUR"
@@ -166,16 +167,19 @@ class PartgReportR5ExportTest :
         }
 
         test("XLSX: 16 sheets for the whole party, 13 for one unit; the three new sheets come after 'Hinweise'") {
-            val whole = readXlsx(PartgReportXlsxWriter.write(consolidated()))
+            val whole = readXlsx(PartgReportXlsxWriter.write(document = consolidated()))
             whole.sheetNames.size shouldBe 16
             whole.sheetNames.take(13).last() shouldBe "Hinweise"
             whole.sheetNames.drop(13) shouldContainExactly listOf("Konsolidierung", "Abgleich", "Ausweis B (konsolidiert)")
-            readXlsx(PartgReportXlsxWriter.write(consolidated(PartgReportScope.Single(PartgUnit.Federal)))).sheetNames.size shouldBe 13
-            readXlsx(PartgReportXlsxWriter.write(ReportFixtures.doc())).sheetNames.size shouldBe 13
+            readXlsx(
+                PartgReportXlsxWriter.write(document = consolidated(PartgReportScope.Single(PartgUnit.Federal))),
+            ).sheetNames.size shouldBe
+                13
+            readXlsx(PartgReportXlsxWriter.write(document = ReportFixtures.doc())).sheetNames.size shouldBe 13
         }
 
         test("XLSX: no formula anywhere, a text that starts with = is quote-prefixed, n. b. is text and never 0") {
-            val xlsx = readXlsx(PartgReportXlsxWriter.write(consolidated()))
+            val xlsx = readXlsx(PartgReportXlsxWriter.write(document = consolidated()))
             xlsx.parts
                 .filterKeys { it.startsWith("xl/worksheets/") }
                 .values

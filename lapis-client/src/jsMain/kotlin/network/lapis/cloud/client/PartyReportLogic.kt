@@ -313,6 +313,8 @@ internal val PARTG_TAB_DISPLAY_ORDER: List<PartyReportTab> =
         PartyReportTab.REPORT,
         // V1.9.290 (R5): last, rightmost; a chapter treasurer never gets it (see partgVisibleTabs)
         PartyReportTab.KONSOLIDIERUNG,
+        // V1.9.291 (R6): last, rightmost; a chapter treasurer never gets it (see partgVisibleTabs)
+        PartyReportTab.FREIGABE,
     )
 
 /**

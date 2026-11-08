@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
@@ -17,6 +18,7 @@ import network.lapis.cloud.server.partg.PartgReportSnapshotReader
 import network.lapis.cloud.server.partg.PartgReportStore
 import network.lapis.cloud.server.partg.PartgSheetWriter
 import network.lapis.cloud.server.partg.PartgStatementStore
+import network.lapis.cloud.server.partg.PartgVersionOperations
 import network.lapis.cloud.server.partg.PartgYearRules
 import network.lapis.cloud.server.partg.PartyReportActor
 import network.lapis.cloud.server.partg.report.PartgConsolidation
@@ -36,6 +38,7 @@ import network.lapis.cloud.shared.domain.PartgAnnexRules
 import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgCompletenessDto
 import network.lapis.cloud.shared.domain.PartgConsolidationDto
+import network.lapis.cloud.shared.domain.PartgDeadlineDto
 import network.lapis.cloud.shared.domain.PartgDeduction
 import network.lapis.cloud.shared.domain.PartgEnterpriseCheckDto
 import network.lapis.cloud.shared.domain.PartgEnterpriseDto
@@ -70,6 +73,10 @@ import network.lapis.cloud.shared.domain.PartgUnitDto
 import network.lapis.cloud.shared.domain.PartgUnitLevel
 import network.lapis.cloud.shared.domain.PartgValueChangeDto
 import network.lapis.cloud.shared.domain.PartgValueSource
+import network.lapis.cloud.shared.domain.PartgVersionDeletionPreviewDto
+import network.lapis.cloud.shared.domain.PartgVersionDiffDto
+import network.lapis.cloud.shared.domain.PartgVersionDto
+import network.lapis.cloud.shared.domain.PartgVersionOverviewDto
 import network.lapis.cloud.shared.domain.PartgYouthOrgDto
 import network.lapis.cloud.shared.domain.PartgYouthOrgInputDto
 import network.lapis.cloud.shared.domain.StandardPartyChart
@@ -94,7 +101,19 @@ class PartyReportService internal constructor(
     private val call: ApplicationCall,
     private val writeRateLimiter: FederationInboxRateLimiter,
     private val findingsRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 30),
+    // V1.9.291 (R6): the shared instances come from `Application.module`; the defaults are for tests that build the service on its own
+    freezeRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10),
+    versionReadRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 60),
+    exportConcurrency: Semaphore = Semaphore(permits = 2),
 ) : IPartyReportService {
+    private val versions =
+        PartgVersionOperations(
+            writeRateLimiter = writeRateLimiter,
+            freezeRateLimiter = freezeRateLimiter,
+            readRateLimiter = versionReadRateLimiter,
+            concurrency = exportConcurrency,
+        )
+
     override suspend fun listPositions(): List<PartgPositionDto> {
         requirePartyReportAccess(call)
         return transaction { PartgReportStore.positions() }
@@ -834,6 +853,75 @@ class PartyReportService internal constructor(
             combinationId = combinationId,
             now = ServerClock.now(),
         ) { consolidationWithin(year) }
+    }
+
+    // ---------------------------------------------------------------- R6 (V1.9.291)
+    // The federal gate, never the scoped one: a chapter treasurer reaches none of these. The work is in PartgVersionOperations.
+
+    override suspend fun versionOverview(year: Int): PartgVersionOverviewDto {
+        val current = requirePartyReportAccess(call)
+        return versions.overview(current = current, year = year)
+    }
+
+    override suspend fun freezeVersion(
+        year: Int,
+        scopeKey: String,
+        comment: String?,
+    ): PartgVersionDto {
+        val current = requirePartyReportAccess(call)
+        return versions.freeze(current = current, year = year, scopeKey = scopeKey, comment = comment)
+    }
+
+    override suspend fun compareVersions(
+        versionIdA: String,
+        versionIdB: String,
+    ): PartgVersionDiffDto {
+        val current = requirePartyReportAccess(call)
+        return versions.compare(current = current, versionIdA = versionIdA, versionIdB = versionIdB)
+    }
+
+    override suspend fun declareVersion(
+        versionId: String,
+        expectedContentHash: String,
+        reviewed: Boolean,
+    ): PartgVersionDto {
+        val current = requirePartyReportAccess(call)
+        return versions.declare(current = current, versionId = versionId, expectedHash = expectedContentHash, reviewed = reviewed)
+    }
+
+    override suspend fun finalizeVersion(
+        versionId: String,
+        typedVersionNumber: Int,
+        expectedContentHash: String,
+    ): PartgVersionDto {
+        val current = requirePartyReportAccess(call)
+        return versions.finalize(
+            current = current,
+            versionId = versionId,
+            typedVersionNumber = typedVersionNumber,
+            expectedHash = expectedContentHash,
+        )
+    }
+
+    override suspend fun confirmDeadline(
+        year: Int,
+        deadline: String,
+    ): PartgDeadlineDto {
+        val current = requirePartyReportAccess(call)
+        return versions.confirmDeadline(current = current, year = year, deadline = deadline)
+    }
+
+    override suspend fun previewVersionDeletion(olderThanYears: Int): PartgVersionDeletionPreviewDto {
+        val current = requirePartyReportAccess(call)
+        return versions.previewDeletion(current = current, olderThanYears = olderThanYears)
+    }
+
+    override suspend fun deleteOldVersions(
+        olderThanYears: Int,
+        expectedVersionIds: List<String>,
+    ): Int {
+        val current = requirePartyReportAccess(call)
+        return versions.deleteOld(current = current, olderThanYears = olderThanYears, expectedVersionIds = expectedVersionIds)
     }
 
     /** Must run inside a transaction (the writer's): the caller returns exactly the state it wrote. */

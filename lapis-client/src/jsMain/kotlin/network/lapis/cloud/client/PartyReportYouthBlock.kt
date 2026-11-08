@@ -240,6 +240,7 @@ private fun Container.renderYouthForm(
             val result = guarded { partyReportRpc().saveYouthOrg(annex.year, annex.unit.unitKey, env.revision(), input) }
             if (result != null) {
                 notifySuccess(tr("Gespeichert."))
+                PartyReportSaveSignal.saved()
                 onSaved(result)
             } else {
                 form.showFormError(saveFailedText())

@@ -153,6 +153,7 @@ internal fun openPartyReportImportDialog(
                 is PartyReportHttp.ApplyResult.Ok -> {
                     modal.hide()
                     notifySuccess(gettext("%1 Werte übernommen.", outcome.result.changed))
+                    PartyReportSaveSignal.saved()
                     onApplied()
                 }
                 is PartyReportHttp.ApplyResult.Rejected -> {

@@ -904,6 +904,36 @@ class PartyReportProposalNotAvailableException(
     override val message: String = "No proposal from the bookings exists for this unit",
 ) : AbstractServiceException()
 
+/** V1.9.291 (R6) -- distinct type. Nothing changed since the newest kept version of this year and scope; there is nothing new to keep. */
+@RpcServiceException
+class PartyReportVersionUnchangedException(
+    override val message: String = "Nothing changed since the newest kept version",
+) : AbstractServiceException()
+
+/** V1.9.291 (R6) -- distinct type. The version is not in the state the step needs (already declared, already final, wrong scope, wrong checksum). */
+@RpcServiceException
+class PartyReportVersionStateException(
+    override val message: String = "The version is not in the right state for this step",
+) : AbstractServiceException()
+
+/** V1.9.291 (R6) -- distinct type. The report content is larger than the size budget of a kept version. */
+@RpcServiceException
+class PartyReportVersionTooLargeException(
+    override val message: String = "The report is too large to be kept as a version",
+) : AbstractServiceException()
+
+/** V1.9.291 (R6) -- distinct type. The stored content of a kept version does not match its checksum or has an unknown format. */
+@RpcServiceException
+class PartyReportVersionIntegrityException(
+    override val message: String = "The stored version does not match its checksum",
+) : AbstractServiceException()
+
+/** V1.9.291 (R6) -- distinct type. The set of versions to delete changed since the preview; look at the preview again. */
+@RpcServiceException
+class PartyReportVersionDeletionStaleException(
+    override val message: String = "The versions to delete changed since the preview",
+) : AbstractServiceException()
+
 /** V1.9.289 (R4a) -- distinct type. A chapter treasurer must not book donations (the party donation rules are organisation-wide). */
 @RpcServiceException
 class ChapterDonationFederalOnlyException(

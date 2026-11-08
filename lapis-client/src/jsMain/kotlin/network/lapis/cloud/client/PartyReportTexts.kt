@@ -42,6 +42,8 @@ internal fun partgRejectionText(code: PartgImportRejectionCode?): String =
         PartgImportRejectionCode.REVISION_CONFLICT ->
             tr("Die Werte wurden inzwischen geändert. Bitte laden Sie die Datei erneut hoch.")
         PartgImportRejectionCode.NOT_FOUND -> tr("Nicht gefunden.")
+        PartgImportRejectionCode.INTEGRITY ->
+            tr("Der gespeicherte Inhalt dieser Version passt nicht mehr zu ihrer Prüfsumme. Es wurde nichts erzeugt.")
         null -> tr("Die Verbindung ist fehlgeschlagen. Bitte versuchen Sie es erneut.")
     }
 

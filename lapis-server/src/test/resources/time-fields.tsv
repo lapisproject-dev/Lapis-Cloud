@@ -1087,3 +1087,15 @@ col:PartgConsolidationSheetTable.updatedAt	A	PartgConsolidationStore: stamped by
 col:PartgIntraTransferTable.createdAt	A	PartgConsolidationStore: stamped by ServerClock.now()
 col:PartgIntraTransferTable.updatedAt	A	PartgConsolidationStore: stamped by ServerClock.now()
 col:PartgDonorCombinationTable.createdAt	A	PartgConsolidationStore: stamped by ServerClock.now()
+dto:PartgVersionDto.frozenAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgVersionDto.declaredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgVersionDto.finalizedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgVersionDeletionCandidateDto.frozenAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgDeadlineDto.deadline	D	calendar date (LocalDate); never converted
+dto:PartgDeadlineDto.today	D	calendar date (LocalDate); never converted
+col:PartgReportVersionCounterTable.updatedAt	A	PartgVersionStore: stamped by ServerClock.now()
+col:PartgReportVersionTable.frozenAt	A	PartgVersionStore: stamped by ServerClock.now()
+col:PartgReportVersionTable.finalizedAt	A	PartgVersionStore: stamped by ServerClock.now()
+col:PartgReportDeclarationTable.declaredAt	A	PartgVersionStore: stamped by ServerClock.now()
+col:PartgReportDeadlineTable.deadline	D	calendar date (LocalDate) of the submission deadline; never converted
+col:PartgReportDeadlineTable.confirmedAt	A	PartgVersionStore: stamped by ServerClock.now()

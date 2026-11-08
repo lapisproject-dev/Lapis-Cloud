@@ -95,6 +95,11 @@ import network.lapis.cloud.shared.rpc.PartyReportNotEnabledException
 import network.lapis.cloud.shared.rpc.PartyReportProposalNotAvailableException
 import network.lapis.cloud.shared.rpc.PartyReportProposalStaleException
 import network.lapis.cloud.shared.rpc.PartyReportRevisionConflictException
+import network.lapis.cloud.shared.rpc.PartyReportVersionDeletionStaleException
+import network.lapis.cloud.shared.rpc.PartyReportVersionIntegrityException
+import network.lapis.cloud.shared.rpc.PartyReportVersionStateException
+import network.lapis.cloud.shared.rpc.PartyReportVersionTooLargeException
+import network.lapis.cloud.shared.rpc.PartyReportVersionUnchangedException
 import network.lapis.cloud.shared.rpc.RateLimitedException
 import network.lapis.cloud.shared.rpc.RecordingRawFilesMissingException
 import network.lapis.cloud.shared.rpc.RecordingRecomputeInProgressException
@@ -243,6 +248,15 @@ internal fun typedRefusalText(e: Throwable): String? =
             tr("Die Zahl der Buchungen hat sich geändert. Bitte laden Sie die Übersicht neu.")
         is PartyReportProposalStaleException -> tr("Buchungen haben sich geändert, Vorschlag neu laden")
         is PartyReportProposalNotAvailableException -> tr("Für diese Einheit gibt es keinen Vorschlag aus Buchungen.")
+        is PartyReportVersionUnchangedException ->
+            tr("Seit der letzten festgehaltenen Version hat sich nichts geändert. Es gibt nichts Neues festzuhalten.")
+        is PartyReportVersionStateException ->
+            tr("Dieser Schritt ist für die Version gerade nicht möglich. Bitte laden Sie die Ansicht neu und prüfen Sie den Stand.")
+        is PartyReportVersionTooLargeException -> tr("Der Bericht ist zu groß, um ihn als Version festzuhalten.")
+        is PartyReportVersionIntegrityException ->
+            tr("Der gespeicherte Inhalt dieser Version passt nicht mehr zu ihrer Prüfsumme. Bitte wenden Sie sich an die Administration.")
+        is PartyReportVersionDeletionStaleException ->
+            tr("Die Liste der zu löschenden Versionen hat sich geändert. Bitte öffnen Sie die Vorschau neu.")
         is ChapterDonationFederalOnlyException -> tr("Spenden können nur auf Bundesebene gebucht werden.")
         is RegionalChapterHasPartyReportValuesException ->
             tr("Für diesen Landesverband sind Werte im Rechenschaftsbericht erfasst. Er kann nicht gelöscht werden.")

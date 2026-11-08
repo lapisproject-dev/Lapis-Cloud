@@ -54,6 +54,9 @@ data class PartgReportExportAuditSnapshot(
     val enterpriseRowCount: Int = 0,
     /** V1.9.269: number of plausibility hints shown in the export. */
     val findingCount: Int = 0,
+    /** V1.9.291 (R6): set only for the export of a KEPT version (id and number); the default keeps the bytes of every older export unchanged. */
+    val versionId: String? = null,
+    val versionNumber: Int? = null,
 )
 
 /** V1.9.269 audit snapshot of a change of the separate statements: counters, ids and codes only. */
@@ -111,4 +114,42 @@ data class PartgDonorCombinationAuditSnapshot(
     val rowCount: Int,
     val unitKeys: List<String>,
     val largeDonorIds: List<String>,
+)
+
+/** V1.9.291 (R6) audit snapshot of a kept or finalised version. Ids, numbers, the checksum and counters only: never the comment, a name or an amount. */
+@Serializable
+data class PartgVersionAuditSnapshot(
+    val year: Int,
+    val scope: String,
+    val versionNumber: Int,
+    val contentHash: String,
+    val byteSize: Int,
+    val hasThirdPartyData: Boolean,
+    /** `VERSION_KEPT` or `VERSION_FINALISED`. */
+    val change: String,
+)
+
+/** V1.9.291 (R6) audit snapshot of the assurance on one version. */
+@Serializable
+data class PartgDeclarationAuditSnapshot(
+    val year: Int,
+    val versionId: String,
+    val versionNumber: Int,
+    val templateCode: String,
+    val contentHash: String,
+)
+
+/** V1.9.291 (R6) audit snapshot of a confirmed or changed deadline (ISO dates; the old date is `null` for the first confirmation). */
+@Serializable
+data class PartgDeadlineAuditSnapshot(
+    val year: Int,
+    val deadline: String,
+)
+
+/** V1.9.291 (R6) audit snapshot of the deletion routine: how many versions were removed, which ones (at most 500 ids) and the retention used. */
+@Serializable
+data class PartgVersionDeletionAuditSnapshot(
+    val olderThanYears: Int,
+    val count: Int,
+    val versionIds: List<String>,
 )

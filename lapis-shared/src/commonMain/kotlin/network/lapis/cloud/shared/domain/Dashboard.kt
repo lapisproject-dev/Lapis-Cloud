@@ -65,6 +65,9 @@ object DashboardModuleKeys {
     const val APPLICATIONS = "applications"
     const val TREASURY = "treasury"
 
+    /** V1.9.291 (R6): the party accountability report (only for BOARD/ADMIN of a political party). */
+    const val PARTG = "partg"
+
     val ALL: List<String> =
         listOf(
             AUCTION,
@@ -81,6 +84,7 @@ object DashboardModuleKeys {
             AI,
             APPLICATIONS,
             TREASURY,
+            PARTG,
         )
 }
 
@@ -109,6 +113,9 @@ object DashboardReasonKeys {
     const val APPLICATIONS_OPEN = "applications.open"
     const val TREASURY_OVERDUE_NOT_IN_DUNNING = "treasury.overdueNotInDunning"
 
+    /** V1.9.291 (R6): the report of a year is not internally final yet; params `year`, `statusCode` (0..3), `confirmed` (0|1), `deadline` (ISO date). */
+    const val PARTG_REPORT_DEADLINE = "partg.reportDeadline"
+
     val ALL: List<String> =
         listOf(
             AUCTION_OUTBID,
@@ -133,5 +140,6 @@ object DashboardReasonKeys {
             AI_DRAFTS_WAITING,
             APPLICATIONS_OPEN,
             TREASURY_OVERDUE_NOT_IN_DUNNING,
+            PARTG_REPORT_DEADLINE,
         )
 }

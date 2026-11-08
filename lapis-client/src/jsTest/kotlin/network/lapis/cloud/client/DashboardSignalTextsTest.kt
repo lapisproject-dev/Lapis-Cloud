@@ -66,6 +66,31 @@ class DashboardSignalTextsTest {
     }
 
     @Test
+    fun thePartyReportSentence_followsTheStatusCodeAndTheConfirmationOfTheDeadline() {
+        fun text(
+            status: String,
+            confirmed: String,
+        ) = DashboardSignalTexts.text(
+            signal(
+                DashboardReasonKeys.PARTG_REPORT_DEADLINE,
+                1,
+                mapOf("year" to "2025", "statusCode" to status, "confirmed" to confirmed, "deadline" to "2031-09-30"),
+            ),
+        )!!
+        assertTrue(text("0", "0").contains("noch keine Version festgehalten") && text("0", "0").contains("Vorschlag"))
+        assertFalse(text("0", "1").contains("Vorschlag"))
+        assertTrue(text("1", "1").contains("noch nicht versichert"))
+        assertTrue(text("2", "1").contains("noch nicht intern final"))
+        assertTrue(text("2", "1").contains("2025") && text("2", "1").contains("2031"))
+        // free text in a parameter is never printed
+        assertNull(
+            DashboardSignalTexts.text(
+                signal(DashboardReasonKeys.PARTG_REPORT_DEADLINE, 1, mapOf("year" to "Meine Geheimnisse", "deadline" to "2031-09-30")),
+            ),
+        )
+    }
+
+    @Test
     fun anUnknownReason_andFreeTextParameters_giveNoText() {
         assertNull(DashboardSignalTexts.text(signal("auction.fromTheFuture", 1)))
         assertNull(DashboardSignalTexts.text(signal(DashboardReasonKeys.SURVEY_NOT_ANSWERED, 1, mapOf("date" to "<b>x</b>"))))

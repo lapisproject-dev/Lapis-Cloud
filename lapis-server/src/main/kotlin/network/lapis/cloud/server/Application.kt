@@ -2013,6 +2013,9 @@ internal fun Application.module(
     val partgReportFindingsRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val partgReportExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val partgReportExportConcurrency = Semaphore(permits = 2)
+    // V1.9.291 party report R6: keeping a version 10 per member and minute (it builds the whole report), reading the version list / comparing 60.
+    val partgReportFreezeRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val partgReportVersionReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
     val attachedImageListRateLimiter = FederationInboxRateLimiter(maxRequests = 600, window = 60.minutes)
     val attachedImageReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
 
@@ -3062,6 +3065,9 @@ internal fun Application.module(
                 call = call,
                 writeRateLimiter = partgReportWriteRateLimiter,
                 findingsRateLimiter = partgReportFindingsRateLimiter,
+                freezeRateLimiter = partgReportFreezeRateLimiter,
+                versionReadRateLimiter = partgReportVersionReadRateLimiter,
+                exportConcurrency = partgReportExportConcurrency,
             )
         }
         // V1.9.226 LupaBB member master-data sync (ADMIN, manual). Registered before the Protokoll draft, the Protokoll finalisation and the

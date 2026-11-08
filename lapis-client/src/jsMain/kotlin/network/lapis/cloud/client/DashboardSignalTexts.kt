@@ -99,7 +99,25 @@ internal object DashboardSignalTexts {
                 } else {
                     gettext("Ein überfälliger Beitrag ist noch nicht im Mahnwesen")
                 }
+            DashboardReasonKeys.PARTG_REPORT_DEADLINE -> partgReportDeadline(signal)
             else -> null
+        }
+    }
+
+    /** V1.9.291 (R6): the report of a year is not final; the wording depends on the status code (0..3) and whether the deadline is confirmed. */
+    private fun partgReportDeadline(signal: DashboardSignalDto): String? {
+        val year = signal.params["year"]
+        val deadline = signal.params["deadline"]?.let(::formatSignalDate)
+        // parameters missing (an older server): the plain sentence, never a guess
+        if (year == null || deadline == null) return gettext("Der Rechenschaftsbericht ist noch nicht intern final.")
+        val confirmed = signal.params["confirmed"] == "1"
+        val status = signal.params["statusCode"]?.toIntOrNull() ?: return null
+        return when {
+            status >= 2 ->
+                gettext("Rechenschaftsbericht %1: versichert, aber noch nicht intern final. Frist: %2", year, deadline)
+            status == 1 -> gettext("Rechenschaftsbericht %1: Version festgehalten, noch nicht versichert. Frist: %2", year, deadline)
+            confirmed -> gettext("Rechenschaftsbericht %1: noch keine Version festgehalten. Frist: %2", year, deadline)
+            else -> gettext("Rechenschaftsbericht %1: noch keine Version festgehalten. Frist (Vorschlag): %2", year, deadline)
         }
     }
 

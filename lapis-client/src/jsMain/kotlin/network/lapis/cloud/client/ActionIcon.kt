@@ -14,6 +14,15 @@ enum class ActionIcon(
     /** Refresh a view; V1.9.75: also "generate a fresh value" (the temporary password's "Neu erzeugen"). */
     REFRESH("fas fa-arrows-rotate"),
 
+    /** V1.9.291 (R6): keep the current report as a numbered version ("Version festhalten"). Assigned to this purpose only. */
+    KEEP_VERSION("fas fa-bookmark"),
+
+    /** V1.9.291 (R6): record the Finanzvorstand's assurance on a version ("Versichern"). Assigned to this purpose only. */
+    DECLARE("fas fa-user-shield"),
+
+    /** V1.9.291 (R6): mark a version internally final ("Final setzen"); irreversible. Assigned to this purpose only. */
+    FINALIZE("fas fa-lock"),
+
     /** V1.9.226: link one record to one member ("Mit diesem Mitglied verknüpfen" in the LupaBB sync). Assigned to this purpose only. */
     LINK("fas fa-link"),
     EDIT("fas fa-pen"),

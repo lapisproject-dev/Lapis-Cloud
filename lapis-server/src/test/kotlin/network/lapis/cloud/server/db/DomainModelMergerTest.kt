@@ -601,7 +601,9 @@ class DomainModelMergerTest :
             // 76-partg-report.kuml.kts (V1.9.290, R5) adds FOUR real tables (partg_consolidation_sheet, partg_intra_transfer,
             // partg_donor_combination, partg_donor_combination_row); its Member, RegionalChapter and PartgReportLargeDonor references dedup,
             // net +4 (257 -> 261).
-            val distinctTableNames = 261
+            // 76-partg-report.kuml.kts (V1.9.291, R6) adds FOUR real tables (partg_report_version_counter, partg_report_version,
+            // partg_report_declaration, partg_report_deadline); its Member reference dedups, net +4 (261 -> 265).
+            val distinctTableNames = 265
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -998,6 +1000,10 @@ class DomainModelMergerTest :
                     "PartgIntraTransferTable.kt",
                     "PartgDonorCombinationTable.kt",
                     "PartgDonorCombinationRowTable.kt",
+                    "PartgReportVersionCounterTable.kt",
+                    "PartgReportVersionTable.kt",
+                    "PartgReportDeclarationTable.kt",
+                    "PartgReportDeadlineTable.kt",
                     // Welle V1.9.226 "LupaBB-Abgleich" -- FOUR new real tables; Member is a stub (its two new columns are in 00-foundation).
                     "MemberLupaBbProfileTable.kt",
                     "LupaBbSyncConfigTable.kt",

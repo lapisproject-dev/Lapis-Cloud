@@ -105,6 +105,7 @@ internal fun openPartyReportTransferDialog(
             }
             modal.hide()
             notifySuccess(tr("Gespeichert."))
+            PartyReportSaveSignal.saved()
             onSaved(result)
         }
     }

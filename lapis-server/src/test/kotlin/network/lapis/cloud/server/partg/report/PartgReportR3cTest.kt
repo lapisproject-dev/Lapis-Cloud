@@ -53,7 +53,7 @@ class PartgReportR3cAssemblerTest :
 class PartgReportR3cPdfTest :
     FunSpec({
         val doc = ReportFixtures.docR3c()
-        val bytes = PartgReportPdfRenderer().render(doc)
+        val bytes = PartgReportPdfRenderer().render(document = doc)
         val all = pdfTextOf(bytes)
 
         test("D has its own heading between C and E and no placeholder text any more") {
@@ -89,17 +89,17 @@ class PartgReportR3cPdfTest :
         }
 
         test("an empty D says so") {
-            pdfTextOf(PartgReportPdfRenderer().render(ReportFixtures.docR3b())) shouldContain "Keine Einträge erfasst"
+            pdfTextOf(PartgReportPdfRenderer().render(document = ReportFixtures.docR3b())) shouldContain "Keine Einträge erfasst"
         }
 
         test("the same document gives the same bytes") {
-            PartgReportPdfRenderer().render(ReportFixtures.docR3c()).contentEquals(bytes) shouldBe true
+            PartgReportPdfRenderer().render(document = ReportFixtures.docR3c()).contentEquals(bytes) shouldBe true
         }
     })
 
 class PartgReportR3cXlsxTest :
     FunSpec({
-        val xlsx = readXlsx(PartgReportXlsxWriter.write(ReportFixtures.docR3c()))
+        val xlsx = readXlsx(PartgReportXlsxWriter.write(document = ReportFixtures.docR3c()))
 
         test("the sheet 'Ausweis D' is the 9th of 13 sheets, directly after C") {
             xlsx.sheetNames.size shouldBe 13
@@ -172,12 +172,12 @@ class PartgReportR3cXlsxTest :
 
         test("the single-unit export has the same thirteen sheets, and the same document gives the same bytes") {
             readXlsx(
-                PartgReportXlsxWriter.write(ReportFixtures.docR3c(PartgReportScope.Single(PartgUnit.Federal))),
+                PartgReportXlsxWriter.write(document = ReportFixtures.docR3c(PartgReportScope.Single(PartgUnit.Federal))),
             ).sheetNames.size shouldBe
                 13
             PartgReportXlsxWriter
-                .write(ReportFixtures.docR3c())
-                .contentEquals(PartgReportXlsxWriter.write(ReportFixtures.docR3c())) shouldBe true
+                .write(document = ReportFixtures.docR3c())
+                .contentEquals(PartgReportXlsxWriter.write(document = ReportFixtures.docR3c())) shouldBe true
         }
     })
 
