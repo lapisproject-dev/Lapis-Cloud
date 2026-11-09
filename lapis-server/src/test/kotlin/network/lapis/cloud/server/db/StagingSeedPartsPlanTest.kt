@@ -6,15 +6,23 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldStartWith
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
+import network.lapis.cloud.server.membermap.PostalCodeCentroidIndex
 import network.lapis.cloud.server.rpc.AuctionBidView
 import network.lapis.cloud.server.rpc.CrowdfundingWeightDecay
 import network.lapis.cloud.server.rpc.computeAuctionOutcome
+import network.lapis.cloud.shared.domain.ActivismContributionStatus
+import network.lapis.cloud.shared.domain.ActivismLimits
+import network.lapis.cloud.shared.domain.ActivismStatus
+import network.lapis.cloud.shared.domain.AnniversaryCalendar
 import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.CrowdfundingProjectStatus
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
+import network.lapis.cloud.shared.domain.FamilyMembershipRules
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
+import network.lapis.cloud.shared.domain.MemberHonorLimits
 import network.lapis.cloud.shared.domain.SocialPostState
 import network.lapis.cloud.shared.domain.SocialPostVisibility
 import java.math.BigDecimal
@@ -79,7 +87,20 @@ class StagingSeedPartsPlanTest :
 
         test("PARTS: names and order are pinned, governance runs before the tenders") {
             StagingSeedTopUp.PARTS.map { it.name } shouldBe
-                listOf("crowdfunding", "auctions", "social", "politicians", "governance", "tenders", "events", "oracle")
+                listOf(
+                    "crowdfunding",
+                    "auctions",
+                    "social",
+                    "politicians",
+                    "governance",
+                    "tenders",
+                    "events",
+                    "oracle",
+                    "member-details",
+                    "families",
+                    "activism",
+                    "honors",
+                )
         }
 
         test("the running balance of every member is never negative, at any point of the history (LTR plan plus all parts)") {
@@ -309,6 +330,12 @@ class StagingSeedPartsPlanTest :
                     StagingSeedTenders.tenders.flatMap { t -> listOf(t.id) + t.bids.map { t.bidId(it.slot) } } +
                     StagingSeedEvents.events.map { it.id } + partRows.map { it.id } +
                     StagingSeedOracle.series(clock).map { it.id } +
+                    StagingSeedActivism.actions.flatMap { a ->
+                        listOf(a.id) + a.tasks.map { a.taskId(it.slot) } + a.textBlocks.indices.map { a.textBlockId(it + 1) } +
+                            a.contributions.map { a.contributionId(it.slot) }
+                    } +
+                    StagingSeedFamilies.families.flatMap { f -> listOf(f.id) + f.members.indices.map { f.linkId(it) } } +
+                    StagingSeedHonors.honors.map { it.id } +
                     listOf(
                         StagingSeedGovernanceTopUp.bauausschuss,
                         StagingSeedGovernanceTopUp.arbeitskreis,
@@ -321,7 +348,7 @@ class StagingSeedPartsPlanTest :
             partIds.toSet().size shouldBe partIds.size
             partIds.forEach { id ->
                 id.toString().substring(0, 24) shouldBe "0000000a-0000-0000-0000-"
-                (id.toString().substring(24, 26).toInt(16) in 0x70..0x77) shouldBe true
+                (id.toString().substring(24, 26).toInt(16) in 0x70..0x7a) shouldBe true
             }
             val earlier =
                 (0..0x60).flatMap {
@@ -338,6 +365,133 @@ class StagingSeedPartsPlanTest :
             StagingSeedPoliticians.reactions.map { it.index } shouldBe (1..10).toList()
             StagingSeedTenders.tenders.map { it.index } shouldBe listOf(1, 2, 3, 4)
             StagingSeedEvents.events.map { it.index } shouldBe listOf(1, 2, 3, 4, 5)
+            StagingSeedActivism.actions.map { it.index } shouldBe listOf(1, 2, 3, 4, 5)
+            StagingSeedFamilies.families.map { it.index } shouldBe listOf(1, 2, 3)
+            StagingSeedHonors.honors.map { it.index } shouldBe listOf(1, 2, 3, 4)
+            StagingSeedMemberDetails.plan.map { it.member } shouldBe
+                listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 19, 20, 21, 23, 24, 27, 28, 29, 30, 32, 33, 34, 35, 37, 38, 39, 40)
+        }
+
+        test("activism: every started action has a form, times and quantities are valid, results only on completed actions") {
+            val actions = StagingSeedActivism.actions
+            actions.map { it.status }.toSet() shouldBe
+                setOf(
+                    ActivismStatus.IDEA,
+                    ActivismStatus.PLANNED,
+                    ActivismStatus.RUNNING,
+                    ActivismStatus.COMPLETED,
+                    ActivismStatus.WITHDRAWN,
+                )
+            actions.forEach { a ->
+                if (a.status != ActivismStatus.IDEA) (a.formAppointment || a.formProgress || a.formSignal) shouldBe true
+                if (a.startsInDays != null && a.endsInDays != null) {
+                    (
+                        clock.wallAt(daysFromToday = a.endsInDays, hour = a.endHour!!) >=
+                            clock.wallAt(daysFromToday = a.startsInDays, hour = a.startHour!!)
+                    ) shouldBe true
+                }
+                a.goalQuantity?.let { (it in ActivismLimits.GOAL_QUANTITY_MIN..ActivismLimits.GOAL_QUANTITY_MAX) shouldBe true }
+                (a.title.length <= ActivismLimits.TITLE_MAX) shouldBe true
+                (a.description.length <= ActivismLimits.DESCRIPTION_MAX) shouldBe true
+                (a.responsibles.size in ActivismLimits.RESPONSIBLES_MIN..ActivismLimits.RESPONSIBLES_MAX) shouldBe true
+                (a.tasks.size <= ActivismLimits.TASKS_MAX) shouldBe true
+                (a.tasks.all { it.text.length <= ActivismLimits.TASK_TEXT_MAX }) shouldBe true
+                if (a.confirmContributions) a.contributions.isNotEmpty() shouldBe true
+                a.contributions.forEach {
+                    (it.quantity in ActivismLimits.CONTRIBUTION_QUANTITY_MIN..ActivismLimits.CONTRIBUTION_QUANTITY_MAX) shouldBe true
+                    (it.reportedDaysAgo <= a.createdDaysAgo) shouldBe true
+                    // a decided contribution needs an action that confirms
+                    if (it.status != ActivismContributionStatus.REPORTED) a.confirmContributions shouldBe true
+                    (it.status == ActivismContributionStatus.REJECTED) shouldBe (it.rejectReason != null)
+                }
+                a.tasks
+                    .map { it.slot }
+                    .toSet()
+                    .size shouldBe a.tasks.size
+                a.contributions
+                    .map { it.member }
+                    .toSet()
+                    .size shouldBe a.contributions.size
+                (a.result != null) shouldBe (a.status == ActivismStatus.COMPLETED)
+                (a.withdrawnReason != null) shouldBe (a.status == ActivismStatus.WITHDRAWN)
+                a.withdrawnReason?.let { (it.length >= ActivismLimits.WITHDRAW_REASON_MIN) shouldBe true }
+                (a.contributions.size <= 15) shouldBe true // far below the 24 hour cap per member and action
+                a.signals.toSet().size shouldBe a.signals.size
+                a.result?.let { r ->
+                    r.quantity shouldBe a.contributions.filter { it.status == ActivismContributionStatus.CONFIRMED }.sumOf { it.quantity }
+                    (r.quantity <= ActivismLimits.RESULT_NUMBER_MAX) shouldBe true
+                }
+            }
+            // the visible mix: the info stand shows a signal count (>= the display threshold), the running action has all three contribution states
+            actions.first { it.index == 1 }.signals.size shouldBe 6
+            (actions.first { it.index == 1 }.signals.size >= ActivismLimits.SIGNAL_MIN_DISPLAY) shouldBe true
+            actions
+                .first { it.index == 2 }
+                .contributions
+                .map { it.status }
+                .toSet() shouldBe ActivismContributionStatus.entries.toSet()
+        }
+
+        test("families: one payer each, no member in two families, no management login as payer, a minor depends on the last family") {
+            val families = StagingSeedFamilies.families
+            val everybody = families.flatMap { it.members }
+            everybody.toSet().size shouldBe everybody.size
+            families.forEach { f ->
+                f.dependents.isNotEmpty() shouldBe true
+                (f.payer in 1..3) shouldBe false
+                f.dependents.contains(f.payer) shouldBe false
+                (f.name.length <= 200) shouldBe true
+            }
+            families.map { it.id }.toSet().size shouldBe families.size
+        }
+
+        test(
+            "member details: planned postal codes resolve in the bundled geodata, birth dates are sane, the minor turns 18 inside the window",
+        ) {
+            val index = PostalCodeCentroidIndex.bundled
+            (index != null) shouldBe true
+            val plan = StagingSeedMemberDetails.plan
+            plan.map { it.member }.toSet().size shouldBe plan.size
+            plan.mapNotNull { it.postalCode }.forEach { (index!!.lookup(it) != null) shouldBe true }
+            plan.count { it.postalCode == null } shouldBe 2 // members 9 and 40 get no postal code on purpose (25 is not planned at all)
+            plan.mapNotNull { it.birthOffset }.forEach { offset ->
+                val dob = StagingSeedMemberDetails.dateOfBirth(clock = clock, offset = offset)
+                (dob < clock.today) shouldBe true
+                (dob.month == Month.FEBRUARY && dob.day == 29) shouldBe false
+            }
+            // 3 or 4 birthdays inside the next 14 days
+            val soon =
+                plan.mapNotNull { it.birthOffset }.filter {
+                    AnniversaryCalendar.nextOccurrence(
+                        anniversary = StagingSeedMemberDetails.dateOfBirth(clock = clock, offset = it),
+                        today = clock.today,
+                    ) <= AnniversaryCalendar.windowEnd(today = clock.today, windowDays = 14)
+                }
+            (soon.size in 3..5) shouldBe true
+            val minor =
+                plan
+                    .first {
+                        it.member ==
+                            StagingSeedFamilies.families
+                                .last()
+                                .dependents
+                                .single()
+                    }.birthOffset!!
+            val dob = StagingSeedMemberDetails.dateOfBirth(clock = clock, offset = minor)
+            val majority = AnniversaryCalendar.nthAnniversary(anniversary = dob, years = FamilyMembershipRules.MAJORITY_AGE_YEARS)
+            (majority > clock.today) shouldBe true
+            (majority <= AnniversaryCalendar.windowEnd(today = clock.today, windowDays = 30)) shouldBe true
+        }
+
+        test("honors: past award dates, texts fit the columns, one honor per category") {
+            val honors = StagingSeedHonors.honors
+            honors.map { it.category }.toSet().size shouldBe 4
+            honors.forEach {
+                (it.awardedDaysAgo > 0) shouldBe true
+                (it.title.length <= MemberHonorLimits.TITLE_MAX_LENGTH) shouldBe true
+                (it.awardedBy.length <= MemberHonorLimits.AWARDED_BY_MAX_LENGTH) shouldBe true
+                (it.note.length <= MemberHonorLimits.NOTE_MAX_LENGTH) shouldBe true
+            }
         }
 
         test("content: no real address, URL, IBAN or credential-like word in any plan text; visible texts say Demodaten") {
@@ -347,7 +501,11 @@ class StagingSeedPartsPlanTest :
                     StagingSeedSocial.posts.map { it.content } +
                     StagingSeedPoliticians.profiles.mapNotNull { it.mandate } +
                     StagingSeedTenders.tenders.flatMap { listOf(it.title, it.description) } +
-                    StagingSeedEvents.events.flatMap { listOf(it.title, it.description) }
+                    StagingSeedEvents.events.flatMap { listOf(it.title, it.description) } +
+                    StagingSeedActivism.actions.flatMap { listOf(it.title, it.description) + it.tasks.map { t -> t.text } } +
+                    StagingSeedActivism.actions.flatMap { a -> a.textBlocks.flatMap { listOf(it.first, it.second) } } +
+                    StagingSeedFamilies.families.map { it.name } +
+                    StagingSeedHonors.honors.flatMap { listOf(it.title, it.note) }
             visible.forEach { it shouldContain "Demodaten" }
             val everything =
                 visible +
@@ -359,7 +517,12 @@ class StagingSeedPartsPlanTest :
                         listOfNotNull(e.onlineUrl, e.location) + e.registrations.mapNotNull { it.message } +
                             e.registrations.mapNotNull { it.guestIndex }.map { "gast$it@staging.invalid" }
                     } +
-                    StagingSeedOracle.series(clock).map { it.sourcesUsed }
+                    StagingSeedOracle.series(clock).map { it.sourcesUsed } +
+                    StagingSeedActivism.actions.flatMap { a ->
+                        listOfNotNull(a.location, a.unit, a.withdrawnReason, a.result?.text) +
+                            a.contributions.flatMap { listOfNotNull(it.area, it.rejectReason) }
+                    } +
+                    StagingSeedHonors.honors.map { it.awardedBy }
             val address = Regex("""[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+""")
             val url = Regex("""https?://[^\s/]+""")
             val iban = Regex("""\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b""")

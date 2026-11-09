@@ -23,7 +23,8 @@ internal sealed interface StagingTopUpOutcome {
 /**
  * Additive test data for the fictitious test members, for instances that were seeded before (staging, demo) and so cannot be seeded again
  * because the `member` table is not empty: LTR balances (V1.9.197) and, since V1.9.205, sample data for the LTR economy (crowdfunding,
- * auctions, social network, politician ranking), governance (committees, meetings, motions), tenders, events and the price-oracle history.
+ * auctions, social network, politician ranking), governance (committees, meetings, motions), tenders, events and the price-oracle history, and
+ * since V1.9.296 postal codes and birth dates of the seed members (NULL-only), family memberships, activism actions and honors.
  *
  * Called ONLY from `main()` in `Application.kt` right after [StagingSeedData.seedIfEmpty], never from `module()`.
  * Two independent guards, both required: `LAPIS_STAGING_MODE=true` with a valid seed password ([StagingSeedTopUpGuard.envGate])
@@ -36,7 +37,10 @@ internal sealed interface StagingTopUpOutcome {
  * already there.
  */
 internal object StagingSeedTopUp {
-    /** Order is load-bearing (governance before tenders: the tenders bind to the motions); pinned by a test. */
+    /**
+     * Order is load-bearing (governance before tenders: the tenders bind to the motions; member details before families: the minor's date of
+     * birth exists when the family is written); pinned by a test.
+     */
     val PARTS: List<StagingSeedPart> =
         listOf(
             StagingSeedCrowdfunding,
@@ -47,6 +51,10 @@ internal object StagingSeedTopUp {
             StagingSeedTenders,
             StagingSeedEvents,
             StagingSeedOracle,
+            StagingSeedMemberDetails,
+            StagingSeedFamilies,
+            StagingSeedActivism,
+            StagingSeedHonors,
         )
 
     fun topUpIfEligible(

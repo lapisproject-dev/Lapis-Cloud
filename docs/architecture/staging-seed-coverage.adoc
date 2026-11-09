@@ -1,0 +1,189 @@
+= Staging and demo seed coverage (V1.9.296)
+:toc:
+
+== Purpose
+
+This page lists every navigation entry of the sidebar (`NavRegistry.entries`) and says what a seeded staging or demo instance shows in it,
+and why. Most entries are filled by the staging seed (`StagingSeedData` for the first start, `StagingSeedTopUp` for instances that were seeded
+before). Entries that stay empty are listed on purpose: an empty screen on a demo instance is either a gap that this page names, or the
+consequence of a rule (no file, no secret, no external effect, no consent of a person).
+
+The *Demo* column says "same seed (not verified on the instance)" for everything that depends only on the seed: the README states that the demo
+runs the same seed and is re-seeded every night, but this cannot be checked from the repository. Entries that depend on an operator setting say
+so.
+
+A drift guard (`StagingSeedCoverageDocTest`) fails the build when a route of `NavRegistry` is missing from the table.
+
+== Reading the table
+
+[cols="1,3", options="header"]
+|===
+| Status | Meaning
+| filled | The seed writes the data the screen shows.
+| partly | Some of the data exists (see the note), or the screen is derived from other seeded data.
+| empty | No seed part writes the backing table.
+| operator-dependent | The screen needs an operator setting, a file or an external service that a seed must not create.
+|===
+
+== Navigation entries
+
+
+=== Top level
+
+[cols="2,2,3,2,2,4", options="header"]
+|===
+| Entry | Route | Backing data | Seed | Status | Demo and note
+| Dashboard | `DASHBOARD` (`/dashboard`) | aggregates of the data below | Initial seed | partly | same seed (not verified on the instance). Cards fill with the areas below; nothing is written for the dashboard itself.
+| Videokonferenz | `CONFERENCE` (`/conference`) | `conference_room` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Needs a LiveKit server and rooms created in the UI.
+| Begegnungsräume | `ENCOUNTER` (`/begegnung`) | `encounter_space` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Needs the video infrastructure; spaces are created in the UI.
+| Mitfahrzentrale | `CARPOOL` (`/carpool`) | `carpool_posting` | Initial seed (community area) | filled | same seed (not verified on the instance). Postings only; no messages or participations. Also listed as a flat link or in group Membership.
+| Meine Daten | `DSGVO_RIGHTS` (`/dsgvo-rights`) | own member data | Initial seed | filled | same seed (not verified on the instance). Reads the signed-in member; nothing extra to seed. Also reachable as a flat link for friends and guests. Also listed as a flat link or in group Membership.
+|===
+
+=== Membership
+
+[cols="2,2,3,2,2,4", options="header"]
+|===
+| Entry | Route | Backing data | Seed | Status | Demo and note
+| Beiträge | `CONTRIBUTIONS` (`/contributions`) | `contribution` | Initial seed (finance area) | filled | same seed (not verified on the instance). Paid, open and waived contributions, booked through the posting bridges.
+| Dokumente | `DOCUMENTS` (`/documents`) | `document_folder`, `document` | Initial seed (folders only) | partly | same seed (not verified on the instance). Folders exist, no documents: a document needs a stored file, which is an effect outside the transaction.
+| Fragen zur Satzung | `STATUTE_QA` (`/statute-qa`) | `ai_knowledge_chunk`, `ai_call_audit` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Needs the AI assistant switched on and a configured provider and knowledge index.
+| Nachrichten | `MESSAGES` (`/messages`) | `direct_message` | Not written by any seed part | empty | same seed (not verified on the instance). Messages are written by members; a fresh instance has none.
+| Mailinglisten | `MAILING_LISTS` (`/mailing-lists`) | `mailing_list`, `mailing_message` | Not written by any seed part | empty | same seed (not verified on the instance). Sending also needs working mail delivery.
+| Mein Landesverband | `MY_CHAPTER` (`/my-chapter`) | `regional_chapter`, `regional_chapter_officer` | Initial seed (chapters area) | filled | same seed (not verified on the instance). Shows the chapter of the signed-in member.
+| Mitglieder-Finder | `MEMBER_FINDER` (`/member-finder`) | `member_finder_consent_event`, `member_finder_request` | Not written by any seed part | empty | same seed (not verified on the instance). Opt-in by each member; a seed must not consent for a person.
+| Artikel | `ARTICLES` (`/articles`) | `article` | Initial seed (community area) | filled | same seed (not verified on the instance). Articles in three states.
+| Spenden | `DONATE` (`/donate`) | payment gateway, `payment_transaction` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. The page works without data; paying needs a configured payment gateway.
+| Reisekosten | `TRAVEL_EXPENSES` (`/travel-expenses`) | `travel_expense_report` | Not written by any seed part | empty | same seed (not verified on the instance). Reports come with receipts and files.
+| Ehrenamtspauschalen | `VOLUNTEER_ALLOWANCES` (`/volunteer-allowances`) | `volunteer_allowance_payment`, `volunteer_allowance_self_declaration` | Not written by any seed part | empty | same seed (not verified on the instance). Payments carry declarations and approvals.
+| Helferschichten | `MY_VOLUNTEER_SHIFTS` (`/my-volunteer-shifts`) | `event_volunteer_shift`, `event_volunteer_signup` | Not written by any seed part | empty | same seed (not verified on the instance). Shifts are planned per event.
+| Veranstaltungen | `MY_EVENTS` (`/my-events`) | `event`, `event_registration` | Initial seed (community area) and top-up part `events` | filled | same seed (not verified on the instance). Registrations of the signed-in member.
+|===
+
+=== Self-administration
+
+[cols="2,2,3,2,2,4", options="header"]
+|===
+| Entry | Route | Backing data | Seed | Status | Demo and note
+| Gremien | `COMMITTEES` (`/committees`) | `committee`, `committee_membership` | Initial seed (governance area), top-up part `governance` | filled | same seed (not verified on the instance). 
+| Sitzungen | `MEETINGS` (`/meetings`) | `meeting`, `agenda_item`, `attendance` | Initial seed (governance area), top-up part `governance` | filled | same seed (not verified on the instance). 
+| Anträge | `MOTIONS` (`/motions`) | `motion`, `resolution` | Initial seed (governance area), top-up part `governance` | filled | same seed (not verified on the instance). 
+| Wahlen | `ELECTIONS` (`/elections`) | `election` and its options, candidacies, voters | Initial seed (governance area) | filled | same seed (not verified on the instance). 
+| Konsensieren | `CONSENSUS` (`/consensus`) | `systemic_consensus` | Not written by any seed part | empty | same seed (not verified on the instance). Polls are seeded, systemic consensus sessions are not.
+| Umfragen | `POLLS` (`/polls`) | `poll`, `poll_option`, `poll_response` | Initial seed (governance area) | filled | same seed (not verified on the instance). 
+| Aktionen | `ACTIVISM` (`/activism`) | `activism_action` and children | V1.9.296 top-up part `activism` | filled | same seed (not verified on the instance). Five actions: planned, running, completed, idea, withdrawn. A plain member sees idea and withdrawn actions only if responsible. No reports, no material.
+|===
+
+=== Economy
+
+[cols="2,2,3,2,2,4", options="header"]
+|===
+| Entry | Route | Backing data | Seed | Status | Demo and note
+| LTR-Konto | `LTR_LEDGER` (`/ltr-ledger`) | `ltr_ledger_entry`, `peer_transfer` | V1.9.197 LTR top-up and parts | filled | same seed (not verified on the instance). 
+| Crowdfunding | `CROWDFUNDING` (`/crowdfunding`) | `crowdfunding_project`, `crowdfunding_reaction` | V1.9.205 top-up part `crowdfunding` | filled | same seed (not verified on the instance). 
+| Auktion | `AUCTION` (`/auction`) | `auction`, `auction_bid` | V1.9.205 top-up part `auctions` | partly | same seed (not verified on the instance). Rows exist; the feature itself is off by default (compliance acknowledgement in Administration).
+| Politiker | `POLITICIANS` (`/politicians`) | `politician_profile`, `politician_reaction` | V1.9.205 top-up part `politicians`; V1.9.296 switch | filled | same seed (not verified on the instance). The module refuses every call while `organization_settings.politician_ranking_enabled` is false. A fresh initial seed (V1.9.296) turns it on; an instance seeded earlier needs one click in Politiker, Einstellungen.
+| Ausschreibungen | `TENDERS` (`/tenders`) | `tender`, `tender_bid`, `tender_award` | V1.9.205 top-up part `tenders` | filled | same seed (not verified on the instance). 
+| Soziales Netzwerk | `SOCIAL_NETWORK` (`/social-network`) | `social_post`, `social_post_boost` | V1.9.205 top-up part `social` | filled | same seed (not verified on the instance). 
+| KI-Entwürfe | `AI_DRAFTS` (`/ai-drafts`) | `mcp_post_draft` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Drafts come from an AI client through the MCP interface (operator setting).
+|===
+
+=== Finance
+
+[cols="2,2,3,2,2,4", options="header"]
+|===
+| Entry | Route | Backing data | Seed | Status | Demo and note
+| Kontenplan & Journal | `LEDGER` (`/ledger`) | `ledger_account`, `journal_entry`, `posting` | Initial seed (finance area) | filled | same seed (not verified on the instance). Chart of accounts plus bookings made through the posting bridges, never by direct writes.
+| Offene Posten | `OPEN_ITEMS` (`/open-items`) | `open_item` | Initial seed (finance area) | filled | same seed (not verified on the instance). 
+| Finanzberichte | `FINANCIAL_REPORTS` (`/financial-reports`) | derived from the journal | Initial seed (finance area) | partly | same seed (not verified on the instance). Fills from the bookings above.
+| Gemeinnützigkeits-Berichte | `COMPLIANCE_REPORTS` (`/compliance-reports`) | derived from the journal | Initial seed (finance area) | partly | same seed (not verified on the instance). Fills from the bookings above.
+| Rechenschaftsbericht (PartG) | `PARTY_REPORT` (`/rechenschaftsbericht`) | `partg_report_*` | Not written by any seed part | empty | same seed (not verified on the instance). The entry is visible only for an organization marked as political party; the seed sets it to false.
+| Kostenstellen | `COST_CENTERS` (`/cost-centers`) | `cost_center` | Not written by any seed part | empty | same seed (not verified on the instance). Not added in V1.9.296 (listed on purpose).
+| Spender | `DONORS` (`/donors`) | `external_donor` | Not written by any seed part | partly | same seed (not verified on the instance). One member has the status DONOR; no external donor rows.
+| Prüfprotokoll | `AUDIT_LOG` (`/audit-log`) | `audit_log_entry` | Written by the services and bridges the seed calls | filled | same seed (not verified on the instance). Never written directly by the seed.
+| Postversand | `POSTAL_MAIL` (`/postal-mail`) | `postal_delivery_log` | Not written by any seed part | empty | same seed (not verified on the instance). Postal mail is switched off in the seeded organization settings.
+| Price-Oracle | `PRICE_ORACLE` (`/price-oracle`) | `price_oracle_snapshot` | V1.9.205 top-up part `oracle` | filled | same seed (not verified on the instance). Written only into an empty table.
+| SEPA-Mandate | `SEPA_MANDATES` (`/sepa-mandates`) | `sepa_mandate` | Initial seed (finance area) | partly | same seed (not verified on the instance). Only if an encryption key is configured at seed time.
+| SEPA-Lastschrift | `SEPA_BATCHES` (`/sepa-batches`) | `sepa_debit_batch`, `sepa_debit_item` | Initial seed (finance area) | partly | same seed (not verified on the instance). Only if an encryption key is configured at seed time.
+| Mahnwesen | `DUNNING_CASES` (`/dunning`) | `dunning_notice` | Not written by any seed part | empty | same seed (not verified on the instance). Dunning levels and the compliance acknowledgement are seeded; a notice needs a PDF.
+| Zahlungseingänge | `PAYMENT_TRANSACTIONS` (`/payment-transactions`) | `payment_transaction` | Not written by any seed part | empty | same seed (not verified on the instance). Needs a payment gateway.
+| Bankkonten | `BANK_ACCOUNTS` (`/bank-accounts`) | `bank_account` | Not written by any seed part | empty | same seed (not verified on the instance). Bank data is never seeded.
+| Kontoauszüge | `BANK_IMPORT` (`/bank-import`) | `bank_statement_import`, `bank_statement_line` | Not written by any seed part | empty | same seed (not verified on the instance). Needs an uploaded statement file.
+| Mitgliedschaftsstufen | `MEMBERSHIP_TIERS` (`/membership-tiers`) | `membership_tier` | Initial seed | filled | same seed (not verified on the instance). Three tiers.
+| Beitragsermäßigung | `CONTRIBUTION_RELIEF` (`/contribution-relief`) | `contribution_relief_request` | Not written by any seed part | empty | same seed (not verified on the instance). 
+| Reisekosten-Freigaben | `TRAVEL_EXPENSE_APPROVALS` (`/travel-expense-approvals`) | `travel_expense_report` | Not written by any seed part | empty | same seed (not verified on the instance). Same data as the member view.
+| Ehrenamtspauschalen-Freigaben | `VOLUNTEER_ALLOWANCE_APPROVALS` (`/volunteer-allowance-approvals`) | `volunteer_allowance_payment` | Not written by any seed part | empty | same seed (not verified on the instance). Same data as the member view.
+|===
+
+=== Administration
+
+[cols="2,2,3,2,2,4", options="header"]
+|===
+| Entry | Route | Backing data | Seed | Status | Demo and note
+| Mitgliederverwaltung | `MEMBERS` (`/members`) | `member`, `member_status_history`, `account` | Initial seed | filled | same seed (not verified on the instance). 40 fictitious members with 24 months of status history.
+| Gliederungsverwaltung | `REGIONAL_CHAPTERS` (`/regional-chapters`) | `regional_chapter`, `regional_chapter_officer` | Initial seed (chapters area) | filled | same seed (not verified on the instance). 
+| DSGVO-Compliance | `DSGVO_COMPLIANCE` (`/dsgvo-compliance`) | GDPR register tables | Not written by any seed part | partly | same seed (not verified on the instance). Only what the migrations insert is there; the seed adds no processing records.
+| Vorstand & Transparenzregister | `BOARD_MEMBERSHIP` (`/board-membership`) | `board_membership` | Not written by any seed part | empty | same seed (not verified on the instance). Board terms and the transparency register are empty.
+| Moderation | `SOCIAL_MODERATION` (`/social-moderation`) | `social_post_report` | Not written by any seed part | empty | same seed (not verified on the instance). Posts in the removed and hidden states exist, but the report queue is empty.
+| API-Schlüssel | `API_KEYS` (`/api-keys`) | `api_key` | Not written by any seed part | empty | same seed (not verified on the instance). Keys are secrets and are never seeded.
+| Kontakte & Interessenten | `CRM` (`/crm`) | `crm_contact`, `crm_interaction` | Not written by any seed part | empty | same seed (not verified on the instance). 
+| Veranstaltungen | `EVENT_MANAGEMENT` (`/events`) | `event`, `event_registration` | Initial seed (community area) and top-up part `events` | filled | same seed (not verified on the instance). 
+| Veranstaltungs-Check-in | `EVENT_CHECKIN` (`/event-checkin`) | `event_registration` | Top-up part `events` | partly | same seed (not verified on the instance). Uses the seeded registrations of the events.
+| Raumverwaltung | `EVENT_ROOMS` (`/event-rooms`) | `event_room` | Not written by any seed part | empty | same seed (not verified on the instance). 
+| Catering | `CATERING` (`/catering`) | `event_catering_order` | Not written by any seed part | empty | same seed (not verified on the instance). 
+| Helfer-Schichten | `EVENT_VOLUNTEERS` (`/event-volunteers`) | `event_volunteer_shift` | Not written by any seed part | empty | same seed (not verified on the instance). 
+| Geburtstage & Jubiläen | `MEMBER_ANNIVERSARIES` (`/anniversaries`) | `member.date_of_birth`, `member.joined_at` | V1.9.296 top-up part `member-details` | filled | same seed (not verified on the instance). Twelve birth dates, four birthdays in the next 14 days. Membership anniversaries come from the join dates. On a staging instance that is not reset the birthdays age.
+| Ehrungen & Auszeichnungen | `MEMBER_HONORS` (`/honors`) | `member_honor` | V1.9.296 top-up part `honors` | filled | same seed (not verified on the instance). Four honors, one per category.
+| Familienmitgliedschaften | `MEMBER_FAMILIES` (`/families`) | `member_family`, `member_family_link` | V1.9.296 top-up part `families` | filled | same seed (not verified on the instance). Three families; one dependent is a minor who turns 18 in about three weeks, so "upcoming majority" has an entry. The entry ages on a staging instance that is not reset.
+| Mitgliederkarte | `MEMBER_MAP` (`/member-map`) | `member.postal_code` | V1.9.296 top-up part `member-details` | filled | same seed (not verified on the instance). 25 members with a city postal code. The 15 members outside the plan have none on purpose (the "no postal code" count). The map background needs the operator setting `LAPIS_MAP_PMTILES_PATH`; without tiles the screen degrades as described in `docs/architecture/member-map.adoc`.
+| Mitgliederentwicklung | `MEMBER_STATISTICS` (`/member-statistics`) | `member_status_history` | Initial seed | filled | same seed (not verified on the instance). 24 months of history.
+|===
+
+=== System
+
+[cols="2,2,3,2,2,4", options="header"]
+|===
+| Entry | Route | Backing data | Seed | Status | Demo and note
+| Organisation | `ORGANIZATION` (`/organization`) | `organization_settings` | Initial seed | filled | same seed (not verified on the instance). Partner servers are not seeded.
+| Backup & Wiederherstellung | `BACKUP` (`/backup`) | `backup_operation_log` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Works against the instance storage; nothing to seed.
+| Vertragstexte | `AGREEMENT_TEXTS` (`/agreement-texts`) | `agreement_text_version` | Not written by any seed part | partly | same seed (not verified on the instance). Only what the migrations insert.
+| Stream-Ziele | `CONFERENCE_STREAM_DESTINATIONS` (`/conference-stream-destinations`) | `conference_stream_destination` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Stream targets carry secrets.
+| SEPA-Konfiguration | `SEPA_SETTINGS` (`/sepa-settings`) | `organization_settings`, `sepa_compliance_acknowledgment` | Initial seed (finance area) | partly | same seed (not verified on the instance). Acknowledged on behalf of the fictitious administrator.
+| Reisekosten-Einstellungen | `TRAVEL_EXPENSE_SETTINGS` (`/travel-expense-settings`) | `organization_settings` | Initial seed | partly | same seed (not verified on the instance). Defaults.
+| Zahlungs-Konfiguration | `PAYMENT_GATEWAY_SETTINGS` (`/payment-gateway-settings`) | `organization_settings` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Gateway credentials are never seeded.
+| Mahnwesen-Konfiguration | `DUNNING_SETTINGS` (`/dunning-settings`) | `dunning_level`, `dunning_compliance_acknowledgment` | Initial seed (finance area) | filled | same seed (not verified on the instance). 
+| Forderungs-Mahnstufen | `RECEIVABLE_DUNNING_SETTINGS` (`/receivable-dunning-settings`) | `receivable_dunning_level` | Not written by any seed part | partly | same seed (not verified on the instance). Only what the migrations insert.
+| Website-Integration | `EMBED_INTEGRATION` (`/website-integration`) | `organization_settings` | Initial seed | partly | same seed (not verified on the instance). Settings page; nothing to seed.
+| E-Mail-Versand | `MAIL_DELIVERY` (`/mail-delivery`) | `mail_outbox`, SMTP settings | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Needs the operator mail configuration.
+|===
+
+== Entries that stay empty, and why
+
+* *Documents* (files): a document version needs a stored file; the seed creates the folder structure only.
+* *Dunning cases*: a notice needs a generated PDF.
+* *Material of activism actions*: material links a document, which needs a file. Activism reports are not seeded either (they are written by members).
+* *Encounter spaces, conference rooms, stream targets*: they need the video infrastructure, and stream targets carry secrets.
+* *Messages, mailing lists, CRM contacts*: written by people during use; nothing to show on day zero.
+* *Donors (external), donations, payment transactions*: only one member with the status DONOR exists; money flows need a payment gateway.
+* *Travel expenses and volunteer allowances*: reports and payments carry receipts and declarations.
+* *Volunteer shifts, catering, event rooms*: planned per event in the UI.
+* *Bank accounts and statement imports*: bank data is never seeded; an import needs an uploaded file.
+* *Postal mail*: switched off in the seeded organization settings.
+* *API keys*: secrets are never seeded.
+* *Moderation reports*: the removed and hidden posts exist, the queue of reports does not.
+* *Board terms and transparency register, cost centers*: not seeded (cost centers could be added later; not done in V1.9.296).
+* *Member finder*: opt-in by each member; a seed must not consent for a person.
+* *AI drafts and the statute Q&A*: need the AI switches and a provider; the drafts come from an AI client.
+* *Party report*: visible only for an organization marked as political party.
+* *Systemic consensus*: not seeded (polls are).
+
+== Operator settings the seed cannot supply
+
+* `LAPIS_MAP_PMTILES_PATH`: the tile background of the member map (a file on the instance, kept in the operator repository). Without it the map degrades to the list.
+* The compliance acknowledgement of the auctions, the payment gateway, mail delivery, the AI assistant, the MCP interface and the stream targets.
+
+== Time drift
+
+A seed uses the day it ran as "today". A running action, an upcoming action or an upcoming birthday on an instance that is not re-seeded expires
+by itself; the demo is said to be re-seeded every night, a staging instance is not. The top-up never refreshes or overwrites a value (a postal code
+or a birth date that is already set stays as it is).

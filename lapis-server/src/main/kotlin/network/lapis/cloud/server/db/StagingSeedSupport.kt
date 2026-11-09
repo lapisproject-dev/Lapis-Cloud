@@ -137,7 +137,7 @@ internal object SeedIds {
     }
 
     /**
-     * Top-up part namespaces (V1.9.205): 16-bit index per part inside `0000000a-0000-0000-0000-PP000000NNNN`, PP in 0x70..0x77, disjoint from
+     * Top-up part namespaces (V1.9.205): 16-bit index per part inside `0000000a-0000-0000-0000-PP000000NNNN`, PP in 0x70..0x7a, disjoint from
      * every namespace above. Ranges inside a part: 0x0000-0x0fff root entities, 0x1000+ ledger rows, 0x2000+ children, 0x3000+ further children.
      * Indices are fixed per plan entry (never the list position at run time); plans only grow at the end (pinned by `StagingSeedPartsPlanTest`).
      */
@@ -164,4 +164,10 @@ internal object SeedIds {
     fun events(n: Int): Uuid = part(prefix = 0x76, n = n)
 
     fun oracle(n: Int): Uuid = part(prefix = 0x77, n = n)
+
+    fun activism(n: Int): Uuid = part(prefix = 0x78, n = n)
+
+    fun families(n: Int): Uuid = part(prefix = 0x79, n = n)
+
+    fun honors(n: Int): Uuid = part(prefix = 0x7a, n = n)
 }

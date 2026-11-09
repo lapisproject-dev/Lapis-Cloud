@@ -5,9 +5,19 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import network.lapis.cloud.server.activism.ActivismAccessPolicy
+import network.lapis.cloud.server.activism.ActivismSignalStore
+import network.lapis.cloud.server.activism.ActivismStore
 import network.lapis.cloud.server.audit.AuditChainVerifier
+import network.lapis.cloud.server.db.generated.ActivismActionTable
+import network.lapis.cloud.server.db.generated.ActivismContributionTable
+import network.lapis.cloud.server.db.generated.ActivismResponsibleTable
+import network.lapis.cloud.server.db.generated.ActivismSignalTable
+import network.lapis.cloud.server.db.generated.ActivismTaskTable
+import network.lapis.cloud.server.db.generated.ActivismTextBlockTable
 import network.lapis.cloud.server.db.generated.AgendaItemTable
 import network.lapis.cloud.server.db.generated.AttendanceTable
 import network.lapis.cloud.server.db.generated.AuctionBidTable
@@ -21,8 +31,12 @@ import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MeetingTable
+import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
+import network.lapis.cloud.server.db.generated.MemberFamilyTable
+import network.lapis.cloud.server.db.generated.MemberHonorTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PoliticianProfileTable
 import network.lapis.cloud.server.db.generated.PoliticianReactionTable
 import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
@@ -35,23 +49,34 @@ import network.lapis.cloud.server.db.generated.TenderBidTable
 import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.membermap.AddressGroup
+import network.lapis.cloud.server.membermap.PostalCodeCentroidIndex
+import network.lapis.cloud.server.membermap.aggregateMemberMap
 import network.lapis.cloud.server.rpc.AuctionBidView
 import network.lapis.cloud.server.rpc.CrowdfundingWeightDecay
 import network.lapis.cloud.server.rpc.PublicRankingConsentStore
 import network.lapis.cloud.server.rpc.SocialVisibility
 import network.lapis.cloud.server.rpc.computeAuctionOutcome
+import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.tender.TenderOptions
 import network.lapis.cloud.server.tender.TenderStore
 import network.lapis.cloud.server.tender.tenderBidderEligible
 import network.lapis.cloud.server.testdb.PostgresTestSupport
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ActivismContributionStatus
+import network.lapis.cloud.shared.domain.ActivismStatus
+import network.lapis.cloud.shared.domain.ActivismViewerRole
+import network.lapis.cloud.shared.domain.AnniversaryCalendar
 import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.CrowdfundingProjectStatus
 import network.lapis.cloud.shared.domain.CrowdfundingReactionValue
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
+import network.lapis.cloud.shared.domain.FamilyMemberRole
+import network.lapis.cloud.shared.domain.FamilyMembershipRules
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PoliticianProfileStatus
@@ -69,6 +94,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -153,10 +179,27 @@ abstract class StagingSeedPartsScenarios(
                 EventRegistrationTable,
                 PriceOracleSnapshotTable,
                 LtrLedgerEntryTable,
+                MemberFamilyTable,
+                MemberFamilyLinkTable,
+                MemberHonorTable,
+                ActivismActionTable,
+                ActivismTaskTable,
+                ActivismTextBlockTable,
+                ActivismContributionTable,
             )
 
         fun JdbcTransaction.snapshot(): List<String> =
             partTables.map { "${it.tableName}=${ids(it)}" } +
+                MemberTable
+                    .selectAll()
+                    .orderBy(MemberTable.id, SortOrder.ASC)
+                    .map {
+                        "member ${it[MemberTable.id]} ${it[MemberTable.postalCode]} ${it[MemberTable.dateOfBirth]} ${it[MemberTable.status]}"
+                    } +
+                StagingSeedActivism.actions.map { a ->
+                    "action ${a.index} responsible=${ActivismStore.responsibleMemberIds(a.id).size} " +
+                        "signals=${ActivismSignalTable.selectAll().where { ActivismSignalTable.actionId eq a.id }.count()}"
+                } +
                 PublicRankingConsentEventTable.selectAll().count().toString() +
                 ResolutionTable.selectAll().count().toString() +
                 AuditLogEntryTable.selectAll().count().toString()
@@ -195,6 +238,17 @@ abstract class StagingSeedPartsScenarios(
                     count(EventTable) shouldBe 5
                     count(EventRegistrationTable) shouldBe 40
                     count(PriceOracleSnapshotTable) shouldBe 2430
+                    count(MemberFamilyTable) shouldBe 3
+                    count(MemberFamilyLinkTable) shouldBe 7
+                    count(MemberHonorTable) shouldBe 4
+                    count(ActivismActionTable) shouldBe 5
+                    count(ActivismTaskTable) shouldBe 5
+                    count(ActivismTextBlockTable) shouldBe 1
+                    count(ActivismContributionTable) shouldBe 12
+                    ActivismResponsibleTable.selectAll().count() shouldBe 6L
+                    ActivismSignalTable.selectAll().count() shouldBe 6L
+                    MemberTable.selectAll().count { it[MemberTable.postalCode] != null } shouldBe 25
+                    MemberTable.selectAll().count { it[MemberTable.dateOfBirth] != null } shouldBe 12
                     PublicRankingConsentEventTable.selectAll().count() shouldBe 2L
                     MotionTable.selectAll().count { mine(it[MotionTable.id]) && it[MotionTable.resolutionId] != null } shouldBe 3
                 }
@@ -700,6 +754,285 @@ abstract class StagingSeedPartsScenarios(
                 transaction(db) {
                     EventTable.selectAll().where { EventTable.slug eq "werkstattabend-demodaten" }.count() shouldBe 0L
                     EventTable.selectAll().where { EventTable.slug eq "kochkurs-demodaten" }.count() shouldBe 1L
+                }
+            }
+        }
+
+        val newPartNames = listOf("member-details", "families", "activism", "honors")
+
+        test("an instance seeded before this wave is topped up with the new parts only; the older parts insert nothing again") {
+            withFresh { db ->
+                val before = StagingSeedTopUp.topUpWith(database = db, parts = StagingSeedTopUp.PARTS.dropLast(newPartNames.size))
+                before.shouldBeInstanceOf<StagingTopUpOutcome.Applied>()
+                transaction(db) {
+                    ids(ActivismActionTable).shouldBeEmpty()
+                    MemberTable.selectAll().count { it[MemberTable.postalCode] != null } shouldBe 0
+                }
+                val second = full(db)
+                second.parts.none { it.failed } shouldBe true
+                second.parts.filter { it.part in newPartNames }.all { it.inserted > 0 } shouldBe true
+                second.parts.filter { it.part !in newPartNames }.all { it.inserted == 0 } shouldBe true
+            }
+        }
+
+        test("member details never overwrite: a set postal code, a set birth date stay, a blank postal code is filled") {
+            withFresh { db ->
+                val ownBirth = LocalDate(1970, 1, 1)
+                transaction(db) {
+                    MemberTable.update({ MemberTable.id eq SeedIds.member(4) }) { it[postalCode] = "99999" }
+                    MemberTable.update({ MemberTable.id eq SeedIds.member(5) }) { it[dateOfBirth] = ownBirth }
+                    MemberTable.update({ MemberTable.id eq SeedIds.member(6) }) { it[postalCode] = "" }
+                }
+                full(db).parts.none { it.failed } shouldBe true
+                transaction(db) {
+                    fun row(n: Int) = MemberTable.selectAll().where { MemberTable.id eq SeedIds.member(n) }.single()
+                    row(4)[MemberTable.postalCode] shouldBe "99999"
+                    row(5)[MemberTable.dateOfBirth] shouldBe ownBirth
+                    row(5)[MemberTable.postalCode] shouldBe "20095" // the other column of the same member is still filled
+                    row(6)[MemberTable.postalCode] shouldBe "80331"
+                    // nothing else of a member row is touched
+                    row(4)[MemberTable.status] shouldBe MemberStatus.ACTIVE
+                    row(4)[MemberTable.countryCode] shouldBe "DE"
+                }
+            }
+        }
+
+        test("a family is written whole or not at all: a payer already in a family of his own skips that family alone") {
+            withFresh { db ->
+                val own = Uuid.random()
+                transaction(db) {
+                    MemberFamilyTable.insert {
+                        it[id] = own
+                        it[name] = "Von Hand"
+                        it[createdBy] = SeedIds.member(1)
+                        it[createdAt] = DbClock.nowLocalDateTime()
+                    }
+                    MemberFamilyLinkTable.insert {
+                        it[id] = Uuid.random()
+                        it[familyId] = own
+                        it[memberId] = SeedIds.member(19)
+                        it[role] = FamilyMemberRole.PAYER
+                        it[payerFamilyId] = own
+                        it[linkedAt] = DbClock.nowLocalDateTime()
+                        it[linkedBy] = SeedIds.member(1)
+                    }
+                }
+                val outcome = full(db)
+                outcome.parts.none { it.failed } shouldBe true
+                transaction(db) {
+                    ids(MemberFamilyTable) shouldBe listOf(SeedIds.families(2), SeedIds.families(3)).map { it.toString() }.sorted()
+                    MemberFamilyTable.selectAll().count() shouldBe 3L
+                    // no half family: the dependents of the skipped family have no link
+                    MemberFamilyLinkTable.selectAll().where { MemberFamilyLinkTable.memberId eq SeedIds.member(20) }.empty() shouldBe true
+                    MemberFamilyLinkTable.selectAll().where { MemberFamilyLinkTable.memberId eq SeedIds.member(21) }.empty() shouldBe true
+                }
+            }
+        }
+
+        test(
+            "an action with a signalling or responsible member who has left is skipped whole; the other actions and the honors are written",
+        ) {
+            withFresh { db ->
+                transaction(db) { MemberTable.update({ MemberTable.id eq SeedIds.member(7) }) { it[status] = MemberStatus.WITHDRAWN } }
+                val outcome = full(db)
+                outcome.parts.none { it.failed } shouldBe true
+                transaction(db) {
+                    // member 7 signals for the info stand (1) and is responsible for the idea (4): both are skipped, nothing of them is left
+                    ActivismStore.getAction(id = SeedIds.activism(1)) shouldBe null
+                    ActivismStore.getAction(id = SeedIds.activism(4)) shouldBe null
+                    ids(ActivismActionTable).size shouldBe 3
+                    ids(ActivismTaskTable).size shouldBe 2
+                    ActivismSignalTable.selectAll().count() shouldBe 0L
+                    ids(MemberHonorTable).size shouldBe 4
+                }
+            }
+        }
+
+        test("activism as the live service derives the lists: plain member, responsible person and manager see what the policy allows") {
+            withFresh { db ->
+                full(db)
+                transaction(db) {
+                    fun viewer(
+                        n: Int,
+                        role: AccountRole,
+                    ) = CurrentMember(memberId = SeedIds.member(n), role = role, status = MemberStatus.ACTIVE)
+
+                    fun visibleIndexes(
+                        viewer: CurrentMember,
+                        statuses: List<ActivismStatus>,
+                    ): List<Int> {
+                        val rows = ActivismStore.listActions(statuses = statuses)
+                        val mine =
+                            ActivismStore.responsibleActionIds(
+                                memberId = viewer.memberId,
+                                actionIds = rows.map { it[ActivismActionTable.id] },
+                            )
+                        return rows
+                            .filter {
+                                ActivismAccessPolicy.resolve(
+                                    viewer = viewer,
+                                    status = it[ActivismActionTable.status],
+                                    responsible = it[ActivismActionTable.id] in mine,
+                                ) != null
+                            }.map { row -> StagingSeedActivism.actions.single { it.id == row[ActivismActionTable.id] }.index }
+                            .sorted()
+                    }
+                    val all = ActivismStatus.entries
+                    val plain = viewer(20, AccountRole.MEMBER)
+                    visibleIndexes(plain, listOf(ActivismStatus.PLANNED, ActivismStatus.RUNNING)) shouldBe listOf(1, 2) // the default list
+                    visibleIndexes(plain, all) shouldBe listOf(1, 2, 3) // idea and withdrawn are hidden from a plain member
+                    visibleIndexes(viewer(7, AccountRole.MEMBER), all) shouldBe listOf(1, 2, 3, 4) // the responsible person sees his idea
+                    visibleIndexes(viewer(2, AccountRole.BOARD), all) shouldBe listOf(1, 2, 3, 4, 5)
+                    ActivismAccessPolicy.resolve(
+                        viewer = viewer(2, AccountRole.BOARD),
+                        status = ActivismStatus.WITHDRAWN,
+                        responsible = false,
+                    ) shouldBe
+                        ActivismViewerRole.MANAGER
+
+                    val progress = ActivismStore.progressOf(StagingSeedActivism.actions.map { it.id })
+                    progress.getValue(SeedIds.activism(2)).run { (reported to confirmed) shouldBe (140 to 115) }
+                    progress.getValue(SeedIds.activism(3)).run { (reported to confirmed) shouldBe (534 to 534) }
+                    progress.getValue(SeedIds.activism(1)).run { (reported to confirmed) shouldBe (0 to 0) }
+                    // the signal count the info stand shows (every signalling member is an active participant)
+                    ActivismSignalStore.countOf(SeedIds.activism(1)) shouldBe 6
+                    ActivismStore.getAction(id = SeedIds.activism(5))!![ActivismActionTable.withdrawnReason] shouldBe
+                        "Demodaten: Termin entfaellt."
+                    ActivismStore.getAction(id = SeedIds.activism(3))!![ActivismActionTable.resultQuantity] shouldBe 534
+                    ActivismStore
+                        .listContributions(actionId = SeedIds.activism(2))
+                        .count { it[ActivismContributionTable.status] == ActivismContributionStatus.REJECTED } shouldBe 1
+                }
+            }
+        }
+
+        test("the member map, the birthday list and the upcoming majorities show data as the services compute them") {
+            withFresh { db ->
+                full(db)
+                transaction(db) {
+                    val clock = SeedClock.capture(TimeZone.of("Europe/Berlin"))
+                    val active = MemberTable.selectAll().where { MemberTable.status eq MemberStatus.ACTIVE }.toList()
+                    val groups =
+                        active
+                            .groupingBy { (it[MemberTable.postalCode]) to (it[MemberTable.countryCode] ?: it[MemberTable.country]) }
+                            .eachCount()
+                            .map { (key, count) -> AddressGroup(postalCode = key.first, country = key.second, count = count) }
+                    val response = aggregateMemberMap(groups = groups, centroids = PostalCodeCentroidIndex.bundled, tilesAvailable = false)
+                    response.total shouldBe active.size
+                    val planned =
+                        StagingSeedMemberDetails.plan
+                            .filter { it.postalCode != null }
+                            .map { it.member }
+                            .toSet()
+                    val activeNumbers = (1..40).filter { n -> active.any { it[MemberTable.id] == SeedIds.member(n) } }
+                    response.mappedTotal shouldBe activeNumbers.count { it in planned }
+                    response.noPostalCode shouldBe activeNumbers.count { it !in planned }
+                    (response.mappedTotal > 0) shouldBe true
+                    response.unresolvableGermanPostalCode shouldBe 0
+                    response.foreign shouldBe 0
+
+                    // birthdays in the next 14 days (members 2, 5, 8 and 21 in the plan)
+                    val soon =
+                        active.filter { row ->
+                            row[MemberTable.dateOfBirth]?.let {
+                                AnniversaryCalendar.nextOccurrence(anniversary = it, today = clock.today) <=
+                                    AnniversaryCalendar.windowEnd(today = clock.today, windowDays = 14)
+                            } == true
+                        }
+                    soon.map { it[MemberTable.id] }.toSet() shouldBe listOf(2, 5, 8, 21).map { SeedIds.member(it) }.toSet()
+
+                    // the one dependent minor turns 18 within 30 days
+                    val minor = MemberTable.selectAll().where { MemberTable.id eq SeedIds.member(40) }.single()[MemberTable.dateOfBirth]!!
+                    val majority = AnniversaryCalendar.nthAnniversary(anniversary = minor, years = FamilyMembershipRules.MAJORITY_AGE_YEARS)
+                    (majority > clock.today) shouldBe true
+                    (majority <= AnniversaryCalendar.windowEnd(today = clock.today, windowDays = 30)) shouldBe true
+                    MemberFamilyLinkTable
+                        .selectAll()
+                        .where {
+                            (MemberFamilyLinkTable.memberId eq SeedIds.member(40)) and
+                                (MemberFamilyLinkTable.role eq FamilyMemberRole.DEPENDENT)
+                        }.count() shouldBe 1L
+                    // a dependent has no tier of its own (addFamilyMember clears it), so the contribution run bills only the payer
+                    val dependentIds =
+                        MemberFamilyLinkTable
+                            .selectAll()
+                            .where { MemberFamilyLinkTable.role eq FamilyMemberRole.DEPENDENT }
+                            .map { it[MemberFamilyLinkTable.memberId] }
+                    dependentIds.size shouldBe 4
+                    MemberTable
+                        .selectAll()
+                        .where {
+                            MemberTable.id inList dependentIds
+                        }.all { it[MemberTable.membershipTierId] == null } shouldBe
+                        true
+                    // every payer link carries the shadow column the constraint demands
+                    MemberFamilyLinkTable
+                        .selectAll()
+                        .where { MemberFamilyLinkTable.role eq FamilyMemberRole.PAYER }
+                        .forEach { it[MemberFamilyLinkTable.payerFamilyId] shouldBe it[MemberFamilyLinkTable.familyId] }
+                    MemberHonorTable.selectAll().all { it[MemberHonorTable.awardedAt] < clock.today } shouldBe true
+                }
+            }
+        }
+
+        test("refused on a non-staging instance: nothing of the new parts is written, no member row changes") {
+            withFresh { db ->
+                transaction(db) {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq StagingSeedData.organizationSettingsId }) {
+                        it[OrganizationSettingsTable.name] = "Echter Verein"
+                    }
+                }
+                val before = transaction(db) { snapshot() }
+                StagingSeedTopUp.topUpWith(database = db).shouldBeInstanceOf<StagingTopUpOutcome.Skipped>()
+                transaction(db) { snapshot() } shouldContainExactlyInAnyOrder before
+                transaction(db) {
+                    ids(ActivismActionTable).shouldBeEmpty()
+                    ids(MemberFamilyTable).shouldBeEmpty()
+                    ids(MemberHonorTable).shouldBeEmpty()
+                    MemberTable.selectAll().count { it[MemberTable.postalCode] != null || it[MemberTable.dateOfBirth] != null } shouldBe 0
+                }
+            }
+        }
+
+        test("the instance check inside every part: when it fails between parts, the new parts report 0/0 and write nothing") {
+            withFresh { db ->
+                val renamer =
+                    object : StagingSeedPart {
+                        override val name: String = "renamer"
+
+                        override fun JdbcTransaction.apply(clock: SeedClock): StagingSeedPartResult {
+                            OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq StagingSeedData.organizationSettingsId }) {
+                                it[OrganizationSettingsTable.name] = "Echter Verein"
+                            }
+                            return StagingSeedPartResult(inserted = 1, skipped = 0)
+                        }
+                    }
+                val outcome =
+                    StagingSeedTopUp.topUpWith(
+                        database = db,
+                        parts = listOf(renamer) + StagingSeedTopUp.PARTS.filter { it.name in newPartNames },
+                    )
+                outcome.shouldBeInstanceOf<StagingTopUpOutcome.Applied>()
+                outcome.parts.filter { it.part in newPartNames }.forEach {
+                    (it.inserted to it.skipped) shouldBe (0 to 0)
+                    it.failed shouldBe false
+                }
+                transaction(db) {
+                    ids(ActivismActionTable).shouldBeEmpty()
+                    ids(MemberFamilyTable).shouldBeEmpty()
+                    ids(MemberHonorTable).shouldBeEmpty()
+                    MemberTable.selectAll().count { it[MemberTable.postalCode] != null || it[MemberTable.dateOfBirth] != null } shouldBe 0
+                }
+            }
+        }
+
+        test("a fresh initial seed switches the politician ranking on") {
+            withFresh { db ->
+                transaction(db) {
+                    OrganizationSettingsTable
+                        .selectAll()
+                        .where { OrganizationSettingsTable.id eq StagingSeedData.organizationSettingsId }
+                        .single()[OrganizationSettingsTable.politicianRankingEnabled] shouldBe true
                 }
             }
         }

@@ -26,7 +26,9 @@ import kotlin.uuid.Uuid
  * Writes what `PoliticianService.grantPoliticianStatus` / `revokePoliticianStatus` / `castRating` and `PublicRankingConsentStore.grant` leave
  * behind. A profile is written only when the member has none yet (checked beforehand, never caught: a unique violation would poison a PostgreSQL
  * transaction). A revoked profile has no reactions (the revoke removes them). No photos: they need a file in storage, an effect outside the
- * transaction. `politicianRankingEnabled` is NOT switched on (an administrator's decision); the public page shows the listed profiles once it is.
+ * transaction. The top-up never touches `politicianRankingEnabled`: the INITIAL seed ([StagingSeedData]) switches it on since V1.9.296,
+ * so a fresh instance shows the profiles at once; an instance that was seeded earlier keeps its setting and an administrator turns it on once in the
+ * politician settings.
  */
 internal object StagingSeedPoliticians : StagingSeedPart {
     override val name: String = "politicians"

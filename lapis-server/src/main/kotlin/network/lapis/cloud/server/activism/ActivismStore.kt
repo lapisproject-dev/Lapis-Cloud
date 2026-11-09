@@ -281,9 +281,9 @@ internal object ActivismStore {
         text: String,
         assignee: Uuid?,
         dueOn: LocalDate?,
+        id: Uuid = Uuid.random(),
     ): Uuid {
         val position = (listTasks(actionId).maxOfOrNull { it[ActivismTaskTable.position] } ?: 0) + 1
-        val id = Uuid.random()
         ActivismTaskTable.insert {
             it[ActivismTaskTable.id] = id
             it[ActivismTaskTable.actionId] = actionId
@@ -360,9 +360,9 @@ internal object ActivismStore {
         actionId: Uuid,
         title: String,
         body: String,
+        id: Uuid = Uuid.random(),
     ): Uuid {
         val position = (listTextBlocks(actionId).maxOfOrNull { it[ActivismTextBlockTable.position] } ?: 0) + 1
-        val id = Uuid.random()
         ActivismTextBlockTable.insert {
             it[ActivismTextBlockTable.id] = id
             it[ActivismTextBlockTable.actionId] = actionId
@@ -484,8 +484,8 @@ internal object ActivismStore {
         area: String?,
         note: String?,
         now: LocalDateTime,
+        id: Uuid = Uuid.random(),
     ): Uuid {
-        val id = Uuid.random()
         ActivismContributionTable.insert {
             it[ActivismContributionTable.id] = id
             it[ActivismContributionTable.actionId] = actionId

@@ -2094,12 +2094,49 @@ and the current free LTR balance covers every debit (otherwise it is skipped; th
 deleted, hand-made rows stay. The price history is written only into an empty `price_oracle_snapshot` table. The audit chain grows only by the
 events the live service audits too (publish and award of a tender, the legal removal, the three resolutions).
 
-**What you still have to switch on**: auctions (Administration, with the compliance acknowledgement) and the politician ranking are off by default
-and the seed does not switch them on; until then their data is there but not shown.
+**What you still have to switch on**: auctions (Administration, with the compliance acknowledgement) are off by default and the seed does not switch
+them on; until then their data is there but not shown. The politician ranking is switched on by the initial seed since V1.9.296 (see "Seed top-up
+part 3"); an instance that was seeded earlier keeps its setting, and an administrator turns it on once (Politiker, Einstellungen, "Aktivieren").
 
 Honest limits: open auctions, open tenders and upcoming events expire on staging, because the seed never overwrites (the demo is re-seeded every
 night). Resolutions carry the moment of the seed run as their decision time. Checked on H2 and in the PostgreSQL test lane only; nothing is run
 against the real staging instance.
+
+=== Seed top-up part 3 (V1.9.296)
+
+Four more **parts** run after the eight of part 2, in this order (the order is pinned by a test): `member-details`, `families`, `activism` and
+`honors`. Same two guards, every part in its own transaction that starts with the instance check, no migration, no new environment variable, no
+audit entry (the audit chain still grows by exactly the eight events of part 2). Ids are in the namespaces `0000000a-0000-0000-0000-78...` to `...7a...`.
+
+What it writes (all texts say "Demodaten", places are fictitious, no street, no real person):
+
+* `member-details`: a city postal code for 25 of the 40 seed members (real postal codes of ten German cities that exist in the bundled geodata) and
+  a birth date for twelve of them, four with a birthday in the next 14 days. The 15 members outside the plan (among them 9 and 40) get no postal code on purpose, so the "no postal
+  code" count of the member map shows. This is the only part that updates existing `member` rows, and only in the narrowest way: one UPDATE per
+  column whose WHERE clause requires the fixed seed id, the `@staging.invalid` address, `anonymized_at IS NULL` and the column to be NULL (the postal
+  code also blank). A value a person set is never replaced. Status, country, e-mail and name are never touched.
+* `families`: three families (one payer and one or two dependents each); one dependent is a minor who turns 18 in about three weeks, so the list of
+  upcoming majorities has an entry. A family is written whole or not at all and skipped when a member is not ACTIVE or already belongs to a family. The dependents' own membership tier is cleared (as `addFamilyMember` does), so the contribution run bills them only through the payer.
+* `activism`: five actions through `ActivismStore` and `ActivismSignalStore` -- planned (info stand with tasks, a text block and six signals), running
+  (postering with confirmed, open and rejected contributions), completed (signature collection with a result), an idea and a withdrawn one. An action
+  is written whole or skipped when a responsible, contributing or signalling member is not ACTIVE. No reports and no material (material needs a file).
+* `honors`: four honors, one per category.
+
+The initial seed (not the top-up) also switches the politician ranking on (`organization_settings.politician_ranking_enabled`), so a fresh instance
+does not open the "Politiker" page with a "deaktiviert" switch. This reverses the earlier stance that the switch is an administrator's decision;
+the seed already acknowledges the SEPA and dunning notices on behalf of the fictitious administrator. The top-up never touches the switch.
+
+Honest limits:
+
+* An instance that was seeded before this version gets the four parts at its next start, but NOT the politician switch: it needs one click.
+  Whether and when the demo picks the switch up depends on how it is reset (an initial seed on an empty database does, a top-up alone does
+  not). Earlier sections say that the demo runs the same seed and is re-seeded every night; that is not checked from this repository.
+* Time drifts on staging: running and upcoming actions, upcoming birthdays and the minor's majority are relative to the day of the seed run and
+  expire on an instance that is not reset. The top-up never refreshes or overwrites a value.
+* The tile background of the member map needs the operator setting `LAPIS_MAP_PMTILES_PATH` (a file on the instance, kept in the operator repository);
+  the seed cannot supply it. Without tiles the map degrades as described in `docs/architecture/member-map.adoc`.
+* Cost centers are not seeded. The full list of what each navigation entry shows is in `docs/architecture/staging-seed-coverage.adoc`.
+* Checked on H2 and in the PostgreSQL test lane only; nothing is run against the real staging or demo instance.
 
 === What it deliberately does not contain
 

@@ -61,6 +61,9 @@ class PrivilegedPeerActionTripwireTest :
                     "the operator console: shell access to the deployment, no network path",
                 "network/lapis/cloud/server/db/DevSeedData.kt" to "dev seed, NEW accounts in an empty database",
                 "network/lapis/cloud/server/db/StagingSeedData.kt" to "staging seed, NEW accounts in an empty database",
+                "network/lapis/cloud/server/db/StagingSeedMemberDetails.kt" to
+                    "staging/demo top-up behind the env gate and instanceCheck: fills only NULL/blank postal code and date of birth of " +
+                    "the 40 fixed seed ids on the @staging.invalid domain, never a value a person set",
                 "network/lapis/cloud/server/rpc/RegistrationService.kt" to
                     "creates NEW members/accounts and decides applications; createMemberDirect(ADMIN) tells every other administrator",
                 "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt" to "OIDC guest: creates a NEW synthetic guest member",

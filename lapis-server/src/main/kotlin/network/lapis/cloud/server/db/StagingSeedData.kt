@@ -593,6 +593,9 @@ object StagingSeedData {
             it[receivablesAccountId] = ledgerIds.getValue(ACCOUNT_RECEIVABLES)
             it[payablesAccountId] = ledgerIds.getValue(ACCOUNT_PAYABLES)
             it[postalMailEnabled] = false
+            // V1.9.296: the politician ranking is switched on in a fresh seed so the menu entry is not an empty "deaktiviert" screen. This is the
+            // only place; the top-up never touches the switch (an existing instance needs one click in the settings).
+            it[politicianRankingEnabled] = true
         }
     }
 
