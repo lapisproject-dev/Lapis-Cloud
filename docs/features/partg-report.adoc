@@ -1,9 +1,9 @@
-= Party accountability report: positions, entry, Excel import, report draft, separate statements, the link to the bookings, consolidation and kept versions (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3, V1.9.283 R3b, V1.9.287 R3c, V1.9.289 R4a, V1.9.290 R5, V1.9.291 R6, V1.9.293 R5b)
+= Party accountability report: positions, entry, Excel import, report draft, separate statements, the link to the bookings, consolidation and kept versions (V1.9.225 R1, V1.9.256 R2, V1.9.269 R3, V1.9.283 R3b, V1.9.287 R3c, V1.9.289 R4a, V1.9.290 R5, V1.9.291 R6, V1.9.292 R4b, V1.9.293 R5b)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
-Waves R1, R2, R3, R3b, R3c, R4a, R5 and R6 of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
+Waves R1, R2, R3, R3b, R3c, R4a, R4b, R5, R5b and R6 of the accountability report under the German Parties Act (section 24 PartG). R1 stores the **figures** of the report per reporting unit and year, typed in by
 hand or imported from an Excel file. R2 (V1.9.256) turns them into a **draft** of the report as a PDF or an Excel file. The draft is marked "ENTWURF -- nicht amtlich" on every page and in
 every file; nothing on the page promises a finished, official or audited report.
 
