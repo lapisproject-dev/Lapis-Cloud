@@ -123,7 +123,7 @@ jobs:
         run: nproc; free -h
 
       # The variables are set on this step only and never echoed.
-      - name: Postgres lane (clean, postgresTest only)
+      - name: Postgres lane (clean, postgresTest + postgresTestPart2)
         env:
           LAPIS_TEST_POSTGRES_URL: jdbc:postgresql://localhost:5432/lapis_test
           LAPIS_TEST_POSTGRES_USER: lapis_test
