@@ -270,11 +270,30 @@ tasks.test {
 // variable the task is SKIPPED. The credentials are deliberately NOT read here (never a task input,
 // never visible to the configuration cache or a build scan): the forked test worker inherits the
 // daemon's environment.
-val postgresTest =
-    tasks.register<Test>("postgresTest") {
+// The lane is split into TWO tasks (`postgresTest` = part 1, `postgresTestPart2` = part 2) because the whole lane needs about
+// 23 minutes on a busy workstation and no longer fits one 20-minute timeout. The spec classes (declared names containing "Postgres") are sorted and dealt
+// out alternately, so both parts stay about equally long and new specs are picked up automatically. Both run against the same
+// disposable database, one after the other (part 2 runs after part 1). `-Plane.tests=<pattern>` narrows part 1 to one spec and
+// switches part 2 off.
+val postgresLaneSpecs: List<String> =
+    run {
+        val declaration = Regex("""^\s*(?:\w+\s+)*(?:class|object)\s+(\w*Postgres\w*)""", RegexOption.MULTILINE)
+        fileTree("src/test/kotlin")
+            .matching { include("**/*.kt") }
+            .files
+            .flatMap { file -> declaration.findAll(file.readText()).map { it.groupValues[1] }.toList() }
+            .toSortedSet()
+            .toList()
+    }
+
+fun registerPostgresLane(
+    taskName: String,
+    part: Int,
+): TaskProvider<Test> =
+    tasks.register<Test>(taskName) {
         group = "verification"
         description =
-            "Postgres test lane (needs LAPIS_TEST_POSTGRES_URL; skipped otherwise). " +
+            "Postgres test lane, part $part of 2 (needs LAPIS_TEST_POSTGRES_URL; skipped otherwise). " +
             "See docs/architecture/postgres-test-lane.adoc"
         testClassesDirs = sourceSets["test"].output.classesDirs
         classpath = sourceSets["test"].runtimeClasspath
@@ -284,9 +303,21 @@ val postgresTest =
         // legacy H2 specs touch the database in their constructor -- so the lane's class set is
         // narrowed by NAME as well. Convention: every lane spec has "Postgres" in its class name
         // (enforced by PostgresLaneNamingTest).
-        // `-Plane.tests=<pattern>` narrows a local run to a single spec (an extra `--tests` would only ADD to this include).
-        filter.includeTestsMatching(providers.gradleProperty("lane.tests").getOrElse("*Postgres*"))
-        shouldRunAfter(tasks.test)
+        val narrowed = providers.gradleProperty("lane.tests").orNull
+        if (narrowed != null) {
+            // An extra `--tests` would only ADD to this include; a narrowed run belongs to part 1 alone.
+            if (part == 1) filter.includeTestsMatching(narrowed)
+        } else {
+            val mine = postgresLaneSpecs.filterIndexed { index, _ -> index % 2 == part - 1 }
+            mine.forEach { filter.includeTestsMatching("*.$it") }
+            // No spec in this part (only possible with no specs at all): do not fall back to "run everything".
+            filter.isFailOnNoMatchingTests = false
+        }
+        if (part == 2) {
+            shouldRunAfter(tasks.named("postgresTest"))
+        } else {
+            shouldRunAfter(tasks.test)
+        }
         // External database state is not a task input: never up-to-date, never served from the build
         // cache (the build cache is on, also in CI -- a cached result would prove nothing).
         outputs.upToDateWhen { false }
@@ -294,10 +325,14 @@ val postgresTest =
         // Only the PRESENCE of the variable is read (a configuration-cache input), never its value.
         val urlConfigured = providers.environmentVariable("LAPIS_TEST_POSTGRES_URL").isPresent
         onlyIf("LAPIS_TEST_POSTGRES_URL is set") { urlConfigured }
+        if (part == 2) onlyIf("no -Plane.tests narrowing (a narrowed run is part 1 alone)") { narrowed == null }
         timeout.set(Duration.ofMinutes(20))
     }
 
-tasks.named("check") { dependsOn(postgresTest) }
+val postgresTest = registerPostgresLane("postgresTest", 1)
+val postgresTestPart2 = registerPostgresLane("postgresTestPart2", 2)
+
+tasks.named("check") { dependsOn(postgresTest, postgresTestPart2) }
 
 // V1.9.216 "Themes per Datei": validates a LAPIS_THEME_PATH directory (theme.json + woff2 files) exactly as the server loads
 // it, prints one JSON document and exits non-zero on errors. Usage: ./gradlew -q :lapis-server:validateTheme -Ptheme=<dir>

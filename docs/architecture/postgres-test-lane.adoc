@@ -18,6 +18,7 @@ disposable PostgreSQL, locally and in CI. It is part of `check`. The normal `tes
 | Piece | Behaviour
 | `test` task | System property `kotest.tags=!Postgres`: every spec tagged `@Tags("Postgres")` is excluded (and, because of the annotation, never instantiated).
 | `postgresTest` task | `kotest.tags=Postgres` plus a class filter `*Postgres*` (some legacy H2 specs touch the database in their constructor, so Kotest must not even instantiate them in this JVM). Never up to date, never read from or written to the build cache (`outputs.upToDateWhen { false }`, `outputs.cacheIf { false }`) because the external database is not a task input. `onlyIf` the variable `LAPIS_TEST_POSTGRES_URL` is present -- otherwise the task is SKIPPED. Timeout 20 minutes.
+| `postgresTestPart2` task | The lane is split into two Gradle tasks because the whole lane needs about 23 minutes on a busy workstation and no longer fits one 20-minute timeout. Both parts read the same class set (every class declared with "Postgres" in its name, found in the test sources), sort it and take every second class: `postgresTest` the first, third, ... and `postgresTestPart2` the second, fourth, ... Each part has its own timeout and its own result directory (`build/test-results/postgresTest` and `.../postgresTestPart2`). New specs join automatically. Part 2 runs after part 1 against the same disposable database and is skipped when `-Plane.tests` narrows the run.
 | Spec markers | `@Tags("Postgres")` and `@EnabledIf(PostgresConfigured::class)` on every lane spec (`PostgresLaneNamingTest` keeps tag and the `Postgres` class-name convention in step).
 | Isolation | One FRESH database per spec: `lapis_pgtest_<16 hex>`, cloned with `CREATE DATABASE ... TEMPLATE` from a template that is migrated ONCE per JVM. Extensions, `search_path` and leftovers cannot leak between specs, and `information_schema` shows only the spec's own schema. `PostgresMigrationTest` deliberately uses an EMPTY database instead of the template (it must run the migrations itself).
 | Wiring | The lane uses the same factory functions as production (`DatabaseConfig.buildDataSource`, `DatabaseConfig.flywayFor`) and its own Exposed `Database`; it sets `TransactionManager.defaultDatabase` for the duration of a spec and restores it afterwards. It never touches the `DatabaseConfig` singleton.
@@ -35,11 +36,11 @@ PGPW="$(openssl rand -hex 16)"
 docker run --rm -d --name lapis-pgtest -e POSTGRES_PASSWORD="$PGPW" -p 127.0.0.1:55432:5432 postgres:17
 LAPIS_TEST_POSTGRES_URL=jdbc:postgresql://localhost:55432/postgres \
 LAPIS_TEST_POSTGRES_USER=postgres LAPIS_TEST_POSTGRES_PASSWORD="$PGPW" \
-  ./gradlew clean :lapis-server:postgresTest
+  ./gradlew clean :lapis-server:postgresTest :lapis-server:postgresTestPart2
 docker stop lapis-pgtest
 ----
 
-One spec only: add `-Plane.tests='*PollConcurrencyPostgresTest'` (an extra `--tests` would only ADD to the built-in class filter).
+One spec only: add `-Plane.tests='*PollConcurrencyPostgresTest'` and run `postgresTest` alone (an extra `--tests` would only ADD to the built-in class filter; part 2 switches itself off).
 
 Without `LAPIS_TEST_POSTGRES_URL` the task is skipped and `./gradlew clean check` is green on a machine without Docker.
 
@@ -47,11 +48,11 @@ Without `LAPIS_TEST_POSTGRES_URL` the task is skipped and `./gradlew clean check
 
 Since V1.9.58 the lane has its own job, `postgres`, in `.github/workflows/ci.yml` (see `ci-pipeline.adoc`). The job starts a `postgres:17`
 throwaway container started by the step "Start PostgreSQL (registry fallback)" (`lapis_test`, a disposable password that is not a secret) and sets the three `LAPIS_TEST_POSTGRES_*` variables on the
-`./gradlew clean :lapis-server:postgresTest` step ONLY (not job-wide, never echoed). The host is `localhost` through the port mapping.
-The job runs in parallel with the H2 job (`check`, which excludes `postgresTest` by name) and the browser job.
+`./gradlew clean :lapis-server:postgresTest :lapis-server:postgresTestPart2` step ONLY (not job-wide, never echoed). The host is `localhost` through the port mapping.
+The job runs in parallel with the H2 job (`check`, which excludes `postgresTest` and `postgresTestPart2` by name) and the browser job.
 
 A SKIPPED task (missing variable) writes no JUnit XML and still leaves the build green. The step `Assert Postgres lane ran (not SKIPPED)`
-therefore fails the job unless at least 30 XML files exist and `ElectionIntegrityPostgresTest` is among them
+therefore fails the job unless at least 30 XML files exist in each part directory and `ElectionIntegrityPostgresTest` is among those of part 2
 (`scripts/ci-assert-lane-ran.sh`).
 
 `LAPIS_DB_URL` must NOT be set -- neither in CI nor locally. `DevSeedData`'s production guard keys off that variable, and the lane

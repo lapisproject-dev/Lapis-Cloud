@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Build -- Postgres lane split into two Gradle tasks
+
+**Behaviour changes first:** `./gradlew :lapis-server:postgresTest` now runs only the first half of the Postgres lane; the second half is the new task `:lapis-server:postgresTestPart2`. `check` and CI run both. Anyone who started the lane by hand must start both tasks (`./gradlew clean :lapis-server:postgresTest :lapis-server:postgresTestPart2`).
+
+- **Why:** the lane grew to about 23 minutes on a busy workstation and stopped hitting its 20-minute timeout (V1.9.297 verification). Each part now has its own 20-minute limit.
+- **How:** the classes declared with "Postgres" in their name are sorted and dealt out alternately, so the parts stay about equally long and new specs join automatically. `-Plane.tests=<pattern>` still narrows a run to one spec (part 1 alone).
+- **CI:** the `postgres` job runs both tasks and asserts both result directories (`ElectionIntegrityPostgresTest` is in part 2).
+- **Not verified:** the GitHub CI run of the changed workflow.
+
 ### V1.9.297 -- Bulletin board ("Schwarzes Brett") for members
 
 **Behaviour changes first:** (1) the boost control of the **social network** is now the shared component `ltrBoostControl` and shows a new line **"Freies Guthaben: X LTR"** above the amount field (the balance is loaded once per screen, not once per post or comment); the amount check, the confirmation sentence and the booking are unchanged; (2) the ledger gets a new entry type **`NOTICE_BOOST`** with reference type **`NOTICE`** (the LTR statement shows "Aushang-Boost" and links to the notice); (3) the gallery owner type **`NOTICE`** (one picture, no cover, no caption, no re-order) and the audit entity **`BULLETIN_NOTICE`** are new; the helper `GalleryRules.supportsCoverAndOrder` / `supportsCaption` are now exhaustive `when` expressions instead of `!= SOCIAL_POST`, so a new owner type must decide; (4) a new sidebar entry **"Schwarzes Brett"** (group "Mitgliedschaft", directly after "Mitfahrzentrale") for active members, route `/notice-board`; (5) `SocialPostWeight.normalizeLtrAmount` (moved, behaviour unchanged) replaces the private copy in `SocialNetworkService`. **One additive migration: `V149__bulletin_board.sql`** (`V148` is released and untouched); no new environment variable.

@@ -70,7 +70,7 @@ JetBrains) — Details und Architektur-Hintergrund siehe `README.adoc` und `docs
 ## Postgres-Testspur (V1.9.37)
 
 Die normale Testsuite läuft auf H2. Alles, was von der Datenbank-Engine abhängt (Row-Locks, Isolation, Deadlocks, das Verhalten einer
-Transaktion nach einem fehlgeschlagenen Statement, die echte Flyway-Kette), prüft die Postgres-Spur: `./gradlew :lapis-server:postgresTest`
+Transaktion nach einem fehlgeschlagenen Statement, die echte Flyway-Kette), prüft die Postgres-Spur: `./gradlew :lapis-server:postgresTest :lapis-server:postgresTestPart2`
 (Teil von `check`, wird übersprungen, wenn `LAPIS_TEST_POSTGRES_URL` fehlt). Details: `docs/architecture/postgres-test-lane.adoc`.
 
 - **Neue Concurrency- und Lock-Tests immer als `...Scenarios(db: TestDatabase)` anlegen** und zweimal einhängen: `FooTest : FooScenarios(TestDatabase.H2)`

@@ -47,7 +47,7 @@ jobs:
         run: >-
           ./gradlew clean check
           -Plapis.test.forks=4
-          -x :lapis-server:postgresTest
+          -x :lapis-server:postgresTest -x :lapis-server:postgresTestPart2
           -x :lapis-client:allTests -x :lapis-client:jsBrowserTest
           -x :lapis-shared:allTests -x :lapis-shared:jsBrowserTest
 
@@ -128,14 +128,15 @@ jobs:
           LAPIS_TEST_POSTGRES_URL: jdbc:postgresql://localhost:5432/lapis_test
           LAPIS_TEST_POSTGRES_USER: lapis_test
           LAPIS_TEST_POSTGRES_PASSWORD: lapis-ci-throwaway
-        run: ./gradlew clean :lapis-server:postgresTest
+        run: ./gradlew clean :lapis-server:postgresTest :lapis-server:postgresTestPart2
 
       # A SKIPPED lane (missing variable) leaves no XML and the build stays green: fail in that case.
-      # 33 XML files today.
+      # The lane has two parts (about 79 XML files each today); ElectionIntegrityPostgresTest currently falls into part 2.
       - name: Assert Postgres lane ran (not SKIPPED)
-        run: >-
+        run: |
           scripts/ci-assert-lane-ran.sh lapis-server/build/test-results/postgresTest 30
-          TEST-network.lapis.cloud.server.rpc.ElectionIntegrityPostgresTest.xml
+          scripts/ci-assert-lane-ran.sh lapis-server/build/test-results/postgresTestPart2 30 \
+            TEST-network.lapis.cloud.server.rpc.ElectionIntegrityPostgresTest.xml
 
       - name: Upload test results
         if: always()
