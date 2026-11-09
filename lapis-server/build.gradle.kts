@@ -328,7 +328,8 @@ fun registerPostgresLane(
         val urlConfigured = providers.environmentVariable("LAPIS_TEST_POSTGRES_URL").isPresent
         onlyIf("LAPIS_TEST_POSTGRES_URL is set") { urlConfigured }
         if (part == 2) onlyIf("no -Plane.tests narrowing (a narrowed run is part 1 alone)") { narrowed == null }
-        timeout.set(Duration.ofMinutes(20))
+        // 45 minutes per part: on the shared CI runner (4 vCPU) one part alone needed more than 20 minutes (v0.49.0 Release image, three runs).
+        timeout.set(Duration.ofMinutes(45))
     }
 
 val postgresTest = registerPostgresLane("postgresTest", 1)

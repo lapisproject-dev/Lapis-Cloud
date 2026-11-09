@@ -25,7 +25,7 @@ Feature release on `[0.48.0]` (one wave, V1.9.297, plus two build changes (the P
 
 ### Build -- Postgres lane parts run one after the other
 
-- `postgresTestPart2` now `mustRunAfter` `postgresTest` (before: `shouldRunAfter`). With `org.gradle.parallel=true` both parts had started in the same second on the same database, so the split did not halve the load; the first two CI runs of the `v0.49.0` tag (Release image) failed because part 1 exceeded its 20-minute timeout that way, so the tag was moved to the fixed commit. Not verified: the timing of the sequential run on the CI runner.
+- `postgresTestPart2` now `mustRunAfter` `postgresTest` (before: `shouldRunAfter`). With `org.gradle.parallel=true` both parts had started in the same second on the same database, so the split did not halve the load; the first two CI runs of the `v0.49.0` tag (Release image) failed because part 1 exceeded its 20-minute timeout that way, so the tag was moved to the fixed commit. A third run (parts one after the other) still lost part 1 after 20 minutes: on the shared CI runner one part alone needs more, so the timeout of each part is now 45 minutes (was 20) and the CI job limit 100 minutes (was 30); the tag was moved once more. Not verified: how long the two parts really take on the CI runner. Not verified: the timing of the sequential run on the CI runner.
 
 ### V1.9.297 -- Bulletin board ("Schwarzes Brett") for members
 
