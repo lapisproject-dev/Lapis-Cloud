@@ -310,6 +310,8 @@ class LegalHtmlTest :
                     "documents" to "Dokumentenablage",
                     "communication" to "interne Kommunikation",
                     "carpool" to "Mitfahrerzentrale",
+                    // V1.9.297 -- the bulletin board: notices, LTR spent on them, the board's removal reason and note.
+                    "bulletinBoard" to "Schwarzes Brett (Aushänge der Mitglieder)",
                     "polls" to "Umfragen",
                     // V1.9.246 -- the actions: responsible persons, reported quantities and the bare "I come" signals.
                     "activism" to "Aktionen (Planung von Vorhaben der Organisation)",

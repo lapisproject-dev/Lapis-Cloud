@@ -82,7 +82,8 @@ class StagingSeedPartsPlanTest :
         val partRows: List<SeedLedgerRow> =
             StagingSeedCrowdfunding.ledgerPlan(clock) +
                 StagingSeedAuctions.ledgerPlan(clock) +
-                StagingSeedSocial.ledgerPlan(clock)
+                StagingSeedSocial.ledgerPlan(clock) +
+                StagingSeedNotices.ledgerPlan(clock)
         val allRows = ltrRows() + partRows
 
         test("PARTS: names and order are pinned, governance runs before the tenders") {
@@ -100,6 +101,7 @@ class StagingSeedPartsPlanTest :
                     "families",
                     "activism",
                     "honors",
+                    "notices",
                 )
         }
 
@@ -336,6 +338,7 @@ class StagingSeedPartsPlanTest :
                     } +
                     StagingSeedFamilies.families.flatMap { f -> listOf(f.id) + f.members.indices.map { f.linkId(it) } } +
                     StagingSeedHonors.honors.map { it.id } +
+                    StagingSeedNotices.notices.map { it.id } + StagingSeedNotices.boosts.map { it.id } +
                     listOf(
                         StagingSeedGovernanceTopUp.bauausschuss,
                         StagingSeedGovernanceTopUp.arbeitskreis,
@@ -348,7 +351,7 @@ class StagingSeedPartsPlanTest :
             partIds.toSet().size shouldBe partIds.size
             partIds.forEach { id ->
                 id.toString().substring(0, 24) shouldBe "0000000a-0000-0000-0000-"
-                (id.toString().substring(24, 26).toInt(16) in 0x70..0x7a) shouldBe true
+                (id.toString().substring(24, 26).toInt(16) in 0x70..0x7b) shouldBe true
             }
             val earlier =
                 (0..0x60).flatMap {
@@ -368,6 +371,8 @@ class StagingSeedPartsPlanTest :
             StagingSeedActivism.actions.map { it.index } shouldBe listOf(1, 2, 3, 4, 5)
             StagingSeedFamilies.families.map { it.index } shouldBe listOf(1, 2, 3)
             StagingSeedHonors.honors.map { it.index } shouldBe listOf(1, 2, 3, 4)
+            StagingSeedNotices.notices.map { it.index } shouldBe listOf(1, 2, 3)
+            StagingSeedNotices.boosts.map { it.index } shouldBe listOf(1)
             StagingSeedMemberDetails.plan.map { it.member } shouldBe
                 listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 19, 20, 21, 23, 24, 27, 28, 29, 30, 32, 33, 34, 35, 37, 38, 39, 40)
         }
@@ -544,7 +549,7 @@ internal val EXPECTED_END_BALANCES: Map<Int, String> =
         3 to "90.98",
         4 to "69.99",
         5 to "8.49",
-        6 to "11.50",
+        6 to "9.50",
         7 to "4.50",
         8 to "0.04",
         9 to "74.00",

@@ -87,14 +87,14 @@ internal fun insertDirectMessageRow(
 
 /**
  * Common insert path of [DirectMessageService.sendDirectMessage], [DirectMessageService.sendDirectMessageWithAttachments],
- * [CarpoolService.contactAuthor], [network.lapis.cloud.server.rpc.MemberFinderService.contactConnection] and the event registration
- * notifier. Must run inside the caller's open `transaction {}`.
+ * [CarpoolService.contactAuthor], [network.lapis.cloud.server.rpc.MemberFinderService.contactConnection], the event registration
+ * notifier and (V1.9.297) [NoticeBoardService.replyToNotice]. Must run inside the caller's open `transaction {}`.
  *
  * Checks: body 1..[DIRECT_MESSAGE_MAX_BODY_LENGTH] characters ([ConflictException]); no message to oneself ([ConflictException]); the recipient
  * rule of [directMessageRecipientRefusal] -- unknown, unreceivable, anonymized and BLOCKED all give the same
  * [DirectMessageRecipientUnavailableException] (V1.9.237; before, "unknown" echoed the id in a [network.lapis.cloud.shared.rpc.NotFoundException]).
  *
- * The block applies to ALL five entry points. The event registration notifier stays silent on refusal (it swallows every exception and logs only
+ * The block applies to ALL six entry points. The event registration notifier stays silent on refusal (it swallows every exception and logs only
  * the class name): a block therefore also suppresses the registration message to the event creator -- the email notice still goes out.
  */
 internal fun insertDirectMessage(

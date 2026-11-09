@@ -432,6 +432,15 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Schwarzes Brett (Aushänge der Mitglieder) — Art. 6 Abs. 1 lit. f DSGVO. Gespeichert werden die Aushänge " +
+                        "mit Titel, Text und gegebenenfalls einem Bild, die LTR, die Mitglieder auf einen Aushang einsetzen " +
+                        "(Betrag und Zeitpunkt), und bei einer Entfernung durch den Vorstand Grund und Notiz. Aushänge sind nur " +
+                        "für aktive Mitglieder sichtbar und werden 30 Tage nach Ablauf, Zurückziehen oder Entfernen gelöscht; " +
+                        "die LTR-Buchungen bleiben als Buchungshistorie bestehen."
+                )
+            }
+            li {
+                +(
                     "Öffentlich einsehbare Beiträge im integrierten sozialen Netzwerk (sofern aktiv genutzt) — " +
                         "Art. 6 Abs. 1 lit. b DSGVO; die Veröffentlichung erfolgt durch das Mitglied selbst."
                 )

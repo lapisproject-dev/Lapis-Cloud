@@ -54,6 +54,7 @@ classDiagram(name = "ImageGallery") {
             literal(name = "CROWDFUNDING_PROJECT")
             literal(name = "AUCTION_LISTING")
             literal(name = "SOCIAL_POST") // V1.9.223, migration V120 (owner_type CHECK widened; V119 untouched)
+            literal(name = "NOTICE") // V1.9.297, migration V149 (owner_type CHECK widened; one picture per bulletin-board notice)
         }
 
     val attachedImage =

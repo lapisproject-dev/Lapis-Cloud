@@ -152,6 +152,7 @@ classDiagram(name = "LtrLedger") {
         literal(name = "AUCTION_SALE_IN")
         literal(name = "SOCIAL_POST_STAKE")
         literal(name = "SOCIAL_POST_BOOST")
+        literal(name = "NOTICE_BOOST") // V1.9.297 (migration V149): LTR spent on a bulletin-board notice
     }
 
     // Literal order is load-bearing, same reason as above. `CROWDFUNDING_PROJECT` is this wave's
@@ -165,6 +166,7 @@ classDiagram(name = "LtrLedger") {
         literal(name = "PEER_TRANSFER")
         literal(name = "AUCTION")
         literal(name = "SOCIAL_POST")
+        literal(name = "NOTICE") // V1.9.297 (migration V149)
     }
 
     val ltrLedgerEntry = classOf(name = "LtrLedgerEntry") {

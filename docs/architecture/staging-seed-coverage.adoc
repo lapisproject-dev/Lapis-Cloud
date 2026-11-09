@@ -1,4 +1,4 @@
-= Staging and demo seed coverage (V1.9.296)
+= Staging and demo seed coverage (V1.9.297)
 :toc:
 
 == Purpose
@@ -37,6 +37,7 @@ A drift guard (`StagingSeedCoverageDocTest`) fails the build when a route of `Na
 | Videokonferenz | `CONFERENCE` (`/conference`) | `conference_room` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Needs a LiveKit server and rooms created in the UI.
 | Begegnungsräume | `ENCOUNTER` (`/begegnung`) | `encounter_space` | Not written by any seed part | operator-dependent | operator setting, not verified on the instance. Needs the video infrastructure; spaces are created in the UI.
 | Mitfahrzentrale | `CARPOOL` (`/carpool`) | `carpool_posting` | Initial seed (community area) | filled | same seed (not verified on the instance). Postings only; no messages or participations. Also listed as a flat link or in group Membership.
+| Schwarzes Brett | `NOTICE_BOARD` (`/notice-board`) | `bulletin_notice`, `bulletin_notice_boost` | V1.9.297 top-up part `notices` | filled | same seed (not verified on the instance). Three fictional notices: a search without a stake, an offer with one boost of another member, and a pinned notice of the board. Each expires 20 to 30 days ahead; after the expiry plus 30 days the retention poller deletes it and the next top-up writes it again (its fixed id is missing then). No pictures (a picture needs a file).
 | Meine Daten | `DSGVO_RIGHTS` (`/dsgvo-rights`) | own member data | Initial seed | filled | same seed (not verified on the instance). Reads the signed-in member; nothing extra to seed. Also reachable as a flat link for friends and guests. Also listed as a flat link or in group Membership.
 |===
 

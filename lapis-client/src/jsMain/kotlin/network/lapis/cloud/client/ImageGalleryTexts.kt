@@ -26,6 +26,7 @@ internal fun galleryLockedUploadText(ownerType: AttachedImageOwnerType): String 
         AttachedImageOwnerType.AUCTION_LISTING -> galleryLockText(GalleryLockReason.AUCTION_HAS_BIDS)
         AttachedImageOwnerType.CROWDFUNDING_PROJECT -> galleryLockText(GalleryLockReason.CROWDFUNDING_DECIDED)
         AttachedImageOwnerType.SOCIAL_POST -> tr("Die Zeit zum Nachreichen ist abgelaufen. Der Beitrag bleibt ohne dieses Bild.")
+        AttachedImageOwnerType.NOTICE -> tr("Der Aushang ist nicht mehr aktiv. Das Bild kann nicht mehr geändert werden.")
     }
 
 internal fun galleryUploadErrorText(

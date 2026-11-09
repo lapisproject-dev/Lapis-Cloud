@@ -93,6 +93,12 @@ enum class LtrLedgerEntryType {
      * [AUCTION_LISTING_FEE] -- there is no `unboostPost`.
      */
     SOCIAL_POST_BOOST,
+
+    /**
+     * V1.9.297 "Schwarzes Brett" -- `INoticeBoardService.boostNotice` (and the optional initial stake of `createNotice`) spending LTR on a
+     * bulletin-board notice. `referenceId` is the NOTICE id, [LtrLedgerReferenceType.NOTICE]. Never refunded, like [SOCIAL_POST_BOOST]. 12 chars.
+     */
+    NOTICE_BOOST,
 }
 
 /**
@@ -102,10 +108,10 @@ enum class LtrLedgerEntryType {
  * [PEER_TRANSFER] the V0.6.3 addition for [LtrLedgerEntryType.PEER_TRANSFER_OUT]/
  * [LtrLedgerEntryType.PEER_TRANSFER_IN] (see that literal's KDoc), [AUCTION] the V0.6.2 addition
  * for every `AUCTION_*` [LtrLedgerEntryType] literal (`referenceId` always points at the
- * `auction.id`, never at `auction_bid`); additively extended by later waves.
+ * `auction.id`, never at `auction_bid`); [NOTICE] (V1.9.297) for [LtrLedgerEntryType.NOTICE_BOOST]; additively extended by later waves.
  */
 @Serializable
-enum class LtrLedgerReferenceType { CROWDFUNDING_PROJECT, VOTE, PEER_TRANSFER, AUCTION, SOCIAL_POST }
+enum class LtrLedgerReferenceType { CROWDFUNDING_PROJECT, VOTE, PEER_TRANSFER, AUCTION, SOCIAL_POST, NOTICE }
 
 /**
  * One row of the append-only LTR ledger. [amountLtr] is signed: positive for a credit (e.g.

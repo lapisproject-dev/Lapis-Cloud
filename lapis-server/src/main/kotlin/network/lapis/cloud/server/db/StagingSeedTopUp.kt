@@ -55,6 +55,7 @@ internal object StagingSeedTopUp {
             StagingSeedFamilies,
             StagingSeedActivism,
             StagingSeedHonors,
+            StagingSeedNotices,
         )
 
     fun topUpIfEligible(

@@ -49,6 +49,11 @@ object Routes {
     // NavVisibility-Prädikat (siehe Sidebar.kt -- läuft unter showsMembershipSection).
     const val CARPOOL = "/carpool"
 
+    // V1.9.297 "Schwarzes Brett": members only (ACTIVE) -- every method of `INoticeBoardService` gates on `MemberStatusSets.NOTICE_BOARD`, so a
+    // guest or friend sees an error, not the board; the sidebar entry sits in the "Mitgliedschaft" group (visible for ACTIVE only, like the other
+    // member pages). Optional `?notice=<uuid>` in the hash fragment (the deep link of the LTR statement) shows that notice above the list.
+    const val NOTICE_BOARD = "/notice-board"
+
     // Governance UI wave: reads are open to any authenticated member (see `IGovernanceService`
     // KDoc -- no RPC method in this interface requires a role to READ), so all three routes use
     // `requireAuth`, not `requireRole`, exactly like CONTRIBUTIONS/DOCUMENTS/COMMUNICATION.
@@ -935,6 +940,10 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.CARPOOL) {
         requireAuth(routing) { show(Routes.CARPOOL, ::renderCarpoolScreen) }
+    }
+    routing.kvOn(Routes.NOTICE_BOARD) { params ->
+        val hash = routeHashOfMatch(Routes.NOTICE_BOARD, params.asDynamic().queryString as? String)
+        requireAuth(routing) { show(Routes.NOTICE_BOARD) { container -> renderNoticeBoardScreen(container, hash) } }
     }
     routing.kvOn(Routes.COMMITTEES) {
         requireAuth(routing) { show(Routes.COMMITTEES, ::renderCommitteesScreen) }

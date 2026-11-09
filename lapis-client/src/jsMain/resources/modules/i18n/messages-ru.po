@@ -31693,3 +31693,159 @@ msgstr "Видеоконференция идёт. Участвовать мог
 
 msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
 msgstr "Видеоконференция готовится. Участие откроется на странице мероприятия."
+
+msgid "Freies Guthaben: %1"
+msgstr "Свободный баланс: %1"
+
+msgid "Schwarzes Brett"
+msgstr "Доска объявлений"
+
+msgid "Noch keine Aushänge. Suchen Sie etwas oder bieten Sie etwas an? Hängen Sie den ersten Aushang aus."
+msgstr "Объявлений пока нет. Вы что-то ищете или предлагаете? Разместите первое объявление."
+
+msgid "Keine Aushänge der Kategorie \"%1\"."
+msgstr "Нет объявлений в категории \"%1\"."
+
+msgid "Meine Aushänge"
+msgstr "Мои объявления"
+
+msgid "Aushang aufgeben"
+msgstr "Разместить объявление"
+
+msgid "Vom Vorstand"
+msgstr "От правления"
+
+msgid "Aushänge"
+msgstr "Объявления"
+
+msgid "Weitere Aushänge anzeigen"
+msgstr "Показать ещё объявления"
+
+msgid "Der Aushang konnte nicht geladen werden."
+msgstr "Не удалось загрузить объявление."
+
+msgid "Dieser Aushang ist nicht mehr vorhanden."
+msgstr "Это объявление больше не существует."
+
+msgid "Ihr Aushang"
+msgstr "Ваше объявление"
+
+msgid "Bild zum Aushang \"%1\""
+msgstr "Изображение к объявлению \"%1\""
+
+msgid "aufgegeben am %1"
+msgstr "размещено %1"
+
+msgid "bearbeitet"
+msgstr "изменено"
+
+msgid "Gewicht"
+msgstr "Вес"
+
+msgid "Entfernt: %1"
+msgstr "Удалено: %1"
+
+msgid "Aushang boosten"
+msgstr "Продвинуть объявление"
+
+msgid "Aushang geboostet."
+msgstr "Объявление продвинуто."
+
+msgid "Aushang zurückziehen"
+msgstr "Снять объявление"
+
+msgid "Der Aushang verschwindet vom Schwarzen Brett. Bereits eingesetzte LTR werden NICHT zurückerstattet."
+msgstr "Объявление исчезнет с доски объявлений. Уже потраченные LTR НЕ возвращаются."
+
+msgid "Aushang zurückgezogen."
+msgstr "Объявление снято."
+
+msgid "Nicht mehr pinnen"
+msgstr "Открепить"
+
+msgid "Pinnen"
+msgstr "Закрепить"
+
+msgid "Aushang nicht mehr gepinnt."
+msgstr "Объявление больше не закреплено."
+
+msgid "Aushang gepinnt."
+msgstr "Объявление закреплено."
+
+msgid "Ihre Nachricht geht als Direktnachricht an den Autor. Betreff: Schwarzes Brett: %1"
+msgstr "Ваше сообщение уйдёт автору как личное сообщение. Тема: Schwarzes Brett: %1"
+
+msgid "Bereits gebuchte LTR werden nicht erstattet."
+msgstr "Уже проведённые LTR не возвращаются."
+
+msgid "Höchstens %1 Zeichen. Der Autor sieht Grund und Notiz."
+msgstr "Не более %1 символов. Автор видит причину и заметку."
+
+msgid "Aushang entfernt."
+msgstr "Объявление удалено."
+
+msgid "Aushang bearbeiten"
+msgstr "Изменить объявление"
+
+msgid "Neuer Aushang"
+msgstr "Новое объявление"
+
+msgid "Die Kategorie kann nicht mehr geändert werden, weil andere LTR eingesetzt haben."
+msgstr "Категорию больше нельзя изменить, так как другие потратили на неё LTR."
+
+msgid "Sichtbar bis (einschließlich)"
+msgstr "Виден до (включительно)"
+
+msgid "Höchstens %1 Tage ab dem Aufhängen."
+msgstr "Не более %1 дней с момента размещения."
+
+msgid "LTR-Einsatz (optional)"
+msgstr "Ставка в LTR (необязательно)"
+
+msgid "Je mehr LTR Sie einsetzen, desto weiter oben steht der Aushang. Der Betrag wird nicht zurückerstattet."
+msgstr "Чем больше LTR вы потратите, тем выше стоит объявление. Сумма не возвращается."
+
+msgid "Aushang wurde aktualisiert."
+msgstr "Объявление обновлено."
+
+msgid "Aushang wurde aufgegeben."
+msgstr "Объявление размещено."
+
+msgid "LTR einsetzen"
+msgstr "Потратить LTR"
+
+msgid "Info"
+msgstr "Информация"
+
+msgid "Entfernt"
+msgstr "Удалено"
+
+msgid "Verstoß gegen die Regeln der Organisation"
+msgstr "Нарушение правил организации"
+
+msgid "Doppelter Aushang"
+msgstr "Дублирующее объявление"
+
+msgid "Rechtliche Gründe"
+msgstr "Правовые основания"
+
+msgid "läuft heute ab"
+msgstr "истекает сегодня"
+
+msgid "sichtbar bis %1"
+msgstr "виден до %1"
+
+msgid "Der Aushang ist nicht mehr aktiv. Das Bild kann nicht mehr geändert werden."
+msgstr "Объявление больше не активно. Изображение изменить нельзя."
+
+msgid "Aushang"
+msgstr "Объявление"
+
+msgid "Aushang-Boost"
+msgstr "Продвижение объявления"
+
+msgid "Aushang (Schwarzes Brett)"
+msgstr "Объявление (доска объявлений)"
+
+msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
+msgstr "Участники размещают на доске объявления: поиск, предложения и сведения со сроком действия. Порядок определяют LTR, которые участники тратят на объявление."

@@ -1103,3 +1103,22 @@ col:PartgReportDeadlineTable.deadline	D	calendar date (LocalDate) of the submiss
 col:PartgReportDeadlineTable.confirmedAt	A	PartgVersionStore: stamped by ServerClock.now()
 col:PartgReportLargeDonorTable.sourceAppliedAt	A	PartgAnnexStore.insertDonorFromLedger/replaceDonorAmountFromLedger (PartgAnnexWriter.applyDonorProposal): stamped by ServerClock.now()
 dto:PartgLargeDonorDto.sourceAppliedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:NoticeInput.expiresOn	D	calendar date (LocalDate); never converted
+dto:NoticeUpdateInput.expiresOn	D	calendar date (LocalDate); never converted
+dto:NoticeDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:NoticeDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:NoticeDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:NoticeDto.expiresOn	D	calendar date (LocalDate); never converted
+dto:NoticeDto.minExpiresOn	D	calendar date (LocalDate); never converted
+dto:NoticeDto.maxExpiresOn	D	calendar date (LocalDate); never converted
+dto:NoticeDto.pinnedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:NoticePageDto.defaultExpiresOn	D	calendar date (LocalDate); never converted
+dto:NoticePageDto.minExpiresOn	D	calendar date (LocalDate); never converted
+dto:NoticePageDto.maxExpiresOn	D	calendar date (LocalDate); never converted
+col:BulletinNoticeBoostTable.boostedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BulletinNoticeTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BulletinNoticeTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BulletinNoticeTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC (the start of the organization day after the last visible day)
+col:BulletinNoticeTable.pinnedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BulletinNoticeTable.withdrawnAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BulletinNoticeTable.removedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

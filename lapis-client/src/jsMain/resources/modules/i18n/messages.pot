@@ -31132,3 +31132,159 @@ msgstr ""
 
 msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
 msgstr ""
+
+msgid "Freies Guthaben: %1"
+msgstr ""
+
+msgid "Schwarzes Brett"
+msgstr ""
+
+msgid "Noch keine Aushänge. Suchen Sie etwas oder bieten Sie etwas an? Hängen Sie den ersten Aushang aus."
+msgstr ""
+
+msgid "Keine Aushänge der Kategorie \"%1\"."
+msgstr ""
+
+msgid "Meine Aushänge"
+msgstr ""
+
+msgid "Aushang aufgeben"
+msgstr ""
+
+msgid "Vom Vorstand"
+msgstr ""
+
+msgid "Aushänge"
+msgstr ""
+
+msgid "Weitere Aushänge anzeigen"
+msgstr ""
+
+msgid "Der Aushang konnte nicht geladen werden."
+msgstr ""
+
+msgid "Dieser Aushang ist nicht mehr vorhanden."
+msgstr ""
+
+msgid "Ihr Aushang"
+msgstr ""
+
+msgid "Bild zum Aushang \"%1\""
+msgstr ""
+
+msgid "aufgegeben am %1"
+msgstr ""
+
+msgid "bearbeitet"
+msgstr ""
+
+msgid "Gewicht"
+msgstr ""
+
+msgid "Entfernt: %1"
+msgstr ""
+
+msgid "Aushang boosten"
+msgstr ""
+
+msgid "Aushang geboostet."
+msgstr ""
+
+msgid "Aushang zurückziehen"
+msgstr ""
+
+msgid "Der Aushang verschwindet vom Schwarzen Brett. Bereits eingesetzte LTR werden NICHT zurückerstattet."
+msgstr ""
+
+msgid "Aushang zurückgezogen."
+msgstr ""
+
+msgid "Nicht mehr pinnen"
+msgstr ""
+
+msgid "Pinnen"
+msgstr ""
+
+msgid "Aushang nicht mehr gepinnt."
+msgstr ""
+
+msgid "Aushang gepinnt."
+msgstr ""
+
+msgid "Ihre Nachricht geht als Direktnachricht an den Autor. Betreff: Schwarzes Brett: %1"
+msgstr ""
+
+msgid "Bereits gebuchte LTR werden nicht erstattet."
+msgstr ""
+
+msgid "Höchstens %1 Zeichen. Der Autor sieht Grund und Notiz."
+msgstr ""
+
+msgid "Aushang entfernt."
+msgstr ""
+
+msgid "Aushang bearbeiten"
+msgstr ""
+
+msgid "Neuer Aushang"
+msgstr ""
+
+msgid "Die Kategorie kann nicht mehr geändert werden, weil andere LTR eingesetzt haben."
+msgstr ""
+
+msgid "Sichtbar bis (einschließlich)"
+msgstr ""
+
+msgid "Höchstens %1 Tage ab dem Aufhängen."
+msgstr ""
+
+msgid "LTR-Einsatz (optional)"
+msgstr ""
+
+msgid "Je mehr LTR Sie einsetzen, desto weiter oben steht der Aushang. Der Betrag wird nicht zurückerstattet."
+msgstr ""
+
+msgid "Aushang wurde aktualisiert."
+msgstr ""
+
+msgid "Aushang wurde aufgegeben."
+msgstr ""
+
+msgid "LTR einsetzen"
+msgstr ""
+
+msgid "Info"
+msgstr ""
+
+msgid "Entfernt"
+msgstr ""
+
+msgid "Verstoß gegen die Regeln der Organisation"
+msgstr ""
+
+msgid "Doppelter Aushang"
+msgstr ""
+
+msgid "Rechtliche Gründe"
+msgstr ""
+
+msgid "läuft heute ab"
+msgstr ""
+
+msgid "sichtbar bis %1"
+msgstr ""
+
+msgid "Der Aushang ist nicht mehr aktiv. Das Bild kann nicht mehr geändert werden."
+msgstr ""
+
+msgid "Aushang"
+msgstr ""
+
+msgid "Aushang-Boost"
+msgstr ""
+
+msgid "Aushang (Schwarzes Brett)"
+msgstr ""
+
+msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
+msgstr ""

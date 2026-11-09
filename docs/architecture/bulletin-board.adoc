@@ -1,0 +1,88 @@
+= Bulletin board: architecture (V1.9.297)
+:toc:
+
+NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+See link:../features/bulletin-board.adoc[the feature description] for what a person sees. This page records the structure, the locks and the data-protection decisions.
+
+== Tables
+
+The names are `bulletin_notice` and `bulletin_notice_boost` on purpose: `carpool_posting`, `CarpoolNoticeKind` and `activism_notice_text` already use the word "notice". The migration is `V149__bulletin_board.sql` (V148 is released with 0.48.0; changing it would break its checksum). `ltr_ledger_entry` is polymorphic: its `reference_id` carries the notice id with reference type `NOTICE`, and `attached_image` carries the one picture with owner type `NOTICE`; neither has a foreign key (one table serves several owners).
+
+[kuml, bulletin-board-schema, svg]
+----
+classDiagram(name = "Bulletin board -- tables") {
+    val member = classOf(name = "member") {
+        attribute(name = "id", type = "UUID")
+    }
+    val notice = classOf(name = "bulletin_notice") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "author_member_id", type = "UUID")
+        attribute(name = "category", type = "String")
+        attribute(name = "title", type = "String")
+        attribute(name = "body", type = "String")
+        attribute(name = "created_at", type = "LocalDateTime")
+        attribute(name = "expires_at", type = "LocalDateTime")
+        attribute(name = "pinned_at", type = "LocalDateTime")
+        attribute(name = "status", type = "String")
+        attribute(name = "removal_reason_code", type = "String")
+    }
+    val boost = classOf(name = "bulletin_notice_boost") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "amount_ltr", type = "BigDecimal")
+        attribute(name = "boosted_at", type = "LocalDateTime")
+    }
+    val ledger = classOf(name = "ltr_ledger_entry") {
+        attribute(name = "entry_type", type = "String")
+        attribute(name = "reference_id", type = "UUID")
+    }
+    val image = classOf(name = "attached_image") {
+        attribute(name = "owner_type", type = "String")
+        attribute(name = "owner_id", type = "UUID")
+    }
+    association(from = member, to = notice)
+    association(from = notice, to = boost)
+    association(from = member, to = boost)
+    association(from = notice, to = ledger)
+    association(from = notice, to = image)
+}
+----
+
+CHECK constraints in the migration mirror the rules the database can express: the lengths (`CHAR_LENGTH`), `expires_at > created_at AND expires_at <= created_at + INTERVAL '90' DAY` (the literal form of V72, run on H2 *and* PostgreSQL by `BulletinBoardMigrationScenarios`), `REMOVED` if and only if `removed_at` and the reason code are set, `WITHDRAWN` if and only if `withdrawn_at` is set, `pinned_by` only together with `pinned_at`, and a boost of at least 0.01. `removed_by` and `pinned_by` are deliberately *not* constrained: erasing a moderator sets them to `NULL`. Not expressible in SQL and therefore checked in the service: the cap of 5 active notices per member, the cap of 5 pinned notices, rate limits, the weight and the order, and the visibility rules (the author must still be an active member).
+
+== Status of a notice
+
+[kuml, bulletin-board-status, svg]
+----
+stateDiagram(name = "Status of a notice") {
+    val active = state(name = "ACTIVE")
+    val expired = state(name = "EXPIRED")
+    val withdrawn = state(name = "WITHDRAWN")
+    val removed = state(name = "REMOVED")
+    val deleted = state(name = "deleted for good")
+    transition(from = active, to = expired, label = "expiry passed (bookkeeping)")
+    transition(from = active, to = withdrawn, label = "author")
+    transition(from = active, to = removed, label = "BOARD or ADMIN, with a reason")
+    transition(from = expired, to = deleted, label = "30 days after the expiry")
+    transition(from = withdrawn, to = deleted, label = "30 days after the withdrawal")
+    transition(from = removed, to = deleted, label = "30 days after the removal")
+}
+----
+
+== Locks and transactions
+
+* Order: *notice row* (`FOR UPDATE`) -> *member row* (`lockForDebit`, `forMemberUpdate`) -> *audit chain row* (last). `createNotice` locks the member first because no notice row exists yet; this serialises the cap of five and the free balance of that member. `pinNotice` takes the organization-settings row first as the mutex of the pin cap (two concurrent pins would both read "4 pinned"); nobody locks a notice before the settings row.
+* `boostNotice` reads the membership without a lock, locks the notice, rejects a notice that is not live, checks the duplicate window, then `lockForDebit` before `freeBalance`, then inserts the boost row and the ledger entry. A concurrent withdrawal waits for the notice lock: either the boost is booked before the status change, or it is refused with the uniform not-found; never a boost on a closed notice. The Postgres lane runs two parallel debits of one member (exactly one succeeds), a boost against a withdrawal, six parallel creations (exactly five) and a creation with a stake against a boost of the same member (no deadlock, never overdrawn).
+* The rate limiters (`NoticeBoardRateLimiter`, and the shared direct-message limiter for `replyToNotice`) are charged *before* the transaction and never inside one: Exposed repeats a transaction block on an SQL error and would count twice (`NoticeBoardTripwireTest`, `DirectMessageComposeTripwireTest`).
+* The returned DTO is loaded *after* the commit, so no aggregation runs under held locks. `INoticeBoardService` is the *last* `registerService` of `Application.kt`; Kilua numbers routes by declaration order, so new methods go to the end of the interface (pinned).
+
+== Reads and caps
+
+`listNotices` selects a narrow projection (id, creation time, pin time, no text) of live notices of eligible authors, at most 5,000 candidates, newest first; boost rows are loaded in chunks of 500 up to 20,000 (the youngest first when cut, so the error only ever points downwards); `NoticeRanking` is a pure function over that data; only the ids of the requested page are loaded in full. The page size is capped at 100. Pinned notices are a separate query (at most ten rows) and independent of the offset. The free balance for the boost controls of a screen is read once per render (`LtrBalanceSource`).
+
+== Single owners (pinned by `NoticeBoardTripwireTest`)
+
+* Only the service, its reader, the retention job, the DSGVO contributor, the gallery policy, the seed part and the backup catalog touch the two tables.
+* The ledger entry type `NOTICE_BOOST` is written only by `NoticeBoardService` (and the seed part, which writes what the service leaves behind).
+* A notice is deleted in exactly one function (`NoticeRetention.deleteNoticeInTx`), which also deletes its pictures (`deleteAllForOwnerInTx`) and boost rows; the DSGVO erasure and the retention job both call it. The picture *files* are deleted after the commit (retention) or, for the erasure, inside the contributor's transaction like `AttachedImagePersonalData` (a contributor cannot run code after the commit).
+* No decay mathematics in the package; log lines name no title, text, note, name or file.

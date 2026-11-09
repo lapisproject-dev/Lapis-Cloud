@@ -31393,3 +31393,159 @@ msgstr "La videoconferencia está en curso. Solo pueden participar quienes esté
 
 msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
 msgstr "La videoconferencia se está preparando. La participación se abre en la página del evento."
+
+msgid "Freies Guthaben: %1"
+msgstr "Saldo libre: %1"
+
+msgid "Schwarzes Brett"
+msgstr "Tablón de anuncios"
+
+msgid "Noch keine Aushänge. Suchen Sie etwas oder bieten Sie etwas an? Hängen Sie den ersten Aushang aus."
+msgstr "Todavía no hay anuncios. ¿Busca algo o ofrece algo? Publique el primer anuncio."
+
+msgid "Keine Aushänge der Kategorie \"%1\"."
+msgstr "No hay anuncios de la categoría \"%1\"."
+
+msgid "Meine Aushänge"
+msgstr "Mis anuncios"
+
+msgid "Aushang aufgeben"
+msgstr "Publicar un anuncio"
+
+msgid "Vom Vorstand"
+msgstr "De la junta directiva"
+
+msgid "Aushänge"
+msgstr "Anuncios"
+
+msgid "Weitere Aushänge anzeigen"
+msgstr "Mostrar más anuncios"
+
+msgid "Der Aushang konnte nicht geladen werden."
+msgstr "No se pudo cargar el anuncio."
+
+msgid "Dieser Aushang ist nicht mehr vorhanden."
+msgstr "Este anuncio ya no existe."
+
+msgid "Ihr Aushang"
+msgstr "Su anuncio"
+
+msgid "Bild zum Aushang \"%1\""
+msgstr "Imagen del anuncio \"%1\""
+
+msgid "aufgegeben am %1"
+msgstr "publicado el %1"
+
+msgid "bearbeitet"
+msgstr "editado"
+
+msgid "Gewicht"
+msgstr "Peso"
+
+msgid "Entfernt: %1"
+msgstr "Eliminado: %1"
+
+msgid "Aushang boosten"
+msgstr "Impulsar anuncio"
+
+msgid "Aushang geboostet."
+msgstr "Anuncio impulsado."
+
+msgid "Aushang zurückziehen"
+msgstr "Retirar anuncio"
+
+msgid "Der Aushang verschwindet vom Schwarzen Brett. Bereits eingesetzte LTR werden NICHT zurückerstattet."
+msgstr "El anuncio desaparece del tablón de anuncios. Los LTR ya utilizados NO se reembolsan."
+
+msgid "Aushang zurückgezogen."
+msgstr "Anuncio retirado."
+
+msgid "Nicht mehr pinnen"
+msgstr "Dejar de fijar"
+
+msgid "Pinnen"
+msgstr "Fijar"
+
+msgid "Aushang nicht mehr gepinnt."
+msgstr "El anuncio ya no está fijado."
+
+msgid "Aushang gepinnt."
+msgstr "Anuncio fijado."
+
+msgid "Ihre Nachricht geht als Direktnachricht an den Autor. Betreff: Schwarzes Brett: %1"
+msgstr "Su mensaje se envía al autor como mensaje directo. Asunto: Schwarzes Brett: %1"
+
+msgid "Bereits gebuchte LTR werden nicht erstattet."
+msgstr "Los LTR ya contabilizados no se reembolsan."
+
+msgid "Höchstens %1 Zeichen. Der Autor sieht Grund und Notiz."
+msgstr "Como máximo %1 caracteres. El autor ve el motivo y la nota."
+
+msgid "Aushang entfernt."
+msgstr "Anuncio eliminado."
+
+msgid "Aushang bearbeiten"
+msgstr "Editar anuncio"
+
+msgid "Neuer Aushang"
+msgstr "Nuevo anuncio"
+
+msgid "Die Kategorie kann nicht mehr geändert werden, weil andere LTR eingesetzt haben."
+msgstr "La categoría ya no se puede cambiar porque otras personas han utilizado LTR en ella."
+
+msgid "Sichtbar bis (einschließlich)"
+msgstr "Visible hasta (inclusive)"
+
+msgid "Höchstens %1 Tage ab dem Aufhängen."
+msgstr "Como máximo %1 días desde la publicación."
+
+msgid "LTR-Einsatz (optional)"
+msgstr "Aportación de LTR (opcional)"
+
+msgid "Je mehr LTR Sie einsetzen, desto weiter oben steht der Aushang. Der Betrag wird nicht zurückerstattet."
+msgstr "Cuantos más LTR utilice, más arriba aparece el anuncio. El importe no se reembolsa."
+
+msgid "Aushang wurde aktualisiert."
+msgstr "El anuncio se ha actualizado."
+
+msgid "Aushang wurde aufgegeben."
+msgstr "El anuncio se ha publicado."
+
+msgid "LTR einsetzen"
+msgstr "Utilizar LTR"
+
+msgid "Info"
+msgstr "Información"
+
+msgid "Entfernt"
+msgstr "Eliminado"
+
+msgid "Verstoß gegen die Regeln der Organisation"
+msgstr "Infracción de las normas de la organización"
+
+msgid "Doppelter Aushang"
+msgstr "Anuncio duplicado"
+
+msgid "Rechtliche Gründe"
+msgstr "Motivos legales"
+
+msgid "läuft heute ab"
+msgstr "caduca hoy"
+
+msgid "sichtbar bis %1"
+msgstr "visible hasta el %1"
+
+msgid "Der Aushang ist nicht mehr aktiv. Das Bild kann nicht mehr geändert werden."
+msgstr "El anuncio ya no está activo. La imagen ya no se puede cambiar."
+
+msgid "Aushang"
+msgstr "Anuncio"
+
+msgid "Aushang-Boost"
+msgstr "Impulso de anuncio"
+
+msgid "Aushang (Schwarzes Brett)"
+msgstr "Anuncio (tablón de anuncios)"
+
+msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
+msgstr "Los miembros publican anuncios en el tablón: búsquedas, ofertas e informaciones con fecha de caducidad. El orden sigue los LTR que los miembros utilizan en un anuncio."

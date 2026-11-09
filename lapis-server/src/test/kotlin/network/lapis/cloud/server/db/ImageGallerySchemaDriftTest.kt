@@ -50,7 +50,8 @@ class ImageGallerySchemaDriftTest :
             // sized by an explicit sqlType (VARCHAR(32)), so the model type is a Varchar; the Kotlin type is the enum
             val entity = model.entities.single { it.name == "attached_image" }
             entity.attributeByName("owner_type")?.type shouldBe ErmDataType.Varchar(length = 32)
-            AttachedImageOwnerType.entries.map { it.name } shouldBe listOf("CROWDFUNDING_PROJECT", "AUCTION_LISTING", "SOCIAL_POST")
+            AttachedImageOwnerType.entries.map { it.name } shouldBe
+                listOf("CROWDFUNDING_PROJECT", "AUCTION_LISTING", "SOCIAL_POST", "NOTICE")
             transaction { AttachedImageTable.ownerType.columnType.sqlType() } shouldBe "VARCHAR(32)"
         }
 

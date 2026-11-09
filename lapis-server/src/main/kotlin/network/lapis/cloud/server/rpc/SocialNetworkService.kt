@@ -75,7 +75,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
-import java.math.RoundingMode
 import kotlin.time.Duration.Companion.days
 import kotlin.uuid.Uuid
 
@@ -173,7 +172,7 @@ class SocialNetworkService internal constructor(
     override suspend fun createPost(input: SocialPostInput): SocialPostDto {
         val current = resolveCurrentMember(call)
         requireRateLimit(memberId = current.memberId)
-        val normalized = normalizeWeight(weight = input.initialWeightLtr)
+        val normalized = SocialPostWeight.normalizeLtrAmount(weight = input.initialWeightLtr)
         requireContentWithinLimits(input.content)
         val now = DbClock.nowLocalDateTime()
         // Security-Audit-Fund S-A1 (2026-08-18): the write transaction below ends the moment the
@@ -254,7 +253,7 @@ class SocialNetworkService internal constructor(
     override suspend fun releaseMyPostDraft(input: McpPostDraftReleaseInput): SocialPostDto {
         val current = resolveCurrentMember(call)
         requireRateLimit(memberId = current.memberId)
-        val normalized = normalizeWeight(weight = input.initialWeightLtr)
+        val normalized = SocialPostWeight.normalizeLtrAmount(weight = input.initialWeightLtr)
         val draftId = input.draftId.toSocialUuid()
         val now = DbClock.nowLocalDateTime()
         val postId =
@@ -351,7 +350,7 @@ class SocialNetworkService internal constructor(
         // own KDoc "N-2" paragraph. A comment is a stake-binding creation, same frequency class.
         requireRateLimit(memberId = current.memberId)
         val parentUuid = input.parentId.toSocialUuid()
-        val normalized = normalizeWeight(weight = input.initialWeightLtr)
+        val normalized = SocialPostWeight.normalizeLtrAmount(weight = input.initialWeightLtr)
         requireContentWithinLimits(input.content)
         val now = DbClock.nowLocalDateTime()
         // Security-Audit-Fund S-A1 (2026-08-18): see [createPost] KDoc note / [loadPostAfterCommit]
@@ -450,7 +449,7 @@ class SocialNetworkService internal constructor(
         val current = resolveCurrentMember(call)
         requireBoostRateLimit(memberId = current.memberId)
         val id = postId.toSocialUuid()
-        val normalized = normalizeWeight(weight = amountLtr, fieldName = "amountLtr")
+        val normalized = SocialPostWeight.normalizeLtrAmount(weight = amountLtr, fieldName = "amountLtr")
         val now = DbClock.nowLocalDateTime()
         // Security-Audit-Fund S-A1 (2026-08-18): see [createPost] KDoc note / [loadPostAfterCommit]
         // KDoc -- the subtree aggregation for the returned DTO no longer runs while this write
@@ -1303,24 +1302,6 @@ class SocialNetworkService internal constructor(
      */
     private fun rankingHorizon(now: LocalDateTime): LocalDateTime =
         (now.toInstant(TimeZone.UTC) - SocialPostWeight.RANKING_HORIZON_DAYS.days).toLocalDateTime(TimeZone.UTC)
-
-    /**
-     * Fund #10 (Review Runde 1, 2026-08-18): [fieldName] is spliced into both thrown messages --
-     * before this fix, a [boostPost] call that failed this check got an "initialWeightLtr ..."
-     * `ConflictException`, which is simply wrong for a boost amount (there is no `initialWeightLtr`
-     * field anywhere near [boostPost]'s own [ISocialNetworkService.boostPost] signature).
-     */
-    private fun normalizeWeight(
-        weight: BigDecimal,
-        fieldName: String = "initialWeightLtr",
-    ): BigDecimal {
-        if (weight.scale() > 2) throw ConflictException("$fieldName must have at most 2 decimal places")
-        val normalized = weight.setScale(2, RoundingMode.UNNECESSARY)
-        if (normalized < SocialPostWeight.MIN_WEIGHT_LTR) {
-            throw ConflictException("$fieldName $normalized is below the minimum of ${SocialPostWeight.MIN_WEIGHT_LTR} LTR")
-        }
-        return normalized
-    }
 
     private fun requireContentWithinLimits(content: String) {
         if (content.isBlank()) throw ConflictException("content must not be blank")

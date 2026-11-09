@@ -31703,3 +31703,159 @@ msgstr "Wideokonferencja trwa. Uczestniczyć mogą tylko osoby zapisane na wydar
 
 msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
 msgstr "Wideokonferencja jest przygotowywana. Udział będzie możliwy na stronie wydarzenia."
+
+msgid "Freies Guthaben: %1"
+msgstr "Wolne saldo: %1"
+
+msgid "Schwarzes Brett"
+msgstr "Tablica ogłoszeń"
+
+msgid "Noch keine Aushänge. Suchen Sie etwas oder bieten Sie etwas an? Hängen Sie den ersten Aushang aus."
+msgstr "Nie ma jeszcze ogłoszeń. Szukasz czegoś lub coś oferujesz? Wywieś pierwsze ogłoszenie."
+
+msgid "Keine Aushänge der Kategorie \"%1\"."
+msgstr "Brak ogłoszeń w kategorii \"%1\"."
+
+msgid "Meine Aushänge"
+msgstr "Moje ogłoszenia"
+
+msgid "Aushang aufgeben"
+msgstr "Wywieś ogłoszenie"
+
+msgid "Vom Vorstand"
+msgstr "Od zarządu"
+
+msgid "Aushänge"
+msgstr "Ogłoszenia"
+
+msgid "Weitere Aushänge anzeigen"
+msgstr "Pokaż więcej ogłoszeń"
+
+msgid "Der Aushang konnte nicht geladen werden."
+msgstr "Nie udało się wczytać ogłoszenia."
+
+msgid "Dieser Aushang ist nicht mehr vorhanden."
+msgstr "To ogłoszenie już nie istnieje."
+
+msgid "Ihr Aushang"
+msgstr "Twoje ogłoszenie"
+
+msgid "Bild zum Aushang \"%1\""
+msgstr "Obraz do ogłoszenia \"%1\""
+
+msgid "aufgegeben am %1"
+msgstr "wywieszone %1"
+
+msgid "bearbeitet"
+msgstr "edytowane"
+
+msgid "Gewicht"
+msgstr "Waga"
+
+msgid "Entfernt: %1"
+msgstr "Usunięto: %1"
+
+msgid "Aushang boosten"
+msgstr "Podbij ogłoszenie"
+
+msgid "Aushang geboostet."
+msgstr "Ogłoszenie podbite."
+
+msgid "Aushang zurückziehen"
+msgstr "Wycofaj ogłoszenie"
+
+msgid "Der Aushang verschwindet vom Schwarzen Brett. Bereits eingesetzte LTR werden NICHT zurückerstattet."
+msgstr "Ogłoszenie zniknie z tablicy ogłoszeń. Już wydane LTR NIE są zwracane."
+
+msgid "Aushang zurückgezogen."
+msgstr "Ogłoszenie wycofane."
+
+msgid "Nicht mehr pinnen"
+msgstr "Odepnij"
+
+msgid "Pinnen"
+msgstr "Przypnij"
+
+msgid "Aushang nicht mehr gepinnt."
+msgstr "Ogłoszenie nie jest już przypięte."
+
+msgid "Aushang gepinnt."
+msgstr "Ogłoszenie przypięte."
+
+msgid "Ihre Nachricht geht als Direktnachricht an den Autor. Betreff: Schwarzes Brett: %1"
+msgstr "Wiadomość trafi do autora jako wiadomość bezpośrednia. Temat: Schwarzes Brett: %1"
+
+msgid "Bereits gebuchte LTR werden nicht erstattet."
+msgstr "Zaksięgowane LTR nie są zwracane."
+
+msgid "Höchstens %1 Zeichen. Der Autor sieht Grund und Notiz."
+msgstr "Najwyżej %1 znaków. Autor widzi powód i notatkę."
+
+msgid "Aushang entfernt."
+msgstr "Ogłoszenie usunięte."
+
+msgid "Aushang bearbeiten"
+msgstr "Edytuj ogłoszenie"
+
+msgid "Neuer Aushang"
+msgstr "Nowe ogłoszenie"
+
+msgid "Die Kategorie kann nicht mehr geändert werden, weil andere LTR eingesetzt haben."
+msgstr "Kategorii nie można już zmienić, ponieważ inni wydali na nie LTR."
+
+msgid "Sichtbar bis (einschließlich)"
+msgstr "Widoczne do (włącznie)"
+
+msgid "Höchstens %1 Tage ab dem Aufhängen."
+msgstr "Najwyżej %1 dni od wywieszenia."
+
+msgid "LTR-Einsatz (optional)"
+msgstr "Stawka w LTR (opcjonalnie)"
+
+msgid "Je mehr LTR Sie einsetzen, desto weiter oben steht der Aushang. Der Betrag wird nicht zurückerstattet."
+msgstr "Im więcej LTR wydasz, tym wyżej stoi ogłoszenie. Kwota nie jest zwracana."
+
+msgid "Aushang wurde aktualisiert."
+msgstr "Ogłoszenie zostało zaktualizowane."
+
+msgid "Aushang wurde aufgegeben."
+msgstr "Ogłoszenie zostało wywieszone."
+
+msgid "LTR einsetzen"
+msgstr "Wydaj LTR"
+
+msgid "Info"
+msgstr "Informacja"
+
+msgid "Entfernt"
+msgstr "Usunięte"
+
+msgid "Verstoß gegen die Regeln der Organisation"
+msgstr "Naruszenie zasad organizacji"
+
+msgid "Doppelter Aushang"
+msgstr "Zduplikowane ogłoszenie"
+
+msgid "Rechtliche Gründe"
+msgstr "Względy prawne"
+
+msgid "läuft heute ab"
+msgstr "wygasa dzisiaj"
+
+msgid "sichtbar bis %1"
+msgstr "widoczne do %1"
+
+msgid "Der Aushang ist nicht mehr aktiv. Das Bild kann nicht mehr geändert werden."
+msgstr "Ogłoszenie nie jest już aktywne. Obrazu nie można już zmienić."
+
+msgid "Aushang"
+msgstr "Ogłoszenie"
+
+msgid "Aushang-Boost"
+msgstr "Podbicie ogłoszenia"
+
+msgid "Aushang (Schwarzes Brett)"
+msgstr "Ogłoszenie (tablica ogłoszeń)"
+
+msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
+msgstr "Członkowie wywieszają na tablicy ogłoszenia: poszukiwania, oferty i informacje z datą ważności. Kolejność wynika z LTR, które członkowie wydają na ogłoszenie."

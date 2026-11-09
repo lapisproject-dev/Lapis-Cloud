@@ -31726,3 +31726,159 @@ msgstr "La videoconferenza è in corso. Possono partecipare solo le persone iscr
 
 msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
 msgstr "La videoconferenza è in preparazione. La partecipazione si apre sulla pagina dell’evento."
+
+msgid "Freies Guthaben: %1"
+msgstr "Saldo disponibile: %1"
+
+msgid "Schwarzes Brett"
+msgstr "Bacheca"
+
+msgid "Noch keine Aushänge. Suchen Sie etwas oder bieten Sie etwas an? Hängen Sie den ersten Aushang aus."
+msgstr "Ancora nessun annuncio. Cerca o offre qualcosa? Pubblichi il primo annuncio."
+
+msgid "Keine Aushänge der Kategorie \"%1\"."
+msgstr "Nessun annuncio della categoria \"%1\"."
+
+msgid "Meine Aushänge"
+msgstr "I miei annunci"
+
+msgid "Aushang aufgeben"
+msgstr "Pubblica un annuncio"
+
+msgid "Vom Vorstand"
+msgstr "Dal consiglio direttivo"
+
+msgid "Aushänge"
+msgstr "Annunci"
+
+msgid "Weitere Aushänge anzeigen"
+msgstr "Mostra altri annunci"
+
+msgid "Der Aushang konnte nicht geladen werden."
+msgstr "Non è stato possibile caricare l'annuncio."
+
+msgid "Dieser Aushang ist nicht mehr vorhanden."
+msgstr "Questo annuncio non esiste più."
+
+msgid "Ihr Aushang"
+msgstr "Il suo annuncio"
+
+msgid "Bild zum Aushang \"%1\""
+msgstr "Immagine dell'annuncio \"%1\""
+
+msgid "aufgegeben am %1"
+msgstr "pubblicato il %1"
+
+msgid "bearbeitet"
+msgstr "modificato"
+
+msgid "Gewicht"
+msgstr "Peso"
+
+msgid "Entfernt: %1"
+msgstr "Rimosso: %1"
+
+msgid "Aushang boosten"
+msgstr "Potenzia l'annuncio"
+
+msgid "Aushang geboostet."
+msgstr "Annuncio potenziato."
+
+msgid "Aushang zurückziehen"
+msgstr "Ritira l'annuncio"
+
+msgid "Der Aushang verschwindet vom Schwarzen Brett. Bereits eingesetzte LTR werden NICHT zurückerstattet."
+msgstr "L'annuncio scompare dalla bacheca. Gli LTR già impiegati NON vengono rimborsati."
+
+msgid "Aushang zurückgezogen."
+msgstr "Annuncio ritirato."
+
+msgid "Nicht mehr pinnen"
+msgstr "Non fissare più"
+
+msgid "Pinnen"
+msgstr "Fissa"
+
+msgid "Aushang nicht mehr gepinnt."
+msgstr "L'annuncio non è più fissato."
+
+msgid "Aushang gepinnt."
+msgstr "Annuncio fissato."
+
+msgid "Ihre Nachricht geht als Direktnachricht an den Autor. Betreff: Schwarzes Brett: %1"
+msgstr "Il suo messaggio va all'autore come messaggio diretto. Oggetto: Schwarzes Brett: %1"
+
+msgid "Bereits gebuchte LTR werden nicht erstattet."
+msgstr "Gli LTR già contabilizzati non vengono rimborsati."
+
+msgid "Höchstens %1 Zeichen. Der Autor sieht Grund und Notiz."
+msgstr "Al massimo %1 caratteri. L'autore vede il motivo e la nota."
+
+msgid "Aushang entfernt."
+msgstr "Annuncio rimosso."
+
+msgid "Aushang bearbeiten"
+msgstr "Modifica annuncio"
+
+msgid "Neuer Aushang"
+msgstr "Nuovo annuncio"
+
+msgid "Die Kategorie kann nicht mehr geändert werden, weil andere LTR eingesetzt haben."
+msgstr "La categoria non può più essere modificata perché altre persone vi hanno impiegato LTR."
+
+msgid "Sichtbar bis (einschließlich)"
+msgstr "Visibile fino al (incluso)"
+
+msgid "Höchstens %1 Tage ab dem Aufhängen."
+msgstr "Al massimo %1 giorni dalla pubblicazione."
+
+msgid "LTR-Einsatz (optional)"
+msgstr "Impiego di LTR (facoltativo)"
+
+msgid "Je mehr LTR Sie einsetzen, desto weiter oben steht der Aushang. Der Betrag wird nicht zurückerstattet."
+msgstr "Più LTR impiega, più in alto compare l'annuncio. L'importo non viene rimborsato."
+
+msgid "Aushang wurde aktualisiert."
+msgstr "L'annuncio è stato aggiornato."
+
+msgid "Aushang wurde aufgegeben."
+msgstr "L'annuncio è stato pubblicato."
+
+msgid "LTR einsetzen"
+msgstr "Impiega LTR"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "Entfernt"
+msgstr "Rimosso"
+
+msgid "Verstoß gegen die Regeln der Organisation"
+msgstr "Violazione delle regole dell'organizzazione"
+
+msgid "Doppelter Aushang"
+msgstr "Annuncio duplicato"
+
+msgid "Rechtliche Gründe"
+msgstr "Motivi legali"
+
+msgid "läuft heute ab"
+msgstr "scade oggi"
+
+msgid "sichtbar bis %1"
+msgstr "visibile fino al %1"
+
+msgid "Der Aushang ist nicht mehr aktiv. Das Bild kann nicht mehr geändert werden."
+msgstr "L'annuncio non è più attivo. L'immagine non può più essere modificata."
+
+msgid "Aushang"
+msgstr "Annuncio"
+
+msgid "Aushang-Boost"
+msgstr "Potenziamento annuncio"
+
+msgid "Aushang (Schwarzes Brett)"
+msgstr "Annuncio (bacheca)"
+
+msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
+msgstr "I membri pubblicano annunci in bacheca: ricerche, offerte e informazioni con una data di scadenza. L'ordine segue gli LTR che i membri impiegano su un annuncio."

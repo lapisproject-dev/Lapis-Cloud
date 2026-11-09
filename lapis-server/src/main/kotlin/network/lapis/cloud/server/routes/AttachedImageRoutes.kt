@@ -247,7 +247,8 @@ internal fun Route.registerAttachedImageRoutes(
         val matches = call.request.queryParameters["v"] == GalleryUrls.versionTag(row.storageKey)
         val cacheControl =
             when {
-                row.ownerType == AttachedImageOwnerType.SOCIAL_POST -> "private, no-store"
+                // A social post and a notice change or vanish (hidden, withdrawn, removed, expired): a cached copy must not outlive that.
+                row.ownerType in setOf(AttachedImageOwnerType.SOCIAL_POST, AttachedImageOwnerType.NOTICE) -> "private, no-store"
                 matches -> "private, max-age=31536000, immutable"
                 else -> "private, no-cache"
             }

@@ -1,0 +1,81 @@
+= Bulletin board "Schwarzes Brett" (V1.9.297)
+:toc:
+
+The bulletin board is where *active members* hang up short notices: something they search, something they offer, or a piece of information, each with an expiry date and at most one picture.
+The *order* of the board depends on the LTR members spend on a notice, with the same decay as the social network.
+Replies go to the author as an ordinary private message, never as a public comment thread. The board (BOARD or ADMIN) pins official notices and removes others' notices with a reason.
+
+== Who may do what
+
+[cols="1,3",options="header"]
+|===
+|Who |Rights
+|ACTIVE member (`MemberStatusSets.NOTICE_BOARD`) |Reads the board, hangs up notices (at most 5 active at the same time), edits and withdraws their own notice, spends LTR on any notice (their own too), replies to an author, reads "Meine Aushänge"
+|BOARD or ADMIN |Everything above, plus: pins and unpins (at most 5 pinned at the same time), removes somebody else's notice with a mandatory reason and an optional note of up to 500 characters
+|Guest, friend, applicant, former member, anonymized account |Nothing. Every method of `INoticeBoardService` is refused with `ForbiddenException`, reading included
+|===
+
+NOTE: This is *narrower than the carpool centre*. The carpool centre lets GUEST and FRIEND read the offers (`MemberStatusSets.CARPOOL_PASSENGER`); the board does not: the owner decided "only members, read and write". The set `NOTICE_BOARD` is its own constant (today equal to the active members) and is used only by the board's files; widening it is a one-line change plus a decision, and `NoticeBoardTripwireTest` forbids the carpool set in the board's files.
+
+An unknown, malformed, expired, withdrawn or removed id, and the id of a notice whose author is no longer an active member, all give the *same* answer (`NotFoundException`, which never echoes the id). There is no way to find out that a notice exists.
+
+== A notice
+
+* *Category:* search, offer, information, other. A category is locked once somebody *else* spent LTR on the notice (the author's own stake does not lock it).
+* *Title* 3 to 120 characters, *text* 1 to 2,000 characters (a line break is allowed; other control characters are refused). Titles and texts are shown as plain text, never as markup.
+* *Expiry:* the author picks the *last day on which the notice is shown* (organization calendar day), from tomorrow up to day 89 after the creation (default: 30 days). Internally the notice ends at the start of the following organization day. An expired notice is gone from every list at that instant; the status `EXPIRED` is only bookkeeping of a daily job and is never trusted by a read.
+* *One picture* per notice, added after the first save (the notice id must exist). It uses the existing gallery (JPEG, PNG, WebP in; at most 5 MB; re-encoded; no SVG) and has no cover, no caption and no re-order; the alternative text can be set once. The picture is delivered only to active members, `private, no-store`, so a withdrawal or an expiry takes effect at once.
+* *Edit:* only the author, only while the notice is live. The expiry may be moved but never beyond 90 days after the *creation*.
+* *Withdraw:* only the author. Already spent LTR is *not* refunded.
+
+== LTR order
+
+The weight of a notice is `round2( sum of boost * 0.9^days )`, every boost decaying from *its own* time, computed when the page is read and never stored. There is no base value: a notice without any stake weighs `0.00` and sorts at the bottom. The order is:
+
+. pinned notices (most recently pinned first), shown in their own area "Vom Vorstand"
+. weight, descending
+. on a tie the newer notice first, then the id (so the order is total)
+
+The mathematics is the social network's (`SocialPostWeight`, `WeightDecayClock`); the board contains no second copy of it (`NoticeBoardTripwireTest`). A weight pill appears on a card only from `0.01` LTR.
+
+*Spending LTR.* "Boosten" (amount of at least 0.01, two decimals at most) books `-amount` as ledger entry `NOTICE_BOOST` with reference `NOTICE` (the notice id) in the *same transaction* as the boost row, after the member's free balance was locked. The amount is captured inline, then confirmed with the sentence "Sie zahlen X aus Ihrem freien LTR-Guthaben. Dieser Betrag wird NICHT zurückerstattet." The same component and sentence are used by the social network, which therefore now also shows the free balance (see the CHANGELOG). An optional stake can be given when the notice is created; it is booked atomically with the notice: with too little balance *no notice is created*. The same amount twice within five seconds is a double click and refused.
+
+== Replying
+
+"Antworten" sends a *direct message* to the author. The server writes the first line `Schwarzes Brett: <title>` (always German; a direct message has no subject field; the title is read from the database, never from the client) and appends the text (1 to 2,000 characters). The usual rules apply: blocks in either direction, the member-finder block, a recipient who is no longer an active member, an anonymized recipient: all refuse with the same uniform error, and the card shows no reply button (`canReply = false`) without saying why. No reply to one's own notice. The direct-message budget is shared with every other message.
+
+== Moderation
+
+The board pins and unpins (at most 5 pinned at once; a notice that ends, is withdrawn or removed loses its pin) and removes a notice with one of four reasons (spam, violation of the organization's rules, duplicate, legal reasons) and an optional note. The author sees reason and note in "Meine Aushänge"; nobody else does. A removal never refunds LTR. The board withdraws its own notices instead of removing them.
+
+== Retention
+
+A closed notice is *deleted for good 30 days after it closed*: an expired one counts from its expiry, a withdrawn one from the withdrawal, a removed one from the removal. The deletion takes its boost rows and picture rows with it; the picture *files* are deleted only after the database transaction committed. The LTR ledger entries stay (booking history).
+
+== Data protection (DSGVO)
+
+* *Export:* the member's own notices with every field (including a removal reason and note), per own notice the *number and sum* of the boosts of others (never who), and the member's own boosts.
+* *Erasure* (every mode): own notices, the boost rows on them, picture rows and picture files are deleted. The member's *own boosts on other members' notices are retained* with a reason (part of the LTR booking history, like `social_post_boost`). Under hard deletion a moderator's `pinned_by` and `removed_by` on other notices are set to `NULL` (time and reason stay).
+* *Audit log:* one entry per create, edit, withdrawal, boost, pin, unpin and removal; it carries the operation, a reason *code* and an amount, *never* a title, a text or a note.
+* *Backup:* the tables are part of the organization backup (a notice is organization content, not a private photo); the picture table is a blob table already.
+
+== Staging and demo seed
+
+The top-up part `notices` writes three fictional notices (a search, an offer with one boost of another member, a pinned notice of the board). They expire 20 to 30 days ahead; after the expiry plus 30 days the retention job deletes them and the next top-up writes them again, because their fixed id is missing then. That is intended.
+
+== Open questions (defaults apply until the owner decides)
+
+. *Spending on one's own notice* is allowed (as in the social network). Forbidding it is one line in `boostNotice` (and the initial stake would go).
+. *Moderation duties of the board:* nothing obliges the board to review notices; there is no report button. The board only reacts when it notices a problem. If the organization needs a reporting path, it has to be added.
+. *Thirty days after closing* is an operator-neutral default; a different period is one constant (`NoticeRules.RETENTION_DAYS_AFTER_CLOSE`).
+. *Picture rights:* the author confirms nothing. Whether a rights hint is needed in front of the upload is open.
+. *Notices of authors who left:* they disappear at once (a reply would be impossible). Whether they should stay visible without a reply button is open.
+. *German reply prefix:* `Schwarzes Brett: ` is fixed text, not translated per language.
+
+== Not verified
+
+* No load test of the ranking with realistic data volumes. One read looks at no more than 5,000 candidate notices and 20,000 boost rows (youngest boosts first when cut); beyond that the order is only approximate, and the pinned notices are always complete.
+* No live instance: nothing was run against a deployed server.
+* The rate limits (writes 10 per hour, boosts 20 per hour, replies 20 per hour, reads 120 per minute, moderation 30 per minute) are *per server process*; several instances would multiply them.
+* Accessibility was checked only by DOM tests (names, `aria-pressed`, live region, focus order of the dialogs); it was *not* tried with a screen reader.
+* The picture upload was exercised with generated pictures only.

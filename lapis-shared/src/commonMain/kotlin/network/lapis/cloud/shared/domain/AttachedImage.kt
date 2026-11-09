@@ -6,10 +6,11 @@ import kotlinx.serialization.Serializable
 /**
  * V1.9.222 "Gemeinsame Bildergalerie" -- the object a gallery belongs to. Literal order is load-bearing:
  * `ImageGallerySchemaDriftTest` pins `ErmDataType.Enum.values` against this exact order (= `75-image-gallery.kuml.kts`).
- * V1.9.223: a ROOT social post joins as [SOCIAL_POST] (migration V120 widens the `owner_type` CHECK); new literals go to the end.
+ * V1.9.223: a ROOT social post joins as [SOCIAL_POST] (migration V120 widens the `owner_type` CHECK); V1.9.297: a bulletin-board notice joins as [NOTICE]
+ * (migration V149); new literals go to the end.
  */
 @Serializable
-enum class AttachedImageOwnerType { CROWDFUNDING_PROJECT, AUCTION_LISTING, SOCIAL_POST }
+enum class AttachedImageOwnerType { CROWDFUNDING_PROJECT, AUCTION_LISTING, SOCIAL_POST, NOTICE }
 
 /** Why a gallery can no longer be changed by its creator. Absent (`null`) while it can. */
 @Serializable
@@ -130,15 +131,30 @@ object GalleryRules {
     /** V1.9.223: ids accepted by one `listSocialPostPreviews` call. */
     const val SOCIAL_PREVIEW_MAX_IDS: Int = 50
 
+    /** V1.9.297: a bulletin-board notice carries exactly one picture. */
+    const val NOTICE_MAX_IMAGES: Int = 1
+
     fun maxImagesFor(type: AttachedImageOwnerType): Int =
         when (type) {
             AttachedImageOwnerType.CROWDFUNDING_PROJECT, AttachedImageOwnerType.AUCTION_LISTING -> 10
             AttachedImageOwnerType.SOCIAL_POST -> SOCIAL_POST_MAX_IMAGES
+            AttachedImageOwnerType.NOTICE -> NOTICE_MAX_IMAGES
         }
 
-    /** Cover image and re-ordering exist for every owner except a social post (its first picture is simply the first). */
-    fun supportsCoverAndOrder(type: AttachedImageOwnerType): Boolean = type != AttachedImageOwnerType.SOCIAL_POST
+    /**
+     * Cover image and re-ordering exist for crowdfunding and auction galleries only. A social post (its first picture is simply the first) and a
+     * notice (one picture) have none. Exhaustive on purpose: a new owner type must decide here.
+     */
+    fun supportsCoverAndOrder(type: AttachedImageOwnerType): Boolean =
+        when (type) {
+            AttachedImageOwnerType.CROWDFUNDING_PROJECT, AttachedImageOwnerType.AUCTION_LISTING -> true
+            AttachedImageOwnerType.SOCIAL_POST, AttachedImageOwnerType.NOTICE -> false
+        }
 
-    /** A visible caption exists for every owner except a social post (only the alt text, set once). */
-    fun supportsCaption(type: AttachedImageOwnerType): Boolean = type != AttachedImageOwnerType.SOCIAL_POST
+    /** A visible caption exists for crowdfunding and auction galleries only (a social post and a notice have only the alt text, set once). */
+    fun supportsCaption(type: AttachedImageOwnerType): Boolean =
+        when (type) {
+            AttachedImageOwnerType.CROWDFUNDING_PROJECT, AttachedImageOwnerType.AUCTION_LISTING -> true
+            AttachedImageOwnerType.SOCIAL_POST, AttachedImageOwnerType.NOTICE -> false
+        }
 }

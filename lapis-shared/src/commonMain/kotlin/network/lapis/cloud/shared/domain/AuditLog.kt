@@ -665,6 +665,13 @@ enum class AuditEntityType {
      * Appended LAST.
      */
     PARTG_LARGE_DONOR_PROPOSAL,
+
+    /**
+     * Welle V1.9.297 -- a bulletin-board notice was created, edited, withdrawn, boosted, pinned, unpinned or removed; `entityId` = the notice.
+     * Snapshot [NoticeAuditSnapshot]: the operation, a removal reason code and a boost amount only -- never a title, a text or a note.
+     * 15 chars. Appended LAST.
+     */
+    BULLETIN_NOTICE,
 }
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */

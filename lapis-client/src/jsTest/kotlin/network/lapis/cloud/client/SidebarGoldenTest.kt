@@ -113,6 +113,7 @@ class SidebarGoldenTest {
                       /messages|Nachrichten|fas fa-envelope
                       /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
+                      /notice-board|Schwarzes Brett|fas fa-clipboard-list
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
                       /dsgvo-rights|Meine Daten|fas fa-shield-halved
@@ -150,6 +151,7 @@ class SidebarGoldenTest {
                       /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /my-chapter|Mein Landesverband|fas fa-users-rectangle
                       /carpool|Mitfahrzentrale|fas fa-car-side
+                      /notice-board|Schwarzes Brett|fas fa-clipboard-list
                       /member-finder|Mitglieder-Finder|fas fa-user-group
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
@@ -187,6 +189,7 @@ class SidebarGoldenTest {
                       /messages|Nachrichten|fas fa-envelope
                       /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
+                      /notice-board|Schwarzes Brett|fas fa-clipboard-list
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
                       /dsgvo-rights|Meine Daten|fas fa-shield-halved
@@ -223,6 +226,7 @@ class SidebarGoldenTest {
                       /messages|Nachrichten|fas fa-envelope
                       /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
+                      /notice-board|Schwarzes Brett|fas fa-clipboard-list
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
                       /dsgvo-rights|Meine Daten|fas fa-shield-halved
@@ -278,6 +282,7 @@ class SidebarGoldenTest {
                       /messages|Nachrichten|fas fa-envelope
                       /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
+                      /notice-board|Schwarzes Brett|fas fa-clipboard-list
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
                       /dsgvo-rights|Meine Daten|fas fa-shield-halved
@@ -351,6 +356,7 @@ class SidebarGoldenTest {
                       /messages|Nachrichten|fas fa-envelope
                       /mailing-lists|Mailinglisten|fas fa-envelopes-bulk
                       /carpool|Mitfahrzentrale|fas fa-car-side
+                      /notice-board|Schwarzes Brett|fas fa-clipboard-list
                       /articles|Artikel|fas fa-newspaper
                       /donate|Spenden|fas fa-hand-holding-heart
                       /dsgvo-rights|Meine Daten|fas fa-shield-halved

@@ -56,6 +56,14 @@ internal object PageIntros {
                             "Mitglieder können außerdem selbst Fahrten anbieten oder eine Fahrt suchen.",
                     ),
                 )
+            Routes.NOTICE_BOARD ->
+                PageIntroDef(
+                    "notice-board",
+                    tr(
+                        "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. " +
+                            "Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen.",
+                    ),
+                )
             Routes.CONTRIBUTIONS ->
                 PageIntroDef(
                     "contributions",
@@ -661,6 +669,7 @@ internal object PageIntros {
             Routes.CONFERENCE,
             Routes.ENCOUNTER,
             Routes.CARPOOL,
+            Routes.NOTICE_BOARD,
             Routes.CONTRIBUTIONS,
             Routes.DOCUMENTS,
             Routes.STATUTE_QA,

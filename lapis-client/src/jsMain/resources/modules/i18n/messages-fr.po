@@ -31744,3 +31744,159 @@ msgstr "La visioconférence est en cours. Seules les personnes inscrites à l’
 
 msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
 msgstr "La visioconférence est en préparation. La participation s’ouvre sur la page de l’événement."
+
+msgid "Freies Guthaben: %1"
+msgstr "Solde disponible : %1"
+
+msgid "Schwarzes Brett"
+msgstr "Tableau d'affichage"
+
+msgid "Noch keine Aushänge. Suchen Sie etwas oder bieten Sie etwas an? Hängen Sie den ersten Aushang aus."
+msgstr "Aucune annonce pour le moment. Vous cherchez ou proposez quelque chose ? Publiez la première annonce."
+
+msgid "Keine Aushänge der Kategorie \"%1\"."
+msgstr "Aucune annonce de la catégorie \"%1\"."
+
+msgid "Meine Aushänge"
+msgstr "Mes annonces"
+
+msgid "Aushang aufgeben"
+msgstr "Publier une annonce"
+
+msgid "Vom Vorstand"
+msgstr "Du conseil d'administration"
+
+msgid "Aushänge"
+msgstr "Annonces"
+
+msgid "Weitere Aushänge anzeigen"
+msgstr "Afficher plus d'annonces"
+
+msgid "Der Aushang konnte nicht geladen werden."
+msgstr "L'annonce n'a pas pu être chargée."
+
+msgid "Dieser Aushang ist nicht mehr vorhanden."
+msgstr "Cette annonce n'existe plus."
+
+msgid "Ihr Aushang"
+msgstr "Votre annonce"
+
+msgid "Bild zum Aushang \"%1\""
+msgstr "Image de l'annonce \"%1\""
+
+msgid "aufgegeben am %1"
+msgstr "publiée le %1"
+
+msgid "bearbeitet"
+msgstr "modifiée"
+
+msgid "Gewicht"
+msgstr "Poids"
+
+msgid "Entfernt: %1"
+msgstr "Supprimée : %1"
+
+msgid "Aushang boosten"
+msgstr "Booster l'annonce"
+
+msgid "Aushang geboostet."
+msgstr "Annonce boostée."
+
+msgid "Aushang zurückziehen"
+msgstr "Retirer l'annonce"
+
+msgid "Der Aushang verschwindet vom Schwarzen Brett. Bereits eingesetzte LTR werden NICHT zurückerstattet."
+msgstr "L'annonce disparaît du tableau d'affichage. Les LTR déjà engagés ne sont PAS remboursés."
+
+msgid "Aushang zurückgezogen."
+msgstr "Annonce retirée."
+
+msgid "Nicht mehr pinnen"
+msgstr "Ne plus épingler"
+
+msgid "Pinnen"
+msgstr "Épingler"
+
+msgid "Aushang nicht mehr gepinnt."
+msgstr "L'annonce n'est plus épinglée."
+
+msgid "Aushang gepinnt."
+msgstr "Annonce épinglée."
+
+msgid "Ihre Nachricht geht als Direktnachricht an den Autor. Betreff: Schwarzes Brett: %1"
+msgstr "Votre message est envoyé à l'auteur en message direct. Objet : Schwarzes Brett: %1"
+
+msgid "Bereits gebuchte LTR werden nicht erstattet."
+msgstr "Les LTR déjà comptabilisés ne sont pas remboursés."
+
+msgid "Höchstens %1 Zeichen. Der Autor sieht Grund und Notiz."
+msgstr "Au maximum %1 caractères. L'auteur voit le motif et la note."
+
+msgid "Aushang entfernt."
+msgstr "Annonce supprimée."
+
+msgid "Aushang bearbeiten"
+msgstr "Modifier l'annonce"
+
+msgid "Neuer Aushang"
+msgstr "Nouvelle annonce"
+
+msgid "Die Kategorie kann nicht mehr geändert werden, weil andere LTR eingesetzt haben."
+msgstr "La catégorie ne peut plus être modifiée, car d'autres personnes y ont engagé des LTR."
+
+msgid "Sichtbar bis (einschließlich)"
+msgstr "Visible jusqu'au (inclus)"
+
+msgid "Höchstens %1 Tage ab dem Aufhängen."
+msgstr "Au maximum %1 jours à partir de la publication."
+
+msgid "LTR-Einsatz (optional)"
+msgstr "Mise en LTR (facultatif)"
+
+msgid "Je mehr LTR Sie einsetzen, desto weiter oben steht der Aushang. Der Betrag wird nicht zurückerstattet."
+msgstr "Plus vous engagez de LTR, plus l'annonce apparaît haut. Le montant n'est pas remboursé."
+
+msgid "Aushang wurde aktualisiert."
+msgstr "L'annonce a été mise à jour."
+
+msgid "Aushang wurde aufgegeben."
+msgstr "L'annonce a été publiée."
+
+msgid "LTR einsetzen"
+msgstr "Engager des LTR"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "Entfernt"
+msgstr "Supprimée"
+
+msgid "Verstoß gegen die Regeln der Organisation"
+msgstr "Infraction aux règles de l'organisation"
+
+msgid "Doppelter Aushang"
+msgstr "Annonce en double"
+
+msgid "Rechtliche Gründe"
+msgstr "Raisons juridiques"
+
+msgid "läuft heute ab"
+msgstr "expire aujourd'hui"
+
+msgid "sichtbar bis %1"
+msgstr "visible jusqu'au %1"
+
+msgid "Der Aushang ist nicht mehr aktiv. Das Bild kann nicht mehr geändert werden."
+msgstr "L'annonce n'est plus active. L'image ne peut plus être modifiée."
+
+msgid "Aushang"
+msgstr "Annonce"
+
+msgid "Aushang-Boost"
+msgstr "Boost d'annonce"
+
+msgid "Aushang (Schwarzes Brett)"
+msgstr "Annonce (tableau d'affichage)"
+
+msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
+msgstr "Les membres publient des annonces sur le tableau d'affichage : recherches, offres et informations avec une date d'expiration. L'ordre suit les LTR que les membres engagent sur une annonce."

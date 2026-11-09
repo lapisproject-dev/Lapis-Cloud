@@ -59,6 +59,9 @@ import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.branding.ResolvedLogoFile
 import network.lapis.cloud.server.branding.brandingLogoContentType
 import network.lapis.cloud.server.branding.legacyRouteFile
+import network.lapis.cloud.server.bulletin.NoticeBoardDeps
+import network.lapis.cloud.server.bulletin.NoticeBoardRateLimiter
+import network.lapis.cloud.server.bulletin.NoticeRetentionPoller
 import network.lapis.cloud.server.carpool.CarpoolDeps
 import network.lapis.cloud.server.carpool.CarpoolNotifier
 import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
@@ -382,6 +385,7 @@ import network.lapis.cloud.server.rpc.MemberPhotoService
 import network.lapis.cloud.server.rpc.MemberPublicProfileService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.MemberStatisticsService
+import network.lapis.cloud.server.rpc.NoticeBoardService
 import network.lapis.cloud.server.rpc.OnlineCountsService
 import network.lapis.cloud.server.rpc.OpenItemService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
@@ -499,6 +503,7 @@ import network.lapis.cloud.shared.rpc.IMemberPhotoService
 import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IMemberStatisticsService
+import network.lapis.cloud.shared.rpc.INoticeBoardService
 import network.lapis.cloud.shared.rpc.IOnlineCountsService
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
@@ -1636,6 +1641,11 @@ internal fun Application.module(
     val carpoolRetentionPoller = CarpoolRetentionPoller()
     carpoolRetentionPoller.start()
     monitor.subscribe(ApplicationStopping) { carpoolRetentionPoller.stop() }
+    // V1.9.297 bulletin board: marks passed notices EXPIRED and deletes closed ones 30 days after they closed (pictures after the commit).
+    // The read path never relies on this (it filters on expires_at itself).
+    val noticeRetentionPoller = NoticeRetentionPoller(storage = attachedImageStorage)
+    noticeRetentionPoller.start()
+    monitor.subscribe(ApplicationStopping) { noticeRetentionPoller.stop() }
     // V1.9.144 member finder: hourly housekeeping (expiry, detaching, deletion, once-a-day band evaluation); idle while the instance switch is off.
     val memberFinderPoller = MemberFinderPoller()
     memberFinderPoller.start()
@@ -3090,10 +3100,17 @@ internal fun Application.module(
         registerService(IPartnerServerService::class) { call ->
             PartnerServerService(call = call, probeRateLimiter = partnerProbeRateLimiter)
         }
-        // V1.9.246 Aktionen A1. THIS is the LAST registerService (after IPartnerServerService). New methods of the interface go to its end,
-        // never in between.
+        // V1.9.246 Aktionen A1. Second to last since V1.9.297 (the bulletin board is the LAST registerService). New methods of the interface go
+        // to its end, never in between.
         registerService(IActivismService::class) { call ->
             ActivismService(call = call, limiter = activismRateLimiter)
+        }
+        // V1.9.297 Schwarzes Brett. THIS is the LAST registerService (after IActivismService). The direct-message limiter is the SAME instance as the
+        // message service's (a reply shares its budget); the board's own limiter is one for the whole process. New methods of the interface go to
+        // its end, never in between.
+        val noticeBoardDeps = NoticeBoardDeps(limiter = NoticeBoardRateLimiter(), directMessageRateLimiter = directMessageRateLimiter)
+        registerService(INoticeBoardService::class) { call ->
+            NoticeBoardService(call = call, deps = noticeBoardDeps)
         }
     }
 

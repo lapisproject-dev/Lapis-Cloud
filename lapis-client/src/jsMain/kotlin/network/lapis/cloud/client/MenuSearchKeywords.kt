@@ -18,6 +18,7 @@ object MenuSearchKeywords {
             Routes.CONFERENCE to listOf("video", "konferenz", "videoanruf", "besprechung", "online treffen", "anruf"),
             Routes.ENCOUNTER to listOf("begegnung", "raum", "treffen", "gespräch", "andacht"),
             Routes.CARPOOL to listOf("mitfahrt", "fahrgemeinschaft", "auto", "mitfahren", "anreise"),
+            Routes.NOTICE_BOARD to listOf("schwarzes brett", "aushang", "pinnwand", "anzeige", "suche", "biete", "angebot"),
             Routes.CONTRIBUTIONS to listOf("mitgliedsbeitrag", "beitrag", "zahlung", "rechnung", "gebühr", "zahlen"),
             Routes.DOCUMENTS to listOf("datei", "unterlagen", "satzung", "ablage", "pdf"),
             Routes.STATUTE_QA to listOf("satzung", "ki", "assistent", "frage", "regeln"),

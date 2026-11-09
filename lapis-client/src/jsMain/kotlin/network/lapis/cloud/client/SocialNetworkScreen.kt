@@ -4,7 +4,6 @@ import dev.kilua.rpc.types.toDouble
 import io.kvision.core.Container
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
-import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
 import io.kvision.html.Button
@@ -90,6 +89,8 @@ import network.lapis.cloud.shared.rpc.NotFoundException
  * **Empty state (D10-analogue)**: zero posts renders "Noch keine Beiträge." instead of a blank list.
  */
 fun renderSocialNetworkScreen(container: SimplePanel) {
+    // V1.9.297: the boost controls of this render show the free balance; it is loaded again once per render, not once per post.
+    sharedLtrBalanceSource.invalidate()
     val root =
         container.pageShell(PageWidth.WIDE, spacing = 14)
     lateinit var draftBannerHost: SimplePanel
@@ -498,56 +499,16 @@ private fun renderBoostControl(
     post: SocialPostDto,
     onChanged: () -> Unit,
 ) {
-    lateinit var amountInput: Text
-    lateinit var boostButton: Button
-    row.inlineFieldGroup {
-        // The label keeps its unit: "(LTR)" says what the number is. The field is 8 rem wide, a decimal keypad on phones.
-        amountInput =
-            text(label = tr("Boost-Betrag (LTR)")) {
-                placeholder = "LTR"
-                width = 8.rem
-            }
-        amountInput.input.setAttribute("inputmode", "decimal")
-        amountInput.input.setAttribute("aria-label", gettext("Boost-Betrag in LTR"))
-        boostButton = button(tr("Boosten"), style = ButtonStyle.OUTLINEPRIMARY)
-    }
-    val errorBox =
-        row.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    boostButton.onClick {
-        errorBox.hide()
-        val amountText = amountInput.value.orEmpty().trim()
-        val amountParsed = parseLtrAmountInput(amountText)
-        if (amountParsed !is AmountInput.Valid) {
-            errorBox.content = amountErrorText(amountParsed, tr("Bitte einen positiven Betrag (LTR) angeben."))
-            errorBox.show()
-            return@onClick
-        }
-        // V1.9.200: a third decimal place is refused with a message (before: rounded silently, "0,123" became 0,12).
-        val amount = amountParsed.value
-        confirmDialog(
-            title = tr("Beitrag boosten"),
-            message =
-                gettext(
-                    "Sie zahlen %1 aus Ihrem freien LTR-Guthaben. Dieser Betrag wird NICHT zurückerstattet.",
-                    formatLtr(amount),
-                ),
-            confirmLabel = tr("Boosten"),
-        ) {
-            boostButton.disabled = true
-            AppScope.launch {
-                val result = guarded { rpcService<ISocialNetworkService>().boostPost(post.id, amount) }
-                boostButton.disabled = false
-                if (result != null) {
-                    notifySuccess(tr("Beitrag geboostet."))
-                    amountInput.value = null
-                    onChanged()
-                }
-            }
-        }
-    }
+    // V1.9.297: the control is shared with the bulletin board (`ltrBoostControl`): same inline amount, same confirmation text, and now the free
+    // balance on a line of its own (loaded once per screen, not once per post).
+    ltrBoostControl(
+        row = row,
+        balance = sharedLtrBalanceSource,
+        confirmTitle = tr("Beitrag boosten"),
+        successText = tr("Beitrag geboostet."),
+        onBoost = { amount -> guarded { rpcService<ISocialNetworkService>().boostPost(post.id, amount) } != null },
+        onChanged = onChanged,
+    )
 }
 
 /**
@@ -835,6 +796,7 @@ fun renderSocialThreadScreen(
     container: SimplePanel,
     postId: String,
 ) {
+    sharedLtrBalanceSource.invalidate()
     val root =
         container.pageShell(PageWidth.WIDE, spacing = 14)
     root.link(tr("← Zurück zur Timeline"), url = "#${Routes.SOCIAL_NETWORK}") { addCssClasses("small") }

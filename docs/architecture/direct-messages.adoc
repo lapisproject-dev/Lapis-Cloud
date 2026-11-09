@@ -205,8 +205,8 @@ The group rule and the recipients are read again under the lock.
 
 An unknown, malformed, non-member, anonymized or blocked recipient is ONE `DirectMessageRecipientUnavailableException` with a fixed text and no id. Before V1.9.237 an unknown id
 answered `NotFoundException("Member <id> not found")` and an unreceivable one a `ConflictException`, which let a caller probe membership. The rule lives in
-`directMessageRecipientRefusal` and runs for all five entry points: `sendDirectMessage`, `sendDirectMessageWithAttachments` (and the upload route), `CarpoolService.contactAuthor`,
-`MemberFinderService.contactConnection` and the event-registration notifier. The member lookup and both block lookups always run, so the amount of work is the same for every reason.
+`directMessageRecipientRefusal` and runs for all six entry points: `sendDirectMessage`, `sendDirectMessageWithAttachments` (and the upload route), `CarpoolService.contactAuthor`,
+`MemberFinderService.contactConnection`, `NoticeBoardService.replyToNotice` (V1.9.297) and the event-registration notifier. The member lookup and both block lookups always run, so the amount of work is the same for every reason.
 Writing to oneself stays a `ConflictException`. **Behaviour change:** callers that used to see NotFound/Conflict for the recipient now get the typed exception (mapped centrally in
 `AppState.typedRefusalText`). The event-registration notifier swallows every exception (it logs only the class name), so a block also suppresses the registration message to the event
 creator -- the e-mail notice still goes out.

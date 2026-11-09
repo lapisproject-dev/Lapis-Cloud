@@ -402,11 +402,13 @@ class SidebarStructureTest {
     }
 
     @Test
-    fun memberFinderLink_sitsRightAfterTheCarpoolCentre_forAnActiveMember() {
+    fun memberFinderLink_sitsRightAfterTheBulletinBoard_whichSitsRightAfterTheCarpoolCentre_forAnActiveMember() {
         val urls = orderedSidebarLinkUrls(adminSession)
         val carpool = urls.indexOf("#${Routes.CARPOOL}")
         assertTrue(carpool >= 0)
-        assertEquals(carpool + 1, urls.indexOf("#${Routes.MEMBER_FINDER}"))
+        // V1.9.297: the bulletin board follows the carpool centre directly, the finder follows the board
+        assertEquals(carpool + 1, urls.indexOf("#${Routes.NOTICE_BOARD}"))
+        assertEquals(carpool + 2, urls.indexOf("#${Routes.MEMBER_FINDER}"))
     }
 
     @Test

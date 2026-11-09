@@ -456,6 +456,9 @@ private fun Container.renderLtrReference(entry: LtrLedgerEntryDto) {
         // HIDDEN_BY_AUTHOR-Post -- der bleibt über getPost direkt erreichbar (siehe
         // SocialNetworkScreen.kt's eigene renderHideOwnPostControl KDoc).
         link(ltrLedgerReferenceTypeLabel(referenceType), url = "#${Routes.SOCIAL_NETWORK}/post/$referenceId")
+    } else if (referenceType == LtrLedgerReferenceType.NOTICE && referenceId != null) {
+        // V1.9.297: the notice is resolved at read time (the ledger note carries no text); a deleted notice shows a calm line on the board.
+        link(ltrLedgerReferenceTypeLabel(referenceType), url = "#${Routes.NOTICE_BOARD}?notice=$referenceId")
     } else {
         span(referenceType?.let { ltrLedgerReferenceTypeLabel(it) } ?: "--") { addCssClasses("text-muted small") }
     }
@@ -916,6 +919,7 @@ fun ltrLedgerEntryTypeLabel(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.AUCTION_SALE_IN -> gettext("Auktionsverkauf")
         LtrLedgerEntryType.SOCIAL_POST_STAKE -> gettext("Beitrags-Einsatz")
         LtrLedgerEntryType.SOCIAL_POST_BOOST -> gettext("Beitrags-Boost")
+        LtrLedgerEntryType.NOTICE_BOOST -> gettext("Aushang-Boost")
     }
 
 fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
@@ -933,6 +937,7 @@ fun ltrLedgerEntryTypeColor(type: LtrLedgerEntryType): String =
         LtrLedgerEntryType.AUCTION_SALE_IN -> "success"
         LtrLedgerEntryType.SOCIAL_POST_STAKE -> "warning"
         LtrLedgerEntryType.SOCIAL_POST_BOOST -> "warning"
+        LtrLedgerEntryType.NOTICE_BOOST -> "warning"
     }
 
 fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =
@@ -942,6 +947,7 @@ fun ltrLedgerReferenceTypeLabel(type: LtrLedgerReferenceType): String =
         LtrLedgerReferenceType.PEER_TRANSFER -> gettext("Peer-Transfer")
         LtrLedgerReferenceType.AUCTION -> gettext("Auktion")
         LtrLedgerReferenceType.SOCIAL_POST -> gettext("Beitrag (Soziales Netzwerk)")
+        LtrLedgerReferenceType.NOTICE -> gettext("Aushang (Schwarzes Brett)")
     }
 
 fun peerTransferCharacterizationLabel(characterization: PeerTransferCharacterization): String =

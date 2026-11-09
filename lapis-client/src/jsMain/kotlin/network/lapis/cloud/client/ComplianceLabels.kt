@@ -227,6 +227,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_REPORT_DECLARATION -> gettext("Rechenschaftsbericht: Versicherung")
         AuditEntityType.PARTG_REPORT_DEADLINE -> gettext("Rechenschaftsbericht: Frist")
         AuditEntityType.PARTG_LARGE_DONOR_PROPOSAL -> gettext("Rechenschaftsbericht: Vorschlag für Ausweis B übernommen")
+        // V1.9.297 -- one entry per create, edit, withdrawal, boost, pin, unpin and removal; the entry never carries a title or a text.
+        AuditEntityType.BULLETIN_NOTICE -> gettext("Aushang")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -378,6 +380,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_REPORT_DECLARATION -> "secondary"
         AuditEntityType.PARTG_REPORT_DEADLINE -> "secondary"
         AuditEntityType.PARTG_LARGE_DONOR_PROPOSAL -> "secondary"
+        // V1.9.297 -- a notice board entry is an administrative act without money of its own (the LTR booking has its own ledger entry): neutral hue.
+        AuditEntityType.BULLETIN_NOTICE -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

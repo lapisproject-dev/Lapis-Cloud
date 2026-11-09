@@ -154,7 +154,12 @@ class SocialNetworkScreenTest {
         assertFalse(GalleryRules.supportsCoverAndOrder(social))
         assertFalse(GalleryRules.supportsCaption(social))
         assertEquals(4, GalleryRules.maxImagesFor(social))
-        AttachedImageOwnerType.entries.filter { it != social }.forEach {
+        // V1.9.297: a bulletin-board notice has one picture and no cover, order or caption either
+        val notice = AttachedImageOwnerType.NOTICE
+        assertFalse(GalleryRules.supportsCoverAndOrder(notice))
+        assertFalse(GalleryRules.supportsCaption(notice))
+        assertEquals(1, GalleryRules.maxImagesFor(notice))
+        AttachedImageOwnerType.entries.filter { it != social && it != notice }.forEach {
             assertTrue(GalleryRules.supportsCoverAndOrder(it) && GalleryRules.supportsCaption(it))
             assertEquals(10, GalleryRules.maxImagesFor(it))
         }

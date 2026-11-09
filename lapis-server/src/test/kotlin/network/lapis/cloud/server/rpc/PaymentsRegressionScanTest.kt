@@ -170,7 +170,8 @@ class PaymentsRegressionScanTest :
             // the time this wave landed, see its own file header disclaimer elsewhere) -- this pins
             // the count AS OF THIS WAVE so a future accidental Euro-adjacent addition to THIS enum
             // is caught the same way the other regression guards in this class are.
-            LtrLedgerEntryType.entries.size shouldBe 13
+            // V1.9.297: 14 with NOTICE_BOOST (the bulletin board; a member-to-notice debit, nothing Euro-adjacent).
+            LtrLedgerEntryType.entries.size shouldBe 14
         }
     })
 

@@ -130,10 +130,13 @@ class ActivismTripwireTest :
             users shouldBe setOf("ActivismAccessPolicy.kt", "ActivismService.kt")
         }
 
-        test("the activism service is registered LAST in Application.kt, after the partner servers") {
+        test(
+            "the activism service is registered second to last in Application.kt, after the partner servers (the bulletin board follows)",
+        ) {
             val code = SourceScan.blank(File(SourceScan.mainRoot(), "network/lapis/cloud/server/Application.kt").readText())
             val registrations = Regex("""registerService\(""").findAll(code).map { it.range.first }.toList()
-            registrations.last() shouldBe code.indexOf("registerService(IActivismService::class)")
+            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(IActivismService::class)")
+            registrations.last() shouldBe code.indexOf("registerService(INoticeBoardService::class)")
         }
 
         test("MemberStatusSets.ACTIVISM_PARTICIPANT is used only by the activism files") {

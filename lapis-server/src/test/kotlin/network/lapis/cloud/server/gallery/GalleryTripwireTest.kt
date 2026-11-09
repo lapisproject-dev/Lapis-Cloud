@@ -30,7 +30,7 @@ class GalleryTripwireTest :
 
         test("every code path that deletes an auction or a crowdfunding project also calls the gallery's orphan hook in the same file") {
             val deleters =
-                listOf("AuctionTable", "CrowdfundingProjectTable")
+                listOf("AuctionTable", "CrowdfundingProjectTable", "BulletinNoticeTable")
                     .flatMap { table ->
                         files.filter { f ->
                             Regex("""$table\.(deleteWhere|deleteAll|delete)\b""").containsMatchIn(SourceScan.blank(f.readText()))
@@ -65,7 +65,7 @@ class GalleryTripwireTest :
         }
 
         test(
-            "the gallery RPC service is the eighth to last registerService of Application.kt (the dashboard, the party report, the LupaBB sync, the Protokoll draft, the Protokoll finalising, the partner servers and the activism module follow it)",
+            "the gallery RPC service is the ninth to last registerService of Application.kt (the dashboard, the party report, the LupaBB sync, the Protokoll draft, the Protokoll finalising, the partner servers, the activism module and the bulletin board follow it)",
         ) {
             val code = SourceScan.blank(File(SourceScan.mainRoot(), "network/lapis/cloud/server/Application.kt").readText())
             val registrations =
@@ -73,14 +73,15 @@ class GalleryTripwireTest :
                     .findAll(code)
                     .map { it.range.first }
                     .toList()
-            registrations[registrations.size - 8] shouldBe code.indexOf("registerService(IAttachedImageService::class)")
-            registrations[registrations.size - 7] shouldBe code.indexOf("registerService(IDashboardService::class)")
-            registrations[registrations.size - 6] shouldBe code.indexOf("registerService(IPartyReportService::class)")
-            registrations[registrations.size - 5] shouldBe code.indexOf("registerService(ILupaBbSyncService::class)")
-            registrations[registrations.size - 4] shouldBe code.indexOf("registerService(IProtocolDraftService::class)")
-            registrations[registrations.size - 3] shouldBe code.indexOf("registerService(IMeetingProtocolService::class)")
-            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(IPartnerServerService::class)")
-            registrations.last() shouldBe code.indexOf("registerService(IActivismService::class)")
+            registrations[registrations.size - 9] shouldBe code.indexOf("registerService(IAttachedImageService::class)")
+            registrations[registrations.size - 8] shouldBe code.indexOf("registerService(IDashboardService::class)")
+            registrations[registrations.size - 7] shouldBe code.indexOf("registerService(IPartyReportService::class)")
+            registrations[registrations.size - 6] shouldBe code.indexOf("registerService(ILupaBbSyncService::class)")
+            registrations[registrations.size - 5] shouldBe code.indexOf("registerService(IProtocolDraftService::class)")
+            registrations[registrations.size - 4] shouldBe code.indexOf("registerService(IMeetingProtocolService::class)")
+            registrations[registrations.size - 3] shouldBe code.indexOf("registerService(IPartnerServerService::class)")
+            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(IActivismService::class)")
+            registrations.last() shouldBe code.indexOf("registerService(INoticeBoardService::class)")
         }
 
         // ── V1.9.223: pictures in social posts ──────────────────────────────────────────────
@@ -108,6 +109,23 @@ class GalleryTripwireTest :
                     listOf("AttachedImage", "GalleryUrls", "/api/images").any { text.contains(it) }
                 }
             offenders.map { it.name }.shouldBeEmpty()
+        }
+
+        // V1.9.297: the bulletin board is the ONE other DTO with a picture field, and it has no public path: no public page, no mail, no MCP
+        // tool reads it (the sensitive-files test above covers them), and the DTO only ever reaches an ACTIVE member through INoticeBoardService.
+        test("NoticeDto has exactly one picture field and no public path exists for it (the board is members only)") {
+            val descriptor =
+                network.lapis.cloud.shared.domain.NoticeDto
+                    .serializer()
+                    .descriptor
+            (0 until descriptor.elementsCount)
+                .map { descriptor.getElementName(it) }
+                .filter { it.contains("image", ignoreCase = true) || it.contains("picture", ignoreCase = true) } shouldBe listOf("image")
+            files
+                .filter { it.name.startsWith("SocialPublic") || it.parentFile.name in setOf("mail", "mcp", "tools") }
+                .filter { Regex("""NoticeDto|BulletinNotice|INoticeBoardService""").containsMatchIn(it.readText()) }
+                .map { it.name }
+                .shouldBeEmpty()
         }
 
         test("SocialPostDto has no image field: the public path renders the same DTO and must never carry pictures") {

@@ -31741,3 +31741,159 @@ msgstr "The video conference is running. Only people who are registered for the 
 
 msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
 msgstr "The video conference is being prepared. Taking part opens on the event page."
+
+msgid "Freies Guthaben: %1"
+msgstr "Free balance: %1"
+
+msgid "Schwarzes Brett"
+msgstr "Bulletin board"
+
+msgid "Noch keine Aushänge. Suchen Sie etwas oder bieten Sie etwas an? Hängen Sie den ersten Aushang aus."
+msgstr "No notices yet. Are you looking for something or offering something? Post the first notice."
+
+msgid "Keine Aushänge der Kategorie \"%1\"."
+msgstr "No notices in the category \"%1\"."
+
+msgid "Meine Aushänge"
+msgstr "My notices"
+
+msgid "Aushang aufgeben"
+msgstr "Post a notice"
+
+msgid "Vom Vorstand"
+msgstr "From the board"
+
+msgid "Aushänge"
+msgstr "Notices"
+
+msgid "Weitere Aushänge anzeigen"
+msgstr "Show more notices"
+
+msgid "Der Aushang konnte nicht geladen werden."
+msgstr "The notice could not be loaded."
+
+msgid "Dieser Aushang ist nicht mehr vorhanden."
+msgstr "This notice no longer exists."
+
+msgid "Ihr Aushang"
+msgstr "Your notice"
+
+msgid "Bild zum Aushang \"%1\""
+msgstr "Picture for the notice \"%1\""
+
+msgid "aufgegeben am %1"
+msgstr "posted on %1"
+
+msgid "bearbeitet"
+msgstr "edited"
+
+msgid "Gewicht"
+msgstr "Weight"
+
+msgid "Entfernt: %1"
+msgstr "Removed: %1"
+
+msgid "Aushang boosten"
+msgstr "Boost notice"
+
+msgid "Aushang geboostet."
+msgstr "Notice boosted."
+
+msgid "Aushang zurückziehen"
+msgstr "Withdraw notice"
+
+msgid "Der Aushang verschwindet vom Schwarzen Brett. Bereits eingesetzte LTR werden NICHT zurückerstattet."
+msgstr "The notice disappears from the bulletin board. LTR that have already been spent are NOT refunded."
+
+msgid "Aushang zurückgezogen."
+msgstr "Notice withdrawn."
+
+msgid "Nicht mehr pinnen"
+msgstr "Unpin"
+
+msgid "Pinnen"
+msgstr "Pin"
+
+msgid "Aushang nicht mehr gepinnt."
+msgstr "Notice is no longer pinned."
+
+msgid "Aushang gepinnt."
+msgstr "Notice pinned."
+
+msgid "Ihre Nachricht geht als Direktnachricht an den Autor. Betreff: Schwarzes Brett: %1"
+msgstr "Your message goes to the author as a direct message. Subject: Schwarzes Brett: %1"
+
+msgid "Bereits gebuchte LTR werden nicht erstattet."
+msgstr "LTR that have already been booked are not refunded."
+
+msgid "Höchstens %1 Zeichen. Der Autor sieht Grund und Notiz."
+msgstr "At most %1 characters. The author sees the reason and the note."
+
+msgid "Aushang entfernt."
+msgstr "Notice removed."
+
+msgid "Aushang bearbeiten"
+msgstr "Edit notice"
+
+msgid "Neuer Aushang"
+msgstr "New notice"
+
+msgid "Die Kategorie kann nicht mehr geändert werden, weil andere LTR eingesetzt haben."
+msgstr "The category can no longer be changed because others have spent LTR on it."
+
+msgid "Sichtbar bis (einschließlich)"
+msgstr "Visible until (inclusive)"
+
+msgid "Höchstens %1 Tage ab dem Aufhängen."
+msgstr "At most %1 days from posting."
+
+msgid "LTR-Einsatz (optional)"
+msgstr "LTR stake (optional)"
+
+msgid "Je mehr LTR Sie einsetzen, desto weiter oben steht der Aushang. Der Betrag wird nicht zurückerstattet."
+msgstr "The more LTR you spend, the higher the notice appears. The amount is not refunded."
+
+msgid "Aushang wurde aktualisiert."
+msgstr "The notice was updated."
+
+msgid "Aushang wurde aufgegeben."
+msgstr "The notice was posted."
+
+msgid "LTR einsetzen"
+msgstr "Spend LTR"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "Entfernt"
+msgstr "Removed"
+
+msgid "Verstoß gegen die Regeln der Organisation"
+msgstr "Violation of the organization's rules"
+
+msgid "Doppelter Aushang"
+msgstr "Duplicate notice"
+
+msgid "Rechtliche Gründe"
+msgstr "Legal reasons"
+
+msgid "läuft heute ab"
+msgstr "expires today"
+
+msgid "sichtbar bis %1"
+msgstr "visible until %1"
+
+msgid "Der Aushang ist nicht mehr aktiv. Das Bild kann nicht mehr geändert werden."
+msgstr "The notice is no longer active. The picture can no longer be changed."
+
+msgid "Aushang"
+msgstr "Notice"
+
+msgid "Aushang-Boost"
+msgstr "Notice boost"
+
+msgid "Aushang (Schwarzes Brett)"
+msgstr "Notice (bulletin board)"
+
+msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
+msgstr "Members post notices on the bulletin board: searches, offers and information with an expiry date. The order follows the LTR members spend on a notice."

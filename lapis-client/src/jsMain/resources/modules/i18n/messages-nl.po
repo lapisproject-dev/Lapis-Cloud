@@ -31787,3 +31787,159 @@ msgstr "De videoconferentie loopt. Alleen wie voor het evenement is aangemeld en
 
 msgid "Die Videokonferenz wird vorbereitet. Die Teilnahme öffnet auf der Veranstaltungsseite."
 msgstr "De videoconferentie wordt voorbereid. Deelname opent op de evenementpagina."
+
+msgid "Freies Guthaben: %1"
+msgstr "Vrij saldo: %1"
+
+msgid "Schwarzes Brett"
+msgstr "Prikbord"
+
+msgid "Noch keine Aushänge. Suchen Sie etwas oder bieten Sie etwas an? Hängen Sie den ersten Aushang aus."
+msgstr "Nog geen mededelingen. Zoekt u iets of biedt u iets aan? Plaats de eerste mededeling."
+
+msgid "Keine Aushänge der Kategorie \"%1\"."
+msgstr "Geen mededelingen in de categorie \"%1\"."
+
+msgid "Meine Aushänge"
+msgstr "Mijn mededelingen"
+
+msgid "Aushang aufgeben"
+msgstr "Mededeling plaatsen"
+
+msgid "Vom Vorstand"
+msgstr "Van het bestuur"
+
+msgid "Aushänge"
+msgstr "Mededelingen"
+
+msgid "Weitere Aushänge anzeigen"
+msgstr "Meer mededelingen tonen"
+
+msgid "Der Aushang konnte nicht geladen werden."
+msgstr "De mededeling kon niet worden geladen."
+
+msgid "Dieser Aushang ist nicht mehr vorhanden."
+msgstr "Deze mededeling bestaat niet meer."
+
+msgid "Ihr Aushang"
+msgstr "Uw mededeling"
+
+msgid "Bild zum Aushang \"%1\""
+msgstr "Afbeelding bij de mededeling \"%1\""
+
+msgid "aufgegeben am %1"
+msgstr "geplaatst op %1"
+
+msgid "bearbeitet"
+msgstr "bewerkt"
+
+msgid "Gewicht"
+msgstr "Gewicht"
+
+msgid "Entfernt: %1"
+msgstr "Verwijderd: %1"
+
+msgid "Aushang boosten"
+msgstr "Mededeling boosten"
+
+msgid "Aushang geboostet."
+msgstr "Mededeling geboost."
+
+msgid "Aushang zurückziehen"
+msgstr "Mededeling intrekken"
+
+msgid "Der Aushang verschwindet vom Schwarzen Brett. Bereits eingesetzte LTR werden NICHT zurückerstattet."
+msgstr "De mededeling verdwijnt van het prikbord. Reeds ingezette LTR worden NIET terugbetaald."
+
+msgid "Aushang zurückgezogen."
+msgstr "Mededeling ingetrokken."
+
+msgid "Nicht mehr pinnen"
+msgstr "Niet meer vastzetten"
+
+msgid "Pinnen"
+msgstr "Vastzetten"
+
+msgid "Aushang nicht mehr gepinnt."
+msgstr "De mededeling staat niet meer vast."
+
+msgid "Aushang gepinnt."
+msgstr "Mededeling vastgezet."
+
+msgid "Ihre Nachricht geht als Direktnachricht an den Autor. Betreff: Schwarzes Brett: %1"
+msgstr "Uw bericht gaat als direct bericht naar de auteur. Onderwerp: Schwarzes Brett: %1"
+
+msgid "Bereits gebuchte LTR werden nicht erstattet."
+msgstr "Reeds geboekte LTR worden niet terugbetaald."
+
+msgid "Höchstens %1 Zeichen. Der Autor sieht Grund und Notiz."
+msgstr "Maximaal %1 tekens. De auteur ziet de reden en de notitie."
+
+msgid "Aushang entfernt."
+msgstr "Mededeling verwijderd."
+
+msgid "Aushang bearbeiten"
+msgstr "Mededeling bewerken"
+
+msgid "Neuer Aushang"
+msgstr "Nieuwe mededeling"
+
+msgid "Die Kategorie kann nicht mehr geändert werden, weil andere LTR eingesetzt haben."
+msgstr "De categorie kan niet meer worden gewijzigd, omdat anderen er LTR op hebben ingezet."
+
+msgid "Sichtbar bis (einschließlich)"
+msgstr "Zichtbaar tot en met"
+
+msgid "Höchstens %1 Tage ab dem Aufhängen."
+msgstr "Maximaal %1 dagen vanaf het plaatsen."
+
+msgid "LTR-Einsatz (optional)"
+msgstr "LTR-inzet (optioneel)"
+
+msgid "Je mehr LTR Sie einsetzen, desto weiter oben steht der Aushang. Der Betrag wird nicht zurückerstattet."
+msgstr "Hoe meer LTR u inzet, hoe hoger de mededeling staat. Het bedrag wordt niet terugbetaald."
+
+msgid "Aushang wurde aktualisiert."
+msgstr "De mededeling is bijgewerkt."
+
+msgid "Aushang wurde aufgegeben."
+msgstr "De mededeling is geplaatst."
+
+msgid "LTR einsetzen"
+msgstr "LTR inzetten"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "Entfernt"
+msgstr "Verwijderd"
+
+msgid "Verstoß gegen die Regeln der Organisation"
+msgstr "Overtreding van de regels van de organisatie"
+
+msgid "Doppelter Aushang"
+msgstr "Dubbele mededeling"
+
+msgid "Rechtliche Gründe"
+msgstr "Juridische gronden"
+
+msgid "läuft heute ab"
+msgstr "verloopt vandaag"
+
+msgid "sichtbar bis %1"
+msgstr "zichtbaar tot %1"
+
+msgid "Der Aushang ist nicht mehr aktiv. Das Bild kann nicht mehr geändert werden."
+msgstr "De mededeling is niet meer actief. De afbeelding kan niet meer worden gewijzigd."
+
+msgid "Aushang"
+msgstr "Mededeling"
+
+msgid "Aushang-Boost"
+msgstr "Mededeling-boost"
+
+msgid "Aushang (Schwarzes Brett)"
+msgstr "Mededeling (prikbord)"
+
+msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
+msgstr "Leden plaatsen mededelingen op het prikbord: zoekopdrachten, aanbiedingen en informatie met een vervaldatum. De volgorde volgt de LTR die leden op een mededeling inzetten."

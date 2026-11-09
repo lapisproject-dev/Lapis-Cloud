@@ -4,7 +4,9 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionTable
+import network.lapis.cloud.server.db.generated.BulletinNoticeTable
 import network.lapis.cloud.server.db.generated.CrowdfundingProjectTable
+import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.rpc.CrowdfundingWeightDecay
@@ -19,6 +21,8 @@ import network.lapis.cloud.shared.domain.CrowdfundingProjectStatus
 import network.lapis.cloud.shared.domain.GalleryLockReason
 import network.lapis.cloud.shared.domain.GalleryRules
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.NoticeStatus
 import network.lapis.cloud.shared.domain.SocialPostState
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -109,6 +113,7 @@ internal object GalleryOwnerPolicy {
             AttachedImageOwnerType.AUCTION_LISTING -> resolveAuction(ownerId = ownerId, now = now, lock = lock)
             AttachedImageOwnerType.CROWDFUNDING_PROJECT -> resolveProject(ownerId = ownerId, now = now, lock = lock)
             AttachedImageOwnerType.SOCIAL_POST -> resolveSocialPost(ownerId = ownerId, now = now, viewer = viewer, lock = lock)
+            AttachedImageOwnerType.NOTICE -> resolveNotice(ownerId = ownerId, now = now, viewer = viewer, lock = lock)
         }
 
     /** One query: the ROOT posts of [ids] whose pictures [viewer] may see (same rule as [socialImagesReadable]), sorted by id. */
@@ -143,6 +148,29 @@ internal object GalleryOwnerPolicy {
         val closesAt = row[SocialPostTable.publishedAt].toInstant(ServerClock.zone) + SOCIAL_POST_GALLERY_GRACE
         val reason = if (now.toInstant(ServerClock.zone) >= closesAt) GalleryLockReason.SOCIAL_POST_PUBLISHED else null
         return GalleryOwnerAccess(ownerId = ownerId, creatorId = row[SocialPostTable.authorMemberId], lockReason = reason)
+    }
+
+    /**
+     * V1.9.297 bulletin-board notice: visible exactly when the viewer is in [MemberStatusSets.NOTICE_BOARD], the notice is `ACTIVE`, its `expires_at`
+     * has not passed and its author is still an organization member who is not anonymized (the same rule as `NoticeBoardReader.visibleTo` for a
+     * stranger; the author's own closed notice is deliberately a 404 too: a withdrawn or removed notice has no picture to manage). The creator is the
+     * author; there is no freeze (a notice is edited as long as it is live). The `bulletin_notice` row is the lock, `withdrawNotice` / `removeNotice`
+     * lock the same row, so a state change and an upload in flight serialise.
+     */
+    private fun resolveNotice(
+        ownerId: Uuid,
+        now: LocalDateTime,
+        viewer: CurrentMember,
+        lock: Boolean,
+    ): GalleryOwnerAccess? {
+        if (viewer.status !in MemberStatusSets.NOTICE_BOARD) return null
+        val query = BulletinNoticeTable.selectAll().where { BulletinNoticeTable.id eq ownerId }
+        val row = (if (lock) query.forUpdate() else query).singleOrNull() ?: return null
+        if (row[BulletinNoticeTable.status] != NoticeStatus.ACTIVE || row[BulletinNoticeTable.expiresAt] <= now) return null
+        val author =
+            MemberTable.selectAll().where { MemberTable.id eq row[BulletinNoticeTable.authorMemberId] }.singleOrNull() ?: return null
+        if (author[MemberTable.status] !in MemberStatusSets.NOTICE_BOARD || author[MemberTable.anonymizedAt] != null) return null
+        return GalleryOwnerAccess(ownerId = ownerId, creatorId = row[BulletinNoticeTable.authorMemberId], lockReason = null)
     }
 
     private fun resolveAuction(

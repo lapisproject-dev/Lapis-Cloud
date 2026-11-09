@@ -91,6 +91,8 @@ object PersonalDataRegistry {
             PartgReportPersonalData,
             // V1.9.246: actions (responsible persons, contributions, signals, reports, tasks).
             ActivismPersonalData,
+            // V1.9.297: bulletin-board notices (own notices, boosts on them and their pictures erased; own boosts on others' notices retained).
+            NoticePersonalData,
         )
 
     /**

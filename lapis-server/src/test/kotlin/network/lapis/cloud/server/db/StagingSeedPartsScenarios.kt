@@ -23,6 +23,8 @@ import network.lapis.cloud.server.db.generated.AttendanceTable
 import network.lapis.cloud.server.db.generated.AuctionBidTable
 import network.lapis.cloud.server.db.generated.AuctionTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.BulletinNoticeBoostTable
+import network.lapis.cloud.server.db.generated.BulletinNoticeTable
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.CrowdfundingProjectTable
@@ -241,6 +243,8 @@ abstract class StagingSeedPartsScenarios(
                     count(MemberFamilyTable) shouldBe 3
                     count(MemberFamilyLinkTable) shouldBe 7
                     count(MemberHonorTable) shouldBe 4
+                    count(BulletinNoticeTable) shouldBe 3
+                    count(BulletinNoticeBoostTable) shouldBe 1
                     count(ActivismActionTable) shouldBe 5
                     count(ActivismTaskTable) shouldBe 5
                     count(ActivismTextBlockTable) shouldBe 1
@@ -264,6 +268,35 @@ abstract class StagingSeedPartsScenarios(
                 second.parts.all { it.inserted == 0 } shouldBe true
                 (second.result.mintsInserted + second.result.transfersInserted) shouldBe 0
                 transaction(db) { snapshot() } shouldContainExactlyInAnyOrder before
+            }
+        }
+
+        test(
+            "notices: three active notices, one boost with its NOTICE_BOOST ledger row, the board notice pinned, nothing added by a second run",
+        ) {
+            withFresh { db ->
+                full(db)
+                transaction(db) {
+                    val rows = BulletinNoticeTable.selectAll().associateBy { it[BulletinNoticeTable.id] }
+                    rows.keys.toSet() shouldBe StagingSeedNotices.notices.map { it.id }.toSet()
+                    rows.values.all { it[BulletinNoticeTable.status] == network.lapis.cloud.shared.domain.NoticeStatus.ACTIVE } shouldBe
+                        true
+                    rows.values.all { it[BulletinNoticeTable.expiresAt] > it[BulletinNoticeTable.createdAt] } shouldBe true
+                    val pinned = rows.values.filter { it[BulletinNoticeTable.pinnedAt] != null }
+                    pinned.map { it[BulletinNoticeTable.id] } shouldBe listOf(SeedIds.notices(3))
+                    pinned.single()[BulletinNoticeTable.pinnedBy] shouldBe SeedIds.member(2)
+                    val boost = BulletinNoticeBoostTable.selectAll().single()
+                    boost[BulletinNoticeBoostTable.noticeId] shouldBe SeedIds.notices(2)
+                    val ledger =
+                        LtrLedgerEntryTable
+                            .selectAll()
+                            .where { LtrLedgerEntryTable.entryType eq network.lapis.cloud.shared.domain.LtrLedgerEntryType.NOTICE_BOOST }
+                            .single()
+                    ledger[LtrLedgerEntryTable.amountLtr].compareTo(BigDecimal("-2.00")) shouldBe 0
+                    ledger[LtrLedgerEntryTable.referenceId] shouldBe SeedIds.notices(2)
+                    ledger[LtrLedgerEntryTable.note].orEmpty().contains("Demodaten") shouldBe false
+                }
+                full(db).parts.single { it.part == "notices" }.inserted shouldBe 0
             }
         }
 
@@ -758,7 +791,7 @@ abstract class StagingSeedPartsScenarios(
             }
         }
 
-        val newPartNames = listOf("member-details", "families", "activism", "honors")
+        val newPartNames = listOf("member-details", "families", "activism", "honors", "notices")
 
         test("an instance seeded before this wave is topped up with the new parts only; the older parts insert nothing again") {
             withFresh { db ->

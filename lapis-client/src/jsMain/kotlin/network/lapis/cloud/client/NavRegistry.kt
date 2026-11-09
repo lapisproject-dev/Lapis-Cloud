@@ -135,6 +135,8 @@ internal object NavRegistry {
                 },
             )
             add(entry(Routes.CARPOOL, tr("Mitfahrzentrale"), "fas fa-car-side", m))
+            // V1.9.297: no own predicate -- the whole group is only shown to ACTIVE members (`showsMembershipSection`), the board's audience.
+            add(entry(Routes.NOTICE_BOARD, tr("Schwarzes Brett"), "fas fa-clipboard-list", m))
             add(
                 entry(Routes.MEMBER_FINDER, tr("Mitglieder-Finder"), "fas fa-user-group", m) {
                     NavVisibility.showsMemberFinder(it.session.status, it.memberFinderOffered)

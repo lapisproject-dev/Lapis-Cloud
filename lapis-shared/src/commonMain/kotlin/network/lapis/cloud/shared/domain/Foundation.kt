@@ -77,6 +77,13 @@ object MemberStatusSets {
     val ACTIVISM_PARTICIPANT: Set<MemberStatus> = ORGANIZATION_MEMBER
 
     /**
+     * V1.9.297 "Schwarzes Brett" -- may read, write, answer and boost on the bulletin board. Exactly [ORGANIZATION_MEMBER] (ACTIVE only). **Narrower
+     * than [CARPOOL_PASSENGER]**, which also lets GUEST and FRIEND read the carpool offers: the board has no public or guest reading at all. Used
+     * ONLY by the bulletin-board files (`NoticeBoardAccessTripwireTest`).
+     */
+    val NOTICE_BOARD: Set<MemberStatus> = ORGANIZATION_MEMBER
+
+    /**
      * Authenticated, but NOT a member of this organization. The positive counterpart of the
      * historical `isGuest` denylist -- every "members only" gate tests [ORGANIZATION_MEMBER]
      * instead of this set directly.

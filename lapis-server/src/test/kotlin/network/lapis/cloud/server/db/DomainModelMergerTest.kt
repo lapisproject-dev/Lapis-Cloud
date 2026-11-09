@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 77 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 82 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -84,7 +84,8 @@ class DomainModelMergerTest :
             // Welle V1.9.237 "Neue Nachricht" -- now 79 with the addition of 78-direct-message-block.kuml.kts.
             // Welle V1.9.244 "Partnerserver P1" -- now 80 with the addition of 79-partner-servers.kuml.kts.
             // Welle V1.9.246 "Aktionen A1" -- now 81 with the addition of 80-activism.kuml.kts.
-            scriptFiles shouldHaveSize 81
+            // Welle V1.9.297 "Schwarzes Brett" -- now 82 with the addition of 81-bulletin-board.kuml.kts.
+            scriptFiles shouldHaveSize 82
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -603,7 +604,8 @@ class DomainModelMergerTest :
             // net +4 (257 -> 261).
             // 76-partg-report.kuml.kts (V1.9.291, R6) adds FOUR real tables (partg_report_version_counter, partg_report_version,
             // partg_report_declaration, partg_report_deadline); its Member reference dedups, net +4 (261 -> 265).
-            val distinctTableNames = 265
+            // 81-bulletin-board.kuml.kts (V1.9.297) adds TWO real tables (bulletin_notice, bulletin_notice_boost); its Member stub dedups, net +2 (265 -> 267).
+            val distinctTableNames = 267
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -1034,6 +1036,9 @@ class DomainModelMergerTest :
                     "ActivismSignalTable.kt",
                     "ActivismReportTable.kt",
                     "ActivismNoticeTextTable.kt",
+                    // Welle V1.9.297 "Schwarzes Brett" -- TWO new real tables; Member is a stub.
+                    "BulletinNoticeTable.kt",
+                    "BulletinNoticeBoostTable.kt",
                 )
         }
 

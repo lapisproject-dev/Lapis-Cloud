@@ -3,7 +3,9 @@ package network.lapis.cloud.server.rpc
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.economy.WeightDecayClock
 import network.lapis.cloud.shared.domain.SocialPostState
+import network.lapis.cloud.shared.rpc.ConflictException
 import java.math.BigDecimal
+import java.math.RoundingMode
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
@@ -86,6 +88,25 @@ object SocialPostWeight {
 
     /** E6: Doppelklick-Fenster für `boostPost` -- identischer (member, post, amount) innerhalb dieser Spanne => `ConflictException`. */
     val BOOST_DUPLICATE_WINDOW = 5.seconds
+
+    /**
+     * Fund #10 (Review Runde 1, 2026-08-18): [fieldName] is spliced into both thrown messages --
+     * before this fix, a boost that failed this check got an "initialWeightLtr ..."
+     * `ConflictException`, which is simply wrong for a boost amount. V1.9.297: moved here from the private
+     * `SocialNetworkService.normalizeWeight` (behaviour unchanged) so that the bulletin board uses the same rule instead of a copy.
+     * At most two decimal places, at least [MIN_WEIGHT_LTR], scaled to exactly two.
+     */
+    internal fun normalizeLtrAmount(
+        weight: BigDecimal,
+        fieldName: String = "initialWeightLtr",
+    ): BigDecimal {
+        if (weight.scale() > 2) throw ConflictException("$fieldName must have at most 2 decimal places")
+        val normalized = weight.setScale(2, RoundingMode.UNNECESSARY)
+        if (normalized < MIN_WEIGHT_LTR) {
+            throw ConflictException("$fieldName $normalized is below the minimum of $MIN_WEIGHT_LTR LTR")
+        }
+        return normalized
+    }
 
     /** V1.1.1-Signatur -- UNVERÄNDERT (Aufrufstellen + Tests hängen daran). Eigengewicht ohne Boosts. */
     fun ownWeightUnrounded(

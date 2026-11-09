@@ -5,12 +5,14 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.rpc.requireActiveMembership
 import network.lapis.cloud.server.rpc.requireLtrEligibleMembership
+import network.lapis.cloud.server.rpc.requireMembershipStatusIn
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AttachedImageOwnerType
 import network.lapis.cloud.shared.domain.AttachedImageSnapshot
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.GalleryRules
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import kotlin.uuid.Uuid
 
@@ -79,6 +81,9 @@ internal object GalleryUploadGate {
                 AttachedImageOwnerType.SOCIAL_POST -> requireLtrEligibleMembership(memberId = caller.memberId)
                 AttachedImageOwnerType.AUCTION_LISTING, AttachedImageOwnerType.CROWDFUNDING_PROJECT ->
                     requireActiveMembership(memberId = caller.memberId)
+                // V1.9.297: the bulletin board is for ACTIVE members only (no friend, no guest).
+                AttachedImageOwnerType.NOTICE ->
+                    requireMembershipStatusIn(memberId = caller.memberId, allowed = MemberStatusSets.NOTICE_BOARD)
             }
         } catch (_: ForbiddenException) {
             return GalleryGateResult.Forbidden

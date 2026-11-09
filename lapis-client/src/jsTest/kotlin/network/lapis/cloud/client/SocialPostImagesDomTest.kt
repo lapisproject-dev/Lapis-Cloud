@@ -199,6 +199,7 @@ class SocialPostImagesDomTest {
     @Test
     fun anEmptyListRendersNothing_andTheOwnerTypeIsSocial() {
         assertNull(document.querySelector("dialog.lapis-social-dialog"))
-        assertEquals(AttachedImageOwnerType.SOCIAL_POST, AttachedImageOwnerType.entries.last())
+        // V1.9.297: the bulletin board's NOTICE was appended after SOCIAL_POST (new literals go to the end)
+        assertEquals(listOf(AttachedImageOwnerType.SOCIAL_POST, AttachedImageOwnerType.NOTICE), AttachedImageOwnerType.entries.takeLast(2))
     }
 }
