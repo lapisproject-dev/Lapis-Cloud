@@ -314,7 +314,9 @@ fun registerPostgresLane(
             filter.isFailOnNoMatchingTests = false
         }
         if (part == 2) {
-            shouldRunAfter(tasks.named("postgresTest"))
+            // mustRunAfter, not shouldRunAfter: `org.gradle.parallel=true` would otherwise start both parts in the same second on the same
+            // disposable database and halve the point of the split (the first CI run of v0.49.0 lost part 1 to its 20-minute timeout that way).
+            mustRunAfter(tasks.named("postgresTest"))
         } else {
             shouldRunAfter(tasks.test)
         }
