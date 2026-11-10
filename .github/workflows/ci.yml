@@ -170,8 +170,14 @@ jobs:
 
       # Own runner: the Karma/ChromeHeadless tests no longer compete with the server tests for CPU (on one shared
       # runner that caused sporadic DOM-test timeouts and "Disconnected ... ping timeout", 2026-10-03).
+      # Compile first, then stop all Gradle/Kotlin daemons before Karma starts: on the 15 GB runner the idle Kotlin daemon
+      # (up to 7 GB) plus the Gradle daemon left Chrome ~500 MB, and the runner was killed ("shutdown signal") a few seconds
+      # after ChromeHeadless started (2026-11-10, measured with a memory sampler; with the daemons stopped ~6 GB stay free).
       - name: Browser tests (client and shared)
-        run: ./gradlew :lapis-shared:allTests :lapis-client:allTests
+        run: |
+          ./gradlew :lapis-shared:jsTestTestDevelopmentExecutableCompileSync :lapis-client:jsTestTestDevelopmentExecutableCompileSync
+          ./gradlew --stop
+          ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx1g :lapis-shared:allTests :lapis-client:allTests
 
       - name: Upload test results
         if: always()
