@@ -42,6 +42,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
@@ -109,6 +110,26 @@ class DatevIntegrationTest :
             return id
         }
 
+        // Flaky-test fix (2026-11-10): a bare random pick collided now and then -- two picks inside one
+        // test (debit == credit) or a pick that already exists in `ledger_account` (UNIQUE index, other
+        // specs and seed data share the database). Hand out each number at most once per run and skip
+        // any number the table already holds.
+        val usedAccountNumbers = mutableSetOf<String>()
+
+        fun uniqueAccountNumber(candidate: () -> String): String {
+            while (true) {
+                val number = candidate()
+                if (number in usedAccountNumbers) continue
+                val taken =
+                    transaction {
+                        LedgerAccountTable.selectAll().where { LedgerAccountTable.accountNumber eq number }.any()
+                    }
+                if (taken) continue
+                usedAccountNumbers += number
+                return number
+            }
+        }
+
         fun createLedgerAccount(number: String): Uuid {
             val id = Uuid.random()
             transaction {
@@ -139,7 +160,22 @@ class DatevIntegrationTest :
          * shaped like a real DATEV Sachkonto -- digits only -- so this generates one, with enough
          * entropy (9,000 possibilities) that two calls colliding within one test run is negligible.
          */
-        fun randomNumericAccountNumber(): String = (1000..9999).random().toString()
+        fun randomNumericAccountNumber(): String = uniqueAccountNumber { (1000..9999).random().toString() }
+
+        /**
+         * Same as [randomNumericAccountNumber] for the fixtures that need a letter-prefixed number (they
+         * never reach `plan()`). `ledger_account.account_number` is `VARCHAR(10)` with a UNIQUE index, so
+         * a prefix of at most two characters plus 8 hex digits is the longest that still fits.
+         */
+        fun randomPrefixedAccountNumber(prefix: String): String =
+            uniqueAccountNumber {
+                prefix +
+                    Uuid
+                        .random()
+                        .toString()
+                        .replace("-", "")
+                        .take(8)
+            }
 
         fun postEntry(
             date: LocalDate,
@@ -267,8 +303,8 @@ class DatevIntegrationTest :
                     routing { registerDatevRoutes(exportRateLimiter = FederationInboxRateLimiter()) }
                 }
                 val treasurer = createMember("datev-409-treasurer@example.org", AccountRole.TREASURER)
-                val debit = createLedgerAccount("DV${Uuid.random().toString().take(4)}")
-                val credit = createLedgerAccount("DV${Uuid.random().toString().take(4)}")
+                val debit = createLedgerAccount(randomPrefixedAccountNumber("DV"))
+                val credit = createLedgerAccount(randomPrefixedAccountNumber("DV"))
                 postEntry(LocalDate(2026, 5, 10), debit, credit, BigDecimal("10.00"), treasurer)
                 // Berater/Mandant left unconfigured (afterEach resets to null anyway).
 
@@ -366,17 +402,11 @@ class DatevIntegrationTest :
             )
             val fixtures =
                 (0 until entryCount).map { i ->
-                    // Random suffix (same collision-avoidance idiom as this file's other tests'
-                    // "DV${Uuid.random()...}" account numbers) -- the leading D/C letter alone is
-                    // NOT what distinguishes entries here, only the fixtures list index is. `take(4)`
-                    // (not `take(3)`, Review Runde 4 MINOR): with 5 debit + 5 credit accounts alive at
-                    // once, three hex chars (4096 possibilities) gave a ~0.49% chance per run of two
-                    // accounts colliding on `uq_ledger_account_number` and flaking this test with a
-                    // raw `ExposedSQLException` -- four hex chars (65 536 possibilities) makes that
-                    // negligible, same length this file's OTHER `DV${...take(4)}` accounts already use.
+                    // Unique numbers from randomPrefixedAccountNumber (checked against this run and the table), so
+                    // the 5 debit + 5 credit accounts alive at once can never collide on `uq_ledger_account_number`.
                     // This test never calls `plan()`, so `VALID_ACCOUNT_LENGTH_RANGE` is irrelevant here.
-                    val debitNumber = "D${Uuid.random().toString().take(4)}"
-                    val creditNumber = "C${Uuid.random().toString().take(4)}"
+                    val debitNumber = randomPrefixedAccountNumber("D")
+                    val creditNumber = randomPrefixedAccountNumber("C")
                     val debit = createLedgerAccount(debitNumber)
                     val credit = createLedgerAccount(creditNumber)
                     postEntry(
@@ -451,8 +481,8 @@ class DatevIntegrationTest :
         // hundreds of thousands of real rows to exercise the guard.
         test("buildJournalExportRequest: a single entry's total postings exceeding maxTotalPostings throws, refusing the whole export") {
             val treasurer = createMember("datev-postingcap-treasurer@example.org", AccountRole.TREASURER)
-            val creditAccount = createLedgerAccount("DV${Uuid.random().toString().take(4)}")
-            val debitAccounts = (1..5).map { createLedgerAccount("DV${Uuid.random().toString().take(4)}") }
+            val creditAccount = createLedgerAccount(randomPrefixedAccountNumber("DV"))
+            val debitAccounts = (1..5).map { createLedgerAccount(randomPrefixedAccountNumber("DV")) }
             val entryId = Uuid.random()
             transaction {
                 JournalEntryTable.insert {

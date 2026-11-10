@@ -400,3 +400,16 @@ tasks.register("verifyNoMultiClassAddCssClass") {
 }
 
 tasks.named("check") { dependsOn("verifyNoMultiClassAddCssClass") }
+
+// Dependabot (2026-11-10): the patched versions of most transitive npm packages (fast-uri, brace-expansion,
+// follow-redirects, ...) come in by deleting their entries from `lapis-client/.kotlin-js-store/yarn.lock`
+// and letting Yarn re-resolve within the existing semver ranges (the Kotlin `kotlinUpgradeYarnLock` task
+// does not do that on its own). These two need a forced major bump because the range the Kotlin/JS
+// toolchain (mocha) asks for only contains vulnerable versions. Yarn 1 resolutions take plain package names.
+@Suppress("DEPRECATION")
+rootProject.plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
+    rootProject.extensions.getByType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().apply {
+        resolution("serialize-javascript", "7.1.4")
+        resolution("diff", "8.0.4")
+    }
+}
