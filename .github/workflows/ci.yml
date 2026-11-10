@@ -209,9 +209,8 @@ jobs:
   # (release-image.yml builds and checks the candidate itself), hence the event condition: workflow_call inherits the
   # caller's event (push), so this job only runs on pull requests.
   image:
-    if: false
     name: Release image content check
-    if: github.event_name == 'pull_request'
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
