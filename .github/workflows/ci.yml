@@ -175,7 +175,9 @@ jobs:
       - name: Browser tests (client and shared)
         run: |
           (while true; do echo "MEM $(date +%T) $(free -m | awk 'NR==2{print "used="$3" free="$4" avail="$7}') chrome=$(ps -eo rss,comm | awk '/chrome/{s+=$1}END{print int(s/1024)}')MB"; sleep 2; done) &
-          ./gradlew :lapis-shared:allTests :lapis-client:allTests
+          ./gradlew :lapis-shared:jsTestTestDevelopmentExecutableCompileSync :lapis-client:jsTestTestDevelopmentExecutableCompileSync
+          ./gradlew --stop
+          ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx1g :lapis-shared:allTests :lapis-client:allTests
 
       - name: Upload test results
         if: always()
