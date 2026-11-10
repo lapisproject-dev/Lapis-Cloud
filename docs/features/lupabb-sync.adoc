@@ -48,21 +48,30 @@ live in the side table `member_lupabb_profile`.
 == Status mapping
 
 |===
-| LupaBB | Lapis Cloud
+| LupaBB | Lapis Cloud | Voting right (V1.9.298)
 
-| Mitglied | ACTIVE
-| Neumitglied | ACTIVE
-| in Aufnahme | APPLICATION
-| Förderer | FRIEND
-| Spender | DONOR
-| Nur Zahler | DONOR
-| verstorben | DECEASED
-| Widerrufen | WITHDRAWN
-| Gekündigt | WITHDRAWN
-| Ausgeschlossen | WITHDRAWN
-| Ablehnung | REJECTED
-| Storniert | skipped
+| Mitglied | ACTIVE | yes
+| Neumitglied | ACTIVE | *no*
+| in Aufnahme | APPLICATION | not touched
+| Förderer | FRIEND | not touched
+| Spender | DONOR | not touched
+| Nur Zahler | DONOR | not touched
+| verstorben | DECEASED | not touched
+| Widerrufen | WITHDRAWN | not touched
+| Gekündigt | WITHDRAWN | not touched
+| Ausgeschlossen | WITHDRAWN | not touched
+| Ablehnung | REJECTED | not touched
+| Storniert | skipped | -
 |===
+
+*Voting right (V1.9.298, owner decision 2026-11-09).* "Neumitglied" is a member *without* voting right, "Mitglied" one *with*. The voting right is written like any other field (a row in the comparison
+"Stimmrecht", before and after as ja/nein), with these exceptions: a value an administrator set by hand (`MANUAL`) is never overwritten, the record only gets the information line "Stimmrecht von Hand gesetzt
+(ja), LupaBB meldet nein -- wird nicht übernommen" (no error, no "action needed"); an anonymised or deceased member is not touched; a member with a management role is listed as "by hand".
+A member created from a "Neumitglied" record starts without voting right. See link:voting-right-and-donors.adoc[Voting right and donors].
+
+*Open point D: "Förderer" and "Spender".* The CSV import (`MemberCsvImport`, "förderer") creates a `DONOR`; the sync maps "Förderer" to `FRIEND` and "Spender" to `DONOR`. `MemberStatusTransitions.allowedTargets(FRIEND)`
+is empty, so *every* status change of a `FRIEND` record is refused per record with `STATUS_TRANSITION_NOT_ALLOWED`, and a new "Förderer" record creates a `FRIEND` without an account. The mapping is *not*
+changed in this wave; there is no safe mini-fix. To be clarified with the board.
 
 An unknown label is skipped as well. Lapis Cloud has no `EXCLUDED` status, so "Ausgeschlossen" becomes `WITHDRAWN`. For an existing member the change must be allowed by the transition table
 of the member administration (`MemberStatusTransitions`: `ACTIVE`, `WITHDRAWN`, `DONOR`, `DECEASED` among each other); anything else is an error of that record. Leaving `DECEASED` is allowed for the acting
@@ -124,4 +133,4 @@ The host is fixed (`LupaBbEndpoint.PRODUCTION`); there is no setting, no redirec
   (`lupabb_sync_config.api_key_transport`).
 * **The regional chapter of a member is not part of the payload the PZB read.** The sync reads an optional `landesverband` id if LupaBB ever sends it; otherwise the chapter stays untouched and the preview says so.
   The joining date of new members is the day of the sync unless LupaBB sends an optional `eintritt`.
-* The status mapping of "Neumitglied" (`ACTIVE`) and "Ausgeschlossen" (`WITHDRAWN`) is a decision still to be confirmed by the board.
+* "Neumitglied" is `ACTIVE` without voting right (owner decision 2026-11-09). The status mapping of "Ausgeschlossen" (`WITHDRAWN`) is a decision still to be confirmed by the board.

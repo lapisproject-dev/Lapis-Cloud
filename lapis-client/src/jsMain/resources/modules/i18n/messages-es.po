@@ -13735,9 +13735,6 @@ msgstr "Cuenta de acceso creada para %1."
 msgid "Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."
 msgstr "Indique una fecha válida que no sea futura."
 
-msgid "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich aber erst anmelden, wenn der Status auf Aktiv geändert wird."
-msgstr "Para los donantes el acceso está bloqueado. La cuenta se crea, pero la persona solo podrá iniciar sesión cuando el estado cambie a Activo."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1146
 msgid "Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos."
 msgstr "Para este estado el acceso está bloqueado. La cuenta no tendrá efecto hasta que cambie el estado."
@@ -31549,3 +31546,75 @@ msgstr "Anuncio (tablón de anuncios)"
 
 msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
 msgstr "Los miembros publican anuncios en el tablón: búsquedas, ofertas e informaciones con fecha de caducidad. El orden sigue los LTR que los miembros utilizan en un anuncio."
+
+msgid "Stimmrecht"
+msgstr "Derecho de voto"
+
+msgid "Stimmrecht speichern"
+msgstr "Guardar derecho de voto"
+
+msgid "Stimmrecht gespeichert."
+msgstr "Derecho de voto guardado."
+
+msgid "Ja – darf abstimmen"
+msgstr "Sí – puede votar"
+
+msgid "Nein – darf nicht abstimmen"
+msgstr "No – no puede votar"
+
+msgid "ja"
+msgstr "sí"
+
+msgid "nein"
+msgstr "no"
+
+msgid "ohne Stimmrecht"
+msgstr "sin derecho de voto"
+
+msgid "Standardwert"
+msgstr "Valor predeterminado"
+
+msgid "Aus LupaBB übernommen (Status: Mitglied)"
+msgstr "Tomado de LupaBB (estado: miembro)"
+
+msgid "Aus LupaBB übernommen (Status: Neumitglied)"
+msgstr "Tomado de LupaBB (estado: miembro nuevo)"
+
+msgid "Von Hand gesetzt am %1"
+msgstr "Establecido manualmente el %1"
+
+msgid "Von Hand gesetzt"
+msgstr "Establecido manualmente"
+
+msgid "Wieder dem LupaBB-Abgleich überlassen"
+msgstr "Dejarlo de nuevo a la sincronización con LupaBB"
+
+msgid "Das Stimmrecht wird künftig vom LupaBB-Abgleich gesetzt."
+msgstr "En adelante, la sincronización con LupaBB establecerá el derecho de voto."
+
+msgid "Das Stimmrecht ist unabhängig von der Mitgliedschaftsstufe. Ohne Stimmrecht bleibt die Person Mitglied, steht aber in keinem Wählerverzeichnis."
+msgstr "El derecho de voto es independiente del nivel de afiliación. Sin él, la persona sigue siendo miembro, pero no figura en ningún censo electoral."
+
+msgid "Wird das Stimmrecht nach dem Start einer Abstimmung entzogen, zählt das Mitglied dort weiter zur Beschlussfähigkeit, kann aber nicht mehr abstimmen."
+msgstr "Si el derecho de voto se retira tras el inicio de una votación, el miembro sigue contando para el quórum allí, pero ya no puede votar."
+
+msgid "Sie sind Mitglied, haben aber derzeit kein Stimmrecht und können deshalb nicht abstimmen. Bei Fragen wenden Sie sich an den Vorstand."
+msgstr "Usted es miembro, pero actualmente no tiene derecho de voto y por lo tanto no puede votar. Si tiene preguntas, póngase en contacto con la junta directiva."
+
+msgid "Das Stimmrecht wurde von Hand gesetzt und wird nicht übernommen."
+msgstr "El derecho de voto se estableció manualmente y no se adopta."
+
+msgid "Stimmrecht von Hand gesetzt (%1), LupaBB meldet %2 – wird nicht übernommen"
+msgstr "Derecho de voto establecido manualmente (%1), LupaBB indica %2 – no se adopta"
+
+msgid "Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um der Besprechung beizutreten."
+msgstr "Introduzca el identificador de sala de su invitación para unirse a la reunión."
+
+msgid "Besprechung beitreten"
+msgstr "Unirse a una reunión"
+
+msgid "Für Spender ist keine Verwaltungsrolle möglich. Bitte zuerst die Rolle auf Mitglied setzen."
+msgstr "Un donante no puede tener un rol administrativo. Establezca primero el rol en miembro."
+
+msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
+msgstr "Los donantes pueden iniciar sesión, pero no pueden votar ni recibir un rol administrativo. La cuenta se crea con el rol de miembro."

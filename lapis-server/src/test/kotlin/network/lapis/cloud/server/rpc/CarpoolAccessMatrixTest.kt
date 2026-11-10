@@ -83,7 +83,8 @@ class CarpoolAccessMatrixTest :
                     val expected =
                         when (status) {
                             MemberStatus.ACTIVE -> emptySet()
-                            MemberStatus.GUEST, MemberStatus.FRIEND -> calls().keys - allowlist
+                            // V1.9.298: DONOR is in CARPOOL_PASSENGER like GUEST and FRIEND
+                            MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR -> calls().keys - allowlist
                             else -> calls().keys
                         }
                     withClue(clue = status.name) { forbidden shouldBe expected }

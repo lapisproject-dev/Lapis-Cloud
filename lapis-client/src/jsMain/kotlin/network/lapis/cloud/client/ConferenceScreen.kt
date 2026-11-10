@@ -541,8 +541,22 @@ fun renderConferenceScreen(
 /** Which lobby a session gets in the conference screen (V1.9.126). */
 internal enum class ConferenceLobbyKind { GUEST_LOBBY, MEMBER_LOBBY }
 
-/** True for a session whose status is in [MemberStatusSets.NON_MEMBER] (GUEST or FRIEND). `null` (no session) is not a non-member. */
+/**
+ * True for a session whose status is in [MemberStatusSets.NON_MEMBER] (GUEST, FRIEND, and since V1.9.298 DONOR): decides the LOBBY (no "start",
+ * no list of running rooms) and whether `getRoom` may be asked. `null` (no session) is not a non-member. Whether somebody is a GUEST of the
+ * room (consent dialog, short token) is [isConferenceGuest].
+ */
 internal fun isConferenceNonMember(session: SessionInfoDto?): Boolean = session != null && session.status in MemberStatusSets.NON_MEMBER
+
+/** V1.9.298 -- True only for [MemberStatusSets.CONFERENCE_GUEST] (GUEST/FRIEND): these see the consent dialog. A donor joins like a member. */
+internal fun isConferenceGuest(session: SessionInfoDto?): Boolean = session != null && session.status in MemberStatusSets.CONFERENCE_GUEST
+
+/** True for every status that must acknowledge the consent text before joining ([MemberStatusSets.CONSENT_REQUIRED]: GUEST, FRIEND, DONOR). */
+internal fun isConferenceConsentRequired(session: SessionInfoDto?): Boolean =
+    session != null && session.status in MemberStatusSets.CONSENT_REQUIRED
+
+/** V1.9.298 -- a donor: signs in, enters a room by its id from an invitation, but is neither a guest nor a member of the room. */
+internal fun isConferenceDonor(session: SessionInfoDto?): Boolean = session?.status == MemberStatus.DONOR
 
 /** Pure lobby decision: every non-member (GUEST and FRIEND) gets the guest lobby, everyone else the member lobby. */
 internal fun conferenceLobbyKindOf(session: SessionInfoDto?): ConferenceLobbyKind =
@@ -550,7 +564,9 @@ internal fun conferenceLobbyKindOf(session: SessionInfoDto?): ConferenceLobbyKin
 
 /** Intro sentence of the guest lobby; a FRIEND has no home server (V1.9.126). */
 internal fun conferenceGuestLobbyIntro(session: SessionInfoDto?): String =
-    if (session?.status == MemberStatus.FRIEND) {
+    if (session?.status == MemberStatus.DONOR) {
+        tr("Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um der Besprechung beizutreten.")
+    } else if (session?.status == MemberStatus.FRIEND) {
         tr(
             "Sie sind mit Ihrem Freund-Konto auf diesem Server angemeldet. Geben Sie die Raum-Kennung aus Ihrer " +
                 "Einladung ein, um der Besprechung beizutreten.",
@@ -948,7 +964,7 @@ private suspend fun joinEventAndEnterCall(
     // V1.9.156: `true` on the one repeat after the server said the capture text changed while the person was reading it.
     consentRetried: Boolean = false,
 ): Boolean {
-    val nonMember = isConferenceNonMember(AppState.session)
+    val nonMember = isConferenceGuest(AppState.session)
     // V1.9.156: a released event needs the capture consent of EVERY participant; the server decides (never the client) and sends the text to show.
     val captureState = guarded { rpcService<IEventService>().getEventCaptureState(eventId) } ?: return false
     val captureNotice = captureState.notice?.takeIf { captureState.noticeRequired }
@@ -1119,7 +1135,8 @@ private fun renderGuestLobby(
     lobbyReturn.refresh = { renderGuestLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard, lobbyReturn) }
     lobbyReturn.rendered = true
 
-    lobbyPanel.h2(tr("Als Gast beitreten")) { addCssClass("h5") }
+    val donor = isConferenceDonor(AppState.session)
+    lobbyPanel.h2(if (donor) tr("Besprechung beitreten") else tr("Als Gast beitreten")) { addCssClass("h5") }
     lobbyPanel.div(conferenceGuestLobbyIntro(AppState.session)) { addCssClasses("text-muted small") }
 
     val roomIdInput = lobbyPanel.text(label = tr("Raum-Kennung aus Ihrer Einladung"))
@@ -1150,7 +1167,7 @@ private fun renderGuestLobby(
             continueButton.disabled = false
             if (info == null) return@launch // guarded {} already toasted (unknown id, rate limit, ...)
 
-            val reason = conferenceGuestJoinBlockedReason(info)
+            val reason = conferenceGuestJoinBlockedReason(info, callerIsDonor = donor)
             if (reason != null) {
                 blockedBox.content = reason
                 blockedBox.show()
@@ -1159,7 +1176,7 @@ private fun renderGuestLobby(
                 return@launch
             }
 
-            conferenceGuestConsentModal(info) { consent ->
+            val proceed: (ConferenceGuestConsentAcknowledgmentInput?) -> Unit = { consent ->
                 AppScope.launch {
                     // a deliberate join starts a fresh window (the dock resets the guard) and takes the single seat of the tab
                     if (!ConferenceDock.beginJoin(info.roomId)) return@launch
@@ -1203,6 +1220,8 @@ private fun renderGuestLobby(
                     }
                 }
             }
+            // A donor is no guest of the room (member token, no cap) but a non-member: the server requires the same explicit consent (DSGVO proof).
+            conferenceGuestConsentModal(info) { consent -> proceed(consent) }
         }
     }
 }
@@ -1213,13 +1232,18 @@ private fun renderGuestLobby(
  * -- kilua-rpc never transmits those, see [AppState.guarded] KDoc. See
  * [ConferenceGuestJoinInfoDto] KDoc for the full rationale.
  */
-internal fun conferenceGuestJoinBlockedReason(info: ConferenceGuestJoinInfoDto): String? =
+internal fun conferenceGuestJoinBlockedReason(
+    info: ConferenceGuestJoinInfoDto,
+    // V1.9.298: a donor needs no `allowFederationGuests` release of the room (the server treats it like a member); only an ended room blocks it.
+    callerIsDonor: Boolean = false,
+): String? =
     when {
         // Security audit follow-up (untrusted-text sanitization gaps): info.title is member-editable free text.
         // The caller assigns the result straight to `blockedBox.content` (a bare local `val`, invisible to the
         // widget-text tripwire's assignment regex) -- sanitize here, at the single source of this return value,
         // so every caller stays safe regardless of how it is later rendered.
         !info.roomActive -> sanitizeUntrustedI18nText(gettext("Die Besprechung „%1\" ist bereits beendet.", info.title))
+        callerIsDonor -> null
         !info.allowsFederationGuests && info.callerIsGuest ->
             sanitizeUntrustedI18nText(
                 gettext(
@@ -6099,7 +6123,14 @@ private fun enterCall(
         }
         val token =
             guarded { rpcService<IConferenceBreakoutService>().rejoinMainRoomToken(room.id) }
-                ?: if (isConferenceNonMember(AppState.session)) null else guarded { rpcService<IConferenceService>().joinRoom(room.id) }
+                ?: if (isConferenceConsentRequired(
+                        AppState.session,
+                    )
+                ) {
+                    null
+                } else {
+                    guarded { rpcService<IConferenceService>().joinRoom(room.id) }
+                }
         return token?.let { target to it }
     }
 

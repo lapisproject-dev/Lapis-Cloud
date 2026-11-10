@@ -9,6 +9,10 @@ lists (V1.9.111, link:dynamic-mailing-lists.adoc[Dynamic and mandatory mailing l
 The wave also changes something for **every** committee: when a vote is opened, the circle of people who may vote is **frozen**. That is a behaviour change
 and it is described first, because it affects committees that never use a rule.
 
+NOTE: V1.9.298 -- the *electorate* is the circle intersected with the *voting right* (`member.voting_right`). A member without voting right belongs to the committee but is not frozen into a vote, election or consensus
+round and not in the quorum's denominator. If the voting right is withdrawn *after* the freeze the same rule as for a member who leaves the association applies: the person stays in the snapshot and in N but can no longer
+vote; a voting right granted after the freeze gives no vote. See link:voting-right-and-donors.adoc[Voting right and donors].
+
 == The electorate of a vote is frozen when the vote is opened
 
 `openVote` writes one row per eligible member into `vote_eligible_voter` and stamps `vote.electorate_frozen_at`, in the same transaction (under the motion

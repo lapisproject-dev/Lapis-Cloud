@@ -95,6 +95,22 @@ fun requireActiveMembership(
 }
 
 /**
+ * V1.9.298 -- the live floor of every ballot: [MemberStatus.ACTIVE] AND `member.voting_right`, in ONE query. A member whose voting right was
+ * withdrawn after the electorate was frozen stays in the snapshot (and in the quorum denominator) but cannot cast a ballot any more; a voting
+ * right granted after the freeze gives no vote because the member is not in the snapshot. Same [forUpdate] semantics as [requireActiveMembership].
+ */
+fun requireVotingMembership(
+    memberId: Uuid,
+    forUpdate: Boolean = false,
+): MemberStatus {
+    val query = MemberTable.selectAll().where { MemberTable.id eq memberId }
+    val row = (if (forUpdate) query.forMemberUpdate() else query).singleOrNull()
+    val status = row?.get(MemberTable.status)
+    if (row == null || status !in MemberStatusSets.ORGANIZATION_MEMBER || !row[MemberTable.votingRight]) throw ForbiddenException()
+    return status!!
+}
+
+/**
  * Welle V1.1.4 -- "darf LTR halten/ausgeben, soweit das soziale Netz betroffen ist":
  * [MemberStatus.ACTIVE] UND [MemberStatus.FRIEND], siehe [MemberStatusSets.LTR_ELIGIBLE] KDoc für
  * die vollständige fachliche Begründung und für die drei bewussten Ausschlüsse (GUEST/APPLICATION/
@@ -293,7 +309,7 @@ fun requireCarpoolPassengerMembership(
  * REJECTED caller is rejected identically whether or not the room happens to be guest-opted-in --
  * the per-room `allowFederationGuests` toggle can only NARROW the pre-existing status gate, never
  * widen it. **Security-relevant (V0.11.0)**: the `allowFederationGuests` narrowing now applies to
- * every [MemberStatusSets.NON_MEMBER] status (GUEST *and* FRIEND), not just GUEST -- otherwise a
+ * every [MemberStatusSets.CONFERENCE_GUEST] status (GUEST *and* FRIEND), not just GUEST -- otherwise a
  * self-registered FRIEND would get BROADER room access than a federated GUEST, which at least
  * proved an identity at a trusted home server while FRIEND proved nothing.
  */
@@ -311,7 +327,7 @@ fun requireRoomEntryAuthorization(
     // Only a read-only caller that explicitly opts in (listParticipants, the recording/stream badges) is let through.
     if (!allowEventRoom) EventConferenceGuard.requireNotEventRoom(row = roomRow)
     val status = requireConferenceEligibleMembership(memberId = current.memberId)
-    if (status in MemberStatusSets.NON_MEMBER && !roomRow[ConferenceRoomTable.allowFederationGuests]) {
+    if (status in MemberStatusSets.CONFERENCE_GUEST && !roomRow[ConferenceRoomTable.allowFederationGuests]) {
         throw ForbiddenException(
             "This conference room does not admit non-members -- its moderator has not enabled " +
                 "allowFederationGuests. (Note: this message is server-side only; the client learns " +
@@ -331,10 +347,11 @@ fun requireRoomEntryAuthorization(
  * fix: the original version tested only row EXISTENCE, ignoring `leftAt` -- since
  * `conference_participation` is append-only (never deleted), that let an ejected/departed guest
  * retain this gate forever (a moderator's `removeParticipant` on a disruptive guest disconnected
- * them from LiveKit but left `listParticipants`/recording/streaming probes open). No-op for an
+ * them from LiveKit but left `listParticipants`/recording/streaming probes open). No-op ONLY for an
  * [MemberStatusSets.ORGANIZATION_MEMBER] [status] (V0.11.0: widened from a `!= GUEST` check to
- * `!in NON_MEMBER`, so a departed/ejected FRIEND is held to the exact same continued-participation
- * discipline a departed GUEST always was). Shared by
+ * `!in CONFERENCE_GUEST`, so a departed/ejected FRIEND is held to the exact same continued-participation
+ * discipline a departed GUEST always was; V1.9.298 review fix: now `in ORGANIZATION_MEMBER`, so a DONOR -- who is not a
+ * [MemberStatusSets.CONFERENCE_GUEST] -- must ALSO be in the room, instead of probing it by bare room id). Shared by
  * [ConferenceService.listParticipants]/[ConferenceRecordingService.getActiveRecording]/
  * [ConferenceStreamingService.getActiveStream] so the three call sites cannot drift apart. Must run
  * INSIDE the caller's open `transaction {}`, same convention as [requireRoomEntryAuthorization].
@@ -344,7 +361,7 @@ fun requireGuestHasJoinedRoom(
     current: CurrentMember,
     status: MemberStatus,
 ) {
-    if (status !in MemberStatusSets.NON_MEMBER) return
+    if (status in MemberStatusSets.ORGANIZATION_MEMBER) return
     val hasOpenParticipation =
         ConferenceParticipationTable
             .selectAll()

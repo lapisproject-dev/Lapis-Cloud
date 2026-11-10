@@ -2097,7 +2097,8 @@ class MemberAdministrationTest :
         }
 
         // ── 34: LOGIN_BLOCKED-aber-nicht-DECEASED-Ziele sind erlaubt ──
-        listOf(MemberStatus.DONOR, MemberStatus.WITHDRAWN).forEach { blockedButAllowed ->
+        // V1.9.298: DONOR left LOGIN_BLOCKED (a donor may sign in); its account is covered by VotingRightAdminAndDonorAccountTest.
+        listOf(MemberStatus.WITHDRAWN).forEach { blockedButAllowed ->
             test("grantMemberAccount: a $blockedButAllowed target succeeds -- the account is created but inert (LOGIN_BLOCKED)") {
                 testApplication {
                     application {

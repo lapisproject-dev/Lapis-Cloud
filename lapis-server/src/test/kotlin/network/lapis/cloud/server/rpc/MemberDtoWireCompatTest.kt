@@ -76,15 +76,18 @@ class MemberDtoWireCompatTest :
                     .resolve("src/commonMain/kotlin/network/lapis/cloud/shared/rpc/IMemberService.kt")
                     .readText()
             val methods = Regex("""(?m)^\s+suspend fun (\w+)\(""").findAll(source).map { it.groupValues[1] }.toList()
-            methods.takeLast(5) shouldContainExactly
+            // V1.9.298 appended setMemberVotingRight and releaseMemberVotingRightToSync after the V1.9.121 block
+            methods.takeLast(7) shouldContainExactly
                 listOf(
                     "updateMemberStreetAddress",
                     "updateMemberCountry",
                     "updateMemberNationalities",
                     "previewCountryLegacyMapping",
                     "applyCountryLegacyMapping",
+                    "setMemberVotingRight",
+                    "releaseMemberVotingRightToSync",
                 )
             // the method right before the appended block is the previous last one: nothing was inserted in the middle
-            methods[methods.size - 6] shouldBe "listMembersForSelection"
+            methods[methods.size - 8] shouldBe "listMembersForSelection"
         }
     })

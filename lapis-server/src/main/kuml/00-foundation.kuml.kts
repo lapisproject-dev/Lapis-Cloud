@@ -124,6 +124,13 @@ classDiagram(name = "Foundation") {
         literal(name = "DECEASED")
     }
 
+    // V1.9.298: who set member.votingRight (see V150).
+    val votingRightSource = enumOf(name = "VotingRightSource") {
+        literal(name = "DEFAULT")
+        literal(name = "MANUAL")
+        literal(name = "LUPABB")
+    }
+
     val accountRole = enumOf(name = "AccountRole") {
         literal(name = "MEMBER")
         literal(name = "BOARD")
@@ -317,6 +324,24 @@ classDiagram(name = "Foundation") {
         // V1.9.237 "Neue Nachricht" -- see 78-direct-message-block.kuml.kts and V128. FALSE hides the member from the NAME search for new messages.
         attribute(name = "dmDiscoverable", type = "Boolean") {
             stereotype("Column") { "columnName" to "dm_discoverable" }
+        }
+        // V1.9.298 voting right as a member attribute -- see V150__member_voting_right.sql and docs/architecture/voting-right-and-donors.adoc.
+        // Independent of the membership status: the electorate of every vote is membership AND votingRight. Only MemberVotingRights writes these
+        // three columns. The CHECKs (chk_member_voting_right_source, chk_member_voting_right_default_shape) are plain SQL in V150 (like V96).
+        attribute(name = "votingRight", type = "Boolean") {
+            defaultValue = "TRUE"
+            stereotype("Column") { "columnName" to "voting_right" }
+        }
+        attribute(name = "votingRightSource", type = votingRightSource) {
+            defaultValue = "DEFAULT"
+            stereotype("Column") {
+                "columnName" to "voting_right_source"
+                "enumType" to "network.lapis.cloud.shared.domain.VotingRightSource"
+            }
+        }
+        attribute(name = "votingRightChangedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "voting_right_changed_at" }
         }
     }
 

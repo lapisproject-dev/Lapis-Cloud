@@ -104,4 +104,9 @@ data class SessionInfoDto(
      * (PartG)" navigation entry; the server enforces the switch and the role on every call. Defaulted for old/new client and server compatibility.
      */
     val politicalParty: Boolean = false,
+    /**
+     * Welle V1.9.298 -- `member.voting_right` of the caller, read fresh. Drives ONLY the notice that replaces the vote button; the server enforces the
+     * voting right on every ballot. Defaulted for old/new client and server compatibility.
+     */
+    val votingRight: Boolean = true,
 )

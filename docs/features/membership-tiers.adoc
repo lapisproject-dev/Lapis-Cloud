@@ -8,3 +8,5 @@ decimals) and every change leaves an audit entry, because a tier's amount decide
 invoiced. A tier is *closed*, never deleted: closing stops new assignments only and keeps invoicing
 the members already on it. Changing an amount never rewrites an existing contribution. No tier exists
 on a fresh instance; the treasurer creates them. See `docs/architecture/membership-tiers.adoc`.
+
+NOTE: V1.9.298 -- the voting right is *independent* of the membership tier (and of the membership): a member of any tier has or lacks it per person (`member.voting_right`). See link:voting-right-and-donors.adoc[Voting right and donors].

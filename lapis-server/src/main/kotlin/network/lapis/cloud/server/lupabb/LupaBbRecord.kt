@@ -47,6 +47,8 @@ internal data class LupaBbRecord(
     /** `null` = LupaBB did not send a regional association for this record. */
     val regionalAssociationLabel: String?,
     val joinedAt: LocalDate?,
+    /** V1.9.298 -- the voting right the status label implies (`Neumitglied` = no); `null` = the label says nothing, the sync leaves the voting right alone. */
+    val votingRight: Boolean? = null,
 )
 
 /** The outcome of reading one wire record. */

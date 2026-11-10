@@ -1,0 +1,78 @@
+= Voting right and donors: architecture (V1.9.298)
+:toc:
+
+NOTE: The `[kuml]` block of this document is rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+See link:../features/voting-right-and-donors.adoc[the feature description] for what people see. This page records how it is built.
+
+== Membership versus electorate
+
+`eligibleMemberIds` / `isCommitteeEligible` / `countEligible` stay the pure *membership* of a circle (invitations, group messages, the rule preview). The *electorate* is a separate set of functions in
+`CommitteeEligibility.kt`:
+
+* `electorateMemberIds(committee, date)`: the membership intersected with `member.voting_right = TRUE`. Manual committee: join with `member`; rule committee: the rule's set intersected in chunks of 500; General
+  Assembly: `ACTIVE AND voting_right`.
+* `isCommitteeVoter`: the point query; pinned against `electorateMemberIds` by a parity test.
+* `countElectorate`: N of the quorum and "Beschlussfähig ab".
+* `frozenOrLiveElectorate` uses `electorateMemberIds` for its live fallback; a snapshot is never recomputed.
+
+`CommitteeElectorateTripwireTest` pins which files may call which function; the three freeze files never use `eligibleMemberIds` again.
+
+*Live floor.* `requireVotingMembership` (ACTIVE and voting right, one query) is the first line of `castVoteBallot`, `castElectionBallot` and `castResistanceBallot`; the own-participation helpers AND the live voting
+right onto every `eligible` flag. A snapshot lists who was in the circle when the decision opened; whether the person may *still* vote is the live state.
+
+== One writer
+
+`MemberVotingRights` is the only code that writes the three columns (`MemberVotingRightWriterTripwireTest`). Exceptions: the DSGVO erasure (resets to the defaults in the same `update`) and the insert of a member
+by the LupaBB sync (values from `insertValues`). The mutating entry points are called by `MemberService` (ADMIN, never the own row, member row lock, audit last) and `LupaBbApplier` (member row lock,
+fingerprint, source re-checked).
+
+[kuml, voting-right-sync-rule, svg]
+----
+stateDiagram(name = "Source of the voting right") {
+    val default = state(name = "DEFAULT (yes)")
+    val lupabb = state(name = "LUPABB")
+    val manual = state(name = "MANUAL")
+    transition(from = default, to = lupabb, label = "sync: label differs")
+    transition(from = default, to = manual, label = "ADMIN sets")
+    transition(from = lupabb, to = manual, label = "ADMIN sets")
+    transition(from = manual, to = manual, label = "ADMIN sets (other value)")
+    transition(from = manual, to = lupabb, label = "ADMIN releases to the sync")
+    transition(from = lupabb, to = lupabb, label = "sync: label differs")
+}
+----
+
+The columns are covered by two CHECKs (V150): the source is one of the three values, and `DEFAULT` implies `voting_right = TRUE` and no change time. Backups from before V150 are refused by the schema checksum.
+
+== Donors: `NON_MEMBER` versus `CONFERENCE_GUEST`
+
+`MemberStatusSets.NON_MEMBER` ("authenticated, not a member") now holds `DONOR`: every gate that says "not a member -> restrict" (visibility of posts, `MEMBERS_ONLY`, ...) restricts a donor automatically
+(*fail-closed*). Inside the video-conference, event-online and encounter-space code "guest of the room" is the new `CONFERENCE_GUEST` (GUEST, FRIEND): consent dialog, the room's `allowFederationGuests`,
+the short guest token, the guest cap, the lobby text. `ConferenceGuestSetTripwireTest` forbids `NON_MEMBER` in those files, so a donor is never turned into a guest (or the other way round).
+
+`LOGIN_BLOCKED` lost `DONOR`; `KEYCLOAK_AUTO_LINK_BLOCKED` (= `LOGIN_BLOCKED` + `DONOR`) is the check of the *implicit* Keycloak link (case 2 of `KeycloakAccountLinker`); a link an administrator created (case 1)
+only checks `LOGIN_BLOCKED`. `MemberRoleStatusMutations.requireRoleAllowedForStatus` refuses BOARD/TREASURER/ADMIN for a donor in `grantMemberAccount`, `updateMemberRole` and the status change to `DONOR`.
+
+== Gate audit (result)
+
+Searched in `lapis-server/src/main` and `lapis-client/src/jsMain`: `NON_MEMBER`, `isNonMember`, `isGuest`, `== MemberStatus.GUEST`, `== MemberStatus.FRIEND`, `setOf(MemberStatus.`, `!in MemberStatusSets.`.
+
+[cols="2,2,3"]
+|===
+| Place | Class | Donor behaviour
+
+| `SocialVisibility`, `SocialNetworkService` (MEMBERS_ONLY), `CreatePostDraftTool`, `RequestContext.isNonMember`, `LtrLedgerScreen`, `SocialNetworkScreen`, `StagingSeedSocial` | NON_MEMBER (kept) | restricted like a friend (fail-closed)
+| `ConferenceService`, `ConferenceBreakoutService`, `EncounterSpaceService`, `EventOnlineJoin`, `MembershipGuards` (room entry, joined-room check), `ConferenceConfig` | now `CONFERENCE_GUEST` | not a guest of the room
+| `EventOnlineAccess` | visibility by `status != ACTIVE`, guest by `CONFERENCE_GUEST` | public events only, no guest notice
+| `ConferenceService.createRoom/listActiveRooms/getRoom` | ACTIVE only (kept) | refused; a donor enters by a room id
+| `ConferenceModeratorAuthority` | creator needs `ORGANIZATION_MEMBER` (new) | a creator who became a donor does not moderate
+| `EncounterRoles.roleOf` | ACTIVE office holders only (already) | no office, no floor
+| Conference ballot cards | `ownEligible` needs `ORGANIZATION_MEMBER` (new defence line) | never eligible
+| `ConferenceAudioPolicy.isModeratorIdentity` (creator in the mute reconciler) | not changed | a former creator who is a donor is still exempt from "mute all"; cosmetic, no RPC authority
+| Carpool / tender / event self-registration / conference / LTR / politician sets | `DONOR` added | like friend/guest (Q1, Q2)
+| Notice board, activism, rule committees, member photo/map/card/background upload | `ORGANIZATION_MEMBER` (kept) | no
+|===
+
+== Dependent defaults
+
+Open questions Q1 and Q2 are documented in the feature description; the defaults are implemented. `OnlineSessionCounts` counts a donor under OTHER (unchanged). A donor receives no member card (unchanged).

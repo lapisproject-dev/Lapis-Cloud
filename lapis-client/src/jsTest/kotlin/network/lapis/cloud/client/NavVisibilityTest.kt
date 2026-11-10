@@ -106,7 +106,8 @@ class NavVisibilityTest {
     @Test
     fun ltrEligibleSections_matchMemberStatusSetsLtrEligible_exactly() {
         MemberStatus.entries.forEach { status ->
-            val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
+            // V1.9.298: DONOR joined LTR_ELIGIBLE (open question Q1 default)
+            val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND || status == MemberStatus.DONOR
             assertEquals(expected, NavVisibility.showsEconomySection(status), "showsEconomySection mismatch for $status")
             assertEquals(expected, NavVisibility.showsLtrLedger(status), "showsLtrLedger mismatch for $status")
             assertEquals(expected, NavVisibility.showsSocialNetwork(status), "showsSocialNetwork mismatch for $status")
@@ -138,7 +139,7 @@ class NavVisibilityTest {
     @Test
     fun aiDrafts_matchesMemberStatusSetsLtrEligible_exactly() {
         MemberStatus.entries.forEach { status ->
-            val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
+            val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND || status == MemberStatus.DONOR
             assertEquals(expected, NavVisibility.showsAiDrafts(status, mcpEnabled = true), "showsAiDrafts mismatch for $status")
         }
     }
@@ -173,7 +174,7 @@ class NavVisibilityTest {
         // V1.9.62: ACTIVE, GUEST and FRIEND (the audience of `IEncounterSpaceService.listSpaces`); every other status sees no door.
         MemberStatus.entries.forEach { status ->
             assertEquals(
-                status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND),
+                status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR),
                 NavVisibility.showsEncounterSpaces(status),
                 "showsEncounterSpaces($status)",
             )
@@ -184,7 +185,7 @@ class NavVisibilityTest {
     fun carpool_isOfferedToActiveGuestAndFriend_andFlatOnlyWhereThereIsNoMembershipGroup() {
         // V1.9.125: the passenger allowlist of `ICarpoolService` (ACTIVE, GUEST, FRIEND); ACTIVE keeps the entry in its group, the others get a flat link.
         MemberStatus.entries.forEach { status ->
-            val offered = status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)
+            val offered = status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR)
             assertEquals(offered, NavVisibility.showsCarpool(status), "showsCarpool($status)")
             assertEquals(
                 offered && status != MemberStatus.ACTIVE,

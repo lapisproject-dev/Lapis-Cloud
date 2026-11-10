@@ -99,6 +99,12 @@ data class MemberAdminRowDto(
     val lupabbPersonNumber: Long? = null,
     /** Welle V1.9.226 -- since when the last sync did not find the member in LupaBB any more (Klasse D date; ADMIN only). */
     val lupabbMissingSince: LocalDate? = null,
+    /** Welle V1.9.298 -- whether the member may vote (`member.voting_right`). Independent of the membership status. */
+    val votingRight: Boolean = true,
+    /** Welle V1.9.298 -- who set [votingRight]; drives the origin line in the edit dialog. */
+    val votingRightSource: VotingRightSource = VotingRightSource.DEFAULT,
+    /** Welle V1.9.298 -- last explicit change of [votingRight] (UTC, Klasse A); `null` while [votingRightSource] is DEFAULT. */
+    val votingRightChangedAt: LocalDateTime? = null,
 )
 
 /** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */

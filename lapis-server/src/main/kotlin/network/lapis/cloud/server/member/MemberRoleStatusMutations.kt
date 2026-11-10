@@ -58,6 +58,21 @@ internal data class StatusChangeOutcome(
  */
 internal object MemberRoleStatusMutations {
     /**
+     * Welle V1.9.298 -- a donor ([MemberStatus.DONOR], who may sign in since this wave) can never hold an administrative role: BOARD, TREASURER and
+     * ADMIN presuppose membership. A [ConflictException] without any value. Called by `grantMemberAccount`, `updateMemberRole` and by
+     * [applyStatusChangeLocked] for a change TO donor, so an administrator can only become a donor after the role was set to MEMBER first (that
+     * downgrade is itself peer-protected).
+     */
+    fun requireRoleAllowedForStatus(
+        status: MemberStatus,
+        role: AccountRole?,
+    ) {
+        if (status == MemberStatus.DONOR && role != null && role in ESCALATED_ROLES) {
+            throw ConflictException("A donor cannot hold an administrative role")
+        }
+    }
+
+    /**
      * Last-admin protection, race-safe (see the V1.9.x security fixes in the CHANGELOG): after the change at least one ADMIN
      * with a member status that is not login-blocked must remain. The TARGET is excluded from the "other admins" set (it is
      * about to lose its capability regardless of its own status); their CURRENT status is re-read, serialized by the union
@@ -150,6 +165,8 @@ internal object MemberRoleStatusMutations {
         historySource: MemberStatusHistorySource = MemberStatusHistorySource.LIVE,
     ): StatusChangeOutcome {
         val fromStatus = row[MemberTable.status]
+        // Welle V1.9.298 -- before anything is written: no administrative role for a donor.
+        requireRoleAllowedForStatus(status = newStatus, role = existingRole)
         // Letzter-Admin-Schutz, race-safe (Security fix 2026-08-27, MEDIUM) -- a login-blocking status revokes an ADMIN's
         // capability exactly as a role downgrade does.
         if (existingRole == AccountRole.ADMIN && newStatus in MemberStatusSets.LOGIN_BLOCKED) {

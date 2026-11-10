@@ -169,6 +169,7 @@ private fun consensusParticipationNote(data: ConsensusDetailData): String? {
         c.status != SystemicConsensusStatus.COLLECTION && c.status != SystemicConsensusStatus.RATING -> null
         !isMember -> gettext("Nur Mitglieder dieses Servers können bewerten.")
         c.status == SystemicConsensusStatus.RATING && p.hasRated -> gettext("Ihre Bewertung ist bereits eingegangen.")
+        c.status == SystemicConsensusStatus.RATING && p.eligible == false && AppState.session.lacksVotingRight() -> noVotingRightText()
         c.status == SystemicConsensusStatus.RATING && p.eligible == false -> gettext("Sie sind für diese Runde nicht stimmberechtigt.")
         else -> null
     }

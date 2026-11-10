@@ -43,6 +43,7 @@ import network.lapis.cloud.shared.domain.PeerAction
 import network.lapis.cloud.shared.domain.PeerActionDecisionsDto
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegionalChapterRules
+import network.lapis.cloud.shared.domain.VotingRightSource
 import network.lapis.cloud.shared.rpc.DecisionNotificationOutcome
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IMemberPhotoService
@@ -967,6 +968,10 @@ private fun Container.renderRosterName(row: MemberAdminRowDto) {
 /** Status column: role-coloured status badge plus the recorded date of death, if any. */
 private fun Container.renderRosterStatus(row: MemberAdminRowDto) {
     memberStatusRoleBadge(row.status)
+    // V1.9.298: a text badge, only for a member WITHOUT voting right (the default needs no mark); never a colour alone
+    if (row.status in MemberStatusSets.ORGANIZATION_MEMBER && !row.votingRight) {
+        span(tr("ohne Stimmrecht")) { addCssClasses("badge bg-secondary-subtle text-secondary-emphasis ms-1") }
+    }
     // Welle V1.4.4.5 -- zeigt hinter dem "Verstorben"-Badge, ob (und ggf. welches)
     // Sterbedatum erfasst ist.
     deceasedDateNote(row.status, row.dateOfDeath)?.let { note ->
@@ -1278,7 +1283,18 @@ internal fun openMemberEditorDialog(
         modal.div { addCssClass("mt-3") }
         modal.h2(tr("Status")) { addCssClass("h6") }
         val form = modal.lapisForm(legendGroup)
-        val targets = MemberStatusTransitions.allowedTargets(row.status).toList()
+        // V1.9.298: a donor never holds an administrative role -- the target is not offered, and the reason is said instead of left to a server error.
+        val donorBlockedByRole = row.role != null && row.role in ESCALATED_ROLES
+        val targets =
+            MemberStatusTransitions
+                .allowedTargets(row.status)
+                .filter { !(it == MemberStatus.DONOR && donorBlockedByRole) }
+                .toList()
+        if (donorBlockedByRole && MemberStatus.DONOR in MemberStatusTransitions.allowedTargets(row.status)) {
+            modal.div(tr("Für Spender ist keine Verwaltungsrolle möglich. Bitte zuerst die Rolle auf Mitglied setzen.")) {
+                addCssClasses("small text-muted")
+            }
+        }
         val statusField =
             form.selectField(
                 label = tr("Neuer Status"),
@@ -1471,7 +1487,7 @@ internal fun openMemberEditorDialog(
         modal.div { addCssClass("mt-3") }
         modal.h2(tr("Rolle")) { addCssClass("h6") }
         val form = modal.lapisForm(legendGroup)
-        val roleOptions = AccountRole.entries.map { it.name to accountRoleLabel(it) }
+        val roleOptions = roleOptionsFor(row.status)
         val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = row.role?.name, required = true)
         // V1.9.57: against another ADMIN the role section is a request for the demotion (with a reason), never a direct change.
         val roleReasonField =
@@ -1651,6 +1667,12 @@ internal fun openMemberEditorDialog(
         }
     }
 
+    // ── Stimmrecht (Welle V1.9.298) ──
+    if (canEditVotingRightOf(callerRole, callerMemberId, row)) {
+        modal.div { addCssClass("mt-3") }
+        renderVotingRightSection(modal, row, legendGroup, onChanged)
+    }
+
     // ── Landesverband (Welle V1.9.14) ──
     if (chapters.isNotEmpty() && canAssignChapterOf(callerRole, callerMemberId, row.role, row.status, row.anonymized, row.id)) {
         modal.div { addCssClass("mt-3") }
@@ -1688,7 +1710,7 @@ internal fun openMemberEditorDialog(
         val grantRoleField =
             form.selectField(
                 label = tr("Rolle"),
-                options = AccountRole.entries.map { it.name to accountRoleLabel(it) },
+                options = roleOptionsFor(row.status),
                 value = AccountRole.MEMBER.name,
                 required = true,
             )
@@ -1976,8 +1998,8 @@ fun grantAccountConsequence(status: MemberStatus): String? =
     when (status) {
         MemberStatus.DONOR ->
             tr(
-                "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich " +
-                    "aber erst anmelden, wenn der Status auf Aktiv geändert wird.",
+                "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. " +
+                    "Das Konto wird mit der Rolle Mitglied angelegt.",
             )
         MemberStatus.WITHDRAWN, MemberStatus.REJECTED ->
             tr("Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos.")
@@ -2153,3 +2175,93 @@ internal fun tierSelectOptions(
             .filter { it.active || it.id == currentTierId }
             .map { tier -> tier.id to if (tier.active) tier.name else gettext("%1 (geschlossen)", tier.name) },
     )
+
+/**
+ * V1.9.298 -- the roles a login account of a member with [status] may get: a donor only MEMBER (BOARD/TREASURER/ADMIN presuppose
+ * membership, the server refuses them with a Conflict); every other status the whole list.
+ */
+internal fun roleOptionsFor(status: MemberStatus): List<Pair<String, String>> =
+    AccountRole.entries
+        .filter { status != MemberStatus.DONOR || it == AccountRole.MEMBER }
+        .map { it.name to accountRoleLabel(it) }
+
+/** V1.9.298 -- ADMIN only, for a real organization member (the voting right belongs to the membership), never anonymised. */
+internal fun canEditVotingRightOf(
+    callerRole: AccountRole?,
+    callerMemberId: String?,
+    row: MemberAdminRowDto,
+): Boolean =
+    callerRole == AccountRole.ADMIN && row.status in MemberStatusSets.ORGANIZATION_MEMBER && !row.anonymized && row.id != callerMemberId
+
+/** V1.9.298 -- the origin line under the voting-right field; the date is a system timestamp (UTC, shown in the organization zone). */
+internal fun votingRightOriginText(row: MemberAdminRowDto): String =
+    when (row.votingRightSource) {
+        VotingRightSource.DEFAULT -> tr("Standardwert")
+        VotingRightSource.LUPABB ->
+            if (row.votingRight) tr("Aus LupaBB übernommen (Status: Mitglied)") else tr("Aus LupaBB übernommen (Status: Neumitglied)")
+        VotingRightSource.MANUAL ->
+            row.votingRightChangedAt?.let { gettext("Von Hand gesetzt am %1", formatSystemDateTime(it)) } ?: tr("Von Hand gesetzt")
+    }
+
+/** The "Stimmrecht" section of the editor dialog: its own form, its own RPC, no second dialog. */
+private fun renderVotingRightSection(
+    modal: Modal,
+    row: MemberAdminRowDto,
+    legendGroup: LegendGroup,
+    onChanged: () -> Unit,
+) {
+    modal.h2(tr("Stimmrecht")) { addCssClass("h6") }
+    val form = modal.lapisForm(legendGroup)
+    val yes = "true"
+    val no = "false"
+    val field =
+        form.selectField(
+            label = tr("Stimmrecht"),
+            options = listOf(yes to tr("Ja – darf abstimmen"), no to tr("Nein – darf nicht abstimmen")),
+            value = if (row.votingRight) yes else no,
+            required = true,
+            hint =
+                tr(
+                    "Das Stimmrecht ist unabhängig von der Mitgliedschaftsstufe. Ohne Stimmrecht bleibt die Person Mitglied, " +
+                        "steht aber in keinem Wählerverzeichnis.",
+                ),
+        )
+    form.panel.div(votingRightOriginText(row)) { addCssClasses("text-body-secondary small") }
+    val consequence =
+        form.panel.div(
+            tr(
+                "Wird das Stimmrecht nach dem Start einer Abstimmung entzogen, zählt das Mitglied dort weiter zur Beschlussfähigkeit, " +
+                    "kann aber nicht mehr abstimmen.",
+            ),
+        ) {
+            addCssClasses("alert alert-secondary small")
+            if (row.votingRight) hide()
+        }
+    field.subscribe { if (field.value == no) consequence.show() else consequence.hide() }
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Stimmrecht speichern"), ButtonStyle.PRIMARY)
+    form.buttons(primary = saveButton)
+    saveButton.onClick {
+        form.submit(saveButton) {
+            val wanted = field.value == yes
+            val result = memberAdminGuarded { rpcService<IMemberService>().setMemberVotingRight(row.id, wanted) }
+            if (result != null) {
+                notifySuccess(tr("Stimmrecht gespeichert."))
+                modal.hide()
+                onChanged()
+            }
+        }
+    }
+    if (row.votingRightSource == VotingRightSource.MANUAL) {
+        val release = modal.button(tr("Wieder dem LupaBB-Abgleich überlassen"), style = ButtonStyle.LINK)
+        release.onClick {
+            AppScope.launch {
+                val result = memberAdminGuarded { rpcService<IMemberService>().releaseMemberVotingRightToSync(row.id) }
+                if (result != null) {
+                    notifySuccess(tr("Das Stimmrecht wird künftig vom LupaBB-Abgleich gesetzt."))
+                    modal.hide()
+                    onChanged()
+                }
+            }
+        }
+    }
+}

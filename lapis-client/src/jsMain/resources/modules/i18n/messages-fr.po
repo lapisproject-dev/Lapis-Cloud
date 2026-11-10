@@ -14086,9 +14086,6 @@ msgstr "Compte de connexion créé pour %1."
 msgid "Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."
 msgstr "Veuillez indiquer une date valide qui ne soit pas dans le futur."
 
-msgid "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich aber erst anmelden, wenn der Status auf Aktiv geändert wird."
-msgstr "La connexion est bloquée pour les donateurs. Le compte est créé, mais la personne ne pourra se connecter qu'une fois le statut passé à Actif."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1146
 msgid "Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos."
 msgstr "La connexion est bloquée pour ce statut. Le compte reste sans effet jusqu'à un changement de statut."
@@ -31900,3 +31897,75 @@ msgstr "Annonce (tableau d'affichage)"
 
 msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
 msgstr "Les membres publient des annonces sur le tableau d'affichage : recherches, offres et informations avec une date d'expiration. L'ordre suit les LTR que les membres engagent sur une annonce."
+
+msgid "Stimmrecht"
+msgstr "Droit de vote"
+
+msgid "Stimmrecht speichern"
+msgstr "Enregistrer le droit de vote"
+
+msgid "Stimmrecht gespeichert."
+msgstr "Droit de vote enregistré."
+
+msgid "Ja – darf abstimmen"
+msgstr "Oui – peut voter"
+
+msgid "Nein – darf nicht abstimmen"
+msgstr "Non – ne peut pas voter"
+
+msgid "ja"
+msgstr "oui"
+
+msgid "nein"
+msgstr "non"
+
+msgid "ohne Stimmrecht"
+msgstr "sans droit de vote"
+
+msgid "Standardwert"
+msgstr "Valeur par défaut"
+
+msgid "Aus LupaBB übernommen (Status: Mitglied)"
+msgstr "Repris de LupaBB (statut : membre)"
+
+msgid "Aus LupaBB übernommen (Status: Neumitglied)"
+msgstr "Repris de LupaBB (statut : nouveau membre)"
+
+msgid "Von Hand gesetzt am %1"
+msgstr "Défini à la main le %1"
+
+msgid "Von Hand gesetzt"
+msgstr "Défini à la main"
+
+msgid "Wieder dem LupaBB-Abgleich überlassen"
+msgstr "Laisser de nouveau à la synchronisation LupaBB"
+
+msgid "Das Stimmrecht wird künftig vom LupaBB-Abgleich gesetzt."
+msgstr "Le droit de vote sera désormais défini par la synchronisation LupaBB."
+
+msgid "Das Stimmrecht ist unabhängig von der Mitgliedschaftsstufe. Ohne Stimmrecht bleibt die Person Mitglied, steht aber in keinem Wählerverzeichnis."
+msgstr "Le droit de vote est indépendant du niveau d’adhésion. Sans lui, la personne reste membre mais ne figure sur aucune liste électorale."
+
+msgid "Wird das Stimmrecht nach dem Start einer Abstimmung entzogen, zählt das Mitglied dort weiter zur Beschlussfähigkeit, kann aber nicht mehr abstimmen."
+msgstr "Si le droit de vote est retiré après le début d’un scrutin, le membre continue de compter pour le quorum, mais ne peut plus voter."
+
+msgid "Sie sind Mitglied, haben aber derzeit kein Stimmrecht und können deshalb nicht abstimmen. Bei Fragen wenden Sie sich an den Vorstand."
+msgstr "Vous êtes membre, mais vous n’avez actuellement pas de droit de vote et ne pouvez donc pas voter. Pour toute question, adressez-vous au conseil d'administration."
+
+msgid "Das Stimmrecht wurde von Hand gesetzt und wird nicht übernommen."
+msgstr "Le droit de vote a été défini à la main et n’est pas repris."
+
+msgid "Stimmrecht von Hand gesetzt (%1), LupaBB meldet %2 – wird nicht übernommen"
+msgstr "Droit de vote défini à la main (%1), LupaBB indique %2 – non repris"
+
+msgid "Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um der Besprechung beizutreten."
+msgstr "Saisissez l’identifiant de salle de votre invitation pour rejoindre la réunion."
+
+msgid "Besprechung beitreten"
+msgstr "Rejoindre une réunion"
+
+msgid "Für Spender ist keine Verwaltungsrolle möglich. Bitte zuerst die Rolle auf Mitglied setzen."
+msgstr "Un donateur ne peut pas avoir de rôle d’administration. Veuillez d’abord définir le rôle sur membre."
+
+msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
+msgstr "Les donateurs peuvent se connecter, mais ne peuvent pas voter ni recevoir de rôle d’administration. Le compte est créé avec le rôle membre."

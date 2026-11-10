@@ -14,8 +14,9 @@ import kotlin.test.assertTrue
  */
 class MemberStatusSetsTest {
     @Test
-    fun ltrEligible_isExactlyActiveAndFriend() {
-        assertEquals(setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND), MemberStatusSets.LTR_ELIGIBLE)
+    fun ltrEligible_isExactlyActiveFriendAndDonor() {
+        // V1.9.298 (owner decision C, open question Q1 default): a donor may sign in and gets everything FRIEND has
+        assertEquals(setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.DONOR), MemberStatusSets.LTR_ELIGIBLE)
     }
 
     @Test
@@ -24,21 +25,65 @@ class MemberStatusSetsTest {
     }
 
     @Test
-    fun nonMember_remainsUnchanged() {
-        assertEquals(setOf(MemberStatus.GUEST, MemberStatus.FRIEND), MemberStatusSets.NON_MEMBER)
+    fun nonMember_nowIncludesDonor_failClosed() {
+        // V1.9.298: every "not a member -> restrict" gate automatically restricts a donor too
+        assertEquals(setOf(MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR), MemberStatusSets.NON_MEMBER)
+    }
+
+    /** V1.9.298: the former meaning of NON_MEMBER inside the conference/event-online/encounter files. A donor is deliberately not a guest of the room. */
+    @Test
+    fun conferenceGuest_isExactlyGuestAndFriend() {
+        assertEquals(setOf(MemberStatus.GUEST, MemberStatus.FRIEND), MemberStatusSets.CONFERENCE_GUEST)
+        assertFalse(MemberStatus.DONOR in MemberStatusSets.CONFERENCE_GUEST)
+        assertEquals(setOf(MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR), MemberStatusSets.CONSENT_REQUIRED)
+    }
+
+    @Test
+    fun keycloakAutoLinkBlocked_isLoginBlockedPlusDonor() {
+        assertEquals(MemberStatusSets.LOGIN_BLOCKED + MemberStatus.DONOR, MemberStatusSets.KEYCLOAK_AUTO_LINK_BLOCKED)
+        assertTrue(MemberStatus.DONOR in MemberStatusSets.KEYCLOAK_AUTO_LINK_BLOCKED)
+    }
+
+    /** V1.9.298: the capabilities a donor gets (everything GUEST/FRIEND may do), and the ones it must never get. */
+    @Test
+    fun donor_capabilitiesAreExactlyTheFriendGuestUnion() {
+        val granted =
+            listOf(
+                MemberStatusSets.CARPOOL_PASSENGER,
+                MemberStatusSets.EVENT_SELF_REGISTRANT,
+                MemberStatusSets.TENDER_PARTICIPANT,
+                MemberStatusSets.CONFERENCE_ELIGIBLE,
+                MemberStatusSets.LTR_ELIGIBLE,
+                MemberStatusSets.POLITICIAN_RATER,
+            )
+        granted.forEach { assertTrue(MemberStatus.DONOR in it) }
+        val never =
+            listOf(
+                MemberStatusSets.ORGANIZATION_MEMBER,
+                MemberStatusSets.NOTICE_BOARD,
+                MemberStatusSets.ACTIVISM_PARTICIPANT,
+                MemberStatusSets.RULE_COMMITTEE,
+                MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE,
+                MemberStatusSets.MEMBER_PHOTO_ELIGIBLE,
+                MemberStatusSets.MEMBER_MAP_ELIGIBLE,
+                MemberStatusSets.CONFERENCE_GUEST,
+            )
+        never.forEach { assertFalse(MemberStatus.DONOR in it) }
+        assertFalse(MemberStatus.DONOR in MemberStatusSets.LOGIN_BLOCKED)
     }
 
     @Test
     fun conferenceEligible_remainsUnchanged() {
         assertEquals(
-            setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND),
+            setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR),
             MemberStatusSets.CONFERENCE_ELIGIBLE,
         )
     }
 
     @Test
-    fun politicianRater_remainsUnchanged_friendNotIncluded() {
-        assertEquals(setOf(MemberStatus.ACTIVE, MemberStatus.GUEST), MemberStatusSets.POLITICIAN_RATER)
+    fun politicianRater_friendNotIncluded_donorIs() {
+        // V1.9.298 (open question Q2 default): a donor counts as a GAST rater; a donor account is always created by an administrator
+        assertEquals(setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.DONOR), MemberStatusSets.POLITICIAN_RATER)
         assertFalse(MemberStatus.FRIEND in MemberStatusSets.POLITICIAN_RATER)
     }
 
@@ -60,16 +105,22 @@ class MemberStatusSetsTest {
     }
 
     /**
+     * V1.9.298 supersedes the V1.2.11 block below for DONOR: a donor may sign in now (owner decision). DECEASED stays blocked.
+     */
+    @Test
+    fun loginBlocked_v1_9_298_donorIsNoLongerBlocked() {
+        assertEquals(setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED), MemberStatusSets.LOGIN_BLOCKED)
+        assertFalse(MemberStatus.DONOR in MemberStatusSets.LOGIN_BLOCKED)
+    }
+
+    /**
      * V1.2.11 (PdV-CSV-Import): widened from two to four elements -- DECEASED (terminal) and DONOR
      * (no account row is ever created for one, see `MemberCsvImport` KDoc) join WITHDRAWN/REJECTED.
      * This is a deliberate, documented change to the previous "remains unchanged" wall, not a drift.
      */
     @Test
-    fun loginBlocked_includesDeceasedAndDonor() {
-        assertEquals(
-            setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED, MemberStatus.DONOR),
-            MemberStatusSets.LOGIN_BLOCKED,
-        )
+    fun loginBlocked_includesDeceased() {
+        assertTrue(MemberStatus.DECEASED in MemberStatusSets.LOGIN_BLOCKED)
     }
 
     /**
@@ -80,8 +131,9 @@ class MemberStatusSetsTest {
      * structurally rightless everywhere except the explicit login block.
      */
     @Test
-    fun donorAndDeceased_areInNoCapabilitySetExceptLoginBlocked() {
-        listOf(MemberStatus.DONOR, MemberStatus.DECEASED).forEach { status ->
+    fun deceased_isInNoCapabilitySetExceptLoginBlocked() {
+        // V1.9.298: the DONOR half of this wall moved to donor_capabilitiesAreExactlyTheFriendGuestUnion
+        MemberStatus.DECEASED.let { status ->
             assertFalse(status in MemberStatusSets.ORGANIZATION_MEMBER)
             assertFalse(status in MemberStatusSets.NON_MEMBER)
             assertFalse(status in MemberStatusSets.CONFERENCE_ELIGIBLE)

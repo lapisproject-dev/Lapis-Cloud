@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.MemberLupaBbProfileTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.VotingRightSource
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -46,6 +47,9 @@ internal data class LapisMember(
     val profile: LapisProfile?,
     /** The CSV-import reference (`member.external_reference`): for members of the LupaBB export this IS the LupaBB person number. */
     val externalReference: String? = null,
+    /** V1.9.298 -- `member.voting_right` and who set it; both are part of the [fingerprint]. */
+    val votingRight: Boolean = true,
+    val votingRightSource: VotingRightSource = VotingRightSource.DEFAULT,
 ) {
     /**
      * SHA-256 over the whole Lapis side. The apply step recomputes it under the member row lock: a different value means somebody changed the
@@ -79,6 +83,8 @@ internal data class LapisMember(
                 p?.mobile,
                 p?.addressSupplement,
                 p?.poBox,
+                votingRight,
+                votingRightSource,
             )
         val digest = MessageDigest.getInstance("SHA-256")
         digest.update(parts.joinToString("\u0001") { it?.toString().orEmpty() }.toByteArray(Charsets.UTF_8))
@@ -122,6 +128,8 @@ internal object LupaBbMemberLoader {
             MemberTable.lupabbMissingSince,
             MemberTable.anonymizedAt,
             MemberTable.externalReference,
+            MemberTable.votingRight,
+            MemberTable.votingRightSource,
             AccountTable.role,
             MemberLupaBbProfileTable.memberId,
             MemberLupaBbProfileTable.givenName,
@@ -153,6 +161,8 @@ internal object LupaBbMemberLoader {
             missingSince = this[MemberTable.lupabbMissingSince],
             anonymized = this[MemberTable.anonymizedAt] != null,
             externalReference = this[MemberTable.externalReference],
+            votingRight = this[MemberTable.votingRight],
+            votingRightSource = this[MemberTable.votingRightSource],
             role = this.getOrNull(AccountTable.role),
             profile =
                 if (hasProfile) {

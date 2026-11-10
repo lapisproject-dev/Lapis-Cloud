@@ -6,6 +6,7 @@ import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.VotingRightSource
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.date
@@ -79,6 +80,13 @@ public object MemberTable : Table("member") {
 
     // Welle V1.9.237 "Neue Nachricht" -- whether the member shows up in the name search for new messages (default true). See 78-direct-message-block.kuml.kts.
     public val dmDiscoverable: Column<Boolean> = bool("dm_discoverable").default(true)
+
+    // V1.9.298 voting right as a member attribute -- see V150__member_voting_right.sql and docs/architecture/voting-right-and-donors.adoc.
+    // Independent of the membership status: the electorate of every vote is membership AND votingRight. Only MemberVotingRights writes these
+    // three columns. The CHECKs (chk_member_voting_right_source, chk_member_voting_right_default_shape) are plain SQL in V150 (like V96).
+    public val votingRight: Column<Boolean> = bool("voting_right").default(true)
+    public val votingRightSource: Column<VotingRightSource> = enumerationByName<VotingRightSource>("voting_right_source", 16).default(VotingRightSource.DEFAULT)
+    public val votingRightChangedAt: Column<LocalDateTime?> = datetime("voting_right_changed_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

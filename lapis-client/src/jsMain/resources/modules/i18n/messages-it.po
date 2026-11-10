@@ -14068,9 +14068,6 @@ msgstr "Account di accesso creato per %1."
 msgid "Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."
 msgstr "Indicare una data valida che non sia nel futuro."
 
-msgid "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich aber erst anmelden, wenn der Status auf Aktiv geändert wird."
-msgstr "Per i donatori l'accesso è bloccato. L'account viene creato, ma la persona potrà accedere solo quando lo stato sarà impostato su Attivo."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1146
 msgid "Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos."
 msgstr "Per questo stato l'accesso è bloccato. L'account resta inefficace fino a un cambio di stato."
@@ -31882,3 +31879,75 @@ msgstr "Annuncio (bacheca)"
 
 msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
 msgstr "I membri pubblicano annunci in bacheca: ricerche, offerte e informazioni con una data di scadenza. L'ordine segue gli LTR che i membri impiegano su un annuncio."
+
+msgid "Stimmrecht"
+msgstr "Diritto di voto"
+
+msgid "Stimmrecht speichern"
+msgstr "Salva diritto di voto"
+
+msgid "Stimmrecht gespeichert."
+msgstr "Diritto di voto salvato."
+
+msgid "Ja – darf abstimmen"
+msgstr "Sì – può votare"
+
+msgid "Nein – darf nicht abstimmen"
+msgstr "No – non può votare"
+
+msgid "ja"
+msgstr "sì"
+
+msgid "nein"
+msgstr "no"
+
+msgid "ohne Stimmrecht"
+msgstr "senza diritto di voto"
+
+msgid "Standardwert"
+msgstr "Valore predefinito"
+
+msgid "Aus LupaBB übernommen (Status: Mitglied)"
+msgstr "Ripreso da LupaBB (stato: socio)"
+
+msgid "Aus LupaBB übernommen (Status: Neumitglied)"
+msgstr "Ripreso da LupaBB (stato: nuovo socio)"
+
+msgid "Von Hand gesetzt am %1"
+msgstr "Impostato a mano il %1"
+
+msgid "Von Hand gesetzt"
+msgstr "Impostato a mano"
+
+msgid "Wieder dem LupaBB-Abgleich überlassen"
+msgstr "Lascia di nuovo alla sincronizzazione LupaBB"
+
+msgid "Das Stimmrecht wird künftig vom LupaBB-Abgleich gesetzt."
+msgstr "D’ora in poi il diritto di voto sarà impostato dalla sincronizzazione LupaBB."
+
+msgid "Das Stimmrecht ist unabhängig von der Mitgliedschaftsstufe. Ohne Stimmrecht bleibt die Person Mitglied, steht aber in keinem Wählerverzeichnis."
+msgstr "Il diritto di voto è indipendente dal livello di iscrizione. Senza di esso la persona resta socio ma non compare in nessun elenco elettorale."
+
+msgid "Wird das Stimmrecht nach dem Start einer Abstimmung entzogen, zählt das Mitglied dort weiter zur Beschlussfähigkeit, kann aber nicht mehr abstimmen."
+msgstr "Se il diritto di voto viene revocato dopo l’inizio di una votazione, il socio continua a contare per il quorum in essa, ma non può più votare."
+
+msgid "Sie sind Mitglied, haben aber derzeit kein Stimmrecht und können deshalb nicht abstimmen. Bei Fragen wenden Sie sich an den Vorstand."
+msgstr "Lei è socio, ma al momento non ha diritto di voto e quindi non può votare. In caso di domande si rivolga al consiglio direttivo."
+
+msgid "Das Stimmrecht wurde von Hand gesetzt und wird nicht übernommen."
+msgstr "Il diritto di voto è stato impostato a mano e non viene ripreso."
+
+msgid "Stimmrecht von Hand gesetzt (%1), LupaBB meldet %2 – wird nicht übernommen"
+msgstr "Diritto di voto impostato a mano (%1), LupaBB indica %2 – non ripreso"
+
+msgid "Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um der Besprechung beizutreten."
+msgstr "Inserisca l’identificativo della sala dal suo invito per partecipare alla riunione."
+
+msgid "Besprechung beitreten"
+msgstr "Partecipa a una riunione"
+
+msgid "Für Spender ist keine Verwaltungsrolle möglich. Bitte zuerst die Rolle auf Mitglied setzen."
+msgstr "Un donatore non può avere un ruolo amministrativo. Imposti prima il ruolo su socio."
+
+msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
+msgstr "I donatori possono accedere, ma non possono votare né ricevere un ruolo amministrativo. L’account viene creato con il ruolo socio."

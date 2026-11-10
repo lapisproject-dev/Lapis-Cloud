@@ -14083,9 +14083,6 @@ msgstr "Login account created for %1."
 msgid "Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."
 msgstr "Please enter a valid date that is not in the future."
 
-msgid "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich aber erst anmelden, wenn der Status auf Aktiv geändert wird."
-msgstr "Login is blocked for donors. The account is created, but the person can only sign in once the status is changed to Active."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1146
 msgid "Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos."
 msgstr "Login is blocked for this status. The account stays ineffective until the status is changed."
@@ -31897,3 +31894,75 @@ msgstr "Notice (bulletin board)"
 
 msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
 msgstr "Members post notices on the bulletin board: searches, offers and information with an expiry date. The order follows the LTR members spend on a notice."
+
+msgid "Stimmrecht"
+msgstr "Voting right"
+
+msgid "Stimmrecht speichern"
+msgstr "Save voting right"
+
+msgid "Stimmrecht gespeichert."
+msgstr "Voting right saved."
+
+msgid "Ja – darf abstimmen"
+msgstr "Yes – may vote"
+
+msgid "Nein – darf nicht abstimmen"
+msgstr "No – may not vote"
+
+msgid "ja"
+msgstr "yes"
+
+msgid "nein"
+msgstr "no"
+
+msgid "ohne Stimmrecht"
+msgstr "no voting right"
+
+msgid "Standardwert"
+msgstr "Default value"
+
+msgid "Aus LupaBB übernommen (Status: Mitglied)"
+msgstr "Taken from LupaBB (status: member)"
+
+msgid "Aus LupaBB übernommen (Status: Neumitglied)"
+msgstr "Taken from LupaBB (status: new member)"
+
+msgid "Von Hand gesetzt am %1"
+msgstr "Set by hand on %1"
+
+msgid "Von Hand gesetzt"
+msgstr "Set by hand"
+
+msgid "Wieder dem LupaBB-Abgleich überlassen"
+msgstr "Leave it to the LupaBB sync again"
+
+msgid "Das Stimmrecht wird künftig vom LupaBB-Abgleich gesetzt."
+msgstr "The voting right will be set by the LupaBB sync from now on."
+
+msgid "Das Stimmrecht ist unabhängig von der Mitgliedschaftsstufe. Ohne Stimmrecht bleibt die Person Mitglied, steht aber in keinem Wählerverzeichnis."
+msgstr "The voting right is independent of the membership tier. Without it the person stays a member but is in no electoral roll."
+
+msgid "Wird das Stimmrecht nach dem Start einer Abstimmung entzogen, zählt das Mitglied dort weiter zur Beschlussfähigkeit, kann aber nicht mehr abstimmen."
+msgstr "If the voting right is withdrawn after a vote has started, the member still counts towards the quorum there but can no longer vote."
+
+msgid "Sie sind Mitglied, haben aber derzeit kein Stimmrecht und können deshalb nicht abstimmen. Bei Fragen wenden Sie sich an den Vorstand."
+msgstr "You are a member but currently have no voting right, so you cannot vote. If you have questions, please contact the board."
+
+msgid "Das Stimmrecht wurde von Hand gesetzt und wird nicht übernommen."
+msgstr "The voting right was set by hand and is not taken over."
+
+msgid "Stimmrecht von Hand gesetzt (%1), LupaBB meldet %2 – wird nicht übernommen"
+msgstr "Voting right set by hand (%1), LupaBB reports %2 – not taken over"
+
+msgid "Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um der Besprechung beizutreten."
+msgstr "Enter the room ID from your invitation to join the meeting."
+
+msgid "Besprechung beitreten"
+msgstr "Join a meeting"
+
+msgid "Für Spender ist keine Verwaltungsrolle möglich. Bitte zuerst die Rolle auf Mitglied setzen."
+msgstr "A donor cannot hold an administrative role. Please set the role to member first."
+
+msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
+msgstr "Donors may sign in, but cannot vote and cannot get an administrative role. The account is created with the role member."

@@ -18,6 +18,7 @@ import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.member.MemberRoleStatusMutations
 import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
+import network.lapis.cloud.server.member.MemberVotingRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.PeerGuard
@@ -34,6 +35,7 @@ import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.LupaBbSyncRunSnapshot
 import network.lapis.cloud.shared.domain.MemberChangeSnapshot
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.VotingRightAuditEvent
 import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -201,6 +203,12 @@ internal class LupaBbApplier(
         val email = r.email ?: throw RowFailure(LupaBbRowReasonCode.NO_EMAIL)
         val id = Uuid.random()
         val joinDay = r.joinedAt ?: OrganizationTimeZone.today()
+        // V1.9.298 -- "Neumitglied" is created WITHOUT voting right (source LUPABB); every other record keeps the column defaults.
+        val (votingRightValue, votingRightSourceValue, votingRightChangedAtValue) =
+            MemberVotingRights.insertValues(
+                votingRight = r.votingRight,
+                now = now,
+            )
         try {
             withSavepoint(name = "lupabb_member_insert") {
                 MemberTable.insert {
@@ -217,6 +225,9 @@ internal class LupaBbApplier(
                     it[dateOfBirth] = r.dateOfBirth
                     it[lupabbPersonNumber] = r.personNumber
                     it[regionalChapterId] = row.chapterId
+                    it[votingRight] = votingRightValue
+                    it[votingRightSource] = votingRightSourceValue
+                    it[votingRightChangedAt] = votingRightChangedAtValue
                 }
             }
         } catch (e: Exception) {
@@ -241,6 +252,7 @@ internal class LupaBbApplier(
             fields = row.diffs.map { it.field },
             now = now,
             displayNameChanged = true,
+            votingRightEvent = if (votingRightValue) null else VotingRightAuditEvent.REVOKED_BY_SYNC,
         )
         return Outcome.CREATED
     }
@@ -329,6 +341,13 @@ internal class LupaBbApplier(
             )
         if (fields.any { it in profileFields }) upsertProfile(memberId = id, r = r, now = now, touched = fields.toList())
 
+        // V1.9.298 -- the voting right, through its single writer; the source is re-checked there (a MANUAL value is never overwritten)
+        var votingRightEvent: VotingRightAuditEvent? = null
+        if (LupaBbField.VOTING_RIGHT in fields) {
+            val target = r.votingRight ?: throw RowFailure(LupaBbRowReasonCode.WRITE_FAILED)
+            votingRightEvent = MemberVotingRights.applyFromSyncLocked(targetRow = locked, value = target, now = now)
+        }
+
         var resultingStatus = current.status
         val fieldAuditNeeded = fields.any { it != LupaBbField.STATUS }
         if (LupaBbField.STATUS in fields) {
@@ -363,6 +382,7 @@ internal class LupaBbApplier(
                 fields = fields.filter { it != LupaBbField.STATUS },
                 now = now,
                 displayNameChanged = LupaBbField.DISPLAY_NAME in fields,
+                votingRightEvent = votingRightEvent,
             )
         }
         return Outcome.UPDATED
@@ -419,6 +439,7 @@ internal class LupaBbApplier(
         fields: Collection<LupaBbField>,
         now: LocalDateTime,
         displayNameChanged: Boolean,
+        votingRightEvent: VotingRightAuditEvent? = null,
     ) {
         val before = MemberChangeSnapshot(displayNameChanged = false, emailChanged = false, status = status, role = null)
         val after =
@@ -426,6 +447,7 @@ internal class LupaBbApplier(
                 displayNameChanged = displayNameChanged,
                 lupabbFields = fields.map { it.name }.distinct().sorted(),
                 lupabbLinked = LupaBbField.PERSON_NUMBER in fields,
+                votingRight = votingRightEvent,
             )
         AuditLogRecorder.record(
             actorMemberId = actor.memberId,

@@ -14025,9 +14025,6 @@ msgstr "Utworzono konto logowania dla: %1."
 msgid "Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."
 msgstr "Podaj prawidłową datę, która nie leży w przyszłości."
 
-msgid "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich aber erst anmelden, wenn der Status auf Aktiv geändert wird."
-msgstr "Dla darczyńców logowanie jest zablokowane. Konto zostanie utworzone, ale osoba będzie mogła się zalogować dopiero po zmianie statusu na Aktywny."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1146
 msgid "Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos."
 msgstr "Dla tego statusu logowanie jest zablokowane. Konto pozostaje nieskuteczne do czasu zmiany statusu."
@@ -31859,3 +31856,75 @@ msgstr "Ogłoszenie (tablica ogłoszeń)"
 
 msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
 msgstr "Członkowie wywieszają na tablicy ogłoszenia: poszukiwania, oferty i informacje z datą ważności. Kolejność wynika z LTR, które członkowie wydają na ogłoszenie."
+
+msgid "Stimmrecht"
+msgstr "Prawo głosu"
+
+msgid "Stimmrecht speichern"
+msgstr "Zapisz prawo głosu"
+
+msgid "Stimmrecht gespeichert."
+msgstr "Prawo głosu zapisane."
+
+msgid "Ja – darf abstimmen"
+msgstr "Tak – może głosować"
+
+msgid "Nein – darf nicht abstimmen"
+msgstr "Nie – nie może głosować"
+
+msgid "ja"
+msgstr "tak"
+
+msgid "nein"
+msgstr "nie"
+
+msgid "ohne Stimmrecht"
+msgstr "bez prawa głosu"
+
+msgid "Standardwert"
+msgstr "Wartość domyślna"
+
+msgid "Aus LupaBB übernommen (Status: Mitglied)"
+msgstr "Przejęte z LupaBB (status: członek)"
+
+msgid "Aus LupaBB übernommen (Status: Neumitglied)"
+msgstr "Przejęte z LupaBB (status: nowy członek)"
+
+msgid "Von Hand gesetzt am %1"
+msgstr "Ustawione ręcznie dnia %1"
+
+msgid "Von Hand gesetzt"
+msgstr "Ustawione ręcznie"
+
+msgid "Wieder dem LupaBB-Abgleich überlassen"
+msgstr "Ponownie pozostaw synchronizacji z LupaBB"
+
+msgid "Das Stimmrecht wird künftig vom LupaBB-Abgleich gesetzt."
+msgstr "Prawo głosu będzie odtąd ustawiane przez synchronizację z LupaBB."
+
+msgid "Das Stimmrecht ist unabhängig von der Mitgliedschaftsstufe. Ohne Stimmrecht bleibt die Person Mitglied, steht aber in keinem Wählerverzeichnis."
+msgstr "Prawo głosu jest niezależne od poziomu członkostwa. Bez niego osoba pozostaje członkiem, ale nie figuruje w żadnym spisie wyborców."
+
+msgid "Wird das Stimmrecht nach dem Start einer Abstimmung entzogen, zählt das Mitglied dort weiter zur Beschlussfähigkeit, kann aber nicht mehr abstimmen."
+msgstr "Jeśli prawo głosu zostanie odebrane po rozpoczęciu głosowania, członek nadal liczy się do kworum, ale nie może już głosować."
+
+msgid "Sie sind Mitglied, haben aber derzeit kein Stimmrecht und können deshalb nicht abstimmen. Bei Fragen wenden Sie sich an den Vorstand."
+msgstr "Jest Pan/Pani członkiem, ale obecnie nie ma prawa głosu i dlatego nie może głosować. W razie pytań prosimy o kontakt z zarządem."
+
+msgid "Das Stimmrecht wurde von Hand gesetzt und wird nicht übernommen."
+msgstr "Prawo głosu ustawiono ręcznie i nie zostanie ono przejęte."
+
+msgid "Stimmrecht von Hand gesetzt (%1), LupaBB meldet %2 – wird nicht übernommen"
+msgstr "Prawo głosu ustawione ręcznie (%1), LupaBB podaje %2 – nie zostanie przejęte"
+
+msgid "Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um der Besprechung beizutreten."
+msgstr "Wprowadź identyfikator pokoju z zaproszenia, aby dołączyć do spotkania."
+
+msgid "Besprechung beitreten"
+msgstr "Dołącz do spotkania"
+
+msgid "Für Spender ist keine Verwaltungsrolle möglich. Bitte zuerst die Rolle auf Mitglied setzen."
+msgstr "Darczyńca nie może mieć roli administracyjnej. Najpierw ustaw rolę na członek."
+
+msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
+msgstr "Darczyńcy mogą się logować, ale nie mogą głosować ani otrzymać roli administracyjnej. Konto zostanie utworzone z rolą członek."

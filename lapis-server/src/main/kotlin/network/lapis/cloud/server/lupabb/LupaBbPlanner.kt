@@ -11,6 +11,7 @@ import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.RegionalChapterRules
+import network.lapis.cloud.shared.domain.VotingRightSource
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.util.Locale
@@ -358,6 +359,10 @@ internal object LupaBbPlanner {
         if (r.country == LupaBbCountry.Unresolved) reasons += PlanReason(code = LupaBbRowReasonCode.COUNTRY_AMBIGUOUS)
         if (r.email != null && r.email != m.email.trim().lowercase()) reasons += PlanReason(code = LupaBbRowReasonCode.EMAIL_DIFFERS)
         if (m.missingSince != null) reasons += PlanReason(code = LupaBbRowReasonCode.REAPPEARED)
+        // V1.9.298 -- a voting right set by hand is never overwritten: an info line, NOT a field difference and NOT an error
+        if (votingRightWritable(r = r, m = m) && m.votingRightSource == VotingRightSource.MANUAL && m.votingRight != r.votingRight) {
+            reasons += PlanReason(code = LupaBbRowReasonCode.VOTING_RIGHT_MANUAL, param = "${m.votingRight}>${r.votingRight}")
+        }
         var category = if (diffs.isEmpty()) LupaBbCategory.UNCHANGED else LupaBbCategory.CHANGED
         val statusChanged = r.status != m.status
         val protectedMember = m.role != null && m.role in ESCALATED_ROLES || m.id == ctx.actor
@@ -405,6 +410,12 @@ internal object LupaBbPlanner {
         )
     }
 
+    /** V1.9.298 -- whether the sync may look at the voting right of [m] at all (the record carries a value; not anonymised, not deceased). */
+    private fun votingRightWritable(
+        r: LupaBbRecord,
+        m: LapisMember,
+    ): Boolean = r.votingRight != null && !m.anonymized && m.status != MemberStatus.DECEASED
+
     /** The fields in which LupaBB differs from [m]. The e-mail address is NOT a field. Two-way: an empty LupaBB value clears the Lapis value. */
     @Suppress("CyclomaticComplexMethod", "LongMethod")
     private fun diffs(
@@ -448,6 +459,11 @@ internal object LupaBbPlanner {
         add(LupaBbField.MOBILE, p?.mobile, r.mobile)
         if (chapterId != null) add(LupaBbField.REGIONAL_CHAPTER, null, ctx.chapterNames[chapterId])
         if (r.status != m.status) add(LupaBbField.STATUS, m.status.name, r.status.name)
+        // V1.9.298 -- the voting right, only when the label says something, never on an anonymised or deceased member, and never over a value an
+        // administrator set by hand (that case is only a notice, see [existing]).
+        if (votingRightWritable(r = r, m = m) && m.votingRightSource != VotingRightSource.MANUAL) {
+            add(LupaBbField.VOTING_RIGHT, m.votingRight.toString(), r.votingRight.toString())
+        }
         if (m.missingSince != null) add(LupaBbField.MISSING_FLAG, m.missingSince.toString(), null)
         return out
     }

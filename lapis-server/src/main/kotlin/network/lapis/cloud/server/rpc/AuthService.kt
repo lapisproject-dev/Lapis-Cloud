@@ -177,6 +177,7 @@ class AuthService internal constructor(
                             .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
                             .singleOrNull()
                             ?.get(OrganizationSettingsTable.isPoliticalParty) ?: false,
+                    votingRight = row[MemberTable.votingRight],
                 )
             }
         val displayName = sessionExtras.displayName
@@ -208,6 +209,7 @@ class AuthService internal constructor(
             organizationTimeZone = OrganizationTimeZone.current().id,
             organizationCountryCode = sessionExtras.organizationCountryCode,
             politicalParty = sessionExtras.politicalParty,
+            votingRight = sessionExtras.votingRight,
         )
     }
 }
@@ -222,4 +224,5 @@ private data class SessionExtras(
     val regionalChaptersExist: Boolean,
     val organizationCountryCode: String?,
     val politicalParty: Boolean,
+    val votingRight: Boolean,
 )

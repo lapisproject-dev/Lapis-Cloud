@@ -423,6 +423,7 @@ private fun electionParticipationNote(
     when {
         e.status != ElectionStatus.OPEN -> null
         p.hasVoted -> gettext("Sie haben bereits abgestimmt.")
+        p.eligible == false && AppState.session.lacksVotingRight() -> noVotingRightText()
         p.eligible == false -> gettext("Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen.")
         else -> null
     }

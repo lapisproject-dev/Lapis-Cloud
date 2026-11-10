@@ -771,7 +771,7 @@ class ConferenceBreakoutService(
     }
 
     /**
-     * V0.11.0: widened from `== MemberStatus.GUEST` to `in MemberStatusSets.NON_MEMBER` so a
+     * V0.11.0: widened from `== MemberStatus.GUEST` to `in MemberStatusSets.CONFERENCE_GUEST` so a
      * FRIEND gets the same SHORT `guestTokenTtlMinutes` LiveKit token a GUEST always got -- this
      * feeds a token-TTL decision, not an access decision (that gate already ran in
      * [ConferenceService.joinRoom]/[requireRoomEntryAuthorization] before a breakout assignment
@@ -779,7 +779,7 @@ class ConferenceBreakoutService(
      */
     private fun currentMemberIsNonMember(memberId: Uuid): Boolean =
         MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.status] in
-            MemberStatusSets.NON_MEMBER
+            MemberStatusSets.CONFERENCE_GUEST
 
     private fun memberDisplayName(memberId: Uuid): String =
         MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.displayName]

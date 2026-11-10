@@ -3,6 +3,7 @@ package network.lapis.cloud.server.encounter
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.ResultRow
 
@@ -13,7 +14,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
  * drift apart. Always RE-DERIVED from the database on every call -- never trusts `conference_participation.role` (a per-join snapshot)
  * and never a cached role.
  *
- * - **Ordinary room** (`encounter_space_id IS NULL`): the creator, or BOARD/ADMIN -- byte-for-byte the rule that existed before V1.9.61.
+ * - **Ordinary room** (`encounter_space_id IS NULL`): the creator (while still an organization member, V1.9.298), or BOARD/ADMIN.
  * - **Encounter session** (`encounter_space_id` set): an ACTIVE holder of a PULPIT/STEWARD office in that space, or BOARD/ADMIN. The
  *   creator (whoever pressed "open") does NOT count by that fact alone: an office can be withdrawn while a session is running, and
  *   the withdrawal must take effect immediately.
@@ -27,7 +28,10 @@ internal object ConferenceModeratorAuthority {
     ): Boolean {
         val spaceId = row[ConferenceRoomTable.encounterSpaceId]
         return if (spaceId == null) {
-            row[ConferenceRoomTable.createdByMemberId] == current.memberId || current.isPrivileged
+            // V1.9.298: the creator moderates only while still an organization member (live status of this request). A creator who became a
+            // donor since (a donor may sign in and join a room, never moderate one) loses the creator's moderation rights at once.
+            (row[ConferenceRoomTable.createdByMemberId] == current.memberId && current.status in MemberStatusSets.ORGANIZATION_MEMBER) ||
+                current.isPrivileged
         } else {
             current.isPrivileged || EncounterRoles.isOfficer(spaceId = spaceId, memberId = current.memberId)
         }

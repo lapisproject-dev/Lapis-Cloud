@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.member.MemberVotingRights
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -69,7 +70,8 @@ internal object VoteOwnParticipation {
                     .map { it[VoteEligibleVoterTable.voteId] }
                     .toSet()
             }
-        val isMember = memberStatus in MemberStatusSets.ORGANIZATION_MEMBER
+        // V1.9.298: the live floor -- a member whose voting right was withdrawn after the freeze is not eligible any more, whatever the snapshot says.
+        val isMember = memberStatus in MemberStatusSets.ORGANIZATION_MEMBER && MemberVotingRights.isVoterNow(memberId)
         val liveEligible: Boolean by lazy {
             isMember &&
                 run {
@@ -82,7 +84,7 @@ internal object VoteOwnParticipation {
                         }
                     meetingRow != null &&
                         committeeRow != null &&
-                        isCommitteeEligible(
+                        isCommitteeVoter(
                             committeeRow = committeeRow,
                             scheduledDate = meetingRow[MeetingTable.scheduledAt].date,
                             memberId = memberId,

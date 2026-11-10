@@ -28,6 +28,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
@@ -108,6 +109,78 @@ internal fun isCommitteeEligible(
                     (CommitteeMembershipTable.memberId eq memberId)
             }.limit(1)
             .count() > 0
+    }
+
+/** V1.9.298 -- the voting-right half of every electorate: `member.voting_right = TRUE`. Membership (see [generalAssemblyCondition]) stays separate. */
+internal fun votingRightCondition(): Op<Boolean> = MemberTable.votingRight eq true
+
+private const val VOTING_RIGHT_ID_CHUNK = 500
+
+/** V1.9.298 -- of [ids], the members that hold the voting right (chunked, so a large rule committee never builds a huge IN list). */
+private fun withVotingRight(ids: Set<Uuid>): Set<Uuid> =
+    ids
+        .chunked(VOTING_RIGHT_ID_CHUNK)
+        .flatMap { chunk ->
+            MemberTable
+                .select(MemberTable.id)
+                .where { votingRightCondition() and (MemberTable.id inList chunk) }
+                .map { it[MemberTable.id] }
+        }.toSet()
+
+/**
+ * V1.9.298 -- the ELECTORATE of a committee: the membership of [eligibleMemberIds] intersected with the voting right. THE function every
+ * freeze path (vote, election, consensus round) and the live fallback of [frozenOrLiveElectorate] use. [eligibleMemberIds] itself stays the
+ * pure MEMBERSHIP (invitations, group messages, rule preview). A snapshot, once frozen, is never recomputed.
+ */
+internal fun electorateMemberIds(
+    committeeRow: ResultRow,
+    scheduledDate: LocalDate,
+): Set<Uuid> =
+    if (committeeRow[CommitteeTable.type] == CommitteeType.GENERAL_ASSEMBLY) {
+        MemberTable
+            .select(MemberTable.id)
+            .where { generalAssemblyCondition() and votingRightCondition() }
+            .map { it[MemberTable.id] }
+            .toSet()
+    } else if (isRuleCommittee(committeeRow)) {
+        withVotingRight(eligibleMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate))
+    } else {
+        (CommitteeMembershipTable innerJoin MemberTable)
+            .select(CommitteeMembershipTable.memberId)
+            .where {
+                committeeMembershipCondition(committeeId = committeeRow[CommitteeTable.id], scheduledDate = scheduledDate) and
+                    votingRightCondition()
+            }.map { it[CommitteeMembershipTable.memberId] }
+            .toSet()
+    }
+
+/** V1.9.298 -- point-access twin of [electorateMemberIds]: is [memberId] in the electorate (member of the circle AND holding the voting right)? */
+internal fun isCommitteeVoter(
+    committeeRow: ResultRow,
+    scheduledDate: LocalDate,
+    memberId: Uuid,
+): Boolean =
+    isCommitteeEligible(committeeRow = committeeRow, scheduledDate = scheduledDate, memberId = memberId) &&
+        MemberTable
+            .select(MemberTable.id)
+            .where { (MemberTable.id eq memberId) and votingRightCondition() }
+            .limit(1)
+            .count() > 0
+
+/** V1.9.298 -- N of the electorate (members holding the voting right) of a derived committee; see [countEligible] for the membership count. */
+internal fun countElectorate(
+    committeeRow: ResultRow,
+    today: LocalDate = OrganizationTimeZone.today(),
+): Int =
+    when {
+        committeeRow[CommitteeTable.type] == CommitteeType.GENERAL_ASSEMBLY ->
+            MemberTable
+                .selectAll()
+                .where { generalAssemblyCondition() and votingRightCondition() }
+                .count()
+                .toInt()
+        isRuleCommittee(committeeRow) -> withVotingRight(eligibleIdsForRule(rule = committeeRuleOf(committeeRow), today = today)).size
+        else -> error("countElectorate is only defined for the General Assembly and rule-based committees")
     }
 
 /**
@@ -203,9 +276,9 @@ internal data class Electorate(
  * 3. [consensusId] given and it has snapshot rows -> the snapshot of its latest round;
  * 4. the snapshot of the EARLIEST frozen vote of this meeting (any status: the circle is fixed from the first opening on, even if that
  *    vote was aborted) -- this is what the meeting's quorum uses;
- * 5. live ([eligibleMemberIds]).
+ * 5. live ([electorateMemberIds], V1.9.298: membership AND voting right).
  *
- * Whoever checks the right to vote or the quorum must use this function and never [eligibleMemberIds] directly.
+ * Whoever checks the right to vote or the quorum must use this function and never [eligibleMemberIds] (membership only) directly.
  */
 internal fun frozenOrLiveElectorate(
     meetingId: Uuid,
@@ -265,7 +338,7 @@ internal fun frozenOrLiveElectorate(
             .limit(1)
             .singleOrNull()
     if (earliest != null) return Electorate(memberIds = voteElectorate(earliest[VoteTable.id]), frozen = true)
-    return Electorate(memberIds = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate), frozen = false)
+    return Electorate(memberIds = electorateMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate), frozen = false)
 }
 
 private fun voteElectorate(voteId: Uuid): Set<Uuid> =

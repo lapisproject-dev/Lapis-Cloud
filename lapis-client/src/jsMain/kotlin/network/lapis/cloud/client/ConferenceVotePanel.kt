@@ -581,6 +581,13 @@ internal fun renderElectionLiveCard(
     }
     card.ballotBadges(ballot)
     card.div(ownParticipationLabel(ballot)) { addCssClasses("small") }
+    // V1.9.298: a member without voting right gets the notice in place of the button
+    if (ballot.status == RoomBallotStatus.OPEN &&
+        !ballot.ownEligible &&
+        AppState.session.lacksVotingRight()
+    ) {
+        renderNoVotingRightNotice(card)
+    }
     if (ballot.status == RoomBallotStatus.OPEN && ballot.ownEligible && !ballot.ownHasVoted) {
         val enter = card.button(tr("Zur Wahlkabine"), style = ButtonStyle.PRIMARY)
         enter.onClick { onEnterBooth(enter) }

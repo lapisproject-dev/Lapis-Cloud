@@ -154,7 +154,22 @@ abstract class PartgReportR5bMigrationScenarios(
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
             (statements.size >= 8) shouldBe true
-            transaction { statements.forEach { exec(it) } }
+            // Re-running the audit CHECK as written in V147 would reject audit rows of later entity types that
+            // other specs left in the shared test schema (e.g. BULLETIN_NOTICE from V149). Replay it with the
+            // current type list instead; the old types are still asserted below.
+            val currentTypes = AuditEntityType.entries.joinToString(", ") { "'${it.name}'" }
+            transaction {
+                statements.forEach { statement ->
+                    if (statement.contains("chk_audit_log_entry_entity_type") && statement.contains("ADD CONSTRAINT")) {
+                        exec(
+                            "ALTER TABLE audit_log_entry ADD CONSTRAINT chk_audit_log_entry_entity_type " +
+                                "CHECK (entity_type IN ($currentTypes))",
+                        )
+                    } else {
+                        exec(statement)
+                    }
+                }
+            }
             val member = fx.member()
             val a = annex(member, 2065)
             donor(a, member, key = "M:${Uuid.random()}", appliedAt = now)

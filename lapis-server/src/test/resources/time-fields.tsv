@@ -983,6 +983,8 @@ dto:LupaBbLastRunDto.finishedAt	A	end of the applied run: ServerClock.now()
 dto:LupaBbPreviewSummaryDto.expiresAt	A	end of the preview time to live, derived from the server clock
 dto:MemberAdminRowDto.lupabbMissingSince	D	calendar date (LocalDate); never converted
 col:MemberTable.lupabbMissingSince	D	calendar date (LocalDate) in the organisation zone (OrganizationTimeZone.today()); never converted
+dto:MemberAdminRowDto.votingRightChangedAt	A	stamped by ServerClock.now() in MemberVotingRights; stored and sent as UTC
+col:MemberTable.votingRightChangedAt	A	stamped by ServerClock.now() in MemberVotingRights; stored as UTC
 col:MemberLupaBbProfileTable.lastSyncedAt	A	LupaBbApplier: stamped by ServerClock.now()
 col:LupaBbSyncConfigTable.setAt	A	LupaBbCredentialStore: stamped by ServerClock.now()
 col:LupaBbSyncConfigTable.runningSince	A	LupaBbRunGuard: stamped by ServerClock.now()

@@ -9,7 +9,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** V1.9.126 -- the lobby decision follows the session STATUS (GUEST and FRIEND = non-member), never `isGuest`. */
+/**
+ * V1.9.126 -- the lobby decision follows the session STATUS (GUEST and FRIEND = non-member), never `isGuest`.
+ * V1.9.298 -- a DONOR gets the same lobby (enter by room id), but is not a conference GUEST: no consent dialog.
+ */
 class ConferenceLobbyKindTest {
     private fun session(
         status: MemberStatus,
@@ -45,8 +48,8 @@ class ConferenceLobbyKindTest {
     }
 
     @Test
-    fun everyStatus_onlyGuestAndFriendGetTheGuestLobby() {
-        val nonMembers = setOf(MemberStatus.GUEST, MemberStatus.FRIEND)
+    fun everyStatus_onlyGuestFriendAndDonorGetTheGuestLobby() {
+        val nonMembers = setOf(MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR)
         MemberStatus.entries.forEach { status ->
             val isNonMember = status in nonMembers
             val expected = if (isNonMember) ConferenceLobbyKind.GUEST_LOBBY else ConferenceLobbyKind.MEMBER_LOBBY
@@ -65,7 +68,20 @@ class ConferenceLobbyKindTest {
     }
 
     @Test
+    fun donor_isNoConferenceGuest_butGetsTheNeutralIntro() {
+        assertFalse(isConferenceGuest(session(MemberStatus.DONOR)))
+        assertTrue(isConferenceDonor(session(MemberStatus.DONOR)))
+        assertTrue(isConferenceGuest(session(MemberStatus.FRIEND)))
+        assertTrue(isConferenceGuest(session(MemberStatus.GUEST, isGuest = true)))
+        val intro = conferenceGuestLobbyIntro(session(MemberStatus.DONOR))
+        assertFalse(intro.contains("Gast"))
+        assertFalse(intro.contains("Freund"))
+        assertTrue(intro.contains("Raum-Kennung"))
+    }
+
+    @Test
     fun postDisconnectRoomLookup_isSkippedForNonMembers_only() {
+        assertFalse(conferenceRoomLookupAfterDisconnectAllowed(session(MemberStatus.DONOR)))
         assertFalse(conferenceRoomLookupAfterDisconnectAllowed(session(MemberStatus.FRIEND)))
         assertFalse(conferenceRoomLookupAfterDisconnectAllowed(session(MemberStatus.GUEST, isGuest = true)))
         assertTrue(conferenceRoomLookupAfterDisconnectAllowed(session(MemberStatus.ACTIVE)))

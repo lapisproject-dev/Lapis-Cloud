@@ -51,6 +51,7 @@ import network.lapis.cloud.server.ai.ratelimit.AiQuestionRateLimiter
 import network.lapis.cloud.server.ai.retrieval.KnowledgeRetrievers
 import network.lapis.cloud.server.ai.retrieval.PostgresFullTextIndexInitializer
 import network.lapis.cloud.server.backup.BackupAssetRoots
+import network.lapis.cloud.server.bootstrap.DonorRoleDowngrade
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
@@ -556,6 +557,8 @@ fun main() {
     System.setProperty("net.fortuna.ical4j.timezone.update.enabled", "false")
     System.setProperty("net.fortuna.ical4j.recur.maxincrementcount", "1000")
     DatabaseConfig.connect()
+    // V1.9.298 review fix: legacy DONOR accounts that kept an administrative role must not regain it now that donors may sign in.
+    DonorRoleDowngrade.run()
     DevSeedData.seedIfEmpty()
     // Staging-Instanz-Welle: deliberately ONLY here, never in `module()` below -- see
     // StagingSeedData KDoc "Production entry point" for why (module() re-runs on every

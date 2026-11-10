@@ -266,7 +266,7 @@ class EncounterSpaceService(
             val mapOn = row[EncounterSpaceTable.mapEnabled]
             val consentText = encounterConsentFor(profile = profileOf(row), pulpitRecordingAllowed = recordingAllowed, mapEnabled = mapOn)
             val consentRequired =
-                status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId, text = consentText)
+                status in MemberStatusSets.CONSENT_REQUIRED && !hasCurrentConsent(memberId = current.memberId, text = consentText)
             EncounterEntryInfoDto(
                 space = EncounterSpaceViews.toDtos(rows = listOf(row), current = current, config = config).single(),
                 consentRequired = consentRequired,
@@ -1085,7 +1085,7 @@ class EncounterSpaceService(
                         memberId = memberId.toString(),
                         displayName = row[MemberTable.displayName],
                         role = view.roleOf(memberId),
-                        isGuest = row[MemberTable.status] in MemberStatusSets.NON_MEMBER,
+                        isGuest = row[MemberTable.status] in MemberStatusSets.CONFERENCE_GUEST,
                         seat = seats[memberId],
                         table = tables.positions[memberId]?.first,
                         tableSeat = tables.positions[memberId]?.second,
@@ -1684,7 +1684,7 @@ class EncounterSpaceService(
                 ttl = TABLE_TOKEN_TTL_SECONDS.seconds,
                 canPublish = canPublish,
             )
-        val plenumTtl = if (status in MemberStatusSets.NON_MEMBER) config.guestTokenTtlMinutes else config.tokenTtlMinutes
+        val plenumTtl = if (status in MemberStatusSets.CONFERENCE_GUEST) config.guestTokenTtlMinutes else config.tokenTtlMinutes
         return MintedTableToken(
             jwt = minted.jwt,
             expiresAt = minted.expiresAt,
@@ -1927,7 +1927,7 @@ class EncounterSpaceService(
         val needsConsentRow: Boolean,
         val consentText: EncounterConsentText,
     ) {
-        val isNonMember: Boolean get() = status in MemberStatusSets.NON_MEMBER
+        val isNonMember: Boolean get() = status in MemberStatusSets.CONFERENCE_GUEST
     }
 
     private fun validateInput(input: EncounterSpaceInput): ValidInput {
@@ -1996,7 +1996,7 @@ class EncounterSpaceService(
                 pulpitRecordingAllowed = space[EncounterSpaceTable.pulpitRecordingAllowed],
                 mapEnabled = space[EncounterSpaceTable.mapEnabled],
             )
-        if (status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId, text = consentText)) {
+        if (status in MemberStatusSets.CONSENT_REQUIRED && !hasCurrentConsent(memberId = current.memberId, text = consentText)) {
             val submitted =
                 consent
                     ?: throw ConflictException(
@@ -2054,7 +2054,7 @@ class EncounterSpaceService(
                     .where {
                         (ConferenceParticipationTable.roomId eq prep.roomId) and
                             (ConferenceParticipationTable.memberId neq current.memberId) and
-                            (MemberTable.status inList MemberStatusSets.NON_MEMBER)
+                            (MemberTable.status inList MemberStatusSets.CONFERENCE_GUEST)
                     }.count()
             if (nonMembers >= config.maxNonMemberParticipants) throw ConflictException("This encounter space has reached its guest limit")
         }
@@ -2235,7 +2235,7 @@ class EncounterSpaceService(
         status: MemberStatus,
     ): Boolean {
         if (row[EncounterSpaceTable.archivedAt] != null && !current.isPrivileged) return false
-        return status !in MemberStatusSets.NON_MEMBER ||
+        return status !in MemberStatusSets.CONFERENCE_GUEST ||
             row[EncounterSpaceTable.guestPolicy] == EncounterGuestPolicy.MEMBERS_AND_GUESTS.name
     }
 
@@ -2251,7 +2251,9 @@ class EncounterSpaceService(
         ) {
             throw NotFoundException("Encounter space $spaceId not found")
         }
-        if (status in MemberStatusSets.NON_MEMBER && row[EncounterSpaceTable.guestPolicy] != EncounterGuestPolicy.MEMBERS_AND_GUESTS.name) {
+        if (status in MemberStatusSets.CONFERENCE_GUEST &&
+            row[EncounterSpaceTable.guestPolicy] != EncounterGuestPolicy.MEMBERS_AND_GUESTS.name
+        ) {
             throw ForbiddenException("This encounter space does not admit non-members")
         }
         return row

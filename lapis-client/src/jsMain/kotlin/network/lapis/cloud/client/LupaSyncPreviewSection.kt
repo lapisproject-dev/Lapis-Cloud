@@ -18,6 +18,7 @@ import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
 import network.lapis.cloud.shared.domain.LupaBbPreviewPageDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewRowDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewSummaryDto
+import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.LupaBbSyncStatusDto
 import network.lapis.cloud.shared.rpc.LupaBbPreviewExpiredException
 
@@ -311,8 +312,8 @@ internal class LupaSyncPreview(
     ) {
         row.reasons.forEach { reason ->
             cell.div {
-                span(lupaReasonText(reason.code))
-                reason.param?.let { param ->
+                span(lupaReasonSentence(code = reason.code, param = reason.param))
+                reason.param?.takeIf { reason.code != LupaBbRowReasonCode.VOTING_RIGHT_MANUAL }?.let { param ->
                     span(" ")
                     span(sanitizeUntrustedI18nText(param)) { addCssClasses("text-muted small") }
                 }

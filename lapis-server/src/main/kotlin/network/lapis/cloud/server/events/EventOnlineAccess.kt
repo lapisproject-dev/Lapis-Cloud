@@ -14,6 +14,7 @@ import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
@@ -93,10 +94,11 @@ internal fun decideEventOnlineAccess(
             } else if (!publicEvent && nonMember) {
                 return forbidden
             }
-            // A non-member with a session (GUEST/FRIEND) is a guest of the room and may only ever take part in a PUBLIC event.
+            // A non-member with a session (GUEST/FRIEND/DONOR) may only ever take part in a PUBLIC event (the visibility rule). GUEST/FRIEND are
+            // guests of the room; a DONOR (V1.9.298) is not: no guest notice, member token lifetime, not counted against the guest cap.
             if (nonMember) {
                 if (!publicEvent) return forbidden
-                isGuest = true
+                isGuest = status in MemberStatusSets.CONFERENCE_GUEST
             }
         }
     }

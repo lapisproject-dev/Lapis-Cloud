@@ -112,9 +112,15 @@ class MemberPasswordResetDialogTest {
 
     @Test
     fun resetMailBlockReason_loginBlockedStatuses_areAllBlocked() {
-        listOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED, MemberStatus.DONOR).forEach { status ->
+        // V1.9.298: DONOR left LOGIN_BLOCKED (a donor signs in, so a reset link works)
+        listOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED).forEach { status ->
             assertNotNull(resetMailBlockReason(MailDeliveryState.HANDED_TO_SMTP, status))
         }
+    }
+
+    @Test
+    fun resetMailBlockReason_donor_isAllowed_sinceV1_9_298() {
+        assertNull(resetMailBlockReason(MailDeliveryState.HANDED_TO_SMTP, MemberStatus.DONOR))
     }
 
     @Test

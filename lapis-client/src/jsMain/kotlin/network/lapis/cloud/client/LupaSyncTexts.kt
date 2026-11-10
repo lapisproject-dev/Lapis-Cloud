@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.LupaBbCategory
@@ -37,6 +38,7 @@ internal fun lupaFieldLabel(field: LupaBbField): String =
         LupaBbField.REGIONAL_CHAPTER -> tr("Landesverband")
         LupaBbField.STATUS -> tr("Status")
         LupaBbField.MISSING_FLAG -> tr("Markierung \"nicht mehr in LupaBB\"")
+        LupaBbField.VOTING_RIGHT -> tr("Stimmrecht")
     }
 
 internal fun lupaCategoryLabel(category: LupaBbCategory): String =
@@ -130,7 +132,26 @@ internal fun lupaReasonText(code: LupaBbRowReasonCode): String =
         LupaBbRowReasonCode.MISSING_IN_LUPABB -> tr("Das Mitglied kommt in LupaBB nicht mehr vor. Es wird nur markiert, nicht gelöscht.")
         LupaBbRowReasonCode.REAPPEARED -> tr("Das Mitglied ist in LupaBB wieder aufgetaucht, die Markierung entfällt.")
         LupaBbRowReasonCode.LEAVES_DECEASED -> tr("Das Mitglied war als verstorben geführt und wird wieder aktiviert bzw. umgestuft.")
+        LupaBbRowReasonCode.VOTING_RIGHT_MANUAL -> tr("Das Stimmrecht wurde von Hand gesetzt und wird nicht übernommen.")
     }
+
+/**
+ * The reason in words, with its parameter where the parameter is part of the sentence: for [LupaBbRowReasonCode.VOTING_RIGHT_MANUAL] the fixed
+ * param `<ours>><LupaBB>` (`true`/`false` only) becomes "ja"/"nein"; every other code is [lupaReasonText] and its param stays a separate suffix.
+ */
+internal fun lupaReasonSentence(
+    code: LupaBbRowReasonCode,
+    param: String?,
+): String {
+    if (code != LupaBbRowReasonCode.VOTING_RIGHT_MANUAL) return lupaReasonText(code)
+    val parts = param?.split('>')
+    val ours = parts?.getOrNull(0)
+    val theirs = parts?.getOrNull(1)
+    if (ours == null || theirs == null) return lupaReasonText(code)
+    return gettext("Stimmrecht von Hand gesetzt (%1), LupaBB meldet %2 – wird nicht übernommen", yesNo(ours), yesNo(theirs))
+}
+
+private fun yesNo(raw: String): String = if (raw == "true") tr("ja") else tr("nein")
 
 internal fun lupaNoticeText(notice: LupaBbNoticeCode): String =
     when (notice) {
@@ -146,6 +167,7 @@ internal fun lupaDiffValue(
     if (raw == null) return "–"
     return when (field) {
         LupaBbField.STATUS -> runCatching { memberStatusLabel(MemberStatus.valueOf(raw)) }.getOrDefault(raw)
+        LupaBbField.VOTING_RIGHT -> yesNo(raw)
         LupaBbField.PERSON_TYPE ->
             when (raw) {
                 "NATURAL" -> tr("Natürliche Person")

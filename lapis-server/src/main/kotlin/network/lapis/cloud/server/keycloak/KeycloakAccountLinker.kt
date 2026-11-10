@@ -171,7 +171,9 @@ object KeycloakAccountLinker {
                 return@transaction LinkOutcome.Rejected(RejectionReason.CONFLICTING_LINK)
             }
 
-            if (memberStatusBlocksLoginRow(matchingMember)) {
+            // V1.9.298: the implicit e-mail link (case 2) refuses a DONOR as well as every login-blocked status -- a donor row imported or synced
+            // WITHOUT an account must not get access on the first Keycloak login. A donor an administrator linked by hand (case 1) signs in.
+            if (matchingMember[MemberTable.status] in MemberStatusSets.KEYCLOAK_AUTO_LINK_BLOCKED) {
                 return@transaction LinkOutcome.Rejected(RejectionReason.MEMBER_LOGIN_BLOCKED)
             }
 

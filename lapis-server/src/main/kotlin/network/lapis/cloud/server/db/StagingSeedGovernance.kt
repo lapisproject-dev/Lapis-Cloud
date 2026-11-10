@@ -22,7 +22,7 @@ import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
 import network.lapis.cloud.server.rpc.MotionDecisionLock
 import network.lapis.cloud.server.rpc.auditResolutionCreate
-import network.lapis.cloud.server.rpc.eligibleMemberIds
+import network.lapis.cloud.server.rpc.electorateMemberIds
 import network.lapis.cloud.server.rpc.insertResolutionRow
 import network.lapis.cloud.server.rpc.lockElectionRow
 import network.lapis.cloud.server.rpc.recordElectionBallotLocked
@@ -724,7 +724,7 @@ internal object StagingSeedGovernance {
                 .where { MeetingTable.id eq meetingId }
                 .single()[MeetingTable.scheduledAt]
                 .date
-        val eligible = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate).sortedBy { it.toString() }
+        val eligible = electorateMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate).sortedBy { it.toString() }
         eligible.forEach { memberId ->
             ElectionEligibleVoterTable.insert {
                 it[id] = Uuid.random()

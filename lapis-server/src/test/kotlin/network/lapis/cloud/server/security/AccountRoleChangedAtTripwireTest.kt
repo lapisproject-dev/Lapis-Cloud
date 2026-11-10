@@ -29,6 +29,7 @@ class AccountRoleChangedAtTripwireTest :
                 "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt",
                 "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt",
                 "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt",
+                "network/lapis/cloud/server/bootstrap/DonorRoleDowngrade.kt",
             )
 
         val accountWrite = Regex("""(?<![A-Za-z0-9_])AccountTable\.(update|insert|upsert|replace|batchInsert|batchUpsert)\b""")

@@ -4,6 +4,7 @@ import network.lapis.cloud.server.db.generated.ElectionBallotTable
 import network.lapis.cloud.server.db.generated.ElectionEligibleVoterTable
 import network.lapis.cloud.server.db.generated.ElectionParticipationTable
 import network.lapis.cloud.server.db.generated.ElectionTable
+import network.lapis.cloud.server.member.MemberVotingRights
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -76,11 +77,13 @@ internal object ElectionOwnParticipation {
                     }.map { it[ElectionEligibleVoterTable.electionId] }
                     .toSet()
             }
+        // V1.9.298: the live floor -- a withdrawn voting right makes the member ineligible whatever the snapshot says.
+        val voterNow = MemberVotingRights.isVoterNow(memberId)
         return electionRows.associate { row ->
             val id = row[ElectionTable.id]
             id to
                 OwnElectionFlags(
-                    eligible = if (row[ElectionTable.votingOpenedAt] != null) id in eligibleIds else null,
+                    eligible = if (row[ElectionTable.votingOpenedAt] != null) (voterNow && id in eligibleIds) else null,
                     hasVoted = if (row[ElectionTable.secret]) id in votedSecret else id in votedOpen,
                 )
         }

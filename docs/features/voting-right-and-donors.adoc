@@ -1,0 +1,113 @@
+= Voting right as a member attribute and donor sign-in (V1.9.298)
+:toc:
+
+Two related changes in one wave:
+
+. *Voting right* is an attribute of a member, independent of the membership (and of the membership tier). A member without voting right is still a member -- invited, in the committees, with
+  every other right of a member -- but is in *no electorate*: not frozen into a vote, election or consensus round, not in the denominator of the quorum, no ballot.
+. A *donor* (`DONOR`, "Spender") may now sign in, with the same rights as a friend or guest plus the room-entry behaviour of a member. A donor is never a member and never holds an administrative role.
+
+Both changes were decided by the owner on 2026-11-09. The architecture is in link:../architecture/voting-right-and-donors.adoc[Voting right and donors: architecture].
+
+== Behaviour changes
+
+. Every member has a voting right, default *yes*. Nothing changes for any existing member.
+. The LupaBB status "Neumitglied" now means: member (`ACTIVE`) *without* voting right. The next sync takes the voting right away from every member that LupaBB reports as "Neumitglied" (unless an administrator
+  set the value by hand, see below). "Mitglied" means "with voting right".
+. A donor can sign in (`LOGIN_BLOCKED` no longer contains `DONOR`). A change from `ACTIVE` to `DONOR` no longer ends the sessions of the person; the status is read fresh on every request and applies at once.
+. A donor account is always created by an administrator, always with the role *Mitglied*. A donor can never be BOARD, TREASURER or ADMIN; an open request "suspend" with the target status `DONOR` fails when it is
+  executed (and a new one is refused).
+. The Keycloak sign-in does not link a donor by its e-mail address (the implicit link); an administrator can link a donor by hand.
+. "Beschlussfähig ab" (the committee's quorum count) counts the people with voting right only.
+
+== The attribute
+
+`member.voting_right` (boolean, default `true`), `member.voting_right_source` (`DEFAULT`, `MANUAL`, `LUPABB`) and `member.voting_right_changed_at` (UTC instant, shown in the organization zone).
+
+* `DEFAULT`: never touched. The value is `true`.
+* `MANUAL`: an administrator set it. The LupaBB sync *never* overwrites it; it only shows an information line "Stimmrecht von Hand gesetzt (ja), LupaBB meldet nein -- wird nicht übernommen".
+* `LUPABB`: the sync set it, or an administrator handed a manual value back to the sync ("Wieder dem LupaBB-Abgleich überlassen").
+
+=== Who sets it
+
+* *ADMIN only*, in the member editor (section "Stimmrecht", only for a member with the status `ACTIVE`). Never the own row. An anonymised or non-member row is refused.
+* The LupaBB sync, for the labels "Mitglied" (yes) and "Neumitglied" (no) only, never for an anonymised or deceased member, never over a `MANUAL` value, never for a member with a management role (those
+  differences are listed as "by hand", `ADMIN_ROLE_MANUAL`).
+* A new member that the sync creates from a "Neumitglied" record is created without voting right (source `LUPABB`). The CSV import is a one-time bootstrap tool and creates every `ACTIVE` member with voting right
+  (default) -- unchanged.
+
+=== Audit
+
+Every change writes a `MEMBER` audit entry carrying one fixed key only, never a value or a name: `member.voting_right.granted`, `.revoked`, `.released_to_sync`, `.granted_by_sync`, `.revoked_by_sync`. Setting the
+value a member already has by hand writes and audits nothing.
+
+== Where the voting right counts
+
+The electorate is *membership AND voting right* (`electorateMemberIds`). It is used wherever a circle of voters is *frozen* or decided:
+
+[cols="2,3"]
+|===
+| Decision | Rule
+
+| Vote (`openVote`), election (`openVoting`), consensus round (freeze, reopen) | the frozen snapshot contains only people with voting right
+| Quorum (`computeQuorum`, `checkQuorum`) | the denominator is the electorate (live: members with voting right; frozen: the snapshot)
+| Ballot (`castVoteBallot`, `castElectionBallot`, `castResistanceBallot`) | the caller must be in the snapshot *and* hold the voting right *now* (the live floor, `requireVotingMembership`)
+| Own participation, dashboard signals, conference ballot cards | `eligible` is false without voting right, even if the snapshot lists the person
+| "Beschlussfähig ab" (committee count) | the electorate count
+|===
+
+=== A voting right changed after the freeze
+
+The same rule as for a member who leaves the association (see link:rule-based-committees.adoc[Rule-based committees]): the person *stays* in the snapshot and in the denominator, but can no longer vote -- the live check
+is the lower bound. A voting right *granted* after the freeze gives no vote: the person is not in the snapshot.
+
+=== Where it deliberately does not count
+
+* Invitations, mail merges and group messages: members without voting right are still invited and addressed (`eligibleMemberIds` is the membership).
+* Submitting a motion, standing as a candidate (passive right to vote) and proposing an option in the COLLECTION phase of a consensus: not a ballot. *Open question for the board.*
+* Opening a vote (a task of the session leadership). "Cannot open" is read as "is not in the frozen circle".
+* Polls (`PollService`): non-binding opinion polls for active members, no committee electorate.
+* The attendance list by name (`NameListAttendanceRule`) shows the electorate: a member without voting right is not on it and is recorded like a guest.
+
+== The member without voting right sees
+
+A notice in place of the vote, ballot or rating button -- never a disabled button. The directory shows the text badge "ohne Stimmrecht" for such a member. The member editor says, below the field: "Wird das
+Stimmrecht nach dem Start einer Abstimmung entzogen, zählt das Mitglied dort weiter zur Beschlussfähigkeit, kann aber nicht mehr abstimmen."
+
+== Donors
+
+A donor (status `DONOR`) is treated like a friend/guest wherever being "not a member" restricts (`NON_MEMBER` now contains `DONOR`: fail-closed), and gets everything those two may do:
+
+[cols="2,2,3"]
+|===
+| Area | Donor | Note
+
+| Sign in | yes | account created by an administrator (`Konto anlegen`), role *Mitglied* only
+| Video conference | enters a room by its id from an invitation; member token lifetime, not counted against the guest cap; **must still acknowledge the consent text** (a donor is a non-member, the proof of consent is stored exactly as for a guest or friend) | cannot create a room, list rooms or moderate (a creator who became a donor loses the creator's moderation)
+| Event conference | public events only; treated like a member inside | never a moderator
+| Encounter space | enters like a member, no guest policy applies; must acknowledge the encounter consent text (incl. recording/map paragraphs) before entering | no office (PULPIT/STEWARD)
+| Carpool, tender bids, events (self-registration) | like friend/guest | `CARPOOL_PASSENGER`, `TENDER_PARTICIPANT`, `EVENT_SELF_REGISTRANT`
+| LTR (account, social network, transfers received, bidding on LTR tenders), MCP | yes (default of open question Q1) | like a friend
+| Politician rating | yes, counted as a *guest* rater (default of open question Q2) |
+| Notice board, activism, mailing lists, polls, member directory, member card, photo, map, background upload | no | members only
+| Voting, elections, consensus | no | not a member
+|===
+
+=== Opening a donor account
+
+*Konto anlegen* in the member editor (ADMIN): role *Mitglied* is the only offer for a donor. The Keycloak implicit link is blocked for a donor (the e-mail address would otherwise open an account that nobody
+granted); an administrator can link a donor by hand (*Keycloak link*). Import and LupaBB sync never create an account. A legacy donor who kept an account from an earlier change from active to donor can sign in again without any administrator action. At startup `DonorRoleDowngrade` sets every donor account that still holds BOARD, TREASURER or ADMIN to member (audit entry, sessions ended). A donor must be in a conference room (an open participation) before the roster, recording and stream state of that room answer, like any other non-member.
+
+== Not verified
+
+* Nothing ran against a real instance or the real LupaBB. All tests use H2, a PostgreSQL container and a fake LupaBB server.
+* The translations of the new texts were produced by machine; nobody has proofread them. No screen reader was used.
+* *Whether the articles of association allow members (or supporters) without voting right is not checked.* The board has to confirm it before the first "Neumitglied" sync.
+
+== Open questions
+
+* Q1/Q2 (LTR and politician rating for donors): the defaults above are implemented; the alternative is to take `DONOR` out of `LTR_ELIGIBLE` / `POLITICIAN_RATER`.
+* Q3: the sync never writes the voting right of an anonymised or deceased member. The status change away from `DECEASED` that the sync already allows (V1.9.226) is unchanged.
+* Peer approval (second administrator) for withdrawing the voting right of a member with a management role. Interim rule (implemented): one administrator alone never withdraws the voting right of a BOARD, TREASURER or ADMIN account holder (peer protection refusal); the account role has to be changed first. Withdrawals during an open decision in the target's committee are not specially guarded.
+* Passive right to vote (candidates), motions and options without voting right.
+* "Förderer" and "Ausgeschlossen" of LupaBB (open point D, see link:lupabb-sync.adoc[LupaBB sync]).

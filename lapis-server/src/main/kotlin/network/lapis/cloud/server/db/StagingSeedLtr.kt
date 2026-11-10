@@ -227,7 +227,8 @@ internal object StagingSeedLtr {
         clock: SeedClock,
         statuses: Map<Int, MemberStatus>,
     ): Result {
-        fun eligible(n: Int): Boolean = statuses[n] in MemberStatusSets.LTR_ELIGIBLE
+        // V1.9.298: the seed keeps its V1.9.296 shape (ACTIVE and FRIEND); a donor is LTR-eligible now but gets no seeded LTR (seed data of donors is next wave)
+        fun eligible(n: Int): Boolean = statuses[n] in SEED_LTR_STATUSES
         val createdBy: Uuid? = if (3 in statuses) SeedIds.member(3) else null
         var mintsInserted = 0
         var transfersInserted = 0
@@ -321,3 +322,9 @@ internal object StagingSeedLtr {
         }
     }
 }
+
+/** V1.9.298 -- the statuses the staging seed gives LTR to: ACTIVE and FRIEND, as before donors joined `MemberStatusSets.LTR_ELIGIBLE` (the seed data of donors is a follow-up). */
+internal val SEED_LTR_STATUSES: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND)
+
+/** V1.9.298 -- the statuses the staging seed lets rate a politician: ACTIVE and GUEST, as before donors joined `MemberStatusSets.POLITICIAN_RATER`. */
+internal val SEED_POLITICIAN_RATER_STATUSES: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.GUEST)

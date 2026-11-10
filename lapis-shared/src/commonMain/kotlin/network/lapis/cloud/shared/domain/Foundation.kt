@@ -56,6 +56,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class MemberStatus { APPLICATION, ACTIVE, GUEST, WITHDRAWN, REJECTED, FRIEND, DONOR, DECEASED }
 
+/**
+ * V1.9.298 -- who set `member.voting_right`: [DEFAULT] = never touched (value is `true`), [MANUAL] = an administrator set it (the LupaBB sync leaves
+ * it alone and only reports the difference), [LUPABB] = the LupaBB sync set it, or an administrator handed a manual value back to the sync.
+ */
+@Serializable
+enum class VotingRightSource { DEFAULT, MANUAL, LUPABB }
+
 @Serializable
 enum class AccountRole { MEMBER, BOARD, TREASURER, ADMIN }
 
@@ -88,7 +95,23 @@ object MemberStatusSets {
      * historical `isGuest` denylist -- every "members only" gate tests [ORGANIZATION_MEMBER]
      * instead of this set directly.
      */
-    val NON_MEMBER: Set<MemberStatus> = setOf(MemberStatus.GUEST, MemberStatus.FRIEND)
+    val NON_MEMBER: Set<MemberStatus> = setOf(MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR)
+
+    /**
+     * V1.9.298 -- the statuses that are guests INSIDE the video-conference, event-online and encounter-space files: consent dialog, the room's
+     * `allowFederationGuests` release, the short guest token, the guest cap and the guest lobby text. This is the former meaning of [NON_MEMBER]
+     * there. [MemberStatus.DONOR] is deliberately NOT in it: a donor may sign in since V1.9.298 and is treated like a member in the room (no guest
+     * notice, member token lifetime, not counted against the guest cap), while every other "not a member" restriction (visibility, posting, ...)
+     * still applies through [NON_MEMBER] (fail-closed). `ConferenceGuestSetTripwireTest` forbids [NON_MEMBER] in those files.
+     */
+    val CONFERENCE_GUEST: Set<MemberStatus> = setOf(MemberStatus.GUEST, MemberStatus.FRIEND)
+
+    /**
+     * Who must give explicit, stored consent (encounter consent text incl. recording/map paragraphs, conference guest disclaimer) before entering
+     * a room: every non-member. A donor is a non-member who never signed a membership agreement, so -- although access, token lifetime and guest
+     * cap treat a donor like a member ([CONFERENCE_GUEST]) -- the DSGVO proof of consent is owed exactly as for a GUEST/FRIEND.
+     */
+    val CONSENT_REQUIRED: Set<MemberStatus> = CONFERENCE_GUEST + MemberStatus.DONOR
 
     /**
      * V1.9.125 -- may ride along on a carpool offer, answer an invitation and withdraw: ACTIVE, GUEST and FRIEND. **Change of the access
@@ -97,7 +120,7 @@ object MemberStatusSets {
      * seeking a ride, contacting an author, inviting people and every read of other people's data stay [ORGANIZATION_MEMBER]-only.
      */
     val CARPOOL_PASSENGER: Set<MemberStatus> =
-        setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)
+        setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR)
 
     /**
      * V1.9.259 -- may register ITSELF for an event through the button on the public event page, and whose address on the public guest
@@ -105,7 +128,7 @@ object MemberStatusSets {
      * (`GuestAddressAccountMatcher`), not by this set.
      */
     val EVENT_SELF_REGISTRANT: Set<MemberStatus> =
-        setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.GUEST)
+        setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.GUEST, MemberStatus.DONOR)
 
     /** V1.9.125 -- may offer rides, invite passengers and manage participants (the V1.9.12 rule, unchanged). Only for the carpool methods. */
     val CARPOOL_DRIVER: Set<MemberStatus> = ORGANIZATION_MEMBER
@@ -117,11 +140,11 @@ object MemberStatusSets {
      * [LTR_ELIGIBLE]).
      */
     val TENDER_PARTICIPANT: Set<MemberStatus> =
-        setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.GUEST)
+        setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.GUEST, MemberStatus.DONOR)
 
     /** May enter a conference room. THE extension point for widening FRIEND later. */
     val CONFERENCE_ELIGIBLE: Set<MemberStatus> =
-        setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)
+        setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR)
 
     /**
      * Darf LTR halten, empfangen und im SOZIALEN NETZ ausgeben (Beitrags-/Kommentar-Einsatz und
@@ -176,7 +199,7 @@ object MemberStatusSets {
      * "jedes ACTIVE-Mitglied darf LTR an jedes LTR_ELIGIBLE-Ziel überweisen" und wäre nur durch
      * eine zusätzliche, hier bewusst nicht gezogene Einschränkung schließbar.
      */
-    val LTR_ELIGIBLE: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND)
+    val LTR_ELIGIBLE: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.DONOR)
 
     /**
      * Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen". Deliberately NARROWER
@@ -218,21 +241,27 @@ object MemberStatusSets {
      * Politician-rating basket (V0.6.4 guest basket), deliberately EXCLUDES [MemberStatus.FRIEND]
      * -- an unverified, self-registered name must not move a public trust metric.
      */
-    val POLITICIAN_RATER: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.GUEST)
+    val POLITICIAN_RATER: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.DONOR)
 
     /**
      * May not log in at all (`AuthRoutes` gate).
      *
      * V1.2.11 (PdV-CSV-Import) added [MemberStatus.DECEASED] and [MemberStatus.DONOR] here:
      * [MemberStatus.DECEASED] is terminal by definition -- a deceased person can never authenticate.
-     * [MemberStatus.DONOR] is blocked as a deliberate default, not a technical necessity: the import
-     * tool never creates an `account` row for a DONOR (see `MemberCsvImport` KDoc), so login is
-     * already structurally impossible today -- but SHOULD a later donor-self-service portal ever
-     * grant one an account, the block here means that capability must be switched on deliberately by
-     * widening this set, not discovered as an accidental side effect of an account merely existing.
+     * [MemberStatus.DONOR] was blocked as a deliberate default ("must be switched on deliberately by widening this set").
+     * **V1.9.298 (owner decision) switched it on: [MemberStatus.DONOR] is no longer blocked.** For NEW data a donor account is only ever created by an
+     * administrator (a legacy donor who kept an account from an earlier ACTIVE -> DONOR change can sign in again without administrator action) (`IMemberService.grantMemberAccount` or the manual Keycloak link); import, LupaBB sync, JIT provisioning and the Keycloak
+     * e-mail auto-link never create or grant one ([KEYCLOAK_AUTO_LINK_BLOCKED]). A donor can never hold BOARD/TREASURER/ADMIN (legacy accounts that did are downgraded to MEMBER at startup by `DonorRoleDowngrade`).
      */
     val LOGIN_BLOCKED: Set<MemberStatus> =
-        setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED, MemberStatus.DONOR)
+        setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED)
+
+    /**
+     * V1.9.298 -- statuses for which the Keycloak sign-in must NOT create an implicit link by e-mail address (case 2 of `KeycloakAccountLinker`):
+     * [LOGIN_BLOCKED] plus [MemberStatus.DONOR]. Without this a donor row imported or synced without an account would get access on the first
+     * Keycloak login of a matching address. A donor an administrator already linked (case 1) signs in normally.
+     */
+    val KEYCLOAK_AUTO_LINK_BLOCKED: Set<MemberStatus> = LOGIN_BLOCKED + MemberStatus.DONOR
 
     /**
      * A membership that has definitively ended -- self-initiated exit ([MemberStatus.WITHDRAWN]),

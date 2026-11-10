@@ -26,6 +26,7 @@ import network.lapis.cloud.server.conference.LiveKitRoomInfo
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -215,6 +216,59 @@ class FriendConferenceAccessTest :
                 transaction {
                     ConferenceParticipationTable.selectAll().where { ConferenceParticipationTable.memberId eq friend }.count()
                 } shouldBe 0L
+            }
+        }
+
+        test(
+            "DONOR joins a room without a consent payload -- Conflict, zero participation rows and zero acknowledgment rows (DSGVO proof owed)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installFriendConferenceExceptionHandlers() }
+                    routing { registerFriendConferenceTestRoutes() }
+                }
+                val creator = createTestMember("donor-conf-t1-creator@example.org")
+                val roomId = createTestRoom(creatorId = creator, allowFederationGuests = false)
+                val donor = createTestMember("donor-conf-t1-donor@example.org", status = MemberStatus.DONOR)
+
+                val response = client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", donor.toString()) }
+                response.status shouldBe HttpStatusCode.Conflict
+                transaction {
+                    ConferenceParticipationTable.selectAll().where { ConferenceParticipationTable.memberId eq donor }.count()
+                } shouldBe 0L
+                transaction {
+                    ConferenceGuestConsentAcknowledgmentTable
+                        .selectAll()
+                        .where {
+                            ConferenceGuestConsentAcknowledgmentTable.memberId eq
+                                donor
+                        }.count()
+                } shouldBe 0L
+            }
+        }
+
+        test("DONOR joins with valid consent -- member-like access (no allowFederationGuests release needed) and one acknowledgment row") {
+            testApplication {
+                application {
+                    install(StatusPages) { installFriendConferenceExceptionHandlers() }
+                    routing { registerFriendConferenceTestRoutes() }
+                }
+                val creator = createTestMember("donor-conf-t2-creator@example.org")
+                val roomId = createTestRoom(creatorId = creator, allowFederationGuests = false)
+                val donor = createTestMember("donor-conf-t2-donor@example.org", status = MemberStatus.DONOR)
+
+                val response =
+                    client.post(
+                        "/test/join-room?roomId=$roomId&consentVersion=${ConferenceGuestConsentDisclaimer.VERSION}" +
+                            "&consentSha256=${ConferenceGuestConsentDisclaimer.SHA256}",
+                    ) { header("X-Member-Id", donor.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                transaction {
+                    ConferenceGuestConsentAcknowledgmentTable
+                        .selectAll()
+                        .where { ConferenceGuestConsentAcknowledgmentTable.memberId eq donor }
+                        .count()
+                } shouldBe 1L
             }
         }
 

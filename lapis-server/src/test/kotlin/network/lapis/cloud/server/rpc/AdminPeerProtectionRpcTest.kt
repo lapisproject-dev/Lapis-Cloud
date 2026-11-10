@@ -439,7 +439,7 @@ class AdminPeerProtectionRpcTest :
                 mailer.executedMails.clear()
                 application { setup() }
                 val a = fx.admin(displayName = "Reaktivierender Admin")
-                val b = fx.admin(status = MemberStatus.DONOR)
+                val b = fx.admin(status = MemberStatus.WITHDRAWN)
                 client.act("/t/status/$b?status=ACTIVE", a) shouldBe (HttpStatusCode.OK to "OK:ACTIVE")
                 fx.statusOf(b) shouldBe MemberStatus.ACTIVE
                 mailer.executedMails.single().actorName shouldBe "Reaktivierender Admin"

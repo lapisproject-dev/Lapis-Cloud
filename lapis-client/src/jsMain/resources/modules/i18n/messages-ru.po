@@ -14015,9 +14015,6 @@ msgstr "Учётная запись для входа создана: %1."
 msgid "Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."
 msgstr "Укажите допустимую дату, не относящуюся к будущему."
 
-msgid "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich aber erst anmelden, wenn der Status auf Aktiv geändert wird."
-msgstr "Для доноров вход заблокирован. Учётная запись будет создана, но войти можно будет только после смены статуса на «Активен»."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1146
 msgid "Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos."
 msgstr "Для этого статуса вход заблокирован. Учётная запись остаётся недействующей до смены статуса."
@@ -31849,3 +31846,75 @@ msgstr "Объявление (доска объявлений)"
 
 msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
 msgstr "Участники размещают на доске объявления: поиск, предложения и сведения со сроком действия. Порядок определяют LTR, которые участники тратят на объявление."
+
+msgid "Stimmrecht"
+msgstr "Право голоса"
+
+msgid "Stimmrecht speichern"
+msgstr "Сохранить право голоса"
+
+msgid "Stimmrecht gespeichert."
+msgstr "Право голоса сохранено."
+
+msgid "Ja – darf abstimmen"
+msgstr "Да – может голосовать"
+
+msgid "Nein – darf nicht abstimmen"
+msgstr "Нет – не может голосовать"
+
+msgid "ja"
+msgstr "да"
+
+msgid "nein"
+msgstr "нет"
+
+msgid "ohne Stimmrecht"
+msgstr "без права голоса"
+
+msgid "Standardwert"
+msgstr "Значение по умолчанию"
+
+msgid "Aus LupaBB übernommen (Status: Mitglied)"
+msgstr "Взято из LupaBB (статус: член)"
+
+msgid "Aus LupaBB übernommen (Status: Neumitglied)"
+msgstr "Взято из LupaBB (статус: новый член)"
+
+msgid "Von Hand gesetzt am %1"
+msgstr "Установлено вручную %1"
+
+msgid "Von Hand gesetzt"
+msgstr "Установлено вручную"
+
+msgid "Wieder dem LupaBB-Abgleich überlassen"
+msgstr "Снова оставить синхронизации LupaBB"
+
+msgid "Das Stimmrecht wird künftig vom LupaBB-Abgleich gesetzt."
+msgstr "Отныне право голоса будет устанавливаться синхронизацией LupaBB."
+
+msgid "Das Stimmrecht ist unabhängig von der Mitgliedschaftsstufe. Ohne Stimmrecht bleibt die Person Mitglied, steht aber in keinem Wählerverzeichnis."
+msgstr "Право голоса не зависит от уровня членства. Без него человек остаётся членом, но не входит ни в один список избирателей."
+
+msgid "Wird das Stimmrecht nach dem Start einer Abstimmung entzogen, zählt das Mitglied dort weiter zur Beschlussfähigkeit, kann aber nicht mehr abstimmen."
+msgstr "Если право голоса отозвано после начала голосования, член по-прежнему учитывается в кворуме, но больше не может голосовать."
+
+msgid "Sie sind Mitglied, haben aber derzeit kein Stimmrecht und können deshalb nicht abstimmen. Bei Fragen wenden Sie sich an den Vorstand."
+msgstr "Вы являетесь членом, но в настоящее время не имеете права голоса и поэтому не можете голосовать. По вопросам обращайтесь в правление."
+
+msgid "Das Stimmrecht wurde von Hand gesetzt und wird nicht übernommen."
+msgstr "Право голоса установлено вручную и не будет перенесено."
+
+msgid "Stimmrecht von Hand gesetzt (%1), LupaBB meldet %2 – wird nicht übernommen"
+msgstr "Право голоса установлено вручную (%1), LupaBB сообщает %2 – не переносится"
+
+msgid "Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um der Besprechung beizutreten."
+msgstr "Введите идентификатор комнаты из приглашения, чтобы присоединиться к встрече."
+
+msgid "Besprechung beitreten"
+msgstr "Присоединиться к встрече"
+
+msgid "Für Spender ist keine Verwaltungsrolle möglich. Bitte zuerst die Rolle auf Mitglied setzen."
+msgstr "Донор не может иметь административную роль. Сначала установите роль «член»."
+
+msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
+msgstr "Доноры могут входить в систему, но не могут голосовать и получать административную роль. Учётная запись создаётся с ролью «член»."

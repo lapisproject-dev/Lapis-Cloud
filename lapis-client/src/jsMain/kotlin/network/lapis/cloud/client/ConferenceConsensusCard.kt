@@ -86,6 +86,8 @@ internal fun renderConsensusLiveCard(
     card.untrustedP(ballot.title, className = "fw-bold mb-0")
     card.consensusBadges(ballot)
     if (ballot.isConsensusRating()) card.div(ownRatingLabel(ballot)) { addCssClasses("small") }
+    // V1.9.298: a member without voting right gets the notice in place of the button
+    if (ballot.isConsensusRating() && !ballot.ownEligible) renderNoVotingRightNoticeIfLacking(card)
     if (canAct && ballot.isConsensusRating() && ballot.ownEligible && !ballot.ownHasVoted) {
         if (tabHref != null) {
             card.consensusTabLink(tr("In neuem Tab bewerten"), tabHref, asButton = true)

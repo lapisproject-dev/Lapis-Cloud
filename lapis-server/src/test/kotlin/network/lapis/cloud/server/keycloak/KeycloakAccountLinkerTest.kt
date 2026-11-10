@@ -428,4 +428,40 @@ class KeycloakAccountLinkerTest :
             (outcome as KeycloakAccountLinker.LinkOutcome.Rejected).reason shouldBe
                 KeycloakAccountLinker.RejectionReason.MEMBER_LOGIN_BLOCKED
         }
+
+        // ── V1.9.298: a donor signs in, but is never linked implicitly ─────────────────
+
+        test("no link + matched member is a DONOR -> the implicit e-mail link is refused (MEMBER_LOGIN_BLOCKED), no link is written") {
+            val email = "linker-donor-${Uuid.random()}@example.org"
+            val memberId = createMember(email = email, status = MemberStatus.DONOR)
+
+            val outcome =
+                KeycloakAccountLinker.linkOrResolve(
+                    issuer = ISSUER,
+                    subject = "subject-${Uuid.random()}",
+                    email = email,
+                    emailVerified = true,
+                    requireVerifiedEmail = true,
+                )
+            (outcome as KeycloakAccountLinker.LinkOutcome.Rejected).reason shouldBe
+                KeycloakAccountLinker.RejectionReason.MEMBER_LOGIN_BLOCKED
+            transaction {
+                KeycloakAccountLinkTable.selectAll().where { KeycloakAccountLinkTable.memberId eq memberId }.count()
+            } shouldBe 0
+        }
+
+        test("a donor an administrator already linked signs in (case 1: the link is authoritative, DONOR is not login-blocked)") {
+            val memberId = createMember(email = "linker-donor-linked-${Uuid.random()}@example.org", status = MemberStatus.DONOR)
+            val subject = existingLink(memberId)
+
+            val outcome =
+                KeycloakAccountLinker.linkOrResolve(
+                    issuer = ISSUER,
+                    subject = subject,
+                    email = "irrelevant-${Uuid.random()}@example.org",
+                    emailVerified = true,
+                    requireVerifiedEmail = true,
+                )
+            (outcome as KeycloakAccountLinker.LinkOutcome.Linked).memberId shouldBe memberId
+        }
     })

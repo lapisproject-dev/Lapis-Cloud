@@ -58,3 +58,10 @@ See `77-lupabb-sync.kuml.kts` and `V122__lupabb_sync.sql`: `member.lupabb_person
 == Why a person number link and not `external_reference`
 
 `external_reference` (CSV import) is free text of another source; the person number needs a unique index and a numeric check. The two stay separate.
+
+== Voting right (V1.9.298)
+
+`LupaBbStatusMapping.Mapped` carries the voting right a label implies (`Neumitglied` = no, `Mitglied` = yes, every other label `null` = untouched). The planner turns it into a field `VOTING_RIGHT` only when the
+record carries a value, the member is neither anonymised nor deceased and the source is not `MANUAL`; a `MANUAL` value gives the reason `VOTING_RIGHT_MANUAL` instead (parameter "ours>theirs", `true`/`false`
+only). `VOTING_RIGHT` is deliberately *not* in the safe subset of a protected member, so it lands in `ADMIN_ROLE_MANUAL`. The Lapis side of the fingerprint contains the value and the source, so a change by hand
+between preview and apply is `CHANGED_SINCE_PREVIEW`. The applier writes through `MemberVotingRights` only and audits `votingRight = GRANTED_BY_SYNC | REVOKED_BY_SYNC` (a key, no value).

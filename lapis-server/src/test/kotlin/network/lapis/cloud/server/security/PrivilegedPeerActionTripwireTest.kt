@@ -59,6 +59,8 @@ class PrivilegedPeerActionTripwireTest :
                 "network/lapis/cloud/server/routes/AuthRoutes.kt" to "password reset: the bearer of the one-time token set a new password",
                 "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt" to
                     "the operator console: shell access to the deployment, no network path",
+                "network/lapis/cloud/server/bootstrap/DonorRoleDowngrade.kt" to
+                    "startup repair: downgrades a DONOR account with an administrative role to MEMBER (never raises a role), no network path",
                 "network/lapis/cloud/server/db/DevSeedData.kt" to "dev seed, NEW accounts in an empty database",
                 "network/lapis/cloud/server/db/StagingSeedData.kt" to "staging seed, NEW accounts in an empty database",
                 "network/lapis/cloud/server/db/StagingSeedMemberDetails.kt" to

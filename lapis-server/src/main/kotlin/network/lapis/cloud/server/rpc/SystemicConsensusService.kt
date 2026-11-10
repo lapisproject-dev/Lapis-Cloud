@@ -231,7 +231,8 @@ class SystemicConsensusService(
             val rationale = rationaleOrNull(input.rationale)
             val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
             if (!current.isPrivileged) {
-                val eligible = eligibleMembersOf(committeeId = committeeId, meetingId = row[SystemicConsensusTable.meetingId])
+                // V1.9.298: proposing an option is membership-based (NOT the electorate) -- see docs/features/voting-right-and-donors.adoc.
+                val eligible = proposerMembersOf(committeeId = committeeId, meetingId = row[SystemicConsensusTable.meetingId])
                 if (current.memberId !in eligible) throw ForbiddenException()
             }
             val optionCount =
@@ -398,7 +399,8 @@ class SystemicConsensusService(
             // bypasses addCommitteeMember, or a legacy row predating that fix). Member-only
             // (ACTIVE), not requirePoliticianRaterMembership -- guests never get vote weight in this
             // project's concept.
-            requireActiveMembership(memberId = current.memberId)
+            // V1.9.298: ACTIVE AND voting right, the live floor.
+            requireVotingMembership(memberId = current.memberId)
             val row = lockSystemicConsensusRow(kId)
             if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.RATING) {
                 throw ConflictException(
@@ -854,13 +856,24 @@ class SystemicConsensusService(
     private fun requireMotionCommitteeId(motionId: Uuid): Uuid =
         MotionTable.selectAll().where { MotionTable.id eq motionId }.single()[MotionTable.targetCommitteeId]
 
-    private fun eligibleMembersOf(
+    /** V1.9.298 -- who may PROPOSE an option: the membership of the circle (voting right not required). */
+    private fun proposerMembersOf(
         committeeId: Uuid,
         meetingId: Uuid,
     ): Set<Uuid> {
         val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
         val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
         return eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date)
+    }
+
+    /** V1.9.298 -- the ELECTORATE frozen into a round: membership AND voting right. */
+    private fun eligibleMembersOf(
+        committeeId: Uuid,
+        meetingId: Uuid,
+    ): Set<Uuid> {
+        val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
+        val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
+        return electorateMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date)
     }
 
     /** Snapshots current eligibility into `systemic_consensus_eligible_voter` for [round] -- shared by [freezeOptions] and [reopenRating]. */

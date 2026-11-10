@@ -42,7 +42,7 @@ data class RoomBallotOptionDto(
  *
  * **Ballot secrecy**: the DTO carries ONLY the calling account's own flags ([ownEligible],
  * [ownHasVoted]) -- no counters, no timestamps, no selections, no receipts, no names or member ids.
- * For a non-member caller ([MemberStatusSets.NON_MEMBER]) [ownEligible] is always `false`.
+ * For a non-member caller ([MemberStatusSets.NON_MEMBER], donors included) and for a member without voting right [ownEligible] is always `false`.
  *
  * V1.9.27 (kind [RoomBallotKind.VOTE]): a meritocratic vote is never secret (`secret = false`). The DTO
  * NEVER carries `basketTotalLtr`, `stakeLtr`, `settledLtr`, `secondPriceLtr`, names, timestamps, the

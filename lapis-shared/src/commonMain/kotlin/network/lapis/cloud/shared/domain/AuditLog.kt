@@ -3,6 +3,7 @@ package network.lapis.cloud.shared.domain
 import dev.kilua.rpc.types.Decimal
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -1155,7 +1156,32 @@ data class MemberChangeSnapshot(
     val lupabbFields: List<String>? = null,
     /** Welle V1.9.226 -- `true` when the sync (or the manual link) set the LupaBB person number of this member. No number. */
     val lupabbLinked: Boolean? = null,
+    /**
+     * Welle V1.9.298 -- which voting-right change this entry records (see [VotingRightAuditEvent]). A fixed key only: NEVER the old/new value as free
+     * text, never a name. Set by `MemberVotingRights` callers (administrator change, release to the sync, sync write). Default `null`: older rows
+     * decode unchanged.
+     */
+    val votingRight: VotingRightAuditEvent? = null,
 )
+
+/** Welle V1.9.298 -- the voting-right change an audit entry records. Fixed keys, no values. */
+@Serializable
+enum class VotingRightAuditEvent {
+    @SerialName("member.voting_right.granted")
+    GRANTED,
+
+    @SerialName("member.voting_right.revoked")
+    REVOKED,
+
+    @SerialName("member.voting_right.released_to_sync")
+    RELEASED_TO_SYNC,
+
+    @SerialName("member.voting_right.granted_by_sync")
+    GRANTED_BY_SYNC,
+
+    @SerialName("member.voting_right.revoked_by_sync")
+    REVOKED_BY_SYNC,
+}
 
 /**
  * Welle V1.9.73 -- what the Keycloak integration did to a member row. The values stay on the (erasable) `member` /

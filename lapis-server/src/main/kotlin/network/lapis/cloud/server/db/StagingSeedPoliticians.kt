@@ -7,7 +7,6 @@ import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
 import network.lapis.cloud.server.rpc.PublicRankingConsentDisclaimer
 import network.lapis.cloud.server.rpc.PublicRankingConsentStore
 import network.lapis.cloud.shared.domain.MemberStatus
-import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.PoliticianProfileStatus
 import network.lapis.cloud.shared.domain.PoliticianRaterType
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
@@ -173,7 +172,7 @@ internal object StagingSeedPoliticians : StagingSeedPart {
                 profileRow != null &&
                     profileRow[PoliticianProfileTable.status] == PoliticianProfileStatus.ACTIVE &&
                     raterStatus != null &&
-                    raterStatus in MemberStatusSets.POLITICIAN_RATER &&
+                    raterStatus in SEED_POLITICIAN_RATER_STATUSES &&
                     PoliticianReactionTable.selectAll().where { PoliticianReactionTable.id eq reactionId }.empty() &&
                     PoliticianReactionTable
                         .selectAll()

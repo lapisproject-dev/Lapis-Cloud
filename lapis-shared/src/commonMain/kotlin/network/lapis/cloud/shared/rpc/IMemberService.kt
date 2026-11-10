@@ -568,4 +568,21 @@ interface IMemberService {
      * [CountryLegacyMappingReportDto.fingerprint]); a changed plan is refused with a `ConflictException` and nothing is written.
      */
     suspend fun applyCountryLegacyMapping(fingerprint: String): CountryLegacyMappingResultDto
+
+    /**
+     * Welle V1.9.298 -- ADMIN only. Sets the voting right of [memberId] BY HAND (the source becomes MANUAL; the LupaBB sync then only reports a
+     * difference). Never the caller's own row (`ForbiddenException`); an anonymised or non-member target is a `ConflictException`. Setting the
+     * value it already has (as MANUAL) writes and audits nothing. Membership is untouched: a member without voting right stays a member, but is
+     * in no electorate. Returns the refreshed roster row.
+     */
+    suspend fun setMemberVotingRight(
+        memberId: String,
+        votingRight: Boolean,
+    ): MemberAdminRowDto
+
+    /**
+     * Welle V1.9.298 -- ADMIN only. Hands a MANUAL voting right back to the LupaBB sync (the value stays, the source becomes LUPABB). Only
+     * possible while the source is MANUAL (`ConflictException` otherwise). Same target rules as [setMemberVotingRight].
+     */
+    suspend fun releaseMemberVotingRightToSync(memberId: String): MemberAdminRowDto
 }

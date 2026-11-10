@@ -148,7 +148,7 @@ class TenderVisibilityPolicyTest :
             }
             test("a published tender is visible to ACTIVE, FRIEND and GUEST, in every status after the draft") {
                 everyStatus.filter { it != TenderStatus.DRAFT }.forEach { status ->
-                    listOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.GUEST).forEach {
+                    listOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.GUEST, MemberStatus.DONOR).forEach {
                         tenderVisibleTo(viewer = viewer(status = it), status = status, everPublished = true) shouldBe true
                     }
                 }
@@ -158,7 +158,6 @@ class TenderVisibilityPolicyTest :
                     MemberStatus.APPLICATION,
                     MemberStatus.WITHDRAWN,
                     MemberStatus.REJECTED,
-                    MemberStatus.DONOR,
                     MemberStatus.DECEASED,
                 ).forEach {
                     everyStatus.forEach { status ->

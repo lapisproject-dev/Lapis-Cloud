@@ -327,7 +327,8 @@ class ElectionService(
             // against any future seating path that bypasses addCommitteeMember, or a legacy row
             // predating that fix). Member-only (ACTIVE), not requirePoliticianRaterMembership --
             // guests never get vote weight in this project's concept.
-            requireActiveMembership(memberId = current.memberId)
+            // V1.9.298: ACTIVE AND voting right, the live floor.
+            requireVotingMembership(memberId = current.memberId)
             // Election lock: a ballot and closeVoting/abortElection are mutually exclusive, so no ballot can
             // land after voting_closed_at.
             val electionRow = lockElectionRow(wId)

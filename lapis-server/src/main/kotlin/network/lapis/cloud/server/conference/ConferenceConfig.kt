@@ -56,14 +56,14 @@ class ConferenceConfig private constructor(
     val maxParticipants: Int,
     /**
      * Security-audit F4 fix -- a SEPARATE, per-room ceiling on how many concurrently-open
-     * [network.lapis.cloud.shared.domain.MemberStatusSets.NON_MEMBER] (GUEST/FRIEND) participations
+     * [network.lapis.cloud.shared.domain.MemberStatusSets.CONFERENCE_GUEST] (GUEST/FRIEND; a donor is NOT counted, V1.9.298) participations
      * a single room may have at once, independent of [maxParticipants] (LiveKit's own global
      * `room.max_participants` ceiling, which does not distinguish members from non-members). Without
      * this, a room with `allowFederationGuests = true` could fill its entire [maxParticipants] budget
      * with self-registered, identity-unverified FRIEND/GUEST accounts, crowding out ACTIVE members.
      * Enforced in [network.lapis.cloud.server.rpc.ConferenceService.joinRoom] by counting open
      * (`leftAt IS NULL`) `conference_participation` rows for the room whose member `status` is in
-     * `NON_MEMBER`. See [load] KDoc for the `LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS` env var.
+     * `CONFERENCE_GUEST`. See [load] KDoc for the `LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS` env var.
      */
     val maxNonMemberParticipants: Int,
     /**

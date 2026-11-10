@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.geo.CountryDisplayNames
 import network.lapis.cloud.shared.domain.ErasureMode
+import network.lapis.cloud.shared.domain.VotingRightSource
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -77,6 +78,10 @@ object FoundationPersonalData : MemberPersonalDataContributor {
             // issued card -- structurally the same kind of personal reference as
             // externalReference above, and belongs in the Art. 15 DSGVO Auskunft the same way.
             put("memberNumber", memberRow[MemberTable.memberNumber])
+            // Welle V1.9.298 -- voting right, who set it and when: a personal attribute of the member, part of the Art. 15 Auskunft.
+            put("votingRight", memberRow[MemberTable.votingRight])
+            put("votingRightSource", memberRow[MemberTable.votingRightSource].name)
+            put("votingRightChangedAt", memberRow[MemberTable.votingRightChangedAt]?.toString())
 
             val accountRow = AccountTable.selectAll().where { AccountTable.memberId eq memberId }.singleOrNull()
             if (accountRow != null) {
@@ -143,6 +148,11 @@ object FoundationPersonalData : MemberPersonalDataContributor {
                 // untouched (it is organizational data, not this member's personal data). See
                 // RegionalChapterPersonalData for the SEPARATE regional_chapter_officer coverage.
                 it[regionalChapterId] = null
+                // Welle V1.9.298 -- the voting right and its origin reset to the defaults (an erased member is anonymous and holds no
+                // administrator decision any more). The same update, so the CHECK chk_member_voting_right_default_shape holds at all times.
+                it[votingRight] = true
+                it[votingRightSource] = VotingRightSource.DEFAULT
+                it[votingRightChangedAt] = null
             }
         val accountsDeleted = AccountTable.deleteWhere { AccountTable.memberId eq memberId }
         return listOf(

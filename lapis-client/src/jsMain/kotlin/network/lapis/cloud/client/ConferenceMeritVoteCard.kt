@@ -62,6 +62,13 @@ internal fun renderMeritVoteLiveCard(
     )
     badges.votingBadge(tr("offen – namentlich"), "info", "fas fa-user-pen")
     card.div(ownBidLabel(ballot)) { addCssClasses("small") }
+    // V1.9.298: a member without voting right gets the notice in place of the button
+    if (ballot.status == RoomBallotStatus.OPEN &&
+        !ballot.ownEligible &&
+        AppState.session.lacksVotingRight()
+    ) {
+        renderNoVotingRightNotice(card)
+    }
     val href = conferenceMotionDetailHref(ballot.motionId)
     when (ballot.status) {
         RoomBallotStatus.OPEN ->

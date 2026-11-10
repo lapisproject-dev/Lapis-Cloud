@@ -30,6 +30,7 @@ import network.lapis.cloud.server.member.CountryLegacyMappingEngine
 import network.lapis.cloud.server.member.MemberCardIssuance
 import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.member.MemberRoleStatusMutations
+import network.lapis.cloud.server.member.MemberVotingRights
 import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.member.TemporaryPasswordMutation
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
@@ -83,6 +84,8 @@ import network.lapis.cloud.shared.domain.PeerAction
 import network.lapis.cloud.shared.domain.PeerActionAuditFacts
 import network.lapis.cloud.shared.domain.PeerAuditEvent
 import network.lapis.cloud.shared.domain.TemporaryPasswordResultDto
+import network.lapis.cloud.shared.domain.VotingRightAuditEvent
+import network.lapis.cloud.shared.domain.VotingRightSource
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -90,6 +93,7 @@ import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.PeerProtectionDeniedException
 import org.jetbrains.exposed.v1.core.ColumnSet
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
@@ -731,6 +735,77 @@ class MemberService(
         return CountryLegacyMappingEngine.apply(actor = current, expectedFingerprint = fingerprint, now = nowLocalDateTime())
     }
 
+    // ── Welle V1.9.298 -- voting right as a member attribute ──
+
+    override suspend fun setMemberVotingRight(
+        memberId: String,
+        votingRight: Boolean,
+    ): MemberAdminRowDto =
+        changeVotingRight(
+            memberId = memberId,
+            withdraws = !votingRight,
+        ) { actor, row, now -> MemberVotingRights.setManualLocked(actor = actor, targetRow = row, value = votingRight, now = now) }
+
+    override suspend fun releaseMemberVotingRightToSync(memberId: String): MemberAdminRowDto =
+        changeVotingRight(memberId = memberId, requireManual = true) { actor, row, now ->
+            MemberVotingRights.releaseToSyncLocked(actor = actor, targetRow = row, now = now)
+        }
+
+    /**
+     * Shared skeleton of the two voting-right writers: ADMIN only, never the caller's own row, member row lock, anonymised or
+     * non-organization-member target -> Conflict, a withdrawal ([withdraws]) from a holder of an [ESCALATED_ROLES] role -> peer protection refusal,
+     * then [mutate] (the only writer is `MemberVotingRights`), then the audit entry LAST.
+     */
+    private fun changeVotingRight(
+        memberId: String,
+        requireManual: Boolean = false,
+        withdraws: Boolean = false,
+        mutate: (CurrentMember, ResultRow, LocalDateTime) -> VotingRightAuditEvent?,
+    ): MemberAdminRowDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        if (targetId == current.memberId) throw ForbiddenException()
+        val now = nowLocalDateTime()
+        return transaction {
+            val row =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq targetId }
+                    .forMemberUpdate()
+                    .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+            if (row[MemberTable.anonymizedAt] != null) throw ConflictException("Member has been anonymized and can no longer be edited")
+            if (row[MemberTable.status] !in MemberStatusSets.ORGANIZATION_MEMBER) {
+                throw ConflictException("Only a member has a voting right")
+            }
+            if (requireManual && row[MemberTable.votingRightSource] != VotingRightSource.MANUAL) {
+                throw ConflictException("The voting right was not set by hand")
+            }
+            if (withdraws) {
+                // Peer protection: one administrator alone never withdraws the voting right of a BOARD/TREASURER/ADMIN peer (that would let
+                // them silence the opposition in an open vote). Lock order as everywhere: member row, then the account union.
+                val facts = PeerGuard.lockFactsAfterMemberLock(targetId = targetId, memberRow = row, requesterId = current.memberId)
+                if (facts.targetRole != null && facts.targetRole in ESCALATED_ROLES) throw PeerProtectionDeniedException()
+            }
+            val event = mutate(current, row, now)
+            if (event != null) {
+                val before =
+                    MemberChangeSnapshot(displayNameChanged = false, emailChanged = false, status = row[MemberTable.status], role = null)
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.MEMBER,
+                    entityId = targetId,
+                    action = AuditAction.UPDATE,
+                    before = Json.encodeToString(MemberChangeSnapshot.serializer(), before),
+                    after = Json.encodeToString(MemberChangeSnapshot.serializer(), before.copy(votingRight = event)),
+                    occurredAt = now,
+                )
+            }
+            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+        }
+    }
+
     // ── Welle V1.2.12 -- Mitgliederverwaltung: vollständige Bearbeitung + privilegiertes Roster ──
 
     override suspend fun listMembersForAdministration(query: MemberAdminQuery): MemberAdminPageDto {
@@ -1201,6 +1276,8 @@ class MemberService(
                         facts.lockedAccountRows.singleOrNull { it[AccountTable.memberId] == targetId }
                             ?: throw MemberHasNoAccountException()
                     val currentRole = accountRow[AccountTable.role]
+                    // Welle V1.9.298 -- a donor never holds BOARD/TREASURER/ADMIN.
+                    MemberRoleStatusMutations.requireRoleAllowedForStatus(status = memberRow[MemberTable.status], role = newRole)
 
                     // Idempotent no-op: DTO back, no update, no audit entry.
                     if (newRole ==
@@ -1297,6 +1374,8 @@ class MemberService(
                     if (memberRow[MemberTable.status] == MemberStatus.DECEASED) {
                         throw ConflictException("Cannot grant a login account to a deceased member")
                     }
+                    // Welle V1.9.298 -- a donor may get a MEMBER account (and thereby sign in), never an administrative role.
+                    MemberRoleStatusMutations.requireRoleAllowedForStatus(status = memberRow[MemberTable.status], role = role)
 
                     // Against the address AS STORED, never a client-supplied one -- the client does not send
                     // an e-mail on this call at all, and must not be able to weaken this check by sending a
@@ -1984,6 +2063,11 @@ private fun ResultRow.toMemberAdminRowDto(
         // V1.9.226 -- the LupaBB link, ADMIN only like the sign-in data (includeLastLogin is exactly the ADMIN gate)
         lupabbPersonNumber = if (includeLastLogin) this[MemberTable.lupabbPersonNumber] else null,
         lupabbMissingSince = if (includeLastLogin) this[MemberTable.lupabbMissingSince] else null,
+        // V1.9.298 -- the voting right is shown to every roster caller (BOARD/TREASURER/chapter officer included): it is a fact about the
+        // membership (like the status), not an ADMIN-only datum; only the writer RPCs are ADMIN-only.
+        votingRight = this[MemberTable.votingRight],
+        votingRightSource = this[MemberTable.votingRightSource],
+        votingRightChangedAt = if (includeLastLogin) this[MemberTable.votingRightChangedAt] else null,
     )
 
 /** V1.9.141 -- see [toMemberAdminRowDto] `countryViewer`. `null` for non-privileged viewers and for peer-masked rows. */

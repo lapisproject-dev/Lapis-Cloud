@@ -4,6 +4,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusBallotTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
+import network.lapis.cloud.server.member.MemberVotingRights
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -74,12 +75,14 @@ internal object SystemicConsensusOwnParticipation {
                     }.map { it[SystemicConsensusEligibleVoterTable.systemicConsensusId] to it[SystemicConsensusEligibleVoterTable.round] }
                     .toSet()
             }
+        // V1.9.298: the live floor -- a withdrawn voting right makes the member ineligible whatever the snapshot says.
+        val voterNow = MemberVotingRights.isVoterNow(memberId)
         return rows.associate { row ->
             val id = row[SystemicConsensusTable.id]
             val key = id to row[SystemicConsensusTable.round]
             id to
                 OwnConsensusFlags(
-                    eligible = if (row[SystemicConsensusTable.ratingOpenedAt] != null) key in eligibleRounds else null,
+                    eligible = if (row[SystemicConsensusTable.ratingOpenedAt] != null) (voterNow && key in eligibleRounds) else null,
                     hasRated = if (row[SystemicConsensusTable.secret]) key in ratedSecret else key in ratedOpen,
                 )
         }

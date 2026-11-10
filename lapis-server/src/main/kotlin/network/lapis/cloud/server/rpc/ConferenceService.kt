@@ -143,13 +143,15 @@ private data class JoinPrep(
     val displayName: String,
     /**
      * V0.11.0 -- `true` iff the caller's status is in [network.lapis.cloud.shared.domain
-     * .MemberStatusSets.NON_MEMBER] (GUEST or FRIEND). Drives whether [ConferenceService.joinRoom]'s
+     * .MemberStatusSets.CONFERENCE_GUEST] (GUEST or FRIEND). Drives whether [ConferenceService.joinRoom]'s
      * second `transaction {}` writes a [ConferenceGuestConsentAcknowledgmentTable] row at all, and
      * the short-vs-long token TTL choice -- deliberately NOT derived from [guestHomeserverUrl]
      * (which is always `null` for a FRIEND, see that field's own KDoc), so a FRIEND is held to the
      * exact same consent-and-short-TTL discipline a GUEST always was.
      */
     val isNonMember: Boolean = false,
+    /** `true` iff the caller is in [network.lapis.cloud.shared.domain.MemberStatusSets.CONSENT_REQUIRED] (GUEST, FRIEND, DONOR): a consent row is written. */
+    val consentRequired: Boolean = false,
     /**
      * Wave 5 "Föderations-Gastbeitritt" -- non-null iff the caller is [MemberStatus.GUEST]
      * specifically (read from [OidcGuestProfileTable] inside the same authorization transaction
@@ -478,7 +480,7 @@ class ConferenceService(
                 // what keeps ACTIVE callers byte-for-byte unaffected by this wave.
                 var guestHomeserver: String? = null
                 var guestOrganizationName: String? = null
-                if (status in MemberStatusSets.NON_MEMBER) {
+                if (status in MemberStatusSets.CONSENT_REQUIRED) {
                     val consent =
                         guestConsent
                             ?: throw ConflictException(
@@ -518,7 +520,8 @@ class ConferenceService(
                     livekitRoomName = row[ConferenceRoomTable.livekitRoomName],
                     role = role,
                     displayName = memberDisplayName(current.memberId),
-                    isNonMember = status in MemberStatusSets.NON_MEMBER,
+                    isNonMember = status in MemberStatusSets.CONFERENCE_GUEST,
+                    consentRequired = status in MemberStatusSets.CONSENT_REQUIRED,
                     guestHomeserverUrl = guestHomeserver,
                     guestOrganizationName = guestOrganizationName,
                     microphoneAllowed =
@@ -607,7 +610,7 @@ class ConferenceService(
             }
             val freshStatus = requireRoomEntryAuthorization(roomRow = freshRoomRow, current = current)
 
-            // Security-audit F4 fix: a per-room ceiling on concurrently-open NON_MEMBER
+            // Security-audit F4 fix: a per-room ceiling on concurrently-open CONFERENCE_GUEST
             // (GUEST/FRIEND) participations, separate from LiveKit's own global maxParticipants
             // (which does not distinguish members from non-members) -- see
             // ConferenceConfig.maxNonMemberParticipants KDoc. Checked here, INSIDE the same
@@ -616,14 +619,14 @@ class ConferenceService(
             // every other joinRoom call for this room blocks on the room-row lock until this
             // transaction commits or rolls back. Never applies to an ORGANIZATION_MEMBER (ACTIVE)
             // caller.
-            if (freshStatus in MemberStatusSets.NON_MEMBER) {
+            if (freshStatus in MemberStatusSets.CONFERENCE_GUEST) {
                 val openNonMemberCount =
                     (ConferenceParticipationTable innerJoin MemberTable)
                         .selectAll()
                         .where {
                             (ConferenceParticipationTable.roomId eq roomUuid) and
                                 ConferenceParticipationTable.leftAt.isNull() and
-                                (MemberTable.status inList MemberStatusSets.NON_MEMBER)
+                                (MemberTable.status inList MemberStatusSets.CONFERENCE_GUEST)
                         }.count()
                 if (openNonMemberCount >= config.maxNonMemberParticipants) {
                     throw ConflictException(
@@ -650,7 +653,7 @@ class ConferenceService(
             // the participation row above so a non-member can never appear in the roster without a
             // matching proof. Gated on prep.isNonMember (NOT prep.guestHomeserverUrl != null) so a
             // FRIEND -- whose guestHomeserverUrl is always null -- still gets this row written.
-            if (prep.isNonMember) {
+            if (prep.consentRequired) {
                 ConferenceGuestConsentAcknowledgmentTable.insert {
                     it[id] = Uuid.random()
                     it[ConferenceGuestConsentAcknowledgmentTable.memberId] = current.memberId
@@ -915,7 +918,8 @@ class ConferenceService(
                 createdByMemberId = creatorId.toString(),
                 createdByDisplayName = memberDisplayName(creatorId),
                 callerIsGuest = status == MemberStatus.GUEST,
-                callerIsNonMember = status in MemberStatusSets.NON_MEMBER,
+                callerIsNonMember = status in MemberStatusSets.CONFERENCE_GUEST,
+                callerNeedsConsent = status in MemberStatusSets.CONSENT_REQUIRED,
                 disclaimer =
                     ConferenceGuestConsentDisclaimerDto(
                         version = ConferenceGuestConsentDisclaimer.VERSION,
@@ -971,7 +975,7 @@ class ConferenceService(
                         emptyList()
                     } else {
                         // V0.11.0 security fix: was `MemberTable.status eq MemberStatus.GUEST` --
-                        // widened to inList(NON_MEMBER) so revoking guest access also disconnects
+                        // widened to inList(CONFERENCE_GUEST) so revoking guest access also disconnects
                         // already-connected FRIENDs, not just GUESTs. Leaving this GUEST-only would
                         // have defeated the primary control this design leans on (see
                         // MembershipGuardsTest / FriendConferenceAccessTest).
@@ -980,7 +984,7 @@ class ConferenceService(
                             .where {
                                 (ConferenceParticipationTable.roomId eq id) and
                                     ConferenceParticipationTable.leftAt.isNull() and
-                                    (MemberTable.status inList MemberStatusSets.NON_MEMBER)
+                                    (MemberTable.status inList MemberStatusSets.CONFERENCE_GUEST)
                             }.map { it[ConferenceParticipationTable.memberId] }
                             .distinct()
                     }
@@ -1190,7 +1194,7 @@ class ConferenceService(
                             meetingId = meetingId,
                             memberId = current.memberId,
                             memberStatus = status,
-                            isNonMember = status in MemberStatusSets.NON_MEMBER,
+                            isNonMember = status in MemberStatusSets.CONFERENCE_GUEST,
                             now = now,
                         )
                     RoomVotingStateDto(roomId = id.toString(), bound = true, ballots = ballots, truncated = truncated)
@@ -1441,7 +1445,7 @@ class ConferenceService(
                             },
                         secret = consensusRow[SystemicConsensusTable.secret],
                         // Head-based: only ACTIVE members (never LTR/friends), snapshot of the CURRENT round.
-                        ownEligible = !isNonMember && memberStatus == MemberStatus.ACTIVE && own?.eligible == true,
+                        ownEligible = memberStatus in MemberStatusSets.ORGANIZATION_MEMBER && own?.eligible == true,
                         ownHasVoted = own?.hasRated == true,
                         consensusPhase = phase,
                     )
@@ -1458,7 +1462,8 @@ class ConferenceService(
                         status = if (closed) RoomBallotStatus.DECIDED else RoomBallotStatus.OPEN,
                         secret = false,
                         // Defense in depth: a non-member is never eligible, whatever the lookup says.
-                        ownEligible = !isNonMember && own?.eligible == true,
+                        // V1.9.298: a donor (not in CONFERENCE_GUEST, but no member either) never votes -- the defence line is ORGANIZATION_MEMBER.
+                        ownEligible = memberStatus in MemberStatusSets.ORGANIZATION_MEMBER && own?.eligible == true,
                         ownHasVoted = own?.hasVoted == true,
                         options = optionsByVote[voteId].orEmpty(),
                         winnerOptionId = if (closed) voteRow[VoteTable.winnerOptionId]?.toString() else null,
@@ -1481,7 +1486,8 @@ class ConferenceService(
                             },
                         secret = row[ElectionTable.secret],
                         // Defense in depth: a non-member is never eligible, whatever the snapshot says.
-                        ownEligible = !isNonMember && own?.eligible == true,
+                        // V1.9.298: a donor (not in CONFERENCE_GUEST, but no member either) never votes -- the defence line is ORGANIZATION_MEMBER.
+                        ownEligible = memberStatus in MemberStatusSets.ORGANIZATION_MEMBER && own?.eligible == true,
                         ownHasVoted = own?.hasVoted == true,
                     )
                 }

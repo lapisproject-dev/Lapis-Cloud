@@ -534,6 +534,17 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **Client:** Route `/notice-board` (optional `?notice=<id>` aus dem LTR-Kontoauszug), Eintrag in der Gruppe "Mitgliedschaft" direkt nach der Mitfahrzentrale; die Boost-Steuerung ist `ltrBoostControl` (gemeinsam mit dem sozialen Netz, Guthaben einmal je Bildschirm über `sharedLtrBalanceSource`, am Anfang jedes Bildschirms `invalidate()`). Texte anderer Personen nur über `untrusted*`.
 - **Seed:** Teil `notices` (Namensraum `0x7b`, drei Aushänge, ein Boost); nach Ablauf plus 30 Tage löscht der Poller sie, der nächste Top-up legt sie neu an.
 
+## Stimmrecht und Spender (V1.9.298)
+
+- **Stimmrecht ist ein Attribut des Mitglieds** (`member.voting_right`, Quelle `voting_right_source` DEFAULT/MANUAL/LUPABB, Zeit `voting_right_changed_at`), unabhängig von Status und Mitgliedschaftsstufe. Doku: `docs/features/voting-right-and-donors.adoc`, `docs/architecture/voting-right-and-donors.adoc`.
+- **Schreiber-Monopol:** nur `MemberVotingRights` schreibt die drei Spalten (Ausnahmen: DSGVO-Löschung, Insert des LupaBB-Abgleichs). Aufrufer der `*Locked`-Funktionen: nur `MemberService` (ADMIN, nie die eigene Zeile) und `LupaBbApplier`. Pinned von `MemberVotingRightWriterTripwireTest`.
+- **Wahlkörper = Mitgliedschaft UND Stimmrecht**, ausschließlich über `electorateMemberIds` / `isCommitteeVoter` / `countElectorate` / `frozenOrLiveElectorate`. `eligibleMemberIds` bleibt die reine Mitgliedschaft (Einladungen, Gruppen-Nachrichten, Regelvorschau, Optionsvorschlag im Konsensieren). `generalAssemblyCondition()` nie ändern. Pinned von `CommitteeElectorateTripwireTest`.
+- **Live-Untergrenze:** `requireVotingMembership` in `castVoteBallot`/`castElectionBallot`/`castResistanceBallot`; die OwnParticipation-Helfer verknüpfen `eligible` mit dem aktuellen Stimmrecht. Ein Snapshot wird nie neu berechnet; entzogenes Stimmrecht nach dem Einfrieren: bleibt im Snapshot und in N, stimmt nicht mehr; nachträglich erteiltes gibt keine Stimme.
+- **`CONFERENCE_GUEST` statt `NON_MEMBER`** in allen Konferenz-/Veranstaltungs-Online-/Begegnungsraum-Dateien (Spender sind dort keine Gäste). `NON_MEMBER` enthält seit V1.9.298 `DONOR` (fail-closed). Pinned von `ConferenceGuestSetTripwireTest`.
+- **Spender-Login:** `LOGIN_BLOCKED` ohne `DONOR`; Keycloak-Auto-Link (Fall 2) prüft `KEYCLOAK_AUTO_LINK_BLOCKED`; `MemberRoleStatusMutations.requireRoleAllowedForStatus` verbietet BOARD/TREASURER/ADMIN für Spender (Konto anlegen, Rolle ändern, Statuswechsel zu DONOR). ACTIVE -> DONOR widerruft keine Sitzungen.
+- **LupaBB:** "Neumitglied" = ACTIVE ohne Stimmrecht, "Mitglied" = mit; ein MANUAL-Wert wird nie überschrieben (nur Info-Zeile `VOTING_RIGHT_MANUAL`); `VOTING_RIGHT` nicht in `PROTECTED_SAFE_FIELDS`. "Förderer"/"Spender"-Mapping unverändert (offener Punkt D).
+- **RPC:** `setMemberVotingRight` und `releaseMemberVotingRightToSync` stehen am Ende von `IMemberService`.
+
 ## Stream-Schlüssel pro Sendung (V1.9.274)
 
 - **Nur `targetRtmpUrl` baut eine Klartext-RTMP-URL** (Start, Resume, Poller, Geheimwahl-Resume, Pausen-Feed). Der Schlüssel liegt je nach `key_kind` an der Destination (AAD = Destination-Id) oder an der Target-Zeile (AAD = `conference_stream_target:<id>`).

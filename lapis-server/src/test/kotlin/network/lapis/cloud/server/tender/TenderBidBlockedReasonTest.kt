@@ -38,8 +38,9 @@ class TenderBidBlockedReasonTest :
         test("the matrix: participant first, then the guest rule, then the state, then the cap (only without an own row)") {
             reason(MemberStatus.ACTIVE) shouldBe null
             reason(MemberStatus.FRIEND) shouldBe null
+            reason(MemberStatus.DONOR) shouldBe null // V1.9.298: TENDER_PARTICIPANT includes DONOR
             reason(MemberStatus.GUEST) shouldBe TenderBidBlockedReason.GUEST_LTR
-            listOf(MemberStatus.APPLICATION, MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DONOR, MemberStatus.DECEASED)
+            listOf(MemberStatus.APPLICATION, MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED)
                 .forEach { reason(it) shouldBe TenderBidBlockedReason.NOT_PARTICIPANT }
             // NOT_PARTICIPANT wins over a closed tender, the guest rule wins over the state
             reason(MemberStatus.APPLICATION, effective = TenderStatus.CLOSED) shouldBe TenderBidBlockedReason.NOT_PARTICIPANT

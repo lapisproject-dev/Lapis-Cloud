@@ -140,13 +140,13 @@ class TenderBidRulesTest :
         }
 
         test(
-            "ACTIVE and FRIEND may bid; a GUEST may not bid on an LTR tender; applicants, former members, donors and the deceased may not",
+            "ACTIVE, FRIEND and DONOR (V1.9.298) may bid; a GUEST may not bid on an LTR tender; applicants, former members and the deceased may not",
         ) {
             TimeTestSupport.withMutableServerClock(clock = tenderClock()) {
                 tenderTestApplication {
                     val board = fx.member(label = "board", role = AccountRole.BOARD)
                     val id = newTender(board = board, binding = fx.approvedMotion())
-                    listOf(MemberStatus.ACTIVE, MemberStatus.FRIEND).forEach { status ->
+                    listOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.DONOR).forEach { status ->
                         val member = fx.member(label = "ok-$status", status = status)
                         tender(member = member) { submitBid(tenderId = id, input = bidInput(price = "7.00")) }.status shouldBe
                             TenderBidStatus.SUBMITTED
@@ -161,7 +161,6 @@ class TenderBidRulesTest :
                         MemberStatus.APPLICATION,
                         MemberStatus.WITHDRAWN,
                         MemberStatus.REJECTED,
-                        MemberStatus.DONOR,
                         MemberStatus.DECEASED,
                     ).forEach { status ->
                         val member = fx.member(label = "no-$status", status = status)
@@ -170,7 +169,7 @@ class TenderBidRulesTest :
                         }.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>()
                         tenderAttempt(member = member) { listMyBids() }.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>()
                     }
-                    transaction { TenderBidTable.selectAll().count() } shouldBe 2
+                    transaction { TenderBidTable.selectAll().count() } shouldBe 3
                 }
             }
         }

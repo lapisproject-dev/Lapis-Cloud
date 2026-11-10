@@ -43,6 +43,7 @@ enum class LupaBbField {
     REGIONAL_CHAPTER,
     STATUS,
     MISSING_FLAG,
+    VOTING_RIGHT,
 }
 
 /** Why a record is in the class it is in (an error, a skip, an ambiguity) or a notice about it. */
@@ -77,6 +78,7 @@ enum class LupaBbRowReasonCode {
     MISSING_IN_LUPABB,
     REAPPEARED,
     LEAVES_DECEASED,
+    VOTING_RIGHT_MANUAL,
 }
 
 /** A remark about the whole preview. */

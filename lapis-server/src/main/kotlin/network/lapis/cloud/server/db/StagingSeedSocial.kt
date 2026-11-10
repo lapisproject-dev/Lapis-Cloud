@@ -265,7 +265,7 @@ internal object StagingSeedSocial : StagingSeedPart {
         status: MemberStatus?,
     ): Boolean =
         status != null &&
-            status in MemberStatusSets.LTR_ELIGIBLE &&
+            status in SEED_LTR_STATUSES &&
             !(visibility == SocialPostVisibility.MEMBERS_ONLY && status in MemberStatusSets.NON_MEMBER)
 
     override fun JdbcTransaction.apply(clock: SeedClock): StagingSeedPartResult {

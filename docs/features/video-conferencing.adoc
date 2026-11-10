@@ -264,7 +264,9 @@ When somebody joins or leaves a call, every other participant hears one short, q
 
 == Friends and guests in a conference (V1.9.126)
 
-A person without a membership can take part in a conference: either a *friend* (a self-registered account on this server, no home server) or a *guest* (a federated account that signs in through its own home server). Both have the status class `NON_MEMBER`, get the same lobby ("Als Gast beitreten") and the same rights in a call. Before V1.9.126 the lobby was chosen by the session flag `isGuest`, which is `false` for a friend, so a friend landed in the member lobby, whose room list is members-only, and saw "Keine Berechtigung". The lobby is now chosen by the member status (`conferenceLobbyKindOf`).
+A person without a membership can take part in a conference: either a *friend* (a self-registered account on this server, no home server) or a *guest* (a federated account that signs in through its own home server). Both have the status class `CONFERENCE_GUEST` (V1.9.298: the former meaning of `NON_MEMBER` in the conference code), get the same lobby ("Als Gast beitreten") and the same rights in a call. Before V1.9.126 the lobby was chosen by the session flag `isGuest`, which is `false` for a friend, so a friend landed in the member lobby, whose room list is members-only, and saw "Keine Berechtigung". The lobby is now chosen by the member status (`conferenceLobbyKindOf`).
+
+*Donors (V1.9.298).* A donor (status `DONOR`) may sign in and gets the same lobby (enter a room by its id from an invitation), but is *not* a guest of the room: no guest notice, no `allowFederationGuests` release needed, the member token lifetime, not counted against the guest cap. A donor cannot create a room, list running rooms or moderate (a former creator who became a donor loses the creator's moderation at once); the conference ballot cards never show a ballot as eligible. See link:voting-right-and-donors.adoc[Voting right and donors].
 
 To invite a friend:
 
@@ -284,7 +286,7 @@ Things to know:
 
 === Short token of guests and friends: what happens after 15 minutes (V1.9.257, review only)
 
-A guest or friend gets a LiveKit token that lives `guestTokenTtlMinutes` (default 15, `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES`) instead of `tokenTtlMinutes`. It is chosen in `ConferenceService`, `ConferenceBreakoutService` and `EncounterSpaceService` (`isNonMember`), on purpose short: closing the guest access removes the participant but cannot revoke an issued token.
+A guest or friend gets a LiveKit token that lives `guestTokenTtlMinutes` (default 15, `LAPIS_LIVEKIT_GUEST_TOKEN_TTL_MINUTES`) instead of `tokenTtlMinutes`. It is chosen in `ConferenceService`, `ConferenceBreakoutService` and `EncounterSpaceService` (`CONFERENCE_GUEST`), on purpose short: closing the guest access removes the participant but cannot revoke an issued token.
 
 *Found by reading the code (nothing was run):*
 

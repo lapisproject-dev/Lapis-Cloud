@@ -39,6 +39,8 @@ window; a conference that is already running vetoes a change that would remove i
   live connection (a second use replaces the first). Guests are subject to the room-wide audio rules (lock, mute all, reconciler) like
   every other non-moderator.
 
+*Donors (V1.9.298).* A donor takes part in a *public* event only (the visibility rule of a non-member) and is never a moderator. Inside the room a donor is treated like a member: no guest notice, the member token lifetime, not counted against the guest cap.
+
 == Devices in the guest call view (V1.9.272)
 
 The lean call view of an account-less guest (`EventGuestCallView`) has a "Geräte" section with microphone, camera and, where the browser

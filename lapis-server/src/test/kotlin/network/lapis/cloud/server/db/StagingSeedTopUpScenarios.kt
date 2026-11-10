@@ -124,7 +124,8 @@ abstract class StagingSeedTopUpScenarios(
                 read {
                     MemberTable
                         .selectAll()
-                        .filter { it[MemberTable.status] in MemberStatusSets.LTR_ELIGIBLE }
+                        // V1.9.298: the seed keeps ACTIVE and FRIEND (SEED_LTR_STATUSES); donors are LTR-eligible now but get no seeded LTR
+                        .filter { it[MemberTable.status] in SEED_LTR_STATUSES }
                         .map { it[MemberTable.id] }
                         .toSet()
                 }

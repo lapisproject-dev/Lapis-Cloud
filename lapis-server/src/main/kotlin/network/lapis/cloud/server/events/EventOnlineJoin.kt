@@ -361,7 +361,7 @@ internal class EventOnlineJoin(
                             .where {
                                 (ConferenceParticipationTable.roomId eq room.roomId) and
                                     ConferenceParticipationTable.leftAt.isNull() and
-                                    (MemberTable.status inList MemberStatusSets.NON_MEMBER)
+                                    (MemberTable.status inList MemberStatusSets.CONFERENCE_GUEST)
                             }.count()
                     if (open >=
                         config.maxNonMemberParticipants

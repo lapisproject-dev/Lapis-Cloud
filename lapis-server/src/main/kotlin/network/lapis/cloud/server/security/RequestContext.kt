@@ -61,7 +61,7 @@ data class CurrentMember(
 
     /**
      * Not a member of THIS organization ([network.lapis.cloud.shared.domain.MemberStatusSets
-     * .NON_MEMBER] -- currently [MemberStatus.GUEST] and [MemberStatus.FRIEND]). Replaces every
+     * .NON_MEMBER] -- currently [MemberStatus.GUEST], [MemberStatus.FRIEND] and, since V1.9.298, [MemberStatus.DONOR]). Replaces every
      * former `isGuest`-as-authorization use: a denylist of exactly one status was the wrong shape
      * for a status set that was about to grow (V0.11.0 added [MemberStatus.FRIEND] specifically
      * to close that gap before it could silently widen access).

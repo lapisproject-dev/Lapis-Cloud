@@ -1174,7 +1174,10 @@ internal fun renderVoteSection(
                     addCssClasses("text-muted small")
                 }
             }
-            if (isEligibleToBallot) {
+            if (isEligibleToBallot && AppState.session.lacksVotingRight()) {
+                // V1.9.298: a member without voting right gets a notice instead of the ballot form
+                renderNoVotingRightNotice(panel)
+            } else if (isEligibleToBallot) {
                 renderBallotForm(
                     panel = panel,
                     model = vote.toBallotFormModel(),

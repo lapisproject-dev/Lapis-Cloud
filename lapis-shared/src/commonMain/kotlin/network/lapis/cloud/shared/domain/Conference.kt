@@ -325,12 +325,14 @@ data class ConferenceGuestJoinInfoDto(
     val callerIsGuest: Boolean,
     /**
      * V0.11.0 -- `true` iff the caller's status is in [network.lapis.cloud.shared.domain
-     * .MemberStatusSets.NON_MEMBER] (GUEST or FRIEND). Deliberately a SEPARATE field from
+     * .MemberStatusSets.CONFERENCE_GUEST] (GUEST or FRIEND; a donor is `false` since V1.9.298). Deliberately a SEPARATE field from
      * [callerIsGuest] rather than overloading it, so the client can render the right copy for a
      * FRIEND (no home server, unlike a federated GUEST) without conflating the two. Defaults to
      * `false` so every pre-existing construction site of this DTO stays source-compatible.
      */
     val callerIsNonMember: Boolean = false,
+    /** `true` iff the caller must acknowledge [disclaimer] before joining: GUEST, FRIEND and DONOR (a donor is no member). */
+    val callerNeedsConsent: Boolean = false,
     val disclaimer: ConferenceGuestConsentDisclaimerDto,
 )
 

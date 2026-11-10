@@ -554,7 +554,7 @@ abstract class AdminPeerProtectionScenarios(
                 svc.requestSuspension(
                     actor = fx.actor(id = a),
                     targetIdRaw = b.toString(),
-                    newStatus = MemberStatus.DONOR,
+                    newStatus = MemberStatus.WITHDRAWN,
                     reasonRaw = GOOD_REASON,
                 )
             val fresh =
@@ -562,7 +562,7 @@ abstract class AdminPeerProtectionScenarios(
                     svc.requestSuspension(
                         actor = fx.actor(id = a),
                         targetIdRaw = b.toString(),
-                        newStatus = MemberStatus.DONOR,
+                        newStatus = MemberStatus.WITHDRAWN,
                         reasonRaw = GOOD_REASON,
                     )
                 }

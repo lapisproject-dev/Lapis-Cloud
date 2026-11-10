@@ -14129,9 +14129,6 @@ msgstr "Inlogaccount aangemaakt voor %1."
 msgid "Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."
 msgstr "Geef een geldige datum op die niet in de toekomst ligt."
 
-msgid "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich aber erst anmelden, wenn der Status auf Aktiv geändert wird."
-msgstr "Voor donateurs is inloggen geblokkeerd. Het account wordt aangemaakt, maar de persoon kan pas inloggen zodra de status op Actief wordt gezet."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1146
 msgid "Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos."
 msgstr "Voor deze status is inloggen geblokkeerd. Het account blijft zonder werking tot de status wordt gewijzigd."
@@ -31943,3 +31940,75 @@ msgstr "Mededeling (prikbord)"
 
 msgid "Am Schwarzen Brett hängen Mitglieder Aushänge auf: Suchen, Angebote und Hinweise mit Ablaufdatum. Die Reihenfolge folgt den LTR, die Mitglieder auf einen Aushang einsetzen."
 msgstr "Leden plaatsen mededelingen op het prikbord: zoekopdrachten, aanbiedingen en informatie met een vervaldatum. De volgorde volgt de LTR die leden op een mededeling inzetten."
+
+msgid "Stimmrecht"
+msgstr "Stemrecht"
+
+msgid "Stimmrecht speichern"
+msgstr "Stemrecht opslaan"
+
+msgid "Stimmrecht gespeichert."
+msgstr "Stemrecht opgeslagen."
+
+msgid "Ja – darf abstimmen"
+msgstr "Ja – mag stemmen"
+
+msgid "Nein – darf nicht abstimmen"
+msgstr "Nee – mag niet stemmen"
+
+msgid "ja"
+msgstr "ja"
+
+msgid "nein"
+msgstr "nee"
+
+msgid "ohne Stimmrecht"
+msgstr "zonder stemrecht"
+
+msgid "Standardwert"
+msgstr "Standaardwaarde"
+
+msgid "Aus LupaBB übernommen (Status: Mitglied)"
+msgstr "Overgenomen uit LupaBB (status: lid)"
+
+msgid "Aus LupaBB übernommen (Status: Neumitglied)"
+msgstr "Overgenomen uit LupaBB (status: nieuw lid)"
+
+msgid "Von Hand gesetzt am %1"
+msgstr "Handmatig ingesteld op %1"
+
+msgid "Von Hand gesetzt"
+msgstr "Handmatig ingesteld"
+
+msgid "Wieder dem LupaBB-Abgleich überlassen"
+msgstr "Weer aan de LupaBB-synchronisatie overlaten"
+
+msgid "Das Stimmrecht wird künftig vom LupaBB-Abgleich gesetzt."
+msgstr "Het stemrecht wordt voortaan door de LupaBB-synchronisatie ingesteld."
+
+msgid "Das Stimmrecht ist unabhängig von der Mitgliedschaftsstufe. Ohne Stimmrecht bleibt die Person Mitglied, steht aber in keinem Wählerverzeichnis."
+msgstr "Het stemrecht staat los van het lidmaatschapsniveau. Zonder stemrecht blijft de persoon lid, maar staat hij in geen enkel kiezersregister."
+
+msgid "Wird das Stimmrecht nach dem Start einer Abstimmung entzogen, zählt das Mitglied dort weiter zur Beschlussfähigkeit, kann aber nicht mehr abstimmen."
+msgstr "Wordt het stemrecht ingetrokken nadat een stemming is begonnen, dan telt het lid daar nog mee voor het quorum, maar kan het niet meer stemmen."
+
+msgid "Sie sind Mitglied, haben aber derzeit kein Stimmrecht und können deshalb nicht abstimmen. Bei Fragen wenden Sie sich an den Vorstand."
+msgstr "U bent lid, maar heeft momenteel geen stemrecht en kunt daarom niet stemmen. Heeft u vragen, neem dan contact op met het bestuur."
+
+msgid "Das Stimmrecht wurde von Hand gesetzt und wird nicht übernommen."
+msgstr "Het stemrecht is handmatig ingesteld en wordt niet overgenomen."
+
+msgid "Stimmrecht von Hand gesetzt (%1), LupaBB meldet %2 – wird nicht übernommen"
+msgstr "Stemrecht handmatig ingesteld (%1), LupaBB meldt %2 – wordt niet overgenomen"
+
+msgid "Geben Sie die Raum-Kennung aus Ihrer Einladung ein, um der Besprechung beizutreten."
+msgstr "Voer de ruimte-ID uit uw uitnodiging in om aan de vergadering deel te nemen."
+
+msgid "Besprechung beitreten"
+msgstr "Deelnemen aan een vergadering"
+
+msgid "Für Spender ist keine Verwaltungsrolle möglich. Bitte zuerst die Rolle auf Mitglied setzen."
+msgstr "Een donateur kan geen beheerdersrol hebben. Zet de rol eerst op lid."
+
+msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
+msgstr "Donateurs mogen inloggen, maar kunnen niet stemmen en krijgen geen beheerdersrol. Het account wordt aangemaakt met de rol lid."

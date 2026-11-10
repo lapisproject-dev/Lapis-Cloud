@@ -597,9 +597,25 @@ class MemberAdministrationScreenTest {
     // ── grantAccountConsequence (Welle V1.2.13) ──
 
     @Test
-    fun grantAccountConsequence_donor_mentionsLogin() {
+    fun grantAccountConsequence_donor_saysSignInIsPossibleButNoVotingAndNoAdminRole() {
+        // V1.9.298: a donor may sign in now; the text says what a donor can NOT do
         val text = grantAccountConsequence(MemberStatus.DONOR)
-        assertTrue(text != null && text.contains("Login"))
+        assertTrue(text != null && text.contains("anmelden") && text.contains("nicht abstimmen") && text.contains("Verwaltungsrolle"))
+    }
+
+    @Test
+    fun roleOptionsFor_donorOffersOnlyMember() {
+        assertEquals(listOf(AccountRole.MEMBER.name), roleOptionsFor(MemberStatus.DONOR).map { it.first })
+        assertEquals(AccountRole.entries.map { it.name }, roleOptionsFor(MemberStatus.ACTIVE).map { it.first })
+    }
+
+    @Test
+    fun canEditVotingRightOf_adminOnly_memberOnly_neverOwnRow() {
+        assertTrue(canEditVotingRightOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.ACTIVE)))
+        assertFalse(canEditVotingRightOf(AccountRole.BOARD, callerMemberId, row(status = MemberStatus.ACTIVE)))
+        assertFalse(canEditVotingRightOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.DONOR)))
+        assertFalse(canEditVotingRightOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.ACTIVE, anonymized = true)))
+        assertFalse(canEditVotingRightOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.ACTIVE, id = callerMemberId)))
     }
 
     @Test

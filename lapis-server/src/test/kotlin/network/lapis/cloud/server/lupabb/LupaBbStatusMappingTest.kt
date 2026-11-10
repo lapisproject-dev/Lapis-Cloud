@@ -9,6 +9,8 @@ import java.io.File
 /** V1.9.226 -- all twelve labels of the status table, plus an unknown one; the table in the feature doc is pinned against the code. */
 class LupaBbStatusMappingTest :
     FunSpec({
+        // V1.9.298: the voting right a label implies (`null` = the sync does not touch it); only Mitglied (yes) and Neumitglied (no) say something
+        val votingRightOf = mapOf("Mitglied" to true, "Neumitglied" to false)
         val expected =
             mapOf(
                 "Mitglied" to MemberStatus.ACTIVE,
@@ -26,8 +28,13 @@ class LupaBbStatusMappingTest :
 
         for ((label, status) in expected) {
             test("'$label' maps to $status") {
-                LupaBbStatusMapping.map(label) shouldBe LupaBbStatusMapping.Mapped(status)
+                LupaBbStatusMapping.map(label) shouldBe LupaBbStatusMapping.Mapped(status = status, votingRight = votingRightOf[label])
             }
+        }
+
+        test("Foerderer stays FRIEND and Spender stays DONOR (open point D of V1.9.298: not changed)") {
+            LupaBbStatusMapping.map("Förderer") shouldBe LupaBbStatusMapping.Mapped(status = MemberStatus.FRIEND)
+            LupaBbStatusMapping.map("Spender") shouldBe LupaBbStatusMapping.Mapped(status = MemberStatus.DONOR)
         }
 
         test("'Storniert' is skipped as cancelled") {
@@ -40,7 +47,7 @@ class LupaBbStatusMappingTest :
         }
 
         test("surrounding blanks are ignored, the spelling is not (case counts)") {
-            LupaBbStatusMapping.map("  Mitglied ") shouldBe LupaBbStatusMapping.Mapped(MemberStatus.ACTIVE)
+            LupaBbStatusMapping.map("  Mitglied ") shouldBe LupaBbStatusMapping.Mapped(status = MemberStatus.ACTIVE, votingRight = true)
             LupaBbStatusMapping.map("mitglied") shouldBe LupaBbStatusMapping.Skip(LupaBbRowReasonCode.UNKNOWN_STATUS)
         }
 

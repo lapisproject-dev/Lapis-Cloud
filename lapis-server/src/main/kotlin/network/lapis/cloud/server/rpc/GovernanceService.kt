@@ -436,8 +436,9 @@ class GovernanceService(
             if (row[CommitteeTable.type] != CommitteeType.GENERAL_ASSEMBLY && !isRuleCommittee(row)) {
                 throw BadRequestException("Committee $gId has no derived membership")
             }
-            // Same evaluator as eligibleMemberIds/computeQuorum -- never a copy (see generalAssemblyCondition / eligibleIdsForRule KDoc).
-            countEligible(committeeRow = row)
+            // Same evaluator as electorateMemberIds/computeQuorum -- never a copy (see generalAssemblyCondition / eligibleIdsForRule KDoc).
+            // V1.9.298: the number is the electorate (members holding the voting right), the quorum denominator.
+            countElectorate(committeeRow = row)
         }
     }
 
@@ -1414,7 +1415,8 @@ class GovernanceService(
             // predating that fix). Member-only (ACTIVE), not requirePoliticianRaterMembership -- this
             // project's own concept states "Keine Stimmrechte für Gäste": guests never get vote
             // weight, full stop.
-            requireActiveMembership(memberId = current.memberId)
+            // V1.9.298: ACTIVE AND voting right, the live floor (see requireVotingMembership).
+            requireVotingMembership(memberId = current.memberId)
             // V1.9.54: the vote row is locked FOR UPDATE (child row only, never the motion) BEFORE the status check
             // and before lockForDebit (lock order: vote, then member). closeVote/abortVote lock motion -> vote, so a
             // bid either commits before they read the ballots (and is settled) or sees CLOSED/ABORTED and is refused;
@@ -1454,7 +1456,7 @@ class GovernanceService(
                     val meeting = loadMeeting(voteRow[VoteTable.meetingId])
                     val committeeRow =
                         CommitteeTable.selectAll().where { CommitteeTable.id eq meeting.committeeId.toCommitteeUuid() }.single()
-                    current.memberId in eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meeting.scheduledAt.date)
+                    current.memberId in electorateMemberIds(committeeRow = committeeRow, scheduledDate = meeting.scheduledAt.date)
                 }
             if (!eligibleToVote) throw ForbiddenException()
 
@@ -1836,7 +1838,7 @@ class GovernanceService(
                 .single()
         // V1.9.201: the bidders of a tender are not part of the frozen circle on its award motion.
         val eligible =
-            eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date) - excludedMemberIds
+            electorateMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date) - excludedMemberIds
         if (eligible.isEmpty()) return
         VoteEligibleVoterTable.batchInsert(eligible.sortedBy { it.toString() }, shouldReturnGeneratedValues = false) { memberId ->
             this[VoteEligibleVoterTable.id] = Uuid.random()

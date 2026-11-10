@@ -71,7 +71,7 @@ internal object NavCountsQuery {
      */
     private fun encounterCounts(status: MemberStatus): Pair<Int, Int> {
         val admitted: Op<Boolean> =
-            if (status in MemberStatusSets.NON_MEMBER) {
+            if (status in MemberStatusSets.CONFERENCE_GUEST) {
                 EncounterSpaceTable.guestPolicy eq EncounterGuestPolicy.MEMBERS_AND_GUESTS.name
             } else {
                 Op.TRUE

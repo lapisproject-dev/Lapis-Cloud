@@ -54,7 +54,8 @@ private enum class Caller(
     DONOR(MemberStatus.DONOR),
     ;
 
-    val eligible: Boolean get() = status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)
+    // V1.9.298: DONOR enters like a member (not a guest of the room)
+    val eligible: Boolean get() = status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR)
     val privileged: Boolean get() = account == AccountRole.ADMIN || account == AccountRole.BOARD
     val moderator: Boolean get() = eligible && (privileged || (office != null && status == MemberStatus.ACTIVE))
     val canPublish: Boolean get() = eligible && office != null && status == MemberStatus.ACTIVE

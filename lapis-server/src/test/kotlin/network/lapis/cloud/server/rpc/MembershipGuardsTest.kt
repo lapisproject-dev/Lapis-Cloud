@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDate
@@ -12,6 +13,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -99,10 +101,11 @@ class MembershipGuardsTest :
             }
         }
 
-        test("requireLtrEligibleMembership: allows ACTIVE and FRIEND, denies everything else, returns the caller's status") {
+        // V1.9.298: DONOR joined LTR_ELIGIBLE (owner decision C: a donor gets everything FRIEND and GUEST may do; open question Q1 default)
+        test("requireLtrEligibleMembership: allows ACTIVE, FRIEND and DONOR, denies everything else, returns the caller's status") {
             MemberStatus.entries.forEach { status ->
                 val memberId = membersByStatus.getValue(status)
-                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
+                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND || status == MemberStatus.DONOR
                 val result = runCatching { transaction { requireLtrEligibleMembership(memberId = memberId) } }
                 withClueStatus(status = status) {
                     if (expected) {
@@ -123,7 +126,7 @@ class MembershipGuardsTest :
         test("requireLtrEligibleMembership: forUpdate=true behaves identically to forUpdate=false for status admission") {
             MemberStatus.entries.forEach { status ->
                 val memberId = membersByStatus.getValue(status)
-                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
+                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND || status == MemberStatus.DONOR
                 val isAllowed =
                     allowed(
                         block = { id -> requireLtrEligibleMembership(memberId = id, forUpdate = true) },
@@ -176,11 +179,11 @@ class MembershipGuardsTest :
         }
 
         test(
-            "requireLtrEligibleRecipient: allows ACTIVE and FRIEND, denies everything else with ConflictException, returns the target's status",
+            "requireLtrEligibleRecipient: allows ACTIVE, FRIEND and DONOR, denies everything else with ConflictException, returns the target's status",
         ) {
             MemberStatus.entries.forEach { status ->
                 val memberId = membersByStatus.getValue(status)
-                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
+                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND || status == MemberStatus.DONOR
                 val result = runCatching { transaction { requireLtrEligibleRecipient(memberId = memberId) } }
                 withClueStatus(status = status) {
                     if (expected) {
@@ -197,31 +200,37 @@ class MembershipGuardsTest :
             (result.exceptionOrNull() is NotFoundException) shouldBe true
         }
 
-        test("requirePoliticianRaterMembership: allows ACTIVE and GUEST, denies FRIEND and everything else") {
+        test("requirePoliticianRaterMembership: allows ACTIVE, GUEST and DONOR (V1.9.298), denies FRIEND and everything else") {
             MemberStatus.entries.forEach { status ->
                 val memberId = membersByStatus.getValue(status)
                 val isAllowed = allowed(block = { id -> requirePoliticianRaterMembership(memberId = id) }, memberId = memberId)
-                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.GUEST
+                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.GUEST || status == MemberStatus.DONOR
                 withClueStatus(status = status) { isAllowed shouldBe expected }
             }
         }
 
-        test("requireConferenceEligibleMembership: allows ACTIVE, GUEST, AND FRIEND, denies APPLICATION/WITHDRAWN/REJECTED") {
+        test(
+            "requireConferenceEligibleMembership: allows ACTIVE, GUEST, FRIEND AND DONOR (V1.9.298), denies APPLICATION/WITHDRAWN/REJECTED",
+        ) {
             MemberStatus.entries.forEach { status ->
                 val memberId = membersByStatus.getValue(status)
                 val isAllowed = allowed(block = { id -> requireConferenceEligibleMembership(memberId = id) }, memberId = memberId)
-                val expected = status == MemberStatus.ACTIVE || status == MemberStatus.GUEST || status == MemberStatus.FRIEND
+                val expected =
+                    status == MemberStatus.ACTIVE ||
+                        status == MemberStatus.GUEST ||
+                        status == MemberStatus.FRIEND ||
+                        status == MemberStatus.DONOR
                 withClueStatus(status = status) { isAllowed shouldBe expected }
             }
         }
 
-        test("V1.9.125 requireCarpoolPassengerMembership: allows ACTIVE, GUEST and FRIEND, denies every other status, returns the status") {
+        test("V1.9.125 requireCarpoolPassengerMembership: allows ACTIVE, GUEST, FRIEND and DONOR (V1.9.298), denies every other status") {
             MemberStatus.entries.forEach { status ->
                 val memberId = membersByStatus.getValue(status)
                 val isAllowed = allowed(block = { id -> requireCarpoolPassengerMembership(memberId = id) }, memberId = memberId)
                 withClueStatus(status = status) {
                     isAllowed shouldBe
-                        (status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND))
+                        (status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR))
                 }
             }
             transaction { requireCarpoolPassengerMembership(memberId = membersByStatus.getValue(MemberStatus.GUEST)) } shouldBe
@@ -296,6 +305,55 @@ class MembershipGuardsTest :
                     requireMembershipStatusIn(memberId = id, allowed = MemberStatus.entries.toSet())
                 }, memberId = Uuid.random())
             isAllowed shouldBe false
+        }
+
+        // ── V1.9.298: the donor ──────────────────────────────────────────────────────────────
+
+        test(
+            "V1.9.298 requireRoomEntryAuthorization: a DONOR enters a room WITHOUT the allowFederationGuests release (it is no guest of the room) but must be in it for roster probes",
+        ) {
+            val creator = membersByStatus.getValue(MemberStatus.ACTIVE)
+            val closedRoomId = createGuardTestRoom(creatorId = creator, allowFederationGuests = false)
+            val donorId = membersByStatus.getValue(MemberStatus.DONOR)
+            val current = CurrentMember(memberId = donorId, role = AccountRole.MEMBER, status = MemberStatus.DONOR)
+            transaction {
+                val row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq closedRoomId }.single()
+                requireRoomEntryAuthorization(roomRow = row, current = current) shouldBe MemberStatus.DONOR
+            }
+            // review fix: the roster/recording/stream probes still demand that the donor is IN the room (an open participation row)
+            shouldThrow<ForbiddenException> {
+                transaction { requireGuestHasJoinedRoom(roomId = closedRoomId, current = current, status = MemberStatus.DONOR) }
+            }
+            val participationId = Uuid.random()
+            transaction {
+                ConferenceParticipationTable.insert {
+                    it[id] = participationId
+                    it[roomId] = closedRoomId
+                    it[memberId] = donorId
+                    it[role] = ConferenceRole.PARTICIPANT
+                    it[joinedAt] = LocalDateTime(2026, 1, 1, 10, 0)
+                }
+                requireGuestHasJoinedRoom(roomId = closedRoomId, current = current, status = MemberStatus.DONOR)
+            }
+            // ejected / left: the open row is closed, the probe is refused again
+            transaction {
+                ConferenceParticipationTable.update({ ConferenceParticipationTable.id eq participationId }) {
+                    it[leftAt] = LocalDateTime(2026, 1, 1, 11, 0)
+                }
+            }
+            shouldThrow<ForbiddenException> {
+                transaction { requireGuestHasJoinedRoom(roomId = closedRoomId, current = current, status = MemberStatus.DONOR) }
+            }
+            transaction { ConferenceParticipationTable.deleteWhere { ConferenceParticipationTable.id eq participationId } }
+            transaction { ConferenceRoomTable.deleteWhere { ConferenceRoomTable.id eq closedRoomId } }
+        }
+
+        test("V1.9.298 requireVotingMembership: only ACTIVE with the voting right; the donor and everybody else is denied") {
+            MemberStatus.entries.forEach { status ->
+                val memberId = membersByStatus.getValue(status)
+                val isAllowed = allowed(block = { id -> requireVotingMembership(memberId = id) }, memberId = memberId)
+                withClueStatus(status = status) { isAllowed shouldBe (status == MemberStatus.ACTIVE) }
+            }
         }
 
         // ── requireRoomEntryAuthorization / requireGuestHasJoinedRoom ────────────────────────

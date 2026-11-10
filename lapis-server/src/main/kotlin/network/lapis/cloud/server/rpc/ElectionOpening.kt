@@ -315,7 +315,7 @@ internal fun openVotingLocked(
     val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
     val scheduledDate = meetingRow[MeetingTable.scheduledAt].date
     val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
-    val eligible = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate)
+    val eligible = electorateMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate)
     eligible.forEach { mId ->
         ElectionEligibleVoterTable.insert {
             it[ElectionEligibleVoterTable.id] = Uuid.random()

@@ -83,9 +83,13 @@ internal object LupaBbRecordParser {
 
         // the status decides first: a cancelled or unknown record is skipped as a whole, whatever else is wrong with it
         val statusLabel = wire.statusId?.let { lookups.statuses[it] }
+        var votingRight: Boolean? = null
         val status =
             when (val mapping = if (statusLabel == null) null else LupaBbStatusMapping.map(statusLabel)) {
-                is LupaBbStatusMapping.Mapped -> mapping.status
+                is LupaBbStatusMapping.Mapped -> {
+                    votingRight = mapping.votingRight
+                    mapping.status
+                }
                 is LupaBbStatusMapping.Skip -> return reject(LupaBbCategory.SKIPPED, mapping.reason)
                 null -> return reject(LupaBbCategory.SKIPPED, LupaBbRowReasonCode.UNKNOWN_STATUS)
             }
@@ -163,6 +167,7 @@ internal object LupaBbRecordParser {
             LupaBbRecord(
                 personNumber = number,
                 status = status,
+                votingRight = votingRight,
                 displayName = displayName,
                 givenName = given,
                 familyName = family,
