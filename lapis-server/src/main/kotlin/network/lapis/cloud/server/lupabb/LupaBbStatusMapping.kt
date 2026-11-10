@@ -12,14 +12,14 @@ import network.lapis.cloud.shared.domain.MemberStatus
  * | Mitglied | ACTIVE | yes |
  * | Neumitglied | ACTIVE | **no** (owner decision 2026-11-09: a "Neumitglied" is a member without voting right) |
  * | in Aufnahme | APPLICATION | not touched |
- * | Foerderer | FRIEND | not touched |
- * | Spender, Nur Zahler | DONOR | not touched |
+ * | Foerderer, Spender, Nur Zahler | DONOR | not touched |
  * | verstorben | DECEASED | not touched |
  * | Widerrufen, Gekuendigt, Ausgeschlossen | WITHDRAWN (Lapis has no EXCLUDED status) | not touched |
  * | Ablehnung | REJECTED | not touched |
  * | Storniert, anything else | skipped | - |
  *
- * "Förderer" -> FRIEND and "Spender" -> DONOR are deliberately unchanged in V1.9.298 (open point D, see `docs/features/lupabb-sync.adoc`).
+ * V1.9.299 (owner decision 2026-11-10): a Förderer donates regularly and is not a party member, so it maps to DONOR like Spender/Nur Zahler.
+ * Legacy FRIEND records are moved to DONOR by the sync only, see [LupaBbStatusRules].
  */
 internal sealed interface LupaBbStatusMapping {
     data class Mapped(
@@ -39,8 +39,7 @@ internal sealed interface LupaBbStatusMapping {
                 "Mitglied" -> Mapped(status = MemberStatus.ACTIVE, votingRight = true)
                 "Neumitglied" -> Mapped(status = MemberStatus.ACTIVE, votingRight = false)
                 "in Aufnahme" -> Mapped(status = MemberStatus.APPLICATION)
-                "Förderer" -> Mapped(status = MemberStatus.FRIEND)
-                "Spender", "Nur Zahler" -> Mapped(status = MemberStatus.DONOR)
+                "Förderer", "Spender", "Nur Zahler" -> Mapped(status = MemberStatus.DONOR)
                 "verstorben" -> Mapped(status = MemberStatus.DECEASED)
                 "Widerrufen", "Gek\u00fcndigt", "Ausgeschlossen" -> Mapped(status = MemberStatus.WITHDRAWN)
                 "Ablehnung" -> Mapped(status = MemberStatus.REJECTED)

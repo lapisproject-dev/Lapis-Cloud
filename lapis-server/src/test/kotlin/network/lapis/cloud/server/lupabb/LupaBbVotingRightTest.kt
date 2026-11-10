@@ -226,7 +226,7 @@ class LupaBbVotingRightTest :
                 row[MemberTable.votingRightSource] shouldBe VotingRightSource.DEFAULT
                 transaction { AccountTable.selectAll().where { AccountTable.memberId eq row[MemberTable.id] }.count() } shouldBe 0
             }
-            fx.byPersonNumber(9_000_000_309)!![MemberTable.status] shouldBe MemberStatus.FRIEND
+            fx.byPersonNumber(9_000_000_309)!![MemberTable.status] shouldBe MemberStatus.DONOR
             fx.byPersonNumber(9_000_000_310)!![MemberTable.status] shouldBe MemberStatus.DONOR
         }
     })

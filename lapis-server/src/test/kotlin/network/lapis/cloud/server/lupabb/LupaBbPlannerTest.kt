@@ -259,6 +259,98 @@ class LupaBbPlannerTest :
             plan.reasons(9_000_000_022) shouldContain LupaBbRowReasonCode.LEAVES_DECEASED
         }
 
+        test(
+            "a legacy FRIEND reported as Foerderer, Spender or Nur Zahler becomes DONOR (sync-only exception); other targets stay errors",
+        ) {
+            val family = unique()
+            val admin = fx.admin()
+            val numbers = listOf(9_000_000_320L, 9_000_000_321L, 9_000_000_322L, 9_000_000_323L)
+            numbers.forEach { fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = it) }
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            wireMember(personNumber = numbers[0], statusId = 3, family = family),
+                            wireMember(personNumber = numbers[1], statusId = 4, family = family),
+                            wireMember(personNumber = numbers[2], statusId = 9, family = family),
+                            wireMember(personNumber = numbers[3], statusId = 6, family = family),
+                        ),
+                    actor = admin,
+                )
+            numbers.take(3).forEach { n ->
+                plan.row(n).category shouldBe LupaBbCategory.CHANGED
+                plan.row(n).statusTo shouldBe MemberStatus.DONOR
+                plan.row(n).diffs.single { it.field == LupaBbField.STATUS }.let {
+                    it.before shouldBe MemberStatus.FRIEND.name
+                    it.after shouldBe MemberStatus.DONOR.name
+                }
+            }
+            plan.row(numbers[3]).category shouldBe LupaBbCategory.ERROR
+            plan.reasons(numbers[3]) shouldContain LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED
+        }
+
+        test("a self-registered FRIEND without a person number matched by e-mail and name never becomes DONOR") {
+            val family = unique()
+            val admin = fx.admin()
+            val numbers = listOf(9_000_000_070L, 9_000_000_071L, 9_000_000_072L)
+            numbers.indices.forEach { i ->
+                fx.member(
+                    status = MemberStatus.FRIEND,
+                    displayName = "Erika $family$i",
+                    email = "${TEST_EMAIL_PREFIX}selfreg$i@example.org",
+                )
+            }
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            *numbers
+                                .mapIndexed { i, n ->
+                                    wireMember(
+                                        personNumber = n,
+                                        statusId = listOf(3L, 4L, 9L)[i],
+                                        family = "$family$i",
+                                        email = "${TEST_EMAIL_PREFIX}selfreg$i@example.org",
+                                    )
+                                }.toTypedArray(),
+                        ),
+                    actor = admin,
+                )
+            numbers.forEach { n ->
+                plan.row(n).category shouldBe LupaBbCategory.ERROR
+                plan.reasons(n) shouldContain LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED
+            }
+        }
+
+        test("a FRIEND with a management role reported as Foerderer stays a manual case without a status difference") {
+            val family = unique()
+            val admin = fx.admin()
+            val roles = listOf(AccountRole.BOARD, AccountRole.TREASURER, AccountRole.ADMIN)
+            roles.forEachIndexed { i, role ->
+                fx.member(role = role, status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_330L + i)
+            }
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            *roles.indices
+                                .map {
+                                    wireMember(
+                                        personNumber = 9_000_000_330L + it,
+                                        statusId = 3,
+                                        family = family,
+                                    )
+                                }.toTypedArray(),
+                        ),
+                    actor = admin,
+                )
+            roles.indices.forEach { i ->
+                val n = 9_000_000_330L + i
+                plan.reasons(n) shouldContain LupaBbRowReasonCode.ADMIN_ROLE_MANUAL
+                plan.row(n).diffs.none { it.field == LupaBbField.STATUS } shouldBe true
+            }
+        }
+
         test("an empty LupaBB value clears the Lapis field; an unresolvable country leaves it alone") {
             val family = unique()
             val admin = fx.admin()

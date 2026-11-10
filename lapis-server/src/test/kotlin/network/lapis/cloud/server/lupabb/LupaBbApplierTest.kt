@@ -20,6 +20,7 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LupaBbApplyResultDto
 import network.lapis.cloud.shared.domain.LupaBbCategory
+import network.lapis.cloud.shared.domain.LupaBbField
 import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -226,7 +227,7 @@ class LupaBbApplierTest :
             fx.memberRow(id)[MemberTable.street] shouldBe null
         }
 
-        test("a new member with the LupaBB status Foerderer gets friend_since like every other supporter") {
+        test("a new member with the LupaBB status Foerderer is a DONOR without an account and without friend_since") {
             val admin = fx.admin()
             val result =
                 applyTo(
@@ -235,8 +236,92 @@ class LupaBbApplierTest :
                 )
             result.created shouldBe 1
             val row = fx.byPersonNumber(9_000_000_063)!!
-            row[MemberTable.status] shouldBe MemberStatus.FRIEND
-            row[MemberTable.friendSince] shouldBe row[MemberTable.joinedAt]
+            row[MemberTable.status] shouldBe MemberStatus.DONOR
+            row[MemberTable.friendSince] shouldBe null
+            transaction { AccountTable.selectAll().where { AccountTable.memberId eq row[MemberTable.id] }.count() } shouldBe 0
+        }
+
+        test("a legacy FRIEND reported as Foerderer becomes DONOR with a LUPABB_SYNC history entry; friend_since stays") {
+            val admin = fx.admin()
+            val family = unique()
+            val id = fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_340)
+            val friendSinceBefore = fx.memberRow(id)[MemberTable.friendSince]
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_340, statusId = 3, family = family)), actor = admin)
+            plan.row(9_000_000_340).category shouldBe LupaBbCategory.CHANGED
+            fx.memberRow(id)[MemberTable.status] shouldBe MemberStatus.FRIEND // the preview writes nothing
+            val result = applyTo(plan, admin)
+            result.updated shouldBe 1
+            result.errors shouldBe 0
+            fx.memberRow(id)[MemberTable.status] shouldBe MemberStatus.DONOR
+            fx.memberRow(id)[MemberTable.friendSince] shouldBe friendSinceBefore
+            val history = transaction { MemberStatusHistoryTable.selectAll().where { MemberStatusHistoryTable.memberId eq id }.toList() }
+            history.first { it[MemberStatusHistoryTable.sourceKind] == "LUPABB_SYNC" }[MemberStatusHistoryTable.status] shouldBe "DONOR"
+        }
+
+        test("a role granted to a FRIEND after the preview stops the move to DONOR") {
+            val admin = fx.admin()
+            val family = unique()
+            val id = fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_341)
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_341, statusId = 3, family = family)), actor = admin)
+            transaction {
+                AccountTable.insert {
+                    it[AccountTable.id] = Uuid.random()
+                    it[memberId] = id
+                    it[role] = AccountRole.BOARD
+                }
+            }
+            val result = applyTo(plan, admin)
+            result.failures.single().code shouldBe LupaBbRowReasonCode.CHANGED_SINCE_PREVIEW
+            fx.memberRow(id)[MemberTable.status] shouldBe MemberStatus.FRIEND
+        }
+
+        test("the applier refuses FRIEND to DONOR for a member without the record's person number, even with a forged plan") {
+            val admin = fx.admin()
+            val family = unique()
+            val email = "${TEST_EMAIL_PREFIX}selfreg-apply@example.org"
+            val id = fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", email = email)
+            val genuine =
+                planOf(
+                    dataset = datasetOf(wireMember(personNumber = 9_000_000_073, statusId = 3, family = family, email = email)),
+                    actor = admin,
+                )
+            val row = genuine.row(9_000_000_073)
+            row.category shouldBe LupaBbCategory.ERROR
+            val forged =
+                row.copy(
+                    category = LupaBbCategory.CHANGED,
+                    diffs =
+                        listOf(
+                            FieldDiff(
+                                field = LupaBbField.STATUS,
+                                before = MemberStatus.FRIEND.name,
+                                after = MemberStatus.DONOR.name,
+                            ),
+                        ),
+                )
+            val plan = LupaBbPlan(rows = listOf(forged), notices = genuine.notices, dataSha256 = genuine.dataSha256)
+            val result = applyTo(plan, admin)
+            result.updated shouldBe 0
+            result.failures.single().code shouldBe LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED
+            fx.memberRow(id)[MemberTable.status] shouldBe MemberStatus.FRIEND
+        }
+
+        test("the applier itself refuses a FRIEND to ACTIVE move that bypassed the planner") {
+            val admin = fx.admin()
+            val family = unique()
+            val id = fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_342)
+            val genuine =
+                planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_342, statusId = 3, family = family)), actor = admin)
+            val row = genuine.row(9_000_000_342)
+            val forged =
+                row.copy(
+                    record = row.record!!.copy(status = MemberStatus.ACTIVE),
+                    diffs = row.diffs.map { if (it.field == LupaBbField.STATUS) it.copy(after = MemberStatus.ACTIVE.name) else it },
+                )
+            val plan = LupaBbPlan(rows = listOf(forged), notices = genuine.notices, dataSha256 = genuine.dataSha256)
+            val result = applyTo(plan, admin)
+            result.failures.single().code shouldBe LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED
+            fx.memberRow(id)[MemberTable.status] shouldBe MemberStatus.FRIEND
         }
 
         test("a second run with the same data writes nothing: everything unchanged, no further member audit entries") {

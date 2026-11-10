@@ -23,6 +23,7 @@ import network.lapis.cloud.shared.domain.LupaBbCategory
 import network.lapis.cloud.shared.domain.LupaBbCredentialsInput
 import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
 import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -555,6 +556,37 @@ abstract class LupaBbSyncServiceScenarios(
                 }
             result.failures.single().code shouldBe LupaBbRowReasonCode.CHANGED_SINCE_PREVIEW
             fx.memberRow(id)[MemberTable.street] shouldBe "Handbearbeitet"
+        }
+
+        test("a legacy FRIEND record reported as Foerderer turns DONOR on apply; a FRIEND with BOARD stays manual") {
+            val family = unique()
+            server(
+                FakeLupaBbServer.member(personNumber = 9_000_000_070, familyName = family, status = 3),
+                FakeLupaBbServer.member(personNumber = 9_000_000_071, familyName = family, status = 3),
+            ).use { fake ->
+                val rt = fx.runtime(server = fake)
+                lupaBbTestApplication(fixtures = fx) {
+                    val admin = fx.admin()
+                    val friend = fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_070)
+                    val board =
+                        fx.member(
+                            role = AccountRole.BOARD,
+                            status = MemberStatus.FRIEND,
+                            displayName = "Erika $family",
+                            personNumber = 9_000_000_071,
+                        )
+                    call(member = admin) { c -> fx.service(call = c, runtime = rt).verifyAndSaveCredentials(input(fake)) }
+                    fx.allowNextFetch()
+                    val summary = call(member = admin) { c -> fx.service(call = c, runtime = rt).loadPreview() }
+                    // both rows change (the management member only in the safe profile fields, never in the status)
+                    summary.counts.getValue(LupaBbCategory.CHANGED) shouldBe 2
+                    val result = call(member = admin) { c -> fx.service(call = c, runtime = rt).applyPreview(summary.token) }
+                    result.updated shouldBe 2
+                    result.errors shouldBe 0
+                    fx.memberRow(friend)[MemberTable.status] shouldBe MemberStatus.DONOR
+                    fx.memberRow(board)[MemberTable.status] shouldBe MemberStatus.FRIEND
+                }
+            }
         }
 
         test("the fixtures leave no state behind") {

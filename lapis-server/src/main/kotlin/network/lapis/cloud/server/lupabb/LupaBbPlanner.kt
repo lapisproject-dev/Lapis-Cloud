@@ -9,7 +9,6 @@ import network.lapis.cloud.shared.domain.LupaBbField
 import network.lapis.cloud.shared.domain.LupaBbNoticeCode
 import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.MemberStatus
-import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.RegionalChapterRules
 import network.lapis.cloud.shared.domain.VotingRightSource
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -383,7 +382,13 @@ internal object LupaBbPlanner {
                 rowChapterId = null
             }
         } else if (statusChanged) {
-            if (r.status !in MemberStatusTransitions.allowedTargets(m.status)) {
+            if (!LupaBbStatusRules.syncAllows(
+                    from = m.status,
+                    to = r.status,
+                    memberPersonNumber = m.personNumber,
+                    recordPersonNumber = r.personNumber,
+                )
+            ) {
                 reasons += PlanReason(code = LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED, param = "${m.status}>${r.status}")
                 category = LupaBbCategory.ERROR
             } else {

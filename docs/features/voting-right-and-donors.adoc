@@ -110,4 +110,4 @@ granted); an administrator can link a donor by hand (*Keycloak link*). Import an
 * Q3: the sync never writes the voting right of an anonymised or deceased member. The status change away from `DECEASED` that the sync already allows (V1.9.226) is unchanged.
 * Peer approval (second administrator) for withdrawing the voting right of a member with a management role. Interim rule (implemented): one administrator alone never withdraws the voting right of a BOARD, TREASURER or ADMIN account holder (peer protection refusal); the account role has to be changed first. Withdrawals during an open decision in the target's committee are not specially guarded.
 * Passive right to vote (candidates), motions and options without voting right.
-* "Förderer" and "Ausgeschlossen" of LupaBB (open point D, see link:lupabb-sync.adoc[LupaBB sync]).
+* "Ausgeschlossen" of LupaBB (still `WITHDRAWN`; "Förderer" was decided on 2026-11-10, see link:lupabb-sync.adoc[LupaBB sync]).

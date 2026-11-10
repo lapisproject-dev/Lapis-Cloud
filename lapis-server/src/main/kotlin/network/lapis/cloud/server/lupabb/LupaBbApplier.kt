@@ -355,6 +355,15 @@ internal class LupaBbApplier(
             if (facts.targetRole != null && facts.targetRole in ESCALATED_ROLES || id == actor.memberId) {
                 throw RowFailure(LupaBbRowReasonCode.ADMIN_ROLE_MANUAL)
             }
+            if (!LupaBbStatusRules.syncAllows(
+                    from = current.status,
+                    to = r.status,
+                    memberPersonNumber = current.personNumber,
+                    recordPersonNumber = r.personNumber,
+                )
+            ) {
+                throw RowFailure(LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED)
+            }
             val outcome =
                 MemberRoleStatusMutations.applyStatusChangeLocked(
                     actor = actor,

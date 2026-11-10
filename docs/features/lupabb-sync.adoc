@@ -53,7 +53,7 @@ live in the side table `member_lupabb_profile`.
 | Mitglied | ACTIVE | yes
 | Neumitglied | ACTIVE | *no*
 | in Aufnahme | APPLICATION | not touched
-| Förderer | FRIEND | not touched
+| Förderer | DONOR | not touched
 | Spender | DONOR | not touched
 | Nur Zahler | DONOR | not touched
 | verstorben | DECEASED | not touched
@@ -69,12 +69,14 @@ live in the side table `member_lupabb_profile`.
 (ja), LupaBB meldet nein -- wird nicht übernommen" (no error, no "action needed"); an anonymised or deceased member is not touched; a member with a management role is listed as "by hand".
 A member created from a "Neumitglied" record starts without voting right. See link:voting-right-and-donors.adoc[Voting right and donors].
 
-*Open point D: "Förderer" and "Spender".* The CSV import (`MemberCsvImport`, "förderer") creates a `DONOR`; the sync maps "Förderer" to `FRIEND` and "Spender" to `DONOR`. `MemberStatusTransitions.allowedTargets(FRIEND)`
-is empty, so *every* status change of a `FRIEND` record is refused per record with `STATUS_TRANSITION_NOT_ALLOWED`, and a new "Förderer" record creates a `FRIEND` without an account. The mapping is *not*
-changed in this wave; there is no safe mini-fix. To be clarified with the board.
+*Förderer (decided 2026-11-10).* A Förderer donates regularly and is not a party member, so it maps to `DONOR`, like Spender and Nur Zahler and like the CSV import. Earlier syncs created
+`FRIEND` records for it. The sync moves a `FRIEND` record that LupaBB reports as Förderer, Spender or Nur Zahler to `DONOR`: it shows as a status difference FRIEND -> DONOR in the preview and is only
+written on "Übernehmen". This is an exception for the sync only (`LupaBbStatusRules.SYNC_ONLY_TRANSITIONS`); the member administration still offers no transition for `FRIEND`
+(`MemberStatusTransitions.allowedTargets(FRIEND)` is empty). Members with a management role stay "by hand". Every other status change of a `FRIEND` record remains an error
+(`STATUS_TRANSITION_NOT_ALLOWED`). `friend_since` is kept as a historical fact.
 
 An unknown label is skipped as well. Lapis Cloud has no `EXCLUDED` status, so "Ausgeschlossen" becomes `WITHDRAWN`. For an existing member the change must be allowed by the transition table
-of the member administration (`MemberStatusTransitions`: `ACTIVE`, `WITHDRAWN`, `DONOR`, `DECEASED` among each other); anything else is an error of that record. Leaving `DECEASED` is allowed for the acting
+of the member administration (`MemberStatusTransitions`: `ACTIVE`, `WITHDRAWN`, `DONOR`, `DECEASED` among each other), plus the sync-only exception `FRIEND` -> `DONOR` (V1.9.299); anything else is an error of that record. Leaving `DECEASED` is allowed for the acting
 administrator and counted in the confirmation dialog. `DECEASED` is taken over *without* a date of death.
 
 == Field authority

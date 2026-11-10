@@ -16,7 +16,7 @@ class LupaBbStatusMappingTest :
                 "Mitglied" to MemberStatus.ACTIVE,
                 "Neumitglied" to MemberStatus.ACTIVE,
                 "in Aufnahme" to MemberStatus.APPLICATION,
-                "Förderer" to MemberStatus.FRIEND,
+                "Förderer" to MemberStatus.DONOR,
                 "Spender" to MemberStatus.DONOR,
                 "Nur Zahler" to MemberStatus.DONOR,
                 "verstorben" to MemberStatus.DECEASED,
@@ -32,9 +32,10 @@ class LupaBbStatusMappingTest :
             }
         }
 
-        test("Foerderer stays FRIEND and Spender stays DONOR (open point D of V1.9.298: not changed)") {
-            LupaBbStatusMapping.map("Förderer") shouldBe LupaBbStatusMapping.Mapped(status = MemberStatus.FRIEND)
-            LupaBbStatusMapping.map("Spender") shouldBe LupaBbStatusMapping.Mapped(status = MemberStatus.DONOR)
+        test("Förderer, Spender and Nur Zahler all map to DONOR without touching the voting right (owner decision 2026-11-10)") {
+            for (label in listOf("Förderer", "Spender", "Nur Zahler")) {
+                LupaBbStatusMapping.map(label) shouldBe LupaBbStatusMapping.Mapped(status = MemberStatus.DONOR, votingRight = null)
+            }
         }
 
         test("'Storniert' is skipped as cancelled") {
