@@ -173,7 +173,9 @@ jobs:
       # Own runner: the Karma/ChromeHeadless tests no longer compete with the server tests for CPU (on one shared
       # runner that caused sporadic DOM-test timeouts and "Disconnected ... ping timeout", 2026-10-03).
       - name: Browser tests (client and shared)
-        run: ./gradlew :lapis-shared:allTests :lapis-client:allTests
+        run: |
+          (while true; do echo "MEM $(date +%T) $(free -m | awk 'NR==2{print "used="$3" free="$4" avail="$7}') chrome=$(ps -eo rss,comm | awk '/chrome/{s+=$1}END{print int(s/1024)}')MB"; sleep 2; done) &
+          ./gradlew :lapis-shared:allTests :lapis-client:allTests
 
       - name: Upload test results
         if: always()
