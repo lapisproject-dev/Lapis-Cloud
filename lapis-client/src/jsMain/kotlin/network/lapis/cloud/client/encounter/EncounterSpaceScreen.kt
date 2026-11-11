@@ -39,6 +39,7 @@ import network.lapis.cloud.client.pageHeader
 import network.lapis.cloud.client.rpcService
 import network.lapis.cloud.client.snapshot
 import network.lapis.cloud.client.statusBadge
+import network.lapis.cloud.client.storageSpaceSlot
 import network.lapis.cloud.client.typeBadge
 import network.lapis.cloud.client.untrustedCardTitle
 import network.lapis.cloud.client.untrustedP
@@ -75,6 +76,8 @@ fun renderEncounterSpaceScreen(container: SimplePanel) {
             marginTop = 24.px
         }
     val header = root.pageHeader(tr("Begegnungsräume"), intro = PageIntros.forRoute(Routes.ENCOUNTER))
+    // Pulpit recordings fill the disk: the free-space bar for an administrator, right under the title.
+    root.storageSpaceSlot()
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
     // R36B: the create form is collapsed; its button sits in the title row and the form opens right under the header.
     val createHost = if (canManage) root.vPanel(spacing = 6) else null

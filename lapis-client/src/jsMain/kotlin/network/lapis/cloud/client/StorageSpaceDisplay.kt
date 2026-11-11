@@ -5,7 +5,10 @@ import io.kvision.html.Icon
 import io.kvision.html.Link
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
+import io.kvision.panel.SimplePanel
 import io.kvision.utils.perc
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.domain.StorageSpaceDto
@@ -179,4 +182,29 @@ internal fun storageSpaceBar(
         container.add(Link(label = tr("Zur Dokumentenablage"), url = "#${Routes.DOCUMENTS}", className = "lapis-storage__link small"))
     }
     return container
+}
+
+/**
+ * The bar on a screen of its own (video conference, encounter rooms: the places where recordings fill the disk). Only an ADMIN gets
+ * it; for everybody else nothing is added and nothing is asked. One call, no polling. A failed or refused call removes the slot again,
+ * so the page never shows an error for what is only a hint. [rpc] and [session] are injectable for a DOM test.
+ */
+internal fun SimplePanel.storageSpaceSlot(
+    session: SessionInfoDto? = AppState.session,
+    rpc: StorageSpaceRpc = liveStorageSpaceRpc(),
+): Div? {
+    if (!showsStorageSpace(session)) return null
+    val slot = Div(className = "lapis-storage-slot")
+    add(slot)
+    AppScope.launch {
+        try {
+            val dto = rpc.storageSpace()
+            slot.add(storageSpaceBar(dto, withLink = true))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            remove(slot)
+        }
+    }
+    return slot
 }

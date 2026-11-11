@@ -451,6 +451,8 @@ fun renderConferenceScreen(
             ConferenceDock.detachView(screenToken)
         }
     val header = root.pageHeader(tr("Videokonferenz"), intro = PageIntros.forRoute(Routes.CONFERENCE))
+    // Recordings fill the disk: the free-space bar for an administrator, right under the title.
+    root.storageSpaceSlot()
     val statusLine = root.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     val lobbyPanel = root.vPanel(spacing = 10)
     val callPanel = ConferenceDock.callPanel

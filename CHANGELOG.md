@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Free-space bar on conference screens
+
+- **Added:** the free-space bar (ADMIN only, as on the dashboard and the document store) now also appears under the title of the video conference screen and the encounter rooms, where recordings fill the storage. Loaded once on opening; a failed call removes the bar silently.
+
 ### LupaBB comparison: resolve conflicts in the view
 
 **Behaviour changes first:** (1) the sync now also takes over the **end of a friendship**: a legacy `FRIEND` record that LupaBB reports as withdrawn (Widerrufen, Gekündigt, Ausgeschlossen) becomes `WITHDRAWN`, one reported as deceased becomes `DECEASED`, but only with the matching LupaBB person number (a `FRIEND` found by e-mail and name or by the import reference stays an error); `FRIEND` -> `ACTIVE`, `APPLICATION`, `GUEST` and `REJECTED` stay forbidden. (2) The tab "Handlungsbedarf" also counts the rows held back for manual handling (`ADMIN_ROLE_MANUAL`); the number is counted by the server. (3) An administrator can write a held-back row by hand; if that changes the record of an *administrator*, that administrator gets the receipt of the peer protection (the sync was "mail-free" before).
