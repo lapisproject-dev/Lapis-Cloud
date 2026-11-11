@@ -1,17 +1,20 @@
 package network.lapis.cloud.client
 
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.LupaBbCandidateDto
 import network.lapis.cloud.shared.domain.LupaBbCategory
 import network.lapis.cloud.shared.domain.LupaBbCredentialsInput
 import network.lapis.cloud.shared.domain.LupaBbField
 import network.lapis.cloud.shared.domain.LupaBbFieldDiffDto
+import network.lapis.cloud.shared.domain.LupaBbLinkTargetDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
 import network.lapis.cloud.shared.domain.LupaBbPreviewPageDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewRowDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewSummaryDto
 import network.lapis.cloud.shared.domain.LupaBbReasonDto
+import network.lapis.cloud.shared.domain.LupaBbRowActionResultDto
 import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.LupaBbSyncStatusDto
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -74,6 +77,49 @@ internal object LupaSyncDomSupport {
             ),
         )
 
+    /** A held-back row of a BOARD member: address and status are in [LupaBbPreviewRowDto.protectedDiffs], the member can be opened. */
+    val protectedRows =
+        listOf(
+            LupaBbPreviewRowDto(
+                personNumber = 4801,
+                name = "Bruno Vorstand",
+                email = "bruno@example.org",
+                category = LupaBbCategory.CHANGED,
+                memberId = "member-4801",
+                reasons = listOf(LupaBbReasonDto(LupaBbRowReasonCode.ADMIN_ROLE_MANUAL)),
+                protectedDiffs =
+                    listOf(
+                        LupaBbFieldDiffDto(LupaBbField.STREET, before = "Alt", after = "Neu 1"),
+                        LupaBbFieldDiffDto(LupaBbField.CITY, before = "Alt", after = "Braunschweig"),
+                        LupaBbFieldDiffDto(LupaBbField.STATUS, before = MemberStatus.ACTIVE.name, after = MemberStatus.WITHDRAWN.name),
+                    ),
+            ),
+            LupaBbPreviewRowDto(
+                personNumber = 4802,
+                name = "Dana Keller",
+                email = "dana@example.org",
+                category = LupaBbCategory.ERROR,
+                memberId = "admin-1",
+                isOwnRecord = true,
+                reasons = listOf(LupaBbReasonDto(LupaBbRowReasonCode.ADMIN_ROLE_MANUAL)),
+                protectedDiffs = listOf(LupaBbFieldDiffDto(LupaBbField.STREET, before = "Alt", after = "Neu 2")),
+                protectedBlocker = LupaBbRowReasonCode.OWN_RECORD,
+            ),
+            LupaBbPreviewRowDto(
+                personNumber = 4803,
+                name = "Admin Zwei",
+                email = "zwei@example.org",
+                category = LupaBbCategory.CHANGED,
+                memberId = "admin-2",
+                reasons = listOf(LupaBbReasonDto(LupaBbRowReasonCode.ADMIN_ROLE_MANUAL)),
+                protectedDiffs =
+                    listOf(
+                        LupaBbFieldDiffDto(LupaBbField.STATUS, before = MemberStatus.ACTIVE.name, after = MemberStatus.WITHDRAWN.name),
+                    ),
+                protectedBlocker = LupaBbRowReasonCode.PEER_APPROVAL_REQUIRED,
+            ),
+        )
+
     class Routes(
         val status: String,
         val verify: String,
@@ -82,6 +128,9 @@ internal object LupaSyncDomSupport {
         val page: String,
         val apply: String,
         val link: String,
+        val applyProtected: String,
+        val search: String,
+        val skip: String,
     )
 
     suspend fun routes() =
@@ -93,6 +142,9 @@ internal object LupaSyncDomSupport {
             page = routeOf { rpcService<ILupaBbSyncService>().getPreviewPage("t", LupaBbPreviewFilter.ALL, 0, 1) },
             apply = routeOf { rpcService<ILupaBbSyncService>().applyPreview("t") },
             link = routeOf { rpcService<ILupaBbSyncService>().linkMemberToLupaBb("t", 1, "m") },
+            applyProtected = routeOf { rpcService<ILupaBbSyncService>().applyProtectedRow("t", 1) },
+            search = routeOf { rpcService<ILupaBbSyncService>().searchLinkTargets("t", 1, "abc") },
+            skip = routeOf { rpcService<ILupaBbSyncService>().skipRow("t", 1) },
         )
 
     fun answer(
@@ -100,6 +152,8 @@ internal object LupaSyncDomSupport {
         request: RecordedRequest,
         status: LupaBbSyncStatusDto,
         summary: LupaBbPreviewSummaryDto = summary(),
+        pageRows: List<LupaBbPreviewRowDto> = rows,
+        targets: List<LupaBbLinkTargetDto> = emptyList(),
     ): StubResponse =
         when {
             !request.isRpc -> StubResponse()
@@ -108,7 +162,16 @@ internal object LupaSyncDomSupport {
             request.rpcRoute == routes.remove -> request.answerWith(jsonOf(LupaBbSyncStatusDto.serializer(), noCredentials))
             request.rpcRoute == routes.load -> request.answerWith(jsonOf(LupaBbPreviewSummaryDto.serializer(), summary))
             request.rpcRoute == routes.page ->
-                request.answerWith(jsonOf(LupaBbPreviewPageDto.serializer(), LupaBbPreviewPageDto(rows.size, 0, rows, counts)))
+                request.answerWith(jsonOf(LupaBbPreviewPageDto.serializer(), LupaBbPreviewPageDto(pageRows.size, 0, pageRows, counts)))
+            request.rpcRoute == routes.search ->
+                request.answerWith(jsonOf(ListSerializer(LupaBbLinkTargetDto.serializer()), targets))
+            request.rpcRoute == routes.applyProtected ->
+                request.answerWith(
+                    jsonOf(
+                        LupaBbRowActionResultDto.serializer(),
+                        LupaBbRowActionResultDto(applied = true, page = LupaBbPreviewPageDto(pageRows.size, 0, pageRows, counts)),
+                    ),
+                )
             else -> request.answerWith("null")
         }
 }

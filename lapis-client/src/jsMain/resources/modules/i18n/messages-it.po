@@ -28198,8 +28198,8 @@ msgstr "Nome utente, password e chiave API le vengono forniti dall'amministrazio
 msgid "Abgleich"
 msgstr "Sincronizzazione"
 
-msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert."
-msgstr "La sincronizzazione legge soltanto da LupaBB. Non elimina né disattiva nessuno, non crea account di accesso e non invia e-mail. L'indirizzo e-mail dei membri esistenti resta invariato."
+msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert. Einzige Ausnahme: Wird der Datensatz eines Administrators von Hand abgeglichen, erhält dieser eine Benachrichtigung."
+msgstr "La sincronizzazione legge soltanto da LupaBB. Non elimina né disattiva nessuno, non crea account di accesso e non invia e-mail. L’indirizzo e-mail dei membri esistenti resta invariato. Unica eccezione: quando il record di un amministratore viene riconciliato a mano, l’amministratore riceve una notifica."
 
 msgid "Letzter Lauf am %1: %2 angelegt, %3 aktualisiert, %4 Fehler."
 msgstr "Ultima esecuzione il %1: %2 creati, %3 aggiornati, %4 errori."
@@ -28275,6 +28275,72 @@ msgstr "Il numero di persona di LupaBB viene assegnato a questo membro. I dati v
 
 msgid "Das Mitglied wurde verknüpft."
 msgstr "Il membro è stato collegato."
+
+msgid "Mitglied öffnen"
+msgstr "Apri membro"
+
+msgid "LupaBB-Werte übernehmen"
+msgstr "Applica i valori di LupaBB"
+
+msgid "LupaBB-Werte übernehmen?"
+msgstr "Applicare i valori di LupaBB?"
+
+msgid "Die Werte aus LupaBB überschreiben die Werte dieses Mitglieds mit Verwaltungsrolle. Die Rolle bleibt unverändert."
+msgstr "I valori di LupaBB sovrascrivono quelli di questo membro con ruolo amministrativo. Il ruolo resta invariato."
+
+msgid "Status: %1 → %2"
+msgstr "Stato: %1 → %2"
+
+msgid "Die LupaBB-Werte wurden übernommen."
+msgstr "I valori di LupaBB sono stati applicati."
+
+msgid "Das Mitglied wurde seit der Vorschau geändert. Bitte laden Sie die Vorschau neu."
+msgstr "Il membro è stato modificato dopo l’anteprima. Ricarica l’anteprima."
+
+msgid "Die E-Mail-Adresse aus LupaBB wird nicht übernommen, sie gehört bereits einem anderen Mitglied."
+msgstr "L’indirizzo e-mail di LupaBB non viene applicato, appartiene già a un altro membro."
+
+msgid "Welche Person ist gemeint?"
+msgstr "Di quale persona si tratta?"
+
+msgid "Name oder E-Mail suchen"
+msgstr "Cerca per nome o e-mail"
+
+msgid "Kein Mitglied gefunden."
+msgstr "Nessun membro trovato."
+
+msgid "bereits mit einer anderen LupaBB-Person verknüpft"
+msgstr "già collegato a un’altra persona di LupaBB"
+
+msgid "Datensatz überspringen?"
+msgstr "Saltare questo record?"
+
+msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
+msgstr "Questo record non viene applicato in questa sincronizzazione. Riapparirà alla prossima."
+
+msgid "Ihren eigenen Datensatz gleicht ein anderer Administrator ab."
+msgstr "Il tuo record viene riconciliato da un altro amministratore."
+
+msgid "In diesem Abgleich übersprungen."
+msgstr "Saltato in questa sincronizzazione."
+
+msgid "Von Hand übernommen."
+msgstr "Applicato manualmente."
+
+msgid "Für ein Administratorkonto ist dafür die Zustimmung eines zweiten Administrators nötig. Bitte in der Mitgliederverwaltung beantragen."
+msgstr "Per un account amministratore serve l’approvazione di un secondo amministratore. Richiedila nella gestione dei membri."
+
+msgid "Ein Spender kann keine Leitungsrolle haben. Bitte zuerst die Rolle in der Mitgliederverwaltung ändern."
+msgstr "Un donatore non può avere un ruolo di gestione. Modifica prima il ruolo nella gestione dei membri."
+
+msgid "Dieses Mitglied ist bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "Questo membro è già collegato a un’altra persona di LupaBB."
+
+msgid "Gefiltert auf ein Mitglied."
+msgstr "Filtrato su un membro."
+
+msgid "Alle Mitglieder anzeigen"
+msgstr "Mostra tutti i membri"
 
 msgid "LupaBB-Abgleich"
 msgstr "Sincronizzazione LupaBB"

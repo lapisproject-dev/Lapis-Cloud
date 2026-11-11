@@ -14,17 +14,19 @@ import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.LupaBbApplyResultDto
 import network.lapis.cloud.shared.domain.LupaBbCategory
+import network.lapis.cloud.shared.domain.LupaBbLinkTargetDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
 import network.lapis.cloud.shared.domain.LupaBbPreviewPageDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewRowDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewSummaryDto
+import network.lapis.cloud.shared.domain.LupaBbRowActionResultDto
 import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.LupaBbSyncStatusDto
 import network.lapis.cloud.shared.rpc.LupaBbPreviewExpiredException
 
 private const val PAGE_SIZE = 50
 
-/** The four calls of the preview block; the screen owns the RPC reads (and their loading state), this block only decides what to show. */
+/** The calls of the preview block; the screen owns the RPC reads (and their loading state), this block only decides what to show. */
 internal interface LupaSyncApi {
     suspend fun loadPreview(): LupaBbPreviewSummaryDto
 
@@ -42,6 +44,22 @@ internal interface LupaSyncApi {
         personNumber: Long,
         memberId: String,
     ): LupaBbPreviewPageDto
+
+    suspend fun applyProtected(
+        token: String,
+        personNumber: Long,
+    ): LupaBbRowActionResultDto
+
+    suspend fun searchTargets(
+        token: String,
+        personNumber: Long,
+        query: String,
+    ): List<LupaBbLinkTargetDto>
+
+    suspend fun skip(
+        token: String,
+        personNumber: Long,
+    ): LupaBbPreviewPageDto
 }
 
 /**
@@ -58,12 +76,20 @@ internal class LupaSyncPreview(
     private val host: SimplePanel = root.vPanel(spacing = 10)
     private var summary: LupaBbPreviewSummaryDto? = null
     private var counts: Map<LupaBbCategory, Int> = emptyMap()
+    private var actionNeeded: Int? = null
     private var filter: LupaBbPreviewFilter = LupaBbPreviewFilter.ALL
     private var rows: List<LupaBbPreviewRowDto> = emptyList()
     private var total = 0
     private var expired = false
     private var applied: LupaBbApplyResultDto? = null
     private var busy = false
+    private val rowActions =
+        LupaSyncRowActions(
+            api = api,
+            token = { summary?.token },
+            onExpired = { expired = true },
+            onChanged = { page -> afterRowAction(page) },
+        )
 
     fun paint() {
         host.removeAll()
@@ -71,7 +97,8 @@ internal class LupaSyncPreview(
         host.div(
             tr(
                 "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine " +
-                    "E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert.",
+                    "E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert. Einzige Ausnahme: Wird der Datensatz eines " +
+                    "Administrators von Hand abgeglichen, erhält dieser eine Benachrichtigung.",
             ),
         ) { addCssClass("text-muted") }
         statusProvider()?.lastRun?.let { last ->
@@ -125,7 +152,8 @@ internal class LupaSyncPreview(
             summary = result
             if (result != null) {
                 counts = result.counts
-                filter = LupaSyncLogic.defaultFilter(result.counts)
+                actionNeeded = result.actionNeeded
+                filter = LupaSyncLogic.defaultFilter(result.counts, result.actionNeeded)
                 loadPage(0, replace = true)
             } else {
                 paint()
@@ -153,6 +181,7 @@ internal class LupaSyncPreview(
                 rows = if (replace) page.rows else rows + page.rows
                 total = page.total
                 if (page.counts.isNotEmpty()) counts = page.counts
+                page.actionNeeded?.let { actionNeeded = it }
             }
             paint()
         }
@@ -177,7 +206,7 @@ internal class LupaSyncPreview(
         }
         host.segmentedScroll {
             segmentedControl(
-                options = LupaSyncLogic.filterOptions(counts),
+                options = LupaSyncLogic.filterOptions(counts, actionNeeded),
                 selected = filter,
                 ariaLabel = tr("Datensätze filtern"),
             ) {
@@ -191,7 +220,7 @@ internal class LupaSyncPreview(
             host.dataTable(
                 columns = lupaColumns(),
                 rows = rows,
-                actions = { container, row -> lupaRowActions(container, row) },
+                actions = { container, row -> rowActions.paint(container, row) },
             )
             if (rows.size < total) {
                 host.actionButton(ActionIcon.NEXT, tr("Weitere laden")) { onClick { loadPage(rows.size, replace = false) } }
@@ -332,80 +361,18 @@ internal class LupaSyncPreview(
         if (row.diffs.isEmpty()) return
         val details = Tag(TAG.DETAILS, className = "small")
         details.add(Tag(TAG.SUMMARY, content = gettext("%1 Felder im Vergleich", row.diffs.size)))
-        val table = Tag(TAG.TABLE, className = "lapis-lupabb-diff")
-        val head = Tag(TAG.THEAD)
-        val headRow = Tag(TAG.TR)
-        listOf(tr("Feld"), tr("bisher"), tr("neu")).forEach { headRow.add(Tag(TAG.TH, content = it)) }
-        head.add(headRow)
-        table.add(head)
-        val body = Tag(TAG.TBODY)
-        row.diffs.forEach { diff ->
-            val tableRow = Tag(TAG.TR)
-            tableRow.add(Tag(TAG.TD, content = lupaFieldLabel(diff.field)))
-            tableRow.add(
-                Tag(
-                    TAG.TD,
-                    content = sanitizeUntrustedI18nText(lupaDiffValue(diff.field, diff.before)),
-                    className = "lapis-lupabb-diff-old",
-                ),
-            )
-            tableRow.add(Tag(TAG.TD, content = sanitizeUntrustedI18nText(lupaDiffValue(diff.field, diff.after))))
-            body.add(tableRow)
-        }
-        table.add(body)
-        details.add(table)
+        details.add(lupaDiffTable(row.diffs))
         cell.add(details)
     }
 
-    private fun lupaRowActions(
-        container: Container,
-        row: LupaBbPreviewRowDto,
-    ) {
-        if (row.category != LupaBbCategory.AMBIGUOUS) return
-        row.candidates.forEach { candidate ->
-            val who = "${sanitizeUntrustedI18nText(candidate.name)} (${sanitizeUntrustedI18nText(candidate.email)})"
-            val label = gettext("Mit diesem Mitglied verknüpfen") + ": " + who
-            container.actionButton(ActionIcon.LINK, label, iconOnly = true, small = true, accessibleName = label) {
-                title = resolvedAttributeText(label)
-                onClick {
-                    confirmDialog(
-                        title = tr("Mit diesem Mitglied verknüpfen?"),
-                        message =
-                            tr(
-                                "Die Personennummer aus LupaBB wird diesem Mitglied zugeordnet. Die Daten werden beim nächsten Abgleich übernommen.",
-                            ),
-                        extraLines = listOf(sanitizeUntrustedI18nText(candidate.name), sanitizeUntrustedI18nText(candidate.email)),
-                        confirmLabel = tr("Verknüpfen"),
-                        confirmIcon = ActionIcon.LINK,
-                        confirmStyle = ButtonStyle.PRIMARY,
-                    ) { link(row, candidate.memberId) }
-                }
-            }
+    /** What a row action changed: the refreshed counters and a reload of the shown filter; `null` = the call failed, only repaint. */
+    private fun afterRowAction(page: LupaBbPreviewPageDto?) {
+        if (page == null) {
+            paint()
+            return
         }
-    }
-
-    private fun link(
-        row: LupaBbPreviewRowDto,
-        memberId: String,
-    ) {
-        val token = summary?.token ?: return
-        AppScope.launch {
-            val page =
-                guarded {
-                    try {
-                        api.link(token, row.personNumber, memberId)
-                    } catch (e: LupaBbPreviewExpiredException) {
-                        expired = true
-                        throw e
-                    }
-                }
-            if (page != null) {
-                notifySuccess(tr("Das Mitglied wurde verknüpft."))
-                counts = page.counts.ifEmpty { counts }
-                loadPage(0, replace = true)
-            } else {
-                paint()
-            }
-        }
+        counts = page.counts.ifEmpty { counts }
+        page.actionNeeded?.let { actionNeeded = it }
+        loadPage(0, replace = true)
     }
 }

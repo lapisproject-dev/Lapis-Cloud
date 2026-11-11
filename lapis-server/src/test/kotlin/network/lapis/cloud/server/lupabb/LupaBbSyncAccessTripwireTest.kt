@@ -22,10 +22,13 @@ class LupaBbSyncAccessTripwireTest :
                 "getPreviewPage",
                 "applyPreview",
                 "linkMemberToLupaBb",
+                "applyProtectedRow",
+                "searchLinkTargets",
+                "skipRow",
             )
         val lupabbFiles = SourceScan.mainFiles().filter { "/lupabb/" in it.path }
 
-        test("the RPC surface is exactly the seven known methods") {
+        test("the RPC surface is exactly the ten known methods") {
             ILupaBbSyncService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }

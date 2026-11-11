@@ -28213,8 +28213,8 @@ msgstr "You get the user name, password and API key from the LupaBB administrati
 msgid "Abgleich"
 msgstr "Sync"
 
-msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert."
-msgstr "The sync only reads from LupaBB. It deletes and deactivates nobody, creates no login accounts and sends no e-mails. The e-mail address of existing members stays unchanged."
+msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert. Einzige Ausnahme: Wird der Datensatz eines Administrators von Hand abgeglichen, erhält dieser eine Benachrichtigung."
+msgstr "The sync only reads from LupaBB. It deletes and deactivates nobody, creates no login accounts and sends no e-mails. The e-mail address of existing members stays unchanged. The only exception: when an administrator’s record is reconciled by hand, that administrator receives a notification."
 
 msgid "Letzter Lauf am %1: %2 angelegt, %3 aktualisiert, %4 Fehler."
 msgstr "Last run on %1: %2 created, %3 updated, %4 errors."
@@ -28290,6 +28290,72 @@ msgstr "The person number from LupaBB is assigned to this member. The data is ap
 
 msgid "Das Mitglied wurde verknüpft."
 msgstr "The member was linked."
+
+msgid "Mitglied öffnen"
+msgstr "Open member"
+
+msgid "LupaBB-Werte übernehmen"
+msgstr "Take over LupaBB values"
+
+msgid "LupaBB-Werte übernehmen?"
+msgstr "Take over LupaBB values?"
+
+msgid "Die Werte aus LupaBB überschreiben die Werte dieses Mitglieds mit Verwaltungsrolle. Die Rolle bleibt unverändert."
+msgstr "The values from LupaBB overwrite the values of this member with an administrative role. The role stays unchanged."
+
+msgid "Status: %1 → %2"
+msgstr "Status: %1 → %2"
+
+msgid "Die LupaBB-Werte wurden übernommen."
+msgstr "The LupaBB values were taken over."
+
+msgid "Das Mitglied wurde seit der Vorschau geändert. Bitte laden Sie die Vorschau neu."
+msgstr "The member was changed since the preview. Please reload the preview."
+
+msgid "Die E-Mail-Adresse aus LupaBB wird nicht übernommen, sie gehört bereits einem anderen Mitglied."
+msgstr "The e-mail address from LupaBB is not taken over, it already belongs to another member."
+
+msgid "Welche Person ist gemeint?"
+msgstr "Which person is meant?"
+
+msgid "Name oder E-Mail suchen"
+msgstr "Search by name or e-mail"
+
+msgid "Kein Mitglied gefunden."
+msgstr "No member found."
+
+msgid "bereits mit einer anderen LupaBB-Person verknüpft"
+msgstr "already linked to another LupaBB person"
+
+msgid "Datensatz überspringen?"
+msgstr "Skip this record?"
+
+msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
+msgstr "This record is not taken over in this sync. It appears again at the next sync."
+
+msgid "Ihren eigenen Datensatz gleicht ein anderer Administrator ab."
+msgstr "Another administrator reconciles your own record."
+
+msgid "In diesem Abgleich übersprungen."
+msgstr "Skipped in this sync."
+
+msgid "Von Hand übernommen."
+msgstr "Taken over by hand."
+
+msgid "Für ein Administratorkonto ist dafür die Zustimmung eines zweiten Administrators nötig. Bitte in der Mitgliederverwaltung beantragen."
+msgstr "For an administrator account this needs the approval of a second administrator. Please request it in the member administration."
+
+msgid "Ein Spender kann keine Leitungsrolle haben. Bitte zuerst die Rolle in der Mitgliederverwaltung ändern."
+msgstr "A donor cannot hold a management role. Please change the role in the member administration first."
+
+msgid "Dieses Mitglied ist bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "This member is already linked to another LupaBB person."
+
+msgid "Gefiltert auf ein Mitglied."
+msgstr "Filtered to one member."
+
+msgid "Alle Mitglieder anzeigen"
+msgstr "Show all members"
 
 msgid "LupaBB-Abgleich"
 msgstr "LupaBB sync"

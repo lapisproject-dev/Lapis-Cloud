@@ -3,6 +3,7 @@ package network.lapis.cloud.server.lupabb
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
@@ -12,13 +13,16 @@ import kotlinx.coroutines.withContext
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.LupaBbSyncConfigTable
+import network.lapis.cloud.server.db.generated.LupaBbSyncSuppressionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LupaBbCategory
 import network.lapis.cloud.shared.domain.LupaBbCredentialsInput
 import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
@@ -30,10 +34,12 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.LupaBbAuthRejectedException
 import network.lapis.cloud.shared.rpc.LupaBbCredentialsMissingException
 import network.lapis.cloud.shared.rpc.LupaBbEncryptionKeyMissingException
+import network.lapis.cloud.shared.rpc.LupaBbMemberAlreadyLinkedException
 import network.lapis.cloud.shared.rpc.LupaBbPreviewExpiredException
 import network.lapis.cloud.shared.rpc.LupaBbSyncBusyException
 import network.lapis.cloud.shared.rpc.LupaBbSyncRateLimitedException
 import network.lapis.cloud.shared.rpc.LupaBbUnavailableException
+import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RateLimitedException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -92,8 +98,14 @@ abstract class LupaBbSyncServiceScenarios(
                                             runtime = rt,
                                         ).linkMemberToLupaBb(token = "t", personNumber = 1, memberId = Uuid.random().toString())
                                 },
+                            "applyProtected" to { c ->
+                                fx.service(call = c, runtime = rt).applyProtectedRow(token = "t", personNumber = 1)
+                            },
+                            "search" to
+                                { c -> fx.service(call = c, runtime = rt).searchLinkTargets(token = "t", personNumber = 1, query = "abc") },
+                            "skip" to { c -> fx.service(call = c, runtime = rt).skipRow(token = "t", personNumber = 1) },
                         )
-                    calls.size shouldBe 7
+                    calls.size shouldBe 10
                     for (role in listOf(AccountRole.MEMBER, AccountRole.TREASURER, AccountRole.BOARD)) {
                         val member = fx.member(role = role)
                         for ((name, op) in calls) {
@@ -390,20 +402,9 @@ abstract class LupaBbSyncServiceScenarios(
                 lupaBbTestApplication(fixtures = fx) {
                     val admin = fx.admin()
                     val candidate = fx.member(displayName = "Erika $family", email = "${TEST_EMAIL_PREFIX}anders@example.org")
-                    val stranger = fx.member(displayName = "Wer Fremdes")
                     fx.storeCredentials(server = fake, actor = admin)
                     val summary = call(member = admin) { c -> fx.service(call = c, runtime = rt).loadPreview() }
                     summary.counts.getValue(LupaBbCategory.AMBIGUOUS) shouldBe 1
-                    attempt(
-                        member = admin,
-                    ) { c ->
-                        fx
-                            .service(
-                                call = c,
-                                runtime = rt,
-                            ).linkMemberToLupaBb(token = summary.token, personNumber = 9_000_000_064, memberId = stranger.toString())
-                    }.exceptionOrNull()
-                        .shouldBeInstanceOf<BadRequestException>()
                     val page =
                         call(
                             member = admin,
@@ -447,7 +448,7 @@ abstract class LupaBbSyncServiceScenarios(
             }
         }
 
-        test("linking to a candidate whose person number became taken meanwhile is a conflict and changes nothing") {
+        test("linking to a member whose person number became taken meanwhile is refused (already linked) and changes nothing") {
             val family = unique()
             val record =
                 FakeLupaBbServer.member(
@@ -473,7 +474,7 @@ abstract class LupaBbSyncServiceScenarios(
                                 runtime = rt,
                             ).linkMemberToLupaBb(token = summary.token, personNumber = 9_000_000_084, memberId = candidate.toString())
                     }.exceptionOrNull()
-                        .shouldBeInstanceOf<ConflictException>()
+                        .shouldBeInstanceOf<LupaBbMemberAlreadyLinkedException>()
                     fx.memberRow(candidate)[MemberTable.lupabbPersonNumber] shouldBe null
                 }
             }
@@ -585,6 +586,255 @@ abstract class LupaBbSyncServiceScenarios(
                     result.errors shouldBe 0
                     fx.memberRow(friend)[MemberTable.status] shouldBe MemberStatus.DONOR
                     fx.memberRow(board)[MemberTable.status] shouldBe MemberStatus.FRIEND
+                }
+            }
+        }
+
+        // ---- "Konflikte direkt loesen": take over, search + link, skip ----
+
+        /** Opens a preview whose record [number] is AMBIGUOUS (its e-mail belongs to a member that is linked to another person already). */
+        suspend fun LupaBbApp.ambiguousPreview(
+            fake: FakeLupaBbServer,
+            rt: LupaBbSyncRuntime,
+            admin: Uuid,
+        ) = call(member = admin) { c -> fx.service(call = c, runtime = rt).loadPreview() }
+
+        fun ambiguousRecord(
+            number: Long,
+            email: String,
+        ) = FakeLupaBbServer.member(personNumber = number, familyName = unique(), email = email)
+
+        test("searching link targets: at least 3 characters, literal wildcards, no anonymised member, linked ones flagged, at most 10") {
+            val email = "${TEST_EMAIL_PREFIX}owner@example.org"
+            server(
+                ambiguousRecord(9_000_000_600, email),
+                FakeLupaBbServer.member(personNumber = 9_000_000_609, familyName = unique()),
+            ).use { fake ->
+                val rt = fx.runtime(server = fake)
+                lupaBbTestApplication(fixtures = fx) {
+                    val admin = fx.admin()
+                    val tag = unique()
+                    fx.member(email = email, personNumber = 9_000_000_601, displayName = "Inhaber $tag")
+                    repeat(12) { fx.member(displayName = "Sucher $tag $it") }
+                    fx.member(displayName = "Sucher $tag anonym", anonymized = true)
+                    val linked = fx.member(displayName = "Verknuepft $tag", personNumber = 9_000_000_602)
+                    fx.storeCredentials(server = fake, actor = admin)
+                    val summary = ambiguousPreview(fake, rt, admin)
+
+                    suspend fun search(
+                        q: String,
+                        number: Long = 9_000_000_600,
+                    ) = attempt(member = admin) { c ->
+                        fx.service(call = c, runtime = rt).searchLinkTargets(token = summary.token, personNumber = number, query = q)
+                    }
+                    search("Su").getOrThrow() shouldBe emptyList()
+                    search("  ab ").getOrThrow() shouldBe emptyList()
+                    search("Sucher $tag").getOrThrow().size shouldBe 10
+                    search("Sucher $tag anonym").getOrThrow() shouldBe emptyList()
+                    search("$tag%").getOrThrow() shouldBe emptyList()
+                    search("Verknuepft $tag").getOrThrow().single().let {
+                        it.memberId shouldBe linked.toString()
+                        it.linkedElsewhere shouldBe true
+                    }
+                    search("x".repeat(101)).exceptionOrNull().shouldBeInstanceOf<BadRequestException>()
+                    search("abc\u0007def").exceptionOrNull().shouldBeInstanceOf<BadRequestException>()
+                    // a row that is not ambiguous cannot be searched for
+                    search("Sucher $tag", number = 9_000_000_609).exceptionOrNull().shouldBeInstanceOf<BadRequestException>()
+                    search("Sucher $tag", number = 123).exceptionOrNull().shouldBeInstanceOf<BadRequestException>()
+                }
+            }
+        }
+
+        test("an ambiguous record is linked to any found member: only the person number is written, never the e-mail") {
+            val email = "${TEST_EMAIL_PREFIX}owner2@example.org"
+            server(ambiguousRecord(9_000_000_620, email)).use { fake ->
+                val rt = fx.runtime(server = fake)
+                lupaBbTestApplication(fixtures = fx) {
+                    val admin = fx.admin()
+                    val tag = unique()
+                    fx.member(email = email, personNumber = 9_000_000_621, displayName = "Inhaber $tag")
+                    val wanted = fx.member(displayName = "Gesucht $tag", email = "${TEST_EMAIL_PREFIX}gesucht@example.org")
+                    val linkedElsewhere = fx.member(displayName = "Belegt $tag", personNumber = 9_000_000_622)
+                    val gone = fx.member(displayName = "Anonym $tag", anonymized = true)
+                    fx.storeCredentials(server = fake, actor = admin)
+                    val summary = ambiguousPreview(fake, rt, admin)
+
+                    suspend fun link(id: String) =
+                        attempt(member = admin) { c ->
+                            fx
+                                .service(
+                                    call = c,
+                                    runtime = rt,
+                                ).linkMemberToLupaBb(token = summary.token, personNumber = 9_000_000_620, memberId = id)
+                        }
+                    link(linkedElsewhere.toString()).exceptionOrNull().shouldBeInstanceOf<LupaBbMemberAlreadyLinkedException>()
+                    link(gone.toString()).exceptionOrNull().shouldBeInstanceOf<ConflictException>()
+                    link(Uuid.random().toString()).exceptionOrNull().shouldBeInstanceOf<NotFoundException>()
+                    link("not-a-uuid").exceptionOrNull().shouldBeInstanceOf<NotFoundException>()
+                    val page = link(wanted.toString()).getOrThrow()
+                    page.counts.getValue(LupaBbCategory.AMBIGUOUS) shouldBe 0
+                    fx.memberRow(wanted)[MemberTable.lupabbPersonNumber] shouldBe 9_000_000_620
+                    fx.memberRow(wanted)[MemberTable.email] shouldBe "${TEST_EMAIL_PREFIX}gesucht@example.org"
+                    val audit =
+                        transaction {
+                            AuditLogEntryTable
+                                .selectAll()
+                                .where {
+                                    AuditLogEntryTable.entityId eq wanted
+                                }.map { it[AuditLogEntryTable.afterSnapshot] }
+                        }
+                    audit.single()!!.contains("lupabbLinked") shouldBe true
+                }
+            }
+        }
+
+        test("skipping an ambiguous row only marks it in this preview: no suppression entry, a new comparison shows it again") {
+            val email = "${TEST_EMAIL_PREFIX}owner3@example.org"
+            server(
+                ambiguousRecord(9_000_000_630, email),
+                FakeLupaBbServer.member(personNumber = 9_000_000_639, familyName = unique()),
+            ).use { fake ->
+                val rt = fx.runtime(server = fake)
+                lupaBbTestApplication(fixtures = fx) {
+                    val admin = fx.admin()
+                    fx.member(email = email, personNumber = 9_000_000_631)
+                    fx.storeCredentials(server = fake, actor = admin)
+                    val summary = ambiguousPreview(fake, rt, admin)
+                    val suppressedBefore = transaction { LupaBbSyncSuppressionTable.selectAll().count() }
+                    val page =
+                        call(
+                            member = admin,
+                        ) { c -> fx.service(call = c, runtime = rt).skipRow(token = summary.token, personNumber = 9_000_000_630) }
+                    page.counts.getValue(LupaBbCategory.AMBIGUOUS) shouldBe 0
+                    val skipped =
+                        call(member = admin) { c ->
+                            fx
+                                .service(
+                                    call = c,
+                                    runtime = rt,
+                                ).getPreviewPage(token = summary.token, filter = LupaBbPreviewFilter.SKIPPED, offset = 0, limit = 10)
+                        }
+                    skipped.rows
+                        .single { it.personNumber == 9_000_000_630 }
+                        .reasons
+                        .single()
+                        .code shouldBe
+                        LupaBbRowReasonCode.SKIPPED_BY_ADMIN
+                    transaction { LupaBbSyncSuppressionTable.selectAll().count() } shouldBe suppressedBefore
+                    val audit =
+                        transaction {
+                            AuditLogEntryTable
+                                .selectAll()
+                                .where { AuditLogEntryTable.entityType eq AuditEntityType.LUPABB_SYNC_CONFIG }
+                                .map { it[AuditLogEntryTable.afterSnapshot].orEmpty() }
+                        }
+                    audit.any { it.contains("PREVIEW_ROW_SKIPPED") } shouldBe true
+                    audit.none { it.contains("9000000630") } shouldBe true
+                    // not ambiguous any more: a second skip is refused
+                    attempt(
+                        member = admin,
+                    ) { c -> fx.service(call = c, runtime = rt).skipRow(token = summary.token, personNumber = 9_000_000_630) }
+                        .exceptionOrNull()
+                        .shouldBeInstanceOf<BadRequestException>()
+                    fx.allowNextFetch()
+                    val again = ambiguousPreview(fake, rt, admin)
+                    again.counts.getValue(LupaBbCategory.AMBIGUOUS) shouldBe 1
+                }
+            }
+        }
+
+        test("taking over a held-back row: tamper cases are refused, success marks the row and the later apply does not write it again") {
+            val family = unique()
+            server(
+                FakeLupaBbServer.member(personNumber = 9_000_000_640, familyName = family),
+                FakeLupaBbServer.member(personNumber = 9_000_000_641, familyName = unique()),
+            ).use { fake ->
+                val rt = fx.runtime(server = fake)
+                lupaBbTestApplication(fixtures = fx) {
+                    val admin = fx.admin()
+                    val other = fx.admin("other")
+                    val board =
+                        fx.member(role = AccountRole.BOARD, displayName = "Erika $family", personNumber = 9_000_000_640, street = "Alt")
+                    fx.storeCredentials(server = fake, actor = admin)
+                    val summary = ambiguousPreview(fake, rt, admin)
+
+                    suspend fun take(
+                        number: Long,
+                        who: Uuid = admin,
+                        token: String = summary.token,
+                    ) = attempt(
+                        member = who,
+                    ) { c -> fx.service(call = c, runtime = rt).applyProtectedRow(token = token, personNumber = number) }
+                    take(123).exceptionOrNull().shouldBeInstanceOf<BadRequestException>() // not in the preview
+                    take(9_000_000_641).exceptionOrNull().shouldBeInstanceOf<BadRequestException>() // a NEW row, nothing held back
+                    take(9_000_000_640, who = other).exceptionOrNull().shouldBeInstanceOf<LupaBbPreviewExpiredException>()
+                    take(9_000_000_640, token = "unknown").exceptionOrNull().shouldBeInstanceOf<LupaBbPreviewExpiredException>()
+                    fx.memberRow(board)[MemberTable.street] shouldBe "Alt"
+                    val result = take(9_000_000_640).getOrThrow()
+                    result.applied shouldBe true
+                    result.failure shouldBe null
+                    fx.memberRow(board)[MemberTable.street] shouldNotBe "Alt"
+                    val row =
+                        call(member = admin) { c ->
+                            fx
+                                .service(
+                                    call = c,
+                                    runtime = rt,
+                                ).getPreviewPage(token = summary.token, filter = LupaBbPreviewFilter.ALL, offset = 0, limit = 50)
+                        }.rows.single { it.personNumber == 9_000_000_640 }
+                    row.category shouldBe LupaBbCategory.UNCHANGED
+                    row.reasons.single().code shouldBe LupaBbRowReasonCode.APPLIED_BY_ADMIN
+                    // the bulk apply neither fails with CHANGED_SINCE_PREVIEW nor writes the row again
+                    val applied = call(member = admin) { c -> fx.service(call = c, runtime = rt).applyPreview(summary.token) }
+                    applied.failures.none { it.personNumber == 9_000_000_640 } shouldBe true
+                }
+            }
+        }
+
+        test("the own record cannot be taken over; a running sync makes it Busy") {
+            val family = unique()
+            server(FakeLupaBbServer.member(personNumber = 9_000_000_650, familyName = family)).use { fake ->
+                val rt = fx.runtime(server = fake)
+                lupaBbTestApplication(fixtures = fx) {
+                    val self =
+                        fx.member(role = AccountRole.ADMIN, displayName = "Erika $family", personNumber = 9_000_000_650, street = "Alt")
+                    fx.storeCredentials(server = fake, actor = self)
+                    val summary = ambiguousPreview(fake, rt, self)
+                    val result =
+                        call(
+                            member = self,
+                        ) { c -> fx.service(call = c, runtime = rt).applyProtectedRow(token = summary.token, personNumber = 9_000_000_650) }
+                    result.applied shouldBe false
+                    result.failure shouldBe LupaBbRowReasonCode.OWN_RECORD
+                    fx.memberRow(self)[MemberTable.street] shouldBe "Alt"
+                    val claim = LupaBbRunGuard.claim(kind = LupaBbRunKind.APPLY, now = ServerClock.now())
+                    try {
+                        attempt(
+                            member = self,
+                        ) { c -> fx.service(call = c, runtime = rt).applyProtectedRow(token = summary.token, personNumber = 9_000_000_650) }
+                            .exceptionOrNull()
+                            .shouldBeInstanceOf<LupaBbSyncBusyException>()
+                    } finally {
+                        LupaBbRunGuard.release(claim)
+                    }
+                }
+            }
+        }
+
+        test("a FRIEND whose record says withdrawn turns WITHDRAWN on apply (end of a friendship), a FRIEND found by e-mail does not") {
+            val family = unique()
+            server(
+                FakeLupaBbServer.member(personNumber = 9_000_000_660, familyName = family, status = 6),
+            ).use { fake ->
+                val rt = fx.runtime(server = fake)
+                lupaBbTestApplication(fixtures = fx) {
+                    val admin = fx.admin()
+                    val friend = fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_660)
+                    fx.storeCredentials(server = fake, actor = admin)
+                    val summary = ambiguousPreview(fake, rt, admin)
+                    val result = call(member = admin) { c -> fx.service(call = c, runtime = rt).applyPreview(summary.token) }
+                    result.errors shouldBe 0
+                    fx.memberRow(friend)[MemberTable.status] shouldBe MemberStatus.WITHDRAWN
                 }
             }
         }

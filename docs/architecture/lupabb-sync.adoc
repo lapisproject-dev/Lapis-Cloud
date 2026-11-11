@@ -21,8 +21,32 @@ sequenceDiagram(name = "LupaBB sync: preview and apply") {
     message(from = admin, to = server, text = "applyPreview(token)")
     message(from = server, to = server, text = "per record: row lock, fingerprint check, write, audit")
     message(from = server, to = admin, text = "counters + failure codes")
+    message(from = admin, to = server, text = "applyProtectedRow(token, person number): held-back row, by hand")
+    message(from = server, to = server, text = "peek row from the store, row lock, fingerprint, peer decision before the first write, writes, audit")
+    message(from = server, to = admin, text = "refreshed action-needed page, or a fixed failure code")
+    message(from = admin, to = server, text = "searchLinkTargets, then linkMemberToLupaBb: any member, person number only")
+    message(from = admin, to = server, text = "skipRow: marks the row in the preview, persists nothing")
 }
 ----
+
+== Resolving conflicts in the comparison
+
+Three methods were added at the END of `ILupaBbSyncService` (Kilua numbers the routes by declaration order): `applyProtectedRow`, `searchLinkTargets`, `skipRow`; the new DTO fields have defaults and stand at
+the end. Every method starts with the ADMIN gate (pinned by `LupaBbSyncAccessTripwireTest`, ten methods).
+
+* **Tamper:** the row is found in the server-side preview store by the person number; the held-back values (`PlanRow.protectedDiffs`) come from the store, never from the client. A number that is not in the preview is a
+  `BadRequestException`, a foreign or expired token `LupaBbPreviewExpiredException` (a foreign guess does not burn the token). The blocker of a row (`protectedBlocker`) is only a hint for the client: the applier
+  decides again under the row lock.
+* **`LupaBbApplier.applyProtected`** reuses `updateMember` (mode `PROTECTED_BY_ADMIN`), so there is still exactly one call of `applyStatusChangeLocked`. Lock order: member row, then the account union
+  (`PeerGuard.lockFactsAfterMemberLock`, taken once). Before the first write: own record, the transition rules, donor with a management role and the peer decision (`WRITE_PROTECTED_DATA` for the data,
+  `SUSPEND` or `NON_BLOCKING_STATUS` for the status). A refusal is a `PeerDeniedSignal`, converted by `peerGuarded` after the rollback. The role is never written; `ADMIN_ROLE_MANUAL` of the bulk run is unchanged.
+* **Receipt:** the `PeerNotifier` is held by `rpc/LupaBbSyncService`, not by the package `lupabb/` (the package must not touch the mail pipeline; tripwire). Sessions of a member whose status blocks the login
+  are revoked after the commit.
+* **Search:** the query is trimmed, 3 to 100 characters, no control characters; `LIKE` with escaped wildcards on name and e-mail, at most ten rows, only name, e-mail, status and the link flag are read (no address column).
+* **Link:** `LupaBbLinker.link(row, memberId, ...)` accepts any member that is not anonymised and not linked yet (`LupaBbMemberAlreadyLinkedException`, also for a unique violation under the savepoint).
+* **Skip:** the row is replaced in the store (`SKIPPED`, `SKIPPED_BY_ADMIN`) and one audit entry `LUPABB_SYNC_CONFIG` / `PREVIEW_ROW_SKIPPED` is written, without a person number. No migration: the audit entity types have
+  a CHECK constraint, so no new type was introduced.
+* **Sync-only transitions:** `LupaBbStatusRules.SYNC_ONLY_TRANSITIONS` = `FRIEND` -> `DONOR`, `WITHDRAWN`, `DECEASED`, each only with a matching person number.
 
 == Hardening of the client
 

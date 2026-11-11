@@ -4,11 +4,13 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.security.ESCALATED_ROLES
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.LupaBbCategory
 import network.lapis.cloud.shared.domain.LupaBbField
 import network.lapis.cloud.shared.domain.LupaBbNoticeCode
 import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RegionalChapterRules
 import network.lapis.cloud.shared.domain.VotingRightSource
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -355,6 +357,9 @@ internal object LupaBbPlanner {
         val chapterId = chapter.id?.takeIf { m.regionalChapterId == null && r.status in RegionalChapterRules.ASSIGNABLE_STATUSES }
         var diffs = diffs(r = r, m = m, ctx = ctx, chapterId = chapterId)
         var rowChapterId = chapterId
+        var protectedDiffs: List<FieldDiff> = emptyList()
+        var protectedChapterId: Uuid? = null
+        var protectedBlocker: LupaBbRowReasonCode? = null
         if (r.country == LupaBbCountry.Unresolved) reasons += PlanReason(code = LupaBbRowReasonCode.COUNTRY_AMBIGUOUS)
         if (r.email != null && r.email != m.email.trim().lowercase()) reasons += PlanReason(code = LupaBbRowReasonCode.EMAIL_DIFFERS)
         if (m.missingSince != null) reasons += PlanReason(code = LupaBbRowReasonCode.REAPPEARED)
@@ -371,6 +376,36 @@ internal object LupaBbPlanner {
             val safe = diffs.filter { it.field in PROTECTED_SAFE_FIELDS }
             val manual = diffs.size - safe.size
             if (manual > 0) reasons += PlanReason(code = LupaBbRowReasonCode.ADMIN_ROLE_MANUAL)
+            if (manual > 0) {
+                // everything a manual take-over would write (the role is never a field, a MANUAL voting right is not in the list)
+                protectedDiffs = diffs
+                protectedChapterId = chapterId
+                protectedBlocker =
+                    when {
+                        m.id == ctx.actor -> LupaBbRowReasonCode.OWN_RECORD
+                        statusChanged &&
+                            !LupaBbStatusRules.syncAllows(
+                                from = m.status,
+                                to = r.status,
+                                memberPersonNumber = m.personNumber,
+                                recordPersonNumber = r.personNumber,
+                            ) -> {
+                            reasons +=
+                                PlanReason(code = LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED, param = "${m.status}>${r.status}")
+                            LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED
+                        }
+                        statusChanged && r.status == MemberStatus.DONOR && m.role != null && m.role in ESCALATED_ROLES ->
+                            LupaBbRowReasonCode.ROLE_BLOCKS_STATUS
+                        statusChanged && m.role == AccountRole.ADMIN && r.status in MemberStatusSets.LOGIN_BLOCKED ->
+                            LupaBbRowReasonCode.PEER_APPROVAL_REQUIRED
+                        statusChanged &&
+                            r.status == MemberStatus.ACTIVE &&
+                            ctx.chapterEnforced &&
+                            ctx.anyChapter &&
+                            (m.regionalChapterId ?: chapterId) == null -> LupaBbRowReasonCode.CHAPTER_REQUIRED
+                        else -> null
+                    }
+            }
             category =
                 when {
                     safe.isNotEmpty() -> LupaBbCategory.CHANGED
@@ -412,6 +447,10 @@ internal object LupaBbPlanner {
             reasons = reasons,
             fingerprint = m.fingerprint(),
             chapterId = rowChapterId,
+            protectedDiffs = protectedDiffs,
+            protectedChapterId = protectedChapterId,
+            isOwnRecord = m.id == ctx.actor,
+            protectedBlocker = protectedBlocker,
         )
     }
 

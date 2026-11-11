@@ -65,6 +65,7 @@ import network.lapis.cloud.shared.rpc.LupaBbAuthRejectedException
 import network.lapis.cloud.shared.rpc.LupaBbCredentialsMissingException
 import network.lapis.cloud.shared.rpc.LupaBbEncryptionKeyMissingException
 import network.lapis.cloud.shared.rpc.LupaBbLimitExceededException
+import network.lapis.cloud.shared.rpc.LupaBbMemberAlreadyLinkedException
 import network.lapis.cloud.shared.rpc.LupaBbPreviewExpiredException
 import network.lapis.cloud.shared.rpc.LupaBbSyncBusyException
 import network.lapis.cloud.shared.rpc.LupaBbSyncRateLimitedException
@@ -270,6 +271,7 @@ internal fun typedRefusalText(e: Throwable): String? =
         is LupaBbLimitExceededException -> tr("Die Datenmenge aus LupaBB übersteigt die Grenzen des Abgleichs. Es wurde nichts geändert.")
         is LupaBbSyncBusyException -> tr("Es läuft bereits ein Abgleich. Bitte warten Sie, bis er beendet ist.")
         is LupaBbSyncRateLimitedException -> tr("LupaBB wurde eben erst abgefragt. Bitte warten Sie eine Minute.")
+        is LupaBbMemberAlreadyLinkedException -> tr("Dieses Mitglied ist bereits mit einer anderen LupaBB-Person verknüpft.")
         is LupaBbPreviewExpiredException -> tr("Die Vorschau ist nicht mehr gültig. Bitte laden Sie sie neu.")
         is LupaBbCredentialsMissingException ->
             tr(

@@ -988,6 +988,12 @@ class LupaBbPreviewExpiredException(
     override val message: String = "The preview is no longer valid",
 ) : AbstractServiceException()
 
+/** V1.9.226 -- distinct type. The member is linked to another LupaBB person already (Kilua transfers the type, not the message). */
+@RpcServiceException
+class LupaBbMemberAlreadyLinkedException(
+    override val message: String = "The member is linked to another LupaBB person",
+) : AbstractServiceException()
+
 /** V1.9.226 -- distinct type. No credentials are stored. */
 @RpcServiceException
 class LupaBbCredentialsMissingException(

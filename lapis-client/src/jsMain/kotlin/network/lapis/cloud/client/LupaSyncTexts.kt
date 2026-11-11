@@ -133,6 +133,16 @@ internal fun lupaReasonText(code: LupaBbRowReasonCode): String =
         LupaBbRowReasonCode.REAPPEARED -> tr("Das Mitglied ist in LupaBB wieder aufgetaucht, die Markierung entfällt.")
         LupaBbRowReasonCode.LEAVES_DECEASED -> tr("Das Mitglied war als verstorben geführt und wird wieder aktiviert bzw. umgestuft.")
         LupaBbRowReasonCode.VOTING_RIGHT_MANUAL -> tr("Das Stimmrecht wurde von Hand gesetzt und wird nicht übernommen.")
+        LupaBbRowReasonCode.OWN_RECORD -> tr("Ihren eigenen Datensatz gleicht ein anderer Administrator ab.")
+        LupaBbRowReasonCode.SKIPPED_BY_ADMIN -> tr("In diesem Abgleich übersprungen.")
+        LupaBbRowReasonCode.APPLIED_BY_ADMIN -> tr("Von Hand übernommen.")
+        LupaBbRowReasonCode.PEER_APPROVAL_REQUIRED ->
+            tr(
+                "Für ein Administratorkonto ist dafür die Zustimmung eines zweiten Administrators nötig. " +
+                    "Bitte in der Mitgliederverwaltung beantragen.",
+            )
+        LupaBbRowReasonCode.ROLE_BLOCKS_STATUS ->
+            tr("Ein Spender kann keine Leitungsrolle haben. Bitte zuerst die Rolle in der Mitgliederverwaltung ändern.")
     }
 
 /**

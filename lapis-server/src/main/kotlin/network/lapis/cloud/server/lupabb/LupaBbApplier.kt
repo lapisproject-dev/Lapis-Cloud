@@ -21,10 +21,14 @@ import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.member.MemberVotingRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.ESCALATED_ROLES
+import network.lapis.cloud.server.security.LockedPeerFacts
+import network.lapis.cloud.server.security.PeerDecision
+import network.lapis.cloud.server.security.PeerDeniedSignal
 import network.lapis.cloud.server.security.PeerGuard
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LupaBbApplyFailureDto
@@ -35,6 +39,10 @@ import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.LupaBbSyncRunSnapshot
 import network.lapis.cloud.shared.domain.MemberChangeSnapshot
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.PeerAction
+import network.lapis.cloud.shared.domain.PeerActionAuditFacts
+import network.lapis.cloud.shared.domain.PeerAuditEvent
 import network.lapis.cloud.shared.domain.VotingRightAuditEvent
 import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 import org.jetbrains.exposed.v1.core.eq
@@ -64,6 +72,72 @@ internal class LupaBbApplier(
     private val chapterEnforced: Boolean,
 ) {
     private enum class Outcome { CREATED, UPDATED, UNCHANGED, MISSING_MARKED }
+
+    /** [SYNC]: the bulk run (held-back rows are skipped by the plan). [PROTECTED_BY_ADMIN]: one row, taken over by an administrator by hand. */
+    private enum class Mode { SYNC, PROTECTED_BY_ADMIN }
+
+    /** Facts the caller needs AFTER the commit of a manual take-over. */
+    private class ProtectedState {
+        var revokeSessions = false
+        var notifyTargetAdmin = false
+        var statusChanged = false
+        var statusNotifyTarget = false
+    }
+
+    /**
+     * The result of [applyProtected]. [failure] is a fixed code (nothing was written then); the flags drive the AFTER-COMMIT effects (session
+     * revoke, receipt to an administrator whose record was changed).
+     */
+    internal class ProtectedApplyOutcome(
+        val failure: LupaBbRowReasonCode?,
+        val revokeSessions: Boolean = false,
+        val notifyTargetAdmin: Boolean = false,
+        val statusChanged: Boolean = false,
+    )
+
+    /**
+     * The manual take-over of ONE held-back row (BOARD/TREASURER/ADMIN member): writes `row.protectedDiffs`, never the role, never the own
+     * record. Same row lock, fingerprint re-check, status path and audit as the bulk run; additionally the peer protection decides BEFORE the
+     * first write (an ADMIN target never gets a login-blocking status without a second administrator). A [PeerDeniedSignal] is rethrown for
+     * `peerGuarded`. All-or-nothing: any failure rolls the whole row back.
+     */
+    fun applyProtected(
+        row: PlanRow,
+        actor: CurrentMember,
+    ): ProtectedApplyOutcome {
+        val state = ProtectedState()
+        return try {
+            val now = ServerClock.now()
+            val today = OrganizationTimeZone.today()
+            val revoke = BooleanArray(1)
+            transaction {
+                updateMember(
+                    row = row,
+                    actor = actor,
+                    now = now,
+                    today = today,
+                    revokeSessions = revoke,
+                    mode = Mode.PROTECTED_BY_ADMIN,
+                    state = state,
+                )
+            }
+            ProtectedApplyOutcome(
+                failure = null,
+                revokeSessions = state.revokeSessions,
+                notifyTargetAdmin = state.notifyTargetAdmin,
+                statusChanged = state.statusChanged && state.statusNotifyTarget,
+            )
+        } catch (e: PeerDeniedSignal) {
+            throw e
+        } catch (e: RowFailure) {
+            ProtectedApplyOutcome(failure = e.code)
+        } catch (e: RegionalChapterRequiredException) {
+            ProtectedApplyOutcome(failure = LupaBbRowReasonCode.CHAPTER_REQUIRED)
+        } catch (e: Exception) {
+            logger.warn { "LupaBB manual apply: the record could not be written (${e::class.simpleName})" }
+            ProtectedApplyOutcome(failure = LupaBbRowReasonCode.WRITE_FAILED)
+        }
+    }
 
     @Suppress("CyclomaticComplexMethod", "LongMethod")
     fun apply(
@@ -264,7 +338,10 @@ internal class LupaBbApplier(
         now: LocalDateTime,
         today: LocalDate,
         revokeSessions: BooleanArray,
+        mode: Mode = Mode.SYNC,
+        state: ProtectedState? = null,
     ): Outcome {
+        val protectedMode = mode == Mode.PROTECTED_BY_ADMIN
         val id = row.memberId ?: throw RowFailure(LupaBbRowReasonCode.WRITE_FAILED)
         val locked =
             MemberTable
@@ -277,7 +354,11 @@ internal class LupaBbApplier(
         val current = LupaBbMemberLoader.loadOne(id) ?: throw RowFailure(LupaBbRowReasonCode.WRITE_FAILED)
         if (current.fingerprint() != row.fingerprint) throw RowFailure(LupaBbRowReasonCode.CHANGED_SINCE_PREVIEW)
 
-        val fields = row.diffs.map { it.field }.toSet()
+        val fields = (if (protectedMode) row.protectedDiffs else row.diffs).map { it.field }.toSet()
+        val chapterToWrite = if (protectedMode) row.protectedChapterId else row.chapterId
+        if (protectedMode && (row.category == LupaBbCategory.MISSING || fields.isEmpty() || state == null)) {
+            throw RowFailure(LupaBbRowReasonCode.WRITE_FAILED)
+        }
         if (row.category == LupaBbCategory.MISSING) {
             MemberTable.update({ MemberTable.id eq id }) { it[lupabbMissingSince] = today }
             audit(
@@ -293,6 +374,53 @@ internal class LupaBbApplier(
         }
         val r = row.record ?: throw RowFailure(LupaBbRowReasonCode.WRITE_FAILED)
         if (fields.isEmpty()) return Outcome.UNCHANGED
+
+        // Manual take-over: EVERY precondition and the peer decision come BEFORE the first write (the transaction would roll back anyway, but no
+        // side effect may precede a refusal).
+        var lockedFacts: LockedPeerFacts? = null
+        var peerFacts: PeerActionAuditFacts? = null
+        if (protectedMode && state != null) {
+            if (id == actor.memberId) throw RowFailure(LupaBbRowReasonCode.OWN_RECORD)
+            val facts = PeerGuard.lockFactsAfterMemberLock(targetId = id, memberRow = locked, requesterId = actor.memberId)
+            lockedFacts = facts
+            MemberRoleStatusMutations.requireAdminForEscalatedTarget(actor = actor, existingRole = facts.targetRole)
+            val statusChange = LupaBbField.STATUS in fields
+            if (statusChange) {
+                if (!LupaBbStatusRules.syncAllows(
+                        from = current.status,
+                        to = r.status,
+                        memberPersonNumber = current.personNumber,
+                        recordPersonNumber = r.personNumber,
+                    )
+                ) {
+                    throw RowFailure(LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED)
+                }
+                if (r.status == MemberStatus.DONOR && facts.targetRole != null && facts.targetRole in ESCALATED_ROLES) {
+                    throw RowFailure(LupaBbRowReasonCode.ROLE_BLOCKS_STATUS)
+                }
+            }
+            // mailConfigured only matters for TEMP_PASSWORD; the sync never sets a password
+            if (fields.any { it != LupaBbField.STATUS }) {
+                val decision =
+                    PeerGuard.decideLocked(
+                        actor = actor,
+                        targetId = id,
+                        action = PeerAction.WRITE_PROTECTED_DATA,
+                        mailConfigured = false,
+                        facts = facts,
+                    )
+                state.notifyTargetAdmin = (decision as? PeerDecision.Allow)?.notifyTarget == true
+            }
+            if (statusChange) {
+                val action = if (r.status in MemberStatusSets.LOGIN_BLOCKED) PeerAction.SUSPEND else PeerAction.NON_BLOCKING_STATUS
+                val decision =
+                    PeerGuard.decideLocked(actor = actor, targetId = id, action = action, mailConfigured = false, facts = facts)
+                state.statusNotifyTarget = (decision as? PeerDecision.Allow)?.notifyTarget == true
+                if (facts.targetRole == AccountRole.ADMIN) {
+                    peerFacts = PeerActionAuditFacts(event = PeerAuditEvent.EXECUTED, action = action, targetRole = facts.targetRole)
+                }
+            }
+        }
         val memberColumns =
             setOf(
                 LupaBbField.PERSON_NUMBER,
@@ -315,7 +443,7 @@ internal class LupaBbApplier(
                         if (LupaBbField.CITY in fields) it[city] = r.city
                         if (LupaBbField.DATE_OF_BIRTH in fields) it[dateOfBirth] = r.dateOfBirth
                         if (LupaBbField.MISSING_FLAG in fields) it[lupabbMissingSince] = null
-                        if (LupaBbField.REGIONAL_CHAPTER in fields) it[regionalChapterId] = row.chapterId
+                        if (LupaBbField.REGIONAL_CHAPTER in fields) it[regionalChapterId] = chapterToWrite
                     }
                 }
             } catch (e: Exception) {
@@ -349,10 +477,10 @@ internal class LupaBbApplier(
         }
 
         var resultingStatus = current.status
-        val fieldAuditNeeded = fields.any { it != LupaBbField.STATUS }
+        val fieldAuditNeeded = protectedMode || fields.any { it != LupaBbField.STATUS }
         if (LupaBbField.STATUS in fields) {
-            val facts = PeerGuard.lockFactsAfterMemberLock(targetId = id, memberRow = locked, requesterId = actor.memberId)
-            if (facts.targetRole != null && facts.targetRole in ESCALATED_ROLES || id == actor.memberId) {
+            val facts = lockedFacts ?: PeerGuard.lockFactsAfterMemberLock(targetId = id, memberRow = locked, requesterId = actor.memberId)
+            if (!protectedMode && (facts.targetRole != null && facts.targetRole in ESCALATED_ROLES || id == actor.memberId)) {
                 throw RowFailure(LupaBbRowReasonCode.ADMIN_ROLE_MANUAL)
             }
             if (!LupaBbStatusRules.syncAllows(
@@ -369,17 +497,21 @@ internal class LupaBbApplier(
                     actor = actor,
                     targetId = id,
                     newStatus = r.status,
-                    trimmedReason = STATUS_REASON,
+                    trimmedReason = if (protectedMode) STATUS_REASON_MANUAL else STATUS_REASON,
                     dateOfDeath = null,
                     row = locked,
                     existingRole = facts.targetRole,
                     lockedAccountRows = facts.lockedAccountRows,
                     now = now,
                     regionalChapterEnforced = chapterEnforced,
-                    peerFacts = null,
+                    peerFacts = peerFacts,
                     historySource = MemberStatusHistorySource.LUPABB_SYNC,
                 )
             revokeSessions[0] = outcome.revokeSessions
+            if (state != null) {
+                state.revokeSessions = outcome.revokeSessions
+                state.statusChanged = true
+            }
             resultingStatus = r.status
         }
         if (fieldAuditNeeded) {
@@ -392,6 +524,7 @@ internal class LupaBbApplier(
                 now = now,
                 displayNameChanged = LupaBbField.DISPLAY_NAME in fields,
                 votingRightEvent = votingRightEvent,
+                manualApply = protectedMode,
             )
         }
         return Outcome.UPDATED
@@ -449,6 +582,7 @@ internal class LupaBbApplier(
         now: LocalDateTime,
         displayNameChanged: Boolean,
         votingRightEvent: VotingRightAuditEvent? = null,
+        manualApply: Boolean = false,
     ) {
         val before = MemberChangeSnapshot(displayNameChanged = false, emailChanged = false, status = status, role = null)
         val after =
@@ -457,6 +591,7 @@ internal class LupaBbApplier(
                 lupabbFields = fields.map { it.name }.distinct().sorted(),
                 lupabbLinked = LupaBbField.PERSON_NUMBER in fields,
                 votingRight = votingRightEvent,
+                lupabbManualApply = if (manualApply) true else null,
             )
         AuditLogRecorder.record(
             actorMemberId = actor.memberId,
@@ -474,5 +609,6 @@ internal class LupaBbApplier(
         const val MAX_FAILURES = 200
         const val MAX_TOUCHED_LENGTH = 400
         const val STATUS_REASON = "LupaBB-Abgleich"
+        const val STATUS_REASON_MANUAL = "LupaBB-Abgleich (von Hand übernommen)"
     }
 }

@@ -13,40 +13,43 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LupaBbField
 import network.lapis.cloud.shared.domain.MemberChangeSnapshot
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.LupaBbMemberAlreadyLinkedException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.uuid.Uuid
 
 /**
- * V1.9.226 -- the manual decision of an ambiguous record: the ADMIN links LupaBB person [PlanRow.personNumber] to ONE of the candidates the
- * comparison offered. Sets ONLY `member.lupabb_person_number` (under the member row lock); the data of the record is written by the NEXT sync, which
- * then finds the member by its number. Refuses a candidate that was not offered for this row, an anonymised member and a member that is linked
- * already; a person number that became taken meanwhile ends in [ConflictException] (unique violation under a savepoint).
+ * V1.9.226 -- the manual decision of an ambiguous record: the ADMIN links LupaBB person [PlanRow.personNumber] to a member (one of the offered
+ * candidates or, since the "Konflikte direkt lösen" wave, any member found by the search). Sets ONLY `member.lupabb_person_number` (under the
+ * member row lock); the data of the record is written by the NEXT sync, which then finds the member by its number. Refuses an anonymised member
+ * ([ConflictException]) and a member that is linked already ([LupaBbMemberAlreadyLinkedException]); a person number that became taken meanwhile
+ * ends in the same exception (unique violation under a savepoint).
  */
 internal object LupaBbLinker {
     /** Inside a transaction. */
     fun link(
         row: PlanRow,
-        candidate: PlanCandidate,
+        memberId: Uuid,
         actor: CurrentMember,
         now: LocalDateTime,
     ) {
         val locked =
             MemberTable
                 .selectAll()
-                .where { MemberTable.id eq candidate.memberId }
+                .where { MemberTable.id eq memberId }
                 .forMemberUpdate()
                 .singleOrNull()
                 ?: throw NotFoundException("Member not found")
         if (locked[MemberTable.anonymizedAt] != null) throw ConflictException("Member has been anonymized and can no longer be edited")
-        if (locked[MemberTable.lupabbPersonNumber] != null) throw ConflictException("The member is linked to LupaBB already")
+        if (locked[MemberTable.lupabbPersonNumber] != null) throw LupaBbMemberAlreadyLinkedException()
         try {
             withSavepoint(name = "lupabb_link") {
-                MemberTable.update({ MemberTable.id eq candidate.memberId }) { it[lupabbPersonNumber] = row.personNumber }
+                MemberTable.update({ MemberTable.id eq memberId }) { it[lupabbPersonNumber] = row.personNumber }
             }
         } catch (e: Exception) {
-            if (e.isUniqueViolation()) throw ConflictException("This LupaBB person is linked to another member already")
+            if (e.isUniqueViolation()) throw LupaBbMemberAlreadyLinkedException()
             throw e
         }
         val before =
@@ -55,7 +58,7 @@ internal object LupaBbLinker {
             actorMemberId = actor.memberId,
             actorRole = actor.role,
             entityType = AuditEntityType.MEMBER,
-            entityId = candidate.memberId,
+            entityId = memberId,
             action = AuditAction.UPDATE,
             before = Json.encodeToString(MemberChangeSnapshot.serializer(), before),
             after =

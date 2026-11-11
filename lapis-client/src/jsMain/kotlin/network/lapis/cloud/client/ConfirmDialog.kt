@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -33,6 +34,8 @@ fun confirmDialog(
     // V1.9.40 -- additive: the label of the dismissing button. A question whose safe answer is "keep going" ("Eingaben verwerfen?" ->
     // "Weiter bearbeiten") must not offer "Abbrechen", which reads as the opposite; the default keeps every existing caller unchanged.
     cancelLabel: String = tr("Abbrechen"),
+    // additive: arbitrary content (e.g. a comparison table) under the lines; every existing caller keeps its dialog unchanged.
+    body: (Container) -> Unit = {},
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = title)
@@ -41,6 +44,7 @@ fun confirmDialog(
     // warning colour, [focusCancel] puts the keyboard focus on "Abbrechen" instead of the primary action (an irreversible step).
     extraLines.forEach { line -> modal.div(line) }
     dangerNote?.let { modal.div(it) { addCssClasses("fw-bold text-danger") } }
+    body(modal)
     val cancelButton =
         newActionButton(ActionIcon.CANCEL, cancelLabel, ButtonStyle.SECONDARY).apply {
             onClick { modal.hide() }

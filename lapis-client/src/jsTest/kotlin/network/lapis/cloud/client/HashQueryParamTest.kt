@@ -71,4 +71,10 @@ class HashQueryParamTest {
     fun questionMarkAtVeryEnd_emptyQuery_returnsNull() {
         assertNull(parseHashQueryParam("#/password-reset?", "token"))
     }
+
+    @Test
+    fun memberDeepLink_isReadFromTheMembersRoute() {
+        assertEquals("0b1c-22", parseHashQueryParam("#/members?member=0b1c-22", "member"))
+        assertNull(parseHashQueryParam("#/members", "member"))
+    }
 }

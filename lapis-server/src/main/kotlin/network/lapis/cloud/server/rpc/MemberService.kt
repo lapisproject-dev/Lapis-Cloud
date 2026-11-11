@@ -835,6 +835,12 @@ class MemberService(
                 runCatching { Uuid.parse(it) }.getOrElse { throw BadRequestException("regionalChapterId is not a valid id") }
             }
 
+        // The `?member=` deep link (e.g. from the LupaBB comparison): one member, same visibility and peer projection as the list.
+        val queriedMemberId =
+            query.memberId?.let {
+                runCatching { Uuid.parse(it) }.getOrElse { throw BadRequestException("memberId is not a valid id") }
+            }
+
         // V1.9.141 -- the country filter: syntax check up front (value-free); BOARD/ADMIN only, checked right after the visibility
         // gate below (a caller without roster access still gets Forbidden first). Anyone else with roster access gets a
         // BadRequestException -- no silent ignoring, that would be an existence/value oracle.
@@ -880,6 +886,7 @@ class MemberService(
                     if (includeStatusFilter && query.statuses.isNotEmpty() && MemberStatus.ACTIVE !in query.statuses) {
                         predicate = Op.FALSE
                     }
+                    if (queriedMemberId != null) predicate = predicate and (MemberTable.id eq queriedMemberId)
                     return predicate
                 }
 
@@ -908,6 +915,7 @@ class MemberService(
                         predicate = predicate and (AccountTable.role.isNull() or (AccountTable.role neq AccountRole.ADMIN))
                     }
                 }
+                if (queriedMemberId != null) predicate = predicate and (MemberTable.id eq queriedMemberId)
                 return predicate
             }
 

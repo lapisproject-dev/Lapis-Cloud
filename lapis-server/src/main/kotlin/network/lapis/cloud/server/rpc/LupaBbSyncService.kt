@@ -21,6 +21,7 @@ import network.lapis.cloud.server.lupabb.LupaBbErrorCode
 import network.lapis.cloud.server.lupabb.LupaBbFetchException
 import network.lapis.cloud.server.lupabb.LupaBbFetcher
 import network.lapis.cloud.server.lupabb.LupaBbLinker
+import network.lapis.cloud.server.lupabb.LupaBbMemberLoader
 import network.lapis.cloud.server.lupabb.LupaBbPlan
 import network.lapis.cloud.server.lupabb.LupaBbPlanner
 import network.lapis.cloud.server.lupabb.LupaBbPreviewStore
@@ -32,7 +33,12 @@ import network.lapis.cloud.server.lupabb.PlanReason
 import network.lapis.cloud.server.lupabb.PlanRow
 import network.lapis.cloud.server.lupabb.StoredLupaBbCredentials
 import network.lapis.cloud.server.lupabb.filtered
+import network.lapis.cloud.server.lupabb.needsAction
+import network.lapis.cloud.server.mail.PeerExecutedEvent
+import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.security.peerGuarded
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -46,9 +52,11 @@ import network.lapis.cloud.shared.domain.LupaBbConfigEvent
 import network.lapis.cloud.shared.domain.LupaBbConfigSnapshot
 import network.lapis.cloud.shared.domain.LupaBbCredentialsInput
 import network.lapis.cloud.shared.domain.LupaBbLastRunDto
+import network.lapis.cloud.shared.domain.LupaBbLinkTargetDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
 import network.lapis.cloud.shared.domain.LupaBbPreviewPageDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewSummaryDto
+import network.lapis.cloud.shared.domain.LupaBbRowActionResultDto
 import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.LupaBbSyncStatusDto
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -80,6 +88,11 @@ import kotlin.uuid.Uuid
 internal class LupaBbSyncService(
     private val call: ApplicationCall,
     private val runtime: LupaBbSyncRuntime,
+    /**
+     * The receipt to an administrator whose record an administrator reconciled by hand (peer protection). Lives HERE and not in
+     * `LupaBbSyncRuntime`: the package `lupabb/` never touches the mail pipeline (`LupaBbSyncAccessTripwireTest`). `null` in tests.
+     */
+    private val peerNotifier: PeerNotifier? = null,
 ) : ILupaBbSyncService {
     override suspend fun getStatus(): LupaBbSyncStatusDto {
         resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
@@ -206,9 +219,9 @@ internal class LupaBbSyncService(
             }
                 ?: throw LupaBbPreviewExpiredException()
         if (row.category != LupaBbCategory.AMBIGUOUS) throw BadRequestException("The record is not ambiguous")
-        val candidate = row.candidates.firstOrNull { it.memberId == target } ?: throw BadRequestException("Not a candidate of this record")
+        // an offered candidate or any member found by the search: the linker re-checks "not anonymized" and "not linked yet" under the row lock
         val now = ServerClock.now()
-        transaction { LupaBbLinker.link(row = row, candidate = candidate, actor = current, now = now) }
+        transaction { LupaBbLinker.link(row = row, memberId = target, actor = current, now = now) }
         val linked =
             row.copy(
                 category = LupaBbCategory.SKIPPED,
@@ -221,7 +234,157 @@ internal class LupaBbSyncService(
         } ?: throw LupaBbPreviewExpiredException()
     }
 
+    override suspend fun applyProtectedRow(
+        token: String,
+        personNumber: Long,
+    ): LupaBbRowActionResultDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        if (LupaBbRunGuard.isRunning(ServerClock.now())) throw LupaBbSyncBusyException()
+        val row = rowOf(token = token, adminId = current.memberId, personNumber = personNumber)
+        val targetId = row.memberId
+        if (row.protectedDiffs.isEmpty() || targetId == null) throw BadRequestException("Not a protected row of this preview")
+        if (row.isOwnRecord ||
+            targetId == current.memberId
+        ) {
+            return rowActionResult(token = token, current = current, applied = false, failure = LupaBbRowReasonCode.OWN_RECORD)
+        }
+        // the blocker of the row is only a hint for the client: the applier decides again, under the row lock and the peer protection
+        val now = ServerClock.now()
+        val outcome =
+            peerGuarded(actor = current) {
+                withContext(
+                    Dispatchers.IO,
+                ) { LupaBbApplier(chapterEnforced = runtime.chapterEnforced()).applyProtected(row = row, actor = current) }
+            }
+        if (outcome.failure != null) {
+            return rowActionResult(token = token, current = current, applied = false, failure = outcome.failure)
+        }
+        if (outcome.revokeSessions) SessionStore.revokeAllForMember(memberId = targetId)
+        if (outcome.notifyTargetAdmin) peerNotifier?.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        if (outcome.statusChanged) {
+            peerNotifier?.targetExecuted(
+                targetId = targetId,
+                actorId = current.memberId,
+                event = PeerExecutedEvent.STATUS_CHANGED,
+                occurredAt = now,
+            )
+        }
+        return rowActionResult(
+            token = token,
+            current = current,
+            applied = true,
+            failure = null,
+            replacement =
+                row.copy(
+                    category = LupaBbCategory.UNCHANGED,
+                    reasons = listOf(PlanReason(code = LupaBbRowReasonCode.APPLIED_BY_ADMIN)),
+                    diffs = emptyList(),
+                    protectedDiffs = emptyList(),
+                    protectedBlocker = null,
+                    candidates = emptyList(),
+                ),
+            personNumber = personNumber,
+        )
+    }
+
+    override suspend fun searchLinkTargets(
+        token: String,
+        personNumber: Long,
+        query: String,
+    ): List<LupaBbLinkTargetDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val row = rowOf(token = token, adminId = current.memberId, personNumber = personNumber)
+        if (row.category != LupaBbCategory.AMBIGUOUS) throw BadRequestException("The record is not ambiguous")
+        val q = query.trim()
+        if (q.length > MAX_SEARCH_LENGTH || LupaBbRecordParser.hasControlCharacter(q)) throw BadRequestException("Invalid search")
+        if (q.length < MIN_SEARCH_LENGTH) return emptyList()
+        return transaction { LupaBbMemberLoader.searchForLink(lowerQuery = q.lowercase(), limit = MAX_LINK_TARGETS) }
+    }
+
+    override suspend fun skipRow(
+        token: String,
+        personNumber: Long,
+    ): LupaBbPreviewPageDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val row = rowOf(token = token, adminId = current.memberId, personNumber = personNumber)
+        if (row.category != LupaBbCategory.AMBIGUOUS) throw BadRequestException("The record is not ambiguous")
+        val now = ServerClock.now()
+        // nothing persisted about the record: the suppression list is NOT touched, the next comparison shows the record again
+        transaction {
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.LUPABB_SYNC_CONFIG,
+                entityId = LupaBbCredentialStore.CONFIG_ENTITY_ID,
+                action = AuditAction.UPDATE,
+                before = null,
+                after =
+                    Json.encodeToString(
+                        LupaBbConfigSnapshot.serializer(),
+                        LupaBbConfigSnapshot(event = LupaBbConfigEvent.PREVIEW_ROW_SKIPPED, apiKeyTransport = null),
+                    ),
+                occurredAt = now,
+            )
+        }
+        return runtime.previewStore.peek(token = token, adminId = current.memberId) { entry ->
+            runtime.previewStore.replaceRow(
+                token = token,
+                adminId = current.memberId,
+                personNumber = personNumber,
+                row =
+                    row.copy(
+                        category = LupaBbCategory.SKIPPED,
+                        reasons = listOf(PlanReason(code = LupaBbRowReasonCode.SKIPPED_BY_ADMIN)),
+                        candidates = emptyList(),
+                    ),
+            )
+            pageOf(rows = entry.rows, filter = LupaBbPreviewFilter.ACTION_NEEDED, offset = 0, limit = PAGE_AFTER_LINK)
+        } ?: throw LupaBbPreviewExpiredException()
+    }
+
     // ---- helpers ----
+
+    /** The row of [personNumber] in the preview of [adminId]; [LupaBbPreviewExpiredException] for a bad token, [BadRequestException] for a tampered number. */
+    private fun rowOf(
+        token: String,
+        adminId: kotlin.uuid.Uuid,
+        personNumber: Long,
+    ): PlanRow {
+        val found =
+            runtime.previewStore.peek(token = token, adminId = adminId) { entry ->
+                entry.rows.firstOrNull { it.personNumber == personNumber }
+            }
+        // peek returns null both for an invalid token and for a missing row: tell them apart
+        if (found != null) return found
+        if (runtime.previewStore.peek(token = token, adminId = adminId) { true } != true) throw LupaBbPreviewExpiredException()
+        throw BadRequestException("Not a record of this preview")
+    }
+
+    private fun rowActionResult(
+        token: String,
+        current: CurrentMember,
+        applied: Boolean,
+        failure: LupaBbRowReasonCode?,
+        replacement: PlanRow? = null,
+        personNumber: Long = 0L,
+    ): LupaBbRowActionResultDto {
+        val page =
+            runtime.previewStore.peek(token = token, adminId = current.memberId) { entry ->
+                if (replacement != null) {
+                    runtime.previewStore.replaceRow(
+                        token = token,
+                        adminId = current.memberId,
+                        personNumber = personNumber,
+                        row = replacement,
+                    )
+                }
+                pageOf(rows = entry.rows, filter = LupaBbPreviewFilter.ACTION_NEEDED, offset = 0, limit = PAGE_AFTER_LINK)
+            } ?: throw LupaBbPreviewExpiredException()
+        return LupaBbRowActionResultDto(applied = applied, failure = failure, page = page)
+    }
 
     /** The stored credentials, or `null` when none are stored or they cannot be opened (another key, tampering): the ADMIN enters them again. */
     private fun loadCredentials(box: SecretBox): StoredLupaBbCredentials? =
@@ -342,6 +505,7 @@ internal class LupaBbSyncService(
             statusChangeCount = statusChanges.size,
             severeStatusChangeCount = severe,
             notices = plan.notices,
+            actionNeeded = rows.count { it.needsAction() },
         )
     }
 
@@ -359,6 +523,7 @@ internal class LupaBbSyncService(
             offset = from,
             rows = selected.drop(from).take(size).map { it.toDto() },
             counts = LupaBbCategory.entries.associateWith { c -> rows.count { it.category == c } },
+            actionNeeded = rows.count { it.needsAction() },
         )
     }
 
@@ -381,5 +546,8 @@ internal class LupaBbSyncService(
         const val MAX_CREDENTIAL_LENGTH = 200
         const val MAX_PAGE_SIZE = 200
         const val PAGE_AFTER_LINK = 50
+        const val MIN_SEARCH_LENGTH = 3
+        const val MAX_SEARCH_LENGTH = 100
+        const val MAX_LINK_TARGETS = 10
     }
 }

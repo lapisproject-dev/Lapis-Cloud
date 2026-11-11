@@ -9,12 +9,14 @@ NOTE: The `[kuml]` blocks of the architecture page are rendered and validated by
 == What the sync never does
 
 * It **never deletes or deactivates** a member. A member that LupaBB no longer lists gets a hint (`member.lupabb_missing_since`), nothing else.
-* It **never creates a sign-in account** and **never sends a mail or a notice** (the status change goes through the central path *without* the peer notification).
+* It **never creates a sign-in account** and **never sends a mail or a notice** (the status change goes through the central path *without* the peer notification). The single exception is
+  the manual take-over of a held-back row (see "Resolving conflicts in the comparison"): when it changes the record of an *administrator*, that administrator gets the receipt of the peer protection.
 * It **never writes the e-mail address of an existing member.** Since V1.9.56 the address is the sign-in and password-reset identity; a foreign system must not rewrite it
   (account takeover). A difference only shows as the remark "E-Mail-Adresse in LupaBB weicht ab" in the preview. The address is used only to *find* and to *create* members.
 * It **never changes the core data of a member with a management role** (BOARD, TREASURER, ADMIN) or of the acting administrator: only the person-number link, the "missing" hint and the LupaBB
   side-table profile (title, affix, company, telephone numbers, ...) are written. Differences in name, address, date of birth, status, country and chapter are shown with the remark
   "bitte von Hand abgleichen" (a record with nothing left to write lands in the error class), so the peer protection (V1.9.57) and the ban on changing oneself cannot be bypassed.
+  Such a row can be taken over **by hand** on an explicit decision of an administrator, see "Resolving conflicts in the comparison".
 * It **never takes over** gender (data minimisation), nationality, payments or donations.
 * It **never moves a member from one regional chapter to another**; a chapter is assigned only where none is set.
 
@@ -24,9 +26,28 @@ NOTE: The `[kuml]` blocks of the architecture page are rendered and validated by
   if that worked. The values are never shown again, never logged and not part of the organisation backup.
 . "Vorschau laden" fetches the whole data set (at most once a minute) and compares it with the members. **Nothing is written.** The result is held in memory for 15 minutes under a single-use token;
   the rows come page by page (filter: needs action, new, changed, unchanged, unclear, skipped, error, no longer in LupaBB, all).
-. Ambiguous records can be linked by hand to one of at most five candidates ("Mit diesem Mitglied verknüpfen"); that sets only the person number. The data is taken over by the next sync.
+. Ambiguous records can be linked by hand ("Mit diesem Mitglied verknüpfen"), to an offered candidate or to any member found by the search; that sets only the person number. The data is taken over by the next sync.
+  The conflicts can be resolved directly in the comparison, see below.
 . "Übernehmen" writes the preview record by record, each in its own transaction. A dialog appears only when a status will change. A failing record is counted with a fixed code and does not stop the run.
 . One collective audit entry (`LUPABB_SYNC_RUN`: counters and the SHA-256 of the data) and one entry per written member (field *keys* only, no values) are written.
+
+== Resolving conflicts in the comparison
+
+Every row of the comparison offers the actions it needs, so an administrator does not have to leave the page. All of them are **ADMIN-only**, work on the preview token only and write nothing that the
+preview did not show.
+
+* **Mitglied öffnen** (a row that is matched to a member): opens the member administration, filtered to that member (`#/members?member=<id>`), in a new tab; the existing editor dialog opens once.
+* **LupaBB-Werte übernehmen** (a row that is held back for manual handling, `ADMIN_ROLE_MANUAL`): the dialog lists every value LupaBB would write (address, name, status, ...; never the role, never a
+  voting right set by hand), the status change highlighted. On confirmation the row is written in one transaction with the same row lock, fingerprint re-check, central status path and audit as the bulk
+  run; the audit entry carries the field keys and a flag `lupabbManualApply`, no value. **All or nothing:** a refused status change writes not even the address. Never offered for the **own record**
+  (another administrator reconciles it), for a status change the transition rules refuse, for a change to *donor* of a member with a management role (the role has to be lowered first), for an
+  *administrator* target that would get a login-blocking status (that needs the approval of a second administrator, peer protection) and where the regional-chapter duty is not met. A change to an
+  administrator's record sends that administrator the receipt of the peer protection (mail, when outbound mail is configured).
+* **Welche Person ist gemeint?** (an ambiguous row): a search by name or e-mail (at least three characters, at most ten hits, anonymised members excluded) and the link to the chosen member. A member that is
+  linked to another LupaBB person already is shown but cannot be chosen. The e-mail address of LupaBB is never written, also not when it belongs to another member.
+* **Überspringen** (an ambiguous row): marks the row as skipped in this preview only. Nothing is persisted, the erasure suppression list is untouched, the next comparison shows the row again.
+
+The tab "Handlungsbedarf" counts ambiguous rows, errors and the rows held back for manual handling; the number is counted by the server.
 
 == Matching
 
@@ -72,11 +93,13 @@ A member created from a "Neumitglied" record starts without voting right. See li
 *Förderer (decided 2026-11-10).* A Förderer donates regularly and is not a party member, so it maps to `DONOR`, like Spender and Nur Zahler and like the CSV import. Earlier syncs created
 `FRIEND` records for it. The sync moves a `FRIEND` record that LupaBB reports as Förderer, Spender or Nur Zahler to `DONOR`: it shows as a status difference FRIEND -> DONOR in the preview and is only
 written on "Übernehmen". This is an exception for the sync only (`LupaBbStatusRules.SYNC_ONLY_TRANSITIONS`); the member administration still offers no transition for `FRIEND`
-(`MemberStatusTransitions.allowedTargets(FRIEND)` is empty). Members with a management role stay "by hand". Every other status change of a `FRIEND` record remains an error
-(`STATUS_TRANSITION_NOT_ALLOWED`). `friend_since` is kept as a historical fact.
+(`MemberStatusTransitions.allowedTargets(FRIEND)` is empty). Members with a management role stay "by hand". Since the "resolve conflicts" wave the sync also takes over the **end** of a friendship: a `FRIEND`
+record that LupaBB reports as withdrawn (Widerrufen, Gekündigt, Ausgeschlossen) becomes `WITHDRAWN`, one reported as deceased becomes `DECEASED` (without a date of death). Like `FRIEND` -> `DONOR` this needs the
+LupaBB person number on the member; a `FRIEND` found only by e-mail and name or by the import reference stays an error. The **beginning** of a membership is never taken over: `FRIEND` -> `ACTIVE`, `APPLICATION`,
+`GUEST` and `REJECTED` remain errors (`STATUS_TRANSITION_NOT_ALLOWED`). `friend_since` is kept as a historical fact.
 
 An unknown label is skipped as well. Lapis Cloud has no `EXCLUDED` status, so "Ausgeschlossen" becomes `WITHDRAWN`. For an existing member the change must be allowed by the transition table
-of the member administration (`MemberStatusTransitions`: `ACTIVE`, `WITHDRAWN`, `DONOR`, `DECEASED` among each other), plus the sync-only exception `FRIEND` -> `DONOR` (V1.9.299); anything else is an error of that record. Leaving `DECEASED` is allowed for the acting
+of the member administration (`MemberStatusTransitions`: `ACTIVE`, `WITHDRAWN`, `DONOR`, `DECEASED` among each other), plus the sync-only exceptions `FRIEND` -> `DONOR`, `WITHDRAWN` and `DECEASED`; anything else is an error of that record. Leaving `DECEASED` is allowed for the acting
 administrator and counted in the confirmation dialog. `DECEASED` is taken over *without* a date of death.
 
 == Field authority

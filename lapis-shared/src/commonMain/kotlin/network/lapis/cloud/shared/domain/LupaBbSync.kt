@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class LupaBbCategory { NEW, CHANGED, UNCHANGED, AMBIGUOUS, SKIPPED, ERROR, MISSING }
 
-/** The filter of a preview page. [ACTION_NEEDED] = [LupaBbCategory.AMBIGUOUS] + [LupaBbCategory.ERROR]. */
+/** The filter of a preview page. [ACTION_NEEDED] = ambiguous + error rows + rows held back for manual handling (`ADMIN_ROLE_MANUAL`). */
 @Serializable
 enum class LupaBbPreviewFilter { ACTION_NEEDED, NEW, CHANGED, UNCHANGED, AMBIGUOUS, SKIPPED, ERROR, MISSING, ALL }
 
@@ -79,6 +79,21 @@ enum class LupaBbRowReasonCode {
     REAPPEARED,
     LEAVES_DECEASED,
     VOTING_RIGHT_MANUAL,
+
+    /** Own record: the action is locked, another administrator reconciles it. */
+    OWN_RECORD,
+
+    /** Skipped in this preview by an administrator. */
+    SKIPPED_BY_ADMIN,
+
+    /** The row was written by hand ("take over the LupaBB values"). */
+    APPLIED_BY_ADMIN,
+
+    /** An ADMIN target would get a login-blocking status: a second administrator has to approve it. */
+    PEER_APPROVAL_REQUIRED,
+
+    /** A change to donor for BOARD/TREASURER/ADMIN: the role has to be lowered in the member administration first. */
+    ROLE_BLOCKS_STATUS,
 }
 
 /** A remark about the whole preview. */
@@ -134,6 +149,8 @@ data class LupaBbPreviewSummaryDto(
     /** Status changes that end a membership or record a death. */
     val severeStatusChangeCount: Int,
     val notices: List<LupaBbNoticeCode> = emptyList(),
+    /** Rows that need an administrator's decision (counted by the server, see `PlanRow.needsAction`). */
+    val actionNeeded: Int? = null,
 )
 
 @Serializable
@@ -165,6 +182,13 @@ data class LupaBbPreviewRowDto(
     val diffs: List<LupaBbFieldDiffDto> = emptyList(),
     val reasons: List<LupaBbReasonDto> = emptyList(),
     val candidates: List<LupaBbCandidateDto> = emptyList(),
+    /** The member of this row, when the record is matched to one (for "open member"). */
+    val memberId: String? = null,
+    /** What "take over the LupaBB values" would write (safe + held-back fields), only for ADMIN_ROLE_MANUAL rows. Never the role, never a MANUAL voting right. */
+    val protectedDiffs: List<LupaBbFieldDiffDto> = emptyList(),
+    val isOwnRecord: Boolean = false,
+    /** Why the protected apply is not offered although [protectedDiffs] is not empty. */
+    val protectedBlocker: LupaBbRowReasonCode? = null,
 )
 
 @Serializable
@@ -174,6 +198,8 @@ data class LupaBbPreviewPageDto(
     val rows: List<LupaBbPreviewRowDto>,
     /** The counters of the WHOLE comparison at the time of the call (they change after a manual link). */
     val counts: Map<LupaBbCategory, Int> = emptyMap(),
+    /** Rows that need an administrator's decision (see [LupaBbPreviewFilter.ACTION_NEEDED]). */
+    val actionNeeded: Int? = null,
 )
 
 /** A record the apply step could not write: the person number and a fixed code, never a message. */
@@ -194,4 +220,23 @@ data class LupaBbApplyResultDto(
     val errors: Int,
     val missing: Int,
     val failures: List<LupaBbApplyFailureDto> = emptyList(),
+)
+
+/** A member an ambiguous LupaBB record can be linked to by hand. */
+@Serializable
+data class LupaBbLinkTargetDto(
+    val memberId: String,
+    val name: String,
+    val email: String,
+    val status: MemberStatus,
+    /** Linked to ANOTHER LupaBB person already: shown disabled, never linkable. */
+    val linkedElsewhere: Boolean,
+)
+
+/** The result of a single-row action; [failure] is a fixed code, [page] the refreshed action-needed page. */
+@Serializable
+data class LupaBbRowActionResultDto(
+    val applied: Boolean,
+    val failure: LupaBbRowReasonCode? = null,
+    val page: LupaBbPreviewPageDto,
 )

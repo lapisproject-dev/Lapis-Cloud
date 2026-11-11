@@ -273,7 +273,7 @@ class LupaBbPlannerTest :
                             wireMember(personNumber = numbers[0], statusId = 3, family = family),
                             wireMember(personNumber = numbers[1], statusId = 4, family = family),
                             wireMember(personNumber = numbers[2], statusId = 9, family = family),
-                            wireMember(personNumber = numbers[3], statusId = 6, family = family),
+                            wireMember(personNumber = numbers[3], statusId = 12, family = family),
                         ),
                     actor = admin,
                 )
@@ -445,5 +445,93 @@ class LupaBbPlannerTest :
                 actor = admin,
             )
             transaction { LupaBbMemberLoader.loadOne(id)!!.fingerprint() } shouldBe before
+        }
+
+        test("a FRIEND linked by person number whose record says withdrawn or deceased is a status change, not an error") {
+            val family = unique()
+            val admin = fx.admin()
+            fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_500)
+            fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_501)
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            wireMember(personNumber = 9_000_000_500, family = family, statusId = 6),
+                            wireMember(personNumber = 9_000_000_501, family = family, statusId = 5),
+                        ),
+                    actor = admin,
+                )
+            plan.row(9_000_000_500).category shouldBe LupaBbCategory.CHANGED
+            plan.row(9_000_000_500).statusTo shouldBe MemberStatus.WITHDRAWN
+            plan.row(9_000_000_501).category shouldBe LupaBbCategory.CHANGED
+            plan.row(9_000_000_501).statusTo shouldBe MemberStatus.DECEASED
+        }
+
+        test("a FRIEND found by e-mail and name or by import reference stays an error for withdrawn or deceased") {
+            val family = unique()
+            val admin = fx.admin()
+            fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", email = "${TEST_EMAIL_PREFIX}fr-a@example.org")
+            fx.member(status = MemberStatus.FRIEND, displayName = "Anders", externalReference = "9000000503")
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            wireMember(
+                                personNumber = 9_000_000_502,
+                                family = family,
+                                statusId = 6,
+                                email = "${TEST_EMAIL_PREFIX}fr-a@example.org",
+                            ),
+                            wireMember(personNumber = 9_000_000_503, family = unique(), statusId = 5),
+                        ),
+                    actor = admin,
+                )
+            for (n in listOf(9_000_000_502L, 9_000_000_503L)) {
+                plan.row(n).category shouldBe LupaBbCategory.ERROR
+                plan.reasons(n) shouldContain LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED
+            }
+        }
+
+        test("a held-back row carries everything a manual take-over would write, never the role, and appears in the action-needed filter") {
+            val family = unique()
+            val admin = fx.admin()
+            val board =
+                fx.member(role = AccountRole.BOARD, displayName = "Erika $family", personNumber = 9_000_000_504, street = "Alt")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_504, family = family, statusId = 6)), actor = admin)
+            val row = plan.row(9_000_000_504)
+            row.category shouldBe LupaBbCategory.CHANGED
+            row.memberId shouldBe board
+            row.isOwnRecord shouldBe false
+            row.protectedBlocker shouldBe null
+            row.protectedDiffs.map { it.field } shouldContain LupaBbField.STREET
+            row.protectedDiffs.map { it.field } shouldContain LupaBbField.STATUS
+            row.diffs.map { it.field } shouldNotContain LupaBbField.STREET
+            row.toDto().protectedDiffs.size shouldBe row.protectedDiffs.size
+            row.toDto().memberId shouldBe board.toString()
+            plan.rows
+                .filtered(network.lapis.cloud.shared.domain.LupaBbPreviewFilter.ACTION_NEEDED)
+                .map { it.personNumber } shouldContain 9_000_000_504L
+            row.needsAction() shouldBe true
+        }
+
+        test("the blocker of a held-back row: own record, ADMIN target with a login-blocking status, donor with a management role") {
+            val family = unique()
+            val self = fx.member(role = AccountRole.ADMIN, displayName = "Erika $family", personNumber = 9_000_000_505, street = "Alt")
+            fx.member(role = AccountRole.ADMIN, displayName = "Erika $family", personNumber = 9_000_000_506, street = "Alt")
+            fx.member(role = AccountRole.TREASURER, displayName = "Erika $family", personNumber = 9_000_000_507, street = "Alt")
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            wireMember(personNumber = 9_000_000_505, family = family),
+                            wireMember(personNumber = 9_000_000_506, family = family, statusId = 6),
+                            wireMember(personNumber = 9_000_000_507, family = family, statusId = 4),
+                        ),
+                    actor = self,
+                )
+            plan.row(9_000_000_505).isOwnRecord shouldBe true
+            plan.row(9_000_000_505).protectedBlocker shouldBe LupaBbRowReasonCode.OWN_RECORD
+            plan.row(9_000_000_506).protectedBlocker shouldBe LupaBbRowReasonCode.PEER_APPROVAL_REQUIRED
+            plan.row(9_000_000_507).protectedBlocker shouldBe LupaBbRowReasonCode.ROLE_BLOCKS_STATUS
         }
     })

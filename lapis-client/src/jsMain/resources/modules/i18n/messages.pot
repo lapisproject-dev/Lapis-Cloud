@@ -27536,7 +27536,7 @@ msgid "Abgleich"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:50
-msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert."
+msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert. Einzige Ausnahme: Wird der Datensatz eines Administrators von Hand abgeglichen, erhält dieser eine Benachrichtigung."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:57
@@ -27637,6 +27637,72 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:352
 msgid "Das Mitglied wurde verknüpft."
+msgstr ""
+
+msgid "Mitglied öffnen"
+msgstr ""
+
+msgid "LupaBB-Werte übernehmen"
+msgstr ""
+
+msgid "LupaBB-Werte übernehmen?"
+msgstr ""
+
+msgid "Die Werte aus LupaBB überschreiben die Werte dieses Mitglieds mit Verwaltungsrolle. Die Rolle bleibt unverändert."
+msgstr ""
+
+msgid "Status: %1 → %2"
+msgstr ""
+
+msgid "Die LupaBB-Werte wurden übernommen."
+msgstr ""
+
+msgid "Das Mitglied wurde seit der Vorschau geändert. Bitte laden Sie die Vorschau neu."
+msgstr ""
+
+msgid "Die E-Mail-Adresse aus LupaBB wird nicht übernommen, sie gehört bereits einem anderen Mitglied."
+msgstr ""
+
+msgid "Welche Person ist gemeint?"
+msgstr ""
+
+msgid "Name oder E-Mail suchen"
+msgstr ""
+
+msgid "Kein Mitglied gefunden."
+msgstr ""
+
+msgid "bereits mit einer anderen LupaBB-Person verknüpft"
+msgstr ""
+
+msgid "Datensatz überspringen?"
+msgstr ""
+
+msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
+msgstr ""
+
+msgid "Ihren eigenen Datensatz gleicht ein anderer Administrator ab."
+msgstr ""
+
+msgid "In diesem Abgleich übersprungen."
+msgstr ""
+
+msgid "Von Hand übernommen."
+msgstr ""
+
+msgid "Für ein Administratorkonto ist dafür die Zustimmung eines zweiten Administrators nötig. Bitte in der Mitgliederverwaltung beantragen."
+msgstr ""
+
+msgid "Ein Spender kann keine Leitungsrolle haben. Bitte zuerst die Rolle in der Mitgliederverwaltung ändern."
+msgstr ""
+
+msgid "Dieses Mitglied ist bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr ""
+
+msgid "Gefiltert auf ein Mitglied."
+msgstr ""
+
+msgid "Alle Mitglieder anzeigen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncScreen.kt:20

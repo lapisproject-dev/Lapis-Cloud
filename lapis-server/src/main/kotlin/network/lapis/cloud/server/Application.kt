@@ -217,6 +217,7 @@ import network.lapis.cloud.server.member.EmailChangePoller
 import network.lapis.cloud.server.member.EmailChangeService
 import network.lapis.cloud.server.member.KeycloakProvisioningNotifier
 import network.lapis.cloud.server.member.MemberStatusHistoryConsistency
+import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.member.PrivilegedActionPoller
 import network.lapis.cloud.server.member.PrivilegedActionService
 import network.lapis.cloud.server.memberfinder.MemberFinderPoller
@@ -3086,7 +3087,11 @@ internal fun Application.module(
         // V1.9.226 LupaBB member master-data sync (ADMIN, manual). Registered before the Protokoll draft, the Protokoll finalisation and the
         // partner servers (Kilua numbers routes by declaration order). New methods of the interface go to its end, never in between.
         registerService(ILupaBbSyncService::class) { call ->
-            LupaBbSyncService(call = call, runtime = lupaBbSyncRuntime)
+            LupaBbSyncService(
+                call = call,
+                runtime = lupaBbSyncRuntime,
+                peerNotifier = PeerNotifier(mailer = peerNotificationMailer, smtpConfigState = smtpConfigState),
+            )
         }
         // V1.9.239 Protokoll draft of a Sitzung (Welle D1). Registered before the Protokoll finalisation and the partner servers (Kilua numbers
         // routes by declaration order). New methods of the interface go to its end, never in between.

@@ -66,7 +66,10 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
  * .listPendingApplications`/`createMemberDirect` both `requireRole(BOARD, ADMIN)`) and here on the
  * client, so a TREASURER caller is never offered a section the server would reject anyway.
  */
-fun renderMemberAdministrationScreen(container: SimplePanel) {
+fun renderMemberAdministrationScreen(
+    container: SimplePanel,
+    requestedMemberId: String? = null,
+) {
     val root = container.dataScreenRoot()
     val header = root.pageHeader(tr("Mitgliederverwaltung"), intro = PageIntros.forRoute(Routes.MEMBERS))
     // V1.9.48 (R36B): the host sits directly under the header and exists synchronously; the button is hung in once the sections are built.
@@ -87,7 +90,7 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
     // `loadRegionalChapterOptionsOrEmpty` KDoc.
     AppScope.launch {
         val chapters = loadRegionalChapterOptionsOrEmpty()
-        renderMemberAdministrationSections(root, chapters, callerRole, isBoardOrAdmin, header, createHost)
+        renderMemberAdministrationSections(root, chapters, callerRole, isBoardOrAdmin, header, createHost, requestedMemberId)
     }
 }
 
@@ -98,6 +101,7 @@ private fun renderMemberAdministrationSections(
     isBoardOrAdmin: Boolean,
     header: PageHeader,
     createHost: SimplePanel?,
+    requestedMemberId: String? = null,
 ) {
     // Welle V1.9.57 "Admin-Peer-Schutz" -- the card "Ausstehende Freigaben" sits on top, ADMIN only, and exists only while something is
     // in it. A request made from a roster dialog reloads it (`afterChange`); an approval that changed a role/status reloads the roster.
@@ -109,7 +113,14 @@ private fun renderMemberAdministrationSections(
     if (isBoardOrAdmin) renderPendingApplications(root, chapters)
     // Welle V1.9.121: the reconciliation of the legacy country / nationality texts (self-gated: BOARD/ADMIN).
     if (isBoardOrAdmin) renderCountryLegacyMappingCard(root)
-    val reloadRoster = renderMemberRoster(root, chapters, isBoardOrAdmin = isBoardOrAdmin, afterChange = { reloadCard() })
+    val reloadRoster =
+        renderMemberRoster(
+            root,
+            chapters,
+            isBoardOrAdmin = isBoardOrAdmin,
+            afterChange = { reloadCard() },
+            requestedMemberId = requestedMemberId,
+        )
     reloadRosterOfCard = reloadRoster
     // Built exactly once: the sections are assembled once, after the chapter options loaded (or fell back to an empty list).
     if (createHost != null) {
@@ -471,6 +482,8 @@ internal data class RosterState(
     val chapterFilter: ChapterFilter = ChapterFilter.All,
     /** V1.9.141 -- country filter (BOARD/ADMIN only); `null` = all countries. */
     val countryCode: String? = null,
+    /** The `?member=` deep link: the roster shows exactly this member (and opens the editor once). */
+    val memberId: String? = null,
 )
 
 private val STATUS_CHIPS: List<MemberStatus?> =
@@ -522,6 +535,7 @@ internal fun rosterQuery(state: RosterState): MemberAdminQuery {
         regionalChapterId = chapterId,
         unassignedOnly = unassignedOnly,
         countryCode = state.countryCode?.takeIf { it.isNotBlank() },
+        memberId = state.memberId,
     )
 }
 
@@ -539,10 +553,20 @@ private fun renderMemberRoster(
     chapters: List<RegionalChapterRefDto>,
     isBoardOrAdmin: Boolean = false,
     afterChange: () -> Unit = {},
+    requestedMemberId: String? = null,
 ): () -> Unit {
     root.h2(tr("Mitgliederverzeichnis")) { addCssClass("h5") }
+    if (requestedMemberId != null) {
+        root.div {
+            addCssClasses("alert alert-info d-flex flex-wrap gap-2 align-items-center mb-2")
+            setAttribute("role", "status")
+            span(tr("Gefiltert auf ein Mitglied."))
+            link(tr("Alle Mitglieder anzeigen"), url = "#${Routes.MEMBERS}")
+        }
+    }
+    var openRequestedOnce = requestedMemberId == null
 
-    var state = RosterState()
+    var state = RosterState(memberId = requestedMemberId)
     // Set by a sort click, consumed by the render of THAT click's load: hands the keyboard focus back to
     // the header button of the clicked column (the re-render destroys the one the user just pressed).
     // Expires when that load fails, is superseded or renders no table (see [SortFocusRequest]).
@@ -637,6 +661,11 @@ private fun renderMemberRoster(
                         button.text = if (status == null) gettext("Alle (%1)", count) else "${memberStatusLabel(status)} ($count)"
                     }
                     renderPager(page)
+                    // the deep link: the existing editor dialog is the detail view, opened once
+                    if (!openRequestedOnce && page.rows.size == 1 && !page.rows.single().anonymized) {
+                        openRequestedOnce = true
+                        openMemberEditorDialog(page.rows.single(), { refresh() }, chapters, onRequested = afterChange)
+                    }
                 }
             },
             load = { guarded { rpcService<IMemberService>().listMembersForAdministration(rosterQuery(state)) } },

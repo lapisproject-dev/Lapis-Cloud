@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 
-/** V1.9.299 -- tripwire: the sync-only exception FRIEND -> DONOR is the only one, and the manual transition table stays closed for FRIEND. */
+/** V1.9.299 -- tripwire: the sync-only exceptions are FRIEND -> DONOR / WITHDRAWN / DECEASED and nothing else, and the manual transition table stays closed for FRIEND. */
 class LupaBbStatusRulesTest :
     FunSpec({
         test("the sync may move a legacy FRIEND to DONOR") {
@@ -30,9 +30,31 @@ class LupaBbStatusRulesTest :
             LupaBbStatusRules.syncAllows(from = MemberStatus.FRIEND, to = MemberStatus.DONOR) shouldBe false
         }
 
-        test("a FRIEND may go nowhere else through the sync") {
-            for (to in MemberStatus.entries.filter { it != MemberStatus.DONOR }) {
+        test("the end of a friendship is taken over: FRIEND to WITHDRAWN and DECEASED need the matching person number") {
+            for (to in listOf(MemberStatus.WITHDRAWN, MemberStatus.DECEASED)) {
+                LupaBbStatusRules.syncAllows(from = MemberStatus.FRIEND, to = to, memberPersonNumber = 5L, recordPersonNumber = 5L) shouldBe
+                    true
+                for (member in listOf(null, 6L)) {
+                    LupaBbStatusRules.syncAllows(
+                        from = MemberStatus.FRIEND,
+                        to = to,
+                        memberPersonNumber = member,
+                        recordPersonNumber = 5L,
+                    ) shouldBe
+                        false
+                }
                 LupaBbStatusRules.syncAllows(from = MemberStatus.FRIEND, to = to) shouldBe false
+            }
+        }
+
+        test(
+            "the beginning of a membership is never taken over: FRIEND to ACTIVE, APPLICATION, GUEST, REJECTED stay refused, even with the number",
+        ) {
+            val allowed = setOf(MemberStatus.DONOR, MemberStatus.WITHDRAWN, MemberStatus.DECEASED)
+            for (to in MemberStatus.entries.filter { it !in allowed }) {
+                LupaBbStatusRules.syncAllows(from = MemberStatus.FRIEND, to = to) shouldBe false
+                LupaBbStatusRules.syncAllows(from = MemberStatus.FRIEND, to = to, memberPersonNumber = 5L, recordPersonNumber = 5L) shouldBe
+                    false
             }
         }
 
@@ -40,14 +62,19 @@ class LupaBbStatusRulesTest :
             MemberStatusTransitions.allowedTargets(MemberStatus.FRIEND).shouldBeEmpty()
         }
 
-        test("the exception is exactly FRIEND to DONOR") {
-            LupaBbStatusRules.SYNC_ONLY_TRANSITIONS shouldBe setOf(MemberStatus.FRIEND to MemberStatus.DONOR)
+        test("the exceptions are exactly FRIEND to DONOR, WITHDRAWN and DECEASED") {
+            LupaBbStatusRules.SYNC_ONLY_TRANSITIONS shouldBe
+                setOf(
+                    MemberStatus.FRIEND to MemberStatus.DONOR,
+                    MemberStatus.FRIEND to MemberStatus.WITHDRAWN,
+                    MemberStatus.FRIEND to MemberStatus.DECEASED,
+                )
         }
 
         test("for every other pair the sync follows the transition table exactly") {
             for (from in MemberStatus.entries) {
                 for (to in MemberStatus.entries) {
-                    if (from == MemberStatus.FRIEND && to == MemberStatus.DONOR) continue
+                    if ((from to to) in LupaBbStatusRules.SYNC_ONLY_TRANSITIONS) continue
                     LupaBbStatusRules.syncAllows(from = from, to = to) shouldBe (to in MemberStatusTransitions.allowedTargets(from))
                 }
             }

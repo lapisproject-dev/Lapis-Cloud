@@ -3,9 +3,11 @@ package network.lapis.cloud.client
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import network.lapis.cloud.shared.domain.LupaBbApplyResultDto
+import network.lapis.cloud.shared.domain.LupaBbLinkTargetDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
 import network.lapis.cloud.shared.domain.LupaBbPreviewPageDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewSummaryDto
+import network.lapis.cloud.shared.domain.LupaBbRowActionResultDto
 import network.lapis.cloud.shared.domain.LupaBbSyncStatusDto
 import network.lapis.cloud.shared.rpc.ILupaBbSyncService
 
@@ -15,7 +17,7 @@ import network.lapis.cloud.shared.rpc.ILupaBbSyncService
  * "Mit LupaBB abgleichen" on the member administration; there is no sidebar entry of its own.
  *
  * The screen owns the RPC reads (the credentials block is a `dataSection`: one loading text, one error with "Erneut versuchen"); the preview
- * block gets its four calls through [LupaSyncApi].
+ * block gets its calls through [LupaSyncApi].
  */
 fun renderLupaSyncScreen(container: SimplePanel) {
     val root = container.pageShell(PageWidth.WIDE, spacing = 14)
@@ -65,4 +67,20 @@ private object LiveLupaSyncApi : LupaSyncApi {
         personNumber: Long,
         memberId: String,
     ): LupaBbPreviewPageDto = rpcService<ILupaBbSyncService>().linkMemberToLupaBb(token, personNumber, memberId)
+
+    override suspend fun applyProtected(
+        token: String,
+        personNumber: Long,
+    ): LupaBbRowActionResultDto = rpcService<ILupaBbSyncService>().applyProtectedRow(token, personNumber)
+
+    override suspend fun searchTargets(
+        token: String,
+        personNumber: Long,
+        query: String,
+    ): List<LupaBbLinkTargetDto> = rpcService<ILupaBbSyncService>().searchLinkTargets(token, personNumber, query)
+
+    override suspend fun skip(
+        token: String,
+        personNumber: Long,
+    ): LupaBbPreviewPageDto = rpcService<ILupaBbSyncService>().skipRow(token, personNumber)
 }

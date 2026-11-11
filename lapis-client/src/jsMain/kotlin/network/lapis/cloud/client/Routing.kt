@@ -894,7 +894,8 @@ fun initRouting(pageContainer: SimplePanel) {
         // sections (pending applications, direct member creation) from a TREASURER caller -- see
         // that function's class KDoc.
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
-            show(Routes.MEMBERS, ::renderMemberAdministrationScreen)
+            // `?member=<id>` (e.g. "Mitglied öffnen" in the LupaBB comparison): read HERE and handed over (pattern OPEN_ITEMS)
+            show(Routes.MEMBERS) { container -> renderMemberAdministrationScreen(container, hashQueryParam("member")) }
         }
     }
     routing.kvOn(Routes.REGIONAL_CHAPTERS) {

@@ -1162,6 +1162,11 @@ data class MemberChangeSnapshot(
      * decode unchanged.
      */
     val votingRight: VotingRightAuditEvent? = null,
+    /**
+     * An administrator took over the LupaBB values of a protected row by hand ("LupaBB-Werte uebernehmen"). A flag only: no values, no person
+     * number. Default `null`: older rows decode unchanged.
+     */
+    val lupabbManualApply: Boolean? = null,
 )
 
 /** Welle V1.9.298 -- the voting-right change an audit entry records. Fixed keys, no values. */
@@ -1599,7 +1604,7 @@ data class LupaBbSyncRunSnapshot(
 
 /** Welle V1.9.226 -- what happened to the stored LupaBB credentials. */
 @Serializable
-enum class LupaBbConfigEvent { SET, REPLACED, REMOVED }
+enum class LupaBbConfigEvent { SET, REPLACED, REMOVED, PREVIEW_ROW_SKIPPED }
 
 /** Welle V1.9.226 -- snapshot of an [AuditEntityType.LUPABB_SYNC_CONFIG] entry. NEVER a user name, password or key. */
 @Serializable

@@ -165,6 +165,8 @@ data class MemberAdminQuery(
      * [regionalChapterId], [unassignedOnly], [search] and [statuses].
      */
     val countryCode: String? = null,
+    /** Filter to exactly this member (UUID text), used by the `?member=` deep link, e.g. from the LupaBB comparison. */
+    val memberId: String? = null,
 ) {
     companion object {
         const val DEFAULT_LIMIT = 25

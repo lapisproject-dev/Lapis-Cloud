@@ -48,6 +48,12 @@ internal data class PlanRow(
     val fingerprint: String? = null,
     /** The regional chapter to assign (only where the member has none). */
     val chapterId: Uuid? = null,
+    /** For a row held back for manual handling (`ADMIN_ROLE_MANUAL`): everything "take over the LupaBB values" would write. Never the role. */
+    val protectedDiffs: List<FieldDiff> = emptyList(),
+    /** The chapter that belongs to [protectedDiffs] (the unfiltered one). */
+    val protectedChapterId: Uuid? = null,
+    val isOwnRecord: Boolean = false,
+    val protectedBlocker: LupaBbRowReasonCode? = null,
 ) {
     val statusTo: MemberStatus?
         get() =
@@ -66,6 +72,10 @@ internal data class PlanRow(
             diffs = diffs.map { LupaBbFieldDiffDto(field = it.field, before = it.before, after = it.after) },
             reasons = reasons.map { LupaBbReasonDto(code = it.code, param = it.param) },
             candidates = candidates.map { LupaBbCandidateDto(memberId = it.memberId.toString(), name = it.name, email = it.email) },
+            memberId = memberId?.toString(),
+            protectedDiffs = protectedDiffs.map { LupaBbFieldDiffDto(field = it.field, before = it.before, after = it.after) },
+            isOwnRecord = isOwnRecord,
+            protectedBlocker = protectedBlocker,
         )
 }
 
@@ -78,11 +88,17 @@ internal class LupaBbPlan(
     fun counts(): Map<LupaBbCategory, Int> = LupaBbCategory.entries.associateWith { c -> rows.count { it.category == c } }
 }
 
+/** A row needs an administrator's decision: ambiguous, an error, or held back for manual handling. */
+internal fun PlanRow.needsAction(): Boolean =
+    category == LupaBbCategory.AMBIGUOUS ||
+        category == LupaBbCategory.ERROR ||
+        reasons.any { it.code == LupaBbRowReasonCode.ADMIN_ROLE_MANUAL }
+
 internal fun List<PlanRow>.filtered(filter: LupaBbPreviewFilter): List<PlanRow> =
     when (filter) {
         LupaBbPreviewFilter.ALL -> this
         LupaBbPreviewFilter.ACTION_NEEDED ->
-            filter { it.category == LupaBbCategory.AMBIGUOUS || it.category == LupaBbCategory.ERROR }
+            filter { it.needsAction() }
         LupaBbPreviewFilter.NEW -> filter { it.category == LupaBbCategory.NEW }
         LupaBbPreviewFilter.CHANGED -> filter { it.category == LupaBbCategory.CHANGED }
         LupaBbPreviewFilter.UNCHANGED -> filter { it.category == LupaBbCategory.UNCHANGED }

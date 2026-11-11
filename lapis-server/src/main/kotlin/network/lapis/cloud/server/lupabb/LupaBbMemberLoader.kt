@@ -1,17 +1,25 @@
 package network.lapis.cloud.server.lupabb
 
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.server.db.containsLikePattern
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberLupaBbProfileTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.LupaBbLinkTargetDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.VotingRightSource
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.lowerCase
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.security.MessageDigest
 import kotlin.uuid.Uuid
 
@@ -94,6 +102,34 @@ internal data class LapisMember(
 
 /** Reads the [LapisMember]s. Plain reads, no locking; callers that need consistency hold the member row lock themselves. */
 internal object LupaBbMemberLoader {
+    /**
+     * The members a LupaBB record can be linked to by hand: not anonymised, [lowerQuery] (already trimmed and lower-cased) in the name or the
+     * e-mail address (LIKE wildcards escaped), at most [limit], by name. Reads name, e-mail, status and the link flag only, no address column.
+     * Inside a transaction.
+     */
+    fun searchForLink(
+        lowerQuery: String,
+        limit: Int,
+    ): List<LupaBbLinkTargetDto> {
+        val pattern = containsLikePattern(lowerQuery)
+        return MemberTable
+            .selectAll()
+            .where {
+                MemberTable.anonymizedAt.isNull() and
+                    ((MemberTable.displayName.lowerCase() like pattern) or (MemberTable.email.lowerCase() like pattern))
+            }.orderBy(MemberTable.displayName to SortOrder.ASC)
+            .limit(limit)
+            .map {
+                LupaBbLinkTargetDto(
+                    memberId = it[MemberTable.id].toString(),
+                    name = it[MemberTable.displayName],
+                    email = it[MemberTable.email],
+                    status = it[MemberTable.status],
+                    linkedElsewhere = it[MemberTable.lupabbPersonNumber] != null,
+                )
+            }
+    }
+
     private fun query() =
         MemberTable
             .join(AccountTable, JoinType.LEFT, MemberTable.id, AccountTable.memberId)

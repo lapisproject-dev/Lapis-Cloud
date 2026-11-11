@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.lupabb
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
@@ -14,6 +15,7 @@ import network.lapis.cloud.server.db.generated.MailOutboxTable
 import network.lapis.cloud.server.db.generated.MemberLupaBbProfileTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.security.PeerDeniedSignal
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
@@ -421,5 +423,191 @@ class LupaBbApplierTest :
                         secret
                 }
             }
+        }
+
+        // ---- "LupaBB-Werte uebernehmen": the manual take-over of a held-back row ----
+
+        fun takeOver(
+            plan: LupaBbPlan,
+            personNumber: Long,
+            admin: Uuid,
+            enforced: Boolean = false,
+        ) = LupaBbApplier(chapterEnforced = enforced).applyProtected(row = plan.row(personNumber), actor = fx.current(id = admin))
+
+        fun snapshotOf(id: Uuid): List<Any?> {
+            val row = fx.memberRow(id)
+            return listOf(row[MemberTable.street], row[MemberTable.city], row[MemberTable.postalCode], row[MemberTable.status])
+        }
+
+        test("a manual take-over writes address and status of a BOARD member, never the role, and audits keys only") {
+            val admin = fx.admin()
+            val family = unique()
+            val board =
+                fx.member(
+                    role = AccountRole.BOARD,
+                    displayName = "Erika $family",
+                    personNumber = 9_000_000_400,
+                    street = "Alte Strasse",
+                )
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_400, family = family, statusId = 6)), actor = admin)
+            val row = plan.row(9_000_000_400)
+            row.protectedDiffs.map { it.field } shouldContain LupaBbField.STREET
+            row.protectedDiffs.map { it.field } shouldContain LupaBbField.STATUS
+            row.protectedBlocker shouldBe null
+            val outcome = takeOver(plan, 9_000_000_400, admin)
+            outcome.failure shouldBe null
+            outcome.revokeSessions shouldBe true
+            fx.memberRow(board)[MemberTable.street] shouldBe "Musterweg 1"
+            fx.memberRow(board)[MemberTable.status] shouldBe MemberStatus.WITHDRAWN
+            transaction { AccountTable.selectAll().where { AccountTable.memberId eq board }.single() }[AccountTable.role] shouldBe
+                AccountRole.BOARD
+            val history = transaction { MemberStatusHistoryTable.selectAll().where { MemberStatusHistoryTable.memberId eq board }.toList() }
+            history.first { it[MemberStatusHistoryTable.sourceKind] == "LUPABB_SYNC" }[MemberStatusHistoryTable.status] shouldBe "WITHDRAWN"
+            val texts = auditOf(board).map { it[AuditLogEntryTable.afterSnapshot].orEmpty() }
+            texts.any { it.contains("lupabbManualApply") } shouldBe true
+            for (text in texts) {
+                for (secret in listOf(family, "Musterweg", "Alte Strasse", "9000000400", "Braunschweig")) text shouldNotContain secret
+            }
+        }
+
+        test("a manual take-over refuses when the member changed after the preview") {
+            val admin = fx.admin()
+            val family = unique()
+            val board = fx.member(role = AccountRole.BOARD, displayName = "Erika $family", personNumber = 9_000_000_401, street = "Alt")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_401, family = family)), actor = admin)
+            transaction { MemberTable.update({ MemberTable.id eq board }) { it[street] = "Handbearbeitet" } }
+            takeOver(plan, 9_000_000_401, admin).failure shouldBe LupaBbRowReasonCode.CHANGED_SINCE_PREVIEW
+            fx.memberRow(board)[MemberTable.street] shouldBe "Handbearbeitet"
+        }
+
+        test("the own record is never taken over, not even with a forged plan") {
+            val family = unique()
+            val self = fx.member(role = AccountRole.ADMIN, displayName = "Erika $family", personNumber = 9_000_000_402, street = "Alt")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_402, family = family)), actor = self)
+            plan.row(9_000_000_402).isOwnRecord shouldBe true
+            plan.row(9_000_000_402).protectedBlocker shouldBe LupaBbRowReasonCode.OWN_RECORD
+            takeOver(plan, 9_000_000_402, self).failure shouldBe LupaBbRowReasonCode.OWN_RECORD
+            fx.memberRow(self)[MemberTable.street] shouldBe "Alt"
+        }
+
+        test("a status that is not allowed writes NOTHING of the row, not even the address") {
+            val admin = fx.admin()
+            val family = unique()
+            val id =
+                fx.member(
+                    role = AccountRole.BOARD,
+                    status = MemberStatus.FRIEND,
+                    displayName = "Erika $family",
+                    personNumber = 9_000_000_403,
+                    street = "Alt",
+                )
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_403, family = family, statusId = 1)), actor = admin)
+            plan.row(9_000_000_403).protectedBlocker shouldBe LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED
+            val before = snapshotOf(id)
+            takeOver(plan, 9_000_000_403, admin).failure shouldBe LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED
+            snapshotOf(id) shouldBe before
+        }
+
+        test("an ADMIN target never gets a login-blocking status without a second administrator: nothing is written") {
+            val admin = fx.admin()
+            val family = unique()
+            val target = fx.member(role = AccountRole.ADMIN, displayName = "Erika $family", personNumber = 9_000_000_404, street = "Alt")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_404, family = family, statusId = 6)), actor = admin)
+            plan.row(9_000_000_404).protectedBlocker shouldBe LupaBbRowReasonCode.PEER_APPROVAL_REQUIRED
+            val before = snapshotOf(target)
+            shouldThrow<PeerDeniedSignal> { takeOver(plan, 9_000_000_404, admin) }
+            snapshotOf(target) shouldBe before
+        }
+
+        test("an ADMIN target gets address changes directly and is told (notifyTargetAdmin)") {
+            val admin = fx.admin()
+            val family = unique()
+            val target = fx.member(role = AccountRole.ADMIN, displayName = "Erika $family", personNumber = 9_000_000_405, street = "Alt")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_405, family = family)), actor = admin)
+            val outcome = takeOver(plan, 9_000_000_405, admin)
+            outcome.failure shouldBe null
+            outcome.notifyTargetAdmin shouldBe true
+            fx.memberRow(target)[MemberTable.street] shouldBe "Musterweg 1"
+        }
+
+        test("a donor cannot hold a management role: ROLE_BLOCKS_STATUS, nothing is written") {
+            val admin = fx.admin()
+            val family = unique()
+            val id = fx.member(role = AccountRole.TREASURER, displayName = "Erika $family", personNumber = 9_000_000_406, street = "Alt")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_406, family = family, statusId = 4)), actor = admin)
+            plan.row(9_000_000_406).protectedBlocker shouldBe LupaBbRowReasonCode.ROLE_BLOCKS_STATUS
+            val before = snapshotOf(id)
+            takeOver(plan, 9_000_000_406, admin).failure shouldBe LupaBbRowReasonCode.ROLE_BLOCKS_STATUS
+            snapshotOf(id) shouldBe before
+        }
+
+        test("activating without a regional chapter is CHAPTER_REQUIRED when the chapter duty is on") {
+            val admin = fx.admin()
+            val family = unique()
+            fx.chapter("Kapitel${unique()}")
+            val id =
+                fx.member(
+                    role = AccountRole.BOARD,
+                    status = MemberStatus.WITHDRAWN,
+                    displayName = "Erika $family",
+                    personNumber = 9_000_000_407,
+                    street = "Alt",
+                )
+            val plan =
+                planOf(
+                    dataset = datasetOf(wireMember(personNumber = 9_000_000_407, family = family, statusId = 1)),
+                    actor = admin,
+                    enforced = true,
+                )
+            plan.row(9_000_000_407).protectedBlocker shouldBe LupaBbRowReasonCode.CHAPTER_REQUIRED
+            val before = snapshotOf(id)
+            takeOver(plan, 9_000_000_407, admin, enforced = true).failure shouldBe LupaBbRowReasonCode.CHAPTER_REQUIRED
+            snapshotOf(id) shouldBe before
+        }
+
+        test("an anonymised member is not taken over") {
+            val admin = fx.admin()
+            val family = unique()
+            val id = fx.member(role = AccountRole.BOARD, displayName = "Erika $family", personNumber = 9_000_000_408, street = "Alt")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_408, family = family)), actor = admin)
+            transaction {
+                MemberTable.update({ MemberTable.id eq id }) {
+                    it[anonymizedAt] =
+                        network.lapis.cloud.server.time.ServerClock
+                            .now()
+                }
+            }
+            takeOver(plan, 9_000_000_408, admin).failure shouldBe LupaBbRowReasonCode.ANONYMIZED
+        }
+
+        test("the bulk run still holds a management member back (ADMIN_ROLE_MANUAL) and does not write the address") {
+            val admin = fx.admin()
+            val family = unique()
+            val id = fx.member(role = AccountRole.BOARD, displayName = "Erika $family", personNumber = 9_000_000_409, street = "Alt")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_409, family = family)), actor = admin)
+            applyTo(plan, admin).errors shouldBe 0
+            fx.memberRow(id)[MemberTable.street] shouldBe "Alt"
+        }
+
+        test("the sync takes over the end of a friendship: FRIEND to WITHDRAWN and FRIEND to DECEASED, with the person number only") {
+            val admin = fx.admin()
+            val family = unique()
+            val gone = fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_410)
+            val dead = fx.member(status = MemberStatus.FRIEND, displayName = "Erika $family", personNumber = 9_000_000_411)
+            val result =
+                applyTo(
+                    planOf(
+                        dataset =
+                            datasetOf(
+                                wireMember(personNumber = 9_000_000_410, family = family, statusId = 6),
+                                wireMember(personNumber = 9_000_000_411, family = family, statusId = 5),
+                            ),
+                        actor = admin,
+                    ),
+                    admin,
+                )
+            result.updated shouldBe 2
+            fx.memberRow(gone)[MemberTable.status] shouldBe MemberStatus.WITHDRAWN
+            fx.memberRow(dead)[MemberTable.status] shouldBe MemberStatus.DECEASED
         }
     })

@@ -1,9 +1,14 @@
 package network.lapis.cloud.client
 
+import io.kvision.html.ButtonStyle
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.LupaBbCategory
+import network.lapis.cloud.shared.domain.LupaBbField
+import network.lapis.cloud.shared.domain.LupaBbFieldDiffDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
+import network.lapis.cloud.shared.domain.LupaBbPreviewRowDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewSummaryDto
+import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.LupaBbSyncStatusDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -79,5 +84,76 @@ class LupaSyncLogicTest {
     @Test
     fun theApplyLabel_namesTheNumbersItActsOn() {
         assertEquals("3 neue und 4 geänderte Datensätze übernehmen", LupaSyncLogic.applyLabel(summary(newCount = 3, changedCount = 4)))
+    }
+
+    @Test
+    fun actionNeeded_prefersTheServerValue_becauseHeldBackRowsAreNotACategory() {
+        val counts = mapOf(LupaBbCategory.AMBIGUOUS to 1, LupaBbCategory.CHANGED to 4)
+        assertEquals(1, LupaSyncLogic.actionNeeded(counts))
+        assertEquals(3, LupaSyncLogic.actionNeeded(counts, serverValue = 3))
+        assertEquals(
+            LupaBbPreviewFilter.ACTION_NEEDED,
+            LupaSyncLogic.defaultFilter(mapOf(LupaBbCategory.CHANGED to 4), serverActionNeeded = 2),
+        )
+        val options = LupaSyncLogic.filterOptions(counts, serverActionNeeded = 3)
+        assertEquals("Handlungsbedarf (3)", options.first { it.first == LupaBbPreviewFilter.ACTION_NEEDED }.second)
+    }
+
+    private fun protectedRow(
+        blocker: LupaBbRowReasonCode? = null,
+        own: Boolean = false,
+        memberId: String? = "m-1",
+        fields: List<LupaBbField> = listOf(LupaBbField.STREET),
+    ) = LupaBbPreviewRowDto(
+        personNumber = 1,
+        name = "n",
+        email = null,
+        category = LupaBbCategory.CHANGED,
+        memberId = memberId,
+        protectedDiffs = fields.map { LupaBbFieldDiffDto(it, "a", "b") },
+        isOwnRecord = own,
+        protectedBlocker = blocker,
+    )
+
+    @Test
+    fun theTakeOver_isOfferedOnlyForAHeldBackRowWithoutOwnRecordOrBlocker() {
+        assertTrue(LupaSyncLogic.canApplyProtected(protectedRow()))
+        assertFalse(LupaSyncLogic.canApplyProtected(protectedRow(own = true)))
+        assertFalse(LupaSyncLogic.canApplyProtected(protectedRow(memberId = null)))
+        assertFalse(LupaSyncLogic.canApplyProtected(protectedRow(fields = emptyList())))
+        for (blocker in listOf(
+            LupaBbRowReasonCode.OWN_RECORD,
+            LupaBbRowReasonCode.STATUS_TRANSITION_NOT_ALLOWED,
+            LupaBbRowReasonCode.PEER_APPROVAL_REQUIRED,
+            LupaBbRowReasonCode.ROLE_BLOCKS_STATUS,
+            LupaBbRowReasonCode.CHAPTER_REQUIRED,
+        )) {
+            assertFalse(LupaSyncLogic.canApplyProtected(protectedRow(blocker = blocker)), blocker.name)
+        }
+    }
+
+    @Test
+    fun theConfirmButton_isAWarningWhenTheStatusChanges() {
+        assertEquals(ButtonStyle.PRIMARY, LupaSyncLogic.protectedConfirmStyle(protectedRow()))
+        assertEquals(
+            ButtonStyle.WARNING,
+            LupaSyncLogic.protectedConfirmStyle(protectedRow(fields = listOf(LupaBbField.STREET, LupaBbField.STATUS))),
+        )
+    }
+
+    @Test
+    fun theSearch_needsThreeCharactersAfterTrimming_andStopsAtTheServerLimit() {
+        assertFalse(LupaSyncLogic.isSearchQueryUsable(""))
+        assertFalse(LupaSyncLogic.isSearchQueryUsable("ab"))
+        assertFalse(LupaSyncLogic.isSearchQueryUsable("  ab  "))
+        assertTrue(LupaSyncLogic.isSearchQueryUsable("abc"))
+        assertTrue(LupaSyncLogic.isSearchQueryUsable(" abc "))
+        assertTrue(LupaSyncLogic.isSearchQueryUsable("x".repeat(100)))
+        assertFalse(LupaSyncLogic.isSearchQueryUsable("x".repeat(101)))
+    }
+
+    @Test
+    fun theDeepLink_isTheMemberAdministrationWithTheMemberQuery() {
+        assertEquals("/members?member=abc-1", LupaSyncLogic.memberAdministrationRoute("abc-1"))
     }
 }

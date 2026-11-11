@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import kotlinx.browser.document
+import network.lapis.cloud.shared.domain.MemberStatus
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import kotlin.js.Promise
@@ -91,17 +92,163 @@ class LupaSyncScreenDomTest {
                     val chips = page.allOf(".btn-group button").map { it.textContent?.trim() }
                     assertTrue("Handlungsbedarf (1)" in chips && "Neu (1)" in chips && "Alle (6)" in chips)
                     // the ambiguous record offers the link as an icon with tooltip and accessible name, no visible text
-                    val link = page.allOf(rowSelector)[0].allOf("button").single()
                     // several candidates often share a name: name and e-mail address tell the buttons apart
                     val linkName = "Mit diesem Mitglied verknüpfen: Erika Mustermann (em@example.org)"
-                    assertEquals(linkName, link.getAttribute("aria-label"))
+                    val link = page.allOf(rowSelector)[0].iconButtonNamed(linkName)
                     assertEquals(linkName, link.getAttribute("title"))
                     assertTrue(link.textContent?.trim().isNullOrEmpty(), "icon only")
+                    // the ambiguous record can also be skipped (icon only) and searched for ("Welche Person ist gemeint?")
+                    page.allOf(rowSelector)[0].iconButtonNamed("Überspringen")
+                    assertTrue(page.allOf(rowSelector)[0].shows("Welche Person ist gemeint?"))
                     // the changed record has an expandable field comparison
-                    assertTrue(page.allOf("details").single().shows("1 Felder im Vergleich"))
+                    assertTrue(
+                        page
+                            .allOf(rowSelector)[1]
+                            .allOf("details")
+                            .single()
+                            .shows("1 Felder im Vergleich"),
+                    )
                     assertTrue(page.shows("Alt") && page.shows("Braunschweig"))
                     page.buttonNamed("1 neue und 1 geänderte Datensätze übernehmen")
                 }
+            }
+        }
+
+    private suspend fun openPreview(
+        routes: LupaSyncDomSupport.Routes,
+        rows: List<network.lapis.cloud.shared.domain.LupaBbPreviewRowDto>,
+        targets: List<network.lapis.cloud.shared.domain.LupaBbLinkTargetDto> = emptyList(),
+        block: suspend (List<RecordedRequest>, () -> HTMLElement) -> Unit,
+    ) = withFetchStub(
+        respond = { request ->
+            LupaSyncDomSupport.answer(routes, request, LupaSyncDomSupport.withCredentials, pageRows = rows, targets = targets)
+        },
+    ) { requests ->
+        mountedForm("lupa-sync-rows") { root, element ->
+            renderLupaSyncScreen(root)
+            awaitUntil("the stored state") { element().shows("Zugangsdaten sind hinterlegt.") }
+            element().buttonNamed("Vorschau laden").asDynamic().click()
+            awaitUntil("the preview rows") { element().allOf(rowSelector).size == rows.size }
+            block(requests, element)
+        }
+    }
+
+    @Test
+    fun aRowWithAMember_linksToTheMemberAdministration_inANewTab_withoutOpener(): Promise<Unit> =
+        formTest {
+            AppState.setSession(LupaSyncDomSupport.session())
+            val routes = LupaSyncDomSupport.routes()
+            openPreview(routes, LupaSyncDomSupport.protectedRows + LupaSyncDomSupport.rows) { _, element ->
+                val rows = element().allOf(rowSelector)
+                val anchor = rows[0].allOf("a").single { it.shows("Mitglied öffnen") }
+                assertEquals("#/members?member=member-4801", anchor.getAttribute("href"))
+                assertEquals("_blank", anchor.getAttribute("target"))
+                assertTrue(anchor.getAttribute("rel").orEmpty().contains("noopener"))
+                // the ambiguous record is matched to no member: no link
+                assertEquals(0, rows[3].allOf("a").filter { it.shows("Mitglied öffnen") }.size)
+            }
+        }
+
+    @Test
+    fun theTakeOverButton_appearsOnlyWhenItIsAllowed_theOwnRecordAndABlockedRowGetAnExplanation(): Promise<Unit> =
+        formTest {
+            AppState.setSession(LupaSyncDomSupport.session())
+            val routes = LupaSyncDomSupport.routes()
+            openPreview(routes, LupaSyncDomSupport.protectedRows) { _, element ->
+                val rows = element().allOf(rowSelector)
+                rows[0].iconButtonNamed("LupaBB-Werte übernehmen")
+                assertEquals(0, rows[1].allOf("button").filter { it.getAttribute("aria-label") == "LupaBB-Werte übernehmen" }.size)
+                assertTrue(rows[1].shows("Ihren eigenen Datensatz gleicht ein anderer Administrator ab."))
+                assertEquals(0, rows[2].allOf("button").filter { it.getAttribute("aria-label") == "LupaBB-Werte übernehmen" }.size)
+                assertTrue(rows[2].shows("Zustimmung eines zweiten Administrators"))
+            }
+        }
+
+    @Test
+    fun theTakeOverDialog_showsStatusAndTable_andConfirmingCallsTheServer(): Promise<Unit> =
+        formTest {
+            AppState.setSession(LupaSyncDomSupport.session())
+            val routes = LupaSyncDomSupport.routes()
+            openPreview(routes, LupaSyncDomSupport.protectedRows) { requests, element ->
+                element()
+                    .allOf(rowSelector)[0]
+                    .iconButtonNamed("LupaBB-Werte übernehmen")
+                    .asDynamic()
+                    .click()
+                awaitUntil("the dialog") { lastOpenModal().shows("LupaBB-Werte übernehmen?") }
+                val modal = lastOpenModal()
+                assertTrue(modal.shows("Status: Aktiv → Ausgetreten") || modal.shows("Status:"), "the status line")
+                assertTrue(modal.shows("Neu 1") && modal.shows("Braunschweig"), "the comparison table")
+                modal.buttonNamed("3 Werte übernehmen").asDynamic().click()
+                awaitUntil("the server call") { requests.any { it.isRpc && it.rpcRoute == routes.applyProtected } }
+                val call = requests.first { it.isRpc && it.rpcRoute == routes.applyProtected }
+                assertEquals("4801", call.json.params[1] as String)
+            }
+        }
+
+    @Test
+    fun theSearch_startsAtThreeCharacters_marksLinkedMembers_andOffersTheOthers(): Promise<Unit> =
+        formTest {
+            AppState.setSession(LupaSyncDomSupport.session())
+            val routes = LupaSyncDomSupport.routes()
+            val targets =
+                listOf(
+                    network.lapis.cloud.shared.domain.LupaBbLinkTargetDto(
+                        "m-9",
+                        "Erika Frei",
+                        "frei@example.org",
+                        MemberStatus.ACTIVE,
+                        false,
+                    ),
+                    network.lapis.cloud.shared.domain.LupaBbLinkTargetDto(
+                        "m-8",
+                        "Erika Belegt",
+                        "belegt@example.org",
+                        MemberStatus.ACTIVE,
+                        true,
+                    ),
+                )
+            openPreview(routes, LupaSyncDomSupport.rows, targets) { requests, element ->
+                val box = element().allOf("input[type=search]").single() as HTMLInputElement
+                assertEquals("Name oder E-Mail suchen", box.getAttribute("aria-label"))
+                box.value = "Er"
+                box.dispatchEvent(
+                    org.w3c.dom.events
+                        .Event("input"),
+                )
+                kotlinx.coroutines.delay(600)
+                assertEquals(0, requests.count { it.isRpc && it.rpcRoute == routes.search }, "two characters: no call")
+                box.value = "Erika"
+                box.dispatchEvent(
+                    org.w3c.dom.events
+                        .Event("input"),
+                )
+                awaitUntil("the search call") { requests.any { it.isRpc && it.rpcRoute == routes.search } }
+                assertEquals("Erika", requests.first { it.isRpc && it.rpcRoute == routes.search }.rpcParam(2) as String)
+                awaitUntil("the hits") { element().shows("Erika Frei") && element().shows("Erika Belegt") }
+                val page = element()
+                assertTrue(page.shows("bereits mit einer anderen LupaBB-Person verknüpft"))
+                page.iconButtonNamed("Mit diesem Mitglied verknüpfen: Erika Frei (frei@example.org)")
+                assertTrue(page.iconButtonNamed("Verknüpfen").asDynamic().disabled as Boolean, "a linked member is not linkable")
+            }
+        }
+
+    @Test
+    fun skipping_asksFirst_thenCallsTheServer(): Promise<Unit> =
+        formTest {
+            AppState.setSession(LupaSyncDomSupport.session())
+            val routes = LupaSyncDomSupport.routes()
+            openPreview(routes, LupaSyncDomSupport.rows) { requests, element ->
+                element()
+                    .allOf(rowSelector)[0]
+                    .iconButtonNamed("Überspringen")
+                    .asDynamic()
+                    .click()
+                awaitUntil("the dialog") { lastOpenModal().shows("Datensatz überspringen?") }
+                assertTrue(lastOpenModal().shows("Beim nächsten Abgleich erscheint er wieder."))
+                assertEquals(0, requests.count { it.isRpc && it.rpcRoute == routes.skip })
+                lastOpenModal().buttonNamed("Überspringen").asDynamic().click()
+                awaitUntil("the server call") { requests.any { it.isRpc && it.rpcRoute == routes.skip } }
             }
         }
 }

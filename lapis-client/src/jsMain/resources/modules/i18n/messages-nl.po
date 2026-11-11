@@ -28259,8 +28259,8 @@ msgstr "De gebruikersnaam, het wachtwoord en de API-sleutel krijgt u van het beh
 msgid "Abgleich"
 msgstr "Synchronisatie"
 
-msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert."
-msgstr "De synchronisatie leest alleen uit LupaBB. Ze verwijdert en deactiveert niemand, maakt geen inlogaccounts aan en verstuurt geen e-mails. Het e-mailadres van bestaande leden blijft ongewijzigd."
+msgid "Der Abgleich liest nur aus LupaBB. Er löscht und deaktiviert niemanden, legt keine Anmeldekonten an und versendet keine E-Mails. Die E-Mail-Adresse bestehender Mitglieder bleibt unverändert. Einzige Ausnahme: Wird der Datensatz eines Administrators von Hand abgeglichen, erhält dieser eine Benachrichtigung."
+msgstr "De synchronisatie leest alleen uit LupaBB. Ze verwijdert en deactiveert niemand, maakt geen inlogaccounts aan en verstuurt geen e-mails. Het e-mailadres van bestaande leden blijft ongewijzigd. Enige uitzondering: wordt het record van een beheerder handmatig afgestemd, dan ontvangt die beheerder een melding."
 
 msgid "Letzter Lauf am %1: %2 angelegt, %3 aktualisiert, %4 Fehler."
 msgstr "Laatste run op %1: %2 aangemaakt, %3 bijgewerkt, %4 fouten."
@@ -28336,6 +28336,72 @@ msgstr "Het persoonsnummer uit LupaBB wordt aan dit lid toegewezen. De gegevens 
 
 msgid "Das Mitglied wurde verknüpft."
 msgstr "Het lid is gekoppeld."
+
+msgid "Mitglied öffnen"
+msgstr "Lid openen"
+
+msgid "LupaBB-Werte übernehmen"
+msgstr "LupaBB-waarden overnemen"
+
+msgid "LupaBB-Werte übernehmen?"
+msgstr "LupaBB-waarden overnemen?"
+
+msgid "Die Werte aus LupaBB überschreiben die Werte dieses Mitglieds mit Verwaltungsrolle. Die Rolle bleibt unverändert."
+msgstr "De waarden uit LupaBB overschrijven de waarden van dit lid met een beheerrol. De rol blijft ongewijzigd."
+
+msgid "Status: %1 → %2"
+msgstr "Status: %1 → %2"
+
+msgid "Die LupaBB-Werte wurden übernommen."
+msgstr "De LupaBB-waarden zijn overgenomen."
+
+msgid "Das Mitglied wurde seit der Vorschau geändert. Bitte laden Sie die Vorschau neu."
+msgstr "Het lid is sinds de voorvertoning gewijzigd. Laad de voorvertoning opnieuw."
+
+msgid "Die E-Mail-Adresse aus LupaBB wird nicht übernommen, sie gehört bereits einem anderen Mitglied."
+msgstr "Het e-mailadres uit LupaBB wordt niet overgenomen, het is al van een ander lid."
+
+msgid "Welche Person ist gemeint?"
+msgstr "Welke persoon wordt bedoeld?"
+
+msgid "Name oder E-Mail suchen"
+msgstr "Zoeken op naam of e-mail"
+
+msgid "Kein Mitglied gefunden."
+msgstr "Geen lid gevonden."
+
+msgid "bereits mit einer anderen LupaBB-Person verknüpft"
+msgstr "al gekoppeld aan een andere LupaBB-persoon"
+
+msgid "Datensatz überspringen?"
+msgstr "Dit record overslaan?"
+
+msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
+msgstr "Dit record wordt bij deze synchronisatie niet overgenomen. Bij de volgende synchronisatie verschijnt het opnieuw."
+
+msgid "Ihren eigenen Datensatz gleicht ein anderer Administrator ab."
+msgstr "Uw eigen record wordt door een andere beheerder afgestemd."
+
+msgid "In diesem Abgleich übersprungen."
+msgstr "Overgeslagen bij deze synchronisatie."
+
+msgid "Von Hand übernommen."
+msgstr "Handmatig overgenomen."
+
+msgid "Für ein Administratorkonto ist dafür die Zustimmung eines zweiten Administrators nötig. Bitte in der Mitgliederverwaltung beantragen."
+msgstr "Voor een beheerdersaccount is de goedkeuring van een tweede beheerder nodig. Vraag deze aan in het ledenbeheer."
+
+msgid "Ein Spender kann keine Leitungsrolle haben. Bitte zuerst die Rolle in der Mitgliederverwaltung ändern."
+msgstr "Een donateur kan geen bestuursrol hebben. Wijzig eerst de rol in het ledenbeheer."
+
+msgid "Dieses Mitglied ist bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "Dit lid is al gekoppeld aan een andere LupaBB-persoon."
+
+msgid "Gefiltert auf ein Mitglied."
+msgstr "Gefilterd op één lid."
+
+msgid "Alle Mitglieder anzeigen"
+msgstr "Alle leden tonen"
 
 msgid "LupaBB-Abgleich"
 msgstr "LupaBB-synchronisatie"

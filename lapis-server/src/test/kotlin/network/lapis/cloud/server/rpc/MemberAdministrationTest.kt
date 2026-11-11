@@ -839,6 +839,25 @@ class MemberAdministrationTest :
             }
         }
 
+        test("listMembersForAdministration: memberId narrows the list to exactly that member, an invalid id is BadRequest") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val wanted = createTestMember("deeplink-a-${Uuid.random()}@example.org", displayName = "Deeplinktag Eins")
+                createTestMember("deeplink-b-${Uuid.random()}@example.org", displayName = "Deeplinktag Zwei")
+                val both = client.get("/test/roster?search=deeplinktag") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+                both.split("|")[1].toInt() shouldBe 2
+                val one = client.get("/test/roster?search=deeplinktag&memberId=$wanted") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+                one.split("|")[1].toInt() shouldBe 1
+                one.split("|")[0].contains(wanted.toString()) shouldBe true
+                client.get("/test/roster?memberId=not-a-uuid") { header("X-Member-Id", ADMIN_ID) }.status shouldBe HttpStatusCode.BadRequest
+                // the same visibility rules: a plain member is still forbidden
+                client.get("/test/roster?memberId=$wanted") { header("X-Member-Id", MEMBER_ID) }.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
         test("listMembersForAdministration: regionalChapterId and unassignedOnly together is BadRequest") {
             testApplication {
                 application {
@@ -3258,6 +3277,7 @@ private fun Route.registerMemberAdminTestRoutes(
                     unassignedOnly = q["unassignedOnly"]?.toBoolean() ?: false,
                     // V1.9.141
                     countryCode = q["countryCode"],
+                    memberId = q["memberId"],
                 ),
             )
         val withCountry = q["withCountry"]?.toBoolean() ?: false
