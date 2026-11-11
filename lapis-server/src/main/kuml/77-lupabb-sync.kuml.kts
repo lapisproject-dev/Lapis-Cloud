@@ -6,7 +6,7 @@
 // the personal-data contributor) and docs/features/lupabb-sync.adoc.
 //
 // DECISIONS THAT SHAPE THE TABLES -- do not "repair" any of them:
-//   * member_lupabb_profile is a side table (PK = member_id): given/family name, title, affix, company, person type, telephone numbers, address
+//   * member_lupabb_profile is a side table (PK = member_id): given/family name, affix (the title lives in member.title since V151), company, person type, telephone numbers, address
 //     supplement and post box have no column in `member`. member.display_name is DERIVED from them by the sync.
 //     last_touched_fields is a comma separated list of fixed field keys (never values).
 //   * lupabb_sync_config is a ONE ROW table (id = 1, chk_lupabb_sync_config_singleton). credentials_ciphertext is the SecretBox seal of the user,
@@ -51,10 +51,6 @@ classDiagram(name = "LupaBbSync") {
         attribute(name = "familyName", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "family_name"; "sqlType" to "VARCHAR(100)" }
-        }
-        attribute(name = "title", type = "String") {
-            multiplicity = Multiplicity(0, 1)
-            stereotype("Column") { "columnName" to "title"; "sqlType" to "VARCHAR(50)" }
         }
         attribute(name = "nameAffix", type = "String") {
             multiplicity = Multiplicity(0, 1)

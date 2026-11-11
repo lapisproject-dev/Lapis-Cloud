@@ -15,6 +15,7 @@ import org.jetbrains.exposed.v1.datetime.datetime
 public object MemberTable : Table("member") {
     public val id: Column<Uuid> = uuid("id")
     public val displayName: Column<String> = varchar("display_name", 200)
+    public val title: Column<String?> = varchar("title", 50).nullable()
     public val email: Column<String> = varchar("email", 320).uniqueIndex()
     public val status: Column<MemberStatus> = enumerationByName<MemberStatus>("status", 11)
     public val joinedAt: Column<LocalDate> = date("joined_at")

@@ -47,6 +47,7 @@ object FoundationPersonalData : MemberPersonalDataContributor {
             put("joinedAt", memberRow[MemberTable.joinedAt].toString())
             put("anonymizedAt", memberRow[MemberTable.anonymizedAt]?.toString())
             // V0.4.1 postal address -- PII, exported alongside displayName/email.
+            put("title", memberRow[MemberTable.title])
             put("street", memberRow[MemberTable.street])
             put("postalCode", memberRow[MemberTable.postalCode])
             put("city", memberRow[MemberTable.city])
@@ -108,6 +109,7 @@ object FoundationPersonalData : MemberPersonalDataContributor {
                 it[email] = placeholderEmail
                 it[anonymizedAt] = nowUtc()
                 // V0.4.1 postal address -- PII, nulled out alongside displayName/email on anonymization.
+                it[title] = null
                 it[street] = null
                 it[postalCode] = null
                 it[city] = null

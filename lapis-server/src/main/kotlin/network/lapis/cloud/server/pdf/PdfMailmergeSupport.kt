@@ -6,6 +6,7 @@ import kotlinx.datetime.number
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.MemberDto
+import network.lapis.cloud.shared.domain.MemberNames
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import java.math.BigDecimal
 import java.text.NumberFormat
@@ -26,7 +27,7 @@ internal fun formatEuro(amount: BigDecimal): String = NumberFormat.getCurrencyIn
  */
 internal fun MemberDto.addressLines(): List<String> =
     buildList {
-        add(displayName)
+        add(MemberNames.withTitle(title = title, displayName = displayName))
         street?.let { add(it) }
         val cityLine = listOfNotNull(postalCode, city).joinToString(" ")
         if (cityLine.isNotBlank()) add(cityLine)

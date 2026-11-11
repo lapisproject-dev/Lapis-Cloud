@@ -32078,3 +32078,21 @@ msgstr "Een donateur kan geen beheerdersrol hebben. Zet de rol eerst op lid."
 
 msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
 msgstr "Donateurs mogen inloggen, maar kunnen niet stemmen en krijgen geen beheerdersrol. Het account wordt aangemaakt met de rol lid."
+
+msgid "Der Titel darf höchstens 50 Zeichen lang sein."
+msgstr "De titel mag maximaal 50 tekens lang zijn."
+
+msgid "Der Titel enthält unzulässige Zeichen."
+msgstr "De titel bevat ongeldige tekens."
+
+msgid "z. B. Dr. oder Dipl.-Ing., erscheint in Briefen vor dem Namen"
+msgstr "bijv. Dr. of Dipl.-Ing., staat in brieven voor de naam"
+
+msgid "Titel speichern"
+msgstr "Titel opslaan"
+
+msgid "Der Titel wurde nicht gespeichert. Bitte prüfen Sie die Eingabe; die Ansicht wurde neu geladen."
+msgstr "De titel is niet opgeslagen. Controleer de invoer; de weergave is opnieuw geladen."
+
+msgid "Titel geändert"
+msgstr "Titel gewijzigd"

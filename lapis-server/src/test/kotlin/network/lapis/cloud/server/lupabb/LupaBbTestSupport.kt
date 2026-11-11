@@ -84,6 +84,7 @@ internal class LupaBbFixtures(
         chapterId: Uuid? = null,
         street: String? = null,
         externalReference: String? = null,
+        title: String? = null,
     ): Uuid {
         val id = Uuid.random()
         transaction {
@@ -98,6 +99,7 @@ internal class LupaBbFixtures(
                 it[regionalChapterId] = chapterId
                 it[MemberTable.street] = street
                 it[MemberTable.externalReference] = externalReference
+                it[MemberTable.title] = title
                 if (anonymized) it[anonymizedAt] = ServerClock.now()
             }
             if (role != null) {
@@ -287,11 +289,12 @@ internal fun wireMember(
     birthDate: String? = null,
     company: String? = null,
     personType: String? = "nat",
+    title: String? = null,
 ) = WireMember(
     personNumber = personNumber,
     statusId = statusId,
     company = company,
-    title = null,
+    title = title,
     givenName = given,
     familyName = family,
     nameAffix = null,

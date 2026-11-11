@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Title field on the member (wave V1.9.299, schema V150 to V151)
+
+**Behaviour changes first:** (1) **new migration `V151`**: `member.title VARCHAR(50)` (nullable) is added, the LupaBB title is copied into it once (trimmed; blank and `NULL` stay `NULL`; a value already set is never overwritten) and `member_lupabb_profile.title` is **dropped**. (2) **Rollback hazard:** release 0.51.0 can no longer run against a migrated database; roll back only by restoring the pre-rollout backup. (3) A whole-organisation backup bundle made before V151 is refused as a whole on restore (schema checksum), as for V150. (4) The title is now printed **before the name** in the address block of letters (Beitragsrechnung, Spendenbescheinigung, Mahnung, Einladung) and in the recipient name of postal dispatch; salutations ("Liebe(r) ...") and mails keep the plain display name. (5) The LupaBB comparison now compares the LupaBB title with `member.title`: a title set by hand that differs (or an empty LupaBB title) shows as a difference "Titel" in every comparison and is only replaced after confirmation. (6) Open LupaBB previews show `CHANGED_SINCE_PREVIEW` once after the rollout (the fingerprint now contains `member.title`).
+
+- **Added:** `member.title` (free text, at most 50 code points, trimmed and whitespace-collapsed, no `<`, `>`, control or bidi characters; `MemberTitleRules`); `MemberNames.withTitle`, the only place that composes title and name (a display name that already starts with the title, as for LupaBB members, is not doubled); RPC `IMemberService.updateMemberTitle` (appended at the end; self or BOARD/ADMIN, peer protection as for other protected profile data, value-free audit marker `TITLE_UPDATED` only on a real change); field "Titel" (with suggestions) before "Name" in the member editor and a card "Titel" on "Meine Daten".
+- **Changed:** `MemberDto.title` and `MemberAdminRowDto.title` (defaults `null`); the LupaBB sync writes `member.title` (single source of truth) and no longer the side table; DSGVO export contains the title, the erasure nulls it.
+- **Security:** authorization before validation (a foreign member id is `ForbiddenException`, nothing written); rejections are value-free; no title in audit entries or logs; anonymised members refused.
+- **Database:** `V151__member_title.sql` (not repeatable after the `DROP`, by design); `00-foundation.kuml.kts` and `77-lupabb-sync.kuml.kts` and the generated tables updated.
+- **Tests:** `MemberTitleRulesTest`, `MemberNamesTest`, `MemberTitleRpcTest` (H2), `MemberTitleMigrationTest` (H2 and PostgreSQL), planner/applier title cases, letter address block, DSGVO export/erasure, `MemberTitleTripwireTest`, audit label.
+- **Docs:** `docs/features/member-title.adoc`, `lupabb-sync.adoc` (features); the new texts are in `messages.pot` and the seven catalogs, **model-written**, not reviewed by a native speaker.
+- **Not verified:** nothing ran on a live instance or against the real LupaBB.
+
 ## [0.51.0] — 2026-11-11
 
 Feature release on `[0.50.0]` (no wave number; database schema stays `V150`). **No migration**, no new environment variable. The sections below carry the details.

@@ -2,6 +2,7 @@ package network.lapis.cloud.server.pdf
 
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.MemberDto
+import network.lapis.cloud.shared.domain.MemberNames
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 
 /**
@@ -61,6 +62,6 @@ object EinladungPdfGenerator {
         if (recipient.street != null) {
             recipient.addressLines()
         } else {
-            listOf(recipient.displayName, "(Adresse nicht hinterlegt)")
+            listOf(MemberNames.withTitle(title = recipient.title, displayName = recipient.displayName), "(Adresse nicht hinterlegt)")
         }
 }

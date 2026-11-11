@@ -30,6 +30,8 @@ data class MemberAdminRowDto(
     val joinedAt: LocalDate,
     val externalReference: String? = null,
     val anonymized: Boolean = false,
+    /** V151 -- `member.title`; `null` = none. Appended with a default so the DTO stays source-compatible. */
+    val title: String? = null,
     /** Welle V1.4.4.4 "Familienmitgliedschaften" -- `member.membership_tier_id`, joined for display. All five new fields default so this DTO stays source-compatible. */
     val membershipTierId: String? = null,
     val membershipTierName: String? = null,

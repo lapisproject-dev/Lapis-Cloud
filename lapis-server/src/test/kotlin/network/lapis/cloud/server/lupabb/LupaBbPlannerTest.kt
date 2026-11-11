@@ -534,4 +534,33 @@ class LupaBbPlannerTest :
             plan.row(9_000_000_506).protectedBlocker shouldBe LupaBbRowReasonCode.PEER_APPROVAL_REQUIRED
             plan.row(9_000_000_507).protectedBlocker shouldBe LupaBbRowReasonCode.ROLE_BLOCKS_STATUS
         }
+
+        test("the title is compared against member.title: a difference is a TITLE field, equal values (after trimming) are none") {
+            val family = unique()
+            val admin = fx.admin()
+            fx.member(displayName = "Erika $family", personNumber = 9_000_000_061, title = "Prof.")
+            fx.member(displayName = "Dr. Erika $family", personNumber = 9_000_000_062, title = "Dr.")
+            fx.member(displayName = "Erika $family", personNumber = 9_000_000_063, title = "Dr.")
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            wireMember(personNumber = 9_000_000_061, family = family, title = " Dr. "),
+                            wireMember(personNumber = 9_000_000_062, family = family, title = " Dr. "),
+                            wireMember(personNumber = 9_000_000_063, family = family, title = null),
+                        ),
+                    actor = admin,
+                )
+            plan.row(9_000_000_061).diffs.single { it.field == LupaBbField.TITLE }.let {
+                it.before shouldBe "Prof."
+                it.after shouldBe "Dr."
+            }
+            plan.row(9_000_000_062).diffs.map { it.field } shouldNotContain LupaBbField.TITLE
+            // a title set by hand and none in LupaBB is a difference to empty (the sync's single-source rule), never silently kept
+            plan
+                .row(9_000_000_063)
+                .diffs
+                .single { it.field == LupaBbField.TITLE }
+                .after shouldBe null
+        }
     })

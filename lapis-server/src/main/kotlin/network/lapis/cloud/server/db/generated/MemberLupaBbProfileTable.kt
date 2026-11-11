@@ -12,7 +12,6 @@ public object MemberLupaBbProfileTable : Table("member_lupabb_profile") {
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
     public val givenName: Column<String?> = varchar("given_name", 100).nullable()
     public val familyName: Column<String?> = varchar("family_name", 100).nullable()
-    public val title: Column<String?> = varchar("title", 50).nullable()
     public val nameAffix: Column<String?> = varchar("name_affix", 50).nullable()
     public val company: Column<String?> = varchar("company", 200).nullable()
     public val personType: Column<String?> = varchar("person_type", 7).nullable()

@@ -180,6 +180,12 @@ classDiagram(name = "Foundation") {
         attribute(name = "displayName", type = "String") {
             stereotype("Column") { "columnName" to "display_name"; "sqlType" to "VARCHAR(200)" }
         }
+        // V151: academic/professional title shown BEFORE the name in letters (free text, max 50, nullable). Single source of truth; the
+        // LupaBB sync writes it too (member_lupabb_profile.title was dropped in V151). display_name is never recomposed from it.
+        attribute(name = "title", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "title"; "sqlType" to "VARCHAR(50)" }
+        }
         attribute(name = "email", type = "String") {
             stereotype("Column") { "columnName" to "email"; "sqlType" to "VARCHAR(320)"; "unique" to true }
         }

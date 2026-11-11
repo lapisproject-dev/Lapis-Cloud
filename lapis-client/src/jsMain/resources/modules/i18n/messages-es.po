@@ -31684,3 +31684,21 @@ msgstr "Un donante no puede tener un rol administrativo. Establezca primero el r
 
 msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
 msgstr "Los donantes pueden iniciar sesión, pero no pueden votar ni recibir un rol administrativo. La cuenta se crea con el rol de miembro."
+
+msgid "Der Titel darf höchstens 50 Zeichen lang sein."
+msgstr "El título puede tener como máximo 50 caracteres."
+
+msgid "Der Titel enthält unzulässige Zeichen."
+msgstr "El título contiene caracteres no válidos."
+
+msgid "z. B. Dr. oder Dipl.-Ing., erscheint in Briefen vor dem Namen"
+msgstr "p. ej. Dr. o Dipl.-Ing.; aparece antes del nombre en las cartas"
+
+msgid "Titel speichern"
+msgstr "Guardar título"
+
+msgid "Der Titel wurde nicht gespeichert. Bitte prüfen Sie die Eingabe; die Ansicht wurde neu geladen."
+msgstr "El título no se ha guardado. Compruebe la entrada; la vista se ha recargado."
+
+msgid "Titel geändert"
+msgstr "Título modificado"

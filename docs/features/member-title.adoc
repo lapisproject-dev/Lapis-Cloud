@@ -1,0 +1,35 @@
+= Title before the name (V1.9.299)
+:toc:
+
+Some members want their academic or professional title ("Dr.", "Prof. Dr.", "Dipl.-Ing.") in front of their name in letters. The title is a field of the
+member: `member.title`, nullable, free text, at most 50 characters.
+
+== Where it is edited
+
+* Administrators (BOARD, ADMIN): field "Titel" directly before "Name" in the member editor. It is saved through its own call (`updateMemberTitle`), the name
+  through `updateMemberCoreData`; only what changed is written.
+* The member: card "Titel" on "Meine Daten".
+* The LupaBB sync writes the same column (see <<lupabb-sync.adoc#,LupaBB sync>>): `member.title` is the single source of truth, the former side-table column
+  `member_lupabb_profile.title` was dropped in V151.
+
+== Rules
+
+* Trimmed, runs of blanks collapsed to one blank, empty means "no title". Never re-cased, no dot is added.
+* At most 50 code points; no control characters, no `<` or `>`, no invisible direction or format characters. A rejection is a value-free error.
+* Authorization comes first (a member writes only their own title; BOARD/ADMIN any member's), then validation. Peer protection as for other protected profile
+  data: BOARD never writes an ADMIN's title; an ADMIN writing another ADMIN's title notifies the target.
+* An audit entry with the value-free marker `TITLE_UPDATED` is written only when the value really changes. The title itself is never in the audit entry or a log.
+* An anonymised member's title cannot be written; the erasure nulls it and the DSGVO export contains it.
+
+== Where it is printed
+
+`MemberNames.withTitle` is the only place that composes title and name. It prepends the title, unless the display name already starts with it (members imported
+from LupaBB carry the title inside their display name, "Dr. Max Muster"): the result is never "Dr. Dr. Max Muster". `member.display_name` is never recomposed.
+
+* Address block of letters (Beitragsrechnung, Spendenbescheinigung, Mahnung, Einladung) and the recipient name of postal dispatch.
+* Not changed: salutations ("Liebe(r) ..."), mail greetings, document titles and file names, the member list and search.
+
+== Operations
+
+V151 drops `member_lupabb_profile.title`: release 0.51.0 can no longer run against a migrated database; roll back by restoring the pre-rollout backup. A backup
+bundle made before V151 is refused on restore (schema checksum).

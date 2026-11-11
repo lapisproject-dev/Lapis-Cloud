@@ -32032,3 +32032,21 @@ msgstr "A donor cannot hold an administrative role. Please set the role to membe
 
 msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
 msgstr "Donors may sign in, but cannot vote and cannot get an administrative role. The account is created with the role member."
+
+msgid "Der Titel darf höchstens 50 Zeichen lang sein."
+msgstr "The title may be at most 50 characters long."
+
+msgid "Der Titel enthält unzulässige Zeichen."
+msgstr "The title contains invalid characters."
+
+msgid "z. B. Dr. oder Dipl.-Ing., erscheint in Briefen vor dem Namen"
+msgstr "e.g. Dr. or Dipl.-Ing., appears before the name in letters"
+
+msgid "Titel speichern"
+msgstr "Save title"
+
+msgid "Der Titel wurde nicht gespeichert. Bitte prüfen Sie die Eingabe; die Ansicht wurde neu geladen."
+msgstr "The title was not saved. Please check the input; the view has been reloaded."
+
+msgid "Titel geändert"
+msgstr "Title changed"

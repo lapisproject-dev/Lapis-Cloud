@@ -50,7 +50,6 @@ object LupaBbPersonalData : MemberPersonalDataContributor {
                     buildJsonObject {
                         put("givenName", profile[MemberLupaBbProfileTable.givenName])
                         put("familyName", profile[MemberLupaBbProfileTable.familyName])
-                        put("title", profile[MemberLupaBbProfileTable.title])
                         put("nameAffix", profile[MemberLupaBbProfileTable.nameAffix])
                         put("company", profile[MemberLupaBbProfileTable.company])
                         put("personType", profile[MemberLupaBbProfileTable.personType])

@@ -32035,3 +32035,21 @@ msgstr "Un donateur ne peut pas avoir de rôle d’administration. Veuillez d’
 
 msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
 msgstr "Les donateurs peuvent se connecter, mais ne peuvent pas voter ni recevoir de rôle d’administration. Le compte est créé avec le rôle membre."
+
+msgid "Der Titel darf höchstens 50 Zeichen lang sein."
+msgstr "Le titre ne peut pas dépasser 50 caractères."
+
+msgid "Der Titel enthält unzulässige Zeichen."
+msgstr "Le titre contient des caractères non valides."
+
+msgid "z. B. Dr. oder Dipl.-Ing., erscheint in Briefen vor dem Namen"
+msgstr "p. ex. Dr ou Dipl.-Ing., figure avant le nom dans les courriers"
+
+msgid "Titel speichern"
+msgstr "Enregistrer le titre"
+
+msgid "Der Titel wurde nicht gespeichert. Bitte prüfen Sie die Eingabe; die Ansicht wurde neu geladen."
+msgstr "Le titre n'a pas été enregistré. Veuillez vérifier la saisie ; l'affichage a été rechargé."
+
+msgid "Titel geändert"
+msgstr "Titre modifié"

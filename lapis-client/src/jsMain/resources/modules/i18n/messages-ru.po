@@ -31984,3 +31984,21 @@ msgstr "Донор не может иметь административную �
 
 msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
 msgstr "Доноры могут входить в систему, но не могут голосовать и получать административную роль. Учётная запись создаётся с ролью «член»."
+
+msgid "Der Titel darf höchstens 50 Zeichen lang sein."
+msgstr "Титул может содержать не более 50 символов."
+
+msgid "Der Titel enthält unzulässige Zeichen."
+msgstr "Титул содержит недопустимые символы."
+
+msgid "z. B. Dr. oder Dipl.-Ing., erscheint in Briefen vor dem Namen"
+msgstr "напр. Dr. или Dipl.-Ing., указывается в письмах перед именем"
+
+msgid "Titel speichern"
+msgstr "Сохранить титул"
+
+msgid "Der Titel wurde nicht gespeichert. Bitte prüfen Sie die Eingabe; die Ansicht wurde neu geladen."
+msgstr "Титул не сохранён. Проверьте ввод; вид перезагружен."
+
+msgid "Titel geändert"
+msgstr "Титул изменён"

@@ -44,6 +44,7 @@ class AuditMarkerLabelsTest {
         val addr = entry(AuditEntityType.MEMBER, AuditMarkers.MEMBER_ADDRESS_UPDATED)
         assertEquals(auditActionLabel(AuditAction.UPDATE), auditEntryActionLabel(addr))
         assertEquals("Anschrift geändert", auditMarkerDescription(AuditEntityType.MEMBER, AuditMarkers.MEMBER_ADDRESS_UPDATED))
+        assertEquals("Titel geändert", auditMarkerDescription(AuditEntityType.MEMBER, AuditMarkers.MEMBER_TITLE_UPDATED))
         assertEquals(
             "GwG-Angaben geändert",
             auditMarkerDescription(AuditEntityType.MEMBER, AuditMarkers.MEMBER_BENEFICIAL_OWNER_UPDATED),

@@ -32017,3 +32017,21 @@ msgstr "Un donatore non può avere un ruolo amministrativo. Imposti prima il ruo
 
 msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
 msgstr "I donatori possono accedere, ma non possono votare né ricevere un ruolo amministrativo. L’account viene creato con il ruolo socio."
+
+msgid "Der Titel darf höchstens 50 Zeichen lang sein."
+msgstr "Il titolo può contenere al massimo 50 caratteri."
+
+msgid "Der Titel enthält unzulässige Zeichen."
+msgstr "Il titolo contiene caratteri non validi."
+
+msgid "z. B. Dr. oder Dipl.-Ing., erscheint in Briefen vor dem Namen"
+msgstr "ad es. Dr. o Dipl.-Ing., compare prima del nome nelle lettere"
+
+msgid "Titel speichern"
+msgstr "Salva titolo"
+
+msgid "Der Titel wurde nicht gespeichert. Bitte prüfen Sie die Eingabe; die Ansicht wurde neu geladen."
+msgstr "Il titolo non è stato salvato. Controlli l'inserimento; la vista è stata ricaricata."
+
+msgid "Titel geändert"
+msgstr "Titolo modificato"

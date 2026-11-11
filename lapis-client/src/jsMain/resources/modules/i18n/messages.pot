@@ -31423,3 +31423,21 @@ msgstr ""
 
 msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
 msgstr ""
+
+msgid "Der Titel darf höchstens 50 Zeichen lang sein."
+msgstr ""
+
+msgid "Der Titel enthält unzulässige Zeichen."
+msgstr ""
+
+msgid "z. B. Dr. oder Dipl.-Ing., erscheint in Briefen vor dem Namen"
+msgstr ""
+
+msgid "Titel speichern"
+msgstr ""
+
+msgid "Der Titel wurde nicht gespeichert. Bitte prüfen Sie die Eingabe; die Ansicht wurde neu geladen."
+msgstr ""
+
+msgid "Titel geändert"
+msgstr ""

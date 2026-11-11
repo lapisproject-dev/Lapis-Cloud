@@ -610,4 +610,26 @@ class LupaBbApplierTest :
             fx.memberRow(gone)[MemberTable.status] shouldBe MemberStatus.WITHDRAWN
             fx.memberRow(dead)[MemberTable.status] shouldBe MemberStatus.DECEASED
         }
+
+        test("the title is written to member.title (not the side table) and a hand-set title is only replaced by the confirmed apply") {
+            val admin = fx.admin()
+            val family = unique()
+            val id = fx.member(displayName = "Erika $family", personNumber = 9_000_000_064, title = "Prof.")
+            val plan =
+                planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_064, family = family, title = " Dr. ")), actor = admin)
+            // planning is read only: the hand-set title is untouched until the apply
+            fx.memberRow(id)[MemberTable.title] shouldBe "Prof."
+            applyTo(plan, admin).updated shouldBe 1
+            fx.memberRow(id)[MemberTable.title] shouldBe "Dr."
+        }
+
+        test("a new record with a title creates the member with member.title set") {
+            val admin = fx.admin()
+            val family = unique()
+            applyTo(
+                planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_065, family = family, title = "Dipl.-Ing.")), actor = admin),
+                admin,
+            ).created shouldBe 1
+            fx.byPersonNumber(9_000_000_065)!![MemberTable.title] shouldBe "Dipl.-Ing."
+        }
     })

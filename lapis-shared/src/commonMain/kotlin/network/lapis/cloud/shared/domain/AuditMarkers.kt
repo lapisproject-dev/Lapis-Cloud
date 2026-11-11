@@ -6,6 +6,9 @@ package network.lapis.cloud.shared.domain
  * translate the protocol display.
  */
 object AuditMarkers {
+    /** V151: a member title was set, changed or cleared (the value is never part of the audit entry). */
+    const val MEMBER_TITLE_UPDATED = "TITLE_UPDATED"
+
     /** V1.9.33, unchanged value. */
     const val MEMBER_ADDRESS_UPDATED = "ADDRESS_UPDATED"
 

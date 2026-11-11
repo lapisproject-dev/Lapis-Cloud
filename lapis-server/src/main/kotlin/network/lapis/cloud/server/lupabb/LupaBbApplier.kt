@@ -288,6 +288,7 @@ internal class LupaBbApplier(
                 MemberTable.insert {
                     it[MemberTable.id] = id
                     it[displayName] = r.displayName
+                    it[MemberTable.title] = r.title
                     it[MemberTable.email] = email
                     it[status] = r.status
                     it[joinedAt] = joinDay
@@ -425,6 +426,7 @@ internal class LupaBbApplier(
             setOf(
                 LupaBbField.PERSON_NUMBER,
                 LupaBbField.DISPLAY_NAME,
+                LupaBbField.TITLE,
                 LupaBbField.STREET,
                 LupaBbField.POSTAL_CODE,
                 LupaBbField.CITY,
@@ -438,6 +440,7 @@ internal class LupaBbApplier(
                     MemberTable.update({ MemberTable.id eq id }) {
                         if (LupaBbField.PERSON_NUMBER in fields) it[lupabbPersonNumber] = r.personNumber
                         if (LupaBbField.DISPLAY_NAME in fields) it[displayName] = r.displayName
+                        if (LupaBbField.TITLE in fields) it[title] = r.title
                         if (LupaBbField.STREET in fields) it[street] = r.street
                         if (LupaBbField.POSTAL_CODE in fields) it[postalCode] = r.postalCode
                         if (LupaBbField.CITY in fields) it[city] = r.city
@@ -458,7 +461,6 @@ internal class LupaBbApplier(
             setOf(
                 LupaBbField.GIVEN_NAME,
                 LupaBbField.FAMILY_NAME,
-                LupaBbField.TITLE,
                 LupaBbField.NAME_AFFIX,
                 LupaBbField.COMPANY,
                 LupaBbField.PERSON_TYPE,
@@ -542,7 +544,6 @@ internal class LupaBbApplier(
             MemberLupaBbProfileTable.update({ MemberLupaBbProfileTable.memberId eq memberId }) {
                 it[givenName] = r.givenName
                 it[familyName] = r.familyName
-                it[title] = r.title
                 it[nameAffix] = r.nameAffix
                 it[company] = r.company
                 it[personType] = r.personType
@@ -558,7 +559,6 @@ internal class LupaBbApplier(
                 it[MemberLupaBbProfileTable.memberId] = memberId
                 it[givenName] = r.givenName
                 it[familyName] = r.familyName
-                it[title] = r.title
                 it[nameAffix] = r.nameAffix
                 it[company] = r.company
                 it[personType] = r.personType

@@ -29,6 +29,7 @@ private fun exactMarkerEntityType(marker: String): AuditEntityType? =
     when (marker) {
         AuditMarkers.MEMBER_ADDRESS_READ,
         AuditMarkers.MEMBER_ADDRESS_UPDATED,
+        AuditMarkers.MEMBER_TITLE_UPDATED,
         AuditMarkers.MEMBER_BENEFICIAL_OWNER_UPDATED,
         -> AuditEntityType.MEMBER
         AuditMarkers.EVENT_REFUND_MARKED -> AuditEntityType.PAYMENT_TRANSACTION
@@ -69,6 +70,7 @@ internal fun auditMarkerDescription(
     return when (raw) {
         AuditMarkers.MEMBER_ADDRESS_READ -> gettext("Anschrift und GwG-Angaben eingesehen")
         AuditMarkers.MEMBER_ADDRESS_UPDATED -> gettext("Anschrift geändert")
+        AuditMarkers.MEMBER_TITLE_UPDATED -> gettext("Titel geändert")
         AuditMarkers.MEMBER_BENEFICIAL_OWNER_UPDATED -> gettext("GwG-Angaben geändert")
         AuditMarkers.EVENT_REFUND_MARKED -> gettext("Erstattung außerhalb von Lapis Cloud vermerkt")
         else -> null

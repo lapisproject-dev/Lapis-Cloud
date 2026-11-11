@@ -31994,3 +31994,21 @@ msgstr "Darczyńca nie może mieć roli administracyjnej. Najpierw ustaw rolę n
 
 msgid "Spender dürfen sich anmelden, aber nicht abstimmen und keine Verwaltungsrolle erhalten. Das Konto wird mit der Rolle Mitglied angelegt."
 msgstr "Darczyńcy mogą się logować, ale nie mogą głosować ani otrzymać roli administracyjnej. Konto zostanie utworzone z rolą członek."
+
+msgid "Der Titel darf höchstens 50 Zeichen lang sein."
+msgstr "Tytuł może mieć najwyżej 50 znaków."
+
+msgid "Der Titel enthält unzulässige Zeichen."
+msgstr "Tytuł zawiera niedozwolone znaki."
+
+msgid "z. B. Dr. oder Dipl.-Ing., erscheint in Briefen vor dem Namen"
+msgstr "np. Dr lub Dipl.-Ing., pojawia się w listach przed nazwiskiem"
+
+msgid "Titel speichern"
+msgstr "Zapisz tytuł"
+
+msgid "Der Titel wurde nicht gespeichert. Bitte prüfen Sie die Eingabe; die Ansicht wurde neu geladen."
+msgstr "Tytuł nie został zapisany. Proszę sprawdzić wpis; widok został ponownie wczytany."
+
+msgid "Titel geändert"
+msgstr "Tytuł zmieniony"

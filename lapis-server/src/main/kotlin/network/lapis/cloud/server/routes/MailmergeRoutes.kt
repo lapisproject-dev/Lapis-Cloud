@@ -700,6 +700,7 @@ private fun ResultRow.toMailmergeMemberDto(): MemberDto =
     MemberDto(
         id = this[MemberTable.id].toString(),
         displayName = this[MemberTable.displayName],
+        title = this[MemberTable.title],
         email = this[MemberTable.email],
         status = this[MemberTable.status],
         joinedAt = this[MemberTable.joinedAt],

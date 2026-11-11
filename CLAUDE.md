@@ -590,3 +590,5 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **Composer-Wächter:** `FfmpegSegmentedComposer.compose` lehnt eine Spec ohne Video-Eingang ab, außer bei `SINGLE_PARTICIPANT` (leeres Bild = schwarz, Ton bleibt). Die EDL kennt nur GRID und SPEAKER; der Composer bildet SINGLE_PARTICIPANT auf GRID ab. EDL nicht anfassen.
 - **Anwesenheitsprüfung der gewählten Person:** nur aus der Datenbank (offene `conference_participation`-Zeile bzw. Ereignisraum-Schnappschuss), kein LiveKit-Aufruf; Fehlertexte geben die Eingabe nie wieder. Log-Zeilen des Pollers nennen keine Identität (`SpeakerTimelineAccessTripwireTest`).
 - **V148 darf bis zum Release noch an Ort und Stelle korrigiert werden**; danach nur neue Migrationen.
+
+- **Member title (V151):** title and name are composed only in `MemberNames.withTitle`; `member.display_name` is never recomposed from `member.title` (tripwire: `MemberTitleTripwireTest`). Never assign `display_name` from a title expression.

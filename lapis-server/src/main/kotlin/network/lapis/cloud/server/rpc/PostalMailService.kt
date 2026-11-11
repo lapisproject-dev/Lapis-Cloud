@@ -22,6 +22,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.InvitationAudience
 import network.lapis.cloud.shared.domain.MAX_POSTAL_INVITATION_RECIPIENTS
 import network.lapis.cloud.shared.domain.MemberDto
+import network.lapis.cloud.shared.domain.MemberNames
 import network.lapis.cloud.shared.domain.PostalDeliveryLogDto
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.domain.PostalInvitationDispatchInput
@@ -270,7 +271,7 @@ class PostalMailService(
         val outcome =
             postalMailProvider.dispatchLetter(
                 pdfBytes = pdfBytes,
-                recipientName = recipient.displayName,
+                recipientName = MemberNames.withTitle(title = recipient.title, displayName = recipient.displayName),
                 recipientStreet = recipient.street.orEmpty(),
                 recipientPostalCode = recipient.postalCode.orEmpty(),
                 recipientCity = recipient.city.orEmpty(),

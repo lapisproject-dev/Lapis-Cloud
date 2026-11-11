@@ -79,6 +79,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.MemberTitleRules
 import network.lapis.cloud.shared.domain.PasswordResetMailResultDto
 import network.lapis.cloud.shared.domain.PeerAction
 import network.lapis.cloud.shared.domain.PeerActionAuditFacts
@@ -617,6 +618,49 @@ class MemberService(
                         after = MEMBER_ADDRESS_AUDIT_UPDATED,
                         occurredAt = now,
                     )
+                    (MemberTable innerJoin AccountTable)
+                        .selectAll()
+                        .where { MemberTable.id eq targetId }
+                        .single()
+                        .toMemberDto()
+                }
+            }
+        if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
+    }
+
+    override suspend fun updateMemberTitle(
+        memberId: String,
+        title: String?,
+    ): MemberDto {
+        val current = resolveCurrentMember(call)
+        val targetId = runCatching { Uuid.parse(memberId) }.getOrElse { throw NotFoundException("Member $memberId not found") }
+        // Authorization first (Forbidden), validation second -- a value-free rejection.
+        if (targetId != current.memberId && !current.isPrivileged) throw ForbiddenException()
+        val normTitle = MemberTitleRules.normalize(title)
+        if (MemberTitleRules.violation(normTitle) != null) throw ConflictException("Invalid title")
+        var notifyTargetAdmin = false
+        val now = nowLocalDateTime()
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    val locked = lockTargetForProtectedWrite(current = current, targetId = targetId, memberIdText = memberId)
+                    notifyTargetAdmin = locked.notifyTargetAdmin
+                    if (locked.row[MemberTable.anonymizedAt] != null) {
+                        throw ConflictException("Member has been anonymized and can no longer be edited")
+                    }
+                    if (locked.row[MemberTable.title] != normTitle) {
+                        MemberTable.update({ MemberTable.id eq targetId }) { it[MemberTable.title] = normTitle }
+                        AuditLogRecorder.record(
+                            actorMemberId = current.memberId,
+                            actorRole = current.role,
+                            entityType = AuditEntityType.MEMBER,
+                            entityId = targetId,
+                            action = AuditAction.UPDATE,
+                            after = AuditMarkers.MEMBER_TITLE_UPDATED,
+                            occurredAt = now,
+                        )
+                    }
                     (MemberTable innerJoin AccountTable)
                         .selectAll()
                         .where { MemberTable.id eq targetId }
@@ -2049,6 +2093,7 @@ private fun ResultRow.toMemberAdminRowDto(
         status = this[MemberTable.status],
         role = if (chapterScoped) null else this.getOrNull(AccountTable.role),
         joinedAt = this[MemberTable.joinedAt],
+        title = this[MemberTable.title],
         externalReference = if (chapterScoped) null else this[MemberTable.externalReference],
         anonymized = this[MemberTable.anonymizedAt] != null,
         membershipTierId = if (chapterScoped) null else this[MemberTable.membershipTierId]?.toString(),
@@ -2122,6 +2167,7 @@ fun ResultRow.toMemberDto(nationalityCodes: List<String> = MemberCountryStore.lo
     MemberDto(
         id = this[MemberTable.id].toString(),
         displayName = this[MemberTable.displayName],
+        title = this[MemberTable.title],
         email = this[MemberTable.email],
         status = this[MemberTable.status],
         joinedAt = this[MemberTable.joinedAt],

@@ -484,7 +484,7 @@ internal object LupaBbPlanner {
         add(LupaBbField.DISPLAY_NAME, m.displayName, r.displayName)
         add(LupaBbField.GIVEN_NAME, p?.givenName, r.givenName)
         add(LupaBbField.FAMILY_NAME, p?.familyName, r.familyName)
-        add(LupaBbField.TITLE, p?.title, r.title)
+        add(LupaBbField.TITLE, m.title, r.title)
         add(LupaBbField.NAME_AFFIX, p?.nameAffix, r.nameAffix)
         add(LupaBbField.COMPANY, p?.company, r.company)
         add(LupaBbField.PERSON_TYPE, p?.personType, r.personType)

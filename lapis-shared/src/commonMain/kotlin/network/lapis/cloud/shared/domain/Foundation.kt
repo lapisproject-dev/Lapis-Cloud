@@ -386,6 +386,8 @@ data class MemberDto(
     val countryCode: String? = null,
     /** Welle V1.9.121 -- selected nationality codes (sorted; `XS` stateless / `ZZ` unclear stand alone). Empty = none chosen. */
     val nationalityCodes: List<String> = emptyList(),
+    /** V151 -- `member.title` (shown before the name in letters); `null` = none. */
+    val title: String? = null,
     /** Welle V1.9.121 -- raw legacy `member.country` text, only while [countryCode] is `null`. */
     val countryLegacy: String? = null,
     /** Welle V1.9.121 -- raw legacy `member.nationality` text, only while [nationalityCodes] is empty. */

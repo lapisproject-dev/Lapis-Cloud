@@ -14,7 +14,7 @@ NOTE: The `[kuml]` blocks of the architecture page are rendered and validated by
 * It **never writes the e-mail address of an existing member.** Since V1.9.56 the address is the sign-in and password-reset identity; a foreign system must not rewrite it
   (account takeover). A difference only shows as the remark "E-Mail-Adresse in LupaBB weicht ab" in the preview. The address is used only to *find* and to *create* members.
 * It **never changes the core data of a member with a management role** (BOARD, TREASURER, ADMIN) or of the acting administrator: only the person-number link, the "missing" hint and the LupaBB
-  side-table profile (title, affix, company, telephone numbers, ...) are written. Differences in name, address, date of birth, status, country and chapter are shown with the remark
+  side-table profile (affix, company, telephone numbers, ...) are written. Differences in name, address, date of birth, status, country and chapter are shown with the remark
   "bitte von Hand abgleichen" (a record with nothing left to write lands in the error class), so the peer protection (V1.9.57) and the ban on changing oneself cannot be bypassed.
   Such a row can be taken over **by hand** on an explicit decision of an administrator, see "Resolving conflicts in the comparison".
 * It **never takes over** gender (data minimisation), nationality, payments or donations.
@@ -111,7 +111,8 @@ notes, contribution data, photo, public bio, ...).
 | Field | Where | Note
 
 | Display name | `member.display_name` | derived, see above
-| Given name, family name, title, affix, company, person type, phone, mobile, address supplement, post box | `member_lupabb_profile` | side table
+| Title | `member.title` | single source of truth (V151); a title set by hand that differs from LupaBB (or an empty LupaBB title) is shown as a difference and replaced only after confirmation
+| Given name, family name, affix, company, person type, phone, mobile, address supplement, post box | `member_lupabb_profile` | side table
 | Street (with house number), postal code, city | `member.street`, `postal_code`, `city` |
 | Country | `member.country_code` | only a clear match; an unclear label leaves the value and shows a remark
 | Date of birth | `member.date_of_birth` | `0000-00-00` and blank are "no date"

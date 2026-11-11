@@ -37,6 +37,7 @@ import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
+import network.lapis.cloud.shared.domain.MemberTitleRules
 import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.PeerAction
@@ -1279,6 +1280,15 @@ internal fun openMemberEditorDialog(
     if (canEditCoreDataOf(callerRole, row)) {
         modal.h2(tr("Stammdaten")) { addCssClass("h6") }
         val form = modal.lapisForm(legendGroup)
+        // V151: the title comes BEFORE the name (it is printed before the name in letters); narrow, free text with suggestions.
+        val titleField =
+            form.textField(
+                label = tr("Titel"),
+                value = row.title.orEmpty(),
+                hint = tr("z. B. Dr. oder Dipl.-Ing., erscheint in Briefen vor dem Namen"),
+                rule = ::memberTitleRule,
+                init = ::initMemberTitleControl,
+            )
         val nameField = form.textField(label = tr("Name"), value = row.displayName, required = true)
         // Welle V1.9.56 "E-Mail-Änderung absichern": the address is the login identity and is shown read-only here; it changes only through
         // the proposal section below (or the member's own "Meine Daten"), never by overwriting it in this form.
@@ -1293,8 +1303,17 @@ internal fun openMemberEditorDialog(
         saveCoreDataButton.onClick {
             form.submit(saveCoreDataButton) {
                 val name = nameField.value.trim()
-                val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberCoreData(row.id, name, row.email) }
-                if (result != null) {
+                val newTitle = MemberTitleRules.normalize(titleField.value)
+                val nameChanged = name != row.displayName
+                val titleChanged = newTitle != MemberTitleRules.normalize(row.title)
+                var ok = true
+                if (nameChanged || !titleChanged) {
+                    ok = memberAdminGuarded { rpcService<IMemberService>().updateMemberCoreData(row.id, name, row.email) } != null
+                }
+                if (ok && titleChanged) {
+                    ok = memberAdminGuarded { rpcService<IMemberService>().updateMemberTitle(row.id, newTitle) } != null
+                }
+                if (ok) {
                     notifySuccess(tr("Stammdaten gespeichert."))
                     modal.hide()
                     onChanged()

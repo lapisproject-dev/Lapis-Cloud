@@ -151,4 +151,12 @@ class FoundationPersonalDataTest :
             transaction { FoundationPersonalData.eraseMember(memberId = member, mode = ErasureMode.ANONYMIZE) }
             transaction { AccountTable.selectAll().where { AccountTable.memberId eq member }.count() } shouldBe 0L
         }
+
+        test("V151: exportMember carries the title and the erasure nulls it") {
+            val member = newDeceasedMember(null)
+            transaction { MemberTable.update({ MemberTable.id eq member }) { it[title] = "Prof. Dr." } }
+            transaction { FoundationPersonalData.exportMember(member) }["title"]?.jsonPrimitive?.content shouldBe "Prof. Dr."
+            transaction { FoundationPersonalData.eraseMember(memberId = member, mode = ErasureMode.ANONYMIZE) }
+            transaction { MemberTable.selectAll().where { MemberTable.id eq member }.single() }[MemberTable.title] shouldBe null
+        }
     })

@@ -79,6 +79,18 @@ class MemberCountryIntegrationTest :
             dto.addressLines().last() shouldBe "Polen"
         }
 
+        test("V151 letters: the address block carries the title before the name, loaded through loadMailmergeMember, never doubled") {
+            val m = addressed(countryCode = "PL")
+            val plain = transaction { loadMailmergeMember(m) }!!
+            plain.addressLines().first() shouldBe plain.displayName
+            transaction { MemberTable.update({ MemberTable.id eq m }) { it[title] = "Dr." } }
+            val titled = transaction { loadMailmergeMember(m) }!!
+            titled.title shouldBe "Dr."
+            titled.addressLines().first() shouldBe "Dr. ${titled.displayName}"
+            transaction { MemberTable.update({ MemberTable.id eq m }) { it[displayName] = "Dr. Erika Muster" } }
+            transaction { loadMailmergeMember(m) }!!.addressLines().first() shouldBe "Dr. Erika Muster"
+        }
+
         test("letters: the legacy text is used while there is no code; neither means an incomplete address") {
             val legacy = addressed(country = "Altland")
             transaction { loadMailmergeMember(legacy) }!!.country shouldBe "Altland"

@@ -585,4 +585,17 @@ interface IMemberService {
      * possible while the source is MANUAL (`ConflictException` otherwise). Same target rules as [setMemberVotingRight].
      */
     suspend fun releaseMemberVotingRightToSync(memberId: String): MemberAdminRowDto
+
+    // ── Welle V1.9.299 -- APPENDED at the END (Kilua RPC numbers routes by declaration order) ──
+
+    /**
+     * Welle V1.9.299 -- sets (or clears, `null`/blank) the member's title ([network.lapis.cloud.shared.domain.MemberTitleRules]).
+     * Self or BOARD/ADMIN; peer protection as for the other protected profile data (BOARD never writes an ADMIN's data, an ADMIN writing
+     * another ADMIN's data notifies the target). A value-free audit entry ([network.lapis.cloud.shared.domain.AuditMarkers.MEMBER_TITLE_UPDATED])
+     * is written only when the value actually changes. A rejection is a value-free `ConflictException`; `display_name` is never touched.
+     */
+    suspend fun updateMemberTitle(
+        memberId: String,
+        title: String?,
+    ): MemberDto
 }
