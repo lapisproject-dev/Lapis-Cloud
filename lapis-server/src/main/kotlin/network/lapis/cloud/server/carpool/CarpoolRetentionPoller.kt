@@ -14,7 +14,7 @@ import kotlin.time.Duration.Companion.hours
 private val logger = KotlinLogging.logger {}
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- 1:1
+ * Welle V1.9.12 "Mitfahrzentrale" -- 1:1
  * `network.lapis.cloud.server.social.PostDraftRetentionPoller`s Muster: immer aktiv (kein
  * Feature-Flag, keine externen Secrets), `start()`/`stop()` idempotent, [tick] exception-safe.
  */

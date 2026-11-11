@@ -65,7 +65,7 @@ private val VALID_FUTURE_DATE: LocalDate = TEST_TODAY.plus(DatePeriod(days = 30)
 private val VALID_FUTURE_DATE_2: LocalDate = TEST_TODAY.plus(DatePeriod(days = 31))
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- `testApplication`-Harness 1:1 `ServiceIntegrationTest`s/
+ * Welle V1.9.12 "Mitfahrzentrale" -- `testApplication`-Harness 1:1 `ServiceIntegrationTest`s/
  * `FriendCapabilityBoundaryTest`s Muster: eine geworfene, throwaway HTTP-Route ruft die
  * Service-Methode direkt auf, `X-Member-Id` löst [network.lapis.cloud.server.security
  * .resolveCurrentMember] auf (H2-Testmodus).

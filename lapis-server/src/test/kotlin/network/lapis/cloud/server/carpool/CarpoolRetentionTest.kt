@@ -24,7 +24,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.uuid.Uuid
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- [CarpoolRetention.deleteDueRows] boundary coverage, 1:1
+ * Welle V1.9.12 "Mitfahrzentrale" -- [CarpoolRetention.deleteDueRows] boundary coverage, 1:1
  * `network.lapis.cloud.server.social.PostDraftRetentionTest`s Muster: rein datengetrieben über
  * einen fest übergebenen `now`, Zeilen direkt per Insert erzeugt.
  */

@@ -32,6 +32,11 @@ class CarpoolPersonalDataTest :
         beforeSpec { DatabaseConfig.connect() }
         afterSpec { data.cleanUp() }
 
+        test("the export section is named Mitfahrzentrale; the section key stays carpool") {
+            CarpoolPersonalData.displayName shouldBe "Mitfahrzentrale"
+            CarpoolPersonalData.sectionKey shouldBe "carpool"
+        }
+
         test("it covers all four carpool tables (PersonalDataCoverageTest relies on this)") {
             CarpoolPersonalData.coveredTables shouldBe
                 setOf(CarpoolPostingTable, CarpoolParticipationTable, CarpoolMessageTable, CarpoolMessageThreadTable)

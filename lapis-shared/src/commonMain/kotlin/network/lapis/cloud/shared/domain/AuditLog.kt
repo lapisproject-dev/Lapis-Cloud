@@ -460,7 +460,7 @@ enum class AuditEntityType {
     TRAVEL_EXPENSE_SEPA_BATCH,
 
     /**
-     * Welle V1.9.125 "Mitfahrten in der Mitfahrerzentrale" -- `CarpoolParticipations` writes one entry per request, invitation,
+     * Welle V1.9.125 "Mitfahrten in der Mitfahrzentrale" -- `CarpoolParticipations` writes one entry per request, invitation,
      * confirmation, decline and withdrawal, `entityId` = the participation id, `after` = [CarpoolParticipationSnapshot] (posting id,
      * initiator, status -- never a name, a place or the meeting note). Entries outlive the posting (append-only). 21 chars, fits within
      * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.

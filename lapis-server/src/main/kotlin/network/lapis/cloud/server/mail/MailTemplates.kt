@@ -753,7 +753,7 @@ object MailTemplates {
         val (paragraphsDe, paragraphsEn) =
             if (kind == CarpoolNoticeKind.MESSAGE) {
                 listOf(
-                    "Sie haben eine neue Nachricht zu einer Ihrer Mitfahrten. Öffnen Sie die Mitfahrerzentrale, um sie zu lesen.",
+                    "Sie haben eine neue Nachricht zu einer Ihrer Mitfahrten. Öffnen Sie die Mitfahrzentrale, um sie zu lesen.",
                     "Aus Datenschutzgründen nennt diese Nachricht keine Namen und keinen Inhalt.",
                 ) to
                     listOf(
@@ -770,7 +770,7 @@ object MailTemplates {
                         "For privacy reasons this message names nobody. Sign in to see the details.",
                     )
             }
-        val subject = "Mitfahrerzentrale: $headingDe / $headingEn".take(CARPOOL_SUBJECT_MAX)
+        val subject = "Mitfahrzentrale: $headingDe / $headingEn".take(CARPOOL_SUBJECT_MAX)
         val link = branding.publicBaseUrl.trimEnd('/') + "/app#/carpool"
         return bilingual(
             subject = subject,
@@ -778,7 +778,7 @@ object MailTemplates {
                 MailSection(
                     heading = headingDe,
                     paragraphs = paragraphsDe,
-                    linkLabel = "Mitfahrerzentrale öffnen",
+                    linkLabel = "Mitfahrzentrale öffnen",
                     link = link,
                 ),
             en =

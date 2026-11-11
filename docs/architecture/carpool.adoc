@@ -23,7 +23,7 @@ dedicated `NavVisibility` predicate of its own -- it falls under that group's ex
 that a route without a DIFFERING visibility rule does not get a bespoke predicate.
 
 NOTE: V1.9.186 renamed the centre in the user interface to "Mitfahrzentrale" (client only). Identifiers, the route and the RPC names keep
-"carpool"; the server-written texts (e-mails, legal text, data export below) still say "Mitfahrerzentrale" until a follow-up wave.
+"carpool"; since V1.9.300 the server-written texts (e-mails, legal text, data export below) also say "Mitfahrzentrale".
 
 == Data model
 
@@ -362,7 +362,7 @@ poller's own cap.
 
 == DSGVO contributor
 
-`CarpoolPersonalData` (`sectionKey = "carpool"`, `displayName = "Mitfahrerzentrale"`) exports every
+`CarpoolPersonalData` (`sectionKey = "carpool"`, `displayName = "Mitfahrzentrale"`) exports every
 posting a member has authored (`carpoolPostings`, full field set including timestamps) under Art.
 15, and **hard-deletes** every one of them on erasure regardless of the requested `ErasureMode`.
 This is a deliberate departure from `CommunicationPersonalData`'s handling of `direct_message`:

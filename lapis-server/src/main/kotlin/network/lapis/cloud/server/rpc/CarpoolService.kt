@@ -54,9 +54,9 @@ private const val MAX_FEED_SIZE = 200
 private const val MAX_MEETING_NOTE_LENGTH = 200
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- Fahrten anbieten/suchen, bearbeiten, löschen und die Kontaktaufnahme sind ORGANIZATION_MEMBER-
+ * Welle V1.9.12 "Mitfahrzentrale" -- Fahrten anbieten/suchen, bearbeiten, löschen und die Kontaktaufnahme sind ORGANIZATION_MEMBER-
  * exklusiv ([requireActiveMembership]). Kein eigenes `NavVisibility`-Prädikat für ACTIVE (Repo-Konvention): innerhalb der Sidebar-Gruppe
- * `MEMBERSHIP` fällt die Mitfahrerzentrale unter das gruppenweite `showsMembershipSection`.
+ * `MEMBERSHIP` fällt die Mitfahrzentrale unter das gruppenweite `showsMembershipSection`.
  *
  * **V1.9.125 "Mitfahrten" -- ÄNDERUNG DER ZUGRIFFSREGEL.** Eine namentliche Allowlist von sechs Methoden steht zusätzlich ACTIVE, GUEST und
  * FRIEND offen ([requireCarpoolPassengerMembership], [MemberStatusSets.CARPOOL_PASSENGER]): [listPostings] (für Nicht-Mitglieder nur

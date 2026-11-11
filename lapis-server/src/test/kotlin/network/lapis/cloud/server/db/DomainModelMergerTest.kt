@@ -58,7 +58,7 @@ class DomainModelMergerTest :
             // 55-articles.kuml.kts. Welle V1.9.4 "private Hintergrundbild-Uploads für
             // Videokonferenzen" -- was 56, now 57 with the addition of
             // 56-conference-background.kuml.kts (renumbered from 55 during the merge of both
-            // waves, which had independently claimed "55-"). Welle V1.9.12 "Mitfahrerzentrale" --
+            // waves, which had independently claimed "55-"). Welle V1.9.12 "Mitfahrzentrale" --
             // was 57, now 58 with the addition of 57-carpool.kuml.kts. Welle V1.9.13
             // "Gliederungsverwaltung (Landesverbände)" -- was 58, now 59 with the addition of
             // 58-regional-chapter.kuml.kts. Welle V1.9.19 "Mitglieder-Foto" -- was 59, now 60 with
@@ -497,7 +497,7 @@ class DomainModelMergerTest :
             // stub (the file's existing Member stub is reused for event_series.created_by) -- so
             // it contributes +1 «Entity» declaration and 0 drops, net +1 distinct table name
             // versus the V1.9.7 baseline above (167 -> 168).
-            // Welle V1.9.12 "Mitfahrerzentrale" adds 57-carpool.kuml.kts's ONE new real table
+            // Welle V1.9.12 "Mitfahrzentrale" adds 57-carpool.kuml.kts's ONE new real table
             // (carpool_posting), WITH its own cross-domain Member stub (carpool_posting
             // .author_member_id resolves through it, dedups into the already-real member entity,
             // +1 drop) -- so it contributes +2 «Entity» declarations (the stub + the real table)
@@ -915,7 +915,7 @@ class DomainModelMergerTest :
                     // new real table; its Member cross-domain stub dedups into the already-real
                     // member entity, no new Table file for it.
                     "ConferenceBackgroundImageTable.kt",
-                    // Welle V1.9.12 "Mitfahrerzentrale" -- ONE new real table (carpool_posting);
+                    // Welle V1.9.12 "Mitfahrzentrale" -- ONE new real table (carpool_posting);
                     // its Member cross-domain stub dedups into the already-real member entity, no
                     // new Table file for it.
                     "CarpoolPostingTable.kt",

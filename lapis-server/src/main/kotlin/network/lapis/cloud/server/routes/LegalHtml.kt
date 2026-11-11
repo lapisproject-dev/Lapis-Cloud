@@ -583,7 +583,7 @@ internal object LegalHtml {
             }
             li {
                 +(
-                    "Dokumentenablage, interne Kommunikation, Mitfahrerzentrale, Crowdfunding, API-Schlüssel und " +
+                    "Dokumentenablage, interne Kommunikation, Mitfahrzentrale, Crowdfunding, API-Schlüssel und " +
                         "Webhooks, jeweils nur soweit vom Betreiber genutzt — Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO."
                 )
             }

@@ -13,7 +13,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- 1:1 `network.lapis.cloud.server.social.PostDraftRetention`s
+ * Welle V1.9.12 "Mitfahrzentrale" -- 1:1 `network.lapis.cloud.server.social.PostDraftRetention`s
  * Muster (DoS-Deckel, deterministische Reihenfolge). Ein Posting verschwindet aus dem Feed schon
  * ab `departure_date < heute` (`CarpoolService.listPostings`s Query-Bedingung) -- dieser Poller
  * löscht ZUSÄTZLICH erst [RETENTION_DAYS_AFTER_DEPARTURE] Tage später endgültig, damit ein

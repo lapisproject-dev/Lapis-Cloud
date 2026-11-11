@@ -16,7 +16,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- serverseitige Validierungsgrenzen, immer VOR jedem
+ * Welle V1.9.12 "Mitfahrzentrale" -- serverseitige Validierungsgrenzen, immer VOR jedem
  * DB-Constraint geprüft (App-seitige Validierung muss der DB-Grenze zuvorkommen, siehe
  * `CarpoolService.updatePosting`'s eigener Kommentar zum Typwechsel-Fall). Nie nur Client-seitig.
  */

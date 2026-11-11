@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Mitfahrzentrale: server-written texts renamed (wave V1.9.300, no migration)
+
+No migration (the schema stays `V151`): text-only change in the server plus tests and documentation.
+
+**Behaviour changes first:** (1) E-mails about rides say "Mitfahrzentrale" in the subject, in the German paragraph of the message mail and in the link label. (2) The DSGVO export section is now named "Mitfahrzentrale" (`sectionKey` stays `carpool`). (3) The purposes list of the privacy policy says "Mitfahrzentrale". (4) **No legal-text version bump and no consent re-prompt:** there is no hash or version pin for the legal text as a whole; only the keyword in `LegalHtmlTest` was updated.
+
+- **Stored data:** nothing is rewritten; the server writes the word only at runtime, persisted rows are untouched.
+- **Changed:** `MailTemplates.kt`, `CarpoolPersonalData.kt`, `LegalHtml.kt`; the historic wave names in KDoc comments of the carpool server, shared and test sources.
+- **Unchanged:** migrations (`V58`, `V100`), identifiers, the route `#/carpool`, RPC names, table names, enum values, JSON fields, the catalogs (`messages.pot`, `.po`), the kUML model comments, `Dockerfile`, `docs/release-history.adoc` and all historic changelog entries.
+- **Tests:** `CarpoolNotifierTest` (subject, link label and message paragraph for every kind, old spelling absent), `CarpoolPersonalDataTest` (display name and section key), `LegalHtmlTest` (keyword, old spelling absent on the privacy page).
+- **Docs:** `docs/architecture/carpool.adoc`, `docs/features/mitfahrzentrale.adoc`.
+- **Resolves the limit noted in V1.9.186** (server-written texts still saying "Mitfahrerzentrale").
+- **Not verified:** nothing ran on a live instance. The old word remains in comments of the kUML model files, in the `Dockerfile`, in `docs/release-history.adoc` and in the changelog history.
+
 ### Title field on the member (wave V1.9.299, schema V150 to V151)
 
 **Behaviour changes first:** (1) **new migration `V151`**: `member.title VARCHAR(50)` (nullable) is added, the LupaBB title is copied into it once (trimmed; blank and `NULL` stay `NULL`; a value already set is never overwritten) and `member_lupabb_profile.title` is **dropped**. (2) **Rollback hazard:** release 0.51.0 can no longer run against a migrated database; roll back only by restoring the pre-rollout backup. (3) A whole-organisation backup bundle made before V151 is refused as a whole on restore (schema checksum), as for V150. (4) The title is now printed **before the name** in the address block of letters (Beitragsrechnung, Spendenbescheinigung, Mahnung, Einladung) and in the recipient name of postal dispatch; salutations ("Liebe(r) ...") and mails keep the plain display name. (5) The LupaBB comparison now compares the LupaBB title with `member.title`: a title set by hand that differs (or an empty LupaBB title) shows as a difference "Titel" in every comparison and is only replaced after confirmation. (6) Open LupaBB previews show `CHANGED_SINCE_PREVIEW` once after the rollout (the fingerprint now contains `member.title`).

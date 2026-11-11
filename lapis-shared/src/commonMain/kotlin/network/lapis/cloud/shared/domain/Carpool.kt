@@ -6,7 +6,7 @@ import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- ein Mitglied bietet eine Fahrt an ([OFFER]) oder sucht eine
+ * Welle V1.9.12 "Mitfahrzentrale" -- ein Mitglied bietet eine Fahrt an ([OFFER]) oder sucht eine
  * Mitfahrgelegenheit ([REQUEST]). Siehe `network.lapis.cloud.server.rpc.CarpoolService` KDoc für
  * den vollen Lebenszyklus (Feed-Sichtbarkeit endet mit dem Abfahrtsdatum, endgültige Löschung 7
  * Tage später über `CarpoolRetention`).

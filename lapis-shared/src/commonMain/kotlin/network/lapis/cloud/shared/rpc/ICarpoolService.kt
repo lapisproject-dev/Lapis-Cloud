@@ -14,7 +14,7 @@ import network.lapis.cloud.shared.domain.CarpoolPostingType
 import network.lapis.cloud.shared.domain.DirectMessageDto
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- ORGANIZATION_MEMBER-exklusiv (jede Methode gattet über
+ * Welle V1.9.12 "Mitfahrzentrale" -- ORGANIZATION_MEMBER-exklusiv (jede Methode gattet über
  * `requireActiveMembership`, kein eigenes `NavVisibility`-Prädikat nötig, siehe
  * `network.lapis.cloud.server.rpc.CarpoolService` KDoc "1a"). Kontaktaufnahme läuft über eine ganz
  * normale Direktnachricht ([contactAuthor] löst den Empfänger serverseitig auf und ruft

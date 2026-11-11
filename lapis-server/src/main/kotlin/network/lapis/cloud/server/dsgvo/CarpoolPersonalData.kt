@@ -21,7 +21,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
 
 /**
- * Welle V1.9.12 "Mitfahrerzentrale" -- `carpool_posting` trägt personenbezogene Daten (Ort-/
+ * Welle V1.9.12 "Mitfahrzentrale" -- `carpool_posting` trägt personenbezogene Daten (Ort-/
  * Zeit-Muster eines Mitglieds).
  *
  * **Erasure**: anders als [CommunicationPersonalData]'s `direct_message` (die eine Gegenpartei-
@@ -35,7 +35,7 @@ import kotlin.uuid.Uuid
  */
 object CarpoolPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "carpool"
-    override val displayName = "Mitfahrerzentrale"
+    override val displayName = "Mitfahrzentrale"
     override val coveredTables = setOf(CarpoolPostingTable, CarpoolParticipationTable, CarpoolMessageTable, CarpoolMessageThreadTable)
 
     override fun exportMember(memberId: Uuid) =

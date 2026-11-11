@@ -18,8 +18,8 @@ decision: `docs/architecture/carpool.adoc`.
 == One list and tidy cards (V1.9.186)
 
 Since V1.9.186 the centre is called "Mitfahrzentrale" (it was "Mitfahrerzentrale"). The name changed in the user interface and in the
-catalogs only; routes (`#/carpool`), RPC names, tables and code identifiers are unchanged, and the texts that are written by the server
-(e-mails, the legal text, the data export) still say "Mitfahrerzentrale".
+catalogs; since V1.9.300 the texts written by the server (e-mails, the privacy policy, the data export) say "Mitfahrzentrale" too.
+Routes (`#/carpool`), RPC names, tables and code identifiers are unchanged.
 
 * **One list.** The separate section "Meine Einträge" is gone. The list "Fahrten" shows the feed; members get a toolbar above it with
   "Nur meine" (switches the list to the own entries, expired ones included, in the same cards) and the "Art" filter (works in both views;

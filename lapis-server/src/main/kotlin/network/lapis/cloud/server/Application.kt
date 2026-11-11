@@ -1639,7 +1639,7 @@ internal fun Application.module(
     postDraftRetentionPoller.start()
     monitor.subscribe(ApplicationStopping) { postDraftRetentionPoller.stop() }
 
-    // Welle V1.9.12 "Mitfahrerzentrale" -- immer aktiv, gleiches Muster wie postDraftRetentionPoller:
+    // Welle V1.9.12 "Mitfahrzentrale" -- immer aktiv, gleiches Muster wie postDraftRetentionPoller:
     // ein Feed-Eintrag verschwindet schon vorher aus CarpoolService.listPostings, dieser Poller
     // räumt erst CarpoolRetention.RETENTION_DAYS_AFTER_DEPARTURE Tage später endgültig auf.
     val carpoolRetentionPoller = CarpoolRetentionPoller()

@@ -297,6 +297,8 @@ class LegalHtmlTest :
                 )
             val purposesSection =
                 html.substringAfter("Zwecke und Rechtsgrundlagen der Verarbeitung").substringBefore("Empfänger")
+            // V1.9.300 -- the old spelling is gone from the rendered privacy page.
+            html shouldNotContain "Mitfahrerzentrale"
 
             // sectionKey -> a substring that must appear in the purposes list for that
             // contributor's domain to count as "described". Keep these keywords narrow enough
@@ -309,7 +311,7 @@ class LegalHtmlTest :
                     "dunning" to "Mahnwesen",
                     "documents" to "Dokumentenablage",
                     "communication" to "interne Kommunikation",
-                    "carpool" to "Mitfahrerzentrale",
+                    "carpool" to "Mitfahrzentrale",
                     // V1.9.297 -- the bulletin board: notices, LTR spent on them, the board's removal reason and note.
                     "bulletinBoard" to "Schwarzes Brett (Aushänge der Mitglieder)",
                     "polls" to "Umfragen",

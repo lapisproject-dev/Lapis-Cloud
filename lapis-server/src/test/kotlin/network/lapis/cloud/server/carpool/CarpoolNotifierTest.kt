@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.string.shouldStartWith
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.mail.CARPOOL_NOTICE_PURPOSE
@@ -159,5 +160,24 @@ class CarpoolNotifierTest :
             MailPurpose.isKnown(CARPOOL_NOTICE_PURPOSE) shouldBe true
             MailPurpose.policyFor(CARPOOL_NOTICE_PURPOSE).lane shouldBe MailLane.BULK
             MailPurpose.policyFor(CARPOOL_NOTICE_PURPOSE).priority shouldBe 1
+        }
+
+        test("the mail says Mitfahrzentrale (subject, link label, message paragraph) and never the old spelling") {
+            val branding = MailBranding(fromDisplayName = "Lapis Test", replyTo = null, publicBaseUrl = "https://lapis.example.org")
+            CarpoolNoticeKind.entries.forEach { kind ->
+                val mail =
+                    MailTemplates.carpoolNotice(
+                        kind = kind,
+                        date = LocalDate(2026, 11, 1),
+                        fromPlace = "Braunschweig",
+                        toPlace = "Hannover",
+                        branding = branding,
+                    )
+                mail.subject shouldStartWith "Mitfahrzentrale: "
+                mail.plainText shouldContain "Mitfahrzentrale öffnen"
+                mail.html shouldContain "Mitfahrzentrale öffnen"
+                listOf(mail.subject, mail.plainText, mail.html).forEach { it shouldNotContain "Mitfahrerzentrale" }
+                if (kind == CarpoolNoticeKind.MESSAGE) mail.plainText shouldContain "Öffnen Sie die Mitfahrzentrale"
+            }
         }
     })
