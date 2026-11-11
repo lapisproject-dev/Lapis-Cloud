@@ -5,6 +5,7 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.Link
+import io.kvision.html.Span
 import io.kvision.html.icon
 import io.kvision.html.span
 import org.w3c.dom.HTMLElement
@@ -96,6 +97,45 @@ internal fun newIconOnlyActionButton(
     style: ButtonStyle,
 ): Button = buildActionButton(kind, label, style, ActionLabelMode.ICON_ONLY, small = false)
 
+/**
+ * V1.9.301 (R58 exception, named): a toggle button with a thumb icon and a VISIBLE count (rating of a politician). Without `btn-sm`
+ * (`lapis-action-btn`, 44 px target). The accessible name becomes `title` + `aria-label` ([tableActionTooltip] path) and must already be a
+ * whole, resolved sentence (`gettext` + [sanitizeUntrustedI18nText] when it carries data). Does not go through
+ * [newIconOnlyActionButton], so that ledger is unchanged.
+ */
+internal class CountedToggleButton(
+    kind: ActionIcon,
+    private val styleOff: ButtonStyle,
+    private val styleOn: ButtonStyle,
+    count: Int,
+    accessibleName: String,
+    pressed: Boolean,
+) {
+    // The icon-only builder gives title + aria-label and the aria-hidden icon; the visible count is added behind the icon.
+    val button: Button =
+        buildActionButton(kind, accessibleName, if (pressed) styleOn else styleOff, ActionLabelMode.ICON_ONLY, small = false)
+    private val number: Span
+
+    init {
+        button.addCssClass("lapis-action-btn")
+        button.addCssClass("lapis-count-toggle")
+        number = button.span("$count", className = "lapis-count-toggle-number")
+        button.setAttribute("aria-pressed", pressed.toString())
+    }
+
+    /** Updates name, pressed state, filled/outline style and the visible count after a rating changed. */
+    fun update(
+        accessibleName: String,
+        pressed: Boolean,
+        count: Int,
+    ) {
+        button.tableActionTooltip(accessibleName)
+        button.setAttribute("aria-pressed", pressed.toString())
+        button.style = if (pressed) styleOn else styleOff
+        number.content = "$count"
+    }
+}
+
 private fun buildActionButton(
     kind: ActionIcon,
     label: String,
@@ -114,7 +154,7 @@ private fun buildActionButton(
         // V1.9.208: the text is a sibling span that Bootstrap hides below 576px (`d-none d-sm-inline`); the name lives in title + aria-label.
         require(!small) { "a RESPONSIVE action button is never btn-sm (44px touch target)" }
         result.addCssClass("lapis-action-btn")
-        result.tableActionTooltip(label)
+        result.tableActionTooltip(accessibleName ?: label)
         result.span(label, className = "lapis-action-label d-none d-sm-inline") { setAttribute("aria-hidden", "true") }
     } else if (iconOnly) {
         result.tableActionTooltip(label)

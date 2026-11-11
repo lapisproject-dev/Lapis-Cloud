@@ -1,0 +1,33 @@
+= Politician view (V1.9.301)
+:toc:
+
+The "Politiker" screen shows the politician profiles as a ranking and lets members and guests rate them. It is
+available only while the organization has switched the politician ranking on (settings section on the same screen).
+
+== Rating
+
+Every active profile has two thumb buttons, *positive* and *negative*. Each shows one number: the members' and the
+guests' ratings added together. The line below breaks the number down ("Members: 3 positive, 1 negative; Guests: ...").
+A click on an unpressed thumb casts the rating (the server keeps one rating per person, so switching thumbs replaces it);
+a click on the pressed thumb withdraws it, and "Withdraw rating" does the same. The weights (LTR-weighted for members,
+plain vote count for guests) are unchanged and still shown as three separate figures.
+
+== Appointing, editing and revoking
+
+* "Appoint politician" (button in the page header, board and administrators) opens a collapsed form. Appointing a person
+  who is already a politician updates the profile; a former profile is reactivated.
+* In the header of an active card, board and administrators find "Edit mandate text" (opens the text inline) and, last
+  in the group, "Revoke politician status" (asks for confirmation: revoking permanently deletes the ratings and the weight
+  history of the profile). A former profile shows only a hint to reactivate it through "Appoint politician".
+* The sections "Administration" (weight snapshot; board and administrators) and "Settings" (switch the ranking on or off;
+  treasurers, board and administrators) are collapsed. When the ranking is off, the banner has an "Open settings" button
+  that opens the section and moves the focus into it.
+
+== Photo
+
+The avatar next to a politician's name is the member's *public* photo, and only that: it appears when the member has
+released the photo for publication under "My data" (see link:member-photo.adoc[Member photo and public profiles]).
+The rule is evaluated live on every read and is the same one the public delivery route uses
+(`MemberPhotoStore.publicServableCondition()`), so a withdrawn release makes the photo disappear at once and the link
+never answers 404. Without a public photo the screen shows the person's initials. A private photo path is never used, and the
+listing consent for the public politician page does not matter here: it governs the public page only.

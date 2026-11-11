@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.forMemberUpdate
+import network.lapis.cloud.server.db.generated.MemberPhotoTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PoliticianProfileTable
@@ -11,6 +12,8 @@ import network.lapis.cloud.server.db.generated.PoliticianReactionTable
 import network.lapis.cloud.server.db.generated.PoliticianWeightSnapshotTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.memberphoto.MemberPhotoStore
+import network.lapis.cloud.server.routes.PublicProfileUrls
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -110,6 +113,13 @@ private val ZERO_WEIGHT_RESULT =
  * vote count) for GAST rows -- see that second function's KDoc for why a guest structurally cannot
  * be run through the same LTR-weighted pool mechanic today (no guest LTR-earning mechanism exists).
  * `combinedTrustWeight` is the literal sum of both, which [getTopPoliticians] sorts by.
+ *
+ * ## Photo
+ *
+ * [PoliticianProfileDto.photoUrl] is the app view's photo link: the member's PUBLIC photo only, under the
+ * same live rule as the delivery route ([MemberPhotoStore.publicServableCondition]), so a link never answers
+ * 404 and a withdrawn release disappears immediately. Otherwise `null` (the client shows initials). A private
+ * photo path is never exposed here.
  *
  * ## First-grant race
  *
@@ -641,7 +651,13 @@ class PoliticianService(
      * Exposed's implicit FK-based join resolution can't tell which path to use -- same
      * disambiguation `CrowdfundingService.projectJoin` KDoc documents.
      */
-    private fun profileJoin() = PoliticianProfileTable.join(MemberTable, JoinType.INNER, PoliticianProfileTable.memberId, MemberTable.id)
+    private fun profileJoin() =
+        PoliticianProfileTable
+            .join(MemberTable, JoinType.INNER, PoliticianProfileTable.memberId, MemberTable.id)
+            // The photo condition belongs in the ON clause (never WHERE), otherwise politicians without a public photo vanish.
+            .join(MemberPhotoTable, JoinType.LEFT, MemberTable.id, MemberPhotoTable.memberId) {
+                MemberPhotoStore.publicServableCondition()
+            }
 
     private fun memberDisplayName(memberId: Uuid?): String? =
         memberId?.let { id ->
@@ -670,6 +686,7 @@ class PoliticianService(
             guestLikeCount = weight.guestLikeCount,
             guestDislikeCount = weight.guestDislikeCount,
             combinedTrustWeight = weight.combinedTrustWeight,
+            photoUrl = PublicProfileUrls.photoUrl(baseUrl = "", token = this.getOrNull(MemberPhotoTable.publicToken)),
         )
 
     private fun ResultRow.toReactionDto(politicianMemberId: Uuid): PoliticianReactionDto =

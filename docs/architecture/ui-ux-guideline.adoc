@@ -2198,6 +2198,13 @@ because the client sources are scanned there; no server production code changed.
   style, `title` and `aria-label` "Senden"). Enter sends, Enter while an IME composes does not (the conference chat now behaves like the encounter chat). The row does
   not wrap on a phone: `.lapis-toolbar.lapis-chat-composer` (specificity 0-3-0) overrides the narrow-width full-width rule of a toolbar. The button is not disabled
   on an empty field (unchanged behaviour). Under `pointer: coarse` field and button reach 44 px.
+* **R58, third named exception (V1.9.301): the rating toggle with a visible count.** The Politiker screen rates a politician with two thumb buttons (`ActionIcon.RATE_POSITIVE`,
+  `RATE_NEGATIVE`) that show the combined number of members and guests next to the icon. They come from `CountedToggleButton` (`ActionButton.kt`), which builds on the icon-only
+  builder (no `btn-sm`, `lapis-action-btn`, 44 px) and does not add a call of `newIconOnlyActionButton`, so that ledger is unchanged. State is `aria-pressed`; `title` and
+  `aria-label` are one whole sentence ("%1 positiv bewerten (%2 positive Bewertungen)") built with `gettext` and passed whole through `sanitizeUntrustedI18nText`, because it carries
+  a person's name -- the `###KvI18nS###` marker must never reach `title` or `aria-label`. The buttons sit in an `actionGroup` with `role="group"` and a name, together with the
+  RESPONSIVE "Bewertung zurückziehen" button (`UNDO`). The same wave names the edit and revoke buttons of a politician card with the person ("Mandatstext bearbeiten: %1") through
+  `accessibleName`, which a RESPONSIVE button now also honours.
 * **R58, two named exceptions.** An icon-only button without `btn-sm` exists only through `newIconOnlyActionButton` (`ActionButton.kt`), and only these two places
   call it: (a) `lapisChatComposer` (the send button, one call) and (b) `conferenceControlButton` (`ConferenceControlBar.kt`, the icon-only control of the bar
   `lapis-conference-controls-row` in `ConferenceScreen.kt`, one call). `ClientToolbarIconTripwireTest` fails for any other caller, and for `conferenceControlButton`

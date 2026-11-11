@@ -94,7 +94,13 @@ interface IPoliticianService {
      */
     suspend fun getMyRating(politicianMemberId: String): List<PoliticianReactionDto>
 
-    /** Any authenticated member. [includeFormer] false (default) returns only ACTIVE profiles. */
+    /**
+     * Any authenticated member. [includeFormer] false (default) returns only ACTIVE profiles.
+     *
+     * Every returned [PoliticianProfileDto] (also from [getPoliticianProfile], [getTopPoliticians], the
+     * grant/revoke methods and [updateMandateText]) carries `photoUrl` only while the member's photo is
+     * publicly released (same live rule as the public delivery route); otherwise null.
+     */
     suspend fun listPoliticians(includeFormer: Boolean = false): List<PoliticianProfileDto>
 
     /** Any authenticated member. */

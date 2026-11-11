@@ -4668,14 +4668,6 @@ msgstr ""
 "Este proceso no se puede repetir -- si falla, las grabaciones originales se "
 "conservan y un administrador puede ayudar."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:489
-msgid ""
-"Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status "
-"erteilen\" oben kann es erneut aktiviert werden."
-msgstr ""
-"Este perfil es anterior -- puede reactivarse de nuevo mediante el formulario "
-"\"Conceder estatus de político\" de arriba."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:422
 msgid ""
 "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch "
@@ -4835,14 +4827,6 @@ msgstr "Patrimonio neto (contabilizado)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2373
 msgid "Eigenkapitalkonto"
 msgstr "Cuenta de patrimonio neto"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:276
-msgid ""
-"Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten "
-"aktivieren."
-msgstr ""
-"Un ADMIN puede activar la clasificación de políticos en la sección "
-"\"Configuración\" de abajo."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:255
 msgid ""
@@ -6125,10 +6109,6 @@ msgstr ""
 msgid "Ihre Antwort erbt die Sichtbarkeit des Ursprungsbeitrags: %1."
 msgstr "Su respuesta hereda la visibilidad de la publicación original: %1."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:431
-msgid "Ihre Bewertung:"
-msgstr "Su valoración:"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:56
 msgid "Ihre E-Mail-Adresse wurde bestätigt."
 msgstr "Su dirección de correo electrónico ha sido confirmada."
@@ -7299,15 +7279,6 @@ msgstr "El miembro se ha añadido."
 msgid "Mitglieder"
 msgstr "Miembros"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:788
-msgid ""
-"Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und "
-"bewerten; BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
-msgstr ""
-"A partir de ahora, los miembros y los invitados pueden consultar y valorar "
-"los perfiles de políticos; BOARD/ADMIN pueden conceder o revocar el estado "
-"de político."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:613
 msgid "Mitglieder-Gewicht"
 msgstr "Peso de los miembros"
@@ -7315,12 +7286,6 @@ msgstr "Peso de los miembros"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:368
 msgid "Mitglieder-Gewicht (LTR-gewichtet)"
 msgstr "Peso de los miembros (ponderado por LTR)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:378
-msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
-msgstr ""
-"Miembros: Me gusta %1 / No me gusta %2 · Invitados: Me gusta %3 / No me "
-"gusta %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:87
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:67
@@ -8742,10 +8707,6 @@ msgstr "Visible para ADMIN."
 msgid "Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."
 msgstr "La asistencia y el borrador del acta solo son visibles para los miembros del órgano."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:229
-msgid "Sichtbar für BOARD/ADMIN."
-msgstr "Visible para BOARD/ADMIN."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:172
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:238
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:239
@@ -8818,10 +8779,6 @@ msgstr "Todavía no ha publicado ninguna subasta."
 msgid "Sie haben noch keine Gebote abgegeben."
 msgstr "Todavía no ha realizado ninguna puja."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:427
-msgid "Sie haben noch nicht bewertet."
-msgstr "Todavía no ha valorado."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:363
 msgid "Sie haben noch nicht reagiert."
 msgstr "Todavía no ha reaccionado."
@@ -8829,14 +8786,6 @@ msgstr "Todavía no ha reaccionado."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:671
 msgid "Sie kaufen \"%1\" sofort für %2."
 msgstr "Está comprando «%1» de inmediato por %2."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:275
-msgid ""
-"Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten "
-"aktivieren."
-msgstr ""
-"Puede activar la clasificación de políticos en la sección «Configuración» de "
-"abajo."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1102
 msgid "Sie nehmen als Teilnehmer teil."
@@ -9877,10 +9826,6 @@ msgstr "Gestionar"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:545
 msgid "Verwaltung"
 msgstr "Administración"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:485
-msgid "Verwaltung (BOARD/ADMIN)"
-msgstr "Administración (BOARD/ADMIN)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:399
 msgid "Verwerfen und aktuelle Version übernehmen"
@@ -25454,9 +25399,6 @@ msgstr "Aquí presenta proyectos con una aportación en LTR y valora los proyect
 msgid "Hier bieten Sie auf Angebote anderer Mitglieder oder stellen selbst eines ein; geboten wird in LTR. Ob die Auktion eingeschaltet ist, legt die Administration fest."
 msgstr "Aquí puja por ofertas de otros miembros o publica una propia; se puja en LTR. La administración decide si la subasta está activada."
 
-msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie mit Like oder Dislike. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
-msgstr "Aquí ve los perfiles de políticos como clasificación y los valora con Like o Dislike. La administración decide si esta función está activada."
-
 msgid "Die Timeline zeigt die Beiträge der Mitglieder. Sie können eigene Beiträge veröffentlichen und auf andere antworten."
 msgstr "La línea de tiempo muestra las publicaciones de los miembros. Puede publicar las suyas y responder a las de otros."
 
@@ -31702,3 +31644,66 @@ msgstr "El título no se ha guardado. Compruebe la entrada; la vista se ha recar
 
 msgid "Titel geändert"
 msgstr "Título modificado"
+
+msgid "Politiker ernennen"
+msgstr "Nombrar político"
+
+msgid "Sichtbar für Vorstand und Administratoren."
+msgstr "Visible para la junta directiva y administradores."
+
+msgid "Sie können das Politiker-Ranking im Bereich „Einstellungen“ aktivieren."
+msgstr "Puede activar el ranking de políticos en el apartado «Configuración»."
+
+msgid "Ein Administrator kann das Politiker-Ranking im Bereich „Einstellungen“ aktivieren."
+msgstr "Un administrador puede activar el ranking de políticos en el apartado «Configuración»."
+
+msgid "Bitte wenden Sie sich an einen Administrator, falls Sie hierauf Zugriff benötigen."
+msgstr "Póngase en contacto con un administrador si necesita acceso."
+
+msgid "Einstellungen öffnen"
+msgstr "Abrir configuración"
+
+msgid "Mitglieder: %1 positiv, %2 negativ · Gäste: %3 positiv, %4 negativ"
+msgstr "Miembros: %1 positivas, %2 negativas · Invitados: %3 positivas, %4 negativas"
+
+msgid "Bewertung von %1"
+msgstr "Valoración de %1"
+
+msgid "%1 positiv bewerten (%2 positive Bewertungen)"
+msgstr "Valorar positivamente a %1 (%2 valoraciones positivas)"
+
+msgid "%1 negativ bewerten (%2 negative Bewertungen)"
+msgstr "Valorar negativamente a %1 (%2 valoraciones negativas)"
+
+msgid "Bewertung zurückziehen"
+msgstr "Retirar valoración"
+
+msgid "Bewertung zurückziehen: %1"
+msgstr "Retirar valoración: %1"
+
+msgid "Dieses Profil ist ehemalig -- über „Politiker ernennen“ oben kann es erneut aktiviert werden."
+msgstr "Este perfil es anterior: puede reactivarse de nuevo mediante «Nombrar político» más arriba."
+
+msgid "Mandatstext bearbeiten"
+msgstr "Editar texto del mandato"
+
+msgid "Mandatstext bearbeiten: %1"
+msgstr "Editar texto del mandato: %1"
+
+msgid "Politiker-Status widerrufen: %1"
+msgstr "Revocar estado de político: %1"
+
+msgid "Ein Foto lädt die Person selbst unter „Meine Daten“ hoch. Es erscheint hier nur, wenn sie es dort öffentlich freigibt, sonst zeigen wir ihre Initialen."
+msgstr "La propia persona sube una foto en «Mis datos». Solo aparece aquí si la publica allí; de lo contrario mostramos sus iniciales."
+
+msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; Vorstand und Administratoren können den Politiker-Status erteilen und widerrufen."
+msgstr "Los miembros y los invitados pueden ver y valorar desde ahora los perfiles de políticos; la junta directiva y los administradores pueden conceder y revocar el estado de político."
+
+msgid "Positiv"
+msgstr "Positiva"
+
+msgid "Negativ"
+msgstr "Negativa"
+
+msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
+msgstr "Aquí ve los perfiles de políticos como clasificación y los valora de forma positiva o negativa. La administración decide si esta función está activada."

@@ -750,6 +750,8 @@ class ClientToolbarIconTripwireTest :
                         "ConferenceScreen.kt" to 1,
                         // ... and the picker button's twin in the encounter sheet (gearTwin)
                         "EncounterRoom.kt" to 1,
+                        // V1.9.301: the labelled "Einstellungen öffnen" button of the Politiker screen's banner (opens the settings section)
+                        "PoliticianScreen.kt" to 1,
                     )
             }
             withClue("V1.9.94: the headphones icon and ActionIcon.AUDIO_DEVICES are gone from the whole client (comments excluded)") {

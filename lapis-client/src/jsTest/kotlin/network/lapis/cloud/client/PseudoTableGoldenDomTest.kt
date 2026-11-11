@@ -226,8 +226,8 @@ class PseudoTableGoldenDomTest {
             assertEquals(listOf("Rang", "Politiker", "Mitglieder", "Gäste", "Gesamt"), element().headerTexts())
             assertEquals(
                 listOf(
-                    listOf("1.", "Anna", "◆ 12,50${NBSP}LTR", "3", "15,50"),
-                    listOf("2.", "Bert", "◆ 9,00${NBSP}LTR", "1,50", "10,50"),
+                    listOf("1.", "AAnna", "◆ 12,50${NBSP}LTR", "3", "15,50"),
+                    listOf("2.", "BBert", "◆ 9,00${NBSP}LTR", "1,50", "10,50"),
                 ),
                 element().bodyRows(),
             )

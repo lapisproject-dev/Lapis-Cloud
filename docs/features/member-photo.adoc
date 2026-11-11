@@ -13,3 +13,5 @@ serialization) -- and a description. Member photos are **not** part of the in-ap
 (ADMIN bundle) and must be uploaded again after a restore; crests (and event and article covers) are, since bundle format 2
 (V1.9.65, `v0.30.0`). The operator backup `deploy/example/backup.sh` covers all uploaded files. See `docs/architecture/member-photo.adoc`,
 `docs/architecture/public-profiles.adoc` and `docs/architecture/regional-chapters.adoc`.
+
+A photo that is publicly released also appears as the avatar in the in-app politician view; see link:politician.adoc[Politician view (V1.9.301)]. Nothing else about the photo changes.

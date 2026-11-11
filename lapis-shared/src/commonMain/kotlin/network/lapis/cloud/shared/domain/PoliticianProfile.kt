@@ -70,6 +70,12 @@ data class PoliticianProfileDto(
     val guestLikeCount: Int,
     val guestDislikeCount: Int,
     val combinedTrustWeight: Decimal,
+    /**
+     * Relative URL `/public/member-photos/{token}` ONLY while the member's photo is publicly servable
+     * (evaluated live, same rule as the delivery route); otherwise null -> the client shows an initials
+     * avatar. Never a private photo path.
+     */
+    val photoUrl: String? = null,
 )
 
 @Serializable

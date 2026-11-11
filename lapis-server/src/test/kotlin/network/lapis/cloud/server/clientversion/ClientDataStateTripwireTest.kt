@@ -166,8 +166,15 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * Welle V1.9.295 "Laufende Veranstaltungskonferenzen in der Übersicht" adds ONE read in the (already counted) `ConferenceScreen.kt`:
  * `listRunningEventConferences(` next to `listActiveRooms(` inside the lobby's own load. A failure is deliberately silent (an old server has no such
  * route; the room list must still draw), so there is no error block to present. 199 -> 200.
+ * Welle V1.9.301 "Politiker-Ansicht umgestalten" adds ONE read in the (already counted) `PoliticianScreen.kt`: `getPoliticianProfile(` re-reads the counts of one
+ * card after a rating changed, so the two thumb buttons and the breakdown line update in place instead of rebuilding the whole list (which would drop the
+ * focus). It runs inside `runGuardedAction` + `guarded` (a failure toasts); there is no list or section of its own to show a loading/empty/error state for.
+ * 200 -> 201.
+ * Same Welle, second read in `PoliticianScreen.kt`: `listPoliticians(` in `refreshWeights()` re-reads the list after a rating change to repaint the weight
+ * figures of all cards in the background (a failure toasts through `guarded`); it has no section of its own to show a loading/empty/error state for.
+ * 201 -> 202.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 200
+private const val READ_OUTSIDE_STATE_REGION_MAX = 202
 private const val FILES_OUTSIDE_STATE_REGION_MAX = 66
 
 /**

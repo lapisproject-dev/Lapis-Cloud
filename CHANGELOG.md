@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Politician view redesigned (wave V1.9.301, no migration)
+
+No migration (the schema stays `V151`): the photo is a LEFT JOIN on the existing `member_photo` table (one row per member).
+
+**Behaviour changes first:** (1) The politician view shows a photo only while the member has released it publicly (the live rule of the public delivery route); otherwise initials. A private photo path is never used. (2) "Like"/"Dislike" became "Positiv"/"Negativ": two thumb toggle buttons with the combined number of members and guests; clicking the pressed thumb withdraws the rating. (3) Layout: "Politiker ernennen" is a header button that opens a collapsed form; "Mandatstext bearbeiten" and "Politiker-Status widerrufen" moved into the card header; "Verwaltung" and "Einstellungen" are collapsed; the banner of a switched-off ranking has an "Einstellungen öffnen" button; role abbreviations (BOARD/ADMIN/TREASURER) are gone from the visible texts. (4) **Open item:** the crowdfunding screen still says "Like"/"Dislike".
+
+- **Added:** `PoliticianProfileDto.photoUrl` (relative `/public/member-photos/{token}` or `null`); `ActionIcon.RATE_POSITIVE`/`RATE_NEGATIVE`; `CountedToggleButton`; `politicianAvatar`; `docs/features/politician.adoc`.
+- **Changed:** `PoliticianService.profileJoin()` (LEFT JOIN with `MemberPhotoStore.publicServableCondition()` in the `ON` clause); `PoliticianScreen.kt`; the page intro of the screen; `RESPONSIVE` action buttons honour `accessibleName`.
+- **Catalogs:** 21 new messages in `messages.pot` and the seven `.po` files, the obsolete ones removed (the Like/Dislike words stay for the crowdfunding screen).
+- **Security:** no new route; the URL is relative and only set as `src`; accessible names are sanitized as a whole; the public delivery route keeps `no-store`, so a withdrawal is immediate.
+- **Tests:** `PoliticianPhotoVisibilityTest` (all read paths, eight cases and a source tripwire), `PoliticianViewDomTest`, `PoliticianI18nCatalogTest`; updated `PoliticianScreenFormDomTest`, `PseudoTableGoldenDomTest` and the tripwire ledgers.
+- **Docs:** `docs/features/politician.adoc`, `action-icons.adoc`, `ui-ux-guideline.adoc` (R58), `member-photo.adoc`, `public-profiles.adoc`.
+- **Not verified:** nothing ran on a live instance.
+
 ### Mitfahrzentrale: server-written texts renamed (wave V1.9.300, no migration)
 
 No migration (the schema stays `V151`): text-only change in the server plus tests and documentation.

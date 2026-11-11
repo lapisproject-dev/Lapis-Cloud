@@ -47,6 +47,9 @@ classDiagram(name = "Public profiles") {
 }
 ----
 
+Since V1.9.301 `MemberPhotoStore.publicServableCondition()` has a third consumer besides the public pages and the embed feeds: `PoliticianService` joins it into the
+profile query (a LEFT JOIN, the condition in the `ON` clause) so the in-app politician view shows the same public photo and nothing else.
+
 One read layer, three consumers: a page, its feed and its nav tab cannot disagree. Every function runs in the caller's
 transaction and returns data-minimized cards (no id, e-mail, date or number about a person). Caps: 30 board cards, 100
 politicians (DB pre-limit 500, then a German `Collator` sort), 50 chapters; the feeds have no `limit` parameter.

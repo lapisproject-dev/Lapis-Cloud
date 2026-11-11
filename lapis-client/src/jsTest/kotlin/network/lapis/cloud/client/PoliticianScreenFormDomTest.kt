@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 
 /**
  * W4d (this batch): `PoliticianScreen.kt`'s three migrated `lapisForm`s ("Mandatstext" on a board card,
- * "Politiker-Status erteilen" -- member select + mandate text, "Gewichts-Snapshot auslösen" -- a month
+ * "Politiker ernennen" -- member select + mandate text, "Gewichts-Snapshot auslösen" -- a month
  * text field), driven the way a person does (type, blur, choose, click) against a stubbed `window.fetch`,
  * same idiom `FormGrammarPart3DomTest.kt`/`FormSubmitBodyPart4DomTest.kt` already establish. `canBoard`
  * (BOARD role) is required for the "Verwaltung" panel these three forms live in.
@@ -81,6 +81,8 @@ class PoliticianScreenFormDomTest {
                 mountedForm("politician-snapshot-happy") { root, element ->
                     renderPoliticianScreen(root)
                     delay(80)
+                    element().buttonNamed("Verwaltung").click() // V1.9.301: the section is collapsed
+                    delay(80)
                     element().typeInto("Monat (Tag wird ignoriert)", "  2026-03-14  ")
                     element().buttonNamed("Snapshot auslösen").click()
                     awaitUntil("snapshotWeights", timeoutMs = 800) { calls.toRoute(snapshotRoute).size == 1 }
@@ -109,6 +111,8 @@ class PoliticianScreenFormDomTest {
             ) { calls ->
                 mountedForm("politician-snapshot-invalid") { root, element ->
                     renderPoliticianScreen(root)
+                    delay(80)
+                    element().buttonNamed("Verwaltung").click() // V1.9.301: the section is collapsed
                     delay(80)
                     element().typeInto("Monat (Tag wird ignoriert)", "  nicht-ein-datum  ")
                     element().buttonNamed("Snapshot auslösen").click()
@@ -144,7 +148,16 @@ class PoliticianScreenFormDomTest {
             ) { calls ->
                 mountedForm("politician-grant-happy") { root, element ->
                     renderPoliticianScreen(root)
+                    delay(80)
+                    // V1.9.301: "Politiker ernennen" opens the collapsed form; the members are loaded on that click.
+                    element().buttonNamed("Politiker ernennen").click()
                     awaitUntil("members loaded", timeoutMs = 800) { calls.toRoute(listMembersRoute).size == 1 }
+                    awaitUntil("grant form open", timeoutMs = 800) {
+                        element().allOf("button").any {
+                            it.textContent?.trim() ==
+                                "Erteilen / Aktualisieren"
+                        }
+                    }
                     delay(80)
                     // `selectField` (like the old raw `select()` before it) does not auto-select a value on its
                     // own -- a real user always chooses from the dropdown, so the test does too.
@@ -185,6 +198,12 @@ class PoliticianScreenFormDomTest {
                 mountedForm("politician-mandate-save") { root, element ->
                     renderPoliticianScreen(root)
                     awaitUntil("politician card rendered", timeoutMs = 800) {
+                        element().allOf("button").any { it.textContent?.trim() == "Mandatstext bearbeiten" }
+                    }
+                    delay(80)
+                    // V1.9.301: the mandate form opens inline from the card header's edit button.
+                    element().buttonNamed("Mandatstext bearbeiten").click()
+                    awaitUntil("mandate form open", timeoutMs = 800) {
                         element().allOf("button").any { it.textContent?.trim() == "Mandatstext speichern" }
                     }
                     delay(80)

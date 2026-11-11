@@ -86,6 +86,12 @@ enum class ActionIcon(
     SETTINGS("fas fa-gear"),
     UNDO("fas fa-rotate-left"),
 
+    /** V1.9.301: rate a politician positively (thumb toggle with a count). Assigned to this purpose only; retracting uses [UNDO]. */
+    RATE_POSITIVE("fas fa-thumbs-up"),
+
+    /** V1.9.301: rate a politician negatively (thumb toggle with a count). Assigned to this purpose only; retracting uses [UNDO]. */
+    RATE_NEGATIVE("fas fa-thumbs-down"),
+
     /**
      * Welle V1.9.57: "protected" -- a value or an action the peer protection withholds (an administrator's address data, an action against
      * another administrator that needs the second administrator). It marks the REASON text next to a disabled control and the masked

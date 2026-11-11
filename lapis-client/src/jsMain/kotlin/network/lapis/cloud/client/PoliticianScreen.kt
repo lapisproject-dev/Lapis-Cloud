@@ -1,11 +1,13 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.select.select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.html.image
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -13,6 +15,7 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import kotlinx.browser.document
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -28,6 +31,7 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IPoliticianService
+import org.w3c.dom.HTMLElement
 
 /**
  * LTR-Wirtschaft UI wave, screen 4 of 5 -- "Politiker" ([IPoliticianService], self-contained
@@ -110,7 +114,7 @@ import network.lapis.cloud.shared.rpc.IPoliticianService
  * idiom).
  *
  * **Empty states (D10)**: zero politicians renders "Noch keine Politiker-Profile vorhanden.", a
- * caller with no rating on a given politician renders "Sie haben noch nicht bewertet.", and zero
+ * caller with no rating on a given politician simply sees both thumbs unpressed, and zero
  * weight-history renders "Noch kein Gewichtsverlauf vorhanden." -- never a blank list/table.
  *
  * Every LTR-denominated amount is rendered via [ltrSpan]/[formatLtr] (`Money.kt`, D2) -- never
@@ -125,7 +129,9 @@ fun renderPoliticianScreen(container: SimplePanel) {
 
     val root =
         container.pageShell(PageWidth.WIDE, spacing = 14)
-    root.pageHeader(tr("Politiker"), intro = PageIntros.forRoute(Routes.POLITICIANS))
+    val header = root.pageHeader(tr("Politiker"), intro = PageIntros.forRoute(Routes.POLITICIANS))
+    // V1.9.301: "Politiker ernennen" is the one primary action of the page; its form opens collapsed under the header (R36B).
+    val grantFormHost = if (canBoard) root.vPanel(spacing = 6) else null
 
     // ---- Top-Politiker (dashboard widget, top of screen) ---------------------------------------
     root.h2(tr("Top-Politiker")) { addCssClass("h5") }
@@ -136,6 +142,7 @@ fun renderPoliticianScreen(container: SimplePanel) {
     // gate probe fails -- see file KDoc "The politicianRankingEnabled gate") -----------------------
     val disabledBanner = root.vPanel(spacing = 4) { addCssClasses("border rounded p-3 bg-body-tertiary") }
     disabledBanner.hide()
+    var openSettings: () -> Unit = {}
 
     // ---- Politiker-Profile list -----------------------------------------------------------------
     root.h2(tr("Politiker-Profile")) { addCssClass("h5") }
@@ -157,10 +164,10 @@ fun renderPoliticianScreen(container: SimplePanel) {
     politicianFilter.setVisible(false)
     val politiciansPanel = root.vPanel(spacing = 10)
 
-    // ---- Verwaltung (BOARD/ADMIN, D3 staged disclosure -- always reachable, see file KDoc) ------
+    // ---- Verwaltung (Vorstand/Administratoren, collapsed -- always reachable, see file KDoc) -----
     val boardPanel = if (canBoard) root.vPanel(spacing = 10) { addCssClasses("border rounded p-3 mt-2") } else null
 
-    // ---- Einstellungen (politicianRankingEnabled toggle -- independent of the gate above, the
+    // ---- Einstellungen (politicianRankingEnabled toggle, collapsed -- independent of the gate above, the
     // ONLY path to re-enable the feature, see file KDoc) ------------------------------------------
     val settingsPanel = if (canTreasury) root.vPanel(spacing = 8) { addCssClasses("border rounded p-3 mt-2") } else null
 
@@ -181,7 +188,30 @@ fun renderPoliticianScreen(container: SimplePanel) {
     var loadedPoliticians: List<PoliticianProfileDto> = emptyList()
     var reloadPoliticians: () -> Unit = {}
 
+    // Weight repainters of the currently rendered cards, keyed by memberId (the shared LTR pool makes a single rating
+    // change every politician's weights, see refreshWeights).
+    val weightUpdaters = mutableMapOf<String, (PoliticianProfileDto) -> Unit>()
+    var weightsGeneration = 0
+
+    /**
+     * After a rating change: the LTR pool is shared and split by ratio, so the weights (and ranks) of EVERY politician move. Reloads the
+     * Top list and repaints the weight figures of all rendered cards in place (open editors and rating state stay untouched).
+     */
+    fun refreshWeights() {
+        loadTopPoliticians()
+        val includeFormer = includeFormerSelect.value == "true"
+        val generation = ++weightsGeneration
+        AppScope.launch {
+            val fresh = guarded { rpcService<IPoliticianService>().listPoliticians(includeFormer) } ?: return@launch
+            // A newer rating change or a list reload (e.g. toggled "show former") has overtaken this answer: drop it. It only repaints the weights
+            // and never replaces `loadedPoliticians`, so it cannot bring back the profile set of a stale filter.
+            if (generation != weightsGeneration) return@launch
+            fresh.forEach { weightUpdaters[it.memberId]?.invoke(it) }
+        }
+    }
+
     fun renderPoliticianCards() {
+        weightUpdaters.clear()
         politiciansPanel.removeAll()
         if (loadedPoliticians.isEmpty()) {
             politicianFilter.setVisible(false)
@@ -195,12 +225,15 @@ fun renderPoliticianScreen(container: SimplePanel) {
             return
         }
         visible.forEach { politician ->
-            renderPoliticianCard(politiciansPanel, politician, canBoard, currentMemberId) { reloadPoliticians() }
+            renderPoliticianCard(politiciansPanel, politician, canBoard, currentMemberId, onChanged = {
+                reloadPoliticians()
+            }, weightUpdaters = weightUpdaters, onRatingChanged = { refreshWeights() })
         }
     }
     politicianFilter.subscribe { renderPoliticianCards() }
 
     fun loadPoliticians() {
+        weightsGeneration++
         disabledBanner.hide()
         topPanel.show()
         politiciansPanel.show()
@@ -209,7 +242,9 @@ fun renderPoliticianScreen(container: SimplePanel) {
         val includeFormer = includeFormerSelect.value == "true"
         AppScope.launch {
             val politicians =
-                loadPoliticiansOrShowBanner(includeFormer, topPanel, politiciansPanel, disabledBanner, canAdmin, canTreasury)
+                loadPoliticiansOrShowBanner(includeFormer, topPanel, politiciansPanel, disabledBanner, canAdmin, canTreasury) {
+                    openSettings()
+                }
                     ?: return@launch
             loadedPoliticians = politicians
             renderPoliticianCards()
@@ -223,20 +258,57 @@ fun renderPoliticianScreen(container: SimplePanel) {
 
     loadPoliticians()
 
+    if (grantFormHost != null) {
+        var members: List<MemberSummaryDto>? = null
+        // `build` is synchronous: the member list is loaded before the form may open.
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = grantFormHost,
+            buttonLabel = tr("Politiker ernennen"),
+            formId = "lapis-politician-grant",
+            beforeOpen = { proceed ->
+                if (members != null) {
+                    proceed()
+                } else {
+                    AppScope.launch {
+                        val loaded = guarded { rpcService<IMemberService>().listMembers() }
+                        if (loaded != null) {
+                            members = loaded
+                            proceed()
+                        }
+                    }
+                }
+            },
+        ) { _, close ->
+            renderGrantForm(this, members.orEmpty(), onCompleted = {
+                members = null
+                close(true)
+                loadPoliticians()
+            }, close)
+        }
+    }
+
     if (boardPanel != null) {
-        boardPanel.h2(tr("Verwaltung")) { addCssClass("h5") }
-        boardPanel.div(tr("Sichtbar für BOARD/ADMIN.")) { addCssClasses("text-muted small mb-2") }
-        AppScope.launch {
-            val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
-            renderGrantForm(boardPanel, members) { loadPoliticians() }
-            renderSnapshotForm(boardPanel) { loadPoliticians() }
+        boardPanel.disclosure(tr("Verwaltung"), "politician-admin-body", initiallyOpen = false) {
+            div(tr("Sichtbar für Vorstand und Administratoren.")) { addCssClasses("text-muted small mb-2") }
+            renderSnapshotForm(this) { loadPoliticians() }
         }
     }
 
     if (settingsPanel != null) {
-        settingsPanel.h2(tr("Einstellungen")) { addCssClass("h5") }
-        settingsPanel.div(tr("Sichtbar für TREASURER/BOARD/ADMIN.")) { addCssClasses("text-muted small mb-2") }
-        renderPoliticianRankingToggle(settingsPanel, canAdmin) { loadPoliticians() }
+        val settingsToggle =
+            settingsPanel.disclosure(tr("Einstellungen"), "politician-settings-body", initiallyOpen = false) {
+                div(tr("Sichtbar für Kassenwarte, Vorstand und Administratoren.")) { addCssClasses("text-muted small mb-2") }
+                renderPoliticianRankingToggle(this, canAdmin) { loadPoliticians() }
+            }
+        // The banner button opens the section and moves the focus into it; nothing opens on its own.
+        openSettings = {
+            val toggleElement = settingsToggle.getElement() as? HTMLElement
+            if (toggleElement?.getAttribute("aria-expanded") == "false") toggleElement.click()
+            whenRendered({ document.querySelector("#politician-settings-body button") != null }) {
+                (document.querySelector("#politician-settings-body button") as? HTMLElement)?.focus()
+            }
+        }
     }
 }
 
@@ -256,6 +328,7 @@ private suspend fun loadPoliticiansOrShowBanner(
     disabledBanner: SimplePanel,
     canAdmin: Boolean,
     canTreasury: Boolean,
+    onOpenSettings: () -> Unit,
 ): List<PoliticianProfileDto>? =
     try {
         rpcService<IPoliticianService>().listPoliticians(includeFormer)
@@ -271,11 +344,16 @@ private suspend fun loadPoliticiansOrShowBanner(
         disabledBanner.div(tr("Das Politiker-Ranking ist derzeit deaktiviert.")) { addCssClass("fw-bold") }
         disabledBanner.div(
             when {
-                canAdmin -> tr("Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren.")
-                canTreasury -> tr("Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren.")
-                else -> tr("Bitte wenden Sie sich an ein ADMIN-Mitglied, falls Sie hierauf Zugriff benötigen.")
+                canAdmin -> tr("Sie können das Politiker-Ranking im Bereich „Einstellungen“ aktivieren.")
+                canTreasury -> tr("Ein Administrator kann das Politiker-Ranking im Bereich „Einstellungen“ aktivieren.")
+                else -> tr("Bitte wenden Sie sich an einen Administrator, falls Sie hierauf Zugriff benötigen.")
             },
         ) { addCssClasses("text-muted small") }
+        if (canTreasury || canAdmin) {
+            disabledBanner.actionButton(ActionIcon.SETTINGS, tr("Einstellungen öffnen"), style = ButtonStyle.OUTLINESECONDARY) {
+                onClick { onOpenSettings() }
+            }
+        }
         null
     } catch (e: Throwable) {
         politiciansPanel.removeAll()
@@ -299,11 +377,15 @@ internal fun renderTopPoliticiansList(
         columns =
             listOf(
                 textColumn<IndexedValue<PoliticianProfileDto>>(title = tr("Rang"), numeric = true) { "${it.index + 1}." },
-                textColumn<IndexedValue<PoliticianProfileDto>>(
+                DataColumn(
                     title = tr("Politiker"),
                     primary = true,
-                    cssClasses = "fw-bold",
-                ) { it.value.displayName },
+                    cell = { cell, p ->
+                        val line = cell.div(className = "d-flex align-items-center gap-2")
+                        line.politicianAvatar(p.value, AvatarSize.SM)
+                        line.untrustedSpan(p.value.displayName, className = "fw-bold")
+                    },
+                ),
                 DataColumn(title = tr("Mitglieder"), numeric = true, cell = { cell, p -> cell.ltrSpan(p.value.memberTrustWeight) }),
                 DataColumn(title = tr("Gäste"), numeric = true, cell = { cell, p -> cell.countSpan(p.value.guestTrustWeight) }),
                 DataColumn(
@@ -328,19 +410,35 @@ private fun renderPoliticianCard(
     canBoard: Boolean,
     currentMemberId: String?,
     onChanged: () -> Unit,
+    weightUpdaters: MutableMap<String, (PoliticianProfileDto) -> Unit>,
+    onRatingChanged: () -> Unit,
 ) {
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val headerRow = card.div(className = "d-flex flex-wrap align-items-center gap-2")
+    headerRow.politicianAvatar(politician, AvatarSize.MD)
     // Security audit W6b follow-up round 3 (major finding A): display name/mandate text are member-editable
     // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
-    headerRow.div(sanitizeUntrustedI18nText(politician.displayName)) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.div(sanitizeUntrustedI18nText(politician.displayName)) { addCssClasses("fw-bold") }
     if (currentMemberId != null && politician.memberId == currentMemberId) {
         headerRow.div(tr("(Sie)")) { addCssClasses("text-muted small") }
     }
     headerRow.statusBadge(politicianProfileStatusLabel(politician.status), politicianProfileStatusColor(politician.status))
 
-    politician.mandateText?.takeIf { it.isNotBlank() }?.let { mandate ->
-        card.div(sanitizeUntrustedI18nText(mandate)) { addCssClasses("small") }
+    // Mandate text: edited inline from the header's edit button (D9, Vorstand/Administratoren only), updated in place after saving.
+    val editBody = card.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
+    editBody.id = "politician-mandate-${politician.id}"
+    editBody.hide()
+    val mandateDiv = card.div("") { addCssClasses("small") }
+
+    fun showMandate(text: String?) {
+        val shown = text?.takeIf { it.isNotBlank() }
+        mandateDiv.content = shown?.let { sanitizeUntrustedI18nText(it) } ?: ""
+        if (shown != null) mandateDiv.show() else mandateDiv.hide()
+    }
+    showMandate(politician.mandateText)
+
+    if (canBoard) {
+        renderBoardCardHeaderActions(headerRow, editBody, politician, onChanged, ::showMandate)
     }
 
     card.div(
@@ -364,75 +462,133 @@ private fun renderPoliticianCard(
     // figures. Only memberTrustWeight is genuinely LTR-denominated and gets the ltrSpan badge.
     val weightRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }
     val memberCell = weightRow.vPanel(spacing = 2)
-    memberCell.div(tr("Mitglieder-Gewicht (LTR-gewichtet)")) { addCssClasses("text-muted small") }
-    memberCell.ltrSpan(politician.memberTrustWeight)
     val guestCell = weightRow.vPanel(spacing = 2)
-    guestCell.div(tr("Gast-Gewicht (reine Stimmenzahl, ungewichtet)")) { addCssClasses("text-muted small") }
-    guestCell.countSpan(politician.guestTrustWeight).addCssClass("fw-bold")
     val combinedCell = weightRow.vPanel(spacing = 2)
-    combinedCell.div(tr("Gesamt (Summe, keine vergleichbare Einheit)")) { addCssClasses("text-muted small") }
-    combinedCell.plainAmountSpan(politician.combinedTrustWeight).addCssClass("fw-bold")
 
-    card.div(
-        gettext(
-            "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4",
-            politician.memberLikeCount,
-            politician.memberDislikeCount,
-            politician.guestLikeCount,
-            politician.guestDislikeCount,
-        ),
-    ) { addCssClasses("small text-muted") }
+    fun paintWeights(p: PoliticianProfileDto) {
+        memberCell.removeAll()
+        memberCell.div(tr("Mitglieder-Gewicht (LTR-gewichtet)")) { addCssClasses("text-muted small") }
+        memberCell.ltrSpan(p.memberTrustWeight)
+        guestCell.removeAll()
+        guestCell.div(tr("Gast-Gewicht (reine Stimmenzahl, ungewichtet)")) { addCssClasses("text-muted small") }
+        guestCell.countSpan(p.guestTrustWeight).addCssClass("fw-bold")
+        combinedCell.removeAll()
+        combinedCell.div(tr("Gesamt (Summe, keine vergleichbare Einheit)")) { addCssClasses("text-muted small") }
+        combinedCell.plainAmountSpan(p.combinedTrustWeight).addCssClass("fw-bold")
+    }
+    paintWeights(politician)
+    weightUpdaters[politician.memberId] = ::paintWeights
 
     // castRating/retractRating require status == ACTIVE server-side -- only RENDERED once active,
     // never shown-then-failed on a FORMER profile (same posture CrowdfundingScreen.kt's
     // effectiveStatus == APPROVED gate already establishes for its own reaction controls).
     if (politician.status == PoliticianProfileStatus.ACTIVE) {
-        renderRatingControls(card, politician, onChanged)
-    }
-
-    if (canBoard) {
-        renderBoardCardActions(card, politician, onChanged)
+        renderRatingControls(card, politician, onRatingChanged)
+    } else {
+        card.div(politicianRatingSummary(politician)) { addCssClasses("small text-muted") }
     }
 
     renderWeightHistorySection(card, politician)
 }
 
+/** The breakdown line below the rating buttons (the buttons carry only the combined number). */
+internal fun politicianRatingSummary(politician: PoliticianProfileDto): String =
+    gettext(
+        "Mitglieder: %1 positiv, %2 negativ · Gäste: %3 positiv, %4 negativ",
+        politician.memberLikeCount,
+        politician.memberDislikeCount,
+        politician.guestLikeCount,
+        politician.guestDislikeCount,
+    )
+
+private fun ratingGroupName(name: String): String = sanitizeUntrustedI18nText(gettext("Bewertung von %1", name))
+
+private fun positiveName(
+    name: String,
+    n: Int,
+): String = sanitizeUntrustedI18nText(gettext("%1 positiv bewerten (%2 positive Bewertungen)", name, n))
+
+private fun negativeName(
+    name: String,
+    n: Int,
+): String = sanitizeUntrustedI18nText(gettext("%1 negativ bewerten (%2 negative Bewertungen)", name, n))
+
+/**
+ * Rating (ACTIVE profiles only): two thumb toggles, each with the combined number of members and guests, plus "Bewertung zurückziehen" while
+ * the caller has a rating. A click on the unpressed thumb casts (the server upserts, so switching thumbs works); a click on the pressed
+ * thumb retracts. Everything updates in place from a fresh profile read and `getMyRating`; a failed call leaves the state as the server has it.
+ */
 private fun renderRatingControls(
     card: SimplePanel,
     politician: PoliticianProfileDto,
-    onChanged: () -> Unit,
+    onRatingChanged: () -> Unit,
 ) {
-    val ratingRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap border-top pt-2 mt-1") }
-    val myRatingPanel = ratingRow.vPanel(spacing = 0) { addCssClasses("flex-grow-1") }
-    myRatingPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-    val likeButton = ratingRow.button(tr("Like"), style = ButtonStyle.OUTLINESUCCESS)
-    val dislikeButton = ratingRow.button(tr("Dislike"), style = ButtonStyle.OUTLINEDANGER)
-    val retractButton = ratingRow.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
+    var current = politician
+    var myRating: PoliticianReactionValue? = null
+    val name = politician.displayName
+
+    val ratingRow = card.div(className = "border-top pt-2 mt-1")
+    val summary = ratingRow.div(politicianRatingSummary(current)) { addCssClasses("small text-muted mb-2") }
+    val group = ratingRow.actionGroup()
+    group.setAttribute("role", "group")
+    group.setAttribute("aria-label", ratingGroupName(name))
+
+    fun positives() = current.memberLikeCount + current.guestLikeCount
+
+    fun negatives() = current.memberDislikeCount + current.guestDislikeCount
+
+    val like =
+        CountedToggleButton(
+            ActionIcon.RATE_POSITIVE,
+            ButtonStyle.OUTLINESUCCESS,
+            ButtonStyle.SUCCESS,
+            positives(),
+            positiveName(name, positives()),
+            pressed = false,
+        )
+    group.add(like.button)
+    val dislike =
+        CountedToggleButton(
+            ActionIcon.RATE_NEGATIVE,
+            ButtonStyle.OUTLINEDANGER,
+            ButtonStyle.DANGER,
+            negatives(),
+            negativeName(name, negatives()),
+            pressed = false,
+        )
+    group.add(dislike.button)
+    val retractButton =
+        group.actionButton(
+            ActionIcon.UNDO,
+            tr("Bewertung zurückziehen"),
+            style = ButtonStyle.OUTLINESECONDARY,
+            labelMode = ActionLabelMode.RESPONSIVE,
+            accessibleName = sanitizeUntrustedI18nText(gettext("Bewertung zurückziehen: %1", name)),
+        )
+    retractButton.hide()
 
     fun setButtonsDisabled(disabled: Boolean) {
-        likeButton.disabled = disabled
-        dislikeButton.disabled = disabled
+        like.button.disabled = disabled
+        dislike.button.disabled = disabled
         retractButton.disabled = disabled
     }
 
-    fun refreshMyRating() {
-        myRatingPanel.removeAll()
-        myRatingPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val ratings = guarded { rpcService<IPoliticianService>().getMyRating(politician.memberId) } ?: emptyList()
-            val mine = ratings.firstOrNull()
-            myRatingPanel.removeAll()
-            if (mine == null) {
-                myRatingPanel.div(tr("Sie haben noch nicht bewertet.")) { addCssClasses("text-muted small") }
-                retractButton.hide()
-            } else {
-                val row = myRatingPanel.hPanel(spacing = 6) { addCssClasses("align-items-center") }
-                row.div(tr("Ihre Bewertung:")) { addCssClasses("text-muted small") }
-                row.typeBadge(politicianReactionValueLabel(mine.value), politicianReactionValueColor(mine.value))
-                row.typeBadge(politicianRaterTypeLabel(mine.raterType), politicianRaterTypeColor(mine.raterType))
-                retractButton.show()
-            }
+    fun paint() {
+        like.update(positiveName(name, positives()), myRating == PoliticianReactionValue.LIKE, positives())
+        dislike.update(negativeName(name, negatives()), myRating == PoliticianReactionValue.DISLIKE, negatives())
+        summary.content = politicianRatingSummary(current)
+        if (myRating == null) retractButton.hide() else retractButton.show()
+    }
+
+    /** Reads the caller's own rating (and, after a change, the fresh counts) from the server, then repaints. */
+    suspend fun refreshFromServer(withCounts: Boolean) {
+        if (withCounts) {
+            val fresh = guarded { rpcService<IPoliticianService>().getPoliticianProfile(politician.memberId) }
+            if (fresh != null) current = fresh
         }
+        val ratings = guarded { rpcService<IPoliticianService>().getMyRating(politician.memberId) }
+        if (ratings != null) myRating = ratings.firstOrNull()?.value
+        paint()
     }
 
     // R29 (W4d): `runGuardedAction(null)` -- the double-click protection is the manual `setButtonsDisabled(true)`
@@ -441,83 +597,141 @@ private fun renderRatingControls(
     fun castRating(value: PoliticianReactionValue) {
         setButtonsDisabled(true)
         runGuardedAction(null) {
-            val result = guarded { rpcService<IPoliticianService>().castRating(politician.memberId, value) }
-            setButtonsDisabled(false)
-            if (result != null) {
-                notifySuccess(tr("Bewertung gespeichert."))
-                refreshMyRating()
-                onChanged()
+            try {
+                val result = guarded { rpcService<IPoliticianService>().castRating(politician.memberId, value) }
+                if (result != null) {
+                    notifySuccess(tr("Bewertung gespeichert."))
+                    refreshFromServer(withCounts = true)
+                    onRatingChanged()
+                }
+            } finally {
+                setButtonsDisabled(false)
             }
         }
     }
 
-    likeButton.onClick { castRating(PoliticianReactionValue.LIKE) }
-    dislikeButton.onClick { castRating(PoliticianReactionValue.DISLIKE) }
-    retractButton.onClick {
+    fun retract() {
         setButtonsDisabled(true)
         runGuardedAction(null) {
-            val result = guarded { rpcService<IPoliticianService>().retractRating(politician.memberId) }
-            setButtonsDisabled(false)
-            if (result != null) {
-                notifySuccess(tr("Bewertung zurückgezogen."))
-                refreshMyRating()
-                onChanged()
+            try {
+                val result = guarded { rpcService<IPoliticianService>().retractRating(politician.memberId) }
+                if (result != null) {
+                    notifySuccess(tr("Bewertung zurückgezogen."))
+                    refreshFromServer(withCounts = true)
+                    onRatingChanged()
+                }
+            } finally {
+                setButtonsDisabled(false)
             }
         }
     }
 
-    refreshMyRating()
+    fun toggle(value: PoliticianReactionValue) {
+        if (myRating == value) retract() else castRating(value)
+    }
+
+    like.button.onClick { toggle(PoliticianReactionValue.LIKE) }
+    dislike.button.onClick { toggle(PoliticianReactionValue.DISLIKE) }
+    retractButton.onClick { retract() }
+
+    // Disabled until the own rating is known: a click before that would see myRating == null and cast instead of retract.
+    setButtonsDisabled(true)
+    AppScope.launch {
+        try {
+            refreshFromServer(withCounts = false)
+        } finally {
+            setButtonsDisabled(false)
+        }
+    }
 }
 
 /**
- * BOARD/ADMIN actions on an individual card: Mandatstext bearbeiten (D9 -- BOARD/ADMIN-only, see
- * file KDoc) and Widerrufen (Tier 3 "Löschend", see [politicianRevokeConfirmDialog]). A FORMER
- * profile shows neither -- it can only be reactivated via the "Politiker-Status erteilen" form
- * above ([renderGrantForm], the same idempotent-upsert entry point as a first-time grant).
+ * Vorstand/Administrator actions in the card header (ACTIVE profiles only): "Mandatstext bearbeiten" (D9, opens the mandate form inline in
+ * [editBody]) and "Politiker-Status widerrufen" (Tier 3 "Löschend", see [politicianRevokeConfirmDialog]), last in the group. A FORMER
+ * profile shows neither -- it can only be reactivated via "Politiker ernennen" at the top of the page (the same idempotent-upsert entry
+ * point as a first-time grant).
  */
-private fun renderBoardCardActions(
-    card: SimplePanel,
+private fun renderBoardCardHeaderActions(
+    headerRow: Container,
+    editBody: SimplePanel,
     politician: PoliticianProfileDto,
     onChanged: () -> Unit,
+    showMandate: (String?) -> Unit,
 ) {
-    val panel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    panel.div(tr("Verwaltung (BOARD/ADMIN)")) { addCssClass("fw-bold") }
-
     if (politician.status == PoliticianProfileStatus.FORMER) {
-        panel.div(
-            tr(
-                "Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status erteilen\" oben kann es erneut " +
-                    "aktiviert werden.",
-            ),
-        ) { addCssClasses("text-muted small") }
+        headerRow.div(
+            tr("Dieses Profil ist ehemalig -- über „Politiker ernennen“ oben kann es erneut aktiviert werden."),
+        ) { addCssClasses("text-muted small w-100") }
         return
     }
+    val name = politician.displayName
+    var currentMandate = politician.mandateText
+    lateinit var editButton: Button
 
-    // R24 (W4d): migrated to the form grammar -- a single optional field, saved on its own button.
-    val mandateForm = panel.lapisForm()
-    val mandateField = mandateForm.textAreaField(label = tr("Mandatstext"), rows = 2, value = politician.mandateText)
-    val mandateSaveButton = newActionButton(ActionIcon.SAVE, tr("Mandatstext speichern"), style = ButtonStyle.OUTLINESECONDARY)
-    mandateForm.buttons(primary = mandateSaveButton)
-    mandateSaveButton.onClick {
-        mandateForm.submit(mandateSaveButton) {
-            val text = mandateField.value.trim().takeIf { it.isNotBlank() }
-            val result = guarded { rpcService<IPoliticianService>().updateMandateText(politician.memberId, text) }
-            if (result != null) {
-                notifySuccess(tr("Mandatstext aktualisiert."))
-                onChanged()
+    fun closeEditor(returnFocus: Boolean) {
+        editBody.removeAll()
+        editBody.hide()
+        editButton.setAttribute("aria-expanded", "false")
+        if (returnFocus) (editButton.getElement() as? HTMLElement)?.focus()
+    }
+
+    fun openEditor() {
+        editBody.removeAll()
+        editBody.show()
+        editButton.setAttribute("aria-expanded", "true")
+        // R24 (W4d): the form grammar -- a single optional field, saved on its own button.
+        val mandateForm = editBody.lapisForm()
+        val mandateField = mandateForm.textAreaField(label = tr("Mandatstext"), rows = 2, value = currentMandate)
+        val mandateSaveButton = newActionButton(ActionIcon.SAVE, tr("Mandatstext speichern"), style = ButtonStyle.OUTLINESECONDARY)
+        val cancelButton =
+            newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.OUTLINESECONDARY).apply { onClick { closeEditor(true) } }
+        mandateForm.buttons(primary = mandateSaveButton, cancel = cancelButton)
+        mandateSaveButton.onClick {
+            mandateForm.submit(mandateSaveButton) {
+                val text = mandateField.value.trim().takeIf { it.isNotBlank() }
+                val result = guarded { rpcService<IPoliticianService>().updateMandateText(politician.memberId, text) }
+                if (result != null) {
+                    notifySuccess(tr("Mandatstext aktualisiert."))
+                    currentMandate = result.mandateText
+                    showMandate(result.mandateText)
+                    closeEditor(true)
+                }
             }
         }
     }
 
-    val revokeButton = panel.actionButton(ActionIcon.REVOKE, tr("Politiker-Status widerrufen"), style = ButtonStyle.OUTLINEDANGER)
-    revokeButton.onClick {
-        politicianRevokeConfirmDialog(politician.displayName) {
-            // R29 (W4d): the confirm dialog is one-shot, but `runGuardedAction` also disables the button itself.
-            runGuardedAction(revokeButton) {
-                val result = guarded { rpcService<IPoliticianService>().revokePoliticianStatus(politician.memberId) }
-                if (result != null) {
-                    notifySuccess(gettext("Politiker-Status von %1 widerrufen.", result.displayName))
-                    onChanged()
+    val actions = headerRow.actionGroup()
+    actions.addCssClass("ms-auto")
+    run {
+        editButton =
+            actions.actionButton(
+                ActionIcon.EDIT,
+                tr("Mandatstext bearbeiten"),
+                style = ButtonStyle.OUTLINESECONDARY,
+                labelMode = ActionLabelMode.RESPONSIVE,
+                accessibleName = sanitizeUntrustedI18nText(gettext("Mandatstext bearbeiten: %1", name)),
+            )
+        editButton.setAttribute("aria-expanded", "false")
+        editButton.setAttribute("aria-controls", "politician-mandate-${politician.id}")
+        editButton.onClick { if (editBody.visible) closeEditor(false) else openEditor() }
+
+        val revokeButton =
+            actions.actionButton(
+                ActionIcon.REVOKE,
+                tr("Politiker-Status widerrufen"),
+                style = ButtonStyle.OUTLINEDANGER,
+                labelMode = ActionLabelMode.RESPONSIVE,
+                accessibleName = sanitizeUntrustedI18nText(gettext("Politiker-Status widerrufen: %1", name)),
+            )
+        revokeButton.onClick {
+            politicianRevokeConfirmDialog(politician.displayName) {
+                // R29 (W4d): the confirm dialog is one-shot, but `runGuardedAction` also disables the button itself.
+                runGuardedAction(revokeButton) {
+                    val result = guarded { rpcService<IPoliticianService>().revokePoliticianStatus(politician.memberId) }
+                    if (result != null) {
+                        notifySuccess(gettext("Politiker-Status von %1 widerrufen.", result.displayName))
+                        onChanged()
+                    }
                 }
             }
         }
@@ -640,13 +854,14 @@ private fun renderGrantForm(
     root: SimplePanel,
     members: List<MemberSummaryDto>,
     onCompleted: () -> Unit,
-) {
-    root.h2(tr("Politiker-Status erteilen")) { addCssClass("h6") }
+    close: (saved: Boolean) -> Unit,
+): FormSnapshot {
     if (members.isEmpty()) {
         root.p(tr("Keine Mitglieder vorhanden.")) { addCssClasses("text-muted small") }
-        return
+        root.add(collapseCancelButton(close))
+        return FormSnapshot { emptyList() }
     }
-    // R24/R24B (W4d): migrated to the form grammar -- Mitglied (required select) + Mandatstext (optional textArea).
+    // R24/R24B (W4d): the form grammar -- Mitglied (required select) + Mandatstext (optional textArea).
     val form = root.lapisForm()
     val memberField =
         form.searchableSelectField(
@@ -654,10 +869,15 @@ private fun renderGrantForm(
             options = untrustedOptions(members.map { it.id to it.displayName }),
             required = true,
             requiredMessage = tr("Bitte ein Mitglied auswählen."),
+            hint =
+                gettext(
+                    "Ein Foto lädt die Person selbst unter „Meine Daten“ hoch. Es erscheint hier nur, wenn sie es dort " +
+                        "öffentlich freigibt, sonst zeigen wir ihre Initialen.",
+                ),
         )
     val mandateField = form.textAreaField(label = tr("Mandatstext (optional)"), rows = 2)
-    val grantButton = Button(tr("Erteilen / Aktualisieren"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = grantButton)
+    val grantButton = newActionButton(ActionIcon.ADD, tr("Erteilen / Aktualisieren"), ButtonStyle.PRIMARY)
+    form.buttons(primary = grantButton, cancel = collapseCancelButton(close))
 
     grantButton.onClick {
         if (!form.validateAndReport()) return@onClick
@@ -683,12 +903,12 @@ private fun renderGrantForm(
                 val result = guarded { rpcService<IPoliticianService>().grantPoliticianStatus(member.id, mandateText) }
                 if (result != null) {
                     notifySuccess(gettext("Politiker-Status für %1 erteilt.", result.displayName))
-                    mandateField.reset()
                     onCompleted()
                 }
             }
         }
     }
+    return form.snapshot()
 }
 
 /**
@@ -784,7 +1004,7 @@ private fun renderPoliticianRankingToggle(
                             if (newValue) {
                                 tr(
                                     "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; " +
-                                        "BOARD/ADMIN können Politiker-Status erteilen/widerrufen.",
+                                        "Vorstand und Administratoren können den Politiker-Status erteilen und widerrufen.",
                                 )
                             } else {
                                 tr(
@@ -855,13 +1075,13 @@ fun politicianProfileStatusColor(status: PoliticianProfileStatus): String =
         PoliticianProfileStatus.FORMER -> "secondary"
     }
 
-/** [typeBadge] grammar: a member's Like/Dislike is a fixed classification, not a progressing
+/** [typeBadge] grammar: a member's positive/negative rating (LIKE/DISLIKE) is a fixed classification, not a progressing
  * status -- outline variant, same convention `CrowdfundingScreen.kt`'s own reaction-value table
  * already establishes for its (distinct, same-named-literal) enum. */
 fun politicianReactionValueLabel(value: PoliticianReactionValue): String =
     when (value) {
-        PoliticianReactionValue.LIKE -> gettext("Like")
-        PoliticianReactionValue.DISLIKE -> gettext("Dislike")
+        PoliticianReactionValue.LIKE -> gettext("Positiv")
+        PoliticianReactionValue.DISLIKE -> gettext("Negativ")
     }
 
 fun politicianReactionValueColor(value: PoliticianReactionValue): String =
@@ -883,3 +1103,32 @@ fun politicianRaterTypeColor(type: PoliticianRaterType): String =
         PoliticianRaterType.MEMBER -> "primary"
         PoliticianRaterType.GAST -> "info"
     }
+
+// ================================================================================================
+// Avatar
+// ================================================================================================
+
+/** Size of a politician avatar: [SM] in the Top-Politiker table, [MD] in the profile card header. */
+internal enum class AvatarSize(
+    val css: String,
+) {
+    SM("lapis-avatar-sm"),
+    MD("lapis-avatar-md"),
+}
+
+/**
+ * The politician's photo while it is publicly released ([PoliticianProfileDto.photoUrl], decided live on the server), otherwise an initials
+ * avatar. Decorative either way (the name stands next to it): `alt=""` / `aria-hidden`. The URL is only ever set as `src`.
+ */
+internal fun Container.politicianAvatar(
+    p: PoliticianProfileDto,
+    size: AvatarSize,
+) {
+    val url = p.photoUrl
+    if (url != null) {
+        image(url, "").apply { addCssClasses("lapis-public-card-avatar ${size.css}") }
+    } else {
+        untrustedDiv(initialsOf(p.displayName), className = "lapis-public-card-avatar lapis-public-card-initials ${size.css}")
+            .setAttribute("aria-hidden", "true")
+    }
+}

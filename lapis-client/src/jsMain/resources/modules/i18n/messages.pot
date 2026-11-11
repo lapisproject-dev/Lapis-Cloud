@@ -4235,10 +4235,6 @@ msgstr ""
 msgid "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die Rohaufnahmen erhalten und ein Administrator kann helfen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:488
-msgid "Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status erteilen\" oben kann es erneut aktiviert werden."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:380
 msgid "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch genehmigt -- eine Vorstandsentscheidung ist serverseitig nicht mehr möglich."
 msgstr ""
@@ -4379,10 +4375,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2351
 msgid "Eigenkapitalkonto"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:275
-msgid "Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:244
@@ -5659,10 +5651,6 @@ msgstr ""
 msgid "Ihre Antwort erbt die Sichtbarkeit des Ursprungsbeitrags: %1."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:430
-msgid "Ihre Bewertung:"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:56
 msgid "Ihre E-Mail-Adresse wurde bestätigt."
 msgstr ""
@@ -6852,20 +6840,12 @@ msgstr ""
 msgid "Mitglieder"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:785
-msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:612
 msgid "Mitglieder-Gewicht"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:367
 msgid "Mitglieder-Gewicht (LTR-gewichtet)"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:377
-msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:70
@@ -8278,10 +8258,6 @@ msgstr ""
 msgid "Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:228
-msgid "Sichtbar für BOARD/ADMIN."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:173
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:238
 msgid "Sichtbar für TREASURER/BOARD/ADMIN."
@@ -8340,20 +8316,12 @@ msgstr ""
 msgid "Sie haben noch keine Gebote abgegeben."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:426
-msgid "Sie haben noch nicht bewertet."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:321
 msgid "Sie haben noch nicht reagiert."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:275
 msgid "Sie kaufen \"%1\" sofort für %2."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:274
-msgid "Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten aktivieren."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1583
@@ -9454,10 +9422,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:64
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:227
 msgid "Verwaltung"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:484
-msgid "Verwaltung (BOARD/ADMIN)"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:399
@@ -24938,9 +24902,6 @@ msgstr ""
 msgid "Hier bieten Sie auf Angebote anderer Mitglieder oder stellen selbst eines ein; geboten wird in LTR. Ob die Auktion eingeschaltet ist, legt die Administration fest."
 msgstr ""
 
-msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie mit Like oder Dislike. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
-msgstr ""
-
 msgid "Die Timeline zeigt die Beiträge der Mitglieder. Sie können eigene Beiträge veröffentlichen und auf andere antworten."
 msgstr ""
 
@@ -31440,4 +31401,67 @@ msgid "Der Titel wurde nicht gespeichert. Bitte prüfen Sie die Eingabe; die Ans
 msgstr ""
 
 msgid "Titel geändert"
+msgstr ""
+
+msgid "Politiker ernennen"
+msgstr ""
+
+msgid "Sichtbar für Vorstand und Administratoren."
+msgstr ""
+
+msgid "Sie können das Politiker-Ranking im Bereich „Einstellungen“ aktivieren."
+msgstr ""
+
+msgid "Ein Administrator kann das Politiker-Ranking im Bereich „Einstellungen“ aktivieren."
+msgstr ""
+
+msgid "Bitte wenden Sie sich an einen Administrator, falls Sie hierauf Zugriff benötigen."
+msgstr ""
+
+msgid "Einstellungen öffnen"
+msgstr ""
+
+msgid "Mitglieder: %1 positiv, %2 negativ · Gäste: %3 positiv, %4 negativ"
+msgstr ""
+
+msgid "Bewertung von %1"
+msgstr ""
+
+msgid "%1 positiv bewerten (%2 positive Bewertungen)"
+msgstr ""
+
+msgid "%1 negativ bewerten (%2 negative Bewertungen)"
+msgstr ""
+
+msgid "Bewertung zurückziehen"
+msgstr ""
+
+msgid "Bewertung zurückziehen: %1"
+msgstr ""
+
+msgid "Dieses Profil ist ehemalig -- über „Politiker ernennen“ oben kann es erneut aktiviert werden."
+msgstr ""
+
+msgid "Mandatstext bearbeiten"
+msgstr ""
+
+msgid "Mandatstext bearbeiten: %1"
+msgstr ""
+
+msgid "Politiker-Status widerrufen: %1"
+msgstr ""
+
+msgid "Ein Foto lädt die Person selbst unter „Meine Daten“ hoch. Es erscheint hier nur, wenn sie es dort öffentlich freigibt, sonst zeigen wir ihre Initialen."
+msgstr ""
+
+msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; Vorstand und Administratoren können den Politiker-Status erteilen und widerrufen."
+msgstr ""
+
+msgid "Positiv"
+msgstr ""
+
+msgid "Negativ"
+msgstr ""
+
+msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
 msgstr ""

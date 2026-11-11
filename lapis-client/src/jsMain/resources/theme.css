@@ -2960,6 +2960,11 @@ html .form-select.is-invalid:focus {
   flex-shrink: 0;
 }
 
+/* V1.9.301: rating toggle (thumb + visible count) -- the icon keeps a small gap to the number. */
+.lapis-count-toggle .lapis-action-icon {
+  margin-inline-end: .375rem;
+}
+
 .lapis-public-card-initials {
   display: flex;
   align-items: center;
@@ -2968,6 +2973,22 @@ html .form-select.is-invalid:focus {
   font-weight: 600;
   color: var(--lapis-muted);
   background-color: var(--lapis-surface-sunken);
+}
+
+.lapis-avatar-sm {
+  width: 2rem;
+  height: 2rem;
+  font-size: .8rem;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.lapis-avatar-md {
+  width: 3rem;
+  height: 3rem;
+  font-size: 1.1rem;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .lapis-public-card-name {

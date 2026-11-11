@@ -4642,14 +4642,6 @@ msgstr ""
 "Эту операцию нельзя повторить — если она завершится ошибкой, исходные записи "
 "сохранятся, и администратор сможет помочь."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:488
-msgid ""
-"Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status "
-"erteilen\" oben kann es erneut aktiviert werden."
-msgstr ""
-"Этот профиль является бывшим — его можно снова активировать через форму "
-"«Предоставить статус политика» выше."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:380
 msgid ""
 "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch "
@@ -4809,14 +4801,6 @@ msgstr "Собственный капитал (проведено)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2351
 msgid "Eigenkapitalkonto"
 msgstr "Счёт собственного капитала"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:275
-msgid ""
-"Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten "
-"aktivieren."
-msgstr ""
-"Администратор может активировать рейтинг политиков в разделе «Настройки» "
-"ниже."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:244
 msgid ""
@@ -6221,10 +6205,6 @@ msgstr ""
 msgid "Ihre Antwort erbt die Sichtbarkeit des Ursprungsbeitrags: %1."
 msgstr "Ваш ответ наследует видимость исходного поста: %1."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:430
-msgid "Ihre Bewertung:"
-msgstr "Ваша оценка:"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:56
 msgid "Ihre E-Mail-Adresse wurde bestätigt."
 msgstr "Ваш адрес электронной почты подтверждён."
@@ -7449,14 +7429,6 @@ msgstr "Участник добавлен."
 msgid "Mitglieder"
 msgstr "Члены"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:785
-msgid ""
-"Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und "
-"bewerten; BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
-msgstr ""
-"Теперь участники и гости могут просматривать и оценивать профили политиков; "
-"BOARD/ADMIN могут присваивать/отзывать статус политика."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:612
 msgid "Mitglieder-Gewicht"
 msgstr "Вес участника"
@@ -7464,11 +7436,6 @@ msgstr "Вес участника"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:367
 msgid "Mitglieder-Gewicht (LTR-gewichtet)"
 msgstr "Вес участника (взвешено по LTR)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:377
-msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
-msgstr ""
-"Участники: нравится %1 / не нравится %2 · Гости: нравится %3 / не нравится %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:70
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:227
@@ -8958,10 +8925,6 @@ msgstr "Видно только ADMIN."
 msgid "Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."
 msgstr "Присутствие и проект протокола видны только членам органа."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:234
-msgid "Sichtbar für BOARD/ADMIN."
-msgstr "Видно BOARD/ADMIN."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:172
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:238
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:244
@@ -9039,10 +9002,6 @@ msgstr "Вы ещё не выставили ни одного аукциона."
 msgid "Sie haben noch keine Gebote abgegeben."
 msgstr "Вы ещё не сделали ни одной ставки."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:432
-msgid "Sie haben noch nicht bewertet."
-msgstr "Вы ещё не оценивали."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:298
 msgid "Sie haben noch nicht reagiert."
 msgstr "Вы ещё не отреагировали."
@@ -9050,12 +9009,6 @@ msgstr "Вы ещё не отреагировали."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:249
 msgid "Sie kaufen \"%1\" sofort für %2."
 msgstr "Вы покупаете «%1» немедленно за %2."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:280
-msgid ""
-"Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten "
-"aktivieren."
-msgstr "Вы можете включить рейтинг политиков в разделе «Настройки» ниже."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1367
 msgid "Sie nehmen als Teilnehmer teil."
@@ -10137,10 +10090,6 @@ msgstr "Управление"
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:563
 msgid "Verwaltung"
 msgstr "Управление"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:490
-msgid "Verwaltung (BOARD/ADMIN)"
-msgstr "Управление (BOARD/ADMIN)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:399
 msgid "Verwerfen und aktuelle Version übernehmen"
@@ -25743,9 +25692,6 @@ msgstr "Здесь вы подаёте проекты со ставкой в LTR
 msgid "Hier bieten Sie auf Angebote anderer Mitglieder oder stellen selbst eines ein; geboten wird in LTR. Ob die Auktion eingeschaltet ist, legt die Administration fest."
 msgstr "Здесь вы делаете ставки на предложения других участников или выставляете своё; ставки делаются в LTR. Включён ли аукцион, решает администрация."
 
-msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie mit Like oder Dislike. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
-msgstr "Здесь вы видите профили политиков в виде рейтинга и оцениваете их с помощью Like или Dislike. Включена ли эта функция, решает администрация."
-
 msgid "Die Timeline zeigt die Beiträge der Mitglieder. Sie können eigene Beiträge veröffentlichen und auf andere antworten."
 msgstr "Лента показывает публикации участников. Вы можете публиковать свои записи и отвечать на чужие."
 
@@ -32002,3 +31948,66 @@ msgstr "Титул не сохранён. Проверьте ввод; вид п
 
 msgid "Titel geändert"
 msgstr "Титул изменён"
+
+msgid "Politiker ernennen"
+msgstr "Назначить политика"
+
+msgid "Sichtbar für Vorstand und Administratoren."
+msgstr "Видно правлению и администраторам."
+
+msgid "Sie können das Politiker-Ranking im Bereich „Einstellungen“ aktivieren."
+msgstr "Вы можете включить рейтинг политиков в разделе «Настройки»."
+
+msgid "Ein Administrator kann das Politiker-Ranking im Bereich „Einstellungen“ aktivieren."
+msgstr "Администратор может включить рейтинг политиков в разделе «Настройки»."
+
+msgid "Bitte wenden Sie sich an einen Administrator, falls Sie hierauf Zugriff benötigen."
+msgstr "Если вам нужен доступ, обратитесь к администратору."
+
+msgid "Einstellungen öffnen"
+msgstr "Открыть настройки"
+
+msgid "Mitglieder: %1 positiv, %2 negativ · Gäste: %3 positiv, %4 negativ"
+msgstr "Участники: %1 положительных, %2 отрицательных · Гости: %3 положительных, %4 отрицательных"
+
+msgid "Bewertung von %1"
+msgstr "Оценка: %1"
+
+msgid "%1 positiv bewerten (%2 positive Bewertungen)"
+msgstr "Оценить %1 положительно (положительных оценок: %2)"
+
+msgid "%1 negativ bewerten (%2 negative Bewertungen)"
+msgstr "Оценить %1 отрицательно (отрицательных оценок: %2)"
+
+msgid "Bewertung zurückziehen"
+msgstr "Отозвать оценку"
+
+msgid "Bewertung zurückziehen: %1"
+msgstr "Отозвать оценку: %1"
+
+msgid "Dieses Profil ist ehemalig -- über „Politiker ernennen“ oben kann es erneut aktiviert werden."
+msgstr "Этот профиль больше не действует -- его можно снова активировать через «Назначить политика» выше."
+
+msgid "Mandatstext bearbeiten"
+msgstr "Изменить текст мандата"
+
+msgid "Mandatstext bearbeiten: %1"
+msgstr "Изменить текст мандата: %1"
+
+msgid "Politiker-Status widerrufen: %1"
+msgstr "Отозвать статус политика: %1"
+
+msgid "Ein Foto lädt die Person selbst unter „Meine Daten“ hoch. Es erscheint hier nur, wenn sie es dort öffentlich freigibt, sonst zeigen wir ihre Initialen."
+msgstr "Фото человек загружает сам в разделе «Мои данные». Оно появляется здесь, только если он открыл его там для всех; иначе мы показываем его инициалы."
+
+msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; Vorstand und Administratoren können den Politiker-Status erteilen und widerrufen."
+msgstr "Участники и гости могут с этого момента просматривать и оценивать профили политиков; правление и администраторы могут присваивать и отзывать статус политика."
+
+msgid "Positiv"
+msgstr "Положительная"
+
+msgid "Negativ"
+msgstr "Отрицательная"
+
+msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
+msgstr "Здесь вы видите профили политиков в виде рейтинга и оцениваете их положительно или отрицательно. Включена ли эта функция, решает администрация."

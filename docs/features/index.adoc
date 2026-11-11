@@ -62,6 +62,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 |link:regional-chapters.adoc[Regional chapters ("Gliederungsverwaltung", Landesverbände) (V1.9.13/V1.9.14)] |Optional regional chapters with chapter-scoped officer access
 |link:membership-tiers.adoc[Membership tiers (V1.9.18)] |Management of membership tiers and their amounts
 |link:member-photo.adoc[Member photo and public profiles (V1.9.19-V1.9.21)] |Voluntary member photos and public profiles with consent
+|link:politician.adoc[Politician view (V1.9.301)] |Politician ranking screen: rating toggles, appointing, editing and revoking, public photo or initials
 |link:elections.adoc[Democratic elections (V1.9.22/V1.9.23)] |Election lifecycle screen: committee, candidacies, voting booth, results
 |link:conference-voting.adoc[Voting in the conference room (V1.9.24-V1.9.27)] |Voting panel inside the video-conference room
 |link:systemic-consensus.adoc[Systemic consensus web client (V1.9.28)] |Web client for systemic consensus (Konsensieren)

@@ -4651,14 +4651,6 @@ msgstr ""
 "Dit proces kan niet worden herhaald -- mislukt het, dan blijven de ruwe "
 "opnamen bewaard en kan een beheerder helpen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:488
-msgid ""
-"Dieses Profil ist ehemalig -- über das Formular \"Politiker-Status "
-"erteilen\" oben kann es erneut aktiviert werden."
-msgstr ""
-"Dit profiel is voormalig -- via het formulier \"Politicusstatus toekennen\" "
-"hierboven kan het opnieuw worden geactiveerd."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:380
 msgid ""
 "Dieses Projekt wurde bereits durch die 14-Tage-Schweigefrist automatisch "
@@ -4818,14 +4810,6 @@ msgstr "Eigen vermogen (geboekt)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2351
 msgid "Eigenkapitalkonto"
 msgstr "Eigenvermogenrekening"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:275
-msgid ""
-"Ein ADMIN kann das Politiker-Ranking im Abschnitt \"Einstellungen\" unten "
-"aktivieren."
-msgstr ""
-"Een ADMIN kan de politicusranglijst activeren in de sectie \"Instellingen\" "
-"hieronder."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:244
 msgid ""
@@ -6233,10 +6217,6 @@ msgstr ""
 msgid "Ihre Antwort erbt die Sichtbarkeit des Ursprungsbeitrags: %1."
 msgstr "Uw antwoord erft de zichtbaarheid van het oorspronkelijke bericht: %1."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:430
-msgid "Ihre Bewertung:"
-msgstr "Uw beoordeling:"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:56
 msgid "Ihre E-Mail-Adresse wurde bestätigt."
 msgstr "Uw e-mailadres is bevestigd."
@@ -7456,14 +7436,6 @@ msgstr "Lid is toegevoegd."
 msgid "Mitglieder"
 msgstr "Leden"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:785
-msgid ""
-"Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und "
-"bewerten; BOARD/ADMIN können Politiker-Status erteilen/widerrufen."
-msgstr ""
-"Leden en gasten kunnen vanaf nu politicusprofielen bekijken en beoordelen; "
-"BOARD/ADMIN kunnen politicusstatus toekennen/intrekken."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:612
 msgid "Mitglieder-Gewicht"
 msgstr "Ledengewicht"
@@ -7471,10 +7443,6 @@ msgstr "Ledengewicht"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:367
 msgid "Mitglieder-Gewicht (LTR-gewichtet)"
 msgstr "Ledengewicht (LTR-gewogen)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:377
-msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
-msgstr "Leden: Like %1 / Dislike %2 · Gasten: Like %3 / Dislike %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:70
 #: src/jsMain/kotlin/network/lapis/cloud/client/NavRegistry.kt:227
@@ -8978,10 +8946,6 @@ msgstr "Zichtbaar voor ADMIN."
 msgid "Die Anwesenheit und der Protokollentwurf sind nur für die Mitglieder des Gremiums sichtbar."
 msgstr "De aanwezigheid en het conceptverslag zijn alleen zichtbaar voor de leden van het orgaan."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:228
-msgid "Sichtbar für BOARD/ADMIN."
-msgstr "Zichtbaar voor BOARD/ADMIN."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:173
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:238
 msgid "Sichtbar für TREASURER/BOARD/ADMIN."
@@ -9056,10 +9020,6 @@ msgstr "U heeft nog geen veilingen geplaatst."
 msgid "Sie haben noch keine Gebote abgegeben."
 msgstr "U heeft nog geen biedingen uitgebracht."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:426
-msgid "Sie haben noch nicht bewertet."
-msgstr "U heeft nog niet beoordeeld."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:321
 msgid "Sie haben noch nicht reagiert."
 msgstr "U heeft nog niet gereageerd."
@@ -9067,14 +9027,6 @@ msgstr "U heeft nog niet gereageerd."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:275
 msgid "Sie kaufen \"%1\" sofort für %2."
 msgstr "U koopt \"%1\" direct voor %2."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:274
-msgid ""
-"Sie können das Politiker-Ranking im Abschnitt \"Einstellungen\" unten "
-"aktivieren."
-msgstr ""
-"U kunt de politicusranglijst hieronder in het gedeelte \"Instellingen\" "
-"activeren."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1583
 msgid "Sie nehmen als Teilnehmer teil."
@@ -10243,10 +10195,6 @@ msgstr "Beheren"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:227
 msgid "Verwaltung"
 msgstr "Beheer"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:484
-msgid "Verwaltung (BOARD/ADMIN)"
-msgstr "Beheer (BOARD/ADMIN)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:399
 msgid "Verwerfen und aktuelle Version übernehmen"
@@ -25848,9 +25796,6 @@ msgstr "Hier dient u projecten in met een LTR-inzet en beoordeelt u goedgekeurde
 msgid "Hier bieten Sie auf Angebote anderer Mitglieder oder stellen selbst eines ein; geboten wird in LTR. Ob die Auktion eingeschaltet ist, legt die Administration fest."
 msgstr "Hier biedt u op aanbiedingen van andere leden of plaatst u zelf een aanbieding; er wordt in LTR geboden. De administratie bepaalt of de veiling is ingeschakeld."
 
-msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie mit Like oder Dislike. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
-msgstr "Hier ziet u de profielen van politici als ranglijst en beoordeelt u ze met Like of Dislike. De administratie bepaalt of deze functie is ingeschakeld."
-
 msgid "Die Timeline zeigt die Beiträge der Mitglieder. Sie können eigene Beiträge veröffentlichen und auf andere antworten."
 msgstr "De tijdlijn toont de berichten van de leden. U kunt zelf berichten plaatsen en op andere reageren."
 
@@ -32096,3 +32041,66 @@ msgstr "De titel is niet opgeslagen. Controleer de invoer; de weergave is opnieu
 
 msgid "Titel geändert"
 msgstr "Titel gewijzigd"
+
+msgid "Politiker ernennen"
+msgstr "Politicus benoemen"
+
+msgid "Sichtbar für Vorstand und Administratoren."
+msgstr "Zichtbaar voor het bestuur en beheerders."
+
+msgid "Sie können das Politiker-Ranking im Bereich „Einstellungen“ aktivieren."
+msgstr "U kunt de ranglijst van politici inschakelen in het onderdeel “Instellingen”."
+
+msgid "Ein Administrator kann das Politiker-Ranking im Bereich „Einstellungen“ aktivieren."
+msgstr "Een beheerder kan de ranglijst van politici inschakelen in het onderdeel “Instellingen”."
+
+msgid "Bitte wenden Sie sich an einen Administrator, falls Sie hierauf Zugriff benötigen."
+msgstr "Neem contact op met een beheerder als u hier toegang toe nodig hebt."
+
+msgid "Einstellungen öffnen"
+msgstr "Instellingen openen"
+
+msgid "Mitglieder: %1 positiv, %2 negativ · Gäste: %3 positiv, %4 negativ"
+msgstr "Leden: %1 positief, %2 negatief · Gasten: %3 positief, %4 negatief"
+
+msgid "Bewertung von %1"
+msgstr "Beoordeling van %1"
+
+msgid "%1 positiv bewerten (%2 positive Bewertungen)"
+msgstr "%1 positief beoordelen (%2 positieve beoordelingen)"
+
+msgid "%1 negativ bewerten (%2 negative Bewertungen)"
+msgstr "%1 negatief beoordelen (%2 negatieve beoordelingen)"
+
+msgid "Bewertung zurückziehen"
+msgstr "Beoordeling intrekken"
+
+msgid "Bewertung zurückziehen: %1"
+msgstr "Beoordeling intrekken: %1"
+
+msgid "Dieses Profil ist ehemalig -- über „Politiker ernennen“ oben kann es erneut aktiviert werden."
+msgstr "Dit profiel is een voormalig profiel: het kan opnieuw worden geactiveerd via “Politicus benoemen” hierboven."
+
+msgid "Mandatstext bearbeiten"
+msgstr "Mandaattekst bewerken"
+
+msgid "Mandatstext bearbeiten: %1"
+msgstr "Mandaattekst bewerken: %1"
+
+msgid "Politiker-Status widerrufen: %1"
+msgstr "Politicusstatus intrekken: %1"
+
+msgid "Ein Foto lädt die Person selbst unter „Meine Daten“ hoch. Es erscheint hier nur, wenn sie es dort öffentlich freigibt, sonst zeigen wir ihre Initialen."
+msgstr "De persoon uploadt zelf een foto onder “Mijn gegevens”. Die verschijnt hier alleen als hij of zij de foto daar openbaar maakt; anders tonen we de initialen."
+
+msgid "Mitglieder und Gäste können ab sofort Politiker-Profile einsehen und bewerten; Vorstand und Administratoren können den Politiker-Status erteilen und widerrufen."
+msgstr "Leden en gasten kunnen vanaf nu politicusprofielen bekijken en beoordelen; het bestuur en beheerders kunnen de politicusstatus verlenen en intrekken."
+
+msgid "Positiv"
+msgstr "Positief"
+
+msgid "Negativ"
+msgstr "Negatief"
+
+msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
+msgstr "Hier ziet u de politicusprofielen als ranglijst en beoordeelt u ze positief of negatief. Het beheer bepaalt of deze functie is ingeschakeld."

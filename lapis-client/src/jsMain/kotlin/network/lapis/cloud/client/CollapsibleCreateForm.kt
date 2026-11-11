@@ -267,7 +267,7 @@ private const val RENDER_RETRIES = 30
 private const val RENDER_RETRY_MS = 16
 
 /** KVision patches the DOM asynchronously: runs [action] once [ready] holds (polled for about half a second), or never if it does not. */
-private fun whenRendered(
+internal fun whenRendered(
     ready: () -> Boolean,
     action: () -> Unit,
 ) {

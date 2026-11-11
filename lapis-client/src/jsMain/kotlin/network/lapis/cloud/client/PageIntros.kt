@@ -269,7 +269,7 @@ internal object PageIntros {
                 PageIntroDef(
                     "politicians",
                     tr(
-                        "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie mit Like oder Dislike. Ob diese " +
+                        "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese " +
                             "Funktion eingeschaltet ist, legt die Administration fest.",
                     ),
                 )
