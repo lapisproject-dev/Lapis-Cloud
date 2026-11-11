@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.50.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.51.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -344,7 +344,7 @@ on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, 
 (GitHub package settings; an organisation must allow public packages first). Check
 `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
 keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
-`LAPIS_IMAGE_TAG=0.50.0` (no `v`; the git tag is `v0.50.0`, the image tag is `0.50.0`).
+`LAPIS_IMAGE_TAG=0.51.0` (no `v`; the git tag is `v0.51.0`, the image tag is `0.51.0`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -363,6 +363,8 @@ any instance: that wave edited 16 already-applied Flyway migration files in plac
 to run at all on any of these three already-migrated instances until `flywayRepair` has run against
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
+
+Upgrading from `v0.50.0` to `v0.51.0` adds no migration (the schema stays `V150`) and needs no `flywayRepair` and no new environment variable: take a backup as always, set `LAPIS_IMAGE_TAG=0.51.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. **Behaviour changes:** the LupaBB comparison page gets four row actions for administrators (open the member, take over LupaBB values for a member with a management role, choose which person is meant or skip, and the sync now ends the friendship of a legacy `FRIEND` record that LupaBB reports as withdrawn or deceased, only with the matching person number); the free-space bar also appears on the video conference and encounter room screens (administrators only). **Not verified:** nothing ran on a live instance or against the real LupaBB; translations are model-written.
 
 Upgrading from `v0.49.0` to `v0.50.0` adds **one additive migration** (`V150`; the schema goes from `V149` to `V150`; the reported migration count goes up by exactly one, check the real count) and needs no `flywayRepair` and no new environment variable: take a backup as always, set `LAPIS_IMAGE_TAG=0.50.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. On every start (idempotent; only the first start after the upgrade can find anything) a startup job sets the account role of every donor (`DONOR`) that still holds BOARD, TREASURER or ADMIN to `MEMBER`, writes one audit entry per account and ends its open sessions; when it changed anything the log shows "Downgraded N donor account(s) …" (no line means nothing was found). Donors can sign in from this release on: a donor who kept a `MEMBER` account from an earlier `ACTIVE` -> `DONOR` change can sign in again without any administrator action. The next LupaBB sync proposes to take the voting right away from every member LupaBB reports as "Neumitglied" (not over a value set by hand) and to move `FRIEND` records of Förderer to `DONOR`. **Operator note:** a whole-organisation bundle (`/api/backup/export`) made before `V150` is refused as a whole by `v0.50.0` (`IncompatibleBundleException`, schema checksum): make a fresh bundle after the upgrade; the `backup.sh` `pg_dump` route is not affected. **Not verified:** nothing ran on a live instance or against the real LupaBB; translations are model-written; no screen reader.
 

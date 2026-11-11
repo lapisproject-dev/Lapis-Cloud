@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.51.0] — 2026-11-11
+
+Feature release on `[0.50.0]` (no wave number; database schema stays `V150`). **No migration**, no new environment variable. The sections below carry the details.
+
 ### Free-space bar on conference screens
 
 - **Added:** the free-space bar (ADMIN only, as on the dashboard and the document store) now also appears under the title of the video conference screen and the encounter rooms, where recordings fill the storage. Loaded once on opening; a failed call removes the bar silently.
