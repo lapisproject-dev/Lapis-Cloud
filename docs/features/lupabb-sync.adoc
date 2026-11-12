@@ -31,12 +31,34 @@ NOTE: The `[kuml]` blocks of the architecture page are rendered and validated by
 . "Übernehmen" writes the preview record by record, each in its own transaction. A dialog appears only when a status will change. A failing record is counted with a fixed code and does not stop the run.
 . One collective audit entry (`LUPABB_SYNC_RUN`: counters and the SHA-256 of the data) and one entry per written member (field *keys* only, no values) are written.
 
+== Legacy display names with the title (V1.9.303)
+
+Earlier syncs (and hand edits) stored "<title> <name>" as the display name. Since the title is its own field (V151) the sync computes the display name without it. One rule keeps the old
+spelling from showing up as a difference on every member: a Lapis display name that equals "<LupaBB title> <computed name>" after blank normalisation (trim, runs of whitespace become one blank; case
+sensitive; only against the title LupaBB sends, never against `member.title`; never when LupaBB sends no title) counts as unchanged: no difference, no rewrite. Examples:
+
+* Lapis "Dipl.-Des. Marco Book" with title "Dipl.-Des.", LupaBB title "Dipl.-Des." and name "Marco Book": unchanged.
+* Lapis "dr. Erika X", LupaBB title "Dr.": a difference (case).
+* Lapis "Dr. X" with title "Dr.", LupaBB title "Prof. Dr.": two rows, display name "Dr. X" to "X" **and** title "Dr." to "Prof. Dr.", so a letter never reads "Prof. Dr. Dr. X".
+* Lapis "Dr. X" with no title, LupaBB title "Dr.": only the title row (empty to "Dr.").
+* LupaBB without a title and Lapis "Dr. X": a difference, "Dr. X" to "X".
+
+A record with only a title and no name and no company has no display name and ends in the error class (`NO_NAME`). Management members (BOARD, TREASURER, ADMIN) no longer get an `ADMIN_ROLE_MANUAL`
+row because of the old spelling alone.
+
 == Resolving conflicts in the comparison
 
 Every row of the comparison offers the actions it needs, so an administrator does not have to leave the page. All of them are **ADMIN-only**, work on the preview token only and write nothing that the
 preview did not show.
 
-* **Mitglied öffnen** (a row that is matched to a member): opens the member administration, filtered to that member (`#/members?member=<id>`), in a new tab; the existing editor dialog opens once.
+Since V1.9.303 every action is a small button with visible text, in a fixed order: candidate link, search, take over, open member, and "Für diesen Abgleich überspringen" always last. The accessible
+name of an action names the person ("Mit <Name> (<E-Mail>) verknüpfen", "Mitglied öffnen: <Name>", "LupaBB-Werte übernehmen: <Name>", "<Name> für diesen Abgleich überspringen"). A member in the search
+hits that is linked to another LupaBB person keeps its disabled "Verknüpfen" button and shows why ("Nicht verknüpfbar: bereits mit LupaBB-Person Nr. <n> verknüpft."). A row whose e-mail belongs to a member that
+is already linked to another LupaBB person names that member and both person numbers ("Die E-Mail gehört zum Mitglied <Name>, das bereits mit LupaBB-Person Nr. <n> verknüpft ist. Diese Zeile ist
+LupaBB-Person Nr. <m>."), offers "Mitglied öffnen" for the holder and, when the names are the same apart from titles and particles, warns "Wahrscheinlich dieselbe Person doppelt in LupaBB" (a hint only; the
+anonymised-holder case stays the general sentence, without name and number).
+
+* **Mitglied öffnen** (a row that is matched to a member, or a conflict row: the member that holds the e-mail): opens the member administration, filtered to that member (`#/members?member=<id>`), in a new tab; the existing editor dialog opens once.
 * **LupaBB-Werte übernehmen** (a row that is held back for manual handling, `ADMIN_ROLE_MANUAL`): the dialog lists every value LupaBB would write (address, name, status, ...; never the role, never a
   voting right set by hand), the status change highlighted. On confirmation the row is written in one transaction with the same row lock, fingerprint re-check, central status path and audit as the bulk
   run; the audit entry carries the field keys and a flag `lupabbManualApply`, no value. **All or nothing:** a refused status change writes not even the address. Never offered for the **own record**
@@ -45,7 +67,7 @@ preview did not show.
   administrator's record sends that administrator the receipt of the peer protection (mail, when outbound mail is configured).
 * **Welche Person ist gemeint?** (an ambiguous row): a search by name or e-mail (at least three characters, at most ten hits, anonymised members excluded) and the link to the chosen member. A member that is
   linked to another LupaBB person already is shown but cannot be chosen. The e-mail address of LupaBB is never written, also not when it belongs to another member.
-* **Überspringen** (an ambiguous row): marks the row as skipped in this preview only. Nothing is persisted, the erasure suppression list is untouched, the next comparison shows the row again.
+* **Für diesen Abgleich überspringen** (an ambiguous row): marks the row as skipped in this preview only. Nothing is persisted, the erasure suppression list is untouched, the next comparison shows the row again.
 
 The tab "Handlungsbedarf" counts ambiguous rows, errors and the rows held back for manual handling; the number is counted by the server.
 
@@ -59,11 +81,12 @@ The first rule that applies wins.
   that member (`CHANGED`, the link is a field difference). Several such members: **ambiguous**; never a new member.
 . Exactly one member with the same e-mail address **and** the same name and no person number yet: linked (`CHANGED`, the link is a field difference).
   The name is compared normalised (case, blanks and punctuation ignored, title and affix ignored); "Vorname Nachname" and "Nachname, Vorname" are equal.
+  Since V1.9.303 a member whose display name still carries the title ("Dipl.-Des. Marco Book") is found as well: besides the two name keys the name with the LupaBB title in front is a third key.
 . Any other member with the same e-mail address or the same name and no person number: **ambiguous** (an administrator decides; the candidates are shown with name and e-mail address).
   If the e-mail address belongs to a member that is linked to another person already, no candidate is offered.
 . Nobody: a **new** member (needs a valid e-mail address; with the regional-chapter duty on, an `ACTIVE` member also needs a chapter).
 
-The display name is *derived*: natural person "Titel Vorname Nachname Namenszusatz", legal person the company. Title, affix, company, person type, telephone numbers, address supplement and post box
+The display name is *derived*: natural person "Vorname Nachname Namenszusatz" (**without the title** since V1.9.303, the title is its own field), legal person the company. Title, affix, company, person type, telephone numbers, address supplement and post box
 live in the side table `member_lupabb_profile`.
 
 == Status mapping
@@ -110,7 +133,7 @@ notes, contribution data, photo, public bio, ...).
 |===
 | Field | Where | Note
 
-| Display name | `member.display_name` | derived, see above
+| Display name | `member.display_name` | derived, see above, without the title; a legacy name with the title is tolerated, see below
 | Title | `member.title` | single source of truth (V151); a title set by hand that differs from LupaBB (or an empty LupaBB title) is shown as a difference and replaced only after confirmation
 | Given name, family name, affix, company, person type, phone, mobile, address supplement, post box | `member_lupabb_profile` | side table
 | Street (with house number), postal code, city | `member.street`, `postal_code`, `city` |

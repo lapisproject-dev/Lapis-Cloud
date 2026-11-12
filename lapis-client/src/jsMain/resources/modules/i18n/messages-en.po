@@ -28216,17 +28216,11 @@ msgstr "Classification"
 msgid "Einzelheiten"
 msgstr "Details"
 
-msgid "Kandidat"
-msgstr "Candidate"
-
 msgid "%1 Felder im Vergleich"
 msgstr "%1 fields compared"
 
 msgid "Feld"
 msgstr "Field"
-
-msgid "Mit diesem Mitglied verknüpfen"
-msgstr "Link to this member"
 
 msgid "Mit diesem Mitglied verknüpfen?"
 msgstr "Link to this member?"
@@ -28269,12 +28263,6 @@ msgstr "Search by name or e-mail"
 
 msgid "Kein Mitglied gefunden."
 msgstr "No member found."
-
-msgid "bereits mit einer anderen LupaBB-Person verknüpft"
-msgstr "already linked to another LupaBB person"
-
-msgid "Datensatz überspringen?"
-msgstr "Skip this record?"
 
 msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
 msgstr "This record is not taken over in this sync. It appears again at the next sync."
@@ -32059,3 +32047,36 @@ msgstr "Negative"
 
 msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
 msgstr "Here you see the politician profiles as a ranking and rate them positively or negatively. Whether this function is switched on is decided by the administration."
+
+msgid "Die E-Mail gehört zum Mitglied %1, das bereits mit LupaBB-Person Nr. %2 verknüpft ist. Diese Zeile ist LupaBB-Person Nr. %3."
+msgstr "The e-mail belongs to member %1, who is already linked to LupaBB person no. %2. This row is LupaBB person no. %3."
+
+msgid "Wahrscheinlich dieselbe Person doppelt in LupaBB (gleicher Name, gleiche E-Mail). Bitte in LupaBB prüfen."
+msgstr "Probably the same person twice in LupaBB (same name, same e-mail). Please check in LupaBB."
+
+msgid "Tippen Sie Name oder E-Mail des Mitglieds, das zu dieser LupaBB-Person gehört."
+msgstr "Type the name or e-mail of the member who belongs to this LupaBB person."
+
+msgid "Nicht verknüpfbar: bereits mit LupaBB-Person Nr. %1 verknüpft."
+msgstr "Cannot be linked: already linked to LupaBB person no. %1."
+
+msgid "Nicht verknüpfbar: bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "Cannot be linked: already linked to another LupaBB person."
+
+msgid "Für diesen Abgleich überspringen"
+msgstr "Skip for this sync"
+
+msgid "Für diesen Abgleich überspringen?"
+msgstr "Skip for this sync?"
+
+msgid "%1 für diesen Abgleich überspringen"
+msgstr "Skip %1 for this sync"
+
+msgid "Mit %1 verknüpfen"
+msgstr "Link with %1"
+
+msgid "Mitglied öffnen: %1"
+msgstr "Open member: %1"
+
+msgid "LupaBB-Werte übernehmen: %1"
+msgstr "Take over LupaBB values: %1"

@@ -964,4 +964,24 @@ class ClientToolbarIconTripwireTest :
             val password = codeLines(clientFiles().first { it.name == "AccountPasswordSection.kt" }.readText()).joinToString("\n")
             password.contains("ActionIcon.PASSWORD") shouldBe true
         }
+
+        // ── V1.9.303: LupaBB comparison, row actions always with a visible label (R58 named exception d) ───────────────────────────
+
+        val lupaRowDetector = Regex("""iconOnly\s*=\s*true|ActionLabelMode\.RESPONSIVE|newIconOnlyActionButton""")
+
+        test("V1.9.303 R58 detector: an icon-only or responsive action is found, a small labelled button is not") {
+            lupaRowDetector.containsMatchIn("actionButton(ActionIcon.NEXT, label, iconOnly = true, small = true)") shouldBe true
+            lupaRowDetector.containsMatchIn("actionButton(ActionIcon.SAVE, label, labelMode = ActionLabelMode.RESPONSIVE)") shouldBe true
+            lupaRowDetector.containsMatchIn(
+                "actionButton(ActionIcon.NEXT, tr(\"Überspringen\"), small = true, accessibleName = name)",
+            ) shouldBe
+                false
+        }
+
+        test(
+            "V1.9.303 R58: LupaSyncRowActions.kt has no iconOnly = true and no ActionLabelMode.RESPONSIVE -- every row action carries its text",
+        ) {
+            val code = codeLines(clientFiles().first { it.name == "LupaSyncRowActions.kt" }.readText()).joinToString("\n")
+            lupaRowDetector.containsMatchIn(code) shouldBe false
+        }
     })

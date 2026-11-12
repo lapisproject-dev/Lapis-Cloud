@@ -33,7 +33,50 @@ import kotlin.uuid.Uuid
  * notice. A member with a management role (BOARD, TREASURER, ADMIN) and the acting ADMIN are never changed beyond the person number link, the
  * "missing" hint and the LupaBB side-table profile; the core fields and the status of such a record are reconciled by hand (reason
  * `ADMIN_ROLE_MANUAL`; a record that has nothing left to write lands in the error class).
+ *
+ * V1.9.303 -- the title is its own field: the display name is computed WITHOUT it. One tolerance: a Lapis display name that equals
+ * "<LupaBB title> <computed name>" counts as unchanged, see [isLegacyTitledDisplayName].
  */
+private val blankRun = Regex("""\s+""")
+
+private fun normalizeBlanks(value: String): String = value.trim().replace(blankRun, " ")
+
+/**
+ * V1.9.303 -- the ONE tolerance of the display-name comparison. Earlier syncs (and hand edits) stored "<title> <name>" as display name; since
+ * the title is its own field (V151) the sync computes the display name WITHOUT the title. A Lapis display name that equals
+ * "<LupaBB title> <computed name>" after blank normalisation (trim, runs of whitespace -> one blank) counts as UNCHANGED: no difference,
+ * no rewrite. Case-sensitive; only against the LupaBB title (never member.title); never when the LupaBB title is empty. A changed title
+ * therefore shows two rows (display name AND title) on purpose, so a letter never reads "Prof. Dr. Dr. X".
+ */
+internal fun isLegacyTitledDisplayName(
+    lapisDisplayName: String,
+    lupaTitle: String?,
+    lupaDisplayName: String,
+): Boolean {
+    val t = lupaTitle?.let(::normalizeBlanks).orEmpty()
+    if (t.isEmpty()) return false
+    return normalizeBlanks(lapisDisplayName) == normalizeBlanks("$t $lupaDisplayName")
+}
+
+private val nonWordRegex = Regex("""[^\p{L}\p{N}]+""")
+private val titleStrippedTokens =
+    setOf("dr", "prof", "dipl", "ing", "mag", "med", "hc", "jr", "sr", "von", "zu", "van", "de", "der", "mba", "phd", "bsc", "msc")
+
+private fun nameTokens(value: String): List<String> = value.lowercase(Locale.ROOT).split(nonWordRegex).filter { it.isNotEmpty() }
+
+/** V1.9.303 -- "probably the same person twice in LupaBB": sorted name tokens without title tokens (both titles + stripped tokens) equal and not empty. */
+internal fun isLikelyDuplicate(
+    memberName: String,
+    memberTitle: String?,
+    recordName: String,
+    recordTitle: String?,
+): Boolean {
+    val drop = nameTokens(memberTitle.orEmpty()).toSet() + nameTokens(recordTitle.orEmpty()) + titleStrippedTokens
+    val a = nameTokens(memberName).filterNot { it in drop }.sorted()
+    val b = nameTokens(recordName).filterNot { it in drop }.sorted()
+    return a.isNotEmpty() && a == b
+}
+
 internal object LupaBbPlanner {
     const val MAX_CANDIDATES = 5
 
@@ -171,6 +214,9 @@ internal object LupaBbPlanner {
             fullNames[tokens(record.displayName).sorted().joinToString(" ")]?.let { keys += it }
             val core = tokens(listOfNotNull(record.givenName, record.familyName).joinToString(" "))
             if (core.isNotEmpty()) strippedNames[core.filterNot { it in strippedNameTokens }.sorted().joinToString(" ")]?.let { keys += it }
+            record.title?.takeIf { it.isNotBlank() }?.let { t ->
+                fullNames[tokens("$t ${record.displayName}").sorted().joinToString(" ")]?.let { keys += it }
+            }
             if (record.personType == "LEGAL" && record.company != null) {
                 fullNames[tokens(record.company).sorted().joinToString(" ")]?.let { keys += it }
             }
@@ -241,6 +287,17 @@ internal object LupaBbPlanner {
                 base(
                     LupaBbCategory.AMBIGUOUS,
                     PlanReason(code = LupaBbRowReasonCode.EMAIL_BELONGS_TO_OTHER),
+                ).copy(
+                    conflictMemberId = emailMember.id,
+                    conflictMemberName = emailMember.displayName,
+                    conflictPersonNumber = emailMember.personNumber,
+                    conflictLikelyDuplicate =
+                        isLikelyDuplicate(
+                            memberName = emailMember.displayName,
+                            memberTitle = emailMember.title,
+                            recordName = r.displayName,
+                            recordTitle = r.title,
+                        ),
                 )
             emailMember != null && nameMembers.any { it.id == emailMember.id } ->
                 if (nameMembers.size == 1) {
@@ -481,7 +538,9 @@ internal object LupaBbPlanner {
             if (b != a) out += FieldDiff(field = field, before = b, after = a)
         }
         if (m.personNumber != r.personNumber) add(LupaBbField.PERSON_NUMBER, m.personNumber?.toString(), r.personNumber.toString())
-        add(LupaBbField.DISPLAY_NAME, m.displayName, r.displayName)
+        val legacy = isLegacyTitledDisplayName(lapisDisplayName = m.displayName, lupaTitle = r.title, lupaDisplayName = r.displayName)
+        val displayAfter = if (legacy) m.displayName else r.displayName
+        add(LupaBbField.DISPLAY_NAME, m.displayName, displayAfter)
         add(LupaBbField.GIVEN_NAME, p?.givenName, r.givenName)
         add(LupaBbField.FAMILY_NAME, p?.familyName, r.familyName)
         add(LupaBbField.TITLE, m.title, r.title)

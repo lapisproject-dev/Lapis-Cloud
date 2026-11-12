@@ -340,6 +340,10 @@ internal class LupaSyncPreview(
         row: LupaBbPreviewRowDto,
     ) {
         row.reasons.forEach { reason ->
+            if (reason.code == LupaBbRowReasonCode.EMAIL_BELONGS_TO_OTHER && LupaSyncLogic.hasConflictDetails(row)) {
+                paintConflict(cell, row)
+                return@forEach
+            }
             cell.div {
                 span(lupaReasonSentence(code = reason.code, param = reason.param))
                 reason.param?.takeIf { reason.code != LupaBbRowReasonCode.VOTING_RIGHT_MANUAL }?.let { param ->
@@ -348,21 +352,33 @@ internal class LupaSyncPreview(
                 }
             }
         }
-        row.candidates.forEach { candidate ->
-            cell.div {
-                addCssClasses("small")
-                span(tr("Kandidat"))
-                span(": ")
-                span(sanitizeUntrustedI18nText(candidate.name))
-                // several candidates often share a name: the (unique) e-mail address is what tells them apart
-                span(" (${sanitizeUntrustedI18nText(candidate.email)})") { addCssClasses("text-muted") }
-            }
-        }
         if (row.diffs.isEmpty()) return
         val details = Tag(TAG.DETAILS, className = "small")
         details.add(Tag(TAG.SUMMARY, content = gettext("%1 Felder im Vergleich", row.diffs.size)))
         details.add(lupaDiffTable(row.diffs))
         cell.add(details)
+    }
+
+    /** V1.9.303 -- the e-mail belongs to a member that is linked to another LupaBB person: name both, and warn about a likely double entry. */
+    private fun paintConflict(
+        cell: Container,
+        row: LupaBbPreviewRowDto,
+    ) {
+        val sentence =
+            sanitizeUntrustedI18nText(
+                gettext(
+                    "Die E-Mail gehört zum Mitglied %1, das bereits mit LupaBB-Person Nr. %2 verknüpft ist. Diese Zeile ist LupaBB-Person Nr. %3.",
+                    sanitizeUntrustedI18nText(row.conflictMemberName.orEmpty()),
+                    LupaSyncLogic.personNumberText(row.conflictPersonNumber ?: 0L),
+                    LupaSyncLogic.personNumberText(row.personNumber),
+                ),
+            )
+        cell.div(sentence)
+        if (row.conflictLikelyDuplicate) {
+            cell.div(tr("Wahrscheinlich dieselbe Person doppelt in LupaBB (gleicher Name, gleiche E-Mail). Bitte in LupaBB prüfen.")) {
+                addCssClasses("alert alert-warning py-1 px-2 small mb-0")
+            }
+        }
     }
 
     /** What a row action changed: the refreshed counters and a reload of the shown filter; `null` = the call failed, only repaint. */

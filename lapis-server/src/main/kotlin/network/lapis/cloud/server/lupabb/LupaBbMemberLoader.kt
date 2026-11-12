@@ -127,6 +127,7 @@ internal object LupaBbMemberLoader {
                     email = it[MemberTable.email],
                     status = it[MemberTable.status],
                     linkedElsewhere = it[MemberTable.lupabbPersonNumber] != null,
+                    linkedPersonNumber = it[MemberTable.lupabbPersonNumber],
                 )
             }
     }

@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### LupaBB comparison: title kept apart, view made clear (wave V1.9.303, no migration)
+
+No migration (the schema stays `V151`), no new environment variable.
+
+**Behaviour changes first:** (1) The display name the LupaBB comparison computes no longer contains the title (given name + family name + affix; legal person: the company). A new member created by the sync gets `member.title` set and a display name without it. A record with only a title and no name and no company now ends in the error class (`NO_NAME`); before, the title became the display name. (2) One tolerance: a Lapis display name equal to "<LupaBB title> <computed name>" (after blank normalisation, case sensitive, only against the LupaBB title) counts as unchanged, so old names written by earlier syncs show no difference and are not rewritten. Management members therefore get fewer `ADMIN_ROLE_MANUAL` rows. A changed title still shows two rows (display name and title) on purpose.
+
+- **Added:** `LupaBbPreviewRowDto.conflictMemberId`, `conflictMemberName`, `conflictPersonNumber`, `conflictLikelyDuplicate` and `LupaBbLinkTargetDto.linkedPersonNumber` (at the end, with defaults, ADMIN RPC data only, never in a log or an audit entry); a third name key in the candidate search (name with the LupaBB title in front, so "Dipl.-Des. Marco Book" is still found); `actionLink(accessibleName = ...)`.
+- **Changed:** the actions of a comparison row are small buttons with visible text in a fixed order, "Für diesen Abgleich überspringen" last (R58 named exception d); accessible names name the person; the search field has a hint; a disabled "Verknüpfen" states why, with the person number; a conflict row names the member that holds the e-mail and both person numbers and warns about a likely double entry.
+- **Tests:** `LupaBbTitleRulesTest`, additions to `LupaBbRecordParserTest`, `LupaBbPlannerTest`, `LupaBbApplierTest`, `LupaBbSyncServiceScenarios`, `LupaBbNoSecretLeakTest`, `LupaBbLogPrivacyTripwireTest`, `ClientToolbarIconTripwireTest`, `LupaBbResolveI18nCatalogTest`, `LupaSyncLogicTest`, `LupaSyncScreenDomTest`.
+- **Catalogs:** 11 new messages in `messages.pot` and the seven `.po` files, four obsolete ones removed.
+- **Docs:** `docs/features/lupabb-sync.adoc`, `docs/architecture/lupabb-sync.adoc`, `docs/features/member-title.adoc`, `ui-ux-guideline.adoc`, `action-icons.adoc`.
+- **Not verified:** nothing ran against the real LupaBB or a live instance.
+
 ## [0.52.0] — 2026-11-12
 
 Feature release on `[0.51.0]` (three waves, V1.9.300 to V1.9.302; database schema `V150` -> `V151`). **One additive migration: `V151__member_title.sql`**; no new environment variable. The sections below carry the details; read the behaviour changes of the title section first (rollback hazard, bundles made before `V151` are refused).

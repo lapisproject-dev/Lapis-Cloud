@@ -2868,3 +2868,17 @@ Client only. The navbar (`.navbar.lapis-navbar`) sticks to the top edge on every
 * **Ancestors.** No ancestor of a sticky element may set `overflow` other than `visible`/`clip`, nor `transform`, `filter` or `backdrop-filter`; otherwise sticky silently stops working.
 * **Dependent offsets.** Banner, member map panel, totals bar (from 992 px), rating booth head and `html { scroll-padding-top }` all derive from `--lapis-navbar-height`. Do not use Bootstrap's `.sticky-top` (same z-index 1020, top 0).
 * **Print.** Navbar, banner and booth head are `position: static`.
+
+== LupaBB comparison: row actions always with a label (V1.9.303)
+
+* **R58, fourth named exception: LupaBB comparison, row actions always labelled.** The row actions of the LupaBB comparison (`LupaSyncRowActions.kt`) are small buttons (`btn-sm`) with visible
+  text, never icon-only and never `RESPONSIVE`. Reason: the project owner reported that an arrow on the skip action was read as "next", not as "skip" (Kare: the arrow means "go on"). The
+  fixed order is: candidate link, search, take over LupaBB values, open member, "Für diesen Abgleich überspringen" always last. The actions are no `actionGroup` (the "one labelled button per
+  group" rule would not hold); they sit in `d-flex flex-wrap gap-2` rows so that a longer label wraps instead of scrolling the card.
+* **Accessible names with a person.** The name is a whole sentence built with `gettext` and passed through `sanitizeUntrustedI18nText`, as in V1.9.301, and it contains the visible text (WCAG 2.5.3):
+  "Mit %1 verknüpfen" (name and e-mail, so that equal names stay apart), "Mitglied öffnen: %1", "LupaBB-Werte übernehmen: %1", "%1 für diesen Abgleich überspringen". `actionLink` takes the same
+  optional `accessibleName`. The `###KvI18nS###` marker must never reach `title` or `aria-label` (DOM test).
+* **A disabled link button states why.** In the search hits a member that is linked to another LupaBB person keeps its labelled, disabled "Verknüpfen" button; the reason ("Nicht verknüpfbar:
+  bereits mit LupaBB-Person Nr. %1 verknüpft.") is visible text and the button's `aria-describedby`. Person numbers are plain digits (`Long.toString()`), DOM ids come from a counter, never from a
+  member id or a number. The search field is described by a hint ("Tippen Sie Name oder E-Mail des Mitglieds, ...").
+* `ClientToolbarIconTripwireTest`: `LupaSyncRowActions.kt` contains no `iconOnly = true`, no `ActionLabelMode.RESPONSIVE` and no `newIconOnlyActionButton`; the R57 ledgers do not change.

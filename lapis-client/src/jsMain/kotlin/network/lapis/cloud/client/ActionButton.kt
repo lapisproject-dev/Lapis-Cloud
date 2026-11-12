@@ -195,9 +195,17 @@ fun Container.actionLink(
     label: String,
     url: String,
     target: String? = null,
+    accessibleName: String? = null,
 ): Link {
     require(label.isNotBlank()) { "actionLink needs a label (accessible name)" }
+    require(accessibleName == null || accessibleName.isNotBlank()) { "accessibleName must not be blank" }
     val result = Link(label = "", url = url)
+    // V1.9.303: a longer accessible name (with the person) for a link whose visible text stays [label]; it must contain the visible text (WCAG 2.5.3)
+    accessibleName?.let {
+        val resolved = resolvedAttributeText(it)
+        result.setAttribute("aria-label", resolved)
+        result.setAttribute("title", resolved)
+    }
     if (target != null) {
         result.target = target
         if (target == "_blank") result.setAttribute("rel", "noopener")

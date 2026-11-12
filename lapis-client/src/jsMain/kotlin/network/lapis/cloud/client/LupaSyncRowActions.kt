@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.core.Container
 import io.kvision.core.onEvent
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Div
 import io.kvision.html.TAG
 import io.kvision.html.Tag
 import io.kvision.html.div
@@ -37,24 +38,48 @@ internal class LupaSyncRowActions(
         container: Container,
         row: LupaBbPreviewRowDto,
     ) {
-        row.memberId?.let { id ->
-            container.actionLink(
-                ActionIcon.VIEW,
-                tr("Mitglied öffnen"),
-                url = "#" + LupaSyncLogic.memberAdministrationRoute(id),
-                target = "_blank",
-            )
+        // V1.9.303 (R58 exception): every action of this row is a small button WITH visible text, in a fixed order, "skip" last
+        val wrapper = Div(className = "d-flex flex-column gap-2")
+        container.add(wrapper)
+        val ambiguous = row.category == LupaBbCategory.AMBIGUOUS
+        if (ambiguous) {
+            row.candidates.forEach { candidate ->
+                wrapper.div {
+                    addCssClasses("d-flex flex-wrap gap-2 align-items-center")
+                    span(sanitizeUntrustedI18nText(candidate.name))
+                    span("(${sanitizeUntrustedI18nText(candidate.email)})") { addCssClass("text-muted") }
+                    linkButton(this, row, candidate.memberId, candidate.name, candidate.email)
+                }
+            }
+            paintSearch(wrapper, row)
         }
-        paintProtected(container, row)
-        if (row.category != LupaBbCategory.AMBIGUOUS) return
-        row.candidates.forEach { candidate ->
-            linkButton(container, row, candidate.memberId, candidate.name, candidate.email)
-        }
-        paintSearch(container, row)
-        val skipLabel = tr("Überspringen")
-        container.actionButton(ActionIcon.NEXT, skipLabel, iconOnly = true, small = true, accessibleName = skipLabel) {
-            title = resolvedAttributeText(skipLabel)
-            onClick { confirmSkip(row) }
+        wrapper.div {
+            addCssClasses("d-flex flex-wrap gap-2 align-items-center")
+            paintProtected(this, row)
+            LupaSyncLogic.memberToOpen(row)?.let { id ->
+                val who = if (row.memberId != null) row.name else row.conflictMemberName.orEmpty()
+                actionLink(
+                    ActionIcon.VIEW,
+                    tr("Mitglied öffnen"),
+                    url = "#" + LupaSyncLogic.memberAdministrationRoute(id),
+                    target = "_blank",
+                    accessibleName = sanitizeUntrustedI18nText(gettext("Mitglied öffnen: %1", sanitizeUntrustedI18nText(who))),
+                )
+            }
+            if (ambiguous) {
+                actionButton(
+                    ActionIcon.NEXT,
+                    tr("Für diesen Abgleich überspringen"),
+                    style = ButtonStyle.OUTLINESECONDARY,
+                    small = true,
+                    accessibleName =
+                        sanitizeUntrustedI18nText(
+                            gettext("%1 für diesen Abgleich überspringen", sanitizeUntrustedI18nText(row.name)),
+                        ),
+                ) {
+                    onClick { confirmSkip(row) }
+                }
+            }
         }
     }
 
@@ -69,9 +94,14 @@ internal class LupaSyncRowActions(
             row.isOwnRecord -> container.div(lupaReasonText(LupaBbRowReasonCode.OWN_RECORD)) { addCssClasses("small text-muted") }
             row.protectedBlocker != null -> container.div(lupaReasonText(row.protectedBlocker!!)) { addCssClasses("small text-muted") }
             LupaSyncLogic.canApplyProtected(row) -> {
-                val label = tr("LupaBB-Werte übernehmen")
-                container.actionButton(ActionIcon.SAVE, label, iconOnly = true, small = true, accessibleName = label) {
-                    title = resolvedAttributeText(label)
+                container.actionButton(
+                    ActionIcon.SAVE,
+                    tr("LupaBB-Werte übernehmen"),
+                    style = ButtonStyle.OUTLINEPRIMARY,
+                    small = true,
+                    accessibleName =
+                        sanitizeUntrustedI18nText(gettext("LupaBB-Werte übernehmen: %1", sanitizeUntrustedI18nText(row.name))),
+                ) {
                     onClick { confirmProtected(row) }
                 }
             }
@@ -126,9 +156,13 @@ internal class LupaSyncRowActions(
         email: String,
     ) {
         val who = "${sanitizeUntrustedI18nText(name)} (${sanitizeUntrustedI18nText(email)})"
-        val label = gettext("Mit diesem Mitglied verknüpfen") + ": " + who
-        container.actionButton(ActionIcon.LINK, label, iconOnly = true, small = true, accessibleName = label) {
-            title = resolvedAttributeText(label)
+        container.actionButton(
+            ActionIcon.LINK,
+            tr("Verknüpfen"),
+            style = ButtonStyle.PRIMARY,
+            small = true,
+            accessibleName = sanitizeUntrustedI18nText(gettext("Mit %1 verknüpfen", who)),
+        ) {
             onClick { confirmLink(row, memberId, name, email) }
         }
     }
@@ -178,12 +212,21 @@ internal class LupaSyncRowActions(
     ) {
         val details = Tag(TAG.DETAILS, className = "small w-100")
         details.add(Tag(TAG.SUMMARY, content = tr("Welche Person ist gemeint?")))
+        val hintId = "lapis-lupabb-search-hint-${searchCounter++}"
+        details.add(
+            Tag(
+                TAG.DIV,
+                content = tr("Tippen Sie Name oder E-Mail des Mitglieds, das zu dieser LupaBB-Person gehört."),
+                className = "small text-muted",
+            ).also { it.setAttribute("id", hintId) },
+        )
         val box = Tag(TAG.INPUT, className = "form-control form-control-sm")
         box.setAttribute("type", "search")
         box.setAttribute("autocomplete", "off")
         box.setAttribute("maxlength", LupaSyncLogic.MAX_SEARCH_LENGTH.toString())
         val searchLabel = resolvedAttributeText(tr("Name oder E-Mail suchen"))
         box.setAttribute("aria-label", searchLabel)
+        box.setAttribute("aria-describedby", hintId)
         box.setAttribute("placeholder", searchLabel)
         val results = Tag(TAG.DIV, className = "mt-1")
         results.setAttribute("aria-live", "polite")
@@ -234,9 +277,19 @@ internal class LupaSyncRowActions(
                 span(" (${sanitizeUntrustedI18nText(target.email)})") { addCssClass("text-muted") }
                 span(memberStatusLabel(target.status)) { addCssClasses("badge text-bg-light") }
                 if (target.linkedElsewhere) {
-                    span(tr("bereits mit einer anderen LupaBB-Person verknüpft")) { addCssClass("text-muted") }
-                    val label = tr("Verknüpfen")
-                    actionButton(ActionIcon.LINK, label, iconOnly = true, small = true, accessibleName = label) { disabled = true }
+                    val reasonId = "lapis-lupabb-link-reason-${searchCounter++}"
+                    val reason =
+                        target.linkedPersonNumber?.let {
+                            gettext("Nicht verknüpfbar: bereits mit LupaBB-Person Nr. %1 verknüpft.", LupaSyncLogic.personNumberText(it))
+                        } ?: tr("Nicht verknüpfbar: bereits mit einer anderen LupaBB-Person verknüpft.")
+                    span(reason) {
+                        addCssClasses("text-muted small")
+                        setAttribute("id", reasonId)
+                    }
+                    actionButton(ActionIcon.LINK, tr("Verknüpfen"), style = ButtonStyle.PRIMARY, small = true) {
+                        disabled = true
+                        setAttribute("aria-describedby", reasonId)
+                    }
                 } else {
                     linkButton(this, row, target.memberId, target.name, target.email)
                 }
@@ -248,7 +301,7 @@ internal class LupaSyncRowActions(
 
     private fun confirmSkip(row: LupaBbPreviewRowDto) {
         confirmDialog(
-            title = tr("Datensatz überspringen?"),
+            title = tr("Für diesen Abgleich überspringen?"),
             message = tr("Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."),
             confirmLabel = tr("Überspringen"),
             confirmIcon = ActionIcon.NEXT,
@@ -274,6 +327,9 @@ internal class LupaSyncRowActions(
 
     private companion object {
         const val SEARCH_DEBOUNCE_MS = 300
+
+        /** V1.9.303 -- DOM-id counter: never a member id or a person number in an id. */
+        var searchCounter = 0
     }
 }
 

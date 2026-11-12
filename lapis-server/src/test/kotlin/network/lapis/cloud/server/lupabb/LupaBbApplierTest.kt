@@ -24,6 +24,7 @@ import network.lapis.cloud.shared.domain.LupaBbApplyResultDto
 import network.lapis.cloud.shared.domain.LupaBbCategory
 import network.lapis.cloud.shared.domain.LupaBbField
 import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
+import network.lapis.cloud.shared.domain.MemberNames
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -631,5 +632,34 @@ class LupaBbApplierTest :
                 admin,
             ).created shouldBe 1
             fx.byPersonNumber(9_000_000_065)!![MemberTable.title] shouldBe "Dipl.-Ing."
+            // V1.9.303: the display name is written WITHOUT the title
+            fx.byPersonNumber(9_000_000_065)!![MemberTable.displayName] shouldBe "Erika $family"
+        }
+
+        test("V1.9.303 a legacy display name with the same title is left alone: nothing written, no audit entry for the member") {
+            val admin = fx.admin()
+            val family = unique()
+            val id = fx.member(displayName = "Dr. Erika $family", personNumber = 9_000_000_066, title = "Dr.")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_066, family = family, title = "Dr.")), actor = admin)
+            (LupaBbField.DISPLAY_NAME in plan.row(9_000_000_066).diffs.map { it.field }) shouldBe false
+            applyTo(plan, admin)
+            fx.memberRow(id)[MemberTable.displayName] shouldBe "Dr. Erika $family"
+            fx.memberRow(id)[MemberTable.title] shouldBe "Dr."
+        }
+
+        test("V1.9.303 a title change writes the display name without the title and the new title: the letter shows one title") {
+            val admin = fx.admin()
+            val family = unique()
+            val id = fx.member(displayName = "Dr. Erika $family", personNumber = 9_000_000_067, title = "Dr.")
+            val plan =
+                planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_067, family = family, title = "Prof. Dr.")), actor = admin)
+            applyTo(plan, admin).updated shouldBe 1
+            fx.memberRow(id)[MemberTable.displayName] shouldBe "Erika $family"
+            fx.memberRow(id)[MemberTable.title] shouldBe "Prof. Dr."
+            MemberNames.withTitle(
+                title = fx.memberRow(id)[MemberTable.title],
+                displayName = fx.memberRow(id)[MemberTable.displayName],
+            ) shouldBe
+                "Prof. Dr. Erika $family"
         }
     })

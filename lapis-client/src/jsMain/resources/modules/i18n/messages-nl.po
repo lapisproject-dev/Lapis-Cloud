@@ -28261,17 +28261,11 @@ msgstr "Indeling"
 msgid "Einzelheiten"
 msgstr "Details"
 
-msgid "Kandidat"
-msgstr "Kandidaat"
-
 msgid "%1 Felder im Vergleich"
 msgstr "%1 velden vergeleken"
 
 msgid "Feld"
 msgstr "Veld"
-
-msgid "Mit diesem Mitglied verknüpfen"
-msgstr "Aan dit lid koppelen"
 
 msgid "Mit diesem Mitglied verknüpfen?"
 msgstr "Aan dit lid koppelen?"
@@ -28314,12 +28308,6 @@ msgstr "Zoeken op naam of e-mail"
 
 msgid "Kein Mitglied gefunden."
 msgstr "Geen lid gevonden."
-
-msgid "bereits mit einer anderen LupaBB-Person verknüpft"
-msgstr "al gekoppeld aan een andere LupaBB-persoon"
-
-msgid "Datensatz überspringen?"
-msgstr "Dit record overslaan?"
 
 msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
 msgstr "Dit record wordt bij deze synchronisatie niet overgenomen. Bij de volgende synchronisatie verschijnt het opnieuw."
@@ -32104,3 +32092,36 @@ msgstr "Negatief"
 
 msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
 msgstr "Hier ziet u de politicusprofielen als ranglijst en beoordeelt u ze positief of negatief. Het beheer bepaalt of deze functie is ingeschakeld."
+
+msgid "Die E-Mail gehört zum Mitglied %1, das bereits mit LupaBB-Person Nr. %2 verknüpft ist. Diese Zeile ist LupaBB-Person Nr. %3."
+msgstr "Het e-mailadres hoort bij lid %1, dat al is gekoppeld aan LupaBB-persoon nr. %2. Deze rij is LupaBB-persoon nr. %3."
+
+msgid "Wahrscheinlich dieselbe Person doppelt in LupaBB (gleicher Name, gleiche E-Mail). Bitte in LupaBB prüfen."
+msgstr "Waarschijnlijk dezelfde persoon dubbel in LupaBB (dezelfde naam, hetzelfde e-mailadres). Controleer dit in LupaBB."
+
+msgid "Tippen Sie Name oder E-Mail des Mitglieds, das zu dieser LupaBB-Person gehört."
+msgstr "Typ de naam of het e-mailadres van het lid dat bij deze LupaBB-persoon hoort."
+
+msgid "Nicht verknüpfbar: bereits mit LupaBB-Person Nr. %1 verknüpft."
+msgstr "Kan niet worden gekoppeld: al gekoppeld aan LupaBB-persoon nr. %1."
+
+msgid "Nicht verknüpfbar: bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "Kan niet worden gekoppeld: al gekoppeld aan een andere LupaBB-persoon."
+
+msgid "Für diesen Abgleich überspringen"
+msgstr "Overslaan voor deze vergelijking"
+
+msgid "Für diesen Abgleich überspringen?"
+msgstr "Overslaan voor deze vergelijking?"
+
+msgid "%1 für diesen Abgleich überspringen"
+msgstr "%1 overslaan voor deze vergelijking"
+
+msgid "Mit %1 verknüpfen"
+msgstr "Koppelen aan %1"
+
+msgid "Mitglied öffnen: %1"
+msgstr "Lid openen: %1"
+
+msgid "LupaBB-Werte übernehmen: %1"
+msgstr "LupaBB-waarden overnemen: %1"

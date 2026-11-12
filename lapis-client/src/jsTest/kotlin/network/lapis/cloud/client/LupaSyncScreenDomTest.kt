@@ -91,15 +91,34 @@ class LupaSyncScreenDomTest {
                     )
                     val chips = page.allOf(".btn-group button").map { it.textContent?.trim() }
                     assertTrue("Handlungsbedarf (1)" in chips && "Neu (1)" in chips && "Alle (6)" in chips)
-                    // the ambiguous record offers the link as an icon with tooltip and accessible name, no visible text
-                    // several candidates often share a name: name and e-mail address tell the buttons apart
-                    val linkName = "Mit diesem Mitglied verknüpfen: Erika Mustermann (em@example.org)"
-                    val link = page.allOf(rowSelector)[0].iconButtonNamed(linkName)
+                    // V1.9.303: the ambiguous record offers the link as a small button WITH visible text; the accessible name carries the person
+                    // (several candidates often share a name: name and e-mail address tell the buttons apart)
+                    val ambiguous = page.allOf(rowSelector)[0]
+                    val linkName = "Mit Erika Mustermann (em@example.org) verknüpfen"
+                    val link = ambiguous.iconButtonNamed(linkName)
                     assertEquals(linkName, link.getAttribute("title"))
-                    assertTrue(link.textContent?.trim().isNullOrEmpty(), "icon only")
-                    // the ambiguous record can also be skipped (icon only) and searched for ("Welche Person ist gemeint?")
-                    page.allOf(rowSelector)[0].iconButtonNamed("Überspringen")
-                    assertTrue(page.allOf(rowSelector)[0].shows("Welche Person ist gemeint?"))
+                    assertEquals("Verknüpfen", link.textContent?.trim())
+                    // the record can be skipped (visible text, accessible name with the person) and searched for ("Welche Person ist gemeint?")
+                    val skipName = "Erika Muster für diesen Abgleich überspringen"
+                    val skip = ambiguous.iconButtonNamed(skipName)
+                    assertEquals("Für diesen Abgleich überspringen", skip.textContent?.trim())
+                    assertTrue(ambiguous.shows("Welche Person ist gemeint?"))
+                    // no button of the row is a bare icon, and no i18n marker reaches an attribute
+                    assertEquals(0, ambiguous.allOf("button").filter { it.textContent?.trim().isNullOrEmpty() }.size)
+                    assertEquals(
+                        0,
+                        page
+                            .allOf("[aria-label],[title]")
+                            .filter {
+                                it.getAttribute("aria-label").orEmpty().contains("###KvI18n") ||
+                                    it.getAttribute("title").orEmpty().contains("###KvI18n")
+                            }.size,
+                    )
+                    // fixed order: candidate link, search, skip LAST
+                    val order = ambiguous.allOf("button, input[type=search]")
+                    assertTrue(order.indexOf(link) < order.indexOf(order.first { it.tagName == "INPUT" }))
+                    assertEquals(skip, order.last { it.tagName == "BUTTON" })
+                    assertEquals(skip, order.last())
                     // the changed record has an expandable field comparison
                     assertTrue(
                         page
@@ -141,6 +160,7 @@ class LupaSyncScreenDomTest {
             openPreview(routes, LupaSyncDomSupport.protectedRows + LupaSyncDomSupport.rows) { _, element ->
                 val rows = element().allOf(rowSelector)
                 val anchor = rows[0].allOf("a").single { it.shows("Mitglied öffnen") }
+                assertEquals("Mitglied öffnen: Bruno Vorstand", anchor.getAttribute("aria-label"))
                 assertEquals("#/members?member=member-4801", anchor.getAttribute("href"))
                 assertEquals("_blank", anchor.getAttribute("target"))
                 assertTrue(anchor.getAttribute("rel").orEmpty().contains("noopener"))
@@ -156,10 +176,17 @@ class LupaSyncScreenDomTest {
             val routes = LupaSyncDomSupport.routes()
             openPreview(routes, LupaSyncDomSupport.protectedRows) { _, element ->
                 val rows = element().allOf(rowSelector)
-                rows[0].iconButtonNamed("LupaBB-Werte übernehmen")
-                assertEquals(0, rows[1].allOf("button").filter { it.getAttribute("aria-label") == "LupaBB-Werte übernehmen" }.size)
+                val take = rows[0].iconButtonNamed("LupaBB-Werte übernehmen: Bruno Vorstand")
+                assertEquals("LupaBB-Werte übernehmen", take.textContent?.trim())
+                assertEquals(
+                    0,
+                    rows[1].allOf("button").filter { it.getAttribute("aria-label").orEmpty().startsWith("LupaBB-Werte übernehmen") }.size,
+                )
                 assertTrue(rows[1].shows("Ihren eigenen Datensatz gleicht ein anderer Administrator ab."))
-                assertEquals(0, rows[2].allOf("button").filter { it.getAttribute("aria-label") == "LupaBB-Werte übernehmen" }.size)
+                assertEquals(
+                    0,
+                    rows[2].allOf("button").filter { it.getAttribute("aria-label").orEmpty().startsWith("LupaBB-Werte übernehmen") }.size,
+                )
                 assertTrue(rows[2].shows("Zustimmung eines zweiten Administrators"))
             }
         }
@@ -172,7 +199,7 @@ class LupaSyncScreenDomTest {
             openPreview(routes, LupaSyncDomSupport.protectedRows) { requests, element ->
                 element()
                     .allOf(rowSelector)[0]
-                    .iconButtonNamed("LupaBB-Werte übernehmen")
+                    .iconButtonNamed("LupaBB-Werte übernehmen: Bruno Vorstand")
                     .asDynamic()
                     .click()
                 awaitUntil("the dialog") { lastOpenModal().shows("LupaBB-Werte übernehmen?") }
@@ -206,6 +233,7 @@ class LupaSyncScreenDomTest {
                         "belegt@example.org",
                         MemberStatus.ACTIVE,
                         true,
+                        9_000_000_082,
                     ),
                 )
             openPreview(routes, LupaSyncDomSupport.rows, targets) { requests, element ->
@@ -227,9 +255,15 @@ class LupaSyncScreenDomTest {
                 assertEquals("Erika", requests.first { it.isRpc && it.rpcRoute == routes.search }.rpcParam(2) as String)
                 awaitUntil("the hits") { element().shows("Erika Frei") && element().shows("Erika Belegt") }
                 val page = element()
-                assertTrue(page.shows("bereits mit einer anderen LupaBB-Person verknüpft"))
-                page.iconButtonNamed("Mit diesem Mitglied verknüpfen: Erika Frei (frei@example.org)")
-                assertTrue(page.iconButtonNamed("Verknüpfen").asDynamic().disabled as Boolean, "a linked member is not linkable")
+                // V1.9.303: the reason is visible text with the number (plain digits), tied to the disabled button by aria-describedby
+                assertTrue(page.shows("Nicht verknüpfbar: bereits mit LupaBB-Person Nr. 9000000082 verknüpft."))
+                page.iconButtonNamed("Mit Erika Frei (frei@example.org) verknüpfen")
+                val disabled = page.allOf("button").single { it.textContent?.trim() == "Verknüpfen" && it.asDynamic().disabled as Boolean }
+                val reason = document.getElementById(disabled.getAttribute("aria-describedby").orEmpty())
+                assertTrue(reason?.textContent.orEmpty().contains("Nr. 9000000082"), "the reason is the description of the disabled button")
+                // the search field is described by its hint
+                val hint = document.getElementById(box.getAttribute("aria-describedby").orEmpty())
+                assertTrue(hint?.textContent.orEmpty().contains("Tippen Sie Name oder E-Mail des Mitglieds"))
             }
         }
 
@@ -241,14 +275,52 @@ class LupaSyncScreenDomTest {
             openPreview(routes, LupaSyncDomSupport.rows) { requests, element ->
                 element()
                     .allOf(rowSelector)[0]
-                    .iconButtonNamed("Überspringen")
+                    .iconButtonNamed("Erika Muster für diesen Abgleich überspringen")
                     .asDynamic()
                     .click()
-                awaitUntil("the dialog") { lastOpenModal().shows("Datensatz überspringen?") }
+                awaitUntil("the dialog") { lastOpenModal().shows("Für diesen Abgleich überspringen?") }
                 assertTrue(lastOpenModal().shows("Beim nächsten Abgleich erscheint er wieder."))
                 assertEquals(0, requests.count { it.isRpc && it.rpcRoute == routes.skip })
                 lastOpenModal().buttonNamed("Überspringen").asDynamic().click()
                 awaitUntil("the server call") { requests.any { it.isRpc && it.rpcRoute == routes.skip } }
+            }
+        }
+
+    @Test
+    fun aConflictRow_namesTheMemberAndBothNumbers_warnsAboutALikelyDouble_andOpensTheHolder(): Promise<Unit> =
+        formTest {
+            AppState.setSession(LupaSyncDomSupport.session())
+            val routes = LupaSyncDomSupport.routes()
+            openPreview(routes, LupaSyncDomSupport.conflictRows) { _, element ->
+                val rows = element().allOf(rowSelector)
+                // plain digits, no thousands separator
+                assertTrue(
+                    rows[0].shows(
+                        "Die E-Mail gehört zum Mitglied Dr. Erika Doppel, das bereits mit LupaBB-Person Nr. 9000000071 verknüpft ist. " +
+                            "Diese Zeile ist LupaBB-Person Nr. 9000000070.",
+                    ),
+                )
+                assertTrue(rows[0].shows("Wahrscheinlich dieselbe Person doppelt in LupaBB"))
+                val anchor = rows[0].allOf("a").single { it.shows("Mitglied öffnen") }
+                assertEquals("#/members?member=member-71", anchor.getAttribute("href"))
+                assertEquals("Mitglied öffnen: Dr. Erika Doppel", anchor.getAttribute("aria-label"))
+                // no double hint without the flag
+                assertTrue(rows[1].shows("Jemand Anderes") && rows[1].shows("Nr. 9000000073"))
+                assertFalse(rows[1].shows("Wahrscheinlich dieselbe Person doppelt"))
+                // an anonymised holder: the general sentence only, no name, no number, nothing to open
+                assertFalse(rows[2].shows("Nr."))
+                assertEquals(0, rows[2].allOf("a").filter { it.shows("Mitglied öffnen") }.size)
+                // every conflict row can be skipped, the skip button comes last
+                for (row in rows) {
+                    assertEquals(
+                        "Für diesen Abgleich überspringen",
+                        row
+                            .allOf("button")
+                            .last()
+                            .textContent
+                            ?.trim(),
+                    )
+                }
             }
         }
 }

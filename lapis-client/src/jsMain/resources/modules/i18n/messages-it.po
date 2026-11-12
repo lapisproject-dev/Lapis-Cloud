@@ -28200,17 +28200,11 @@ msgstr "Classificazione"
 msgid "Einzelheiten"
 msgstr "Dettagli"
 
-msgid "Kandidat"
-msgstr "Candidato"
-
 msgid "%1 Felder im Vergleich"
 msgstr "%1 campi a confronto"
 
 msgid "Feld"
 msgstr "Campo"
-
-msgid "Mit diesem Mitglied verknüpfen"
-msgstr "Collega a questo membro"
 
 msgid "Mit diesem Mitglied verknüpfen?"
 msgstr "Collegare a questo membro?"
@@ -28253,12 +28247,6 @@ msgstr "Cerca per nome o e-mail"
 
 msgid "Kein Mitglied gefunden."
 msgstr "Nessun membro trovato."
-
-msgid "bereits mit einer anderen LupaBB-Person verknüpft"
-msgstr "già collegato a un’altra persona di LupaBB"
-
-msgid "Datensatz überspringen?"
-msgstr "Saltare questo record?"
 
 msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
 msgstr "Questo record non viene applicato in questa sincronizzazione. Riapparirà alla prossima."
@@ -32043,3 +32031,36 @@ msgstr "Negativa"
 
 msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
 msgstr "Qui vede i profili dei politici come classifica e li valuta in modo positivo o negativo. L'amministrazione decide se questa funzione è attivata."
+
+msgid "Die E-Mail gehört zum Mitglied %1, das bereits mit LupaBB-Person Nr. %2 verknüpft ist. Diese Zeile ist LupaBB-Person Nr. %3."
+msgstr "L'indirizzo e-mail appartiene al membro %1, già collegato alla persona LupaBB n. %2. Questa riga è la persona LupaBB n. %3."
+
+msgid "Wahrscheinlich dieselbe Person doppelt in LupaBB (gleicher Name, gleiche E-Mail). Bitte in LupaBB prüfen."
+msgstr "Probabilmente la stessa persona due volte in LupaBB (stesso nome, stesso indirizzo e-mail). Verificare in LupaBB."
+
+msgid "Tippen Sie Name oder E-Mail des Mitglieds, das zu dieser LupaBB-Person gehört."
+msgstr "Digitare il nome o l'indirizzo e-mail del membro corrispondente a questa persona LupaBB."
+
+msgid "Nicht verknüpfbar: bereits mit LupaBB-Person Nr. %1 verknüpft."
+msgstr "Impossibile collegare: già collegato alla persona LupaBB n. %1."
+
+msgid "Nicht verknüpfbar: bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "Impossibile collegare: già collegato a un'altra persona LupaBB."
+
+msgid "Für diesen Abgleich überspringen"
+msgstr "Salta per questo confronto"
+
+msgid "Für diesen Abgleich überspringen?"
+msgstr "Saltare per questo confronto?"
+
+msgid "%1 für diesen Abgleich überspringen"
+msgstr "Salta %1 per questo confronto"
+
+msgid "Mit %1 verknüpfen"
+msgstr "Collega con %1"
+
+msgid "Mitglied öffnen: %1"
+msgstr "Apri membro: %1"
+
+msgid "LupaBB-Werte übernehmen: %1"
+msgstr "Applica i valori di LupaBB: %1"

@@ -62,11 +62,39 @@ class LupaBbRecordParserTest :
                     lookups = lookups,
                 )
             val r = parsed.shouldBeInstanceOf<ParsedRecord.Valid>().record
-            r.displayName shouldBe "Dr. Erika Maria Muster Jr."
+            r.displayName shouldBe "Erika Maria Muster Jr."
+            r.title shouldBe "Dr."
             r.street shouldBe "Weg 1"
             r.country shouldBe LupaBbCountry.Code("DE")
             r.status shouldBe MemberStatus.ACTIVE
             r.email shouldBe "erika@example.org"
+        }
+
+        test("a title without any name and without a company is NO_NAME (the title is never the display name)") {
+            val rej =
+                rejected(wire { it.copy(title = "Dr.", givenName = null, familyName = null, nameAffix = null, company = null) })
+            rej.category shouldBe LupaBbCategory.ERROR
+            rej.reason shouldBe LupaBbRowReasonCode.NO_NAME
+        }
+
+        test("a natural person with only a title and a company shows the company") {
+            val r =
+                LupaBbRecordParser
+                    .parse(
+                        wire =
+                            wire {
+                                it.copy(
+                                    title = "Dr.",
+                                    givenName = null,
+                                    familyName = null,
+                                    nameAffix = null,
+                                    company = "Muster GmbH",
+                                )
+                            },
+                        lookups = lookups,
+                    ).shouldBeInstanceOf<ParsedRecord.Valid>()
+                    .record
+            r.displayName shouldBe "Muster GmbH"
         }
 
         test("a legal person shows its company name") {

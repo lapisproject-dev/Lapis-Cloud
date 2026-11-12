@@ -7,6 +7,7 @@ import network.lapis.cloud.shared.domain.LupaBbField
 import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
 import network.lapis.cloud.shared.domain.LupaBbPreviewRowDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewSummaryDto
+import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.LupaBbSyncStatusDto
 
 /** V1.9.226 -- the DOM-free decisions of the LupaBB sync page. */
@@ -84,4 +85,16 @@ internal object LupaSyncLogic {
 
     /** The route of the member administration filtered to one member (the `?member=` deep link). */
     fun memberAdministrationRoute(memberId: String): String = "${Routes.MEMBERS}?member=$memberId"
+
+    /** V1.9.303 -- whether the row carries the details of the member that holds the e-mail (`EMAIL_BELONGS_TO_OTHER`, member already linked). */
+    fun hasConflictDetails(row: LupaBbPreviewRowDto): Boolean =
+        row.reasons.any { it.code == LupaBbRowReasonCode.EMAIL_BELONGS_TO_OTHER } &&
+            row.conflictMemberName != null &&
+            row.conflictPersonNumber != null
+
+    /** V1.9.303 -- the member "Mitglied öffnen" leads to: the matched member, else the member holding the e-mail of a conflict. */
+    fun memberToOpen(row: LupaBbPreviewRowDto): String? = row.memberId ?: row.conflictMemberId.takeIf { hasConflictDetails(row) }
+
+    /** V1.9.303 -- a person number as plain digits, never with a thousands separator. */
+    fun personNumberText(n: Long): String = n.toString()
 }

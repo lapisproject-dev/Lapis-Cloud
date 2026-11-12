@@ -27864,17 +27864,11 @@ msgstr "Clasificación"
 msgid "Einzelheiten"
 msgstr "Detalles"
 
-msgid "Kandidat"
-msgstr "Candidato"
-
 msgid "%1 Felder im Vergleich"
 msgstr "%1 campos en la comparación"
 
 msgid "Feld"
 msgstr "Campo"
-
-msgid "Mit diesem Mitglied verknüpfen"
-msgstr "Vincular con este miembro"
 
 msgid "Mit diesem Mitglied verknüpfen?"
 msgstr "¿Vincular con este miembro?"
@@ -27917,12 +27911,6 @@ msgstr "Buscar por nombre o correo electrónico"
 
 msgid "Kein Mitglied gefunden."
 msgstr "No se encontró ningún miembro."
-
-msgid "bereits mit einer anderen LupaBB-Person verknüpft"
-msgstr "ya vinculado a otra persona de LupaBB"
-
-msgid "Datensatz überspringen?"
-msgstr "¿Omitir este registro?"
 
 msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
 msgstr "Este registro no se aplica en esta sincronización. Volverá a aparecer en la próxima."
@@ -31707,3 +31695,36 @@ msgstr "Negativa"
 
 msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
 msgstr "Aquí ve los perfiles de políticos como clasificación y los valora de forma positiva o negativa. La administración decide si esta función está activada."
+
+msgid "Die E-Mail gehört zum Mitglied %1, das bereits mit LupaBB-Person Nr. %2 verknüpft ist. Diese Zeile ist LupaBB-Person Nr. %3."
+msgstr "El correo electrónico pertenece al miembro %1, que ya está vinculado a la persona de LupaBB n.º %2. Esta fila es la persona de LupaBB n.º %3."
+
+msgid "Wahrscheinlich dieselbe Person doppelt in LupaBB (gleicher Name, gleiche E-Mail). Bitte in LupaBB prüfen."
+msgstr "Probablemente la misma persona dos veces en LupaBB (mismo nombre, mismo correo electrónico). Compruébelo en LupaBB."
+
+msgid "Tippen Sie Name oder E-Mail des Mitglieds, das zu dieser LupaBB-Person gehört."
+msgstr "Escriba el nombre o el correo electrónico del miembro que corresponde a esta persona de LupaBB."
+
+msgid "Nicht verknüpfbar: bereits mit LupaBB-Person Nr. %1 verknüpft."
+msgstr "No se puede vincular: ya está vinculado a la persona de LupaBB n.º %1."
+
+msgid "Nicht verknüpfbar: bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "No se puede vincular: ya está vinculado a otra persona de LupaBB."
+
+msgid "Für diesen Abgleich überspringen"
+msgstr "Omitir en esta conciliación"
+
+msgid "Für diesen Abgleich überspringen?"
+msgstr "¿Omitir en esta conciliación?"
+
+msgid "%1 für diesen Abgleich überspringen"
+msgstr "Omitir %1 en esta conciliación"
+
+msgid "Mit %1 verknüpfen"
+msgstr "Vincular con %1"
+
+msgid "Mitglied öffnen: %1"
+msgstr "Abrir miembro: %1"
+
+msgid "LupaBB-Werte übernehmen: %1"
+msgstr "Aplicar los valores de LupaBB: %1"

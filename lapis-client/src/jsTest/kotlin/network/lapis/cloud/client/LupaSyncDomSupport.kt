@@ -120,6 +120,39 @@ internal object LupaSyncDomSupport {
             ),
         )
 
+    /** V1.9.303 -- rows of `EMAIL_BELONGS_TO_OTHER`: with the holder named (and a likely double entry), without a likely double entry, anonymised holder. */
+    val conflictRows =
+        listOf(
+            LupaBbPreviewRowDto(
+                personNumber = 9_000_000_070,
+                name = "Erika Doppel",
+                email = "doppel@example.org",
+                category = LupaBbCategory.AMBIGUOUS,
+                reasons = listOf(LupaBbReasonDto(LupaBbRowReasonCode.EMAIL_BELONGS_TO_OTHER)),
+                conflictMemberId = "member-71",
+                conflictMemberName = "Dr. Erika Doppel",
+                conflictPersonNumber = 9_000_000_071,
+                conflictLikelyDuplicate = true,
+            ),
+            LupaBbPreviewRowDto(
+                personNumber = 9_000_000_072,
+                name = "Anna Anders",
+                email = "anders@example.org",
+                category = LupaBbCategory.AMBIGUOUS,
+                reasons = listOf(LupaBbReasonDto(LupaBbRowReasonCode.EMAIL_BELONGS_TO_OTHER)),
+                conflictMemberId = "member-73",
+                conflictMemberName = "Jemand Anderes",
+                conflictPersonNumber = 9_000_000_073,
+            ),
+            LupaBbPreviewRowDto(
+                personNumber = 9_000_000_074,
+                name = "Gelöscht Person",
+                email = "weg@example.org",
+                category = LupaBbCategory.AMBIGUOUS,
+                reasons = listOf(LupaBbReasonDto(LupaBbRowReasonCode.EMAIL_BELONGS_TO_OTHER)),
+            ),
+        )
+
     class Routes(
         val status: String,
         val verify: String,

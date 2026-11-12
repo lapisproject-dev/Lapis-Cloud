@@ -48,6 +48,19 @@ the end. Every method starts with the ADMIN gate (pinned by `LupaBbSyncAccessTri
   a CHECK constraint, so no new type was introduced.
 * **Sync-only transitions:** `LupaBbStatusRules.SYNC_ONLY_TRANSITIONS` = `FRIEND` -> `DONOR`, `WITHDRAWN`, `DECEASED`, each only with a matching person number.
 
+== Title is its own field (V1.9.303)
+
+* `LupaBbRecordParser` computes the display name as given name + family name + affix (legal person: the company), never the title; `record.title` is kept. No migration, no new environment variable.
+* The one tolerance is the named function `isLegacyTitledDisplayName` (`LupaBbPlanner.kt`, `internal`, tested without a database): the Lapis display name equal to "<LupaBB title> <computed name>"
+  after blank normalisation counts as unchanged. Case sensitive, against the LupaBB title only (never `member.title`, otherwise the old name would stay and the letter would read "Prof. Dr. Dr. X"), never for an
+  empty title.
+* `MemberIndex.byName` has a third key (the name with the LupaBB title in front), because "Dipl.-Des." leaves the token `des` behind when title tokens are stripped.
+* New DTO fields, always at the end and with defaults (clients that build the DTOs positionally keep compiling): `LupaBbPreviewRowDto.conflictMemberId`, `conflictMemberName`, `conflictPersonNumber`,
+  `conflictLikelyDuplicate`; `LupaBbLinkTargetDto.linkedPersonNumber`. They are set only for `EMAIL_BELONGS_TO_OTHER` with a linked holder (not for an anonymised one) and only for a member linked elsewhere,
+  appear only in the ADMIN RPC answers (`getPreviewPage`, `link`, `skip`, `applyProtected`, `searchLinkTargets`), are not part of the fingerprint (`LapisMember.fingerprint()`), and never reach a log or an audit
+  entry (`LupaBbLogPrivacyTripwireTest`, `LupaBbNoSecretLeakTest`).
+* The "probably the same person twice" hint is decided on the server (`isLikelyDuplicate`: sorted name tokens without title tokens and particles are equal and not empty); the client only shows it.
+
 == Hardening of the client
 
 * Fixed host ([`LupaBbEndpoint.PRODUCTION`]); the only other accepted shape is a loopback address for the tests. The host is read from the *parsed* URL (a prefix check would let `http://localhost:80@evil/` through).

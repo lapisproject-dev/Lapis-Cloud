@@ -54,6 +54,11 @@ internal data class PlanRow(
     val protectedChapterId: Uuid? = null,
     val isOwnRecord: Boolean = false,
     val protectedBlocker: LupaBbRowReasonCode? = null,
+    /** V1.9.303 -- for `EMAIL_BELONGS_TO_OTHER` (member already linked): the member holding the e-mail. ADMIN-only RPC data, never logged or audited. */
+    val conflictMemberId: Uuid? = null,
+    val conflictMemberName: String? = null,
+    val conflictPersonNumber: Long? = null,
+    val conflictLikelyDuplicate: Boolean = false,
 ) {
     val statusTo: MemberStatus?
         get() =
@@ -76,6 +81,10 @@ internal data class PlanRow(
             protectedDiffs = protectedDiffs.map { LupaBbFieldDiffDto(field = it.field, before = it.before, after = it.after) },
             isOwnRecord = isOwnRecord,
             protectedBlocker = protectedBlocker,
+            conflictMemberId = conflictMemberId?.toString(),
+            conflictMemberName = conflictMemberName,
+            conflictPersonNumber = conflictPersonNumber,
+            conflictLikelyDuplicate = conflictLikelyDuplicate,
         )
 }
 

@@ -28171,17 +28171,11 @@ msgstr "Klasyfikacja"
 msgid "Einzelheiten"
 msgstr "Szczegóły"
 
-msgid "Kandidat"
-msgstr "Kandydat"
-
 msgid "%1 Felder im Vergleich"
 msgstr "%1 porównywanych pól"
 
 msgid "Feld"
 msgstr "Pole"
-
-msgid "Mit diesem Mitglied verknüpfen"
-msgstr "Powiąż z tym członkiem"
 
 msgid "Mit diesem Mitglied verknüpfen?"
 msgstr "Powiązać z tym członkiem?"
@@ -28224,12 +28218,6 @@ msgstr "Szukaj według nazwy lub e-maila"
 
 msgid "Kein Mitglied gefunden."
 msgstr "Nie znaleziono członka."
-
-msgid "bereits mit einer anderen LupaBB-Person verknüpft"
-msgstr "już powiązany z inną osobą z LupaBB"
-
-msgid "Datensatz überspringen?"
-msgstr "Pominąć ten rekord?"
 
 msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
 msgstr "Ten rekord nie zostanie przejęty w tej synchronizacji. Pojawi się ponownie przy następnej."
@@ -32019,3 +32007,36 @@ msgstr "Negatywna"
 
 msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
 msgstr "Tutaj widzi Pan/Pani profile polityków w formie rankingu i ocenia je pozytywnie lub negatywnie. To, czy ta funkcja jest włączona, określa administracja."
+
+msgid "Die E-Mail gehört zum Mitglied %1, das bereits mit LupaBB-Person Nr. %2 verknüpft ist. Diese Zeile ist LupaBB-Person Nr. %3."
+msgstr "Adres e-mail należy do członka %1, który jest już powiązany z osobą LupaBB nr %2. Ten wiersz to osoba LupaBB nr %3."
+
+msgid "Wahrscheinlich dieselbe Person doppelt in LupaBB (gleicher Name, gleiche E-Mail). Bitte in LupaBB prüfen."
+msgstr "Prawdopodobnie ta sama osoba dwukrotnie w LupaBB (to samo imię i nazwisko, ten sam adres e-mail). Proszę sprawdzić w LupaBB."
+
+msgid "Tippen Sie Name oder E-Mail des Mitglieds, das zu dieser LupaBB-Person gehört."
+msgstr "Proszę wpisać imię i nazwisko lub adres e-mail członka, który odpowiada tej osobie z LupaBB."
+
+msgid "Nicht verknüpfbar: bereits mit LupaBB-Person Nr. %1 verknüpft."
+msgstr "Nie można powiązać: już powiązano z osobą LupaBB nr %1."
+
+msgid "Nicht verknüpfbar: bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "Nie można powiązać: już powiązano z inną osobą LupaBB."
+
+msgid "Für diesen Abgleich überspringen"
+msgstr "Pomiń w tym uzgodnieniu"
+
+msgid "Für diesen Abgleich überspringen?"
+msgstr "Pominąć w tym uzgodnieniu?"
+
+msgid "%1 für diesen Abgleich überspringen"
+msgstr "Pomiń %1 w tym uzgodnieniu"
+
+msgid "Mit %1 verknüpfen"
+msgstr "Powiąż z %1"
+
+msgid "Mitglied öffnen: %1"
+msgstr "Otwórz członka: %1"
+
+msgid "LupaBB-Werte übernehmen: %1"
+msgstr "Przejmij wartości z LupaBB: %1"

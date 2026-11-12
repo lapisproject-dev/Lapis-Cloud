@@ -28163,17 +28163,11 @@ msgstr "Классификация"
 msgid "Einzelheiten"
 msgstr "Подробности"
 
-msgid "Kandidat"
-msgstr "Кандидат"
-
 msgid "%1 Felder im Vergleich"
 msgstr "Сравниваемых полей: %1"
 
 msgid "Feld"
 msgstr "Поле"
-
-msgid "Mit diesem Mitglied verknüpfen"
-msgstr "Связать с этим участником"
 
 msgid "Mit diesem Mitglied verknüpfen?"
 msgstr "Связать с этим участником?"
@@ -28216,12 +28210,6 @@ msgstr "Поиск по имени или адресу электронной п
 
 msgid "Kein Mitglied gefunden."
 msgstr "Участник не найден."
-
-msgid "bereits mit einer anderen LupaBB-Person verknüpft"
-msgstr "уже связан с другим человеком из LupaBB"
-
-msgid "Datensatz überspringen?"
-msgstr "Пропустить эту запись?"
 
 msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
 msgstr "Эта запись не будет принята при этой синхронизации. При следующей она появится снова."
@@ -32011,3 +31999,36 @@ msgstr "Отрицательная"
 
 msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
 msgstr "Здесь вы видите профили политиков в виде рейтинга и оцениваете их положительно или отрицательно. Включена ли эта функция, решает администрация."
+
+msgid "Die E-Mail gehört zum Mitglied %1, das bereits mit LupaBB-Person Nr. %2 verknüpft ist. Diese Zeile ist LupaBB-Person Nr. %3."
+msgstr "Адрес электронной почты принадлежит участнику %1, который уже связан с персоной LupaBB № %2. Эта строка — персона LupaBB № %3."
+
+msgid "Wahrscheinlich dieselbe Person doppelt in LupaBB (gleicher Name, gleiche E-Mail). Bitte in LupaBB prüfen."
+msgstr "Вероятно, один и тот же человек дважды в LupaBB (то же имя, тот же адрес электронной почты). Пожалуйста, проверьте в LupaBB."
+
+msgid "Tippen Sie Name oder E-Mail des Mitglieds, das zu dieser LupaBB-Person gehört."
+msgstr "Введите имя или адрес электронной почты участника, соответствующего этой персоне LupaBB."
+
+msgid "Nicht verknüpfbar: bereits mit LupaBB-Person Nr. %1 verknüpft."
+msgstr "Связать нельзя: уже связан с персоной LupaBB № %1."
+
+msgid "Nicht verknüpfbar: bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "Связать нельзя: уже связан с другой персоной LupaBB."
+
+msgid "Für diesen Abgleich überspringen"
+msgstr "Пропустить в этой сверке"
+
+msgid "Für diesen Abgleich überspringen?"
+msgstr "Пропустить в этой сверке?"
+
+msgid "%1 für diesen Abgleich überspringen"
+msgstr "Пропустить %1 в этой сверке"
+
+msgid "Mit %1 verknüpfen"
+msgstr "Связать с %1"
+
+msgid "Mitglied öffnen: %1"
+msgstr "Открыть участника: %1"
+
+msgid "LupaBB-Werte übernehmen: %1"
+msgstr "Принять значения из LupaBB: %1"

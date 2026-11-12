@@ -556,11 +556,177 @@ class LupaBbPlannerTest :
                 it.after shouldBe "Dr."
             }
             plan.row(9_000_000_062).diffs.map { it.field } shouldNotContain LupaBbField.TITLE
+            // V1.9.303: the display name never carries the title, and a legacy "<title> <name>" is tolerated: no DISPLAY_NAME difference
+            plan.row(9_000_000_061).diffs.map { it.field } shouldNotContain LupaBbField.DISPLAY_NAME
+            plan.row(9_000_000_062).diffs.map { it.field } shouldNotContain LupaBbField.DISPLAY_NAME
             // a title set by hand and none in LupaBB is a difference to empty (the sync's single-source rule), never silently kept
             plan
                 .row(9_000_000_063)
                 .diffs
                 .single { it.field == LupaBbField.TITLE }
                 .after shouldBe null
+        }
+
+        // ---- V1.9.303: the title is its own field ----
+
+        fun LupaBbPlan.fields(n: Long) = row(n).diffs.map { it.field }
+
+        test("V1.9.303 a legacy display name with the same title is unchanged: no display name and no title difference") {
+            val family = unique()
+            val admin = fx.admin()
+            fx.member(displayName = "Dipl.-Des. Marco $family", personNumber = 9_000_000_301, title = "Dipl.-Des.")
+            val plan =
+                planOf(
+                    dataset = datasetOf(wireMember(personNumber = 9_000_000_301, given = "Marco", family = family, title = "Dipl.-Des.")),
+                    actor = admin,
+                )
+            plan.fields(9_000_000_301) shouldNotContain LupaBbField.DISPLAY_NAME
+            plan.fields(9_000_000_301) shouldNotContain LupaBbField.TITLE
+        }
+
+        test("V1.9.303 a changed title shows two rows: the display name without the title AND the new title") {
+            val family = unique()
+            val admin = fx.admin()
+            fx.member(displayName = "Dr. Erika $family", personNumber = 9_000_000_302, title = "Dr.")
+            val plan =
+                planOf(
+                    dataset = datasetOf(wireMember(personNumber = 9_000_000_302, family = family, title = "Prof. Dr.")),
+                    actor = admin,
+                )
+            plan.row(9_000_000_302).diffs.single { it.field == LupaBbField.DISPLAY_NAME }.let {
+                it.before shouldBe "Dr. Erika $family"
+                it.after shouldBe "Erika $family"
+            }
+            plan.row(9_000_000_302).diffs.single { it.field == LupaBbField.TITLE }.let {
+                it.before shouldBe "Dr."
+                it.after shouldBe "Prof. Dr."
+            }
+        }
+
+        test("V1.9.303 a title only in the display name: just the TITLE difference, null to the title") {
+            val family = unique()
+            val admin = fx.admin()
+            fx.member(displayName = "Dr. Erika $family", personNumber = 9_000_000_303, title = null)
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_303, family = family, title = "Dr.")), actor = admin)
+            plan.fields(9_000_000_303) shouldNotContain LupaBbField.DISPLAY_NAME
+            plan.row(9_000_000_303).diffs.single { it.field == LupaBbField.TITLE }.let {
+                it.before shouldBe null
+                it.after shouldBe "Dr."
+            }
+        }
+
+        test("V1.9.303 LupaBB without a title: a title in the Lapis display name is a difference (the tolerance does not apply)") {
+            val family = unique()
+            val admin = fx.admin()
+            fx.member(displayName = "Dr. Erika $family", personNumber = 9_000_000_304, title = "Dr.")
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_304, family = family, title = null)), actor = admin)
+            plan
+                .row(9_000_000_304)
+                .diffs
+                .single { it.field == LupaBbField.DISPLAY_NAME }
+                .after shouldBe "Erika $family"
+        }
+
+        test("V1.9.303 a new member with a title: display name without it, the title as its own field") {
+            val family = unique()
+            val admin = fx.admin()
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_305, family = family, title = "Dr.")), actor = admin)
+            plan.row(9_000_000_305).category shouldBe LupaBbCategory.NEW
+            plan
+                .row(9_000_000_305)
+                .diffs
+                .single { it.field == LupaBbField.DISPLAY_NAME }
+                .after shouldBe "Erika $family"
+            plan
+                .row(9_000_000_305)
+                .diffs
+                .single { it.field == LupaBbField.TITLE }
+                .after shouldBe "Dr."
+        }
+
+        test("V1.9.303 the candidate search finds a member whose name carries the title, also when LupaBB delivers the name without it") {
+            val family = unique()
+            val admin = fx.admin()
+            val withTitle = fx.member(displayName = "Dipl.-Des. Marco $family", title = "Dipl.-Des.")
+            val plain = fx.member(displayName = "Anna $family")
+            val doctor = fx.member(displayName = "Dr. Erika $family")
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            wireMember(personNumber = 9_000_000_306, given = "Marco", family = family, title = "Dipl.-Des."),
+                            wireMember(personNumber = 9_000_000_307, given = "Anna", family = family, title = "Prof."),
+                            wireMember(personNumber = 9_000_000_308, given = "Anna", family = family, title = null),
+                            wireMember(personNumber = 9_000_000_309, given = "Erika", family = family, title = "Dr."),
+                        ),
+                    actor = admin,
+                )
+            plan.row(9_000_000_306).candidates.map { it.memberId } shouldContain withTitle
+            plan.row(9_000_000_307).candidates.map { it.memberId } shouldContain plain
+            plan.row(9_000_000_308).candidates.map { it.memberId } shouldContain plain
+            plan.row(9_000_000_309).candidates.map { it.memberId } shouldContain doctor
+        }
+
+        test("V1.9.303 an e-mail of a linked member: the conflict names the member and its number, a likely double entry is flagged") {
+            val family = unique()
+            val admin = fx.admin()
+            val holder =
+                fx.member(
+                    displayName = "Dr. Erika $family",
+                    title = "Dr.",
+                    email = "${TEST_EMAIL_PREFIX}dup@example.org",
+                    personNumber = 9_000_000_399,
+                )
+            val other =
+                fx.member(displayName = "Jemand Anderes", email = "${TEST_EMAIL_PREFIX}dup2@example.org", personNumber = 9_000_000_398)
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            wireMember(personNumber = 9_000_000_310, family = family, email = "${TEST_EMAIL_PREFIX}dup@example.org"),
+                            wireMember(personNumber = 9_000_000_311, family = unique(), email = "${TEST_EMAIL_PREFIX}dup2@example.org"),
+                        ),
+                    actor = admin,
+                )
+            plan.row(9_000_000_310).let {
+                it.conflictMemberId shouldBe holder
+                it.conflictMemberName shouldBe "Dr. Erika $family"
+                it.conflictPersonNumber shouldBe 9_000_000_399L
+                it.conflictLikelyDuplicate shouldBe true
+            }
+            plan.row(9_000_000_311).let {
+                it.conflictMemberId shouldBe other
+                it.conflictMemberName shouldBe "Jemand Anderes"
+                it.conflictPersonNumber shouldBe 9_000_000_398L
+                it.conflictLikelyDuplicate shouldBe false
+            }
+        }
+
+        test("V1.9.303 an e-mail of an anonymised member: no conflict details at all") {
+            val admin = fx.admin()
+            fx.member(displayName = "Anonym", email = "${TEST_EMAIL_PREFIX}anon@example.org", anonymized = true)
+            val plan =
+                planOf(
+                    dataset =
+                        datasetOf(
+                            wireMember(personNumber = 9_000_000_312, family = unique(), email = "${TEST_EMAIL_PREFIX}anon@example.org"),
+                        ),
+                    actor = admin,
+                )
+            plan.reasons(9_000_000_312) shouldContain LupaBbRowReasonCode.EMAIL_BELONGS_TO_OTHER
+            plan.row(9_000_000_312).let {
+                it.conflictMemberId shouldBe null
+                it.conflictMemberName shouldBe null
+                it.conflictPersonNumber shouldBe null
+                it.conflictLikelyDuplicate shouldBe false
+            }
+        }
+
+        test("V1.9.303 a management member with a legacy display name: the old spelling alone is no manual difference") {
+            val family = unique()
+            val admin = fx.admin()
+            fx.member(role = AccountRole.BOARD, displayName = "Dr. Erika $family", title = "Dr.", personNumber = 9_000_000_313)
+            val plan = planOf(dataset = datasetOf(wireMember(personNumber = 9_000_000_313, family = family, title = "Dr.")), actor = admin)
+            plan.row(9_000_000_313).protectedDiffs.map { it.field } shouldNotContain LupaBbField.DISPLAY_NAME
         }
     })

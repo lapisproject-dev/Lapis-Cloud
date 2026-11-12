@@ -18,7 +18,7 @@ class LupaBbLogPrivacyTripwireTest :
             }
         val forbiddenWord =
             Regex(
-                """(?i)\b(email|password|apikey|api_key|username|displayname|credentials?|url|street|baseurl|token)\b|\.(message|cause|localizedMessage)\b|stackTrace""",
+                """(?i)\b(email|password|apikey|api_key|username|displayname|credentials?|url|street|baseurl|token|personnumber|conflict\w*|linkedpersonnumber)\b|\.(message|cause|localizedMessage)\b|stackTrace""",
             )
 
         test("the scan sees the package") { (files.size >= 15) shouldBe true }

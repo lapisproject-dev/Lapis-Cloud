@@ -189,6 +189,14 @@ data class LupaBbPreviewRowDto(
     val isOwnRecord: Boolean = false,
     /** Why the protected apply is not offered although [protectedDiffs] is not empty. */
     val protectedBlocker: LupaBbRowReasonCode? = null,
+    /** V1.9.303 -- `EMAIL_BELONGS_TO_OTHER` (member already linked): the member holding the e-mail. ADMIN-only RPC data, never logged or audited. */
+    val conflictMemberId: String? = null,
+    /** V1.9.303 -- ADMIN-only RPC data, never logged or audited. */
+    val conflictMemberName: String? = null,
+    /** V1.9.303 -- ADMIN-only RPC data, never logged or audited. */
+    val conflictPersonNumber: Long? = null,
+    /** V1.9.303 -- probably the same person twice in LupaBB. ADMIN-only RPC data, never logged or audited. */
+    val conflictLikelyDuplicate: Boolean = false,
 )
 
 @Serializable
@@ -231,6 +239,8 @@ data class LupaBbLinkTargetDto(
     val status: MemberStatus,
     /** Linked to ANOTHER LupaBB person already: shown disabled, never linkable. */
     val linkedElsewhere: Boolean,
+    /** V1.9.303 -- the person number it is linked to (only with [linkedElsewhere]). ADMIN-only RPC data, never logged or audited. */
+    val linkedPersonNumber: Long? = null,
 )
 
 /** The result of a single-row action; [failure] is a fixed code, [page] the refreshed action-needed page. */

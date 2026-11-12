@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.LupaBbFieldDiffDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewFilter
 import network.lapis.cloud.shared.domain.LupaBbPreviewRowDto
 import network.lapis.cloud.shared.domain.LupaBbPreviewSummaryDto
+import network.lapis.cloud.shared.domain.LupaBbReasonDto
 import network.lapis.cloud.shared.domain.LupaBbRowReasonCode
 import network.lapis.cloud.shared.domain.LupaBbSyncStatusDto
 import kotlin.test.Test
@@ -155,5 +156,43 @@ class LupaSyncLogicTest {
     @Test
     fun theDeepLink_isTheMemberAdministrationWithTheMemberQuery() {
         assertEquals("/members?member=abc-1", LupaSyncLogic.memberAdministrationRoute("abc-1"))
+    }
+
+    private fun conflictRow(
+        name: String? = "Erika Doppel",
+        number: Long? = 9_000_000_071,
+        reason: LupaBbRowReasonCode = LupaBbRowReasonCode.EMAIL_BELONGS_TO_OTHER,
+        memberId: String? = null,
+        conflictMemberId: String? = "m-71",
+    ) = LupaBbPreviewRowDto(
+        personNumber = 9_000_000_070,
+        name = "Erika Doppel",
+        email = null,
+        category = LupaBbCategory.AMBIGUOUS,
+        reasons = listOf(LupaBbReasonDto(reason)),
+        memberId = memberId,
+        conflictMemberId = conflictMemberId,
+        conflictMemberName = name,
+        conflictPersonNumber = number,
+    )
+
+    @Test
+    fun conflictDetails_needTheReasonTheNameAndTheNumber() {
+        assertTrue(LupaSyncLogic.hasConflictDetails(conflictRow()))
+        assertFalse(LupaSyncLogic.hasConflictDetails(conflictRow(name = null)))
+        assertFalse(LupaSyncLogic.hasConflictDetails(conflictRow(number = null)))
+        assertFalse(LupaSyncLogic.hasConflictDetails(conflictRow(reason = LupaBbRowReasonCode.NAME_MISMATCH)))
+    }
+
+    @Test
+    fun memberToOpen_isTheMatchedMember_elseTheHolderOfAConflict() {
+        assertEquals("m-1", LupaSyncLogic.memberToOpen(conflictRow(memberId = "m-1")))
+        assertEquals("m-71", LupaSyncLogic.memberToOpen(conflictRow()))
+        assertEquals(null, LupaSyncLogic.memberToOpen(conflictRow(name = null)))
+    }
+
+    @Test
+    fun personNumbers_arePlainDigits() {
+        assertEquals("9000000071", LupaSyncLogic.personNumberText(9_000_000_071))
     }
 }

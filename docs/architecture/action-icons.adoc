@@ -216,6 +216,11 @@ is in the ledger `R57_LEDGER` of `ClientToolbarIconTripwireTest`, each entry wit
 * V1.9.84: the reaction group of the encounter bar (hand and event reactions, glyphs as set in `reactionActionIcon`) is built with the same icon-only factory (R58 exception c); the former rule "the reactions keep a word" is gone. The sheet twins of the event reactions keep their word.
 * V1.9.90: the left group of the encounter bar is the named group "encounter devices (microphone and camera)" (R58 exception c, group label "Geräte"); the former text button "Einschalten" in a status band is gone, the state is carried by the button itself.
 
+== LupaBB comparison (V1.9.303)
+
+`LINK`, `VIEW`, `SAVE` and `NEXT` appear in the LupaBB comparison only as labelled `btn-sm` buttons ("Verknüpfen", "Mitglied öffnen", "LupaBB-Werte übernehmen", "Für diesen Abgleich überspringen"; R58 named
+exception d). `NEXT` stands for "skip" there only together with its visible text; the arrow alone reads as "next".
+
 == Known limitations
 
 * Buttons with extra constructor arguments (for example `className`) are not converted (`ClientVersionWatcher`, ledgered). Since V1.9.50 every remaining exception is in `R57_LEDGER` with a reason (disclosure toggles, domain icons, one custom class, one dialog button).

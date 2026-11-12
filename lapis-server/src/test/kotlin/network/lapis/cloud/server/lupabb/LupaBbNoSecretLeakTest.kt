@@ -9,6 +9,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.LupaBbSyncConfigTable
 import network.lapis.cloud.server.db.generated.LupaBbSyncRunTable
 import network.lapis.cloud.shared.domain.LupaBbCredentialsInput
@@ -117,6 +118,72 @@ class LupaBbNoSecretLeakTest :
                 val cipher = transaction { LupaBbSyncConfigTable.selectAll().single() }[LupaBbSyncConfigTable.credentialsCiphertext]
                 for (secret in listOf("pw-top-secret", "key-top-secret", fake.username)) cipher shouldNotContain secret
                 transaction { LupaBbSyncRunTable.selectAll().count() } shouldBe 1
+            }
+        }
+
+        test("V1.9.303 the conflict data (member name, both person numbers) and a search hit's number never reach a log or an audit line") {
+            val holderName = "Konfliktname${System.nanoTime()}"
+            val email = "${TEST_EMAIL_PREFIX}konflikt@example.org"
+            FakeLupaBbServer().use { fake ->
+                fake.members = listOf(FakeLupaBbServer.member(personNumber = 9_000_000_080, familyName = holderName, email = email))
+                val appender = ListAppender<ILoggingEvent>().also { it.start() }
+                val root = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
+                val oldLevel = root.level
+                root.level = Level.TRACE
+                root.addAppender(appender)
+                val rt = fx.runtime(server = fake)
+                val auditText = StringBuilder()
+                try {
+                    lupaBbTestApplication(fixtures = fx) {
+                        val admin = fx.admin()
+                        fx.member(displayName = "Inhaber $holderName", email = email, personNumber = 9_000_000_081)
+                        val target = fx.member(displayName = "Ziel $holderName", email = "${TEST_EMAIL_PREFIX}ziel@example.org")
+                        fx.member(displayName = "Belegt $holderName", personNumber = 9_000_000_082)
+                        fx.storeCredentials(server = fake, actor = admin)
+                        val summary = call(member = admin) { c -> fx.service(call = c, runtime = rt).loadPreview() }
+                        val page =
+                            call(member = admin) { c ->
+                                fx
+                                    .service(call = c, runtime = rt)
+                                    .getPreviewPage(token = summary.token, filter = LupaBbPreviewFilter.AMBIGUOUS, offset = 0, limit = 10)
+                            }
+                        page.rows.single().conflictPersonNumber shouldBe 9_000_000_081L
+                        call(member = admin) { c ->
+                            fx
+                                .service(call = c, runtime = rt)
+                                .searchLinkTargets(token = summary.token, personNumber = 9_000_000_080, query = "Belegt $holderName")
+                        }.single().linkedPersonNumber shouldBe 9_000_000_082L
+                        call(member = admin) { c ->
+                            fx
+                                .service(call = c, runtime = rt)
+                                .linkMemberToLupaBb(token = summary.token, personNumber = 9_000_000_080, memberId = target.toString())
+                        }
+                        fx.allowNextFetch()
+                        val second = call(member = admin) { c -> fx.service(call = c, runtime = rt).loadPreview() }
+                        call(member = admin) { c -> fx.service(call = c, runtime = rt).applyPreview(second.token) }
+                        transaction {
+                            AuditLogEntryTable.selectAll().forEach {
+                                auditText
+                                    .append(
+                                        it[AuditLogEntryTable.afterSnapshot],
+                                    ).append(' ')
+                                    .append(it[AuditLogEntryTable.beforeSnapshot])
+                            }
+                        }
+                    }
+                } finally {
+                    root.detachAppender(appender)
+                    root.level = oldLevel
+                }
+                val ours = appender.list.filter { it.loggerName.startsWith("network.lapis") }.joinToString("\n") { render(it) }
+                val secrets = listOf(holderName, "9000000080", "9000000081", "9000000082")
+                for (secret in secrets) {
+                    ours shouldNotContain secret
+                }
+                // the audit of the link and the apply names no conflict value (the target member's own name is not one of these strings)
+                for (secret in listOf("9000000081", "9000000082", "Inhaber $holderName", "Belegt $holderName")) {
+                    auditText.toString() shouldNotContain secret
+                }
             }
         }
 

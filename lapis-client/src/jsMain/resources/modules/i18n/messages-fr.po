@@ -28215,17 +28215,11 @@ msgstr "Classement"
 msgid "Einzelheiten"
 msgstr "Détails"
 
-msgid "Kandidat"
-msgstr "Candidat"
-
 msgid "%1 Felder im Vergleich"
 msgstr "%1 champs comparés"
 
 msgid "Feld"
 msgstr "Champ"
-
-msgid "Mit diesem Mitglied verknüpfen"
-msgstr "Lier à ce membre"
 
 msgid "Mit diesem Mitglied verknüpfen?"
 msgstr "Lier à ce membre ?"
@@ -28268,12 +28262,6 @@ msgstr "Rechercher par nom ou e-mail"
 
 msgid "Kein Mitglied gefunden."
 msgstr "Aucun membre trouvé."
-
-msgid "bereits mit einer anderen LupaBB-Person verknüpft"
-msgstr "déjà lié à une autre personne de LupaBB"
-
-msgid "Datensatz überspringen?"
-msgstr "Ignorer cet enregistrement ?"
 
 msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
 msgstr "Cet enregistrement n’est pas repris lors de cette synchronisation. Il réapparaîtra à la prochaine."
@@ -32058,3 +32046,36 @@ msgstr "Négative"
 
 msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
 msgstr "Ici, vous voyez les profils des personnalités politiques sous forme de classement et vous les évaluez positivement ou négativement. L'administration décide si cette fonction est activée."
+
+msgid "Die E-Mail gehört zum Mitglied %1, das bereits mit LupaBB-Person Nr. %2 verknüpft ist. Diese Zeile ist LupaBB-Person Nr. %3."
+msgstr "L'adresse e-mail appartient au membre %1, déjà lié à la personne LupaBB n° %2. Cette ligne est la personne LupaBB n° %3."
+
+msgid "Wahrscheinlich dieselbe Person doppelt in LupaBB (gleicher Name, gleiche E-Mail). Bitte in LupaBB prüfen."
+msgstr "Probablement la même personne en double dans LupaBB (même nom, même adresse e-mail). Veuillez vérifier dans LupaBB."
+
+msgid "Tippen Sie Name oder E-Mail des Mitglieds, das zu dieser LupaBB-Person gehört."
+msgstr "Saisissez le nom ou l'adresse e-mail du membre correspondant à cette personne LupaBB."
+
+msgid "Nicht verknüpfbar: bereits mit LupaBB-Person Nr. %1 verknüpft."
+msgstr "Liaison impossible : déjà lié à la personne LupaBB n° %1."
+
+msgid "Nicht verknüpfbar: bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr "Liaison impossible : déjà lié à une autre personne LupaBB."
+
+msgid "Für diesen Abgleich überspringen"
+msgstr "Ignorer pour ce rapprochement"
+
+msgid "Für diesen Abgleich überspringen?"
+msgstr "Ignorer pour ce rapprochement ?"
+
+msgid "%1 für diesen Abgleich überspringen"
+msgstr "Ignorer %1 pour ce rapprochement"
+
+msgid "Mit %1 verknüpfen"
+msgstr "Lier à %1"
+
+msgid "Mitglied öffnen: %1"
+msgstr "Ouvrir le membre : %1"
+
+msgid "LupaBB-Werte übernehmen: %1"
+msgstr "Reprendre les valeurs de LupaBB : %1"

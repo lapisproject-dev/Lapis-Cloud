@@ -105,7 +105,8 @@ internal object LupaBbRecordParser {
                 "jur" -> "LEGAL"
                 else -> null
             }
-        val naturalName = listOfNotNull(title, given, family, affix).joinToString(" ")
+        // V1.9.303 -- displayName = given + family + affix (LEGAL: company), never the title (the title is its own field)
+        val naturalName = listOfNotNull(given, family, affix).joinToString(" ")
         val displayName =
             when {
                 personType == "LEGAL" -> company ?: naturalName.ifBlank { null }

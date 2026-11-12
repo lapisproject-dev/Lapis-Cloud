@@ -635,7 +635,20 @@ abstract class LupaBbSyncServiceScenarios(
                     search("Verknuepft $tag").getOrThrow().single().let {
                         it.memberId shouldBe linked.toString()
                         it.linkedElsewhere shouldBe true
+                        // V1.9.303: the number it is linked to, only for a member linked elsewhere
+                        it.linkedPersonNumber shouldBe 9_000_000_602L
                     }
+                    search("Sucher $tag").getOrThrow().all { it.linkedPersonNumber == null } shouldBe true
+                    // V1.9.303: the preview page names the member that holds the e-mail (ADMIN RPC data)
+                    val conflictRow =
+                        attempt(member = admin) { c ->
+                            fx
+                                .service(call = c, runtime = rt)
+                                .getPreviewPage(token = summary.token, filter = LupaBbPreviewFilter.AMBIGUOUS, offset = 0, limit = 10)
+                        }.getOrThrow().rows.single { it.personNumber == 9_000_000_600L }
+                    conflictRow.conflictMemberName shouldBe "Inhaber $tag"
+                    conflictRow.conflictPersonNumber shouldBe 9_000_000_601L
+                    conflictRow.conflictMemberId shouldNotBe null
                     search("x".repeat(101)).exceptionOrNull().shouldBeInstanceOf<BadRequestException>()
                     search("abc\u0007def").exceptionOrNull().shouldBeInstanceOf<BadRequestException>()
                     // a row that is not ambiguous cannot be searched for

@@ -27572,20 +27572,12 @@ msgstr ""
 msgid "Einzelheiten"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:286
-msgid "Kandidat"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:293
 msgid "%1 Felder im Vergleich"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:297
 msgid "Feld"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:319
-msgid "Mit diesem Mitglied verknüpfen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:324
@@ -27631,12 +27623,6 @@ msgid "Name oder E-Mail suchen"
 msgstr ""
 
 msgid "Kein Mitglied gefunden."
-msgstr ""
-
-msgid "bereits mit einer anderen LupaBB-Person verknüpft"
-msgstr ""
-
-msgid "Datensatz überspringen?"
 msgstr ""
 
 msgid "Dieser Datensatz wird in diesem Abgleich nicht übernommen. Beim nächsten Abgleich erscheint er wieder."
@@ -31464,4 +31450,37 @@ msgid "Negativ"
 msgstr ""
 
 msgid "Hier sehen Sie die Politiker-Profile als Rangliste und bewerten sie positiv oder negativ. Ob diese Funktion eingeschaltet ist, legt die Administration fest."
+msgstr ""
+
+msgid "Die E-Mail gehört zum Mitglied %1, das bereits mit LupaBB-Person Nr. %2 verknüpft ist. Diese Zeile ist LupaBB-Person Nr. %3."
+msgstr ""
+
+msgid "Wahrscheinlich dieselbe Person doppelt in LupaBB (gleicher Name, gleiche E-Mail). Bitte in LupaBB prüfen."
+msgstr ""
+
+msgid "Tippen Sie Name oder E-Mail des Mitglieds, das zu dieser LupaBB-Person gehört."
+msgstr ""
+
+msgid "Nicht verknüpfbar: bereits mit LupaBB-Person Nr. %1 verknüpft."
+msgstr ""
+
+msgid "Nicht verknüpfbar: bereits mit einer anderen LupaBB-Person verknüpft."
+msgstr ""
+
+msgid "Für diesen Abgleich überspringen"
+msgstr ""
+
+msgid "Für diesen Abgleich überspringen?"
+msgstr ""
+
+msgid "%1 für diesen Abgleich überspringen"
+msgstr ""
+
+msgid "Mit %1 verknüpfen"
+msgstr ""
+
+msgid "Mitglied öffnen: %1"
+msgstr ""
+
+msgid "LupaBB-Werte übernehmen: %1"
 msgstr ""
