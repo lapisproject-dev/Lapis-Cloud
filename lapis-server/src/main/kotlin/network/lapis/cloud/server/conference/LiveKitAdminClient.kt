@@ -38,6 +38,8 @@ import network.lapis.cloud.shared.domain.EVENT_CAPTURE_COUNT_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_COUNT_TOPIC
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.EVENT_CAPTURE_TOPIC
+import network.lapis.cloud.shared.domain.ROOM_POLL_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ROOM_POLL_TOPIC
 import java.security.SecureRandom
 import kotlin.io.encoding.Base64
 
@@ -713,5 +715,7 @@ internal fun sendDataPayloadLimit(topic: String): Int =
         EVENT_CAPTURE_COUNT_TOPIC -> EVENT_CAPTURE_COUNT_MAX_PAYLOAD_BYTES
         // V1.9.166: the grid map delta (same reason: without this entry the send would fail on the 16-byte fallback).
         ENCOUNTER_MAP_TOPIC -> ENCOUNTER_MAP_MAX_PAYLOAD_BYTES
+        // V1.9.304: the empty "a room poll started or ended" packet (it fits the fallback too, but the entry is explicit on purpose).
+        ROOM_POLL_TOPIC -> ROOM_POLL_MAX_PAYLOAD_BYTES
         else -> ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
     }

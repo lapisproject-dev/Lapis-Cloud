@@ -123,6 +123,7 @@ import network.lapis.cloud.server.db.dbFailureKind
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.documents.DocumentStorageSpaceReader
 import network.lapis.cloud.server.dsgvo.MailOutboxPersonalData
+import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotConfig
@@ -344,6 +345,7 @@ import network.lapis.cloud.server.rpc.ConferenceHandService
 import network.lapis.cloud.server.rpc.ConferenceModerationService
 import network.lapis.cloud.server.rpc.ConferenceNotesService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
+import network.lapis.cloud.server.rpc.ConferenceRoomPollService
 import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.ConferenceStreamingService
 import network.lapis.cloud.server.rpc.ConferenceTimerService
@@ -466,6 +468,7 @@ import network.lapis.cloud.shared.rpc.IConferenceHandService
 import network.lapis.cloud.shared.rpc.IConferenceModerationService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
+import network.lapis.cloud.shared.rpc.IConferenceRoomPollService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 import network.lapis.cloud.shared.rpc.IConferenceTimerService
@@ -1227,6 +1230,11 @@ internal fun Application.module(
     val conferenceTimerState = ConferenceTimerState()
     val conferenceTimerControlRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
     val conferenceTimerReadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    // V1.9.304 room polls: one process-wide limiter per kind of call (per account), shared by every per-call service instance.
+    val roomPollWriteLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val roomPollAnswerLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val roomPollStateLimiter = FederationInboxRateLimiter(maxRequests = 40, window = 1.minutes)
+    val roomPollVersionLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- same "constructed here, NOT left to the
     // service's own constructor default" reasoning as conferenceGuestAccessRateLimiter above (the
@@ -3113,12 +3121,25 @@ internal fun Application.module(
         registerService(IActivismService::class) { call ->
             ActivismService(call = call, limiter = activismRateLimiter)
         }
-        // V1.9.297 Schwarzes Brett. THIS is the LAST registerService (after IActivismService). The direct-message limiter is the SAME instance as the
+        // V1.9.297 Schwarzes Brett. Second to last since V1.9.304 (the room polls are the LAST registerService). The direct-message limiter is the SAME instance as the
         // message service's (a reply shares its budget); the board's own limiter is one for the whole process. New methods of the interface go to
         // its end, never in between.
         val noticeBoardDeps = NoticeBoardDeps(limiter = NoticeBoardRateLimiter(), directMessageRateLimiter = directMessageRateLimiter)
         registerService(INoticeBoardService::class) { call ->
             NoticeBoardService(call = call, deps = noticeBoardDeps)
+        }
+        // V1.9.304 Raum-Umfragen (A). THIS is the LAST registerService (after INoticeBoardService). New methods of the interface go to its end.
+        registerService(IConferenceRoomPollService::class) { call ->
+            ConferenceRoomPollService(
+                call = call,
+                liveKitAdminClient = liveKitAdminClient,
+                config = conferenceConfig,
+                ltrBalanceProvider = LedgerBackedLtrBalanceProvider(),
+                writeLimiter = roomPollWriteLimiter,
+                answerLimiter = roomPollAnswerLimiter,
+                stateLimiter = roomPollStateLimiter,
+                versionLimiter = roomPollVersionLimiter,
+            )
         }
     }
 

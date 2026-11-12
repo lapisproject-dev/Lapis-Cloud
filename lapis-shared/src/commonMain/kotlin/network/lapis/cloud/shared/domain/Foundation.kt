@@ -142,6 +142,18 @@ object MemberStatusSets {
     val TENDER_PARTICIPANT: Set<MemberStatus> =
         setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND, MemberStatus.GUEST, MemberStatus.DONOR)
 
+    /**
+     * V1.9.304 "Raum-Umfragen" -- the "Mitglieder" column of a room poll: ACTIVE, which includes sponsoring members without a voting right (the
+     * voting right is a separate flag, a room poll is non-binding). Exactly [ORGANIZATION_MEMBER]. Used ONLY by the room-poll files.
+     */
+    val ROOM_POLL_MEMBERS: Set<MemberStatus> = ORGANIZATION_MEMBER
+
+    /** V1.9.304 -- the "Gäste und Freunde" column of a room poll. Disjoint from [ROOM_POLL_MEMBERS]; they carry no LTR weight in a room poll. */
+    val ROOM_POLL_GUESTS_AND_FRIENDS: Set<MemberStatus> = setOf(MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR)
+
+    /** V1.9.304 -- who may answer a room poll at all (still subject to being present in the room / watching its stream). */
+    val ROOM_POLL_RESPONDER: Set<MemberStatus> = ROOM_POLL_MEMBERS + ROOM_POLL_GUESTS_AND_FRIENDS
+
     /** May enter a conference room. THE extension point for widening FRIEND later. */
     val CONFERENCE_ELIGIBLE: Set<MemberStatus> =
         setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR)

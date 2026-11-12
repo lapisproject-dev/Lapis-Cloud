@@ -173,9 +173,13 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * Same Welle, second read in `PoliticianScreen.kt`: `listPoliticians(` in `refreshWeights()` re-reads the list after a rating change to repaint the weight
  * figures of all cards in the background (a failure toasts through `guarded`); it has no section of its own to show a loading/empty/error state for.
  * 201 -> 202.
+ * Welle V1.9.304 "Raum-Umfragen" adds ONE read in ONE new file (66 -> 67 files, 202 -> 203): `ConferenceRoomPollController.kt` holds the `getRoomPollState(` poll of the
+ * room-poll panel. The accepted background-poll shape (same as the vote panel's `getRoomVotingState` and the Sitzung panel's `getConferenceMeetingState`): a failed
+ * poll is counted, never shown as an error (a calm "Status wird aktualisiert" line after three misses), so there is no loading/error block to present. The three
+ * writes (`startRoomPoll`, `closeRoomPoll`, `answerRoomPoll`) are not reads.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 202
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 66
+private const val READ_OUTSIDE_STATE_REGION_MAX = 203
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 67
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

@@ -6,6 +6,30 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Room polls in video conferences (wave A, schema V152 -> V153)
+
+**Behaviour changes first:**
+
+1. **One additive migration, `V153__conference_room_poll.sql`** (four tables, the audit CHECK widened by `CONFERENCE_ROOM_POLL`; repeatable, `V1` to `V152` untouched). It is a new migration on purpose: V152 is a different feature already on `master`.
+2. **Schema V152 -> V153.** The schema checksum changes.
+3. **Rollback hazard:** 0.53.x and every build without V153 reject a database with V153 applied (Flyway validation). Roll back only by restoring the backup taken before V153.
+4. **A backup bundle made before V153 is refused on restore** (schema checksum), as with every schema change.
+5. **A new RPC service, `IConferenceRoomPollService`**, registered as the *last* service (Kilua numbers routes by declaration order). An older client is untouched: it has no panel and simply never calls it.
+6. New feature, no change to any existing behaviour: moderators of an ordinary room can start a non-binding poll; everybody present answers once; the result is split by members, guests and friends, and all together. Event rooms and encounter rooms are refused.
+7. **Deliberate deviations from the first design (documented in `docs/architecture/room-polls.adoc`):** no nudge after an answer (timing side channel), only at the start and the end; the nudge comes from the server, not from a peer; the interim result is a snapshot at every fifth answer (the answer count is exact, for the leadership only); there is no countdown; `started_by` and `closed_by` are *not* stored (the actor is in the audit log); the markers of who answered are deleted when the poll ends; leadership is `ConferenceModeratorAuthority`, not the raw `isModeratorIdentity`.
+
+- **Added:**
+  - Tables `conference_room_poll`, `conference_room_poll_option`, `conference_room_poll_voted` (who answered, deleted at the end) and `conference_room_poll_answer` (what was answered: no member, no time, random id; the guest weight rule is a CHECK); the model `82-conference-room-poll.kuml.kts` and the four generated Exposed tables.
+  - `IConferenceRoomPollService` (`startRoomPoll`, `closeRoomPoll`, `answerRoomPoll`, `getRoomPollState`, `getRoomPollVersion`), the DTOs in `RoomPolls.kt`, the sets `MemberStatusSets.ROOM_POLL_MEMBERS`, `ROOM_POLL_GUESTS_AND_FRIENDS`, `ROOM_POLL_RESPONDER`, `AuditEntityType.CONFERENCE_ROOM_POLL`.
+  - Package `conference.roompoll` (`RoomPollAccess`, `RoomPollLifecycle`, `RoomPollTally`, `RoomPollVersionToken`, `RoomPollNudge`), `RoomPollPersonalData` (export and erasure of the markers), the `lapis-room-poll` topic with its own `SendData` limit.
+  - Client: the "Umfrage" panel next to "Abstimmen" and "Sitzung" (form for moderators, answer card, interim result closed by default, three-column result), a toolbar button with a dot, `ConferenceControlSlot.POLL`, `ActionIcon.ROOM_POLL` and `ROOM_POLL_END`, a polling controller and the server-nudge branch in `LiveKitRoomSession`.
+- **Changed:** `ConferenceRoomCloser` closes a running poll in its own transaction (before the recording stop, which stays the last lock-taking statement); `ConferenceModeratorAuthority` is unchanged.
+- **Security:** the result is suppressed on the server before it is sent (fewer than 5 answers in total: no figures; a group needs 5 answers, otherwise *neither* group is shown and no group size is sent, so a small group cannot be rebuilt by subtraction; weight sums never leave the server; the weighted shares are shown exactly once); who answered and what was answered are never joined; every refusal is the same `ForbiddenException` and runs the same queries; the status is read live before any poll query; no log line names a question, option, member or room; question and options are refused with `<`, `>`, control characters and bidirectional marks, and are rendered as text only; per-account rate limits; the nudge payload is never read and a packet from a participant is dropped.
+- **Tests:** `ConferenceRoomPollServiceScenarios` (H2 and PostgreSQL lane; lifecycle, uniform refusals, parallel double answer and double start, weights, snapshots, version tokens, automatic ending, nudges, rate limits), `ConferenceRoomPollMigrationScenarios` (H2 and PostgreSQL lane), `ConferenceRoomPollSchemaDriftTest`, `RoomPollTallyTest` (with a property test), `RoomPollRulesTest`, `RoomPollTripwireTest`, `RoomPollResultJsonSizeTest`, `RoomPollPayloadLimitTest`, `RoomPollPersonalDataTest`, `ConferenceRoomPollBackupTest`, `RoomPollI18nCatalogTest`, shared `RoomPollsWireTest` and `MemberStatusSetsTest`, client `ConferenceRoomPollPanelDomTest`, `ConferenceRoomPollModelTest`, `ConferenceRoomPollControllerTest`, `LiveKitRoomSessionRoomPollNudgeTest`; the registration-order pins and the time-field ledger were extended.
+- **Catalogs:** 42 new messages in `messages.pot` and the seven `.po` files.
+- **Docs:** `docs/features/room-polls.adoc`, `docs/architecture/room-polls.adoc`, cross references in `polls.adoc`, `conference-voting.adoc`, `video-conferencing.adoc`, the feature index.
+- **Not verified:** nothing ran in a real LiveKit room with several people, on a real phone, with a screen reader or on a live instance (fakes and a headless browser only). The poll for viewers of a stream (wave B) is *not built*: streams only go to YouTube, Twitch, Facebook and X, and Lapis has no viewer page; the server already accepts the answer of a signed-in account when the room streams, but nothing shows it to them.
+
 ### Board position "Finanzvorstand" (`CommitteeRole.TREASURER`, schema V151 -> V152)
 
 **Behaviour changes first:**

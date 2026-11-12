@@ -23,3 +23,5 @@ is no participation rate. Since V1.9.41 a poll can also be a consensus poll (`SK
 option "Keine Änderung", or `SK_PRIORITY` as a ranking), rated 0..10 per option without any LTR; below
 five answers only the response count is shown. Since V1.9.38 the deadline is a wall-clock in the
 organization's time zone.
+
+NOTE: V1.9.304 -- a poll *inside a running video conference* is a different, lighter thing: started by the room's moderators, answered once by everybody present, result split by members, guests and friends, and all together, optionally LTR-weighted for members, anonymous, ending with the room or after 240 minutes. See link:room-polls.adoc[Room polls in video conferences]. It is not a standalone poll and does not appear in `/polls`.

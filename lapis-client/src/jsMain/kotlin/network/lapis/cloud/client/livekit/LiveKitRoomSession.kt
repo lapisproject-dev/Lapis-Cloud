@@ -55,6 +55,7 @@ import network.lapis.cloud.shared.domain.EncounterRecordingSignal
 import network.lapis.cloud.shared.domain.EventCaptureConsentCountDto
 import network.lapis.cloud.shared.domain.EventCaptureLiveDto
 import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
+import network.lapis.cloud.shared.domain.ROOM_POLL_TOPIC
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.encounterFloorPacket
 import network.lapis.cloud.shared.domain.encounterMapPacket
@@ -527,6 +528,14 @@ class LiveKitRoomSession(
      * field of the payload (see [ConferenceReactionWire]); `decode` never throws and drops everything that is not one of the eight reactions.
      */
     private val onConferenceReaction: (senderIdentity: String, reaction: ConferenceReaction) -> Unit = { _, _ -> },
+    /**
+     * V1.9.304 -- the SERVER's "a room poll started or ended" packet. Carries NO data: the packet is accepted ONLY when it comes from the server
+     * (no sending participant), its payload is NEVER read, and the only permitted reaction is a re-query of `getRoomPollState`. Throttled like
+     * [onVoteNudge]. A forged peer packet is dropped by [roomPollNudgeAccepted].
+     */
+    private val onRoomPollNudge: () -> Unit = {},
+    /** Test seam: lets a `jsTest` inject a deterministic [VoteNudgeThrottle] for the room-poll nudge. */
+    roomPollNudgeThrottleFactory: ((onRefresh: () -> Unit) -> VoteNudgeThrottle)? = null,
 ) {
     private var room: Room? = null
 
@@ -535,6 +544,9 @@ class LiveKitRoomSession(
 
     private val voteNudgeThrottle: VoteNudgeThrottle =
         (voteNudgeThrottleFactory ?: { onRefresh -> VoteNudgeThrottle(onRefresh = onRefresh) })(onVoteNudge)
+
+    private val roomPollNudgeThrottle: VoteNudgeThrottle =
+        (roomPollNudgeThrottleFactory ?: { onRefresh -> VoteNudgeThrottle(onRefresh = onRefresh) })(onRoomPollNudge)
 
     /**
      * True only for the (normally brief) window inside [connect]'s relay-fallback retry where
@@ -984,6 +996,11 @@ class LiveKitRoomSession(
                 if (fromParticipant || payload.length !in 1..CONFERENCE_TIMER_MAX_PAYLOAD_BYTES) return@onOwned
                 val bytes = ByteArray(payload.length) { index -> payload[index] }
                 conferenceTimerPacket(fromParticipant = false, payload = bytes)?.let(onTimer)
+                return@onOwned
+            }
+            // V1.9.304 -- the room-poll nudge: server only, a branch of its own BEFORE the participant check. NO payload access at all.
+            if (p3 == ROOM_POLL_TOPIC) {
+                if (roomPollNudgeAccepted(fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null)) roomPollNudgeThrottle.trigger()
                 return@onOwned
             }
             // V1.9.138 -- the temporary floor of the encounter room: the same rule as the timer (server only, a branch of its own BEFORE the
@@ -1747,6 +1764,7 @@ class LiveKitRoomSession(
     suspend fun disconnect() {
         // V1.9.24 -- a pending trailing nudge must not fire a callback after the user left.
         voteNudgeThrottle.cancel()
+        roomPollNudgeThrottle.cancel()
         val currentRoom = room
         if (currentRoom != null) {
             // Deliberately awaited BEFORE nulling [room] (unchanged from the pre-fix ordering): the

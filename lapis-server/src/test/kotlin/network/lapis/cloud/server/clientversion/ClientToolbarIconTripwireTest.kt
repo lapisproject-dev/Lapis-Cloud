@@ -526,7 +526,7 @@ class ClientToolbarIconTripwireTest :
         test(
             "R58 (V1.9.66, extended V1.9.70, V1.9.72, V1.9.115 and V1.9.127): conferenceControlButton is only used inside " +
                 "ConferenceControlBar.kt (the moderation group: two controls, the exit group: three controls, " +
-                "the dock bar: four controls, the view button: one, the reaction button: one, the raised-hand toggle: one)",
+                "the dock bar: four controls, the view button: one, the reaction button: one, the raised-hand toggle: one, the Sitzung and Umfrage toggles: one each)",
         ) {
             val actual =
                 clientFiles()
@@ -543,6 +543,8 @@ class ClientToolbarIconTripwireTest :
                             "conferenceReactButton" to 1,
                             // V1.9.236: the "Sitzung" toggle next to "Abstimmen"
                             "conferenceMeetingButton" to 1,
+                            // V1.9.304: the "Umfrage" toggle next to "Sitzung"
+                            "conferencePollButton" to 1,
                             "conferenceHandControl" to 1,
                             // V1.9.184: the settings gear alone in the start zone
                             "conferenceSettingsButton" to 1,

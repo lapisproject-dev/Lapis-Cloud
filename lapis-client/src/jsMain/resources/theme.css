@@ -8727,6 +8727,71 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
     background: var(--bs-tertiary-bg);
 }
 
+/* V1.9.304 "Raum-Umfragen" -- the room-poll panel. The box is the one of the voting panel (`lapis-conference-voting` is on the panel, so no new
+   scroll surface). Results: three columns from 576px (members | guests and friends | all together), stacked in the same order below; the bars
+   have the same width on every screen, a neutral colour and no winner mark. Tokens only, no colour literal, no transition. */
+.lapis-room-poll-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 576px) {
+  .lapis-room-poll-columns {
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  }
+}
+
+.lapis-room-poll-option-text {
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.lapis-room-poll-bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lapis-room-poll-track {
+  height: 0.75rem;
+  background: var(--bs-secondary-bg);
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.lapis-room-poll-fill {
+  height: 100%;
+  background: var(--bs-primary);
+}
+
+.lapis-room-poll-figure,
+.lapis-room-poll-n {
+  font-variant-numeric: tabular-nums;
+}
+
+.lapis-room-poll-option {
+  overflow-wrap: anywhere;
+}
+
+/* the dot on the toolbar button while a poll waits for this person's answer: a shape, not only a colour (the accessible name says it too) */
+.lapis-room-poll-new {
+  position: relative;
+}
+
+.lapis-room-poll-new::after {
+  content: "";
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: var(--bs-danger);
+  border: 2px solid var(--lapis-surface);
+}
+
 @media (prefers-reduced-motion: reduce) {
   body,
   .lapis-conference-background-preview,

@@ -673,7 +673,24 @@ enum class AuditEntityType {
      * 15 chars. Appended LAST.
      */
     BULLETIN_NOTICE,
+
+    /**
+     * Welle V1.9.304 -- a room poll was started (`CREATE`) or ended (`UPDATE`, reason in the snapshot); `entityId` = the poll. Snapshot
+     * [RoomPollAuditSnapshot]: ids, the counting mode, the option count and the close reason only -- never the question or an option text and
+     * never a count of answers. 20 chars. Appended LAST.
+     */
+    CONFERENCE_ROOM_POLL,
 }
+
+/** V1.9.304 -- after-snapshot of an [AuditEntityType.CONFERENCE_ROOM_POLL] entry. */
+@Serializable
+data class RoomPollAuditSnapshot(
+    val roomId: String,
+    val pollId: String,
+    val countingMode: String,
+    val optionCount: Int,
+    val closeReason: String? = null,
+)
 
 /** Welle V1.9.237 -- after-snapshot of an [AuditEntityType.DIRECT_MESSAGE_GROUP_SEND] entry: the number of messages actually written. */
 @Serializable

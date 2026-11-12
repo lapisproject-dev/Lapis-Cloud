@@ -247,4 +247,19 @@ class MemberStatusSetsTest {
         assertFalse(MemberStatus.DONOR in MemberStatusSets.MEMBERSHIP_ENDED)
         assertTrue(MemberStatusSets.MEMBERSHIP_ENDED.all { it in MemberStatusSets.COMMITTEE_SEAT_ENDING })
     }
+
+    /** V1.9.304: the two columns of a room poll are disjoint, ACTIVE wins, every other status is refused. */
+    @Test
+    fun roomPoll_groupsAreDisjointAndEveryOtherStatusIsRefused() {
+        assertEquals(setOf(MemberStatus.ACTIVE), MemberStatusSets.ROOM_POLL_MEMBERS)
+        assertEquals(setOf(MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.DONOR), MemberStatusSets.ROOM_POLL_GUESTS_AND_FRIENDS)
+        assertTrue(MemberStatusSets.ROOM_POLL_MEMBERS.intersect(MemberStatusSets.ROOM_POLL_GUESTS_AND_FRIENDS).isEmpty())
+        assertEquals(
+            MemberStatusSets.ROOM_POLL_MEMBERS + MemberStatusSets.ROOM_POLL_GUESTS_AND_FRIENDS,
+            MemberStatusSets.ROOM_POLL_RESPONDER,
+        )
+        listOf(MemberStatus.APPLICATION, MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED).forEach {
+            assertFalse(it in MemberStatusSets.ROOM_POLL_RESPONDER)
+        }
+    }
 }

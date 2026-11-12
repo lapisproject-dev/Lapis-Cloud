@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.shared.domain.AttachedImageOwnerType
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.NoticeCategory
@@ -223,7 +224,22 @@ abstract class BulletinBoardMigrationScenarios(
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
             (statements.size >= 20) shouldBe true
-            transaction { statements.forEach { exec(it) } }
+            // Re-running the audit CHECK exactly as written in V149 would drop the entity types of LATER waves from the shared test schema and make
+            // every spec that runs afterwards fail on its audit row (and PartgReportR4MigrationScenarios compare a stale list with the enum). Replay
+            // it with the current type list; the rules of this file are asserted below.
+            val currentTypes = AuditEntityType.entries.joinToString(", ") { "'${it.name}'" }
+            transaction {
+                statements.forEach { statement ->
+                    if (statement.contains("chk_audit_log_entry_entity_type") && statement.contains("ADD CONSTRAINT")) {
+                        exec(
+                            "ALTER TABLE audit_log_entry ADD CONSTRAINT chk_audit_log_entry_entity_type " +
+                                "CHECK (entity_type IN ($currentTypes))",
+                        )
+                    } else {
+                        exec(statement)
+                    }
+                }
+            }
             val a = fx.member()
             refused { insertNotice(a, title = "ab") } shouldBe true
             refused { insertNotice(a, expiresAt = LocalDateTime(2027, 1, 30, 10, 1, 0)) } shouldBe true

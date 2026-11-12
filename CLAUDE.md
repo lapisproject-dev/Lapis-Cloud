@@ -536,6 +536,16 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **Client:** Route `/notice-board` (optional `?notice=<id>` aus dem LTR-Kontoauszug), Eintrag in der Gruppe "Mitgliedschaft" direkt nach der Mitfahrzentrale; die Boost-Steuerung ist `ltrBoostControl` (gemeinsam mit dem sozialen Netz, Guthaben einmal je Bildschirm über `sharedLtrBalanceSource`, am Anfang jedes Bildschirms `invalidate()`). Texte anderer Personen nur über `untrusted*`.
 - **Seed:** Teil `notices` (Namensraum `0x7b`, drei Aushänge, ein Boost); nach Ablauf plus 30 Tage löscht der Poller sie, der nächste Top-up legt sie neu an.
 
+## Raum-Umfragen (V1.9.304)
+
+- **Schreiber-Monopol:** `ConferenceRoomPollService` und `RoomPollLifecycle` sind die einzigen Schreiber der vier Tabellen `conference_room_poll*` (plus `RoomPollPersonalData` für die Marker); die Antwort-Tabelle schreibt nur der Dienst (`RoomPollTripwireTest`). Neue Migration `V153` (V152 ist ein anderes Feature).
+- **Anonymität:** wer geantwortet hat (`..._voted`, Personenbezug, beim Ende gelöscht) und was geantwortet wurde (`..._answer`, kein Mitglied, keine Zeit, Zufalls-Id) werden **nie gejoint**; in `roompoll/*` und dem Dienst steht kein `join`. Kein Akteur in der Umfragezeile (steht im Audit-Log).
+- **Rechte:** Leitung ausschließlich `ConferenceModeratorAuthority`, Zutritt `requireRoomEntryAuthorization`; jede Ablehnung ist dieselbe `ForbiddenException`. Neue Sets `ROOM_POLL_*` statt `NON_MEMBER`/`CONFERENCE_GUEST` (Tripwire).
+- **Ergebnis:** nur über `computeRoomPollResult` (unter 5 Antworten gesamt keine Zahl; die Aufteilung braucht je Gruppe 5, sonst **keine** Gruppe und keine Gruppengröße; Gewicht nur einmal, nie Summen).
+- **Nudge nur vom Server, nur bei Start und Ende, nie nach einer Antwort;** LiveKit nie in `transaction {}` (`finish()` sendet nach dem Commit); `ROOM_POLL_TOPIC` hat einen eigenen Eintrag in `sendDataPayloadLimit`. Der Client liest die Nutzlast nie und verwirft Pakete mit Absender.
+- **Sperrreihenfolge:** Raum -> Umfrage -> Audit (zuletzt); nie `MemberTable` sperren. `IConferenceRoomPollService` ist das **letzte** `registerService`; neue Methoden ans Ende. Kein Log in den Raum-Umfrage-Dateien.
+- Stufe A (Server, Panel im Raum) fertig; **Welle B (Zuschauer eines Streams) nicht gebaut** -- Lapis hat keine eigene Zuschauerseite, Wo die Umfrage dort erscheint ist offen. Nicht in einem echten LiveKit-Raum geprüft.
+
 ## Stimmrecht und Spender (V1.9.298)
 
 - **Stimmrecht ist ein Attribut des Mitglieds** (`member.voting_right`, Quelle `voting_right_source` DEFAULT/MANUAL/LUPABB, Zeit `voting_right_changed_at`), unabhängig von Status und Mitgliedschaftsstufe. Doku: `docs/features/voting-right-and-donors.adoc`, `docs/architecture/voting-right-and-donors.adoc`.

@@ -93,6 +93,8 @@ object PersonalDataRegistry {
             ActivismPersonalData,
             // V1.9.297: bulletin-board notices (own notices, boosts on them and their pictures erased; own boosts on others' notices retained).
             NoticePersonalData,
+            // V1.9.304: the "who has answered" markers of a running room poll (deleted when the poll ends and on erasure).
+            RoomPollPersonalData,
         )
 
     /**
@@ -290,6 +292,15 @@ object PersonalDataRegistry {
                 "Welle V1.9.41 Umfragen-Konsensieren. BEWUSST ohne Mitglieds-FK und ohne Zeitspalte, " +
                 "an poll_response gekoppelt, die selbst anonym ist: die Bewertung (Widerstand je Option) " +
                 "ist keinem Mitglied zuordenbar, ein Export/Loeschpfad pro Mitglied existiert daher nicht.",
+            "conference_room_poll" to
+                "Welle V1.9.304 Raum-Umfragen. Keine Personen-Spalte: weder wer die Umfrage gestartet noch wer sie beendet hat " +
+                "wird gespeichert (der Akteur steht im Audit-Log). Die Frage ist Moderationstext der Organisation.",
+            "conference_room_poll_option" to
+                "Welle V1.9.304 Raum-Umfragen. Der Antwortoption-Text hat keinen Mitglieds-FK.",
+            "conference_room_poll_answer" to
+                "Welle V1.9.304 Raum-Umfragen. BEWUSST ohne Mitglieds-FK, ohne Zeitspalte und mit zufaelliger Id: die Antwort ist " +
+                "anonym, von conference_room_poll_voted (WER hat geantwortet, siehe RoomPollPersonalData) durch Tabellentrennung " +
+                "entkoppelt -- ein Export/Loeschpfad pro Mitglied existiert daher nicht (siehe 82-conference-room-poll.kuml.kts).",
         )
 
     init {

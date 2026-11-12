@@ -31488,3 +31488,159 @@ msgstr ""
 
 msgid "LupaBB-Werte übernehmen: %1"
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollModel.kt
+msgid "Neue Umfrage: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollModel.kt
+msgid "Umfrage beendet. Das Ergebnis ist da."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Bitte geben Sie eine Frage mit %1 bis %2 Zeichen ein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Bitte geben Sie %1 bis %2 verschiedene Antworten ein (je höchstens %3 Zeichen)."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Frage und Antworten dürfen kein < oder > und keine Steuerzeichen enthalten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Antwort %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Antwort entfernen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Ja / Nein / Enthaltung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Ja / Nein"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Eigene Antworten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Antwort hinzufügen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Zählweise"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Köpfe (demokratisch)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "LTR-gewichtet (meritokratisch)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Beides nebeneinander"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Es läuft bereits eine Umfrage."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Unverbindlich"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Antwort konnte nicht gesendet werden. Bitte versuchen Sie es erneut."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Eine Antwort, nicht änderbar."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Ihre Stimme wurde gezählt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Umfrage beenden"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Umfrage beenden?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Beenden"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage konnte nicht beendet werden. Bitte versuchen Sie es erneut."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Ergebnis der Umfrage"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage endete mit dem Raum."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage endete nach %1 Minuten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage wurde beendet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Umfrage – offen, noch nicht beantwortet"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Ergebnis erst ab %1 Antworten (bisher %2)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Gäste und Freunde"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Alle zusammen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Aufteilung erst ab %1 Antworten je Gruppe"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "LTR-Gewichtung zählt nur Mitglieder"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "n = %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Köpfe"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Gäste haben kein LTR – nur Kopfzahl"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
+msgid "Umfrage im Videoraum"
+msgstr ""

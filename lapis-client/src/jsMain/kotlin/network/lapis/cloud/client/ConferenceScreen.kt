@@ -1758,6 +1758,14 @@ private fun enterCall(
     var meetingPaint: () -> Unit = {}
     // V1.9.238 -- "Jetzt abstimmen" in the Sitzung panel opens the voting panel (assigned below, once yieldMeetingSheet exists)
     var openVotingPanelFromMeeting: () -> Unit = {}
+    // V1.9.304 "Raum-Umfragen" -- the toggle stays hidden until the server has answered once (an event or encounter room never answers), the panel
+    // and the poll controller live in `ConferenceRoomPollPanel.kt` / `ConferenceRoomPollController.kt`; wired after the Sitzung panel below.
+    val pollToggleButton = centre.conferencePollButton()
+    pollToggleButton.hide()
+    var pollController: ConferenceRoomPollController? = null
+    var pollPanelOpen = false
+    var setPollPanelOpen: (Boolean) -> Unit = {}
+    var pollPaint: () -> Unit = {}
     // V1.2.10 -- Badge-DOM für Teilnehmer-/Ungelesen-Zähler, einmalig erzeugt (theme.css's
     // `.lapis-conference-controls-row .btn` trägt `position: relative`, damit dieses absolut
     // positionierte `<span>` sich an seinem Button ausrichtet). Sichtbarkeit/Inhalt werden
@@ -1863,6 +1871,7 @@ private fun enterCall(
     val rosterTwin = twin(rosterToggleButton) { it.actionButton(ActionIcon.PEOPLE, tr("Teilnehmende")) }
     val voteTwin = twin(votingToggle?.button) { it.button(tr("Abstimmen"), style = ButtonStyle.OUTLINESECONDARY) }
     val meetingTwin = twin(meetingToggle?.button) { it.button(tr("Sitzungsmodus"), style = ButtonStyle.OUTLINESECONDARY) }
+    val pollTwin = twin(pollToggleButton) { it.button(tr("Umfrage"), style = ButtonStyle.OUTLINESECONDARY) }
     // V1.9.72 -- "Für alle beenden" moves into the sheet LAST (overflow order) and stands LAST in it, set apart by a rule and the danger
     // colour (theme.css `.lapis-conference-twin-end`); its click goes through the primary control, so there is one confirmation path.
     val endTwin = twin(exitGroup.endButton) { it.conferenceEndForAllTwin() }
@@ -4512,6 +4521,7 @@ private fun enterCall(
                     add(OverflowSlot(ConferenceControlSlot.CHAT, chatToggleButton, null))
                     votingToggle?.let { add(OverflowSlot(ConferenceControlSlot.VOTE, it.button, voteTwin, mirrorPressed = true)) }
                     meetingToggle?.let { add(OverflowSlot(ConferenceControlSlot.MEETING, it.button, meetingTwin, mirrorPressed = true)) }
+                    add(OverflowSlot(ConferenceControlSlot.POLL, pollToggleButton, pollTwin, mirrorPressed = true))
                     add(OverflowSlot(ConferenceControlSlot.VIEW, viewButton, viewTwin))
                     moderation?.let {
                         add(OverflowSlot(ConferenceControlSlot.RECORD, it.recordButton, recordTwin))
@@ -4625,6 +4635,7 @@ private fun enterCall(
             visible = votingOpen || (voteState?.bound ?: (boundMeetingId != null)),
         )
         meetingPaint()
+        pollPaint()
         votingHandle?.panel?.let { panel ->
             panel.toggleCssClass("lapis-conference-rail-voting-major", railLayout.votingShare == ConferenceVotingRailShare.MAJOR_60)
             panel.toggleCssClass("lapis-conference-rail-voting-min", railLayout.votingShare == ConferenceVotingRailShare.MIN_40)
@@ -4830,6 +4841,8 @@ private fun enterCall(
                     panelState = conferencePanelReduce(panelState, ConferencePanelEvent.VotingToggled)
                 }
             }
+            // V1.9.304: the Sitzung sheet and the room-poll sheet share the edge too
+            if (open && (narrowQuery.matches || panelState.fullscreen) && pollPanelOpen) setPollPanelOpen(false)
             meetingPanelOpen = open
             applyPanelVisibility()
             meetingController?.panelOpenChanged()
@@ -4865,9 +4878,60 @@ private fun enterCall(
     meetingToggle?.button?.onClick {
         setMeetingPanelOpen(!meetingPanelOpen)
     }
+    // V1.9.304 -- the room-poll panel: the same sheet discipline as the Sitzung panel (on a narrow screen or in fullscreen it takes the edge alone)
+    val pollHandle =
+        renderConferenceRoomPollPanel(
+            parent = videoArea,
+            roomId = room.id,
+            onCloseRequested = { setPollPanelOpen(false) },
+            onFreshState = { fresh -> pollController?.adopt(fresh) },
+            onRefreshRequested = { pollController?.refreshNow() },
+        )
+    pollPaint = {
+        val state = pollController?.state
+        paintRoomPollToggle(button = pollToggleButton, state = state, pressed = pollPanelOpen)
+        pollHandle.setOpen(pollPanelOpen && state != null)
+    }
+    setPollPanelOpen = { open ->
+        if (open != pollPanelOpen) {
+            if (open && (narrowQuery.matches || panelState.fullscreen)) {
+                if (panelState.rosterVisible()) panelState = conferencePanelReduce(panelState, ConferencePanelEvent.RosterToggled)
+                if (panelState.chatVisible()) panelState = conferencePanelReduce(panelState, ConferencePanelEvent.ChatToggled)
+                if (panelState.votingVisible() && panelState.votingLock == ConferenceVotingLock.NONE) {
+                    panelState = conferencePanelReduce(panelState, ConferencePanelEvent.VotingToggled)
+                }
+                if (meetingPanelOpen) setMeetingPanelOpen(false)
+            }
+            pollPanelOpen = open
+            applyPanelVisibility()
+            if (open) pollController?.refreshNow()
+        }
+    }
+    pollController =
+        ConferenceRoomPollController(
+            roomId = room.id,
+            onUpdate = { previous, next ->
+                pollHandle.apply(next)
+                // a new poll opens the panel by itself from 992 px on (never on a narrow screen), without moving the focus
+                if (roomPollShouldAutoOpen(
+                        previous,
+                        next,
+                        window.matchMedia(ROOM_POLL_WIDE_QUERY).matches,
+                    )
+                ) {
+                    setPollPanelOpen(true)
+                } else {
+                    pollPaint()
+                }
+            },
+            onFailure = { failures -> pollHandle.applyFailure(failures) },
+        )
+    pollToggleButton.onClick { setPollPanelOpen(!pollPanelOpen) }
     val voteRegistration =
         ConferenceVoteRuntime.register {
             voteController?.stop()
+            pollController?.stop()
+            pollHandle.dispose()
             meetingController?.stop()
             meetingHandle?.dispose?.invoke()
             votingHandle?.dispose?.invoke()
@@ -6431,6 +6495,7 @@ private fun enterCall(
             // V1.9.25 -- "look again" from the data channel (payload never read, throttled to 2 s by the session); this side adds its own
             // 1 s minimum gap and the one-request-in-flight rule.
             onVoteNudge = { voteController?.nudge() },
+            onRoomPollNudge = { pollController?.nudge() },
             // V1.0 Wave 7 "Whiteboard" -- see LiveKitRoomSession KDoc "Whiteboard trust boundary".
             // `whiteboardController` is `null` only in the brief window before the connect-success
             // block below constructs it -- no preview/commit packet can arrive before then, since
@@ -6688,6 +6753,7 @@ private fun enterCall(
         transition(ConferenceConnectionEvent.ConnectSucceeded)
         // V1.9.25 -- the ballots of the room (see `voteController`)
         voteController?.start()
+        pollController?.start()
         meetingController?.start()
         // Wave 5 -- see refreshGuestHomeservers KDoc "called once right after connect succeeds".
         refreshGuestHomeservers()
@@ -6878,6 +6944,7 @@ private fun enterCall(
     // the same edge: one at a time
     fun yieldMeetingSheet() {
         if ((narrowQuery.matches || panelState.fullscreen) && meetingPanelOpen) setMeetingPanelOpen(false)
+        if ((narrowQuery.matches || panelState.fullscreen) && pollPanelOpen) setPollPanelOpen(false)
     }
     // V1.9.238 -- only when the voting panel is closed (it opens itself for a new ballot on a wide screen); on a narrow screen the Sitzung sheet yields
     openVotingPanelFromMeeting = {

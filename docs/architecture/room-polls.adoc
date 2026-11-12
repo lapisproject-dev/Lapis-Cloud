@@ -1,0 +1,99 @@
+= Room polls: architecture (V1.9.304)
+:toc:
+
+NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+See link:../features/room-polls.adoc[the feature description] for what a person sees. This page records the structure, the locks, the anonymity model and the decisions that deviate from the first design.
+
+== Tables
+
+Four tables, migration `V153__conference_room_poll.sql` (V152 is a different feature, already on `master`; changing it would break its checksum). The model is `82-conference-room-poll.kuml.kts`.
+
+[kuml, room-polls-schema, svg]
+----
+classDiagram(name = "Room polls -- tables") {
+    val room = classOf(name = "conference_room") {
+        attribute(name = "id", type = "UUID")
+    }
+    val member = classOf(name = "member") {
+        attribute(name = "id", type = "UUID")
+    }
+    val poll = classOf(name = "conference_room_poll") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "room_id", type = "UUID")
+        attribute(name = "open_room_id", type = "UUID")
+        attribute(name = "question", type = "String")
+        attribute(name = "counting_mode", type = "String")
+        attribute(name = "status", type = "String")
+        attribute(name = "started_at", type = "LocalDateTime")
+        attribute(name = "snapshot_json", type = "String")
+        attribute(name = "result_json", type = "String")
+    }
+    val option = classOf(name = "conference_room_poll_option") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "position", type = "Int")
+        attribute(name = "text", type = "String")
+    }
+    val voted = classOf(name = "conference_room_poll_voted") {
+        attribute(name = "poll_id", type = "UUID")
+        attribute(name = "member_id", type = "UUID")
+    }
+    val answer = classOf(name = "conference_room_poll_answer") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "option_id", type = "UUID")
+        attribute(name = "voter_group", type = "String")
+        attribute(name = "weight_ltr", type = "BigDecimal")
+    }
+    association(from = room, to = poll)
+    association(from = poll, to = option)
+    association(from = poll, to = voted)
+    association(from = member, to = voted)
+    association(from = poll, to = answer)
+    association(from = option, to = answer)
+}
+----
+
+* *Who answered* (`conference_room_poll_voted`, personal data) and *what was answered* (`conference_room_poll_answer`) are two tables that are never joined (`RoomPollTripwireTest`). The answer row has a random UUID, no member, no time, no sequence column. The group and the weight are stored with it: they identify a group, not a person.
+* `conference_room_poll` stores *no actor*. Who started and who ended a poll is only in the audit log; therefore the poll row has no personal reference and needs no DSGVO contributor.
+* "At most one open poll per room" is the UNIQUE index on `open_room_id`, a NULL-able copy of `room_id` that is set only while the poll is OPEN. NULL is distinct on H2 and PostgreSQL, so closed polls never collide, and no partial index is needed (the migrations avoid them). The lifecycle `CHECK` states: OPEN means `open_room_id` equals `room_id` and nothing is closed; CLOSED means the end, the reason and no `open_room_id`. (A `CHECK` whose condition evaluates to NULL passes, so `open_room_id IS NOT NULL` is written out; `ConferenceRoomPollMigrationScenarios` pins this on both engines.)
+* `snapshot_json` and `result_json` hold the *already suppressed* public result (whole percent shares, no weight sums, no hidden group size). `snapshot_json` / `snapshot_answer_count` are no longer written (always empty / 0); kept for schema compatibility.
+* The guest weight rule (`voter_group = 'MEMBERS' OR weight_ltr = 0`) is a database `CHECK`.
+* Physical order: PostgreSQL keeps rows in insertion order, so a row of the voted table and the answer row inserted a moment later sit at similar positions in their heaps (the same residual as in `polls.adoc`). Neither table has a time column, and both are written in one transaction; whoever reads the files of the database server is outside the threat model of this page.
+
+== Lifecycle
+
+[kuml, room-polls-status, svg]
+----
+stateDiagram(name = "Status of a room poll") {
+    val open = state(name = "OPEN")
+    val closed = state(name = "CLOSED")
+    transition(from = open, to = closed, label = "MANUAL: a moderator")
+    transition(from = open, to = closed, label = "ROOM_ENDED: the room ends")
+    transition(from = open, to = closed, label = "TIMEOUT: 240 minutes")
+}
+----
+
+The database status is canonical. A poll whose room ended or whose 240 minutes are over is closed *lazily* by `RoomPollLifecycle.materializeIfDue` the next time anybody reads or writes the room, and *eagerly* by `ConferenceRoomCloser` inside the room's own end transaction (before the recording stop, which stays the last lock-taking statement). Closing stores the result, sets `open_room_id` to NULL, *deletes the markers* of who answered, and writes the audit entry.
+
+== Decisions that deviate from the first design
+
+. *Leadership is `ConferenceModeratorAuthority`, not `ConferenceAudioPolicy.isModeratorIdentity`.* The audio policy's check is the raw identity comparison without the status check for the creator that V1.9.298 added; using it would let a creator who became a donor keep moderating. Same set of rights otherwise, no second system.
+. *The nudge comes from the server*, not from a peer (topic `lapis-room-poll`, the pattern of the timer), only at the start and the end of a poll. Both already go through the server, and no participant can then forge or flood it. The client accepts the packet only without a sending participant, never reads the payload, and only re-queries `getRoomPollState`. *No packet follows an answer*: that would be a timing side channel on who answered.
+. *There is no interim result.* A snapshot at every fifth answer, next to a final result the moderator can trigger at any time, let the moderator isolate a single answer (snapshot at 10, close at 11). The exact answer count stays live for the leadership; it carries no per-option information.
+. *No `started_by` / `closed_by` in the poll row* (see above).
+. *The markers are deleted when the poll ends* (data minimisation): after the end they would prevent no double answer any more.
+
+== Locks and transactions
+
+* Order: *room row* (`FOR UPDATE`) -> *poll row* (`FOR UPDATE`) -> *audit chain row* (last). The member row is never locked. An answer locks only the poll row (and the room row only when it has to close a due poll first), so answers of one poll are serialised and the double-answer check is race-free.
+* LiveKit is never called inside a `transaction {}`: Exposed repeats a block on a `SQLException`, which would repeat the packet. Every method decides in one transaction, commits, and only then `finish()` sends the nudge.
+* A lazy close is committed even when the call itself is refused afterwards: such refusals are returned as an outcome and thrown *outside* the transaction. A unique violation is never continued in the same transaction.
+* Rate limits per account, charged before the transaction: 10 writes, 10 answers, 40 state reads and 30 version reads per minute (process-wide singletons wired in `Application.module`, no defaults).
+* `IConferenceRoomPollService` is the *last* `registerService` of `Application.kt`; Kilua numbers routes by declaration order, so new methods go to the end of the interface (pinned).
+
+== Single owners (pinned by `RoomPollTripwireTest`)
+
+* Only `ConferenceRoomPollService`, `RoomPollLifecycle` and the DSGVO contributor write the poll tables; the answer table has exactly one writer, the service.
+* The group sets `ROOM_POLL_MEMBERS`, `ROOM_POLL_GUESTS_AND_FRIENDS` and `ROOM_POLL_RESPONDER` are used only by the room-poll files, which never use `NON_MEMBER` or `CONFERENCE_GUEST` (`ConferenceGuestSetTripwireTest` forbids them in conference files).
+* No log line in the room-poll files names a question, an option, a member or a room.
+* Weights are summed in exactly one place (`computeRoomPollResult`) and leave it only as whole percent shares.

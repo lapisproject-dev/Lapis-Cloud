@@ -324,4 +324,10 @@ enum class ActionIcon(
 
     /** V1.9.222: "Als Titelbild" -- make a gallery picture the cover picture. Used for that purpose only. */
     SET_COVER("fas fa-star"),
+
+    /** V1.9.304 -- the "Umfrage" toggle of the conference bar (the room-poll panel). Used for that purpose only. */
+    ROOM_POLL("fas fa-square-poll-horizontal"),
+
+    /** V1.9.304 -- "Umfrage beenden" in the room-poll panel. Used for that purpose only. */
+    ROOM_POLL_END("fas fa-flag-checkered"),
 }

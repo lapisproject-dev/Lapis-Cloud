@@ -600,6 +600,8 @@ fun decodeAuditSnapshot(
             AuditEntityType.ATTACHED_IMAGE -> null
             // V1.9.297 -- NoticeAuditSnapshot (operation, reason code, amount; never a title or a text), raw-text display like the other backend-written snapshots.
             AuditEntityType.BULLETIN_NOTICE -> null
+            // V1.9.304 -- RoomPollAuditSnapshot (ids, mode, option count, reason; never a question or an option text), raw-text display.
+            AuditEntityType.CONFERENCE_ROOM_POLL -> null
             // V1.9.225 -- PartgValueAuditSnapshot / PartgImportAuditSnapshot / PartgPositionHintSnapshot (year, unit key, position code, cents;
             // never a file name beyond the shortened import entry), raw-text display like the other backend-written snapshots.
             AuditEntityType.PARTG_REPORT_SHEET -> null

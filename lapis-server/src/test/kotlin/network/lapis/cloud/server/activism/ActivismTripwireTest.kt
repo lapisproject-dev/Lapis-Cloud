@@ -131,12 +131,13 @@ class ActivismTripwireTest :
         }
 
         test(
-            "the activism service is registered second to last in Application.kt, after the partner servers (the bulletin board follows)",
+            "the activism service is registered third to last in Application.kt, after the partner servers (the bulletin board and the room polls follow)",
         ) {
             val code = SourceScan.blank(File(SourceScan.mainRoot(), "network/lapis/cloud/server/Application.kt").readText())
             val registrations = Regex("""registerService\(""").findAll(code).map { it.range.first }.toList()
-            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(IActivismService::class)")
-            registrations.last() shouldBe code.indexOf("registerService(INoticeBoardService::class)")
+            registrations[registrations.size - 3] shouldBe code.indexOf("registerService(IActivismService::class)")
+            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(INoticeBoardService::class)")
+            registrations.last() shouldBe code.indexOf("registerService(IConferenceRoomPollService::class)")
         }
 
         test("MemberStatusSets.ACTIVISM_PARTICIPANT is used only by the activism files") {

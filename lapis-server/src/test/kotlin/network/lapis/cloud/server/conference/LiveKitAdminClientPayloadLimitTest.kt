@@ -37,6 +37,8 @@ import network.lapis.cloud.shared.domain.EncounterMapPacket
 import network.lapis.cloud.shared.domain.EncounterMapPositionDto
 import network.lapis.cloud.shared.domain.EncounterRecordingSignal
 import network.lapis.cloud.shared.domain.EventCaptureConsentCountDto
+import network.lapis.cloud.shared.domain.ROOM_POLL_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ROOM_POLL_TOPIC
 import network.lapis.cloud.shared.domain.encounterFloorPayload
 import network.lapis.cloud.shared.domain.encounterMapPayload
 import network.lapis.cloud.shared.domain.encounterRecordingPayload
@@ -202,6 +204,8 @@ class LiveKitAdminClientPayloadLimitTest :
         ) {
             sendDataPayloadLimit(ENCOUNTER_MAP_TOPIC) shouldBe ENCOUNTER_MAP_MAX_PAYLOAD_BYTES
             sendDataPayloadLimit(ENCOUNTER_MAP_TOPIC) shouldBe 4096
+            // V1.9.304: the room-poll nudge has an explicit entry (an empty packet, 16 bytes)
+            sendDataPayloadLimit(ROOM_POLL_TOPIC) shouldBe ROOM_POLL_MAX_PAYLOAD_BYTES
             val requests = mutableListOf<HttpRequestData>()
             val client = admin(requests)
             val worst =

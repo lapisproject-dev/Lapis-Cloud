@@ -441,6 +441,14 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Umfragen in Videokonferenzen (unverbindliche Stimmungsbilder im Raum) — Art. 6 Abs. 1 lit. f DSGVO. " +
+                        "Solange eine Umfrage läuft, wird gespeichert, dass eine Person geantwortet hat, damit niemand zweimal " +
+                        "antwortet; dieser Vermerk wird gelöscht, sobald die Umfrage endet. Die Antworten selbst werden ohne Bezug " +
+                        "zu einer Person gespeichert, Ergebnisse erst ab fünf Antworten angezeigt."
+                )
+            }
+            li {
+                +(
                     "Öffentlich einsehbare Beiträge im integrierten sozialen Netzwerk (sofern aktiv genutzt) — " +
                         "Art. 6 Abs. 1 lit. b DSGVO; die Veröffentlichung erfolgt durch das Mitglied selbst."
                 )

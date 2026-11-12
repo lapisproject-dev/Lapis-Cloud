@@ -1124,3 +1124,5 @@ col:BulletinNoticeTable.expiresAt	A	stamped by the server clock (DbClock/ServerC
 col:BulletinNoticeTable.pinnedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:BulletinNoticeTable.withdrawnAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:BulletinNoticeTable.removedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRoomPollTable.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC (the LTR weight of an answer and the 240 minute limit are measured from it)
+col:ConferenceRoomPollTable.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC (the result stays visible for 12 hours after it)

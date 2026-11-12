@@ -524,3 +524,7 @@ The lobby ("Aktive Besprechungen") lists the running video conferences of Lapis 
 * *Old server:* a client that talks to a server without the new route shows the ordinary rooms and no error.
 * *Unchanged:* the live counter in the side navigation counts ordinary rooms only.
 * *Not verified:* against a real LiveKit server, on a real phone, with a screen reader (headless browser tests only).
+
+== Room polls (V1.9.304)
+
+Moderators can start a non-binding poll inside the room; everybody present answers with one tap and the result is shown split by members, guests and friends, and all together. See link:room-polls.adoc[Room polls in video conferences]. Not verified in a real LiveKit room; the poll for viewers of a stream is not built yet.

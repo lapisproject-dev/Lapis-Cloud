@@ -229,6 +229,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_LARGE_DONOR_PROPOSAL -> gettext("Rechenschaftsbericht: Vorschlag für Ausweis B übernommen")
         // V1.9.297 -- one entry per create, edit, withdrawal, boost, pin, unpin and removal; the entry never carries a title or a text.
         AuditEntityType.BULLETIN_NOTICE -> gettext("Aushang")
+        // V1.9.304 -- one entry per start and per end of a room poll; the entry never carries the question or an option text.
+        AuditEntityType.CONFERENCE_ROOM_POLL -> gettext("Umfrage im Videoraum")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -382,6 +384,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_LARGE_DONOR_PROPOSAL -> "secondary"
         // V1.9.297 -- a notice board entry is an administrative act without money of its own (the LTR booking has its own ledger entry): neutral hue.
         AuditEntityType.BULLETIN_NOTICE -> "secondary"
+        // V1.9.304 -- a room poll is a non-binding mood picture: neutral hue.
+        AuditEntityType.CONFERENCE_ROOM_POLL -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

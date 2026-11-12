@@ -32036,3 +32036,159 @@ msgstr "Открыть участника: %1"
 
 msgid "LupaBB-Werte übernehmen: %1"
 msgstr "Принять значения из LupaBB: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollModel.kt
+msgid "Neue Umfrage: %1"
+msgstr "Новый опрос: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollModel.kt
+msgid "Umfrage beendet. Das Ergebnis ist da."
+msgstr "Опрос завершён. Результат готов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Bitte geben Sie eine Frage mit %1 bis %2 Zeichen ein."
+msgstr "Введите вопрос длиной от %1 до %2 символов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Bitte geben Sie %1 bis %2 verschiedene Antworten ein (je höchstens %3 Zeichen)."
+msgstr "Введите от %1 до %2 разных вариантов ответа (не более %3 символов каждый)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Frage und Antworten dürfen kein < oder > und keine Steuerzeichen enthalten."
+msgstr "Вопрос и варианты ответа не должны содержать < или > и управляющих символов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Antwort %1"
+msgstr "Ответ %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Antwort entfernen"
+msgstr "Удалить вариант ответа"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Ja / Nein / Enthaltung"
+msgstr "Да / Нет / Воздержался"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Ja / Nein"
+msgstr "Да / Нет"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Eigene Antworten"
+msgstr "Свои варианты ответа"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Antwort hinzufügen"
+msgstr "Добавить вариант ответа"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Zählweise"
+msgstr "Способ подсчёта"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Köpfe (demokratisch)"
+msgstr "По головам (демократично)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "LTR-gewichtet (meritokratisch)"
+msgstr "С весом LTR (меритократично)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Beides nebeneinander"
+msgstr "Оба рядом"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Es läuft bereits eine Umfrage."
+msgstr "Опрос уже идёт."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
+msgstr "Не удалось начать опрос. Попробуйте ещё раз."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Unverbindlich"
+msgstr "Необязывающий"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Antwort konnte nicht gesendet werden. Bitte versuchen Sie es erneut."
+msgstr "Не удалось отправить ответ. Попробуйте ещё раз."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Eine Antwort, nicht änderbar."
+msgstr "Один ответ, изменить нельзя."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Ihre Stimme wurde gezählt."
+msgstr "Ваш голос учтён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Umfrage beenden"
+msgstr "Завершить опрос"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Umfrage beenden?"
+msgstr "Завершить опрос?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Beenden"
+msgstr "Завершить"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage konnte nicht beendet werden. Bitte versuchen Sie es erneut."
+msgstr "Не удалось завершить опрос. Попробуйте ещё раз."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Ergebnis der Umfrage"
+msgstr "Результат опроса"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage endete mit dem Raum."
+msgstr "Опрос завершился вместе с комнатой."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage endete nach %1 Minuten."
+msgstr "Опрос завершился через %1 мин."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Die Umfrage wurde beendet."
+msgstr "Опрос был завершён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollPanel.kt
+msgid "Umfrage – offen, noch nicht beantwortet"
+msgstr "Опрос открыт, ответа ещё нет"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Ergebnis erst ab %1 Antworten (bisher %2)"
+msgstr "Результат от %1 ответов (пока %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Gäste und Freunde"
+msgstr "Гости и друзья"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Alle zusammen"
+msgstr "Все вместе"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Aufteilung erst ab %1 Antworten je Gruppe"
+msgstr "Разбивка только от %1 ответов в группе"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "LTR-Gewichtung zählt nur Mitglieder"
+msgstr "Вес LTR учитывается только у членов"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "n = %1"
+msgstr "n = %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Köpfe"
+msgstr "По головам"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollResultView.kt
+msgid "Gäste haben kein LTR – nur Kopfzahl"
+msgstr "У гостей нет LTR — только число голосов"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
+msgid "Umfrage im Videoraum"
+msgstr "Опрос в видеокомнате"

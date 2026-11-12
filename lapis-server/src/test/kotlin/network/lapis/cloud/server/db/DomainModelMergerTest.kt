@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 82 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 83 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -85,7 +85,8 @@ class DomainModelMergerTest :
             // Welle V1.9.244 "Partnerserver P1" -- now 80 with the addition of 79-partner-servers.kuml.kts.
             // Welle V1.9.246 "Aktionen A1" -- now 81 with the addition of 80-activism.kuml.kts.
             // Welle V1.9.297 "Schwarzes Brett" -- now 82 with the addition of 81-bulletin-board.kuml.kts.
-            scriptFiles shouldHaveSize 82
+            // Welle V1.9.304 "Raum-Umfragen" -- now 83 with the addition of 82-conference-room-poll.kuml.kts.
+            scriptFiles shouldHaveSize 83
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -605,7 +606,8 @@ class DomainModelMergerTest :
             // 76-partg-report.kuml.kts (V1.9.291, R6) adds FOUR real tables (partg_report_version_counter, partg_report_version,
             // partg_report_declaration, partg_report_deadline); its Member reference dedups, net +4 (261 -> 265).
             // 81-bulletin-board.kuml.kts (V1.9.297) adds TWO real tables (bulletin_notice, bulletin_notice_boost); its Member stub dedups, net +2 (265 -> 267).
-            val distinctTableNames = 267
+            // 82-conference-room-poll.kuml.kts (V1.9.304) adds FOUR real tables (conference_room_poll, conference_room_poll_option, conference_room_poll_voted, conference_room_poll_answer); its Member and ConferenceRoom stubs dedup, net +4 (267 -> 271).
+            val distinctTableNames = 271
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -1039,6 +1041,10 @@ class DomainModelMergerTest :
                     // Welle V1.9.297 "Schwarzes Brett" -- TWO new real tables; Member is a stub.
                     "BulletinNoticeTable.kt",
                     "BulletinNoticeBoostTable.kt",
+                    "ConferenceRoomPollTable.kt",
+                    "ConferenceRoomPollOptionTable.kt",
+                    "ConferenceRoomPollVotedTable.kt",
+                    "ConferenceRoomPollAnswerTable.kt",
                 )
         }
 

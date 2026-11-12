@@ -39,3 +39,7 @@ not verified in a real LiveKit room. Recordings are not paused for a secret ball
 a Sitzung never has its stream paused. **Vote stakes stay bound after a vote closes** -- there is no
 release path yet. The committee leadership without an election-board seat cannot open, close or count
 (a server rule). Systemic consensus joined the room panel in V1.9.32 (see the next section).
+
+== Room polls are not votes (V1.9.304)
+
+The "Umfrage" panel next to this one runs *non-binding* polls started by the room's moderators (a mood picture: "Sollen wir verlängern?"). It has no ballot, no secret-ballot protection, no electorate, no stream pause and it never decides anything. A decision that counts, or a secret one, goes through the voting panel above. See link:room-polls.adoc[Room polls in video conferences].

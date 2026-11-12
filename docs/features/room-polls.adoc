@@ -1,0 +1,79 @@
+= Room polls in video conferences (V1.9.304, wave A)
+:toc:
+
+A *room poll* is a quick, *non-binding* show of opinion inside a running video conference ("Sollen wir die Sitzung um 15 Minuten verlängern?"). The moderators start it, everybody present answers with one tap, and the result is shown *split by group*: members, guests and friends, and everybody together. It is a mood picture, never a vote: every card carries the badge "Unverbindlich". A real, secret or binding decision still goes through the voting panel (see link:conference-voting.adoc[Voting in the conference room]); the standalone link:polls.adoc[opinion polls] outside a room keep their own rules.
+
+NOTE: This page describes wave A: the server model, the RPC service and the panel in the conference room. The poll for viewers of a stream is wave B and is *not* built yet (see "What doesn't work yet").
+
+== Who may do what
+
+[cols="1,3",options="header"]
+|===
+|Who |Rights
+|The room's moderators (`ConferenceModeratorAuthority`: the room creator while still an organization member, BOARD, ADMIN) |Start a poll (only while *present* in the room), end it (also when no longer present), see the exact number of answers
+|Everybody present with a status of `MemberStatusSets.ROOM_POLL_RESPONDER` (ACTIVE, GUEST, FRIEND, DONOR) |Answer once, see the result of the ended poll
+|Everybody else (applicant, former member, a caller who is not in the room, an unknown room, an event or encounter room, or an ended room when starting or answering; see below for reading after the end) |Nothing. Every refusal is the *same* `ForbiddenException`, so nobody can find out why
+|===
+
+Rights come from the shared authorities and from nowhere else: leadership from `ConferenceModeratorAuthority`, "may enter this room" from `requireRoomEntryAuthorization`. A room creator who has meanwhile become a donor is *not* leadership any more.
+
+== The groups
+
+* *Members* are the people with the status ACTIVE. This includes sponsoring members without a voting right: the voting right is a separate flag and a room poll is non-binding.
+* *Guests and friends* are the statuses GUEST, FRIEND and DONOR.
+* The group is read from the live database status when the answer is given. The group is stored with the anonymous answer; the person is not.
+
+== Counting methods
+
+The moderator chooses one of three when starting:
+
+* *Köpfe (demokratisch):* every answer counts once.
+* *LTR-gewichtet (meritokratisch):* a member's answer counts with the free LTR balance *at the start of the poll* (LTR received afterwards does not count). Guests, friends and donors carry *no* weight; the database enforces this (`CHECK`).
+* *Beides nebeneinander* (the default): both, as two bars per answer.
+
+No LTR is booked, spent or locked by a poll.
+
+== What the result shows
+
+Three columns, always in this order: *Mitglieder*, *Gäste und Freunde*, *Alle zusammen*, each with "n = …", and the answers in the order the moderator wrote them. Bars are neutral, whole percent, no winner is marked.
+
+Anonymity rules, applied by the server before anything is sent:
+
+* *Fewer than 5 answers in total:* no figures at all, only "Ergebnis erst ab 5 Antworten (bisher n)".
+* *The split needs 5 answers in each group.* If either group has fewer, *neither* group is shown and no group size is sent; only "Alle zusammen" appears, with the hint "Aufteilung erst ab 5 Antworten je Gruppe". Example: with 7 members and 3 guests only the 10 together are shown; showing the 7 would give away the 3 by subtraction.
+* *The LTR-weighted shares are shown exactly once:* in the members column when the split is visible, otherwise in "Alle zusammen" (where, because guests weigh nothing, they equal the members' weighted shares). They follow the rules of the standalone polls (at least 5 answers with weight, every answer with weighted votes needs at least 3), otherwise the weighted result is withheld with the reason.
+* Weight sums never leave the server.
+
+== Life of a poll
+
+[cols="1,3",options="header"]
+|===
+|Step |What happens
+|Start |One open poll per room at most. The question (3 to 300 characters) and 2 to 10 answers (each at most 80, distinct ignoring case) are checked; `<`, `>`, control characters and bidirectional marks are refused. A packet tells the room "a poll started".
+|Answer |One tap, one answer, not changeable. Nothing is sent to the room when somebody answers.
+|Interim result |*None.* Moderators see only the exact number of answers (live). An interim result next to the final one would let a moderator who ends the poll right after the next answer isolate that one person's vote, so none is computed.
+|End |By a moderator, by the end of the room, or after 240 minutes. The result is stored; a packet tells the room "the poll ended". There is no countdown.
+|Afterwards |The result stays visible to everybody who may enter the room for 12 hours.
+|===
+
+The moderators' form offers three answer sets (Ja / Nein / Enthaltung, Ja / Nein, own answers) and the three counting methods. "Umfrage beenden" asks "Umfrage beenden?" first.
+
+== Where it appears
+
+A toolbar button "Umfrage" (with a dot while a poll waits for your answer) opens the panel next to the voting and Sitzung panels. From 992 px on the panel opens by itself when a new poll arrives, without taking the focus; on a narrower screen it never takes the view away. A screen reader hears "Neue Umfrage: <Frage>" and "Umfrage beendet. Das Ergebnis ist da." in a polite live region outside the panel.
+
+== Data protection (DSGVO)
+
+* Who answered a *running* poll is stored (so nobody answers twice) and is deleted *when the poll ends*; the markers live at most 240 minutes. The stored answers carry no person and no time.
+* Export: the ids of the running polls the member has a marker for. Erasure: the markers, in every mode.
+* The audit log records the start and the end with ids, the counting mode, the number of options and the reason of the end; never the question, an option or a count of answers.
+* The tables are part of the organization backup. A backup taken before this wave is rejected on restore by the schema checksum, as always.
+
+== What doesn't work yet
+
+* *Not verified in a real LiveKit room.* The server packets, the clients' reaction to them and the whole panel were tested with fakes and in a headless browser, not in a live conference with several people.
+* *No poll for viewers of a stream (wave B).* Streams go to YouTube, Twitch, Facebook and X only; Lapis has no viewer page for signed-in accounts yet. The server already lets a signed-in account answer when the room streams (`LIVE` or `PAUSED`) and the account may enter the room, but nothing shows it to them. Where viewers see it is an open decision.
+* *Not in event rooms and encounter rooms.* Both are refused (`EventConferenceGuard`, `EncounterRoomGuard`) because they have their own rules for who leads.
+* *No countdown.* A poll ends by hand, with the room, or after 240 minutes.
+* *Residual risk:* the moderator sees the live number of answers and decides when the poll ends. Ending it early with very few answers is limited by the suppression thresholds of the result; the result itself is only ever published once, at the end.
+* The result of the largest possible poll is measured to stay under half of the 8,000 characters of its column (`RoomPollResultJsonSizeTest`).

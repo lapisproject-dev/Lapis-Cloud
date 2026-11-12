@@ -73,15 +73,16 @@ class GalleryTripwireTest :
                     .findAll(code)
                     .map { it.range.first }
                     .toList()
-            registrations[registrations.size - 9] shouldBe code.indexOf("registerService(IAttachedImageService::class)")
-            registrations[registrations.size - 8] shouldBe code.indexOf("registerService(IDashboardService::class)")
-            registrations[registrations.size - 7] shouldBe code.indexOf("registerService(IPartyReportService::class)")
-            registrations[registrations.size - 6] shouldBe code.indexOf("registerService(ILupaBbSyncService::class)")
-            registrations[registrations.size - 5] shouldBe code.indexOf("registerService(IProtocolDraftService::class)")
-            registrations[registrations.size - 4] shouldBe code.indexOf("registerService(IMeetingProtocolService::class)")
-            registrations[registrations.size - 3] shouldBe code.indexOf("registerService(IPartnerServerService::class)")
-            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(IActivismService::class)")
-            registrations.last() shouldBe code.indexOf("registerService(INoticeBoardService::class)")
+            registrations[registrations.size - 10] shouldBe code.indexOf("registerService(IAttachedImageService::class)")
+            registrations[registrations.size - 9] shouldBe code.indexOf("registerService(IDashboardService::class)")
+            registrations[registrations.size - 8] shouldBe code.indexOf("registerService(IPartyReportService::class)")
+            registrations[registrations.size - 7] shouldBe code.indexOf("registerService(ILupaBbSyncService::class)")
+            registrations[registrations.size - 6] shouldBe code.indexOf("registerService(IProtocolDraftService::class)")
+            registrations[registrations.size - 5] shouldBe code.indexOf("registerService(IMeetingProtocolService::class)")
+            registrations[registrations.size - 4] shouldBe code.indexOf("registerService(IPartnerServerService::class)")
+            registrations[registrations.size - 3] shouldBe code.indexOf("registerService(IActivismService::class)")
+            registrations[registrations.size - 2] shouldBe code.indexOf("registerService(INoticeBoardService::class)")
+            registrations.last() shouldBe code.indexOf("registerService(IConferenceRoomPollService::class)")
         }
 
         // ── V1.9.223: pictures in social posts ──────────────────────────────────────────────

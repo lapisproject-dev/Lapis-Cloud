@@ -414,3 +414,5 @@ server withholds shows the reason in a sentence instead of partial numbers; a wi
 * The staging test plan covers the kinds (`polls-staging-test.adoc`); it was not executed.
 
 NOTE: V1.9.53 -- `DisclosureRules.MIN_ANONYMOUS_RESPONSES` is now also the minimum participation for the figures of secret elections (`elections-integrity.adoc`): polls, anonymous consensus and secret elections share one constant.
+
+NOTE: V1.9.304 -- the room polls of the video conference reuse the disclosure thresholds and the head and weighted share rules of this page (`computePollResult`) but keep their own tables and an additional rule for the split by group; see link:room-polls.adoc[Room polls: architecture].

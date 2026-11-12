@@ -6,6 +6,7 @@ import network.lapis.cloud.server.conference.ConferenceAudioGrantState
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.LiveKitAdminClient
+import network.lapis.cloud.server.conference.roompoll.RoomPollLifecycle
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.shared.domain.AccountRole
@@ -59,12 +60,16 @@ internal class ConferenceRoomCloser(
             }) {
                 it[leftAt] = now
             }
+            // V1.9.304: a running room poll ends with the room (result stored, answer markers deleted). Its rows are written here, but its
+            // audit entry only AFTER the breakout and recording updates: the audit-chain lock must be the last lock taken (AuditLogRecorder).
+            val closedPoll = RoomPollLifecycle.materializeIfDueDeferringAudit(roomId = roomId, now = now)
             ConferenceBreakoutCoordinator.closeAllBreakoutRoomsForRoom(roomId = roomId, now = now)
             ConferenceRecordingCoordinator.stopActiveRecordingsForRoom(
                 roomId = roomId,
                 actorMemberId = actorMemberId,
                 actorRole = actorRole,
             )
+            closedPoll?.recordAudit()
         }
         whiteboardState.clear(roomId)
         notesState.clear(roomId)
