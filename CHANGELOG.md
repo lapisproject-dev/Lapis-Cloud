@@ -10,6 +10,10 @@ All notable changes to this project are documented here. Format follows
 
 Feature release on `[0.52.0]` (one wave, V1.9.303, and a test fix; the database schema stays `V151`). **No migration**, no new environment variable. The section below carries the details; read its behaviour changes first.
 
+### Client tests: wait for the dialog to be fully shown
+
+- **Fixed (tests only):** four dialog tests (`PulpitRecordingSettingsDomTest`, `MemberFinderSettingsDomTest`, `EventCaptureSettingsDomTest`) pressed Escape as soon as the class `show` appeared; Bootstrap ignores `hide()` while the dialog is still fading in, so the Browser-test job failed now and then on a slow runner. The new helper `awaitModalShown()` waits for the focus inside the dialog. No product code changed.
+
 ### LupaBB comparison: title kept apart, view made clear (wave V1.9.303, no migration)
 
 No migration (the schema stays `V151`), no new environment variable.
