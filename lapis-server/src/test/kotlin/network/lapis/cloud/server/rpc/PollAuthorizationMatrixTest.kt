@@ -82,7 +82,12 @@ class PollAuthorizationMatrixTest :
             pollTestApplication {
                 canCreate(data.member(label = "plain")) shouldBe false
                 canCreate(data.member(label = "treasurer", role = AccountRole.TREASURER)) shouldBe false
-                for (role in listOf(CommitteeRole.MEMBER, CommitteeRole.ASSESSOR, CommitteeRole.PRESS_SPOKESPERSON)) {
+                for (role in listOf(
+                    CommitteeRole.MEMBER,
+                    CommitteeRole.ASSESSOR,
+                    CommitteeRole.PRESS_SPOKESPERSON,
+                    CommitteeRole.TREASURER,
+                )) {
                     withClue(clue = "role $role") { canCreate(seated(role)) shouldBe false }
                 }
                 withClue(clue = "inactive committee") { canCreate(seated(CommitteeRole.CHAIR, active = false)) shouldBe false }

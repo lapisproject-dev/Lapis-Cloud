@@ -342,6 +342,31 @@ class PublicTransparencyRoutesTest :
             }
         }
 
+        test("a TREASURER seat is listed as Finanzvorstand, ranked after the chair and before the secretary") {
+            testApp {
+                val chair = createMember("Vera Vorsitz")
+                val treasurer = createMember("Marc Finanz")
+                val secretary = createMember("Sven Schrift")
+                val committees =
+                    listOf(
+                        addOpenBoardSeat(memberId = secretary, role = CommitteeRole.SECRETARY),
+                        addOpenBoardSeat(memberId = treasurer, role = CommitteeRole.TREASURER),
+                        addOpenBoardSeat(memberId = chair, role = CommitteeRole.CHAIR),
+                    )
+                try {
+                    val body = client.get("/transparenz").bodyAsText()
+                    body shouldContain "Finanzvorstand"
+                    val c = body.indexOf("Vera Vorsitz")
+                    val t = body.indexOf("Marc Finanz")
+                    val s = body.indexOf("Sven Schrift")
+                    (c in 0 until t) shouldBe true
+                    (t in 0 until s) shouldBe true
+                } finally {
+                    committees.forEach { cleanUpBoardFixture(it) }
+                }
+            }
+        }
+
         test(
             "Security-Fix: robots meta is noindex,follow -- the ranking sections carry revocable, " +
                 "widely-crawlable PII, so the page must never be search-engine-indexed",

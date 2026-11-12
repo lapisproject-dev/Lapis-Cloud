@@ -12151,6 +12151,10 @@ msgstr "Press Spokesperson"
 msgid "Geschäftsführung"
 msgstr "Managing Director"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:919
+msgid "Finanzvorstand"
+msgstr "Treasurer"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:55
 msgid "Fragen zur Satzung"
 msgstr "Questions about the statutes"

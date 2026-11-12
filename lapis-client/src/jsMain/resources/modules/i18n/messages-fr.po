@@ -12150,6 +12150,10 @@ msgstr "Porte-parole"
 msgid "Geschäftsführung"
 msgstr "Direction générale"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:919
+msgid "Finanzvorstand"
+msgstr "Trésorerie"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:55
 msgid "Fragen zur Satzung"
 msgstr "Questions sur les statuts"

@@ -386,6 +386,7 @@ class GovernanceSchemaDriftTest :
                             "GENERAL_SECRETARY",
                             "PRESS_SPOKESPERSON",
                             "MANAGING_DIRECTOR",
+                            "TREASURER",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.CommitteeRole",
                 )

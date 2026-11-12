@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Board position "Finanzvorstand" (`CommitteeRole.TREASURER`, schema V151 -> V152)
+
+**Behaviour changes first:**
+
+1. New board position `Finanzvorstand` (`CommitteeRole.TREASURER`). It is shown on the public transparency page, in the board list and in the committee screens, and ranks after the managing director and before the secretary. It is a single-holder seat: a second appointment displaces the first (with a `LEFT` register reminder).
+2. Existing seats are not converted. "Beisitz" stays until an administrator changes it manually.
+3. **No access rights change.** The seat grants nothing (like a plain member seat), and `AccountRole.TREASURER` ("Schatzmeister") still does not inherit board rights.
+4. One additive migration, `V152__committee_role_treasurer.sql` (four CHECK constraints widened, repeatable). Rollback hazard: 0.53.0 cannot read a database that holds the new value, so restore the backup taken before V152. Backups and whole-organisation bundles made before V152 are refused on restore, as before (schema checksum).
+5. Wire behaviour: an older client or peer that receives `TREASURER` fails to decode the governance DTOs with a `SerializationException` (pinned by a test). A reload of the page fixes it.
+
+- **Added:** public label `committeeRoleTreasurer` in all eight languages, `Finanzvorstand` in the client catalogs (`messages.pot` and seven `.po`), the literal in the kUML sources 05, 07 and 13.
+- **Changed:** `CommitteeRole.rank` renumbered (secretary 5, press spokesperson 6, assessor 7, member 8; display order only, nothing persisted); the election target-role picker is sorted by rank.
+- **Tests:** `CommitteeRoleTreasurerMigrationTest` (H2 and Postgres lane), `CommitteeRoleTreasurerTest` (shared), a single-holder case in `BoardMembershipServiceTest`, a `/transparenz` case in `PublicTransparencyRoutesTest`, TREASURER cases in `GovernanceAuthorizationTest`, `PollAuthorizationMatrixTest`, `MeetingEventLinkServiceTest`, `MeetingEventOfficerGrantTest`, the three schema drift tests and `PublicChromeStringsTest`.
+
 ## [0.53.0] — 2026-11-12
 
 Feature release on `[0.52.0]` (one wave, V1.9.303, and a test fix; the database schema stays `V151`). **No migration**, no new environment variable. The section below carries the details; read its behaviour changes first.

@@ -11799,6 +11799,10 @@ msgstr "Portavoz"
 msgid "Geschäftsführung"
 msgstr "Dirección Gerencial"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:919
+msgid "Finanzvorstand"
+msgstr "Tesorería"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:55
 msgid "Fragen zur Satzung"
 msgstr "Preguntas sobre los estatutos"

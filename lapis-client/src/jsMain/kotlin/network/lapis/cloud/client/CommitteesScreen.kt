@@ -916,6 +916,7 @@ fun committeeRoleLabel(role: CommitteeRole): String =
         CommitteeRole.GENERAL_SECRETARY -> gettext("Generalsekretariat")
         CommitteeRole.PRESS_SPOKESPERSON -> gettext("Pressesprecher")
         CommitteeRole.MANAGING_DIRECTOR -> gettext("Geschäftsführung")
+        CommitteeRole.TREASURER -> gettext("Finanzvorstand")
     }
 
 fun committeeRoleColor(role: CommitteeRole): String =
@@ -928,6 +929,7 @@ fun committeeRoleColor(role: CommitteeRole): String =
         CommitteeRole.GENERAL_SECRETARY -> "primary"
         CommitteeRole.PRESS_SPOKESPERSON -> "secondary"
         CommitteeRole.MANAGING_DIRECTOR -> "dark"
+        CommitteeRole.TREASURER -> "dark"
     }
 
 /**

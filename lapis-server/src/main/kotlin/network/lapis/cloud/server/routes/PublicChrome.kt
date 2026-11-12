@@ -179,6 +179,7 @@ internal data class PublicUiStrings(
     val committeeRoleGeneralSecretary: String,
     val committeeRolePressSpokesperson: String,
     val committeeRoleManagingDirector: String,
+    val committeeRoleTreasurer: String,
 )
 
 internal object PublicChrome {
@@ -265,6 +266,7 @@ internal object PublicChrome {
                     committeeRoleGeneralSecretary = "Generalsekretariat",
                     committeeRolePressSpokesperson = "Pressesprecher",
                     committeeRoleManagingDirector = "Geschäftsführung",
+                    committeeRoleTreasurer = "Finanzvorstand",
                 ),
             PublicLanguage.EN to
                 PublicUiStrings(
@@ -329,6 +331,7 @@ internal object PublicChrome {
                     committeeRoleGeneralSecretary = "General Secretary",
                     committeeRolePressSpokesperson = "Press Spokesperson",
                     committeeRoleManagingDirector = "Managing Director",
+                    committeeRoleTreasurer = "Treasurer",
                 ),
             PublicLanguage.FR to
                 PublicUiStrings(
@@ -393,6 +396,7 @@ internal object PublicChrome {
                     committeeRoleGeneralSecretary = "Secrétariat général",
                     committeeRolePressSpokesperson = "Porte-parole",
                     committeeRoleManagingDirector = "Direction générale",
+                    committeeRoleTreasurer = "Trésorerie",
                 ),
             PublicLanguage.ES to
                 PublicUiStrings(
@@ -457,6 +461,7 @@ internal object PublicChrome {
                     committeeRoleGeneralSecretary = "Secretaría General",
                     committeeRolePressSpokesperson = "Portavoz",
                     committeeRoleManagingDirector = "Dirección Gerencial",
+                    committeeRoleTreasurer = "Tesorería",
                 ),
             PublicLanguage.IT to
                 PublicUiStrings(
@@ -521,6 +526,7 @@ internal object PublicChrome {
                     committeeRoleGeneralSecretary = "Segreteria Generale",
                     committeeRolePressSpokesperson = "Portavoce",
                     committeeRoleManagingDirector = "Direzione Generale",
+                    committeeRoleTreasurer = "Tesoreria",
                 ),
             PublicLanguage.NL to
                 PublicUiStrings(
@@ -585,6 +591,7 @@ internal object PublicChrome {
                     committeeRoleGeneralSecretary = "Secretaris-generaal",
                     committeeRolePressSpokesperson = "Woordvoerder",
                     committeeRoleManagingDirector = "Directie",
+                    committeeRoleTreasurer = "Penningmeester",
                 ),
             PublicLanguage.PL to
                 PublicUiStrings(
@@ -649,6 +656,7 @@ internal object PublicChrome {
                     committeeRoleGeneralSecretary = "Sekretariat Generalny",
                     committeeRolePressSpokesperson = "Rzecznik prasowy",
                     committeeRoleManagingDirector = "Dyrekcja Zarządzająca",
+                    committeeRoleTreasurer = "Skarbnik",
                 ),
             PublicLanguage.RU to
                 PublicUiStrings(
@@ -713,6 +721,7 @@ internal object PublicChrome {
                     committeeRoleGeneralSecretary = "Генеральный секретариат",
                     committeeRolePressSpokesperson = "Пресс-секретарь",
                     committeeRoleManagingDirector = "Исполнительное руководство",
+                    committeeRoleTreasurer = "Казначей",
                 ),
         )
 

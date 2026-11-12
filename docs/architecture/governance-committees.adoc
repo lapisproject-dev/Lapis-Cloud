@@ -591,3 +591,19 @@ browsers and phones, how the PDF looks in real viewers, and the legal validity o
   on the stichtag predecessor and winner overlap (inclusive `until`); an old election without a policy with an inactive winner still aborts at the tally
   (cancel the election instead); with fewer winners than seats and `REPLACE` the free seats stay free; an ordinary member can infer from
   `pendingAdminReview` that something is under review, but never the reason.
+
+== Board position "Finanzvorstand" (`CommitteeRole.TREASURER`, schema V152)
+
+`CommitteeRole` has a ninth seat, `TREASURER`, shown as "Finanzvorstand". It is a pure seat/title and lives on layer 1 (the seat in a committee). It is
+independent of `AccountRole.TREASURER` ("Schatzmeister", layer 2, the system-wide login role). Neither implies the other: the seat grants **no** access
+right, and `AccountRole.TREASURER` still does not inherit board rights. `TREASURER` is in neither `COMMITTEE_LEADERSHIP_ROLES` nor
+`COMMITTEE_RECORDING_ROLES`, so `canManageCommittee`, `canRecordForMeeting` and poll creation treat it like `MEMBER`/`ASSESSOR`. Quorum and voting right
+count it as an ordinary seat.
+
+* *Rank* (display order, `CommitteeRole.rank`): chair 0, deputy chair 1, general secretary 2, managing director 3, **treasurer 4**, secretary 5, press
+  spokesperson 6, assessor 7, member 8. It shows on `/transparenz`, the public board list, the committee screens and the election target-role picker.
+* *Single holder*: `TREASURER` is in `SINGLE_HOLDER_COMMITTEE_ROLES`; a second appointment displaces the first (with a `LEFT` register reminder).
+* *Migration V152*: widens the four CHECK constraints named by V42 (`committee_membership_role_check`, `board_membership_committee_role_check`,
+  `transparenzregister_reminder_committee_role_check`, `election_target_role_check`). No data is converted; existing "Beisitz" seats stay until an
+  administrator changes them. `election_seat_outcome.role` has no CHECK.
+* *Wire*: an older client that receives `TREASURER` cannot decode the governance DTOs (`SerializationException`); a reload fixes it.

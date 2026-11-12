@@ -84,6 +84,7 @@ classDiagram(name = "Transparenzregister") {
         literal(name = "GENERAL_SECRETARY")
         literal(name = "PRESS_SPOKESPERSON")
         literal(name = "MANAGING_DIRECTOR")
+        literal(name = "TREASURER")
     }
 
     val boardChangeType = enumOf(name = "BoardChangeType") {

@@ -72,6 +72,7 @@ class PublicChromeStringsTest :
                         "committeeRoleSecretary" to s.committeeRoleSecretary,
                         "committeeRoleAssessor" to s.committeeRoleAssessor,
                         "committeeRoleMember" to s.committeeRoleMember,
+                        "committeeRoleTreasurer" to s.committeeRoleTreasurer,
                     )
                 fields.forEach { (name, value) ->
                     withClue("PublicUiStrings.$name for $lang") {

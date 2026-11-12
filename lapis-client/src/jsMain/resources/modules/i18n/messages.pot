@@ -11314,6 +11314,10 @@ msgstr ""
 msgid "Geschäftsführung"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:919
+msgid "Finanzvorstand"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:55
 msgid "Fragen zur Satzung"
 msgstr ""

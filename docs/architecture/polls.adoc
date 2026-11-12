@@ -20,7 +20,7 @@ NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-r
 [cols="2,4", options="header"]
 |===
 | Action | Who
-| Create | ADMIN/BOARD, or a holder of a recording seat (`CHAIR`, `DEPUTY_CHAIR`, `GENERAL_SECRETARY`, `SECRETARY`, `MANAGING_DIRECTOR` -- the set of `COMMITTEE_RECORDING_ROLES`) in *any* active committee as of today, who is an ACTIVE member
+| Create | ADMIN/BOARD, or a holder of a recording seat (`CHAIR`, `DEPUTY_CHAIR`, `GENERAL_SECRETARY`, `SECRETARY`, `MANAGING_DIRECTOR` -- the set of `COMMITTEE_RECORDING_ROLES`) (`TREASURER`, the "Finanzvorstand" seat, is not part of it) in *any* active committee as of today, who is an ACTIVE member
 | Close / abort | The creator while still creator-capable, or ADMIN/BOARD. The chair of another committee may not close somebody else's poll.
 | Respond | ACTIVE members only. GUEST, FRIEND, federated guests, APPLICATION, WITHDRAWN and REJECTED are refused with `ForbiddenException` *before* the poll is looked up.
 | Read | ACTIVE members, or creator-capable callers

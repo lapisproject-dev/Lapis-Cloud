@@ -170,6 +170,7 @@ classDiagram(name = "Election") {
         literal(name = "GENERAL_SECRETARY")
         literal(name = "PRESS_SPOKESPERSON")
         literal(name = "MANAGING_DIRECTOR")
+        literal(name = "TREASURER")
     }
 
     // Welle V1.9.103 "Gremien, Welle C" -- what an election does to the previous holders of its target role (NULL = old behaviour, YES_NO).

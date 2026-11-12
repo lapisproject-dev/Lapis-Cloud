@@ -143,6 +143,7 @@ classDiagram(name = "Governance") {
         literal(name = "GENERAL_SECRETARY")
         literal(name = "PRESS_SPOKESPERSON")
         literal(name = "MANAGING_DIRECTOR")
+        literal(name = "TREASURER")
     }
 
     // Welle V1.9.112 -- why a seat ended automatically: the four MemberStatus literals of V1.9.102 (names unchanged, so stored values stay valid)

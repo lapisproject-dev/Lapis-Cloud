@@ -12196,6 +12196,10 @@ msgstr "Woordvoerder"
 msgid "Geschäftsführung"
 msgstr "Directie"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:919
+msgid "Finanzvorstand"
+msgstr "Penningmeester"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:55
 msgid "Fragen zur Satzung"
 msgstr "Vragen over de statuten"

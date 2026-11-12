@@ -12135,6 +12135,10 @@ msgstr "Portavoce"
 msgid "Geschäftsführung"
 msgstr "Direzione Generale"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:919
+msgid "Finanzvorstand"
+msgstr "Tesoreria"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:55
 msgid "Fragen zur Satzung"
 msgstr "Domande sullo statuto"

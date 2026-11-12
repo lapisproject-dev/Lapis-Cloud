@@ -12091,6 +12091,10 @@ msgstr "Rzecznik prasowy"
 msgid "Geschäftsführung"
 msgstr "Dyrekcja Zarządzająca"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:919
+msgid "Finanzvorstand"
+msgstr "Skarbnik"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:55
 msgid "Fragen zur Satzung"
 msgstr "Pytania o statut"

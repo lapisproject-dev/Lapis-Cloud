@@ -272,6 +272,59 @@ class BoardMembershipServiceTest :
             }
         }
 
+        test(
+            "TREASURER (Finanzvorstand) is a single-holder seat: a second appointment displaces the first with a LEFT reminder, ASSESSOR stays shared",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installBoardMembershipExceptionHandlers() }
+                    routing { registerBoardMembershipTestRoutes() }
+                }
+                val admin = createTestMember("bms-treasurer-admin@example.org", role = AccountRole.ADMIN)
+                val first = createTestMember("bms-treasurer-first@example.org")
+                val second = createTestMember("bms-treasurer-second@example.org")
+                val assessorA = createTestMember("bms-treasurer-assessor-a@example.org")
+                val assessorB = createTestMember("bms-treasurer-assessor-b@example.org")
+
+                suspend fun appoint(
+                    target: Uuid,
+                    role: String,
+                ) = client.post("/test/appoint-board-member?memberId=$target&committeeRole=$role&startedAt=2026-02-01") {
+                    header("X-Member-Id", admin.toString())
+                }
+
+                appoint(first, "TREASURER").status shouldBe HttpStatusCode.OK
+                appoint(second, "TREASURER").status shouldBe HttpStatusCode.OK
+                appoint(assessorA, "ASSESSOR").status shouldBe HttpStatusCode.OK
+                appoint(assessorB, "ASSESSOR").status shouldBe HttpStatusCode.OK
+
+                fun openSeats(member: Uuid) =
+                    transaction {
+                        BoardMembershipTable
+                            .selectAll()
+                            .where { (BoardMembershipTable.memberId eq member) and BoardMembershipTable.endedAt.isNull() }
+                            .count()
+                    }
+                openSeats(first) shouldBe 0L
+                openSeats(second) shouldBe 1L
+                openSeats(assessorA) shouldBe 1L
+                openSeats(assessorB) shouldBe 1L
+                transaction {
+                    TransparenzregisterReminderTable
+                        .selectAll()
+                        .where { TransparenzregisterReminderTable.memberId eq first }
+                        .map { it[TransparenzregisterReminderTable.changeType] }
+                        .toSet()
+                } shouldBe setOf(BoardChangeType.JOINED, BoardChangeType.LEFT)
+                transaction {
+                    TransparenzregisterReminderTable
+                        .selectAll()
+                        .where { TransparenzregisterReminderTable.memberId eq second }
+                        .single()[TransparenzregisterReminderTable.committeeRole]
+                } shouldBe CommitteeRole.TREASURER
+            }
+        }
+
         test("endBoardMembership sets endedAt and creates a LEFT reminder; ending an already-ended membership throws Conflict") {
             testApplication {
                 application {

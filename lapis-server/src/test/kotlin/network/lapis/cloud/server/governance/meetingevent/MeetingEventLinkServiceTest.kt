@@ -677,7 +677,8 @@ class MeetingEventLinkServiceTest :
             val meeting = newMeeting(own)
             val allowedRoles =
                 listOf(CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.GENERAL_SECRETARY, CommitteeRole.SECRETARY)
-            val deniedRoles = listOf(CommitteeRole.MEMBER, CommitteeRole.ASSESSOR, CommitteeRole.PRESS_SPOKESPERSON)
+            val deniedRoles =
+                listOf(CommitteeRole.MEMBER, CommitteeRole.ASSESSOR, CommitteeRole.PRESS_SPOKESPERSON, CommitteeRole.TREASURER)
             val event = newPublishedEvent()
             withOps { call ->
                 deniedRoles.forEach { role ->

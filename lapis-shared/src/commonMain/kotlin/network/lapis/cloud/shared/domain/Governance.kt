@@ -26,6 +26,11 @@ enum class CommitteeType { EXECUTIVE_BOARD, WORKING_GROUP, COMMISSION, OTHER, GE
  * within the two that already existed. This remains a fixed Kotlin enum, not a runtime-editable
  * catalog -- a new role still requires a code change + release (see project decision, "committee-
  * role-titles" wave KDoc/plan).
+ *
+ * [TREASURER] (German label "Finanzvorstand") added in the "board-position-treasurer" wave. It is a
+ * pure seat/title: it grants NO access right and is in neither [COMMITTEE_LEADERSHIP_ROLES] nor
+ * [COMMITTEE_RECORDING_ROLES]. It has nothing to do with [AccountRole.TREASURER], the system-wide
+ * login role -- always qualify the enum when both are in scope.
  */
 @Serializable
 enum class CommitteeRole {
@@ -37,6 +42,7 @@ enum class CommitteeRole {
     GENERAL_SECRETARY,
     PRESS_SPOKESPERSON,
     MANAGING_DIRECTOR,
+    TREASURER,
 }
 
 /**
@@ -55,10 +61,11 @@ val CommitteeRole.rank: Int
             CommitteeRole.DEPUTY_CHAIR -> 1
             CommitteeRole.GENERAL_SECRETARY -> 2
             CommitteeRole.MANAGING_DIRECTOR -> 3
-            CommitteeRole.SECRETARY -> 4
-            CommitteeRole.PRESS_SPOKESPERSON -> 5
-            CommitteeRole.ASSESSOR -> 6
-            CommitteeRole.MEMBER -> 7
+            CommitteeRole.TREASURER -> 4
+            CommitteeRole.SECRETARY -> 5
+            CommitteeRole.PRESS_SPOKESPERSON -> 6
+            CommitteeRole.ASSESSOR -> 7
+            CommitteeRole.MEMBER -> 8
         }
 
 /**
@@ -81,8 +88,8 @@ val COMMITTEE_RECORDING_ROLES: Set<CommitteeRole> =
 
 /**
  * [CommitteeRole]s that can only be held by one member at a time -- named seats, as opposed to
- * MEMBER/ASSESSOR which are ordinary board seats several people hold concurrently. All three new
- * roles from this wave are single-holder seats too, including [CommitteeRole.PRESS_SPOKESPERSON]
+ * MEMBER/ASSESSOR which are ordinary board seats several people hold concurrently. All the later
+ * roles (incl. [CommitteeRole.TREASURER]) are single-holder seats too, including [CommitteeRole.PRESS_SPOKESPERSON]
  * (unprivileged, but still an individual office -- no Verein/Partei seats two Pressesprecher at
  * once). Single source for the server-side `BoardMembershipEvents` displaced-incumbent check and its
  * client-side, purely-informational mirror in `BoardMembershipScreen`.
@@ -95,6 +102,7 @@ val SINGLE_HOLDER_COMMITTEE_ROLES: Set<CommitteeRole> =
         CommitteeRole.GENERAL_SECRETARY,
         CommitteeRole.PRESS_SPOKESPERSON,
         CommitteeRole.MANAGING_DIRECTOR,
+        CommitteeRole.TREASURER,
     )
 
 @Serializable

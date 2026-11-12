@@ -126,6 +126,14 @@ class GovernanceAuthorizationTest :
             currentMemberFor(memberId).canManageCommittee(committeeId) shouldBe false
         }
 
+        test("canManageCommittee and canRecordForMeeting: a TREASURER (Finanzvorstand) seat grants nothing, exactly like MEMBER") {
+            val committeeId = createTestCommittee()
+            val treasurer = createTestMember("fin-board-${Uuid.random()}@example.org")
+            seatMember(committeeId, treasurer, CommitteeRole.TREASURER)
+            currentMemberFor(treasurer).canManageCommittee(committeeId) shouldBe false
+            currentMemberFor(treasurer).canRecordForMeeting(committeeId) shouldBe false
+        }
+
         test("canManageCommittee: PRESS_SPOKESPERSON is NOT granted") {
             val committeeId = createTestCommittee()
             val memberId = createTestMember("press-manage-${Uuid.random()}@example.org")

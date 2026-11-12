@@ -39,6 +39,7 @@ internal fun CommitteeRole.publicLabel(strings: PublicUiStrings): String =
         CommitteeRole.GENERAL_SECRETARY -> strings.committeeRoleGeneralSecretary
         CommitteeRole.PRESS_SPOKESPERSON -> strings.committeeRolePressSpokesperson
         CommitteeRole.MANAGING_DIRECTOR -> strings.committeeRoleManagingDirector
+        CommitteeRole.TREASURER -> strings.committeeRoleTreasurer
     }
 
 /** One person on a public card -- name, role/office text, optional photo token and optional short bio. Never an id, an e-mail, a date or a number about the person. */

@@ -12083,6 +12083,10 @@ msgstr "Пресс-секретарь"
 msgid "Geschäftsführung"
 msgstr "Исполнительное руководство"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:919
+msgid "Finanzvorstand"
+msgstr "Казначей"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:55
 msgid "Fragen zur Satzung"
 msgstr "Вопросы по уставу"

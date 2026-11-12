@@ -379,6 +379,7 @@ class MeetingEventOfficerGrantTest :
                         newMember().also { seat(it, own, CommitteeRole.MEMBER) },
                         newMember().also { seat(it, own, CommitteeRole.ASSESSOR) },
                         newMember().also { seat(it, own, CommitteeRole.PRESS_SPOKESPERSON) },
+                        newMember().also { seat(it, own, CommitteeRole.TREASURER) },
                         newMember().also { seat(it, foreign, CommitteeRole.CHAIR) },
                         plainMemberId,
                         treasurerId,

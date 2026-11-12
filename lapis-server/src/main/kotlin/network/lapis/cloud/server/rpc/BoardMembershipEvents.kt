@@ -49,7 +49,7 @@ object BoardMembershipEvents {
      * choice is enough to prompt the manual register update on a role change.
      *
      * Displaced-incumbent handling: [role] may be a [SINGLE_HOLDER_COMMITTEE_ROLES] seat
-     * (CHAIR/DEPUTY_CHAIR/SECRETARY/GENERAL_SECRETARY/PRESS_SPOKESPERSON/MANAGING_DIRECTOR), which
+     * (CHAIR/DEPUTY_CHAIR/SECRETARY/GENERAL_SECRETARY/PRESS_SPOKESPERSON/MANAGING_DIRECTOR/TREASURER), which
      * by definition can only be held by one member at a time. If some OTHER member currently holds
      * an open [BoardMembershipTable] row for that same
      * [role] (a contested election unseating a sitting incumbent, e.g. `targetRole = CHAIR` and

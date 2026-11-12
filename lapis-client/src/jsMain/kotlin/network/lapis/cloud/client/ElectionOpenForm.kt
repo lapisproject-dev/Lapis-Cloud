@@ -23,6 +23,7 @@ import network.lapis.cloud.shared.domain.ElectionType
 import network.lapis.cloud.shared.domain.IncumbentPolicy
 import network.lapis.cloud.shared.domain.MotionDto
 import network.lapis.cloud.shared.domain.SINGLE_HOLDER_COMMITTEE_ROLES
+import network.lapis.cloud.shared.domain.rank
 import network.lapis.cloud.shared.rpc.IElectionService
 import org.w3c.dom.HTMLInputElement
 
@@ -176,7 +177,7 @@ internal fun renderOpenElectionForm(
     val roleField =
         form.searchableSelectField(
             label = tr("Rolle im Zielgremium"),
-            options = CommitteeRole.entries.map { it.name to committeeRoleLabel(it) },
+            options = CommitteeRole.entries.sortedBy { it.rank }.map { it.name to committeeRoleLabel(it) },
             value = CommitteeRole.MEMBER.name,
             required = true,
         )
