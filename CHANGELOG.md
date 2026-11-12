@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.53.0] — 2026-11-12
+
+Feature release on `[0.52.0]` (one wave, V1.9.303, and a test fix; the database schema stays `V151`). **No migration**, no new environment variable. The section below carries the details; read its behaviour changes first.
+
 ### LupaBB comparison: title kept apart, view made clear (wave V1.9.303, no migration)
 
 No migration (the schema stays `V151`), no new environment variable.
