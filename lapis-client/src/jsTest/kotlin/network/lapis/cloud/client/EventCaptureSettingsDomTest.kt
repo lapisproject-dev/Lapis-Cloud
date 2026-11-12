@@ -196,7 +196,7 @@ class EventCaptureSettingsDomTest {
                 val again = element.allOf("button").filter { it.text().trim() == "Erneut bestätigen" }
                 assertTrue(again.isNotEmpty())
                 again.last().click()
-                awaitUntil("the dialog") { document.querySelector(".modal.show") != null }
+                awaitModalShown()
                 assertTrue(lastOpenModal().text().contains("Aufzeichnung in Veranstaltungsräumen erlauben?"))
                 escape(lastOpenModal())
                 awaitUntil("closed") { document.querySelector(".modal.show") == null }

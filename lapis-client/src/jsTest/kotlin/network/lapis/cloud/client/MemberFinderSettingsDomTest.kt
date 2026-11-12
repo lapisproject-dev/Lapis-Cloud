@@ -190,7 +190,7 @@ class MemberFinderSettingsDomTest {
                     .filter { it.text().trim() == "Erneut bestätigen" }
                     .last()
                     .click()
-                awaitUntil("the dialog") { document.querySelector(".modal.show") != null }
+                awaitModalShown()
                 assertTrue(lastOpenModal().text().contains("Mitglieder-Finder erlauben?"))
                 escape(lastOpenModal())
                 awaitUntil("closed") { document.querySelector(".modal.show") == null }
@@ -207,7 +207,7 @@ class MemberFinderSettingsDomTest {
                 val link = assertNotNull(element.querySelector("a[href='#${Routes.AGREEMENT_TEXTS}']"))
                 assertTrue(link.textContent.orEmpty().contains("Zu den Vertragstexten"))
                 element.finderSwitch().click()
-                awaitUntil("the dialog") { document.querySelector(".modal.show") != null }
+                awaitModalShown()
                 assertTrue(lastOpenModal().text().contains("Platzhaltertext aktiv"))
                 escape(lastOpenModal())
                 awaitUntil("closed") { document.querySelector(".modal.show") == null }

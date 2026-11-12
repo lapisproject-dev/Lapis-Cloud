@@ -202,6 +202,18 @@ internal fun lastOpenModal(): HTMLElement {
     return assertNotNull(modals.item(modals.length - 1) as? HTMLElement, "no modal")
 }
 
+/**
+ * Waits until a dialog is open AND fully shown: the class `show` appears at the start of the fade-in, but Bootstrap ignores `hide()`
+ * (and so Escape) while the dialog is still transitioning. Focus inside the dialog is set only when the transition is over, so it marks
+ * the real "shown" state; a test that presses Escape right after `.modal.show` alone is flaky on a slow runner.
+ */
+internal suspend fun awaitModalShown(message: String = "the dialog") {
+    awaitUntil(message) {
+        val open = document.querySelector(".modal.show") as? HTMLElement
+        open != null && open.contains(document.activeElement)
+    }
+}
+
 /** The control of the field whose label starts with [label] (`for`-linked, the star suffix ignored); [nth] picks among equal labels. */
 internal fun HTMLElement.controlOf(
     label: String,

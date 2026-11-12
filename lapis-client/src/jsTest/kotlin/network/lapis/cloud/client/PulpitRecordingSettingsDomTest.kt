@@ -162,7 +162,7 @@ class PulpitRecordingSettingsDomTest {
                     ),
                 )
                 element.buttonNamed("Erneut bestätigen").click()
-                awaitUntil("the dialog") { document.querySelector(".modal.show") != null }
+                awaitModalShown()
                 assertTrue(lastOpenModal().text().contains("Hinweis Version $PULPIT_RECORDING_NOTICE_VERSION"))
                 escape(lastOpenModal())
                 awaitUntil("closed") { document.querySelector(".modal.show") == null }
