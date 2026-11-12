@@ -1,4 +1,4 @@
--- V1.9.299 "Title field on the member". See 00-foundation.kuml.kts and 77-lupabb-sync.kuml.kts.
+-- V1.9.302 "Title field on the member". See 00-foundation.kuml.kts and 77-lupabb-sync.kuml.kts.
 -- V1..V150 untouched (V150 is already released with 0.50.0/0.51.0; changing it in place would break its Flyway checksum).
 --
 --   * member.title: academic/professional title shown before the name in letters (nullable, max 50, validated in code like street).

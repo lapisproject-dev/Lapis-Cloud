@@ -8,7 +8,7 @@ All notable changes to this project are documented here. Format follows
 
 ## [0.52.0] — 2026-11-12
 
-Feature release on `[0.51.0]` (three waves, V1.9.299 to V1.9.301; database schema `V150` -> `V151`). **One additive migration: `V151__member_title.sql`**; no new environment variable. The sections below carry the details; read the behaviour changes of the title section first (rollback hazard, bundles made before `V151` are refused).
+Feature release on `[0.51.0]` (three waves, V1.9.300 to V1.9.302; database schema `V150` -> `V151`). **One additive migration: `V151__member_title.sql`**; no new environment variable. The sections below carry the details; read the behaviour changes of the title section first (rollback hazard, bundles made before `V151` are refused).
 
 ### Politician view redesigned (wave V1.9.301, no migration)
 
@@ -38,7 +38,7 @@ No migration (the schema stays `V151`): text-only change in the server plus test
 - **Resolves the limit noted in V1.9.186** (server-written texts still saying "Mitfahrerzentrale").
 - **Not verified:** nothing ran on a live instance. The old word remains in comments of the kUML model files, in the `Dockerfile`, in `docs/release-history.adoc` and in the changelog history.
 
-### Title field on the member (wave V1.9.299, schema V150 to V151)
+### Title field on the member (wave V1.9.302, schema V150 to V151)
 
 **Behaviour changes first:** (1) **new migration `V151`**: `member.title VARCHAR(50)` (nullable) is added, the LupaBB title is copied into it once (trimmed; blank and `NULL` stay `NULL`; a value already set is never overwritten) and `member_lupabb_profile.title` is **dropped**. (2) **Rollback hazard:** release 0.51.0 can no longer run against a migrated database; roll back only by restoring the pre-rollout backup. (3) A whole-organisation backup bundle made before V151 is refused as a whole on restore (schema checksum), as for V150. (4) The title is now printed **before the name** in the address block of letters (Beitragsrechnung, Spendenbescheinigung, Mahnung, Einladung) and in the recipient name of postal dispatch; salutations ("Liebe(r) ...") and mails keep the plain display name. (5) The LupaBB comparison now compares the LupaBB title with `member.title`: a title set by hand that differs (or an empty LupaBB title) shows as a difference "Titel" in every comparison and is only replaced after confirmation. (6) Open LupaBB previews show `CHANGED_SINCE_PREVIEW` once after the rollout (the fingerprint now contains `member.title`).
 

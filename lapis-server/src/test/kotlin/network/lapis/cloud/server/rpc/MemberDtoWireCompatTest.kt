@@ -76,7 +76,7 @@ class MemberDtoWireCompatTest :
                     .resolve("src/commonMain/kotlin/network/lapis/cloud/shared/rpc/IMemberService.kt")
                     .readText()
             val methods = Regex("""(?m)^\s+suspend fun (\w+)\(""").findAll(source).map { it.groupValues[1] }.toList()
-            // V1.9.299 appended updateMemberTitle; V1.9.298 appended setMemberVotingRight and releaseMemberVotingRightToSync after the V1.9.121 block
+            // V1.9.302 appended updateMemberTitle; V1.9.298 appended setMemberVotingRight and releaseMemberVotingRightToSync after the V1.9.121 block
             methods.takeLast(8) shouldContainExactly
                 listOf(
                     "updateMemberStreetAddress",
