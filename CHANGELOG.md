@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.52.0] — 2026-11-12
+
+Feature release on `[0.51.0]` (three waves, V1.9.299 to V1.9.301; database schema `V150` -> `V151`). **One additive migration: `V151__member_title.sql`**; no new environment variable. The sections below carry the details; read the behaviour changes of the title section first (rollback hazard, bundles made before `V151` are refused).
+
 ### Politician view redesigned (wave V1.9.301, no migration)
 
 No migration (the schema stays `V151`): the photo is a LEFT JOIN on the existing `member_photo` table (one row per member).

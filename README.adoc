@@ -88,10 +88,10 @@ this repository. This README describes only the technical scope.
 
 == Status
 
-Current release: *v0.51.0* (database schema *V150*, unchanged; a feature release on `v0.50.0`: the LupaBB comparison resolves conflicts in the view (open the member, take over LupaBB values for management-role members, choose the person meant or skip, end of a friendship for legacy `FRIEND` records), the free-space bar on the video conference and encounter room screens, Dependabot re-resolution of the client Yarn lock; no migration, no new environment variable. **Not verified:** nothing ran on a live instance or against the real LupaBB; translations model-written. See `CHANGELOG.md` `[0.51.0]`. Previous release `v0.50.0` (schema *V150*, voting right and donor sign-in); the full history is in link:docs/release-history.adoc[docs/release-history.adoc].)
+Current release: *v0.52.0* (database schema *V151*; a feature release on `v0.51.0`: an own title field on the member (printed before the name in letters, filled and compared by the LupaBB sync), the politician view redesigned (photo only with consent), the carpool name "Mitfahrzentrale" in mails, the data export and the privacy text; one additive migration `V151`, no new environment variable. **Rollback hazard:** `v0.51.0` can no longer run against a migrated database; a bundle made before `V151` is refused as a whole. **Not verified:** nothing ran on a live instance or against the real LupaBB; translations model-written. See `CHANGELOG.md` `[0.52.0]`. Previous release `v0.51.0` (schema *V150*, LupaBB conflict resolution); the full history is in link:docs/release-history.adoc[docs/release-history.adoc].)
 the meritocratic governance layer (voting, elections, systemic consensus, LTR economy), federation, video conferencing and many optional modules.
 
-* Not yet released: `CHANGELOG.md` `[Unreleased]` is empty; everything up to the LupaBB conflict resolution is in `v0.51.0`.
+* Not yet released: `CHANGELOG.md` `[Unreleased]` is empty; everything up to the politician view redesign is in `v0.52.0`.
 * `CHANGELOG.md` is the authoritative release history; the long-form narrative is in link:docs/release-history.adoc[docs/release-history.adoc].
 * Website: https://cloud.lapisproject.dev
 * Feature documentation: link:docs/features/index.adoc[docs/features/index.adoc]
