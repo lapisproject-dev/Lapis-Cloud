@@ -6,6 +6,14 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.54.0] — 2026-11-16
+
+Feature release on `[0.53.0]` (five waves; the database schema goes from `V151` to `V155`, four additive migrations `V152` to `V155`). **BREAKING for operators: `ADMIN` is no longer a value of `account.role` but the flag `account.is_admin` (V155); backups made before V155 are refused on restore, so take a backup after the upgrade is verified and keep the pre-upgrade backup only for a rollback to 0.53.x.** No new environment variable is required; the console action `set-admin` with `LAPIS_BOOTSTRAP_ADMIN=true|false` replaces `LAPIS_BOOTSTRAP_ROLE=ADMIN`. The sections below carry the details; read their behaviour changes first.
+
+Contents: administrator rights as an independent flag, founding member marker, room polls in video conferences and for stream viewers, board position "Finanzvorstand".
+
+**Not verified:** nothing ran on a live instance, in a real LiveKit room, with real YouTube or Twitch viewers or on a real phone; translations are model-written.
+
 ### Administrator rights as an independent flag (schema V154 -> V155)
 
 **Behaviour changes first:**
