@@ -31,6 +31,7 @@ import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.PulpitRecordingDocumentTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AgreementTextRules
@@ -118,7 +119,7 @@ class OrganizationBackupRoundTripTest :
                     it[id] = Uuid.random()
                     it[memberId] = adminId
                     it[passwordHash] = "a-fake-bcrypt-hash-for-round-trip-verification-only"
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 // V1.9.141: an applicant (status APPLICATION) with the optional country and two nationalities from the
                 // registration form -- the generic comparison below covers member.country_code and member_nationality.
@@ -502,7 +503,7 @@ class OrganizationBackupRoundTripTest :
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[memberId] = adminId
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
             }
             val bundleFile = File.createTempFile("roundtrip-guard-bundle-", ".zip")

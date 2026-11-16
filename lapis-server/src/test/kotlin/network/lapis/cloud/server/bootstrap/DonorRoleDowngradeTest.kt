@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SessionTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -59,14 +60,19 @@ class DonorRoleDowngradeTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             created += id
             return id
         }
 
-        fun roleOf(id: Uuid) = transaction { AccountTable.selectAll().where { AccountTable.memberId eq id }.single()[AccountTable.role] }
+        fun roleOf(id: Uuid) =
+            transaction {
+                AccountTable.selectAll().where { AccountTable.memberId eq id }.single().let {
+                    if (it[AccountTable.isAdmin]) AccountRole.ADMIN else it[AccountTable.role]
+                }
+            }
 
         fun auditCount(id: Uuid) = transaction { AuditLogEntryTable.selectAll().where { AuditLogEntryTable.entityId eq id }.count() }
 

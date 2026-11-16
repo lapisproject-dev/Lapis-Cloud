@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -57,7 +58,7 @@ abstract class McpArticleDraftStoreScenarios(
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.BOARD
+                    it.legacyAccountRole(role = AccountRole.BOARD)
                 }
             }
             memberIds += id

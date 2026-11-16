@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
 import network.lapis.cloud.server.db.generated.MemberFamilyTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.FamilyMemberRole
@@ -70,7 +71,7 @@ class MemberFamilyPersonalDataTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.BOARD
+                    it.legacyAccountRole(role = AccountRole.BOARD)
                 }
             }
             createdMemberIds += id

@@ -35,6 +35,7 @@ import network.lapis.cloud.server.payment.psp.PaypalConfigState
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionCheckoutInput
@@ -134,7 +135,7 @@ class PaymentGatewayCheckoutServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

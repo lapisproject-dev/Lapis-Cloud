@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.module
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.LoginMethod
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -62,7 +63,7 @@ class LastLoginStampTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                     it[passwordHash] = PasswordHasher.hash(password)
                 }
             }

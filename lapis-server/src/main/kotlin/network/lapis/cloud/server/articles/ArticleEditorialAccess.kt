@@ -3,13 +3,13 @@ package network.lapis.cloud.server.articles
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.rpc.requireActiveMembership
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
 
@@ -35,7 +35,7 @@ internal object ArticleEditorialAccess {
         val isEditorial =
             AccountTable
                 .selectAll()
-                .where { (AccountTable.memberId eq memberId) and (AccountTable.role inList REVIEW_ROLES) }
+                .where { (AccountTable.memberId eq memberId) and (AccountRights.effectiveRoleIn(REVIEW_ROLES)) }
                 .limit(1)
                 .any()
         if (!isEditorial) throw ForbiddenException("Not permitted for this account")

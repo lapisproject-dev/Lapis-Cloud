@@ -194,6 +194,8 @@ class AuthService internal constructor(
             memberId = current.memberId.toString(),
             displayName = displayName,
             role = current.role,
+            isAdmin = current.isAdmin,
+            baseRole = current.baseRole,
             expiresAt = expiresAt,
             isGuest = current.isGuest,
             homeserverUrl = homeserverUrl,

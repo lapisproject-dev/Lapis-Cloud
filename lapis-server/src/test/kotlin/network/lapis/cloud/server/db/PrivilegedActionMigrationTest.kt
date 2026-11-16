@@ -196,10 +196,12 @@ class PrivilegedActionMigrationTest : PrivilegedActionMigrationScenarios(TestDat
                 it.next()
                 it.getString(1) shouldBe "Foo@Example.org"
             }
-            query("SELECT role, role_changed_at FROM account WHERE id = '$account'") {
+            query("SELECT role, role_changed_at, is_admin FROM account WHERE id = '$account'") {
                 it.next()
-                it.getString(1) shouldBe "ADMIN"
+                // V155: the legacy ADMIN role became MEMBER plus the administrator flag
+                it.getString(1) shouldBe "MEMBER"
                 it.getTimestamp(2) shouldBe null
+                it.getBoolean(3) shouldBe true
             }
             query("SELECT count(*) FROM privileged_action_request") {
                 it.next()

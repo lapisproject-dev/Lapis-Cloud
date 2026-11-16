@@ -12,6 +12,7 @@ import network.lapis.cloud.server.keycloak.KeycloakAccountLinker
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.KeycloakLinkChange
 import network.lapis.cloud.server.mail.KeycloakLinkNotificationMailer
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.PeerGuard
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.extractSessionToken
@@ -69,7 +70,7 @@ class KeycloakLinkService internal constructor(
             // construction (at most one row per member, see that table's own uq_..._member index)
             // so materializing its member ids first is cheap and keeps this query unambiguous.
             val linkedMemberIds = KeycloakAccountLinkTable.selectAll().map { it[KeycloakAccountLinkTable.memberId] }.toSet()
-            val roleByMember = AccountTable.selectAll().associate { it[AccountTable.memberId] to it[AccountTable.role] }
+            val roleByMember = AccountTable.selectAll().associate { it[AccountTable.memberId] to AccountRights.effectiveRole(it) }
             MemberTable
                 .selectAll()
                 .where { MemberTable.status notInList MemberStatusSets.LOGIN_BLOCKED }

@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.ConferenceStreamDestinationTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceStreamBroadcastInput
 import network.lapis.cloud.shared.domain.ConferenceStreamDestinationDto
@@ -97,7 +98,7 @@ class BroadcastKeyLeakTest :
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[memberId] = owner
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
                 ConferenceRoomTable.insert {
                     it[id] = room

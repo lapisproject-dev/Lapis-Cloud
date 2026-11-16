@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.MemberPublicBioTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -53,7 +54,7 @@ class MemberPublicBioBackupExclusionTest :
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[memberId] = adminId
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 MemberPublicBioTable.insert {
                     it[id] = Uuid.random()

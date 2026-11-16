@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.CrmContactTable
 import network.lapis.cloud.server.db.generated.CrmInteractionTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CrmContactInput
 import network.lapis.cloud.shared.domain.CrmContactType
@@ -69,7 +70,7 @@ class CrmPersonalDataTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.BOARD
+                    it.legacyAccountRole(role = AccountRole.BOARD)
                 }
             }
             createdMemberIds += id

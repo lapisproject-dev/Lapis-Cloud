@@ -38,6 +38,7 @@ import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuctionStatus
@@ -138,7 +139,7 @@ internal object DashboardFixtures {
         AccountTable.insert {
             it[AccountTable.id] = Uuid.random()
             it[AccountTable.memberId] = memberId
-            it[AccountTable.role] = role
+            it.legacyAccountRole(role = role)
         }
         return memberId
     }

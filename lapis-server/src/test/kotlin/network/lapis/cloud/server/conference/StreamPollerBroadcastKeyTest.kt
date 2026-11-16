@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.ConferenceStreamDestinationTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceStreamKeyKind
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
@@ -140,7 +141,7 @@ class StreamPollerBroadcastKeyTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
                 ConferenceRoomTable.insert {
                     it[ConferenceRoomTable.id] = roomId

@@ -17,6 +17,13 @@ NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-ren
 
 == The matrix
 
+NOTE: Since V155 "ADMIN" is not a stored role but the *administrator right* (`account.is_admin`), independent of the base role
+(`MEMBER`, `BOARD`, `TREASURER`). The _effective role_ is ADMIN whenever the right is held; every decision below reads the effective role.
+The right is granted with `IMemberService.setAdminRights` (`PROMOTE_TO_ADMIN`: immediate, every other administrator is notified) and revoked
+only through a four-eyes request (`DEMOTE`). The request records the target's base role at request time (audit snapshot); on approval the target falls back to its
+current base role, and a base-role change does not void the request. The approver tenure is measured on `account.admin_changed_at` (`NULL` = pre-existing, tenured),
+not on `role_changed_at`. Changing the base role of an administrator needs no approval, because the effective rights do not change.
+
 Caller: M = MEMBER, T = TREASURER, B = BOARD, A = ADMIN. Targets: a MEMBER (also without an account), BOARD/TREASURER ("escalated"), an
 ADMIN, oneself. Against oneself the existing own-account flows stay as they are; the actions below are `Forbidden` there.
 
@@ -124,25 +131,26 @@ application decision, the e-mail change). Since V1.9.60 the remaining member-row
 
 == Emergency path: the operator console
 
-`AdminBootstrap` (a plain `main`, shell access to the deployment, no network endpoint) has three actions, selected by `LAPIS_BOOTSTRAP_ACTION`:
+`AdminBootstrap` (a plain `main`, shell access to the deployment, no network endpoint) has four actions, selected by `LAPIS_BOOTSTRAP_ACTION`:
 
 [cols="1,3", options="header"]
 |===
 | Action | What it does
 | `reset-password` (default, unchanged call) | `LAPIS_BOOTSTRAP_ADMIN_EMAIL`, `LAPIS_BOOTSTRAP_ADMIN_PASSWORD` (+ `LAPIS_BOOTSTRAP_FORCE=true` to overwrite). New: ends every session and every outstanding reset token of the account and writes an audit entry without an actor (`operatorConsole = true`); `role_changed_at` is untouched.
-| `set-role` | `LAPIS_BOOTSTRAP_TARGET_EMAIL`, `LAPIS_BOOTSTRAP_ROLE`. Same union lock and last-admin protection as the signed-in paths -- *there is no console path to zero login-capable administrators*. Stamps `role_changed_at`, audit without an actor.
+| `set-role` | `LAPIS_BOOTSTRAP_TARGET_EMAIL`, `LAPIS_BOOTSTRAP_ROLE` (`MEMBER`, `BOARD` or `TREASURER`; `ADMIN` is rejected, administrator rights are a flag, see `set-admin`). Sets the BASE role. Same union lock and last-admin protection as the signed-in paths -- *there is no console path to zero login-capable administrators*. Stamps `role_changed_at`, audit without an actor.
+| `set-admin` | `LAPIS_BOOTSTRAP_TARGET_EMAIL`, `LAPIS_BOOTSTRAP_ADMIN=true\|false`. Grants or revokes the administrator right (V155) and leaves the base role untouched; this is the emergency path to re-instate or promote an administrator. Same union lock and last-admin protection as the signed-in paths. Stamps `admin_changed_at`, audit without an actor.
 | `set-status` | `LAPIS_BOOTSTRAP_TARGET_EMAIL`, `LAPIS_BOOTSTRAP_STATUS=ACTIVE`. *Re-activation only*: the emergency this exists for is an administrator who got blocked and cannot unblock themselves; blocking is not an emergency, and ending a membership needs a signed-in person to attribute the committee, mandate and officer clean-up to.
 |===
 
-`set-role` and `set-status` tell the target by mail afterwards when SMTP is configured (straight through the transport, synchronously, so the mail is
+`set-role`, `set-admin` and `set-status` tell the target by mail afterwards when SMTP is configured (straight through the transport, synchronously, so the mail is
 out before the JVM exits; the console prints whether it was sent). Inside the container (the server image holds `java` and the jars under `/app/server/lib`):
 
 [source,bash]
 ----
 docker compose run --rm --entrypoint java \
-  -e LAPIS_BOOTSTRAP_ACTION=set-role \
+  -e LAPIS_BOOTSTRAP_ACTION=set-admin \
   -e LAPIS_BOOTSTRAP_TARGET_EMAIL=admin@example.org \
-  -e LAPIS_BOOTSTRAP_ROLE=ADMIN \
+  -e LAPIS_BOOTSTRAP_ADMIN=true \
   <server-service> -cp '/app/server/lib/*' network.lapis.cloud.server.bootstrap.AdminBootstrapKt
 ----
 

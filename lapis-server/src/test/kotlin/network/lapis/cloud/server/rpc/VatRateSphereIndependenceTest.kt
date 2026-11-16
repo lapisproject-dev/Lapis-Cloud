@@ -24,6 +24,7 @@ import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.JournalEntryInput
@@ -121,7 +122,7 @@ class VatRateSphereIndependenceTest :
                     AccountTable.insert {
                         it[id] = Uuid.random()
                         it[memberId] = treasurerId
-                        it[role] = AccountRole.TREASURER
+                        it.legacyAccountRole(role = AccountRole.TREASURER)
                     }
                 }
                 createdMemberIds += treasurerId

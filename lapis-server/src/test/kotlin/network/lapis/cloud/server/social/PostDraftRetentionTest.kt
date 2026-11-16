@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.McpPostDraftTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.McpPostDraftStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -69,7 +70,7 @@ class PostDraftRetentionTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

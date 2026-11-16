@@ -243,7 +243,8 @@ class PeerProtectionDialogsDomTest {
                     awaitUntil("decisions arrived") { rpc.decisionCalls == 1 }
                     val modal = lastOpenModal()
                     awaitUntil("approval hint") { modal.hasText("Zustimmung eines zweiten Administrators erforderlich") }
-                    modal.chooseIn("Rolle", AccountRole.BOARD.name)
+                    // V155: no role choice against an administrator, the dialog names the base role the target falls back to
+                    assertTrue(modal.hasText("hat das Mitglied wieder die Rolle"))
                     // the status section has its own reason field (first), the role section's is the second
                     modal.typeInto("Begründung", "Rolle wird nicht mehr benötigt", nth = 1)
                     delay(60)
@@ -253,7 +254,7 @@ class PeerProtectionDialogsDomTest {
                     assertFalse(modal.allOf("button").any { it.textContent?.trim() == "Rolle ändern" })
                     buttons.last().click()
                     awaitUntil("requested") { rpc.demotionRequests.isNotEmpty() }
-                    assertEquals(Triple("member-7", AccountRole.BOARD, "Rolle wird nicht mehr benötigt"), rpc.demotionRequests.single())
+                    assertEquals(Triple("member-7", AccountRole.MEMBER, "Rolle wird nicht mehr benötigt"), rpc.demotionRequests.single())
                 }
             }
         }
@@ -334,6 +335,71 @@ class PeerProtectionDialogsDomTest {
                     assertEquals(0, lastOpenModal().allOf("[data-peer-protection-notice]").size)
                     assertFalse(lastOpenModal().allOf("button").any { it.textContent?.trim() == "Freigabe beantragen" })
                     assertTrue(lastOpenModal().allOf("button").any { it.textContent?.trim() == "Status ändern" })
+                }
+            }
+        }
+    }
+
+    // ───────────────────────────── V155: "Administratorrecht erteilen" ─────────────────────────────
+
+    private fun HTMLElement.hasButton(label: String) = allOf("button").any { it.textContent?.trim() == label }
+
+    @Test
+    fun editor_grantAdminRight_aBoardTarget_showsTheButton_andSendsIdAndTrue(): Promise<Unit> {
+        val rpc = FakePeerRpc(decisions(approvalPath))
+        return formTest {
+            AppState.setSession(adminSession())
+            val route = routeOf { rpcService<IMemberService>().setAdminRights("x", true) }
+            withFetchStub { requests ->
+                mountedForm("peer-editor-grant") { _, _ ->
+                    openMemberEditorDialog(row = targetRow(AccountRole.BOARD), onChanged = {}, onRequested = {}, rpc = rpc)
+                    awaitUntil("the editor") { lastOpenModal().hasButton("Administratorrecht erteilen") }
+                    val button = lastOpenModal().buttonNamed("Administratorrecht erteilen") as HTMLButtonElement
+                    assertFalse(button.disabled)
+                    button.click()
+                    awaitUntil("setAdminRights sent") { requests.any { it.rpcRoute == route } }
+                    val call = requests.first { it.rpcRoute == route }
+                    assertEquals("member-7", call.rpcParam(0) as String)
+                    assertEquals(true, call.rpcParam(1) as Boolean)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun editor_grantAdminRight_aDonorTarget_hasNoButton(): Promise<Unit> {
+        val rpc = FakePeerRpc(decisions(approvalPath))
+        return formTest {
+            AppState.setSession(adminSession())
+            withFetchStub { _ ->
+                mountedForm("peer-editor-grant-donor") { _, _ ->
+                    openMemberEditorDialog(
+                        row = targetRow(AccountRole.MEMBER).copy(status = MemberStatus.DONOR),
+                        onChanged = {},
+                        onRequested = {},
+                        rpc = rpc,
+                    )
+                    // the role section is there (its button is the proof the dialog has rendered the else branch) ...
+                    awaitUntil("the editor") { lastOpenModal().hasButton("Rolle ändern") }
+                    delay(100)
+                    // ... but a donor cannot be made an administrator
+                    assertFalse(lastOpenModal().hasButton("Administratorrecht erteilen"))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun editor_grantAdminRight_anAdminTarget_hasNoButton(): Promise<Unit> {
+        val rpc = FakePeerRpc(decisions(approvalPath))
+        return formTest {
+            AppState.setSession(adminSession())
+            withFetchStub { _ ->
+                mountedForm("peer-editor-grant-admin") { _, _ ->
+                    openMemberEditorDialog(row = targetRow(AccountRole.ADMIN), onChanged = {}, onRequested = {}, rpc = rpc)
+                    awaitUntil("decisions") { rpc.decisionCalls == 1 }
+                    awaitUntil("approval hint") { lastOpenModal().hasText("Zustimmung eines zweiten Administrators erforderlich") }
+                    assertFalse(lastOpenModal().hasButton("Administratorrecht erteilen"))
                 }
             }
         }

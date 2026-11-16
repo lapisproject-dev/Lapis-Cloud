@@ -185,6 +185,6 @@ object Validation {
  */
 fun selectableRolesFor(callerRole: AccountRole): List<AccountRole> =
     when (callerRole) {
-        AccountRole.ADMIN -> AccountRole.entries
+        AccountRole.ADMIN -> AccountRole.entries.filter { it != AccountRole.ADMIN } // V155: ADMIN is a right, not a role
         else -> listOf(AccountRole.MEMBER)
     }

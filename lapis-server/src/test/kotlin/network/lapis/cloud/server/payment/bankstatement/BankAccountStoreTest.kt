@@ -16,6 +16,7 @@ import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -64,7 +65,7 @@ class BankAccountStoreTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
             }
             createdMemberIds += id
@@ -90,7 +91,7 @@ class BankAccountStoreTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.TREASURER
+                    it.legacyAccountRole(role = AccountRole.TREASURER)
                 }
             }
             createdMemberIds += id

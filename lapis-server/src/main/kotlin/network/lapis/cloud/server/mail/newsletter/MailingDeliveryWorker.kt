@@ -36,6 +36,7 @@ import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.mail.maskEmailForLogging
 import network.lapis.cloud.server.mail.plusDuration
 import network.lapis.cloud.server.mail.secondsUntil
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
@@ -466,7 +467,7 @@ class MailingDeliveryWorker(
             AccountTable
                 .selectAll()
                 .where { AccountTable.memberId eq memberId }
-                .map { it[AccountTable.role] }
+                .map { AccountRights.effectiveRole(it) }
                 .toSet()
         return listOf(AccountRole.ADMIN, AccountRole.BOARD, AccountRole.TREASURER, AccountRole.MEMBER).firstOrNull { it in roles }
     }

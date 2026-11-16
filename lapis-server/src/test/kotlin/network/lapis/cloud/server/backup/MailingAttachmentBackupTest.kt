@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.MailingMessageAttachmentTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MailingMessageStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -54,7 +55,7 @@ class MailingAttachmentBackupTest :
                     it[id] = Uuid.random()
                     it[memberId] = adminId
                     it[passwordHash] = "a-fake-bcrypt-hash-for-backup-verification-only"
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 MailingListTable.insert {
                     it[id] = listId

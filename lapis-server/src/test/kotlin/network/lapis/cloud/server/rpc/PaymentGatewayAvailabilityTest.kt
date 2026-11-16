@@ -23,6 +23,7 @@ import network.lapis.cloud.server.payment.psp.PaypalOrdersClient
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PaymentProvider
@@ -83,7 +84,7 @@ class PaymentGatewayAvailabilityTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

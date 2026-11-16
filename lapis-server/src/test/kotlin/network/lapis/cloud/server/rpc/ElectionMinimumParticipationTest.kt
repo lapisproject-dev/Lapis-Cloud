@@ -48,6 +48,7 @@ import network.lapis.cloud.server.routes.PublicApiResolutionsPageDto
 import network.lapis.cloud.server.routes.registerPublicApiRoutes
 import network.lapis.cloud.server.security.ApiKeyStore
 import network.lapis.cloud.server.shouldNotContainNumber
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -156,7 +157,7 @@ class ElectionMinimumParticipationTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             memberIds += id

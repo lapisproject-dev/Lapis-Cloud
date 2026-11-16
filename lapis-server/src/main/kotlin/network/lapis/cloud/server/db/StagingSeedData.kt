@@ -16,6 +16,7 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.payment.sepa.SepaConfig
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.time.OrganizationTimeZoneRules
 import network.lapis.cloud.shared.domain.AccountRole
@@ -648,7 +649,8 @@ object StagingSeedData {
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[memberId] = seed.id
-                    it[role] = seed.accountRole
+                    val (baseRole, isAdmin) = AccountRights.splitEffective(seed.accountRole)
+                    AccountRights.writeInitial(stmt = it, baseRole = baseRole, isAdmin = isAdmin, now = null)
                     it[passwordHash] = seedPasswordHash
                 }
             }

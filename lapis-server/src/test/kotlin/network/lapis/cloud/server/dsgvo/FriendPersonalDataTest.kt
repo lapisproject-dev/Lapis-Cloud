@@ -23,6 +23,7 @@ import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.rpc.DsgvoService
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureStatus
@@ -90,7 +91,7 @@ class FriendPersonalDataTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
                 FriendTermsAcknowledgmentTable.insert {
                     it[FriendTermsAcknowledgmentTable.id] = Uuid.random()

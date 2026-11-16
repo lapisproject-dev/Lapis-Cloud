@@ -29,6 +29,7 @@ import network.lapis.cloud.server.mcp.auth.McpPrincipal
 import network.lapis.cloud.server.mcp.auth.McpScopes
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
 import network.lapis.cloud.server.social.PostDraftStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
@@ -96,7 +97,7 @@ class McpWriteToolsDispatcherTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

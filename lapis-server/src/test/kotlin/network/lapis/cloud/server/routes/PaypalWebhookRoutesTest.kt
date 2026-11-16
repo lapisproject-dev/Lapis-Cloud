@@ -39,6 +39,7 @@ import network.lapis.cloud.server.payment.psp.PaypalOrdersClient
 import network.lapis.cloud.server.payment.psp.PspWebhookOutcome
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PaymentGatewayComplianceDisclaimer
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionStatus
@@ -166,7 +167,7 @@ class PaypalWebhookRoutesTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

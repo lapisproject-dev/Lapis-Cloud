@@ -36,6 +36,7 @@ import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionCheckoutInput
@@ -103,7 +104,7 @@ abstract class ContributionCheckoutSingleFlightScenarios(
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

@@ -93,8 +93,8 @@ class ValidationTest {
     }
 
     @Test
-    fun selectableRolesFor_adminMayChooseAnyRole() {
-        assertEquals(AccountRole.entries.toList(), selectableRolesFor(AccountRole.ADMIN))
+    fun selectableRolesFor_adminMayChooseAnyBaseRole() {
+        assertEquals(AccountRole.entries.filter { it != AccountRole.ADMIN }, selectableRolesFor(AccountRole.ADMIN))
     }
 
     @Test

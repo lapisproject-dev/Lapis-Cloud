@@ -27,6 +27,7 @@ import network.lapis.cloud.server.db.generated.ConferenceStreamTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.rpc.ConferenceStreamingService
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
@@ -161,7 +162,7 @@ class LiveKitStreamEgressLiveIntegrationTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

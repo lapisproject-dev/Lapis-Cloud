@@ -9,6 +9,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import network.lapis.cloud.server.db.generated.PrivilegedActionRequestTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.FakePeerNotificationMailer
 import network.lapis.cloud.server.mail.PeerExecutedEvent
@@ -18,6 +19,7 @@ import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.TimeTestSupport
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DeliveryStatus
@@ -305,7 +307,9 @@ abstract class AdminPeerProtectionScenarios(
 
         // ───────────────────────────── demotion and suspension ─────────────────────────────
 
-        test("DEMOTE takes effect at once on the approval; the target is told; role_changed_at is stamped") {
+        test(
+            "DEMOTE (revoking the administrator right) takes effect at once on the approval; the target is told; admin_changed_at is stamped",
+        ) {
             val a = fx.admin()
             val b = fx.admin()
             val c = fx.admin()
@@ -325,7 +329,7 @@ abstract class AdminPeerProtectionScenarios(
             val done = svc.approve(actor = fx.actor(id = c), requestIdRaw = requested.id)
             done.status shouldBe PrivilegedActionStatus.EXECUTED
             fx.roleOf(b) shouldBe AccountRole.MEMBER
-            (fx.roleChangedAtOf(b) != null) shouldBe true
+            (fx.adminChangedAtOf(b) != null) shouldBe true
             mailer.executedMails.single().event shouldBe PeerExecutedEvent.ROLE_CHANGED
             val audit = fx.auditJsonFor(b).joinToString("\n")
             audit shouldContain "\"event\":\"EXECUTED\""
@@ -379,6 +383,153 @@ abstract class AdminPeerProtectionScenarios(
             }
             fx.roleOf(a) shouldBe AccountRole.ADMIN
             fx.roleOf(c) shouldBe AccountRole.ADMIN
+        }
+
+        // ───────────────────────────── V155: the administrator right as a flag ─────────────────────────────
+
+        test(
+            "V155 tenure reads admin_changed_at, NOT role_changed_at: an old base-role stamp does not make a fresh administrator eligible",
+        ) {
+            val a = fx.admin()
+            val b = fx.admin()
+            // old role_changed_at, but the right itself was granted just now
+            val fresh = fx.admin(roleChangedAt = null)
+            transaction {
+                network.lapis.cloud.server.db.generated.AccountTable
+                    .update({ network.lapis.cloud.server.db.generated.AccountTable.memberId eq fresh }) {
+                        it[network.lapis.cloud.server.db.generated.AccountTable.adminChangedAt] = fx.createdAtNow()
+                        it[network.lapis.cloud.server.db.generated.AccountTable.roleChangedAt] =
+                            kotlinx.datetime.LocalDateTime(2020, 1, 1, 0, 0, 0)
+                    }
+            }
+            val svc = fx.service()
+            shouldThrow<NoSecondAdminException> {
+                svc.requestDemotion(
+                    actor = fx.actor(id = a),
+                    targetIdRaw = b.toString(),
+                    newRole = AccountRole.MEMBER,
+                    reasonRaw = GOOD_REASON,
+                )
+            }
+        }
+
+        test(
+            "V155 a base-role change before the approval does NOT void a revoke request, the target falls back to the CURRENT base role",
+        ) {
+            val a = fx.admin()
+            val b = fx.admin()
+            val c = fx.admin()
+            transaction {
+                network.lapis.cloud.server.db.generated.AccountTable
+                    .update({ network.lapis.cloud.server.db.generated.AccountTable.memberId eq b }) {
+                        it[network.lapis.cloud.server.db.generated.AccountTable.role] = AccountRole.BOARD
+                    }
+            }
+            val svc = fx.service()
+            val req =
+                svc.requestDemotion(
+                    actor = fx.actor(id = a),
+                    targetIdRaw = b.toString(),
+                    newRole = AccountRole.MEMBER,
+                    reasonRaw = GOOD_REASON,
+                )
+            req.requestedRole shouldBe AccountRole.BOARD
+            // the base role changes while the request is open (the right is untouched, so no peer step is needed for that)
+            transaction {
+                network.lapis.cloud.server.db.generated.AccountTable
+                    .update({ network.lapis.cloud.server.db.generated.AccountTable.memberId eq b }) {
+                        it[network.lapis.cloud.server.db.generated.AccountTable.role] = AccountRole.TREASURER
+                    }
+            }
+            svc.approve(actor = fx.actor(id = c), requestIdRaw = req.id).status shouldBe PrivilegedActionStatus.EXECUTED
+            fx.roleOf(b) shouldBe AccountRole.TREASURER
+        }
+
+        test("V155 the overview shows an open revoke with the CURRENT base role, so the approver sees what approval executes") {
+            val a = fx.admin()
+            val b = fx.admin()
+            val c = fx.admin()
+            val svc = fx.service()
+            val req =
+                svc.requestDemotion(
+                    actor = fx.actor(id = a),
+                    targetIdRaw = b.toString(),
+                    newRole = AccountRole.MEMBER,
+                    reasonRaw = GOOD_REASON,
+                )
+            svc
+                .overview(fx.actor(id = c))
+                .awaitingMyApproval
+                .single()
+                .requestedRole shouldBe AccountRole.MEMBER
+            // the base role changes while the request is open
+            transaction {
+                network.lapis.cloud.server.db.generated.AccountTable
+                    .update({ network.lapis.cloud.server.db.generated.AccountTable.memberId eq b }) {
+                        it[network.lapis.cloud.server.db.generated.AccountTable.role] = AccountRole.TREASURER
+                    }
+            }
+            svc
+                .overview(fx.actor(id = c))
+                .awaitingMyApproval
+                .single()
+                .requestedRole shouldBe AccountRole.TREASURER
+            svc
+                .overview(fx.actor(id = a))
+                .requestedByMe
+                .single()
+                .requestedRole shouldBe AccountRole.TREASURER
+            svc.approve(actor = fx.actor(id = c), requestIdRaw = req.id)
+            fx.roleOf(b) shouldBe AccountRole.TREASURER
+        }
+
+        test("V155 a pre-V155 revoke row that pinned BOARD is shown with the current base role, not the pinned one") {
+            val a = fx.admin()
+            val b = fx.admin()
+            val c = fx.admin()
+            val svc = fx.service()
+            val req =
+                svc.requestDemotion(
+                    actor = fx.actor(id = a),
+                    targetIdRaw = b.toString(),
+                    newRole = AccountRole.MEMBER,
+                    reasonRaw = GOOD_REASON,
+                )
+            // simulate the pre-V155 row: the pinned column names BOARD while the backfilled base role is MEMBER
+            transaction {
+                PrivilegedActionRequestTable.update({ PrivilegedActionRequestTable.id eq Uuid.parse(req.id) }) {
+                    it[PrivilegedActionRequestTable.requestedRole] = AccountRole.BOARD.name
+                }
+            }
+            svc
+                .overview(fx.actor(id = c))
+                .awaitingMyApproval
+                .single()
+                .requestedRole shouldBe AccountRole.MEMBER
+            svc.approve(actor = fx.actor(id = c), requestIdRaw = req.id)
+            fx.roleOf(b) shouldBe AccountRole.MEMBER
+        }
+
+        test("V155 after an approved revoke the member falls back to the base role (BOARD keeps BOARD, not MEMBER)") {
+            val a = fx.admin()
+            val c = fx.admin()
+            val b = fx.admin()
+            transaction {
+                network.lapis.cloud.server.db.generated.AccountTable
+                    .update({ network.lapis.cloud.server.db.generated.AccountTable.memberId eq b }) {
+                        it[network.lapis.cloud.server.db.generated.AccountTable.role] = AccountRole.BOARD
+                    }
+            }
+            val svc = fx.service()
+            val req =
+                svc.requestDemotion(
+                    actor = fx.actor(id = a),
+                    targetIdRaw = b.toString(),
+                    newRole = AccountRole.MEMBER,
+                    reasonRaw = GOOD_REASON,
+                )
+            svc.approve(actor = fx.actor(id = c), requestIdRaw = req.id).status shouldBe PrivilegedActionStatus.EXECUTED
+            fx.roleOf(b) shouldBe AccountRole.BOARD
         }
 
         // ───────────────────────────── tenure: the strawman cannot approve ─────────────────────────────
@@ -458,7 +609,7 @@ abstract class AdminPeerProtectionScenarios(
             transaction {
                 network.lapis.cloud.server.db.generated.AccountTable
                     .update({ network.lapis.cloud.server.db.generated.AccountTable.memberId eq c }) {
-                        it[role] = AccountRole.BOARD
+                        it.legacyAccountRole(role = AccountRole.BOARD)
                     }
             }
             shouldThrow<ForbiddenException> { svc.approve(actor = fx.actor(id = c), requestIdRaw = req.id) }
@@ -481,7 +632,9 @@ abstract class AdminPeerProtectionScenarios(
                 )
             transaction {
                 network.lapis.cloud.server.db.generated.AccountTable
-                    .update({ network.lapis.cloud.server.db.generated.AccountTable.memberId eq b }) { it[role] = AccountRole.BOARD }
+                    .update(
+                        { network.lapis.cloud.server.db.generated.AccountTable.memberId eq b },
+                    ) { it.legacyAccountRole(role = AccountRole.BOARD) }
             }
             val result = svc.approve(actor = fx.actor(id = c), requestIdRaw = req.id)
             result.status shouldBe PrivilegedActionStatus.INVALIDATED
@@ -503,7 +656,9 @@ abstract class AdminPeerProtectionScenarios(
                 )
             transaction {
                 network.lapis.cloud.server.db.generated.AccountTable
-                    .update({ network.lapis.cloud.server.db.generated.AccountTable.memberId eq a }) { it[role] = AccountRole.BOARD }
+                    .update(
+                        { network.lapis.cloud.server.db.generated.AccountTable.memberId eq a },
+                    ) { it.legacyAccountRole(role = AccountRole.BOARD) }
             }
             svc.approve(actor = fx.actor(id = c), requestIdRaw = req.id).status shouldBe PrivilegedActionStatus.INVALIDATED
             fx.roleOf(b) shouldBe AccountRole.ADMIN
@@ -967,7 +1122,7 @@ abstract class AdminPeerProtectionScenarios(
                         network.lapis.cloud.server.db.generated.AccountTable
                             .update(
                                 { network.lapis.cloud.server.db.generated.AccountTable.memberId eq id },
-                            ) { it[role] = AccountRole.ADMIN }
+                            ) { it.legacyAccountRole(role = AccountRole.ADMIN) }
                         network.lapis.cloud.server.db.generated.MemberTable
                             .update({ network.lapis.cloud.server.db.generated.MemberTable.id eq id }) { it[status] = MemberStatus.ACTIVE }
                     }

@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.EventVolunteerShiftTable
 import network.lapis.cloud.server.db.generated.EventVolunteerSignupTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
@@ -75,7 +76,7 @@ class EventVolunteerCapacityGuardTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

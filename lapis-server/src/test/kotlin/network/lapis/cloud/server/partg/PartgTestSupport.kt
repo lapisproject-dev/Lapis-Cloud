@@ -52,6 +52,7 @@ import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PartyReportService
 import network.lapis.cloud.server.rpc.RegionalChapterService
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -215,7 +216,7 @@ internal class PartgFixtures(
             AccountTable.insert {
                 it[AccountTable.id] = Uuid.random()
                 it[memberId] = id
-                it[AccountTable.role] = role
+                it.legacyAccountRole(role = role)
             }
         }
         memberIds += id

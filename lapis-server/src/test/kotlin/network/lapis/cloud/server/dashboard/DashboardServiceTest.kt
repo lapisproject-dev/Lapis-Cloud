@@ -24,6 +24,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.DASHBOARD_RATE_MAX
 import network.lapis.cloud.server.rpc.DashboardService
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.MutableTestClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DashboardModuleKeys
@@ -96,7 +97,7 @@ class DashboardServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             memberIds += id
@@ -231,7 +232,7 @@ class DashboardServiceTest :
             val harness = Harness()
             run(harness) { get ->
                 get("/test/signals", id)
-                transaction { AccountTable.update({ AccountTable.memberId eq id }) { it[role] = AccountRole.MEMBER } }
+                transaction { AccountTable.update({ AccountTable.memberId eq id }) { it.legacyAccountRole(role = AccountRole.MEMBER) } }
                 get("/test/signals", id)
                 harness.source.runs shouldBe 2
             }

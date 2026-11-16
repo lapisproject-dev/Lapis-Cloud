@@ -457,6 +457,7 @@ dto:WebhookDeliveryDto.nextAttemptAt	A	stamped by the server clock (DbClock/Serv
 dto:WebhookDeliveryDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:WebhookDeliveryDto.deliveredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountTable.roleChangedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountTable.adminChangedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountTable.lastLoginAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportCategoryMapTable.mappedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportConnectionTable.lastTestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.PartgReportDeclarationTable
 import network.lapis.cloud.server.db.generated.PartgReportVersionCounterTable
 import network.lapis.cloud.server.db.generated.PartgReportVersionTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -54,7 +55,7 @@ class PartgReportR6BackupTest :
                     it[id] = Uuid.random()
                     it[memberId] = adminId
                     it[passwordHash] = "a-fake-bcrypt-hash-for-backup-verification-only"
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 PartgReportVersionCounterTable.insert {
                     it[id] = counterId

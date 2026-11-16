@@ -123,11 +123,7 @@ object SessionStore {
 
             // V0.8.2 OIDC-Gastzugang-Federation / V0.11.0: MemberTable is already joined above (no
             // extra query) -- status is a free byproduct of that join, see CurrentMember KDoc.
-            CurrentMember(
-                memberId = row[SessionTable.memberId],
-                role = row[AccountTable.role],
-                status = row[MemberTable.status],
-            )
+            AccountRights.currentMember(row = row, status = row[MemberTable.status])
         }
     }
 

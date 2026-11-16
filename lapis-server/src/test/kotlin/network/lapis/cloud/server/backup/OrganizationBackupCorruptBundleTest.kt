@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.BackupOperationLogTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BackupOperationStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -307,7 +308,7 @@ private fun seedAdmin(
         AccountTable.insert {
             it[id] = Uuid.random()
             it[memberId] = adminId
-            it[role] = AccountRole.ADMIN
+            it.legacyAccountRole(role = AccountRole.ADMIN)
         }
     }
     return adminId

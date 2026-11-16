@@ -38,6 +38,7 @@ import network.lapis.cloud.server.db.generated.ReceivableDunningLevelTable
 import network.lapis.cloud.server.db.generated.ReceivableDunningNoticeTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.OpenItemService
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.LedgerAccountType
@@ -154,7 +155,7 @@ class OpenItemDunningProgressTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

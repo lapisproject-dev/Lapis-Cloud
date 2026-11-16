@@ -33,6 +33,7 @@ import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.TenderService
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.MutableTestClock
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.TimeTestSupport
@@ -158,7 +159,7 @@ internal class TenderFixtures {
             AccountTable.insert {
                 it[AccountTable.id] = Uuid.random()
                 it[memberId] = id
-                it[AccountTable.role] = role
+                it.legacyAccountRole(role = role)
             }
         }
         memberIds += id

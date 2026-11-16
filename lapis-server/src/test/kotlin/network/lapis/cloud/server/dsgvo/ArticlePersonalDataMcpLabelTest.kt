@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ErasureMode
@@ -42,7 +43,7 @@ class ArticlePersonalDataMcpLabelTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
-                    it[role] = AccountRole.BOARD
+                    it.legacyAccountRole(role = AccountRole.BOARD)
                 }
             }
         }

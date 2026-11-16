@@ -27,6 +27,7 @@ import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.security.PasswordHasher
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.inList
@@ -124,7 +125,7 @@ fun createRealMember(
         AccountTable.insert {
             it[AccountTable.id] = Uuid.random()
             it[memberId] = id
-            it[AccountTable.role] = role
+            it.legacyAccountRole(role = role)
             it[passwordHash] = password?.let { pw -> PasswordHasher.hash(pw) }
         }
     }

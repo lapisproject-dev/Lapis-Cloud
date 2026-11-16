@@ -18,6 +18,7 @@ import network.lapis.cloud.server.db.generated.ActivismTaskTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ActivismKind
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -73,7 +74,7 @@ abstract class ActivismStoreScenarios(
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             members += id

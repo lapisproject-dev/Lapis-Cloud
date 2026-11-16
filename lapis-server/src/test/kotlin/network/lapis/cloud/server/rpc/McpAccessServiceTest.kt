@@ -32,6 +32,7 @@ import network.lapis.cloud.server.mcp.config.McpConfig
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionTokens
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.McpAccessStateDto
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -149,7 +150,7 @@ class McpAccessServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                     it[passwordHash] = PasswordHasher.hash("irrelevant-password-1234")
                 }
             }

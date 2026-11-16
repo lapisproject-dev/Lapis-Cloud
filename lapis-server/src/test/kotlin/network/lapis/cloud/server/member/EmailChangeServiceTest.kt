@@ -21,6 +21,7 @@ import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.EmailChangeKind
@@ -1034,7 +1035,7 @@ class EmailChangeServiceTest :
             val fresh = newAddress()
             val p = svc.propose(actor = board, targetIdRaw = target.toString(), newEmail = fresh, newEmailRepeat = fresh)
             val before = fx.emailOf(target)
-            transaction { AccountTable.update({ AccountTable.memberId eq boardId }) { it[role] = AccountRole.MEMBER } }
+            transaction { AccountTable.update({ AccountTable.memberId eq boardId }) { it.legacyAccountRole(role = AccountRole.MEMBER) } }
 
             shouldThrow<EmailChangePendingNotFoundException> {
                 svc.acceptOwn(
@@ -1177,7 +1178,9 @@ class EmailChangeServiceTest :
                 )
             roles.forEach { (member, role) ->
                 transaction {
-                    (MemberTable innerJoin AccountTable).selectAll().where { MemberTable.id eq member.memberId }.single()[AccountTable.role]
+                    (MemberTable innerJoin AccountTable).selectAll().where { MemberTable.id eq member.memberId }.single().let {
+                        if (it[AccountTable.isAdmin]) AccountRole.ADMIN else it[AccountTable.role]
+                    }
                 } shouldBe role
             }
         }

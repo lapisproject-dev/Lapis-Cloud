@@ -7,12 +7,12 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.MailTemplates
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
@@ -36,7 +36,7 @@ internal fun boardAndAdminMemberEmails(): List<String> =
         (AccountTable innerJoin MemberTable)
             .select(MemberTable.email)
             .where {
-                (AccountTable.role inList listOf(AccountRole.BOARD, AccountRole.ADMIN)) and
+                (AccountRights.effectiveRoleIn(listOf(AccountRole.BOARD, AccountRole.ADMIN))) and
                     (MemberTable.status eq MemberStatus.ACTIVE)
             }.orderBy(MemberTable.id, SortOrder.ASC)
             .map { it[MemberTable.email] }

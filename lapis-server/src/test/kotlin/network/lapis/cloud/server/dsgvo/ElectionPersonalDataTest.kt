@@ -21,6 +21,7 @@ import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.ElectionStatus
@@ -88,7 +89,7 @@ class ElectionPersonalDataTest :
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[memberId] = member
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
                 CommitteeTable.insert {
                     it[id] = committeeId

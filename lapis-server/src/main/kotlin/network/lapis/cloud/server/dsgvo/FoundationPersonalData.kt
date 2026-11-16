@@ -5,6 +5,7 @@ import kotlinx.serialization.json.put
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.geo.CountryDisplayNames
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.VotingRightSource
 import org.jetbrains.exposed.v1.core.eq
@@ -91,7 +92,7 @@ object FoundationPersonalData : MemberPersonalDataContributor {
 
             val accountRow = AccountTable.selectAll().where { AccountTable.memberId eq memberId }.singleOrNull()
             if (accountRow != null) {
-                put("role", accountRow[AccountTable.role].name)
+                put("role", AccountRights.effectiveRole(accountRow).name)
                 // Never export the credential values themselves — only whether one is set.
                 put("hasPasswordLogin", accountRow[AccountTable.passwordHash] != null)
                 put("hasOidcLogin", accountRow[AccountTable.oidcSubject] != null)

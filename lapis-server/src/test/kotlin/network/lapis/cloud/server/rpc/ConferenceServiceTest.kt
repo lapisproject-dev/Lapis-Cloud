@@ -52,6 +52,7 @@ import network.lapis.cloud.server.federation.OidcGuestClaims
 import network.lapis.cloud.server.federation.OidcGuestMemberStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
@@ -274,7 +275,7 @@ class ConferenceServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

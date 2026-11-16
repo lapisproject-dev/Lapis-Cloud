@@ -45,6 +45,8 @@ class PrivilegedPeerActionTripwireTest :
         // there is fine.
         val allowlist =
             mapOf(
+                "network/lapis/cloud/server/security/AccountRights.kt" to
+                    "V155: the ONE writer of account.role / is_admin; MemberRoleStatusMutations and the console call it after the peer decision",
                 "network/lapis/cloud/server/member/MemberRoleStatusMutations.kt" to
                     "the ONE write of a role / status; every caller takes the peer decision first (checked by the call-site test below)",
                 "network/lapis/cloud/server/member/MemberCountryStore.kt" to
@@ -59,8 +61,6 @@ class PrivilegedPeerActionTripwireTest :
                 "network/lapis/cloud/server/routes/AuthRoutes.kt" to "password reset: the bearer of the one-time token set a new password",
                 "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt" to
                     "the operator console: shell access to the deployment, no network path",
-                "network/lapis/cloud/server/bootstrap/DonorRoleDowngrade.kt" to
-                    "startup repair: downgrades a DONOR account with an administrative role to MEMBER (never raises a role), no network path",
                 "network/lapis/cloud/server/db/DevSeedData.kt" to "dev seed, NEW accounts in an empty database",
                 "network/lapis/cloud/server/db/StagingSeedData.kt" to "staging seed, NEW accounts in an empty database",
                 "network/lapis/cloud/server/db/StagingSeedMemberDetails.kt" to

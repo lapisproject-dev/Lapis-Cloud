@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.routes.sha256Hex
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventCheckInOutcome
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
@@ -69,7 +70,7 @@ class EventCheckInTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.BOARD
+                    it.legacyAccountRole(role = AccountRole.BOARD)
                 }
             }
             createdMemberIds += id

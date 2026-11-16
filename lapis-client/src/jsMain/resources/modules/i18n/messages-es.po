@@ -32016,3 +32016,15 @@ msgstr "La junta directiva no le ha marcado como miembro fundador."
 
 msgid "Nur aktive Mitglieder können die Kennzeichnung öffentlich zeigen."
 msgstr "Solo los miembros activos pueden mostrar la indicación públicamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilen"
+msgstr "Conceder el derecho de administrador"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilt."
+msgstr "Derecho de administrador concedido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Nach dem Entzug des Administratorrechts hat das Mitglied wieder die Rolle %1."
+msgstr "Tras retirar el derecho de administrador, el miembro vuelve a tener el rol %1."

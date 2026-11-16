@@ -40,6 +40,7 @@ import network.lapis.cloud.server.mail.RejectionVariant
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -103,7 +104,7 @@ class MembershipDecisionNotificationTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                     it[passwordHash] = PasswordHasher.hash("a-genuinely-strong-password-1")
                 }
             }

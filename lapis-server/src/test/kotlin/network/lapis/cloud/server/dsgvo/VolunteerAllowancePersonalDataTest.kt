@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.VolunteerAllowancePaymentTable
 import network.lapis.cloud.server.db.generated.VolunteerAllowanceSelfDeclarationTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.JournalEntryStatus
@@ -77,7 +78,7 @@ class VolunteerAllowancePersonalDataTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

@@ -35,6 +35,7 @@ import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.KeycloakLinkChange
 import network.lapis.cloud.server.mail.KeycloakLinkNotificationMailer
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -103,7 +104,7 @@ class KeycloakLinkServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                     it[passwordHash] = "irrelevant-hash"
                 }
             }

@@ -33,6 +33,7 @@ import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
 import network.lapis.cloud.server.mail.newsletter.testTrackingToken
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
@@ -103,7 +104,7 @@ class ServiceIntegrationTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             return id

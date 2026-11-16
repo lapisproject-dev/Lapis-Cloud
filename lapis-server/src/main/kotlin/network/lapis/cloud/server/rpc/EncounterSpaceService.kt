@@ -53,6 +53,7 @@ import network.lapis.cloud.server.encounter.roomLayoutOf
 import network.lapis.cloud.server.encounter.storedTablesOf
 import network.lapis.cloud.server.encounter.tablesOf
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -2206,7 +2207,7 @@ class EncounterSpaceService(
                 EncounterRoles.hasAnyRoleRow(spaceId = spaceId, memberId = targetId) ||
                     AccountTable
                         .selectAll()
-                        .where { (AccountTable.memberId eq targetId) and (AccountTable.role inList PRIVILEGED_ACCOUNT_ROLES) }
+                        .where { (AccountTable.memberId eq targetId) and (AccountRights.effectiveRoleIn(PRIVILEGED_ACCOUNT_ROLES)) }
                         .limit(1)
                         .any()
             if (targetIsProtected) throw ForbiddenException()

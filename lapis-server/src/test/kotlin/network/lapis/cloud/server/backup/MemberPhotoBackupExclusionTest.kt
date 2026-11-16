@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberPhotoTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberPhotoVisibility
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -51,7 +52,7 @@ class MemberPhotoBackupExclusionTest :
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[memberId] = adminId
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 MemberPhotoTable.insert {
                     it[id] = Uuid.random()

@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -128,7 +129,7 @@ object OidcGuestMemberStore {
                     AccountTable.insert {
                         it[id] = Uuid.random()
                         it[AccountTable.memberId] = newMemberId
-                        it[role] = AccountRole.MEMBER
+                        AccountRights.writeInitial(stmt = it, baseRole = AccountRole.MEMBER, isAdmin = false, now = null)
                         it[roleChangedAt] = now
                         it[passwordHash] = null
                         it[oidcSubject] = claims.subject

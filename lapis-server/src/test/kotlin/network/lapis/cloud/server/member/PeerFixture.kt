@@ -15,6 +15,7 @@ import network.lapis.cloud.server.mail.FakePeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.PasswordHasher
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -65,7 +66,7 @@ internal class PeerFixture {
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role, now = roleChangedAt)
                     it[AccountTable.roleChangedAt] = roleChangedAt
                     it[passwordHash] = hashedPassword
                 }
@@ -101,18 +102,22 @@ internal class PeerFixture {
             val all =
                 AccountTable
                     .selectAll()
-                    .where { AccountTable.role eq AccountRole.ADMIN }
+                    .where { AccountTable.isAdmin eq true }
                     .map { it[AccountTable.memberId] }
                     .filter { it !in keep }
             setAside += all.filter { it !in createdMemberIds }
-            if (all.isNotEmpty()) AccountTable.update({ AccountTable.memberId inList all }) { it[role] = AccountRole.BOARD }
+            if (all.isNotEmpty()) {
+                AccountTable.update(
+                    { AccountTable.memberId inList all },
+                ) { it.legacyAccountRole(role = AccountRole.BOARD) }
+            }
         }
     }
 
     fun restoreAdmins() {
         if (setAside.isEmpty()) return
         val toRestore = setAside.toList()
-        transaction { AccountTable.update({ AccountTable.memberId inList toRestore }) { it[role] = AccountRole.ADMIN } }
+        transaction { AccountTable.update({ AccountTable.memberId inList toRestore }) { it.legacyAccountRole(role = AccountRole.ADMIN) } }
         setAside.clear()
     }
 
@@ -122,7 +127,7 @@ internal class PeerFixture {
                 .selectAll()
                 .where { AccountTable.memberId eq id }
                 .singleOrNull()
-                ?.get(AccountTable.role)
+                ?.let { if (it[AccountTable.isAdmin]) AccountRole.ADMIN else it[AccountTable.role] }
         }
 
     fun statusOf(id: Uuid): MemberStatus =
@@ -133,6 +138,9 @@ internal class PeerFixture {
 
     fun roleChangedAtOf(id: Uuid): LocalDateTime? =
         transaction { AccountTable.selectAll().where { AccountTable.memberId eq id }.single()[AccountTable.roleChangedAt] }
+
+    fun adminChangedAtOf(id: Uuid): LocalDateTime? =
+        transaction { AccountTable.selectAll().where { AccountTable.memberId eq id }.single()[AccountTable.adminChangedAt] }
 
     fun requestRow(id: String): ResultRow =
         transaction { PrivilegedActionRequestTable.selectAll().where { PrivilegedActionRequestTable.id eq Uuid.parse(id) }.single() }

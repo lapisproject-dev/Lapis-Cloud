@@ -41,6 +41,7 @@ import network.lapis.cloud.server.encounter.reactionSetCsv
 import network.lapis.cloud.server.events.EventGuestHands
 import network.lapis.cloud.server.events.EventOnlineFixtures
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CONFERENCE_HANDS_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_HANDS_TOPIC
@@ -191,7 +192,7 @@ class ConferenceHandServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

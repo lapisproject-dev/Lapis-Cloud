@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRecordingLayout
@@ -56,7 +57,7 @@ class RecordingLayoutBackupTest :
                     it[id] = Uuid.random()
                     it[memberId] = adminId
                     it[passwordHash] = "a-fake-bcrypt-hash-for-backup-verification-only"
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 ConferenceRoomTable.insert {
                     it[id] = roomId

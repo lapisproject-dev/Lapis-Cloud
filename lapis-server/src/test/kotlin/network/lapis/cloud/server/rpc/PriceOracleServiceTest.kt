@@ -35,6 +35,7 @@ import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleSource
 import network.lapis.cloud.server.economy.oracle.SourcePriceResult
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.DonationConversionInput
@@ -251,7 +252,7 @@ class PriceOracleServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

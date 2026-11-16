@@ -41,6 +41,7 @@ import network.lapis.cloud.server.rpc.eligibleMemberIds
 import network.lapis.cloud.server.rpc.generalAssemblyCondition
 import network.lapis.cloud.server.rpc.isRuleCommittee
 import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -704,7 +705,7 @@ private fun ResultRow.toMailmergeMemberDto(): MemberDto =
         email = this[MemberTable.email],
         status = this[MemberTable.status],
         joinedAt = this[MemberTable.joinedAt],
-        role = this.getOrNull(AccountTable.role) ?: AccountRole.MEMBER,
+        role = AccountRights.effectiveRoleOrNull(this) ?: AccountRole.MEMBER,
         street = this[MemberTable.street],
         postalCode = this[MemberTable.postalCode],
         city = this[MemberTable.city],

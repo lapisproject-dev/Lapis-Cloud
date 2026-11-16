@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.PartgReportSponsorTable
 import network.lapis.cloud.server.db.generated.PartgReportSponsoringEntryTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PartgPersonKind
@@ -60,7 +61,7 @@ class PartgReportR3bBackupTest :
                     it[id] = Uuid.random()
                     it[memberId] = adminId
                     it[passwordHash] = "a-fake-bcrypt-hash-for-backup-verification-only"
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 PartgReportAnnexTable.insert {
                     it[id] = annexId

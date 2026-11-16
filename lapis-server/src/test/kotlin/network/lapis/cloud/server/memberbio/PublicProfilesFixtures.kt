@@ -22,6 +22,7 @@ import network.lapis.cloud.server.memberphoto.MemberPhotoFixtures
 import network.lapis.cloud.server.memberphoto.MemberPhotoStorage
 import network.lapis.cloud.server.memberphoto.MemberPhotoTestImages
 import network.lapis.cloud.server.rpc.PublicRankingConsentDisclaimer
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -76,7 +77,7 @@ internal class PublicProfilesFixtures {
             AccountTable.insert {
                 it[AccountTable.id] = Uuid.random()
                 it[memberId] = id
-                it[AccountTable.role] = role
+                it.legacyAccountRole(role = role)
             }
         }
         memberIds += id

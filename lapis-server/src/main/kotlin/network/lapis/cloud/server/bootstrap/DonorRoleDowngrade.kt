@@ -7,6 +7,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.shared.domain.AccountRole
@@ -16,10 +17,8 @@ import network.lapis.cloud.shared.domain.MemberChangeSnapshot
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 private val logger = KotlinLogging.logger {}
 
@@ -41,7 +40,7 @@ object DonorRoleDowngrade {
                 (AccountTable innerJoin MemberTable)
                     .selectAll()
                     .where {
-                        (MemberTable.status eq MemberStatus.DONOR) and (AccountTable.role inList ESCALATED_ROLES)
+                        (MemberTable.status eq MemberStatus.DONOR) and (AccountRights.effectiveRoleIn(ESCALATED_ROLES))
                     }.map { it[AccountTable.memberId] }
             }
         if (memberIds.isEmpty()) return 0
@@ -53,21 +52,22 @@ object DonorRoleDowngrade {
                         .selectAll()
                         .where {
                             (MemberTable.id eq memberId) and (MemberTable.status eq MemberStatus.DONOR) and
-                                (AccountTable.role inList ESCALATED_ROLES)
+                                (AccountRights.effectiveRoleIn(ESCALATED_ROLES))
                         }.forMemberUpdate()
                         .singleOrNull() ?: return@transaction
-                val oldRole = row[AccountTable.role]
+                val oldRole = AccountRights.effectiveRole(row)
                 val now = DbClock.nowLocalDateTime()
-                AccountTable.update({ AccountTable.memberId eq memberId }) {
-                    it[role] = AccountRole.MEMBER
-                    it[roleChangedAt] = now
-                }
+                // V155: both the base role AND the administrator right are cleared (a donor holds neither).
+                if (AccountRights.isAdmin(row)) AccountRights.setAdminFlagLocked(targetId = memberId, enabled = false, now = now)
+                AccountRights.setBaseRoleLocked(targetId = memberId, newRole = AccountRole.MEMBER, now = now)
                 val before =
                     MemberChangeSnapshot(
                         displayNameChanged = false,
                         emailChanged = false,
                         status = MemberStatus.DONOR,
                         role = oldRole,
+                        isAdmin = AccountRights.isAdmin(row),
+                        baseRole = AccountRights.baseRole(row),
                     )
                 AuditLogRecorder.record(
                     actorMemberId = null,
@@ -76,7 +76,11 @@ object DonorRoleDowngrade {
                     entityId = memberId,
                     action = AuditAction.UPDATE,
                     before = Json.encodeToString(MemberChangeSnapshot.serializer(), before),
-                    after = Json.encodeToString(MemberChangeSnapshot.serializer(), before.copy(role = AccountRole.MEMBER)),
+                    after =
+                        Json.encodeToString(
+                            MemberChangeSnapshot.serializer(),
+                            before.copy(role = AccountRole.MEMBER, isAdmin = false, baseRole = AccountRole.MEMBER),
+                        ),
                     occurredAt = now,
                 )
                 count++

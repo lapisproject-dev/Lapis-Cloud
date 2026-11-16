@@ -48,6 +48,7 @@ import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
 import network.lapis.cloud.server.mail.newsletter.testTrackingToken
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
@@ -146,7 +147,7 @@ class DsgvoServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

@@ -48,9 +48,27 @@ private val logger = KotlinLogging.logger {}
  */
 data class CurrentMember(
     val memberId: Uuid,
-    val role: AccountRole,
+    /** The stored base role -- never ADMIN (V155: administrator rights are the independent [isAdmin] flag). */
+    val baseRole: AccountRole,
+    val isAdmin: Boolean,
     val status: MemberStatus,
 ) {
+    init {
+        require(baseRole != AccountRole.ADMIN) { "baseRole must not be ADMIN" }
+    }
+
+    /** Compatibility constructor: an effective [role] of ADMIN maps to (MEMBER, isAdmin = true). */
+    constructor(memberId: Uuid, role: AccountRole, status: MemberStatus) :
+        this(
+            memberId = memberId,
+            baseRole = if (role == AccountRole.ADMIN) AccountRole.MEMBER else role,
+            isAdmin = role == AccountRole.ADMIN,
+            status = status,
+        )
+
+    /** The EFFECTIVE role: ADMIN when the administrator right is held, else the base role. Every authorization gate reads this. */
+    val role: AccountRole get() = if (isAdmin) AccountRole.ADMIN else baseRole
+
     /**
      * Retained for the V0.8.4 Guest-Badge wire contract ([network.lapis.cloud.shared.domain
      * .SessionInfoDto.isGuest]) ONLY -- never for an authorization decision. Use
@@ -140,11 +158,7 @@ private fun resolveFromTrustedHeader(call: ApplicationCall): CurrentMember? {
                 .where { MemberTable.id eq memberId }
                 .singleOrNull()
                 ?: return@transaction null
-        CurrentMember(
-            memberId = memberId,
-            role = row[AccountTable.role],
-            status = row[MemberTable.status],
-        )
+        AccountRights.currentMember(row = row, status = row[MemberTable.status])
     }
 }
 

@@ -26,6 +26,7 @@ import network.lapis.cloud.server.mail.FakeAdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.FakePasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.VotingRightSource
@@ -95,7 +96,7 @@ class VotingRightAdminAndDonorAccountTest :
                     AccountTable.insert {
                         it[AccountTable.id] = Uuid.random()
                         it[memberId] = id
-                        it[AccountTable.role] = role
+                        it.legacyAccountRole(role = role)
                     }
                 }
             }
@@ -269,10 +270,10 @@ class VotingRightAdminAndDonorAccountTest :
             testApplication {
                 application { installRoutes() }
                 client.post("/t/grant/$donor/BOARD") { header("X-Member-Id", admin.toString()) }.status shouldBe HttpStatusCode.Conflict
-                client.post("/t/grant/$donor/ADMIN") { header("X-Member-Id", admin.toString()) }.status shouldBe HttpStatusCode.Conflict
+                client.post("/t/grant/$donor/ADMIN") { header("X-Member-Id", admin.toString()) }.status shouldBe HttpStatusCode.BadRequest
                 transaction { AccountTable.selectAll().where { AccountTable.memberId eq donor }.count() } shouldBe 0
                 client.post("/t/grant/$donor/MEMBER") { header("X-Member-Id", admin.toString()) }.bodyAsText() shouldBe "MEMBER:DONOR"
-                client.post("/t/role/$donor/ADMIN") { header("X-Member-Id", admin.toString()) }.status shouldBe HttpStatusCode.Conflict
+                client.post("/t/role/$donor/ADMIN") { header("X-Member-Id", admin.toString()) }.status shouldBe HttpStatusCode.BadRequest
                 client.post("/t/role/$donor/TREASURER") { header("X-Member-Id", admin.toString()) }.status shouldBe HttpStatusCode.Conflict
             }
         }

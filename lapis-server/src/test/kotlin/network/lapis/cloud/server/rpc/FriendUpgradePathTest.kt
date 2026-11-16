@@ -33,6 +33,7 @@ import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -88,7 +89,7 @@ class FriendUpgradePathTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                     it[passwordHash] = PasswordHasher.hash(STRONG_PASSWORD)
                 }
             }
@@ -216,7 +217,7 @@ class FriendUpgradePathTest :
                     AccountTable.insert {
                         it[AccountTable.id] = Uuid.random()
                         it[memberId] = id
-                        it[AccountTable.role] = AccountRole.MEMBER
+                        it.legacyAccountRole(role = AccountRole.MEMBER)
                         it[passwordHash] = PasswordHasher.hash(STRONG_PASSWORD)
                     }
                 }

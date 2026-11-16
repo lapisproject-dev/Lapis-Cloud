@@ -59,7 +59,7 @@ class StagingSeedDataTest :
 
             transaction(db) {
                 val accounts = AccountTable.selectAll().toList()
-                accounts.count { it[AccountTable.role].name == "ADMIN" } shouldBe 1
+                accounts.count { it[AccountTable.isAdmin] } shouldBe 1
                 accounts.count { it[AccountTable.role].name == "BOARD" } shouldBe 1
                 accounts.count { it[AccountTable.role].name == "TREASURER" } shouldBe 1
 

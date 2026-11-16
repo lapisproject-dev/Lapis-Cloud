@@ -18,6 +18,7 @@ import network.lapis.cloud.server.db.generated.SepaDebitBatchTable
 import network.lapis.cloud.server.db.generated.SepaDebitItemTable
 import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.db.generated.SepaReturnTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionPaymentMethod
@@ -107,7 +108,7 @@ class PaymentsPersonalDataTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

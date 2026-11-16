@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.payment.sepa.IbanValidator
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BankStatementLineStatus
 import network.lapis.cloud.shared.domain.BillingInterval
@@ -114,7 +115,7 @@ class BankStatementMatcherTest :
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
                 MembershipTierTable.insert {
                     it[id] = tierId

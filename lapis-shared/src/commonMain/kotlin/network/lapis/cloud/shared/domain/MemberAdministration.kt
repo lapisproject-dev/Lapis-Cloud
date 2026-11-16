@@ -113,6 +113,12 @@ data class MemberAdminRowDto(
     val foundingMemberSince: LocalDate? = null,
     /** V154 -- the member allowed the public display. Filled for BOARD/ADMIN only, always `false` for every other caller (same idiom as [hasPhoto]). */
     val foundingMemberPublicConsent: Boolean = false,
+    /** V155 -- the row holds the administrator right. [role] stays the EFFECTIVE role (ADMIN when this is true). */
+    val isAdmin: Boolean = false,
+    /** V155 -- the stored base role (never ADMIN); `null` when the role is hidden or the server predates the flag. */
+    val baseRole: AccountRole? = null,
+    /** V155 -- an administrator-rights revocation request for this member is awaiting approval. */
+    val pendingAdminRevoke: Boolean = false,
 )
 
 /** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */

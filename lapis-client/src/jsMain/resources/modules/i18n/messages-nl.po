@@ -32443,3 +32443,15 @@ msgstr "Het bestuur heeft u niet aangemerkt als oprichter."
 
 msgid "Nur aktive Mitglieder können die Kennzeichnung öffentlich zeigen."
 msgstr "Alleen actieve leden kunnen de aanduiding openbaar tonen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilen"
+msgstr "Beheerdersrecht toekennen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilt."
+msgstr "Beheerdersrecht toegekend."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Nach dem Entzug des Administratorrechts hat das Mitglied wieder die Rolle %1."
+msgstr "Na het intrekken van het beheerdersrecht heeft het lid weer de rol %1."

@@ -28,6 +28,10 @@ public object AccountTable : Table("account") {
     // Welle V1.9.57 (V71): stamped by every writer of `role` (UTC, Klasse A); NULL = pre-existing/seeded account.
     public val roleChangedAt: Column<LocalDateTime?> = datetime("role_changed_at").nullable()
 
+    // V155: administrator rights as a flag independent of `role` (base role never ADMIN); adminChangedAt = tenure clock (NULL = tenured).
+    public val isAdmin: Column<Boolean> = bool("is_admin").default(false)
+    public val adminChangedAt: Column<LocalDateTime?> = datetime("admin_changed_at").nullable()
+
     // Welle V1.9.207 (V118): stamped on every successful login (UTC, Klasse A); NULL = never signed in since V118.
     public val lastLoginAt: Column<LocalDateTime?> = datetime("last_login_at").nullable()
     public val lastLoginMethod: Column<LoginMethod?> = enumerationByName<LoginMethod>("last_login_method", 32).nullable()

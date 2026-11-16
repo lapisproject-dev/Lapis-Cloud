@@ -46,6 +46,7 @@ import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
 import network.lapis.cloud.server.mail.newsletter.testTrackingToken
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CarpoolParticipationStatus
 import network.lapis.cloud.shared.domain.CarpoolPostingInput
@@ -155,7 +156,7 @@ class FriendDeniedEverywhereElseTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id
@@ -179,7 +180,7 @@ class FriendDeniedEverywhereElseTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id
@@ -209,7 +210,7 @@ class FriendDeniedEverywhereElseTest :
                     AccountTable.insert {
                         it[AccountTable.id] = Uuid.random()
                         it[memberId] = creator
-                        it[AccountTable.role] = AccountRole.MEMBER
+                        it.legacyAccountRole(role = AccountRole.MEMBER)
                     }
                     ConferenceRoomTable.insert {
                         it[ConferenceRoomTable.id] = roomId

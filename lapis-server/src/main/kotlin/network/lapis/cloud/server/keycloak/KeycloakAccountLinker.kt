@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.KeycloakAccountLinkTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import org.jetbrains.exposed.v1.core.and
@@ -159,7 +160,7 @@ object KeycloakAccountLinker {
                     .selectAll()
                     .where { AccountTable.memberId eq matchedMemberId }
                     .singleOrNull()
-                    ?.get(AccountTable.role)
+                    ?.let { AccountRights.effectiveRole(it) }
             if (!emailVerified && matchedRole != null && matchedRole in ESCALATED_ROLES) {
                 return@transaction LinkOutcome.Rejected(RejectionReason.EMAIL_NOT_VERIFIED)
             }

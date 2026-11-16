@@ -38,6 +38,7 @@ import network.lapis.cloud.server.mcp.optin.McpMemberBlockStore
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -105,7 +106,7 @@ class McpEndToEndTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                     it[passwordHash] = PasswordHasher.hash("irrelevant-password-1234")
                 }
             }

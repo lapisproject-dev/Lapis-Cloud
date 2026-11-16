@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberNationalityTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.relaxSessionTimeouts
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
@@ -82,7 +83,7 @@ internal object CountryLegacyMappingEngine {
         val roleByMember =
             AccountTable
                 .selectAll()
-                .associate { it[AccountTable.memberId] to it[AccountTable.role] }
+                .associate { it[AccountTable.memberId] to AccountRights.effectiveRole(it) }
         return MemberTable
             .selectAll()
             .where { MemberTable.anonymizedAt.isNull() }

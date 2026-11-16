@@ -7,7 +7,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mail.PeerExecutedEvent
 import network.lapis.cloud.server.mail.PeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
-import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -94,7 +94,7 @@ internal class PeerNotifier(
                 (AccountTable innerJoin MemberTable)
                     .selectAll()
                     .where {
-                        (AccountTable.role eq AccountRole.ADMIN) and
+                        (AccountRights.adminAccountsPredicate()) and
                             (MemberTable.status notInList MemberStatusSets.LOGIN_BLOCKED) and
                             MemberTable.anonymizedAt.isNull()
                     }.filter { it[MemberTable.id] != newAdminId && it[MemberTable.id] != actorId }

@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
 import network.lapis.cloud.server.db.generated.MemberFamilyTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -596,7 +597,7 @@ class MemberFamilyService(
             .where { AccountTable.memberId eq memberId }
             .forUpdate()
             .singleOrNull()
-            ?.get(AccountTable.role)
+            ?.let { AccountRights.effectiveRole(it) }
 
     /** `uq_member_family_link_member` backstop -- a member belongs to at most one family at a time. */
     private fun requireNotAlreadyInFamily(memberId: Uuid) {

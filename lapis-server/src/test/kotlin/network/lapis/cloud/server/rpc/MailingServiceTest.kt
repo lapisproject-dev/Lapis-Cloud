@@ -47,6 +47,7 @@ import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
 import network.lapis.cloud.server.mail.newsletter.TrackingFixture
 import network.lapis.cloud.server.mail.newsletter.testTrackingToken
 import network.lapis.cloud.server.mail.plusDuration
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.DeliveryStatus
@@ -130,7 +131,7 @@ class MailingServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

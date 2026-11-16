@@ -33,6 +33,7 @@ import network.lapis.cloud.server.db.generated.PostalDeliveryLogTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.postal.PostalDispatchOutcome
 import network.lapis.cloud.server.postal.PostalMailProvider
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.CommitteeType
@@ -159,7 +160,7 @@ class PostalMailServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

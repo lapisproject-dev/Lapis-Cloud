@@ -32398,3 +32398,15 @@ msgstr "The board has not marked you as a founding member."
 
 msgid "Nur aktive Mitglieder können die Kennzeichnung öffentlich zeigen."
 msgstr "Only active members can show the label publicly."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilen"
+msgstr "Grant administrator right"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilt."
+msgstr "Administrator right granted."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Nach dem Entzug des Administratorrechts hat das Mitglied wieder die Rolle %1."
+msgstr "After the administrator right is revoked, the member has the role %1 again."

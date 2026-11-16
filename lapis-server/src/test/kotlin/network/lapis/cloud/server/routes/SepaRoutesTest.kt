@@ -22,6 +22,7 @@ import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SepaDebitBatchTable
 import network.lapis.cloud.server.payment.sepa.SepaConfig
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -97,7 +98,7 @@ class SepaRoutesTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

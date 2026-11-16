@@ -14,6 +14,7 @@ import network.lapis.cloud.server.rpc.CommitteeSeatEndResult
 import network.lapis.cloud.server.rpc.CommitteeSeatLifecycle
 import network.lapis.cloud.server.rpc.requireRegionalChapterBeforeActivation
 import network.lapis.cloud.server.rpc.revokeActiveRegionalChapterOfficerGrant
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.requireRole
@@ -84,7 +85,7 @@ internal object MemberRoleStatusMutations {
     ) {
         val otherAdminMemberIds =
             lockedAccountRows
-                .filter { it[AccountTable.role] == AccountRole.ADMIN && it[AccountTable.memberId] != targetId }
+                .filter { AccountRights.isAdmin(it) && it[AccountTable.memberId] != targetId }
                 .map { it[AccountTable.memberId] }
         val remainingNonBlockedAdmins =
             if (otherAdminMemberIds.isEmpty()) {
@@ -101,8 +102,10 @@ internal object MemberRoleStatusMutations {
     }
 
     /**
-     * Changes the role of [targetId] from [currentRole] to [newRole] (the caller verified `newRole != currentRole`). Stamps
-     * `account.role_changed_at`. [peerFacts] (when the change was an approved request) goes into the audit snapshot.
+     * Changes the BASE role of [targetId] from [currentRole] to [newRole] (V155: never ADMIN on either side -- administrator rights are the
+     * independent flag, see [applyAdminGrantLocked]/[applyAdminRevokeLocked]; the caller verified `newRole != currentRole`). The change never
+     * alters the administrator right, so it needs no last-admin check. Stamps `account.role_changed_at`. The audit snapshots carry the
+     * EFFECTIVE role plus the base role and the flag. [peerFacts] (when the change was an approved request) goes into the audit snapshot.
      */
     fun applyRoleChangeLocked(
         actor: CurrentMember?,
@@ -114,31 +117,92 @@ internal object MemberRoleStatusMutations {
         now: LocalDateTime,
         peerFacts: PeerActionAuditFacts?,
     ) {
-        if (newRole != AccountRole.ADMIN) {
-            // Security fix (2026-08-27, MEDIUM): the invariant is "at least one ADMIN with a non-LOGIN_BLOCKED member status
-            // remains", NOT merely "a second ADMIN account exists" (see updateMemberRole history in the CHANGELOG).
-            requireRemainingAdmin(lockedAccountRows = lockedAccountRows, targetId = targetId)
-        }
-        AccountTable.update({ AccountTable.memberId eq targetId }) {
-            it[role] = newRole
-            it[roleChangedAt] = now
-        }
+        require(newRole != AccountRole.ADMIN && currentRole != AccountRole.ADMIN) { "ADMIN is a right, not a base role" }
+        val isAdmin = lockedAccountRows.any { it[AccountTable.memberId] == targetId && AccountRights.isAdmin(it) }
+        AccountRights.setBaseRoleLocked(targetId = targetId, newRole = newRole, now = now)
+        val effective = { base: AccountRole -> if (isAdmin) AccountRole.ADMIN else base }
         val beforeSnapshot =
             MemberChangeSnapshot(
                 displayNameChanged = false,
                 emailChanged = false,
                 status = memberRow[MemberTable.status],
-                role = currentRole,
+                role = effective(currentRole),
+                isAdmin = isAdmin,
+                baseRole = currentRole,
             )
-        val afterSnapshot = beforeSnapshot.copy(role = newRole, peerAction = peerFacts)
+        val afterSnapshot = beforeSnapshot.copy(role = effective(newRole), baseRole = newRole, peerAction = peerFacts)
+        recordMemberAudit(actor = actor, targetId = targetId, before = beforeSnapshot, after = afterSnapshot, now = now)
+    }
+
+    /**
+     * V155 -- grants the administrator right to [targetId] (base role unchanged). The caller took the PROMOTE_TO_ADMIN decision, verified
+     * status/self/anonymization and holds the union lock. Idempotence is the caller's job.
+     */
+    fun applyAdminGrantLocked(
+        actor: CurrentMember?,
+        targetId: Uuid,
+        baseRole: AccountRole,
+        memberRow: ResultRow,
+        now: LocalDateTime,
+        peerFacts: PeerActionAuditFacts?,
+    ) {
+        AccountRights.setAdminFlagLocked(targetId = targetId, enabled = true, now = now)
+        val beforeSnapshot =
+            MemberChangeSnapshot(
+                displayNameChanged = false,
+                emailChanged = false,
+                status = memberRow[MemberTable.status],
+                role = baseRole,
+                isAdmin = false,
+                baseRole = baseRole,
+            )
+        val afterSnapshot = beforeSnapshot.copy(role = AccountRole.ADMIN, isAdmin = true, peerAction = peerFacts)
+        recordMemberAudit(actor = actor, targetId = targetId, before = beforeSnapshot, after = afterSnapshot, now = now)
+    }
+
+    /**
+     * V155 -- revokes the administrator right of [targetId]; the member falls back to the base role. Last-admin protection runs here,
+     * under the union lock the caller holds.
+     */
+    fun applyAdminRevokeLocked(
+        actor: CurrentMember?,
+        targetId: Uuid,
+        baseRole: AccountRole,
+        memberRow: ResultRow,
+        lockedAccountRows: List<ResultRow>,
+        now: LocalDateTime,
+        peerFacts: PeerActionAuditFacts?,
+    ) {
+        requireRemainingAdmin(lockedAccountRows = lockedAccountRows, targetId = targetId)
+        AccountRights.setAdminFlagLocked(targetId = targetId, enabled = false, now = now)
+        val beforeSnapshot =
+            MemberChangeSnapshot(
+                displayNameChanged = false,
+                emailChanged = false,
+                status = memberRow[MemberTable.status],
+                role = AccountRole.ADMIN,
+                isAdmin = true,
+                baseRole = baseRole,
+            )
+        val afterSnapshot = beforeSnapshot.copy(role = baseRole, isAdmin = false, peerAction = peerFacts)
+        recordMemberAudit(actor = actor, targetId = targetId, before = beforeSnapshot, after = afterSnapshot, now = now)
+    }
+
+    private fun recordMemberAudit(
+        actor: CurrentMember?,
+        targetId: Uuid,
+        before: MemberChangeSnapshot,
+        after: MemberChangeSnapshot,
+        now: LocalDateTime,
+    ) {
         AuditLogRecorder.record(
             actorMemberId = actor?.memberId,
             actorRole = actor?.role,
             entityType = AuditEntityType.MEMBER,
             entityId = targetId,
             action = AuditAction.UPDATE,
-            before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
-            after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
+            before = Json.encodeToString(MemberChangeSnapshot.serializer(), before),
+            after = Json.encodeToString(MemberChangeSnapshot.serializer(), after),
             occurredAt = now,
         )
     }

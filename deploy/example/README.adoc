@@ -1063,9 +1063,10 @@ below starts, ends with a clean error and changes no data:
 
 [source,bash]
 ----
-# demote / promote / re-activate an administrator when four eyes are not possible (the last-admin protection holds here too)
+# grant / revoke the administrator RIGHT when four eyes are not possible (the last-admin protection holds here too)
+# (ADMIN is a right, not a role: LAPIS_BOOTSTRAP_ACTION=set-role with LAPIS_BOOTSTRAP_ROLE=ADMIN is rejected; set-role only sets MEMBER/BOARD/TREASURER)
 docker compose run --rm --entrypoint java \
-  -e LAPIS_BOOTSTRAP_ACTION=set-role -e LAPIS_BOOTSTRAP_TARGET_EMAIL=admin@example.org -e LAPIS_BOOTSTRAP_ROLE=ADMIN \
+  -e LAPIS_BOOTSTRAP_ACTION=set-admin -e LAPIS_BOOTSTRAP_TARGET_EMAIL=admin@example.org -e LAPIS_BOOTSTRAP_ADMIN=true \
   <server-service> -cp '/app/server/lib/*' network.lapis.cloud.server.bootstrap.AdminBootstrapKt
 # LAPIS_BOOTSTRAP_ACTION=set-status LAPIS_BOOTSTRAP_STATUS=ACTIVE (re-activation only)
 # LAPIS_BOOTSTRAP_ACTION=reset-password (default) with LAPIS_BOOTSTRAP_ADMIN_EMAIL / LAPIS_BOOTSTRAP_ADMIN_PASSWORD / LAPIS_BOOTSTRAP_FORCE=true

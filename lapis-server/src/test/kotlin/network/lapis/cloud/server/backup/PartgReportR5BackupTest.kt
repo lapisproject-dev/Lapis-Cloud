@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.PartgReportAnnexTable
 import network.lapis.cloud.server.db.generated.PartgReportLargeDonorTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PartgContributionKind
@@ -65,7 +66,7 @@ class PartgReportR5BackupTest :
                     it[id] = Uuid.random()
                     it[memberId] = adminId
                     it[passwordHash] = "a-fake-bcrypt-hash-for-backup-verification-only"
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 listOf(chapterA to "Backup Nord", chapterB to "Backup Sued").forEach { (chapter, label) ->
                     RegionalChapterTable.insert {

@@ -24,6 +24,7 @@ import network.lapis.cloud.server.rpc.ContributionPostingBridge
 import network.lapis.cloud.server.rpc.DonationPostingBridge
 import network.lapis.cloud.server.rpc.EventFeePostingBridge
 import network.lapis.cloud.server.rpc.lastPaymentGatewayComplianceAcknowledgerMemberIdOrNull
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.server.webhook.WebhookPayloads
@@ -719,5 +720,5 @@ object PspWebhookIngestion {
             .selectAll()
             .where { AccountTable.memberId eq memberId }
             .singleOrNull()
-            ?.get(AccountTable.role) ?: AccountRole.MEMBER
+            ?.let { AccountRights.effectiveRole(it) } ?: AccountRole.MEMBER
 }

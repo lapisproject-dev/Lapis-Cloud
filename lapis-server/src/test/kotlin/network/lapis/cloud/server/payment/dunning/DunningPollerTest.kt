@@ -26,6 +26,7 @@ import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.postal.PostalDispatchOutcome
 import network.lapis.cloud.server.postal.PostalMailProvider
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.BillingInterval
@@ -156,7 +157,7 @@ class DunningPollerTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
@@ -113,7 +114,7 @@ class EventSeriesMaterializerTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
             }
             createdMemberIds += id

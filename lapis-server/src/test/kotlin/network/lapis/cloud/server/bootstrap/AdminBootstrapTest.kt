@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.PasswordHasher
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -50,7 +51,7 @@ class AdminBootstrapTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                     it[AccountTable.passwordHash] = passwordHash
                 }
             }
@@ -150,7 +151,8 @@ class AdminBootstrapTest :
                 val row = (MemberTable innerJoin AccountTable).selectAll().single()
                 row[MemberTable.email] shouldBe "first-admin@example.org"
                 row[MemberTable.status] shouldBe MemberStatus.ACTIVE
-                row[AccountTable.role] shouldBe AccountRole.ADMIN
+                row[AccountTable.role] shouldBe AccountRole.MEMBER
+                row[AccountTable.isAdmin] shouldBe true
                 PasswordHasher.verify(rawPassword = STRONG_PASSWORD, storedHash = row[AccountTable.passwordHash]) shouldBe true
             }
         }

@@ -35,6 +35,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AttendanceStatus
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -97,7 +98,7 @@ internal class SessionFixture {
             AccountTable.insert {
                 it[AccountTable.id] = Uuid.random()
                 it[memberId] = id
-                it[AccountTable.role] = role
+                it.legacyAccountRole(role = role)
             }
         }
         memberIds += id

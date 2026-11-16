@@ -7,6 +7,7 @@ import network.lapis.cloud.server.articles.ArticleStore
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -53,7 +54,7 @@ class ArticleMcpLabelMigrationTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             try {

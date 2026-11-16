@@ -30,6 +30,7 @@ import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.memberbio.MemberPublicBioStore
 import network.lapis.cloud.server.memberfinder.MemberFinderLifecycle
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
@@ -332,7 +333,7 @@ class RegistrationService internal constructor(
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
-                    it[role] = AccountRole.MEMBER
+                    AccountRights.writeInitial(stmt = it, baseRole = AccountRole.MEMBER, isAdmin = false, now = null)
                     it[roleChangedAt] = now
                     it[AccountTable.passwordHash] = passwordHash
                 }
@@ -617,6 +618,9 @@ class RegistrationService internal constructor(
         // DocumentAccessLevel.ADMIN_ONLY vs. BOARD_ONLY, applied here to close an obvious
         // privilege-escalation path (a BOARD account minting a new ADMIN account).
         if (input.role in ESCALATED_ROLES) current.requireRole(AccountRole.ADMIN)
+        if (input.role == AccountRole.ADMIN) {
+            throw BadRequestException("ADMIN is a right, not a role: create the member first, then an administrator grants the right")
+        }
         if (input.displayName.isBlank()) throw ConflictException("displayName must not be blank")
         val normalizedEmail = input.email.trim().lowercase()
         PasswordPolicy.validate(newPassword = input.temporaryPassword, email = normalizedEmail)
@@ -653,7 +657,7 @@ class RegistrationService internal constructor(
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
-                    it[role] = input.role
+                    AccountRights.writeInitial(stmt = it, baseRole = input.role, isAdmin = false, now = null)
                     it[roleChangedAt] = now
                     it[passwordHash] = PasswordHasher.hash(input.temporaryPassword)
                 }
@@ -882,7 +886,7 @@ class RegistrationService internal constructor(
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
-                    it[role] = AccountRole.MEMBER
+                    AccountRights.writeInitial(stmt = it, baseRole = AccountRole.MEMBER, isAdmin = false, now = null)
                     it[roleChangedAt] = now
                     it[AccountTable.passwordHash] = passwordHash
                 }

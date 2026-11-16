@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.routes.registerAuthRoutes
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -68,7 +69,7 @@ class KeycloakEmergencyAdminLoginTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                     it[passwordHash] = PasswordHasher.hash(password)
                 }
             }

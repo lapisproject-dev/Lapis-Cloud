@@ -623,4 +623,15 @@ interface IMemberService {
         visibility: FoundingMemberVisibility,
         consentTextVersion: String?,
     ): OwnFoundingMemberDto
+
+    /**
+     * V155 -- GRANTS ([enabled] = true) the ADMINISTRATOR right to [memberId], independent of the base role. ADMIN callers only; takes effect
+     * immediately and notifies every other administrator; not for oneself, not for donors, not for members without an account.
+     * Idempotent. REVOKING ([enabled] = false) is deliberately NOT done here: it needs the approval of a second administrator and goes
+     * through [network.lapis.cloud.shared.rpc.IPrivilegedActionService.requestDemotion]; this method answers a revoke with a `BadRequestException`.
+     */
+    suspend fun setAdminRights(
+        memberId: String,
+        enabled: Boolean,
+    ): MemberAdminRowDto
 }

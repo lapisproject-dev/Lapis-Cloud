@@ -44,6 +44,7 @@ import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.rpc.EventService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CommitteeMembershipMode
@@ -136,7 +137,7 @@ class MeetingEventLinkServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             memberIds += id

@@ -19,6 +19,7 @@ import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.testdb.PgSpecDatabase
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.PostgresTestSupport
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -82,7 +83,7 @@ class OrganizationExportTimeoutPostgresTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = adminId
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 // Enough incompressible rows that the deflater hands bytes to the sink WHILE the cursor is open.
                 exec(

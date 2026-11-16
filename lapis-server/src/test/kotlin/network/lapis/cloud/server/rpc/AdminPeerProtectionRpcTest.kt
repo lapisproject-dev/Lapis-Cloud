@@ -40,6 +40,7 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
+import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -133,6 +134,22 @@ class AdminPeerProtectionRpcTest :
                             newRole = AccountRole.valueOf(call.request.queryParameters["role"]!!),
                         )
                     call.respondText("OK:${dto.role}")
+                }
+                post("/t/admin/{id}") {
+                    val dto =
+                        memberService(call).setAdminRights(
+                            memberId = call.parameters["id"]!!,
+                            enabled = call.request.queryParameters["enabled"].toBoolean(),
+                        )
+                    call.respondText("OK:${dto.role}")
+                }
+                post("/t/adminfull/{id}") {
+                    val dto = memberService(call).setAdminRights(memberId = call.parameters["id"]!!, enabled = true)
+                    call.respondText("OK:${dto.role}:base=${dto.baseRole}:isAdmin=${dto.isAdmin}")
+                }
+                post("/t/roster") {
+                    val rows = memberService(call).listMembersForAdministration(MemberAdminQuery(limit = 500)).rows
+                    call.respondText(rows.filter { it.pendingAdminRevoke }.joinToString(",") { it.id })
                 }
                 post("/t/status/{id}") {
                     val q = call.request.queryParameters
@@ -414,11 +431,13 @@ class AdminPeerProtectionRpcTest :
                 application { setup() }
                 val a = fx.admin()
                 val b = fx.admin()
-                client.act("/t/role/$b?role=MEMBER", a) shouldBe (HttpStatusCode.Conflict to "NoSecondAdminException")
+                // V155: the administrator right is never revoked directly (setAdminRights answers a revoke with a 400, the request path is
+                // IPrivilegedActionService.requestDemotion); a plain base-role change of an administrator touches no right and is allowed.
+                client.act("/t/admin/$b?enabled=false", a) shouldBe (HttpStatusCode.Conflict to "BadRequestException")
                 client.act("/t/status/$b?status=WITHDRAWN", a) shouldBe (HttpStatusCode.Conflict to "NoSecondAdminException")
                 fx.admin()
-                client.act("/t/role/$b?role=MEMBER", a) shouldBe (HttpStatusCode.Conflict to "PeerApprovalRequiredException")
                 client.act("/t/status/$b?status=WITHDRAWN", a) shouldBe (HttpStatusCode.Conflict to "PeerApprovalRequiredException")
+                client.act("/t/role/$b?role=BOARD", a) shouldBe (HttpStatusCode.OK to "OK:ADMIN")
                 fx.roleOf(b) shouldBe AccountRole.ADMIN
                 fx.statusOf(b) shouldBe MemberStatus.ACTIVE
             }
@@ -466,7 +485,9 @@ class AdminPeerProtectionRpcTest :
 
         // ───────────────────────────── promotion ─────────────────────────────
 
-        test("promotion to ADMIN (role change, access grant, direct creation) tells every OTHER administrator and stamps role_changed_at") {
+        test(
+            "granting the administrator right (setAdminRights) tells every OTHER administrator and stamps admin_changed_at; ADMIN as a role or at creation is refused",
+        ) {
             testApplication {
                 application { setup() }
                 val actor = fx.admin(displayName = "Befoerdernder Admin")
@@ -474,8 +495,9 @@ class AdminPeerProtectionRpcTest :
                 // role change
                 mailer.newAdminNotices.clear()
                 val promoted = fx.member(role = AccountRole.BOARD, displayName = "Neuer Admin A")
-                client.act("/t/role/$promoted?role=ADMIN", actor) shouldBe (HttpStatusCode.OK to "OK:ADMIN")
-                (fx.roleChangedAtOf(promoted) != null) shouldBe true
+                client.act("/t/role/$promoted?role=ADMIN", actor) shouldBe (HttpStatusCode.Conflict to "BadRequestException")
+                client.act("/t/admin/$promoted?enabled=true", actor) shouldBe (HttpStatusCode.OK to "OK:ADMIN")
+                (fx.adminChangedAtOf(promoted) != null) shouldBe true
                 mailer.newAdminNotices.map { it.subjectName } shouldBe listOf("Neuer Admin A")
                 // the actor and the new administrator are not told, the other administrator is
                 mailer.newAdminNotices.single().actorName shouldBe "Befoerdernder Admin"
@@ -483,14 +505,10 @@ class AdminPeerProtectionRpcTest :
                     mailer.newAdminNotices.single().email shouldBe otherEmail
                 }
                 peerAuditEvents(promoted).joinToString("\n") shouldContain "\"event\":\"NOTIFIED_PROMOTION\""
-                // direct creation
+                // direct creation with ADMIN is refused (V155: a right, not a role)
                 mailer.newAdminNotices.clear()
-                val (status, body) = client.act("/t/direct?role=ADMIN", actor)
-                status shouldBe HttpStatusCode.OK
-                val created = Uuid.parse(body.removePrefix("OK:"))
-                (fx.roleChangedAtOf(created) != null) shouldBe true
-                // the other administrator AND the administrator promoted above (now an ADMIN too) are told, actor and new admin are not
-                mailer.newAdminNotices shouldHaveSize 2
+                client.act("/t/direct?role=ADMIN", actor).first shouldBe HttpStatusCode.Conflict
+                mailer.newAdminNotices.shouldBeEmpty()
                 // a BOARD creation tells nobody
                 mailer.newAdminNotices.clear()
                 client.act("/t/direct?role=BOARD", actor).first shouldBe HttpStatusCode.OK
@@ -498,20 +516,95 @@ class AdminPeerProtectionRpcTest :
             }
         }
 
-        test("grantMemberAccount with the ADMIN role tells the other administrators and stamps role_changed_at") {
+        test("grantMemberAccount with the ADMIN role is refused (V155), a MEMBER grant tells nobody") {
             testApplication {
                 application { setup() }
                 val actor = fx.admin()
                 fx.admin()
                 mailer.newAdminNotices.clear()
                 val accountless = fx.member(role = null)
-                client.act("/t/grant/$accountless?role=ADMIN", actor).first shouldBe HttpStatusCode.OK
-                (fx.roleChangedAtOf(accountless) != null) shouldBe true
-                mailer.newAdminNotices shouldHaveSize 1
+                client.act("/t/grant/$accountless?role=ADMIN", actor).first shouldBe HttpStatusCode.Conflict
+                mailer.newAdminNotices.shouldBeEmpty()
                 val plain = fx.member(role = null)
                 mailer.newAdminNotices.clear()
                 client.act("/t/grant/$plain?role=MEMBER", actor).first shouldBe HttpStatusCode.OK
                 mailer.newAdminNotices.shouldBeEmpty()
+            }
+        }
+
+        test(
+            "V155 setAdminRights on the caller's own id: a non-ADMIN is refused, an ADMIN call is an idempotent no-op without audit entry",
+        ) {
+            testApplication {
+                application { setup() }
+                val actor = fx.admin()
+                val board = fx.member(role = AccountRole.BOARD)
+                // a BOARD member without the right cannot call it at all; for an ADMIN the self call is already granted
+                client.act("/t/admin/$board?enabled=true", board).second shouldBe "ForbiddenException"
+                val audits = fx.auditJsonFor(actor).size
+                client.act("/t/admin/$actor?enabled=true", actor) shouldBe (HttpStatusCode.OK to "OK:ADMIN")
+                fx.auditJsonFor(actor).size shouldBe audits
+                fx.roleOf(actor) shouldBe AccountRole.ADMIN
+            }
+        }
+
+        test("V155 a grant keeps the BASE role of the target (BOARD stays BOARD underneath the right)") {
+            testApplication {
+                application { setup() }
+                val actor = fx.admin()
+                fx.admin()
+                val target = fx.member(role = AccountRole.BOARD)
+                client.act("/t/adminfull/$target", actor) shouldBe (HttpStatusCode.OK to "OK:ADMIN:base=BOARD:isAdmin=true")
+            }
+        }
+
+        test(
+            "V155 roster flag pendingAdminRevoke: true for an open DEMOTE against the target, false without one and for a non-ADMIN viewer",
+        ) {
+            testApplication {
+                application { setup() }
+                val a = fx.admin()
+                val b = fx.admin()
+                val c = fx.admin()
+                val board = fx.member(role = AccountRole.BOARD)
+                client.act("/t/roster", a) shouldBe (HttpStatusCode.OK to "")
+                fx.service().requestDemotion(
+                    actor = fx.actor(id = a),
+                    targetIdRaw = b.toString(),
+                    newRole = AccountRole.MEMBER,
+                    reasonRaw = "Passwort vergessen, Telefonat protokolliert",
+                )
+                val flagged = client.act("/t/roster", c)
+                flagged.first shouldBe HttpStatusCode.OK
+                flagged.second.split(",") shouldBe listOf(b.toString())
+                // a BOARD viewer never sees the flag
+                client.act("/t/roster", board).second shouldBe ""
+            }
+        }
+
+        test(
+            "V155 setAdminRights: only an ADMIN may grant; self, donors, accountless, deceased are refused; a grant is idempotent and audited once",
+        ) {
+            testApplication {
+                application { setup() }
+                val actor = fx.admin()
+                val target = fx.member(role = AccountRole.BOARD)
+                listOf(AccountRole.MEMBER, AccountRole.BOARD, AccountRole.TREASURER).forEach { role ->
+                    val caller = fx.member(role = role)
+                    client.act("/t/admin/$target?enabled=true", caller) shouldBe (HttpStatusCode.Conflict to "ForbiddenException")
+                }
+                val donor = fx.member(role = AccountRole.MEMBER, status = MemberStatus.DONOR)
+                client.act("/t/admin/$donor?enabled=true", actor) shouldBe (HttpStatusCode.Conflict to "ConflictException")
+                client.act("/t/admin/${fx.member(role = null)}?enabled=true", actor).second shouldBe "MemberHasNoAccountException"
+                client.act("/t/admin/${fx.member(status = MemberStatus.DECEASED)}?enabled=true", actor).second shouldBe "ConflictException"
+                // a BOARD member keeps the base role and gains the right; the second call is a no-op without a second audit entry
+                client.act("/t/admin/$target?enabled=true", actor) shouldBe (HttpStatusCode.OK to "OK:ADMIN")
+                val auditsAfterFirst = fx.auditJsonFor(target).size
+                client.act("/t/admin/$target?enabled=true", actor) shouldBe (HttpStatusCode.OK to "OK:ADMIN")
+                fx.auditJsonFor(target).size shouldBe auditsAfterFirst
+                fx.auditJsonFor(target).joinToString("\n") shouldContain "\"isAdmin\":true"
+                // revoking is never direct
+                client.act("/t/admin/$target?enabled=false", actor).second shouldBe "BadRequestException"
             }
         }
 
@@ -601,7 +694,7 @@ class AdminPeerProtectionRpcTest :
                 application { setup() }
                 val a = fx.admin()
                 val b = fx.admin()
-                repeat(35) { client.act("/t/role/$b?role=MEMBER", a) }
+                repeat(35) { client.act("/t/status/$b?status=WITHDRAWN", a) }
                 val denied = peerAuditEvents(b).count { it.contains("\"event\":\"DENIED\"") }
                 (denied in 1..30) shouldBe true
                 fx.auditJsonFor(b).joinToString("\n") shouldNotContain "@"

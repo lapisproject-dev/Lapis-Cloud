@@ -32,6 +32,7 @@ import network.lapis.cloud.server.payment.fints.FinTsCredentials
 import network.lapis.cloud.server.payment.fints.FinTsErrorCode
 import network.lapis.cloud.server.payment.fints.FinTsSetupClient
 import network.lapis.cloud.server.payment.fints.FinTsSetupOutcome
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
@@ -101,7 +102,7 @@ class BankAccountFinTsServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

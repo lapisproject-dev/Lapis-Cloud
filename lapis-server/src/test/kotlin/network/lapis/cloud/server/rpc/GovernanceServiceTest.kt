@@ -42,6 +42,7 @@ import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.dsgvo.GovernancePersonalData
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgendaItemInput
 import network.lapis.cloud.shared.domain.AttendanceInput
@@ -134,7 +135,7 @@ class GovernanceServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

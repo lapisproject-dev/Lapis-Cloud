@@ -17,6 +17,7 @@ import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.mail.maskEmailForLogging
 import network.lapis.cloud.server.rpc.MEMBER_EMAIL_MAX_LENGTH
 import network.lapis.cloud.server.rpc.toMemberDto
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
@@ -1084,7 +1085,7 @@ internal class EmailChangeService(
 
     private fun accountFacts(memberId: Uuid): AccountFacts {
         val row = AccountTable.selectAll().where { AccountTable.memberId eq memberId }.singleOrNull()
-        return AccountFacts(role = row?.get(AccountTable.role), passwordHash = row?.get(AccountTable.passwordHash))
+        return AccountFacts(role = row?.let { AccountRights.effectiveRole(it) }, passwordHash = row?.get(AccountTable.passwordHash))
     }
 
     /** `true` when the account has a local password that the owner can use as proof (not managed by the identity provider). */

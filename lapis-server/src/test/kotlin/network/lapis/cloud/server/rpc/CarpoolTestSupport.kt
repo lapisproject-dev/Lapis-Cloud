@@ -21,6 +21,7 @@ import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CarpoolMessageSide
@@ -123,7 +124,7 @@ internal class CarpoolTestData {
             AccountTable.insert {
                 it[AccountTable.id] = Uuid.random()
                 it[memberId] = id
-                it[AccountTable.role] = role
+                it.legacyAccountRole(role = role)
             }
         }
         memberIds += id

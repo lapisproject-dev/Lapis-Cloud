@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.rpc.NoticeBoardService
 import network.lapis.cloud.server.rpc.ServiceCaller
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
@@ -67,7 +68,7 @@ internal class NoticeFixtures {
             AccountTable.insert {
                 it[AccountTable.id] = Uuid.random()
                 it[memberId] = id
-                it[AccountTable.role] = role
+                it.legacyAccountRole(role = role)
             }
         }
         memberIds += id

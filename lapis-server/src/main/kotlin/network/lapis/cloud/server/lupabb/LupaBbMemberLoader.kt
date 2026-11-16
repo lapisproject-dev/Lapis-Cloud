@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.containsLikePattern
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberLupaBbProfileTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.LupaBbLinkTargetDto
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -170,6 +171,7 @@ internal object LupaBbMemberLoader {
             MemberTable.votingRight,
             MemberTable.votingRightSource,
             AccountTable.role,
+            AccountTable.isAdmin,
             MemberLupaBbProfileTable.memberId,
             MemberLupaBbProfileTable.givenName,
             MemberLupaBbProfileTable.familyName,
@@ -202,7 +204,7 @@ internal object LupaBbMemberLoader {
             externalReference = this[MemberTable.externalReference],
             votingRight = this[MemberTable.votingRight],
             votingRightSource = this[MemberTable.votingRightSource],
-            role = this.getOrNull(AccountTable.role),
+            role = AccountRights.effectiveRoleOrNull(this),
             profile =
                 if (hasProfile) {
                     LapisProfile(

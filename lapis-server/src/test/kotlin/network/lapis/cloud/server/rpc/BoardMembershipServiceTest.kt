@@ -41,6 +41,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BoardChangeType
 import network.lapis.cloud.shared.domain.BoardMembershipInput
@@ -113,7 +114,7 @@ class BoardMembershipServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

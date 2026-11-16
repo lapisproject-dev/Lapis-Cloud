@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.DeploymentMode
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.shared.domain.AccountRole
@@ -318,7 +319,8 @@ object DevSeedData {
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[memberId] = seed.id
-                    it[role] = seed.role
+                    val (baseRole, isAdmin) = AccountRights.splitEffective(seed.role)
+                    AccountRights.writeInitial(stmt = it, baseRole = baseRole, isAdmin = isAdmin, now = null)
                     it[passwordHash] = demoPasswordHash
                 }
             }

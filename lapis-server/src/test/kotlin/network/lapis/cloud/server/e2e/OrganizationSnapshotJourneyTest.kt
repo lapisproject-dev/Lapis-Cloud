@@ -38,6 +38,7 @@ import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.MembershipAgreementDisclaimer
 import network.lapis.cloud.server.rpc.RegistrationService
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.CommitteeInput
@@ -343,7 +344,7 @@ class OrganizationSnapshotJourneyTest :
                     AccountTable.insert {
                         it[id] = sourceAdminAccountId
                         it[memberId] = Uuid.parse(ADMIN_ID)
-                        it[role] = AccountRole.ADMIN
+                        it.legacyAccountRole(role = AccountRole.ADMIN)
                         it[passwordHash] = null
                     }
                 }

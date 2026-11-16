@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchTable
 import network.lapis.cloud.server.payment.sepa.BicValidator
 import network.lapis.cloud.server.payment.sepa.IbanValidator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -448,7 +449,7 @@ internal object BankAccountStore {
             val adminMemberId =
                 AccountTable
                     .selectAll()
-                    .where { AccountTable.role eq AccountRole.ADMIN }
+                    .where { AccountRights.adminAccountsPredicate() }
                     .orderBy(AccountTable.id to SortOrder.ASC)
                     .limit(1)
                     .firstOrNull()

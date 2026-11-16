@@ -33,9 +33,11 @@ import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.member.MemberRoleStatusMutations
 import network.lapis.cloud.server.member.MemberVotingRights
 import network.lapis.cloud.server.member.PeerNotifier
+import network.lapis.cloud.server.member.PrivilegedActionStore
 import network.lapis.cloud.server.member.TemporaryPasswordMutation
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_REISSUED
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.MemberVisibility
@@ -115,7 +117,6 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
-import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -387,7 +388,7 @@ class MemberService(
                     .selectAll()
                     .where { AccountTable.memberId eq targetId }
                     .singleOrNull()
-                    ?.get(AccountTable.role)
+                    ?.let { AccountRights.effectiveRole(it) }
             val decision =
                 PeerPolicy.decide(
                     actorRole = current.role,
@@ -1075,7 +1076,7 @@ class MemberService(
                     // be a value oracle): ADMIN accounts are excluded from the match whenever the filter is active. The same
                     // predicate feeds the status chips, so the chip numbers stay consistent with the list.
                     if (current.role != AccountRole.ADMIN) {
-                        predicate = predicate and (AccountTable.role.isNull() or (AccountTable.role neq AccountRole.ADMIN))
+                        predicate = predicate and AccountRights.notAdminOrNoAccountPredicate()
                     }
                 }
                 if (queriedMemberId != null) predicate = predicate and (MemberTable.id eq queriedMemberId)
@@ -1107,6 +1108,7 @@ class MemberService(
                         arrayOf(AccountTable.lastLoginAt to SortOrder.DESC_NULLS_LAST, MemberTable.id to SortOrder.ASC)
                 }
 
+            val revokeTargets = if (current.role == AccountRole.ADMIN) PrivilegedActionStore.openRevokeTargets() else emptySet()
             val rows =
                 adminRosterSource
                     .selectAll()
@@ -1116,6 +1118,7 @@ class MemberService(
                     .offset(offset.toLong())
                     .map {
                         it.toMemberAdminRowDto(
+                            pendingAdminRevoke = it[MemberTable.id] in revokeTargets,
                             includeFamilyDetails = current.isPrivileged,
                             chapterScoped = chapterScopeId != null,
                             countryViewer = current,
@@ -1386,7 +1389,7 @@ class MemberService(
                     .selectAll()
                     .where { AccountTable.memberId eq targetId }
                     .singleOrNull()
-                    ?.get(AccountTable.role)
+                    ?.let { AccountRights.effectiveRole(it) }
             val beforeSnapshot =
                 MemberChangeSnapshot(
                     displayNameChanged = false,
@@ -1418,11 +1421,76 @@ class MemberService(
         // why this is stricter than RegistrationService.createMemberDirect's escalated-role-only
         // gate. Checked unconditionally, before self/existence checks.
         current.requireRole(AccountRole.ADMIN)
+        // V155: administrator rights are the independent flag set by setAdminRights; the base role is never ADMIN.
+        if (newRole == AccountRole.ADMIN) throw BadRequestException("ADMIN is a right, not a role: use setAdminRights")
         val targetId = memberId.toMemberUuidOrThrow()
         if (targetId == current.memberId) throw ForbiddenException()
 
         val now = nowLocalDateTime()
-        var promotedToAdmin = false
+        return peerGuarded(actor = current) {
+            transaction {
+                val memberRow =
+                    MemberTable
+                        .selectAll()
+                        .where { MemberTable.id eq targetId }
+                        .forMemberUpdate()
+                        .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+                if (memberRow[MemberTable.anonymizedAt] != null) {
+                    throw ConflictException("Member has been anonymized and can no longer be edited")
+                }
+                // The target's account row AND every administrator's account row in ONE id-ordered query (the union lock every
+                // role/status/admin-right writer shares, see PeerGuard) -- serializes this change against a concurrent revoke approval.
+                val facts =
+                    PeerGuard.lockFactsAfterMemberLock(
+                        targetId = targetId,
+                        memberRow = memberRow,
+                        requesterId = current.memberId,
+                    )
+                val accountRow =
+                    facts.lockedAccountRows.singleOrNull { it[AccountTable.memberId] == targetId }
+                        ?: throw MemberHasNoAccountException()
+                val currentBaseRole = AccountRights.baseRole(accountRow)
+                // Welle V1.9.298 -- a donor never holds BOARD/TREASURER (or the administrator right).
+                MemberRoleStatusMutations.requireRoleAllowedForStatus(status = memberRow[MemberTable.status], role = newRole)
+
+                // Idempotent no-op: DTO back, no update, no audit entry.
+                if (newRole == currentBaseRole) {
+                    return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                }
+                // V155: a base-role change never alters the administrator right (the effective rights of an administrator do not change),
+                // so no peer step is needed -- the stale check of a pending revoke request notices the change on approval.
+                MemberRoleStatusMutations.applyRoleChangeLocked(
+                    actor = current,
+                    targetId = targetId,
+                    newRole = newRole,
+                    currentRole = currentBaseRole,
+                    memberRow = memberRow,
+                    lockedAccountRows = facts.lockedAccountRows,
+                    now = now,
+                    peerFacts = null,
+                )
+                // Deliberately NO SessionStore.revokeAllForMember here -- see interface KDoc
+                // "Deliberately does NOT invalidate the target's existing sessions".
+                loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+            }
+        }
+    }
+
+    override suspend fun setAdminRights(
+        memberId: String,
+        enabled: Boolean,
+    ): MemberAdminRowDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        // Revoke is never immediate: a second administrator must approve -- IPrivilegedActionService.requestDemotion files that request.
+        if (!enabled) {
+            throw BadRequestException(
+                "Revoking administrator rights needs a second administrator's approval: use requestDemotion",
+            )
+        }
+        val now = nowLocalDateTime()
+        var granted = false
         val result =
             peerGuarded(actor = current) {
                 transaction {
@@ -1435,9 +1503,7 @@ class MemberService(
                     if (memberRow[MemberTable.anonymizedAt] != null) {
                         throw ConflictException("Member has been anonymized and can no longer be edited")
                     }
-                    // Letzter-Admin-Schutz, race-safe: lock the target's account row AND every ADMIN account row in a SINGLE
-                    // id-ordered query (the union lock every role/status writer shares, see PeerGuard) -- `.forUpdate()` then
-                    // genuinely serializes two concurrent degradations of the last two ADMIN accounts against each other.
+                    if (memberRow[MemberTable.status] == MemberStatus.DECEASED) throw ConflictException("The member is deceased")
                     val facts =
                         PeerGuard.lockFactsAfterMemberLock(
                             targetId = targetId,
@@ -1447,61 +1513,39 @@ class MemberService(
                     val accountRow =
                         facts.lockedAccountRows.singleOrNull { it[AccountTable.memberId] == targetId }
                             ?: throw MemberHasNoAccountException()
-                    val currentRole = accountRow[AccountTable.role]
-                    // Welle V1.9.298 -- a donor never holds BOARD/TREASURER/ADMIN.
-                    MemberRoleStatusMutations.requireRoleAllowedForStatus(status = memberRow[MemberTable.status], role = newRole)
-
                     // Idempotent no-op: DTO back, no update, no audit entry.
-                    if (newRole ==
-                        currentRole
-                    ) {
+                    if (AccountRights.isAdmin(accountRow)) {
                         return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
                     }
-
-                    // Welle V1.9.57 "Admin-Peer-Schutz" -- taking the ADMIN role away from an ADMIN needs the approval of a second
-                    // administrator (never executed directly); making somebody ADMIN is allowed, every OTHER administrator is told.
-                    var peerFacts: PeerActionAuditFacts? = null
-                    if (currentRole == AccountRole.ADMIN && newRole != AccountRole.ADMIN) {
-                        PeerGuard.decideLocked(
-                            actor = current,
-                            targetId = targetId,
-                            action = PeerAction.DEMOTE,
-                            mailConfigured = smtpConfigState is SmtpConfigState.Configured,
-                            facts = facts,
-                        )
-                    } else if (newRole == AccountRole.ADMIN) {
-                        PeerGuard.decideLocked(
-                            actor = current,
-                            targetId = targetId,
-                            action = PeerAction.PROMOTE_TO_ADMIN,
-                            mailConfigured = smtpConfigState is SmtpConfigState.Configured,
-                            facts = facts,
-                        )
-                        promotedToAdmin = true
+                    if (memberRow[MemberTable.status] == MemberStatus.DONOR) {
+                        throw ConflictException("A donor cannot hold an administrative role")
+                    }
+                    // Not for oneself (the matrix denies PROMOTE_TO_ADMIN on self); every OTHER administrator is told after the commit.
+                    PeerGuard.decideLocked(
+                        actor = current,
+                        targetId = targetId,
+                        action = PeerAction.PROMOTE_TO_ADMIN,
+                        mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                        facts = facts,
+                    )
+                    MemberRoleStatusMutations.applyAdminGrantLocked(
+                        actor = current,
+                        targetId = targetId,
+                        baseRole = AccountRights.baseRole(accountRow),
+                        memberRow = memberRow,
+                        now = now,
                         peerFacts =
                             PeerActionAuditFacts(
                                 event = PeerAuditEvent.NOTIFIED_PROMOTION,
                                 action = PeerAction.PROMOTE_TO_ADMIN,
-                                targetRole = newRole,
-                            )
-                    }
-
-                    MemberRoleStatusMutations.applyRoleChangeLocked(
-                        actor = current,
-                        targetId = targetId,
-                        newRole = newRole,
-                        currentRole = currentRole,
-                        memberRow = memberRow,
-                        lockedAccountRows = facts.lockedAccountRows,
-                        now = now,
-                        peerFacts = peerFacts,
+                                targetRole = AccountRole.ADMIN,
+                            ),
                     )
-                    // Deliberately NO SessionStore.revokeAllForMember here -- see interface KDoc
-                    // "Deliberately does NOT invalidate the target's existing sessions".
+                    granted = true
                     loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
                 }
             }
-        if (promotedToAdmin) peerNotifier.newAdministrator(newAdminId = targetId, actorId = current.memberId, occurredAt = now)
+        if (granted) peerNotifier.newAdministrator(newAdminId = targetId, actorId = current.memberId, occurredAt = now)
         return result
     }
 
@@ -1516,6 +1560,11 @@ class MemberService(
         // updateMemberRole's gate exactly, not RegistrationService.createMemberDirect's weaker
         // escalated-role-only one.
         current.requireRole(AccountRole.ADMIN)
+        if (role ==
+            AccountRole.ADMIN
+        ) {
+            throw BadRequestException("ADMIN is a right, not a role: grant the account first, then use setAdminRights")
+        }
         val targetId = memberId.toMemberUuidOrThrow()
         // Deliberately NO self-target check -- see interface KDoc: the caller authenticated with an
         // account row, so a self-target necessarily lands in MemberAlreadyHasAccountException below.
@@ -1596,7 +1645,7 @@ class MemberService(
                         AccountTable.insert {
                             it[id] = Uuid.random()
                             it[AccountTable.memberId] = targetId
-                            it[AccountTable.role] = role
+                            AccountRights.writeInitial(stmt = it, baseRole = role, isAdmin = false, now = null)
                             it[roleChangedAt] = now
                             it[passwordHash] = PasswordHasher.hash(temporaryPassword)
                             // oidcSubject/oidcIssuer stay null -- a password account, not a federated one.
@@ -2075,7 +2124,7 @@ class MemberService(
             .where { AccountTable.memberId eq memberId }
             .forUpdate()
             .singleOrNull()
-            ?.get(AccountTable.role)
+            ?.let { AccountRights.effectiveRole(it) }
 
     private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 
@@ -2132,7 +2181,7 @@ private const val MAX_REASON_LENGTH = 1000
  * LEFT JOIN, deliberately not `innerJoin` -- an `innerJoin` would silently exclude every one of
  * the 407 `MemberCsvImport`-created rows that have no `account` at all (see [MemberAdminRowDto
  * .role] KDoc). [ResultRow.toMemberAdminRowDto] below uses `getOrNull` on the joined columns for
- * exactly the same reason -- `row[AccountTable.role]` would throw for those rows.
+ * exactly the same reason -- `AccountRights.effectiveRole(row)` would throw for those rows.
  *
  * Welle V1.4.4.4 "Familienmitgliedschaften" added THREE further LEFT JOINs, every one explicit
  * (`join(table, JoinType.LEFT, onColumn, otherColumn)`, never `innerJoin`/implicit inference) --
@@ -2205,13 +2254,18 @@ private fun ResultRow.toMemberAdminRowDto(
     countryViewer: CurrentMember? = null,
     /** V1.9.207 -- ADMIN only, see [canSeeLastLogin]; `false` yields `null` fields (nulled server-side). */
     includeLastLogin: Boolean = false,
+    /** V155 -- an administrator-rights revocation request for this member is open (ADMIN viewers only; the caller passes `false` otherwise). */
+    pendingAdminRevoke: Boolean = false,
 ): MemberAdminRowDto =
     MemberAdminRowDto(
+        isAdmin = !chapterScoped && AccountRights.isAdminOrFalse(this),
+        baseRole = if (chapterScoped) null else AccountRights.baseRoleOrNull(this),
+        pendingAdminRevoke = pendingAdminRevoke,
         id = this[MemberTable.id].toString(),
         displayName = this[MemberTable.displayName],
         email = this[MemberTable.email],
         status = this[MemberTable.status],
-        role = if (chapterScoped) null else this.getOrNull(AccountTable.role),
+        role = if (chapterScoped) null else AccountRights.effectiveRoleOrNull(this),
         joinedAt = this[MemberTable.joinedAt],
         title = this[MemberTable.title],
         externalReference = if (chapterScoped) null else this[MemberTable.externalReference],
@@ -2256,7 +2310,7 @@ private fun ResultRow.rosterCountryCodeFor(viewer: CurrentMember?): String? {
         PeerPolicy.decide(
             actorRole = viewer.role,
             actorId = viewer.memberId,
-            targetRole = this.getOrNull(AccountTable.role),
+            targetRole = AccountRights.effectiveRoleOrNull(this),
             targetId = this[MemberTable.id],
             action = PeerAction.READ_PROTECTED_DATA,
             eligibleApprovers = 0,
@@ -2278,6 +2332,7 @@ private fun loadMemberAdminRow(
             includeFamilyDetails = includeFamilyDetails,
             countryViewer = viewer,
             includeLastLogin = viewer != null && canSeeLastLogin(current = viewer, chapterScopeId = null),
+            pendingAdminRevoke = viewer?.role == AccountRole.ADMIN && id in PrivilegedActionStore.openRevokeTargets(),
         )
 
 private fun String.toMemberUuidOrThrow(): Uuid =
@@ -2297,7 +2352,7 @@ fun ResultRow.toMemberDto(nationalityCodes: List<String> = MemberCountryStore.lo
         email = this[MemberTable.email],
         status = this[MemberTable.status],
         joinedAt = this[MemberTable.joinedAt],
-        role = this[AccountTable.role],
+        role = AccountRights.effectiveRole(this),
         street = this[MemberTable.street],
         postalCode = this[MemberTable.postalCode],
         city = this[MemberTable.city],

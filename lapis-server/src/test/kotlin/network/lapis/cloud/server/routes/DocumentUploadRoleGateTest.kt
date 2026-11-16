@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -92,7 +93,7 @@ class DocumentUploadRoleGateTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.BankStatementLineTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mail.FakeFinTsReauthNotificationMailer
 import network.lapis.cloud.server.payment.bankstatement.BankStatementImportService
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.FinTsStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -114,7 +115,7 @@ class FinTsPollerWatermarkGapTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
             }
             createdMemberIds += id

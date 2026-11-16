@@ -23,6 +23,7 @@ import network.lapis.cloud.server.partg.PartgAnnexStore
 import network.lapis.cloud.server.partg.PartgConsolidationStore
 import network.lapis.cloud.server.partg.PartgLedgerLinkStore
 import network.lapis.cloud.server.partg.PartgReportStore
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -949,7 +950,7 @@ private fun currentAccountRole(memberId: Uuid): AccountRole? =
         .where { AccountTable.memberId eq memberId }
         .forUpdate()
         .singleOrNull()
-        ?.get(AccountTable.role)
+        ?.let { AccountRights.effectiveRole(it) }
 
 private fun String.toChapterUuidOrThrow(): Uuid =
     runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Regional chapter $this not found") }

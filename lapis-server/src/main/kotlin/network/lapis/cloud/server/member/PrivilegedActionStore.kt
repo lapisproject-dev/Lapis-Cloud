@@ -111,6 +111,16 @@ internal object PrivilegedActionStore {
         return pending + waiting
     }
 
+    /** V155 -- target members with an open administrator-rights revocation request (action DEMOTE), unlocked, for the roster flag. */
+    fun openRevokeTargets(): Set<Uuid> =
+        PrivilegedActionRequestTable
+            .selectAll()
+            .where {
+                (PrivilegedActionRequestTable.status inList OPEN) and
+                    (PrivilegedActionRequestTable.action eq PrivilegedActionKind.DEMOTE.name)
+            }.map { it[PrivilegedActionRequestTable.targetMemberId] }
+            .toSet()
+
     /** Open requests (PENDING / APPROVED_WAITING), newest first, unlocked -- for the overview card. */
     fun openRows(limit: Int): List<ResultRow> =
         PrivilegedActionRequestTable

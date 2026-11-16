@@ -5,6 +5,7 @@ import kotlinx.coroutines.sync.withLock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.events.EVENT_GUEST_IDENTITY_PREFIX
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_CAPTURE_PAUSE
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_CAPTURE_RESUME
@@ -54,7 +55,7 @@ internal object ConferenceAudioPolicy {
         return AccountTable
             .selectAll()
             .where { AccountTable.memberId inList memberIds.toList() }
-            .filter { it[AccountTable.role] == AccountRole.ADMIN || it[AccountTable.role] == AccountRole.BOARD }
+            .filter { AccountRights.effectiveRole(it).let { r -> r == AccountRole.ADMIN || r == AccountRole.BOARD } }
             .map { it[AccountTable.memberId] }
             .toSet()
     }

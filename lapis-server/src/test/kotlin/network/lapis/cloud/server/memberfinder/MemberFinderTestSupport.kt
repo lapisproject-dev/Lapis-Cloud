@@ -25,6 +25,7 @@ import network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING
 import network.lapis.cloud.server.rpc.MemberFinderService
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
@@ -164,7 +165,7 @@ internal class FinderTestData {
             AccountTable.insert {
                 it[AccountTable.id] = Uuid.random()
                 it[memberId] = id
-                it[AccountTable.role] = role
+                it.legacyAccountRole(role = role)
             }
         }
         memberIds += id

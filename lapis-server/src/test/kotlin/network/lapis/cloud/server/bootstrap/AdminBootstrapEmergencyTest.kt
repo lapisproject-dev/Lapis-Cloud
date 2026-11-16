@@ -96,55 +96,56 @@ class AdminBootstrapEmergencyTest :
             consoleAudits(target).size shouldBe 0
         }
 
-        test("set-role: demotes an ADMIN while another login-capable ADMIN remains, stamps role_changed_at, audits without an actor") {
+        test(
+            "set-admin false: revokes the right while another login-capable ADMIN remains, stamps admin_changed_at, audits without an actor",
+        ) {
             val keep = fx.admin()
             val target = fx.admin()
-            val result = AdminBootstrap.setRole(email = emailOf(target), newRole = AccountRole.MEMBER)
+            val result = AdminBootstrap.setAdmin(email = emailOf(target), enabled = false)
             (result is AdminBootstrap.ConsoleChangeResult.Success) shouldBe true
             fx.roleOf(target) shouldBe AccountRole.MEMBER
-            (fx.roleChangedAtOf(target) != null) shouldBe true
+            (fx.adminChangedAtOf(target) != null) shouldBe true
             fx.roleOf(keep) shouldBe AccountRole.ADMIN
             val audit = consoleAudits(target).single()
             audit shouldContain "\"operatorConsole\":true"
             audit shouldContain "\"action\":\"DEMOTE\""
         }
 
-        test("set-role: the last login-capable ADMIN cannot be demoted by the console either -- no path to zero administrators") {
+        test(
+            "set-admin false: the last login-capable ADMIN cannot lose the right by the console either -- no path to zero administrators",
+        ) {
             val only = fx.admin()
             val blocked = fx.admin(status = MemberStatus.WITHDRAWN)
-            AdminBootstrap.setRole(email = emailOf(only), newRole = AccountRole.MEMBER) shouldBe
-                AdminBootstrap.ConsoleChangeResult.LastAdmin
+            AdminBootstrap.setAdmin(email = emailOf(only), enabled = false) shouldBe AdminBootstrap.ConsoleChangeResult.LastAdmin
             fx.roleOf(only) shouldBe AccountRole.ADMIN
             // the blocked ADMIN does not count as "remaining"
             (blocked != only) shouldBe true
             consoleAudits(only).size shouldBe 0
         }
 
-        test("set-role: promoting works (and is audited as PROMOTE_TO_ADMIN), no change and unknown e-mail are reported, never thrown") {
+        test(
+            "set-role refuses ADMIN (a right, not a role); set-admin true grants it, audited as PROMOTE_TO_ADMIN; no change and unknown e-mail are reported",
+        ) {
             val plain = fx.member(role = AccountRole.BOARD)
-            val promoted = AdminBootstrap.setRole(email = emailOf(plain), newRole = AccountRole.ADMIN)
-            (promoted is AdminBootstrap.ConsoleChangeResult.Success) shouldBe true
-            fx.roleOf(plain) shouldBe AccountRole.ADMIN
-            consoleAudits(plain).single() shouldContain "\"action\":\"PROMOTE_TO_ADMIN\""
             (
                 AdminBootstrap.setRole(
                     email = emailOf(plain),
                     newRole = AccountRole.ADMIN,
-                ) is AdminBootstrap.ConsoleChangeResult.NoChange
-            ) shouldBe
-                true
+                ) is AdminBootstrap.ConsoleChangeResult.InvalidInput
+            ) shouldBe true
+            val promoted = AdminBootstrap.setAdmin(email = emailOf(plain), enabled = true)
+            (promoted is AdminBootstrap.ConsoleChangeResult.Success) shouldBe true
+            fx.roleOf(plain) shouldBe AccountRole.ADMIN
+            consoleAudits(plain).single() shouldContain "\"action\":\"PROMOTE_TO_ADMIN\""
+            (AdminBootstrap.setAdmin(email = emailOf(plain), enabled = true) is AdminBootstrap.ConsoleChangeResult.NoChange) shouldBe true
             (
-                AdminBootstrap.setRole(email = "nobody-${Uuid.random()}@example.org", newRole = AccountRole.ADMIN) is
+                AdminBootstrap.setAdmin(email = "nobody-${Uuid.random()}@example.org", enabled = true) is
                     AdminBootstrap.ConsoleChangeResult.AccountNotFound
             ) shouldBe true
             val accountless = fx.member(role = null)
             (
-                AdminBootstrap.setRole(
-                    email = emailOf(accountless),
-                    newRole = AccountRole.ADMIN,
-                ) is AdminBootstrap.ConsoleChangeResult.AccountNotFound
-            ) shouldBe
-                true
+                AdminBootstrap.setAdmin(email = emailOf(accountless), enabled = true) is AdminBootstrap.ConsoleChangeResult.AccountNotFound
+            ) shouldBe true
         }
 
         test(

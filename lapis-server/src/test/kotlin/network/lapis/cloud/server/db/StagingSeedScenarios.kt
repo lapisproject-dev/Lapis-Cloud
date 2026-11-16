@@ -148,7 +148,7 @@ abstract class StagingSeedScenarios(
                 OrganizationSettingsTable.selectAll().single()[OrganizationSettingsTable.name] shouldBe StagingSeedData.ORGANIZATION_NAME
 
                 val accounts = AccountTable.selectAll().toList()
-                accounts.count { it[AccountTable.role] == AccountRole.ADMIN } shouldBe 1
+                accounts.count { it[AccountTable.isAdmin] } shouldBe 1
                 accounts.count { it[AccountTable.role] == AccountRole.BOARD } shouldBe 1
                 accounts.count { it[AccountTable.role] == AccountRole.TREASURER } shouldBe 1
                 accounts.forEach { row ->

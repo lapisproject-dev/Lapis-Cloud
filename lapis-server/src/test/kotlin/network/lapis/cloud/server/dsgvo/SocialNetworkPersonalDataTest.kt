@@ -26,6 +26,7 @@ import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.DsgvoService
 import network.lapis.cloud.server.rpc.SocialNetworkService
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureStatus
@@ -97,7 +98,7 @@ class SocialNetworkPersonalDataTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
                 LtrLedgerEntryTable.insert {
                     it[LtrLedgerEntryTable.id] = Uuid.random()

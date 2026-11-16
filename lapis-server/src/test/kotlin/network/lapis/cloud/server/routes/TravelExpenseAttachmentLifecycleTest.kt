@@ -34,6 +34,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.TEST_RECEIPT_STORAGE_ROOT
 import network.lapis.cloud.server.rpc.installTravelExpenseExceptionHandlers
 import network.lapis.cloud.server.rpc.registerTravelExpenseTestRoutes
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -98,7 +99,7 @@ class TravelExpenseAttachmentLifecycleTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

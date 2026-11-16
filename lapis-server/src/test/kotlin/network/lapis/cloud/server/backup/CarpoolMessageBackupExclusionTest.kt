@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CarpoolMessageSide
 import network.lapis.cloud.shared.domain.CarpoolParticipationInitiator
@@ -57,7 +58,7 @@ class CarpoolMessageBackupExclusionTest :
                     AccountTable.insert {
                         it[id] = Uuid.random()
                         it[AccountTable.memberId] = memberId
-                        it[role] = if (memberId == adminId) AccountRole.ADMIN else AccountRole.MEMBER
+                        it.legacyAccountRole(role = if (memberId == adminId) AccountRole.ADMIN else AccountRole.MEMBER)
                     }
                 }
                 CarpoolPostingTable.insert {

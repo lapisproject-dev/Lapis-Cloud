@@ -24,6 +24,7 @@ import network.lapis.cloud.server.mail.FakePasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.LoginMethod
 import network.lapis.cloud.shared.domain.MemberAdminQuery
@@ -72,7 +73,7 @@ abstract class MemberAdminLastLoginScenarios(
                     AccountTable.insert {
                         it[AccountTable.id] = Uuid.random()
                         it[memberId] = id
-                        it[AccountTable.role] = role
+                        it.legacyAccountRole(role = role)
                         it[AccountTable.lastLoginAt] = lastLoginAt
                         it[lastLoginMethod] = method
                     }

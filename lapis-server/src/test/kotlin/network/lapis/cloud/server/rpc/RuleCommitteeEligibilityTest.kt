@@ -15,6 +15,7 @@ import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.rules.RuleReferences
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MailingListKind
@@ -73,7 +74,7 @@ class RuleCommitteeEligibilityTest :
         test("a rule selects exactly the seated members it describes: seat, role, join date, ALL and ANY") {
             val (manual, people) = seatedGroup(3, role = AccountRole.MEMBER)
             val (a, b, c) = people
-            transaction { AccountTable.update({ AccountTable.memberId eq b }) { it[role] = AccountRole.TREASURER } }
+            transaction { AccountTable.update({ AccountTable.memberId eq b }) { it.legacyAccountRole(role = AccountRole.TREASURER) } }
             transaction { MemberTable.update({ MemberTable.id eq c }) { it[joinedAt] = rc.today.minus(10, DateTimeUnit.DAY) } }
 
             members(rc.ruleCommittee(ruleJson = rc.seatedIn(manual))) shouldContainExactlyInAnyOrder listOf(a, b, c)

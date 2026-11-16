@@ -61,6 +61,7 @@ import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -129,7 +130,7 @@ abstract class MailingListDeleteScenarios(
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[AccountTable.memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             memberIds += id

@@ -28,6 +28,7 @@ import network.lapis.cloud.server.db.generated.CrowdfundingProjectTable
 import network.lapis.cloud.server.db.generated.CrowdfundingReactionTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.CrowdfundingProjectInput
@@ -117,7 +118,7 @@ class CrowdfundingServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

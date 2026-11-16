@@ -109,4 +109,8 @@ data class SessionInfoDto(
      * voting right on every ballot. Defaulted for old/new client and server compatibility.
      */
     val votingRight: Boolean = true,
+    /** V155 -- the caller holds the administrator right. [role] stays the EFFECTIVE role (ADMIN when this is true) so every client gate keeps working. */
+    val isAdmin: Boolean = false,
+    /** V155 -- the stored base role (never ADMIN); `null` from a server that predates the flag. */
+    val baseRole: AccountRole? = null,
 )

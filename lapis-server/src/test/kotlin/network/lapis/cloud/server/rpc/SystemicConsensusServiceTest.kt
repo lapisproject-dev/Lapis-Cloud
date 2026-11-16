@@ -39,6 +39,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusResistanceTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -105,7 +106,7 @@ class SystemicConsensusServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

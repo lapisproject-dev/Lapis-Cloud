@@ -23,6 +23,7 @@ import network.lapis.cloud.server.events.EventRegistrationResult
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
@@ -98,7 +99,7 @@ class EventSeriesInstanceIntegrationTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.BOARD
+                    it.legacyAccountRole(role = AccountRole.BOARD)
                 }
             }
             createdMemberIds += id

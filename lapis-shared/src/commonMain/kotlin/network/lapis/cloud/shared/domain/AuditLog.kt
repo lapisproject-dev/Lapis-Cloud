@@ -1186,6 +1186,10 @@ data class MemberChangeSnapshot(
     val lupabbManualApply: Boolean? = null,
     /** Welle V1.9.305 -- the founding-member event this entry records (see [FoundingMemberAuditFacts]). Default `null`: older rows decode unchanged. */
     val foundingMember: FoundingMemberAuditFacts? = null,
+    /** V155 -- the administrator right at this point (`role` stays the EFFECTIVE role); `null` in rows written before V155. */
+    val isAdmin: Boolean? = null,
+    /** V155 -- the stored base role at this point; `null` in rows written before V155. */
+    val baseRole: AccountRole? = null,
 )
 
 /** Welle V1.9.298 -- the voting-right change an audit entry records. Fixed keys, no values. */

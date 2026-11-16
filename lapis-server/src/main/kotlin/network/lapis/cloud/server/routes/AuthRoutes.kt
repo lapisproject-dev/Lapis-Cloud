@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.PasswordResetMailer
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
@@ -194,7 +195,7 @@ internal fun Route.registerAuthRoutes(
         // the emergency fallback (KeycloakConfig.emergencyAdminLoginEnabled).
         val keycloakBlocksLogin =
             keycloakConfig.enabled &&
-                (accountRow?.get(AccountTable.role) != AccountRole.ADMIN || !keycloakConfig.emergencyAdminLoginEnabled)
+                (accountRow?.let { AccountRights.effectiveRole(it) } != AccountRole.ADMIN || !keycloakConfig.emergencyAdminLoginEnabled)
         if (accountRow == null || !passwordOk || statusBlocksLogin || keycloakBlocksLogin) {
             rateLimiter.recordFailure(emailKey)
             rateLimiter.recordFailure(ipKey)
@@ -223,7 +224,7 @@ internal fun Route.registerAuthRoutes(
             LoginResponse(
                 memberId = memberId.toString(),
                 displayName = accountRow[MemberTable.displayName],
-                role = accountRow[AccountTable.role],
+                role = AccountRights.effectiveRole(accountRow),
                 sessionToken = issued.rawToken,
             ),
         )

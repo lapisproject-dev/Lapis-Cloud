@@ -16,6 +16,7 @@ import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mcp.auth.McpPrincipal
 import network.lapis.cloud.server.mcp.auth.McpScopes
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -77,7 +78,7 @@ class McpToolDispatcherLtrForbiddenTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

@@ -46,6 +46,7 @@ import network.lapis.cloud.server.db.generated.SepaDebitItemTable
 import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.db.generated.SepaReturnTable
 import network.lapis.cloud.server.payment.sepa.SepaConfig
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
@@ -233,7 +234,7 @@ class SepaServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

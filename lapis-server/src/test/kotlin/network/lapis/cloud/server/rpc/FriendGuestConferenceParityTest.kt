@@ -45,6 +45,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.OidcGuestClaims
 import network.lapis.cloud.server.federation.OidcGuestMemberStore
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
@@ -169,7 +170,7 @@ class FriendGuestConferenceParityTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

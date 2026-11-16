@@ -6,6 +6,24 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Administrator rights as an independent flag (schema V154 -> V155)
+
+**Behaviour changes first:**
+
+1. **BREAKING: ADMIN is a right, no longer a value of `account.role`.** `V155__account_admin_flag.sql` adds `account.is_admin` and `account.admin_changed_at`; every existing administrator becomes base role `MEMBER` plus `is_admin = TRUE` (the tenure clock is carried over, `NULL` stays tenured). The `role` CHECK now allows `MEMBER`, `BOARD`, `TREASURER` only. V1 to V154 are untouched.
+2. **BREAKING: `updateMemberRole`, `grantMemberAccount` and `createMemberDirect` reject `ADMIN`** with a 400. The new RPC `setAdminRights` (last method of `IMemberService`) grants the right immediately and notifies the other administrators. Revoking is still a four-eyes request (`requestDemotion`); it records the base role at request time (audit snapshot only); on approval the target falls back to its CURRENT base role. A base-role change does not void a pending revoke request.
+3. **BREAKING: backups made before V155 are refused on restore** (schema checksum). Rolling the server back to 0.53.x is only possible from a backup taken before V155.
+4. **BREAKING (operations): the console sets the right with `LAPIS_BOOTSTRAP_ACTION=set-admin` and `LAPIS_BOOTSTRAP_ADMIN=true|false`**; `LAPIS_BOOTSTRAP_ROLE=ADMIN` is rejected.
+5. Open revoke requests filed before the upgrade stay valid and are executed on approval: the administrator right is revoked and the target falls back to its base role (`MEMBER` after the backfill), whatever role the old request named.
+6. Wire compatibility: `role` in `SessionInfoDto`/`MemberAdminRowDto` stays the EFFECTIVE role (ADMIN when the right is held); `isAdmin`, `baseRole` (and `pendingAdminRevoke`) are new defaulted fields at the end.
+7. **Web UI (this wave):** an administrator grants the right in the member editor ("Administratorrecht erteilen"); the revoke dialog no longer offers a role choice but shows the base role the target falls back to.
+
+**Changed**
+
+- A base-role change of an administrator needs no peer approval (the effective rights do not change); the approver tenure now reads `admin_changed_at`.
+- A BOARD member with the right matches mailing rules for both BOARD and ADMIN.
+- Access to the role columns is centralised in `AccountRights` (tripwire `AccountAdminFlagTripwireTest`).
+
 ### Founding member marker (wave V1.9.305, schema V153 -> V154)
 
 **Behaviour changes first:**

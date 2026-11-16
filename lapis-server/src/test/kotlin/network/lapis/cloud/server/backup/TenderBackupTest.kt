@@ -15,6 +15,7 @@ import network.lapis.cloud.server.db.generated.TenderAwardTable
 import network.lapis.cloud.server.db.generated.TenderBidTable
 import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MeetingFormat
@@ -75,7 +76,7 @@ class TenderBackupTest :
                     it[id] = Uuid.random()
                     it[memberId] = adminId
                     it[passwordHash] = "a-fake-bcrypt-hash-for-backup-verification-only"
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                 }
                 CommitteeTable.insert {
                     it[id] = committeeId

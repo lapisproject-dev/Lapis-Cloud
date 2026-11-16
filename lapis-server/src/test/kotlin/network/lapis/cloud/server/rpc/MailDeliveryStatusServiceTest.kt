@@ -27,6 +27,7 @@ import network.lapis.cloud.server.mail.MailBudgetConfig
 import network.lapis.cloud.server.mail.budget.MailBudgetStore
 import network.lapis.cloud.server.mail.minusDuration
 import network.lapis.cloud.server.mail.plusDuration
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MailDeliveryStatusDto
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -66,7 +67,7 @@ class MailDeliveryStatusServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

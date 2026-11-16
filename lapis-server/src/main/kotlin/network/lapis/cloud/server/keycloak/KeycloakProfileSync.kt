@@ -16,6 +16,7 @@ import network.lapis.cloud.server.member.EmailChangeStore
 import network.lapis.cloud.server.member.KeycloakProvisioningNotifier
 import network.lapis.cloud.server.rpc.MEMBER_EMAIL_MAX_LENGTH
 import network.lapis.cloud.server.rpc.keycloakSubjectFingerprint
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -87,7 +88,7 @@ internal class KeycloakProfileSync(
                         .selectAll()
                         .where { AccountTable.memberId eq memberId }
                         .singleOrNull()
-                        ?.get(AccountTable.role)
+                        ?.let { AccountRights.effectiveRole(it) }
                 val status = member[MemberTable.status]
                 val before = MemberChangeSnapshot(displayNameChanged = false, emailChanged = false, status = status, role = role)
                 val audits = mutableListOf<MemberChangeSnapshot>()

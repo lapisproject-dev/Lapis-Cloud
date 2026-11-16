@@ -40,6 +40,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.MutableTestClock
 import network.lapis.cloud.server.time.TimeTestSupport
 import network.lapis.cloud.shared.domain.AccountRole
@@ -162,7 +163,7 @@ abstract class ConferenceRecordingRetryScenarios(
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id

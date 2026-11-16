@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.rules.MemberFacts
@@ -66,7 +67,7 @@ internal object MemberFactsLoader {
             AccountTable
                 .selectAll()
                 .where { AccountTable.memberId eq memberId }
-                .map { it[AccountTable.role] }
+                .flatMap { AccountRights.roleFacts(it) }
                 .toSet()
         val seats =
             (CommitteeMembershipTable innerJoin CommitteeTable)
@@ -81,7 +82,7 @@ internal object MemberFactsLoader {
     private fun loadRoles(): Map<Uuid, Set<AccountRole>> =
         AccountTable
             .selectAll()
-            .map { it[AccountTable.memberId] to it[AccountTable.role] }
+            .flatMap { row -> AccountRights.roleFacts(row).map { row[AccountTable.memberId] to it } }
             .groupBy({ it.first }, { it.second })
             .mapValues { it.value.toSet() }
 

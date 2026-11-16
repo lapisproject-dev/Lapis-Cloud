@@ -44,6 +44,7 @@ import network.lapis.cloud.server.keycloak.KeycloakDiscoveryDto
 import network.lapis.cloud.server.keycloak.KeycloakOidcMetadata
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SessionTokens
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.OidcLoginEventType
@@ -109,7 +110,7 @@ class KeycloakCallbackTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

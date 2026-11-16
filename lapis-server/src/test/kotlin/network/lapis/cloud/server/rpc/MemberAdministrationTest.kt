@@ -53,6 +53,7 @@ import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.TemporaryPasswordGenerator
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
@@ -202,7 +203,7 @@ class MemberAdministrationTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                     it[passwordHash] = STRONG_PASSWORD_HASH
                 }
             }
@@ -282,7 +283,7 @@ class MemberAdministrationTest :
                     .selectAll()
                     .where { AccountTable.memberId eq memberId }
                     .singleOrNull()
-                    ?.get(AccountTable.role)
+                    ?.let { if (it[AccountTable.isAdmin]) AccountRole.ADMIN else it[AccountTable.role] }
             }
 
         fun activeSessionCount(memberId: Uuid): Long =
@@ -1051,7 +1052,7 @@ class MemberAdministrationTest :
                 val otherAdminsToRestore =
                     createdMemberIds.filter { it != adminA && it != adminB && roleOf(it) == AccountRole.ADMIN }
                 otherAdminsToRestore.forEach { id ->
-                    transaction { AccountTable.update({ AccountTable.memberId eq id }) { it[role] = AccountRole.BOARD } }
+                    transaction { AccountTable.update({ AccountTable.memberId eq id }) { it.legacyAccountRole(role = AccountRole.BOARD) } }
                 }
 
                 try {
@@ -1059,23 +1060,36 @@ class MemberAdministrationTest :
                     // Welle V1.9.57: taking the ADMIN role from another ADMIN is never executed directly any more -- with exactly
                     // two ADMINs there is no eligible second approver, so BOTH calls are refused (typed, 409) and nothing changes.
                     // The race "two ADMINs demote each other" now lives in the approval path (AdminPeerProtectionScenarios).
-                    results.count { it == HttpStatusCode.OK } shouldBe 0
-                    results.count { it == HttpStatusCode.Conflict } shouldBe 2
+                    // V155: a role change of an administrator only touches the BASE role; the administrator right is untouched, so both
+                    // calls succeed and no administrator is lost (revoking the right is the four-eyes request, see AdminPeerProtectionScenarios).
+                    results.count { it == HttpStatusCode.OK } shouldBe 2
 
                     val remainingAdmins =
-                        transaction { AccountTable.selectAll().where { AccountTable.role eq AccountRole.ADMIN }.count() }
+                        transaction { AccountTable.selectAll().where { AccountTable.isAdmin eq true }.count() }
                     (remainingAdmins >= 2L) shouldBe true
                 } finally {
                     // Restore adminA/adminB to ADMIN so this test does not leave a permanently-
                     // degraded seeded fixture behind for any test running after it in the same JVM.
                     if (roleOf(adminB) != AccountRole.ADMIN) {
-                        transaction { AccountTable.update({ AccountTable.memberId eq adminB }) { it[role] = AccountRole.ADMIN } }
+                        transaction {
+                            AccountTable.update(
+                                { AccountTable.memberId eq adminB },
+                            ) { it.legacyAccountRole(role = AccountRole.ADMIN) }
+                        }
                     }
                     if (roleOf(adminA) != AccountRole.ADMIN) {
-                        transaction { AccountTable.update({ AccountTable.memberId eq adminA }) { it[role] = AccountRole.ADMIN } }
+                        transaction {
+                            AccountTable.update(
+                                { AccountTable.memberId eq adminA },
+                            ) { it.legacyAccountRole(role = AccountRole.ADMIN) }
+                        }
                     }
                     otherAdminsToRestore.forEach { id ->
-                        transaction { AccountTable.update({ AccountTable.memberId eq id }) { it[role] = AccountRole.ADMIN } }
+                        transaction {
+                            AccountTable.update(
+                                { AccountTable.memberId eq id },
+                            ) { it.legacyAccountRole(role = AccountRole.ADMIN) }
+                        }
                     }
                 }
             }
@@ -1099,7 +1113,7 @@ class MemberAdministrationTest :
                 val otherAdminsToRestore =
                     createdMemberIds.filter { it != adminA && it != adminB && roleOf(it) == AccountRole.ADMIN }
                 otherAdminsToRestore.forEach { id ->
-                    transaction { AccountTable.update({ AccountTable.memberId eq id }) { it[role] = AccountRole.BOARD } }
+                    transaction { AccountTable.update({ AccountTable.memberId eq id }) { it.legacyAccountRole(role = AccountRole.BOARD) } }
                 }
 
                 try {
@@ -1114,7 +1128,7 @@ class MemberAdministrationTest :
                             (AccountTable innerJoin MemberTable)
                                 .selectAll()
                                 .where {
-                                    (AccountTable.role eq AccountRole.ADMIN) and
+                                    (AccountTable.isAdmin eq true) and
                                         (MemberTable.status notInList MemberStatusSets.LOGIN_BLOCKED)
                                 }.count()
                         }
@@ -1129,7 +1143,11 @@ class MemberAdministrationTest :
                         transaction { MemberTable.update({ MemberTable.id eq adminA }) { it[status] = MemberStatus.ACTIVE } }
                     }
                     otherAdminsToRestore.forEach { id ->
-                        transaction { AccountTable.update({ AccountTable.memberId eq id }) { it[role] = AccountRole.ADMIN } }
+                        transaction {
+                            AccountTable.update(
+                                { AccountTable.memberId eq id },
+                            ) { it.legacyAccountRole(role = AccountRole.ADMIN) }
+                        }
                     }
                 }
             }
@@ -1167,7 +1185,7 @@ class MemberAdministrationTest :
                 val otherAdminsToRestore =
                     createdMemberIds.filter { it != adminA && it != adminB && roleOf(it) == AccountRole.ADMIN }
                 otherAdminsToRestore.forEach { id ->
-                    transaction { AccountTable.update({ AccountTable.memberId eq id }) { it[role] = AccountRole.BOARD } }
+                    transaction { AccountTable.update({ AccountTable.memberId eq id }) { it.legacyAccountRole(role = AccountRole.BOARD) } }
                 }
 
                 try {
@@ -1187,8 +1205,9 @@ class MemberAdministrationTest :
                     // once adminB (the target's sole "other admin") is excluded as the target of
                     // ITS OWN demotion -- MemberService.kt:651-666 must reject this, never let it
                     // through the way the old `adminAccountRows.size == 1` check would have.
+                    // V155: a base-role change never removes the administrator right, so it is accepted and adminA stays an administrator.
                     client.post("/test/role/$adminA?newRole=MEMBER") { header("X-Member-Id", adminB.toString()) }.status shouldBe
-                        HttpStatusCode.Conflict
+                        HttpStatusCode.OK
 
                     // The actual invariant under test: adminA's role must be untouched.
                     roleOf(adminA) shouldBe AccountRole.ADMIN
@@ -1199,13 +1218,25 @@ class MemberAdministrationTest :
                         transaction { MemberTable.update({ MemberTable.id eq adminB }) { it[status] = MemberStatus.ACTIVE } }
                     }
                     if (roleOf(adminA) != AccountRole.ADMIN) {
-                        transaction { AccountTable.update({ AccountTable.memberId eq adminA }) { it[role] = AccountRole.ADMIN } }
+                        transaction {
+                            AccountTable.update(
+                                { AccountTable.memberId eq adminA },
+                            ) { it.legacyAccountRole(role = AccountRole.ADMIN) }
+                        }
                     }
                     if (roleOf(adminB) != AccountRole.ADMIN) {
-                        transaction { AccountTable.update({ AccountTable.memberId eq adminB }) { it[role] = AccountRole.ADMIN } }
+                        transaction {
+                            AccountTable.update(
+                                { AccountTable.memberId eq adminB },
+                            ) { it.legacyAccountRole(role = AccountRole.ADMIN) }
+                        }
                     }
                     otherAdminsToRestore.forEach { id ->
-                        transaction { AccountTable.update({ AccountTable.memberId eq id }) { it[role] = AccountRole.ADMIN } }
+                        transaction {
+                            AccountTable.update(
+                                { AccountTable.memberId eq id },
+                            ) { it.legacyAccountRole(role = AccountRole.ADMIN) }
+                        }
                     }
                 }
             }
@@ -1235,7 +1266,7 @@ class MemberAdministrationTest :
                 val otherAdminsToRestore =
                     createdMemberIds.filter { it != adminA && it != adminB && roleOf(it) == AccountRole.ADMIN }
                 otherAdminsToRestore.forEach { id ->
-                    transaction { AccountTable.update({ AccountTable.memberId eq id }) { it[role] = AccountRole.BOARD } }
+                    transaction { AccountTable.update({ AccountTable.memberId eq id }) { it.legacyAccountRole(role = AccountRole.BOARD) } }
                 }
 
                 try {
@@ -1264,7 +1295,11 @@ class MemberAdministrationTest :
                         transaction { MemberTable.update({ MemberTable.id eq adminA }) { it[status] = MemberStatus.ACTIVE } }
                     }
                     otherAdminsToRestore.forEach { id ->
-                        transaction { AccountTable.update({ AccountTable.memberId eq id }) { it[role] = AccountRole.ADMIN } }
+                        transaction {
+                            AccountTable.update(
+                                { AccountTable.memberId eq id },
+                            ) { it.legacyAccountRole(role = AccountRole.ADMIN) }
+                        }
                     }
                 }
             }
@@ -2166,7 +2201,7 @@ class MemberAdministrationTest :
         }
 
         // ── 37: eskalierte Rolle direkt beim Anlegen -- Letzter-Admin-Schutz strukturell unbeteiligt ──
-        test("grantMemberAccount: creating the account directly with role=ADMIN succeeds -- LastAdminException never fires on a grant") {
+        test("grantMemberAccount: role=ADMIN is rejected (V155: administrator rights are a flag, set with setAdminRights)") {
             testApplication {
                 application {
                     install(StatusPages) { installMemberAdminExceptionHandlers() }
@@ -2178,8 +2213,9 @@ class MemberAdministrationTest :
                         "/test/grant-account/$member?password=$STRONG_PASSWORD&role=ADMIN",
                     ) { header("X-Member-Id", ADMIN_ID) }
                     .status shouldBe
-                    HttpStatusCode.OK
-                roleOf(member) shouldBe AccountRole.ADMIN
+                    HttpStatusCode.BadRequest
+                // V155: ADMIN is a right, not a role -- no account was created.
+                roleOf(member) shouldBe null
             }
         }
 

@@ -419,6 +419,16 @@ classDiagram(name = "Foundation") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "role_changed_at" }
         }
+        // V155: administrator rights are a FLAG independent of `role` (the base role is MEMBER, BOARD or TREASURER, never ADMIN).
+        // `adminChangedAt` (UTC, Klasse A) is stamped by every writer of `isAdmin`; NULL = pre-existing admin (tenured).
+        attribute(name = "isAdmin", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "is_admin" }
+        }
+        attribute(name = "adminChangedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "admin_changed_at" }
+        }
         // Welle V1.9.207 (V118): stamped (UTC, Klasse A) on every successful login by SessionStore.createSession; NULL = never signed in
         // since V118. Both columns are set together (chk_account_last_login_pair in V118).
         attribute(name = "lastLoginAt", type = "LocalDateTime") {

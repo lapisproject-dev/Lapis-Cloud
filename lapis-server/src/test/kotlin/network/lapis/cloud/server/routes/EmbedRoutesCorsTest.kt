@@ -38,6 +38,7 @@ import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -91,7 +92,7 @@ class EmbedRoutesCorsTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.ADMIN
+                    it.legacyAccountRole(role = AccountRole.ADMIN)
                     it[passwordHash] = null
                 }
             }

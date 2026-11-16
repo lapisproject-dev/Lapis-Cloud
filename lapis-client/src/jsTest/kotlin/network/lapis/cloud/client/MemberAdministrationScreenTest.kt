@@ -606,7 +606,10 @@ class MemberAdministrationScreenTest {
     @Test
     fun roleOptionsFor_donorOffersOnlyMember() {
         assertEquals(listOf(AccountRole.MEMBER.name), roleOptionsFor(MemberStatus.DONOR).map { it.first })
-        assertEquals(AccountRole.entries.map { it.name }, roleOptionsFor(MemberStatus.ACTIVE).map { it.first })
+        assertEquals(
+            AccountRole.entries.filter { it != AccountRole.ADMIN }.map { it.name },
+            roleOptionsFor(MemberStatus.ACTIVE).map { it.first },
+        )
     }
 
     @Test

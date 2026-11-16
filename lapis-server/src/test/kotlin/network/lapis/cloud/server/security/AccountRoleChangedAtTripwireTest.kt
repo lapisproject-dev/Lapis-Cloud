@@ -17,19 +17,12 @@ import java.io.File
 class AccountRoleChangedAtTripwireTest :
     FunSpec({
         val exempt =
-            mapOf(
-                "network/lapis/cloud/server/db/DevSeedData.kt" to "dev seed: NULL means tenured",
-                "network/lapis/cloud/server/db/StagingSeedData.kt" to "staging seed: NULL means tenured",
-            )
+            // V155: every insert goes through AccountRights.writeInitial (not an `it[role] =` lambda any more), so no seed is scanned
+            emptyMap<String, String>()
         val expectedWriters =
             setOf(
-                "network/lapis/cloud/server/member/MemberRoleStatusMutations.kt",
-                "network/lapis/cloud/server/rpc/MemberService.kt",
-                "network/lapis/cloud/server/rpc/RegistrationService.kt",
-                "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt",
-                "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt",
-                "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt",
-                "network/lapis/cloud/server/bootstrap/DonorRoleDowngrade.kt",
+                // V155: the ONLY place that updates account.role (setBaseRoleLocked); inserts use AccountRights.writeInitial
+                "network/lapis/cloud/server/security/AccountRights.kt",
             )
 
         val accountWrite = Regex("""(?<![A-Za-z0-9_])AccountTable\.(update|insert|upsert|replace|batchInsert|batchUpsert)\b""")

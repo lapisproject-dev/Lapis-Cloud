@@ -39,6 +39,7 @@ import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mcp.auth.McpPrincipal
 import network.lapis.cloud.server.mcp.auth.McpScopes
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ArticleStatus
@@ -96,7 +97,7 @@ class McpArticleDraftToolsDispatcherTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = role
+                    it.legacyAccountRole(role = role)
                 }
             }
             createdMemberIds += id
@@ -225,7 +226,7 @@ class McpArticleDraftToolsDispatcherTest :
         test("create_article_draft: the role is read fresh -- demoting the account after the token was minted revokes the right") {
             val memberId = createMember(AccountRole.BOARD)
             create(dispatcher(), principal(memberId), args(title = "Vorher")).shouldBeInstanceOf<McpToolCallResult.Success>()
-            transaction { AccountTable.update({ AccountTable.memberId eq memberId }) { it[role] = AccountRole.MEMBER } }
+            transaction { AccountTable.update({ AccountTable.memberId eq memberId }) { it.legacyAccountRole(role = AccountRole.MEMBER) } }
             create(dispatcher(), principal(memberId), args(title = "Nachher")).shouldBeInstanceOf<McpToolCallResult.Forbidden>()
             rows(memberId).size shouldBe 1
         }

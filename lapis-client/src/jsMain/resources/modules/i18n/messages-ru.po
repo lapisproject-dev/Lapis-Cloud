@@ -32338,3 +32338,15 @@ msgstr "Правление не отметило вас как члена-осн
 
 msgid "Nur aktive Mitglieder können die Kennzeichnung öffentlich zeigen."
 msgstr "Только активные члены могут показывать пометку публично."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilen"
+msgstr "Предоставить право администратора"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilt."
+msgstr "Право администратора предоставлено."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Nach dem Entzug des Administratorrechts hat das Mitglied wieder die Rolle %1."
+msgstr "После отзыва права администратора участник снова получает роль %1."

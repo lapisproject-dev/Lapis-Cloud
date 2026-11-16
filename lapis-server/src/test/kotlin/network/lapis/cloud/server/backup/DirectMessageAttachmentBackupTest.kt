@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.DirectMessageAttachmentTable
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -53,7 +54,7 @@ class DirectMessageAttachmentBackupTest :
                         it[id] = Uuid.random()
                         it[AccountTable.memberId] = memberId
                         it[passwordHash] = "a-fake-bcrypt-hash-for-backup-verification-only"
-                        it[role] = AccountRole.ADMIN
+                        it.legacyAccountRole(role = AccountRole.ADMIN)
                     }
                 }
                 DirectMessageTable.insert {

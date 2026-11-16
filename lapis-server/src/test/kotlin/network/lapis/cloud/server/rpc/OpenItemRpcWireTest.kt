@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.generated.OpenItemTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.module
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CounterpartyKey
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
@@ -121,7 +122,7 @@ class OpenItemRpcWireTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.TREASURER
+                    it.legacyAccountRole(role = AccountRole.TREASURER)
                 }
             }
             createdMemberIds += id

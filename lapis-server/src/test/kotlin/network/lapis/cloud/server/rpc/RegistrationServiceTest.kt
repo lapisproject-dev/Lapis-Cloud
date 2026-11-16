@@ -44,6 +44,7 @@ import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
 import network.lapis.cloud.shared.domain.AgreementTextKind
@@ -140,7 +141,7 @@ class RegistrationServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                     it[passwordHash] = PasswordHasher.hash(STRONG_PASSWORD)
                 }
             }
@@ -762,7 +763,9 @@ class RegistrationServiceTest :
             }
         }
 
-        test("createMemberDirect: ADMIN creating role=ADMIN succeeds (only escalated roles require ADMIN specifically)") {
+        test(
+            "createMemberDirect: role=ADMIN is refused (V155), ADMIN creating role=BOARD succeeds (only escalated roles require ADMIN specifically)",
+        ) {
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
@@ -770,7 +773,10 @@ class RegistrationServiceTest :
                 }
                 val email = "reg-direct-admin@example.org"
                 val response = client.post("/test/create-direct?email=$email&role=ADMIN") { header("X-Member-Id", ADMIN_ID) }
-                response.status shouldBe HttpStatusCode.OK
+                // V155: ADMIN is a right, not a role -- refused; BOARD creation by ADMIN stays possible
+                response.status shouldBe HttpStatusCode.BadRequest
+                val board = client.post("/test/create-direct?email=$email&role=BOARD") { header("X-Member-Id", ADMIN_ID) }
+                board.status shouldBe HttpStatusCode.OK
                 val memberId = requireNotNull(findMemberIdByEmail(email))
                 createdMemberIds += memberId
             }

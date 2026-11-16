@@ -42,7 +42,7 @@ class KeycloakProvisioningTripwireTest :
         test("the provisioner writes one account with the literal role MEMBER and names no other role") {
             val code = source("KeycloakMemberProvisioner.kt")
             Regex("""AccountTable\.insert""").findAll(code).count() shouldBe 1
-            Regex("""\[\s*role\s*]\s*=\s*AccountRole\.MEMBER\b""").findAll(code).count() shouldBe 1
+            Regex("""baseRole\s*=\s*AccountRole\.MEMBER\b""").findAll(code).count() shouldBe 1
             // every AccountRole.<X> in the file is MEMBER (the audit snapshot repeats it)
             Regex("""AccountRole\.(\w+)""").findAll(code).map { it.groupValues[1] }.toSet() shouldBe setOf("MEMBER")
             Regex("""roleChangedAt""").containsMatchIn(code) shouldBe true

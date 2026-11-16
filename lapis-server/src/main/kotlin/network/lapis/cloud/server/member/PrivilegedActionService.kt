@@ -15,6 +15,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.PeerExecutedEvent
 import network.lapis.cloud.server.mail.PeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LockedPeerFacts
 import network.lapis.cloud.server.security.PasswordResetTokenStore
@@ -113,13 +114,13 @@ internal class PrivilegedActionService(
         val now = nowUtc()
         return transaction {
             if (MemberTable.selectAll().where { MemberTable.id eq targetId }.count() == 0L) throw NotFoundException("Member not found")
-            val adminRows = AccountTable.selectAll().where { AccountTable.role eq AccountRole.ADMIN }.toList()
+            val adminRows = AccountTable.selectAll().where { AccountRights.adminAccountsPredicate() }.toList()
             val targetRole =
                 AccountTable
                     .selectAll()
                     .where { AccountTable.memberId eq targetId }
                     .singleOrNull()
-                    ?.get(AccountTable.role)
+                    ?.let { AccountRights.effectiveRole(it) }
             val eligible =
                 PeerGuard.eligibleApproverCount(
                     lockedAdminRows = adminRows,
@@ -157,7 +158,7 @@ internal class PrivilegedActionService(
                     since = PrivilegedActionStore.plus(at = now, duration = (-RECENT_DAYS).days),
                     limit = OVERVIEW_LIMIT,
                 )
-            val adminRows = AccountTable.selectAll().where { AccountTable.role eq AccountRole.ADMIN }.toList()
+            val adminRows = AccountTable.selectAll().where { AccountRights.adminAccountsPredicate() }.toList()
             val adminIds = adminRows.map { it[AccountTable.memberId] }.toSet()
             val awaiting =
                 open.filter { row ->
@@ -183,9 +184,16 @@ internal class PrivilegedActionService(
                         listOf(it[PrivilegedActionRequestTable.actorMemberId], it[PrivilegedActionRequestTable.targetMemberId])
                     },
                 )
+            // The approver must see what approval WILL do: for an open DEMOTE that is the target's CURRENT base role.
+            val baseRoles =
+                (awaiting + mine)
+                    .filter { it[PrivilegedActionRequestTable.action] == PrivilegedActionKind.DEMOTE.name }
+                    .map { it[PrivilegedActionRequestTable.targetMemberId] }
+                    .distinct()
+                    .let { currentBaseRoles(it) }
             PrivilegedActionOverviewDto(
-                awaitingMyApproval = awaiting.map { it.toDto(names) },
-                requestedByMe = mine.map { it.toDto(names) },
+                awaitingMyApproval = awaiting.map { it.toDto(names = names, baseRoles = baseRoles) },
+                requestedByMe = mine.map { it.toDto(names = names, baseRoles = baseRoles) },
             )
         }
     }
@@ -208,6 +216,11 @@ internal class PrivilegedActionService(
             reasonRaw = reasonRaw,
         )
 
+    /**
+     * V155 -- files the request to REVOKE the administrator right of the target (the member keeps the base role). The request records the
+     * target's base role AT REQUEST TIME in `requested_role` (audit snapshot only); on approval the target falls back to its CURRENT base role.
+     * [newRole] is kept for wire compatibility and ignored (it must merely not be ADMIN).
+     */
     fun requestDemotion(
         actor: CurrentMember,
         targetIdRaw: String,
@@ -215,15 +228,22 @@ internal class PrivilegedActionService(
         reasonRaw: String,
     ): PrivilegedActionRequestDto {
         if (newRole == AccountRole.ADMIN) throw BadRequestException("The new role must not be ADMIN")
-        return create(
+        return requestAdminRevoke(actor = actor, targetIdRaw = targetIdRaw, reasonRaw = reasonRaw)
+    }
+
+    fun requestAdminRevoke(
+        actor: CurrentMember,
+        targetIdRaw: String,
+        reasonRaw: String,
+    ): PrivilegedActionRequestDto =
+        create(
             actor = actor,
             targetIdRaw = targetIdRaw,
             kind = PrivilegedActionKind.DEMOTE,
-            requestedRole = newRole,
+            requestedRole = null,
             requestedStatus = null,
             reasonRaw = reasonRaw,
         )
-    }
 
     fun requestSuspension(
         actor: CurrentMember,
@@ -350,7 +370,8 @@ internal class PrivilegedActionService(
                                     actorId = actor.memberId,
                                     targetId = targetId,
                                     targetRole = AccountRole.ADMIN,
-                                    requestedRole = requestedRole,
+                                    // V155: a revoke records the base role at request time (audit snapshot only).
+                                    requestedRole = if (kind == PrivilegedActionKind.DEMOTE) facts.targetBaseRole else requestedRole,
                                     requestedStatus = requestedStatus,
                                     reason = reason,
                                     vetoTokenHash = vetoRaw?.let { EmailChangeTokens.hash(it) },
@@ -370,7 +391,7 @@ internal class PrivilegedActionService(
                         )
                     val approverEmails = MemberTable.selectAll().where { MemberTable.id inList approverIds }.map { it[MemberTable.email] }
                     val row = PrivilegedActionStore.byId(id) ?: error("inserted request vanished")
-                    val dto = row.toDto(displayNames(listOf(actor.memberId, targetId)))
+                    val dto = row.toDto(names = displayNames(listOf(actor.memberId, targetId)))
                     // LAST lock-taking operation.
                     audit(
                         actor = actor,
@@ -551,7 +572,8 @@ internal class PrivilegedActionService(
                         Decided(dto = loadDto(requestId), targetId = targetId)
                     }
                     PrivilegedActionKind.DEMOTE -> {
-                        val newRole = AccountRole.valueOf(row[PrivilegedActionRequestTable.requestedRole] ?: error("DEMOTE without a role"))
+                        // V155: the target falls back to its CURRENT base role (the pinned requested_role is only the audit snapshot).
+                        val baseRole = facts.targetBaseRole ?: error("DEMOTE against a target without an account")
                         PrivilegedActionStore.resolveLocked(
                             id = requestId,
                             status = PrivilegedActionStatus.EXECUTED,
@@ -560,11 +582,10 @@ internal class PrivilegedActionService(
                             decided = true,
                         )
                         // The audit entry is written by the mutation (last lock-taking call): actor = the REQUESTER, approver in the facts.
-                        MemberRoleStatusMutations.applyRoleChangeLocked(
+                        MemberRoleStatusMutations.applyAdminRevokeLocked(
                             actor = requester,
                             targetId = targetId,
-                            newRole = newRole,
-                            currentRole = AccountRole.ADMIN,
+                            baseRole = baseRole,
                             memberRow = memberRow,
                             lockedAccountRows = facts.lockedAccountRows,
                             now = now,
@@ -930,7 +951,7 @@ internal class PrivilegedActionService(
         facts: LockedPeerFacts,
     ): CurrentMember? {
         val account = facts.lockedAccountRows.singleOrNull { it[AccountTable.memberId] == requesterId } ?: return null
-        if (account[AccountTable.role] != AccountRole.ADMIN) return null
+        if (!AccountRights.isAdmin(account)) return null
         val status =
             MemberTable
                 .selectAll()
@@ -961,8 +982,9 @@ internal class PrivilegedActionService(
             if (newStatus == from || newStatus !in MemberStatusTransitions.allowedTargets(from)) return true
         }
         if (kind == PrivilegedActionKind.DEMOTE) {
-            val newRole = AccountRole.valueOf(row[PrivilegedActionRequestTable.requestedRole] ?: return true)
-            if (newRole == AccountRole.ADMIN) return true
+            // V155: only the right being gone already makes the request stale; a base-role change does NOT (otherwise a colluding
+            // administrator could void a pending four-eyes revoke by flipping the base role).
+            if (!facts.targetIsAdmin) return true
         }
         return false
     }
@@ -987,7 +1009,7 @@ internal class PrivilegedActionService(
     private fun loadDto(requestId: Uuid): PrivilegedActionRequestDto {
         val row = PrivilegedActionStore.byId(requestId) ?: error("request vanished")
         return row.toDto(
-            displayNames(listOf(row[PrivilegedActionRequestTable.actorMemberId], row[PrivilegedActionRequestTable.targetMemberId])),
+            names = displayNames(listOf(row[PrivilegedActionRequestTable.actorMemberId], row[PrivilegedActionRequestTable.targetMemberId])),
         )
     }
 
@@ -1000,7 +1022,19 @@ internal class PrivilegedActionService(
             .associate { it[MemberTable.id] to it[MemberTable.displayName] }
     }
 
-    private fun ResultRow.toDto(names: Map<Uuid, String>): PrivilegedActionRequestDto =
+    private fun currentBaseRoles(targetIds: List<Uuid>): Map<Uuid, AccountRole> {
+        if (targetIds.isEmpty()) return emptyMap()
+        return AccountTable
+            .selectAll()
+            .where { AccountTable.memberId inList targetIds }
+            .associate { it[AccountTable.memberId] to AccountRights.baseRole(it) }
+    }
+
+    /** [baseRoles]: current base role per DEMOTE target; for an OPEN DEMOTE it replaces the pinned (audit-only) requested_role. */
+    private fun ResultRow.toDto(
+        names: Map<Uuid, String>,
+        baseRoles: Map<Uuid, AccountRole> = emptyMap(),
+    ): PrivilegedActionRequestDto =
         PrivilegedActionRequestDto(
             id = this[PrivilegedActionRequestTable.id].toString(),
             action = PrivilegedActionKind.valueOf(this[PrivilegedActionRequestTable.action]),
@@ -1008,7 +1042,15 @@ internal class PrivilegedActionService(
             actorDisplayName = names[this[PrivilegedActionRequestTable.actorMemberId]] ?: "?",
             targetMemberId = this[PrivilegedActionRequestTable.targetMemberId].toString(),
             targetDisplayName = names[this[PrivilegedActionRequestTable.targetMemberId]] ?: "?",
-            requestedRole = this[PrivilegedActionRequestTable.requestedRole]?.let { AccountRole.valueOf(it) },
+            requestedRole =
+                if (this[PrivilegedActionRequestTable.action] == PrivilegedActionKind.DEMOTE.name &&
+                    PrivilegedActionStatus.valueOf(this[PrivilegedActionRequestTable.status]).isOpen
+                ) {
+                    baseRoles[this[PrivilegedActionRequestTable.targetMemberId]]
+                        ?: this[PrivilegedActionRequestTable.requestedRole]?.let { AccountRole.valueOf(it) }
+                } else {
+                    this[PrivilegedActionRequestTable.requestedRole]?.let { AccountRole.valueOf(it) }
+                },
             requestedStatus = this[PrivilegedActionRequestTable.requestedStatus]?.let { MemberStatus.valueOf(it) },
             reason = this[PrivilegedActionRequestTable.reason],
             status = PrivilegedActionStatus.valueOf(this[PrivilegedActionRequestTable.status]),

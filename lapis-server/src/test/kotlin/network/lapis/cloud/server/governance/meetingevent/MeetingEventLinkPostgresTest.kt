@@ -20,6 +20,7 @@ import network.lapis.cloud.server.security.activeRecordingRole
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeMembershipMode
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -87,7 +88,7 @@ abstract class MeetingEventLinkScenarios(
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.BOARD
+                    it.legacyAccountRole(role = AccountRole.BOARD)
                 }
             }
             return CurrentMember(memberId = id, role = AccountRole.BOARD, status = MemberStatus.ACTIVE)
@@ -221,7 +222,7 @@ abstract class MeetingEventLinkScenarios(
 
         fun plainMember(): CurrentMember {
             val b = board()
-            transaction { AccountTable.update({ AccountTable.memberId eq b.memberId }) { it[role] = AccountRole.MEMBER } }
+            transaction { AccountTable.update({ AccountTable.memberId eq b.memberId }) { it.legacyAccountRole(role = AccountRole.MEMBER) } }
             return CurrentMember(memberId = b.memberId, role = AccountRole.MEMBER, status = MemberStatus.ACTIVE)
         }
 

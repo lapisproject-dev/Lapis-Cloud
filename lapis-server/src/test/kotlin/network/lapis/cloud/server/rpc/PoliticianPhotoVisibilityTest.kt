@@ -27,6 +27,7 @@ import network.lapis.cloud.server.db.generated.PoliticianProfileTable
 import network.lapis.cloud.server.db.generated.PoliticianReactionTable
 import network.lapis.cloud.server.db.generated.PoliticianWeightSnapshotTable
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
+import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberPhotoVisibility
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -98,7 +99,7 @@ class PoliticianPhotoVisibilityTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it.legacyAccountRole(role = AccountRole.MEMBER)
                 }
             }
             createdMemberIds += id

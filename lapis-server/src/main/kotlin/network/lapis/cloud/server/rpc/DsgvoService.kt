@@ -18,6 +18,7 @@ import network.lapis.cloud.server.dsgvo.RegionalChapterPersonalData
 import network.lapis.cloud.server.dsgvo.TableErasureOutcome
 import network.lapis.cloud.server.dsgvo.nowUtc
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.PeerGuard
 import network.lapis.cloud.server.security.peerGuarded
@@ -473,7 +474,7 @@ private fun JsonElement.elementCount(): Int =
 private fun adminMemberIds(): Set<Uuid> =
     AccountTable
         .selectAll()
-        .where { AccountTable.role eq AccountRole.ADMIN }
+        .where { AccountRights.adminAccountsPredicate() }
         .map { it[AccountTable.memberId] }
         .toSet()
 

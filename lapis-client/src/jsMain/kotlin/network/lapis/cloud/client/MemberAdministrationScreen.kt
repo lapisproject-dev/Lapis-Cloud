@@ -1558,65 +1558,92 @@ internal fun openMemberEditorDialog(
     if (canEditRoleOf(callerRole, callerMemberId, row)) {
         modal.div { addCssClass("mt-3") }
         modal.h2(tr("Rolle")) { addCssClass("h6") }
+        // V155: against an ADMIN this section is the request to REVOKE the right (no role choice: the target falls back to its base role);
+        // otherwise it changes the BASE role and offers the administrator right as a separate action.
         val form = modal.lapisForm(legendGroup)
-        val roleOptions = roleOptionsFor(row.status)
-        val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = row.role?.name, required = true)
-        // V1.9.57: against another ADMIN the role section is a request for the demotion (with a reason), never a direct change.
-        val roleReasonField =
-            if (adminTarget) memberReasonField(form, min = PEER_REASON_MIN_LENGTH, max = PEER_REASON_MAX_LENGTH) else null
-        val saveRoleButton = newActionButton(ActionIcon.SAVE, tr("Rolle ändern"), ButtonStyle.PRIMARY)
-        form.buttons(primary = saveRoleButton)
-        val rolePeerNotice = form.panel.div()
+        if (adminTarget) {
+            val fallbackRole = row.baseRole ?: AccountRole.MEMBER
+            form.panel.div(
+                gettext("Nach dem Entzug des Administratorrechts hat das Mitglied wieder die Rolle %1.", accountRoleLabel(fallbackRole)),
+            )
+            val roleReasonField = memberReasonField(form, min = PEER_REASON_MIN_LENGTH, max = PEER_REASON_MAX_LENGTH)
+            val saveRoleButton = newActionButton(ActionIcon.SAVE, tr("Freigabe beantragen"), ButtonStyle.PRIMARY)
+            form.buttons(primary = saveRoleButton)
+            val rolePeerNotice = form.panel.div()
 
-        fun refreshRoleButton() {
-            if (!adminTarget) return
-            rolePeerNotice.removeAll()
-            saveRoleButton.text = tr("Freigabe beantragen")
-            val unchanged = roleField.value == AccountRole.ADMIN.name
-            val decision = peerDecisions.of(PeerAction.DEMOTE)
-            when {
-                !peerDecisionsLoaded -> saveRoleButton.disabled = true
-                decision.needsApproval() -> {
-                    saveRoleButton.disabled = unchanged
-                    rolePeerNotice.peerProtectionNotice(peerApprovalHint())
-                }
-                else -> {
-                    saveRoleButton.disabled = true
-                    rolePeerNotice.peerProtectionNotice(
-                        if (peerDecisions == null) {
-                            tr("Die Schutzprüfung konnte nicht geladen werden. Bitte öffnen Sie den Dialog erneut.")
-                        } else {
-                            peerDenyText(decision?.denyReason, PeerAction.DEMOTE)
-                        },
-                    )
+            fun refreshRoleButton() {
+                rolePeerNotice.removeAll()
+                val decision = peerDecisions.of(PeerAction.DEMOTE)
+                when {
+                    !peerDecisionsLoaded -> saveRoleButton.disabled = true
+                    decision.needsApproval() -> {
+                        saveRoleButton.disabled = false
+                        rolePeerNotice.peerProtectionNotice(peerApprovalHint())
+                    }
+                    else -> {
+                        saveRoleButton.disabled = true
+                        rolePeerNotice.peerProtectionNotice(
+                            if (peerDecisions == null) {
+                                tr("Die Schutzprüfung konnte nicht geladen werden. Bitte öffnen Sie den Dialog erneut.")
+                            } else {
+                                peerDenyText(decision?.denyReason, PeerAction.DEMOTE)
+                            },
+                        )
+                    }
                 }
             }
-        }
-        if (adminTarget) {
-            roleField.subscribe { refreshRoleButton() }
             peerWatchers += { refreshRoleButton() }
             refreshRoleButton()
-        }
-        saveRoleButton.onClick {
-            form.submit(saveRoleButton) {
-                val newRole = AccountRole.valueOf(roleField.value)
-                if (adminTarget) {
+            saveRoleButton.onClick {
+                form.submit(saveRoleButton) {
                     val request =
                         memberAdminGuarded {
-                            rpc.requestDemotion(memberId = row.id, newRole = newRole, reason = roleReasonField?.value.orEmpty().trim())
+                            rpc.requestDemotion(memberId = row.id, newRole = fallbackRole, reason = roleReasonField.value.orEmpty().trim())
                         }
                     if (request != null) {
                         notifySuccess(tr("Freigabe beantragt. Sie finden den Antrag unter „Ausstehende Freigaben“."))
                         modal.hide()
                         onRequested()
                     }
-                    return@submit
                 }
-                val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberRole(row.id, newRole) }
-                if (result != null) {
-                    notifySuccess(tr("Rolle geändert."))
-                    modal.hide()
-                    onChanged()
+            }
+        } else {
+            val roleField =
+                form.selectField(
+                    label = tr("Rolle"),
+                    options = roleOptionsFor(row.status),
+                    value = (row.baseRole ?: row.role)?.name,
+                    required = true,
+                )
+            val saveRoleButton = newActionButton(ActionIcon.SAVE, tr("Rolle ändern"), ButtonStyle.PRIMARY)
+            // V155: the administrator right is granted separately (immediately, every other administrator is notified); not for donors.
+            val grantAdminButton =
+                if (row.status != MemberStatus.DONOR) {
+                    newActionButton(ActionIcon.SAVE, tr("Administratorrecht erteilen"), ButtonStyle.SECONDARY)
+                } else {
+                    null
+                }
+            form.buttons(primary = saveRoleButton)
+            grantAdminButton?.let { form.panel.add(it) }
+            saveRoleButton.onClick {
+                form.submit(saveRoleButton) {
+                    val newRole = AccountRole.valueOf(roleField.value)
+                    val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberRole(row.id, newRole) }
+                    if (result != null) {
+                        notifySuccess(tr("Rolle geändert."))
+                        modal.hide()
+                        onChanged()
+                    }
+                }
+            }
+            grantAdminButton?.onClick {
+                form.submit(grantAdminButton) {
+                    val result = memberAdminGuarded { rpcService<IMemberService>().setAdminRights(row.id, true) }
+                    if (result != null) {
+                        notifySuccess(tr("Administratorrecht erteilt."))
+                        modal.hide()
+                        onChanged()
+                    }
                 }
             }
         }
@@ -2259,7 +2286,9 @@ internal fun tierSelectOptions(
  * membership, the server refuses them with a Conflict); every other status the whole list.
  */
 internal fun roleOptionsFor(status: MemberStatus): List<Pair<String, String>> =
+    // V155: ADMIN is a right, not a selectable role (granted by its own action)
     AccountRole.entries
+        .filter { it != AccountRole.ADMIN }
         .filter { status != MemberStatus.DONOR || it == AccountRole.MEMBER }
         .map { it.name to accountRoleLabel(it) }
 

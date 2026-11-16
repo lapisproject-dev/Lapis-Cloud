@@ -32370,3 +32370,15 @@ msgstr "Il consiglio direttivo non l'ha indicata come socio fondatore."
 
 msgid "Nur aktive Mitglieder können die Kennzeichnung öffentlich zeigen."
 msgstr "Solo i soci attivi possono mostrare la dicitura pubblicamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilen"
+msgstr "Concedere il diritto di amministratore"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Administratorrecht erteilt."
+msgstr "Diritto di amministratore concesso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
+msgid "Nach dem Entzug des Administratorrechts hat das Mitglied wieder die Rolle %1."
+msgstr "Dopo la revoca del diritto di amministratore, il membro torna ad avere il ruolo %1."

@@ -190,6 +190,10 @@ internal data class LockedPeerFacts(
     /** Every ADMIN account row plus the target's own account row, locked in id order. */
     val lockedAccountRows: List<ResultRow>,
     val eligibleApprovers: Int,
+    /** V155 -- the target's stored base role (never ADMIN); `null` when the target has no account. [targetRole] is the EFFECTIVE role. */
+    val targetBaseRole: AccountRole? = null,
+    /** V155 -- the target holds the administrator right. */
+    val targetIsAdmin: Boolean = false,
 )
 
 /**
@@ -239,14 +243,17 @@ internal object PeerGuard {
         val locked =
             AccountTable
                 .selectAll()
-                .where { (AccountTable.memberId eq targetId) or (AccountTable.role eq AccountRole.ADMIN) }
+                .where { (AccountTable.memberId eq targetId) or (AccountRights.adminAccountsPredicate()) }
                 .orderBy(AccountTable.id)
                 .forUpdate()
                 .toList()
-        val targetRole = locked.singleOrNull { it[AccountTable.memberId] == targetId }?.get(AccountTable.role)
+        val targetRow = locked.singleOrNull { it[AccountTable.memberId] == targetId }
+        val targetRole = targetRow?.let { AccountRights.effectiveRole(it) }
         val excluded = setOfNotNull(requesterId, targetId)
         return LockedPeerFacts(
             targetRole = targetRole,
+            targetBaseRole = targetRow?.let { AccountRights.baseRole(it) },
+            targetIsAdmin = targetRow?.let { AccountRights.isAdmin(it) } ?: false,
             targetStatus = memberRow[MemberTable.status],
             lockedAccountRows = locked,
             // Only a request against an ADMIN needs approvers; for any other target the matrix never reads the number -- no query.
@@ -266,7 +273,7 @@ internal object PeerGuard {
     /**
      * Ids of the administrators who could approve a request created at [requestCreatedAt]: ADMIN right now (the rows are
      * locked), not [excluding]d (actor, target), member status not login-blocked, not anonymized, and holding the role
-     * for at least [ADMIN_TENURE] at the time of the request (`role_changed_at` null = pre-existing account = tenured).
+     * for at least [ADMIN_TENURE] at the time of the request (V155: `admin_changed_at`, NOT `role_changed_at`; null = pre-existing account = tenured).
      */
     fun eligibleApproverIds(
         lockedAdminRows: List<ResultRow>,
@@ -274,12 +281,12 @@ internal object PeerGuard {
         requestCreatedAt: LocalDateTime,
     ): List<Uuid> {
         val candidates =
-            lockedAdminRows.filter { it[AccountTable.role] == AccountRole.ADMIN && it[AccountTable.memberId] !in excluding }
+            lockedAdminRows.filter { AccountRights.isAdmin(it) && it[AccountTable.memberId] !in excluding }
         if (candidates.isEmpty()) return emptyList()
         val tenureCutoff = (requestCreatedAt.toInstant(TimeZone.UTC) - ADMIN_TENURE).toLocalDateTime(TimeZone.UTC)
         val tenured =
             candidates.filter {
-                val changedAt = it[AccountTable.roleChangedAt]
+                val changedAt = AccountRights.adminChangedAt(it)
                 changedAt == null || changedAt <= tenureCutoff
             }
         if (tenured.isEmpty()) return emptyList()

@@ -22,6 +22,8 @@ import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.member.MemberRoleStatusMutations
 import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
+import network.lapis.cloud.server.security.AccountRights
+import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.PasswordResetTokenStore
@@ -175,12 +177,12 @@ object AdminBootstrap {
                 // has no signed-in member; `operatorConsole` says so) and never carries the password or its hash.
                 recordConsoleAudit(
                     memberRow = row,
-                    role = row[AccountTable.role],
+                    role = AccountRights.effectiveRole(row),
                     facts =
                         PeerActionAuditFacts(
                             event = PeerAuditEvent.EXECUTED,
                             action = PeerAction.TEMP_PASSWORD,
-                            targetRole = row[AccountTable.role],
+                            targetRole = AccountRights.effectiveRole(row),
                             operatorConsole = true,
                         ),
                     adminPasswordAction = AdminPasswordAction.TEMPORARY_PASSWORD_SET,
@@ -260,6 +262,11 @@ object AdminBootstrap {
         newRole: AccountRole,
         database: Database? = null,
     ): ConsoleChangeResult {
+        if (newRole == AccountRole.ADMIN) {
+            return ConsoleChangeResult.InvalidInput(
+                "ADMIN is a right, not a role: use LAPIS_BOOTSTRAP_ACTION=set-admin with LAPIS_BOOTSTRAP_ADMIN=true",
+            )
+        }
         val normalizedEmail = email.trim().lowercase()
         return transaction(database) {
             val memberRow =
@@ -269,31 +276,96 @@ object AdminBootstrap {
                     .forMemberUpdate()
                     .singleOrNull() ?: return@transaction ConsoleChangeResult.AccountNotFound(normalizedEmail)
             val targetId = memberRow[MemberTable.id]
-            if (memberRow[MemberTable.anonymizedAt] !=
-                null
-            ) {
+            if (memberRow[MemberTable.anonymizedAt] != null) {
                 return@transaction ConsoleChangeResult.InvalidInput("the member was anonymized")
             }
             val facts = PeerGuard.lockFactsAfterMemberLock(targetId = targetId, memberRow = memberRow, requesterId = null)
-            val currentRole = facts.targetRole ?: return@transaction ConsoleChangeResult.AccountNotFound(normalizedEmail)
+            val currentRole = facts.targetBaseRole ?: return@transaction ConsoleChangeResult.AccountNotFound(normalizedEmail)
             if (currentRole == newRole) return@transaction ConsoleChangeResult.NoChange(normalizedEmail)
-            try {
-                MemberRoleStatusMutations.applyRoleChangeLocked(
-                    actor = null,
-                    targetId = targetId,
-                    newRole = newRole,
-                    currentRole = currentRole,
-                    memberRow = memberRow,
-                    lockedAccountRows = facts.lockedAccountRows,
-                    now = DbClock.nowLocalDateTime(),
-                    peerFacts =
-                        PeerActionAuditFacts(
-                            event = PeerAuditEvent.EXECUTED,
-                            action = if (newRole == AccountRole.ADMIN) PeerAction.PROMOTE_TO_ADMIN else PeerAction.DEMOTE,
-                            targetRole = currentRole,
-                            operatorConsole = true,
-                        ),
+            if (memberRow[MemberTable.status] == MemberStatus.DONOR && newRole in ESCALATED_ROLES) {
+                return@transaction ConsoleChangeResult.InvalidInput("a donor cannot hold an administrative role")
+            }
+            // V155: only the BASE role changes -- the administrator right (and with it the last-admin invariant) is untouched.
+            MemberRoleStatusMutations.applyRoleChangeLocked(
+                actor = null,
+                targetId = targetId,
+                newRole = newRole,
+                currentRole = currentRole,
+                memberRow = memberRow,
+                lockedAccountRows = facts.lockedAccountRows,
+                now = DbClock.nowLocalDateTime(),
+                peerFacts =
+                    PeerActionAuditFacts(
+                        event = PeerAuditEvent.EXECUTED,
+                        action = PeerAction.DEMOTE,
+                        targetRole = facts.targetRole,
+                        operatorConsole = true,
+                    ),
+            )
+            ConsoleChangeResult.Success(
+                email = normalizedEmail,
+                displayName = memberRow[MemberTable.displayName],
+                mailTo = memberRow[MemberTable.email],
+                event = PeerExecutedEvent.ROLE_CHANGED,
+            )
+        }
+    }
+
+    /**
+     * Emergency path (V155): grants ([enabled] = true) or revokes the ADMINISTRATOR right of the member with [email]. Same union lock and the
+     * same hard last-admin protection as [setRole] had for ADMIN; `account.admin_changed_at` stamped; an audit entry without an actor.
+     */
+    fun setAdmin(
+        email: String,
+        enabled: Boolean,
+        database: Database? = null,
+    ): ConsoleChangeResult {
+        val normalizedEmail = email.trim().lowercase()
+        return transaction(database) {
+            val memberRow =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.email.lowerCase() eq normalizedEmail }
+                    .forMemberUpdate()
+                    .singleOrNull() ?: return@transaction ConsoleChangeResult.AccountNotFound(normalizedEmail)
+            val targetId = memberRow[MemberTable.id]
+            if (memberRow[MemberTable.anonymizedAt] != null) {
+                return@transaction ConsoleChangeResult.InvalidInput("the member was anonymized")
+            }
+            val facts = PeerGuard.lockFactsAfterMemberLock(targetId = targetId, memberRow = memberRow, requesterId = null)
+            val baseRole = facts.targetBaseRole ?: return@transaction ConsoleChangeResult.AccountNotFound(normalizedEmail)
+            if (facts.targetIsAdmin == enabled) return@transaction ConsoleChangeResult.NoChange(normalizedEmail)
+            val peerFacts =
+                PeerActionAuditFacts(
+                    event = PeerAuditEvent.EXECUTED,
+                    action = if (enabled) PeerAction.PROMOTE_TO_ADMIN else PeerAction.DEMOTE,
+                    targetRole = facts.targetRole,
+                    operatorConsole = true,
                 )
+            try {
+                if (enabled) {
+                    if (memberRow[MemberTable.status] == MemberStatus.DONOR) {
+                        return@transaction ConsoleChangeResult.InvalidInput("a donor cannot hold an administrative role")
+                    }
+                    MemberRoleStatusMutations.applyAdminGrantLocked(
+                        actor = null,
+                        targetId = targetId,
+                        baseRole = baseRole,
+                        memberRow = memberRow,
+                        now = DbClock.nowLocalDateTime(),
+                        peerFacts = peerFacts,
+                    )
+                } else {
+                    MemberRoleStatusMutations.applyAdminRevokeLocked(
+                        actor = null,
+                        targetId = targetId,
+                        baseRole = baseRole,
+                        memberRow = memberRow,
+                        lockedAccountRows = facts.lockedAccountRows,
+                        now = DbClock.nowLocalDateTime(),
+                        peerFacts = peerFacts,
+                    )
+                }
             } catch (e: LastAdminException) {
                 return@transaction ConsoleChangeResult.LastAdmin
             }
@@ -524,7 +596,7 @@ object AdminBootstrap {
             AccountTable.insert {
                 it[id] = Uuid.random()
                 it[AccountTable.memberId] = memberId
-                it[role] = AccountRole.ADMIN
+                AccountRights.writeInitial(stmt = it, baseRole = AccountRole.MEMBER, isAdmin = true, now = bootstrapNow)
                 it[roleChangedAt] = bootstrapNow
                 it[passwordHash] = PasswordHasher.hash(rawPassword)
             }
@@ -544,9 +616,12 @@ fun main() {
     when (action) {
         "reset-password" -> mainResetPassword()
         "set-role" -> mainSetRole()
+        "set-admin" -> mainSetAdmin()
         "set-status" -> mainSetStatus()
         else -> {
-            logger.error { "Unknown LAPIS_BOOTSTRAP_ACTION '$action' -- expected reset-password (default), set-role or set-status." }
+            logger.error {
+                "Unknown LAPIS_BOOTSTRAP_ACTION '$action' -- expected reset-password (default), set-role, set-admin or set-status."
+            }
             kotlin.system.exitProcess(1)
         }
     }
@@ -587,9 +662,26 @@ private fun mainSetRole() {
                     ?.uppercase()
                     .orEmpty(),
             )
-        }.getOrElse { error("LAPIS_BOOTSTRAP_ROLE must be one of ${AccountRole.entries.joinToString()}") }
+        }.getOrElse {
+            error(
+                "LAPIS_BOOTSTRAP_ROLE must be one of MEMBER, BOARD, TREASURER (ADMIN is a right: use set-admin with LAPIS_BOOTSTRAP_ADMIN)",
+            )
+        }
     DatabaseConfig.connect()
     reportConsoleChange(AdminBootstrap.setRole(email = email, newRole = role))
+}
+
+private fun mainSetAdmin() {
+    val email =
+        SecretEnv.get("LAPIS_BOOTSTRAP_TARGET_EMAIL") ?: error("LAPIS_BOOTSTRAP_TARGET_EMAIL must be set")
+    val enabled =
+        when (SecretEnv.get("LAPIS_BOOTSTRAP_ADMIN")?.trim()?.lowercase()) {
+            "true" -> true
+            "false" -> false
+            else -> error("LAPIS_BOOTSTRAP_ADMIN must be 'true' or 'false'")
+        }
+    DatabaseConfig.connect()
+    reportConsoleChange(AdminBootstrap.setAdmin(email = email, enabled = enabled))
 }
 
 private fun mainSetStatus() {

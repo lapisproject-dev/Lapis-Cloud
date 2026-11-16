@@ -20,6 +20,7 @@ import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.rpc.MEMBER_EMAIL_MAX_LENGTH
 import network.lapis.cloud.server.rpc.keycloakSubjectFingerprint
+import network.lapis.cloud.server.security.AccountRights
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
@@ -200,7 +201,7 @@ internal class KeycloakMemberProvisioner(
                         it[id] = Uuid.random()
                         it[AccountTable.memberId] = memberId
                         // A literal constant -- the role is NEVER read from a claim.
-                        it[role] = AccountRole.MEMBER
+                        AccountRights.writeInitial(stmt = it, baseRole = AccountRole.MEMBER, isAdmin = false, now = null)
                         it[roleChangedAt] = now
                         it[passwordHash] = null
                     }
