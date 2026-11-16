@@ -5,7 +5,7 @@ NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:d
 
 == Purpose
 
-In a running video conference the moderation (the room creator, or a member with the account role `BOARD` or `ADMIN`) can
+In a running video conference the moderation (the room creator, or a member with the account role `BOARD` or the administrator right) can
 
 * **mute** one person or **everybody** (`muteParticipant`, `muteAll`),
 * **ask** a person to switch the microphone on (`requestUnmute`, the button reads "Bitten"),

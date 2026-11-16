@@ -498,7 +498,7 @@ Refusal pages: the group reasons show the ordinary "Kein zugeordnetes Mitgliedsk
 the group; only a rate limit ("vorübergehend ausgelastet") and a missing name ("enthält keinen Namen") get their own text. These pages are
 rendered by the server in German only (like every other error page of the callback).
 
-Notice: after the commit every account with the role `ADMIN` (not `BOARD`; not blocked, not anonymized) gets one mail with the new
+Notice: after the commit every account holding the administrator right (`account.is_admin`) (not `BOARD`; not blocked, not anonymized) gets one mail with the new
 member's name -- only when SMTP is configured. A missing SMTP configuration or a failing send never blocks the login. No mail is sent
 when the rate limit is hit (that would turn an attack into a mail flood); the server log carries a `WARN` without personal data.
 

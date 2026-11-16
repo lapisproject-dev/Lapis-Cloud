@@ -84,7 +84,7 @@ private val logger = KotlinLogging.logger {}
  *
  * **Emergency actions (Welle V1.9.57 "Admin-Peer-Schutz")**: `LAPIS_BOOTSTRAP_ACTION` selects what the console does --
  * `reset-password` (the default, everything above; it now also ends every session and every outstanding reset token of the account and
- * writes an audit entry without an actor), `set-role` (`LAPIS_BOOTSTRAP_TARGET_EMAIL` + `LAPIS_BOOTSTRAP_ROLE`) and `set-status`
+ * writes an audit entry without an actor), `set-role` (`LAPIS_BOOTSTRAP_TARGET_EMAIL` + `LAPIS_BOOTSTRAP_ROLE`, base role only), `set-admin` (`LAPIS_BOOTSTRAP_TARGET_EMAIL` + `LAPIS_BOOTSTRAP_ADMIN=true|false`, V155) and `set-status`
  * (`LAPIS_BOOTSTRAP_TARGET_EMAIL` + `LAPIS_BOOTSTRAP_STATUS=ACTIVE`, re-activation only). They exist because no signed-in path may take
  * an action against another administrator alone: this is the way out when the four-eyes rule cannot be met (one or two administrators)
  * or an administrator lost every means of signing in. The last-admin protection holds here too -- there is no console path to zero
