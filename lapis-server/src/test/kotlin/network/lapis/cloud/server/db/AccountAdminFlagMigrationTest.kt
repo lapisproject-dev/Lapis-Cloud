@@ -25,6 +25,9 @@ abstract class AccountAdminFlagMigrationScenarios(
                 }
             }
 
+        // JDBC getString() of a BOOLEAN is "true"/"false" on H2 but "t"/"f" on PostgreSQL.
+        fun isTrue(raw: String) = raw.lowercase() in setOf("true", "t")
+
         val adminStamped = UUID.randomUUID()
         val adminSeeded = UUID.randomUUID()
         val board = UUID.randomUUID()
@@ -60,7 +63,7 @@ abstract class AccountAdminFlagMigrationScenarios(
         test("an ADMIN account becomes MEMBER with the admin flag and keeps its stamp as the tenure clock") {
             val r = row(adminStamped)
             r[0] shouldBe "MEMBER"
-            r[1].lowercase() shouldBe "true"
+            isTrue(r[1]) shouldBe true
             r[2].take(19) shouldBe "2026-03-01 10:00:00"
             r[3].take(19) shouldBe "2026-03-01 10:00:00"
         }
@@ -68,19 +71,19 @@ abstract class AccountAdminFlagMigrationScenarios(
         test("a never-stamped admin stays tenured (admin_changed_at NULL)") {
             val r = row(adminSeeded)
             r[0] shouldBe "MEMBER"
-            r[1].lowercase() shouldBe "true"
+            isTrue(r[1]) shouldBe true
             r[2] shouldBe "null"
         }
 
         test("BOARD and TREASURER are untouched and carry no admin flag") {
             row(board).let {
                 it[0] shouldBe "BOARD"
-                it[1].lowercase() shouldBe "false"
+                isTrue(it[1]) shouldBe false
                 it[2] shouldBe "null"
             }
             row(treasurer).let {
                 it[0] shouldBe "TREASURER"
-                it[1].lowercase() shouldBe "false"
+                isTrue(it[1]) shouldBe false
             }
         }
 
@@ -114,7 +117,7 @@ abstract class AccountAdminFlagMigrationScenarios(
                 "INSERT INTO member (id, display_name, email, status, joined_at) VALUES ('$id', 'M', 'af-$id@example.org', 'ACTIVE', DATE '2026-01-01')",
             )
             exec("INSERT INTO account (id, member_id, role) VALUES ('${UUID.randomUUID()}', '$id', 'MEMBER')")
-            row(id)[1].lowercase() shouldBe "false"
+            isTrue(row(id)[1]) shouldBe false
         }
 
         test("a re-run is a no-op") {
