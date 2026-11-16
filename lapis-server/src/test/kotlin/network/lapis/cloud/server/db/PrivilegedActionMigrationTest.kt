@@ -250,10 +250,12 @@ class PrivilegedActionUpgradePostgresTest :
             (flyway(null).migrate().migrationsExecuted >= 1) shouldBe true
             inConnection { c ->
                 c.createStatement().use { st ->
-                    st.executeQuery("SELECT role, role_changed_at FROM account WHERE id = '$account'").use {
+                    // V155 turns the ADMIN role into the flag account.is_admin with base role MEMBER; the stamp is kept.
+                    st.executeQuery("SELECT role, role_changed_at, is_admin FROM account WHERE id = '$account'").use {
                         it.next()
-                        it.getString(1) shouldBe "ADMIN"
+                        it.getString(1) shouldBe "MEMBER"
                         it.getTimestamp(2) shouldBe null
+                        it.getBoolean(3) shouldBe true
                     }
                     st.executeQuery("SELECT count(*) FROM privileged_action_request").use {
                         it.next()
