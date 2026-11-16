@@ -33,6 +33,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.RoomPollStartInput
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.or
@@ -77,6 +78,7 @@ internal class PollRig(
             answerLimiter = answer,
             stateLimiter = state,
             versionLimiter = version,
+            publicBaseUrl = "https://lapis.example.org",
         )
 
     fun nudges() = liveKit.packets.filter { it.topic == network.lapis.cloud.shared.domain.ROOM_POLL_TOPIC }
@@ -211,6 +213,28 @@ internal class RoomPollFixtures {
                 it[restartCount] = 0
             }
         }
+    }
+
+    fun erase(member: Uuid) {
+        transaction { MemberTable.update({ MemberTable.id eq member }) { it[anonymizedAt] = DbClock.nowLocalDateTime() } }
+    }
+
+    fun leave(
+        room: PollRoom,
+        who: Uuid,
+    ) {
+        transaction {
+            ConferenceParticipationTable.update(
+                { (ConferenceParticipationTable.roomId eq room.id) and (ConferenceParticipationTable.memberId eq who) },
+            ) { it[leftAt] = DbClock.nowLocalDateTime() }
+        }
+    }
+
+    fun allowGuests(
+        room: PollRoom,
+        allow: Boolean,
+    ) {
+        transaction { ConferenceRoomTable.update({ ConferenceRoomTable.id eq room.id }) { it[allowFederationGuests] = allow } }
     }
 
     fun endRoom(room: PollRoom) {

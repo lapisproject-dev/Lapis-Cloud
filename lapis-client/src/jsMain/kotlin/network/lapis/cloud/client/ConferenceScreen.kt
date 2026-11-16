@@ -3476,6 +3476,7 @@ private fun enterCall(
         activeStreamDto = streams?.singleOrNull()
         updateStreamDetailLine()
         updateStreamButtonsVisibility()
+        pollPaint()
     }
 
     /**
@@ -4891,6 +4892,7 @@ private fun enterCall(
         val state = pollController?.state
         paintRoomPollToggle(button = pollToggleButton, state = state, pressed = pollPanelOpen)
         pollHandle.setOpen(pollPanelOpen && state != null)
+        pollHandle.setStreaming(activeStreamDto != null)
     }
     setPollPanelOpen = { open ->
         if (open != pollPanelOpen) {

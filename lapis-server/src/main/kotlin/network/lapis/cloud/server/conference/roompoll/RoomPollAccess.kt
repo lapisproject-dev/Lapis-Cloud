@@ -3,6 +3,7 @@ package network.lapis.cloud.server.conference.roompoll
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTable
+import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
 import network.lapis.cloud.server.events.EventConferenceGuard
@@ -31,7 +32,10 @@ internal enum class RoomPollAudience {
     /** Not in the room, but the room streams (LIVE / PAUSED) and the account passes the room entry check (wave B shows the poll there). */
     STREAM_VIEWER,
 
-    /** The room has ended; only a read of the result of the last poll (12 hours) is allowed. */
+    /**
+     * The room has ended; only a read of the result of the last poll (12 hours) is allowed, and only for leadership and for accounts that
+     * took part in the room (any participation row). Never for a pure stream viewer.
+     */
     ENDED_READER,
 }
 
@@ -50,11 +54,16 @@ internal object RoomPollAccess {
         allowEnded: Boolean = false,
         requirePresence: Boolean = true,
     ): RoomPollAudience {
-        val roomId = roomRow?.get(ConferenceRoomTable.id)
-        // Same work for every path: the participation lookup runs even for an unknown room.
-        val participating = hasOpenParticipation(roomId = roomId ?: Uuid.NIL, memberId = current.memberId)
+        val roomId = roomRow?.get(ConferenceRoomTable.id) ?: Uuid.NIL
+        // Same work for every path: all four lookups run even for an unknown room (Uuid.NIL), before any refusal.
+        val participating = hasOpenParticipation(roomId = roomId, memberId = current.memberId)
+        val everParticipated = hasAnyParticipation(roomId = roomId, memberId = current.memberId)
+        val erased = isErased(current.memberId)
+        val streaming = isStreaming(roomId)
         if (roomRow == null) throw denied()
         if (EncounterRoomGuard.isEncounterRoom(roomRow) || EventConferenceGuard.isEventRoom(roomRow)) throw denied()
+        // An erased account is refused on every call, reads included (a still valid session must not keep reading).
+        if (erased) throw denied()
         val status =
             try {
                 requireRoomEntryAuthorization(roomRow = roomRow, current = current)
@@ -64,12 +73,16 @@ internal object RoomPollAccess {
         requireResponderStatus(status)
         val ended = roomRow[ConferenceRoomTable.endedAt] != null
         if (ended) {
-            if (allowEnded) return RoomPollAudience.ENDED_READER
+            // Closed oracle: an ended room answers only leadership and accounts that took part in it (any participation row, left or not).
+            // A pure stream viewer is refused exactly like an unknown room, so the page cannot be used to ask whether a room has ended.
+            if (allowEnded && (isLeadership(roomRow = roomRow, current = current) || everParticipated)) {
+                return RoomPollAudience.ENDED_READER
+            }
             throw denied()
         }
         // Ending a poll needs the authority, not the presence (a moderator who dropped out can still end it).
         if (participating || !requirePresence) return RoomPollAudience.PARTICIPANT
-        if (isStreaming(roomId!!)) return RoomPollAudience.STREAM_VIEWER
+        if (streaming) return RoomPollAudience.STREAM_VIEWER
         throw denied()
     }
 
@@ -97,6 +110,24 @@ internal object RoomPollAccess {
                     ConferenceParticipationTable.leftAt.isNull()
             }.limit(1)
             .any()
+
+    private fun hasAnyParticipation(
+        roomId: Uuid,
+        memberId: Uuid,
+    ): Boolean =
+        ConferenceParticipationTable
+            .selectAll()
+            .where { (ConferenceParticipationTable.roomId eq roomId) and (ConferenceParticipationTable.memberId eq memberId) }
+            .limit(1)
+            .any()
+
+    /** One plain read of the member row, never locked (the member row is never locked). */
+    private fun isErased(memberId: Uuid): Boolean =
+        MemberTable
+            .selectAll()
+            .where { MemberTable.id eq memberId }
+            .limit(1)
+            .any { it[MemberTable.anonymizedAt] != null }
 
     private fun isStreaming(roomId: Uuid): Boolean =
         ConferenceStreamTable

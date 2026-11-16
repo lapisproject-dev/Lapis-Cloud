@@ -24,6 +24,7 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.ConferenceRoomPollAnswerTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomPollOptionTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomPollTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.ServiceCaller
 import network.lapis.cloud.server.rpc.withServiceCaller
 import network.lapis.cloud.server.testdb.TestDatabase
@@ -31,6 +32,7 @@ import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.ROOM_POLL_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.RoomPollCloseReason
@@ -41,12 +43,14 @@ import network.lapis.cloud.shared.domain.RoomPollVoterGroup
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 private suspend fun <T> ServiceCaller.asUser(
@@ -797,6 +801,269 @@ abstract class ConferenceRoomPollServiceScenarios(
                     it.answerRoomPoll(roomId = room.id.toString(), pollId = poll, optionId = option)
                 }.getOrThrow().voted shouldBe
                     true
+            }
+        }
+
+        // -- wave B: the viewer page ------------------------------------------------------------------------------------------------------
+
+        suspend fun ServiceCaller.openPollInStreamingRoom(rig: PollRig): Triple<PollRoom, Uuid, String> {
+            val (room, leader) = newRoomWithLeader()
+            fx.stream(room = room, starter = leader)
+            val poll = start(rig, room, leader).poll!!.id
+            return Triple(room, leader, poll)
+        }
+
+        test("viewer page: an active member who is not in the room reads and answers while the room streams (LIVE and PAUSED)") {
+            listOf(ConferenceStreamStatus.LIVE, ConferenceStreamStatus.PAUSED).forEach { streamStatus ->
+                val rig = PollRig()
+                val (room, leader) = newRoomWithLeader()
+                fx.stream(room = room, starter = leader, status = streamStatus)
+                val viewer = fx.member()
+                withServiceCaller {
+                    val poll = start(rig, room, leader).poll!!.id
+                    val option = optionIds(Uuid.parse(poll))[0].toString()
+                    asUser(
+                        rig = rig,
+                        who = viewer,
+                    ) { it.getRoomPollVersion(roomId = room.id.toString(), knownVersion = null) }.getOrThrow().changed shouldBe
+                        true
+                    asUser(rig = rig, who = viewer) { it.getRoomPollState(room.id.toString()) }.getOrThrow().canAnswer shouldBe true
+                    asUser(rig = rig, who = viewer) {
+                        it.answerRoomPoll(roomId = room.id.toString(), pollId = poll, optionId = option)
+                    }.getOrThrow().voted shouldBe true
+                    fx.answers(Uuid.parse(poll)).single()[ConferenceRoomPollAnswerTable.voterGroup] shouldBe RoomPollVoterGroup.MEMBERS
+                }
+            }
+        }
+
+        test("viewer page: guests and friends need a room that admits guests; a donor passes the room entry check either way") {
+            val rig = PollRig()
+            val (room, leader) = newRoomWithLeader()
+            fx.stream(room = room, starter = leader)
+            val guest = fx.member(status = MemberStatus.GUEST)
+            val friend = fx.member(status = MemberStatus.FRIEND)
+            val donor = fx.member(status = MemberStatus.DONOR)
+            withServiceCaller {
+                start(rig, room, leader)
+                listOf(guest, friend, donor).forEach { who ->
+                    asUser(rig = rig, who = who) { it.getRoomPollState(room.id.toString()) }.isSuccess shouldBe true
+                }
+                fx.allowGuests(room = room, allow = false)
+                listOf(guest, friend).forEach { who ->
+                    asUser(
+                        rig = rig,
+                        who = who,
+                    ) { it.getRoomPollState(room.id.toString()) }.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>()
+                }
+                // pinned as it is: a donor is no guest of the conference rule, so a donor still gets in
+                asUser(rig = rig, who = donor) { it.getRoomPollState(room.id.toString()) }.isSuccess shouldBe true
+            }
+        }
+
+        test("viewer page: a donor's answer counts in the guests and friends group") {
+            val rig = PollRig()
+            val (room, leader) = newRoomWithLeader()
+            fx.stream(room = room, starter = leader)
+            val donor = fx.member(status = MemberStatus.DONOR)
+            withServiceCaller {
+                val poll = start(rig, room, leader).poll!!.id
+                asUser(rig = rig, who = donor) {
+                    it.answerRoomPoll(roomId = room.id.toString(), pollId = poll, optionId = optionIds(Uuid.parse(poll))[0].toString())
+                }.getOrThrow()
+                fx.answers(Uuid.parse(poll)).single()[ConferenceRoomPollAnswerTable.voterGroup] shouldBe
+                    RoomPollVoterGroup.GUESTS_AND_FRIENDS
+            }
+        }
+
+        test("viewer page: an anonymous caller gets only Unauthenticated and does not touch a limiter") {
+            val rig = PollRig(state = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes))
+            val (room, _) = newRoomWithLeader()
+            withServiceCaller {
+                repeat(3) {
+                    callAnonymous { rig.service(it).getRoomPollState(room.id.toString()) }
+                        .exceptionOrNull()
+                        .shouldBeInstanceOf<UnauthenticatedException>()
+                    callAnonymous { rig.service(it).getRoomPollViewerLink(room.id.toString()) }
+                        .exceptionOrNull()
+                        .shouldBeInstanceOf<UnauthenticatedException>()
+                }
+                // the single allowed state read of the budget is still there
+                val member = activeIn(room)
+                asUser(rig = rig, who = member) { it.getRoomPollState(room.id.toString()) }.isSuccess shouldBe true
+            }
+        }
+
+        test("viewer page: an erased account is refused on reads and on the answer") {
+            val rig = PollRig()
+            val erased = fx.member()
+            withServiceCaller {
+                val (room, leader, poll) = openPollInStreamingRoom(rig)
+                asUser(rig = rig, who = erased) { it.getRoomPollState(room.id.toString()) }.isSuccess shouldBe true
+                fx.erase(erased)
+                listOf(
+                    asUser(rig = rig, who = erased) { it.getRoomPollState(room.id.toString()) },
+                    asUser(rig = rig, who = erased) { it.getRoomPollVersion(roomId = room.id.toString(), knownVersion = null) },
+                    asUser(rig = rig, who = erased) {
+                        it.answerRoomPoll(roomId = room.id.toString(), pollId = poll, optionId = optionIds(Uuid.parse(poll))[0].toString())
+                    },
+                ).forEach { it.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>() }
+                leader shouldBe room.creator
+            }
+        }
+
+        test(
+            "viewer page: every refusal is the same type with the same message (unknown, malformed, encounter, event, no stream, stream ended)",
+        ) {
+            val rig = PollRig()
+            val leader = fx.member(role = AccountRole.ADMIN)
+            val noStream = fx.room(creator = leader)
+            fx.join(room = noStream, who = leader)
+            val streamEnded = fx.room(creator = leader)
+            fx.join(room = streamEnded, who = leader)
+            fx.stream(room = streamEnded, starter = leader, status = ConferenceStreamStatus.ENDED)
+            val streamFailed = fx.room(creator = leader)
+            fx.stream(room = streamFailed, starter = leader, status = ConferenceStreamStatus.FAILED)
+            val encounter = fx.encounterRoom(creator = leader)
+            val event = fx.eventRoom(creator = leader)
+            val viewer = fx.member()
+            withServiceCaller {
+                val ids =
+                    listOf(noStream, streamEnded, streamFailed, encounter, event).map { it.id.toString() } +
+                        listOf(Uuid.random().toString(), "not-an-id", "")
+                val results =
+                    ids.flatMap { id ->
+                        listOf(
+                            asUser(rig = rig, who = viewer) { it.getRoomPollState(id) },
+                            asUser(rig = rig, who = viewer) { it.getRoomPollVersion(roomId = id, knownVersion = null) },
+                            asUser(rig = rig, who = viewer) { it.getRoomPollViewerLink(id) },
+                        )
+                    }
+                results.forEach { it.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>() }
+                results.map { it.exceptionOrNull()!!.message }.toSet() shouldHaveSize 1
+            }
+        }
+
+        test("viewer page: an ended room is read only by leadership and by accounts that took part; a pure stream viewer is refused") {
+            val rig = PollRig()
+            val (room, leader) = newRoomWithLeader()
+            fx.stream(room = room, starter = leader)
+            val participant = activeIn(room)
+            val viewer = fx.member()
+            val leaver = activeIn(room)
+            withServiceCaller {
+                val poll = start(rig, room, leader).poll!!.id
+                asUser(rig = rig, who = viewer) { it.getRoomPollState(room.id.toString()) }.isSuccess shouldBe true
+                fx.leave(room = room, who = leaver)
+                fx.endRoom(room)
+                asUser(rig = rig, who = leader) { it.getRoomPollState(room.id.toString()) }.getOrThrow().poll!!.id shouldBe poll
+                asUser(rig = rig, who = participant) { it.getRoomPollState(room.id.toString()) }.getOrThrow().poll!!.id shouldBe poll
+                asUser(rig = rig, who = leaver) { it.getRoomPollState(room.id.toString()) }.getOrThrow().poll!!.id shouldBe poll
+                val refused =
+                    listOf(
+                        asUser(rig = rig, who = viewer) { it.getRoomPollState(room.id.toString()) },
+                        asUser(rig = rig, who = viewer) { it.getRoomPollVersion(roomId = room.id.toString(), knownVersion = null) },
+                    )
+                refused.forEach { it.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>() }
+                // identical to an unknown room
+                asUser(rig = rig, who = viewer) { it.getRoomPollState(Uuid.random().toString()) }.exceptionOrNull()!!.message shouldBe
+                    refused[0].exceptionOrNull()!!.message
+                // nobody can answer an ended room
+                asUser(rig = rig, who = participant) {
+                    it.answerRoomPoll(roomId = room.id.toString(), pollId = poll, optionId = optionIds(Uuid.parse(poll))[0].toString())
+                }.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>()
+            }
+        }
+
+        test(
+            "viewer page: after the end of the poll the answer is a conflict and the state shows the result; a double answer is a conflict",
+        ) {
+            val rig = PollRig()
+            val (room, leader) = newRoomWithLeader()
+            fx.stream(room = room, starter = leader)
+            val viewer = fx.member()
+            val other = fx.member()
+            withServiceCaller {
+                val poll = start(rig, room, leader).poll!!.id
+                val o = optionIds(Uuid.parse(poll))
+                asUser(
+                    rig = rig,
+                    who = viewer,
+                ) { it.answerRoomPoll(roomId = room.id.toString(), pollId = poll, optionId = o[0].toString()) }.getOrThrow()
+                asUser(
+                    rig = rig,
+                    who = viewer,
+                ) {
+                    it.answerRoomPoll(roomId = room.id.toString(), pollId = poll, optionId = o[1].toString())
+                }.exceptionOrNull().shouldBeInstanceOf<ConflictException>()
+                asUser(rig = rig, who = leader) { it.closeRoomPoll(roomId = room.id.toString(), pollId = poll) }.getOrThrow()
+                asUser(
+                    rig = rig,
+                    who = other,
+                ) {
+                    it.answerRoomPoll(roomId = room.id.toString(), pollId = poll, optionId = o[0].toString())
+                }.exceptionOrNull().shouldBeInstanceOf<ConflictException>()
+                val state = asUser(rig = rig, who = other) { it.getRoomPollState(room.id.toString()) }.getOrThrow()
+                state.poll!!.status shouldBe RoomPollStatus.CLOSED
+                state.result.shouldNotBeNull()
+            }
+        }
+
+        test("viewer page: the state of a pure stream viewer has the shape of a non-leadership participant: no count, no leadership") {
+            val rig = PollRig()
+            val (room, leader) = newRoomWithLeader()
+            fx.stream(room = room, starter = leader)
+            val participant = activeIn(room)
+            val viewer = fx.member()
+            withServiceCaller {
+                start(rig, room, leader)
+                val a = asUser(rig = rig, who = participant) { it.getRoomPollState(room.id.toString()) }.getOrThrow()
+                val b = asUser(rig = rig, who = viewer) { it.getRoomPollState(room.id.toString()) }.getOrThrow()
+                b shouldBe a
+                b.answerCount.shouldBeNull()
+                b.isLeadership shouldBe false
+                b.interim.shouldBeNull()
+            }
+        }
+
+        test("viewer link: leadership gets the configured base plus the id and QR runs that decode to the encoder's matrix") {
+            val rig = PollRig()
+            val (room, leader) = newRoomWithLeader()
+            withServiceCaller {
+                val link = asUser(rig = rig, who = leader) { it.getRoomPollViewerLink(room.id.toString()) }.getOrThrow()
+                link.url shouldBe "https://lapis.example.org/app#/room-poll/${room.id}"
+                (link.qrSize >= 21) shouldBe true
+                link.qrRuns.forEach {
+                    (it.x >= 0 && it.y >= 0 && it.length >= 1 && it.x + it.length <= link.qrSize && it.y < link.qrSize) shouldBe true
+                }
+                val expected =
+                    network.lapis.cloud.server.events.QrCodeEncoder
+                        .encode(link.url)
+                expected.size shouldBe link.qrSize
+                val raster = Array(link.qrSize) { BooleanArray(link.qrSize) }
+                link.qrRuns.forEach { run -> for (i in 0 until run.length) raster[run.y][run.x + i] = true }
+                for (y in 0 until link.qrSize) for (x in 0 until link.qrSize) raster[y][x] shouldBe expected[x, y]
+            }
+        }
+
+        test("viewer link: everybody who is not leadership of a running room is refused uniformly") {
+            val rig = PollRig()
+            val (room, leader) = newRoomWithLeader()
+            fx.stream(room = room, starter = leader)
+            val participant = activeIn(room)
+            val viewer = fx.member()
+            val ended = fx.room(creator = leader)
+            fx.join(room = ended, who = leader)
+            fx.endRoom(ended)
+            withServiceCaller {
+                val results =
+                    listOf(
+                        asUser(rig = rig, who = participant) { it.getRoomPollViewerLink(room.id.toString()) },
+                        asUser(rig = rig, who = viewer) { it.getRoomPollViewerLink(room.id.toString()) },
+                        asUser(rig = rig, who = leader) { it.getRoomPollViewerLink(Uuid.random().toString()) },
+                        asUser(rig = rig, who = leader) { it.getRoomPollViewerLink(ended.id.toString()) },
+                    )
+                results.forEach { it.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>() }
+                results.map { it.exceptionOrNull()!!.message }.toSet() shouldHaveSize 1
             }
         }
 

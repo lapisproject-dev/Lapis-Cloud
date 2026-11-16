@@ -103,6 +103,16 @@ internal class ServiceCaller(
         builder.client.get("/test/run") { header("X-Member-Id", caller.toString()) }
         return error?.let { Result.failure(it) } ?: Result.success(result as T)
     }
+
+    /** The same call without any identity (no session, no test header). */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun <T> callAnonymous(action: suspend (ApplicationCall) -> T): Result<T> {
+        block = action
+        result = null
+        error = null
+        builder.client.get("/test/run")
+        return error?.let { Result.failure(it) } ?: Result.success(result as T)
+    }
 }
 
 /** Runs [body] in a test application exposing one `/test/run` route that executes the action given to [ServiceCaller.call]. */

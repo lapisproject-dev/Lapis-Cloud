@@ -97,3 +97,69 @@ The database status is canonical. A poll whose room ended or whose 240 minutes a
 * The group sets `ROOM_POLL_MEMBERS`, `ROOM_POLL_GUESTS_AND_FRIENDS` and `ROOM_POLL_RESPONDER` are used only by the room-poll files, which never use `NON_MEMBER` or `CONFERENCE_GUEST` (`ConferenceGuestSetTripwireTest` forbids them in conference files).
 * No log line in the room-poll files names a question, an option, a member or a room.
 * Weights are summed in exactly one place (`computeRoomPollResult`) and leave it only as whole percent shares.
+
+== Viewer page (wave B, no migration)
+
+Nothing new is stored: there is no short code and the viewer link is derived.
+
+[kuml, room-polls-viewer, svg]
+----
+classDiagram(name = "Room poll viewer page") {
+    val dto = classOf(name = "RoomPollViewerLinkDto") {
+        attribute(name = "url", type = "String")
+        attribute(name = "qrSize", type = "Int")
+        attribute(name = "qrRuns", type = "List<RoomPollQrRunDto>")
+    }
+    val run = classOf(name = "RoomPollQrRunDto") {
+        attribute(name = "x", type = "Int")
+        attribute(name = "y", type = "Int")
+        attribute(name = "length", type = "Int")
+    }
+    val service = classOf(name = "ConferenceRoomPollService") {
+        operation(name = "getRoomPollViewerLink") { returns("RoomPollViewerLinkDto") }
+    }
+    val encoder = classOf(name = "QrCodeEncoder") {
+        operation(name = "encode") { returns("QrCodeMatrix") }
+    }
+    val controller = classOf(name = "RoomPollViewerController") {
+        operation(name = "recheck") { returns("Unit") }
+    }
+    val screen = classOf(name = "RoomPollViewerScreen") {
+        operation(name = "renderRoomPollViewerScreen") { returns("RoomPollViewerHandle") }
+    }
+    association(source = service, target = dto)
+    association(source = dto, target = run)
+    association(source = service, target = encoder)
+    association(source = screen, target = controller)
+}
+----
+
+=== `RoomPollAccess.audience` order
+
+The same queries run on every path, also for an unknown room (`Uuid.NIL`): open participation, *any* participation (no `leftAt` filter), erased flag (one unlocked `member` read), streaming. Then the refusals in this order: unknown room, encounter/event room, erased account, room entry authorization, responder status. An ended room answers only leadership or an account with any participation row (`ENDED_READER`); everyone else gets the same `ForbiddenException` as for an unknown room. Before wave B an ended room answered everybody who may enter it, which told a stream viewer that a room had ended. A "voted" marker cannot replace the participation row: the markers are deleted when a poll ends.
+
+=== Uniform responses and the Conflict ambiguity
+
+Kilua carries only the exception type. A rate limit, "disabled", "already answered" and "not open" are all `ConflictException`, so the client cannot tell them apart. The viewer page resolves it: on a read a conflict pauses the page for 60 s and the third conflict in a row without a success ends it as unavailable; on an answer a conflict triggers one `getRoomPollState` and the page decides ("bereits gezählt" when `voted`, "gerade beendet" when the poll is closed, otherwise the generic error).
+
+=== Polling budget
+
+[cols="2,1,3",options="header"]
+|===
+|Case |Calls |Note
+|Visible tab |at most 12 version calls a minute |5000 ms plus 0 to 999 ms jitter; a hard 5000 ms gap between two version calls also covers the visible, online and "Erneut prüfen" triggers
+|Two visible tabs |at most 24 |below the limit of 30 version reads a minute
+|Hidden tab |2 a minute |30 s
+|State reads |first load, a changed version, after an own answer |limit 40 a minute
+|After errors |5/10/20/40/60 s backoff |reset on the first success
+|===
+
+The limits come from `RoomPollRules` (`VERSION_READS_PER_MINUTE`, `STATE_READS_PER_MINUTE`); `RoomPollViewerBudgetTest` pins them against the constants of `Application.kt`.
+
+=== `getRoomPollViewerLink`
+
+Leadership only, same refusal as every other call. The URL is `publicBaseUrl` (configured, wired in `Application.kt`) + `/app#/room-poll/` + the parsed room id; never a client string and never the `Host` header. The QR code is computed by `QrCodeEncoder` (error correction M) and returned as horizontal runs plus the size; no markup. The client draws it with `createElementNS` and numeric attributes (size at most 177, runs at most 20000, values clamped), quiet zone 4 modules, fixed black on white. It is a read: no log line, no audit entry.
+
+=== Return after login
+
+`safeReturnTo` accepts only the OAuth authorize path and is security-critical, so it is not widened. `RoomPollViewerReturn.kt` stores `{room id, time}` in `sessionStorage` (valid lower-case UUID only, 30 minutes, every access in try/catch). It is consumed after a password login (the OAuth `returnTo` keeps priority), on the start page an SSO or federation round trip lands on, and when an already signed-in caller opens the login route. The target route is rebuilt from the validated id.

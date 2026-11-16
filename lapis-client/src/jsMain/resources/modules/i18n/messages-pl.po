@@ -32200,3 +32200,67 @@ msgstr "Goście nie mają LTR – tylko liczba głosów"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
 msgid "Umfrage im Videoraum"
 msgstr "Ankieta w pokoju wideo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Umfrage im Stream"
+msgstr "Ankieta w transmisji"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Gerade läuft keine Umfrage. Diese Seite aktualisiert sich selbst."
+msgstr "Obecnie nie trwa żadna ankieta. Ta strona odświeża się sama."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Das Ergebnis erscheint hier, sobald die Umfrage beendet ist."
+msgstr "Wynik pojawi się tutaj, gdy tylko ankieta się zakończy."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Ihre Stimme wurde bereits gezählt."
+msgstr "Twój głos został już policzony."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Die Umfrage wurde gerade beendet."
+msgstr "Ankieta właśnie się zakończyła."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Zu diesem Raum läuft kein Stream."
+msgstr "Dla tego pokoju nie trwa żadna transmisja."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Bitte melden Sie sich an, um an der Umfrage teilzunehmen."
+msgstr "Zaloguj się, aby wziąć udział w ankiecie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerModel.kt
+msgid "Eine Umfrage hat begonnen."
+msgstr "Rozpoczęła się ankieta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerModel.kt
+msgid "Die Umfrage ist beendet. Das Ergebnis wird angezeigt."
+msgstr "Ankieta się zakończyła. Wyświetlany jest wynik."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Umfrage läuft"
+msgstr "Ankieta trwa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Zuschauer-Link"
+msgstr "Link dla widzów"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Link kopieren"
+msgstr "Skopiuj link"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "QR groß anzeigen"
+msgstr "Pokaż kod QR w dużym rozmiarze"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Zur Umfrage: QR-Code scannen"
+msgstr "Do ankiety: zeskanuj kod QR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Der Link funktioniert, sobald dieser Raum streamt."
+msgstr "Link zadziała, gdy tylko ten pokój zacznie transmisję."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollQrSvg.kt
+msgid "QR-Code zur Umfrage-Seite"
+msgstr "Kod QR strony ankiety"

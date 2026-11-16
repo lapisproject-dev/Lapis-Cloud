@@ -32192,3 +32192,67 @@ msgstr "У гостей нет LTR — только число голосов"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
 msgid "Umfrage im Videoraum"
 msgstr "Опрос в видеокомнате"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Umfrage im Stream"
+msgstr "Опрос в трансляции"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Gerade läuft keine Umfrage. Diese Seite aktualisiert sich selbst."
+msgstr "Сейчас опрос не идёт. Эта страница обновляется сама."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Das Ergebnis erscheint hier, sobald die Umfrage beendet ist."
+msgstr "Результат появится здесь, как только опрос завершится."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Ihre Stimme wurde bereits gezählt."
+msgstr "Ваш голос уже учтён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Die Umfrage wurde gerade beendet."
+msgstr "Опрос только что завершился."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Zu diesem Raum läuft kein Stream."
+msgstr "Для этой комнаты трансляция не идёт."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Bitte melden Sie sich an, um an der Umfrage teilzunehmen."
+msgstr "Войдите, чтобы принять участие в опросе."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerModel.kt
+msgid "Eine Umfrage hat begonnen."
+msgstr "Начался опрос."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerModel.kt
+msgid "Die Umfrage ist beendet. Das Ergebnis wird angezeigt."
+msgstr "Опрос завершён. Показан результат."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Umfrage läuft"
+msgstr "Опрос идёт"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Zuschauer-Link"
+msgstr "Ссылка для зрителей"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Link kopieren"
+msgstr "Скопировать ссылку"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "QR groß anzeigen"
+msgstr "Показать QR-код крупно"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Zur Umfrage: QR-Code scannen"
+msgstr "К опросу: отсканируйте QR-код"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Der Link funktioniert, sobald dieser Raum streamt."
+msgstr "Ссылка заработает, как только в этой комнате начнётся трансляция."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollQrSvg.kt
+msgid "QR-Code zur Umfrage-Seite"
+msgstr "QR-код страницы опроса"

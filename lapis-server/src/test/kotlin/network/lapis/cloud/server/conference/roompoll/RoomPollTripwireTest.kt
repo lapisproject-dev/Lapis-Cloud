@@ -23,7 +23,7 @@ class RoomPollTripwireTest :
             val fns = EncounterSourceScan.functions(EncounterSourceScan.mainFile("rpc/ConferenceRoomPollService.kt"))
             val methods = fns.filter { it.isOverride }
             methods.map { it.name }.toSet() shouldBe
-                setOf("startRoomPoll", "closeRoomPoll", "answerRoomPoll", "getRoomPollState", "getRoomPollVersion")
+                setOf("startRoomPoll", "closeRoomPoll", "answerRoomPoll", "getRoomPollState", "getRoomPollVersion", "getRoomPollViewerLink")
             methods.forEach { m ->
                 m.body shouldContain "RoomPollAccess.audience("
                 (m.body.indexOf("resolveCurrentMember") < m.body.indexOf("requireConferenceEnabled")) shouldBe true
@@ -132,7 +132,14 @@ class RoomPollTripwireTest :
                         }
                     }.readText()
             Regex("""suspend fun (\w+)""").findAll(source).map { it.groupValues[1] }.toList() shouldBe
-                listOf("startRoomPoll", "closeRoomPoll", "answerRoomPoll", "getRoomPollState", "getRoomPollVersion")
+                listOf(
+                    "startRoomPoll",
+                    "closeRoomPoll",
+                    "answerRoomPoll",
+                    "getRoomPollState",
+                    "getRoomPollVersion",
+                    "getRoomPollViewerLink",
+                )
         }
 
         test("the service is the LAST registerService in Application.kt and the limiters are process-wide singletons") {

@@ -177,9 +177,13 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * room-poll panel. The accepted background-poll shape (same as the vote panel's `getRoomVotingState` and the Sitzung panel's `getConferenceMeetingState`): a failed
  * poll is counted, never shown as an error (a calm "Status wird aktualisiert" line after three misses), so there is no loading/error block to present. The three
  * writes (`startRoomPoll`, `closeRoomPoll`, `answerRoomPoll`) are not reads.
+ * Welle V1.9.304 (B) "Zuschauerseite" adds THREE reads in TWO files (67 -> 69 files, 203 -> 206): `RoomPollViewerController.kt` holds `getRoomPollVersion(` and
+ * `getRoomPollState(` (the viewer page's own background poll, the same accepted shape: a failed call backs off and is never shown as an error; every refusal is the one
+ * sentence "Zu diesem Raum läuft kein Stream." with "Erneut prüfen"), `ConferenceRoomPollPanel.kt` holds `getRoomPollViewerLink(` (asked once; a refusal hides the
+ * leadership's link block silently, there is no list or section to show a loading/empty/error state for).
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 203
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 67
+private const val READ_OUTSIDE_STATE_REGION_MAX = 206
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 69
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

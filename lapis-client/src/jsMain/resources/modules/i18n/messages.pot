@@ -31644,3 +31644,67 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
 msgid "Umfrage im Videoraum"
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Umfrage im Stream"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Gerade läuft keine Umfrage. Diese Seite aktualisiert sich selbst."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Das Ergebnis erscheint hier, sobald die Umfrage beendet ist."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Ihre Stimme wurde bereits gezählt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Die Umfrage wurde gerade beendet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Zu diesem Raum läuft kein Stream."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Bitte melden Sie sich an, um an der Umfrage teilzunehmen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerModel.kt
+msgid "Eine Umfrage hat begonnen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerModel.kt
+msgid "Die Umfrage ist beendet. Das Ergebnis wird angezeigt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollViewerScreen.kt
+msgid "Umfrage läuft"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Zuschauer-Link"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Link kopieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "QR groß anzeigen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Zur Umfrage: QR-Code scannen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRoomPollViewerLinkBlock.kt
+msgid "Der Link funktioniert, sobald dieser Raum streamt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RoomPollQrSvg.kt
+msgid "QR-Code zur Umfrage-Seite"
+msgstr ""

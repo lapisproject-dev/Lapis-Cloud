@@ -1,24 +1,30 @@
 package network.lapis.cloud.client
 
 import io.kvision.panel.Root
+import kotlinx.browser.document
 import network.lapis.cloud.shared.domain.PollWeightedWithheldReason
 import network.lapis.cloud.shared.domain.RoomPollCloseReason
 import network.lapis.cloud.shared.domain.RoomPollCountingMode
 import network.lapis.cloud.shared.domain.RoomPollDto
 import network.lapis.cloud.shared.domain.RoomPollGroupResultDto
 import network.lapis.cloud.shared.domain.RoomPollOptionDto
+import network.lapis.cloud.shared.domain.RoomPollQrRunDto
 import network.lapis.cloud.shared.domain.RoomPollResultDto
 import network.lapis.cloud.shared.domain.RoomPollSplitWithheldReason
 import network.lapis.cloud.shared.domain.RoomPollStartInput
 import network.lapis.cloud.shared.domain.RoomPollStateDto
 import network.lapis.cloud.shared.domain.RoomPollStatus
+import network.lapis.cloud.shared.domain.RoomPollViewerLinkDto
 import network.lapis.cloud.shared.domain.RoomPollVoterGroup
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLTextAreaElement
 import org.w3c.dom.events.Event
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -94,6 +100,13 @@ class ConferenceRoomPollPanelDomTest {
         var refresh = 0
         var conflictOnAnswer = false
         var conflictOnStart = false
+        var linkCalls = 0
+        var link: RoomPollViewerLinkDto? =
+            RoomPollViewerLinkDto(
+                url = "https://lapis.example.org/app#/room-poll/0b9a3c1e-4d2f-4a6b-9c8d-1e2f3a4b5c6d",
+                qrSize = 21,
+                qrRuns = listOf(RoomPollQrRunDto(0, 0, 7), RoomPollQrRunDto(2, 1, 3), RoomPollQrRunDto(10, 4, 1)),
+            )
         var next: RoomPollStateDto = RoomPollStateDto(roomId = "r1", version = "n")
     }
 
@@ -116,6 +129,10 @@ class ConferenceRoomPollPanelDomTest {
                     if (calls.conflictOnAnswer) throw ConflictException("answered")
                     calls.answered += Triple(room, poll, option)
                     calls.next
+                },
+                viewerLink = {
+                    calls.linkCalls++
+                    calls.link ?: throw ForbiddenException()
                 },
             )
         return mountedForm("room-poll-panel") { root: Root, element ->
@@ -471,6 +488,117 @@ class ConferenceRoomPollPanelDomTest {
                 assertEquals("true", el.getAttribute("aria-pressed"))
                 assertEquals("Umfrage", el.getAttribute("aria-label"))
                 assertNull(el.getAttribute("hidden"))
+            }
+        }
+
+    // -- wave B: the viewer link of the leadership ------------------------------------------------------------------------------------
+
+    @Test
+    fun theViewerLinkBlock_isForTheLeadershipOnly_isAskedOnce_andDrawsTheQrFromRuns(): Promise<Unit> =
+        formTest {
+            val calls = Calls()
+            withPanel(calls) { el, handle ->
+                handle.apply(state(leadership = false))
+                handle.apply(state(leadership = false, version = "v2"))
+                assertEquals(0, calls.linkCalls, "a person without leadership never asks")
+                assertTrue(el.allOf(".lapis-room-poll-viewer-url").isEmpty())
+                handle.apply(state(leadership = true, answerCount = 0))
+                handle.apply(state(leadership = true, answerCount = 1, version = "v3"))
+                awaitUntil("the link") { el.allOf(".lapis-room-poll-viewer-url").size == 1 }
+                assertEquals(1, calls.linkCalls, "asked once per panel")
+                val field = el.allOf(".lapis-room-poll-viewer-url").single() as HTMLInputElement
+                assertEquals(calls.link!!.url, field.value)
+                assertNotNull(field.getAttribute("readonly"))
+                awaitUntil("the QR") { el.querySelectorAll("svg.lapis-room-poll-qr").length == 1 }
+                val svg = assertNotNull(el.querySelector("svg.lapis-room-poll-qr"))
+                // one rect per run plus the white background; no markup was parsed
+                assertEquals(calls.link!!.qrRuns.size + 1, svg.querySelectorAll("rect").length)
+                assertEquals("0 0 29 29", svg.getAttribute("viewBox"))
+                assertEquals("img", svg.getAttribute("role"))
+            }
+        }
+
+    @Test
+    fun aRefusedViewerLink_hidesTheBlockSilently(): Promise<Unit> =
+        formTest {
+            val calls = Calls()
+            calls.link = null
+            withPanel(calls) { el, handle ->
+                handle.apply(state(leadership = true))
+                awaitUntil("asked") { calls.linkCalls == 1 }
+                assertTrue(el.allOf(".lapis-room-poll-viewer-url").isEmpty())
+                assertEquals(0, el.querySelectorAll("svg.lapis-room-poll-qr").length)
+            }
+        }
+
+    @Test
+    fun copyLink_usesTheClipboard_andFallsBackToSelectingTheField(): Promise<Unit> =
+        formTest {
+            val calls = Calls()
+            val navigatorRef = js("navigator")
+            try {
+                js(
+                    "Object.defineProperty(navigator, 'clipboard', {value: {writeText: function(t) { window.__lapisCopied = t; return Promise.resolve(); }}, configurable: true})",
+                )
+                withPanel(calls) { el, handle ->
+                    handle.apply(state(leadership = true))
+                    awaitUntil("the link") { el.allOf(".lapis-room-poll-viewer-url").size == 1 }
+                    el.buttonNamed("Link kopieren").click()
+                    awaitUntil("copied") { el.text().contains("Kopiert") }
+                    assertEquals(calls.link!!.url, js("window.__lapisCopied"))
+                }
+                js("Object.defineProperty(navigator, 'clipboard', {value: undefined, configurable: true})")
+                withPanel(calls) { el, handle ->
+                    handle.apply(state(leadership = true))
+                    awaitUntil("the link") { el.allOf(".lapis-room-poll-viewer-url").size == 1 }
+                    el.buttonNamed("Link kopieren").click()
+                    val field = el.allOf(".lapis-room-poll-viewer-url").single() as HTMLInputElement
+                    assertEquals(0, field.selectionStart)
+                    assertEquals(field.value.length, field.selectionEnd)
+                }
+            } finally {
+                js("delete navigator.clipboard; delete window.__lapisCopied")
+                navigatorRef.toString()
+            }
+        }
+
+    @Test
+    fun theLargeQrView_opensAsADialog_closesWithEscape_andGivesTheFocusBack(): Promise<Unit> =
+        formTest {
+            val calls = Calls()
+            withPanel(calls) { el, handle ->
+                handle.apply(state(leadership = true))
+                awaitUntil("the link") { el.allOf(".lapis-room-poll-viewer-url").size == 1 }
+                val opener = el.buttonNamed("QR groß anzeigen")
+                opener.focus()
+                opener.click()
+                val overlay = assertNotNull(document.querySelector(".lapis-room-poll-qr-overlay") as? HTMLElement)
+                assertEquals("dialog", overlay.getAttribute("role"))
+                assertEquals("true", overlay.getAttribute("aria-modal"))
+                assertTrue(overlay.textContent.orEmpty().contains("Zur Umfrage: QR-Code scannen"))
+                assertTrue(overlay.textContent.orEmpty().contains(calls.link!!.url))
+                assertEquals(1, overlay.querySelectorAll("svg").length)
+                document.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "Escape", bubbles = true)))
+                assertNull(document.querySelector(".lapis-room-poll-qr-overlay"))
+                assertEquals(opener, document.activeElement)
+                // and again, closed with the button
+                opener.click()
+                (document.querySelector(".lapis-room-poll-qr-overlay button") as HTMLElement).click()
+                assertNull(document.querySelector(".lapis-room-poll-qr-overlay"))
+            }
+        }
+
+    @Test
+    fun theLinkBlock_saysWhenTheLinkStartsToWork(): Promise<Unit> =
+        formTest {
+            val calls = Calls()
+            withPanel(calls) { el, handle ->
+                handle.apply(state(leadership = true))
+                awaitUntil("the link") { el.allOf(".lapis-room-poll-viewer-url").size == 1 }
+                handle.setStreaming(false)
+                awaitUntil("hint") { el.text().contains("Der Link funktioniert, sobald dieser Raum streamt.") }
+                handle.setStreaming(true)
+                awaitUntil("no hint") { !el.text().contains("Der Link funktioniert, sobald dieser Raum streamt.") }
             }
         }
 }

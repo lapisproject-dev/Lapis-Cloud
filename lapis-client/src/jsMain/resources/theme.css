@@ -39,6 +39,9 @@
   /* Grund & Fläche -- Weiß, wie gewünscht; Trennung über Haarlinien, nicht über Schatten */
   --lapis-bg:              #FFFFFF;
   --lapis-surface:         #FFFFFF;
+  /* Raum-Umfragen (B): the QR code of the viewer link is ALWAYS black on white, in every theme (inverted codes fail in many camera apps). */
+  --lapis-qr-fg:           #000000;
+  --lapis-qr-bg:           #FFFFFF;
   --lapis-surface-sunken:  #F6F7F9;  /* Zebra-Zeilen, Tabellenkopf, inaktive Bereiche */
   /* V1.4.27 (Audit C): Flaeche der Summen-/Saldozeile eines Berichts -- bewusst ein EIGENES Token und nicht
      --lapis-surface-sunken: Bootstraps Zebra legt 5 % Schwarz ueber sunken (=> #EBECEF), die Summenzeile in reinem
@@ -151,6 +154,8 @@
 /* System-dark (no explicit choice) -- see the tri-state note above the light :root block. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    --lapis-qr-fg:           #000000;
+    --lapis-qr-bg:           #FFFFFF;
     --lapis-bg:              #14181E;
     --lapis-surface:         #1B2028;
     --lapis-surface-sunken:  #232933;
@@ -224,6 +229,8 @@
 
 /* Explicit user choice always wins, in either direction -- see ThemeToggle.kt. */
 :root[data-theme="dark"] {
+  --lapis-qr-fg:           #000000;
+  --lapis-qr-bg:           #FFFFFF;
   --lapis-bg:              #14181E;
   --lapis-surface:         #1B2028;
   --lapis-surface-sunken:  #232933;
@@ -8790,6 +8797,64 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   border-radius: 50%;
   background: var(--bs-danger);
   border: 2px solid var(--lapis-surface);
+}
+
+/* Raum-Umfragen (B) -- the viewer page: one centred column, big touch targets, text only. Tokens only. */
+.lapis-room-poll-viewer {
+  max-width: 32rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lapis-room-poll-viewer-option {
+  min-height: 56px;
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.lapis-room-poll-viewer-question {
+  overflow-wrap: anywhere;
+}
+
+.lapis-room-poll-qr {
+  max-width: 100%;
+  height: auto;
+}
+
+.lapis-room-poll-qr-bg { fill: var(--lapis-qr-bg); }
+.lapis-room-poll-qr-dark { fill: var(--lapis-qr-fg); }
+
+.lapis-room-poll-qr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--lapis-qr-bg);
+  color: var(--lapis-qr-fg);
+  text-align: center;
+}
+
+.lapis-room-poll-qr-title {
+  font-size: 1.75rem;
+  margin: 0;
+  color: var(--lapis-qr-fg);
+}
+
+.lapis-room-poll-qr-large {
+  width: min(calc(80vh - 10rem), 80vw);
+  aspect-ratio: 1 / 1;
+}
+
+.lapis-room-poll-qr-url {
+  font-size: 2rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--lapis-qr-fg);
 }
 
 @media (prefers-reduced-motion: reduce) {

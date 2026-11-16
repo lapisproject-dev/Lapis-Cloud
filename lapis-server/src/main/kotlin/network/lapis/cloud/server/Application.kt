@@ -442,6 +442,7 @@ import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.GalleryRules
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.PaymentProvider
+import network.lapis.cloud.shared.domain.RoomPollRules
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingExportService
 import network.lapis.cloud.shared.rpc.IAccountingService
@@ -1233,8 +1234,8 @@ internal fun Application.module(
     // V1.9.304 room polls: one process-wide limiter per kind of call (per account), shared by every per-call service instance.
     val roomPollWriteLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val roomPollAnswerLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
-    val roomPollStateLimiter = FederationInboxRateLimiter(maxRequests = 40, window = 1.minutes)
-    val roomPollVersionLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val roomPollStateLimiter = FederationInboxRateLimiter(maxRequests = RoomPollRules.STATE_READS_PER_MINUTE, window = 1.minutes)
+    val roomPollVersionLimiter = FederationInboxRateLimiter(maxRequests = RoomPollRules.VERSION_READS_PER_MINUTE, window = 1.minutes)
 
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- same "constructed here, NOT left to the
     // service's own constructor default" reasoning as conferenceGuestAccessRateLimiter above (the
@@ -3139,6 +3140,7 @@ internal fun Application.module(
                 answerLimiter = roomPollAnswerLimiter,
                 stateLimiter = roomPollStateLimiter,
                 versionLimiter = roomPollVersionLimiter,
+                publicBaseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             )
         }
     }

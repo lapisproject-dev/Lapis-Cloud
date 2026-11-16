@@ -304,6 +304,13 @@ object Routes {
     // already-gated `listActiveRooms`/`joinRoom` calls act on.
     const val CONFERENCE_ROOM = "/conference/:roomId"
 
+    /**
+     * Room polls, wave B -- the page a stream viewer opens from the link or QR code of a room. It deliberately does NOT start with `/conference`
+     * (that path family joins rooms) and is NOT behind [requireAuth]: an anonymous visitor sees a login prompt on the page itself and no call
+     * is made. The page only reads and answers the room's poll; the server authorises every call.
+     */
+    const val ROOM_POLL_VIEWER = "/room-poll/:roomId"
+
     // V1.9.113 "Online-Teilnahme an Veranstaltungen" -- the member's way into the online conference of an EVENT. The route only names the
     // event; `IEventService.joinEventOnline` decides (window, registration, capacity) and creates the room on the first join. Same
     // `requireAuth` gate as [CONFERENCE]. A conference of an event is never part of the room list, so it has no `/conference/:roomId` link.
@@ -864,7 +871,7 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.LOGIN) {
         if (AppState.isAuthenticated) {
             // V1.9.89: an already signed-in caller who followed an OAuth authorize link goes on to the consent page.
-            if (!continueToReturnTo()) routing.navigate(Routes.DASHBOARD)
+            if (!continueToReturnTo() && !continueToRoomPollViewer()) routing.navigate(Routes.DASHBOARD)
         } else {
             show(Routes.LOGIN, ::renderLoginScreen)
         }
@@ -1177,6 +1184,10 @@ fun initRouting(pageContainer: SimplePanel) {
         requireAuth(routing) {
             show(Routes.CONFERENCE_ROOM) { container -> renderConferenceScreen(container, roomId) }
         }
+    }
+    routing.kvOn(Routes.ROOM_POLL_VIEWER) { params ->
+        val roomId = params.asDynamic().data.roomId as? String
+        show(Routes.ROOM_POLL_VIEWER) { c -> renderRoomPollViewerScreen(c, roomId, authenticated = AppState.isAuthenticated) }
     }
     // V1.9.113 -- the member's entry into an event's online conference (the server decides, see Routes.EVENT_CONFERENCE).
     routing.kvOn(Routes.EVENT_CONFERENCE) { params ->
@@ -1501,11 +1512,20 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MEMBER_FINDER) {
         requireAuth(routing) { show(Routes.MEMBER_FINDER, ::renderMemberFinderScreen) }
     }
+    // Room polls, wave B: the start page an SSO / federation round trip lands on continues to the viewer page when one is remembered.
     routing.kvOn("/") {
-        routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)
+        if (AppState.isAuthenticated) {
+            if (!continueToRoomPollViewer()) routing.navigate(Routes.DASHBOARD)
+        } else {
+            routing.navigate(Routes.LOGIN)
+        }
     }
     routing.notFound(handler = {
-        routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)
+        if (AppState.isAuthenticated) {
+            if (!continueToRoomPollViewer()) routing.navigate(Routes.DASHBOARD)
+        } else {
+            routing.navigate(Routes.LOGIN)
+        }
     })
 
     routing.kvResolve()

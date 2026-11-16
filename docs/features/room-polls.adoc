@@ -1,9 +1,7 @@
-= Room polls in video conferences (V1.9.304, wave A)
+= Room polls in video conferences (V1.9.304, waves A and B)
 :toc:
 
 A *room poll* is a quick, *non-binding* show of opinion inside a running video conference ("Sollen wir die Sitzung um 15 Minuten verlängern?"). The moderators start it, everybody present answers with one tap, and the result is shown *split by group*: members, guests and friends, and everybody together. It is a mood picture, never a vote: every card carries the badge "Unverbindlich". A real, secret or binding decision still goes through the voting panel (see link:conference-voting.adoc[Voting in the conference room]); the standalone link:polls.adoc[opinion polls] outside a room keep their own rules.
-
-NOTE: This page describes wave A: the server model, the RPC service and the panel in the conference room. The poll for viewers of a stream is wave B and is *not* built yet (see "What doesn't work yet").
 
 == Who may do what
 
@@ -62,6 +60,17 @@ The moderators' form offers three answer sets (Ja / Nein / Enthaltung, Ja / Nein
 
 A toolbar button "Umfrage" (with a dot while a poll waits for your answer) opens the panel next to the voting and Sitzung panels. From 992 px on the panel opens by itself when a new poll arrives, without taking the focus; on a narrower screen it never takes the view away. A screen reader hears "Neue Umfrage: <Frage>" and "Umfrage beendet. Das Ergebnis ist da." in a polite live region outside the panel.
 
+== Viewers of a stream
+
+A stream goes to YouTube, Twitch, Facebook or X, so viewers are not in the room. The leadership's block *Zuschauer-Link* in the poll panel shows the link (`/app#/room-poll/<room id>`), "Link kopieren", a QR code and "QR groß anzeigen" (a full-screen view, always black on white, for a projector). Viewers open it in a second tab or on a phone.
+
+* *Login.* A visitor who is not signed in sees "Bitte melden Sie sich an, um an der Umfrage teilzunehmen." and a button; after the login the page opens again (the room id is remembered for 30 minutes in the browser tab, nothing else).
+* *Who may answer.* A signed-in account that may enter the room, while the room streams (`LIVE` or `PAUSED`). Guests and friends need a room that admits guests; a donor passes the room entry check either way.
+* *States.* Loading, "Gerade läuft keine Umfrage. Diese Seite aktualisiert sich selbst.", the question with large buttons, "Ihre Stimme wurde gezählt." (the chosen option is never shown, also not after a reload), and the result once the poll has ended.
+* *One sentence for every refusal:* "Zu diesem Raum läuft kein Stream." with "Erneut prüfen" (once per 10 seconds). Nobody can tell from the page whether a room exists, has ended or is not streaming. The room's name is never shown.
+* *Ended rooms.* The result of the last poll stays readable (12 hours) only for the leadership and for accounts that took part in the room. A pure stream viewer is refused like an unknown room.
+* *The page checks itself* every 5 to 6 seconds (30 seconds in a hidden tab). A screen reader hears "Eine Umfrage hat begonnen." and "Die Umfrage ist beendet. Das Ergebnis wird angezeigt." for changes it noticed; the tab title says "Umfrage läuft" while a poll waits.
+
 == Data protection (DSGVO)
 
 * Who answered a *running* poll is stored (so nobody answers twice) and is deleted *when the poll ends*; the markers live at most 240 minutes. The stored answers carry no person and no time.
@@ -72,7 +81,9 @@ A toolbar button "Umfrage" (with a dot while a poll waits for your answer) opens
 == What doesn't work yet
 
 * *Not verified in a real LiveKit room.* The server packets, the clients' reaction to them and the whole panel were tested with fakes and in a headless browser, not in a live conference with several people.
-* *No poll for viewers of a stream (wave B).* Streams go to YouTube, Twitch, Facebook and X only; Lapis has no viewer page for signed-in accounts yet. The server already lets a signed-in account answer when the room streams (`LIVE` or `PAUSED`) and the account may enter the room, but nothing shows it to them. Where viewers see it is an open decision.
+* *Not verified with real YouTube or Twitch viewers*, and not in a real LiveKit room.
+* *No embedded player.* Viewers keep watching on their platform; they must open the link or scan the QR code themselves. The poll is not burned into the stream video.
+* *A pure stream viewer cannot read the result after the room has ended* (see "Viewers of a stream"); a result already on screen stays.
 * *Not in event rooms and encounter rooms.* Both are refused (`EventConferenceGuard`, `EncounterRoomGuard`) because they have their own rules for who leads.
 * *No countdown.* A poll ends by hand, with the room, or after 240 minutes.
 * *Residual risk:* the moderator sees the live number of answers and decides when the poll ends. Ending it early with very few answers is limited by the suppression thresholds of the result; the result itself is only ever published once, at the end.

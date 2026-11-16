@@ -155,6 +155,8 @@ internal fun completeLogin(session: SessionInfoDto): Boolean {
     AppState.setSession(session)
     val returnTo = currentReturnTo()
     if (returnTo != null && navigateToReturnTo(returnTo)) return true
+    // Room polls, wave B: a viewer who logged in from the viewer page goes back to it (the OAuth returnTo above keeps priority).
+    if (continueToRoomPollViewer()) return false
     notifySuccess(gettext("Willkommen, %1.", session.displayName))
     navigateTo(Routes.DASHBOARD)
     return false

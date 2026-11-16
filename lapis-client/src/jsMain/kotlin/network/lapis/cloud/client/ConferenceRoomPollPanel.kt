@@ -22,6 +22,7 @@ import network.lapis.cloud.shared.domain.RoomPollRules
 import network.lapis.cloud.shared.domain.RoomPollStartInput
 import network.lapis.cloud.shared.domain.RoomPollStateDto
 import network.lapis.cloud.shared.domain.RoomPollStatus
+import network.lapis.cloud.shared.domain.RoomPollViewerLinkDto
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IConferenceRoomPollService
 import org.w3c.dom.HTMLInputElement
@@ -44,6 +45,8 @@ internal class ConferenceRoomPollPanelHandle(
     val setOpen: (Boolean) -> Unit,
     val isOpen: () -> Boolean,
     val dispose: () -> Unit,
+    /** Wave B: whether the room streams right now (`null` = not known); the leadership's link block says when the link starts to work. */
+    val setStreaming: (Boolean?) -> Unit,
 )
 
 /** The three writes of the panel behind one thin seam, so a test replaces them. Every write answers with the fresh state. */
@@ -55,6 +58,10 @@ internal class ConferenceRoomPollRpc(
     val answer: suspend (roomId: String, pollId: String, optionId: String) -> RoomPollStateDto = { room, poll, option ->
         rpcService<IConferenceRoomPollService>().answerRoomPoll(room, poll, option)
     },
+    /** Wave B: leadership only, asked once per panel. */
+    val viewerLink: suspend (
+        roomId: String,
+    ) -> RoomPollViewerLinkDto = { rpcService<IConferenceRoomPollService>().getRoomPollViewerLink(it) },
 )
 
 private const val PANEL_CSS = "border rounded p-2 lapis-conference-voting lapis-room-poll-panel"
@@ -92,6 +99,16 @@ internal fun renderConferenceRoomPollPanel(
     refreshHint.hide()
     val formHost = panel.vPanel(spacing = 6) { addCssClass("lapis-room-poll-form") }
     formHost.hide()
+    val linkBlock =
+        ConferenceRoomPollViewerLinkBlock(
+            parent = panel,
+            roomId = roomId,
+            fetch = rpc.viewerLink,
+            announce = { text ->
+                liveRegion.content = ""
+                liveRegion.content = text
+            },
+        )
     val runningHost = panel.vPanel(spacing = 6) { addCssClass("lapis-room-poll-running") }
     val resultHost = panel.vPanel(spacing = 6) { addCssClass("lapis-room-poll-result-host") }
 
@@ -432,6 +449,7 @@ internal fun renderConferenceRoomPollPanel(
                 val previous = current
                 current = next
                 refreshHint.hide()
+                linkBlock.onLeadership(next.isLeadership)
                 val poll = next.poll
                 val question = poll?.let { sanitizeUntrustedI18nText(it.question) }.orEmpty()
                 roomPollAnnouncement(previous, next, question)?.let { announce(it) }
@@ -492,7 +510,11 @@ internal fun renderConferenceRoomPollPanel(
             if (wanted) panel.show() else panel.hide()
         },
         isOpen = { open },
-        dispose = { disposed = true },
+        dispose = {
+            disposed = true
+            linkBlock.dispose()
+        },
+        setStreaming = { linkBlock.setStreaming(it) },
     )
 }
 

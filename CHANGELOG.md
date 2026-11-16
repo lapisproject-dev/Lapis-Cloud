@@ -6,6 +6,34 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Room polls for stream viewers (wave B, no migration, schema stays V153)
+
+**Behaviour changes first:**
+
+1. **An ended room reveals its last poll result only to leadership and to accounts that took part in the room** (any participation row, also a left one). A pure stream viewer is refused exactly like an unknown room; a result already on a viewer's screen stays. This closes an "has this room ended?" oracle of wave A.
+2. **Erased (anonymised) accounts are refused on `getRoomPollState` and `getRoomPollVersion` too**, not only on the answer (the check moved into `RoomPollAccess.audience`).
+3. **New RPC method `getRoomPollViewerLink`** at the *end* of `IConferenceRoomPollService` (leadership only; an older client never calls it).
+4. **New client route `#/room-poll/<roomId>`** (served under `/app`). It is not behind the login guard: an anonymous visitor sees a login prompt on the page and no call is made.
+5. No migration, no schema change, no new table.
+
+**Added**
+
+- The viewer page: one question, large answer buttons, one tap, the result afterwards (the existing three-column result view). It never joins the room, never loads LiveKit and never shows the room name; it never shows which option the viewer chose.
+- Leadership block "Zuschauer-Link" in the poll panel: the link, "Link kopieren", a QR code (module runs computed on the server, drawn from DOM calls only, quiet zone 4, fixed black on white) and a full-screen QR view for a projector.
+- Narrow return-after-login for the viewer page (`sessionStorage`, room id only, 30 minutes); `safeReturnTo` is unchanged.
+- Polling budget of the viewer page: 5.0 to 6.0 s (at most 12 version calls a minute), 30 s in a hidden tab, backoff 5/10/20/40/60 s, a 60 s pause after a conflict, a hard 5 s gap between version calls.
+
+**Security**
+
+- The link grants nothing: every call of the page is authorised again on the server; the URL is built from the configured base URL and the parsed room id, never from the request.
+- Uniform refusals: same exception type and message for unknown, malformed, forbidden, not streaming and ended-without-history; the same queries run on every path.
+
+**Tests:** access matrix for viewers (ACTIVE, guest, friend, donor, anonymous, erased, ended room), viewer link and QR decode, polling budget, tripwires (no LiveKit, no markup, route not guarded, return memory apart from `safeReturnTo`), client model, controller (fake clock), page, panel link block and return memory.
+
+**Catalogs:** 16 new msgids in `messages.pot` and the seven language catalogs.
+
+**Docs:** `docs/features/room-polls.adoc`, `docs/architecture/room-polls.adoc`.
+
 ### Room polls in video conferences (wave A, schema V152 -> V153)
 
 **Behaviour changes first:**

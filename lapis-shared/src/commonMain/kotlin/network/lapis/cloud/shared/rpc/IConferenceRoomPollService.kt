@@ -4,6 +4,7 @@ import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.RoomPollStartInput
 import network.lapis.cloud.shared.domain.RoomPollStateDto
 import network.lapis.cloud.shared.domain.RoomPollVersionDto
+import network.lapis.cloud.shared.domain.RoomPollViewerLinkDto
 
 /**
  * V1.9.304 -- non-binding polls inside a video conference ("room polls"). A SEPARATE service from [IConferenceService] on purpose (that one
@@ -40,4 +41,7 @@ interface IConferenceRoomPollService {
         roomId: String,
         knownVersion: String?,
     ): RoomPollVersionDto
+
+    /** Leadership only: the viewer page link of this room and its QR modules (the link grants nothing; every call of the page is authorised again). */
+    suspend fun getRoomPollViewerLink(roomId: String): RoomPollViewerLinkDto
 }

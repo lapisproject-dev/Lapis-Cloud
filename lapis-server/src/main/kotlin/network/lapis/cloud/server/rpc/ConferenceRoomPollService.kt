@@ -21,6 +21,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.events.QrCodeEncoder
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -33,11 +34,13 @@ import network.lapis.cloud.shared.domain.RoomPollAuditSnapshot
 import network.lapis.cloud.shared.domain.RoomPollCloseReason
 import network.lapis.cloud.shared.domain.RoomPollDto
 import network.lapis.cloud.shared.domain.RoomPollOptionDto
+import network.lapis.cloud.shared.domain.RoomPollQrRunDto
 import network.lapis.cloud.shared.domain.RoomPollRules
 import network.lapis.cloud.shared.domain.RoomPollStartInput
 import network.lapis.cloud.shared.domain.RoomPollStateDto
 import network.lapis.cloud.shared.domain.RoomPollStatus
 import network.lapis.cloud.shared.domain.RoomPollVersionDto
+import network.lapis.cloud.shared.domain.RoomPollViewerLinkDto
 import network.lapis.cloud.shared.domain.RoomPollVoterGroup
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -78,6 +81,7 @@ class ConferenceRoomPollService(
     private val answerLimiter: FederationInboxRateLimiter,
     private val stateLimiter: FederationInboxRateLimiter,
     private val versionLimiter: FederationInboxRateLimiter,
+    private val publicBaseUrl: String,
 ) : IConferenceRoomPollService {
     private sealed interface Outcome {
         data class Done(
@@ -326,6 +330,26 @@ class ConferenceRoomPollService(
                 )
             }
         return if (token == knownVersion) RoomPollVersionDto(changed = false) else RoomPollVersionDto(changed = true, version = token)
+    }
+
+    override suspend fun getRoomPollViewerLink(roomId: String): RoomPollViewerLinkDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireWithinRate(limiter = stateLimiter, current = current)
+        val room = parseId(roomId)
+        transaction {
+            val roomRow = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room }.singleOrNull()
+            RoomPollAccess.audience(roomRow = roomRow, current = current, allowEnded = false, requirePresence = false)
+            if (roomRow == null || !RoomPollAccess.isLeadership(roomRow = roomRow, current = current)) throw RoomPollAccess.denied()
+        }
+        // The link is built from the configured base and the parsed id only, never from a client string or the Host header.
+        val url = publicBaseUrl + RoomPollRules.VIEWER_PATH_PREFIX + room.toString()
+        val matrix = QrCodeEncoder.encode(url)
+        return RoomPollViewerLinkDto(
+            url = url,
+            qrSize = matrix.size,
+            qrRuns = matrix.horizontalRuns().map { RoomPollQrRunDto(x = it.x, y = it.y, length = it.length) },
+        )
     }
 
     // -- Helpers ------------------------------------------------------------------------------------------------------------------------

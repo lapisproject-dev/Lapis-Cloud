@@ -51,6 +51,25 @@ object RoomPollRules {
     const val LEADERSHIP_POLL_MS = 4_000
     const val VIEWER_VERSION_POLL_MS = 5_000
 
+    /** Random extra delay (0 until this) on top of [VIEWER_VERSION_POLL_MS]: the viewer interval is 5.0 to 6.0 s, so at most 12 calls a minute. */
+    const val VIEWER_VERSION_JITTER_MS = 1_000
+    const val VIEWER_HIDDEN_POLL_MS = 30_000
+
+    /** A refused read of the viewer page (Kilua cannot tell a rate limit from other conflicts) pauses the page this long. */
+    const val VIEWER_RATE_PAUSE_MS = 60_000
+    val VIEWER_BACKOFF_MS: List<Int> = listOf(5_000, 10_000, 20_000, 40_000, 60_000)
+    const val VIEWER_RECHECK_LOCK_MS = 10_000
+
+    /** The per-account limits of the two read calls (shared by the server wiring and the budget test). */
+    const val STATE_READS_PER_MINUTE = 40
+    const val VERSION_READS_PER_MINUTE = 30
+
+    /** Quiet zone of the viewer QR code, in modules. */
+    const val QR_QUIET_ZONE_MODULES = 4
+
+    /** The client is served under `/app` and routes by hash (like every other deep link of the server mails). */
+    const val VIEWER_PATH_PREFIX = "/app#/room-poll/"
+
     fun normalize(raw: String): String = PollRules.normalizeText(raw)
 
     /** `null` = fine. Checked on the RAW input, before normalisation. */
@@ -160,4 +179,20 @@ data class RoomPollStateDto(
 data class RoomPollVersionDto(
     val changed: Boolean,
     val version: String? = null,
+)
+
+/** One horizontal run of black modules of the viewer QR code. */
+@Serializable
+data class RoomPollQrRunDto(
+    val x: Int,
+    val y: Int,
+    val length: Int,
+)
+
+/** Leadership only: the link of the viewer page of a room and the module runs of its QR code (geometry only, no markup). */
+@Serializable
+data class RoomPollViewerLinkDto(
+    val url: String,
+    val qrSize: Int,
+    val qrRuns: List<RoomPollQrRunDto> = emptyList(),
 )
