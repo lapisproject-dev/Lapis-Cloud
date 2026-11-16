@@ -46,19 +46,56 @@ class KeycloakClaimsShapeTest :
                     ),
                 )
             section(line, "nameClaims") shouldBe
-                "name:string-empty, given_name:wrong-type:number, family_name:string-sanitizes-to-empty, preferred_username:string-nonempty"
+                "name:string-empty, given_name:wrong-type:number, family_name:string-sanitizes-to-empty, " +
+                "first_name:absent, last_name:absent, preferred_username:string-nonempty"
             shape(emptyMap()).let { section(it, "nameClaims") } shouldBe
-                "name:absent, given_name:absent, family_name:absent, preferred_username:absent"
+                "name:absent, given_name:absent, family_name:absent, first_name:absent, last_name:absent, preferred_username:absent"
             shape(mapOf("name" to null)).let { section(it, "nameClaims") } shouldContain "name:wrong-type:null"
+        }
+
+        test("first_name and last_name states in all variants") {
+            val line =
+                shape(mapOf("first_name" to "Erika", "last_name" to listOf("x")))
+            section(line, "nameClaims") shouldContain "first_name:string-nonempty, last_name:wrong-type:array"
+            section(shape(mapOf("first_name" to "", "last_name" to "\u200B")), "nameClaims") shouldContain
+                "first_name:string-empty, last_name:string-sanitizes-to-empty"
+            section(shape(mapOf("first_name" to 1, "last_name" to true)), "nameClaims") shouldContain
+                "first_name:wrong-type:number, last_name:wrong-type:boolean"
+            shape(mapOf("first_name" to null)).let { section(it, "nameClaims") } shouldContain "first_name:wrong-type:null"
+        }
+
+        test("verifiedNameClaim section: absent, number, string, boolean, and missing entirely when null") {
+            fun v(map: Map<String, Any?>) =
+                KeycloakClaimsShape.describe(claimMap = map, groupClaim = null, verifiedNameClaim = "name_is_verified")
+            v(emptyMap()) shouldContain "groupClaim=not-configured verifiedNameClaim=absent invalidClaimNames=0"
+            v(mapOf("name_is_verified" to 1L)) shouldContain " verifiedNameClaim=number "
+            v(mapOf("name_is_verified" to 1.0)) shouldContain " verifiedNameClaim=number "
+            v(mapOf("name_is_verified" to "1")) shouldContain " verifiedNameClaim=string "
+            v(mapOf("name_is_verified" to true)) shouldContain " verifiedNameClaim=boolean "
+            shape(mapOf("name_is_verified" to 1)) shouldNotContain "verifiedNameClaim"
+        }
+
+        test("canary: neither the value of the confirmation claim nor of first_name appears") {
+            val line =
+                KeycloakClaimsShape.describe(
+                    claimMap = mapOf("name_is_verified" to CANARY, "first_name" to CANARY, "last_name" to CANARY),
+                    groupClaim = null,
+                    verifiedNameClaim = "name_is_verified",
+                )
+            line shouldNotContain "CANARY"
+            line shouldNotContain "accepted"
+            line shouldNotContain "rejected"
         }
 
         test("name state agrees with the real display-name logic") {
             val fixtures = listOf("Erika", "", " ", "\t\n", "\u0007", "\u200B", "\u202Eabc", "a\u0000b", "x".repeat(500), "\u00E9")
             for (f in fixtures) {
-                val ok =
-                    KeycloakProvisioningClaims.displayName(JWTClaimsSet.Builder().claim("name", f).build()) is
-                        KeycloakProvisioningClaims.NameResult.Ok
-                (KeycloakClaimsShape.nameState(present = true, value = f) == "string-nonempty") shouldBe ok
+                for (claimName in listOf("name", "first_name")) {
+                    val ok =
+                        KeycloakProvisioningClaims.displayName(JWTClaimsSet.Builder().claim(claimName, f).build()) is
+                            KeycloakProvisioningClaims.NameResult.Ok
+                    (KeycloakClaimsShape.nameState(present = true, value = f) == "string-nonempty") shouldBe ok
+                }
             }
         }
 
@@ -159,6 +196,6 @@ class KeycloakClaimsShapeTest :
             KeycloakClaimsShape.describe(verifiedClaims = set, groupClaim = null) shouldBe
                 "idTokenClaims=[aud:array, email:string, email_verified:boolean, exp:number, iat:number, iss:string, " +
                 "preferred_username:string, sub:string] nameClaims=[name:absent, given_name:absent, family_name:absent, " +
-                "preferred_username:string-nonempty] groupClaim=not-configured invalidClaimNames=0 omittedClaims=0"
+                "first_name:absent, last_name:absent, preferred_username:string-nonempty] groupClaim=not-configured invalidClaimNames=0 omittedClaims=0"
         }
     })

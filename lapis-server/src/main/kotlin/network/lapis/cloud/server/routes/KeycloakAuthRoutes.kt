@@ -666,6 +666,7 @@ internal fun Route.registerKeycloakAuthRoutes(
                                     KeycloakClaimsShape.describe(
                                         verifiedClaims = claims,
                                         groupClaim = config.provisionClaim.takeIf { config.provisionGroup != null },
+                                        verifiedNameClaim = config.verifiedNameClaim.takeIf { config.requireVerifiedName },
                                     )
                             } else {
                                 ""
@@ -838,12 +839,13 @@ private fun keycloakPublicBaseUrl(): String =
 
 /**
  * Welle V1.9.73 -- the page for a refused just-in-time creation. The group reasons deliberately read like the ordinary
- * "no member" page (nothing reveals whether the identity is in the group); only the two cases the person can act on differ.
+ * "no member" page (nothing reveals whether the identity is in the group); only the three cases the person can act on differ.
  */
 private fun provisionRejection(reason: KeycloakMemberProvisioner.RejectReason): KeycloakLoginError =
     when (reason) {
         KeycloakMemberProvisioner.RejectReason.RATE_LIMITED -> KeycloakLoginError.PROVISION_RATE_LIMITED
         KeycloakMemberProvisioner.RejectReason.NAME_MISSING -> KeycloakLoginError.NAME_MISSING
+        KeycloakMemberProvisioner.RejectReason.NAME_UNVERIFIED -> KeycloakLoginError.NAME_UNVERIFIED
         else -> KeycloakLoginError.NO_MEMBER
     }
 
@@ -910,6 +912,10 @@ private enum class KeycloakLoginError(
         "Die automatische Anlage ist vorübergehend ausgelastet, bitte später erneut versuchen oder die Verwaltung kontaktieren.",
     ),
     NAME_MISSING("Ihr Anmeldekonto enthält keinen Namen – bitte an die Verwaltung wenden.", KeycloakRetryAction.OTHER_ACCOUNT),
+    NAME_UNVERIFIED(
+        "Ihr Name ist beim Anmeldedienst noch nicht bestätigt – bitte bestätigen Sie ihn dort und melden Sie sich danach erneut an.",
+        KeycloakRetryAction.RETRY,
+    ),
 }
 
 private suspend fun ApplicationCall.respondKeycloakErrorPage(

@@ -205,7 +205,7 @@ The error page now carries a primary action, chosen from a fixed constant per er
 | "Mit einem anderen Konto anmelden" -> `/auth/keycloak/start?konto=andere`
 
 | Try again
-| `INVALID_ATTEMPT` (unknown, expired or replayed state, binding mismatch), `NOT_COMPLETED` (`error` parameter or no `code`)
+| `INVALID_ATTEMPT` (unknown, expired or replayed state, binding mismatch), `NOT_COMPLETED` (`error` parameter or no `code`), `NAME_UNVERIFIED` (the optional name confirmation is missing, see `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME`)
 | "Erneut anmelden" -> `/auth/keycloak/start`
 
 | None
@@ -433,6 +433,19 @@ start, and the provisioner refuses to create anything as a second wall.
 | `LAPIS_KEYCLOAK_SYNC_PROFILE`
 | `false`
 | At every login of an already linked member, take the display name -- and under strict rules the address -- over from the ID token.
+
+| `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME`
+| `false`
+| Only for NEW accounts: the identity provider must have confirmed the name (see `LAPIS_KEYCLOAK_VERIFIED_NAME_CLAIM`), otherwise the
+  creation is refused with `NAME_UNVERIFIED`. Accepts `true` or `false` only: **any other value (a typo) is a startup error**, because
+  the setting tightens security. Setting it without `LAPIS_KEYCLOAK_ENABLED=true` is a startup error as well (orphaned option); without
+  `LAPIS_KEYCLOAK_AUTO_PROVISION=true` it has no effect (startup WARN).
+
+| `LAPIS_KEYCLOAK_VERIFIED_NAME_CLAIM`
+| `name_is_verified`
+| Name of the top-level ID-token claim that confirms the name (a plain claim name, no dots; an invalid value is a startup error).
+  Accepted values, exactly: JSON `true`, JSON integer `1`, the string `"1"` and the string `"true"`. Everything else (`0`, `false`,
+  `1.0`, `"True"`, `" 1"`, absent, arrays, objects) counts as not confirmed.
 |===
 
 The server also refuses to start when `LAPIS_KEYCLOAK_AUTO_PROVISION=true` is combined with
@@ -469,8 +482,12 @@ Order of the checks inside `KeycloakMemberProvisioner.provision` (no database wr
 . `email_verified` is `true` -- **independent** of `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL`: a new account is never created for an address
   the identity provider did not verify;
 . the address is a valid mailbox address of at most 320 characters (trimmed, lower-cased);
-. the token carries a name (`name`, else `given_name` + `family_name`; one part alone is accepted), sanitized: control and format
-  characters (including bidirectional overrides) removed, line breaks become a space, at most 200 characters.
+. the token carries a name, sanitized: control and format characters (including bidirectional overrides) removed, line breaks become
+  a space, at most 200 characters. Three stages, the first that yields something wins: `name`; else `given_name` + `family_name`;
+  else `first_name` + `last_name` (for example Wabeo). One part of a stage alone is accepted; stages are never mixed;
+  `preferred_username` is never used;
+. only with `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME=true`: the confirmation claim (see above) confirms the name, whichever stage it came
+  from. Without a name the answer stays `NAME_MISSING`.
 
 Then, in one transaction under a `FOR UPDATE` lock on the organization-settings singleton: an existing link for `(issuer, subject)` or an
 existing member with that address (any letter case) wins -- the answer is `ExistingFound` and the caller asks the linker exactly once
@@ -529,7 +546,7 @@ only in the erasable `member` / `member_email_change` rows.
 . Add a **Group Membership** mapper to the client (Client scopes -> dedicated scope): *Token Claim Name* `groups` (or your
   `LAPIS_KEYCLOAK_PROVISION_CLAIM`), **Add to ID token** on. *Full group path* may be on or off (both match); sub-groups do not.
 . Only users who are meant to become members belong to the group. The group IS the admission decision.
-. The ID token must carry `name` (or `given_name` / `family_name`) and a verified `email`. Add `profile` and `email` to the scopes (the
+. The ID token must carry `name`, or `given_name` / `family_name`, or `first_name` / `last_name`, and a verified `email`. Add `profile` and `email` to the scopes (the
   defaults do).
 . Remember the limits below: removing a user from the group, or disabling the user in Keycloak, does not remove the Lapis Cloud member.
 
@@ -539,16 +556,18 @@ When just-in-time provisioning refuses a verified identity for `NAME_MISSING`, `
 `GROUP_WRONG_TYPE`, the WARN line carries a second part after the subject fingerprint:
 
 ----
-Keycloak callback rejected: PROVISION_NAME_MISSING (subjectFingerprint=0123456789abcdef) idTokenClaims=[aud:array, email:string, email_verified:boolean, exp:number, iat:number, iss:string, preferred_username:string, sub:string] nameClaims=[name:absent, given_name:absent, family_name:absent, preferred_username:string-nonempty] groupClaim=array invalidClaimNames=0 omittedClaims=0
+Keycloak callback rejected: PROVISION_NAME_MISSING (subjectFingerprint=0123456789abcdef) idTokenClaims=[aud:array, email:string, email_verified:boolean, exp:number, iat:number, iss:string, preferred_username:string, sub:string] nameClaims=[name:absent, given_name:absent, family_name:absent, first_name:absent, last_name:absent, preferred_username:string-nonempty] groupClaim=array invalidClaimNames=0 omittedClaims=0
 ----
 
 * `idTokenClaims`: every claim of the **verified** ID token (never the access token, never UserInfo) with a type word: `string`,
   `boolean`, `number`, `array`, `object`, `null` or `other`. Sorted by name, at most 40 entries and 2048 characters; the rest is counted
   in `omittedClaims`.
-* `nameClaims`: the four claims that matter for the display name, always in the order `name`, `given_name`, `family_name`,
-  `preferred_username`. States: `absent`, `string-nonempty`, `string-empty`, `string-sanitizes-to-empty` (only control or format
+* `nameClaims`: the six claims that matter for the display name, always in the order `name`, `given_name`, `family_name`,
+  `first_name`, `last_name`, `preferred_username` (the last one is shown for diagnosis only, it is never used). States: `absent`, `string-nonempty`, `string-empty`, `string-sanitizes-to-empty` (only control or format
   characters or blanks), `wrong-type:<type>`.
 * `groupClaim`: `not-configured` in open mode, otherwise `absent` or the type word of the configured group claim.
+* `verifiedNameClaim` (only with `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME=true`): `absent` or the type word of the confirmation claim. Never
+  its value and never "accepted" or "rejected".
 * `invalidClaimNames`: how many claim names are not plain ASCII identifiers (letters, digits, `_ : . / -`, up to 64 characters). Such
   names are **counted, never printed**.
 
@@ -565,12 +584,26 @@ provisioner's own `PROVISION_EMAIL_NOT_VERIFIED` is reached only with that switc
 
 Fixes for `NAME_MISSING`:
 
-. In Keycloak, set the user's first and last name (or the full name).
+. In Keycloak, set the user's first and last name (or the full name). For an identity provider that emits `first_name` and `last_name`
+  (Wabeo-like), no change is needed: these two claims are read as a fallback.
 . Assign the client scope `profile` to the client as *Default* (not *Optional*), or request it.
 . Check the mappers `full name`, `given name` and `family name`: **Add to ID token** must be on.
 . `name:wrong-type:*`: the custom mapper must emit a JSON string.
 . `string-sanitizes-to-empty`: the value consists only of control or format characters or blanks.
 . `preferred_username` is deliberately **not** a fallback for the display name.
+
+=== Troubleshooting: PROVISION_NAME_UNVERIFIED
+
+With `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME=true` the line `PROVISION_NAME_UNVERIFIED` carries `verifiedNameClaim=<state>` after
+`groupClaim`:
+
+* `absent`: the token has no such claim -- check the claim name in `LAPIS_KEYCLOAK_VERIFIED_NAME_CLAIM` and the provider's mapper.
+* `number`: the value is not `1` (for example `0`, or `1.0`, which counts as not confirmed).
+* `string`: the value is not exactly `"1"` or `"true"` (for example `"True"`, `" 1"`, `"0"`).
+* `boolean`: the value is `false`.
+* `array`, `object`, `null`, `other`: not a confirmation.
+
+Fix: the person confirms the name at the identity provider and logs in again (the error page offers "Erneut anmelden").
 
 === Limits (V1.9.73)
 
@@ -727,6 +760,10 @@ of what Waves 1-3 deliver:
   `/auth/keycloak/logout-redirect` exists but is not wired into the client's logout flow yet. On a
   shared computer the next click on the SSO button therefore logs straight back in without asking
   for a password.
+* **The name confirmation gates only the creation of NEW accounts.** The login of an already linked account, the automatic link of an
+  existing member by address, and the profile sync (`LAPIS_KEYCLOAK_SYNC_PROFILE`) do not check it. With the sync on, an unconfirmed
+  `first_name`/`last_name` (or any other name stage) is taken over for linked members (startup WARN). Not verified against a real Wabeo
+  identity provider.
 * **Rate limit applies to the new buttons (V1.9.286).** After 20 refused callbacks in 15 minutes per IP (per /64 network for IPv6)
   `/start` answers 429 as plain text, also for "Erneut anmelden" and "Mit einem anderen Konto anmelden". The budgets are unchanged.
   Not verified against a real Keycloak or WABEO: whether `prompt=login` lets the person switch accounts depends on the Keycloak version.

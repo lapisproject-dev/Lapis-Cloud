@@ -59,6 +59,8 @@ private val logger = KotlinLogging.logger {}
  * - Without a group (V1.9.264) the realm itself is the admission boundary: every other guardrail stays unchanged.
  * - Claims come ONLY from the verified ID token (see [KeycloakProvisioningClaims]). The role is a constant, never derived from a claim.
  * - A member whose address matches (or an existing link for the `(issuer, subject)`) always wins: [Outcome.ExistingFound], never a duplicate.
+ * - Optionally (`LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME`) the identity provider must also have confirmed the name ([RejectReason.NAME_UNVERIFIED]);
+ *   check order: group, email_verified, email, name, confirmation. Only the NEW-account path is gated.
  * - `email_verified` must be `true` regardless of `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL`.
  * - The whole decision runs under a `FOR UPDATE` lock on the organization-settings singleton: re-resolution, the hourly rate count
  *   and the insert are one atomic step per database. SQLSTATE 23505 is only the backstop. The block never retries (`maxAttempts = 1`).
@@ -81,6 +83,7 @@ internal class KeycloakMemberProvisioner(
         INVALID_EMAIL,
         NAME_MISSING,
         RATE_LIMITED,
+        NAME_UNVERIFIED,
     }
 
     sealed interface Outcome {
@@ -119,6 +122,10 @@ internal class KeycloakMemberProvisioner(
         if (!config.autoProvision) return Outcome.Rejected(RejectReason.DISABLED)
         // Fail closed: a group value that was SET but rejected never degrades to "everyone" (startup refuses it; this is the second wall).
         if (KeycloakConfig.ENV_PROVISION_GROUP in config.invalid) return Outcome.Rejected(RejectReason.DISABLED)
+        // Same for the name confirmation: a rejected value must never degrade to "no check".
+        if (KeycloakConfig.ENV_VERIFIED_NAME_CLAIM in config.invalid || KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME in config.invalid) {
+            return Outcome.Rejected(RejectReason.DISABLED)
+        }
         val requiredGroup = config.provisionGroup
         if (requiredGroup != null) {
             when (
@@ -142,6 +149,13 @@ internal class KeycloakMemberProvisioner(
                 is KeycloakProvisioningClaims.NameResult.Ok -> name.displayName
                 KeycloakProvisioningClaims.NameResult.Missing -> return Outcome.Rejected(RejectReason.NAME_MISSING)
             }
+        // Optional (LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME): the identity provider must have confirmed the resolved name. Checked last,
+        // so with neither a name nor a confirmation the answer stays NAME_MISSING. Nothing is created and the rate counter is untouched.
+        if (config.requireVerifiedName &&
+            !KeycloakProvisioningClaims.nameConfirmed(claims = claims, claimName = config.verifiedNameClaim)
+        ) {
+            return Outcome.Rejected(RejectReason.NAME_UNVERIFIED)
+        }
 
         val result =
             try {

@@ -219,4 +219,106 @@ class KeycloakProvisioningConfigTest :
             text shouldContain "autoProvision=true"
             text shouldContain "provisionGroup=apolda"
         }
+
+        test("name confirmation defaults: off and name_is_verified, enabled and disabled") {
+            val config = operational()
+            config.requireVerifiedName shouldBe false
+            config.verifiedNameClaim shouldBe "name_is_verified"
+            val off = load()
+            off.requireVerifiedName shouldBe false
+            off.verifiedNameClaim shouldBe "name_is_verified"
+        }
+
+        test("REQUIRE_VERIFIED_NAME: true/TRUE/false/blank") {
+            operational(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "true").requireVerifiedName shouldBe true
+            operational(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to " TRUE ").requireVerifiedName shouldBe true
+            operational(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "false").requireVerifiedName shouldBe false
+            operational(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "  ").requireVerifiedName shouldBe false
+            operational(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "true").isOperational shouldBe true
+        }
+
+        test("REQUIRE_VERIFIED_NAME typo fails closed: invalid, not operational, counts as ON") {
+            val config = operational(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "ture")
+            config.invalid shouldContain KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME
+            config.isOperational shouldBe false
+            config.requireVerifiedName shouldBe true
+        }
+
+        test("VERIFIED_NAME_CLAIM: a custom name is taken, an invalid one is rejected") {
+            operational(KeycloakConfig.ENV_VERIFIED_NAME_CLAIM to "my_claim").verifiedNameClaim shouldBe "my_claim"
+            listOf("a.b", "a b", "1abc", "x".repeat(65), "a\u0007b").forEach {
+                val config = operational(KeycloakConfig.ENV_VERIFIED_NAME_CLAIM to it)
+                config.invalid shouldContain KeycloakConfig.ENV_VERIFIED_NAME_CLAIM
+                config.isOperational shouldBe false
+                config.verifiedNameClaim shouldBe "name_is_verified"
+            }
+            operational(KeycloakConfig.ENV_VERIFIED_NAME_CLAIM to "").verifiedNameClaim shouldBe "name_is_verified"
+            operational(KeycloakConfig.ENV_VERIFIED_NAME_CLAIM to "").isOperational shouldBe true
+        }
+
+        test("REQUIRE_VERIFIED_NAME without ENABLED is orphaned and the startup check refuses") {
+            val config = load(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "true")
+            config.orphanedOptions shouldBe listOf(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME)
+            val e = shouldThrow<IllegalStateException> { KeycloakStartupCheck.verifyAndLog(config = config, logger = logger) }
+            e.message!! shouldContain "LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME gesetzt, aber LAPIS_KEYCLOAK_ENABLED nicht"
+            load(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "false").orphanedOptions shouldBe emptyList()
+        }
+
+        test("startup check: invalid name-confirmation variables refuse to start and name only the variable") {
+            val e =
+                shouldThrow<IllegalStateException> {
+                    KeycloakStartupCheck.verifyAndLog(
+                        config = operational(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "ture"),
+                        logger = logger,
+                    )
+                }
+            e.message!! shouldContain KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME
+            e.message!! shouldNotContain "ture"
+        }
+
+        test("startup check: name-confirmation warnings (no auto-provision, sync profile) carry no values") {
+            fun warnings(config: KeycloakConfig): List<String> {
+                val name = "test.keycloak.startup.${Uuid.random()}"
+                val logbackLogger = LoggerFactory.getLogger(name) as Logger
+                val appender = ListAppender<ILoggingEvent>().apply { start() }
+                logbackLogger.addAppender(appender)
+                logbackLogger.level = Level.TRACE
+                try {
+                    KeycloakStartupCheck.verifyAndLog(config = config, logger = KotlinLogging.logger(name))
+                } finally {
+                    logbackLogger.detachAppender(appender)
+                }
+                return appender.list.filter { it.level == Level.WARN }.map { it.formattedMessage }
+            }
+
+            val noProvision = warnings(operational(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "true"))
+            noProvision.count { "ohne LAPIS_KEYCLOAK_AUTO_PROVISION" in it } shouldBe 1
+            val sync =
+                warnings(
+                    operational(
+                        KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "true",
+                        KeycloakConfig.ENV_AUTO_PROVISION to "true",
+                        KeycloakConfig.ENV_PROVISION_GROUP to "apolda",
+                        KeycloakConfig.ENV_SYNC_PROFILE to "true",
+                    ),
+                )
+            sync.count { "Profilabgleich" in it } shouldBe 1
+            sync.count { "ohne LAPIS_KEYCLOAK_AUTO_PROVISION" in it } shouldBe 0
+            (noProvision + sync).forEach {
+                it shouldNotContain CLIENT_SECRET
+                it shouldNotContain "keycloak.example.org"
+            }
+            warnings(operational()).count { "REQUIRE_VERIFIED_NAME" in it } shouldBe 0
+        }
+
+        test("toString shows both name-confirmation fields and never the secret") {
+            val text =
+                operational(
+                    KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "true",
+                    KeycloakConfig.ENV_VERIFIED_NAME_CLAIM to "my_claim",
+                ).toString()
+            text shouldContain "requireVerifiedName=true"
+            text shouldContain "verifiedNameClaim=my_claim"
+            text shouldNotContain CLIENT_SECRET
+        }
     })

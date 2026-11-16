@@ -66,6 +66,9 @@ internal fun jitConfig(
     ratePerHour: Int? = null,
     requireVerifiedEmail: Boolean = true,
     syncProfile: Boolean = false,
+    requireVerifiedName: Boolean? = null,
+    verifiedNameClaim: String? = null,
+    extraEnv: Map<String, String> = emptyMap(),
 ): KeycloakConfig {
     val env =
         buildMap {
@@ -78,8 +81,11 @@ internal fun jitConfig(
             put(KeycloakConfig.ENV_SYNC_PROFILE, syncProfile.toString())
             if (group != null) put(KeycloakConfig.ENV_PROVISION_GROUP, group)
             if (claim != null) put(KeycloakConfig.ENV_PROVISION_CLAIM, claim)
+            if (requireVerifiedName != null) put(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME, requireVerifiedName.toString())
+            if (verifiedNameClaim != null) put(KeycloakConfig.ENV_VERIFIED_NAME_CLAIM, verifiedNameClaim)
             // generous by default so a spec that creates many members never trips the hourly limit by accident
             put(KeycloakConfig.ENV_PROVISION_RATE_PER_HOUR, (ratePerHour ?: 500).toString())
+            putAll(extraEnv)
         }
     return KeycloakConfig.load { env[it] }
 }

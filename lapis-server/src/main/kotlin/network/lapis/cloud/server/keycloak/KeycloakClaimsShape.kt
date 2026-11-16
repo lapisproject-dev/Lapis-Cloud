@@ -18,7 +18,7 @@ internal object KeycloakClaimsShape {
     private val CLAIM_NAME = Regex("[A-Za-z0-9_:./-]{1,64}")
 
     /** The claims that drive the display name, in this fixed order (deliberately not sorted). */
-    val NAME_CLAIMS: List<String> = listOf("name", "given_name", "family_name", "preferred_username")
+    val NAME_CLAIMS: List<String> = listOf("name", "given_name", "family_name", "first_name", "last_name", "preferred_username")
 
     /** Refusal reasons whose log line carries the shape: the ones a claim-name or claim-type problem can explain. */
     val LOGGED_REASONS: Set<RejectReason> =
@@ -27,18 +27,24 @@ internal object KeycloakClaimsShape {
             RejectReason.EMAIL_NOT_VERIFIED,
             RejectReason.GROUP_MISSING,
             RejectReason.GROUP_WRONG_TYPE,
+            RejectReason.NAME_UNVERIFIED,
         )
 
     /** Never throws; on any internal failure returns a fixed text (no exception message). */
     fun describe(
         verifiedClaims: JWTClaimsSet,
         groupClaim: String?,
-    ): String = runCatching { describe(claimMap = verifiedClaims.claims, groupClaim = groupClaim) }.getOrElse { UNAVAILABLE }
+        verifiedNameClaim: String? = null,
+    ): String =
+        runCatching {
+            describe(claimMap = verifiedClaims.claims, groupClaim = groupClaim, verifiedNameClaim = verifiedNameClaim)
+        }.getOrElse { UNAVAILABLE }
 
     /** Pure core, unit-testable with null values and arbitrary maps. */
     internal fun describe(
         claimMap: Map<String, Any?>,
         groupClaim: String?,
+        verifiedNameClaim: String? = null,
     ): String {
         val valid = claimMap.keys.filter { CLAIM_NAME.matches(it) }.sorted()
         val invalidCount = claimMap.size - valid.size
@@ -62,8 +68,17 @@ internal object KeycloakClaimsShape {
                 !claimMap.containsKey(groupClaim) -> "absent"
                 else -> typeWord(claimMap[groupClaim])
             }
+        // Only the type word of the configured confirmation claim (never its value, never "accepted/rejected"): the claim can fall
+        // out of idTokenClaims beyond MAX_CLAIMS.
+        val verifiedSection =
+            if (verifiedNameClaim == null) {
+                ""
+            } else {
+                " verifiedNameClaim=" +
+                    if (!claimMap.containsKey(verifiedNameClaim)) "absent" else typeWord(claimMap[verifiedNameClaim])
+            }
         return "idTokenClaims=[" + shown.joinToString(", ") + "] nameClaims=[" + nameSection + "] groupClaim=" + groupState +
-            " invalidClaimNames=" + invalidCount + " omittedClaims=" + omitted
+            verifiedSection + " invalidClaimNames=" + invalidCount + " omittedClaims=" + omitted
     }
 
     /** "string" | "boolean" | "number" (Number, Date) | "array" (List, Array) | "object" (Map) | "null" | "other" */

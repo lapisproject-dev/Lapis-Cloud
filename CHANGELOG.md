@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Fix and option on `[0.54.0]` (wave V1.9.306): Keycloak name claims `first_name` / `last_name` and an optional name confirmation. No migration (the schema stays at `V155`); two new optional environment variables, default off.
+
+**Behaviour changes first:**
+
+1. **The name fallback `first_name` + `last_name` applies to just-in-time creation AND to the profile sync (`LAPIS_KEYCLOAK_SYNC_PROFILE`).** The order is `name`, else `given_name` + `family_name`, else `first_name` + `last_name`; stages are never mixed and `preferred_username` is never used. With the sync on, linked members now also get their name from `first_name` / `last_name`.
+2. **The `nameClaims=[...]` section of the refusal log line now has six entries** (`name`, `given_name`, `family_name`, `first_name`, `last_name`, `preferred_username`); anyone parsing the log, take note.
+3. **New optional setting `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME` (default `false`)** with `LAPIS_KEYCLOAK_VERIFIED_NAME_CLAIM` (default `name_is_verified`): a NEW account is only created when that claim is `true`, integer `1`, `"1"` or `"true"`; otherwise the login page says the name is not confirmed yet (reason `PROVISION_NAME_UNVERIFIED`, log line carries `verifiedNameClaim=<type word>`). **A typo in either variable is a startup error** (`REQUIRE_VERIFIED_NAME` fails closed), and `REQUIRE_VERIFIED_NAME` without `LAPIS_KEYCLOAK_ENABLED` is a startup error (orphaned option). Linked accounts, address-matched members and the profile sync are not gated (startup WARN with the sync on).
+
+**Not verified:** not tested against a real Wabeo identity provider; only against simulated signed tokens.
+
+
 ## [0.54.0] — 2026-11-16
 
 Feature release on `[0.53.0]` (five waves; the database schema goes from `V151` to `V155`, four additive migrations `V152` to `V155`). **BREAKING for operators: `ADMIN` is no longer a value of `account.role` but the flag `account.is_admin` (V155); backups made before V155 are refused on restore, so take a backup after the upgrade is verified and keep the pre-upgrade backup only for a rollback to 0.53.x.** No new environment variable is required; the console action `set-admin` with `LAPIS_BOOTSTRAP_ADMIN=true|false` replaces `LAPIS_BOOTSTRAP_ROLE=ADMIN`. The sections below carry the details; read their behaviour changes first.

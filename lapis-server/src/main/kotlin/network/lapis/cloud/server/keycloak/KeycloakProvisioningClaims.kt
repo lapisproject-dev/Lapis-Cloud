@@ -78,17 +78,58 @@ internal object KeycloakProvisioningClaims {
     }
 
     /**
-     * `name` first; when it is absent or empty after [sanitizeName], `given_name` + `family_name` (non-empty parts joined by
-     * one space -- one part alone is accepted). Only string claims count; a claim of another type is treated as absent.
+     * Three stages, first one that produces something wins:
+     * 1. `name`;
+     * 2. `given_name` + `family_name`;
+     * 3. `first_name` + `last_name` (the claim names of identity providers such as Wabeo).
+     *
+     * Within a stage the non-empty parts (after [sanitizeName]) are joined by one space -- one part alone is accepted. Stages
+     * are never mixed (no `given_name` + `last_name`): that would combine names of different semantics. Only string claims
+     * count; a claim of another type is treated as absent. `preferred_username` is deliberately never used.
      */
     fun displayName(claims: JWTClaimsSet): NameResult {
-        fun stringClaim(name: String): String? = runCatching { claims.getClaim(name) }.getOrNull() as? String
-
-        sanitizeName(stringClaim("name"))?.let { return NameResult.Ok(it) }
-        val joined =
-            listOfNotNull(sanitizeName(stringClaim("given_name")), sanitizeName(stringClaim("family_name"))).joinToString(" ")
-        return sanitizeName(joined)?.let { NameResult.Ok(it) } ?: NameResult.Missing
+        val resolved =
+            sanitizeName(stringClaim(claims = claims, name = "name"))
+                ?: joinedParts(claims = claims, first = "given_name", second = "family_name")
+                ?: joinedParts(claims = claims, first = "first_name", second = "last_name")
+        return resolved?.let { NameResult.Ok(it) } ?: NameResult.Missing
     }
+
+    private fun stringClaim(
+        claims: JWTClaimsSet,
+        name: String,
+    ): String? = runCatching { claims.getClaim(name) }.getOrNull() as? String
+
+    private fun joinedParts(
+        claims: JWTClaimsSet,
+        first: String,
+        second: String,
+    ): String? =
+        sanitizeName(
+            listOfNotNull(
+                sanitizeName(stringClaim(claims = claims, name = first)),
+                sanitizeName(stringClaim(claims = claims, name = second)),
+            ).joinToString(" "),
+        )
+
+    /**
+     * Whether the identity provider confirmed the name: the top-level claim [claimName] must be exactly `true`, an integer `1`
+     * (Nimbus parses a JSON `1` as Long), the string `"1"` or the string `"true"`. No trimming, no case folding. Everything
+     * else is "not confirmed": absent, null, 0, false, a floating-point `1.0`, `"True"`, `" 1"`, arrays, objects.
+     */
+    fun nameConfirmed(
+        claims: JWTClaimsSet,
+        claimName: String,
+    ): Boolean =
+        when (val value = runCatching { claims.getClaim(claimName) }.getOrNull()) {
+            true -> true
+            is Long -> value == 1L
+            is Int -> value == 1
+            is Short -> value == 1.toShort()
+            is Byte -> value == 1.toByte()
+            is String -> value == "1" || value == "true"
+            else -> false
+        }
 
     /**
      * Makes an IdP-supplied name safe to store and to put into a mail: whitespace-like controls (tab, CR, LF, NEL, U+2028,

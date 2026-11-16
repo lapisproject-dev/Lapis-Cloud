@@ -79,7 +79,20 @@ internal object KeycloakStartupCheck {
             logger.info {
                 "Keycloak-Anlage/Abgleich: autoProvision=${config.autoProvision} provisionClaim=${config.provisionClaim} " +
                     "provisionGroup=${config.provisionGroup ?: "<keine>"} provisionRatePerHour=${config.provisionRatePerHour} " +
-                    "syncProfile=${config.syncProfile}"
+                    "syncProfile=${config.syncProfile} requireVerifiedName=${config.requireVerifiedName} " +
+                    "verifiedNameClaim=${config.verifiedNameClaim}"
+            }
+        }
+        if (config.requireVerifiedName && !config.autoProvision) {
+            logger.warn {
+                "LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME=true hat ohne LAPIS_KEYCLOAK_AUTO_PROVISION=true keine Wirkung -- die " +
+                    "Namensbestaetigung wird nur bei der automatischen Anlage neuer Konten geprueft."
+            }
+        }
+        if (config.requireVerifiedName && config.syncProfile) {
+            logger.warn {
+                "LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME=true und LAPIS_KEYCLOAK_SYNC_PROFILE=true -- der Profilabgleich bereits " +
+                    "verknuepfter Mitglieder prueft die Namensbestaetigung NICHT; ein dort unbestaetigter Name wird uebernommen."
             }
         }
         if (config.autoProvision) {

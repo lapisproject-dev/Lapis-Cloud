@@ -107,6 +107,7 @@ class KeycloakJitCallbackTest :
             syncProfile: Boolean = false,
             group: String? = "apolda",
             requireVerifiedEmail: Boolean = true,
+            requireVerifiedName: Boolean = false,
         ): KeycloakConfig {
             val env =
                 buildMap {
@@ -118,6 +119,7 @@ class KeycloakJitCallbackTest :
                     put(KeycloakConfig.ENV_SYNC_PROFILE, syncProfile.toString())
                     if (!requireVerifiedEmail) put(KeycloakConfig.ENV_REQUIRE_VERIFIED_EMAIL, "false")
                     if (group != null) put(KeycloakConfig.ENV_PROVISION_GROUP, group)
+                    if (requireVerifiedName) put(KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME, "true")
                     put(KeycloakConfig.ENV_PROVISION_RATE_PER_HOUR, (ratePerHour ?: 500).toString())
                 }
             return KeycloakConfig.load { env[it] }
@@ -614,6 +616,169 @@ class KeycloakJitCallbackTest :
             assertRefused(email, nonce, token = { sign(claims(email = email, nonce = nonce, emailVerified = false)) })
         }
 
+        /** Runs [action] while every log event is captured (root logger, level ALL); appender and level are restored afterwards. */
+        fun <T> captureLogs(action: () -> T): Pair<T, List<ILoggingEvent>> {
+            val root = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) as Logger
+            val appender = ListAppender<ILoggingEvent>()
+            appender.start()
+            val previousLevel = root.level
+            root.level = Level.ALL
+            root.addAppender(appender)
+            try {
+                return action() to appender.list.toList()
+            } finally {
+                root.detachAppender(appender)
+                root.level = previousLevel
+            }
+        }
+
+        fun ILoggingEvent.text() = formattedMessage + " " + (throwableProxy?.message ?: "")
+
+        val rejectedPrefix = "Keycloak callback rejected:"
+
+        // ── Wabeo name claims and the optional name confirmation ──
+
+        fun wabeoExtra(verified: Any?): Map<String, Any?> =
+            buildMap {
+                put("wabeo_id", "WABEO-CANARY-77")
+                put("municipality_code", "03101000")
+                put("address_is_verified", 1)
+                put("first_name", "Erika")
+                put("last_name", "Muster")
+                if (verified != null) put("name_is_verified", verified)
+            }
+
+        test("Wabeo token (first_name/last_name, no name), confirmation not required: created, name correct, wabeo_id stored nowhere") {
+            val email = "wabeo-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            val subject = "wabeo-sub-${Uuid.random()}"
+            callback(
+                cfg = config(),
+                nonce = nonce,
+                idToken = { sign(claims(email = email, nonce = nonce, subject = subject, name = null, extra = wabeoExtra(1))) },
+            ) { status, _, _ -> status shouldBe HttpStatusCode.Found }
+            val id = requireNotNull(trackNewMember(email))
+            val member = transaction { MemberTable.selectAll().where { MemberTable.id eq id }.single() }
+            member[MemberTable.displayName] shouldBe "Erika Muster"
+            (member[MemberTable.memberNumber] != null) shouldBe true
+            linkRow(id)!![KeycloakAccountLinkTable.keycloakSubject] shouldBe subject
+            val account = transaction { AccountTable.selectAll().where { AccountTable.memberId eq id }.single() }
+            account[AccountTable.oidcSubject] shouldBe null
+            val stored =
+                listOf(member.toString(), account.toString(), linkRow(id).toString()).joinToString(" ")
+            stored shouldNotContain "WABEO-CANARY-77"
+        }
+
+        test("confirmation required, name_is_verified=0: 401 with the dedicated page, one shape log line, audit reason, no values") {
+            val email = "unconf-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            val subject = "unconf-sub-${Uuid.random()}"
+            var statusSeen: HttpStatusCode? = null
+            var bodySeen = ""
+            var cookiesSeen = emptyList<String>()
+            val (_, logEvents) =
+                captureLogs {
+                    callback(
+                        cfg = config(requireVerifiedName = true, group = null),
+                        nonce = nonce,
+                        idToken = { sign(claims(email = email, nonce = nonce, subject = subject, name = null, extra = wabeoExtra(0))) },
+                    ) { status, body, cookies ->
+                        statusSeen = status
+                        bodySeen = body
+                        cookiesSeen = cookies
+                    }
+                }
+            statusSeen shouldBe HttpStatusCode.Unauthorized
+            hasSession(cookiesSeen) shouldBe false
+            bodySeen shouldContain "noch nicht bestätigt"
+            bodySeen shouldContain "Erneut anmelden"
+            bodySeen shouldContain "href=\"http://localhost/auth/keycloak/start\""
+            bodySeen shouldNotContain "konto=andere"
+            bodySeen shouldNotContain "WABEO-CANARY-77"
+            bodySeen shouldNotContain "name_is_verified"
+            transaction { MemberTable.selectAll().where { MemberTable.email eq email }.count() } shouldBe 0
+            val lines = logEvents.map { it.text().trim() }.filter { it.startsWith(rejectedPrefix) }
+            lines.size shouldBe 1
+            Regex(
+                "^Keycloak callback rejected: PROVISION_NAME_UNVERIFIED \\(subjectFingerprint=[0-9a-f]{16}\\) idTokenClaims=\\[.*] " +
+                    "nameClaims=\\[name:absent, given_name:absent, family_name:absent, first_name:string-nonempty, " +
+                    "last_name:string-nonempty, preferred_username:absent] groupClaim=not-configured verifiedNameClaim=number " +
+                    "invalidClaimNames=0 omittedClaims=0$",
+            ).matches(lines.single()) shouldBe true
+            logEvents.forEach {
+                val t = it.text().lowercase()
+                t shouldNotContain email.lowercase()
+                t shouldNotContain subject.lowercase()
+                t shouldNotContain "wabeo-canary-77"
+                t shouldNotContain "erika"
+            }
+            events(type = OidcLoginEventType.KEYCLOAK_LOGIN_FAILED).first()[OidcGuestLoginEventTable.reason] shouldBe
+                "PROVISION_NAME_UNVERIFIED"
+        }
+
+        test("confirmation required: a JSON 1.0 (parsed as Double) is refused, a JSON 1 (Long) and true are accepted") {
+            val cfg = config(requireVerifiedName = true, group = null)
+
+            fun tryLogin(
+                verified: Any,
+                expected: HttpStatusCode,
+            ) {
+                val email = "num-" + Uuid.random().toString().take(10) + "@example.org"
+                val nonce = "n-${Uuid.random()}"
+                callback(
+                    cfg = cfg,
+                    nonce = nonce,
+                    idToken = { sign(claims(email = email, nonce = nonce, name = null, extra = wabeoExtra(verified))) },
+                ) { status, _, _ -> status shouldBe expected }
+                if (expected == HttpStatusCode.Found) {
+                    requireNotNull(trackNewMember(email))
+                } else {
+                    transaction { MemberTable.selectAll().where { MemberTable.email eq email }.count() } shouldBe 0
+                }
+            }
+            tryLogin(1.0, HttpStatusCode.Unauthorized)
+            tryLogin(1, HttpStatusCode.Found)
+            tryLogin(true, HttpStatusCode.Found)
+            tryLogin("true", HttpStatusCode.Found)
+        }
+
+        test("confirmation required: neither name nor confirmation stays NAME_MISSING") {
+            val email = "nonameconf-" + Uuid.random().toString().take(10) + "@example.org"
+            val nonce = "n-${Uuid.random()}"
+            callback(
+                cfg = config(requireVerifiedName = true),
+                nonce = nonce,
+                idToken = { sign(claims(email = email, nonce = nonce, name = null)) },
+            ) { status, body, _ ->
+                status shouldBe HttpStatusCode.Unauthorized
+                body shouldContain "enthält keinen Namen"
+            }
+        }
+
+        test("confirmation required: an already linked account and an email-matched member log in without the confirmation") {
+            val email = "linkedconf-" + Uuid.random().toString().take(10) + "@example.org"
+            val id = existingMember(email)
+            linkMember(id, subject = "linkedconf-sub")
+            val cfg = config(requireVerifiedName = true)
+            val before = memberCount()
+            val nonce = "n-${Uuid.random()}"
+            callback(
+                cfg = cfg,
+                nonce = nonce,
+                idToken = { sign(claims(email = email, nonce = nonce, subject = "linkedconf-sub", name = null, extra = wabeoExtra(0))) },
+            ) { status, _, _ -> status shouldBe HttpStatusCode.Found }
+            val email2 = "matchedconf-" + Uuid.random().toString().take(10) + "@example.org"
+            val id2 = existingMember(email2)
+            val nonce2 = "n-${Uuid.random()}"
+            callback(
+                cfg = cfg,
+                nonce = nonce2,
+                idToken = { sign(claims(email = email2, nonce = nonce2, name = null, extra = wabeoExtra(0))) },
+            ) { status, _, _ -> status shouldBe HttpStatusCode.Found }
+            memberCount() shouldBe before + 1 // only existingMember() of the second case, created before the callback
+            (linkRow(id2) != null) shouldBe true
+        }
+
         test("group removal later: a linked member still logs in without the claim (existing behaviour), and nothing is created") {
             val email = "keep-" + Uuid.random().toString().take(10) + "@example.org"
             val nonce = "n-${Uuid.random()}"
@@ -714,26 +879,6 @@ class KeycloakJitCallbackTest :
             (fixture.emailOf(id) != oldMail) shouldBe true
         }
 
-        /** Runs [action] while every log event is captured (root logger, level ALL); appender and level are restored afterwards. */
-        fun <T> captureLogs(action: () -> T): Pair<T, List<ILoggingEvent>> {
-            val root = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) as Logger
-            val appender = ListAppender<ILoggingEvent>()
-            appender.start()
-            val previousLevel = root.level
-            root.level = Level.ALL
-            root.addAppender(appender)
-            try {
-                return action() to appender.list.toList()
-            } finally {
-                root.detachAppender(appender)
-                root.level = previousLevel
-            }
-        }
-
-        fun ILoggingEvent.text() = formattedMessage + " " + (throwableProxy?.message ?: "")
-
-        val rejectedPrefix = "Keycloak callback rejected:"
-
         test("V1.9.285 NAME_MISSING: the refusal log names the claims and types, never a value") {
             val canary = "CANARY-VALUE-123"
             val email = "$canary-" + Uuid.random().toString().take(8) + "@example.org"
@@ -776,7 +921,7 @@ class KeycloakJitCallbackTest :
             Regex(
                 "^Keycloak callback rejected: PROVISION_NAME_MISSING \\(subjectFingerprint=[0-9a-f]{16}\\) idTokenClaims=\\[.*] " +
                     "nameClaims=\\[name:string-empty, given_name:wrong-type:number, family_name:string-sanitizes-to-empty, " +
-                    "preferred_username:string-nonempty] groupClaim=array invalidClaimNames=0 omittedClaims=0$",
+                    "first_name:absent, last_name:absent, preferred_username:string-nonempty] groupClaim=array invalidClaimNames=0 omittedClaims=0$",
             ).matches(lines.single()) shouldBe true
             lines.single() shouldContain "nested:object"
             lines.single() shouldContain "list:array"

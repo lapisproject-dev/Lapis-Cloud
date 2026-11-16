@@ -53,7 +53,14 @@ internal class KeycloakConfig private constructor(
     /** Welle V1.9.73 -- `LAPIS_KEYCLOAK_SYNC_PROFILE`: take name (and, under strict rules, address) over from the ID token at login. Default OFF. */
     val syncProfile: Boolean,
     /**
-     * Names of `LAPIS_KEYCLOAK_AUTO_PROVISION` / `LAPIS_KEYCLOAK_SYNC_PROFILE` that are switched ON while `LAPIS_KEYCLOAK_ENABLED` is
+     * `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME`: a NEW account is only created when the identity provider confirmed the name
+     * (see [verifiedNameClaim]). Default OFF; a value that is not `true`/`false` is a startup error and counts as ON (fail closed).
+     */
+    val requireVerifiedName: Boolean,
+    /** Top-level ID-token claim that confirms the name (default `name_is_verified`); accepted values: `true`, `1`, `"1"`, `"true"`. */
+    val verifiedNameClaim: String,
+    /**
+     * Names of `LAPIS_KEYCLOAK_AUTO_PROVISION` / `LAPIS_KEYCLOAK_SYNC_PROFILE` / `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME` that are switched ON while `LAPIS_KEYCLOAK_ENABLED` is
      * not -- a misconfiguration the startup check refuses (the operator believes provisioning is active, it silently is not).
      */
     val orphanedOptions: List<String>,
@@ -74,7 +81,9 @@ internal class KeycloakConfig private constructor(
                 !clientSecretValue.isNullOrBlank() &&
                 ENV_PROVISION_CLAIM !in invalid &&
                 ENV_PROVISION_GROUP !in invalid &&
-                ENV_PROVISION_RATE_PER_HOUR !in invalid
+                ENV_PROVISION_RATE_PER_HOUR !in invalid &&
+                ENV_VERIFIED_NAME_CLAIM !in invalid &&
+                ENV_REQUIRE_VERIFIED_NAME !in invalid
 
     /** Redacted -- [clientSecretValue] never appears, not even shortened or hashed. */
     override fun toString(): String =
@@ -85,6 +94,7 @@ internal class KeycloakConfig private constructor(
             "rpInitiatedLogout=$rpInitiatedLogout, discoveryCacheSeconds=$discoveryCacheSeconds, " +
             "jwksCacheSeconds=$jwksCacheSeconds, autoProvision=$autoProvision, provisionClaim=$provisionClaim, " +
             "provisionGroup=$provisionGroup, provisionRatePerHour=$provisionRatePerHour, syncProfile=$syncProfile, " +
+            "requireVerifiedName=$requireVerifiedName, verifiedNameClaim=$verifiedNameClaim, " +
             "orphanedOptions=$orphanedOptions, invalid=$invalid)"
 
     companion object {
@@ -105,9 +115,12 @@ internal class KeycloakConfig private constructor(
         const val ENV_PROVISION_GROUP = "LAPIS_KEYCLOAK_PROVISION_GROUP"
         const val ENV_PROVISION_RATE_PER_HOUR = "LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR"
         const val ENV_SYNC_PROFILE = "LAPIS_KEYCLOAK_SYNC_PROFILE"
+        const val ENV_REQUIRE_VERIFIED_NAME = "LAPIS_KEYCLOAK_REQUIRE_VERIFIED_NAME"
+        const val ENV_VERIFIED_NAME_CLAIM = "LAPIS_KEYCLOAK_VERIFIED_NAME_CLAIM"
 
         const val DEFAULT_PROVISION_CLAIM = "groups"
         const val DEFAULT_PROVISION_RATE_PER_HOUR = 10
+        const val DEFAULT_VERIFIED_NAME_CLAIM = "name_is_verified"
         private val PROVISION_RATE_RANGE = 1..1000
         private const val PROVISION_GROUP_MAX_LENGTH = 255
 
@@ -132,6 +145,7 @@ internal class KeycloakConfig private constructor(
             // Read BEFORE the early return below, so "switched on, but ENABLED missing" is detectable by the startup check.
             val autoProvision = env(ENV_AUTO_PROVISION)?.trim().equals("true", ignoreCase = true)
             val syncProfile = env(ENV_SYNC_PROFILE)?.trim().equals("true", ignoreCase = true)
+            val requireVerifiedName = resolveRequireVerifiedName(raw = env(ENV_REQUIRE_VERIFIED_NAME)?.trim(), invalid = invalid)
 
             if (!enabled) {
                 return disabled(
@@ -139,6 +153,7 @@ internal class KeycloakConfig private constructor(
                         listOfNotNull(
                             ENV_AUTO_PROVISION.takeIf { autoProvision },
                             ENV_SYNC_PROFILE.takeIf { syncProfile },
+                            ENV_REQUIRE_VERIFIED_NAME.takeIf { requireVerifiedName },
                         ),
                 )
             }
@@ -180,6 +195,7 @@ internal class KeycloakConfig private constructor(
                 )
 
             val provisionClaim = resolveProvisionClaim(raw = env(ENV_PROVISION_CLAIM)?.trim(), invalid = invalid)
+            val verifiedNameClaim = resolveVerifiedNameClaim(raw = env(ENV_VERIFIED_NAME_CLAIM)?.trim(), invalid = invalid)
             val provisionGroup = resolveProvisionGroup(raw = env(ENV_PROVISION_GROUP)?.trim(), invalid = invalid)
             val provisionRatePerHour =
                 intVar(
@@ -208,6 +224,8 @@ internal class KeycloakConfig private constructor(
                 provisionGroup = provisionGroup,
                 provisionRatePerHour = provisionRatePerHour,
                 syncProfile = syncProfile,
+                requireVerifiedName = requireVerifiedName,
+                verifiedNameClaim = verifiedNameClaim,
                 orphanedOptions = emptyList(),
                 invalid = invalid.toList(),
             )
@@ -232,6 +250,8 @@ internal class KeycloakConfig private constructor(
                 provisionGroup = null,
                 provisionRatePerHour = DEFAULT_PROVISION_RATE_PER_HOUR,
                 syncProfile = false,
+                requireVerifiedName = false,
+                verifiedNameClaim = DEFAULT_VERIFIED_NAME_CLAIM,
                 orphanedOptions = orphanedOptions,
                 invalid = emptyList(),
             )
@@ -251,6 +271,34 @@ internal class KeycloakConfig private constructor(
                 invalid += name
                 default
             }
+        }
+
+        /**
+         * Fail closed (it tightens security): unset/blank -> false, `true`/`false` (any case) -> that value, anything else is
+         * recorded as invalid and counts as ON, so a typo never silently switches the check off.
+         */
+        private fun resolveRequireVerifiedName(
+            raw: String?,
+            invalid: MutableList<String>,
+        ): Boolean {
+            if (raw.isNullOrEmpty()) return false
+            if (raw.equals("true", ignoreCase = true)) return true
+            if (raw.equals("false", ignoreCase = true)) return false
+            invalid += ENV_REQUIRE_VERIFIED_NAME
+            return true
+        }
+
+        /** Unset/blank -> `name_is_verified`. A value that is not a plain top-level claim name is rejected (the variable NAME lands in [invalid]). */
+        private fun resolveVerifiedNameClaim(
+            raw: String?,
+            invalid: MutableList<String>,
+        ): String {
+            if (raw.isNullOrEmpty()) return DEFAULT_VERIFIED_NAME_CLAIM
+            if (!PROVISION_CLAIM_PATTERN.matches(raw)) {
+                invalid += ENV_VERIFIED_NAME_CLAIM
+                return DEFAULT_VERIFIED_NAME_CLAIM
+            }
+            return raw
         }
 
         /** Unset/blank -> `groups`. A value that is not a plain top-level claim name is rejected (the variable NAME lands in [invalid]). */

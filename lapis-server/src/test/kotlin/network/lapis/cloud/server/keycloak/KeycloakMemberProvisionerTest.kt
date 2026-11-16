@@ -319,6 +319,87 @@ abstract class KeycloakMemberProvisionerScenarios(
             memberCountByEmail(email) shouldBe 0
         }
 
+        test("Wabeo claims, confirmation not required: created from first_name + last_name") {
+            val email = uniqueEmail()
+            val claims =
+                idClaims(
+                    email = email,
+                    name = null,
+                    extra = mapOf("first_name" to "Erika", "last_name" to "Muster", "name_is_verified" to 0, "wabeo_id" to "w-1"),
+                )
+            val outcome =
+                provisioner()
+                    .go(
+                        email = email,
+                        claims = claims,
+                    ).shouldBeInstanceOf<KeycloakMemberProvisioner.Outcome.Provisioned>()
+            transaction { MemberTable.selectAll().where { MemberTable.id eq outcome.memberId }.single() }[MemberTable.displayName] shouldBe
+                "Erika Muster"
+        }
+
+        test("confirmation required: unconfirmed values are NAME_UNVERIFIED and create nothing") {
+            val p = provisioner(config = jitConfig(requireVerifiedName = true))
+            for (value in listOf<Any?>(null, 0, 0L, false, 1.0, "True", "yes", listOf(1))) {
+                val email = uniqueEmail()
+                val extra =
+                    buildMap<String, Any?> {
+                        put("first_name", "Erika")
+                        put("last_name", "Muster")
+                        if (value != null) put("name_is_verified", value)
+                    }
+                p.go(email = email, claims = idClaims(email = email, name = null, extra = extra)) shouldBe
+                    Rejected(RejectReason.NAME_UNVERIFIED)
+                memberCountByEmail(email) shouldBe 0
+            }
+        }
+
+        test("confirmation required: confirmed values create the member") {
+            val p = provisioner(config = jitConfig(requireVerifiedName = true))
+            for (value in listOf<Any>(true, 1, 1L, "1", "true")) {
+                val email = uniqueEmail()
+                val claims =
+                    idClaims(
+                        email = email,
+                        name = null,
+                        extra = mapOf("first_name" to "Erika", "last_name" to "Muster", "name_is_verified" to value),
+                    )
+                p.go(email = email, claims = claims).shouldBeInstanceOf<KeycloakMemberProvisioner.Outcome.Provisioned>()
+            }
+        }
+
+        test("confirmation required: no name and no confirmation is NAME_MISSING; group is checked first; custom claim is honoured") {
+            val p = provisioner(config = jitConfig(requireVerifiedName = true))
+            var email = uniqueEmail()
+            p.go(email = email, claims = idClaims(email = email, name = null)) shouldBe Rejected(RejectReason.NAME_MISSING)
+            email = uniqueEmail()
+            p.go(email = email, claims = idClaims(email = email, groups = null, extra = mapOf("name_is_verified" to 0))) shouldBe
+                Rejected(RejectReason.GROUP_MISSING)
+            val custom = provisioner(config = jitConfig(requireVerifiedName = true, verifiedNameClaim = "ok_claim"))
+            email = uniqueEmail()
+            custom.go(email = email, claims = idClaims(email = email, extra = mapOf("name_is_verified" to 1))) shouldBe
+                Rejected(RejectReason.NAME_UNVERIFIED)
+            email = uniqueEmail()
+            custom
+                .go(email = email, claims = idClaims(email = email, extra = mapOf("ok_claim" to 1)))
+                .shouldBeInstanceOf<KeycloakMemberProvisioner.Outcome.Provisioned>()
+        }
+
+        test("fail closed: an invalid name-confirmation configuration is DISABLED (second wall)") {
+            for (config in listOf(
+                jitConfig(verifiedNameClaim = "a.b"),
+                jitConfig(
+                    extraEnv =
+                        mapOf(
+                            KeycloakConfig.ENV_REQUIRE_VERIFIED_NAME to "ture",
+                        ),
+                ),
+            )) {
+                val email = uniqueEmail()
+                provisioner(config = config).go(email = email) shouldBe Rejected(RejectReason.DISABLED)
+                memberCountByEmail(email) shouldBe 0
+            }
+        }
+
         test("an existing member with the same address (other case) wins: ExistingFound, no second member") {
             val existing = fixture.member(email = "existing-" + Uuid.random().toString().take(8) + "@example.org")
             val address = fixture.emailOf(existing)
