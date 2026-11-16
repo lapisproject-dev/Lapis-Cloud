@@ -95,6 +95,11 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
         attribute(name = "postalCode", type = "String")
         attribute(name = "city", type = "String")
         attribute(name = "country", type = "String")
+        // V154 founding member marker: set by BOARD/ADMIN only; the consent to show the label publicly is stored on the member row.
+        attribute(name = "foundingMember", type = "Boolean", defaultValue = "false")
+        attribute(name = "foundingMemberSince", type = "LocalDate")
+        attribute(name = "foundingMemberConsentGrantedAt", type = "LocalDateTime")
+        attribute(name = "foundingMemberConsentVersion", type = "String")
     }
 
     val account = classOf(name = "Account") {

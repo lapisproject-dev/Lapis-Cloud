@@ -105,6 +105,7 @@ internal object MemberCardStore {
             memberNumber = memberRow[MemberTable.memberNumber] ?: MEMBER_NUMBER_PENDING_PLACEHOLDER,
             status = memberRow[MemberTable.status],
             joinedAt = memberRow[MemberTable.joinedAt],
+            foundingMemberPublic = FoundingMemberStore.isPublicEffective(memberRow),
         )
     }
 
@@ -148,6 +149,8 @@ internal sealed interface MemberCardResolution {
         val memberNumber: String,
         val status: MemberStatus,
         val joinedAt: LocalDate,
+        /** V154 -- the founding-member label is effectively public (consent, current wording, ACTIVE). Computed live on every request. */
+        val foundingMemberPublic: Boolean = false,
     ) : MemberCardResolution
 
     data object Revoked : MemberCardResolution

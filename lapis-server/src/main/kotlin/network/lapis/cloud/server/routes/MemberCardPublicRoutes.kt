@@ -112,6 +112,7 @@ internal fun Route.registerMemberCardPublicRoutes(
                                 memberNumber = valid.memberNumber,
                                 statusLabel = MemberCardEligibility.statusLabel(valid.status),
                                 joinedAt = valid.joinedAt,
+                                foundingMemberPublic = valid.foundingMemberPublic,
                             ),
                     ),
                 status = HttpStatusCode.OK,

@@ -22,6 +22,7 @@ import network.lapis.cloud.server.mail.PeerNotificationMailer
 import network.lapis.cloud.server.mail.RejectionVariant
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
+import network.lapis.cloud.server.member.FoundingMemberStore
 import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
@@ -736,6 +737,14 @@ class RegistrationService internal constructor(
                 )
                 // Welle V1.9.20 -- public short introduction + politician listing consent, same reasoning.
                 MemberPublicBioStore.revokePublicationOnStatusLoss(
+                    memberId = current.memberId,
+                    newStatus = MemberStatus.WITHDRAWN,
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    now = now,
+                )
+                // V154 -- the founding-member label consent ends with the membership.
+                FoundingMemberStore.revokePublicationOnStatusLoss(
                     memberId = current.memberId,
                     newStatus = MemberStatus.WITHDRAWN,
                     actorMemberId = current.memberId,

@@ -58,6 +58,9 @@ import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerExceptio
 import network.lapis.cloud.shared.rpc.EventRoomCaptureConsentMissingException
 import network.lapis.cloud.shared.rpc.EventRoomRecordingAccessLevelNotAllowedException
 import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.FoundingMemberNotEligibleException
+import network.lapis.cloud.shared.rpc.FoundingMemberNotSetException
+import network.lapis.cloud.shared.rpc.FoundingMemberRateLimitedException
 import network.lapis.cloud.shared.rpc.GalleryLockedException
 import network.lapis.cloud.shared.rpc.GalleryOrderMismatchException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
@@ -223,6 +226,9 @@ suspend fun <T> guarded(block: suspend () -> T): T? =
 internal fun typedRefusalText(e: Throwable): String? =
     when (e) {
         is RateLimitedException -> tr("Zu viele Anfragen – bitte kurz warten.")
+        is FoundingMemberRateLimitedException -> tr("Zu viele Anfragen – bitte kurz warten.")
+        is FoundingMemberNotSetException -> tr("Der Vorstand hat Sie nicht als Gründungsmitglied gekennzeichnet.")
+        is FoundingMemberNotEligibleException -> tr("Nur aktive Mitglieder können die Kennzeichnung öffentlich zeigen.")
         is EventRoomRecordingAccessLevelNotAllowedException ->
             tr("Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration möglich.")
         is EventRoomCaptureBlockedByAdminException ->

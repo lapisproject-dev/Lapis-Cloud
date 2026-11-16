@@ -485,6 +485,8 @@ internal data class RosterState(
     val countryCode: String? = null,
     /** The `?member=` deep link: the roster shows exactly this member (and opens the editor once). */
     val memberId: String? = null,
+    /** V154 -- roster filter "Nur Gründungsmitglieder". */
+    val foundingMemberOnly: Boolean = false,
 )
 
 private val STATUS_CHIPS: List<MemberStatus?> =
@@ -537,6 +539,7 @@ internal fun rosterQuery(state: RosterState): MemberAdminQuery {
         unassignedOnly = unassignedOnly,
         countryCode = state.countryCode?.takeIf { it.isNotBlank() },
         memberId = state.memberId,
+        foundingMemberOnly = state.foundingMemberOnly,
     )
 }
 
@@ -598,6 +601,13 @@ private fun renderMemberRoster(
         } else {
             null
         }
+    // V154 -- founding-member filter (a fact about the membership, visible to every roster caller; the server filters).
+    val foundingFilterSelect =
+        filterRow.select(
+            label = tr("Gründungsmitglied"),
+            options = listOf("" to tr("Alle"), "yes" to tr("Nur Gründungsmitglieder")),
+            value = "",
+        )
     val chipsRow = root.hPanel(spacing = 6)
 
     lateinit var section: DataSection
@@ -715,6 +725,16 @@ private fun renderMemberRoster(
         // No debounce (Design-Team decision, same as every other `select` filter): a select change is
         // one discrete event, not a keystroke stream.
         state = state.copy(chapterFilter = chapterFilterFromSelectValue(value), offset = 0)
+        refresh()
+    }
+
+    var isInitialFoundingFilterEvent = true
+    foundingFilterSelect.subscribe { value ->
+        if (isInitialFoundingFilterEvent) {
+            isInitialFoundingFilterEvent = false
+            return@subscribe
+        }
+        state = state.copy(foundingMemberOnly = value == "yes", offset = 0)
         refresh()
     }
 
@@ -998,6 +1018,10 @@ private fun Container.renderRosterName(row: MemberAdminRowDto) {
 /** Status column: role-coloured status badge plus the recorded date of death, if any. */
 private fun Container.renderRosterStatus(row: MemberAdminRowDto) {
     memberStatusRoleBadge(row.status)
+    // V154: a neutral outline text chip (no fill, no icon, no gold) -- the label itself is the information, never a colour alone.
+    if (row.foundingMember) {
+        span(tr("Gründungsmitglied")) { addCssClasses("badge border text-body-secondary ms-1") }
+    }
     // V1.9.298: a text badge, only for a member WITHOUT voting right (the default needs no mark); never a colour alone
     if (row.status in MemberStatusSets.ORGANIZATION_MEMBER && !row.votingRight) {
         span(tr("ohne Stimmrecht")) { addCssClasses("badge bg-secondary-subtle text-secondary-emphasis ms-1") }
@@ -1721,6 +1745,12 @@ internal fun openMemberEditorDialog(
         renderVotingRightSection(modal, row, legendGroup, onChanged)
     }
 
+    // ── Gründungsmitglied (V154) ──
+    if (canEditFoundingMemberOf(callerRole, callerMemberId, row)) {
+        modal.div { addCssClass("mt-3") }
+        renderFoundingMemberSection(modal, row, legendGroup, onChanged)
+    }
+
     // ── Landesverband (Welle V1.9.14) ──
     if (chapters.isNotEmpty() && canAssignChapterOf(callerRole, callerMemberId, row.role, row.status, row.anonymized, row.id)) {
         modal.div { addCssClass("mt-3") }
@@ -2310,6 +2340,99 @@ private fun renderVotingRightSection(
                     onChanged()
                 }
             }
+        }
+    }
+}
+
+/** V154 -- BOARD/ADMIN only (an ADMIN's row only by an ADMIN), for a real organization member, never anonymised, never the caller's own row. */
+internal fun canEditFoundingMemberOf(
+    callerRole: AccountRole?,
+    callerMemberId: String?,
+    row: MemberAdminRowDto,
+): Boolean {
+    if (callerRole != AccountRole.BOARD && callerRole != AccountRole.ADMIN) return false
+    if (row.anonymized || row.id == callerMemberId) return false
+    if (row.role != null && row.role in ESCALATED_ROLES && callerRole != AccountRole.ADMIN) return false
+    // Clearing a stale marker stays possible for a former member; setting one needs a real member.
+    return row.status in MemberStatusSets.ORGANIZATION_MEMBER || row.foundingMember
+}
+
+/** The confirm dialog appears only when a marker WITH a public consent is removed (the consent expires with it). */
+internal fun foundingMemberRemovalNeedsConfirmation(
+    row: MemberAdminRowDto,
+    wanted: Boolean,
+): Boolean = !wanted && row.foundingMember && row.foundingMemberPublicConsent
+
+/** True when the marker may be SET (a real organization member); a former member's stale marker can only be cleared. */
+internal fun foundingMemberCanBeSet(row: MemberAdminRowDto): Boolean = row.status in MemberStatusSets.ORGANIZATION_MEMBER
+
+/** The "Gründungsmitglied" section of the editor dialog: its own form, its own RPC. The date is optional and only asked while the marker is on. */
+private fun renderFoundingMemberSection(
+    modal: Modal,
+    row: MemberAdminRowDto,
+    legendGroup: LegendGroup,
+    onChanged: () -> Unit,
+) {
+    modal.h2(tr("Gründungsmitglied")) { addCssClass("h6") }
+    val form = modal.lapisForm(legendGroup)
+    val yes = "true"
+    val no = "false"
+    // A former member can only be cleared: the server refuses to set the marker on a non-member, so "Ja" is not offered there at all.
+    val canSet = foundingMemberCanBeSet(row)
+    val field =
+        form.selectField(
+            label = tr("Gründungsmitglied"),
+            options = if (canSet) listOf(yes to tr("Ja"), no to tr("Nein")) else listOf(no to tr("Nein")),
+            value = if (row.foundingMember && canSet) yes else no,
+            required = true,
+            hint =
+                tr(
+                    "Die Kennzeichnung steht auf dem Mitgliedsausweis. Öffentlich wird sie nur angezeigt, " +
+                        "wenn das Mitglied dem selbst zugestimmt hat.",
+                ),
+        )
+    val dateHost = form.panel.div()
+    val sinceField =
+        form.localDateField(
+            label = tr("Gründungsmitglied seit"),
+            value = row.foundingMemberSince,
+            host = dateHost,
+        )
+    if (!row.foundingMember || !canSet) dateHost.hide()
+    field.subscribe {
+        if (field.value == yes) {
+            dateHost.show()
+        } else {
+            sinceField.setDate(null)
+            dateHost.hide()
+        }
+    }
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Gründungsmitglied speichern"), ButtonStyle.PRIMARY)
+    form.buttons(primary = saveButton)
+
+    fun save(wanted: Boolean) {
+        form.submit(saveButton) {
+            val since = if (wanted) sinceField.localDateOrNull() else null
+            val result = memberAdminGuarded { rpcService<IMemberService>().setFoundingMember(row.id, wanted, since) }
+            if (result != null) {
+                notifySuccess(tr("Gründungsmitglied gespeichert."))
+                modal.hide()
+                onChanged()
+            }
+        }
+    }
+    saveButton.onClick {
+        val wanted = field.value == yes
+        if (foundingMemberRemovalNeedsConfirmation(row, wanted)) {
+            // The consent expires with the marker: say so before it happens.
+            confirmDialog(
+                title = tr("Gründungsmitglied entfernen"),
+                message = tr("Das Mitglied hat die öffentliche Anzeige erlaubt. Diese Einwilligung erlischt."),
+                confirmLabel = tr("Entfernen"),
+                onConfirm = { save(false) },
+            )
+        } else {
+            save(wanted)
         }
     }
 }

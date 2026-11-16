@@ -27,6 +27,7 @@ import network.lapis.cloud.server.mail.PeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.member.CountryLegacyMappingEngine
+import network.lapis.cloud.server.member.FoundingMemberStore
 import network.lapis.cloud.server.member.MemberCardIssuance
 import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.member.MemberRoleStatusMutations
@@ -62,6 +63,8 @@ import network.lapis.cloud.shared.domain.CountryLegacyMappingReportDto
 import network.lapis.cloud.shared.domain.CountryLegacyMappingResultDto
 import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.DeathDateViolation
+import network.lapis.cloud.shared.domain.FoundingMemberRules
+import network.lapis.cloud.shared.domain.FoundingMemberVisibility
 import network.lapis.cloud.shared.domain.MailDeliveryState
 import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
 import network.lapis.cloud.shared.domain.MemberAddressDataDto
@@ -80,6 +83,7 @@ import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.MemberTitleRules
+import network.lapis.cloud.shared.domain.OwnFoundingMemberDto
 import network.lapis.cloud.shared.domain.PasswordResetMailResultDto
 import network.lapis.cloud.shared.domain.PeerAction
 import network.lapis.cloud.shared.domain.PeerActionAuditFacts
@@ -90,6 +94,10 @@ import network.lapis.cloud.shared.domain.VotingRightSource
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.FoundingMemberConsentOutdatedException
+import network.lapis.cloud.shared.rpc.FoundingMemberNotEligibleException
+import network.lapis.cloud.shared.rpc.FoundingMemberNotSetException
+import network.lapis.cloud.shared.rpc.FoundingMemberRateLimitedException
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
@@ -850,6 +858,116 @@ class MemberService(
         }
     }
 
+    // ── Welle V1.9.305 -- founding member marker (APPENDED at the END of IMemberService) ──
+
+    override suspend fun setFoundingMember(
+        memberId: String,
+        foundingMember: Boolean,
+        since: LocalDate?,
+    ): MemberAdminRowDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        // Four-eyes principle: nobody marks their own row.
+        if (targetId == current.memberId) throw ForbiddenException()
+        val now = nowLocalDateTime()
+        val effectiveSince = if (foundingMember) since else null
+        if (FoundingMemberRules.validateSince(since = effectiveSince, today = OrganizationTimeZone.dateOf(now)) != null) {
+            throw ConflictException("Invalid founding member date")
+        }
+        var notifyTargetAdmin = false
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    val locked = lockTargetForProtectedWrite(current = current, targetId = targetId, memberIdText = memberId)
+                    notifyTargetAdmin = locked.notifyTargetAdmin
+                    val row = locked.row
+                    if (row[MemberTable.anonymizedAt] !=
+                        null
+                    ) {
+                        throw ConflictException("Member has been anonymized and can no longer be edited")
+                    }
+                    if (row[MemberTable.status] !in MemberStatusSets.ORGANIZATION_MEMBER && foundingMember) {
+                        throw ConflictException("Only a member can be a founding member")
+                    }
+                    // The audit entries are the LAST writes of the transaction.
+                    FoundingMemberStore.setLocked(targetRow = row, value = foundingMember, since = effectiveSince).forEach { facts ->
+                        FoundingMemberStore.recordAudit(
+                            actorMemberId = current.memberId,
+                            actorRole = current.role,
+                            targetMemberId = targetId,
+                            targetStatus = row[MemberTable.status],
+                            facts = facts,
+                            now = now,
+                        )
+                    }
+                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                }
+            }
+        if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
+    }
+
+    override suspend fun setOwnFoundingMemberVisibility(
+        visibility: FoundingMemberVisibility,
+        consentTextVersion: String?,
+    ): OwnFoundingMemberDto {
+        val current = resolveCurrentMember(call)
+        // Same limiter instance as the other admin-read budgets, own key space (precedent: "country-mapping:"); MemberService is rebuilt per call.
+        if (!memberAddressAdminReadRateLimiter.checkAndRecord("founding-member-visibility:${current.memberId}")) {
+            throw FoundingMemberRateLimitedException()
+        }
+        if (visibility == FoundingMemberVisibility.PUBLIC) {
+            if (current.status !in MemberStatusSets.FOUNDING_MEMBER_PUBLICATION_ELIGIBLE) throw FoundingMemberNotEligibleException()
+            if (consentTextVersion != FoundingMemberRules.CONSENT_TEXT_VERSION) throw FoundingMemberConsentOutdatedException()
+        }
+        val now = nowLocalDateTime()
+        return transaction {
+            val row =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq current.memberId }
+                    .forMemberUpdate()
+                    .singleOrNull() ?: throw NotFoundException("Member not found")
+            val facts =
+                when (visibility) {
+                    FoundingMemberVisibility.PUBLIC -> {
+                        if (!row[MemberTable.foundingMember]) throw FoundingMemberNotSetException()
+                        if (row[MemberTable.anonymizedAt] != null ||
+                            row[MemberTable.status] !in MemberStatusSets.FOUNDING_MEMBER_PUBLICATION_ELIGIBLE
+                        ) {
+                            throw FoundingMemberNotEligibleException()
+                        }
+                        FoundingMemberStore.publishLocked(targetRow = row, now = now)
+                    }
+                    FoundingMemberVisibility.PRIVATE -> FoundingMemberStore.unpublishLocked(targetRow = row)
+                }
+            if (facts != null) {
+                FoundingMemberStore.recordAudit(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    targetMemberId = current.memberId,
+                    targetStatus = row[MemberTable.status],
+                    facts = facts,
+                    now = now,
+                )
+            }
+            val fresh = MemberTable.selectAll().where { MemberTable.id eq current.memberId }.single()
+            OwnFoundingMemberDto(
+                foundingMember = fresh[MemberTable.foundingMember],
+                visibility =
+                    if (fresh[MemberTable.foundingMemberConsentGrantedAt] != null) {
+                        FoundingMemberVisibility.PUBLIC
+                    } else {
+                        FoundingMemberVisibility.PRIVATE
+                    },
+                consentOutdated =
+                    fresh[MemberTable.foundingMemberConsentGrantedAt] != null &&
+                        fresh[MemberTable.foundingMemberConsentVersion] != FoundingMemberRules.CONSENT_TEXT_VERSION,
+            )
+        }
+    }
+
     // ── Welle V1.2.12 -- Mitgliederverwaltung: vollständige Bearbeitung + privilegiertes Roster ──
 
     override suspend fun listMembersForAdministration(query: MemberAdminQuery): MemberAdminPageDto {
@@ -931,6 +1049,7 @@ class MemberService(
                         predicate = Op.FALSE
                     }
                     if (queriedMemberId != null) predicate = predicate and (MemberTable.id eq queriedMemberId)
+                    if (query.foundingMemberOnly) predicate = predicate and (MemberTable.foundingMember eq true)
                     return predicate
                 }
 
@@ -960,6 +1079,7 @@ class MemberService(
                     }
                 }
                 if (queriedMemberId != null) predicate = predicate and (MemberTable.id eq queriedMemberId)
+                if (query.foundingMemberOnly) predicate = predicate and (MemberTable.foundingMember eq true)
                 return predicate
             }
 
@@ -2121,6 +2241,12 @@ private fun ResultRow.toMemberAdminRowDto(
         votingRight = this[MemberTable.votingRight],
         votingRightSource = this[MemberTable.votingRightSource],
         votingRightChangedAt = if (includeLastLogin) this[MemberTable.votingRightChangedAt] else null,
+        // V154 -- the marker is a membership fact shown to every roster caller; the date and the consent flag only to BOARD/ADMIN
+        // (`includeFamilyDetails` is exactly `current.isPrivileged` at every call site), never to a chapter-scoped officer.
+        foundingMember = this[MemberTable.foundingMember],
+        foundingMemberSince = if (includeFamilyDetails && !chapterScoped) this[MemberTable.foundingMemberSince] else null,
+        foundingMemberPublicConsent =
+            includeFamilyDetails && !chapterScoped && this[MemberTable.foundingMemberConsentGrantedAt] != null,
     )
 
 /** V1.9.141 -- see [toMemberAdminRowDto] `countryViewer`. `null` for non-privileged viewers and for peer-masked rows. */
@@ -2188,6 +2314,8 @@ fun ResultRow.toMemberDto(nationalityCodes: List<String> = MemberCountryStore.lo
         nationalityCodes = nationalityCodes,
         countryLegacy = if (this[MemberTable.countryCode] == null) this[MemberTable.country] else null,
         nationalityLegacy = if (nationalityCodes.isEmpty()) this[MemberTable.nationality] else null,
+        foundingMember = this[MemberTable.foundingMember],
+        foundingMemberPublic = FoundingMemberStore.isPublicEffective(this),
     )
 
 /** Welle V1.9.36 -- upper bound of [MemberService.listMembersForSelection]. */

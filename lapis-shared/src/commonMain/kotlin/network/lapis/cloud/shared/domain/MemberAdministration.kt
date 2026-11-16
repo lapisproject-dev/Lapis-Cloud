@@ -107,6 +107,12 @@ data class MemberAdminRowDto(
     val votingRightSource: VotingRightSource = VotingRightSource.DEFAULT,
     /** Welle V1.9.298 -- last explicit change of [votingRight] (UTC, Klasse A); `null` while [votingRightSource] is DEFAULT. */
     val votingRightChangedAt: LocalDateTime? = null,
+    /** V154 -- the board marked the member as a founding member. */
+    val foundingMember: Boolean = false,
+    /** V154 -- optional "founding member since" date (Klasse D). BOARD/ADMIN only, otherwise `null`. */
+    val foundingMemberSince: LocalDate? = null,
+    /** V154 -- the member allowed the public display. Filled for BOARD/ADMIN only, always `false` for every other caller (same idiom as [hasPhoto]). */
+    val foundingMemberPublicConsent: Boolean = false,
 )
 
 /** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */
@@ -169,6 +175,8 @@ data class MemberAdminQuery(
     val countryCode: String? = null,
     /** Filter to exactly this member (UUID text), used by the `?member=` deep link, e.g. from the LupaBB comparison. */
     val memberId: String? = null,
+    /** V154 -- filter to founding members only. */
+    val foundingMemberOnly: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_LIMIT = 25

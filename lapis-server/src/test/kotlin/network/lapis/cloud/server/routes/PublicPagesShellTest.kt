@@ -74,6 +74,14 @@ class PublicPagesShellTest :
             html shouldNotContain "auth-actions"
         }
 
+        test("the founding-member line appears on the verification page only with the public flag; without it the page is byte-identical") {
+            MemberCardPublicHtml.validPage(branding = branding, baseUrl = base, card = card) shouldNotContain "Gründungsmitglied"
+            MemberCardPublicHtml.validPage(branding = branding, baseUrl = base, card = card.copy(foundingMemberPublic = false)) shouldBe
+                pages.getValue("valid")
+            MemberCardPublicHtml.validPage(branding = branding, baseUrl = base, card = card.copy(foundingMemberPublic = true)) shouldContain
+                "Gründungsmitglied"
+        }
+
         test("invalid page is neutral (no error callout, no alert role) and offers the home action") {
             val html = pages.getValue("invalid")
             html shouldNotContain "auth-callout--error"

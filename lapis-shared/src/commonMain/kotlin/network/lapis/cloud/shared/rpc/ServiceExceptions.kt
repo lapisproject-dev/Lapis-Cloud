@@ -1216,3 +1216,27 @@ class ConferenceStreamTargetKeyPersistentException(
 class ConferenceStreamReconnectFailedException(
     override val message: String = "The target could not be reconnected",
 ) : AbstractServiceException()
+
+/** Welle V1.9.305 -- distinct type. Publication requested but the board has not marked the caller as a founding member. */
+@RpcServiceException
+class FoundingMemberNotSetException(
+    override val message: String = "Not marked as a founding member",
+) : AbstractServiceException()
+
+/** Welle V1.9.305 -- distinct type. The caller's status does not allow publishing the founding-member label. */
+@RpcServiceException
+class FoundingMemberNotEligibleException(
+    override val message: String = "Member status does not allow publishing the founding-member label",
+) : AbstractServiceException()
+
+/** Welle V1.9.305 -- distinct type. The consent text version sent differs from the current one. */
+@RpcServiceException
+class FoundingMemberConsentOutdatedException(
+    override val message: String = "The consent text has changed -- please confirm again",
+) : AbstractServiceException()
+
+/** Welle V1.9.305 -- distinct type. Too many founding-member visibility changes. */
+@RpcServiceException
+class FoundingMemberRateLimitedException(
+    override val message: String = "Too many founding-member actions",
+) : AbstractServiceException()

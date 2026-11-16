@@ -237,6 +237,12 @@ object MemberStatusSets {
     val MEMBER_PHOTO_ELIGIBLE: Set<MemberStatus> = ORGANIZATION_MEMBER
 
     /**
+     * Welle V1.9.305 "Gruendungsmitglied". Who may publish the founding-member label: only an [MemberStatus.ACTIVE] member. The public
+     * readers re-check the CURRENT status on every request, so the label disappears the moment a member loses ACTIVE.
+     */
+    val FOUNDING_MEMBER_PUBLICATION_ELIGIBLE: Set<MemberStatus> = setOf(MemberStatus.ACTIVE)
+
+    /**
      * Welle V1.9.5 "Vorstands-Karte" (member map, second attempt). Deliberately just
      * [ORGANIZATION_MEMBER] -- narrower than e.g. [ANNIVERSARY_ELIGIBLE] or
      * [CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE]'s own reasoning would suggest for a "member" concept, but
@@ -404,6 +410,10 @@ data class MemberDto(
     val countryLegacy: String? = null,
     /** Welle V1.9.121 -- raw legacy `member.nationality` text, only while [nationalityCodes] is empty. */
     val nationalityLegacy: String? = null,
+    /** V154 -- the board marked the member as a founding member (own view, "Meine Daten"). */
+    val foundingMember: Boolean = false,
+    /** V154 -- the founding-member label is effectively public right now (consent given, current wording, still ACTIVE). */
+    val foundingMemberPublic: Boolean = false,
 )
 
 /**

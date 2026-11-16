@@ -89,6 +89,14 @@ public object MemberTable : Table("member") {
     public val votingRightSource: Column<VotingRightSource> = enumerationByName<VotingRightSource>("voting_right_source", 16).default(VotingRightSource.DEFAULT)
     public val votingRightChangedAt: Column<LocalDateTime?> = datetime("voting_right_changed_at").nullable()
 
+    // V154 founding member marker -- see V154__member_founding_member.sql and docs/features/founding-member.adoc. Set by BOARD/ADMIN only; only
+    // FoundingMemberStore writes these four columns (plus the DSGVO erasure). The consent (granted_at + version) lives here, not in a side
+    // table. The three CHECKs are plain SQL in V154 (like V150).
+    public val foundingMember: Column<Boolean> = bool("founding_member").default(false)
+    public val foundingMemberSince: Column<LocalDate?> = date("founding_member_since").nullable()
+    public val foundingMemberConsentGrantedAt: Column<LocalDateTime?> = datetime("founding_member_consent_granted_at").nullable()
+    public val foundingMemberConsentVersion: Column<String?> = varchar("founding_member_consent_version", 32).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 3 check constraint(s) declared on this entity are not

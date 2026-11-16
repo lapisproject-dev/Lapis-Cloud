@@ -240,6 +240,14 @@ internal object MemberRoleStatusMutations {
             actorRole = actor?.role,
             now = now,
         )
+        // V154: the founding-member label consent ends when the member leaves ACTIVE (never revived by a reactivation).
+        FoundingMemberStore.revokePublicationOnStatusLoss(
+            memberId = targetId,
+            newStatus = newStatus,
+            actorMemberId = actor?.memberId,
+            actorRole = actor?.role,
+            now = now,
+        )
         // V1.9.144: a member who is no longer ACTIVE ends the member finder consent (plain database code, nothing audited).
         MemberFinderLifecycle.onStatusChange(memberId = targetId, newStatus = newStatus, now = now)
         if (newStatus == MemberStatus.ACTIVE) {

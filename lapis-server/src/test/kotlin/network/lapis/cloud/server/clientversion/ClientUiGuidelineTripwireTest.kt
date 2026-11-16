@@ -841,7 +841,12 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- FILTER_IS_NOT_A_FORM,
         // same reason as every statusSelect/committeeFilterSelect above: narrows the member roster by
         // chapter, never submitted.
-        "MemberAdministrationScreen.kt" to listOf("filterRow.select( [label \"Landesverband\"]"),
+        "MemberAdministrationScreen.kt" to
+            listOf(
+                "filterRow.select( [label \"Landesverband\"]",
+                // V154: narrows the roster to founding members, never submitted (FILTER_IS_NOT_A_FORM)
+                "filterRow.select( [label \"Gründungsmitglied\"]",
+            ),
         // AREA / ACTION SELECTOR (never submitted)
         "CommunicationScreen.kt" to listOf("val listSelect = row.select(options = emptyList(), label = tr(\"Mailingliste\"))"),
         "MyVolunteerShiftsScreen.kt" to

@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PoliticianProfileTable
 import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
+import network.lapis.cloud.server.member.FoundingMemberStore
 import network.lapis.cloud.server.memberbio.MemberPublicBioStore
 import network.lapis.cloud.server.memberphoto.MemberPhotoPolicy
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
@@ -48,6 +49,8 @@ internal data class PublicPersonCard(
     val roleOrOffice: String?,
     val photoToken: String?,
     val bio: String?,
+    /** V154 -- the founding-member label, only while it is effectively public (consent, current wording, ACTIVE). */
+    val foundingMember: Boolean = false,
 )
 
 /** A board card keeps the [role] so renderers can translate it; the card's own `roleOrOffice` stays `null`. */
@@ -131,6 +134,7 @@ internal object PublicProfilesReader {
                             roleOrOffice = null,
                             photoToken = row.photoToken(),
                             bio = row.bioText(),
+                            foundingMember = FoundingMemberStore.isPublicEffective(row),
                         ),
                     role = row[CommitteeMembershipTable.role],
                 )
@@ -171,6 +175,7 @@ internal object PublicProfilesReader {
                     roleOrOffice = publicOfficeText(row[PoliticianProfileTable.mandateText]),
                     photoToken = row.photoToken(),
                     bio = row.bioText(),
+                    foundingMember = FoundingMemberStore.isPublicEffective(row),
                 )
             }
     }

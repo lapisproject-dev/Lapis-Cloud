@@ -1,0 +1,71 @@
+= Founding member marker
+:toc:
+
+A board can mark a member as a founding member. The marker is a fact about the membership (like the voting right), it is not an honor
+(`MemberHonor`) and has no relation to it.
+
+== Who sets it
+
+* Only BOARD and ADMIN, only in the member administration (`setFoundingMember`). Nobody marks their own row (four-eyes principle); BOARD never
+  writes an ADMIN's row (peer protection, as for the other protected profile data).
+* The marker needs a real organization member (status ACTIVE); anonymised members are refused. Removing a stale marker from a former member stays possible.
+* The optional "founding member since" date may not lie in the future (organization-local today). It is shown in the member administration only,
+  never on a public page, the card or the embed feeds.
+* `FoundingMemberStore` is the only writer of the four columns (`founding_member`, `founding_member_since`, `founding_member_consent_granted_at`,
+  `founding_member_consent_version`); the only exception is the DSGVO erasure, which resets all four.
+
+== Where the label appears
+
+[cols="2,2,3"]
+|===
+|Place |Condition |Note
+
+|Member administration (roster chip, editor)
+|BOARD/ADMIN/TREASURER see the chip; BOARD/ADMIN see the date and whether a consent exists
+|Filter "Nur Gründungsmitglieder"; the filter is server-side.
+
+|Membership card PDF
+|always (the printed card belongs to the member)
+|On its own line below the status, without a date. A card that was downloaded earlier shows the label only after it is reissued.
+
+|Verification page of the QR code (anonymous)
+|only with an effective consent
+|Without consent the page is byte-identical to the page without the field.
+
+|`/vorstand`, `/politiker`, embed feeds `board` and `politicians`
+|only with an effective consent, only for persons already listed there
+|The feed field `foundingMember` is always present (`false` unless the consent is effective).
+
+|Member finder, REST API v1, MCP tools, `/transparenz`, webhook and partner payloads
+|never
+|Pinned by `FoundingMemberWriterTripwireTest`.
+|===
+
+There is no wallet pass variant of the membership card in this code base.
+
+== Consent
+
+The member decides on "Meine Daten" whether the label is shown publicly. The wording is `FoundingMemberRules.CONSENT_TEXT`, version
+`FoundingMemberRules.CONSENT_TEXT_VERSION`; a change of the wording requires a new version (pinned by `FoundingMemberRulesTest`). The consent is
+*effective* only while all of these hold (`FoundingMemberStore.publicEffectiveCondition`, evaluated live on every request; its Kotlin twin
+`isPublicEffective` is tested against it): marker set, consent for the current wording, status ACTIVE, not anonymised.
+
+The consent ends, and is never revived, when the board removes the marker (`PUBLICATION_REVOKED`) and when the member leaves ACTIVE
+(`PUBLICATION_REVOKED_BY_STATUS_CHANGE`). Marking a member again later therefore starts private.
+
+== Audit
+
+Every real change writes one `MEMBER`/`UPDATE` entry as the last write of its transaction, with a `FoundingMemberAuditFacts` snapshot: a fixed event
+key (`member.founding_member.set`, `.cleared`, `.since_changed`, `.publication_revoked`, `.published`, `.unpublished`,
+`.publication_revoked_by_status_change`), the "since" date before/after where it changed and the consent version. Never the consent text, never a
+name. A call that changes nothing writes nothing.
+
+== Backup
+
+The consent columns live on `member`, so they are part of the organization backup, and a restored consent is effective again. (Photo and short bio
+keep their consent in side tables that the backup excludes; the founding-member consent was specified on the member row.) The four columns change the
+live schema checksum, so a bundle made before V154 is refused on restore; there is no constant to bump.
+
+== Later
+
+A general model for published profile fields (one consent mechanism for photo, short bio and labels like this one) is a possible follow-up.

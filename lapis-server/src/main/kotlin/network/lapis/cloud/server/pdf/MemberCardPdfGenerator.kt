@@ -3,6 +3,7 @@ package network.lapis.cloud.server.pdf
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.events.QrCodeMatrix
+import network.lapis.cloud.shared.domain.FoundingMemberRules
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -71,6 +72,8 @@ internal object MemberCardPdfGenerator {
         val statusLabel: String,
         val membershipTierName: String?,
         val qr: QrCodeMatrix,
+        /** V154 -- the board marked the member as a founding member; printed on the card regardless of the public-display consent. */
+        val foundingMember: Boolean = false,
     )
 
     fun generate(card: Card): ByteArray {
@@ -228,6 +231,20 @@ internal class MemberCardPdfBuilder {
             maxWidth = columnWidth,
         )
         y -= STATUS_FONT_SIZE + 5f
+
+        // V154: on its own line (the status line would be ellipsised at 122 pt); no date, printed regardless of the public-display consent.
+        if (card.foundingMember) {
+            drawFitted(
+                stream = stream,
+                text = FoundingMemberRules.LABEL,
+                font = boldFont,
+                size = META_FONT_SIZE,
+                x = MARGIN_PT,
+                baselineY = y,
+                maxWidth = columnWidth,
+            )
+            y -= META_FONT_SIZE + 5f
+        }
 
         card.membershipTierName?.let { tier ->
             drawFitted(

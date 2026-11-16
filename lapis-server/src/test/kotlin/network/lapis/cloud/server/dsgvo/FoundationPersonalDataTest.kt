@@ -70,6 +70,30 @@ class FoundationPersonalDataTest :
             exported["dateOfDeath"]?.jsonPrimitive?.content shouldBe "2026-03-03"
         }
 
+        test("founding member marker: exported with date and consent, reset in every erasure mode (CHECKs satisfied)") {
+            for (mode in listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED)) {
+                val member = newDeceasedMember(null)
+                transaction {
+                    MemberTable.update({ MemberTable.id eq member }) {
+                        it[foundingMember] = true
+                        it[foundingMemberSince] = LocalDate(2019, 3, 1)
+                        it[foundingMemberConsentGrantedAt] = LocalDateTime(2026, 1, 1, 10, 0)
+                        it[foundingMemberConsentVersion] = "1"
+                    }
+                }
+                val exported = transaction { FoundationPersonalData.exportMember(member) }
+                exported["foundingMember"]?.jsonPrimitive?.content shouldBe "true"
+                exported["foundingMemberSince"]?.jsonPrimitive?.content shouldBe "2019-03-01"
+                exported["foundingMemberConsentVersion"]?.jsonPrimitive?.content shouldBe "1"
+                transaction { FoundationPersonalData.eraseMember(memberId = member, mode = mode) }
+                val row = transaction { MemberTable.selectAll().where { MemberTable.id eq member }.single() }
+                row[MemberTable.foundingMember] shouldBe false
+                row[MemberTable.foundingMemberSince] shouldBe null
+                row[MemberTable.foundingMemberConsentGrantedAt] shouldBe null
+                row[MemberTable.foundingMemberConsentVersion] shouldBe null
+            }
+        }
+
         test("exportMember: dateOfDeath is null in the export when not recorded") {
             val member = newDeceasedMember(null)
             val exported = transaction { FoundationPersonalData.exportMember(member) }

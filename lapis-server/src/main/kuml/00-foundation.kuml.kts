@@ -349,6 +349,25 @@ classDiagram(name = "Foundation") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "voting_right_changed_at" }
         }
+        // V154 founding member marker -- see V154__member_founding_member.sql and docs/features/founding-member.adoc. Set by BOARD/ADMIN only; only
+        // FoundingMemberStore writes these four columns (plus the DSGVO erasure). The consent (granted_at + version) lives here, not in a side
+        // table. The three CHECKs are plain SQL in V154 (like V150).
+        attribute(name = "foundingMember", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "founding_member" }
+        }
+        attribute(name = "foundingMemberSince", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "founding_member_since" }
+        }
+        attribute(name = "foundingMemberConsentGrantedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "founding_member_consent_granted_at" }
+        }
+        attribute(name = "foundingMemberConsentVersion", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "founding_member_consent_version"; "sqlType" to "VARCHAR(32)" }
+        }
     }
 
     association(source = membershipTier, target = member, id = "assoc-member-membership-tier") {

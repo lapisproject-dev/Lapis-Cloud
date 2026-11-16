@@ -19,6 +19,7 @@ import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -29,6 +30,7 @@ import network.lapis.cloud.server.chapters.ChapterCrestFormat
 import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.embed.EmbedOriginAllowlist
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -40,7 +42,12 @@ import network.lapis.cloud.server.memberphoto.MemberPhotoStorage
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.rpc.PublicRankingConsentStore
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.FoundingMemberRules
 import network.lapis.cloud.shared.domain.PoliticianProfileStatus
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.statements.UpdateStatement
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.minutes
 
 private const val ORIGIN = "https://partei.example"
@@ -121,7 +128,8 @@ class EmbedProfilesFeedRoutesTest :
                 val raw = response.bodyAsText()
                 Json.parseToJsonElement(raw).jsonObject.keys shouldBe setOf("board")
                 val item = itemsOf(raw, "board").map { it.jsonObject }.single()
-                item.keys() shouldBe setOf("name", "role", "roleLabel", "photoUrl", "bio")
+                item.keys() shouldBe setOf("name", "role", "roleLabel", "photoUrl", "bio", "foundingMember")
+                item.getValue("foundingMember").jsonPrimitive.content shouldBe "false"
                 item.getValue("name").jsonPrimitive.content shouldBe "Vera Vorsitz"
                 item.getValue("role").jsonPrimitive.content shouldBe "CHAIR"
                 item.getValue("roleLabel").jsonPrimitive.content shouldBe "Vorsitz"
@@ -150,7 +158,7 @@ class EmbedProfilesFeedRoutesTest :
             fixtures.addBoardSeat(memberId = member, role = CommitteeRole.MEMBER)
             testApp {
                 val item = itemsOf(feed("/api/embed/v1/board").bodyAsText(), "board").map { it.jsonObject }.single()
-                item.keys() shouldBe setOf("name", "role", "roleLabel")
+                item.keys() shouldBe setOf("name", "role", "roleLabel", "foundingMember")
             }
         }
 
@@ -200,6 +208,46 @@ class EmbedProfilesFeedRoutesTest :
             }
         }
 
+        // ── founding member (V154) ────────────────────────────────────────────────
+
+        test("founding member: the label is public only with marker AND consent for the current wording AND ACTIVE AND not anonymised") {
+            val member = fixtures.newMember(displayName = "Gründer Gustav")
+            fixtures.addBoardSeat(memberId = member, role = CommitteeRole.CHAIR)
+            val consent = LocalDateTime(2026, 1, 1, 0, 0)
+
+            fun set(body: MemberTable.(UpdateStatement) -> Unit) =
+                transaction { MemberTable.update({ MemberTable.id eq member }, body = body) }
+
+            suspend fun flag(): String {
+                var out = ""
+                testApp { out = feed("/api/embed/v1/board").bodyAsText() }
+                return itemsOf(out, "board")
+                    .map { it.jsonObject }
+                    .single()
+                    .getValue("foundingMember")
+                    .jsonPrimitive.content
+            }
+            // marker without consent: not public
+            set { it[foundingMember] = true }
+            flag() shouldBe "false"
+            // consent for an outdated wording: not public
+            set {
+                it[foundingMemberConsentGrantedAt] = consent
+                it[foundingMemberConsentVersion] = "0"
+            }
+            flag() shouldBe "false"
+            // marker + consent for the current wording: public, no date anywhere
+            set { it[foundingMemberConsentVersion] = FoundingMemberRules.CONSENT_TEXT_VERSION }
+            flag() shouldBe "true"
+            testApp { feed("/api/embed/v1/board").bodyAsText() shouldNotContain "since" }
+            // consent withdrawn: not public
+            set {
+                it[foundingMemberConsentGrantedAt] = null
+                it[foundingMemberConsentVersion] = null
+            }
+            flag() shouldBe "false"
+        }
+
         // ── politicians ───────────────────────────────────────────────────────────
 
         test("politicians: exact key set -- name, office, photoUrl, bio -- and no ranking, trust or like figure anywhere in the raw JSON") {
@@ -212,7 +260,8 @@ class EmbedProfilesFeedRoutesTest :
                 val raw = feed("/api/embed/v1/politicians").bodyAsText()
                 Json.parseToJsonElement(raw).jsonObject.keys shouldBe setOf("politicians")
                 val item = itemsOf(raw, "politicians").map { it.jsonObject }.single()
-                item.keys() shouldBe setOf("name", "office", "photoUrl", "bio")
+                item.keys() shouldBe setOf("name", "office", "photoUrl", "bio", "foundingMember")
+                item.getValue("foundingMember").jsonPrimitive.content shouldBe "false"
                 item.getValue("office").jsonPrimitive.content shouldBe "Abgeordnete des Landtags"
                 item.getValue("photoUrl").jsonPrimitive.content shouldBe "$BASE/public/member-photos/$token"
                 for (forbidden in listOf(

@@ -48,6 +48,11 @@ object FoundationPersonalData : MemberPersonalDataContributor {
             put("anonymizedAt", memberRow[MemberTable.anonymizedAt]?.toString())
             // V0.4.1 postal address -- PII, exported alongside displayName/email.
             put("title", memberRow[MemberTable.title])
+            // V154 founding member marker (the board's fact about the member) and the member's own consent.
+            put("foundingMember", memberRow[MemberTable.foundingMember])
+            put("foundingMemberSince", memberRow[MemberTable.foundingMemberSince]?.toString())
+            put("foundingMemberConsentGrantedAt", memberRow[MemberTable.foundingMemberConsentGrantedAt]?.toString())
+            put("foundingMemberConsentVersion", memberRow[MemberTable.foundingMemberConsentVersion])
             put("street", memberRow[MemberTable.street])
             put("postalCode", memberRow[MemberTable.postalCode])
             put("city", memberRow[MemberTable.city])
@@ -110,6 +115,11 @@ object FoundationPersonalData : MemberPersonalDataContributor {
                 it[anonymizedAt] = nowUtc()
                 // V0.4.1 postal address -- PII, nulled out alongside displayName/email on anonymization.
                 it[title] = null
+                // V154 -- marker, date and consent are personal data; reset in the same UPDATE (the CHECKs are evaluated per row).
+                it[foundingMember] = false
+                it[foundingMemberSince] = null
+                it[foundingMemberConsentGrantedAt] = null
+                it[foundingMemberConsentVersion] = null
                 it[street] = null
                 it[postalCode] = null
                 it[city] = null

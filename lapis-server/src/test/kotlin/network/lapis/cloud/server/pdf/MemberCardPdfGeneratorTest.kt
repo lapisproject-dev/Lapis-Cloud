@@ -22,6 +22,7 @@ class MemberCardPdfGeneratorTest :
             memberNumber: String = "M-2026-00042",
             statusLabel: String = "Mitglied",
             tier: String? = "Vollmitgliedschaft",
+            foundingMember: Boolean = false,
         ) = MemberCardPdfGenerator.Card(
             brandTitle = "Lapis Cloud",
             displayName = displayName,
@@ -29,6 +30,7 @@ class MemberCardPdfGeneratorTest :
             joinedAt = LocalDate(2026, 2, 1),
             statusLabel = statusLabel,
             membershipTierName = tier,
+            foundingMember = foundingMember,
             qr = QrCodeEncoder.encode("https://cloud.example.org/ausweis?code=0123456789ABCDEF"),
         )
 
@@ -55,6 +57,21 @@ class MemberCardPdfGeneratorTest :
             text shouldContain "Mitglied seit 01.02.2026"
             text shouldContain "Vollmitgliedschaft"
             text shouldContain "M-2026-00042"
+        }
+
+        test("a founding member's card carries the label on its own line, without a date, and still fits one page") {
+            val text = textOf(MemberCardPdfGenerator.generate(card(foundingMember = true)))
+            text shouldContain "Gründungsmitglied"
+            text shouldContain "M-2026-00042"
+            text shouldNotContain "seit 2019"
+            textOf(MemberCardPdfGenerator.generate(card())) shouldNotContain "Gründungsmitglied"
+            // the longest realistic combination: long status, long tier, long name -- still ONE page, number still printed
+            val worst =
+                MemberCardPdfGenerator.generate(
+                    card(displayName = "Maximiliane Konstantinopolitanische-Wolkenstein", foundingMember = true),
+                )
+            Loader.loadPDF(worst).use { it.numberOfPages shouldBe 1 }
+            textOf(worst) shouldContain "M-2026-00042"
         }
 
         test("a member without a membership tier still gets a complete card") {

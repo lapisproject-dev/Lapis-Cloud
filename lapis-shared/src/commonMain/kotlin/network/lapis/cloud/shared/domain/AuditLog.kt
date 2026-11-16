@@ -1184,6 +1184,8 @@ data class MemberChangeSnapshot(
      * number. Default `null`: older rows decode unchanged.
      */
     val lupabbManualApply: Boolean? = null,
+    /** Welle V1.9.305 -- the founding-member event this entry records (see [FoundingMemberAuditFacts]). Default `null`: older rows decode unchanged. */
+    val foundingMember: FoundingMemberAuditFacts? = null,
 )
 
 /** Welle V1.9.298 -- the voting-right change an audit entry records. Fixed keys, no values. */

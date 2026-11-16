@@ -107,6 +107,7 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     renderMcpAccessSection(root)
     renderMemberEmailSection(root)
     renderMemberTitleSection(root)
+    renderMemberFoundingMemberSection(root)
     renderMemberAddressSection(root)
     renderChangePassword(root)
     AppState.session?.status?.let { renderMemberCardSection(root, it) }

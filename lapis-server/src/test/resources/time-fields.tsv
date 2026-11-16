@@ -1126,3 +1126,8 @@ col:BulletinNoticeTable.withdrawnAt	A	stamped by the server clock (DbClock/Serve
 col:BulletinNoticeTable.removedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceRoomPollTable.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC (the LTR weight of an answer and the 240 minute limit are measured from it)
 col:ConferenceRoomPollTable.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC (the result stays visible for 12 hours after it)
+dto:FoundingMemberAuditFacts.sinceBefore	D	calendar date (LocalDate); never converted
+dto:FoundingMemberAuditFacts.sinceAfter	D	calendar date (LocalDate); never converted
+dto:MemberAdminRowDto.foundingMemberSince	D	calendar date (LocalDate); never converted (BOARD/ADMIN only)
+col:MemberTable.foundingMemberSince	D	calendar date (LocalDate); entered by a person, never converted, not in the future (organisation-local today)
+col:MemberTable.foundingMemberConsentGrantedAt	A	stamped by the server clock (DbClock/ServerClock); stored and sent as UTC

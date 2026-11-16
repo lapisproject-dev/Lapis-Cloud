@@ -9,6 +9,7 @@ import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.ul
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.shared.domain.FoundingMemberRules
 import java.text.BreakIterator
 import java.util.Locale
 
@@ -147,6 +148,13 @@ internal object PublicProfilesHtml {
             h2(classes = "person-name") {
                 attributes["lang"] = "de"
                 +card.name
+            }
+            if (card.foundingMember) {
+                // V154 -- a neutral label (no icon, no gold); only present while the member's consent is effective.
+                p(classes = "person-role founding-member") {
+                    attributes["lang"] = "de"
+                    +FoundingMemberRules.LABEL
+                }
             }
             if (roleText != null) {
                 p(classes = "person-role") { +roleText }

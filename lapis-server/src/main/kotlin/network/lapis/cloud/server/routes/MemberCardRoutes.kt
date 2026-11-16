@@ -130,6 +130,7 @@ fun Route.registerMemberCardRoutes(
                     joinedAt = issued.card.joinedAt,
                     statusLabel = MemberCardEligibility.statusLabel(issued.card.status),
                     membershipTierName = issued.card.membershipTierName,
+                    foundingMember = issued.card.foundingMember,
                     qr = QrCodeEncoder.encode(MemberCardPolicy.verifyUrl(baseUrl = baseUrl, rawCode = issued.rawCode)),
                 ),
             )

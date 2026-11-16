@@ -49,6 +49,7 @@ internal object MemberCardIssuance {
         val joinedAt: LocalDate,
         val status: MemberStatus,
         val membershipTierName: String?,
+        val foundingMember: Boolean = false,
     )
 
     /**
@@ -135,6 +136,7 @@ internal object MemberCardIssuance {
             joinedAt = row[MemberTable.joinedAt],
             status = status,
             membershipTierName = tierName,
+            foundingMember = row[MemberTable.foundingMember],
         )
     }
 }

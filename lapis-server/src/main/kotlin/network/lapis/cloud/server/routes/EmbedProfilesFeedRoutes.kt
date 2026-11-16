@@ -43,6 +43,8 @@ internal data class EmbedBoardMemberDto(
     val roleLabel: String,
     val photoUrl: String? = null,
     val bio: String? = null,
+    /** V154 -- NO default on purpose: the feed JSON omits defaults, but the field is always present (`false` unless the member consented). */
+    val foundingMember: Boolean,
 )
 
 @Serializable
@@ -57,6 +59,8 @@ internal data class EmbedPoliticianDto(
     val office: String? = null,
     val photoUrl: String? = null,
     val bio: String? = null,
+    /** V154 -- see [EmbedBoardMemberDto.foundingMember]. */
+    val foundingMember: Boolean,
 )
 
 @Serializable
@@ -116,6 +120,7 @@ internal fun Route.registerEmbedProfilesFeedRoutes(
                     roleLabel = item.role.publicLabel(PublicChrome.stringsFor(PublicLanguage.DE)),
                     photoUrl = PublicProfileUrls.photoUrl(baseUrl = baseUrl, token = item.card.photoToken),
                     bio = item.card.bio,
+                    foundingMember = item.card.foundingMember,
                 )
             }
         EMBED_PROFILES_FEED_JSON.encodeToString(EmbedBoardResponse.serializer(), EmbedBoardResponse(items))
@@ -134,6 +139,7 @@ internal fun Route.registerEmbedProfilesFeedRoutes(
                     office = card.roleOrOffice,
                     photoUrl = PublicProfileUrls.photoUrl(baseUrl = baseUrl, token = card.photoToken),
                     bio = card.bio,
+                    foundingMember = card.foundingMember,
                 )
             }
         EMBED_PROFILES_FEED_JSON.encodeToString(EmbedPoliticiansResponse.serializer(), EmbedPoliticiansResponse(items))

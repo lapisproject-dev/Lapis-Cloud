@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CountryLegacyMappingReportDto
 import network.lapis.cloud.shared.domain.CountryLegacyMappingResultDto
+import network.lapis.cloud.shared.domain.FoundingMemberVisibility
 import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
 import network.lapis.cloud.shared.domain.MemberAddressDataDto
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
@@ -15,6 +16,7 @@ import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberSelectionDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.OwnFoundingMemberDto
 import network.lapis.cloud.shared.domain.PasswordResetMailResultDto
 import network.lapis.cloud.shared.domain.TemporaryPasswordResultDto
 
@@ -598,4 +600,27 @@ interface IMemberService {
         memberId: String,
         title: String?,
     ): MemberDto
+
+    // ── Welle V1.9.305 -- APPENDED at the END (Kilua RPC numbers routes by declaration order) ──
+
+    /**
+     * Welle V1.9.305 -- BOARD/ADMIN only (never the caller's own row). Sets or clears the founding-member marker of [memberId]; [since] is
+     * an optional date, not in the future, ignored when clearing. Clearing also ends a public-display consent. Anonymised or non-member
+     * targets and a future date are a value-free `ConflictException`. A call that changes nothing writes no audit entry.
+     */
+    suspend fun setFoundingMember(
+        memberId: String,
+        foundingMember: Boolean,
+        since: LocalDate?,
+    ): MemberAdminRowDto
+
+    /**
+     * Welle V1.9.305 -- the caller's OWN consent to show the founding-member label publicly. PUBLIC needs the marker, an ACTIVE status and
+     * [consentTextVersion] equal to [network.lapis.cloud.shared.domain.FoundingMemberRules.CONSENT_TEXT_VERSION]; PRIVATE always works.
+     * Takes no member id.
+     */
+    suspend fun setOwnFoundingMemberVisibility(
+        visibility: FoundingMemberVisibility,
+        consentTextVersion: String?,
+    ): OwnFoundingMemberDto
 }

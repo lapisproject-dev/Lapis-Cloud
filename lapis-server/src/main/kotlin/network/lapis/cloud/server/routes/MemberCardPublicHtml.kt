@@ -11,6 +11,7 @@ import kotlinx.html.h1
 import kotlinx.html.p
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.pdf.formatGermanDate
+import network.lapis.cloud.shared.domain.FoundingMemberRules
 
 /**
  * Welle "Digitaler Mitgliedsausweis (PDF)" -- the unauthenticated verification page behind the
@@ -40,6 +41,8 @@ internal object MemberCardPublicHtml {
         val memberNumber: String,
         val statusLabel: String,
         val joinedAt: LocalDate,
+        /** V154 -- only when the label is effectively public (consent). `false` renders byte-identical to the page without this field. */
+        val foundingMemberPublic: Boolean = false,
     )
 
     fun validPage(
@@ -57,6 +60,10 @@ internal object MemberCardPublicHtml {
                 dd { +card.statusLabel }
                 dt { +"Mitglied seit" }
                 dd { +formatGermanDate(card.joinedAt) }
+                if (card.foundingMemberPublic) {
+                    dt { +FoundingMemberRules.LABEL }
+                    dd { +"Ja" }
+                }
             }
             p { +"Bitte gleichen Sie Name und Mitgliedsnummer mit dem vorgelegten Ausweis ab." }
         }

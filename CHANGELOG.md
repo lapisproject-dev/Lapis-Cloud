@@ -6,6 +6,27 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Founding member marker (wave V1.9.305, schema V153 -> V154)
+
+**Behaviour changes first:**
+
+1. **One additive migration, `V154__member_founding_member.sql`** (four columns on `member`, three CHECKs). V1 to V153 are untouched.
+2. **Backups made before V154 are refused on restore** by the schema checksum (the checksum is computed from the live columns; no constant to bump).
+3. **The embed feeds `board` and `politicians` get a field `foundingMember`**, always present (`false` unless the member consented).
+4. **The label appears on public pages and on the QR verification page only with the member's consent**; the printed card shows it regardless.
+5. **New RPC methods `setFoundingMember` and `setOwnFoundingMemberVisibility`** at the *end* of `IMemberService`; new exception types `FoundingMember*Exception`.
+
+**Added**
+
+- BOARD/ADMIN mark a member as a founding member (optional "since" date, not in the future); never their own row; BOARD never an ADMIN's row.
+- Roster chip, editor section and roster filter in the member administration.
+- "Meine Daten": the member's own, versioned consent to show the label publicly. It ends when the board removes the marker and when the member leaves ACTIVE.
+- The label on the membership card PDF (own line, no date) and, with consent, on the QR verification page, `/vorstand`, `/politiker` and the embed feeds.
+- Audit entries with fixed event keys; DSGVO export and erasure cover the four columns.
+- See `docs/features/founding-member.adoc`.
+
+**Not changed, on purpose:** the member finder, REST API v1, MCP tools, `/transparenz` and `MemberHonor` carry no founding-member field (tripwire test).
+
 ### Room polls for stream viewers (wave B, no migration, schema stays V153)
 
 **Behaviour changes first:**
