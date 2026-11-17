@@ -43,7 +43,7 @@ value a member already has by hand writes and audits nothing.
 
 == Where the voting right counts
 
-The electorate is *membership AND voting right* (`electorateMemberIds`). It is used wherever a circle of voters is *frozen* or decided:
+The electorate is *membership AND voting right* (`electorateMemberIds`); with `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING=true` a member without an external id does not hold the voting right either, see link:external-member-id.adoc[External member id]. It is used wherever a circle of voters is *frozen* or decided:
 
 [cols="2,3"]
 |===

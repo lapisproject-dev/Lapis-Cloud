@@ -10,6 +10,7 @@ See link:../features/voting-right-and-donors.adoc[the feature description] for w
 `eligibleMemberIds` / `isCommitteeEligible` / `countEligible` stay the pure *membership* of a circle (invitations, group messages, the rule preview). The *electorate* is a separate set of functions in
 `CommitteeEligibility.kt`:
 
+* Note: with `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING=true` the injected `VotingRightPolicy` additionally requires an external member id; see link:../features/external-member-id.adoc[External member id].
 * `electorateMemberIds(committee, date)`: the membership intersected with `member.voting_right = TRUE`. Manual committee: join with `member`; rule committee: the rule's set intersected in chunks of 500; General
   Assembly: `ACTIVE AND voting_right`.
 * `isCommitteeVoter`: the point query; pinned against `electorateMemberIds` by a parity test.
