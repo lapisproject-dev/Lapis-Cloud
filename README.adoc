@@ -88,9 +88,9 @@ this repository. This README describes only the technical scope.
 
 == Status
 
-Current release: *v0.54.0* (database schema *V155*; a feature release on `v0.53.0`: administrator rights as an independent account flag, founding member marker, room polls in video conferences and for stream viewers, board position "Finanzvorstand"; **breaking for operators:** `ADMIN` is now the flag `account.is_admin`, backups made before V155 are refused on restore. **Not verified:** nothing ran on a live instance, with real stream viewers or on a real phone; translations model-written. See `CHANGELOG.md` `[0.54.0]`. Previous release `v0.53.0` (schema *V151*, LupaBB comparison title and view).)
+Current release: *v0.55.0* (database schema *V156*; a feature release on `v0.54.0`: external member id from an ID-token claim or set by the board, optionally required for the voting right via `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING` (off by default); backups made before V156 are refused on restore. **Not verified:** not tested against a real Wabeo or LupaBB Keycloak claim, no live instance; translations model-written. See `CHANGELOG.md` `[0.55.0]`. Previous release `v0.54.0` (schema *V155*, administrator flag, founding member marker, room polls, board position "Finanzvorstand", Keycloak name claims).)
 
-* Not yet released: `CHANGELOG.md` `[Unreleased]` is empty; everything up to the administrator-flag wave is in `v0.54.0`.
+* Not yet released: `CHANGELOG.md` `[Unreleased]` is empty; everything up to the external member id wave is in `v0.55.0`.
 * `CHANGELOG.md` is the authoritative release history; the long-form narrative is in link:docs/release-history.adoc[docs/release-history.adoc].
 * Website: https://cloud.lapisproject.dev
 * Feature documentation: link:docs/features/index.adoc[docs/features/index.adoc]

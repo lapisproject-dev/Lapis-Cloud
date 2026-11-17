@@ -6,6 +6,12 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.55.0] — 2026-11-17
+
+Feature release on `[0.54.0]` (one wave; the database schema goes from `V155` to `V156`, one additive migration). **Behaviour changes for operators** are in the list below: the voting switch `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING` is off by default, backups made before `V156` are refused on restore.
+
+Contents: external member id (for example the Wabeo or LupaBB number), set from an ID-token claim or by the board, optionally required for the voting right.
+
 ### External member id (wave V1.9.307, schema V155 -> V156)
 
 Wave V1.9.307: a member can carry the identifier they hold in an external system (for example Wabeo/LupaBB). Schema `V156` (additive: two columns on `member`, a pair CHECK, a unique index on source + id); three new optional environment variables, all off by default.
