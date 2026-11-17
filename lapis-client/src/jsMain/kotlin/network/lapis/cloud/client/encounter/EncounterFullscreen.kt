@@ -34,7 +34,8 @@ internal class EncounterFullscreen(
 
     private val onFullscreenChange: (Event) -> Unit = { syncFromDocument() }
     private val onKeyDown: (Event) -> Unit = { event ->
-        if (pseudo && (event as? KeyboardEvent)?.key == "Escape") leavePseudo()
+        // not when someone already handled the Escape (a dialog, a menu): that key press is theirs
+        if (pseudo && !event.defaultPrevented && (event as? KeyboardEvent)?.key == "Escape") leavePseudo()
     }
 
     init {

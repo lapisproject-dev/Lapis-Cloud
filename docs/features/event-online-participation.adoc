@@ -90,6 +90,10 @@ an event room outright any more but ask one decision function, `EventConferenceG
 conference), at exactly two places; every other function keeps the plain refusal. Tripwire tests
 (`EventConferenceGuardTripwireTest`) force a decision for every new room-id method.
 
+== Full screen in the guest call view (V1.9.309)
+
+The "Vollbild" button of the guest call view (between "Geräte" and "Verlassen") makes the whole call area full screen: recording notice, connection state line, tiles, control bar and device panel. Tiles grow to use the space. Without the Fullscreen API (iPhone Safari, mobile WebViews) a CSS fallback fills the viewport instead; Escape leaves it (in the real full screen the browser handles Escape). The consent dialog for a recording that is switched on later, leaving the call, a lost connection and navigating away end the full screen. The view stays deliberately minimal: no roster, chat or whiteboard.
+
 == Screen share of a guest without an account (V1.9.282)
 
 A person who joined without an account may share their screen **only while a moderator allows exactly this person** (the single most sensitive

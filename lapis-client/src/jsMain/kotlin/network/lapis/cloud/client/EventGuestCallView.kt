@@ -13,6 +13,7 @@ import io.kvision.panel.SimplePanel
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
+import network.lapis.cloud.client.encounter.EncounterFullscreen
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
 import network.lapis.cloud.client.livekit.DeviceEnumeration
@@ -23,6 +24,7 @@ import network.lapis.cloud.shared.conference.orderTilesByRaisedHands
 import network.lapis.cloud.shared.domain.ConferenceHandQueueDto
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.events.Event
 
 /** The phases of the guest call the state line tells apart. */
 internal enum class GuestCallPhase { CONNECTING, CONNECTED, RECONNECTING, ENDED, UNAVAILABLE, FAILED }
@@ -102,6 +104,8 @@ internal class EventGuestCallView(
     private val api: EventGuestApi = EventGuestHttp,
     /** V1.9.282: whether this device can share a screen (`getDisplayMedia`); a seam for the DOM test. */
     private val screenShareSupported: () -> Boolean = { screenShareAvailable() },
+    /** V1.9.309: seam for the DOM test: replaces the "is the Fullscreen API usable" check of [EncounterFullscreen] (null = the real check). */
+    private val fullscreenNativeSupported: (() -> Boolean)? = null,
 ) {
     private var gridElement: HTMLElement? = null
     private val tiles = LinkedHashMap<String, HTMLElement>()
@@ -122,6 +126,12 @@ internal class EventGuestCallView(
     /** Seam for the DOM test: replaces the real [LiveKitRoomSession.setScreenShare]. */
     internal var screenShareStarter: (suspend (Boolean) -> Unit)? = null
     private lateinit var statusLine: Div
+
+    /** V1.9.309: the container of everything that belongs to the call; it is the element that goes to the full screen. */
+    private lateinit var stage: Div
+    private var fullscreen: EncounterFullscreen? = null
+    private var fullscreenButton: Button? = null
+    private var pageHideListener: ((Event) -> Unit)? = null
     private lateinit var stateLine: GuestStateLine
     private var phase = GuestCallPhase.CONNECTING
     private var devicePanel: EventGuestDevicePanel? = null
@@ -183,18 +193,34 @@ internal class EventGuestCallView(
     fun show() {
         // First in the picture: a person who joined an event that may be recorded sees, from the first frame on, whether it is (the join answer
         // carries the state at that moment; the server's packets update it).
-        captureBanner = EventCaptureBanner(host).also { it.render(response.captureLive) }
-        stateLine = GuestStateLine(host)
+        // V1.9.309: everything of the call lives in one stage element (the full-screen target). The consent dialog and "Erneut beitreten" stay on
+        // the host, outside of it. The destroy hook (the host was cleared: the person navigated within the app) ends the full screen.
+        stage = Div { addCssClasses("lapis-guest-stage") }
+        host.addWithLifecycle(stage, onDestroy = { disposeFullscreen() })
+        val pageHide: (Event) -> Unit = { disposeFullscreen() }
+        pageHideListener = pageHide
+        window.addEventListener("pagehide", pageHide)
+        fullscreen =
+            fullscreenNativeSupported.let { native ->
+                val element = { stage.getElement() as? HTMLElement }
+                if (native == null) {
+                    EncounterFullscreen(element = element, onChange = ::refreshFullscreenButton)
+                } else {
+                    EncounterFullscreen(element = element, onChange = ::refreshFullscreenButton, nativeSupported = native)
+                }
+            }
+        captureBanner = EventCaptureBanner(stage).also { it.render(response.captureLive) }
+        stateLine = GuestStateLine(stage)
         stateLine.render(phase, micOn, cameraOn)
         statusLine =
-            host.div {
+            stage.div {
                 setAttribute("role", "status")
                 setAttribute("aria-live", "polite")
                 addCssClasses("text-muted small")
             }
         // Hook registered BEFORE the grid is added (addWithLifecycle): the connection starts when the tile container really is in the document.
-        host.addWithLifecycle(
-            Div { addCssClasses("d-flex flex-wrap gap-2") },
+        stage.addWithLifecycle(
+            Div { addCssClasses("d-flex flex-wrap gap-2 lapis-guest-grid") },
             onInsert = { vnode ->
                 if (gridElement == null) {
                     gridElement = vnode.elm as? HTMLElement
@@ -204,11 +230,11 @@ internal class EventGuestCallView(
         )
         // The row of buttons wraps (a fourth button must not push the page wider than a 390 px phone); its buttons are added below, once the
         // panel they point at exists.
-        val controls = host.div(className = "d-flex flex-wrap gap-2 my-2")
+        val controls = stage.div(className = "d-flex flex-wrap gap-2 my-2 lapis-guest-controls")
         val open = runCatching { window.matchMedia("(min-width: 768px)").matches }.getOrDefault(false)
         val panel =
             EventGuestDevicePanel(
-                parent = host,
+                parent = stage,
                 port = devicePort,
                 onNote = { note -> statusLine.content = note },
                 onCameraSwitched = { showLocalVideo(localVideoTrack) },
@@ -233,6 +259,12 @@ internal class EventGuestCallView(
             setAttribute("aria-expanded", panel.isOpen.toString())
             onClick { setAttribute("aria-expanded", panel.toggle().toString()) }
         }
+        fullscreenButton =
+            controls.actionButton(ActionIcon.FULLSCREEN, tr("Vollbild"), style = ButtonStyle.OUTLINESECONDARY) {
+                setStyle("min-height", "44px")
+                setAttribute("aria-pressed", "false")
+                onClick { fullscreen?.toggle() }
+            }
         controls.button(tr("Verlassen"), style = ButtonStyle.OUTLINEDANGER) {
             setStyle("min-height", "44px")
             onClick { leave() }
@@ -250,7 +282,7 @@ internal class EventGuestCallView(
                 onClick { toggleScreenShare() }
             }
         shareLiveRegion =
-            host.div {
+            stage.div {
                 setAttribute("role", "status")
                 setAttribute("aria-live", "polite")
                 addCssClasses("text-muted small")
@@ -410,7 +442,7 @@ internal class EventGuestCallView(
      * V1.9.280 -- the server asks this guest to acknowledge the capture consent that was switched on after they entered. One dialog at a time; it closes
      * only when the server accepted. "Ablehnen" leaves the room (LiveKit is disconnected, nothing is stored about the refusal).
      */
-    private fun askCaptureConsent() {
+    internal fun askCaptureConsent() {
         val eventSlug = slug ?: return
         val token = response.token ?: return
         if (left) return
@@ -419,6 +451,8 @@ internal class EventGuestCallView(
         AppScope.launch {
             val notice = api.state(eventSlug)?.captureNotice ?: return@launch
             if (left || consentDialog?.isOpen == true) return@launch
+            // V1.9.309: the dialog is a sibling of the stage; a full screen stage would hide it (legal notice) -- leave the full screen first
+            fullscreen?.leaveIfActive()
             consentDialog =
                 showInRoomCaptureConsent(
                     parent = host,
@@ -446,9 +480,28 @@ internal class EventGuestCallView(
         }
     }
 
+    /** The button mirrors the state the [EncounterFullscreen] reports; this is the ONLY writer of `aria-pressed`, `active` and the icon. */
+    private fun refreshFullscreenButton(active: Boolean) {
+        val button = fullscreenButton ?: return
+        button.setAttribute("aria-pressed", active.toString())
+        if (active) button.addCssClass("active") else button.removeCssClass("active")
+        button.icon = actionIconClasses(if (active) ActionIcon.FULLSCREEN_EXIT else ActionIcon.FULLSCREEN)
+    }
+
+    /** Ends the full screen and removes every listener (idempotent). [EncounterFullscreen.dispose] does not report, so the button is reset here. */
+    internal fun disposeFullscreen() {
+        pageHideListener?.let { window.removeEventListener("pagehide", it) }
+        pageHideListener = null
+        val current = fullscreen ?: return
+        fullscreen = null
+        current.dispose()
+        refreshFullscreenButton(false)
+    }
+
     private fun leave() {
         if (left) return
         left = true
+        disposeFullscreen()
         endHands()
         disposeShare()
         consentDialog?.dispose()
@@ -463,6 +516,7 @@ internal class EventGuestCallView(
     private fun onConnectionEnded(ended: GuestCallPhase = GuestCallPhase.ENDED) {
         if (left) return
         left = true
+        disposeFullscreen()
         endHands()
         disposeShare()
         consentDialog?.dispose()
@@ -485,8 +539,10 @@ internal class EventGuestCallView(
         val grid = gridElement ?: return document.createElement("div") as HTMLElement
         val tile = document.createElement("div") as HTMLElement
         // position:relative: the hand badge and the hand ring of the tile are positioned against it
+        // the width lives in the class (`.lapis-guest-tile`, theme.css): in the full screen the tiles grow
+        tile.className = "lapis-guest-tile"
         tile.style.cssText =
-            "width:240px;max-width:100%;border:1px solid var(--bs-border-color);border-radius:6px;overflow:hidden;position:relative;"
+            "border:1px solid var(--bs-border-color);border-radius:6px;overflow:hidden;position:relative;"
         val media = document.createElement("div") as HTMLElement
         media.setAttribute("data-role", "media")
         media.style.cssText = "background:var(--bs-tertiary-bg);min-height:135px;"

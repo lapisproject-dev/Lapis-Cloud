@@ -146,6 +146,9 @@ private val CSS_LEDGER: Map<String, String> =
     mapOf(
         ".lapis-conference-call-panel.lapis-conference-fullscreen" to "E0",
         ".lapis-encounter-room.is-pseudo-fullscreen, .lapis-encounter-room:fullscreen" to "E0",
+        // V1.9.309: the guest call stage is a fixed-height fullscreen surface; its tile grid and device panel scroll inside it (the control bar never does)
+        ".lapis-guest-stage.is-pseudo-fullscreen .lapis-guest-grid, .lapis-guest-stage:fullscreen .lapis-guest-grid" to "E0",
+        ".lapis-guest-stage.is-pseudo-fullscreen .lapis-guest-devices, .lapis-guest-stage:fullscreen .lapis-guest-devices" to "E0",
         ".lapis-conference-fullscreen .lapis-conference-roster, .lapis-conference-fullscreen .lapis-conference-chat" to "E1",
         ".lapis-conference-roster, .lapis-conference-chat, .lapis-conference-fullscreen .lapis-conference-roster, " +
             ".lapis-conference-fullscreen .lapis-conference-chat" to "E1",

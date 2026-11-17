@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.309 "Vollbild im Gastgespräch" (full-screen button in the guest call view). No migration, no RPC change, nothing is stored.
+
+**Behaviour:** the call view of a person without an account (event online participation) has a new button "Vollbild" between "Geräte" and "Verlassen". It puts the whole call area on the full screen: recording notice, connection state line, tiles, control bar and device panel. The tiles grow to use the space (video fitted without cropping), the control bar stays visible at the bottom. Without the browser's Fullscreen API (iPhone Safari, many in-app WebViews) the area fills the viewport by CSS instead; Escape leaves that mode (in the real full screen the browser handles Escape). The consent question for a recording that is switched on later ends the full screen first, so it is never hidden. Leaving the call, a lost connection and navigating away also end it. The view stays deliberately minimal (no roster, chat or whiteboard). The label stays "Vollbild" in both states; the state is `aria-pressed`, the `active` class and the symbol.
+
+**Technique:** `EventGuestCallView` puts everything of the call into a stage element (`.lapis-guest-stage`; consent dialog and "Erneut beitreten" stay outside). The existing `EncounterFullscreen` is reused unchanged apart from one hardening: Escape leaves the CSS mode only when `defaultPrevented` is not set. The tile width moved from an inline style into the class `.lapis-guest-tile`. Cleanup on leave, on the end of the connection, on `pagehide` and when the stage is destroyed. No new msgid (the text "Vollbild" exists in the template and all seven catalogs).
+
+**Tests:** `EventGuestFullscreenDomTest` (button position, CSS fallback, Escape, handled Escape, native API simulated, rejected request, leave, host cleared, pagehide, consent dialog, DOM nesting, tile class), the full-screen msgid guard (added to `EventGuestHandI18nCatalogTest`), the scroll-surface ledger got two E0 entries for the stage.
+
+**Not verified:** not tried on a real iOS device or in a mobile in-app WebView; the CSS fallback is covered by DOM tests only.
+
 Wave V1.9.308 "Ausschreibungen, Auszahlung" (tenders, wave 3), schema `V156` -> `V157` (one additive migration). Not released yet: no version bump in this wave.
 
 **Behaviour changes first:**

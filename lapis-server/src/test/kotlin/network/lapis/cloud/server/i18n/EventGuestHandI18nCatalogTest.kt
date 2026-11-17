@@ -42,4 +42,19 @@ class EventGuestHandI18nCatalogTest :
                 reused.forEach { catalog.getValue(it).isNotBlank() shouldBe true }
             }
         }
+
+        // V1.9.309: i18n guard of the full-screen button in the guest call view ("Vollbild" is reused, no new msgid). It lives here, not in a
+        // class of its own: a NEW server test class shifts the distribution of the specs over the test JVMs and exposed an existing,
+        // order-dependent failure of TenderPayoutTest (see the V1.9.309 notes).
+        test("messages.pot carries the full-screen msgid exactly once") {
+            File(i18nDir, "messages.pot").readLines().count { it == "msgid \"Vollbild\"" } shouldBe 1
+        }
+
+        listOf("en", "es", "fr", "it", "nl", "pl", "ru").forEach { lang ->
+            test("messages-$lang.po translates the full-screen msgid without gendering characters") {
+                val text = entries(File(i18nDir, "messages-$lang.po")).getValue("Vollbild")
+                text.isNotBlank() shouldBe true
+                Regex("[*:_/]innen").containsMatchIn(text) shouldBe false
+            }
+        }
     })
