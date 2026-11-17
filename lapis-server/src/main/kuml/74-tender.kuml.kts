@@ -1,10 +1,10 @@
 // Tender domain -- tender / tender_bid / tender_award / tender_acceptance (V115__tenders.sql).
 //
-// Welle V1.9.201 "Ausschreibungen", wave 1 (foundation, LTR only, server side). A tender puts a task out to bid: it implements an ADOPTED
+// Welle V1.9.201 "Ausschreibungen", wave 1 (foundation, LTR only, server side); wave 3 (V1.9.308, migration V157) adds tender_payout and the statuses PAID / PAYOUT_FAILED. A tender puts a task out to bid: it implements an ADOPTED
 // resolution (a motion with status RESOLVED whose resolution is ADOPTED and was taken in the committee the motion is addressed to), participants
 // (ACTIVE, FRIEND and GUEST) bid in LTR before a deadline, the board awards (LOWEST_PRICE: an act of the board, the server enforces the cheapest
-// bid; BEST_OFFER: a committee resolution, the "award motion"), and finally accepts or rejects the result. Wave 1 moves NO LTR: the payout is
-// wave 3, `payout_ledger_entry_id` is reserved and never written.
+// bid; BEST_OFFER: a committee resolution, the "award motion"), and finally accepts or rejects the result. Wave 1 moved NO LTR; the payout of wave 3
+// (V1.9.308) is an ISSUANCE (one credit row TENDER_PAYOUT on the winner), written only by TenderPayout.kt.
 //
 // DECISIONS THAT SHAPE THE TABLES -- do not "repair" any of them:
 //   * tender.status is the STORED status. PUBLISHED past the deadline is CLOSED for every reader and is persisted by the next WRITING path
@@ -46,6 +46,16 @@ classDiagram(name = "Tender") {
             }
         }
 
+    // V1.9.308 (V157): id-only stub of the LTR ledger (the real entity lives in 08-ltr-balance.kuml.kts); tender_payout.ledger_entry_id points at it.
+    val ltrLedgerEntry =
+        classOf(name = "LtrLedgerEntry") {
+            stereotype("Entity") { "tableName" to "ltr_ledger_entry"; "kotlinObjectName" to "LtrLedgerEntryTable" }
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+        }
+
     val resolution =
         classOf(name = "Resolution") {
             stereotype("Entity") { "tableName" to "resolution"; "kotlinObjectName" to "ResolutionTable" }
@@ -64,6 +74,15 @@ classDiagram(name = "Tender") {
             literal(name = "AWARDED")
             literal(name = "COMPLETED")
             literal(name = "CANCELLED")
+            literal(name = "PAID") // V1.9.308 (migration V157)
+            literal(name = "PAYOUT_FAILED") // V1.9.308 (migration V157): board view only
+        }
+
+    // V1.9.308 (V157): why the payout could not be booked on the winner's side.
+    val tenderPayoutFailureReason =
+        enumOf(name = "TenderPayoutFailureReason") {
+            literal(name = "WINNER_GUEST")
+            literal(name = "WINNER_NOT_LTR_ELIGIBLE")
         }
 
     val tenderBidStatus =
@@ -189,10 +208,28 @@ classDiagram(name = "Tender") {
                 multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "award_motion_id"; "fkEntity" to "Motion" }
             }
-            // RESERVED for wave 3 (payout): never written in wave 1, deliberately no foreign key.
+            // Written by wave 3 (payout, V1.9.308) together with status PAID; deliberately no foreign key here (reserved in V115), the foreign key
+            // lives on tender_payout.ledger_entry_id.
             attribute(name = "payoutLedgerEntryId", type = "UUID") {
                 multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "payout_ledger_entry_id" }
+            }
+            // V1.9.308 (V157): the last failed payout attempt, kept as history after a successful retry.
+            attribute(name = "payoutFailureReason", type = tenderPayoutFailureReason) {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") {
+                    "columnName" to "payout_failure_reason"
+                    "sqlType" to "VARCHAR(23)"
+                    "enumType" to "network.lapis.cloud.shared.domain.TenderPayoutFailureReason"
+                }
+            }
+            attribute(name = "payoutFailedAt", type = "LocalDateTime") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "payout_failed_at" }
+            }
+            attribute(name = "payoutFailedBy", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "payout_failed_by"; "fkEntity" to "Member" }
             }
         }
 
@@ -310,6 +347,34 @@ classDiagram(name = "Tender") {
             }
             attribute(name = "decidedAt", type = "LocalDateTime") {
                 stereotype("Column") { "columnName" to "decided_at" }
+            }
+        }
+
+    // V1.9.308 (V157): the booking record of a payout. PK = tender_id (one payout per tender), UNIQUE ledger_entry_id and bid_id.
+    val tenderPayout =
+        classOf(name = "TenderPayout") {
+            stereotype("Entity") { "tableName" to "tender_payout"; "kotlinObjectName" to "TenderPayoutTable" }
+            stereotype("Index") { "columns" to listOf("ledger_entry_id"); "unique" to true; "name" to "uq_tender_payout_ledger_entry" }
+            stereotype("Index") { "columns" to listOf("bid_id"); "unique" to true; "name" to "uq_tender_payout_bid" }
+
+            attribute(name = "tenderId", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "tender_id"; "fkEntity" to "Tender" }
+            }
+            attribute(name = "ledgerEntryId", type = "UUID") {
+                stereotype("Column") { "columnName" to "ledger_entry_id"; "fkEntity" to "LtrLedgerEntry" }
+            }
+            attribute(name = "bidId", type = "UUID") {
+                stereotype("Column") { "columnName" to "bid_id"; "fkEntity" to "TenderBid" }
+            }
+            attribute(name = "amountLtr", type = "BigDecimal") {
+                stereotype("Column") { "columnName" to "amount_ltr"; "sqlType" to "DECIMAL(18,2)" }
+            }
+            attribute(name = "executedBy", type = "UUID") {
+                stereotype("Column") { "columnName" to "executed_by"; "fkEntity" to "Member" }
+            }
+            attribute(name = "executedAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "executed_at" }
             }
         }
 }

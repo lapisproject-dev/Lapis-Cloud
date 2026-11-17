@@ -9,6 +9,7 @@ import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.TenderAcceptanceTable
 import network.lapis.cloud.server.db.generated.TenderAwardTable
 import network.lapis.cloud.server.db.generated.TenderBidTable
+import network.lapis.cloud.server.db.generated.TenderPayoutTable
 import network.lapis.cloud.server.db.generated.TenderTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -48,9 +49,19 @@ class TenderSchemaDriftTest :
                 real.foreignKeys
         }
 
-        test("the model declares the four tender entities plus the Member, Motion and Resolution stubs") {
+        test("the model declares the five tender entities plus the Member, Motion, Resolution and LtrLedgerEntry stubs") {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("member", "motion", "resolution", "tender", "tender_bid", "tender_award", "tender_acceptance")
+                setOf(
+                    "member",
+                    "motion",
+                    "resolution",
+                    "ltr_ledger_entry",
+                    "tender",
+                    "tender_bid",
+                    "tender_award",
+                    "tender_acceptance",
+                    "tender_payout",
+                )
         }
 
         test("tender matches the migrated schema and TenderTable 1:1") {
@@ -59,11 +70,15 @@ class TenderSchemaDriftTest :
             entity.attributeByName("deadline")?.nullable shouldBe false
             entity.attributeByName("award_motion_id")?.nullable shouldBe true
             entity.attributeByName("payout_ledger_entry_id")?.nullable shouldBe true
-            entity.attributeByName("payout_ledger_entry_id")?.foreignKey shouldBe null // reserved for wave 3, deliberately no foreign key
+            // deliberately no foreign key here (it lives on tender_payout)
+            entity.attributeByName("payout_ledger_entry_id")?.foreignKey shouldBe null
+            entity.attributeByName("payout_failure_reason")?.nullable shouldBe true
+            entity.attributeByName("payout_failed_at")?.nullable shouldBe true
+            entity.attributeByName("payout_failed_by")?.nullable shouldBe true
             entity.attributeByName("status")?.type shouldBe
                 ErmDataType.Enum(
                     name = "TenderStatus",
-                    values = listOf("DRAFT", "PUBLISHED", "CLOSED", "AWARDED", "COMPLETED", "CANCELLED"),
+                    values = listOf("DRAFT", "PUBLISHED", "CLOSED", "AWARDED", "COMPLETED", "CANCELLED", "PAID", "PAYOUT_FAILED"),
                     externalFqName = "network.lapis.cloud.shared.domain.TenderStatus",
                 )
             // sized by an explicit sqlType (VARCHAR(16), room for later formats), so the model type is a Varchar; the Kotlin type is the enum
@@ -97,6 +112,19 @@ class TenderSchemaDriftTest :
 
         test("tender_acceptance matches the migrated schema and TenderAcceptanceTable 1:1") {
             check("tender_acceptance", TenderAcceptanceTable.columns.map { it.name })
+        }
+
+        test("tender_payout matches the migrated schema and TenderPayoutTable 1:1; one payout per tender, per ledger row and per bid") {
+            val entity = model.entities.single { it.name == "tender_payout" }
+            val real = transaction { introspectTenderTable("tender_payout") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder TenderPayoutTable.columns.map { it.name }
+            real.primaryKeyColumns shouldBe setOf("tender_id")
+            entity.attributes.filter { it.foreignKey != null }.associate {
+                it.name!! to model.entityNameOf(it.foreignKey!!.targetEntityId)
+            } shouldBe real.foreignKeys
+            entity.attributeByName("amount_ltr")?.type shouldBe ErmDataType.Decimal(18, 2)
+            real.uniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("ledger_entry_id"), setOf("bid_id"))
         }
     })
 

@@ -6,6 +6,27 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.308 "Ausschreibungen, Auszahlung" (tenders, wave 3), schema `V156` -> `V157` (one additive migration). Not released yet: no version bump in this wave.
+
+**Behaviour changes first:**
+
+1. **The TREASURER may now pay out an accepted tender** (BOARD and ADMIN as well). Whoever recorded the acceptance, the winner and every bidder of the tender may not (four-eyes rule). With a one-person board the treasurer or a second board member has to pay out, otherwise the payout is blocked.
+2. **New tender statuses `PAID` and `PAYOUT_FAILED`.** `PAYOUT_FAILED` is visible to the board's view only; everybody else still reads `COMPLETED`. A tender that is `COMPLETED`, `PAID` or `PAYOUT_FAILED` cannot be cancelled.
+3. **A payout issues new LTR** (one credit row `TENDER_PAYOUT` on the winner, like a mint, no debit). The public figure "Insgesamt ausgegebene LTR" on the transparency page now counts mints **and** tender payouts.
+4. **Backups made before `V157` are refused on restore** (schema checksum), as after every schema change.
+5. Internal API: `ITenderService.payOutTender` (the 17th method, appended at the end); `TenderStatus`, `LtrLedgerEntryType` and `LtrLedgerReferenceType` got new literals at the end.
+
+**New:**
+
+- Migration `V157__tender_payout.sql`: `tender.status` widened to 13 characters (+ `PAID`, `PAYOUT_FAILED`), failure columns on `tender`, the table `tender_payout` (primary key = tender, unique ledger row and bid), the ledger CHECKs with `TENDER_PAYOUT` / `TENDER`.
+- `TenderPayout` (the one tender file that touches the ledger), `TenderPayoutRules` (amount never rounded, LTR only, who cannot receive, who may not pay): idempotent in three layers, a winner who cannot receive LTR (a guest, a member who left or died) saves `PAYOUT_FAILED` with the reason and can be retried.
+- Screens: the "Auszahlung" card on the tender page (amount, winner, confirmation dialog, four-eyes and own-bid texts, failed attempt for the board, booked payout), list filters "Ausgezahlt" and "Auszahlung gescheitert", the ledger shows "Auszahlung (Ausschreibung)" with a link to the tender. The new messages are in the template and all seven catalogs.
+- Data protection and backup: `tender_payout` in the export (payouts executed, failures recorded) and retained at erasure; backup round trip with a `PAID` and a `PAYOUT_FAILED` tender. Audit events `PAYOUT` and `PAYOUT_FAILED` (ids and enums only).
+
+**Tests:** the payout on H2 and PostgreSQL (happy path, idempotent repeat, two parallel payouts, the unique layer on its own, guest and left winners, retry, rights and four-eyes, status gates, largest price, visibility and list filter), rules, visibility policy, migration V156 -> V157, schema drift, backup, DSGVO, two tripwires, DOM tests.
+
+**Not verified:** no person has seen the payout in a real browser or on a real instance; the translations were written by the model; the decision "issuance instead of debit from a tendering account" is **still to be confirmed by the person responsible** before the release; a euro payout is not part of this wave (needs legal clearance). The staging seed has no `PAID` tender.
+
 ## [0.55.0] — 2026-11-17
 
 Feature release on `[0.54.0]` (one wave; the database schema goes from `V155` to `V156`, one additive migration). **Behaviour changes for operators** are in the list below: the voting switch `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING` is off by default, backups made before `V156` are refused on restore.

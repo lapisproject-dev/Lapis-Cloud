@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.TenderAwardCriterion
 import network.lapis.cloud.shared.domain.TenderBidVisibility
 import network.lapis.cloud.shared.domain.TenderCurrency
 import network.lapis.cloud.shared.domain.TenderDescriptionFormat
+import network.lapis.cloud.shared.domain.TenderPayoutFailureReason
 import network.lapis.cloud.shared.domain.TenderStatus
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -25,7 +26,7 @@ public object TenderTable : Table("tender") {
     public val currency: Column<TenderCurrency> = enumerationByName<TenderCurrency>("currency", 3)
     // TODO default = "LTR"
     public val bidVisibility: Column<TenderBidVisibility> = enumerationByName<TenderBidVisibility>("bid_visibility", 21)
-    public val status: Column<TenderStatus> = enumerationByName<TenderStatus>("status", 9)
+    public val status: Column<TenderStatus> = enumerationByName<TenderStatus>("status", 13)
     public val deadline: Column<LocalDateTime> = datetime("deadline")
     public val createdBy: Column<Uuid> = reference("created_by", MemberTable.id)
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
@@ -37,6 +38,10 @@ public object TenderTable : Table("tender") {
     public val cancelReason: Column<String?> = varchar("cancel_reason", 2000).nullable()
     public val awardMotionId: Column<Uuid?> = optReference("award_motion_id", MotionTable.id)
     public val payoutLedgerEntryId: Column<Uuid?> = uuid("payout_ledger_entry_id").nullable()
+    public val payoutFailureReason: Column<TenderPayoutFailureReason?> =
+        enumerationByName<TenderPayoutFailureReason>("payout_failure_reason", 23).nullable()
+    public val payoutFailedAt: Column<LocalDateTime?> = datetime("payout_failed_at").nullable()
+    public val payoutFailedBy: Column<Uuid?> = optReference("payout_failed_by", MemberTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

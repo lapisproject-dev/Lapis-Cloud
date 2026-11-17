@@ -31,6 +31,8 @@ import network.lapis.cloud.shared.domain.TenderBidView
 import network.lapis.cloud.shared.domain.TenderBidVisibility
 import network.lapis.cloud.shared.domain.TenderDescriptionFormat
 import network.lapis.cloud.shared.domain.TenderDetailDto
+import network.lapis.cloud.shared.domain.TenderPayoutBlockedReason
+import network.lapis.cloud.shared.domain.TenderPayoutFailureReason
 import network.lapis.cloud.shared.domain.TenderStatus
 import network.lapis.cloud.shared.rpc.ITenderService
 
@@ -68,7 +70,7 @@ fun renderTenderDetailScreen(
 
 /** The ordered steps of the status row; a cancelled tender shows no row but the reason. */
 private val STATUS_STEPS: List<TenderStatus> =
-    listOf(TenderStatus.DRAFT, TenderStatus.PUBLISHED, TenderStatus.CLOSED, TenderStatus.AWARDED, TenderStatus.COMPLETED)
+    listOf(TenderStatus.DRAFT, TenderStatus.PUBLISHED, TenderStatus.CLOSED, TenderStatus.AWARDED, TenderStatus.COMPLETED, TenderStatus.PAID)
 
 private fun stepLabel(status: TenderStatus): String =
     if (status ==
@@ -120,6 +122,7 @@ private fun renderTenderDetail(
     renderBids(panel, dto, rpc, reload)
     renderAward(panel, dto)
     if (dto.acceptances.isNotEmpty()) renderAcceptances(panel, dto)
+    renderPayoutCard(panel, dto, rpc, reload)
     if (dto.canManage && tender.status != TenderStatus.CANCELLED) renderBoardActions(panel, dto, rpc, reload)
 }
 
@@ -140,7 +143,8 @@ private fun renderStatusRow(
     }
     val row = panel.div(className = "d-flex flex-wrap gap-2 align-items-center")
     row.setAttribute("role", "list")
-    val current = STATUS_STEPS.indexOf(tender.status)
+    // A failed payout is the accepted tender that is still waiting for its payout: the row marks the step COMPLETED.
+    val current = STATUS_STEPS.indexOf(if (tender.status == TenderStatus.PAYOUT_FAILED) TenderStatus.COMPLETED else tender.status)
     STATUS_STEPS.forEachIndexed { index, step ->
         val badge =
             if (index == current) {
@@ -486,6 +490,108 @@ private fun renderAcceptances(
         }
         line.span(formatSystemDateTime(acceptance.decidedAt))
         acceptance.reason?.let { line.cellText(it) }
+    }
+}
+
+// ── payout (V1.9.308) ───────────────────────────────────────────────────────────────────────────────────
+
+/** The German text of the reason why the winner could not be paid (board view only). */
+private fun payoutFailureText(reason: TenderPayoutFailureReason): String =
+    when (reason) {
+        TenderPayoutFailureReason.WINNER_GUEST -> gettext("Der Gewinner ist Gast und führt sein LTR-Konto auf seinem Heimatserver.")
+        TenderPayoutFailureReason.WINNER_NOT_LTR_ELIGIBLE -> gettext("Der Gewinner kann derzeit kein LTR empfangen.")
+    }
+
+/**
+ * The payout card. EVERYTHING it shows is a field of the DTO (the server's decision): `canPayOut` / `payoutBlockedReason` (not the role, not
+ * `canManage` -- a treasurer pays out without managing), `payoutFailure` (board view only), `payoutPending` (the winner), `payout` (booked).
+ */
+private fun renderPayoutCard(
+    panel: SimplePanel,
+    dto: TenderDetailDto,
+    rpc: ITenderService,
+    reload: () -> Unit,
+) {
+    val payout = dto.payout
+    val failure = dto.payoutFailure
+    val blocked = dto.payoutBlockedReason?.takeIf { it == TenderPayoutBlockedReason.FOUR_EYES || it == TenderPayoutBlockedReason.OWN_BID }
+    val payable = dto.tender.status == TenderStatus.COMPLETED || dto.tender.status == TenderStatus.PAYOUT_FAILED
+    val anythingToShow = payout != null || (payable && (dto.canPayOut || blocked != null || failure != null || dto.payoutPending))
+    if (!anythingToShow) return
+    panel.h2(tr("Auszahlung")) { addCssClass("h5") }
+    val box = panel.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
+    if (payout != null) {
+        val date = formatSystemDateTime(payout.executedAt)
+        val name = payout.paidByDisplayName
+        val line =
+            if (name != null) {
+                gettext("Ausgezahlt am %1 von %2", date, sanitizeUntrustedI18nText(name))
+            } else {
+                gettext("Ausgezahlt am %1", date)
+            }
+        box.p(line, className = "mb-0")
+        return
+    }
+    if (failure != null) {
+        box.div(className = "alert alert-danger mb-0") {
+            setAttribute("role", "status")
+            span(gettext("Auszahlung gescheitert am %1: %2", formatSystemDateTime(failure.failedAt), payoutFailureText(failure.reason)))
+        }
+    }
+    if (dto.payoutPending) box.p(tr("Auszahlung steht aus."), className = "mb-0")
+    if (dto.canPayOut) {
+        val amount = dto.payoutAmount
+        val winner = sanitizeUntrustedI18nText(dto.payoutWinnerDisplayName.orEmpty())
+        val summary = if (amount != null) gettext("%1 an %2", formatLtr(amount), winner) else winner
+        box.p(summary, className = "fs-5 fw-bold mb-0")
+        val label = if (failure != null) tr("Erneut auszahlen") else tr("LTR auszahlen")
+        box.actionButton(ActionIcon.SEND, label, style = ButtonStyle.PRIMARY).onClick {
+            confirmDialog(
+                title = tr("LTR auszahlen?"),
+                message =
+                    if (amount !=
+                        null
+                    ) {
+                        gettext("%1 an %2 auszahlen?", formatLtr(amount), winner)
+                    } else {
+                        gettext("An %1 auszahlen?", winner)
+                    },
+                dangerNote = tr("Die Buchung lässt sich nicht rückgängig machen."),
+                confirmLabel = tr("Auszahlen"),
+                confirmIcon = ActionIcon.SEND,
+                confirmStyle = ButtonStyle.PRIMARY,
+                focusCancel = true,
+            ) {
+                AppScope.launch {
+                    val saved = tenderGuarded { rpc.payOutTender(dto.tender.id) }
+                    if (saved != null) {
+                        if (saved.payout !=
+                            null
+                        ) {
+                            notifySuccess(tr("LTR ausgezahlt."))
+                        } else {
+                            notifyWarning(tr("Die Auszahlung ist gescheitert."))
+                        }
+                        reload()
+                    }
+                }
+            }
+        }
+    } else if (blocked != null) {
+        val text =
+            when (blocked) {
+                TenderPayoutBlockedReason.FOUR_EYES ->
+                    gettext(
+                        "Die Abnahme hat %1 erfasst. Auszahlen muss eine andere Person (Vier-Augen-Prinzip).",
+                        sanitizeUntrustedI18nText(dto.acceptedByDisplayName.orEmpty()),
+                    )
+                else -> gettext("Sie haben auf diese Ausschreibung geboten und dürfen nicht auszahlen.")
+            }
+        box.actionButton(ActionIcon.SEND, tr("LTR auszahlen"), style = ButtonStyle.OUTLINEPRIMARY).apply {
+            addCssClass("disabled")
+            setAttribute("aria-disabled", "true")
+        }
+        box.p(text, className = "text-muted small mb-0") { setAttribute("role", "status") }
     }
 }
 

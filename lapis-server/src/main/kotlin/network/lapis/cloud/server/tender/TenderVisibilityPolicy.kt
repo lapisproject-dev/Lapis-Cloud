@@ -35,7 +35,7 @@ internal data class TenderViewer(
 
 internal val TENDER_MANAGER_ROLES: Set<AccountRole> = setOf(AccountRole.BOARD, AccountRole.ADMIN)
 
-/** The board's read view also includes the TREASURER (the payout of wave 3 is theirs). */
+/** The board's read view also includes the TREASURER (who, since V1.9.308, also pays out -- see `TENDER_PAYOUT_ROLES`). */
 internal val TENDER_READ_ROLES: Set<AccountRole> = TENDER_MANAGER_ROLES + AccountRole.TREASURER
 
 private fun TenderViewer.hasManagerView(): Boolean = role in TENDER_READ_ROLES && !hasBid
@@ -49,6 +49,19 @@ internal fun effectiveTenderStatus(
     deadline: LocalDateTime,
     wallNow: LocalDateTime,
 ): TenderStatus = if (stored == TenderStatus.PUBLISHED && wallNow >= deadline) TenderStatus.CLOSED else stored
+
+/**
+ * V1.9.308 -- the status a viewer is SHOWN. [TenderStatus.PAYOUT_FAILED] (the winner cannot receive LTR) is board-view information: the manager
+ * view (BOARD/ADMIN/TREASURER without a bid of their own) sees it, every other viewer -- participants, the winner, a conflicted treasurer --
+ * reads COMPLETED. The ONE place for this masking; list filter, summary and detail all go through it.
+ */
+internal fun displayedTenderStatus(
+    viewer: TenderViewer,
+    effective: TenderStatus,
+): TenderStatus = if (effective == TenderStatus.PAYOUT_FAILED && !viewer.hasManagerView()) TenderStatus.COMPLETED else effective
+
+/** V1.9.308 -- whether the viewer may see the reason and the time of a failed payout (the same view as the shown PAYOUT_FAILED status). */
+internal fun payoutFailureVisible(viewer: TenderViewer): Boolean = viewer.hasManagerView()
 
 /**
  * Whether the viewer may know that this tender exists. Drafts and tenders cancelled before their publication are visible to the manager view

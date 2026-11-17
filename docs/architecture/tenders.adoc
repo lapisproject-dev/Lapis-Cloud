@@ -1,8 +1,8 @@
-= Tenders (V1.9.201, V1.9.202)
+= Tenders (V1.9.201, V1.9.202, V1.9.308)
 :toc:
 :icons: font
 
-Operator view: link:../features/tenders.adoc[docs/features/tenders.adoc]. Migrations `V115__tenders.sql` and `V116__tender_description_format.sql`, model `74-tender.kuml.kts`.
+Operator view: link:../features/tenders.adoc[docs/features/tenders.adoc]. Migrations `V115__tenders.sql`, `V116__tender_description_format.sql` and `V157__tender_payout.sql`, model `74-tender.kuml.kts`.
 
 == Tender state machine
 
@@ -14,7 +14,9 @@ stateDiagram(name = "Tender") {
     val published = state(name = "PUBLISHED")
     val closed = state(name = "CLOSED")
     val awarded = state(name = "AWARDED")
-    val completed = finalState(name = "COMPLETED")
+    val completed = state(name = "COMPLETED")
+    val paid = finalState(name = "PAID")
+    val payoutFailed = state(name = "PAYOUT_FAILED")
     val cancelled = finalState(name = "CANCELLED")
 
     transition(source = start, target = draft) { trigger = "createTender()" }
@@ -22,6 +24,10 @@ stateDiagram(name = "Tender") {
     transition(source = published, target = closed) { trigger = "deadline reached (lazy)" }
     transition(source = closed, target = awarded) { trigger = "awardTender()" }
     transition(source = awarded, target = completed) { trigger = "recordAcceptance(ACCEPTED)" }
+    transition(source = completed, target = paid) { trigger = "payOutTender()" }
+    transition(source = completed, target = payoutFailed) { trigger = "payOutTender() (winner cannot receive LTR)" }
+    transition(source = payoutFailed, target = paid) { trigger = "payOutTender() (retry)" }
+    transition(source = payoutFailed, target = payoutFailed) { trigger = "payOutTender() (failed again)" }
     transition(source = draft, target = cancelled) { trigger = "cancelTender()" }
     transition(source = published, target = cancelled) { trigger = "cancelTender()" }
     transition(source = closed, target = cancelled) { trigger = "cancelTender()" }
@@ -56,7 +62,7 @@ The matrix in the feature document is implemented by `bidViewFor` / `bidCountVis
 
 == Lock order
 
-motion -> tender -> bids -> member (`forMemberUpdate` only) -> audit entry (last). Several motions are locked in ascending id order. This is the order of `GovernanceService`, so registering an award motion and opening its vote cannot deadlock (`TenderConcurrencyScenarios`).
+motion -> tender -> bids -> member (`forMemberUpdate` only) -> ledger (the payout only) -> audit entry (last). Several motions are locked in ascending id order. This is the order of `GovernanceService`, so registering an award motion and opening its vote cannot deadlock (`TenderConcurrencyScenarios`).
 
 == Governance hooks
 
@@ -64,7 +70,7 @@ motion -> tender -> bids -> member (`forMemberUpdate` only) -> audit entry (last
 
 == Currency and payout
 
-`CHECK (currency = 'LTR')` on `tender` and `tender_bid`; the service refuses EUR. `tender.payout_ledger_entry_id` is reserved for wave 3 and never written; `TenderAccessTripwireTest` forbids ledger and balance-provider use in the tender files.
+`CHECK (currency = 'LTR')` on `tender` and `tender_bid`; the service refuses EUR (and `requireLtrPayout` runs before any ledger access of the payout). `TenderAccessTripwireTest` forbids ledger and balance-provider use in every tender file **except `TenderPayout.kt`**, the single booking path (V1.9.308); `TenderPayoutLedgerTripwireTest` pins that `TENDER_PAYOUT` and the reference type `TENDER` are written nowhere else.
 
 == Wave 2 (V1.9.202): the screens and what the server decides for them
 
@@ -76,3 +82,22 @@ motion -> tender -> bids -> member (`forMemberUpdate` only) -> audit entry (last
 * **Award marks** (`awardable`, `awardReadiness`, `awardJustificationRequired`) are set only for a manager without a bid of their own while the tender is effectively CLOSED; everybody else gets the neutral defaults.
 * **Markdown description.** Rendered by `AgreementMarkdown` (raw HTML escaped, only http/https/mailto links, images become text); the text is normalised (`\r\n` to `\n`) before the length check, and a text that cannot be rendered is never stored or published. The preview has its own shared rate limiter.
 * **Remaining time.** `minutesUntilDeadline` is computed from real elapsed time on the server clock, so there is no time zone error in the browser.
+
+== Wave 3 (V1.9.308): the payout
+
+* **V157** (additive, repeatable; V115/V149/V156 are not edited): `tender.status` widened to `VARCHAR(13)` with the statuses PAID and PAYOUT_FAILED, the columns `payout_failure_reason`, `payout_failed_at`, `payout_failed_by`, the table `tender_payout`, and the ledger CHECKs with the entry type `TENDER_PAYOUT` and the reference type `TENDER`. `tender.payout_ledger_entry_id` stays without a foreign key; the foreign key lives on `tender_payout.ledger_entry_id`.
+* **An issuance, not a transfer.** One credit row on the winner; no debit and no organisation account. Hence no balance check, and a partial booking cannot exist.
+* **Three idempotency layers**, none a partial index: (a) the tender row is locked `FOR UPDATE` and the status moves by a conditional `UPDATE ... WHERE status IN (COMPLETED, PAYOUT_FAILED)`; (b) `tender_payout.tender_id` is the primary key; (c) UNIQUE `ledger_entry_id` and UNIQUE `bid_id`. The insert of the booking record runs under a savepoint and only a unique violation is translated (to "changed concurrently"); every other failure rolls the whole transaction back. A repeated call finds PAID and writes nothing.
+* **Four-eyes rule.** `requireNotTenderBidder` plus a comparison with `decided_by` of the ACCEPTED acceptance, both under the tender lock.
+* **PAYOUT_FAILED** is saved in the same transaction and returned as a normal answer (an exception would roll the record back). `TenderVisibilityPolicy.displayedTenderStatus` masks it as COMPLETED for everybody outside the board's view; list filter, summary and detail all go through it.
+* **Server decides for the screen.** `canPayOut`, `payoutBlockedReason`, `payoutPending`, `payout`, `payoutFailure` and the names for the dialog are DTO fields; the screen hangs on `canPayOut`, not on `canManage` (a treasurer pays out without managing).
+* **RPC.** `ITenderService.payOutTender` is the 17th method, appended at the end (Kilua numbers routes by declaration order).
+
+[cols="2,2,3",options="header"]
+|===
+|Viewer |Status shown when PAYOUT_FAILED |Payout fields
+|BOARD, ADMIN, TREASURER without a bid |PAYOUT_FAILED + reason |all, incl. who paid
+|Board role with a bid of its own |COMPLETED |`payoutBlockedReason` OWN_BID only
+|Winner |COMPLETED |`payoutPending`; after PAID amount, date, payer
+|Other participants |COMPLETED |after PAID amount and date only
+|===

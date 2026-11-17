@@ -103,4 +103,11 @@ class LtrLedgerScreenTest {
             sortLtrEntries(entries, SortState(LTR_ENTRY_SORT_DATE, SortDirection.DESC)).map { it.id },
         )
     }
+
+    @Test
+    fun theTenderPayout_hasItsOwnLabelColourAndReference() {
+        assertEquals("Auszahlung (Ausschreibung)", ltrLedgerEntryTypeLabel(LtrLedgerEntryType.TENDER_PAYOUT))
+        assertEquals("success", ltrLedgerEntryTypeColor(LtrLedgerEntryType.TENDER_PAYOUT))
+        assertEquals("Ausschreibung", ltrLedgerReferenceTypeLabel(LtrLedgerReferenceType.TENDER))
+    }
 }

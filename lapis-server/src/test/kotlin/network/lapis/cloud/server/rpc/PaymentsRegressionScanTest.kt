@@ -171,7 +171,8 @@ class PaymentsRegressionScanTest :
             // the count AS OF THIS WAVE so a future accidental Euro-adjacent addition to THIS enum
             // is caught the same way the other regression guards in this class are.
             // V1.9.297: 14 with NOTICE_BOOST (the bulletin board; a member-to-notice debit, nothing Euro-adjacent).
-            LtrLedgerEntryType.entries.size shouldBe 14
+            // V1.9.308: 15 with TENDER_PAYOUT (the tender payout, an issuance of LTR to the winner; nothing Euro-adjacent: EUR stays unreachable).
+            LtrLedgerEntryType.entries.size shouldBe 15
         }
     })
 

@@ -32080,3 +32080,95 @@ msgstr "Su derecho de voto está suspendido porque no hay ningún ID de miembro 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
 msgid "Für diese Instanz ist keine externe Mitglieds-ID-Quelle eingerichtet."
 msgstr "No hay ninguna fuente de ID de miembro externo configurada para esta instancia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:1
+msgid "Ausgezahlt"
+msgstr "Pagado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TendersScreen.kt:1
+msgid "Auszahlung gescheitert"
+msgstr "Pago fallido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Der Gewinner ist Gast und führt sein LTR-Konto auf seinem Heimatserver."
+msgstr "El ganador es invitado y mantiene su cuenta LTR en su servidor de origen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Der Gewinner kann derzeit kein LTR empfangen."
+msgstr "El ganador no puede recibir LTR en este momento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Auszahlung"
+msgstr "Pago"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Ausgezahlt am %1 von %2"
+msgstr "Pagado el %1 por %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Ausgezahlt am %1"
+msgstr "Pagado el %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Auszahlung gescheitert am %1: %2"
+msgstr "Pago fallido el %1: %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Auszahlung steht aus."
+msgstr "El pago está pendiente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "%1 an %2"
+msgstr "%1 a %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Erneut auszahlen"
+msgstr "Pagar de nuevo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "LTR auszahlen"
+msgstr "Pagar LTR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "LTR auszahlen?"
+msgstr "¿Pagar LTR?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "%1 an %2 auszahlen?"
+msgstr "¿Pagar %1 a %2?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "An %1 auszahlen?"
+msgstr "¿Pagar a %1?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Die Buchung lässt sich nicht rückgängig machen."
+msgstr "La contabilización no se puede deshacer."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "LTR ausgezahlt."
+msgstr "LTR pagados."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Die Auszahlung ist gescheitert."
+msgstr "El pago ha fallado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Die Abnahme hat %1 erfasst. Auszahlen muss eine andere Person (Vier-Augen-Prinzip)."
+msgstr "%1 registró la aceptación. El pago debe hacerlo otra persona (principio de los cuatro ojos)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderDetailScreen.kt:1
+msgid "Sie haben auf diese Ausschreibung geboten und dürfen nicht auszahlen."
+msgstr "Usted pujó en esta licitación y no puede realizar el pago."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:1
+msgid "Auszahlung (Ausschreibung)"
+msgstr "Pago (licitación)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderErrors.kt:1
+msgid "Der Auszahlungsbetrag ist ungültig."
+msgstr "El importe del pago no es válido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TenderErrors.kt:1
+msgid "Ausgezahlt werden kann nur LTR."
+msgstr "Solo se puede pagar LTR."

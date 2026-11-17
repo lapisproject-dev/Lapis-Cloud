@@ -29,10 +29,10 @@ class TenderPersonalDataTest :
         afterTest { fx.reset() }
         afterSpec { TimeTestSupport.resetOrganizationZone() }
 
-        test("the contributor is registered and covers all four tables") {
+        test("the contributor is registered and covers all five tables") {
             (TenderPersonalData in PersonalDataRegistry.contributors) shouldBe true
             TenderPersonalData.coveredTables.map { it.tableName }.toSet() shouldBe
-                setOf("tender", "tender_bid", "tender_award", "tender_acceptance")
+                setOf("tender", "tender_bid", "tender_award", "tender_acceptance", "tender_payout")
         }
 
         test(

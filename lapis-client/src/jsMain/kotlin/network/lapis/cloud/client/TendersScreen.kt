@@ -51,6 +51,8 @@ internal object TenderLabels {
             TenderStatus.AWARDED -> gettext("Vergeben")
             TenderStatus.COMPLETED -> gettext("Abgenommen")
             TenderStatus.CANCELLED -> gettext("Abgesagt")
+            TenderStatus.PAID -> gettext("Ausgezahlt")
+            TenderStatus.PAYOUT_FAILED -> gettext("Auszahlung gescheitert")
         }
 
     fun statusColor(status: TenderStatus): String =
@@ -61,6 +63,8 @@ internal object TenderLabels {
             TenderStatus.AWARDED -> "info"
             TenderStatus.COMPLETED -> "primary"
             TenderStatus.CANCELLED -> "danger"
+            TenderStatus.PAID -> "success"
+            TenderStatus.PAYOUT_FAILED -> "danger"
         }
 
     fun currency(currency: TenderCurrency): String =
@@ -125,7 +129,10 @@ internal fun tenderVisibilityExplanation(visibility: TenderBidVisibility): Strin
             )
     }
 
-/** The filter of the list. [DONE] is COMPLETED or CANCELLED (the server has no single status for it, so it is cut on the client). */
+/**
+ * The filter of the list. [DONE] is COMPLETED, PAID or CANCELLED (the server has no single status for it, so it is cut on the client).
+ * [PAYOUT_FAILED] is offered to the board's read view only (everybody else never sees that status).
+ */
 internal enum class TenderFilter(
     val status: TenderStatus?,
 ) {
@@ -135,6 +142,8 @@ internal enum class TenderFilter(
     AWARDED(TenderStatus.AWARDED),
     DONE(null),
     DRAFT(TenderStatus.DRAFT),
+    PAID(TenderStatus.PAID),
+    PAYOUT_FAILED(TenderStatus.PAYOUT_FAILED),
     ;
 
     fun label(): String =
@@ -145,14 +154,17 @@ internal enum class TenderFilter(
             AWARDED -> gettext("Vergeben")
             DONE -> gettext("Abgeschlossen")
             DRAFT -> gettext("Entwürfe")
+            PAID -> gettext("Ausgezahlt")
+            PAYOUT_FAILED -> gettext("Auszahlung gescheitert")
         }
 
     /** The server filter: one status, or all of them (the cut for [DONE] happens in [keeps]). */
     fun serverFilter(): TenderStatus? = if (this == DONE) null else status
 
-    fun keeps(summary: TenderSummaryDto): Boolean =
-        if (this == DONE) summary.status == TenderStatus.COMPLETED || summary.status == TenderStatus.CANCELLED else true
+    fun keeps(summary: TenderSummaryDto): Boolean = if (this == DONE) summary.status in DONE_STATUSES else true
 }
+
+private val DONE_STATUSES = setOf(TenderStatus.COMPLETED, TenderStatus.PAID, TenderStatus.CANCELLED)
 
 fun renderTendersScreen(
     container: Container,
@@ -186,7 +198,7 @@ fun renderTendersScreen(
         filterHost.removeAll()
         val options =
             TenderFilter.entries
-                .filter { it != TenderFilter.DRAFT || defaults?.canReadInternal == true }
+                .filter { (it != TenderFilter.DRAFT && it != TenderFilter.PAYOUT_FAILED) || defaults?.canReadInternal == true }
                 .map { SegmentOption(value = it, label = it.label()) }
         filterHost.segmentedRadioGroup(options = options, selected = filter, ariaLabel = tr("Auswahl")) { chosen ->
             filter = chosen

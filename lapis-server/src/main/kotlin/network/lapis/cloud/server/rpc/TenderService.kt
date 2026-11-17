@@ -25,11 +25,13 @@ import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.tender.GUEST_LTR_REFUSAL
 import network.lapis.cloud.server.tender.TENDER_MANAGER_ROLES
 import network.lapis.cloud.server.tender.TENDER_MAX_DESCRIPTION
+import network.lapis.cloud.server.tender.TENDER_PAYOUT_ROLES
 import network.lapis.cloud.server.tender.TENDER_READ_ROLES
 import network.lapis.cloud.server.tender.TenderAwardRules
 import network.lapis.cloud.server.tender.TenderDtos
 import network.lapis.cloud.server.tender.TenderMotionBinding
 import network.lapis.cloud.server.tender.TenderOptions
+import network.lapis.cloud.server.tender.TenderPayout
 import network.lapis.cloud.server.tender.TenderStore
 import network.lapis.cloud.server.tender.TenderViewer
 import network.lapis.cloud.server.tender.effectiveTenderStatus
@@ -94,16 +96,16 @@ private const val MAX_DEADLINE_DAYS = 366
 private val MAX_PRICE = BigDecimal("9999999999999999.99")
 private val MIN_PRICE = BigDecimal("0.01")
 
-private const val NOT_AVAILABLE = "The tender is not available for this action"
-private const val CONCURRENT_CHANGE = "The tender was changed concurrently, please reload"
+internal const val NOT_AVAILABLE = "The tender is not available for this action"
+internal const val CONCURRENT_CHANGE = "The tender was changed concurrently, please reload"
 
 /**
- * V1.9.201 -- tenders, wave 1 (see [ITenderService], `docs/features/tenders.adoc`, `docs/architecture/tenders.adoc`). Wave 1 moves no LTR and has no
- * external effect, so everything runs in one transaction per call.
+ * V1.9.201 -- tenders, wave 1 (see [ITenderService], `docs/features/tenders.adoc`, `docs/architecture/tenders.adoc`). Only the payout of V1.9.308
+ * (`TenderPayout`) moves LTR; nothing has an external effect, so everything runs in one transaction per call.
  *
  * ## Lock order (every writing method, deadlock-free)
  *
- * **motion -> tender -> bids -> member -> audit.** A method that touches a motion locks it FIRST ([MotionDecisionLock.lockMotion], several motions in
+ * **motion -> tender -> bids -> member -> ledger (payout only) -> audit.** A method that touches a motion locks it FIRST ([MotionDecisionLock.lockMotion], several motions in
  * ascending id order), exactly like `GovernanceService`; the tender row is locked next ([TenderStore.lock]), its clock read only AFTER the lock was
  * granted and the deadline closed lazily ([TenderStore.closeIfDue]); bid rows are written under the tender lock; a member row is only ever locked
  * with the `forMemberUpdate` helpers (never a plain `forUpdate`); the audit entry is the last database operation.
@@ -281,21 +283,25 @@ class TenderService(
         }
     }
 
-    /** Never locks and never writes: the status filter and the status shown are the EFFECTIVE status. */
+    /**
+     * Never locks and never writes: the status filter and the status shown are the EFFECTIVE status -- and, since V1.9.308, the status the viewer
+     * is SHOWN (a failed payout reads as COMPLETED outside the board's view, so the filter must not reveal it either).
+     */
     override suspend fun listTenders(statusFilter: TenderStatus?): List<TenderSummaryDto> {
         val current = resolveCurrentMember(call)
         return transaction {
             val wallNow = OrganizationTimeZone.wallNow()
-            TenderDtos.summaries(
-                rows =
-                    TenderStore.list(
-                        statusFilter = statusFilter,
-                        wallNow = wallNow,
-                        includeInternal = current.role in TENDER_READ_ROLES && current.status in MemberStatusSets.ORGANIZATION_MEMBER,
-                    ),
-                current = current,
-                wallNow = wallNow,
-            )
+            TenderDtos
+                .summaries(
+                    rows =
+                        TenderStore.list(
+                            statusFilter = statusFilter,
+                            wallNow = wallNow,
+                            includeInternal = current.role in TENDER_READ_ROLES && current.status in MemberStatusSets.ORGANIZATION_MEMBER,
+                        ),
+                    current = current,
+                    wallNow = wallNow,
+                ).filter { statusFilter == null || it.status == statusFilter }
         }
     }
 
@@ -584,13 +590,59 @@ class TenderService(
                 decidedBy = current.memberId,
                 decidedAt = DbClock.nowLocalDateTime(),
             )
-            // Wave 1: ACCEPTED completes the tender, nothing is booked. The payout hook (payout_ledger_entry_id) belongs to wave 3.
+            // ACCEPTED completes the tender. Nothing is booked here: the payout (wave 3, V1.9.308) is a separate four-eyes step (`payOutTender`),
+            // never automatic.
             if (input.decision ==
                 TenderAcceptanceDecision.ACCEPTED
             ) {
                 TenderStore.setStatus(tenderId = id, newStatus = TenderStatus.COMPLETED)
             }
             audit(current = current, tenderId = id, snapshot = TenderAuditSnapshot(event = "ACCEPTANCE", decision = input.decision.name))
+            TenderDtos.detail(row = TenderStore.lock(id), current = current, wallNow = wallNow)
+        }
+    }
+
+    /**
+     * V1.9.308 -- the LTR payout of an accepted tender (see `TenderPayout`). One transaction, no external effect. A winner who cannot receive LTR
+     * does NOT make this throw: the failure is saved on the tender (status PAYOUT_FAILED, board view) in the same transaction and the call returns
+     * the detail, because an exception would roll the record back.
+     */
+    override suspend fun payOutTender(tenderId: String): TenderDetailDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TENDER_PAYOUT_ROLES.toTypedArray())
+        val id = tenderId.toTenderUuid()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val wallNow = OrganizationTimeZone.wallNow()
+            when (val outcome = TenderPayout.payOut(current = current, tenderId = id)) {
+                TenderPayout.Outcome.AlreadyPaid -> Unit
+                is TenderPayout.Outcome.Paid ->
+                    audit(
+                        current = current,
+                        tenderId = id,
+                        snapshot =
+                            TenderAuditSnapshot(
+                                event = "PAYOUT",
+                                status = TenderStatus.PAID.name,
+                                fromStatus = outcome.fromStatus.name,
+                                bidId = outcome.bidId.toString(),
+                                ledgerEntryId = outcome.ledgerEntryId.toString(),
+                            ),
+                    )
+                is TenderPayout.Outcome.Failed ->
+                    audit(
+                        current = current,
+                        tenderId = id,
+                        snapshot =
+                            TenderAuditSnapshot(
+                                event = "PAYOUT_FAILED",
+                                status = TenderStatus.PAYOUT_FAILED.name,
+                                fromStatus = outcome.fromStatus.name,
+                                bidId = outcome.bidId.toString(),
+                                failureReason = outcome.reason.name,
+                            ),
+                    )
+            }
             TenderDtos.detail(row = TenderStore.lock(id), current = current, wallNow = wallNow)
         }
     }

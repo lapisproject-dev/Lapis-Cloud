@@ -6,6 +6,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
+import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
@@ -13,11 +14,14 @@ import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.TenderAcceptanceTable
 import network.lapis.cloud.server.db.generated.TenderAwardTable
 import network.lapis.cloud.server.db.generated.TenderBidTable
+import network.lapis.cloud.server.db.generated.TenderPayoutTable
 import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeType
+import network.lapis.cloud.shared.domain.LtrLedgerEntryType
+import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
 import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -30,11 +34,13 @@ import network.lapis.cloud.shared.domain.TenderBidStatus
 import network.lapis.cloud.shared.domain.TenderBidVisibility
 import network.lapis.cloud.shared.domain.TenderCurrency
 import network.lapis.cloud.shared.domain.TenderDescriptionFormat
+import network.lapis.cloud.shared.domain.TenderPayoutFailureReason
 import network.lapis.cloud.shared.domain.TenderStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
 import java.nio.file.Files
 import kotlin.uuid.Uuid
@@ -42,7 +48,8 @@ import kotlin.uuid.Uuid
 /**
  * V1.9.201 -- the four tender tables are organizational data and travel in the whole-organization backup. The restore order follows the foreign keys on
  * its own (tender before tender_bid before tender_award / tender_acceptance, all after motion, resolution and member); this test pins it with rows
- * in every table, including the nullable columns (award motion, payout hook).
+ * in every table, including the nullable columns (award motion, payout hook) and, since V1.9.308, a PAID tender with `tender_payout` and its ledger row
+ * (ledger before tender_payout, no cycle) and a PAYOUT_FAILED tender.
  */
 class TenderBackupTest :
     FunSpec({
@@ -59,6 +66,10 @@ class TenderBackupTest :
             val motionId = Uuid.random()
             val tenderId = Uuid.random()
             val bidId = Uuid.random()
+            val paidTenderId = Uuid.random()
+            val paidBidId = Uuid.random()
+            val ledgerEntryId = Uuid.random()
+            val failedTenderId = Uuid.random()
             val at = LocalDateTime(2027, 1, 2, 9, 0)
 
             transaction(sourceDb) {
@@ -195,6 +206,63 @@ class TenderBackupTest :
                     it[decidedBy] = adminId
                     it[decidedAt] = at
                 }
+                // V1.9.308: a PAID tender with its booking record and ledger row, and a PAYOUT_FAILED one with its failure columns
+                listOf(paidTenderId, failedTenderId).forEach { newId ->
+                    TenderTable.insert {
+                        it[id] = newId
+                        it[title] = "Auszahlung"
+                        it[description] = "Beschreibung"
+                        it[expectedResult] = "Ergebnis"
+                        it[bindingMotionId] = motionId
+                        it[awardCriterion] = TenderAwardCriterion.LOWEST_PRICE
+                        it[currency] = TenderCurrency.LTR
+                        it[bidVisibility] = TenderBidVisibility.OPEN
+                        it[status] = TenderStatus.COMPLETED
+                        it[deadline] = at
+                        it[createdBy] = adminId
+                        it[createdAt] = at
+                    }
+                }
+                TenderBidTable.insert {
+                    it[id] = paidBidId
+                    it[TenderBidTable.tenderId] = paidTenderId
+                    it[bidderMemberId] = bidderId
+                    it[price] = java.math.BigDecimal("7.25")
+                    it[currency] = TenderCurrency.LTR
+                    it[text] = "Angebot"
+                    it[status] = TenderBidStatus.AWARDED
+                    it[submittedAt] = at
+                    it[priceSetAt] = at
+                }
+                LtrLedgerEntryTable.insert {
+                    it[id] = ledgerEntryId
+                    it[memberId] = bidderId
+                    it[entryType] = LtrLedgerEntryType.TENDER_PAYOUT
+                    it[amountLtr] = java.math.BigDecimal("7.25")
+                    it[referenceType] = LtrLedgerReferenceType.TENDER
+                    it[referenceId] = paidTenderId
+                    it[note] = null
+                    it[createdBy] = adminId
+                    it[createdAt] = at
+                }
+                TenderPayoutTable.insert {
+                    it[TenderPayoutTable.tenderId] = paidTenderId
+                    it[TenderPayoutTable.ledgerEntryId] = ledgerEntryId
+                    it[TenderPayoutTable.bidId] = paidBidId
+                    it[amountLtr] = java.math.BigDecimal("7.25")
+                    it[executedBy] = adminId
+                    it[executedAt] = at
+                }
+                TenderTable.update({ TenderTable.id eq paidTenderId }) {
+                    it[status] = TenderStatus.PAID
+                    it[payoutLedgerEntryId] = ledgerEntryId
+                }
+                TenderTable.update({ TenderTable.id eq failedTenderId }) {
+                    it[status] = TenderStatus.PAYOUT_FAILED
+                    it[payoutFailureReason] = TenderPayoutFailureReason.WINNER_GUEST
+                    it[payoutFailedAt] = at
+                    it[payoutFailedBy] = adminId
+                }
             }
 
             val bundle = File.createTempFile("tender-bundle-", ".zip")
@@ -219,6 +287,26 @@ class TenderBackupTest :
                     bid[TenderBidTable.bidderMemberId] shouldBe bidderId
                     TenderAwardTable.selectAll().single()[TenderAwardTable.conflictedCount] shouldBe 1
                     TenderAcceptanceTable.selectAll().single()[TenderAcceptanceTable.reason] shouldBe "Nachbessern"
+                    // V1.9.308
+                    val paid = TenderTable.selectAll().where { TenderTable.id eq paidTenderId }.single()
+                    paid[TenderTable.status] shouldBe TenderStatus.PAID
+                    paid[TenderTable.payoutLedgerEntryId] shouldBe ledgerEntryId
+                    val payout = TenderPayoutTable.selectAll().single()
+                    payout[TenderPayoutTable.tenderId] shouldBe paidTenderId
+                    payout[TenderPayoutTable.ledgerEntryId] shouldBe ledgerEntryId
+                    payout[TenderPayoutTable.amountLtr].toPlainString() shouldBe "7.25"
+                    payout[TenderPayoutTable.executedBy] shouldBe adminId
+                    LtrLedgerEntryTable
+                        .selectAll()
+                        .where {
+                            LtrLedgerEntryTable.id eq ledgerEntryId
+                        }.single()[LtrLedgerEntryTable.entryType] shouldBe
+                        LtrLedgerEntryType.TENDER_PAYOUT
+                    val failed = TenderTable.selectAll().where { TenderTable.id eq failedTenderId }.single()
+                    failed[TenderTable.status] shouldBe TenderStatus.PAYOUT_FAILED
+                    failed[TenderTable.payoutFailureReason] shouldBe TenderPayoutFailureReason.WINNER_GUEST
+                    failed[TenderTable.payoutFailedBy] shouldBe adminId
+                    failed[TenderTable.payoutFailedAt] shouldBe at
                 }
             } finally {
                 bundle.delete()

@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.TenderAcceptanceTable
 import network.lapis.cloud.server.db.generated.TenderAwardTable
 import network.lapis.cloud.server.db.generated.TenderBidTable
+import network.lapis.cloud.server.db.generated.TenderPayoutTable
 import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -22,6 +23,8 @@ import network.lapis.cloud.shared.domain.TenderBidStatus
 import network.lapis.cloud.shared.domain.TenderBidView
 import network.lapis.cloud.shared.domain.TenderDescriptionFormat
 import network.lapis.cloud.shared.domain.TenderDetailDto
+import network.lapis.cloud.shared.domain.TenderPayoutDto
+import network.lapis.cloud.shared.domain.TenderPayoutFailureDto
 import network.lapis.cloud.shared.domain.TenderStatus
 import network.lapis.cloud.shared.domain.TenderSummaryDto
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -42,6 +45,10 @@ internal const val TENDER_MAX_DESCRIPTION = 10_000
 internal object TenderDtos {
     /** The text a viewer outside the organisation gets instead of the binding resolution (a friend or guest does not see internal governance). */
     private const val HIDDEN = ""
+
+    /** The statuses from which every participant sees the winner (V1.9.308: the winner stays visible after the payout, whatever happened to it). */
+    private val AWARD_PUBLIC_STATUSES =
+        setOf(TenderStatus.AWARDED, TenderStatus.COMPLETED, TenderStatus.PAID, TenderStatus.PAYOUT_FAILED)
 
     fun viewerOf(
         current: CurrentMember,
@@ -119,9 +126,21 @@ internal object TenderDtos {
                 BidView.OWN -> listOfNotNull(ownRow)
                 BidView.ALL -> bids.filter { it[TenderBidTable.status] != TenderBidStatus.WITHDRAWN || it === ownRow }
             }
+        // V1.9.308: the payout. The booked payout is read here; everything about WHO is resolved below, only for the viewers who may see it.
+        val payoutRow = TenderStore.payout(id)
+        val organisationMemberEarly = current.status in MemberStatusSets.ORGANIZATION_MEMBER
+        val readViewEarly = current.role in TENDER_READ_ROLES && organisationMemberEarly
+        val payableNow = effective in PAYABLE_STATUSES
+        val acceptedRow = if (readViewEarly && payableNow) TenderStore.acceptedAcceptance(id) else null
         val names =
             displayNames(
-                shownBids.map { it[TenderBidTable.bidderMemberId] } + listOfNotNull(winnerBid?.get(TenderBidTable.bidderMemberId)),
+                shownBids.map { it[TenderBidTable.bidderMemberId] } +
+                    listOfNotNull(
+                        winnerBid?.get(TenderBidTable.bidderMemberId),
+                        acceptedRow?.get(TenderAcceptanceTable.decidedBy),
+                        payoutRow?.get(TenderPayoutTable.executedBy),
+                        row[TenderTable.payoutFailedBy],
+                    ),
             )
         val counted = bids.count { it[TenderBidTable.status] != TenderBidStatus.WITHDRAWN }
         val summary =
@@ -173,6 +192,40 @@ internal object TenderDtos {
         val readiness: TenderAwardReadiness? =
             if (awardView) {
                 TenderAwardRules.awardReadiness(tenderRow = row, motionRow = awardMotionRow, resolutionRow = awardResolutionRow)
+            } else {
+                null
+            }
+        val payoutView = readView && !conflicted
+        val payoutBlocked =
+            if (readView) {
+                payoutBlockedReason(
+                    role = current.role,
+                    callerHasBid = conflicted,
+                    callerIsAcceptor = acceptedRow?.get(TenderAcceptanceTable.decidedBy) == current.memberId,
+                    status = effective,
+                )
+            } else {
+                null
+            }
+        val shownPayout =
+            payoutRow?.let {
+                val named = readView || isWinner
+                TenderPayoutDto(
+                    amount = it[TenderPayoutTable.amountLtr],
+                    currency = row[TenderTable.currency],
+                    executedAt = it[TenderPayoutTable.executedAt],
+                    paidByDisplayName = if (named) names[it[TenderPayoutTable.executedBy]] else null,
+                    ledgerEntryId = if (named) it[TenderPayoutTable.ledgerEntryId].toString() else null,
+                )
+            }
+        val failureReason = row[TenderTable.payoutFailureReason]
+        val shownFailure =
+            if (payoutFailureVisible(viewer) && effective == TenderStatus.PAYOUT_FAILED && failureReason != null) {
+                TenderPayoutFailureDto(
+                    reason = failureReason,
+                    failedAt = row[TenderTable.payoutFailedAt] ?: row[TenderTable.createdAt],
+                    failedByDisplayName = row[TenderTable.payoutFailedBy]?.let { names[it] },
+                )
             } else {
                 null
             }
@@ -235,6 +288,15 @@ internal object TenderDtos {
             awardReadiness = readiness,
             awardJustificationRequired =
                 awardView && TenderAwardRules.justificationRequired(tenderRow = row, bids = bids, statuses = bidderStatuses),
+            payout = shownPayout,
+            payoutFailure = shownFailure,
+            payoutPending = isWinner && payableNow,
+            canPayOut = readView && payoutBlocked == null,
+            payoutBlockedReason = payoutBlocked,
+            payoutAmount = if (payoutView && payableNow) winnerBid?.get(TenderBidTable.price) else null,
+            payoutWinnerDisplayName =
+                if (payoutView && payableNow) winnerBid?.let { names[it[TenderBidTable.bidderMemberId]] } else null,
+            acceptedByDisplayName = if (payoutView) acceptedRow?.let { names[it[TenderAcceptanceTable.decidedBy]] } else null,
         )
     }
 
@@ -324,7 +386,7 @@ internal object TenderDtos {
         val countVisible = bidCountVisible(viewer = viewer, visibility = visibility, revealed = revealedOf(row = row, wallNow = wallNow))
         val organisationMember = viewer.status in MemberStatusSets.ORGANIZATION_MEMBER
         val publicAward =
-            if (award != null && winnerBid != null && effective in setOf(TenderStatus.AWARDED, TenderStatus.COMPLETED)) {
+            if (award != null && winnerBid != null && effective in AWARD_PUBLIC_STATUSES) {
                 TenderAwardPublicDto(
                     winnerDisplayName = names[winnerBid[TenderBidTable.bidderMemberId]].orEmpty(),
                     price = winnerBid[TenderBidTable.price],
@@ -337,7 +399,7 @@ internal object TenderDtos {
         return TenderSummaryDto(
             id = row[TenderTable.id].toString(),
             title = row[TenderTable.title],
-            status = effective,
+            status = displayedTenderStatus(viewer = viewer, effective = effective),
             deadline = row[TenderTable.deadline],
             awardCriterion = row[TenderTable.awardCriterion],
             currency = row[TenderTable.currency],

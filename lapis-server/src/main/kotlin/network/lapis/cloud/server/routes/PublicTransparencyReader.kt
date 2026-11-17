@@ -83,8 +83,12 @@ internal data class PublicTransparencyStats(
  * depends on this, same contract [SocialPublicHtml] KDoc point 4 establishes for `/s`.
  */
 internal object PublicTransparencyReader {
+    /** The entry types that issue new LTR. Every other type moves or binds LTR that already exists. */
+    private val ISSUANCE_TYPES = listOf(LtrLedgerEntryType.MINT, LtrLedgerEntryType.TENDER_PAYOUT)
+
     /**
-     * *Insgesamt ausgegebene LTR* sums ONLY [LtrLedgerEntryType.MINT] rows -- deliberately NOT
+     * *Insgesamt ausgegebene LTR* sums ONLY the ISSUANCE rows -- [LtrLedgerEntryType.MINT] and, since V1.9.308, [LtrLedgerEntryType.TENDER_PAYOUT]
+     * (a tender payout is an issuance by the organisation as well; leaving it out would make the public figure untrue) -- deliberately NOT
      * `SUM(amount_ltr)` over every entry type. A full-table sum would be the CURRENT free-balance
      * total (stakes bound into votes/projects/posts/auctions have no release path yet and would
      * silently DEPRESS that number every time a member spends), which is a different, less honest
@@ -116,7 +120,7 @@ internal object PublicTransparencyReader {
         val mintedLtrTotal =
             LtrLedgerEntryTable
                 .select(mintTotal)
-                .where { LtrLedgerEntryTable.entryType eq LtrLedgerEntryType.MINT }
+                .where { LtrLedgerEntryTable.entryType inList ISSUANCE_TYPES }
                 .singleOrNull()
                 ?.get(mintTotal)
                 ?.setScale(2)

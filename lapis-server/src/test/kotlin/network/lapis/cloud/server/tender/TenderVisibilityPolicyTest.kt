@@ -184,4 +184,44 @@ class TenderVisibilityPolicyTest :
                 tenderBidsRevealed(deadline = DEADLINE, wallNow = AFTER, cancelledAtWall = AFTER) shouldBe true
             }
         }
+        context("V1.9.308: PAYOUT_FAILED is shown only to the manager view") {
+            test("the manager view (BOARD/ADMIN/TREASURER without a bid) sees PAYOUT_FAILED and the failure") {
+                managers.forEach {
+                    displayedTenderStatus(viewer = viewer(role = it), effective = TenderStatus.PAYOUT_FAILED) shouldBe
+                        TenderStatus.PAYOUT_FAILED
+                    payoutFailureVisible(viewer(role = it)) shouldBe true
+                }
+            }
+            test("everybody else reads COMPLETED: members, friends, guests, the winner and a conflicted board member or treasurer") {
+                listOf(
+                    viewer(),
+                    viewer(status = MemberStatus.FRIEND),
+                    viewer(status = MemberStatus.GUEST),
+                    viewer(hasBid = true),
+                    viewer(role = AccountRole.BOARD, hasBid = true),
+                    viewer(role = AccountRole.TREASURER, hasBid = true),
+                    viewer(role = AccountRole.ADMIN, hasBid = true),
+                ).forEach {
+                    displayedTenderStatus(viewer = it, effective = TenderStatus.PAYOUT_FAILED) shouldBe TenderStatus.COMPLETED
+                    payoutFailureVisible(it) shouldBe false
+                }
+            }
+            test("every other status is shown as it is, to everybody") {
+                val all = managers.map { viewer(role = it) } + viewer() + viewer(hasBid = true) + viewer(status = MemberStatus.FRIEND)
+                TenderStatus.entries.filter { it != TenderStatus.PAYOUT_FAILED }.forEach { status ->
+                    all.forEach { displayedTenderStatus(viewer = it, effective = status) shouldBe status }
+                }
+            }
+            test("a failed payout is visible like a completed tender (no existence oracle change)") {
+                listOf(viewer(), viewer(status = MemberStatus.FRIEND), viewer(status = MemberStatus.GUEST)).forEach {
+                    tenderVisibleTo(viewer = it, status = TenderStatus.PAYOUT_FAILED, everPublished = true) shouldBe true
+                }
+                tenderVisibleTo(
+                    viewer = viewer(status = MemberStatus.WITHDRAWN),
+                    status = TenderStatus.PAYOUT_FAILED,
+                    everPublished = true,
+                ) shouldBe
+                    false
+            }
+        }
     })

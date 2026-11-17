@@ -16,12 +16,13 @@ private val clientMain: File =
 /**
  * V1.9.201 -- keeps the tender foundation as narrow as it was designed:
  *
- *  1. the RPC surface is EXACTLY the known sixteen methods (a new method fails the build until it is listed and classified here);
+ *  1. the RPC surface is EXACTLY the known seventeen methods (a new method fails the build until it is listed and classified here);
  *  2. `MemberStatusSets.TENDER_PARTICIPANT` (ACTIVE, FRIEND, GUEST) is used only by the tender files and where it is defined;
- *  3. the four tender tables are referenced only by the tender package, the service, the data-subject contributor and the generated objects; every
- *     QUERY on them (select, insert, update, delete) lives in `TenderStore` (and, for export/erasure, `TenderPersonalData`);
- *  4. the tender files never touch the LTR ledger or a balance provider (nothing is booked in wave 1) and never name `TenderCurrency.EUR` except to
- *     refuse it;
+ *  3. the five tender tables (V1.9.308: with `tender_payout`) are referenced only by the tender package, the service, the data-subject contributor
+ *     and the generated objects; every QUERY on them (select, insert, update, delete) lives in `TenderStore` (and, for export/erasure,
+ *     `TenderPersonalData`);
+ *  4. the tender files never touch the LTR ledger or a balance provider EXCEPT `TenderPayout.kt` (V1.9.308: the payout is the single booking path,
+ *     every other tender file stays ledger-free), and never name `TenderCurrency.EUR` except to refuse it;
  *  5. no log line of the service carries a price, a text, a title or a name.
  */
 class TenderAccessTripwireTest :
@@ -44,12 +45,13 @@ class TenderAccessTripwireTest :
                 "listTenderMotionOptions",
                 "listAwardMotionOptions",
                 "previewTenderDescription",
+                "payOutTender",
             )
         val serverFiles = SourceScan.mainFiles()
         val tenderFiles =
             serverFiles.filter { "/server/tender/" in it.path || it.name == "TenderService.kt" || it.name == "TenderPersonalData.kt" }
 
-        test("the RPC surface is exactly the known sixteen methods") {
+        test("the RPC surface is exactly the known seventeen methods") {
             ITenderService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }
@@ -69,6 +71,8 @@ class TenderAccessTripwireTest :
                     "TenderVisibilityPolicy.kt",
                     "TenderAwardRules.kt",
                     "TenderOptions.kt",
+                    "TenderPayout.kt",
+                    "TenderPayoutRules.kt",
                 )
         }
 
@@ -86,10 +90,10 @@ class TenderAccessTripwireTest :
         test(
             "the tender tables are referenced only by the tender files and the generated objects; queries only by the store and the contributor",
         ) {
-            val table = Regex("""\bTender(Bid|Award|Acceptance)?Table\b""")
+            val table = Regex("""\bTender(Bid|Award|Acceptance|Payout)?Table\b""")
             val query =
                 Regex(
-                    """\bTender(Bid|Award|Acceptance)?Table\s*\.\s*(selectAll|select|insert|update|upsert|batchInsert|deleteWhere|deleteAll|slice)\b""",
+                    """\bTender(Bid|Award|Acceptance|Payout)?Table\s*\.\s*(selectAll|select|insert|update|upsert|batchInsert|deleteWhere|deleteAll|slice)\b""",
                 )
             val referencing = mutableListOf<String>()
             val querying = mutableListOf<String>()
@@ -102,11 +106,14 @@ class TenderAccessTripwireTest :
             querying.shouldBeEmpty()
         }
 
-        test("the tender files never touch the LTR ledger or a balance provider, and EUR is named only to refuse it") {
+        test("only TenderPayout.kt touches the LTR ledger, and EUR is named only to refuse it") {
             val offenders = mutableListOf<String>()
             tenderFiles.forEach { file ->
                 val code = SourceScan.blank(file.readText())
-                if (Regex("""LtrLedger|LtrBalanceProvider|LedgerBacked|lockForDebit|freeBalance""").containsMatchIn(code)) {
+                // V1.9.308: the payout is the ONE booking path of a tender; every other tender file stays ledger-free.
+                if (file.name != "TenderPayout.kt" &&
+                    Regex("""LtrLedger|LtrBalanceProvider|LedgerBacked|lockForDebit|freeBalance""").containsMatchIn(code)
+                ) {
                     offenders +=
                         "ledger: ${file.name}"
                 }

@@ -46,6 +46,8 @@ private fun exactTexts(): Map<String, String> =
         "A rejection needs a reason" to gettext("Eine Ablehnung braucht eine Begründung."),
         "The description cannot be rendered" to gettext("Die Beschreibung kann nicht dargestellt werden. Bitte vereinfachen Sie sie."),
         "Only LTR is available for tenders" to gettext("Ausschreibungen sind vorerst nur in LTR möglich."),
+        "The payout amount is invalid" to gettext("Der Auszahlungsbetrag ist ungültig."),
+        "Only LTR can be paid out" to gettext("Ausgezahlt werden kann nur LTR."),
         "The price must have at most 2 decimal places" to gettext("Der Preis darf höchstens zwei Nachkommastellen haben."),
         "The price is too large" to gettext("Der Preis ist zu groß."),
         "The binding motion is not an adopted resolution of its committee" to

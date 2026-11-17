@@ -16,12 +16,12 @@ import network.lapis.cloud.shared.domain.TenderSummaryDto
 
 /**
  * V1.9.201 -- tenders, wave 1 (see `docs/features/tenders.adoc`). A tender implements an ADOPTED resolution: the board publishes a task with a
- * deadline, participants (members, friends and guests) bid in LTR, the board awards and finally accepts the result. Nothing here moves LTR
- * (the payout is wave 3). **Registered LAST** in `Application.kt` (Kilua numbers routes by declaration order); new methods go to the END of
+ * deadline, participants (members, friends and guests) bid in LTR, the board awards and finally accepts the result. V1.9.308 (wave 3): the
+ * payout ([payOutTender]) is the ONE call that moves LTR -- an issuance to the winner, a separate four-eyes step, never automatic. **Registered LAST** in `Application.kt` (Kilua numbers routes by declaration order); new methods go to the END of
  * this interface.
  *
  * Roles: BOARD and ADMIN manage ([createTender], [updateTenderDraft], [publishTender], [cancelTender], [registerAwardMotion], [awardTender],
- * [recordAcceptance]); TREASURER only has the board's read view. Whoever has ANY bid row on a tender (even a withdrawn one) may neither award nor
+ * [recordAcceptance]); TREASURER has the board's read view and, since V1.9.308, [payOutTender] (BOARD and ADMIN may pay out as well). Whoever has ANY bid row on a tender (even a withdrawn one) may neither award nor
  * accept nor register an award motion on it, whatever their role ([ForbiddenException]).
  */
 @RpcService
@@ -75,4 +75,12 @@ interface ITenderService {
 
     /** V1.9.202, BOARD/ADMIN: the server-rendered, sanitized HTML of a Markdown description (rate-limited). */
     suspend fun previewTenderDescription(markdown: String): String
+
+    /**
+     * V1.9.308, TREASURER/BOARD/ADMIN (ACTIVE): issues the award price in LTR to the winner of an accepted (COMPLETED, or PAYOUT_FAILED) tender.
+     * Refused for the winner, for every bidder of the tender and for the member who recorded the acceptance (four-eyes). Idempotent: a tender
+     * that is already PAID returns its detail without booking again. A winner who cannot receive LTR (a guest, a member who left) does NOT throw:
+     * the tender becomes PAYOUT_FAILED (board view) and the call returns that detail, so the record survives.
+     */
+    suspend fun payOutTender(tenderId: String): TenderDetailDto
 }

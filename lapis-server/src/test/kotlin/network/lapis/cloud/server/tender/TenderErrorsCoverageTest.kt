@@ -28,6 +28,8 @@ class TenderErrorsCoverageTest :
                 File(serverRoot, "tender/TenderMotionBinding.kt"),
                 File(serverRoot, "tender/TenderConflicts.kt"),
                 File(serverRoot, "tender/TenderVisibilityPolicy.kt"),
+                File(serverRoot, "tender/TenderPayout.kt"),
+                File(serverRoot, "tender/TenderPayoutRules.kt"),
             )
         val sources = tenderFiles.associateWith { it.readText() }
 

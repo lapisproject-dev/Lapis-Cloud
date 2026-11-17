@@ -101,7 +101,7 @@ class TendersScreenDomTest {
                     renderTendersScreen(root)
                     awaitUntil("the table") { element().allOf("a[data-record-id]").size == 4 }
                     assertEquals(
-                        listOf("Alle", "Offen", "Frist abgelaufen", "Vergeben", "Abgeschlossen"),
+                        listOf("Alle", "Offen", "Frist abgelaufen", "Vergeben", "Abgeschlossen", "Ausgezahlt"),
                         element().radios().map { it.text().trim() },
                     )
                     element().radioNamed("Vergeben").click()
@@ -369,6 +369,50 @@ class TendersScreenDomTest {
                     form.buttonNamed("Als Entwurf speichern").click()
                     awaitUntil("the draft was updated") { calls.toRoute(update).size == 1 }
                     assertEquals(1, calls.toRoute(create).size, "no second draft")
+                }
+            }
+        }
+
+    @Test
+    fun theStatusLabelsAndColoursCoverThePayout_andTheDoneFilterKeepsPaidTenders() {
+        assertEquals("Ausgezahlt", TenderLabels.status(TenderStatus.PAID))
+        assertEquals("Auszahlung gescheitert", TenderLabels.status(TenderStatus.PAYOUT_FAILED))
+        assertEquals("success", TenderLabels.statusColor(TenderStatus.PAID))
+        assertEquals("danger", TenderLabels.statusColor(TenderStatus.PAYOUT_FAILED))
+        assertTrue(TenderFilter.DONE.keeps(tenderSummary(status = TenderStatus.PAID)))
+        assertTrue(TenderFilter.DONE.keeps(tenderSummary(status = TenderStatus.COMPLETED)))
+        assertFalse(TenderFilter.DONE.keeps(tenderSummary(status = TenderStatus.AWARDED)))
+        assertEquals(TenderStatus.PAID, TenderFilter.PAID.serverFilter())
+        assertEquals(TenderStatus.PAYOUT_FAILED, TenderFilter.PAYOUT_FAILED.serverFilter())
+    }
+
+    @Test
+    fun theFailedPayoutFilter_isOfferedToTheBoardsReadViewOnly(): Promise<Unit> =
+        formTest {
+            val list = routeOf { tenderService().listTenders(null) }
+            val defaults = routeOf { tenderService().getTenderDefaults() }
+            listOf(AccountRole.TREASURER to true, AccountRole.MEMBER to false).forEach { (role, internal) ->
+                AppState.setSession(tenderSession(role))
+                withFetchStub(
+                    respond = { req ->
+                        when {
+                            !req.isRpc -> StubResponse()
+                            req.rpcRoute == list -> req.answerWith(jsonOf(ListSerializer(TenderSummaryDto.serializer()), tenders))
+                            req.rpcRoute == defaults ->
+                                req.answerWith(
+                                    jsonOf(TenderDefaultsDto.serializer(), TenderDefaultsDto(canManage = false, canReadInternal = true)),
+                                )
+                            else -> req.answerWith("null")
+                        }
+                    },
+                ) { _ ->
+                    mountedForm("tenders-failed-filter-$role") { root, element ->
+                        renderTendersScreen(root)
+                        awaitUntil("the table") { element().allOf("a[data-record-id]").size == 4 }
+                        val labels = element().radios().map { it.text().trim() }
+                        assertTrue("Ausgezahlt" in labels, "$role: $labels")
+                        assertEquals(internal, "Auszahlung gescheitert" in labels, "$role: $labels")
+                    }
                 }
             }
         }

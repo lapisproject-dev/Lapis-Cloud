@@ -20,6 +20,10 @@ import network.lapis.cloud.shared.domain.TenderBidVisibility
 import network.lapis.cloud.shared.domain.TenderCurrency
 import network.lapis.cloud.shared.domain.TenderDescriptionFormat
 import network.lapis.cloud.shared.domain.TenderDetailDto
+import network.lapis.cloud.shared.domain.TenderPayoutBlockedReason
+import network.lapis.cloud.shared.domain.TenderPayoutDto
+import network.lapis.cloud.shared.domain.TenderPayoutFailureDto
+import network.lapis.cloud.shared.domain.TenderPayoutFailureReason
 import network.lapis.cloud.shared.domain.TenderStatus
 import org.w3c.dom.HTMLElement
 import kotlin.js.Promise
@@ -67,6 +71,7 @@ class TenderDetailScreenDomTest {
                             )
                         },
                     "publish" to routeOf { tenderService().publishTender("t1") },
+                    "payOut" to routeOf { tenderService().payOutTender("t1") },
                 )
             withFetchStub(
                 respond = { req ->
@@ -423,7 +428,7 @@ class TenderDetailScreenDomTest {
             AppState.setSession(tenderSession())
             withDetail("tender-steps", tenderDetail(open)) { el, _, _, _ ->
                 val steps = el.allOf("[role=listitem]").map { it.text().trim() }
-                assertEquals(listOf("Entwurf", "Veröffentlicht", "Frist abgelaufen", "Vergeben", "Abgenommen"), steps)
+                assertEquals(listOf("Entwurf", "Veröffentlicht", "Frist abgelaufen", "Vergeben", "Abgenommen", "Ausgezahlt"), steps)
                 assertEquals(
                     "Veröffentlicht",
                     el
@@ -476,6 +481,175 @@ class TenderDetailScreenDomTest {
                     assertEquals(listOf("/tenders"), target)
                     assertEquals("Ausschreibung", (element().querySelector("h1") as HTMLElement).text().trim())
                 }
+            }
+        }
+
+    // ---- payout (V1.9.308) ---------------------------------------------------------------------------------------------------
+
+    private val completed = tenderSummary(status = TenderStatus.COMPLETED, count = 1)
+
+    private fun HTMLElement.payButton(): HTMLElement =
+        allOf("button").first {
+            it.text().trim() == "LTR auszahlen" ||
+                it.text().trim() == "Erneut auszahlen"
+        }
+
+    @Test
+    fun aTreasurerWhoMayPayOut_seesAmountAndWinner_asksFirst_andOnlyThenCallsTheServer(): Promise<Unit> =
+        run {
+            AppState.setSession(tenderSession(AccountRole.TREASURER))
+            val dto =
+                tenderDetail(completed) {
+                    copy(canPayOut = true, payoutAmount = 12.5.toDecimal(), payoutWinnerDisplayName = "Anna Angebot")
+                }
+            withDetail("tender-payout", dto) { el, _, calls, routes ->
+                assertTrue(el.text().contains("Auszahlung"))
+                assertTrue(el.text().contains("12,50") && el.text().contains("Anna Angebot"), el.text())
+                assertEquals("false", el.payButton().getAttribute("aria-disabled") ?: "false")
+                el.payButton().click()
+                awaitUntil("the question") { document.querySelector(".modal.show") != null }
+                val modal = lastOpenModal()
+                assertTrue(modal.text().contains("Die Buchung lässt sich nicht rückgängig machen."))
+                assertTrue(modal.text().contains("Anna Angebot"))
+                assertEquals(0, calls.toRoute(routes.getValue("payOut")).size, "the question comes before the call")
+                modal.buttonNamed("Auszahlen").click()
+                awaitUntil("payOutTender") { calls.toRoute(routes.getValue("payOut")).size == 1 }
+                assertEquals("t1", calls.singleCall(routes.getValue("payOut")).rpcParam(0) as String)
+            }
+        }
+
+    @Test
+    fun aFailedPayout_showsTheReasonForTheBoard_andOffersARetry(): Promise<Unit> =
+        run {
+            AppState.setSession(tenderSession(AccountRole.TREASURER))
+            val failed = tenderSummary(status = TenderStatus.PAYOUT_FAILED, count = 1)
+            val reasons =
+                mapOf(
+                    TenderPayoutFailureReason.WINNER_GUEST to "Der Gewinner ist Gast und führt sein LTR-Konto auf seinem Heimatserver.",
+                    TenderPayoutFailureReason.WINNER_NOT_LTR_ELIGIBLE to "Der Gewinner kann derzeit kein LTR empfangen.",
+                )
+            formTest {
+                reasons.forEach { (reason, sentence) ->
+                    val get = routeOf { tenderService().getTender("t1") }
+                    val dto =
+                        tenderDetail(failed) {
+                            copy(
+                                canPayOut = true,
+                                payoutAmount = 3.0.toDecimal(),
+                                payoutWinnerDisplayName = "Anna Angebot",
+                                payoutFailure = TenderPayoutFailureDto(reason, LocalDateTime(2099, 11, 4, 9, 0), "Tina Kasse"),
+                            )
+                        }
+                    withFetchStub(respond = { req ->
+                        if (req.isRpc &&
+                            req.rpcRoute == get
+                        ) {
+                            req.answerWith(json(dto))
+                        } else {
+                            StubResponse()
+                        }
+                    }) { _ ->
+                        mountedForm("tender-payout-failed-$reason") { root, element ->
+                            renderTenderDetailScreen(root, "t1")
+                            awaitUntil("the page") { element().text().contains("Erwartetes Ergebnis") }
+                            assertTrue(element().text().contains("Auszahlung gescheitert am"), element().text())
+                            assertTrue(element().text().contains(sentence), "$reason shows its sentence")
+                            assertEquals("Erneut auszahlen", element().payButton().text().trim())
+                        }
+                    }
+                }
+            }
+        }
+
+    @Test
+    fun theAcceptanceRecorder_seesTheFourEyesSentenceWithTheName_andADisabledButton(): Promise<Unit> =
+        run {
+            AppState.setSession(tenderSession(AccountRole.BOARD))
+            val dto =
+                tenderDetail(completed) {
+                    copy(
+                        canPayOut = false,
+                        payoutBlockedReason = TenderPayoutBlockedReason.FOUR_EYES,
+                        acceptedByDisplayName = "Vera Vorstand",
+                    )
+                }
+            withDetail("tender-payout-four-eyes", dto) { el, _, calls, routes ->
+                assertTrue(
+                    el.text().contains("Die Abnahme hat Vera Vorstand erfasst. Auszahlen muss eine andere Person (Vier-Augen-Prinzip)."),
+                    el.text(),
+                )
+                val button = el.payButton()
+                assertEquals("true", button.getAttribute("aria-disabled"))
+                button.click()
+                assertTrue(document.querySelector(".modal.show") == null, "a blocked button opens nothing")
+                assertEquals(0, calls.toRoute(routes.getValue("payOut")).size)
+            }
+        }
+
+    @Test
+    fun aBidderOnTheBoard_isToldWhyHeCannotPayOut(): Promise<Unit> =
+        run {
+            AppState.setSession(tenderSession(AccountRole.TREASURER))
+            val dto = tenderDetail(completed) { copy(canPayOut = false, payoutBlockedReason = TenderPayoutBlockedReason.OWN_BID) }
+            withDetail("tender-payout-own-bid", dto) { el, _, _, _ ->
+                assertTrue(el.text().contains("Sie haben auf diese Ausschreibung geboten und dürfen nicht auszahlen."), el.text())
+                assertEquals("true", el.payButton().getAttribute("aria-disabled"))
+            }
+        }
+
+    @Test
+    fun theWinnerOfAnAcceptedTender_readsThatThePayoutIsStillToCome_withoutAButton(): Promise<Unit> =
+        run {
+            AppState.setSession(tenderSession(AccountRole.MEMBER))
+            withDetail("tender-payout-pending", tenderDetail(completed) { copy(payoutPending = true) }) { el, _, _, _ ->
+                assertTrue(el.text().contains("Auszahlung steht aus."))
+                assertTrue(el.allOf("button").none { it.text().trim() in setOf("LTR auszahlen", "Erneut auszahlen") })
+            }
+        }
+
+    @Test
+    fun aPaidTender_showsTheDate_withTheNameOnlyWhenTheServerSendsIt(): Promise<Unit> =
+        run {
+            AppState.setSession(tenderSession(AccountRole.TREASURER))
+            val paid = tenderSummary(status = TenderStatus.PAID, count = 1)
+            val named =
+                tenderDetail(paid) {
+                    copy(
+                        payout =
+                            TenderPayoutDto(
+                                amount = 5.0.toDecimal(),
+                                currency = TenderCurrency.LTR,
+                                executedAt = LocalDateTime(2099, 11, 4, 9, 0),
+                                paidByDisplayName = "Tina Kasse",
+                                ledgerEntryId = "l1",
+                            ),
+                    )
+                }
+            withDetail("tender-paid-named", named) { el, _, _, _ ->
+                assertTrue(el.text().contains("Ausgezahlt am") && el.text().contains("von Tina Kasse"), el.text())
+                assertTrue(el.allOf("button").none { it.text().trim() in setOf("LTR auszahlen", "Erneut auszahlen") })
+            }
+        }
+
+    @Test
+    fun aPaidTender_forAnotherParticipant_showsOnlyTheDate(): Promise<Unit> =
+        run {
+            AppState.setSession(tenderSession(AccountRole.MEMBER))
+            val paid = tenderSummary(status = TenderStatus.PAID, count = 1)
+            val anonymous =
+                tenderDetail(paid) {
+                    copy(
+                        payout =
+                            TenderPayoutDto(
+                                amount = 5.0.toDecimal(),
+                                currency = TenderCurrency.LTR,
+                                executedAt = LocalDateTime(2099, 11, 4, 9, 0),
+                            ),
+                    )
+                }
+            withDetail("tender-paid-anonymous", anonymous) { el, _, _, _ ->
+                assertTrue(el.text().contains("Ausgezahlt am"), el.text())
+                assertFalse(el.text().contains("von Tina"))
             }
         }
 }

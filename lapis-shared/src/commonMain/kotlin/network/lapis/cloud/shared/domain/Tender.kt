@@ -12,10 +12,20 @@ import kotlinx.serialization.Serializable
 
 /**
  * Lifecycle of a tender. `PUBLISHED` is the STORED status; once the deadline has passed every reader sees [CLOSED] (the effective status), and the
- * next writing path persists it (lazy close, no scheduler). [CANCELLED] is reachable from every other status except [COMPLETED].
+ * next writing path persists it (lazy close, no scheduler). [CANCELLED] is reachable from every other status except [COMPLETED], [PAID] and
+ * [PAYOUT_FAILED]. V1.9.308 (payout, wave 3): [PAID] is final (the LTR was issued to the winner); [PAYOUT_FAILED] means the payout was attempted
+ * and the winner could not receive LTR -- a retry is possible, and ONLY the board's view ever shows this status (everybody else reads COMPLETED).
  */
 @Serializable
-enum class TenderStatus { DRAFT, PUBLISHED, CLOSED, AWARDED, COMPLETED, CANCELLED }
+enum class TenderStatus { DRAFT, PUBLISHED, CLOSED, AWARDED, COMPLETED, CANCELLED, PAID, PAYOUT_FAILED }
+
+/** V1.9.308: why the payout of an accepted tender could not be booked on the winner's side. Board view only. */
+@Serializable
+enum class TenderPayoutFailureReason { WINNER_GUEST, WINNER_NOT_LTR_ELIGIBLE }
+
+/** V1.9.308: why the caller cannot pay out right now (`null` = may pay out). Computed by the server, the client only shows the matching text. */
+@Serializable
+enum class TenderPayoutBlockedReason { NOT_TREASURY_ROLE, OWN_BID, FOUR_EYES, NOT_PAYABLE }
 
 /** Status of ONE bid. [WITHDRAWN] is the bidder's own retraction before the deadline; [REJECTED] is set on the losers when the tender is awarded. */
 @Serializable
@@ -191,6 +201,27 @@ data class TenderBidDto(
     val awardable: Boolean = false,
 )
 
+/**
+ * V1.9.308: the booked payout. [paidByDisplayName] and [ledgerEntryId] only ever leave the server for the board's read view and the winner;
+ * everybody else gets the amount and the date.
+ */
+@Serializable
+data class TenderPayoutDto(
+    val amount: Decimal,
+    val currency: TenderCurrency,
+    val executedAt: LocalDateTime,
+    val paidByDisplayName: String? = null,
+    val ledgerEntryId: String? = null,
+)
+
+/** V1.9.308: the last failed payout attempt; board view only. */
+@Serializable
+data class TenderPayoutFailureDto(
+    val reason: TenderPayoutFailureReason,
+    val failedAt: LocalDateTime,
+    val failedByDisplayName: String? = null,
+)
+
 @Serializable
 data class TenderAcceptanceDto(
     val decision: TenderAcceptanceDecision,
@@ -225,6 +256,20 @@ data class TenderDetailDto(
     /** Only for a non-conflicted manager and an effectively CLOSED tender. */
     val awardReadiness: TenderAwardReadiness? = null,
     val awardJustificationRequired: Boolean = false,
+    /** V1.9.308: the booked payout (status PAID). */
+    val payout: TenderPayoutDto? = null,
+    /** V1.9.308: the last failed payout attempt; BOARD VIEW ONLY (everybody else sees COMPLETED and `null`). */
+    val payoutFailure: TenderPayoutFailureDto? = null,
+    /** V1.9.308: WINNER ONLY -- the tender is accepted and the payout is still to come. */
+    val payoutPending: Boolean = false,
+    /** V1.9.308: server truth, only for the board's read view while the viewer is an ACTIVE organisation member. */
+    val canPayOut: Boolean = false,
+    val payoutBlockedReason: TenderPayoutBlockedReason? = null,
+    /** V1.9.308: board view only -- what the payout would be (the award price) and to whom, for the confirmation dialog. */
+    val payoutAmount: Decimal? = null,
+    val payoutWinnerDisplayName: String? = null,
+    /** V1.9.308: board view only -- who recorded the acceptance (the four-eyes text names them). */
+    val acceptedByDisplayName: String? = null,
 )
 
 @Serializable
@@ -254,4 +299,8 @@ data class TenderAuditSnapshot(
     val decision: String? = null,
     val fromStatus: String? = null,
     val conflictedCount: Int? = null,
+    /** V1.9.308: the LTR ledger row of a PAYOUT event (an id, never an amount). */
+    val ledgerEntryId: String? = null,
+    /** V1.9.308: the enum name of a PAYOUT_FAILED event. */
+    val failureReason: String? = null,
 )

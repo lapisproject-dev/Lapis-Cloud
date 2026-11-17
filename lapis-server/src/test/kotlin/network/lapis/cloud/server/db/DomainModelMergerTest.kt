@@ -607,7 +607,8 @@ class DomainModelMergerTest :
             // partg_report_declaration, partg_report_deadline); its Member reference dedups, net +4 (261 -> 265).
             // 81-bulletin-board.kuml.kts (V1.9.297) adds TWO real tables (bulletin_notice, bulletin_notice_boost); its Member stub dedups, net +2 (265 -> 267).
             // 82-conference-room-poll.kuml.kts (V1.9.304) adds FOUR real tables (conference_room_poll, conference_room_poll_option, conference_room_poll_voted, conference_room_poll_answer); its Member and ConferenceRoom stubs dedup, net +4 (267 -> 271).
-            val distinctTableNames = 271
+            // 74-tender.kuml.kts (V1.9.308) adds ONE real table (tender_payout); its LtrLedgerEntry stub dedups into the real entity, net +1 (271 -> 272).
+            val distinctTableNames = 272
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -982,6 +983,8 @@ class DomainModelMergerTest :
                     "TenderBidTable.kt",
                     "TenderAwardTable.kt",
                     "TenderAcceptanceTable.kt",
+                    // Welle V1.9.308 "Ausschreibungen, Auszahlung" -- ONE new real table (tender_payout) inside 74-tender.kuml.kts; LtrLedgerEntry is a stub.
+                    "TenderPayoutTable.kt",
                     // Welle V1.9.222 "Bildergalerie" -- ONE new real table, no new stub.
                     "AttachedImageTable.kt",
                     // Welle V1.9.225 "Rechenschaftsbericht (PartG)" -- THREE new real tables; Member and RegionalChapter are stubs.

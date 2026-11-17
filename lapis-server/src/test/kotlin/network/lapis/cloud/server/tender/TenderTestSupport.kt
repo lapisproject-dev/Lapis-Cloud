@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.AttendanceTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
+import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -26,6 +27,7 @@ import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.TenderAcceptanceTable
 import network.lapis.cloud.server.db.generated.TenderAwardTable
 import network.lapis.cloud.server.db.generated.TenderBidTable
+import network.lapis.cloud.server.db.generated.TenderPayoutTable
 import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
@@ -357,6 +359,8 @@ internal class TenderFixtures {
     /** Between two tests: no tender row, default visibility restored, none of the fixture rows left. */
     fun reset() {
         transaction {
+            TenderPayoutTable.deleteAll()
+            LtrLedgerEntryTable.deleteWhere { LtrLedgerEntryTable.memberId inList memberIds }
             TenderAcceptanceTable.deleteAll()
             TenderAwardTable.deleteAll()
             TenderBidTable.deleteAll()

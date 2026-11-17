@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.TenderAcceptanceTable
 import network.lapis.cloud.server.db.generated.TenderAwardTable
 import network.lapis.cloud.server.db.generated.TenderBidTable
+import network.lapis.cloud.server.db.generated.TenderPayoutTable
 import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.shared.domain.TenderAcceptanceDecision
 import network.lapis.cloud.shared.domain.TenderAwardCriterion
@@ -13,6 +14,7 @@ import network.lapis.cloud.shared.domain.TenderBidStatus
 import network.lapis.cloud.shared.domain.TenderBidVisibility
 import network.lapis.cloud.shared.domain.TenderCurrency
 import network.lapis.cloud.shared.domain.TenderDescriptionFormat
+import network.lapis.cloud.shared.domain.TenderPayoutFailureReason
 import network.lapis.cloud.shared.domain.TenderStatus
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.JoinType
@@ -36,7 +38,7 @@ import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
 /**
- * V1.9.201 -- the ONLY reader and writer of `tender`, `tender_bid`, `tender_award` and `tender_acceptance` (`TenderAccessTripwireTest` pins this;
+ * V1.9.201 -- the ONLY reader and writer of `tender`, `tender_bid`, `tender_award`, `tender_acceptance` and (V1.9.308) `tender_payout` (`TenderAccessTripwireTest` pins this;
  * `TenderPersonalData` is the one other file that touches them, for the data-subject export/erasure). Every method must run inside an open
  * `transaction {}`; none of them opens one. Every query that returns a list has an explicit `ORDER BY` (PostgreSQL returns unordered rows
  * otherwise) and a hard cap (DoS guard).
@@ -200,6 +202,11 @@ internal object TenderStore {
                 TenderStatus.CLOSED ->
                     (TenderTable.status eq TenderStatus.CLOSED) or
                         ((TenderTable.status eq TenderStatus.PUBLISHED) and (TenderTable.deadline lessEq wallNow))
+                // V1.9.308: PAYOUT_FAILED is a board-only refinement of COMPLETED; every other reader (a conflicted treasurer too) sees COMPLETED,
+                // so the COMPLETED filter selects both stored statuses and the PAYOUT_FAILED filter finds nothing for them. The service filters
+                // once more against the DISPLAYED status, which is what decides.
+                TenderStatus.COMPLETED -> TenderTable.status inList listOf(TenderStatus.COMPLETED, TenderStatus.PAYOUT_FAILED)
+                TenderStatus.PAYOUT_FAILED -> if (includeInternal) TenderTable.status eq TenderStatus.PAYOUT_FAILED else Op.FALSE
                 else -> TenderTable.status eq statusFilter
             }
         // Rows only the board may see (drafts, tenders cancelled before publication) are excluded in SQL for everybody else, so they cannot
@@ -461,6 +468,73 @@ internal object TenderStore {
             it[TenderAcceptanceTable.decidedAt] = decidedAt
         }
     }
+
+    /** V1.9.308 -- the ACCEPTED decision of the tender (at most one: only an AWARDED tender takes a decision and ACCEPTED completes it). */
+    fun acceptedAcceptance(tenderId: Uuid): ResultRow? =
+        TenderAcceptanceTable
+            .selectAll()
+            .where {
+                (TenderAcceptanceTable.tenderId eq tenderId) and (TenderAcceptanceTable.decision eq TenderAcceptanceDecision.ACCEPTED)
+            }.orderBy(TenderAcceptanceTable.decidedAt to SortOrder.ASC, TenderAcceptanceTable.id to SortOrder.ASC)
+            .limit(1)
+            .singleOrNull()
+
+    // ── payout (V1.9.308) ───────────────────────────────────────────────────────────────────────────────────
+
+    fun payout(tenderId: Uuid): ResultRow? = TenderPayoutTable.selectAll().where { TenderPayoutTable.tenderId eq tenderId }.singleOrNull()
+
+    /**
+     * Inserts the booking record. The caller wraps this in a savepoint and treats ONLY a unique violation as "somebody else paid first"
+     * (primary key on `tender_id`, unique `ledger_entry_id` and `bid_id`).
+     */
+    fun insertPayout(
+        tenderId: Uuid,
+        ledgerEntryId: Uuid,
+        bidId: Uuid,
+        amount: BigDecimal,
+        executedBy: Uuid,
+        executedAt: LocalDateTime,
+    ) {
+        TenderPayoutTable.insert {
+            it[TenderPayoutTable.tenderId] = tenderId
+            it[TenderPayoutTable.ledgerEntryId] = ledgerEntryId
+            it[TenderPayoutTable.bidId] = bidId
+            it[amountLtr] = amount
+            it[TenderPayoutTable.executedBy] = executedBy
+            it[TenderPayoutTable.executedAt] = executedAt
+        }
+    }
+
+    /** Conditional: only a COMPLETED or PAYOUT_FAILED tender moves. Returns the number of rows changed (the caller expects exactly 1). */
+    fun markPayoutFailed(
+        tenderId: Uuid,
+        reason: TenderPayoutFailureReason,
+        by: Uuid,
+        at: LocalDateTime,
+    ): Int =
+        TenderTable.update({
+            (TenderTable.id eq tenderId) and (TenderTable.status inList listOf(TenderStatus.COMPLETED, TenderStatus.PAYOUT_FAILED))
+        }) {
+            it[status] = TenderStatus.PAYOUT_FAILED
+            it[payoutFailureReason] = reason
+            it[payoutFailedAt] = at
+            it[payoutFailedBy] = by
+        }
+
+    /**
+     * Conditional: only a COMPLETED or PAYOUT_FAILED tender moves to PAID. The failure columns stay as history of the earlier attempt (the CHECKs
+     * allow that). Returns the number of rows changed (the caller expects exactly 1).
+     */
+    fun markPaid(
+        tenderId: Uuid,
+        ledgerEntryId: Uuid,
+    ): Int =
+        TenderTable.update({
+            (TenderTable.id eq tenderId) and (TenderTable.status inList listOf(TenderStatus.COMPLETED, TenderStatus.PAYOUT_FAILED))
+        }) {
+            it[status] = TenderStatus.PAID
+            it[payoutLedgerEntryId] = ledgerEntryId
+        }
 
     // ── organisation default ────────────────────────────────────────────────────────────────────────────────
 

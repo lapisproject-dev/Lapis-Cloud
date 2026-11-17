@@ -6,6 +6,7 @@ import kotlinx.serialization.json.putJsonArray
 import network.lapis.cloud.server.db.generated.TenderAcceptanceTable
 import network.lapis.cloud.server.db.generated.TenderAwardTable
 import network.lapis.cloud.server.db.generated.TenderBidTable
+import network.lapis.cloud.server.db.generated.TenderPayoutTable
 import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.TenderBidStatus
@@ -19,8 +20,8 @@ import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 /**
- * Owns [TenderTable]/[TenderBidTable]/[TenderAwardTable]/[TenderAcceptanceTable] (V1.9.201 tenders). The member columns are `tender.created_by` /
- * `published_by` / `cancelled_by`, `tender_bid.bidder_member_id`, `tender_award.awarded_by` and `tender_acceptance.decided_by`; guests are members
+ * Owns [TenderTable]/[TenderBidTable]/[TenderAwardTable]/[TenderAcceptanceTable] (V1.9.201 tenders) and [TenderPayoutTable] (V1.9.308). The member
+ * columns are `tender.created_by` / `published_by` / `cancelled_by` / `payout_failed_by` (V1.9.308), `tender_payout.executed_by` (V1.9.308), `tender_bid.bidder_member_id`, `tender_award.awarded_by` and `tender_acceptance.decided_by`; guests are members
  * (status GUEST) and covered by the same member subject.
  *
  * Erasure, per table:
@@ -28,13 +29,15 @@ import kotlin.uuid.Uuid
  *    outcome of the tender must stay explainable); the name leaves with the anonymised member row.
  *  * a winning bid, the award and the acceptances are the evidence of a decision that other people relied on (the board's, the committee's, the
  *    other bidders'): retained, the name leaves with the anonymised member row. Same reasoning as the auction and the resolution book.
- *  * `tender` itself carries no text about the member beyond the created/published/cancelled-by ids: retained.
- * The export lists the member's own bids (title of the tender, price, text, status), the tenders they created/published and the decisions they took.
+ *  * `tender` itself carries no text about the member beyond the created/published/cancelled/payout-failed-by ids: retained.
+ *  * `tender_payout` (V1.9.308) is the booking record of an LTR payout: retained (evidence of a booking, GoBD, like a MINT and the acceptance);
+ *    the name leaves with the anonymised member row. The payout the member RECEIVED is a ledger row and appears in the LTR section.
+ * The export lists the member's own bids (title of the tender, price, text, status), the tenders they created/published, the decisions they took and the payouts they executed or recorded as failed.
  */
 object TenderPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "tenders"
     override val displayName = "Ausschreibungen"
-    override val coveredTables = setOf(TenderTable, TenderBidTable, TenderAwardTable, TenderAcceptanceTable)
+    override val coveredTables = setOf(TenderTable, TenderBidTable, TenderAwardTable, TenderAcceptanceTable, TenderPayoutTable)
 
     /** Replaces the text of a bid that did not win when its bidder is erased. */
     const val ERASED_BID_TEXT = "[erased]"
@@ -112,6 +115,39 @@ object TenderPersonalData : MemberPersonalDataContributor {
                         )
                     }
             }
+            putJsonArray("payoutsExecuted") {
+                TenderPayoutTable
+                    .selectAll()
+                    .where { TenderPayoutTable.executedBy eq memberId }
+                    .orderBy(TenderPayoutTable.tenderId, SortOrder.ASC)
+                    .forEach { row ->
+                        val tender = TenderTable.selectAll().where { TenderTable.id eq row[TenderPayoutTable.tenderId] }.singleOrNull()
+                        add(
+                            buildJsonObject {
+                                put("tenderId", row[TenderPayoutTable.tenderId].toString())
+                                put("tenderTitle", tender?.get(TenderTable.title))
+                                put("amount", row[TenderPayoutTable.amountLtr].toPlainString())
+                                put("executedAt", row[TenderPayoutTable.executedAt].toString())
+                            },
+                        )
+                    }
+            }
+            putJsonArray("payoutFailuresRecorded") {
+                TenderTable
+                    .selectAll()
+                    .where { TenderTable.payoutFailedBy eq memberId }
+                    .orderBy(TenderTable.id, SortOrder.ASC)
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("tenderId", row[TenderTable.id].toString())
+                                put("tenderTitle", row[TenderTable.title])
+                                put("reason", row[TenderTable.payoutFailureReason]?.name)
+                                put("failedAt", row[TenderTable.payoutFailedAt]?.toString())
+                            },
+                        )
+                    }
+            }
         }
 
     override fun eraseMember(
@@ -129,10 +165,12 @@ object TenderPersonalData : MemberPersonalDataContributor {
             TenderTable
                 .selectAll()
                 .where {
-                    (TenderTable.createdBy eq memberId) or (TenderTable.publishedBy eq memberId) or (TenderTable.cancelledBy eq memberId)
+                    (TenderTable.createdBy eq memberId) or (TenderTable.publishedBy eq memberId) or (TenderTable.cancelledBy eq memberId) or
+                        (TenderTable.payoutFailedBy eq memberId)
                 }.count()
         val awards = TenderAwardTable.selectAll().where { TenderAwardTable.awardedBy eq memberId }.count()
         val acceptances = TenderAcceptanceTable.selectAll().where { TenderAcceptanceTable.decidedBy eq memberId }.count()
+        val payouts = TenderPayoutTable.selectAll().where { TenderPayoutTable.executedBy eq memberId }.count()
         return listOf(
             TableErasureOutcome(
                 table = "tender_bid",
@@ -159,6 +197,13 @@ object TenderPersonalData : MemberPersonalDataContributor {
                 table = "tender_acceptance",
                 rowsRetained = acceptances.toInt(),
                 retentionReason = "The acceptance is the evidence of the board's decision on the delivered work.",
+            ),
+            TableErasureOutcome(
+                table = "tender_payout",
+                rowsRetained = payouts.toInt(),
+                retentionReason =
+                    "The payout is the booking record of an LTR issuance (GoBD); it names the executing member only by id. " +
+                        "The name leaves with the anonymised member row.",
             ),
         )
     }

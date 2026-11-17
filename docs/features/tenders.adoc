@@ -1,18 +1,18 @@
-= Tenders (V1.9.201 foundation, V1.9.202 screens)
+= Tenders (V1.9.201 foundation, V1.9.202 screens, V1.9.308 payout)
 :toc:
 
 A tender puts a task out to bid. It implements an **adopted resolution**: the board publishes the task with a deadline, participants bid in LTR, the board awards and finally accepts the result.
 Design, state machine, visibility matrix and lock order: link:../architecture/tenders.adoc[docs/architecture/tenders.adoc].
 
-NOTE: **Wave 2 adds the screens** (list, detail, board actions) on top of the wave 1 foundation. **Nothing is booked in LTR** (the payout is wave 3), and the screens were tested only with DOM tests in headless Chrome: no person has seen them in a real browser or on a real instance.
+NOTE: **Wave 2 added the screens** (list, detail, board actions) on top of the wave 1 foundation. **Wave 3 (V1.9.308) adds the LTR payout**: after the acceptance, a treasurer (or the board) issues the award price to the winner in a separate, four-eyes step. The screens were tested only with DOM tests in headless Chrome: no person has seen them in a real browser or on a real instance.
 
 == Screens (V1.9.202)
 
 [cols="2,5"]
 |===
 |Screen |What it does
-|"Ausschreibungen" (`/tenders`), sidebar group "Wirtschaft" |The list: title (link), status, deadline, payment, number of bids (a dash where the viewer may not see it), the own bid, an icon action "open". Filter: all, open, deadline passed, awarded, finished (completed or cancelled), and "Entwürfe" for BOARD, ADMIN and TREASURER. BOARD and ADMIN get "Neue Ausschreibung" (a collapsed form: title, resolution, Markdown description with server-rendered preview, expected result, deadline, criterion, visibility, payment).
-|Tender page (`/tenders/:id`) |Status row, facts (deadline with the remaining time computed by the server, criterion, payment, visibility and what it means, link to the resolution), description, the bid card, the bids the server shows to this viewer, and for the board the actions: edit and publish a draft, set the award motion, award, record acceptance, cancel.
+|"Ausschreibungen" (`/tenders`), sidebar group "Wirtschaft" |The list: title (link), status, deadline, payment, number of bids (a dash where the viewer may not see it), the own bid, an icon action "open". Filter: all, open, deadline passed, awarded, finished (completed, paid or cancelled), paid out ("Ausgezahlt"), and for BOARD, ADMIN and TREASURER also "Entwürfe" and "Auszahlung gescheitert". BOARD and ADMIN get "Neue Ausschreibung" (a collapsed form: title, resolution, Markdown description with server-rendered preview, expected result, deadline, criterion, visibility, payment).
+|Tender page (`/tenders/:id`) |Status row, facts (deadline with the remaining time computed by the server, criterion, payment, visibility and what it means, link to the resolution), description, the bid card, the bids the server shows to this viewer, and for the board the actions: edit and publish a draft, set the award motion, award, record acceptance, cancel. The "Auszahlung" card (V1.9.308) shows the payout: the amount and the winner with the button "LTR auszahlen" for whoever may pay out, the reason why somebody may not, a failed attempt (board view), or the booked payout.
 |===
 
 The sidebar entry sits in "Wirtschaft" because a tender is paid in LTR; it appears for ACTIVE and FRIEND (`MemberStatusSets.LTR_ELIGIBLE`), outside the member-only block. The link "Beruht auf" connects to the self-administration (the resolution) and is shown only to members: for a friend the resolution title is empty and the link is not offered.
@@ -32,14 +32,14 @@ The payment choice shows "Euro" disabled with the reason "Euro-Vergütung kommt 
 [cols="2,5"]
 |===
 |Who |May
-|BOARD, ADMIN (status ACTIVE) |create, change a draft, publish, cancel, register an award motion, award, accept or reject
-|TREASURER |read like the board (drafts, bids after the reveal); manages nothing
+|BOARD, ADMIN (status ACTIVE) |create, change a draft, publish, cancel, register an award motion, award, accept or reject; **pay out** an accepted tender (V1.9.308, four-eyes rule below)
+|TREASURER (status ACTIVE) |read like the board (drafts, bids after the reveal); manages nothing; **pays out** an accepted tender (V1.9.308, four-eyes rule below)
 |ACTIVE, FRIEND |see published tenders and submit, replace and withdraw their own bid
 |GUEST |see published tenders; **cannot bid on an LTR tender** (V1.9.202); may withdraw an older bid
 |Anybody else (applicants, former members, donors, deceased) |nothing; an invisible tender reads as "not found"
 |===
 
-A manager who has **any** bid row on a tender (also a withdrawn one) may neither award, accept nor register an award motion on it.
+A manager who has **any** bid row on a tender (also a withdrawn one) may neither award, accept, register an award motion on it nor pay it out.
 
 == Binding resolution
 
@@ -71,18 +71,35 @@ Chosen per tender before publication (default from the ADMIN setting, factory de
 * `BEST_OFFER`: a judgement, so a committee resolution is needed. Once the tender is CLOSED the board registers an **award motion** (same committee as the binding resolution, not an amendment, not yet in any decision path). Election and systemic consensus are refused for it. The award then needs its ADOPTED resolution decided after the deadline, and a justification.
 * On the award motion the bidders are excluded from the right to vote and from both sides of the quorum.
 
-After the award the winning bid is AWARDED, other running bids REJECTED (withdrawn ones stay withdrawn). Acceptance: ACCEPTED completes the tender; REJECTED needs a reason and leaves it AWARDED. Cancellation needs a reason.
+After the award the winning bid is AWARDED, other running bids REJECTED (withdrawn ones stay withdrawn). Acceptance: ACCEPTED completes the tender (COMPLETED, shown as "Abgenommen"); REJECTED needs a reason and leaves it AWARDED. Cancellation needs a reason; a tender that is COMPLETED, PAID or PAYOUT_FAILED can no longer be cancelled.
+
+== Payout (V1.9.308)
+
+The payout of an accepted tender is **an issuance by the organisation, not a transfer**: exactly ONE credit row of the type `TENDER_PAYOUT` on the winner (reference `TENDER` = the tender id), the amount is **exactly the award price**. There is no debit row and no organisation account, because the LTR ledger knows member accounts only and a system member is forbidden by doctrine.
+
+NOTE: This differs from the first idea ("from the tendering side's LTR account") and **still has to be confirmed by the person responsible** before the release 0.56.0. Consequences: an "insufficient balance" cannot happen (not applicable), and the public figure "Insgesamt ausgegebene LTR" of the transparency page now counts mints **and** tender payouts (otherwise it would be too low).
+
+* **Who.** TREASURER, BOARD or ADMIN with status ACTIVE. Never the winner, never a bidder of the tender (any bid row, also a withdrawn one), and never **the member who recorded the acceptance** (four-eyes rule). With only one active board member the TREASURER (or a second BOARD/ADMIN) has to pay out, otherwise the payout is blocked.
+* **When.** From COMPLETED (and from PAYOUT_FAILED as a retry). The button never appears before the acceptance, and the payout is never automatic.
+* **Amount.** The price of the AWARDED bid of THIS tender; the call takes only the tender id. A price with more than two decimal places, below 0.01 or above the column maximum is refused (never rounded). EUR is unreachable: only LTR can be paid out (a euro payout needs legal clearance first and is a later wave).
+* **Winner cannot receive LTR.** A guest keeps the LTR account on the home server; a member who left, was rejected or died cannot hold LTR either. This does **not** throw: the tender becomes `PAYOUT_FAILED` with the reason (`WINNER_GUEST`, `WINNER_NOT_LTR_ELIGIBLE`), the time and the member who tried, in the same transaction, and nothing is booked. After the cause is fixed, "Erneut auszahlen" retries. A friend (`FRIEND`) and a donor (`DONOR`) can receive the payout.
+* **Idempotent.** A second call (or two parallel ones) books exactly once: the tender row is locked, the status moves by a conditional update, `tender_payout.tender_id` is the primary key, and the ledger row and the bid are unique there. The repeated call answers with the already PAID tender.
+* **What the others see.** `PAYOUT_FAILED` is **board information**: BOARD, ADMIN and TREASURER without a bid of their own see it; everybody else (participants, the winner, a bidding treasurer) reads COMPLETED, and the list filter follows the status that is shown. The winner sees "Auszahlung steht aus." and, after the payout, the amount and the date; the name of the person who paid out is shown to the board's view and to the winner only.
+* **Audit.** `PAYOUT` and `PAYOUT_FAILED` (ids and enums only: ledger row, bid, reason -- never an amount or a name).
+* **Backup.** `tender_payout` travels in the organisation backup (the ledger row first). Backups made before migration V157 are refused by the restore, like after every migration.
+* **Data protection.** The payout the winner received is a ledger row and appears in the LTR section of the data-subject export. `tender_payout` is retained at erasure (evidence of a booking, GoBD).
 
 == Honest limits
 
 * No notifications, no attachments, no award to several bidders, no early closing of a tender.
-* The TREASURER reads (drafts included) and manages nothing.
+* The TREASURER reads (drafts included), pays out an accepted tender and manages nothing else.
+* **Payout limits (V1.9.308).** The four-eyes rule can block a payout in a one-person board (a second authorised person is needed). There is no notification of the winner or of the board. The decision "issuance instead of debit" is still to be confirmed. The wording of the new texts and their translations were written by the model.
 * The reason of a cancellation is visible to everybody who sees the tender (also friends and guests).
 * Kilua RPC does not transmit the message of a refusal, only its type; the client therefore shows one general sentence for a refusal of the tender and prevents the common refusals (lengths, deadline, amount, guest rule) before the call.
 * The translations of the new texts were written by the model, not by a native speaker.
-* LTR only; EUR is unreachable. **No payout** (wave 3). Whether a GUEST can be paid out is undecided: a guest keeps the LTR account on the home server.
+* LTR only; EUR is unreachable. A GUEST winner (an old bid stored before the guest rule) cannot be paid out: the tender shows PAYOUT_FAILED to the board until the status is fixed.
 * With manual counting of votes (`resolveMotion`) the server enforces the quorum without bidders and that the figures fit the present non-bidders, but it cannot see whether a bidder voted.
 * The award criterion is entered by the board; the server cannot check it against the motion text.
 * A refused write rolls back with its transaction, so a deadline that passes is persisted as CLOSED by the next *successful* write; readers always see the effective status.
 * The binding motion's title and id are hidden from friends and guests.
-* Audit: one entry per publication, award-motion registration, award, acceptance and cancellation (ids and enums only).
+* Audit: one entry per publication, award-motion registration, award, acceptance, cancellation, payout and failed payout (ids and enums only).
