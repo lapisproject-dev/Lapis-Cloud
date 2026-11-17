@@ -125,7 +125,7 @@ internal class KeycloakConfig private constructor(
         private const val PROVISION_GROUP_MAX_LENGTH = 255
 
         /** A top-level claim name. A dot is rejected on purpose: nested paths are not supported. */
-        private val PROVISION_CLAIM_PATTERN = Regex("^[A-Za-z_][A-Za-z0-9_:-]{0,63}$")
+        internal val PROVISION_CLAIM_PATTERN = Regex("^[A-Za-z_][A-Za-z0-9_:-]{0,63}$")
 
         const val DEFAULT_SCOPES = "openid email profile"
         const val DEFAULT_DISCOVERY_CACHE_SECONDS = 3600

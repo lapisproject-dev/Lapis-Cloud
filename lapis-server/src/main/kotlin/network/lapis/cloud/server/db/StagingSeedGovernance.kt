@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.PollOptionTable
 import network.lapis.cloud.server.db.generated.PollParticipationTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.rpc.MotionDecisionLock
 import network.lapis.cloud.server.rpc.auditResolutionCreate
 import network.lapis.cloud.server.rpc.electorateMemberIds
@@ -407,6 +408,7 @@ internal object StagingSeedGovernance {
                 .date
         val resolution =
             insertResolutionRow(
+                policy = VotingRightPolicy.LEGACY,
                 sId = meetingId,
                 committeeId = committeeId,
                 scheduledDate = meetingDate,
@@ -724,7 +726,14 @@ internal object StagingSeedGovernance {
                 .where { MeetingTable.id eq meetingId }
                 .single()[MeetingTable.scheduledAt]
                 .date
-        val eligible = electorateMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate).sortedBy { it.toString() }
+        val eligible =
+            electorateMemberIds(
+                committeeRow = committeeRow,
+                scheduledDate = scheduledDate,
+                policy = VotingRightPolicy.LEGACY,
+            ).sortedBy {
+                it.toString()
+            }
         eligible.forEach { memberId ->
             ElectionEligibleVoterTable.insert {
                 it[id] = Uuid.random()
@@ -849,7 +858,12 @@ internal object StagingSeedGovernance {
     ) {
         val motionRow = MotionDecisionLock.lockMotion(fee.motionId)
         val electionRow = lockElectionRow(fee.electionId)
-        tallyElectionLocked(electionMotionRow = motionRow, electionRow = electionRow, actor = actors.adminActor)
+        tallyElectionLocked(
+            policy = VotingRightPolicy.LEGACY,
+            electionMotionRow = motionRow,
+            electionRow = electionRow,
+            actor = actors.adminActor,
+        )
     }
 
     private fun JdbcTransaction.seedRunningAuditorsElection(

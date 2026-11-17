@@ -37,7 +37,13 @@ class KeycloakProvisioningTripwireTest :
             SourceScan.mainFiles().single { it.invariantSeparatorsPath.endsWith("/keycloak/$name") }.readText()
 
         val newFiles =
-            listOf("KeycloakMemberProvisioner.kt", "KeycloakProfileSync.kt", "KeycloakProvisioningClaims.kt", "KeycloakClaimsShape.kt")
+            listOf(
+                "KeycloakMemberProvisioner.kt",
+                "KeycloakProfileSync.kt",
+                "KeycloakProvisioningClaims.kt",
+                "KeycloakClaimsShape.kt",
+                "KeycloakExternalIdSync.kt",
+            )
 
         test("the provisioner writes one account with the literal role MEMBER and names no other role") {
             val code = source("KeycloakMemberProvisioner.kt")
@@ -60,8 +66,8 @@ class KeycloakProvisioningTripwireTest :
                 Regex("""(?i)userinfo|access_?token|PlainJWT|JWTParser|SignedJWT\.parse""").containsMatchIn(code) shouldBe false
             }
             val route = SourceScan.mainFiles().single { it.name == "KeycloakAuthRoutes.kt" }.readText()
-            // the route hands only the verified claims object to the new stages
-            Regex("""claims\s*=\s*claims""").findAll(route).count() shouldBe 2
+            // the route hands only the verified claims object to the new stages (provisioner, profile sync, V1.9.307 external id sync)
+            Regex("""claims\s*=\s*claims""").findAll(route).count() shouldBe 3
         }
 
         test("no log statement of the new code interpolates an address, a name, a raw claim or the subject") {

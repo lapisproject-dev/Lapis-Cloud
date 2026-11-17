@@ -554,6 +554,12 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **Nie dabei:** Mitglieder-Finder, REST-API v1, MCP, `/transparenz`, `MemberHonor` (Tripwire). Kein Bezug zu `MemberHonor`.
 - Die neuen RPCs stehen am Ende von `IMemberService`; der Audit-Eintrag ist `MEMBER`/`UPDATE` mit `MemberChangeSnapshot.foundingMember` (keine neue `AuditAction`), als letzter Schritt der Transaktion. Details: `docs/features/founding-member.adoc`.
 
+## Externe Mitglieds-ID (V1.9.307)
+
+- **Schreiber-Monopol:** `ExternalMemberIdStore` ist der einzige Schreiber von `member.external_member_id*` (Ausnahme: DSGVO-Löschung); `ExternalMemberIdWriterTripwireTest` prüft das und dass Stimmzettel-/Abstimmungscode die ID nie liest. Nie ID-Werte in Logs, Exceptions oder Audit (nur Ereignis und Quelle).
+- **Stimmrecht:** `VotingRightPolicy` wird injiziert (nie global) und ist bei Wählerverzeichnis-Funktionen, `computeQuorum`, `requireVotingMembership` und den Own-Participation-Ladern ein Pflichtparameter ohne Default; nur Dienste mit LEGACY-Default (Governance, Tender, Conference, Dashboard, Auth, Protokoll) bekommen sie in `Application.module` explizit (`ExternalMemberIdWiringTripwireTest`). Eingefrorene Verzeichnisse werden nie neu berechnet. `member.voting_right` wird nie umgeschrieben.
+- Konfiguration `ExternalMemberIdConfig` (nicht in `KeycloakConfig`); Claim nie überschreibend, Anmeldung nie blockiert; Unique-Verletzung immer über `withSavepoint`. Neue RPCs am Ende von `IMemberService`. Doku: `docs/features/external-member-id.adoc`.
+
 ## Stimmrecht und Spender (V1.9.298)
 
 - **Stimmrecht ist ein Attribut des Mitglieds** (`member.voting_right`, Quelle `voting_right_source` DEFAULT/MANUAL/LUPABB, Zeit `voting_right_changed_at`), unabhängig von Status und Mitgliedschaftsstufe. Doku: `docs/features/voting-right-and-donors.adoc`, `docs/architecture/voting-right-and-donors.adoc`.

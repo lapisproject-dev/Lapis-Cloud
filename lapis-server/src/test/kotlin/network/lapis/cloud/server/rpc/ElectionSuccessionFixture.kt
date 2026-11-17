@@ -15,6 +15,7 @@ import network.lapis.cloud.server.db.generated.ElectionTallyApprovalTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -212,7 +213,7 @@ internal class ElectionSuccessionFixture(
         transaction {
             val motionRow = MotionDecisionLock.lockMotion(election.motionId)
             val electionRow = lockElectionRow(election.electionId)
-            tallyElectionLocked(electionMotionRow = motionRow, electionRow = electionRow, actor = actor)
+            tallyElectionLocked(policy = VotingRightPolicy.LEGACY, electionMotionRow = motionRow, electionRow = electionRow, actor = actor)
         }
 
     fun electionRow(id: Uuid): ResultRow = transaction { ElectionTable.selectAll().where { ElectionTable.id eq id }.single() }

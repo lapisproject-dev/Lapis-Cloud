@@ -1509,6 +1509,10 @@ file). Note that the three boolean switches which default to `true` use `:-true`
       LAPIS_KEYCLOAK_PROVISION_GROUP: "${LAPIS_KEYCLOAK_PROVISION_GROUP:-}"
       LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR: "${LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR:-}"
       LAPIS_KEYCLOAK_SYNC_PROFILE: "${LAPIS_KEYCLOAK_SYNC_PROFILE:-}"
+      # Optional (V1.9.307), external member id -- see "External member id" in docs/features/external-member-id.adoc; also valid without Keycloak:
+      LAPIS_KEYCLOAK_EXTERNAL_ID_SOURCE: "${LAPIS_KEYCLOAK_EXTERNAL_ID_SOURCE:-}"
+      LAPIS_KEYCLOAK_EXTERNAL_ID_CLAIM: "${LAPIS_KEYCLOAK_EXTERNAL_ID_CLAIM:-}"
+      LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING: "${LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING:-}"
 ----
 
 WARNING: With a plain `${VAR:-}`, a variable you leave unset (or blank) in `.env` reaches the container
@@ -1631,6 +1635,11 @@ All `LAPIS_KEYCLOAK_*` variables (`network.lapis.cloud.server.keycloak.KeycloakC
 | `LAPIS_KEYCLOAK_PROVISION_CLAIM`
 | `groups`
 | Top-level ID-token claim that carries the groups. No nested paths (a dot is rejected).
+
+| `LAPIS_KEYCLOAK_EXTERNAL_ID_SOURCE`, `LAPIS_KEYCLOAK_EXTERNAL_ID_CLAIM`, `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING`
+| *(optional)*
+| V1.9.307, the external member id (source label, ID-token claim, voting requirement). Not Keycloak-only: the source works without Keycloak. An unusable combination
+  stops the server with a reason code. See `docs/features/external-member-id.adoc`.
 
 | `LAPIS_KEYCLOAK_PROVISION_GROUP`
 | *(optional)*

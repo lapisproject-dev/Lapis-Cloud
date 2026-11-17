@@ -38,6 +38,7 @@ import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
@@ -101,6 +102,7 @@ internal fun dashboardContext(
         today = wall.date,
         zone = zone,
         flags = flags,
+        votingRightPolicy = VotingRightPolicy.LEGACY,
     )
 }
 

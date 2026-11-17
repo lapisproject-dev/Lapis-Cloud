@@ -97,6 +97,11 @@ public object MemberTable : Table("member") {
     public val foundingMemberConsentGrantedAt: Column<LocalDateTime?> = datetime("founding_member_consent_granted_at").nullable()
     public val foundingMemberConsentVersion: Column<String?> = varchar("founding_member_consent_version", 32).nullable()
 
+    // V156 external member id -- see V156__member_external_id.sql and docs/features/external-member-id.adoc. Only ExternalMemberIdStore and the DSGVO
+    // contributor write them. The CHECK (chk_member_external_id_pair) and the unique index ux_member_external_id (source, id) are plain SQL in V156.
+    public val externalMemberId: Column<String?> = varchar("external_member_id", 64).nullable()
+    public val externalMemberIdSource: Column<String?> = varchar("external_member_id_source", 32).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 3 check constraint(s) declared on this entity are not

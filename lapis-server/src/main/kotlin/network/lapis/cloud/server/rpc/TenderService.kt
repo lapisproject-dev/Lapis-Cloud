@@ -18,6 +18,7 @@ import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -123,6 +124,8 @@ class TenderService(
     private val call: ApplicationCall,
     /** V1.9.202: budget of [previewTenderDescription]; Application passes ONE shared instance (the service itself is created per call). */
     private val previewRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
+    // V1.9.307 -- the voting-right rule; LEGACY default for older constructions, `Application.module` passes the configured one (ExternalMemberIdWiringTripwireTest).
+    private val votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
 ) : ITenderService {
     override suspend fun createTender(input: TenderCreateInput): TenderDetailDto {
         val current = resolveCurrentMember(call)
@@ -740,6 +743,7 @@ class TenderService(
     ): Int {
         val meeting = MeetingTable.selectAll().where { MeetingTable.id eq resolution[ResolutionTable.meetingId] }.single()
         return computeQuorum(
+            policy = votingRightPolicy,
             meetingId = resolution[ResolutionTable.meetingId],
             committeeId = motion[MotionTable.targetCommitteeId],
             scheduledDate = meeting[MeetingTable.scheduledAt].date,

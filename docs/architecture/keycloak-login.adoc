@@ -441,6 +441,22 @@ start, and the provisioner refuses to create anything as a second wall.
   the setting tightens security. Setting it without `LAPIS_KEYCLOAK_ENABLED=true` is a startup error as well (orphaned option); without
   `LAPIS_KEYCLOAK_AUTO_PROVISION=true` it has no effect (startup WARN).
 
+| `LAPIS_KEYCLOAK_EXTERNAL_ID_SOURCE`
+| -- (optional)
+| V1.9.307. The label of the external system whose member id the instance keeps (for example `Wabeo`). Unset = the feature is off and the card in the member
+  administration stays invisible. Applies WITHOUT Keycloak as well (the `KEYCLOAK` in the name is historical). Letters, digits, space, `.`, `_`, `-`; at most 32
+  characters; an invalid value stops the server (`EXTERNAL_ID_SOURCE_INVALID`).
+
+| `LAPIS_KEYCLOAK_EXTERNAL_ID_CLAIM`
+| -- (optional)
+| Name of the top-level ID-token claim that carries the external member id; unset = no claim sync. Needs the source (`EXTERNAL_ID_CLAIM_WITHOUT_SOURCE` stops the
+  server). With Keycloak off it is only a startup warning. See "External member id claim" below.
+
+| `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING`
+| `false`
+| `true`: a member without a stored external member id has no voting right (votes, elections, consensus, the quorum base N, the ballot floor). Needs the source
+  (`EXTERNAL_ID_REQUIRE_WITHOUT_SOURCE`); `true`/`false` only -- anything else stops the server and counts as `true` (fail closed). Does not rewrite `member.voting_right`.
+
 | `LAPIS_KEYCLOAK_VERIFIED_NAME_CLAIM`
 | `name_is_verified`
 | Name of the top-level ID-token claim that confirms the name (a plain claim name, no dots; an invalid value is a startup error).
@@ -809,3 +825,30 @@ smoke-test order, manual-linking cleanup, and the rollback path.
 * `network.lapis.cloud.server.routes.OidcRoutes`/
   `network.lapis.cloud.server.federation.OidcDiscoveryDocument` -- the existing federated-guest
   OIDC feature this one is the mirror image of.
+
+== External member id claim (V1.9.307)
+
+With `LAPIS_KEYCLOAK_EXTERNAL_ID_SOURCE` and `LAPIS_KEYCLOAK_EXTERNAL_ID_CLAIM` set, the id is taken from the *verified ID token* into `member.external_member_id`:
+
+* **Just-in-time creation:** applied in the same transaction as the creation. An id that another member of the same source already holds does NOT block the
+  creation: the member is created without an id (log `EXTERNAL_ID_DUPLICATE`).
+* **Every Keycloak login of an existing member** -- independent of `LAPIS_KEYCLOAK_SYNC_PROFILE`, because the id is not profile data and decides the voting right when
+  `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING=true`. A missing, empty or non-string claim changes nothing; an invalid value is logged (`EXTERNAL_ID_CLAIM_INVALID`).
+* **An existing id is never overwritten by a claim.** A different value (or one of another source after a configuration change) is a mismatch
+  (`EXTERNAL_ID_CLAIM_MISMATCH`); the board replaces it by hand. The audit log records at most one mismatch entry per member and day.
+* The login is never blocked, and `oidc_subject` and the Keycloak link are never touched.
+* Logs and audit entries carry reason codes, the source label and the subject fingerprint -- never the id value.
+
+Keycloak side: add a *User Attribute* mapper to the client (Client scopes -> dedicated scope): *User Attribute* `wabeo_id`, *Token Claim Name* `wabeo_id`
+(= `LAPIS_KEYCLOAK_EXTERNAL_ID_CLAIM`), *Claim JSON Type* `String`, **Add to ID token** on. Not verified against a real Wabeo/LupaBB-backed realm.
+
+[WARNING]
+====
+*Required hardening -- the attribute must be admin-managed only.* The server trusts the verified ID-token claim fully: whenever a member has no external id yet, the
+claim is stored as-is (this bypasses the four-eyes rule of `setExternalMemberId`). In Keycloak (Realm settings -> User profile -> the attribute -> Permissions) set
+*Who can edit* to *Admin* only and *Who can view* to *Admin* (or admin and user, read-only), and keep the attribute out of the registration form and the account
+console. Fill it by import or federation, never by the user. A user-editable attribute lets a member give themselves the voting right (with
+`LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING=true`) or squat another member's real id, which then leaves the real holder with a duplicate claim and no voting right until
+BOARD intervenes. Verify this before setting `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING=true`.
+====
+

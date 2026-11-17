@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CountryLegacyMappingReportDto
 import network.lapis.cloud.shared.domain.CountryLegacyMappingResultDto
+import network.lapis.cloud.shared.domain.ExternalMemberIdSettingsDto
 import network.lapis.cloud.shared.domain.FoundingMemberVisibility
 import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
 import network.lapis.cloud.shared.domain.MemberAddressDataDto
@@ -634,4 +635,22 @@ interface IMemberService {
         memberId: String,
         enabled: Boolean,
     ): MemberAdminRowDto
+
+    // ── Welle V1.9.307 -- APPENDED at the END (Kilua RPC numbers routes by declaration order) ──
+
+    /**
+     * Welle V1.9.307 -- BOARD/ADMIN only. Sets (or replaces) the external member id of [memberId]; the source is the instance's configured
+     * source. Invalid id: `BadRequestException`; already assigned to another member of that source: [network.lapis.cloud.shared.rpc.ExternalMemberIdTakenException];
+     * no source configured: [network.lapis.cloud.shared.rpc.ExternalMemberIdSourceNotConfiguredException]; anonymised member: `ConflictException`.
+     */
+    suspend fun setExternalMemberId(
+        memberId: String,
+        externalId: String,
+    ): MemberAdminRowDto
+
+    /** Welle V1.9.307 -- BOARD/ADMIN only. Removes the external member id of [memberId] (a no-op without one). */
+    suspend fun clearExternalMemberId(memberId: String): MemberAdminRowDto
+
+    /** Welle V1.9.307 -- the instance-wide settings of the feature (source label, voting requirement); any signed-in member. */
+    suspend fun getExternalMemberIdSettings(): ExternalMemberIdSettingsDto
 }

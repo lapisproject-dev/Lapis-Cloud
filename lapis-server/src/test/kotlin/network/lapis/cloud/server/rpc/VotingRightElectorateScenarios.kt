@@ -9,6 +9,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.dsgvo.FoundationPersonalData
 import network.lapis.cloud.server.member.MemberVotingRights
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.shared.domain.AccountRole
@@ -69,11 +70,17 @@ abstract class VotingRightElectorateScenarios(
             transaction {
                 val committeeRow = fx.committeeRow(committee)
                 eligibleMemberIds(committeeRow = committeeRow, scheduledDate = date) shouldBe setOf(voter, silent)
-                electorateMemberIds(committeeRow = committeeRow, scheduledDate = date) shouldBe setOf(voter)
+                electorateMemberIds(policy = VotingRightPolicy.LEGACY, committeeRow = committeeRow, scheduledDate = date) shouldBe
+                    setOf(voter)
                 // the point query agrees with the set query for everybody (parity)
                 listOf(voter, silent).forEach { m ->
-                    isCommitteeVoter(committeeRow = committeeRow, scheduledDate = date, memberId = m) shouldBe
-                        (m in electorateMemberIds(committeeRow = committeeRow, scheduledDate = date))
+                    isCommitteeVoter(
+                        policy = VotingRightPolicy.LEGACY,
+                        committeeRow = committeeRow,
+                        scheduledDate = date,
+                        memberId = m,
+                    ) shouldBe
+                        (m in electorateMemberIds(policy = VotingRightPolicy.LEGACY, committeeRow = committeeRow, scheduledDate = date))
                     isCommitteeEligible(committeeRow = committeeRow, scheduledDate = date, memberId = m) shouldBe true
                 }
             }
@@ -90,11 +97,24 @@ abstract class VotingRightElectorateScenarios(
             val meeting = rc.meeting(committee = ruleBased)
             transaction {
                 val committeeRow = fx.committeeRow(ruleBased)
-                electorateMemberIds(committeeRow = committeeRow, scheduledDate = rc.today) shouldBe setOf(a)
+                electorateMemberIds(policy = VotingRightPolicy.LEGACY, committeeRow = committeeRow, scheduledDate = rc.today) shouldBe
+                    setOf(a)
                 countEligible(committeeRow = committeeRow) shouldBe 2
-                countElectorate(committeeRow = committeeRow) shouldBe 1
-                isCommitteeVoter(committeeRow = committeeRow, scheduledDate = rc.today, memberId = b) shouldBe false
-                val live = frozenOrLiveElectorate(meetingId = meeting, committeeRow = committeeRow, scheduledDate = rc.today)
+                countElectorate(policy = VotingRightPolicy.LEGACY, committeeRow = committeeRow) shouldBe 1
+                isCommitteeVoter(
+                    policy = VotingRightPolicy.LEGACY,
+                    committeeRow = committeeRow,
+                    scheduledDate = rc.today,
+                    memberId = b,
+                ) shouldBe
+                    false
+                val live =
+                    frozenOrLiveElectorate(
+                        policy = VotingRightPolicy.LEGACY,
+                        meetingId = meeting,
+                        committeeRow = committeeRow,
+                        scheduledDate = rc.today,
+                    )
                 live.frozen shouldBe false
                 live.memberIds shouldBe setOf(a)
             }
@@ -108,12 +128,13 @@ abstract class VotingRightElectorateScenarios(
             revoke(silent)
             transaction {
                 val committeeRow = fx.committeeRow(ga)
-                val electorate = electorateMemberIds(committeeRow = committeeRow, scheduledDate = rc.today)
+                val electorate =
+                    electorateMemberIds(policy = VotingRightPolicy.LEGACY, committeeRow = committeeRow, scheduledDate = rc.today)
                 electorate shouldContain voter
                 electorate shouldNotContain silent
                 electorate shouldNotContain withdrawn
                 eligibleMemberIds(committeeRow = committeeRow, scheduledDate = rc.today) shouldContain silent
-                countElectorate(committeeRow = committeeRow) shouldBe
+                countElectorate(policy = VotingRightPolicy.LEGACY, committeeRow = committeeRow) shouldBe
                     countEligible(committeeRow = committeeRow) -
                     MemberTable
                         .selectAll()
@@ -131,9 +152,16 @@ abstract class VotingRightElectorateScenarios(
             val friend = fx.member(status = MemberStatus.FRIEND)
             val donor = fx.member(status = MemberStatus.DONOR)
             revoke(silent)
-            transaction { requireVotingMembership(memberId = voter) shouldBe MemberStatus.ACTIVE }
+            transaction { requireVotingMembership(policy = VotingRightPolicy.LEGACY, memberId = voter) shouldBe MemberStatus.ACTIVE }
             listOf(silent, friend, donor, Uuid.random()).forEach { who ->
-                shouldThrow<ForbiddenException> { transaction { requireVotingMembership(memberId = who) } }
+                shouldThrow<ForbiddenException> {
+                    transaction {
+                        requireVotingMembership(
+                            policy = VotingRightPolicy.LEGACY,
+                            memberId = who,
+                        )
+                    }
+                }
             }
         }
 

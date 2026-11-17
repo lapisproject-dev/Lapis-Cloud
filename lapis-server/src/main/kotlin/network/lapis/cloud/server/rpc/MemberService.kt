@@ -27,6 +27,8 @@ import network.lapis.cloud.server.mail.PeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.member.CountryLegacyMappingEngine
+import network.lapis.cloud.server.member.ExternalMemberIdConfig
+import network.lapis.cloud.server.member.ExternalMemberIdStore
 import network.lapis.cloud.server.member.FoundingMemberStore
 import network.lapis.cloud.server.member.MemberCardIssuance
 import network.lapis.cloud.server.member.MemberCountryStore
@@ -35,6 +37,7 @@ import network.lapis.cloud.server.member.MemberVotingRights
 import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.member.PrivilegedActionStore
 import network.lapis.cloud.server.member.TemporaryPasswordMutation
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_REISSUED
 import network.lapis.cloud.server.security.AccountRights
@@ -65,6 +68,7 @@ import network.lapis.cloud.shared.domain.CountryLegacyMappingReportDto
 import network.lapis.cloud.shared.domain.CountryLegacyMappingResultDto
 import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.DeathDateViolation
+import network.lapis.cloud.shared.domain.ExternalMemberIdSettingsDto
 import network.lapis.cloud.shared.domain.FoundingMemberRules
 import network.lapis.cloud.shared.domain.FoundingMemberVisibility
 import network.lapis.cloud.shared.domain.MailDeliveryState
@@ -95,6 +99,7 @@ import network.lapis.cloud.shared.domain.VotingRightAuditEvent
 import network.lapis.cloud.shared.domain.VotingRightSource
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.ExternalMemberIdSourceNotConfiguredException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.FoundingMemberConsentOutdatedException
 import network.lapis.cloud.shared.rpc.FoundingMemberNotEligibleException
@@ -230,7 +235,14 @@ class MemberService(
      * working unchanged" idiom as [regionalChapterEnforcementConfig]); `Application.kt` always passes the SMTP implementation.
      */
     peerNotificationMailer: PeerNotificationMailer = NoOpPeerNotificationMailer,
+    /**
+     * Welle V1.9.307 -- the external member id settings (source label, voting requirement). Default OFF on purpose (existing call sites keep
+     * working); `Application.kt` always passes the loaded one (`ExternalMemberIdWiringTripwireTest`).
+     */
+    private val externalMemberIdConfig: ExternalMemberIdConfig = ExternalMemberIdConfig.DISABLED,
 ) : IMemberService {
+    private val votingRightPolicy: VotingRightPolicy = externalMemberIdConfig.votingPolicy()
+
     private val peerNotifier = PeerNotifier(mailer = peerNotificationMailer, smtpConfigState = smtpConfigState)
 
     // V1.2.11 (PdV-CSV-Import, security fix): now requires an authenticated caller -- see
@@ -855,7 +867,12 @@ class MemberService(
                     occurredAt = now,
                 )
             }
-            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+            loadMemberAdminRow(
+                votingPolicy = votingRightPolicy,
+                id = targetId,
+                includeFamilyDetails = current.isPrivileged,
+                viewer = current,
+            )
         }
     }
 
@@ -902,7 +919,12 @@ class MemberService(
                             now = now,
                         )
                     }
-                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                    loadMemberAdminRow(
+                        votingPolicy = votingRightPolicy,
+                        id = targetId,
+                        includeFamilyDetails = current.isPrivileged,
+                        viewer = current,
+                    )
                 }
             }
         if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
@@ -1118,6 +1140,7 @@ class MemberService(
                     .offset(offset.toLong())
                     .map {
                         it.toMemberAdminRowDto(
+                            votingPolicy = votingRightPolicy,
                             pendingAdminRevoke = it[MemberTable.id] in revokeTargets,
                             includeFamilyDetails = current.isPrivileged,
                             chapterScoped = chapterScopeId != null,
@@ -1217,7 +1240,12 @@ class MemberService(
                 after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
                 occurredAt = now,
             )
-            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+            loadMemberAdminRow(
+                votingPolicy = votingRightPolicy,
+                id = targetId,
+                includeFamilyDetails = current.isPrivileged,
+                viewer = current,
+            )
         }
     }
 
@@ -1265,7 +1293,12 @@ class MemberService(
                     // Idempotent no-op: DTO back, no update, no audit entry, no side effect -- a call
                     // repeated with the SAME target status must have no additional consequence.
                     if (newStatus == fromStatus) {
-                        return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                        return@transaction loadMemberAdminRow(
+                            votingPolicy = votingRightPolicy,
+                            id = targetId,
+                            includeFamilyDetails = current.isPrivileged,
+                            viewer = current,
+                        )
                     }
 
                     val allowedTargets = MemberStatusTransitions.allowedTargets(fromStatus)
@@ -1320,7 +1353,12 @@ class MemberService(
                             peerFacts = peerFacts,
                         )
                     revokeSessions = outcome.revokeSessions
-                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                    loadMemberAdminRow(
+                        votingPolicy = votingRightPolicy,
+                        id = targetId,
+                        includeFamilyDetails = current.isPrivileged,
+                        viewer = current,
+                    )
                 }
             }
         // resolveCurrentMember does not itself re-check MemberStatusSets.LOGIN_BLOCKED per call --
@@ -1379,7 +1417,12 @@ class MemberService(
             val previous = row[MemberTable.dateOfDeath]
             if (previous == dateOfDeath) {
                 // Idempotent: the same value again is a no-op -- no update, no audit entry.
-                return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                return@transaction loadMemberAdminRow(
+                    votingPolicy = votingRightPolicy,
+                    id = targetId,
+                    includeFamilyDetails = current.isPrivileged,
+                    viewer = current,
+                )
             }
 
             MemberTable.update({ MemberTable.id eq targetId }) { it[MemberTable.dateOfDeath] = dateOfDeath }
@@ -1408,7 +1451,12 @@ class MemberService(
                 after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
                 occurredAt = now,
             )
-            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+            loadMemberAdminRow(
+                votingPolicy = votingRightPolicy,
+                id = targetId,
+                includeFamilyDetails = current.isPrivileged,
+                viewer = current,
+            )
         }
     }
 
@@ -1455,7 +1503,12 @@ class MemberService(
 
                 // Idempotent no-op: DTO back, no update, no audit entry.
                 if (newRole == currentBaseRole) {
-                    return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                    return@transaction loadMemberAdminRow(
+                        votingPolicy = votingRightPolicy,
+                        id = targetId,
+                        includeFamilyDetails = current.isPrivileged,
+                        viewer = current,
+                    )
                 }
                 // V155: a base-role change never alters the administrator right (the effective rights of an administrator do not change),
                 // so no peer step is needed -- the stale check of a pending revoke request notices the change on approval.
@@ -1471,7 +1524,12 @@ class MemberService(
                 )
                 // Deliberately NO SessionStore.revokeAllForMember here -- see interface KDoc
                 // "Deliberately does NOT invalidate the target's existing sessions".
-                loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                loadMemberAdminRow(
+                    votingPolicy = votingRightPolicy,
+                    id = targetId,
+                    includeFamilyDetails = current.isPrivileged,
+                    viewer = current,
+                )
             }
         }
     }
@@ -1515,7 +1573,12 @@ class MemberService(
                             ?: throw MemberHasNoAccountException()
                     // Idempotent no-op: DTO back, no update, no audit entry.
                     if (AccountRights.isAdmin(accountRow)) {
-                        return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                        return@transaction loadMemberAdminRow(
+                            votingPolicy = votingRightPolicy,
+                            id = targetId,
+                            includeFamilyDetails = current.isPrivileged,
+                            viewer = current,
+                        )
                     }
                     if (memberRow[MemberTable.status] == MemberStatus.DONOR) {
                         throw ConflictException("A donor cannot hold an administrative role")
@@ -1542,7 +1605,12 @@ class MemberService(
                             ),
                     )
                     granted = true
-                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                    loadMemberAdminRow(
+                        votingPolicy = votingRightPolicy,
+                        id = targetId,
+                        includeFamilyDetails = current.isPrivileged,
+                        viewer = current,
+                    )
                 }
             }
         if (granted) peerNotifier.newAdministrator(newAdminId = targetId, actorId = current.memberId, occurredAt = now)
@@ -1700,7 +1768,12 @@ class MemberService(
                     // Deliberately NO SessionStore.revokeAllForMember -- there is no session to revoke for an
                     // account that did not exist a moment ago. Stated explicitly so no reviewer "adds the
                     // missing revocation" by analogy with updateMemberStatus.
-                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+                    loadMemberAdminRow(
+                        votingPolicy = votingRightPolicy,
+                        id = targetId,
+                        includeFamilyDetails = current.isPrivileged,
+                        viewer = current,
+                    )
                 }
             }
         if (role == AccountRole.ADMIN) peerNotifier.newAdministrator(newAdminId = targetId, actorId = current.memberId, occurredAt = now)
@@ -1757,7 +1830,12 @@ class MemberService(
                 familyId = null,
                 now = now,
             )
-            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
+            loadMemberAdminRow(
+                votingPolicy = votingRightPolicy,
+                id = targetId,
+                includeFamilyDetails = current.isPrivileged,
+                viewer = current,
+            )
         }
     }
 
@@ -1856,7 +1934,12 @@ class MemberService(
                     Triple(
                         effectivePassword,
                         memberRow[MemberTable.email],
-                        loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current),
+                        loadMemberAdminRow(
+                            votingPolicy = votingRightPolicy,
+                            id = targetId,
+                            includeFamilyDetails = current.isPrivileged,
+                            viewer = current,
+                        ),
                     )
                 }
             }
@@ -2146,6 +2229,83 @@ class MemberService(
             null -> Unit
         }
     }
+
+    // ── Welle V1.9.307 "Externe Mitglieds-ID" ──
+
+    override suspend fun setExternalMemberId(
+        memberId: String,
+        externalId: String,
+    ): MemberAdminRowDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+        val source =
+            externalMemberIdConfig.source?.takeIf { externalMemberIdConfig.enabled } ?: throw ExternalMemberIdSourceNotConfiguredException()
+        val targetId = memberId.toMemberUuidOrThrow()
+        // Four-eyes principle (like the founding-member marker): the id can grant the voting right, so nobody sets their own.
+        if (targetId == current.memberId) throw ForbiddenException()
+        val now = nowLocalDateTime()
+        var notifyTargetAdmin = false
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    val locked = lockTargetForProtectedWrite(current = current, targetId = targetId, memberIdText = memberId)
+                    notifyTargetAdmin = locked.notifyTargetAdmin
+                    // The audit entry is the LAST write of the transaction (inside the store, after the update).
+                    ExternalMemberIdStore.setManual(memberId = targetId, rawId = externalId, source = source, actor = current, now = now)
+                    loadMemberAdminRow(
+                        votingPolicy = votingRightPolicy,
+                        id = targetId,
+                        includeFamilyDetails = current.isPrivileged,
+                        viewer = current,
+                    )
+                }
+            }
+        if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
+    }
+
+    override suspend fun clearExternalMemberId(memberId: String): MemberAdminRowDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+        val targetId = memberId.toMemberUuidOrThrow()
+        if (targetId == current.memberId) throw ForbiddenException()
+        val now = nowLocalDateTime()
+        var notifyTargetAdmin = false
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    val locked = lockTargetForProtectedWrite(current = current, targetId = targetId, memberIdText = memberId)
+                    notifyTargetAdmin = locked.notifyTargetAdmin
+                    ExternalMemberIdStore.clearManual(memberId = targetId, actor = current, now = now)
+                    loadMemberAdminRow(
+                        votingPolicy = votingRightPolicy,
+                        id = targetId,
+                        includeFamilyDetails = current.isPrivileged,
+                        viewer = current,
+                    )
+                }
+            }
+        if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
+    }
+
+    override suspend fun getExternalMemberIdSettings(): ExternalMemberIdSettingsDto {
+        val current = resolveCurrentMember(call)
+        val own =
+            transaction {
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq current.memberId }
+                    .singleOrNull()
+                    ?.let { it[MemberTable.externalMemberId] to it[MemberTable.externalMemberIdSource] }
+            }
+        return ExternalMemberIdSettingsDto(
+            source = externalMemberIdConfig.source?.takeIf { externalMemberIdConfig.enabled },
+            requiredForVoting = externalMemberIdConfig.requireForVoting,
+            ownExternalMemberId = own?.first,
+            ownExternalMemberIdSource = own?.second,
+        )
+    }
 }
 
 /**
@@ -2234,6 +2394,8 @@ private val adminRosterSource: ColumnSet =
  */
 private fun ResultRow.toMemberAdminRowDto(
     includeFamilyDetails: Boolean,
+    /** V1.9.307 -- decides the suspended-voting-right flag (BOARD/ADMIN rows only). No default: see [VotingRightPolicy]. */
+    votingPolicy: VotingRightPolicy,
     /**
      * Welle V1.9.13 -- `true` iff this row is being rendered for a chapter-scoped officer (see
      * `network.lapis.cloud.server.security.MemberVisibility.Chapter`). Nulls `role`/
@@ -2301,6 +2463,11 @@ private fun ResultRow.toMemberAdminRowDto(
         foundingMemberSince = if (includeFamilyDetails && !chapterScoped) this[MemberTable.foundingMemberSince] else null,
         foundingMemberPublicConsent =
             includeFamilyDetails && !chapterScoped && this[MemberTable.foundingMemberConsentGrantedAt] != null,
+        // V156 -- the external id and the suspension flag are for BOARD/ADMIN only (`includeFamilyDetails`), never for a chapter-scoped officer.
+        externalMemberId = if (includeFamilyDetails && !chapterScoped) this[MemberTable.externalMemberId] else null,
+        externalMemberIdSource = if (includeFamilyDetails && !chapterScoped) this[MemberTable.externalMemberIdSource] else null,
+        votingSuspendedForMissingExternalId =
+            includeFamilyDetails && !chapterScoped && votingPolicy.suspendedForMissingExternalId(this),
     )
 
 /** V1.9.141 -- see [toMemberAdminRowDto] `countryViewer`. `null` for non-privileged viewers and for peer-masked rows. */
@@ -2320,6 +2487,7 @@ private fun ResultRow.rosterCountryCodeFor(viewer: CurrentMember?): String? {
 }
 
 private fun loadMemberAdminRow(
+    votingPolicy: VotingRightPolicy,
     id: Uuid,
     includeFamilyDetails: Boolean,
     viewer: CurrentMember? = null,
@@ -2329,6 +2497,7 @@ private fun loadMemberAdminRow(
         .where { MemberTable.id eq id }
         .single()
         .toMemberAdminRowDto(
+            votingPolicy = votingPolicy,
             includeFamilyDetails = includeFamilyDetails,
             countryViewer = viewer,
             includeLastLogin = viewer != null && canSeeLastLogin(current = viewer, chapterScopeId = null),

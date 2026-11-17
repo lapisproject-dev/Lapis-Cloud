@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusBallotTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canManageSystemicConsensus
 import network.lapis.cloud.server.security.isPrivileged
@@ -50,11 +51,13 @@ internal object SystemicConsensusReads {
     }
 
     fun participation(
+        policy: VotingRightPolicy,
         kId: Uuid,
         current: CurrentMember,
-    ): SystemicConsensusParticipationDto = participations(ids = listOf(kId), current = current).single()
+    ): SystemicConsensusParticipationDto = participations(policy = policy, ids = listOf(kId), current = current).single()
 
     fun participations(
+        policy: VotingRightPolicy,
         ids: List<Uuid>,
         current: CurrentMember,
     ): List<SystemicConsensusParticipationDto> {
@@ -63,7 +66,7 @@ internal object SystemicConsensusReads {
         val byId = rows.associateBy { it[SystemicConsensusTable.id] }
         ids.firstOrNull { it !in byId }?.let { throw NotFoundException("SystemicConsensus $it not found") }
 
-        val own = SystemicConsensusOwnParticipation.load(rows = rows, memberId = current.memberId)
+        val own = SystemicConsensusOwnParticipation.load(policy = policy, rows = rows, memberId = current.memberId)
         val committeeByMotion =
             MotionTable
                 .selectAll()

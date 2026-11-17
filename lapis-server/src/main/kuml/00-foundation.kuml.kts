@@ -368,6 +368,17 @@ classDiagram(name = "Foundation") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "founding_member_consent_version"; "sqlType" to "VARCHAR(32)" }
         }
+        // V156 external member id -- see V156__member_external_id.sql and docs/features/external-member-id.adoc. Set by the Keycloak claim or by
+        // BOARD/ADMIN only; only ExternalMemberIdStore writes these two columns (plus the DSGVO erasure). Unique per (source, id): a plain unique
+        // index plus a pair CHECK, both plain SQL in V156.
+        attribute(name = "externalMemberId", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "external_member_id"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "externalMemberIdSource", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "external_member_id_source"; "sqlType" to "VARCHAR(32)" }
+        }
     }
 
     association(source = membershipTier, target = member, id = "assoc-member-membership-tier") {

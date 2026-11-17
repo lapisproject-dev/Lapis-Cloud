@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
 import network.lapis.cloud.server.governance.session.MeetingProtocolOperations
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.MeetingProtocolDraftDto
 import network.lapis.cloud.shared.domain.MeetingProtocolPreviewDto
@@ -21,7 +22,9 @@ import java.io.File
 internal class MeetingProtocolService(
     private val call: ApplicationCall,
     storageRoot: File?,
-    private val operations: MeetingProtocolOperations = MeetingProtocolOperations(storageRoot = storageRoot),
+    votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
+    private val operations: MeetingProtocolOperations =
+        MeetingProtocolOperations(votingRightPolicy = votingRightPolicy, storageRoot = storageRoot),
 ) : IMeetingProtocolService {
     override suspend fun previewMeetingProtocol(meetingId: String): MeetingProtocolPreviewDto =
         operations.preview(current = resolveCurrentMember(call), meetingId = meetingId)

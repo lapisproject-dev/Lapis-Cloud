@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
 import network.lapis.cloud.server.events.EventConferenceGuard
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -95,18 +96,19 @@ fun requireActiveMembership(
 }
 
 /**
- * V1.9.298 -- the live floor of every ballot: [MemberStatus.ACTIVE] AND `member.voting_right`, in ONE query. A member whose voting right was
+ * V1.9.298 -- the live floor of every ballot: [MemberStatus.ACTIVE] AND `member.voting_right` (V1.9.307: and the external id when [policy] requires it), in ONE query. A member whose voting right was
  * withdrawn after the electorate was frozen stays in the snapshot (and in the quorum denominator) but cannot cast a ballot any more; a voting
  * right granted after the freeze gives no vote because the member is not in the snapshot. Same [forUpdate] semantics as [requireActiveMembership].
  */
-fun requireVotingMembership(
+internal fun requireVotingMembership(
     memberId: Uuid,
+    policy: VotingRightPolicy,
     forUpdate: Boolean = false,
 ): MemberStatus {
     val query = MemberTable.selectAll().where { MemberTable.id eq memberId }
     val row = (if (forUpdate) query.forMemberUpdate() else query).singleOrNull()
     val status = row?.get(MemberTable.status)
-    if (row == null || status !in MemberStatusSets.ORGANIZATION_MEMBER || !row[MemberTable.votingRight]) throw ForbiddenException()
+    if (row == null || status !in MemberStatusSets.ORGANIZATION_MEMBER || !policy.holds(row)) throw ForbiddenException()
     return status!!
 }
 

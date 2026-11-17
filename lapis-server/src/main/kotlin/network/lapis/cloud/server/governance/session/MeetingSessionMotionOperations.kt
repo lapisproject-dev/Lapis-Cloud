@@ -175,6 +175,7 @@ internal class MeetingSessionMotionOperations(
                 CommitteeAttendanceRules
                     .forType(ctx.committeeRow[network.lapis.cloud.server.db.generated.CommitteeTable.type])
                     .roster(
+                        policy = base.votingRightPolicy,
                         meetingId = ctx.meetingId,
                         committeeRow = ctx.committeeRow,
                         scheduledDate = ctx.meetingRow[MeetingTable.scheduledAt].date,
@@ -202,7 +203,7 @@ internal class MeetingSessionMotionOperations(
                 electionRow = lockElectionRow(electionId),
                 memberIds = board.map { it.toString() },
             )
-            openVotingLocked(current = current, electionRow = lockElectionRow(electionId))
+            openVotingLocked(policy = base.votingRightPolicy, current = current, electionRow = lockElectionRow(electionId))
             MeetingSessionAudit.record(
                 actor = current,
                 snapshot =

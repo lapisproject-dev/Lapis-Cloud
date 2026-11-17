@@ -34,6 +34,7 @@ import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
@@ -73,6 +74,7 @@ internal class SessionFixture {
         connected: ConferenceConnectedMembers = FakeConnectedMembers(),
         enabled: Boolean = true,
     ) = MeetingSessionOperations(
+        votingRightPolicy = VotingRightPolicy.LEGACY,
         conferencesEnabled = { enabled },
         connectedMembers = connected,
         readLimiter = bigLimiter(),

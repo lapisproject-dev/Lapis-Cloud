@@ -76,8 +76,8 @@ class MemberDtoWireCompatTest :
                     .resolve("src/commonMain/kotlin/network/lapis/cloud/shared/rpc/IMemberService.kt")
                     .readText()
             val methods = Regex("""(?m)^\s+suspend fun (\w+)\(""").findAll(source).map { it.groupValues[1] }.toList()
-            // V155 appended setAdminRights; V154 appended setFoundingMember and setOwnFoundingMemberVisibility; V1.9.302 appended updateMemberTitle; V1.9.298 appended setMemberVotingRight and releaseMemberVotingRightToSync after the V1.9.121 block
-            methods.takeLast(11) shouldContainExactly
+            // V1.9.307 appended setExternalMemberId, clearExternalMemberId and getExternalMemberIdSettings; V155 appended setAdminRights; V154 appended setFoundingMember and setOwnFoundingMemberVisibility; V1.9.302 appended updateMemberTitle; V1.9.298 appended setMemberVotingRight and releaseMemberVotingRightToSync after the V1.9.121 block
+            methods.takeLast(14) shouldContainExactly
                 listOf(
                     "updateMemberStreetAddress",
                     "updateMemberCountry",
@@ -90,8 +90,11 @@ class MemberDtoWireCompatTest :
                     "setFoundingMember",
                     "setOwnFoundingMemberVisibility",
                     "setAdminRights",
+                    "setExternalMemberId",
+                    "clearExternalMemberId",
+                    "getExternalMemberIdSettings",
                 )
             // the method right before the appended block is the previous last one: nothing was inserted in the middle
-            methods[methods.size - 12] shouldBe "listMembersForSelection"
+            methods[methods.size - 15] shouldBe "listMembersForSelection"
         }
     })

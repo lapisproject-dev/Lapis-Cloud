@@ -89,6 +89,9 @@ object FoundationPersonalData : MemberPersonalDataContributor {
             put("votingRight", memberRow[MemberTable.votingRight])
             put("votingRightSource", memberRow[MemberTable.votingRightSource].name)
             put("votingRightChangedAt", memberRow[MemberTable.votingRightChangedAt]?.toString())
+            // V156 -- the identifier the member carries in an external system, with its source: a personal reference, part of the Art. 15 Auskunft.
+            put("externalMemberId", memberRow[MemberTable.externalMemberId])
+            put("externalMemberIdSource", memberRow[MemberTable.externalMemberIdSource])
 
             val accountRow = AccountTable.selectAll().where { AccountTable.memberId eq memberId }.singleOrNull()
             if (accountRow != null) {
@@ -121,6 +124,9 @@ object FoundationPersonalData : MemberPersonalDataContributor {
                 it[foundingMemberSince] = null
                 it[foundingMemberConsentGrantedAt] = null
                 it[foundingMemberConsentVersion] = null
+                // V156 -- the external id is personal data; both columns reset in the same UPDATE (the pair CHECK is evaluated per row).
+                it[externalMemberId] = null
+                it[externalMemberIdSource] = null
                 it[street] = null
                 it[postalCode] = null
                 it[city] = null

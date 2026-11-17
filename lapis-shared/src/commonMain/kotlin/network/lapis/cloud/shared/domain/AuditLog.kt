@@ -1190,6 +1190,8 @@ data class MemberChangeSnapshot(
     val isAdmin: Boolean? = null,
     /** V155 -- the stored base role at this point; `null` in rows written before V155. */
     val baseRole: AccountRole? = null,
+    /** Welle V1.9.307 -- the external-member-id event this entry records (event and source only, never the id). Default `null`: older rows decode unchanged. */
+    val externalMemberId: ExternalMemberIdAuditFacts? = null,
 )
 
 /** Welle V1.9.298 -- the voting-right change an audit entry records. Fixed keys, no values. */

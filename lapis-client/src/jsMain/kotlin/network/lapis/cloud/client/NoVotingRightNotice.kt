@@ -12,11 +12,19 @@ import network.lapis.cloud.shared.domain.SessionInfoDto
  */
 internal fun SessionInfoDto?.lacksVotingRight(): Boolean = this != null && status in MemberStatusSets.ORGANIZATION_MEMBER && !votingRight
 
+/** V156 -- the right is suspended only because the instance requires an external member id and the member has none. */
+internal fun SessionInfoDto?.votingSuspendedForMissingExternalId(): Boolean =
+    lacksVotingRight() && this?.votingSuspendedForMissingExternalId == true
+
 /** The sentence of the notice; also used where only a text slot exists (a participation note). */
 internal fun noVotingRightText(): String =
-    tr(
-        "Sie sind Mitglied, haben aber derzeit kein Stimmrecht und können deshalb nicht abstimmen. Bei Fragen wenden Sie sich an den Vorstand.",
-    )
+    if (AppState.session.votingSuspendedForMissingExternalId()) {
+        tr("Ihr Stimmrecht ruht, weil keine externe Mitglieds-ID hinterlegt ist. Bitte wenden Sie sich an den Vorstand.")
+    } else {
+        tr(
+            "Sie sind Mitglied, haben aber derzeit kein Stimmrecht und können deshalb nicht abstimmen. Bei Fragen wenden Sie sich an den Vorstand.",
+        )
+    }
 
 /** An informational alert (`role="status"`) that takes the place of the ballot control. */
 internal fun renderNoVotingRightNotice(parent: Container) {

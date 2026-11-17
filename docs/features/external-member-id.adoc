@@ -1,0 +1,84 @@
+= External member id
+:toc:
+
+A member can carry the identifier they hold in an external system (for example the Wabeo/LupaBB id of an association) in Lapis Cloud. The id is a fact about the
+membership, like the voting right and the founding-member marker. It is set by the Keycloak claim or by BOARD/ADMIN by hand, and an instance can make it a
+precondition for voting.
+
+== Where it is stored, and why there
+
+`member.external_member_id` (at most 64 characters) and `member.external_member_id_source` (at most 32 characters), added by `V156`. Both are NULL or both are set
+(`chk_member_external_id_pair`); `(source, id)` is unique (`ux_member_external_id`), several NULL rows coexist (verified on H2 and PostgreSQL 17).
+
+Not on `account`: the voting right hangs on the member (like `voting_right` and `founding_member`); `account` is the sign-in identity (`oidc_subject`,
+`keycloak_account_link`) and the id must survive a re-link; CSV-imported members have no account row at all.
+
+== Configuration
+
+[cols="2,1,4"]
+|===
+|Variable |Default |Effect
+
+|`LAPIS_KEYCLOAK_EXTERNAL_ID_SOURCE`
+|unset = off
+|Label of the external system. Without it the card in the member administration stays invisible. Works without Keycloak (the `KEYCLOAK` prefix is historical).
+
+|`LAPIS_KEYCLOAK_EXTERNAL_ID_CLAIM`
+|unset = no claim sync
+|Top-level ID-token claim that carries the id (see `docs/architecture/keycloak-login.adoc`).
+
+|`LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING`
+|`false`
+|`true`: a member without an id has no voting right. `true`/`false` only; anything else stops the server and counts as `true`.
+|===
+
+An unusable combination stops the server with a reason code: `EXTERNAL_ID_CLAIM_WITHOUT_SOURCE`, `EXTERNAL_ID_SOURCE_INVALID`, `EXTERNAL_ID_CLAIM_INVALID`,
+`EXTERNAL_ID_REQUIRE_INVALID`, `EXTERNAL_ID_REQUIRE_WITHOUT_SOURCE`. A claim with Keycloak off is only a warning (`EXTERNAL_ID_CLAIM_IGNORED_KEYCLOAK_DISABLED`).
+
+== Id rules
+
+Letters, digits and `. _ : / -`, first character a letter or digit, 1 to 64 characters, surrounding whitespace trimmed, **case is significant and never folded**
+(`ExternalMemberIdRules`, shared by server and client).
+
+== Setting it
+
+* **Claim** (see the Keycloak document): at just-in-time creation and at every Keycloak login of an existing member. A claim never overwrites an existing id.
+** *Hardening:* the Keycloak attribute behind the claim must be admin-managed only (never user-editable, never in the registration form or account console); otherwise a member can self-assign the id and thereby the voting right, or squat another member's id. Check this before enabling `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING`.
+* **By hand:** `setExternalMemberId` / `clearExternalMemberId`, BOARD and ADMIN only, never the own row (four-eyes, because the id can grant the voting right), peer
+  protection as for the other protected data. The source is always the instance's configured one. A duplicate within the source is refused (`ExternalMemberIdTakenException`).
+* `ExternalMemberIdStore` is the only writer of the two columns (`ExternalMemberIdWriterTripwireTest`); the DSGVO erasure resets both.
+* Every real change writes one hash-chained audit entry (`MEMBER`/`UPDATE`, `MemberChangeSnapshot.externalMemberId`) with the event and the source -- **never the id**.
+
+== The voting right with `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING=true`
+
+One definition, `VotingRightPolicy`, injected (never a global) into every place that decides "may vote now":
+
+* the electorate of every kind of committee (`electorateMemberIds`, `isCommitteeVoter`, `countElectorate`, the live fallback of `frozenOrLiveElectorate`) and with it the
+  quorum base N of a decision that has no frozen electorate yet;
+* the ballot floor `requireVotingMembership` (votes, elections, consensus), `MemberVotingRights.isVoterNow` and the own-participation flags of the conference room and the dashboard;
+* the session (`SessionInfoDto.votingRight`, `votingSuspendedForMissingExternalId`), which drives the notice "Ihr Stimmrecht ruht, weil keine externe Mitglieds-ID hinterlegt ist."
+
+`member.voting_right` is never rewritten, so switching the option off restores the previous behaviour at once.
+
+**Not retroactive for frozen decisions -- with one consequence.** A frozen electorate snapshot (vote, election, consensus round) is never recomputed, so a member
+who is in a snapshot stays in the quorum denominator. The live ballot floor still applies: a member whose id is removed after the freeze, or who has none when the
+option is switched on while a decision is running, can no longer cast a ballot but still counts in N. Switching the option on changes N of every meeting that has
+no frozen decision yet.
+
+== Anonymity of ballots
+
+The policy only adds a WHERE predicate to electorate queries; the id is never selected there. Ballot, vote, participation and snapshot tables carry no new column,
+and no DTO or document of the voting code reads the id (`ExternalMemberIdWriterTripwireTest`).
+
+== Where it appears
+
+Member administration (BOARD/ADMIN: the card, the stored id and source, the badge "Stimmrecht ruht: externe ID fehlt") and "Meine Daten" (read only). Not in the member
+card, the public profiles, the embed feeds, the member finder, the REST API v1 or MCP. There is no per-member roster export in the application, so none was extended;
+the whole-organization backup carries both columns, and a backup made before V156 is refused by the schema checksum.
+
+== Open decisions of this wave
+
+* **LupaBB.** PdV already keeps `member.lupabb_person_number` (V1.9.226, unique, kept by the LupaBB sync). This wave does not use it: a PdV instance that sets the
+  source `LupaBB` keeps a second, manually maintained id. Mirroring the person number into `external_member_id` (or counting it as the id) is a separate wave.
+* **Source change.** An id stored under another source stays stored and counts for the voting right (the check is "an id exists"); the card shows the stored source; a claim
+  does not overwrite it.

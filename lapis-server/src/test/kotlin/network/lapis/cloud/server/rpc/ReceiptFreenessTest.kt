@@ -40,6 +40,7 @@ import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeType
@@ -274,19 +275,25 @@ class ReceiptFreenessTest :
                     routing {
                         get("/t/verify/{id}") {
                             val r =
-                                ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
-                                    .verifyReceipt(
-                                        electionId = call.parameters["id"]!!,
-                                        receiptCode = call.request.queryParameters["code"]!!,
-                                    )
+                                ElectionService(
+                                    votingRightPolicy = VotingRightPolicy.LEGACY,
+                                    call = call,
+                                    streamGuard = NoOpSecretBallotStreamGuard,
+                                ).verifyReceipt(
+                                    electionId = call.parameters["id"]!!,
+                                    receiptCode = call.request.queryParameters["code"]!!,
+                                )
                             call.respondText(json.encodeToString(ReceiptVerificationDto.serializer(), r))
                         }
                         post("/t/cast/{id}") {
                             val r =
-                                ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
-                                    .castElectionBallot(
-                                        ElectionBallotInput(electionId = call.parameters["id"]!!, answer = ElectionAnswer.YES),
-                                    )
+                                ElectionService(
+                                    votingRightPolicy = VotingRightPolicy.LEGACY,
+                                    call = call,
+                                    streamGuard = NoOpSecretBallotStreamGuard,
+                                ).castElectionBallot(
+                                    ElectionBallotInput(electionId = call.parameters["id"]!!, answer = ElectionAnswer.YES),
+                                )
                             call.respondText(json.encodeToString(ElectionBallotCastResultDto.serializer(), r))
                         }
                     }

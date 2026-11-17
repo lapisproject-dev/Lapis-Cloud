@@ -34,6 +34,7 @@ import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.OidcGuestClaims
 import network.lapis.cloud.server.federation.OidcGuestMemberStore
 import network.lapis.cloud.server.keycloak.KeycloakConfig
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.testdb.legacyAccountRole
@@ -366,6 +367,31 @@ class AuthServiceTest :
             }
         }
 
+        test("getSessionInfo: with requireExternalMemberId the voting right rests without an id and is back with one") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAuthServiceExceptionHandlers() }
+                    routing { registerAuthServiceVotingPolicyTestRoutes() }
+                }
+
+                val member = createTestMember("auth-service-voting-policy@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq member }) { it[votingRight] = true } }
+                val issued = SessionStore.createSession(member)
+
+                val without = client.get("/test/session-info-voting-policy") { header("Authorization", "Bearer ${issued.rawToken}") }
+                without.bodyAsText() shouldBe "votingRight=false:suspended=true"
+
+                transaction {
+                    MemberTable.update({ MemberTable.id eq member }) {
+                        it[externalMemberId] = "AUTH-VP-1"
+                        it[externalMemberIdSource] = "Wabeo"
+                    }
+                }
+                val with = client.get("/test/session-info-voting-policy") { header("Authorization", "Bearer ${issued.rawToken}") }
+                with.bodyAsText() shouldBe "votingRight=true:suspended=false"
+            }
+        }
+
         // ── Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" ─────────────────────────────
         // Review-fix test-coverage gap: getSessionInfo's regionalChaptersExist/ownRegionalChapter/
         // chapterScope fields had no test at all.
@@ -491,5 +517,14 @@ private fun Route.registerAuthServiceKeycloakModeTestRoutes() {
             "${info.memberId}:${info.role}:${info.expiresAt}:${info.isGuest}:${info.homeserverUrl ?: "-"}:" +
                 "keycloakMode=${info.keycloakMode}",
         )
+    }
+}
+
+/** V1.9.307 -- an [AuthService] built with an active external-id voting policy. */
+private fun Route.registerAuthServiceVotingPolicyTestRoutes() {
+    get("/test/session-info-voting-policy") {
+        val info =
+            AuthService(call = call, votingRightPolicy = VotingRightPolicy(requireExternalMemberId = true)).getSessionInfo()
+        call.respondText("votingRight=${info.votingRight}:suspended=${info.votingSuspendedForMissingExternalId}")
     }
 }

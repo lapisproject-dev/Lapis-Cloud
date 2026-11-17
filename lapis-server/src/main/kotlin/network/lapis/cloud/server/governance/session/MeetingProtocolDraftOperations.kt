@@ -16,6 +16,7 @@ import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.rpc.toResolutionDtos
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AttendanceStatus
@@ -86,6 +87,8 @@ private const val ID_CHUNK = 500
  * text or a name; no ballot or voter is ever read.
  */
 internal class MeetingProtocolDraftOperations(
+    /** V1.9.307 -- the voting-right rule of the assignable roster; the LEGACY default keeps older constructions working, `Application.module` passes the configured one (ExternalMemberIdWiringTripwireTest). */
+    private val votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
     private val readLimiter: FederationInboxRateLimiter = PROTOCOL_DRAFT_READ_RATE_LIMITER,
     private val writeLimiter: FederationInboxRateLimiter = PROTOCOL_DRAFT_WRITE_RATE_LIMITER,
 ) {
@@ -502,6 +505,7 @@ internal class MeetingProtocolDraftOperations(
                 ids.map { RosterPerson(memberId = it, displayName = names[it].orEmpty()) }
             } else {
                 rule.roster(
+                    policy = votingRightPolicy,
                     meetingId = meetingId,
                     committeeRow = ctx.committeeRow,
                     scheduledDate = ctx.meetingRow[MeetingTable.scheduledAt].date,

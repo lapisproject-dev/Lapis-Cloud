@@ -1026,6 +1026,10 @@ private fun Container.renderRosterStatus(row: MemberAdminRowDto) {
     if (row.status in MemberStatusSets.ORGANIZATION_MEMBER && !row.votingRight) {
         span(tr("ohne Stimmrecht")) { addCssClasses("badge bg-secondary-subtle text-secondary-emphasis ms-1") }
     }
+    // V156: the right is set but suspended because the instance requires an external member id and none is stored (BOARD/ADMIN rows only)
+    if (row.votingSuspendedForMissingExternalId) {
+        span(tr("Stimmrecht ruht: externe ID fehlt")) { addCssClasses("badge bg-secondary-subtle text-secondary-emphasis ms-1") }
+    }
     // Welle V1.4.4.5 -- zeigt hinter dem "Verstorben"-Badge, ob (und ggf. welches)
     // Sterbedatum erfasst ist.
     deceasedDateNote(row.status, row.dateOfDeath)?.let { note ->
@@ -1778,6 +1782,16 @@ internal fun openMemberEditorDialog(
         renderFoundingMemberSection(modal, row, legendGroup, onChanged)
     }
 
+    // ── Externe Mitglieds-ID (V156): unsichtbar, solange die Instanz keine Quelle konfiguriert hat ──
+    renderMemberExternalIdSection(
+        modal = modal,
+        row = row,
+        callerRole = callerRole,
+        callerMemberId = callerMemberId,
+        legendGroup = legendGroup,
+        onChanged = onChanged,
+    )
+
     // ── Landesverband (Welle V1.9.14) ──
     if (chapters.isNotEmpty() && canAssignChapterOf(callerRole, callerMemberId, row.role, row.status, row.anonymized, row.id)) {
         modal.div { addCssClass("mt-3") }
@@ -1912,7 +1926,7 @@ private const val MODAL_FADE_MS = 250
  * server's peer-protection (`MemberService.updateMemberCoreData`/`updateMemberStatus`) rejects
  * anyway. The server remains the sole authority; this set only mirrors its boundary for UI gating.
  */
-private val ESCALATED_ROLES: Set<AccountRole> = setOf(AccountRole.BOARD, AccountRole.TREASURER, AccountRole.ADMIN)
+internal val ESCALATED_ROLES: Set<AccountRole> = setOf(AccountRole.BOARD, AccountRole.TREASURER, AccountRole.ADMIN)
 
 /**
  * BOARD/ADMIN, but never for the caller's own row (`MemberService.updateMemberCoreData` has no

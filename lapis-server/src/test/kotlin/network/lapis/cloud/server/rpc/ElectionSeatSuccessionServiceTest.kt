@@ -26,6 +26,7 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.conference.NoOpSecretBallotStreamGuard
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeAutoEndNoticeDto
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -72,12 +73,18 @@ class ElectionSeatSuccessionServiceTest :
                 routing {
                     post("/t/open") {
                         val input = Json.decodeFromString(ElectionOpenInput.serializer(), call.receiveText())
-                        val dto = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard).openElection(input)
+                        val dto =
+                            ElectionService(
+                                votingRightPolicy = VotingRightPolicy.LEGACY,
+                                call = call,
+                                streamGuard = NoOpSecretBallotStreamGuard,
+                            ).openElection(input)
                         call.respondText(Json.encodeToString(ElectionDto.serializer(), dto))
                     }
                     get("/t/result/{id}") {
                         val dto =
                             ElectionService(
+                                votingRightPolicy = VotingRightPolicy.LEGACY,
                                 call = call,
                                 streamGuard = NoOpSecretBallotStreamGuard,
                             ).getElectionResult(call.parameters["id"]!!)

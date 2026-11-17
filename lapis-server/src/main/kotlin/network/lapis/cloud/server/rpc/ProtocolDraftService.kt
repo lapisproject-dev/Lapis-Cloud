@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
 import network.lapis.cloud.server.governance.session.MeetingProtocolDraftOperations
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.MeetingProtocolDraftDto
 import network.lapis.cloud.shared.domain.ProtocolBlockSaveResultDto
@@ -15,7 +16,8 @@ import network.lapis.cloud.shared.rpc.IProtocolDraftService
  */
 internal class ProtocolDraftService(
     private val call: ApplicationCall,
-    private val operations: MeetingProtocolDraftOperations = MeetingProtocolDraftOperations(),
+    votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
+    private val operations: MeetingProtocolDraftOperations = MeetingProtocolDraftOperations(votingRightPolicy = votingRightPolicy),
 ) : IProtocolDraftService {
     override suspend fun getMeetingProtocolDraft(meetingId: String): MeetingProtocolDraftDto =
         operations.get(current = resolveCurrentMember(call), meetingId = meetingId)

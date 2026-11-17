@@ -6,6 +6,26 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### External member id (wave V1.9.307, schema V155 -> V156)
+
+Wave V1.9.307: a member can carry the identifier they hold in an external system (for example Wabeo/LupaBB). Schema `V156` (additive: two columns on `member`, a pair CHECK, a unique index on source + id); three new optional environment variables, all off by default.
+
+**Behaviour changes first:**
+
+1. **With `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING=true`, members without an external id lose their voting right** for votes, elections and consensus rounds, at the ballot guard, in the live electorate and in the quorum base N of every meeting that has no frozen decision yet, and on the session (the vote buttons are replaced by a notice). The switch is **off by default**; `member.voting_right` is never rewritten, so switching it off restores the old behaviour at once. **Frozen electorates stay unchanged** -- but a member in a frozen snapshot who has no id (or loses it) can no longer cast a ballot while still counting in N.
+2. **`LAPIS_KEYCLOAK_EXTERNAL_ID_SOURCE` (despite the name) also works without Keycloak.** An unusable combination stops the server with a reason code (`EXTERNAL_ID_CLAIM_WITHOUT_SOURCE`, `EXTERNAL_ID_SOURCE_INVALID`, `EXTERNAL_ID_CLAIM_INVALID`, `EXTERNAL_ID_REQUIRE_INVALID`, `EXTERNAL_ID_REQUIRE_WITHOUT_SOURCE`); an invalid `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING` counts as `true`.
+3. **Backups made before `V156` are refused on restore** (schema checksum), as after every schema change.
+4. Internal API: the voting-right decision is one injected `VotingRightPolicy`; the electorate functions, `computeQuorum`, `requireVotingMembership` and the own-participation loaders take it as a parameter without a default.
+
+**New:**
+
+- `member.external_member_id` + `external_member_id_source`, rules in `ExternalMemberIdRules` (letters, digits, `. _ : / -`, at most 64 characters, case kept). Set by the ID-token claim (`LAPIS_KEYCLOAK_EXTERNAL_ID_CLAIM`: at just-in-time creation and at every Keycloak login, never overwriting an existing id, never blocking the login, a duplicate never blocks the creation) or by BOARD/ADMIN in the member administration (never the own row; duplicates refused). Audit entries carry the event and the source, never the id.
+- Member administration: card "Externe Mitglieds-ID" (invisible without a source), badge "Stimmrecht ruht: externe ID fehlt"; "Meine Daten": the own id, read only. DSGVO export and erasure, backup, docs (`docs/features/external-member-id.adoc`), seven catalogs.
+
+**Tests:** migration on the V155 -> V156 upgrade path, claim store, just-in-time and login sync, RPC rights and visibility, the voting switch (electorate, quorum N, ballot floor, frozen snapshot) on H2 and PostgreSQL, wiring and writer/anonymity tripwires, DSGVO, backup round trip, client DOM, catalog guard.
+
+**Not verified:** against a real Wabeo/LupaBB-backed Keycloak claim; no live instance. PdV's existing `lupabb_person_number` is not connected to this id (separate wave). No new per-member export was built (none exists in the application).
+
 ## [0.54.0] — 2026-11-16
 
 Feature release on `[0.53.0]` (six waves; the database schema goes from `V151` to `V155`, four additive migrations `V152` to `V155`). **BREAKING for operators: `ADMIN` is no longer a value of `account.role` but the flag `account.is_admin` (V155); backups made before V155 are refused on restore, so take a backup after the upgrade is verified and keep the pre-upgrade backup only for a rollback to 0.53.x.** No new environment variable is required; the console action `set-admin` with `LAPIS_BOOTSTRAP_ADMIN=true|false` replaces `LAPIS_BOOTSTRAP_ROLE=ADMIN`. The sections below carry the details; read their behaviour changes first.

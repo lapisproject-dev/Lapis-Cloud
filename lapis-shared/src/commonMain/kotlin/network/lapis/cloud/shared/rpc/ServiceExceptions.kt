@@ -1240,3 +1240,15 @@ class FoundingMemberConsentOutdatedException(
 class FoundingMemberRateLimitedException(
     override val message: String = "Too many founding-member actions",
 ) : AbstractServiceException()
+
+/** Welle V1.9.307 -- distinct type. The external member id is already assigned to another member of the same source (no id value in the message). */
+@RpcServiceException
+class ExternalMemberIdTakenException(
+    override val message: String = "The external member id is already assigned to another member",
+) : AbstractServiceException()
+
+/** Welle V1.9.307 -- distinct type. No external-id source is configured on this instance (`LAPIS_KEYCLOAK_EXTERNAL_ID_SOURCE`). */
+@RpcServiceException
+class ExternalMemberIdSourceNotConfiguredException(
+    override val message: String = "No external member id source is configured",
+) : AbstractServiceException()

@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.ProtocolVersionConfirmationTable
 import network.lapis.cloud.server.db.generated.ProtocolVersionTable
 import network.lapis.cloud.server.db.generated.ProtocolVersionTaskTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.pdf.MeetingProtocolPdfGenerator
 import network.lapis.cloud.server.pdf.PdfLimitExceeded
 import network.lapis.cloud.server.pdf.addressLines
@@ -86,10 +87,11 @@ private val SHA256_SHAPE = Regex("^[0-9a-f]{64}$")
  * **Privacy:** audit snapshots hold ids, enums and numbers (the content hash included); no log line carries a text, a name or a hash.
  */
 internal class MeetingProtocolOperations(
+    votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
     private val storageRoot: java.io.File? = null,
     private val readLimiter: FederationInboxRateLimiter = PROTOCOL_FINAL_READ_RATE_LIMITER,
     private val writeLimiter: FederationInboxRateLimiter = PROTOCOL_FINAL_WRITE_RATE_LIMITER,
-    private val draftOps: MeetingProtocolDraftOperations = MeetingProtocolDraftOperations(),
+    private val draftOps: MeetingProtocolDraftOperations = MeetingProtocolDraftOperations(votingRightPolicy = votingRightPolicy),
 ) {
     // ---- reads ----
 

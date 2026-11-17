@@ -25,6 +25,7 @@ import network.lapis.cloud.server.events.EVENT_ONLINE_CONFIG
 import network.lapis.cloud.server.events.EventFakeLiveKit
 import network.lapis.cloud.server.events.EventOnlineServices
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.rpc.ElectionService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.shared.domain.AttendanceStatus
@@ -130,16 +131,22 @@ class MeetingSessionRpcWiringTest :
                                         .electionId
                                 "closeVote" ->
                                     ElectionService(
+                                        votingRightPolicy = VotingRightPolicy.LEGACY,
                                         call = call,
                                         streamGuard = NoOpSecretBallotStreamGuard,
                                     ).closeVoting(q["e"]!!).status.name
                                 "approve" ->
                                     ElectionService(
+                                        votingRightPolicy = VotingRightPolicy.LEGACY,
                                         call = call,
                                         streamGuard = NoOpSecretBallotStreamGuard,
                                     ).approveTally(q["e"]!!).status.name
                                 "tally" -> {
-                                    ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard).tally(q["e"]!!)
+                                    ElectionService(
+                                        votingRightPolicy = VotingRightPolicy.LEGACY,
+                                        call = call,
+                                        streamGuard = NoOpSecretBallotStreamGuard,
+                                    ).tally(q["e"]!!)
                                     "tallied"
                                 }
                                 "removeAgenda" -> {

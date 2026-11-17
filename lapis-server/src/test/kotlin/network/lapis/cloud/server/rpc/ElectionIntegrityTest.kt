@@ -61,6 +61,7 @@ import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
@@ -1796,7 +1797,7 @@ private fun io.ktor.server.plugins.statuspages.StatusPagesConfig.installIntegrit
 
 private fun Route.registerIntegrityTestRoutes() {
     post("/test/open-election/{motionId}/{electionType}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val q = call.request.queryParameters
         val w =
             service.openElection(
@@ -1819,7 +1820,7 @@ private fun Route.registerIntegrityTestRoutes() {
         )
     }
     post("/test/appoint-election-board/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val list =
             service.appointElectionBoard(
                 electionId = call.parameters["electionId"]!!,
@@ -1828,22 +1829,22 @@ private fun Route.registerIntegrityTestRoutes() {
         call.respondText(list.size.toString())
     }
     post("/test/submit-candidacy/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         call.respondText(
             service.submitCandidacy(electionId = call.parameters["electionId"]!!, input = CandidacyInput(motivationText = "Motivation")).id,
         )
     }
     post("/test/release-kandidatenliste/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val w = service.releaseCandidateList(call.parameters["electionId"]!!)
         call.respondText("${w.status}:${w.options.size}")
     }
     post("/test/open-voting/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         call.respondText(service.openVoting(call.parameters["electionId"]!!).status.name)
     }
     post("/test/cast-election-ballot/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val answer = call.request.queryParameters["answer"]?.let { ElectionAnswer.valueOf(it) }
         val result =
             service.castElectionBallot(
@@ -1852,37 +1853,37 @@ private fun Route.registerIntegrityTestRoutes() {
         call.respondText("${result.id}:${result.receiptCode ?: ""}")
     }
     post("/test/close-voting/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         call.respondText(service.closeVoting(call.parameters["electionId"]!!).status.name)
     }
     post("/test/release-tally/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         service.approveTally(call.parameters["electionId"]!!)
         call.respondText("ok")
     }
     post("/test/tally/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val e = service.tally(call.parameters["electionId"]!!)
         call.respondText("${e.winnerOptionIds.joinToString(",")}:${e.tie}:${e.majorityMet ?: ""}")
     }
     post("/test/abort-election/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         call.respondText(service.abortElection(call.parameters["electionId"]!!).status.name)
     }
     get("/test/list-ballots/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val list = service.listElectionBallots(call.parameters["electionId"]!!)
         call.respondText(list.joinToString(";") { "${it.id}:${it.selectedOptionLabels.joinToString("|")}" })
     }
     get("/test/election-result/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val e = service.getElectionResult(call.parameters["electionId"]!!)
         call.respondText(
             "${e.winnerOptionIds.joinToString(",")}:${e.tie}:${e.majorityMet ?: ""}:${e.perOptionVotes.values.sorted().joinToString("|")}",
         )
     }
     get("/test/verify-receipt/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val r =
             service.verifyReceipt(
                 electionId = call.parameters["electionId"]!!,
@@ -1942,7 +1943,8 @@ private fun Route.registerIntegrityTestRoutes() {
         call.respondText(r.id)
     }
     post("/test/open-systemic-consensus/{motionId}") {
-        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service =
+            SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val bindingness = call.request.queryParameters["bindingness"]?.let { SystemicConsensusBindingness.valueOf(it) }
         val input = SystemicConsensusOpenInput(motionId = call.parameters["motionId"]!!, secret = false)
         val sc = service.openSystemicConsensus(if (bindingness == null) input else input.copy(bindingness = bindingness))
@@ -1961,7 +1963,8 @@ private fun Route.registerIntegrityTestRoutes() {
         call.respondText(b.id)
     }
     post("/test/cast-resistance/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service =
+            SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val resistances =
             call.request.queryParameters["r"]!!.split(",").associate { entry ->
                 entry.substringBefore(":") to entry.substringAfter(":").toInt()
@@ -1973,11 +1976,13 @@ private fun Route.registerIntegrityTestRoutes() {
         call.respondText(r.id)
     }
     post("/test/close-rating/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service =
+            SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         call.respondText(service.closeRating(call.parameters["id"]!!).status.name)
     }
     post("/test/evaluate-result/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service =
+            SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val r = service.evaluate(call.parameters["id"]!!)
         call.respondText(
             Json.encodeToString(
@@ -1988,12 +1993,14 @@ private fun Route.registerIntegrityTestRoutes() {
         )
     }
     post("/test/evaluate-result-shape/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service =
+            SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         service.evaluate(call.parameters["id"]!!)
         call.respondText("ok")
     }
     get("/test/consensus-result/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service =
+            SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         call.respondText(
             Json.encodeToString(
                 network.lapis.cloud.shared.domain.SystemicConsensusResultDto
@@ -2017,7 +2024,8 @@ private fun Route.registerIntegrityTestRoutes() {
         call.respondText(m.id)
     }
     post("/test/evaluate-systemic-consensus/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service =
+            SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         service.evaluate(call.parameters["id"]!!)
         call.respondText("ok")
     }

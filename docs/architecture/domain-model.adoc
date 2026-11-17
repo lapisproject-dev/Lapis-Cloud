@@ -100,6 +100,9 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
         attribute(name = "foundingMemberSince", type = "LocalDate")
         attribute(name = "foundingMemberConsentGrantedAt", type = "LocalDateTime")
         attribute(name = "foundingMemberConsentVersion", type = "String")
+        // V156 external member id: set by the Keycloak claim or BOARD/ADMIN only; unique per (source, id); may suspend the voting right when the instance requires it.
+        attribute(name = "externalMemberId", type = "String")
+        attribute(name = "externalMemberIdSource", type = "String")
     }
 
     val account = classOf(name = "Account") {

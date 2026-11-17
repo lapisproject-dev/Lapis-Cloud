@@ -34,6 +34,7 @@ import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeType
@@ -264,7 +265,12 @@ class ElectionSecretBallotsNeverDeliveredTest :
                     }
                     routing {
                         get("/t/list-ballots/{id}") {
-                            val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+                            val service =
+                                ElectionService(
+                                    votingRightPolicy = VotingRightPolicy.LEGACY,
+                                    call = call,
+                                    streamGuard = NoOpSecretBallotStreamGuard,
+                                )
                             val list = service.listElectionBallots(call.parameters["id"]!!)
                             call.respondText(Json.encodeToString(ListSerializer(ElectionBallotDto.serializer()), list))
                         }

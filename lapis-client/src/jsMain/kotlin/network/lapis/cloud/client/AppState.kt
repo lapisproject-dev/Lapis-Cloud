@@ -57,6 +57,8 @@ import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
 import network.lapis.cloud.shared.rpc.EventRoomCaptureConsentMissingException
 import network.lapis.cloud.shared.rpc.EventRoomRecordingAccessLevelNotAllowedException
+import network.lapis.cloud.shared.rpc.ExternalMemberIdSourceNotConfiguredException
+import network.lapis.cloud.shared.rpc.ExternalMemberIdTakenException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.FoundingMemberNotEligibleException
 import network.lapis.cloud.shared.rpc.FoundingMemberNotSetException
@@ -226,6 +228,8 @@ suspend fun <T> guarded(block: suspend () -> T): T? =
 internal fun typedRefusalText(e: Throwable): String? =
     when (e) {
         is RateLimitedException -> tr("Zu viele Anfragen – bitte kurz warten.")
+        is ExternalMemberIdTakenException -> tr("Diese ID ist bereits einem anderen Mitglied zugeordnet.")
+        is ExternalMemberIdSourceNotConfiguredException -> tr("Für diese Instanz ist keine externe Mitglieds-ID-Quelle eingerichtet.")
         is FoundingMemberRateLimitedException -> tr("Zu viele Anfragen – bitte kurz warten.")
         is FoundingMemberNotSetException -> tr("Der Vorstand hat Sie nicht als Gründungsmitglied gekennzeichnet.")
         is FoundingMemberNotEligibleException -> tr("Nur aktive Mitglieder können die Kennzeichnung öffentlich zeigen.")

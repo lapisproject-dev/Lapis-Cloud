@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.member.LegacyCountryDictionary
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
@@ -72,6 +73,8 @@ class AuthService internal constructor(
      * exists only so pre-existing test construction sites keep compiling.
      */
     private val changePasswordRateLimiter: LoginRateLimiter = LoginRateLimiter(maxFailures = 5, window = 15.minutes),
+    /** V1.9.307 -- the voting-right rule behind [SessionInfoDto.votingRight]; LEGACY default for older constructions, `Application.module` passes the configured one (ExternalMemberIdWiringTripwireTest). */
+    private val votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
 ) : IAuthService {
     override suspend fun changePassword(
         currentPassword: String,
@@ -177,7 +180,8 @@ class AuthService internal constructor(
                             .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
                             .singleOrNull()
                             ?.get(OrganizationSettingsTable.isPoliticalParty) ?: false,
-                    votingRight = row[MemberTable.votingRight],
+                    votingRight = votingRightPolicy.holds(row),
+                    votingSuspendedForMissingExternalId = votingRightPolicy.suspendedForMissingExternalId(row),
                 )
             }
         val displayName = sessionExtras.displayName
@@ -212,6 +216,7 @@ class AuthService internal constructor(
             organizationCountryCode = sessionExtras.organizationCountryCode,
             politicalParty = sessionExtras.politicalParty,
             votingRight = sessionExtras.votingRight,
+            votingSuspendedForMissingExternalId = sessionExtras.votingSuspendedForMissingExternalId,
         )
     }
 }
@@ -227,4 +232,5 @@ private data class SessionExtras(
     val organizationCountryCode: String?,
     val politicalParty: Boolean,
     val votingRight: Boolean,
+    val votingSuspendedForMissingExternalId: Boolean,
 )

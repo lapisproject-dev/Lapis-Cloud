@@ -13,6 +13,7 @@ import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -50,6 +51,7 @@ fun Route.registerMobileConferenceRoutes(
     conferenceNotesState: ConferenceNotesState,
     conferenceMeetingBindRateLimiter: FederationInboxRateLimiter,
     roomVotingStateRateLimiter: FederationInboxRateLimiter,
+    votingRightPolicy: VotingRightPolicy,
     audioGrantState: ConferenceAudioGrantState = ConferenceAudioGrantState(),
     config: ConferenceConfig = ConferenceConfig.load(),
 ) {
@@ -69,6 +71,7 @@ fun Route.registerMobileConferenceRoutes(
             conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
             roomVotingStateRateLimiter = roomVotingStateRateLimiter,
             audioGrantState = audioGrantState,
+            votingRightPolicy = votingRightPolicy,
         )
 
     get("/api/mobile/v1/conference/availability") {

@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTab
 import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.member.MemberVotingRights
+import network.lapis.cloud.server.member.VotingRightPolicy
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -31,6 +32,7 @@ internal data class OwnConsensusFlags(
 internal object SystemicConsensusOwnParticipation {
     /** MUST run inside a transaction. At most 3 queries regardless of `rows.size`. */
     fun load(
+        policy: VotingRightPolicy,
         rows: List<ResultRow>,
         memberId: Uuid,
     ): Map<Uuid, OwnConsensusFlags> {
@@ -76,7 +78,7 @@ internal object SystemicConsensusOwnParticipation {
                     .toSet()
             }
         // V1.9.298: the live floor -- a withdrawn voting right makes the member ineligible whatever the snapshot says.
-        val voterNow = MemberVotingRights.isVoterNow(memberId)
+        val voterNow = MemberVotingRights.isVoterNow(memberId = memberId, policy = policy)
         return rows.associate { row ->
             val id = row[SystemicConsensusTable.id]
             val key = id to row[SystemicConsensusTable.round]

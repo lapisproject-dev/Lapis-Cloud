@@ -86,10 +86,13 @@ internal object MemberVotingRights {
         }
 
     /** Whether [memberId] holds the voting right right now (live read). */
-    fun isVoterNow(memberId: Uuid): Boolean =
+    fun isVoterNow(
+        memberId: Uuid,
+        policy: VotingRightPolicy,
+    ): Boolean =
         MemberTable
             .selectAll()
-            .where { (MemberTable.id eq memberId) and (MemberTable.votingRight eq true) }
+            .where { (MemberTable.id eq memberId) and policy.condition() }
             .limit(1)
             .any()
 

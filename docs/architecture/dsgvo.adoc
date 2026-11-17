@@ -260,6 +260,12 @@ fully owns its lifecycle, and `member.regional_chapter_id` itself is covered by
   only `chapterName`/`grantedAt`/`revokedAt`: the recipient is a different data subject whose own
   identity is not this export's business.
 
+== External member id (`member.external_member_id*`, V1.9.307)
+
+`external_member_id` and `external_member_id_source` are a personal reference (the identifier in an external system). `FoundationPersonalData` exports both in the Art. 15
+Auskunft and resets both in the same `UPDATE` that sets `anonymized_at` (the pair CHECK is evaluated per row), in every erasure mode. The hash-chained audit log
+never carries the id value (only the event and the source), so it holds nothing that would have to be erased. See `docs/features/external-member-id.adoc`.
+
 == Deceased-member exception: `member.date_of_death` (Welle V1.4.4.5)
 
 `FoundationPersonalData` treats `member.date_of_death` (`V24__member_date_of_death.sql`)

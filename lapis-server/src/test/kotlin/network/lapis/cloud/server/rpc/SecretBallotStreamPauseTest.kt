@@ -64,6 +64,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
@@ -2955,7 +2956,7 @@ private fun Route.registerSecretBallotPauseTestRoutes(
 ) {
     // ── Election ──────────────────────────────────────────────────────
     post("/test/open-election/{motionId}") {
-        val service = ElectionService(call = call, streamGuard = streamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val q = call.request.queryParameters
         val w =
             service.openElection(
@@ -2973,18 +2974,18 @@ private fun Route.registerSecretBallotPauseTestRoutes(
         call.respondText("${w.id}:${w.status}")
     }
     post("/test/appoint-election-board/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = streamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val memberIds = call.request.queryParameters["memberIds"]!!.split(",")
         val list = service.appointElectionBoard(electionId = call.parameters["electionId"]!!, memberIds = memberIds)
         call.respondText(list.size.toString())
     }
     post("/test/open-voting/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = streamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val w = service.openVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/cast-election-ballot/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = streamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val q = call.request.queryParameters
         val answer = q["answer"]?.let { ElectionAnswer.valueOf(it) } ?: ElectionAnswer.YES
         val result =
@@ -2994,24 +2995,24 @@ private fun Route.registerSecretBallotPauseTestRoutes(
         call.respondText("${result.id}:${result.receiptCode ?: ""}")
     }
     post("/test/close-voting/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = streamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val w = service.closeVoting(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     post("/test/abort-election/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = streamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val w = service.abortElection(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
     get("/test/get-election/{electionId}") {
-        val service = ElectionService(call = call, streamGuard = streamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val w = service.getElection(call.parameters["electionId"]!!)
         call.respondText(w.status.name)
     }
 
     // ── SystemicConsensus ─────────────────────────────────────────────
     post("/test/open-systemic_consensus/{motionId}") {
-        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
+        val service = SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val q = call.request.queryParameters
         val k =
             service.openSystemicConsensus(
@@ -3029,12 +3030,12 @@ private fun Route.registerSecretBallotPauseTestRoutes(
         call.respondText("${k.id}:${k.status}")
     }
     post("/test/freeze-optionen/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
+        val service = SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val k = service.freezeOptions(call.parameters["id"]!!)
         call.respondText(k.status.name)
     }
     post("/test/cast-resistance/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
+        val service = SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val param = call.request.queryParameters["resistances"] ?: ""
         val resistances =
             param
@@ -3051,22 +3052,22 @@ private fun Route.registerSecretBallotPauseTestRoutes(
         call.respondText("${result.id}:${result.receiptCode ?: ""}")
     }
     post("/test/close-rating/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
+        val service = SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val k = service.closeRating(call.parameters["id"]!!)
         call.respondText(k.status.name)
     }
     post("/test/reopen-rating/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
+        val service = SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val k = service.reopenRating(call.parameters["id"]!!)
         call.respondText("${k.status}:${k.round}")
     }
     post("/test/abort-systemic_consensus/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
+        val service = SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val k = service.abortSystemicConsensus(call.parameters["id"]!!)
         call.respondText(k.status.name)
     }
     get("/test/get-systemic_consensus/{id}") {
-        val service = SystemicConsensusService(call = call, streamGuard = streamGuard)
+        val service = SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
         val k = service.getSystemicConsensus(call.parameters["id"]!!)
         call.respondText(k.status.name)
     }

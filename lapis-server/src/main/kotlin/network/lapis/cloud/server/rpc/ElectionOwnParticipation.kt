@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.generated.ElectionEligibleVoterTable
 import network.lapis.cloud.server.db.generated.ElectionParticipationTable
 import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.member.MemberVotingRights
+import network.lapis.cloud.server.member.VotingRightPolicy
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -34,6 +35,7 @@ internal object ElectionOwnParticipation {
      * each hitting a unique `(election_id, member_id)` index.
      */
     fun load(
+        policy: VotingRightPolicy,
         electionRows: List<ResultRow>,
         memberId: Uuid,
     ): Map<Uuid, OwnElectionFlags> {
@@ -78,7 +80,7 @@ internal object ElectionOwnParticipation {
                     .toSet()
             }
         // V1.9.298: the live floor -- a withdrawn voting right makes the member ineligible whatever the snapshot says.
-        val voterNow = MemberVotingRights.isVoterNow(memberId)
+        val voterNow = MemberVotingRights.isVoterNow(memberId = memberId, policy = policy)
         return electionRows.associate { row ->
             val id = row[ElectionTable.id]
             id to

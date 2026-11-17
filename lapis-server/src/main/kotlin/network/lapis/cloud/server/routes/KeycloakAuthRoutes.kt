@@ -36,6 +36,7 @@ import network.lapis.cloud.server.federation.readCappedFederationBodyOrNull
 import network.lapis.cloud.server.keycloak.KeycloakAccountLinker
 import network.lapis.cloud.server.keycloak.KeycloakClaimsShape
 import network.lapis.cloud.server.keycloak.KeycloakConfig
+import network.lapis.cloud.server.keycloak.KeycloakExternalIdSync
 import network.lapis.cloud.server.keycloak.KeycloakIssuerUrlGuard
 import network.lapis.cloud.server.keycloak.KeycloakMemberProvisioner
 import network.lapis.cloud.server.keycloak.KeycloakOidcMetadata
@@ -180,6 +181,8 @@ internal fun Route.registerKeycloakAuthRoutes(
     provisioner: KeycloakMemberProvisioner? = null,
     /** Welle V1.9.73 -- the opt-in profile sync, run after a successful login of an already linked member. `null` = off. */
     profileSync: KeycloakProfileSync? = null,
+    /** Welle V1.9.307 -- the external member id claim sync, run for every Keycloak login of a member that was not just provisioned. `null` = off. */
+    externalIdSync: KeycloakExternalIdSync? = null,
     /** Welle V1.9.135 -- instance branding and public base URL for the brand chrome of the error page. */
     branding: ResolvedBranding,
     baseUrl: String,
@@ -745,6 +748,14 @@ internal fun Route.registerKeycloakAuthRoutes(
                     claims = claims,
                 )
             }.onFailure { e -> logger.error { "Keycloak profile sync failed: ${e::class.simpleName}" } }
+        }
+
+        // Welle V1.9.307 -- the external member id claim, for EVERY login (independent of LAPIS_KEYCLOAK_SYNC_PROFILE); JIT applied it already.
+        // Never blocks the login: a failure is only logged with a reason code.
+        if (externalIdSync != null && externalIdSync.active && !justProvisioned) {
+            runCatching {
+                externalIdSync.syncOnLogin(memberId = memberId, subject = subject, claims = claims)
+            }.onFailure { e -> logger.error { "EXTERNAL_ID_SYNC_FAILED: ${e::class.simpleName}" } }
         }
 
         // Never persist/log id_token/tokenResponse itself beyond this point -- see class KDoc.

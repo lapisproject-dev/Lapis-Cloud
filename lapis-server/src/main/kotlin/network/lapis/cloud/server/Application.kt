@@ -167,6 +167,7 @@ import network.lapis.cloud.server.gallery.AttachedImageOrphanSweep
 import network.lapis.cloud.server.gallery.AttachedImageService
 import network.lapis.cloud.server.gallery.AttachedImageStorage
 import network.lapis.cloud.server.keycloak.KeycloakConfig
+import network.lapis.cloud.server.keycloak.KeycloakExternalIdSync
 import network.lapis.cloud.server.keycloak.KeycloakMemberProvisioner
 import network.lapis.cloud.server.keycloak.KeycloakOidcMetadata
 import network.lapis.cloud.server.keycloak.KeycloakProfileSync
@@ -216,6 +217,7 @@ import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
 import network.lapis.cloud.server.mcp.tools.McpToolDispatcher
 import network.lapis.cloud.server.member.EmailChangePoller
 import network.lapis.cloud.server.member.EmailChangeService
+import network.lapis.cloud.server.member.ExternalMemberIdConfig
 import network.lapis.cloud.server.member.KeycloakProvisioningNotifier
 import network.lapis.cloud.server.member.MemberStatusHistoryConsistency
 import network.lapis.cloud.server.member.PeerNotifier
@@ -724,6 +726,11 @@ internal fun Application.module(
         logger = applicationLogger,
         regionalChapterEnforcementEnabled = RegionalChapterEnforcementConfig.load().enabled,
     )
+    // V1.9.307 external member id: loaded once, independent of Keycloak (an instance without Keycloak uses the source too); an unusable
+    // combination refuses the start with a reason code. The voting policy is injected everywhere below -- never read from a global.
+    val externalMemberIdConfig = ExternalMemberIdConfig.load()
+    externalMemberIdConfig.verifyAndLog(logger = applicationLogger, keycloakEnabled = keycloakConfig.isOperational)
+    val votingRightPolicy = externalMemberIdConfig.votingPolicy()
 
     // V1.2.5 White-Label-Branding -- operator-supplied web-UI title/optional logo (see BrandConfig
     // KDoc). Constructed here, right after clientDistRoot above (clientShell below needs it).
@@ -1087,7 +1094,18 @@ internal fun Application.module(
         )
     val keycloakMemberProvisioner: KeycloakMemberProvisioner? =
         if (keycloakConfig.isOperational && keycloakConfig.autoProvision) {
-            KeycloakMemberProvisioner(config = keycloakConfig, notifier = keycloakProvisioningNotifier)
+            KeycloakMemberProvisioner(
+                config = keycloakConfig,
+                notifier = keycloakProvisioningNotifier,
+                externalIdConfig = externalMemberIdConfig,
+            )
+        } else {
+            null
+        }
+    // V1.9.307 -- the external member id claim sync; null while no claim is configured or Keycloak is not operational.
+    val keycloakExternalIdSync: KeycloakExternalIdSync? =
+        if (keycloakConfig.isOperational && externalMemberIdConfig.enabled && externalMemberIdConfig.claim != null) {
+            KeycloakExternalIdSync(config = externalMemberIdConfig)
         } else {
             null
         }
@@ -2509,6 +2527,7 @@ internal fun Application.module(
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
                 memberAddressAdminReadRateLimiter = memberAddressAdminReadRateLimiter,
                 peerNotificationMailer = peerNotificationMailer,
+                externalMemberIdConfig = externalMemberIdConfig,
             )
         }
         // Welle V1.9.56 "E-Mail-Änderung absichern" -- the only way to change an existing member's login address.
@@ -2617,13 +2636,18 @@ internal fun Application.module(
                 eventOnline = eventOnline,
                 connectedMembers = conferenceConnectedMembers,
                 secretBallotStreamGuard = secretBallotStreamGuard,
+                votingRightPolicy = votingRightPolicy,
             )
         }
-        registerService(IElectionService::class) { call -> ElectionService(call = call, streamGuard = secretBallotStreamGuard) }
+        registerService(IElectionService::class) { call ->
+            ElectionService(call = call, streamGuard = secretBallotStreamGuard, votingRightPolicy = votingRightPolicy)
+        }
         registerService(IPollService::class) { call -> PollService(call = call) }
         registerService(
             ISystemicConsensusService::class,
-        ) { call -> SystemicConsensusService(call = call, streamGuard = secretBallotStreamGuard) }
+        ) { call ->
+            SystemicConsensusService(call = call, streamGuard = secretBallotStreamGuard, votingRightPolicy = votingRightPolicy)
+        }
         registerService(IAccountingService::class) { call -> AccountingService(call) }
         registerService(IAccountingExportService::class) { call ->
             AccountingExportService(
@@ -2709,6 +2733,7 @@ internal fun Application.module(
                 mcpEnabled = mcpConfig.isOperational,
                 mcpWriteEnabled = mcpConfig.isWriteOperational,
                 changePasswordRateLimiter = changePasswordRateLimiter,
+                votingRightPolicy = votingRightPolicy,
             )
         }
         if (aiConfig.isOperational && aiLlmClient != null) {
@@ -2784,6 +2809,7 @@ internal fun Application.module(
                 conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
                 roomVotingStateRateLimiter = roomVotingStateRateLimiter,
                 audioGrantState = conferenceAudioGrantState,
+                votingRightPolicy = votingRightPolicy,
             )
         }
         registerService(IConferenceModerationService::class) { call ->
@@ -3052,7 +3078,7 @@ internal fun Application.module(
         }
         // V1.9.201 tenders. Since V1.9.224 fourth to last (Kilua numbers routes by declaration order).
         registerService(ITenderService::class) { call ->
-            TenderService(call = call, previewRateLimiter = tenderDescriptionPreviewRateLimiter)
+            TenderService(call = call, previewRateLimiter = tenderDescriptionPreviewRateLimiter, votingRightPolicy = votingRightPolicy)
         }
         // V1.9.215 online counts (admin dashboard tile). Third to last since V1.9.224 (the dashboard is the LAST registerService;
         // Kilua numbers routes by declaration order).
@@ -3079,6 +3105,7 @@ internal fun Application.module(
                 navCountsRateLimiter = dashboardNavCountsRateLimiter,
                 conferenceEnabled = conferenceConfig.enabled,
                 mcpEnabled = mcpConfig.isOperational,
+                votingRightPolicy = votingRightPolicy,
             )
         }
         // V1.9.225 party report (PartG), R1. Registered before the LupaBB sync, the Protokoll draft, the Protokoll finalisation and the
@@ -3105,12 +3132,12 @@ internal fun Application.module(
         // V1.9.239 Protokoll draft of a Sitzung (Welle D1). Registered before the Protokoll finalisation and the partner servers (Kilua numbers
         // routes by declaration order). New methods of the interface go to its end, never in between.
         registerService(IProtocolDraftService::class) { call ->
-            ProtocolDraftService(call = call)
+            ProtocolDraftService(call = call, votingRightPolicy = votingRightPolicy)
         }
         // V1.9.240 Protokoll fertigstellen (Welle D2). Second to last since V1.9.244 (the partner servers are the LAST registerService). New
         // methods of the interface go to its end, never in between.
         registerService(IMeetingProtocolService::class) { call ->
-            MeetingProtocolService(call = call, storageRoot = documentStorageRoot)
+            MeetingProtocolService(call = call, storageRoot = documentStorageRoot, votingRightPolicy = votingRightPolicy)
         }
         // V1.9.244 Partnerserver P1 (ADMIN). Second to last since V1.9.246 (the activism module is the LAST registerService). New methods of the
         // interface go to its end, never in between.
@@ -3252,6 +3279,7 @@ internal fun Application.module(
             startFloodLimiter = keycloakStartFloodLimiter,
             provisioner = keycloakMemberProvisioner,
             profileSync = keycloakProfileSync,
+            externalIdSync = keycloakExternalIdSync,
             branding = resolvedBranding,
             baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
         )
@@ -3273,6 +3301,7 @@ internal fun Application.module(
             roomVotingStateRateLimiter = roomVotingStateRateLimiter,
             audioGrantState = conferenceAudioGrantState,
             config = conferenceConfig,
+            votingRightPolicy = votingRightPolicy,
         )
         // Security mitigation 2026-09-19: the WebView session bridge is opt-in (default OFF) until it
         // is replaced by a single-use ticket -- see mobileWebviewBridgeEnabled KDoc.

@@ -39,6 +39,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
@@ -447,7 +448,7 @@ abstract class SystemicConsensusOptionRationaleScenarios(
 
 private fun Route.registerRationaleTestRoutes() {
     fun io.ktor.server.application.ApplicationCall.service() =
-        SystemicConsensusService(call = this, streamGuard = NoOpSecretBallotStreamGuard)
+        SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = this, streamGuard = NoOpSecretBallotStreamGuard)
     post("/test/open/{motionId}") {
         val k = call.service().openSystemicConsensus(SystemicConsensusOpenInput(motionId = call.parameters["motionId"]!!))
         call.respondText(k.id)

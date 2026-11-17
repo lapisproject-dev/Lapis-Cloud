@@ -28,6 +28,7 @@ import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.QuorumResultDto
@@ -247,8 +248,20 @@ class VotingRightBallotTest :
                 transaction {
                     val e = ElectionTable.selectAll().where { ElectionTable.id eq election }.toList()
                     val c = SystemicConsensusTable.selectAll().where { SystemicConsensusTable.id eq consensus }.toList()
-                    ElectionOwnParticipation.load(electionRows = e, memberId = people[0]).getValue(election).eligible to
-                        SystemicConsensusOwnParticipation.load(rows = c, memberId = people[0]).getValue(consensus).eligible
+                    ElectionOwnParticipation
+                        .load(
+                            policy = VotingRightPolicy.LEGACY,
+                            electionRows = e,
+                            memberId = people[0],
+                        ).getValue(election)
+                        .eligible to
+                        SystemicConsensusOwnParticipation
+                            .load(
+                                policy = VotingRightPolicy.LEGACY,
+                                rows = c,
+                                memberId = people[0],
+                            ).getValue(consensus)
+                            .eligible
                 }
             flags() shouldBe (true to true)
             setVotingRight(people[0], false)

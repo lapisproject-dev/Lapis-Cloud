@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.rpc.computeQuorum
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canRecordForMeeting
@@ -66,6 +67,8 @@ internal val MEETING_SESSION_MUTATE_RATE_LIMITER = FederationInboxRateLimiter(ma
 internal class MeetingSessionOperations(
     private val conferencesEnabled: () -> Boolean,
     private val connectedMembers: ConferenceConnectedMembers,
+    /** V1.9.307 -- the voting-right rule (attendance roster and quorum use the same electorate). No default: see [VotingRightPolicy]. */
+    internal val votingRightPolicy: VotingRightPolicy,
     private val readLimiter: FederationInboxRateLimiter = MEETING_SESSION_READ_RATE_LIMITER,
     private val mutateLimiter: FederationInboxRateLimiter = MEETING_SESSION_MUTATE_RATE_LIMITER,
 ) {
@@ -152,6 +155,7 @@ internal class MeetingSessionOperations(
             val roster =
                 rule
                     .roster(
+                        policy = votingRightPolicy,
                         meetingId = ctx.meetingId,
                         committeeRow = ctx.committeeRow,
                         scheduledDate = ctx.meetingRow[MeetingTable.scheduledAt].date,
@@ -205,6 +209,7 @@ internal class MeetingSessionOperations(
             val roster =
                 rule
                     .roster(
+                        policy = votingRightPolicy,
                         meetingId = ctx.meetingId,
                         committeeRow = ctx.committeeRow,
                         scheduledDate = ctx.meetingRow[MeetingTable.scheduledAt].date,
@@ -268,6 +273,7 @@ internal class MeetingSessionOperations(
             requireOpen(ctx = ctx, notOpenedMessage = "open the meeting first")
             val quorum =
                 computeQuorum(
+                    policy = votingRightPolicy,
                     meetingId = ctx.meetingId,
                     committeeId = ctx.committeeId,
                     scheduledDate = ctx.meetingRow[MeetingTable.scheduledAt].date,
@@ -478,9 +484,15 @@ internal class MeetingSessionOperations(
         if (ctx.role == MeetingSessionRole.PARTICIPANT) return base
 
         val liveQuorum =
-            computeQuorum(meetingId = ctx.meetingId, committeeId = ctx.committeeId, scheduledDate = meeting[MeetingTable.scheduledAt].date)
+            computeQuorum(
+                policy = votingRightPolicy,
+                meetingId = ctx.meetingId,
+                committeeId = ctx.committeeId,
+                scheduledDate = meeting[MeetingTable.scheduledAt].date,
+            )
         val roster =
             rule.roster(
+                policy = votingRightPolicy,
                 meetingId = ctx.meetingId,
                 committeeRow = ctx.committeeRow,
                 scheduledDate = meeting[MeetingTable.scheduledAt].date,

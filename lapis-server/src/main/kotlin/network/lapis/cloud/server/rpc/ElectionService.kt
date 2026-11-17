@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canManageElection
 import network.lapis.cloud.server.security.canStandAsCandidate
@@ -136,6 +137,8 @@ class ElectionService(
      * instance through.
      */
     private val streamGuard: SecretBallotStreamGuard,
+    /** V1.9.307 -- the voting-right rule (external id requirement). NO default: see [VotingRightPolicy]; `Application.module` passes the configured one. */
+    private val votingRightPolicy: VotingRightPolicy,
 ) : IElectionService {
     override suspend fun openElection(input: ElectionOpenInput): ElectionDto {
         val current = resolveCurrentMember(call)
@@ -304,7 +307,7 @@ class ElectionService(
             transaction {
                 // The election lock makes the electorate snapshot happen exactly once: a concurrent second
                 // openVoting waits here, then sees OPEN and is refused. The body lives in openVotingLocked (ElectionOpening.kt).
-                openVotingLocked(current = current, electionRow = lockElectionRow(wId))
+                openVotingLocked(policy = votingRightPolicy, current = current, electionRow = lockElectionRow(wId))
             }
         // OUTSIDE the transaction -- StopEgress + confirmation, never a network call inside an open
         // transaction (D7).
@@ -328,7 +331,7 @@ class ElectionService(
             // predating that fix). Member-only (ACTIVE), not requirePoliticianRaterMembership --
             // guests never get vote weight in this project's concept.
             // V1.9.298: ACTIVE AND voting right, the live floor.
-            requireVotingMembership(memberId = current.memberId)
+            requireVotingMembership(policy = votingRightPolicy, memberId = current.memberId)
             // Election lock: a ballot and closeVoting/abortElection are mutually exclusive, so no ballot can
             // land after voting_closed_at.
             val electionRow = lockElectionRow(wId)
@@ -479,7 +482,12 @@ class ElectionService(
             val electionMotionRow = MotionDecisionLock.lockMotion(motionId)
             val electionRow = lockElectionRow(wId)
             if (!current.isElectionBoard(wId)) throw ForbiddenException()
-            tallyElectionLocked(electionMotionRow = electionMotionRow, electionRow = electionRow, actor = current)
+            tallyElectionLocked(
+                policy = votingRightPolicy,
+                electionMotionRow = electionMotionRow,
+                electionRow = electionRow,
+                actor = current,
+            )
         }
     }
 
@@ -557,7 +565,10 @@ class ElectionService(
         val wId = electionId.toUuidOrNotFound("Election")
         return transaction {
             val electionRow = requireElectionRow(wId)
-            val ownFlags = ElectionOwnParticipation.load(electionRows = listOf(electionRow), memberId = current.memberId).getValue(wId)
+            val ownFlags =
+                ElectionOwnParticipation
+                    .load(policy = votingRightPolicy, electionRows = listOf(electionRow), memberId = current.memberId)
+                    .getValue(wId)
             val hasVoted = ownFlags.hasVoted
             val snapshotTaken = electionRow[ElectionTable.votingOpenedAt] != null
             val eligible = ownFlags.eligible
@@ -1065,6 +1076,7 @@ internal fun recordElectionBallotLocked(
  * that order, and has checked that [actor] is allowed to tally. Must run inside an open transaction.
  */
 internal fun tallyElectionLocked(
+    policy: VotingRightPolicy,
     electionMotionRow: ResultRow,
     electionRow: ResultRow,
     actor: CurrentMember,
@@ -1264,6 +1276,7 @@ internal fun tallyElectionLocked(
         )
     val resolution =
         insertResolutionRow(
+            policy = policy,
             sId = electionRow[ElectionTable.meetingId],
             committeeId = committeeId,
             scheduledDate = meeting[MeetingTable.scheduledAt].date,

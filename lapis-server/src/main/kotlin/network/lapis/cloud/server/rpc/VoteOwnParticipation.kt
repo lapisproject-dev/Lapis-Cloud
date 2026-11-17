@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.member.MemberVotingRights
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -40,6 +41,7 @@ internal object VoteOwnParticipation {
      * the Sitzung/Committee are loaded once: at most 3 queries regardless of the row count.
      */
     fun load(
+        policy: VotingRightPolicy,
         voteRows: List<ResultRow>,
         memberId: Uuid,
         memberStatus: MemberStatus,
@@ -71,7 +73,8 @@ internal object VoteOwnParticipation {
                     .toSet()
             }
         // V1.9.298: the live floor -- a member whose voting right was withdrawn after the freeze is not eligible any more, whatever the snapshot says.
-        val isMember = memberStatus in MemberStatusSets.ORGANIZATION_MEMBER && MemberVotingRights.isVoterNow(memberId)
+        val isMember =
+            memberStatus in MemberStatusSets.ORGANIZATION_MEMBER && MemberVotingRights.isVoterNow(memberId = memberId, policy = policy)
         val liveEligible: Boolean by lazy {
             isMember &&
                 run {
@@ -88,6 +91,7 @@ internal object VoteOwnParticipation {
                             committeeRow = committeeRow,
                             scheduledDate = meetingRow[MeetingTable.scheduledAt].date,
                             memberId = memberId,
+                            policy = policy,
                         )
                 }
         }

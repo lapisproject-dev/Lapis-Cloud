@@ -113,4 +113,6 @@ data class SessionInfoDto(
     val isAdmin: Boolean = false,
     /** V155 -- the stored base role (never ADMIN); `null` from a server that predates the flag. */
     val baseRole: AccountRole? = null,
+    /** V156 -- `votingRight` is `false` only because `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING` is on and no external member id is stored. Drives the wording of the notice. */
+    val votingSuspendedForMissingExternalId: Boolean = false,
 )

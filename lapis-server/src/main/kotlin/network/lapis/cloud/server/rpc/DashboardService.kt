@@ -12,6 +12,7 @@ import network.lapis.cloud.server.dashboard.SignalModuleFlags
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -48,6 +49,8 @@ class DashboardService internal constructor(
     private val conferenceEnabled: Boolean,
     private val mcpEnabled: Boolean,
     private val sources: List<DashboardSignalSource> = DashboardSources.all,
+    /** V1.9.307 -- the voting-right rule; LEGACY default for older constructions, `Application.module` passes the configured one (ExternalMemberIdWiringTripwireTest). */
+    private val votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
 ) : IDashboardService {
     override suspend fun getDashboardSignals(): List<DashboardSignalDto> {
         val current = resolveCurrentMember(call)
@@ -68,6 +71,7 @@ class DashboardService internal constructor(
                 today = ServerClock.todayIn(wallZone),
                 zone = wallZone,
                 flags = readFlags(),
+                votingRightPolicy = votingRightPolicy,
             )
         val signals = DashboardSignalCollector.collect(ctx = ctx, sources = sources)
         caches.signals.put(key = key, value = signals)

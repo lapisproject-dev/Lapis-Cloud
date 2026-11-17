@@ -39,6 +39,7 @@ import network.lapis.cloud.server.governance.session.MeetingSessionAudit
 import network.lapis.cloud.server.governance.session.MeetingSessionMotionOperations
 import network.lapis.cloud.server.governance.session.MeetingSessionOperations
 import network.lapis.cloud.server.governance.session.ProtocolApprovalItems
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.routes.PUBLIC_API_MOTION_STATUSES
 import network.lapis.cloud.server.rules.RuleReferences
 import network.lapis.cloud.server.security.CurrentMember
@@ -216,11 +217,18 @@ class GovernanceService(
     connectedMembers: ConferenceConnectedMembers = DisabledConferenceConnectedMembers,
     // V1.9.238 -- needed to open a SECRET vote of a Sitzung; null = secret votes are refused (fail closed), never silently allowed.
     secretBallotStreamGuard: SecretBallotStreamGuard? = null,
+    // V1.9.307 -- the voting-right rule (external id requirement). The LEGACY default keeps older constructions (tests) working; `Application.module` passes the
+    // configured policy explicitly (pinned by ExternalMemberIdWiringTripwireTest).
+    private val votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
 ) : IGovernanceService {
     private val meetingEventLinks =
         MeetingEventLinkOperations(conferencesEnabled = { eventOnline.conferencesEnabled }, rateLimiter = meetingEventLinkRateLimiter)
     private val meetingSessions =
-        MeetingSessionOperations(conferencesEnabled = { eventOnline.conferencesEnabled }, connectedMembers = connectedMembers)
+        MeetingSessionOperations(
+            conferencesEnabled = { eventOnline.conferencesEnabled },
+            connectedMembers = connectedMembers,
+            votingRightPolicy = votingRightPolicy,
+        )
     private val meetingSessionMotions = MeetingSessionMotionOperations(base = meetingSessions, streamGuard = secretBallotStreamGuard)
 
     override suspend fun listCommittees(activeOnly: Boolean): List<CommitteeDto> {
@@ -438,7 +446,7 @@ class GovernanceService(
             }
             // Same evaluator as electorateMemberIds/computeQuorum -- never a copy (see generalAssemblyCondition / eligibleIdsForRule KDoc).
             // V1.9.298: the number is the electorate (members holding the voting right), the quorum denominator.
-            countElectorate(committeeRow = row)
+            countElectorate(policy = votingRightPolicy, committeeRow = row)
         }
     }
 
@@ -683,6 +691,7 @@ class GovernanceService(
                 quorum =
                     if (visible) {
                         computeQuorum(
+                            policy = votingRightPolicy,
                             meetingId = sId,
                             committeeId = meeting.committeeId.toCommitteeUuid(),
                             scheduledDate = meeting.scheduledAt.date,
@@ -858,7 +867,12 @@ class GovernanceService(
         return transaction {
             MeetingAttendanceVisibility.requireVisibleMeetingRow(current = current, meetingId = sId)
             val meeting = loadMeeting(sId)
-            computeQuorum(meetingId = sId, committeeId = meeting.committeeId.toCommitteeUuid(), scheduledDate = meeting.scheduledAt.date)
+            computeQuorum(
+                policy = votingRightPolicy,
+                meetingId = sId,
+                committeeId = meeting.committeeId.toCommitteeUuid(),
+                scheduledDate = meeting.scheduledAt.date,
+            )
         }
     }
 
@@ -883,6 +897,7 @@ class GovernanceService(
             val meeting = loadMeeting(sId)
             val resolution =
                 insertResolutionRow(
+                    policy = votingRightPolicy,
                     sId = sId,
                     committeeId = committeeId,
                     scheduledDate = meeting.scheduledAt.date,
@@ -930,6 +945,7 @@ class GovernanceService(
                 resolutions = loadResolutions(sId),
                 quorum =
                     computeQuorum(
+                        policy = votingRightPolicy,
                         meetingId = sId,
                         committeeId = meeting.committeeId.toCommitteeUuid(),
                         scheduledDate = meeting.scheduledAt.date,
@@ -1262,6 +1278,7 @@ class GovernanceService(
             if (tenderExcluded.isNotEmpty()) {
                 val quorumAfterExclusion =
                     computeQuorum(
+                        policy = votingRightPolicy,
                         meetingId = sId,
                         committeeId = committeeId,
                         scheduledDate = meeting.scheduledAt.date,
@@ -1273,6 +1290,7 @@ class GovernanceService(
             }
             val resolution =
                 insertResolutionRow(
+                    policy = votingRightPolicy,
                     sId = sId,
                     committeeId = committeeId,
                     scheduledDate = meeting.scheduledAt.date,
@@ -1416,7 +1434,7 @@ class GovernanceService(
             // project's own concept states "Keine Stimmrechte für Gäste": guests never get vote
             // weight, full stop.
             // V1.9.298: ACTIVE AND voting right, the live floor (see requireVotingMembership).
-            requireVotingMembership(memberId = current.memberId)
+            requireVotingMembership(policy = votingRightPolicy, memberId = current.memberId)
             // V1.9.54: the vote row is locked FOR UPDATE (child row only, never the motion) BEFORE the status check
             // and before lockForDebit (lock order: vote, then member). closeVote/abortVote lock motion -> vote, so a
             // bid either commits before they read the ballots (and is settled) or sees CLOSED/ABORTED and is refused;
@@ -1456,7 +1474,12 @@ class GovernanceService(
                     val meeting = loadMeeting(voteRow[VoteTable.meetingId])
                     val committeeRow =
                         CommitteeTable.selectAll().where { CommitteeTable.id eq meeting.committeeId.toCommitteeUuid() }.single()
-                    current.memberId in electorateMemberIds(committeeRow = committeeRow, scheduledDate = meeting.scheduledAt.date)
+                    current.memberId in
+                        electorateMemberIds(
+                            policy = votingRightPolicy,
+                            committeeRow = committeeRow,
+                            scheduledDate = meeting.scheduledAt.date,
+                        )
                 }
             if (!eligibleToVote) throw ForbiddenException()
 
@@ -1687,6 +1710,7 @@ class GovernanceService(
                 )
             val resolution =
                 insertResolutionRow(
+                    policy = votingRightPolicy,
                     sId = sId,
                     committeeId = committeeId,
                     scheduledDate = meeting.scheduledAt.date,
@@ -1837,8 +1861,13 @@ class GovernanceService(
                 .forUpdate()
                 .single()
         // V1.9.201: the bidders of a tender are not part of the frozen circle on its award motion.
-        val eligible =
-            electorateMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date) - excludedMemberIds
+        val electorate =
+            electorateMemberIds(
+                policy = votingRightPolicy,
+                committeeRow = committeeRow,
+                scheduledDate = meetingRow[MeetingTable.scheduledAt].date,
+            )
+        val eligible = electorate - excludedMemberIds
         if (eligible.isEmpty()) return
         VoteEligibleVoterTable.batchInsert(eligible.sortedBy { it.toString() }, shouldReturnGeneratedValues = false) { memberId ->
             this[VoteEligibleVoterTable.id] = Uuid.random()

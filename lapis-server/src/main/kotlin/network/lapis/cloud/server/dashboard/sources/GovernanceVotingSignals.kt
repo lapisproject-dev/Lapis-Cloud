@@ -53,7 +53,7 @@ internal object ElectionSignals : DashboardSignalSource {
                 }.orderBy(ElectionTable.votingOpenedAt to SortOrder.ASC, ElectionTable.id to SortOrder.ASC)
                 .limit(MAX_OPEN_VOTINGS)
                 .toList()
-        val own = ElectionOwnParticipation.load(electionRows = running, memberId = ctx.memberId)
+        val own = ElectionOwnParticipation.load(policy = ctx.votingRightPolicy, electionRows = running, memberId = ctx.memberId)
         val missing = running.filter { own[it[ElectionTable.id]]?.let { f -> f.eligible == true && !f.hasVoted } == true }
         return listOfNotNull(
             signal(
@@ -83,7 +83,7 @@ internal object ConsensusSignals : DashboardSignalSource {
                 }.orderBy(SystemicConsensusTable.ratingOpenedAt to SortOrder.ASC, SystemicConsensusTable.id to SortOrder.ASC)
                 .limit(MAX_OPEN_VOTINGS)
                 .toList()
-        val own = SystemicConsensusOwnParticipation.load(rows = running, memberId = ctx.memberId)
+        val own = SystemicConsensusOwnParticipation.load(policy = ctx.votingRightPolicy, rows = running, memberId = ctx.memberId)
         val missing = running.filter { own[it[SystemicConsensusTable.id]]?.let { f -> f.eligible == true && !f.hasRated } == true }
         return listOfNotNull(
             signal(
@@ -154,7 +154,13 @@ internal object MotionVoteSignals : DashboardSignalSource {
                 .groupBy { it[VoteTable.meetingId] }
                 .values
                 .flatMap { rows ->
-                    val own = VoteOwnParticipation.load(voteRows = rows, memberId = ctx.memberId, memberStatus = ctx.status)
+                    val own =
+                        VoteOwnParticipation.load(
+                            policy = ctx.votingRightPolicy,
+                            voteRows = rows,
+                            memberId = ctx.memberId,
+                            memberStatus = ctx.status,
+                        )
                     rows.filter { own[it[VoteTable.id]]?.let { f -> f.eligible && !f.hasVoted } == true }
                 }.sortedBy { it[VoteTable.id] }
         return listOfNotNull(

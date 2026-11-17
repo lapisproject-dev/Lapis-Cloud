@@ -44,6 +44,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.routes.PublicApiResolutionsPageDto
 import network.lapis.cloud.server.routes.registerPublicApiRoutes
 import network.lapis.cloud.server.security.ApiKeyStore
@@ -359,6 +360,7 @@ class ElectionMinimumParticipationTest :
                         get("/t/result/{id}") {
                             val result =
                                 ElectionService(
+                                    votingRightPolicy = VotingRightPolicy.LEGACY,
                                     call = call,
                                     streamGuard = NoOpSecretBallotStreamGuard,
                                 ).getElectionResult(call.parameters["id"]!!)
@@ -367,6 +369,7 @@ class ElectionMinimumParticipationTest :
                         post("/t/tally/{id}") {
                             val result =
                                 ElectionService(
+                                    votingRightPolicy = VotingRightPolicy.LEGACY,
                                     call = call,
                                     streamGuard = NoOpSecretBallotStreamGuard,
                                 ).tally(call.parameters["id"]!!)
@@ -375,22 +378,31 @@ class ElectionMinimumParticipationTest :
                         get("/t/election/{id}") {
                             val election =
                                 ElectionService(
+                                    votingRightPolicy = VotingRightPolicy.LEGACY,
                                     call = call,
                                     streamGuard = NoOpSecretBallotStreamGuard,
                                 ).getElection(call.parameters["id"]!!)
                             call.respondText(json.encodeToString(ElectionDto.serializer(), election))
                         }
                         get("/t/elections") {
-                            val list = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard).listElections()
+                            val list =
+                                ElectionService(
+                                    votingRightPolicy = VotingRightPolicy.LEGACY,
+                                    call = call,
+                                    streamGuard = NoOpSecretBallotStreamGuard,
+                                ).listElections()
                             call.respondText(json.encodeToString(ListSerializer(ElectionDto.serializer()), list))
                         }
                         get("/t/verify-receipt/{id}") {
                             val r =
-                                ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
-                                    .verifyReceipt(
-                                        electionId = call.parameters["id"]!!,
-                                        receiptCode = call.request.queryParameters["code"]!!,
-                                    )
+                                ElectionService(
+                                    votingRightPolicy = VotingRightPolicy.LEGACY,
+                                    call = call,
+                                    streamGuard = NoOpSecretBallotStreamGuard,
+                                ).verifyReceipt(
+                                    electionId = call.parameters["id"]!!,
+                                    receiptCode = call.request.queryParameters["code"]!!,
+                                )
                             call.respondText("${r.found}:${r.optionLabel ?: ""}:${r.counted}")
                         }
                         get("/t/resolutions/{meetingId}") {

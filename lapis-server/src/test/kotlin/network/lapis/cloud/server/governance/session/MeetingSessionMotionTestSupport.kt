@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.ElectionTallyApprovalTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.rpc.MotionDecisionLock
 import network.lapis.cloud.server.rpc.lockElectionRow
 import network.lapis.cloud.server.rpc.recordElectionBallotLocked
@@ -162,7 +163,12 @@ internal fun SessionScene.tally(electionId: Uuid) {
     transaction {
         val motionId = ElectionTable.selectAll().where { ElectionTable.id eq electionId }.single()[ElectionTable.motionId]
         val motionRow = MotionDecisionLock.lockMotion(motionId)
-        tallyElectionLocked(electionMotionRow = motionRow, electionRow = lockElectionRow(electionId), actor = lead)
+        tallyElectionLocked(
+            policy = VotingRightPolicy.LEGACY,
+            electionMotionRow = motionRow,
+            electionRow = lockElectionRow(electionId),
+            actor = lead,
+        )
     }
 }
 

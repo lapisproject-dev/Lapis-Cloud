@@ -38,6 +38,7 @@ import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
 import network.lapis.cloud.server.mail.newsletter.testTrackingToken
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canAccessDocumentAtLevel
 import network.lapis.cloud.server.testdb.legacyAccountRole
@@ -732,13 +733,14 @@ private fun Route.registerBoundaryTestRoutes() {
         call.respondText("ok")
     }
     post("/test/cast-resistance-ballot") {
-        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service =
+            SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val q = call.request.queryParameters
         val r = service.castResistanceBallot(SystemicConsensusBallotInput(systemicConsensusId = q["id"]!!, resistances = emptyMap()))
         call.respondText(r.id)
     }
     post("/test/cast-election-ballot") {
-        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val service = ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val q = call.request.queryParameters
         val r = service.castElectionBallot(ElectionBallotInput(electionId = q["electionId"]!!))
         call.respondText(r.id)

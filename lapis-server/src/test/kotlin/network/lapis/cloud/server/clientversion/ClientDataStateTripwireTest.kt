@@ -181,9 +181,12 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * `getRoomPollState(` (the viewer page's own background poll, the same accepted shape: a failed call backs off and is never shown as an error; every refusal is the one
  * sentence "Zu diesem Raum läuft kein Stream." with "Erneut prüfen"), `ConferenceRoomPollPanel.kt` holds `getRoomPollViewerLink(` (asked once; a refusal hides the
  * leadership's link block silently, there is no list or section to show a loading/empty/error state for).
+ *
+ * V1.9.307 (external member id) adds ONE read in ONE file (70 files, 207 reads): `MemberExternalIdCard.kt` holds `getExternalMemberIdSettings(` (asked once when the member
+ * editor or "Meine Daten" opens; a failed call leaves the card out silently -- there is no list or section to show a loading/empty/error state for, and the rest of the dialog is unaffected).
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 206
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 69
+private const val READ_OUTSIDE_STATE_REGION_MAX = 207
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 70
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

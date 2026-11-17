@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.rules.MemberFactsLoader
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.CommitteeMembershipMode
@@ -111,19 +112,22 @@ internal fun isCommitteeEligible(
             .count() > 0
     }
 
-/** V1.9.298 -- the voting-right half of every electorate: `member.voting_right = TRUE`. Membership (see [generalAssemblyCondition]) stays separate. */
-internal fun votingRightCondition(): Op<Boolean> = MemberTable.votingRight eq true
+/** V1.9.298 -- the voting-right half of every electorate: `member.voting_right = TRUE` (V1.9.307: plus the external id when [policy] requires it). Membership (see [generalAssemblyCondition]) stays separate. */
+internal fun votingRightCondition(policy: VotingRightPolicy): Op<Boolean> = policy.condition()
 
 private const val VOTING_RIGHT_ID_CHUNK = 500
 
 /** V1.9.298 -- of [ids], the members that hold the voting right (chunked, so a large rule committee never builds a huge IN list). */
-private fun withVotingRight(ids: Set<Uuid>): Set<Uuid> =
+private fun withVotingRight(
+    ids: Set<Uuid>,
+    policy: VotingRightPolicy,
+): Set<Uuid> =
     ids
         .chunked(VOTING_RIGHT_ID_CHUNK)
         .flatMap { chunk ->
             MemberTable
                 .select(MemberTable.id)
-                .where { votingRightCondition() and (MemberTable.id inList chunk) }
+                .where { votingRightCondition(policy) and (MemberTable.id inList chunk) }
                 .map { it[MemberTable.id] }
         }.toSet()
 
@@ -135,21 +139,22 @@ private fun withVotingRight(ids: Set<Uuid>): Set<Uuid> =
 internal fun electorateMemberIds(
     committeeRow: ResultRow,
     scheduledDate: LocalDate,
+    policy: VotingRightPolicy,
 ): Set<Uuid> =
     if (committeeRow[CommitteeTable.type] == CommitteeType.GENERAL_ASSEMBLY) {
         MemberTable
             .select(MemberTable.id)
-            .where { generalAssemblyCondition() and votingRightCondition() }
+            .where { generalAssemblyCondition() and votingRightCondition(policy) }
             .map { it[MemberTable.id] }
             .toSet()
     } else if (isRuleCommittee(committeeRow)) {
-        withVotingRight(eligibleMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate))
+        withVotingRight(ids = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate), policy = policy)
     } else {
         (CommitteeMembershipTable innerJoin MemberTable)
             .select(CommitteeMembershipTable.memberId)
             .where {
                 committeeMembershipCondition(committeeId = committeeRow[CommitteeTable.id], scheduledDate = scheduledDate) and
-                    votingRightCondition()
+                    votingRightCondition(policy)
             }.map { it[CommitteeMembershipTable.memberId] }
             .toSet()
     }
@@ -159,27 +164,31 @@ internal fun isCommitteeVoter(
     committeeRow: ResultRow,
     scheduledDate: LocalDate,
     memberId: Uuid,
+    policy: VotingRightPolicy,
 ): Boolean =
     isCommitteeEligible(committeeRow = committeeRow, scheduledDate = scheduledDate, memberId = memberId) &&
         MemberTable
             .select(MemberTable.id)
-            .where { (MemberTable.id eq memberId) and votingRightCondition() }
+            .where { (MemberTable.id eq memberId) and votingRightCondition(policy) }
             .limit(1)
             .count() > 0
 
 /** V1.9.298 -- N of the electorate (members holding the voting right) of a derived committee; see [countEligible] for the membership count. */
 internal fun countElectorate(
     committeeRow: ResultRow,
+    policy: VotingRightPolicy,
     today: LocalDate = OrganizationTimeZone.today(),
 ): Int =
     when {
         committeeRow[CommitteeTable.type] == CommitteeType.GENERAL_ASSEMBLY ->
             MemberTable
                 .selectAll()
-                .where { generalAssemblyCondition() and votingRightCondition() }
+                .where { generalAssemblyCondition() and votingRightCondition(policy) }
                 .count()
                 .toInt()
-        isRuleCommittee(committeeRow) -> withVotingRight(eligibleIdsForRule(rule = committeeRuleOf(committeeRow), today = today)).size
+        isRuleCommittee(
+            committeeRow,
+        ) -> withVotingRight(ids = eligibleIdsForRule(rule = committeeRuleOf(committeeRow), today = today), policy = policy).size
         else -> error("countElectorate is only defined for the General Assembly and rule-based committees")
     }
 
@@ -284,6 +293,7 @@ internal fun frozenOrLiveElectorate(
     meetingId: Uuid,
     committeeRow: ResultRow,
     scheduledDate: LocalDate,
+    policy: VotingRightPolicy,
     voteId: Uuid? = null,
     electionId: Uuid? = null,
     consensusId: Uuid? = null,
@@ -338,7 +348,10 @@ internal fun frozenOrLiveElectorate(
             .limit(1)
             .singleOrNull()
     if (earliest != null) return Electorate(memberIds = voteElectorate(earliest[VoteTable.id]), frozen = true)
-    return Electorate(memberIds = electorateMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate), frozen = false)
+    return Electorate(
+        memberIds = electorateMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate, policy = policy),
+        frozen = false,
+    )
 }
 
 private fun voteElectorate(voteId: Uuid): Set<Uuid> =

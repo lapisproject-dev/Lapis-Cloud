@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusResistanceTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.canManageSystemicConsensus
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -125,6 +126,8 @@ class SystemicConsensusService(
      * value, same reasoning as [ElectionService]'s own `streamGuard` KDoc.
      */
     private val streamGuard: SecretBallotStreamGuard,
+    /** V1.9.307 -- the voting-right rule (external id requirement). NO default: see [VotingRightPolicy]; `Application.module` passes the configured one. */
+    private val votingRightPolicy: VotingRightPolicy,
 ) : ISystemicConsensusService {
     override suspend fun openSystemicConsensus(input: SystemicConsensusOpenInput): SystemicConsensusDto {
         val current = resolveCurrentMember(call)
@@ -400,7 +403,7 @@ class SystemicConsensusService(
             // (ACTIVE), not requirePoliticianRaterMembership -- guests never get vote weight in this
             // project's concept.
             // V1.9.298: ACTIVE AND voting right, the live floor.
-            requireVotingMembership(memberId = current.memberId)
+            requireVotingMembership(policy = votingRightPolicy, memberId = current.memberId)
             val row = lockSystemicConsensusRow(kId)
             if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.RATING) {
                 throw ConflictException(
@@ -634,6 +637,7 @@ class SystemicConsensusService(
                     )
                 val resolution =
                     insertResolutionRow(
+                        policy = votingRightPolicy,
                         sId = row[SystemicConsensusTable.meetingId],
                         committeeId = committeeId,
                         scheduledDate = meeting[MeetingTable.scheduledAt].date,
@@ -789,7 +793,7 @@ class SystemicConsensusService(
     override suspend fun getSystemicConsensusParticipation(systemicConsensusId: String): SystemicConsensusParticipationDto {
         val current = resolveCurrentMember(call)
         val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
-        return transaction { SystemicConsensusReads.participation(kId = kId, current = current) }
+        return transaction { SystemicConsensusReads.participation(policy = votingRightPolicy, kId = kId, current = current) }
     }
 
     override suspend fun listSystemicConsensusParticipations(systemicConsensusIds: List<String>): List<SystemicConsensusParticipationDto> {
@@ -799,7 +803,7 @@ class SystemicConsensusService(
             throw ConflictException("At most $MAX_PARTICIPATION_BATCH SystemicConsensus ids per request, got ${ids.size}")
         }
         val parsed = ids.map { it.toUuidOrNotFound("SystemicConsensus") }
-        return transaction { SystemicConsensusReads.participations(ids = parsed, current = current) }
+        return transaction { SystemicConsensusReads.participations(policy = votingRightPolicy, ids = parsed, current = current) }
     }
 
     override suspend fun verifySystemicConsensusReceipt(
@@ -873,7 +877,11 @@ class SystemicConsensusService(
     ): Set<Uuid> {
         val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
         val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
-        return electorateMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date)
+        return electorateMemberIds(
+            policy = votingRightPolicy,
+            committeeRow = committeeRow,
+            scheduledDate = meetingRow[MeetingTable.scheduledAt].date,
+        )
     }
 
     /** Snapshots current eligibility into `systemic_consensus_eligible_voter` for [round] -- shared by [freezeOptions] and [reopenRating]. */

@@ -32,6 +32,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.ElectionStatus
@@ -281,13 +282,27 @@ class VoteElectorateFreezeTest :
             val row = transaction { CommitteeTable.selectAll().where { CommitteeTable.id eq manual }.single() }
             val newcomer = fx.member()
             transaction {
-                val live = frozenOrLiveElectorate(meetingId = meeting, committeeRow = row, scheduledDate = rc.today, voteId = old)
+                val live =
+                    frozenOrLiveElectorate(
+                        policy = VotingRightPolicy.LEGACY,
+                        meetingId = meeting,
+                        committeeRow = row,
+                        scheduledDate = rc.today,
+                        voteId = old,
+                    )
                 live.frozen shouldBe false
                 live.memberIds shouldContainExactlyInAnyOrder people
             }
             fx.seat(committee = manual, member = newcomer)
             transaction {
-                val live = frozenOrLiveElectorate(meetingId = meeting, committeeRow = row, scheduledDate = rc.today, voteId = old)
+                val live =
+                    frozenOrLiveElectorate(
+                        policy = VotingRightPolicy.LEGACY,
+                        meetingId = meeting,
+                        committeeRow = row,
+                        scheduledDate = rc.today,
+                        voteId = old,
+                    )
                 live.memberIds shouldContainExactlyInAnyOrder people + newcomer // still live
             }
             // a frozen vote of the same meeting (marker + rows) fixes the circle for the meeting
@@ -307,11 +322,24 @@ class VoteElectorateFreezeTest :
                         it[memberId] = member
                     }
                 }
-                val fixed = frozenOrLiveElectorate(meetingId = meeting, committeeRow = row, scheduledDate = rc.today)
+                val fixed =
+                    frozenOrLiveElectorate(
+                        policy = VotingRightPolicy.LEGACY,
+                        meetingId = meeting,
+                        committeeRow = row,
+                        scheduledDate = rc.today,
+                    )
                 fixed.frozen shouldBe true
                 fixed.memberIds shouldContainExactlyInAnyOrder people
                 // the vote without the marker has no snapshot of its own: its quorum falls back to the meeting's rule (the first frozen vote)
-                frozenOrLiveElectorate(meetingId = meeting, committeeRow = row, scheduledDate = rc.today, voteId = old).frozen shouldBe true
+                frozenOrLiveElectorate(
+                    policy = VotingRightPolicy.LEGACY,
+                    meetingId = meeting,
+                    committeeRow = row,
+                    scheduledDate = rc.today,
+                    voteId = old,
+                ).frozen shouldBe
+                    true
             }
         }
 
@@ -376,7 +404,12 @@ class VoteElectorateFreezeTest :
                 fun flags(member: Uuid) =
                     transaction {
                         val rows = VoteTable.selectAll().where { VoteTable.meetingId eq meeting }.toList()
-                        VoteOwnParticipation.load(voteRows = rows, memberId = member, memberStatus = MemberStatus.ACTIVE)
+                        VoteOwnParticipation.load(
+                            policy = VotingRightPolicy.LEGACY,
+                            voteRows = rows,
+                            memberId = member,
+                            memberStatus = MemberStatus.ACTIVE,
+                        )
                     }
                 // in the frozen vote the newcomer is out, in the pre-marker vote (live) he is in; an early member is in both
                 flags(newcomer).getValue(Uuid.parse(frozen.id)).eligible shouldBe false
@@ -410,6 +443,7 @@ class VoteElectorateFreezeTest :
             transaction {
                 // not yet opened for voting: no snapshot, the live set counts
                 frozenOrLiveElectorate(
+                    policy = VotingRightPolicy.LEGACY,
                     meetingId = meeting,
                     committeeRow = row,
                     scheduledDate = rc.today,
@@ -427,7 +461,14 @@ class VoteElectorateFreezeTest :
                         it[memberId] = member
                     }
                 }
-                val e = frozenOrLiveElectorate(meetingId = meeting, committeeRow = row, scheduledDate = rc.today, electionId = election)
+                val e =
+                    frozenOrLiveElectorate(
+                        policy = VotingRightPolicy.LEGACY,
+                        meetingId = meeting,
+                        committeeRow = row,
+                        scheduledDate = rc.today,
+                        electionId = election,
+                    )
                 e.frozen shouldBe true
                 e.memberIds shouldContainExactlyInAnyOrder people.take(2)
 
@@ -442,7 +483,14 @@ class VoteElectorateFreezeTest :
                         }
                     }
                 }
-                val c = frozenOrLiveElectorate(meetingId = meeting, committeeRow = row, scheduledDate = rc.today, consensusId = consensus)
+                val c =
+                    frozenOrLiveElectorate(
+                        policy = VotingRightPolicy.LEGACY,
+                        meetingId = meeting,
+                        committeeRow = row,
+                        scheduledDate = rc.today,
+                        consensusId = consensus,
+                    )
                 c.frozen shouldBe true
                 c.memberIds shouldContainExactlyInAnyOrder people
             }

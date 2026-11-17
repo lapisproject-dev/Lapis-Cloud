@@ -45,6 +45,7 @@ import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.ConferenceStreamingService
@@ -233,7 +234,8 @@ class SecretBallotStreamPauseJourneyTest :
                                 readRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes),
                             )
 
-                        fun electionService(call: ApplicationCall) = ElectionService(call = call, streamGuard = streamGuard)
+                        fun electionService(call: ApplicationCall) =
+                            ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = streamGuard)
 
                         post("/e2e9/create-room") {
                             val room = conferenceService(call).createRoom(ConferenceRoomInput(title = "E2E Scenario 9 Sitzungsraum"))

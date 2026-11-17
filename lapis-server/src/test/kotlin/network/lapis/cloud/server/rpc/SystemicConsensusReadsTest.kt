@@ -34,6 +34,7 @@ import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -469,7 +470,8 @@ private val readsJson = Json
 
 private suspend fun ApplicationCall.respondJson(text: String) = respondText(text)
 
-private fun service(call: ApplicationCall) = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+private fun service(call: ApplicationCall) =
+    SystemicConsensusService(votingRightPolicy = VotingRightPolicy.LEGACY, call = call, streamGuard = NoOpSecretBallotStreamGuard)
 
 private fun Route.registerReadsTestRoutes() {
     post("/t/open/{motionId}") {

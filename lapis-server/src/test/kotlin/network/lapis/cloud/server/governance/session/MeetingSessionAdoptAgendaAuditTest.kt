@@ -9,6 +9,7 @@ import io.kotest.matchers.string.shouldNotContain
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AgendaItemTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.shared.domain.AttendanceStatus
 import network.lapis.cloud.shared.domain.SessionAttendanceInput
 import network.lapis.cloud.shared.rpc.AgendaMovedMeanwhileException
@@ -153,6 +154,7 @@ class MeetingSessionAdoptAgendaAuditTest :
             val s = fx.scene()
             val tight =
                 MeetingSessionOperations(
+                    votingRightPolicy = VotingRightPolicy.LEGACY,
                     conferencesEnabled = { true },
                     connectedMembers = s.connected,
                     readLimiter =

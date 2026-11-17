@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.generated.TenderAwardTable
 import network.lapis.cloud.server.db.generated.TenderTable
 import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.rpc.ElectionService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
@@ -273,11 +274,12 @@ class TenderBestOfferTest :
                 tenderTestApplication {
                     val s = scenario(clock, { c, b -> c + b })
                     attempt(member = s.board) {
-                        ElectionService(call = it, streamGuard = NoOpSecretBallotStreamGuard)
+                        ElectionService(votingRightPolicy = VotingRightPolicy.LEGACY, call = it, streamGuard = NoOpSecretBallotStreamGuard)
                             .openElection(ElectionOpenInput(motionId = s.awardMotion.toString(), electionType = ElectionType.YES_NO))
                     }.exceptionOrNull().shouldBeInstanceOf<ConflictException>()
                     attempt(member = s.board) {
                         SystemicConsensusService(
+                            votingRightPolicy = VotingRightPolicy.LEGACY,
                             call = it,
                             streamGuard = NoOpSecretBallotStreamGuard,
                         ).openSystemicConsensus(SystemicConsensusOpenInput(motionId = s.awardMotion.toString()))

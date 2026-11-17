@@ -568,7 +568,7 @@ msgstr " · zgłoszono %1"
 msgid " · Moderator"
 msgstr " · Moderator"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:575
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:576
 msgid " (%1)"
 msgstr " (%1)"
 
@@ -1106,7 +1106,7 @@ msgid "Sparkasse (CAMT-CSV)"
 msgstr "Sparkasse (CAMT-CSV)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:210
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1305
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1309
 msgid "Stammdaten"
 msgstr "Dane podstawowe"
 
@@ -1499,7 +1499,7 @@ msgstr "%1 (%2 bajtów)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:321
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:7738
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:7874
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:594
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:595
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:534
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:735
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportVersionCompare.kt:108
@@ -1696,7 +1696,7 @@ msgstr "%1–%2"
 msgid "%1: %2"
 msgstr "%1: %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:577
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:578
 msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr "%1: %2 zanonimizowano, %3 usunięto, %4 zachowano"
 
@@ -1797,7 +1797,7 @@ msgstr "Subskrypcja anulowana dnia %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DirectMessagePartnerList.kt:254
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:120
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:73
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:480
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:481
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:195
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:215
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:439
@@ -1900,7 +1900,7 @@ msgstr "Wygasł"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:111
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:58
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:503
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:630
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:631
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1797
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:26
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1311
@@ -1950,7 +1950,7 @@ msgstr "Środki zaradcze (opcjonalnie)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:238
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:400
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:443
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:441
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:442
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:251
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:457
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:145
@@ -2037,7 +2037,7 @@ msgstr "Administrator"
 msgid "Akteur: %1"
 msgstr "Aktor: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:568
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:569
 msgid "Akteur: %1 · Betroffenes Mitglied: %2"
 msgstr "Aktor: %1 · Dotyczy członka: %2"
 
@@ -2192,7 +2192,7 @@ msgstr "Aktualna waga (rozpad 10%/dzień)"
 msgid "Aktuelles Passwort"
 msgstr "Aktualne hasło"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:359
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:363
 msgid "Aktuelles Passwort ist falsch."
 msgstr "Aktualne hasło jest nieprawidłowe."
 
@@ -2272,7 +2272,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:281
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:367
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:366
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:367
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionsScreen.kt:78
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:129
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:129
@@ -2548,11 +2548,11 @@ msgstr "Odrzuć wniosek od %1"
 msgid "Antrag vorläufig abgelehnt."
 msgstr "Wniosek wstępnie odrzucony."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:452
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:453
 msgid "Antrag wurde abgelehnt."
 msgstr "Wniosek został odrzucony."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:452
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:453
 msgid "Antrag wurde genehmigt."
 msgstr "Wniosek został zatwierdzony."
 
@@ -2666,7 +2666,7 @@ msgstr "Klucz API"
 msgid "API-Schlüssel widerrufen bestätigen"
 msgstr "Potwierdź odwołanie klucza API"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:300
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:301
 msgid "Art der Löschung"
 msgstr "Rodzaj usunięcia"
 
@@ -2823,12 +2823,12 @@ msgstr "Wydatki"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:587
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:512
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:525
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:526
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:401
 msgid "Ausgeführt"
 msgstr "Wykonano"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:674
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:675
 msgid "Ausgeführt am %1"
 msgstr "Wykonano dnia %1"
 
@@ -2853,7 +2853,7 @@ msgstr "Wykluczono:"
 msgid "Ausgetreten"
 msgstr "Wypisany"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:115
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:116
 msgid "Auskunft"
 msgstr "Wgląd"
 
@@ -2861,7 +2861,7 @@ msgstr "Wgląd"
 msgid "Auskunft exportiert"
 msgstr "Wgląd wyeksportowany"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:123
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:124
 msgid "Auskunftsübersicht anzeigen"
 msgstr "Pokaż przegląd wglądu"
 
@@ -2950,7 +2950,7 @@ msgstr "Złóż wniosek"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:584
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:510
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:523
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:524
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:398
 msgid "Beantragt"
 msgstr "Wnioskowane"
@@ -2968,7 +2968,7 @@ msgstr ""
 "Wnioskuje TYLKO o usunięcie treści posta (nie całego posta) -- o wniosku "
 "decyduje osobno administrator."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:656
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:657
 msgid "Beantragt von %1 am %2"
 msgstr "Wnioskowane przez %1 dnia %2"
 
@@ -2986,7 +2986,7 @@ msgstr "Wnioskowane przez %1 dnia %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:441
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventDetailScreen.kt:111
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1236
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1065
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1069
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:111
 #: src/jsMain/kotlin/network/lapis/cloud/client/NoticeBoardScreen.kt:304
@@ -3024,8 +3024,8 @@ msgstr "Początek"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:737
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusBooth.kt:74
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusOptions.kt:157
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:306
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1831
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:307
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1872
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:450
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:247
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:212
@@ -3050,8 +3050,8 @@ msgid "Begründung für Beitragsentfernung"
 msgstr "Uzasadnienie usunięcia posta"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticlesScreen.kt:174
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:357
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:399
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:358
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:400
 #: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionsCard.kt:166
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:137
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:283
@@ -3502,11 +3502,11 @@ msgstr ""
 msgid "Betroffene Ziele: %1"
 msgstr "Dotyczy celów: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:539
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:540
 msgid "Betroffenes Mitglied (ID, optional)"
 msgstr "Dotyczy członka (ID, opcjonalnie)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:473
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:474
 msgid "Betroffenes Mitglied: %1"
 msgstr "Dotyczy członka: %1"
 
@@ -3653,7 +3653,7 @@ msgstr "Podaj członka i dodatnią kwotę darowizny."
 msgid "Bitte ein positives Höchstgebot (LTR) angeben."
 msgstr "Podaj dodatnią najwyższą ofertę (LTR)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:326
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:327
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:685
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:735
 msgid "Bitte eine Begründung angeben."
@@ -4305,7 +4305,7 @@ msgstr "Diagnostyka: aktualny kurs"
 msgid "Dick"
 msgstr "Gruby"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:357
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:361
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:200
 msgid ""
 "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht "
@@ -4551,7 +4551,7 @@ msgid ""
 "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
 msgstr "Ten przelew korygujący jest OSTATECZNY i nie może zostać cofnięty."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:472
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:473
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:343
 msgid "Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden."
 msgstr "To usunięcie jest OSTATECZNE i nie może zostać cofnięte."
@@ -4782,7 +4782,7 @@ msgstr "Cienki"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:110
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:241
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:323
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1320
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1324
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:824
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:42
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:88
@@ -5013,9 +5013,9 @@ msgstr "Usuń trwale"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:321
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:219
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:411
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:415
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:482
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:412
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:416
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:483
 msgid "Endgültig löschen"
 msgstr "Usuń ostatecznie"
 
@@ -5060,9 +5060,11 @@ msgstr "Wykryto dnia: %1 · Dotyczy kategorii danych: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingAttachments.kt:88
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1106
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:910
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1182
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1205
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:2420
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1186
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1209
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:2474
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:115
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:89
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:441
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:446
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPhotoCard.kt:274
@@ -5112,11 +5114,11 @@ msgstr "Decyzja"
 msgid "Entscheidung für \"%1\" gespeichert."
 msgstr "Decyzja dla \"%1\" zapisana."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:438
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:439
 msgid "Entscheidungsnotiz (optional)"
 msgstr "Notatka decyzyjna (opcjonalnie)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:477
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:478
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:148
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:286
 msgid "Entscheidungsnotiz: %1"
@@ -5124,7 +5126,7 @@ msgstr "Notatka decyzyjna: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:109
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:114
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:628
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:629
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:145
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:146
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:150
@@ -5136,7 +5138,7 @@ msgid "Entschieden am"
 msgstr "Zdecydowano dnia"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:278
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:666
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:667
 msgid "Entschieden von %1 am %2"
 msgstr "Zdecydowano przez %1 dnia %2"
 
@@ -5235,7 +5237,7 @@ msgstr "Konieczność/proporcjonalność (opcjonalnie)"
 msgid "Ergebnis"
 msgstr "Wynik"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:573
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:574
 msgid "Ergebnis:"
 msgstr "Wynik:"
 
@@ -5487,8 +5489,8 @@ msgstr "Filtr: status (uchwała zarządu)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:199
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:283
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:369
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:368
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:540
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:369
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:541
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:758
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:231
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:83
@@ -5757,14 +5759,14 @@ msgstr "Wybito:"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticlesScreen.kt:440
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:399
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:407
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:440
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:441
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:316
 msgid "Genehmigen"
 msgstr "Zatwierdź"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:585
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:502
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:629
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:630
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:399
 msgid "Genehmigt"
 msgstr "Zatwierdzone"
@@ -5845,8 +5847,8 @@ msgstr "Zapisano -- klucz nie zostanie wyświetlony ponownie."
 msgid "Gespeichert."
 msgstr "Zapisano."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:355
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:474
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:356
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:475
 msgid "Gewählter Modus: %1"
 msgstr "Wybrany tryb: %1"
 
@@ -6197,7 +6199,7 @@ msgstr ""
 msgid "Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen."
 msgstr "Twoja najwyższa oferta musi wynosić co najmniej cenę wywoławczą (%1)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:353
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:354
 msgid "Ihr Löschantrag"
 msgstr "Twój wniosek o usunięcie"
 
@@ -6332,7 +6334,7 @@ msgstr "jest przerwane z powodu tajnego głosowania"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionLabels.kt:45
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionsScreen.kt:107
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:342
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:2374
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:2428
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1038
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:41
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:389
@@ -6452,7 +6454,7 @@ msgstr "Nie podano powodu."
 msgid "Kein gültiges Mandat (MD01)"
 msgstr "Brak ważnego mandatu (MD01)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:503
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:504
 msgid "Kein Legal Hold"
 msgstr "Brak blokady prawnej (Legal Hold)"
 
@@ -6484,7 +6486,7 @@ msgid ""
 msgstr "Brak anonimowych darowizn powyżej progu w wybranym roku kalendarzowym."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:100
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:378
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:379
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:96
 msgid "Keine Anträge für diese Filter gefunden."
 msgstr "Nie znaleziono wniosków dla tych filtrów."
@@ -6502,7 +6504,7 @@ msgstr "Brak składek."
 msgid "Keine berechtigten Mitglieder gefunden."
 msgstr "Nie znaleziono uprawnionych członków."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:355
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:359
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:36
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:57
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:39
@@ -6547,7 +6549,7 @@ msgstr "Brak księgowań w tej sekcji."
 msgid "Keine Buchungszeilen."
 msgstr "Brak pozycji księgowych."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:274
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:275
 msgid "Keine Daten in den registrierten Bereichen gefunden."
 msgstr "Nie znaleziono danych w zarejestrowanych obszarach."
 
@@ -6563,7 +6565,7 @@ msgstr "Brak dokumentów w tym folderze."
 msgid "Keine Einträge für diese Filter gefunden."
 msgstr "Nie znaleziono wpisów dla tych filtrów."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:549
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:550
 msgid "Keine Einträge gefunden."
 msgstr "Nie znaleziono wpisów."
 
@@ -6732,8 +6734,8 @@ msgid "Konto (ID)"
 msgstr "Konto (ID)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:927
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1767
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1795
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1808
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1836
 msgid "Konto anlegen"
 msgstr "Utwórz konto"
 
@@ -6948,7 +6950,7 @@ msgstr "Czas trwania w godzinach (np. 24)"
 msgid "Layout"
 msgstr "Układ"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:501
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:502
 msgid "Legal Hold aktiv -- Löschung darf nicht ausgeführt werden."
 msgstr ""
 "Blokada prawna (Legal Hold) aktywna -- usunięcie nie może zostać wykonane."
@@ -7073,8 +7075,8 @@ msgstr "Usunięcie odrzucone"
 msgid "Löschung ausgeführt"
 msgstr "Usunięcie wykonane"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:148
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:314
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:149
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:315
 msgid "Löschung beantragen"
 msgstr "Wnieś o usunięcie"
 
@@ -7090,7 +7092,7 @@ msgstr "Wniesiono o usunięcie"
 msgid "Löschung des Beitragsinhalts beantragen (Art. 17 DSGVO)"
 msgstr "Wnioskuj o usunięcie treści posta (art. 17 RODO)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:471
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:472
 msgid "Löschung endgültig ausführen"
 msgstr "Wykonaj ostateczne usunięcie"
 
@@ -7098,11 +7100,11 @@ msgstr "Wykonaj ostateczne usunięcie"
 msgid "Löschung genehmigt"
 msgstr "Usunięcie zatwierdzone"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:423
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:424
 msgid "Löschung wurde ausgeführt."
 msgstr "Usunięcie zostało wykonane."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:337
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:338
 msgid "Löschung wurde beantragt."
 msgstr "Wniesiono o usunięcie."
 
@@ -7431,7 +7433,7 @@ msgstr "Dodaj członka"
 msgid "Mitglied nicht aktiv"
 msgstr "Członek nieaktywny"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:653
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:654
 msgid "Mitglied selbst"
 msgstr "Sam członek"
 
@@ -7643,7 +7645,7 @@ msgstr "Wiadomości"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:889
 #: src/jsMain/kotlin/network/lapis/cloud/client/LupaSyncPreviewSection.kt:322
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingListCreateForm.kt:71
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1316
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1320
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:819
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:39
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:400
@@ -7689,7 +7691,7 @@ msgstr "Osoba fizyczna spoza UE"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionLabels.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionsScreen.kt:107
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:342
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:2374
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:2428
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1039
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartyReportNotesTab.kt:42
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:389
@@ -7823,7 +7825,7 @@ msgstr "Nowe hasło (min. %1 znaków)"
 msgid "Neues Passwort bestätigen"
 msgstr "Potwierdź nowe hasło"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:361
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:365
 msgid ""
 "Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, "
 "nicht die E-Mail-Adresse)."
@@ -7848,7 +7850,7 @@ msgstr "Utwórz nowy cel transmisji"
 msgid "Nicht festgelegt"
 msgstr "Nieustalone"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:356
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:360
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:39
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:60
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:42
@@ -8679,7 +8681,7 @@ msgid "Rechtlich entfernt"
 msgstr "Usunięto zgodnie z prawem"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:221
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:571
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:572
 msgid "Rechtsgrundlage: %1"
 msgstr "Podstawa prawna: %1"
 
@@ -8714,9 +8716,9 @@ msgstr "Pokaż/ukryj dane surowe"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:748
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:847
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingRuleBuilder.kt:300
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1560
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1563
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1790
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1564
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1617
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1831
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:187
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:826
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:57
@@ -32358,3 +32360,55 @@ msgstr "Prawo administratora zostało nadane."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1565
 msgid "Nach dem Entzug des Administratorrechts hat das Mitglied wieder die Rolle %1."
 msgstr "Po odebraniu prawa administratora członek ponownie ma rolę %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Die ID darf nur Buchstaben, Ziffern und . _ : / - enthalten (höchstens 64 Zeichen)."
+msgstr "Identyfikator może zawierać tylko litery, cyfry oraz . _ : / - (najwyżej 64 znaki)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "ID wirklich entfernen?"
+msgstr "Na pewno usunąć identyfikator?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "ID wirklich entfernen? Das Mitglied verliert damit sein Stimmrecht."
+msgstr "Na pewno usunąć identyfikator? Członek straci w ten sposób prawo głosu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Diese ID ist bereits einem anderen Mitglied zugeordnet."
+msgstr "Ten identyfikator jest już przypisany innemu członkowi."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Externe Mitglieds-ID entfernen"
+msgstr "Usuń zewnętrzny identyfikator członka"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Externe Mitglieds-ID"
+msgstr "Zewnętrzny identyfikator członka"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Quelle: %1"
+msgstr "Źródło: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Externe Mitglieds-ID gespeichert."
+msgstr "Zewnętrzny identyfikator członka zapisano."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Externe Mitglieds-ID entfernt."
+msgstr "Zewnętrzny identyfikator członka usunięto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Externe Mitglieds-ID (%1): %2"
+msgstr "Zewnętrzny identyfikator członka (%1): %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Stimmrecht ruht: externe ID fehlt"
+msgstr "Prawo głosu zawieszone: brak zewnętrznego identyfikatora"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Ihr Stimmrecht ruht, weil keine externe Mitglieds-ID hinterlegt ist. Bitte wenden Sie sich an den Vorstand."
+msgstr "Pana/Pani prawo głosu jest zawieszone, ponieważ nie zapisano zewnętrznego identyfikatora członka. Prosimy zwrócić się do zarządu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberExternalIdCard.kt:1
+msgid "Für diese Instanz ist keine externe Mitglieds-ID-Quelle eingerichtet."
+msgstr "Dla tej instancji nie skonfigurowano źródła zewnętrznych identyfikatorów członków."

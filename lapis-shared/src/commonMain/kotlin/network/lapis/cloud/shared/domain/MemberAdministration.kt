@@ -119,6 +119,12 @@ data class MemberAdminRowDto(
     val baseRole: AccountRole? = null,
     /** V155 -- an administrator-rights revocation request for this member is awaiting approval. */
     val pendingAdminRevoke: Boolean = false,
+    /** V156 -- the external member id (BOARD/ADMIN only, otherwise `null`). */
+    val externalMemberId: String? = null,
+    /** V156 -- the source label of [externalMemberId] (BOARD/ADMIN only, otherwise `null`). */
+    val externalMemberIdSource: String? = null,
+    /** V156 -- the voting right is suspended because `LAPIS_REQUIRE_EXTERNAL_ID_FOR_VOTING` is on and the member has no external id (BOARD/ADMIN only). */
+    val votingSuspendedForMissingExternalId: Boolean = false,
 )
 
 /** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */

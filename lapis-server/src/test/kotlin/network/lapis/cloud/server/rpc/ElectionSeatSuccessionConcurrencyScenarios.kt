@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
@@ -206,7 +207,12 @@ abstract class ElectionSeatSuccessionConcurrencyScenarios(
                         runs.incrementAndGet()
                         val motionRow = MotionDecisionLock.lockMotion(election.motionId)
                         val electionRow = lockElectionRow(election.electionId)
-                        tallyElectionLocked(electionMotionRow = motionRow, electionRow = electionRow, actor = es.actor)
+                        tallyElectionLocked(
+                            policy = VotingRightPolicy.LEGACY,
+                            electionMotionRow = motionRow,
+                            electionRow = electionRow,
+                            actor = es.actor,
+                        )
                     }
                 }
 

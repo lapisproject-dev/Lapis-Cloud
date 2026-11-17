@@ -2,6 +2,7 @@ package network.lapis.cloud.server.governance.session
 
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.rpc.frozenOrLiveElectorate
 import network.lapis.cloud.shared.domain.AttendanceRuleKind
 import network.lapis.cloud.shared.domain.AttendanceStatus
@@ -37,6 +38,7 @@ internal interface CommitteeAttendanceRule {
 
     /** The people who can be marked present, ordered by display name, then id (deterministic with equal names). */
     fun roster(
+        policy: VotingRightPolicy,
         meetingId: Uuid,
         committeeRow: ResultRow,
         scheduledDate: LocalDate,
@@ -61,12 +63,19 @@ internal object NameListAttendanceRule : CommitteeAttendanceRule {
     private const val ID_CHUNK = 500
 
     override fun roster(
+        policy: VotingRightPolicy,
         meetingId: Uuid,
         committeeRow: ResultRow,
         scheduledDate: LocalDate,
     ): List<RosterPerson> {
         // The very same set computeQuorum counts: what is shown and what is calculated stay identical.
-        val ids = frozenOrLiveElectorate(meetingId = meetingId, committeeRow = committeeRow, scheduledDate = scheduledDate).memberIds
+        val ids =
+            frozenOrLiveElectorate(
+                meetingId = meetingId,
+                committeeRow = committeeRow,
+                scheduledDate = scheduledDate,
+                policy = policy,
+            ).memberIds
         if (ids.isEmpty()) return emptyList()
         val people =
             ids.chunked(ID_CHUNK).flatMap { chunk ->
@@ -129,6 +138,7 @@ internal object UnsupportedAttendanceRule : CommitteeAttendanceRule {
     override val kind: AttendanceRuleKind = AttendanceRuleKind.UNSUPPORTED
 
     override fun roster(
+        policy: VotingRightPolicy,
         meetingId: Uuid,
         committeeRow: ResultRow,
         scheduledDate: LocalDate,

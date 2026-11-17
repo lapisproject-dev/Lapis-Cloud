@@ -32,6 +32,7 @@ import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
 import network.lapis.cloud.server.events.EventConferenceGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.isActiveCommitteeMember
@@ -280,6 +281,8 @@ class ConferenceService(
      * reads notes state, it only ever calls [ConferenceNotesState.clear], a no-op on an empty map.
      */
     private val notesState: ConferenceNotesState = ConferenceNotesState(),
+    // V1.9.307 -- the voting-right rule of the room ballots; LEGACY default for older constructions, `Application.module` passes the configured one (ExternalMemberIdWiringTripwireTest).
+    private val votingRightPolicy: VotingRightPolicy = VotingRightPolicy.LEGACY,
     /**
      * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- [setRoomMeeting]'s own
      * budget, same "constructed here, NOT left to the service's own constructor default" reasoning as
@@ -1403,10 +1406,10 @@ class ConferenceService(
         val electionRows = delivered.mapNotNull { it.election }
         val voteRows = delivered.mapNotNull { it.vote }
         val consensusRows = delivered.mapNotNull { it.consensus }
-        val consensusFlags = SystemicConsensusOwnParticipation.load(rows = consensusRows, memberId = memberId)
-        val electionFlags = ElectionOwnParticipation.load(electionRows = electionRows, memberId = memberId)
+        val consensusFlags = SystemicConsensusOwnParticipation.load(policy = votingRightPolicy, rows = consensusRows, memberId = memberId)
+        val electionFlags = ElectionOwnParticipation.load(policy = votingRightPolicy, electionRows = electionRows, memberId = memberId)
         val voteFlags =
-            VoteOwnParticipation.load(voteRows = voteRows, memberId = memberId, memberStatus = memberStatus)
+            VoteOwnParticipation.load(policy = votingRightPolicy, voteRows = voteRows, memberId = memberId, memberStatus = memberStatus)
         val optionsByVote: Map<Uuid, List<RoomBallotOptionDto>> =
             if (voteRows.isEmpty()) {
                 emptyMap()

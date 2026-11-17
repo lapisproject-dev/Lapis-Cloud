@@ -95,6 +95,25 @@ class FoundationPersonalDataTest :
             }
         }
 
+        test("external member id: exported with its source, reset in every erasure mode (pair CHECK satisfied)") {
+            for (mode in listOf(ErasureMode.ANONYMIZE, ErasureMode.HARD_DELETE_WHERE_UNCONSTRAINED)) {
+                val member = newDeceasedMember(null)
+                transaction {
+                    MemberTable.update({ MemberTable.id eq member }) {
+                        it[externalMemberId] = "EXT-$member".take(60)
+                        it[externalMemberIdSource] = "Wabeo"
+                    }
+                }
+                val exported = transaction { FoundationPersonalData.exportMember(member) }
+                exported["externalMemberId"]?.jsonPrimitive?.content shouldBe "EXT-$member".take(60)
+                exported["externalMemberIdSource"]?.jsonPrimitive?.content shouldBe "Wabeo"
+                transaction { FoundationPersonalData.eraseMember(memberId = member, mode = mode) }
+                val row = transaction { MemberTable.selectAll().where { MemberTable.id eq member }.single() }
+                row[MemberTable.externalMemberId] shouldBe null
+                row[MemberTable.externalMemberIdSource] shouldBe null
+            }
+        }
+
         test("exportMember: dateOfDeath is null in the export when not recorded") {
             val member = newDeceasedMember(null)
             val exported = transaction { FoundationPersonalData.exportMember(member) }

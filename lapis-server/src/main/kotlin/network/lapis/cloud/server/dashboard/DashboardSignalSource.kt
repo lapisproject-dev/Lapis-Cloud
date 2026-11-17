@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DASHBOARD_COUNT_CAP
@@ -51,6 +52,8 @@ internal data class SignalContext(
     val today: LocalDate,
     val zone: TimeZone,
     val flags: SignalModuleFlags,
+    /** V1.9.307 -- the voting-right rule, so an own-participation signal agrees with the ballot guard. No default: see [VotingRightPolicy]. */
+    val votingRightPolicy: VotingRightPolicy,
 ) {
     /** [nowSystem] moved by [d] (class A: UTC). */
     fun systemPlus(d: Duration): LocalDateTime = (nowSystem.toInstant(ServerClock.zone) + d).toLocalDateTime(ServerClock.zone)

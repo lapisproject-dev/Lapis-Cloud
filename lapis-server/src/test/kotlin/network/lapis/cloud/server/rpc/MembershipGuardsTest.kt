@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.testdb.legacyAccountRole
 import network.lapis.cloud.shared.domain.AccountRole
@@ -352,7 +353,10 @@ class MembershipGuardsTest :
         test("V1.9.298 requireVotingMembership: only ACTIVE with the voting right; the donor and everybody else is denied") {
             MemberStatus.entries.forEach { status ->
                 val memberId = membersByStatus.getValue(status)
-                val isAllowed = allowed(block = { id -> requireVotingMembership(memberId = id) }, memberId = memberId)
+                val isAllowed =
+                    allowed(block = { id ->
+                        requireVotingMembership(policy = VotingRightPolicy.LEGACY, memberId = id)
+                    }, memberId = memberId)
                 withClueStatus(status = status) { isAllowed shouldBe (status == MemberStatus.ACTIVE) }
             }
         }

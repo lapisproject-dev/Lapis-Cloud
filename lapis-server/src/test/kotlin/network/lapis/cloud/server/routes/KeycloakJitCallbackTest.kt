@@ -43,6 +43,7 @@ import network.lapis.cloud.server.federation.OidcJwks
 import network.lapis.cloud.server.federation.OidcJwt
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.keycloak.KeycloakDiscoveryDto
+import network.lapis.cloud.server.keycloak.KeycloakExternalIdSync
 import network.lapis.cloud.server.keycloak.KeycloakMemberProvisioner
 import network.lapis.cloud.server.keycloak.KeycloakOidcMetadata
 import network.lapis.cloud.server.keycloak.KeycloakProfileSync
@@ -50,6 +51,8 @@ import network.lapis.cloud.server.keycloak.RecordingProvisioningMailer
 import network.lapis.cloud.server.keycloak.deleteMembersCompletely
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.member.EmailChangeFixture
+import network.lapis.cloud.server.member.ExternalMemberIdConfig
+import network.lapis.cloud.server.member.ExternalMemberIdStore
 import network.lapis.cloud.server.member.KeycloakProvisioningNotifier
 import network.lapis.cloud.server.member.configuredSmtp
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -278,6 +281,7 @@ class KeycloakJitCallbackTest :
             smtp: SmtpConfigState = configuredSmtp(),
             withProvisioner: Boolean = true,
             withSync: Boolean = false,
+            externalIdSync: KeycloakExternalIdSync? = null,
             block: suspend (status: HttpStatusCode, body: String, setCookies: List<String>) -> Unit,
         ) {
             testApplication {
@@ -293,6 +297,7 @@ class KeycloakJitCallbackTest :
                             tokenHttpClientFactory = tokenClient(idToken = idToken, accessToken = accessToken),
                             provisioner = if (withProvisioner) KeycloakMemberProvisioner(config = cfg, notifier = notifier) else null,
                             profileSync = if (withSync) KeycloakProfileSync(notifier = notifier) else null,
+                            externalIdSync = externalIdSync,
                         )
                     }
                 }
@@ -877,6 +882,52 @@ class KeycloakJitCallbackTest :
                 withSync = true,
             ) { status, _, _ -> status shouldBe HttpStatusCode.Found }
             (fixture.emailOf(id) != oldMail) shouldBe true
+        }
+
+        test("external id sync on login: an existing linked member gets the claim; a sync that throws never blocks the login") {
+            val idConfig = ExternalMemberIdConfig.forTest(source = "Wabeo", claim = "wabeo_id")
+            val id = existingMember("extid-" + Uuid.random().toString().take(8) + "@example.org")
+            linkMember(id, "extid-sub")
+            val nonce = "n-${Uuid.random()}"
+            callback(
+                cfg = config(),
+                nonce = nonce,
+                idToken = {
+                    sign(
+                        claims(
+                            email = "extid@example.org",
+                            nonce = nonce,
+                            subject = "extid-sub",
+                            extra = mapOf("wabeo_id" to "WB-ROUTE-1"),
+                        ),
+                    )
+                },
+                externalIdSync = KeycloakExternalIdSync(idConfig),
+            ) { status, _, setCookies ->
+                status shouldBe HttpStatusCode.Found
+                hasSession(setCookies) shouldBe true
+            }
+            transaction { MemberTable.selectAll().where { MemberTable.id eq id }.single()[MemberTable.externalMemberId] } shouldBe
+                "WB-ROUTE-1"
+
+            val failing =
+                object : KeycloakExternalIdSync(idConfig) {
+                    override fun syncOnLogin(
+                        memberId: Uuid,
+                        subject: String,
+                        claims: JWTClaimsSet,
+                    ): ExternalMemberIdStore.ClaimOutcome? = error("boom")
+                }
+            val nonce2 = "n-${Uuid.random()}"
+            callback(
+                cfg = config(),
+                nonce = nonce2,
+                idToken = { sign(claims(email = "extid@example.org", nonce = nonce2, subject = "extid-sub")) },
+                externalIdSync = failing,
+            ) { status, _, setCookies ->
+                status shouldBe HttpStatusCode.Found
+                hasSession(setCookies) shouldBe true
+            }
         }
 
         test("V1.9.285 NAME_MISSING: the refusal log names the claims and types, never a value") {

@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canManageElection
 import network.lapis.cloud.server.security.isElectionBoard
@@ -282,6 +283,7 @@ internal fun appointElectionBoardLocked(
 
 /** Body of `openVoting`'s transaction after the election lock: [electionRow] is the LOCKED election row. */
 internal fun openVotingLocked(
+    policy: VotingRightPolicy,
     current: CurrentMember,
     electionRow: ResultRow,
 ): OpenVotingPrep {
@@ -315,7 +317,7 @@ internal fun openVotingLocked(
     val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
     val scheduledDate = meetingRow[MeetingTable.scheduledAt].date
     val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
-    val eligible = electorateMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate)
+    val eligible = electorateMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate, policy = policy)
     eligible.forEach { mId ->
         ElectionEligibleVoterTable.insert {
             it[ElectionEligibleVoterTable.id] = Uuid.random()

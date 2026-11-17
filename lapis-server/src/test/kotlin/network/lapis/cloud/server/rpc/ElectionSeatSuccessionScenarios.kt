@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
 import network.lapis.cloud.server.dsgvo.ElectionPersonalData
 import network.lapis.cloud.server.dsgvo.GovernancePersonalData
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
@@ -620,6 +621,7 @@ abstract class ElectionSeatSuccessionScenarios(
                     val motionRow = MotionDecisionLock.lockMotion(election.motionId)
                     val electionRow = lockElectionRow(election.electionId)
                     tallyElectionLocked(
+                        policy = VotingRightPolicy.LEGACY,
                         electionMotionRow = motionRow,
                         electionRow = electionRow,
                         actor = CurrentMember(memberId = es.admin, role = AccountRole.ADMIN, status = MemberStatus.ACTIVE),

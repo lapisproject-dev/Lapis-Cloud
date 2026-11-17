@@ -131,4 +131,17 @@ class VotingRightDomTest {
                 assertEquals(0, element().allOf("button").size)
             }
         }
+
+    @Test
+    fun notice_saysTheRightRests_whenOnlyTheExternalIdIsMissing() {
+        val suspended = session(votingRight = false).copy(votingSuspendedForMissingExternalId = true)
+        assertTrue(suspended.votingSuspendedForMissingExternalId())
+        assertFalse(session(votingRight = false).votingSuspendedForMissingExternalId())
+        try {
+            AppState.setSession(suspended)
+            assertTrue(noVotingRightText().contains("Stimmrecht ruht"))
+        } finally {
+            AppState.setSession(null)
+        }
+    }
 }

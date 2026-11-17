@@ -14,6 +14,8 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.member.EmailChangeStore
+import network.lapis.cloud.server.member.ExternalMemberIdConfig
+import network.lapis.cloud.server.member.ExternalMemberIdStore
 import network.lapis.cloud.server.member.KeycloakProvisioningNotifier
 import network.lapis.cloud.server.member.MemberNumberAllocator
 import network.lapis.cloud.server.member.MemberStatusHistory
@@ -73,6 +75,8 @@ private val logger = KotlinLogging.logger {}
 internal class KeycloakMemberProvisioner(
     private val config: KeycloakConfig,
     private val notifier: KeycloakProvisioningNotifier,
+    /** V1.9.307 -- the external member id claim; `null` (the default) = no claim sync. */
+    private val externalIdConfig: ExternalMemberIdConfig = ExternalMemberIdConfig.DISABLED,
 ) {
     enum class RejectReason {
         DISABLED,
@@ -229,6 +233,21 @@ internal class KeycloakMemberProvisioner(
                         it[lastLoginAt] = now
                     }
                     MemberNumberAllocator.ensureFor(memberId)
+                    // V1.9.307: the external id claim, in the SAME transaction. A duplicate never blocks the creation: the member then has no id.
+                    // The claim's own audit entry is deferred until after the CREATE entry (chain lock last, history in order).
+                    val deferredIdAudits = mutableListOf<() -> Unit>()
+                    val idSource = externalIdConfig.source
+                    val idClaim = externalIdConfig.claim
+                    if (externalIdConfig.enabled && idSource != null && idClaim != null) {
+                        ExternalMemberIdStore.applyClaim(
+                            memberId = memberId,
+                            rawClaimValue = claims.getClaim(idClaim),
+                            source = idSource,
+                            subjectFingerprint = keycloakSubjectFingerprint(subject),
+                            now = now,
+                            auditScheduler = { deferredIdAudits += it },
+                        )
+                    }
                     WebhookEventPublisher.publish(eventType = WebhookEventType.MEMBER_CREATED, entityId = memberId, occurredAt = now)
                     // Last lock-taking operation, as everywhere. No name, no address: only flags and the Keycloak fact.
                     AuditLogRecorder.record(
@@ -251,6 +270,7 @@ internal class KeycloakMemberProvisioner(
                             ),
                         occurredAt = now,
                     )
+                    deferredIdAudits.forEach { it() }
                     TxResult.Created(memberId = memberId, now = now)
                 }
             } catch (e: ExposedSQLException) {

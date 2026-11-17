@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
+import network.lapis.cloud.server.member.VotingRightPolicy
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AttendanceStatus
 import network.lapis.cloud.shared.domain.AuditAction
@@ -85,6 +86,7 @@ internal fun requireNoPendingAmendments(motionId: Uuid) {
  * Must run inside an already-open `transaction {}` (all call sites do).
  */
 internal fun computeQuorum(
+    policy: VotingRightPolicy,
     meetingId: Uuid,
     committeeId: Uuid,
     scheduledDate: LocalDate,
@@ -99,6 +101,7 @@ internal fun computeQuorum(
     // meetings without any frozen decision use the live set. See frozenOrLiveElectorate.
     val electorate =
         frozenOrLiveElectorate(
+            policy = policy,
             meetingId = meetingId,
             committeeRow = committeeRow,
             scheduledDate = scheduledDate,
@@ -169,6 +172,7 @@ internal fun nextResolutionNumber(
  * via [toResolutionDtos]); Voteen are still deferred.
  */
 internal fun insertResolutionRow(
+    policy: VotingRightPolicy,
     sId: Uuid,
     committeeId: Uuid,
     scheduledDate: LocalDate,
@@ -182,6 +186,7 @@ internal fun insertResolutionRow(
 ): ResolutionDto {
     val quorum =
         computeQuorum(
+            policy = policy,
             meetingId = sId,
             committeeId = committeeId,
             scheduledDate = scheduledDate,
