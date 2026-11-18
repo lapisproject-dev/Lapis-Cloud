@@ -52,6 +52,10 @@ class PartgVersionStoreTripwireTest :
                         "PartgVersionOperations.kt",
                         "PartgReportExportRoutes.kt",
                         "PartyReportSignals.kt",
+                        // V1.9.310 (R6b): the auditor reads kept versions through the existing read functions only (no new store function)
+                        "PartgStoredVersionRenderer.kt",
+                        "PartgReviewerAccess.kt",
+                        "PartgReviewerOperations.kt",
                     ),
                 ).shouldBeEmpty()
         }

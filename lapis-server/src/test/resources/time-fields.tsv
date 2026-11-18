@@ -1136,3 +1136,22 @@ dto:FoundingMemberAuditFacts.sinceAfter	D	calendar date (LocalDate); never conve
 dto:MemberAdminRowDto.foundingMemberSince	D	calendar date (LocalDate); never converted (BOARD/ADMIN only)
 col:MemberTable.foundingMemberSince	D	calendar date (LocalDate); entered by a person, never converted, not in the future (organisation-local today)
 col:MemberTable.foundingMemberConsentGrantedAt	A	stamped by the server clock (DbClock/ServerClock); stored and sent as UTC
+dto:PartgReviewerEventDto.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgReviewerInvitationDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgReviewerInvitationDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgReviewerInvitationDto.lastUsedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgReviewerSessionInfoDto.invitationExpiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgReviewerSessionInfoDto.sessionEndsAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartgReviewerVersionDto.frozenAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartgReviewerEventTable.occurredAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerInvitationTable.codeExpiresAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerInvitationTable.codesWindowStart	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerInvitationTable.lockedAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerInvitationTable.expiresAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerInvitationTable.revokedAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerInvitationTable.createdAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerInvitationTable.lastUsedAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerSessionTable.createdAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerSessionTable.lastSeenAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerSessionTable.idleExpiresAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)
+col:PartgReviewerSessionTable.absoluteExpiresAt	A	PartgReviewerStore: stamped by ServerClock.now() (or now plus a fixed duration)

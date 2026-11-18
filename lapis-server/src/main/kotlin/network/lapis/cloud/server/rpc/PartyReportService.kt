@@ -18,6 +18,7 @@ import network.lapis.cloud.server.partg.PartgLedgerReader
 import network.lapis.cloud.server.partg.PartgMemberCountSuggestion
 import network.lapis.cloud.server.partg.PartgReportSnapshotReader
 import network.lapis.cloud.server.partg.PartgReportStore
+import network.lapis.cloud.server.partg.PartgReviewerOperations
 import network.lapis.cloud.server.partg.PartgSheetWriter
 import network.lapis.cloud.server.partg.PartgStatementStore
 import network.lapis.cloud.server.partg.PartgVersionOperations
@@ -68,6 +69,8 @@ import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgPositionHintSnapshot
 import network.lapis.cloud.shared.domain.PartgPositions
 import network.lapis.cloud.shared.domain.PartgProposalPickDto
+import network.lapis.cloud.shared.domain.PartgReviewerInvitationCreatedDto
+import network.lapis.cloud.shared.domain.PartgReviewerInvitationDto
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgSheetDto
 import network.lapis.cloud.shared.domain.PartgSponsorDto
@@ -121,6 +124,8 @@ class PartyReportService internal constructor(
             readRateLimiter = versionReadRateLimiter,
             concurrency = exportConcurrency,
         )
+
+    private val reviewer = PartgReviewerOperations(writeRateLimiter = writeRateLimiter)
 
     override suspend fun listPositions(): List<PartgPositionDto> {
         requirePartyReportAccess(call)
@@ -1268,6 +1273,34 @@ class PartyReportService internal constructor(
                     else -> PartgDonorProposalAvailability.MODE_C
                 },
         )
+    }
+
+    // ---------------------------------------------------------------- R6b (V1.9.310)
+    // The federal gate, never the scoped one: a chapter treasurer reaches none of these. The work is in PartgReviewerOperations.
+
+    override suspend fun createReviewerInvitation(
+        year: Int,
+        versionIds: List<String>,
+        validityDays: Int,
+        email: String,
+    ): PartgReviewerInvitationCreatedDto {
+        val current = requirePartyReportAccess(call)
+        return reviewer.create(current = current, year = year, versionIds = versionIds, validityDays = validityDays, email = email)
+    }
+
+    override suspend fun listReviewerInvitations(year: Int): List<PartgReviewerInvitationDto> {
+        val current = requirePartyReportAccess(call)
+        return reviewer.list(current = current, year = year)
+    }
+
+    override suspend fun revokeReviewerInvitation(invitationId: String): PartgReviewerInvitationDto {
+        val current = requirePartyReportAccess(call)
+        return reviewer.revoke(current = current, invitationId = invitationId)
+    }
+
+    override suspend fun eraseReviewerEmail(email: String): Int {
+        val current = requirePartyReportAccess(call)
+        return reviewer.erase(current = current, email = email)
     }
 
     private fun enterpriseCheck(

@@ -56,6 +56,13 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
                     "(V1.9.211) registers its label-observer insert/destroy hooks on the still detached table before the caller " +
                     "adds rows (MasterTableCardsDomTest pins the labels, the re-render and the stop)"
             ),
+        "PartyReportReviewerAccess.kt" to
+            (
+                1 to
+                    "the invitation dialog (V1.9.310): the hook is registered on the still detached Modal before show(); it only adds a " +
+                    "hidden.bs.modal listener so that closing by X or Escape also removes the link from the page " +
+                    "(PartyReportReviewerDomTest pins the close by button)"
+            ),
         "ActionButton.kt" to
             (
                 1 to

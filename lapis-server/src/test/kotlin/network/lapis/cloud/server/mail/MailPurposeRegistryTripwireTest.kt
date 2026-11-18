@@ -66,6 +66,8 @@ class MailPurposeRegistryTripwireTest :
                     "friend-email-verification",
                     "admin-password-reset-notice",
                     "keycloak-member-provisioned",
+                    // V1.9.310 (R6b): the code of an auditor's read access
+                    "partg-reviewer-code",
                 )
             MailPurpose.KNOWN_PURPOSES.forEach { purpose ->
                 val policy = MailPurpose.policyFor(purpose)

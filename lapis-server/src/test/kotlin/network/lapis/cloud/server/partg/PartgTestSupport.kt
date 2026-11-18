@@ -44,6 +44,10 @@ import network.lapis.cloud.server.db.generated.PartgReportValueTable
 import network.lapis.cloud.server.db.generated.PartgReportVersionCounterTable
 import network.lapis.cloud.server.db.generated.PartgReportVersionTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
+import network.lapis.cloud.server.db.generated.PartgReviewerEventTable
+import network.lapis.cloud.server.db.generated.PartgReviewerInvitationTable
+import network.lapis.cloud.server.db.generated.PartgReviewerInvitationVersionTable
+import network.lapis.cloud.server.db.generated.PartgReviewerSessionTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTreasurerTable
@@ -250,6 +254,18 @@ internal class PartgFixtures(
 
     fun cleanUp() {
         transaction {
+            // V1.9.310 (R6b): the auditor invitations of the test (usage list, sessions, scope) go before the versions they point to
+            val invitationIds =
+                PartgReviewerInvitationTable
+                    .select(PartgReviewerInvitationTable.id)
+                    .where {
+                        (PartgReviewerInvitationTable.createdBy inList memberIds) or
+                            (PartgReviewerInvitationTable.revokedBy inList memberIds)
+                    }.map { it[PartgReviewerInvitationTable.id] }
+            PartgReviewerEventTable.deleteWhere { PartgReviewerEventTable.invitationId inList invitationIds }
+            PartgReviewerSessionTable.deleteWhere { PartgReviewerSessionTable.invitationId inList invitationIds }
+            PartgReviewerInvitationVersionTable.deleteWhere { PartgReviewerInvitationVersionTable.invitationId inList invitationIds }
+            PartgReviewerInvitationTable.deleteWhere { PartgReviewerInvitationTable.id inList invitationIds }
             // V1.9.291 (R6): the kept versions of the test (declarations, versions, counters) and the deadlines come first
             val versionIds =
                 PartgReportVersionTable

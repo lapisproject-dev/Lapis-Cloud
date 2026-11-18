@@ -1,4 +1,4 @@
-= Party accountability report, R1 to R6: architecture (V1.9.225, V1.9.256, V1.9.269, V1.9.289, V1.9.290, V1.9.291)
+= Party accountability report, R1 to R6b: architecture (V1.9.225, V1.9.256, V1.9.269, V1.9.289, V1.9.290, V1.9.291, V1.9.310)
 :toc:
 
 NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -318,6 +318,39 @@ sequenceDiagram(name = "R5b: take over a proposal for statement B (V1.9.293)") {
     message(from = writer, to = db, text = "recompute proposal, compare checksum (else stale)")
     message(from = writer, to = db, text = "create / replace amount / link, bump revision once, audit last")
     message(from = writer, to = service, text = "annex as written")
+}
+----
+
+== R6b: read access for the auditor (V1.9.310)
+
+*Migration*:: `V158__partg_reviewer_access.sql` (V157 is a different feature on `master`; V158 may be corrected on the branch until the release, after that every correction is a new migration). Four tables: `partg_reviewer_invitation` (hash of the link token, hash of the current code, the counters, expiry, revoke, the e-mail address of the auditor), `partg_reviewer_invitation_version` (the scope, composite key, **no cascade**), `partg_reviewer_session` (hash of the cookie token, idle and absolute end), `partg_reviewer_event` (the usage list; `version_id` has **no foreign key** so the deletion of a version is never blocked by it). Audit CHECK: the list of V153 verbatim plus `PARTG_REVIEWER_ACCESS`.
+*Store rule*:: `PartgReviewerStore` is the only reader and writer of the four tables (`PartgReportPersonalData` is the one exception, `PartgReviewerStoreTripwireTest`). It has no function that takes a raw token or code. `PartgVersionStore` has **no new function**: the auditor reads kept versions through `versionMeta`, `versions` and `content` (the allow list of `PartgVersionStoreTripwireTest` names the three new callers).
+*Lock order*:: the invitation row (`FOR UPDATE`, in H2 and PostgreSQL) serialises parallel tries, so no wrong try is lost (a lost update would be brute force). The public path takes **no counter lock**; the deletion routine takes the counters first and then the affected invitations (sorted by id), so the two cannot deadlock.
+*Session model*:: the cookie `lapis_pruefung` carries a random token whose hash is in `partg_reviewer_session`; `resolveSession` re-reads the invitation on every request (revoked, locked, expired, party switch) and extends the idle time at most once a minute. Cookie and members' session are separate in both directions (a tripwire pins that the routes never touch `SESSION_COOKIE_NAME`, `resolveCurrentMember` or `extractSessionToken`, and that only the routes file names the auditor's cookie).
+*Public path*:: `PartgReviewerRoutes` (`/api/pruefung/*`): every handler starts with `reviewerGuard` (security headers first, then the per-IP limit, origin and content type for a POST). `PartgReviewerAccess` has no HTTP types. The code mail is handed to `MailDispatcher` **after** the transaction committed (purpose priority 0, `logRecipient = false`); the timing difference to "no mail" is one non-blocking hand-off, not a mail transaction.
+*Rendering*:: `PartgStoredVersionRenderer` is the one place a kept version is read, verified and rendered; the board's export route and the auditor's routes both use it (same footer, same file name). The auditor has its own permit (1) next to the board's.
+*Removal of a version*:: `PartgVersionWriter.deleteOld` calls `PartgReviewerStore.detachVersions` after it locked the counters and before `deleteVersions`; invitations whose scope becomes empty end with `SCOPE_DELETED`; the audit snapshot of the deletion gets `reviewerInvitationsEnded` (default 0).
+*Retention*:: `PartgReviewerRetentionPoller` (daily): removes expired sessions and sets the address to NULL 90 days after an invitation ended.
+
+[kuml, partg-report-r6b-flow, svg]
+----
+sequenceDiagram(name = "R6b: invite, get a code, read (V1.9.310)") {
+    val board = participant(name = "Board member")
+    val auditor = participant(name = "Auditor (no account)")
+    val routes = participant(name = "PartgReviewerRoutes")
+    val access = participant(name = "PartgReviewerAccess")
+    val db = participant(name = "Database")
+
+    message(from = board, to = db, text = "createReviewerInvitation: store token hash, scope, audit; link shown once")
+    message(from = board, to = auditor, text = "hands over the link (outside the system)")
+    message(from = auditor, to = routes, text = "POST /api/pruefung/code {token}")
+    message(from = routes, to = access, text = "requestCode: lock invitation, count, store code hash, event, audit")
+    message(from = access, to = auditor, text = "6-digit code by mail (after commit)")
+    message(from = auditor, to = routes, text = "POST /api/pruefung/session {token, code}")
+    message(from = access, to = db, text = "check hash under the lock, consume code, new session, event, audit")
+    message(from = routes, to = auditor, text = "204 + cookie lapis_pruefung")
+    message(from = auditor, to = routes, text = "GET /api/pruefung/versions/{id}/pdf")
+    message(from = access, to = db, text = "re-check invitation, scope, stored text and checksum; event, audit")
 }
 ----
 

@@ -58,7 +58,7 @@ internal fun SimplePanel.renderVersionCompare(
     }
 }
 
-private fun SimplePanel.renderDiff(diff: PartgVersionDiffDto) {
+internal fun SimplePanel.renderDiff(diff: PartgVersionDiffDto) {
     if (!diff.comparable) {
         div(
             tr("Die beiden Versionen gehören zu verschiedenen Jahren oder Umfängen. Verglichen werden nur die Zellen, die beide haben."),

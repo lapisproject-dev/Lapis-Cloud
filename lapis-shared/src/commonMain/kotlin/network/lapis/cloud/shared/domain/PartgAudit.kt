@@ -171,4 +171,6 @@ data class PartgVersionDeletionAuditSnapshot(
     val olderThanYears: Int,
     val count: Int,
     val versionIds: List<String>,
+    /** V1.9.310 (R6b): how many auditor invitations ended because their last version was removed. Appended with a default (old entries decode). */
+    val reviewerInvitationsEnded: Int = 0,
 )

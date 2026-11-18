@@ -8938,6 +8938,28 @@ html.lapis-has-dock .lapis-encounter-room:fullscreen .lapis-encounter-map-overla
   color: var(--lapis-qr-fg);
 }
 
+/* V1.9.310 (R6b): the auditor's page (/pruefung). A stack of cards (also on a wide screen), 44 px targets, the header stays in view. */
+.lapis-reviewer {
+  max-width: 52rem;
+}
+
+.lapis-reviewer-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding-top: 0.5rem;
+  background: var(--bs-body-bg, #fff);
+}
+
+.lapis-reviewer-download,
+.lapis-reviewer .btn {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   body,
   .lapis-conference-background-preview,

@@ -19,8 +19,7 @@ import network.lapis.cloud.server.accounting.export.MAX_TOTAL_POSTINGS
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.partg.PartgReportSnapshotReader
-import network.lapis.cloud.server.partg.PartgVersionFormat
-import network.lapis.cloud.server.partg.PartgVersionStore
+import network.lapis.cloud.server.partg.PartgStoredVersionRenderer
 import network.lapis.cloud.server.partg.PartgYearRules
 import network.lapis.cloud.server.partg.PartyReportActor
 import network.lapis.cloud.server.partg.report.PartgReportAudience
@@ -34,9 +33,7 @@ import network.lapis.cloud.server.partg.report.PartgUnitPart
 import network.lapis.cloud.server.partg.requirePartyReportAccess
 import network.lapis.cloud.server.partg.requirePartyReportScopedAccess
 import network.lapis.cloud.server.pdf.PdfLimitExceeded
-import network.lapis.cloud.server.pdf.formatGermanDate
 import network.lapis.cloud.server.security.CurrentMember
-import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -142,13 +139,6 @@ fun Route.registerPartgReportExportRoutes(
 
 private val STRICT_UUID = Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
 
-/** What one read transaction returns for a kept version. */
-private class StoredVersion(
-    val meta: PartgVersionStore.VersionMeta,
-    val json: String,
-    val storedHash: String,
-)
-
 /**
  * V1.9.291 (R6) -- the download of a KEPT version. Order: rate limit, strict id, concurrency permit, ONE read transaction (metadata, text,
  * checksum), integrity check (the stored text is hashed again; a mismatch is 409 `INTEGRITY` and nothing is rendered), decode, render OUTSIDE
@@ -174,45 +164,19 @@ private suspend fun ApplicationCall.exportVersion(
         return rejectExport(status = HttpStatusCode.TooManyRequests, code = PartgImportRejectionCode.RATE_LIMITED)
     }
     try {
-        val stored =
-            transaction {
-                val meta = PartgVersionStore.versionMeta(versionId)
-                val content = meta?.let { PartgVersionStore.content(versionId) }
-                if (meta == null || content == null) null else StoredVersion(meta = meta, json = content.first, storedHash = content.second)
-            } ?: return rejectExport(status = HttpStatusCode.NotFound, code = PartgImportRejectionCode.NOT_FOUND)
-        if (PartgVersionFormat.hash(stored.json) != stored.storedHash || stored.storedHash != stored.meta.contentHash) {
-            logger.warn { "partg version integrity failure version=$versionId" }
-            return rejectExport(status = HttpStatusCode.Conflict, code = PartgImportRejectionCode.INTEGRITY)
-        }
-        val meta = stored.meta
-        val footer =
-            PartgReportTexts.versionFooter(
-                versionNumber = meta.versionNumber,
-                keptOn = formatGermanDate(OrganizationTimeZone.wallNowOf(meta.frozenAt).date),
-                hash12 = meta.contentHash.take(HASH_PREFIX_CHARS),
-                final = meta.finalizedAt != null,
-            )
+        val verified =
+            try {
+                PartgStoredVersionRenderer.readVerified(versionId)
+            } catch (e: NotFoundException) {
+                return rejectExport(status = HttpStatusCode.NotFound, code = PartgImportRejectionCode.NOT_FOUND)
+            } catch (e: PartyReportVersionIntegrityException) {
+                logger.warn { "partg version integrity failure version=$versionId" }
+                return rejectExport(status = HttpStatusCode.Conflict, code = PartgImportRejectionCode.INTEGRITY)
+            }
+        val meta = verified.meta
         val rendered =
             try {
-                withContext(Dispatchers.Default) {
-                    val document = PartgVersionFormat.decode(text = stored.json, formatVersion = meta.formatVersion)
-                    val bytes =
-                        when (format) {
-                            PartgReportFormat.PDF -> PartgReportPdfRenderer().render(document = document, footer = footer)
-                            PartgReportFormat.XLSX -> PartgReportXlsxWriter.write(document = document, footer = footer)
-                            PartgReportFormat.CSV -> throw IllegalStateException("CSV is not a report format")
-                        }
-                    Counters(
-                        bytes = bytes,
-                        unitCount = document.units.size,
-                        missingCount = document.completeness.units.sumOf { it.missingCurrent.size },
-                        donorRowCount = document.annex.donors.size,
-                        findingCount = document.findings.size,
-                        sponsorRowCount = document.annex.sponsors.size,
-                        youthOrgRowCount = document.annex.youthOrgs.size,
-                        enterpriseRowCount = document.annex.enterprises.size,
-                    )
-                }
+                PartgStoredVersionRenderer.render(verified = verified, format = format)
             } catch (e: PartyReportVersionIntegrityException) {
                 logger.warn { "partg version integrity failure version=$versionId" }
                 return rejectExport(status = HttpStatusCode.Conflict, code = PartgImportRejectionCode.INTEGRITY)
@@ -257,7 +221,7 @@ private suspend fun ApplicationCall.exportVersion(
         val extension = if (format == PartgReportFormat.PDF) "pdf" else "xlsx"
         response.header(
             HttpHeaders.ContentDisposition,
-            "attachment; filename=\"rechenschaftsbericht-${meta.year}-version-${meta.versionNumber}.$extension\"",
+            "attachment; filename=\"${PartgStoredVersionRenderer.fileName(meta = meta, extension = extension)}\"",
         )
         response.header(HttpHeaders.CacheControl, "no-store")
         response.header("X-Content-Type-Options", "nosniff")
@@ -266,8 +230,6 @@ private suspend fun ApplicationCall.exportVersion(
         concurrency.release()
     }
 }
-
-private const val HASH_PREFIX_CHARS = 12
 
 private suspend fun ApplicationCall.export(
     format: PartgReportFormat,

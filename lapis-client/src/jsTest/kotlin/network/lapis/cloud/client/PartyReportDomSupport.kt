@@ -113,7 +113,17 @@ internal object PartyReportDomSupport {
         donorWrites.clear()
     }
 
+    /** V1.9.310 (R6b): the answers of the auditor-access calls; the writes are recorded (route name to the whole request). */
+    var reviewerInvitations: List<network.lapis.cloud.shared.domain.PartgReviewerInvitationDto> = emptyList()
+    var reviewerCreated: network.lapis.cloud.shared.domain.PartgReviewerInvitationCreatedDto? = null
+    var reviewerRevoked: network.lapis.cloud.shared.domain.PartgReviewerInvitationDto? = null
+    val reviewerWrites = mutableListOf<Pair<String, RecordedRequest>>()
+
     fun resetR6() {
+        reviewerInvitations = emptyList()
+        reviewerCreated = null
+        reviewerRevoked = null
+        reviewerWrites.clear()
         versionOverview = null
         versionDiff = null
         deletionPreview = null
@@ -325,6 +335,9 @@ internal object PartyReportDomSupport {
         val unitStatement: String,
         val largeProposal: String,
         val applyDonorProposal: String,
+        val listInvites: String,
+        val createInvite: String,
+        val revokeInvite: String,
     )
 
     suspend fun routes() =
@@ -431,6 +444,9 @@ internal object PartyReportDomSupport {
             unitStatement = routeOf { rpcService<IPartyReportService>().unitStatementPreview(2025, "FEDERAL") },
             largeProposal = routeOf { rpcService<IPartyReportService>().largeDonorProposal(2025) },
             applyDonorProposal = routeOf { rpcService<IPartyReportService>().applyLargeDonorProposal(2025, "x", emptyList()) },
+            listInvites = routeOf { rpcService<IPartyReportService>().listReviewerInvitations(2025) },
+            createInvite = routeOf { rpcService<IPartyReportService>().createReviewerInvitation(2025, emptyList(), 14, "x") },
+            revokeInvite = routeOf { rpcService<IPartyReportService>().revokeReviewerInvitation("x") },
         )
 
     fun answer(
@@ -570,6 +586,40 @@ internal object PartyReportDomSupport {
                 } else {
                     request.answerWith(jsonOf(PartgAnnexDto.serializer(), annex))
                 }
+            }
+            request.rpcRoute == routes.listInvites ->
+                request.answerWith(
+                    jsonOf(
+                        ListSerializer(
+                            network.lapis.cloud.shared.domain.PartgReviewerInvitationDto
+                                .serializer(),
+                        ),
+                        reviewerInvitations,
+                    ),
+                )
+            request.rpcRoute == routes.createInvite -> {
+                reviewerWrites += request.rpcRoute to request
+                request.answerWith(
+                    reviewerCreated?.let {
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgReviewerInvitationCreatedDto
+                                .serializer(),
+                            it,
+                        )
+                    } ?: "null",
+                )
+            }
+            request.rpcRoute == routes.revokeInvite -> {
+                reviewerWrites += request.rpcRoute to request
+                request.answerWith(
+                    reviewerRevoked?.let {
+                        jsonOf(
+                            network.lapis.cloud.shared.domain.PartgReviewerInvitationDto
+                                .serializer(),
+                            it,
+                        )
+                    } ?: "null",
+                )
             }
             request.rpcRoute == routes.units ->
                 request.answerWith(

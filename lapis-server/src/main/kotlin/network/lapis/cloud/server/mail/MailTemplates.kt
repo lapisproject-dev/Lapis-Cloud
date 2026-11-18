@@ -2,6 +2,7 @@ package network.lapis.cloud.server.mail
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.html.a
+import kotlinx.html.b
 import kotlinx.html.body
 import kotlinx.html.h1
 import kotlinx.html.head
@@ -15,6 +16,7 @@ import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.shared.domain.EmailChangeKind
+import network.lapis.cloud.shared.domain.PartgReviewerRules
 import network.lapis.cloud.shared.domain.PrivilegedActionKind
 import kotlin.time.Duration
 
@@ -70,6 +72,41 @@ object MailTemplates {
                         +(
                             "Wenn Sie diese Änderung nicht angefordert haben, können Sie diese E-Mail ignorieren – " +
                                 "es wurde noch nichts verändert."
+                        )
+                    }
+                    p { +footer(branding) }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /**
+     * V1.9.310 (R6b): the code of an auditor's read access. A FIXED subject and body: the code, its life span and a hint; no link, no name, nothing
+     * a person typed. The code is shown as "482 913".
+     */
+    fun partgReviewerCode(
+        code: String,
+        branding: MailBranding,
+    ): RenderedMail {
+        val shown = PartgReviewerRules.formatCode(code)
+        val subject = "Ihr Code für den Lesezugang zur Prüfung"
+        val plainText =
+            "Ihr Code für den Lesezugang zur Prüfung bei ${branding.fromDisplayName}:\n\n" +
+                "$shown\n\n" +
+                "Der Code ist ${PartgReviewerRules.CODE_VALID_MINUTES} Minuten gültig und kann einmal verwendet werden. " +
+                "Wenn Sie keinen Code angefordert haben, können Sie diese E-Mail ignorieren.\n\n" +
+                footer(branding)
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    h1 { +subject }
+                    p { +"Ihr Code für den Lesezugang zur Prüfung bei ${branding.fromDisplayName}:" }
+                    p { b { +shown } }
+                    p {
+                        +(
+                            "Der Code ist ${PartgReviewerRules.CODE_VALID_MINUTES} Minuten gültig und kann einmal verwendet werden. " +
+                                "Wenn Sie keinen Code angefordert haben, können Sie diese E-Mail ignorieren."
                         )
                     }
                     p { +footer(branding) }

@@ -6,6 +6,24 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.310 "Lesezugang für die Prüfung" (R6b: read access for the auditor to kept versions of the party report), schema `V157` -> `V158` (one additive migration). Not released yet: no version bump in this wave.
+
+**Behaviour first:**
+
+1. **The board can invite an auditor without an account.** On the tab *Versionen und Freigabe* the new section *Lesezugang für die Prüfung* has "Prüfer einladen": e-mail address, the kept whole-party versions of the year (all ticked), validity 7, 14, 30 or 90 days. The answer shows the **link once** (`/pruefung#t=...`); the system never mails the link, the board hands it over. The list shows status as a word, versions, validity, last use, the usage list and "Widerrufen" (effective at once, also for running sessions); "Neue Einladung aus dieser" fills a new dialog.
+2. **The auditor signs in with the link and a code.** The page `/pruefung` keeps the token out of the address bar; "Code per E-Mail senden" mails a 6-digit code (10 minutes, once). 5 wrong tries burn a code, 3 burned codes lock the invitation, at most 3 codes per hour and 10 per invitation. A session lasts 30 minutes idle and 4 hours at most; every request re-checks the invitation.
+3. **The auditor reads, downloads and compares** the versions of the invitation: PDF, XLSX, JSON (the stored text byte for byte) and a comparison. Everything comes from the stored version after its checksum was checked, with the same footer and file name as the board's download. Anything outside the scope is one and the same 404.
+4. **Answers do not reveal whether a link is valid:** the code request is a `202` with one text for every link, a wrong or burned code is one `401`, limits are `429` with the neutral text.
+5. **Data protection:** the e-mail address is set to NULL 90 days after the invitation ended, or at once by the new `eraseReviewerEmail`. The audit entity `PARTG_REVIEWER_ACCESS` holds ids and event kinds only (no code, token, hash, address, IP, content).
+6. A version that the deletion routine removes is first taken out of every invitation; an invitation without a version left ends (`SCOPE_DELETED`).
+7. **Backups made before `V158` are refused on restore** (schema checksum), as after every schema change.
+
+**Technique:** four tables (`partg_reviewer_invitation`, `_invitation_version`, `_session`, `_event`), only hashes stored, `PartgReviewerStore` as the one reader and writer, `FOR UPDATE` on the invitation row for every counted try, own cookie `lapis_pruefung` under `/api/pruefung`, `PartgStoredVersionRenderer` shared with the board's export, mail purpose `partg-reviewer-code` (priority 0), four RPC methods appended to `IPartyReportService` (45 in total), `AuditEntityType.PARTG_REVIEWER_ACCESS` appended last. Owner decisions of 2026-11-18: Q33 decided (link plus e-mail code), R5b stays as built.
+
+**Tests:** `PartgReviewerScenarios` on H2 and PostgreSQL 17 (24 scenarios, run locally against both), `PartgReviewerRoutesTest` (HTTP: neutrality, cookie attributes, separation from the members' session, fixation, scope, limits, headers, origin, integrity), `PartgReviewerTokensTest`, `PartgReviewerStoreTripwireTest`, schema drift, i18n guard `PartyReportR6bI18nCatalogTest`, client `PartyReportReviewerLogicTest`, `PartyReportReviewerDomTest`, `ReviewerAppDomTest`.
+
+**Not verified:** not reviewed by a lawyer or a real auditor; e-mail delivery not tried against a real mail server; the auditor's page not tried on a phone or with a screen reader; translations are model-written; the limits per IP and link are per instance and were not tried behind a real proxy.
+
 Wave V1.9.309 "Vollbild im Gastgespräch" (full-screen button in the guest call view). No migration, no RPC change, nothing is stored.
 
 **Behaviour:** the call view of a person without an account (event online participation) has a new button "Vollbild" between "Geräte" and "Verlassen". It puts the whole call area on the full screen: recording notice, connection state line, tiles, control bar and device panel. The tiles grow to use the space (video fitted without cropping), the control bar stays visible at the bottom. Without the browser's Fullscreen API (iPhone Safari, many in-app WebViews) the area fills the viewport by CSS instead; Escape leaves that mode (in the real full screen the browser handles Escape). The consent question for a recording that is switched on later ends the full screen first, so it is never hidden. Leaving the call, a lost connection and navigating away also end it. The view stays deliberately minimal (no roster, chat or whiteboard). The label stays "Vollbild" in both states; the state is `aria-pressed`, the `active` class and the symbol.

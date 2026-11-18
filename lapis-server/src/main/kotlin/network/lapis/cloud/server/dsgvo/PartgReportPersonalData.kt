@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.generated.PartgReportValueTable
 import network.lapis.cloud.server.db.generated.PartgReportVersionCounterTable
 import network.lapis.cloud.server.db.generated.PartgReportVersionTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
+import network.lapis.cloud.server.db.generated.PartgReviewerInvitationTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.or
@@ -69,6 +70,12 @@ import kotlin.uuid.Uuid
  * `PersonalDataRegistry.knownUncoveredSubjectRoots`; it is removed only by the ADMIN deletion routine after the retention period. The other three
  * tables are organisation data.
  *
+ * **V1.9.310 (R6b)** adds `partg_reviewer_invitation`, `partg_reviewer_invitation_version`, `partg_reviewer_session` and `partg_reviewer_event`.
+ * `created_by` and `revoked_by` of an invitation are exported as "changed by you" (id, year, time, status) -- NEVER the E-mail address of the invited
+ * auditor (a THIRD PARTY) -- and retained on erasure (the usage list is an accountability record). The address itself is set to NULL 90 days after the
+ * invitation ended and by the board's `eraseReviewerEmail`; it is listed in `PersonalDataRegistry.knownUncoveredSubjectRoots` (information about it goes
+ * through the board). Session and event rows hold only hashes, ids and times (no IP) and reach members only through the invitation.
+ *
  * **V1.9.293 (R5b)** adds NO table and NO new collection of personal data: `partg_report_large_donor.source_donor_key` (`M:<member uuid>` /
  * `X:<external donor uuid>`) is a pseudonymous REFERENCE to master data that already exists. The export of a member gains the section
  * `listedInStatementB` (year, unit, kind and amount of the rows linked to THIS member -- their own data, like the donations in the accounting
@@ -106,6 +113,7 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
             PartgReportVersionTable,
             PartgReportDeclarationTable,
             PartgReportDeadlineTable,
+            PartgReviewerInvitationTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -508,6 +516,31 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                 },
             )
             put(
+                "reviewerInvitationsByYou",
+                buildJsonArray {
+                    PartgReviewerInvitationTable
+                        .selectAll()
+                        .where {
+                            (PartgReviewerInvitationTable.createdBy eq memberId) or
+                                (PartgReviewerInvitationTable.revokedBy eq memberId)
+                        }.toList()
+                        .sortedWith(
+                            compareBy({ it[PartgReviewerInvitationTable.createdAt] }, { it[PartgReviewerInvitationTable.id].toString() }),
+                        ).forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[PartgReviewerInvitationTable.id].toString())
+                                    put("year", row[PartgReviewerInvitationTable.reportYear])
+                                    put("createdByYou", row[PartgReviewerInvitationTable.createdBy] == memberId)
+                                    put("createdAt", row[PartgReviewerInvitationTable.createdAt].toString())
+                                    put("revokedByYou", row[PartgReviewerInvitationTable.revokedBy] == memberId)
+                                    put("revokedAt", row[PartgReviewerInvitationTable.revokedAt]?.toString())
+                                },
+                            )
+                        }
+                },
+            )
+            put(
                 "versionCountersChangedByYou",
                 buildJsonArray {
                     PartgReportVersionCounterTable
@@ -772,6 +805,18 @@ object PartgReportPersonalData : MemberPersonalDataContributor {
                         .selectAll()
                         .where { PartgReportDeadlineTable.confirmedBy eq memberId }
                         .count()
+                        .toInt(),
+                retentionReason = reason,
+            ),
+            TableErasureOutcome(
+                table = "partg_reviewer_invitation",
+                rowsRetained =
+                    PartgReviewerInvitationTable
+                        .selectAll()
+                        .where {
+                            (PartgReviewerInvitationTable.createdBy eq memberId) or
+                                (PartgReviewerInvitationTable.revokedBy eq memberId)
+                        }.count()
                         .toInt(),
                 retentionReason = reason,
             ),

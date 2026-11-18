@@ -232,6 +232,11 @@ class App : Application() {
         // Bestätigt/aktualisiert, was index.html's Inline-Script beim ersten Paint schon gesetzt
         // hat -- siehe ThemeToggle.kt KDoc.
         applyStoredTheme()
+        // V1.9.310 (R6b): the auditor's page is its own small app: no navbar, no session of the members, no RPC clients, no routing.
+        if (isReviewerPath(window.location.pathname)) {
+            root("lapis-client") { renderReviewerApp() }
+            return
+        }
         root("lapis-client") {
             // Welle V1.4.31 (W5): first stop of the tab order, visible only while focused. A button, NOT an
             // `<a href="#lapis-content">`: the app routes by hash (`Routing.init(useHash = true)`), so a

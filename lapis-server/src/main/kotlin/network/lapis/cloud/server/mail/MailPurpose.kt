@@ -42,6 +42,8 @@ object MailPurpose {
             "friend-email-verification",
             "admin-password-reset-notice",
             "keycloak-member-provisioned",
+            // V1.9.310 (R6b): the 6-digit code of the auditor's read access; a code that arrives half an hour late is void anyway (valid 10 minutes).
+            PARTG_REVIEWER_CODE_PURPOSE,
         )
 
     /** Priority 1, lane SYSTEM. */
@@ -111,3 +113,10 @@ const val CARPOOL_NOTICE_PURPOSE = "carpool-notice"
  * no TTL. The mail names the event and links to the registration overview; it never carries the message text.
  */
 const val EVENT_REGISTRATION_MESSAGE_PURPOSE = "event-registration-message"
+
+/**
+ * V1.9.310 (R6b) -- the registry string of the mail that carries the 6-digit code of an auditor's read access to kept versions of the party
+ * report. Priority 0 (TTL 30 minutes), lane SYSTEM. The mail carries the code only: no link, no version, no name. The recipient address is not
+ * logged (`logRecipient = false`).
+ */
+const val PARTG_REVIEWER_CODE_PURPOSE = "partg-reviewer-code"

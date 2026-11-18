@@ -331,6 +331,8 @@ class ScrollSurfaceTripwireTest :
                     ".lapis-partg-savebar",
                     // V1.9.283: the jump bar of the party report tab "Ausweise" sticks to the top edge below 640 px (a plain flex row, no overflow).
                     ".partg-annex-nav",
+                    // V1.9.310 (R6b): the header of the auditor's page (/pruefung) stays in view; a plain block (no overflow, no max-height).
+                    ".lapis-reviewer-header",
                 )
             for (selector in listOf(".lapis-encounter-dock", ".lapis-room-bar-dock")) {
                 val dock = sticky.single { it.selector == selector }

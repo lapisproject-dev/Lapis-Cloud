@@ -48,6 +48,12 @@
 // rules checked by the service (<= 200 versions per scope, whole-party-only declaration and finalisation). DSGVO: partg_report_version holds a
 // COPY OF STATEMENTS B AND C (names and addresses of third parties; see PersonalDataRegistry); the other three are organisation data;
 // frozen_by/finalized_by/declared_by/confirmed_by/updated_by are "changed by you" data.
+// Welle V1.9.310 "Rechenschaftsbericht R6b" (V158__partg_reviewer_access.sql) adds FOUR tables: partg_reviewer_invitation (an invitation of the
+// board for an auditor WITHOUT an account: hashes of the link token and of the current 6-digit code, counters, expiry), partg_reviewer_invitation_version
+// (its scope: a fixed set of kept versions), partg_reviewer_session (the auditor's server-side session) and partg_reviewer_event (the usage list the
+// board sees: no content, no IP, no actor). NOT expressible in the ERM profile (SQL only, V158): every CHECK. DSGVO: the invitation holds the E-mail
+// address of a THIRD PARTY (NULL 90 days after the end and by the board's erasure routine; listed in PersonalDataRegistry.knownUncoveredSubjectRoots);
+// created_by/revoked_by are "changed by you" data; session and event hold only hashes, ids and times.
 // Welle V1.9.293 "Rechenschaftsbericht R5b" (V147__partg_report_r5b.sql) adds NO table: partg_report_large_donor gets source_donor_key (the
 // pseudonymous donor key "M:<member uuid>" / "X:<external donor uuid>" of the booking donor a row was taken from or linked to; NULL = by hand) and
 // source_applied_at (when the row was last written from the bookings), plus a normal unique index (annex_id, source_donor_key). DSGVO (R5b): the key
@@ -1075,6 +1081,156 @@ classDiagram(name = "PartgReport") {
         }
         attribute(name = "confirmedBy", type = "UUID") {
             stereotype("Column") { "columnName" to "confirmed_by"; "fkEntity" to "Member" }
+        }
+    }
+
+    // ---------------------------------------------------------------- R6b (V158__partg_reviewer_access.sql)
+
+    classOf(name = "PartgReviewerInvitation") {
+        stereotype("Entity") { "tableName" to "partg_reviewer_invitation"; "kotlinObjectName" to "PartgReviewerInvitationTable" }
+        stereotype("Index") { "columns" to listOf("link_token_hash"); "unique" to true; "name" to "uq_partg_reviewer_invitation_token" }
+        stereotype("Index") { "columns" to listOf("report_year"); "name" to "ix_partg_reviewer_invitation_year" }
+        stereotype("Index") { "columns" to listOf("created_by"); "name" to "ix_partg_reviewer_invitation_created_by" }
+        stereotype("Index") { "columns" to listOf("revoked_by"); "name" to "ix_partg_reviewer_invitation_revoked_by" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "reportYear", type = "Int") {
+            stereotype("Column") { "columnName" to "report_year" }
+        }
+        attribute(name = "inviteeEmail", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "invitee_email"; "sqlType" to "VARCHAR(254)" }
+        }
+        attribute(name = "linkTokenHash", type = "String") {
+            stereotype("Column") { "columnName" to "link_token_hash"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "codeHash", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "code_hash"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "codeExpiresAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "code_expires_at" }
+        }
+        attribute(name = "codeAttempts", type = "Int") {
+            stereotype("Column") { "columnName" to "code_attempts" }
+        }
+        attribute(name = "codesBurned", type = "Int") {
+            stereotype("Column") { "columnName" to "codes_burned" }
+        }
+        attribute(name = "codesSentTotal", type = "Int") {
+            stereotype("Column") { "columnName" to "codes_sent_total" }
+        }
+        attribute(name = "codesWindowStart", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "codes_window_start" }
+        }
+        attribute(name = "codesWindowCount", type = "Int") {
+            stereotype("Column") { "columnName" to "codes_window_count" }
+        }
+        attribute(name = "lockedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "locked_at" }
+        }
+        attribute(name = "expiresAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "expires_at" }
+        }
+        attribute(name = "revokedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "revoked_at" }
+        }
+        attribute(name = "revokedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "revoked_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "endReason", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "end_reason"; "sqlType" to "VARCHAR(14)" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "lastUsedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "last_used_at" }
+        }
+    }
+
+    classOf(name = "PartgReviewerInvitationVersion") {
+        stereotype("Entity") { "tableName" to "partg_reviewer_invitation_version"; "kotlinObjectName" to "PartgReviewerInvitationVersionTable" }
+        stereotype("Index") { "columns" to listOf("version_id"); "name" to "ix_partg_reviewer_invitation_version_version" }
+
+        // Composite primary key (invitation_id, version_id).
+        attribute(name = "invitationId", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "invitation_id"; "fkEntity" to "PartgReviewerInvitation" }
+        }
+        attribute(name = "versionId", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "version_id"; "fkEntity" to "PartgReportVersion" }
+        }
+    }
+
+    classOf(name = "PartgReviewerSession") {
+        stereotype("Entity") { "tableName" to "partg_reviewer_session"; "kotlinObjectName" to "PartgReviewerSessionTable" }
+        stereotype("Index") { "columns" to listOf("token_hash"); "unique" to true; "name" to "uq_partg_reviewer_session_token" }
+        stereotype("Index") { "columns" to listOf("invitation_id"); "name" to "ix_partg_reviewer_session_invitation" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "tokenHash", type = "String") {
+            stereotype("Column") { "columnName" to "token_hash"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "invitationId", type = "UUID") {
+            stereotype("Column") { "columnName" to "invitation_id"; "fkEntity" to "PartgReviewerInvitation" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "lastSeenAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "last_seen_at" }
+        }
+        attribute(name = "idleExpiresAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "idle_expires_at" }
+        }
+        attribute(name = "absoluteExpiresAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "absolute_expires_at" }
+        }
+    }
+
+    classOf(name = "PartgReviewerEvent") {
+        stereotype("Entity") { "tableName" to "partg_reviewer_event"; "kotlinObjectName" to "PartgReviewerEventTable" }
+        stereotype("Index") { "columns" to listOf("invitation_id", "occurred_at"); "name" to "ix_partg_reviewer_event_invitation" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "invitationId", type = "UUID") {
+            stereotype("Column") { "columnName" to "invitation_id"; "fkEntity" to "PartgReviewerInvitation" }
+        }
+        attribute(name = "kind", type = "String") {
+            stereotype("Column") { "columnName" to "kind"; "sqlType" to "VARCHAR(20)" }
+        }
+        // no foreign key on purpose: the deletion routine of old versions must never be blocked by the usage list
+        attribute(name = "versionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "version_id" }
+        }
+        attribute(name = "format", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "format"; "sqlType" to "VARCHAR(4)" }
+        }
+        attribute(name = "occurredAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "occurred_at" }
         }
     }
 }

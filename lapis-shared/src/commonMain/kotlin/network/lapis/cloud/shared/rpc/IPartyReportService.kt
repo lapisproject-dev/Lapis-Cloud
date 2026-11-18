@@ -22,6 +22,8 @@ import network.lapis.cloud.shared.domain.PartgNotesDto
 import network.lapis.cloud.shared.domain.PartgOverviewRowDto
 import network.lapis.cloud.shared.domain.PartgPositionDto
 import network.lapis.cloud.shared.domain.PartgProposalPickDto
+import network.lapis.cloud.shared.domain.PartgReviewerInvitationCreatedDto
+import network.lapis.cloud.shared.domain.PartgReviewerInvitationDto
 import network.lapis.cloud.shared.domain.PartgSaveResultDto
 import network.lapis.cloud.shared.domain.PartgSheetDto
 import network.lapis.cloud.shared.domain.PartgSponsorInputDto
@@ -346,4 +348,30 @@ interface IPartyReportService {
         expectedChecksum: String,
         picks: List<PartgDonorProposalPickDto>,
     ): PartgAnnexDto
+
+    // ---------------------------------------------------------------- R6b (V1.9.310)
+
+    /**
+     * V1.9.310 (R6b, federal gate only): invites an auditor WITHOUT an account to read the given kept whole-party versions of [year]
+     * ([versionIds]: 1 to 50, all of that year). [validityDays] is 7, 14, 30 or 90. The answer carries the link ONCE; the system sends no mail with the
+     * link, only (later, on request of the auditor) the 6-digit code to [email].
+     */
+    suspend fun createReviewerInvitation(
+        year: Int,
+        versionIds: List<String>,
+        validityDays: Int,
+        email: String,
+    ): PartgReviewerInvitationCreatedDto
+
+    /** V1.9.310 (R6b, federal gate only): the invitations of [year] with their usage list (no token, no hash). */
+    suspend fun listReviewerInvitations(year: Int): List<PartgReviewerInvitationDto>
+
+    /** V1.9.310 (R6b, federal gate only): ends an invitation at once, including running sessions. Idempotent. */
+    suspend fun revokeReviewerInvitation(invitationId: String): PartgReviewerInvitationDto
+
+    /**
+     * V1.9.310 (R6b, federal gate only): erases an E-mail address (case-insensitive) from every invitation, ends the open ones and their sessions.
+     * Returns the number of invitations touched.
+     */
+    suspend fun eraseReviewerEmail(email: String): Int
 }

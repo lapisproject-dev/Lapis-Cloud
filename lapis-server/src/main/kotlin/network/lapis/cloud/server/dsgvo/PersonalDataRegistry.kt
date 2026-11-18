@@ -172,6 +172,12 @@ object PersonalDataRegistry {
                 "Loeschung nur ueber die ADMIN-Routine nach Fristablauf (Mindestfrist 10 Jahre, beide Jahre), Auskunft " +
                 "nur ueber den Vorstand. Eine Loeschanfrage einer betroffenen Person wird mit dem Aufbewahrungsgrund " +
                 "beantwortet (Rechtsgrundlage vom Verantwortlichen zu bestaetigen). Sichtbar gemacht, nicht geschlossen.",
+            "partg_reviewer_invitation" to
+                "Welle V1.9.310 (R6b). Die E-Mail-Adresse einer Pruefperson (ein Dritter ohne Konto) steht in invitee_email, " +
+                "ohne member-FK. Sie wird 90 Tage nach dem Ende der Einladung auf NULL gesetzt (PartgReviewerRetentionPoller) " +
+                "und kann vom Vorstand sofort geloescht werden (eraseReviewerEmail, beendet auch die Sitzungen). Auskunft nur " +
+                "ueber den Vorstand; ein Selbstbedienungsweg fuer die Pruefperson ist nicht vorgesehen. Sitzung und " +
+                "Nutzungsliste enthalten nur Hashes, Ids und Zeiten, keine IP. Sichtbar gemacht, nicht geschlossen.",
             "partg_report_sponsoring_entry" to
                 "Welle V1.9.283. Einzelne Leistung eines Sponsors (Datum, Betrag, Zweck als Freitext) und damit " +
                 "personenbezogene Daten Dritter ueber den Sponsor; kein member-FK. Wird zusammen mit dem Sponsor " +
@@ -196,6 +202,7 @@ object PersonalDataRegistry {
             "partg_report_sponsor",
             "partg_report_sponsoring_entry",
             "partg_report_version",
+            "partg_reviewer_invitation",
         )
 
     /**

@@ -231,6 +231,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.BULLETIN_NOTICE -> gettext("Aushang")
         // V1.9.304 -- one entry per start and per end of a room poll; the entry never carries the question or an option text.
         AuditEntityType.CONFERENCE_ROOM_POLL -> gettext("Umfrage im Videoraum")
+        // V1.9.310 (R6b) -- invitation, code, session and reading of an auditor without an account; the entry never carries a code, a token or an address.
+        AuditEntityType.PARTG_REVIEWER_ACCESS -> gettext("Rechenschaftsbericht: Lesezugang für die Prüfung")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -386,6 +388,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.BULLETIN_NOTICE -> "secondary"
         // V1.9.304 -- a room poll is a non-binding mood picture: neutral hue.
         AuditEntityType.CONFERENCE_ROOM_POLL -> "secondary"
+        // V1.9.310 (R6b) -- access control for a reader, no money: neutral hue.
+        AuditEntityType.PARTG_REVIEWER_ACCESS -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

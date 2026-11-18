@@ -29,6 +29,10 @@ import network.lapis.cloud.server.db.generated.PartgReportValueTable
 import network.lapis.cloud.server.db.generated.PartgReportVersionCounterTable
 import network.lapis.cloud.server.db.generated.PartgReportVersionTable
 import network.lapis.cloud.server.db.generated.PartgReportYouthOrgTable
+import network.lapis.cloud.server.db.generated.PartgReviewerEventTable
+import network.lapis.cloud.server.db.generated.PartgReviewerInvitationTable
+import network.lapis.cloud.server.db.generated.PartgReviewerInvitationVersionTable
+import network.lapis.cloud.server.db.generated.PartgReviewerSessionTable
 import network.lapis.cloud.shared.domain.PartgBookkeepingMode
 import network.lapis.cloud.shared.domain.PartgContributionKind
 import network.lapis.cloud.shared.domain.PartgDeduction
@@ -57,7 +61,7 @@ class PartgReportSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("the model declares the twenty-two report entities plus the Member, RegionalChapter and LedgerAccount stubs") {
+        test("the model declares the twenty-six report entities plus the Member, RegionalChapter and LedgerAccount stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -85,6 +89,10 @@ class PartgReportSchemaDriftTest :
                     "partg_report_version",
                     "partg_report_declaration",
                     "partg_report_deadline",
+                    "partg_reviewer_invitation",
+                    "partg_reviewer_invitation_version",
+                    "partg_reviewer_session",
+                    "partg_reviewer_event",
                 )
         }
 
@@ -93,6 +101,7 @@ class PartgReportSchemaDriftTest :
             exposedColumns: List<String>,
             expectedForeignKeys: Map<String, String>,
             sqlOnlyForeignKeys: Map<String, String>,
+            primaryKey: Set<String> = setOf("id"),
         ) {
             val entity = model.entities.single { it.name == table }
             val real = transaction { introspectPartgTable(table) }
@@ -101,7 +110,7 @@ class PartgReportSchemaDriftTest :
                 withClue("column '${attr.name}' of $table") { real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
             }
             entity.attributes.map { it.name } shouldContainExactlyInAnyOrder exposedColumns
-            real.primaryKeyColumns shouldBe setOf("id")
+            real.primaryKeyColumns shouldBe primaryKey
             entity.attributes.filter { it.foreignKey != null }.associate {
                 it.name!! to model.entityNameOf(it.foreignKey!!.targetEntityId)
             } shouldBe expectedForeignKeys
@@ -326,6 +335,39 @@ class PartgReportSchemaDriftTest :
             )
             transaction { introspectPartgTable("partg_report_deadline") }.uniqueConstraints shouldContainExactlyInAnyOrder
                 listOf(setOf("fiscal_year"))
+        }
+
+        test("the four R6b reviewer tables match the migrated schema and their Exposed objects 1:1") {
+            check(
+                table = "partg_reviewer_invitation",
+                exposedColumns = PartgReviewerInvitationTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("revoked_by" to "member", "created_by" to "member"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_reviewer_invitation") }.uniqueConstraints.distinct() shouldContainExactlyInAnyOrder
+                listOf(setOf("link_token_hash"))
+            check(
+                table = "partg_reviewer_invitation_version",
+                exposedColumns = PartgReviewerInvitationVersionTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("invitation_id" to "partg_reviewer_invitation", "version_id" to "partg_report_version"),
+                sqlOnlyForeignKeys = emptyMap(),
+                primaryKey = setOf("invitation_id", "version_id"),
+            )
+            check(
+                table = "partg_reviewer_session",
+                exposedColumns = PartgReviewerSessionTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("invitation_id" to "partg_reviewer_invitation"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
+            transaction { introspectPartgTable("partg_reviewer_session") }.uniqueConstraints.distinct() shouldContainExactlyInAnyOrder
+                listOf(setOf("token_hash"))
+            // no foreign key on version_id: the deletion routine of old versions must never be blocked by the usage list
+            check(
+                table = "partg_reviewer_event",
+                exposedColumns = PartgReviewerEventTable.columns.map { it.name },
+                expectedForeignKeys = mapOf("invitation_id" to "partg_reviewer_invitation"),
+                sqlOnlyForeignKeys = emptyMap(),
+            )
         }
 
         test("the R3b person kind of the sponsor is sized by its sqlType") {

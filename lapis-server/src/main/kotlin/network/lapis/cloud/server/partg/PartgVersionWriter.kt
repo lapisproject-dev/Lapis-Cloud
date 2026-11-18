@@ -280,6 +280,8 @@ internal object PartgVersionWriter {
             val ids = candidates.map { it.id }
             if (ids.toSet() != expectedIds) throw PartyReportVersionDeletionStaleException()
             if (ids.isEmpty()) return@transaction 0
+            // V1.9.310 (R6b): lock order is the counters (above), then the auditor invitations; the public path of the auditor takes no counter lock.
+            val endedInvitations = PartgReviewerStore.detachVersions(versionIds = ids, now = now)
             PartgVersionStore.deleteVersions(ids)
             audit(
                 current = current,
@@ -291,6 +293,7 @@ internal object PartgVersionWriter {
                         olderThanYears = olderThanYears,
                         count = ids.size,
                         versionIds = ids.map { it.toString() },
+                        reviewerInvitationsEnded = endedInvitations,
                     ),
             )
             ids.size

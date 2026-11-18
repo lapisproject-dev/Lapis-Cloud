@@ -680,6 +680,14 @@ enum class AuditEntityType {
      * never a count of answers. 20 chars. Appended LAST.
      */
     CONFERENCE_ROOM_POLL,
+
+    /**
+     * Welle V1.9.310 (R6b) -- read access of an auditor WITHOUT an account to kept versions of the party report; `entityId` = the invitation.
+     * `CREATE` (invitation made), `UPDATE` (revoked, code sent, session opened, a version read or downloaded, locked), `VOID` (the board erased the
+     * address). Snapshot [PartgReviewerAuditSnapshot]: ids only -- never a code, a token, a hash, an E-mail address, an IP or content. The actor of
+     * an auditor's own action is `null`. 21 chars. Appended LAST.
+     */
+    PARTG_REVIEWER_ACCESS,
 }
 
 /** V1.9.304 -- after-snapshot of an [AuditEntityType.CONFERENCE_ROOM_POLL] entry. */

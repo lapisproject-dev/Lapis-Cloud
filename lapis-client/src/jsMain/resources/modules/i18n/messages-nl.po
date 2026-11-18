@@ -32602,3 +32602,239 @@ msgstr "Het uitbetalingsbedrag is ongeldig."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TenderErrors.kt:1
 msgid "Ausgezahlt werden kann nur LTR."
 msgstr "Alleen LTR kan worden uitbetaald."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Lesezugang für die Prüfung"
+msgstr "Leestoegang voor de controle"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Ein Prüfer ohne Konto kann ausgewählte festgehaltene Versionen der Gesamtpartei lesen, herunterladen und vergleichen. Sie geben den Link selbst weiter; das System sendet dem Prüfer nur einen Code per E-Mail. Der Zugang endet mit dem Ablauf der Einladung oder wenn Sie ihn widerrufen."
+msgstr "Een controleur zonder account kan geselecteerde vastgelegde versies van de hele partij lezen, downloaden en vergelijken. U geeft de link zelf door; het systeem stuurt de controleur alleen een code per e-mail. De toegang eindigt wanneer de uitnodiging verloopt of wanneer u hem intrekt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Prüfer einladen"
+msgstr "Controleur uitnodigen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Zum Einladen wird mindestens eine festgehaltene Version der Gesamtpartei gebraucht."
+msgstr "Om iemand uit te nodigen is minstens één vastgelegde versie van de hele partij nodig."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Noch keine Einladung."
+msgstr "Nog geen uitnodiging."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "E-Mail-Adresse gelöscht"
+msgstr "E-mailadres verwijderd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Gültig bis %1"
+msgstr "Geldig tot %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Zuletzt genutzt: %1"
+msgstr "Laatst gebruikt: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Zugang widerrufen?"
+msgstr "Toegang intrekken?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Der Zugang endet sofort, auch laufende Sitzungen."
+msgstr "De toegang eindigt direct, ook lopende sessies."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Neue Einladung aus dieser"
+msgstr "Nieuwe uitnodiging op basis van deze"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Ereignisse (%1)"
+msgstr "Gebeurtenissen (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Keine Ereignisse."
+msgstr "Geen gebeurtenissen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Der Prüfer bekommt Lesezugang zu den gewählten Versionen. Das System sendet keine E-Mail mit dem Link, sondern später nur einen Code, den der Prüfer anfordert."
+msgstr "De controleur krijgt leestoegang tot de gekozen versies. Het systeem stuurt geen e-mail met de link, maar later alleen een code die de controleur opvraagt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "E-Mail-Adresse des Prüfers"
+msgstr "E-mailadres van de controleur"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Berichtsjahr: %1"
+msgstr "Verslagjaar: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Version %1, festgehalten am %2"
+msgstr "Versie %1, vastgelegd op %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Gültigkeit"
+msgstr "Geldigheid"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Link für den Prüfer"
+msgstr "Link voor de controleur"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Einladung erstellen"
+msgstr "Uitnodiging maken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Der Link wird nur jetzt angezeigt. Bitte geben Sie ihn dem Prüfer selbst weiter."
+msgstr "De link wordt alleen nu getoond. Geef hem zelf door aan de controleur."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Link kopiert."
+msgstr "Link gekopieerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Bitte markieren Sie den Link und kopieren Sie ihn selbst."
+msgstr "Selecteer de link en kopieer hem zelf."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Bitte geben Sie eine gültige E-Mail-Adresse ein."
+msgstr "Voer een geldig e-mailadres in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Bitte wählen Sie mindestens eine Version aus."
+msgstr "Kies minstens één versie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Gültig"
+msgstr "Geldig"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "JSON"
+msgstr "JSON"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Einladung angelegt"
+msgstr "Uitnodiging aangemaakt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Einladung beendet"
+msgstr "Uitnodiging beëindigd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Code gesendet"
+msgstr "Code verzonden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Falscher Code eingegeben"
+msgstr "Verkeerde code ingevoerd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Einladung gesperrt (zu viele falsche Codes)"
+msgstr "Uitnodiging geblokkeerd (te veel verkeerde codes)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Datei geladen (%1)"
+msgstr "Bestand gedownload (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Version %1 geladen (%2)"
+msgstr "Versie %1 gedownload (%2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Version angesehen"
+msgstr "Versie bekeken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Version %1 angesehen"
+msgstr "Versie %1 bekeken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Vergleich angesehen"
+msgstr "Vergelijking bekeken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Keine Version mehr"
+msgstr "Geen versie meer"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Bitte öffnen Sie den Link aus Ihrer Einladung."
+msgstr "Open de link uit uw uitnodiging."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Lesezugang für die Prüfung · Rechenschaftsbericht %1 · gültig bis %2"
+msgstr "Leestoegang voor de controle · Verantwoordingsverslag %1 · geldig tot %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Sie wurden abgemeldet. Zum erneuten Anmelden öffnen Sie bitte den Link aus Ihrer Einladung."
+msgstr "U bent afgemeld. Open om opnieuw in te loggen de link uit uw uitnodiging."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Sie wurden eingeladen, Versionen des Rechenschaftsberichts zu lesen. Fordern Sie einen Code an: Er wird an die E-Mail-Adresse gesendet, an die die Einladung gerichtet ist."
+msgstr "U bent uitgenodigd om versies van het verantwoordingsverslag te lezen. Vraag een code aan: die wordt gestuurd naar het e-mailadres waaraan de uitnodiging was gericht."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Code per E-Mail senden"
+msgstr "Code per e-mail versturen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Zu viele Anfragen. Bitte versuchen Sie es später erneut."
+msgstr "Te veel verzoeken. Probeer het later opnieuw."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Falls die Einladung gültig ist, wurde ein Code per E-Mail gesendet."
+msgstr "Als de uitnodiging geldig is, is er een code per e-mail verzonden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Code aus der E-Mail"
+msgstr "Code uit de e-mail"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Code ungültig oder abgelaufen."
+msgstr "Code ongeldig of verlopen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Zu viele Versuche. Bitte warten Sie einen Moment."
+msgstr "Te veel pogingen. Wacht even."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Sitzung beendet. Bitte öffnen Sie den Link erneut."
+msgstr "Sessie beëindigd. Open de link opnieuw."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Die Versionen konnten nicht geladen werden. Bitte laden Sie die Seite neu."
+msgstr "De versies konden niet worden geladen. Laad de pagina opnieuw."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Zu dieser Einladung gehört keine Version mehr."
+msgstr "Bij deze uitnodiging hoort geen versie meer."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Festgehalten am %1"
+msgstr "Vastgelegd op %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Prüfsumme: %1 …"
+msgstr "Controlesom: %1 …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Prüfsumme vollständig anzeigen"
+msgstr "Volledige controlesom tonen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Zum Vergleichen werden mindestens zwei Versionen gebraucht."
+msgstr "Om te vergelijken zijn minstens twee versies nodig."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Der Vergleich konnte nicht geladen werden."
+msgstr "De vergelijking kon niet worden geladen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Sitzung geöffnet"
+msgstr "Sessie geopend"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReviewerApp.kt:1
+msgid "Sitzung beendet"
+msgstr "Sessie beëindigd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Rechenschaftsbericht: Lesezugang für die Prüfung"
+msgstr "Verantwoordingsverslag: leestoegang voor de controle"

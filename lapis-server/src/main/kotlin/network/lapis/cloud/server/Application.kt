@@ -184,10 +184,12 @@ import network.lapis.cloud.server.mail.KeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailBudgetConfig
 import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.MailTemplates
 import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.mail.MembershipDecisionMailer
 import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.NoOpMembershipDecisionMailer
+import network.lapis.cloud.server.mail.PARTG_REVIEWER_CODE_PURPOSE
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpAdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.SmtpArticleReviewNotificationMailer
@@ -237,6 +239,8 @@ import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningPoller
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningService
 import network.lapis.cloud.server.partg.PartgImportPreviewStore
+import network.lapis.cloud.server.partg.PartgReviewerAccess
+import network.lapis.cloud.server.partg.PartgReviewerRetentionPoller
 import network.lapis.cloud.server.partner.PartnerFeedPoller
 import network.lapis.cloud.server.partner.registerPartnerFeedRoutes
 import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
@@ -258,6 +262,7 @@ import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
 import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
+import network.lapis.cloud.server.routes.PartgReviewerRateLimits
 import network.lapis.cloud.server.routes.PublicNavAvailabilityProvider
 import network.lapis.cloud.server.routes.installArticleImportImagesBodyLimit
 import network.lapis.cloud.server.routes.mobileWebviewBridgeEnabled
@@ -302,6 +307,7 @@ import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
 import network.lapis.cloud.server.routes.registerPartgReportExportRoutes
 import network.lapis.cloud.server.routes.registerPartgReportRoutes
+import network.lapis.cloud.server.routes.registerPartgReviewerRoutes
 import network.lapis.cloud.server.routes.registerPauseMediaRoutes
 import network.lapis.cloud.server.routes.registerPaypalWebhookRoutes
 import network.lapis.cloud.server.routes.registerPrivilegedActionRoutes
@@ -2057,6 +2063,25 @@ internal fun Application.module(
     // V1.9.291 party report R6: keeping a version 10 per member and minute (it builds the whole report), reading the version list / comparing 60.
     val partgReportFreezeRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val partgReportVersionReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+    // V1.9.310 party report R6b: the auditor's read access (no account). The limits, the code mail and the daily retention (sessions, addresses).
+    val partgReviewerRateLimits = PartgReviewerRateLimits()
+    val partgReviewerAccess =
+        PartgReviewerAccess(
+            sendCode = { email, code ->
+                val mail = MailTemplates.partgReviewerCode(code = code, branding = mailBranding)
+                mailDispatcher.enqueue(
+                    to = email,
+                    subject = mail.subject,
+                    plainTextBody = mail.plainText,
+                    htmlBody = mail.html,
+                    purpose = PARTG_REVIEWER_CODE_PURPOSE,
+                    logRecipient = false,
+                )
+            },
+        )
+    val partgReviewerRetentionPoller = PartgReviewerRetentionPoller()
+    partgReviewerRetentionPoller.start()
+    monitor.subscribe(ApplicationStopping) { partgReviewerRetentionPoller.stop() }
     val attachedImageListRateLimiter = FederationInboxRateLimiter(maxRequests = 600, window = 60.minutes)
     val attachedImageReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
 
@@ -3234,6 +3259,8 @@ internal fun Application.module(
         registerPartgReportRoutes(previewStore = partgImportPreviewStore, rateLimiter = partgReportImportRateLimiter)
         // V1.9.256: the report draft as PDF / XLSX.
         registerPartgReportExportRoutes(rateLimiter = partgReportExportRateLimiter, concurrency = partgReportExportConcurrency)
+        // V1.9.310 (R6b): the auditor's read access, below /api/pruefung (own cookie, no member session).
+        registerPartgReviewerRoutes(limits = partgReviewerRateLimits, access = partgReviewerAccess, cookieSecure = cookieSecure)
         registerDunningRoutes(storageRoot = documentStorageRoot, previewRateLimiter = dunningPreviewRateLimiter)
         // Welle V1.4.5.2 "DATEV-Format-Export".
         registerDatevRoutes(exportRateLimiter = datevExportRateLimiter)
@@ -3598,6 +3625,13 @@ internal fun Application.module(
         get("/app") { serveIndexHtml(call = call, shell = clientShell) }
         get("/app/") { call.respondPublicCanonicalRedirect(canonicalUrl = "${FederationConfig.publicBaseUrl.trimEnd('/')}/app") }
         get("/index.html") { serveIndexHtml(call = call, shell = clientShell) }
+        // V1.9.310 (R6b): the auditor's page. The SPA shell, entered by its own app (the link carries a token in the FRAGMENT, which the browser never
+        // sends). "no-referrer" so nothing leaves the page; "/pruefung/" 308s to "/pruefung" like "/app/" (the bundle URL is relative).
+        get("/pruefung") {
+            call.response.header("Referrer-Policy", "no-referrer")
+            serveIndexHtml(call = call, shell = clientShell)
+        }
+        get("/pruefung/") { call.respondPublicCanonicalRedirect(canonicalUrl = "${FederationConfig.publicBaseUrl.trimEnd('/')}/pruefung") }
         registerBrandingLogoRoutes(branding = resolvedBranding)
         // V1.4.20 client-version hint -- literal route, wins over the staticFiles catch-all below.
         registerClientVersionRoutes(rateLimiter = clientVersionRateLimiter, buildIdProvider = { clientShell.buildId })

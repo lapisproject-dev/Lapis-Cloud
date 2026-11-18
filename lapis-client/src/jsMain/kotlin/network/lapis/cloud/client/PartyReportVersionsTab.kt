@@ -97,6 +97,7 @@ private fun SimplePanel.renderVersionsBody(
     }
     renderVersionCards(overview = overview, units = loaded.units, onChanged = changed)
     renderVersionCompare(versions = overview.versions, units = loaded.units)
+    renderReviewerAccess(context = context, versions = overview.versions)
     if (AppState.session?.role == AccountRole.ADMIN) renderDeletionBlock(onChanged = changed)
 }
 
