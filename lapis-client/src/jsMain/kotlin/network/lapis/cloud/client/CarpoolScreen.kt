@@ -223,6 +223,7 @@ private fun renderCarpoolCard(
     val title = headerRow.untrustedCardTitle(gettext("%1 → %2", from, to))
     title.setAttribute("title", resolvedAttributeText(sanitizeUntrustedI18nText("${posting.fromPlace} → ${posting.toPlace}")))
     if (posting.isOwn) headerRow.typeBadge(tr("Eigener Eintrag"), "secondary")
+    if (posting.isOwn && posting.federationOptIn) headerRow.typeBadge(carpoolFederationBadgeText(), "info")
     if (posting.isPast) headerRow.statusBadge(tr("Abgelaufen"), "secondary")
     posting.myParticipation?.let { mine ->
         headerRow.carpoolStatusBadge(carpoolBadgeSpec(mine.status, mine.initiator, viewerIsDriver = false))
@@ -439,6 +440,23 @@ private fun buildCarpoolForm(
     syncSeatsVisibility()
     typeField.subscribe { syncSeatsVisibility() }
 
+    // V1.9.311: the consent box (only for an OFFER while the exchange is on). Always starts unticked for a new and a duplicated trip.
+    val federation =
+        CarpoolFederationOptIn(
+            form = form,
+            initial = CarpoolFederationUiLogic.initialOptIn(prefill),
+            currentType = { typeField.value?.let { runCatching { CarpoolPostingType.valueOf(it) }.getOrNull() } },
+            from = { fromField.value },
+            to = { toField.value },
+            date = { dateField.localDateOrNull() },
+        )
+    typeField.subscribe { federation.sync() }
+    fromField.subscribe { federation.sync() }
+    toField.subscribe { federation.sync() }
+    dateField.subscribe { federation.sync() }
+    // The read lives here (a file with a state block), not in the UI helper: members cannot call the admin service.
+    federation.load { rpcService<ICarpoolService>().getCarpoolFederationAvailability().enabled }
+
     val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     val cancelButton = collapseCancelButton(close)
     form.buttons(primary = saveButton, cancel = cancelButton)
@@ -473,6 +491,23 @@ private fun buildCarpoolForm(
                     }
                 }
             if (result != null) {
+                // V1.9.311: the consent is a separate call, made only when it changed. If it fails the trip stays saved and NOT shared.
+                if (CarpoolFederationUiLogic.mustCallSetOptIn(
+                        initial = CarpoolFederationUiLogic.initialOptIn(prefill),
+                        wanted = federation.wanted,
+                    )
+                ) {
+                    val shared =
+                        guarded {
+                            rpcService<ICarpoolService>().setCarpoolPostingFederationOptIn(
+                                postingId = result.id,
+                                optIn = federation.wanted,
+                            )
+                        }
+                    if (shared == null) {
+                        notifyError(tr("Die Fahrt wurde gespeichert, aber nicht für Partner freigegeben. Bitte versuchen Sie es erneut."))
+                    }
+                }
                 notifySuccess(if (editing != null) tr("Eintrag wurde aktualisiert.") else tr("Eintrag wurde erstellt."))
                 close(true)
                 onSaved()

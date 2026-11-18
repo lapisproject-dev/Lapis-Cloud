@@ -123,6 +123,8 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.9.245 -- hand-edited (V132). Written ONLY by PartnerDiscoveryStore; NOT part of the generic update write-set.
     public val partnerRecursionEnabled: Column<Boolean> = bool("partner_recursion_enabled").default(true)
     public val partnerRecursionDepth: Column<Short> = short("partner_recursion_depth").default(2.toShort())
+    public val carpoolFederationEnabled: Column<Boolean> = bool("carpool_federation_enabled").default(false)
+    public val carpoolFederationHopLimit: Column<Short> = short("carpool_federation_hop_limit").default(2.toShort())
     public val partnerRecursionLastRunAt: Column<LocalDateTime?> = datetime("partner_recursion_last_run_at").nullable()
     public val partnerRecursionLastSummary: Column<String?> = varchar("partner_recursion_last_summary", 2000).nullable()
     // Welle V1.9.246 -- hand-edited (V133). Written ONLY by ActivismStore; NOT part of the generic update write-set.

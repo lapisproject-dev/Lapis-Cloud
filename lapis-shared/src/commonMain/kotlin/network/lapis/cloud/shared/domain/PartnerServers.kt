@@ -66,6 +66,8 @@ data class PartnerServerDto(
     /** V1.9.245: servers / events reached THROUGH this partner (the "Ueber diesen Partner" line). */
     val discoveredServerCount: Int = 0,
     val discoveredEventCount: Int = 0,
+    /** V1.9.311: this direct partner may exchange carpool hints with this server (default off). */
+    val carpoolSharing: Boolean = false,
 )
 
 @Serializable
@@ -112,6 +114,13 @@ enum class PartnerAuditKind {
     RECURSION_ENABLED,
     RECURSION_DISABLED,
     RECURSION_DEPTH_CHANGED,
+
+    /** V1.9.311: carpool exchange switched on/off for the instance; the hop limit changed (subject = the number); a partner may / may not get trips (subject = host). */
+    CARPOOL_EXCHANGE_ENABLED,
+    CARPOOL_EXCHANGE_DISABLED,
+    CARPOOL_HOP_LIMIT_CHANGED,
+    PARTNER_CARPOOL_SHARING_ON,
+    PARTNER_CARPOOL_SHARING_OFF,
 }
 
 /** After-snapshot: a host or pattern (the admin's own input, normalised) and the kind. Never a name from a foreign feed. */

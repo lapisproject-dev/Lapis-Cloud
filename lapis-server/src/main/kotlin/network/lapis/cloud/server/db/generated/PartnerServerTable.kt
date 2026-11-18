@@ -16,6 +16,7 @@ public object PartnerServerTable : Table("partner_server") {
     public val remoteServerId: Column<Uuid?> = uuid("remote_server_id").nullable()
     public val remoteName: Column<String?> = varchar("remote_name", 100).nullable()
     public val active: Column<Boolean> = bool("active").default(true)
+    public val carpoolSharing: Column<Boolean> = bool("carpool_sharing").default(false)
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val lastFetchAt: Column<LocalDateTime?> = datetime("last_fetch_at").nullable()
     public val lastStatus: Column<PartnerFetchStatus> = enumerationByName<PartnerFetchStatus>("last_status", 5).default(PartnerFetchStatus.NEVER)

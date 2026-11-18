@@ -29,6 +29,7 @@ public object CarpoolPostingTable : Table("carpool_posting") {
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val updatedAt: Column<LocalDateTime> = datetime("updated_at")
     public val meetingNote: Column<String?> = varchar("meeting_note", 200).nullable()
+    public val federationOptIn: Column<Boolean> = bool("federation_opt_in").default(false)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

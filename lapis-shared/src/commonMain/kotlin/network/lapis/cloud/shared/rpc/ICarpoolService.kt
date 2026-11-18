@@ -2,6 +2,7 @@ package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.CarpoolFederationAvailabilityDto
 import network.lapis.cloud.shared.domain.CarpoolInviteeCandidateDto
 import network.lapis.cloud.shared.domain.CarpoolMessagePageDto
 import network.lapis.cloud.shared.domain.CarpoolMyParticipationDto
@@ -114,4 +115,19 @@ interface ICarpoolService {
 
     /** Same access: closes the history for both sides (idempotent). The messages stay readable until they are deleted. */
     suspend fun endCarpoolThread(participationId: String): CarpoolMessagePageDto
+
+    // ---- V1.9.311 "Mitfahrzentrale-Foederation" W1: appended at the END. ----
+
+    /** ACTIVE: is the carpool exchange switched on for this server? (Members cannot call the admin service.) */
+    suspend fun getCarpoolFederationAvailability(): CarpoolFederationAvailabilityDto
+
+    /**
+     * ACTIVE, author of an OFFER only (a foreign trip is the constant not-found answer, also for an admin): gives or withdraws the consent to pass a
+     * short hint to partner organisations. `true` needs the exchange switched on and a postcode on both places, otherwise a conflict; `false` is
+     * always allowed. Unchanged = no write and no audit.
+     */
+    suspend fun setCarpoolPostingFederationOptIn(
+        postingId: String,
+        optIn: Boolean,
+    ): CarpoolPostingDto
 }

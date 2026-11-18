@@ -4,6 +4,7 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.partner.BlockRow
@@ -25,6 +26,8 @@ import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.CarpoolFederationLimits
+import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerAuditKind
 import network.lapis.cloud.shared.domain.PartnerAuditSnapshot
@@ -361,6 +364,77 @@ internal class PartnerServerService(
         }
     }
 
+    // ---- V1.9.311 "Mitfahrzentrale-Foederation" W1: switches only, nothing is transferred. ----
+
+    override suspend fun getCarpoolFederationSettings(): CarpoolFederationSettingsDto {
+        resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
+        return transaction {
+            val s = CarpoolFederationStore.settings()
+            CarpoolFederationSettingsDto(enabled = s.enabled, hopLimit = s.hopLimit)
+        }
+    }
+
+    override suspend fun setCarpoolFederationSettings(
+        enabled: Boolean,
+        hopLimit: Int,
+    ) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        if (hopLimit !in CarpoolFederationLimits.MIN_HOPS..CarpoolFederationLimits.MAX_HOPS) throw BadRequestException("Invalid hop limit")
+        val now = clock()
+        transaction {
+            val before = CarpoolFederationStore.setSettings(enabled = enabled, hopLimit = hopLimit)
+            if (before.enabled != enabled) {
+                val kind = if (enabled) PartnerAuditKind.CARPOOL_EXCHANGE_ENABLED else PartnerAuditKind.CARPOOL_EXCHANGE_DISABLED
+                audit(
+                    actor = current,
+                    entityType = AuditEntityType.PARTNER_SERVER,
+                    entityId = ORGANIZATION_SETTINGS_ID,
+                    action = AuditAction.UPDATE,
+                    kind = kind,
+                    subject = null,
+                    now = now,
+                )
+            }
+            if (before.hopLimit != hopLimit) {
+                audit(
+                    actor = current,
+                    entityType = AuditEntityType.PARTNER_SERVER,
+                    entityId = ORGANIZATION_SETTINGS_ID,
+                    action = AuditAction.UPDATE,
+                    kind = PartnerAuditKind.CARPOOL_HOP_LIMIT_CHANGED,
+                    subject = hopLimit.toString(),
+                    now = now,
+                )
+            }
+        }
+    }
+
+    override suspend fun setPartnerCarpoolSharing(
+        partnerId: String,
+        enabled: Boolean,
+    ) {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val uuid = runCatching { Uuid.parse(partnerId) }.getOrElse { throw NotFoundException("Partner not found") }
+        val now = clock()
+        transaction {
+            val row = PartnerServerStore.setCarpoolSharing(id = uuid, enabled = enabled) ?: throw NotFoundException("Partner not found")
+            if (row.carpoolSharing != enabled) {
+                val kind = if (enabled) PartnerAuditKind.PARTNER_CARPOOL_SHARING_ON else PartnerAuditKind.PARTNER_CARPOOL_SHARING_OFF
+                audit(
+                    actor = current,
+                    entityType = AuditEntityType.PARTNER_SERVER,
+                    entityId = uuid,
+                    action = AuditAction.UPDATE,
+                    kind = kind,
+                    subject = row.host,
+                    now = now,
+                )
+            }
+        }
+    }
+
     private fun overviewInTx(): PartnerServerOverviewDto {
         val blocks = PartnerServerStore.listBlocklist()
         val patterns = blocks.map { it.pattern }
@@ -421,4 +495,5 @@ private fun PartnerRow.toDto(blocked: Boolean) =
         consecutiveFailures = consecutiveFailures,
         eventCount = if (blocked) 0 else eventCount,
         lastError = lastError?.let { code -> PartnerFetchErrorCode.entries.firstOrNull { it.name == code } },
+        carpoolSharing = carpoolSharing,
     )

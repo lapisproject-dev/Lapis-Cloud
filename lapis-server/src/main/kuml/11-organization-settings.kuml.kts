@@ -612,6 +612,16 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "2"
             stereotype("Column") { "columnName" to "partner_recursion_depth"; "sqlType" to "SMALLINT" }
         }
+        // V1.9.311 "Mitfahrzentrale-Foederation" W1 (V159): instance switch (default FALSE) and hop limit (1..3, default 2). NOT part of the generic
+        // update write set and NOT in OrganizationSettingsDto/Input; written ONLY by CarpoolFederationStore (via IPartnerServerService).
+        attribute(name = "carpoolFederationEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "carpool_federation_enabled" }
+        }
+        attribute(name = "carpoolFederationHopLimit", type = "Int") {
+            defaultValue = "2"
+            stereotype("Column") { "columnName" to "carpool_federation_hop_limit"; "sqlType" to "SMALLINT" }
+        }
         attribute(name = "partnerRecursionLastRunAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "partner_recursion_last_run_at" }

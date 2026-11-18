@@ -56,6 +56,7 @@ object CarpoolPersonalData : MemberPersonalDataContributor {
                                 put("seatsOffered", row[CarpoolPostingTable.seatsOffered])
                                 put("notes", row[CarpoolPostingTable.notes])
                                 put("meetingNote", row[CarpoolPostingTable.meetingNote])
+                                put("federationOptIn", row[CarpoolPostingTable.federationOptIn])
                                 put(
                                     "participantCount",
                                     CarpoolParticipationTable

@@ -6,6 +6,21 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+Wave V1.9.311 "Mitfahrzentrale-Föderation, Fundament" (carpool exchange between partner servers, wave 1 of 7: switches only), schema `V158` -> `V159` (one additive migration). Not released yet: no version bump in this wave. **Nothing is transferred to another server; this wave stores switches and a consent.**
+
+**Behaviour first:**
+
+1. **New section "Mitfahrzentrale-Austausch" on the partner page (administrators only).** A switch "Fahrtangebote mit freigegebenen Partnern austauschen" (off by default), the reach 1, 2 or 3 levels (default 2; a value outside 1..3 is refused, never clamped) and the line "Der Austausch wird schrittweise eingeführt. Derzeit werden noch keine Fahrten übertragen.". Each direct partner gets the box "Fahrten teilen" (off by default, shown only while the switch is on). Every real change is audited.
+2. **New box in the form of an offer.** "Diese Fahrt als Kurzhinweis an Partnerorganisationen weitergeben": unticked by default, always unticked for a new or duplicated trip, a live preview shows exactly what a partner would see (the day and the first two digits of the postcodes, "PLZ-Gebiet 38 → PLZ-Gebiet 30"). A trip without a postcode on start and destination cannot be shared; the box can then only be unticked. The consent can be withdrawn at any time, also with the exchange switched off. A trip that becomes a request loses the consent. The own card shows "Für Partner freigegeben".
+3. **Consent is recorded.** New audit entity `CARPOOL_FEDERATION_OPT_IN` (trip id and new state only, no place or date), which serves as the proof of consent. The data export of a member lists `federationOptIn` per trip.
+4. **Backups made before `V159` are refused on restore** (schema checksum), as after every schema change.
+
+**Technique:** `V159` (additive, repeatable, no backfill): `carpool_posting.federation_opt_in`, `organization_settings.carpool_federation_enabled` / `carpool_federation_hop_limit` (CHECK 1..3), `partner_server.carpool_sharing`, audit CHECK widened by the new literal (V158's list copied verbatim). kUML models and Exposed tables updated together. `CarpoolFederationStore` is the only reader and writer of the switches and the consent. `lapis-shared`: `CarpoolTeaser` (four fields, validated), `extractPostcodeArea` (first run of exactly five ASCII digits in 01001..99998, no lookbehind, same on JVM and JS), the single projection `projectCarpoolTeaser`, `isCarpoolTeaserEligible`. Five RPC methods appended at the END of `IPartnerServerService` (three, ADMIN only) and `ICarpoolService` (two, ACTIVE only). Design note `docs/architecture/carpool-federation.adoc` (waves 2 to 7).
+
+**Tests:** shared `CarpoolTeaserTripwireTest`, `ExtractPostcodeAreaTest`, `CarpoolEligibilityTest` (JVM and JS); server `CarpoolFederationScenarios` (H2 and PostgreSQL: consent, audit, authorisation, visibility, reset on type change, marker-leak check of the projection), `CarpoolFederationMigrationScenarios` (H2 and PostgreSQL: defaults of rows without the new columns, CHECK, audit literal, second run), `CarpoolFederationAdminTest`, `CarpoolFederationTripwireTest` (single writer, no carpool in any feed, wire types, single projection, no HTTP client), the pinned RPC surfaces (partner service 14, carpool service 21), i18n guard `CarpoolFederationI18nCatalogTest`, client `CarpoolFederationUiLogicTest` and the partner page DOM tests.
+
+**Not verified:** no legal review; **joint controllership between servers (Art. 26 GDPR) is open** and there is no agreement template; nothing is federated yet (switches only). Translations are model-written; the new UI was not tried on a phone or with a screen reader.
+
 Wave V1.9.310 "Lesezugang für die Prüfung" (R6b: read access for the auditor to kept versions of the party report), schema `V157` -> `V158` (one additive migration). Not released yet: no version bump in this wave.
 
 **Behaviour first:**

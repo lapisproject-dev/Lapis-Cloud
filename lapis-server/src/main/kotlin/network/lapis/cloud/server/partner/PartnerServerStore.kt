@@ -46,6 +46,8 @@ internal data class PartnerRow(
     val consecutiveFailures: Int,
     val nextFetchAt: LocalDateTime,
     val etag: String?,
+    /** V1.9.311: this direct partner may exchange carpool hints with this server. */
+    val carpoolSharing: Boolean = false,
 )
 
 internal data class BlockRow(
@@ -127,6 +129,7 @@ internal object PartnerServerStore {
             consecutiveFailures = this[PartnerServerTable.consecutiveFailures],
             nextFetchAt = this[PartnerServerTable.nextFetchAt],
             etag = this[PartnerServerTable.etag],
+            carpoolSharing = this[PartnerServerTable.carpoolSharing],
         )
 
     /** Ordered by host IN KOTLIN: the database collation decides how `-` and `.` sort (PostgreSQL ignores punctuation at first level, H2 does not). */
@@ -384,6 +387,18 @@ internal object PartnerServerStore {
             it[PartnerServerTable.active] = active
             // Switching on makes the partner due right away (the next tick), switching off keeps the cache until it expires.
             if (active) it[nextFetchAt] = now
+        }
+        return row
+    }
+
+    /** V1.9.311: sets the carpool-exchange flag of a DIRECT partner. Returns the row as it was BEFORE (null = no such partner). */
+    fun setCarpoolSharing(
+        id: Uuid,
+        enabled: Boolean,
+    ): PartnerRow? {
+        val row = lockPartner(id) ?: return null
+        if (row.carpoolSharing != enabled) {
+            PartnerServerTable.update({ PartnerServerTable.id eq id }) { it[carpoolSharing] = enabled }
         }
         return row
     }

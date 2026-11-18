@@ -88,6 +88,10 @@ The home-server form of the guest sign-in (`/federation/oidc/rp/login`) lists th
 * Event texts are in the partner's language. The repeat sentence comes as the partner wrote it.
 * **Not verified:** a fetch against a real second or third server over the internet -- all tests run on a simulated network of several servers. PostgreSQL behaviour is covered by the `postgresTest` lane.
 
+== Carpool exchange (V1.9.311, wave 1 of 7)
+
+The page also holds the section "Mitfahrzentrale-Austausch": a switch (off by default), the reach (1 to 3 levels, default 2) and, per direct partner, the box "Fahrten teilen" (off by default, offered only while the switch is on). **Nothing is transferred yet**; wave 1 stores the switches. The reach of this exchange (how far a hint is passed on) is independent of the depth of the partner recursion above (how far partner lists are read). See link:../architecture/carpool-federation.adoc[the design note].
+
 == Outlook
 
 Merging an event that two partners announce is not needed so far: an event (announced server id plus event id) is stored once, whichever path reaches it first. Further extensions need their own review.

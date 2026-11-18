@@ -620,3 +620,12 @@ Föderierter, öffentlicher Veranstaltungs-Feed zwischen direkt verbundenen Lapi
 - **V148 darf bis zum Release noch an Ort und Stelle korrigiert werden**; danach nur neue Migrationen.
 
 - **Member title (V151):** title and name are composed only in `MemberNames.withTitle`; `member.display_name` is never recomposed from `member.title` (tripwire: `MemberTitleTripwireTest`). Never assign `display_name` from a title expression.
+
+## Mitfahrzentrale-Föderation (V1.9.311)
+
+- **Nur `CarpoolFederationStore`** liest und schreibt `organization_settings.carpool_federation_*` und `carpool_posting.federation_opt_in` (Tripwire `CarpoolFederationTripwireTest`). Das Partner-Flag `partner_server.carpool_sharing` schreibt nur `PartnerServerStore.setCarpoolSharing`.
+- **Eine einzige Projektion** `projectCarpoolTeaser` in `lapis-shared` baut den Kurzhinweis (nur Datum und zwei PLZ-Ziffern je Ort). Client-Vorschau und Feed rufen dieselbe Funktion auf; im Client nur in `CarpoolFederationUi.kt`.
+- Der Kurzhinweis steht **nie** im öffentlichen Partner-Feed oder in einem Embed-Feed.
+- Neue RPC-Methoden nur **am Ende** von `ICarpoolService` und `IPartnerServerService` (Kilua nummeriert nach Reihenfolge).
+- Die Einwilligung wird **nur** über `setCarpoolPostingFederationOptIn` gesetzt, nie über `CarpoolPostingInput`; ein Duplikat startet ohne Einwilligung, ein Wechsel zu `REQUEST` setzt sie zurück.
+- `V159` darf bis zum Release auf dem Feature-Branch korrigiert werden, danach nur über eine neue Migration. Welle 1 überträgt nichts; Design: `docs/architecture/carpool-federation.adoc`.

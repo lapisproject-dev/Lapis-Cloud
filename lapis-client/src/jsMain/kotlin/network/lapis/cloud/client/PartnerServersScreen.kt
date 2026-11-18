@@ -16,6 +16,7 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
+import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerBlockDto
 import network.lapis.cloud.shared.domain.PartnerRecursionSettingsDto
@@ -48,7 +49,12 @@ fun renderPartnerServersScreen(container: SimplePanel) {
                 val overview = guarded { service.list() }
                 val recursion = overview?.let { guarded { service.getPartnerRecursionSettings() } }
                 val discovered = recursion?.let { guarded { service.listDiscoveredPartnerServers() } }
-                if (overview != null && recursion != null && discovered != null) PartnerPageData(overview, recursion, discovered) else null
+                val carpool = discovered?.let { guarded { service.getCarpoolFederationSettings() } }
+                if (overview != null && recursion != null && discovered != null && carpool != null) {
+                    PartnerPageData(overview, recursion, discovered, carpool)
+                } else {
+                    null
+                }
             },
             render = { panel, page ->
                 renderPartnerServers(panel, page, savedMessage, onSaved = { savedMessage = it }) { data.reload() }
@@ -62,6 +68,7 @@ private data class PartnerPageData(
     val overview: PartnerServerOverviewDto,
     val recursion: PartnerRecursionSettingsDto,
     val discovered: List<DiscoveredPartnerServerDto>,
+    val carpool: CarpoolFederationSettingsDto,
 )
 
 private fun renderPartnerServers(
@@ -72,16 +79,76 @@ private fun renderPartnerServers(
     reload: () -> Unit,
 ) {
     val overview = page.overview
+    renderCarpoolExchange(panel, page.carpool, reload)
     renderAddForm(panel, savedMessage, onSaved, reload)
     panel.h2(tr("Eingetragene Partner")) { addCssClasses("h5 mt-3") }
     if (overview.partners.isEmpty()) {
         panel.p(tr("Noch kein Partner eingetragen.")) { addCssClasses("text-muted") }
     }
     val list = panel.div { setAttribute("role", "list") }
-    overview.partners.forEach { renderPartnerRow(list, it, reload) }
+    overview.partners.forEach { renderPartnerRow(list, it, page.carpool.enabled, reload) }
     renderHiddenSwitch(panel, overview.partnerListHidden, reload)
     renderRecursion(panel, page.recursion, page.discovered, reload)
     renderBlocklist(panel, overview.blocklist, reload)
+}
+
+/** The ehrlichkeitssatz of wave 1: the switches work, but nothing is transferred yet. Remove in the wave with the first real data flow. */
+private const val CARPOOL_EXCHANGE_NOT_YET_NOTE =
+    "Der Austausch wird schrittweise eingeführt. " + "Derzeit werden noch keine Fahrten übertragen."
+
+private const val CARPOOL_EXCHANGE_INFO =
+    "Mitglieder entscheiden für jede Fahrt selbst, ob ein Kurzhinweis an freigegebene Partner geht: " +
+        "das Datum und die ersten zwei Ziffern der Postleitzahlen von Start und Ziel. " +
+        "Namen, Orte, Uhrzeiten und Notizen werden nie weitergegeben."
+
+/** "Mitfahrzentrale-Austausch": the instance switch and the reach. The partners themselves are switched in their rows below. */
+private fun renderCarpoolExchange(
+    panel: SimplePanel,
+    settings: CarpoolFederationSettingsDto,
+    reload: () -> Unit,
+) {
+    panel.h2(tr("Mitfahrzentrale-Austausch")) { addCssClasses("h5 mt-1") }
+    val box = panel.vPanel(spacing = 2)
+    val toggle = box.checkBox(value = settings.enabled, label = tr("Fahrtangebote mit freigegebenen Partnern austauschen"))
+    box.div(
+        tr(CARPOOL_EXCHANGE_INFO),
+        className = "text-muted small",
+    )
+    // The reach is offered only while the exchange is on (after the switch the page reloads and shows it).
+    val reach =
+        if (PartnerServersLogic.hopSelectVisible(settings.enabled)) {
+            box.select(
+                options =
+                    listOf(
+                        "1" to tr("Nur direkte Partner"),
+                        "2" to tr("Auch Partner unserer Partner"),
+                        "3" to tr("Eine Stufe weiter"),
+                    ),
+                value = PartnerServersLogic.hopSelection(settings.hopLimit).toString(),
+                label = tr("Reichweite"),
+            )
+        } else {
+            null
+        }
+
+    fun save() {
+        toggle.disabled = true
+        reach?.disabled = true
+        val wantedReach = reach?.value?.toIntOrNull() ?: settings.hopLimit
+        runGuardedAction(button = null) {
+            guarded {
+                rpcService<IPartnerServerService>().setCarpoolFederationSettings(
+                    enabled = toggle.value == true,
+                    hopLimit = wantedReach,
+                )
+            }
+            reload()
+        }
+    }
+    toggle.onClick { save() }
+    // `subscribe` would call back at once with the current value (a reload loop); the DOM change event fires only on a choice by the person.
+    reach?.onEvent { change = { save() } }
+    box.div(tr(CARPOOL_EXCHANGE_NOT_YET_NOTE), className = "text-muted small") { setAttribute("role", "status") }
 }
 
 private fun renderAddForm(
@@ -130,6 +197,7 @@ private fun renderAddForm(
 private fun renderPartnerRow(
     list: Container,
     partner: PartnerServerDto,
+    carpoolExchangeOn: Boolean,
     reload: () -> Unit,
 ) {
     val row =
@@ -157,6 +225,18 @@ private fun renderPartnerRow(
         partner.lastError?.let { info.div(PartnerServersTexts.fetchError(it), className = "text-danger small") }
     }
     val actions = head.div { addCssClasses("d-flex align-items-center gap-2") }
+    // V1.9.311: per-partner consent to exchange carpool hints; only while the exchange is switched on.
+    if (PartnerServersLogic.partnerSharingVisible(carpoolExchangeOn)) {
+        val sharing = actions.checkBox(value = partner.carpoolSharing, label = tr("Fahrten teilen"))
+        sharing.onClick {
+            val wanted = sharing.value == true
+            sharing.disabled = true
+            runGuardedAction(button = null) {
+                guarded { rpcService<IPartnerServerService>().setPartnerCarpoolSharing(partner.id, wanted) }
+                reload()
+            }
+        }
+    }
     val active = actions.checkBox(value = partner.active, label = tr("Aktiv"))
     active.onClick {
         val wanted = active.value == true

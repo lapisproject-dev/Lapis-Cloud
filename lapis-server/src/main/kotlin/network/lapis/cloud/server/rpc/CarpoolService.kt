@@ -5,8 +5,11 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalTime
 import kotlinx.datetime.toKotlinLocalTime
+import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.carpool.CarpoolAction
 import network.lapis.cloud.server.carpool.CarpoolDeps
+import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.carpool.CarpoolInviteeSearch
 import network.lapis.cloud.server.carpool.CarpoolMessages
 import network.lapis.cloud.server.carpool.CarpoolNotice
@@ -19,6 +22,10 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.CarpoolFederationAvailabilityDto
+import network.lapis.cloud.shared.domain.CarpoolFederationOptInAuditSnapshot
 import network.lapis.cloud.shared.domain.CarpoolInviteeCandidateDto
 import network.lapis.cloud.shared.domain.CarpoolMessagePageDto
 import network.lapis.cloud.shared.domain.CarpoolMyParticipationDto
@@ -30,8 +37,10 @@ import network.lapis.cloud.shared.domain.CarpoolPostingDto
 import network.lapis.cloud.shared.domain.CarpoolPostingInput
 import network.lapis.cloud.shared.domain.CarpoolPostingType
 import network.lapis.cloud.shared.domain.CarpoolPrivacy
+import network.lapis.cloud.shared.domain.CarpoolTeaser
 import network.lapis.cloud.shared.domain.DirectMessageDto
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.projectCarpoolTeaser
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.ICarpoolService
@@ -195,6 +204,8 @@ class CarpoolService internal constructor(
                     if (validated.type == CarpoolPostingType.REQUEST) it[meetingNote] = null
                     it[updatedAt] = DbClock.nowLocalDateTime()
                 }
+                // V1.9.311: a REQUEST can never be shared -- the consent ends with the type change (the store keeps the monopoly on the column).
+                if (validated.type == CarpoolPostingType.REQUEST) CarpoolFederationStore.clearOptIn(postingId)
                 val notices =
                     if (changedForPassengers) {
                         active.map {
@@ -425,6 +436,69 @@ class CarpoolService internal constructor(
     }
 
     // ---------------------------------------------------------------------------------------------------------------------------------
+    // V1.9.311 "Mitfahrzentrale-Foederation" W1: switches only -- nothing is transferred.
+    // ---------------------------------------------------------------------------------------------------------------------------------
+
+    override suspend fun getCarpoolFederationAvailability(): CarpoolFederationAvailabilityDto {
+        val current = resolveCurrentMember(call)
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            CarpoolFederationAvailabilityDto(enabled = CarpoolFederationStore.settings().enabled)
+        }
+    }
+
+    override suspend fun setCarpoolPostingFederationOptIn(
+        postingId: String,
+        optIn: Boolean,
+    ): CarpoolPostingDto {
+        val current = resolveCurrentMember(call)
+        deps.rateLimiter.checkAndRecord(memberId = current.memberId, action = CarpoolAction.DECIDE)
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val id = CarpoolParticipations.parseId(postingId)
+            val today = OrganizationTimeZone.today()
+            val posting = CarpoolParticipations.lockPosting(id) ?: CarpoolParticipations.notFound()
+            // A foreign trip (also for an admin) gets the constant not-found answer: nothing can be enumerated.
+            if (posting[CarpoolPostingTable.authorMemberId] != current.memberId) CarpoolParticipations.notFound()
+            if (optIn) {
+                if (posting[CarpoolPostingTable.type] != CarpoolPostingType.OFFER) {
+                    throw ConflictException("Nur ein Fahrtangebot kann an Partnerorganisationen weitergegeben werden.")
+                }
+                if (!CarpoolFederationStore.settings().enabled) {
+                    throw ConflictException("Der Austausch mit Partnerorganisationen ist nicht eingeschaltet.")
+                }
+                val teaser =
+                    projectCarpoolTeaser(
+                        fromPlace = posting[CarpoolPostingTable.fromPlace],
+                        toPlace = posting[CarpoolPostingTable.toPlace],
+                        departureDate = posting[CarpoolPostingTable.departureDate],
+                        teaserId = CarpoolTeaser.PREVIEW_ID,
+                    )
+                if (teaser == null) {
+                    throw ConflictException("Start oder Ziel hat keine Postleitzahl, diese Fahrt kann nicht geteilt werden.")
+                }
+            }
+            // Withdrawal is always allowed. Unchanged = no write and no audit.
+            if (CarpoolFederationStore.optIn(id) != optIn) {
+                CarpoolFederationStore.setOptIn(postingId = id, value = optIn)
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.CARPOOL_FEDERATION_OPT_IN,
+                    entityId = id,
+                    action = AuditAction.UPDATE,
+                    after =
+                        Json.encodeToString(
+                            CarpoolFederationOptInAuditSnapshot.serializer(),
+                            CarpoolFederationOptInAuditSnapshot(optIn),
+                        ),
+                )
+            }
+            singleDto(id = id, currentMemberId = current.memberId, today = today)
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------------------------
     // V1.9.139 "Mitfahr-Nachrichten"
     // ---------------------------------------------------------------------------------------------------------------------------------
 
@@ -584,6 +658,8 @@ class CarpoolService internal constructor(
                 meetingNote =
                     if (isOwn || myStatus == CarpoolParticipationStatus.CONFIRMED) row[CarpoolPostingTable.meetingNote] else null,
                 openRequests = if (isOwn) openRequests[postingId] ?: 0 else 0,
+                // Only the owner sees the consent flag; everybody else (also guests and friends) always gets false.
+                federationOptIn = isOwn && row[CarpoolPostingTable.federationOptIn],
             )
         }
     }

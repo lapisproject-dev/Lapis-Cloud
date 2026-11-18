@@ -688,6 +688,13 @@ enum class AuditEntityType {
      * an auditor's own action is `null`. 21 chars. Appended LAST.
      */
     PARTG_REVIEWER_ACCESS,
+
+    /**
+     * Welle V1.9.311 -- the owner of a carpool trip gave (`UPDATE`) or withdrew consent to pass a short hint to partner organisations;
+     * `entityId` = the trip. Snapshot [CarpoolFederationOptInAuditSnapshot]: the new state only, never a place, a date or a text. Doubles as the
+     * proof of consent (Art. 7 (1) GDPR). 25 chars. Appended LAST.
+     */
+    CARPOOL_FEDERATION_OPT_IN,
 }
 
 /** V1.9.304 -- after-snapshot of an [AuditEntityType.CONFERENCE_ROOM_POLL] entry. */

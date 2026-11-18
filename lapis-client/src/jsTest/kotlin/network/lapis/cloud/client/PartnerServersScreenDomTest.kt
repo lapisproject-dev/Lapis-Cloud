@@ -4,6 +4,7 @@ import kotlinx.browser.document
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PartnerBlockDto
@@ -86,6 +87,7 @@ class PartnerServersScreenDomTest {
         overview: PartnerServerOverviewDto,
         recursion: PartnerRecursionSettingsDto = PartnerRecursionSettingsDto(true, 2, null, null),
         discovered: List<DiscoveredPartnerServerDto> = emptyList(),
+        carpool: CarpoolFederationSettingsDto = CarpoolFederationSettingsDto(enabled = false, hopLimit = 2),
         onRemoveBlock: (String) -> Unit = {},
         block: suspend (HTMLElement) -> Unit,
     ) {
@@ -101,6 +103,7 @@ class PartnerServersScreenDomTest {
         val list = routeOf { rpcService<IPartnerServerService>().list() }
         val settingsRoute = routeOf { rpcService<IPartnerServerService>().getPartnerRecursionSettings() }
         val discoveredRoute = routeOf { rpcService<IPartnerServerService>().listDiscoveredPartnerServers() }
+        val carpoolRoute = routeOf { rpcService<IPartnerServerService>().getCarpoolFederationSettings() }
         val removeRoute = routeOf { rpcService<IPartnerServerService>().removeBlock("x") }
         withFetchStub(
             respond = { request ->
@@ -110,6 +113,7 @@ class PartnerServersScreenDomTest {
                     request.rpcRoute == settingsRoute -> request.answerWith(jsonOf(PartnerRecursionSettingsDto.serializer(), recursion))
                     request.rpcRoute == discoveredRoute ->
                         request.answerWith(jsonOf(ListSerializer(DiscoveredPartnerServerDto.serializer()), discovered))
+                    request.rpcRoute == carpoolRoute -> request.answerWith(jsonOf(CarpoolFederationSettingsDto.serializer(), carpool))
                     request.rpcRoute == removeRoute -> {
                         onRemoveBlock(request.rpcParam(0) as String)
                         request.answerWith("null")
@@ -246,12 +250,12 @@ class PartnerServersScreenDomTest {
                 assertTrue(page.textContent.orEmpty().contains("Auch Partner der Partner einbeziehen"))
                 assertTrue(page.textContent.orEmpty().contains("Zusätzliche Stufen"))
                 assertTrue(page.textContent.orEmpty().contains("Noch kein Lauf"))
-                val select = assertNotNull(page.querySelector("select") as? org.w3c.dom.HTMLSelectElement)
+                val select = assertNotNull(page.allOf("select").last() as? org.w3c.dom.HTMLSelectElement)
                 assertTrue(select.disabled)
             }
             val on = PartnerRecursionSettingsDto(enabled = true, depth = 3, lastRunAt = null, summary = null)
             scenario(PartnerServerOverviewDto(emptyList(), emptyList(), false), recursion = on) { page ->
-                val select = assertNotNull(page.querySelector("select") as? org.w3c.dom.HTMLSelectElement)
+                val select = assertNotNull(page.allOf("select").last() as? org.w3c.dom.HTMLSelectElement)
                 assertFalse(select.disabled)
                 assertTrue(select.value == "3")
             }
@@ -299,6 +303,38 @@ class PartnerServersScreenDomTest {
             scenario(PartnerServerOverviewDto(listOf(partner()), emptyList(), false)) { page ->
                 assertTrue(page.textContent.orEmpty().contains("Noch keine weiteren Server erreicht."))
                 assertFalse(page.textContent.orEmpty().contains("Über diesen Partner"))
+            }
+        }
+
+    @Test
+    fun theCarpoolExchangeIsOffByDefault_theReachAndThePartnerBoxAreHidden_andTheNoteSaysNothingIsTransferredYet(): Promise<Unit> =
+        test {
+            scenario(PartnerServerOverviewDto(listOf(partner()), emptyList(), false)) { page ->
+                val text = page.textContent.orEmpty()
+                assertTrue(text.contains("Mitfahrzentrale-Austausch"))
+                assertTrue(text.contains("Fahrtangebote mit freigegebenen Partnern austauschen"))
+                assertTrue(text.contains("Derzeit werden noch keine Fahrten übertragen."))
+                assertFalse(text.contains("Fahrten teilen"), "the per-partner box is offered only while the exchange is on")
+                assertFalse(text.contains("Reichweite"), "the reach is offered only while the exchange is on")
+                assertEquals(1, page.allOf("select").size, "only the depth select of the partner recursion is there")
+            }
+        }
+
+    @Test
+    fun withTheExchangeOnTheReachShowsTheStoredValueAndEveryPartnerGetsABox(): Promise<Unit> =
+        test {
+            val on = CarpoolFederationSettingsDto(enabled = true, hopLimit = 3)
+            scenario(
+                PartnerServerOverviewDto(listOf(partner(id = "a", host = "a.beispiel.de")), emptyList(), false),
+                carpool = on,
+            ) { page ->
+                val reach = assertNotNull(page.allOf("select").first() as? org.w3c.dom.HTMLSelectElement)
+                assertEquals("3", reach.value)
+                val text = page.textContent.orEmpty()
+                assertTrue(text.contains("Nur direkte Partner"))
+                assertTrue(text.contains("Auch Partner unserer Partner"))
+                assertTrue(text.contains("Eine Stufe weiter"))
+                assertTrue(text.contains("Fahrten teilen"))
             }
         }
 }

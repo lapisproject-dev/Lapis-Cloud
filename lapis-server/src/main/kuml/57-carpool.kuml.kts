@@ -121,6 +121,12 @@ classDiagram(name = "Carpool") {
                 multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "meeting_note"; "sqlType" to "VARCHAR(200)" }
             }
+            // V1.9.311 "Mitfahrzentrale-Foederation" W1 (V159): the owner's per-trip consent to pass a short hint to partner organisations. NOT NULL,
+            // default FALSE. Written ONLY by CarpoolFederationStore (setOptIn/clearOptIn) -- never via CarpoolPostingInput.
+            attribute(name = "federationOptIn", type = "Boolean") {
+                defaultValue = "FALSE"
+                stereotype("Column") { "columnName" to "federation_opt_in" }
+            }
         }
 
     val carpoolParticipationInitiator =

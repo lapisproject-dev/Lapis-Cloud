@@ -32779,3 +32779,63 @@ msgstr "Session terminée"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Rechenschaftsbericht: Lesezugang für die Prüfung"
 msgstr "Rapport de comptes : accès en lecture pour la vérification"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Mitfahrzentrale-Austausch"
+msgstr "Échange de covoiturages"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Fahrtangebote mit freigegebenen Partnern austauschen"
+msgstr "Échanger les offres de trajet avec les partenaires autorisés"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Mitglieder entscheiden für jede Fahrt selbst, ob ein Kurzhinweis an freigegebene Partner geht: das Datum und die ersten zwei Ziffern der Postleitzahlen von Start und Ziel. Namen, Orte, Uhrzeiten und Notizen werden nie weitergegeben."
+msgstr "Les membres décident pour chaque trajet si une courte indication est transmise aux partenaires autorisés : la date et les deux premiers chiffres des codes postaux du départ et de la destination. Les noms, lieux, heures et notes ne sont jamais transmis."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Nur direkte Partner"
+msgstr "Partenaires directs uniquement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Auch Partner unserer Partner"
+msgstr "Aussi les partenaires de nos partenaires"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Eine Stufe weiter"
+msgstr "Un niveau de plus"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Reichweite"
+msgstr "Portée"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Der Austausch wird schrittweise eingeführt. Derzeit werden noch keine Fahrten übertragen."
+msgstr "L'échange est introduit progressivement. Aucun trajet n'est encore transmis."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Fahrten teilen"
+msgstr "Partager les trajets"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
+msgid "Diese Fahrt als Kurzhinweis an Partnerorganisationen weitergeben"
+msgstr "Transmettre ce trajet aux organisations partenaires sous forme de courte indication"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
+msgid "So sehen Partner Ihre Fahrt: %1 · PLZ-Gebiet %2 → PLZ-Gebiet %3"
+msgstr "Voici ce que voient les partenaires de votre trajet : %1 · zone postale %2 → zone postale %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
+msgid "Start oder Ziel hat keine Postleitzahl – diese Fahrt kann nicht geteilt werden."
+msgstr "Le départ ou la destination n'a pas de code postal – ce trajet ne peut pas être partagé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
+msgid "Für Partner freigegeben"
+msgstr "Partagé avec les partenaires"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:1
+msgid "Die Fahrt wurde gespeichert, aber nicht für Partner freigegeben. Bitte versuchen Sie es erneut."
+msgstr "Le trajet a été enregistré mais pas partagé avec les partenaires. Veuillez réessayer."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Mitfahrzentrale: Weitergabe an Partnerorganisationen"
+msgstr "Covoiturage : transmission aux organisations partenaires"

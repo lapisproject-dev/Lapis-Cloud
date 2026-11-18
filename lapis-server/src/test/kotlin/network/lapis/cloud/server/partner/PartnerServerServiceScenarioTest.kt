@@ -135,7 +135,7 @@ class PartnerServerServiceScenarioTest :
             partnerRows().shouldBeEmpty()
         }
 
-        test("every one of the eleven methods refuses a MEMBER and a BOARD member") {
+        test("every one of the fourteen methods refuses a MEMBER and a BOARD member") {
             val member = fx.member(role = AccountRole.MEMBER)
             val board = fx.member(role = AccountRole.BOARD)
             val fetcher = fakeFetcher { json(body = feedJson()) }
@@ -154,6 +154,9 @@ class PartnerServerServiceScenarioTest :
                         { it.getPartnerRecursionSettings() },
                         { it.setPartnerRecursionSettings(enabled = false, depth = 2) },
                         { it.listDiscoveredPartnerServers() },
+                        { it.getCarpoolFederationSettings() },
+                        { it.setCarpoolFederationSettings(enabled = true, hopLimit = 2) },
+                        { it.setPartnerCarpoolSharing(partnerId = id, enabled = true) },
                     ).forEach { action ->
                         asAdmin(who, fetcher) { action(it) }.exceptionOrNull().shouldBeInstanceOf<ForbiddenException>()
                     }

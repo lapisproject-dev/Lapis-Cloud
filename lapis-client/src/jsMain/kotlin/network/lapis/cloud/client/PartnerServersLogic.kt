@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.i18n.gettext
+import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
 import network.lapis.cloud.shared.domain.PartnerRecursionSettingsDto
@@ -48,6 +49,24 @@ internal object PartnerServersLogic {
 
     /** Whether the "Prüfen und speichern" button may be pressed: an address was typed. */
     fun canProbe(address: String): Boolean = address.isNotBlank()
+
+    // ── V1.9.311 "Mitfahrzentrale-Austausch" ─────────────────────────────────────
+
+    /** The reach choice only matters while the exchange is on. */
+    fun hopSelectVisible(enabled: Boolean): Boolean = enabled
+
+    /** The per-partner box "Fahrten teilen" is offered only while the exchange is on. */
+    fun partnerSharingVisible(enabled: Boolean): Boolean = enabled
+
+    /** The preselected reach: the default of the server (two levels) when nothing valid is stored. */
+    fun hopSelection(stored: Int): Int =
+        if (stored in
+            CarpoolFederationLimits.MIN_HOPS..CarpoolFederationLimits.MAX_HOPS
+        ) {
+            stored
+        } else {
+            CarpoolFederationLimits.DEFAULT_HOPS
+        }
 
     // ── V1.9.245 "Partner von Partnern" ─────────────────────────────────────────
 

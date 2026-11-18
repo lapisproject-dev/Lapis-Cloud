@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerBlockDto
 import network.lapis.cloud.shared.domain.PartnerBlockResultDto
@@ -52,4 +53,21 @@ interface IPartnerServerService {
 
     /** The servers reached through the direct partners (at most 200, sorted by hop and host). */
     suspend fun listDiscoveredPartnerServers(): List<DiscoveredPartnerServerDto>
+
+    // ---- V1.9.311 "Mitfahrzentrale-Foederation" W1: appended at the END -- Kilua RPC numbers routes by declaration order, never reorder. ----
+
+    /** The carpool exchange switch and the hop limit (1..3). */
+    suspend fun getCarpoolFederationSettings(): CarpoolFederationSettingsDto
+
+    /** [hopLimit] outside 1..3 is a bad request (never silently clamped). In wave 1 nothing is transferred either way. */
+    suspend fun setCarpoolFederationSettings(
+        enabled: Boolean,
+        hopLimit: Int,
+    )
+
+    /** Allows or forbids the exchange of carpool hints with ONE direct partner. Unknown id: not found. */
+    suspend fun setPartnerCarpoolSharing(
+        partnerId: String,
+        enabled: Boolean,
+    )
 }

@@ -1,0 +1,153 @@
+= Mitfahrzentrale exchange between partner servers (V1.9.311 and following waves)
+:description: Design of the carpool exchange between partner servers: a short, consented hint per trip, how far it may travel, how it is withdrawn, and what wave 1 (switches only) already contains.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+NOTE: **Implementation status.** Only **wave 1 of 7 (V1.9.311, schema V159) exists: the foundation, switches only.** Nothing is sent to another
+server, no feed carries a trip, no HTTP client exists for this feature. Waves 2 to 7 below are the plan, not the code. The sentence "Der Austausch wird
+schrittweise eingeführt. Derzeit werden noch keine Fahrten übertragen." on the partner page says the same to the administrator and is removed in the
+wave with the first real data flow.
+
+== Goal
+
+Members of one organisation often drive to a place where a *partner* organisation holds an event. A member who offers a ride can agree that a **short
+hint** about the trip is shown to the members of partner servers. The hint tells a partner only *that* somebody drives from one region to another on a
+day; to take part, a person still contacts the offering organisation. The feature is **off everywhere by default** and every step needs a separate,
+revocable consent.
+
+== The hint
+
+[source,kuml,name="carpool-federation-model"]
+----
+classDiagram(name = "Carpool exchange -- hint and envelope") {
+    val teaser = classOf(name = "CarpoolTeaser") {
+        attribute(name = "teaserId", type = "String")
+        attribute(name = "departureDate", type = "LocalDate")
+        attribute(name = "fromPostcodeArea", type = "String")
+        attribute(name = "toPostcodeArea", type = "String")
+    }
+
+    val envelope = classOf(name = "TeaserEnvelope") {
+        attribute(name = "originHost", type = "String")
+        attribute(name = "hops", type = "Int")
+        attribute(name = "maxHops", type = "Int")
+    }
+
+    association(source = envelope, target = teaser) {
+        source { multiplicity(spec = "1"); role = "envelope" }
+        target { multiplicity(spec = "1"); role = "teaser" }
+    }
+}
+----
+
+The wire type `CarpoolTeaser` has exactly four fields (a tripwire test pins the set):
+
+* `teaserId`, 16 to 64 characters `[A-Za-z0-9_-]`: a pseudonymous id. Wave 2 derives it with an HMAC under an instance key, so nobody outside the
+  origin server can compute it from the trip id and the id of a withdrawn trip cannot be linked to the trip.
+* `departureDate`.
+* `fromPostcodeArea` and `toPostcodeArea`, exactly two ASCII digits: the first two digits of the postcode of the start and of the destination.
+
+Nothing else is in it: no place text, no time, no seats, no notes, no name, no internal id.
+
+=== One projection
+
+`projectCarpoolTeaser(fromPlace, toPlace, departureDate, teaserId)` in `lapis-shared` (`commonMain`, runs on the JVM and in Kotlin/JS) is the **only** place
+that builds a hint. It takes exactly the three source fields, no row and no DTO, so it structurally cannot see anything else. The preview in the trip
+form calls the same function, so the owner sees what a partner would receive. From wave 2 the feed calls it too. A tripwire test pins that the client
+calls it only in `CarpoolFederationUi.kt`.
+
+=== The postcode rule
+
+`extractPostcodeArea(place)` returns the first two digits of the **first run of exactly five ASCII digits** `0-9` in the text. `D-` and `DE-` stand in
+front of the digits and do not matter. The value must lie in 01001..99998. If the first such run is out of range the result is `null`: the next run is
+**not** tried. A longer run (`381000`), a shorter one (four-digit postcodes of Austria and Switzerland) and Unicode digits (fullwidth, Arabic-Indic) give
+`null`. There is no lookbehind and no `\d`, so the JVM and Kotlin/JS behave the same. A trip without a postcode on both places can never be shared.
+
+=== Who may receive a hint
+
+`isCarpoolTeaserEligible` is true only if **all** hold: the trip is an `OFFER`; the owner consented (`federation_opt_in`); the instance switch is on; the
+partner is a *direct* partner with `carpool_sharing` on, active and not blocked; the author is still active; the day lies between today and today plus 90
+days in the organisation's time zone; a seat is still free (`confirmed < seats`); the projection is not `null`. "The trip still exists" follows from the
+fact that only existing rows are loaded. `carpool_posting` has no link to an event and no cancelled status, so nothing of that kind is checked.
+
+== Switches (wave 1, schema V159)
+
+[cols="2,3,2",options="header"]
+|===
+|Where |What |Default
+
+|`carpool_posting.federation_opt_in` |The owner's consent for **one** trip. Written only by `CarpoolFederationStore`, only through
+`setCarpoolPostingFederationOptIn`. Never part of `CarpoolPostingInput`, so create, update and duplicate never change it by the way. A duplicate always
+starts without consent. The consent ends when the trip becomes a `REQUEST`. |off
+
+|`organization_settings.carpool_federation_enabled` |The instance switch (administrators, partner page). |off
+
+|`organization_settings.carpool_federation_hop_limit` |How far a hint may travel, 1 to 3 (CHECK). |2
+
+|`partner_server.carpool_sharing` |Consent per **direct** partner (administrators). `partner_discovered_server` (partners of partners) has no flag. |off
+|===
+
+The administrator calls (`IPartnerServerService`, `ADMIN` only, like every method of that service) are `getCarpoolFederationSettings`,
+`setCarpoolFederationSettings` (a hop limit outside 1..3 is a bad request, never clamped silently) and `setPartnerCarpoolSharing`. The member calls
+(`ICarpoolService`, `ACTIVE` only) are `getCarpoolFederationAvailability` and `setCarpoolPostingFederationOptIn`. A foreign trip gets the constant
+not-found answer, also for an administrator. Giving consent needs the switch on, an `OFFER` and a postcode on both places; **withdrawing is always
+allowed**. Changes are audited only when something really changed: `PARTNER_SERVER` entries for the administrator's choices, and the new entity type
+`CARPOOL_FEDERATION_OPT_IN` (new state only, no place and no date) for the owner's consent, which doubles as the proof of consent (Art. 7 (1) GDPR).
+
+== Reach: the hop limit
+
+`partnerRecursionDepth` (wave P2) controls how far this server **reads** partner lists. The hop limit of this feature controls how far a hint is **passed
+on**. They are independent. The effective reach of a hint is `min(maxHops of the origin, own hop limit)`: a server never passes a hint further than the
+origin allowed and never further than its own limit.
+
+== Waves
+
+[source,kuml,name="carpool-federation-flow"]
+----
+sequenceDiagram(name = "Carpool exchange -- planned flow (waves 2 to 6)") {
+    val owner = lifeline(name = "Owner (member)")
+    val origin = lifeline(name = "Origin server")
+    val partner = lifeline(name = "Direct partner")
+    val further = lifeline(name = "Partner of the partner")
+
+    message(from = owner, to = origin, label = "consent for one trip (wave 1: only the flag is stored)")
+    message(from = origin, to = origin, label = "projectCarpoolTeaser, eligibility per partner (wave 2)")
+    message(from = partner, to = origin, label = "GET teaser feed, signed, snapshot (wave 2)")
+    message(from = further, to = partner, label = "GET teaser feed, hops + 1 <= min(maxHops, own limit) (wave 4)")
+    message(from = owner, to = origin, label = "withdraw: the trip leaves the next snapshot (wave 3)")
+    message(from = partner, to = origin, label = "next fetch: missing = withdrawn; tombstone for the id (wave 3)")
+}
+----
+
+[cols="1,4",options="header"]
+|===
+|Wave |Content
+
+|1 (V1.9.311, **built**) |Foundation: V159, switches, consent with audit, preview, administrator page, GDPR export field, tripwires. No network.
+|2 |Origin side: the teaser feed under its own path, **never** inside the public partner feed or an embed feed. Pseudonymous `teaserId` (HMAC under an
+instance key; the key source is open, see below). Each fetch returns a complete **snapshot** of what is eligible now.
+|3 |Withdrawal: a trip that is no longer eligible is missing from the next snapshot, which means "withdrawn"; additionally a short-lived **tombstone** per
+`teaserId`, so a partner that cached a hint can remove it before the next full snapshot.
+|4 |Further hops: a server passes a hint on only to its own consenting partners and only while `hops + 1` stays within `min(maxHops, own limit)`. Deletion of
+a trip or of a member (GDPR erasure) is passed on along the same path. Origin from hop 2 on is proven by a **signature of the origin** over hint and
+envelope; a hop-2 server checks it against the key of the origin host. Without it an origin statement that was passed on could be forged.
+|5 |Display: the hints appear in the carpool page of the partner's members, labelled with the origin, as data and never as markup (the same `untrusted*`
+rule as partner events). The owner sees which direct partners and which reach apply, next to the consent box.
+|6 |Operations: back-off and limits like the event feed, summary counters for the administrator, retention (a hint disappears at the latest with its day).
+|7 |Hardening and release: audit by an independent reviewer (SSRF, amplification, consent bypass), staging test with two real servers, documentation.
+|===
+
+== What wave 1 deliberately does not do
+
+* No data leaves the server. There is no HTTP client for this feature (a tripwire scans for it).
+* The public partner feed and the embed feeds never mention a carpool (a tripwire scans for it).
+* `organization_settings` wire types do not carry the switch, the hop limit or the consent; only `CarpoolFederationStore` reads and writes them.
+* No legal review has taken place. In particular the question of **joint controllership between servers (Art. 26 GDPR)** is open, and there is no
+  agreement template. The deletion pass-on to partners arrives with wave 4.
+
+== Open questions
+
+* Source of the HMAC key of the `teaserId` (a new secret under `SecretEnv`, or derived from existing key material).
+* Whether the owner is told **which** organisations receive the hint (proposed for wave 5: list of the approved direct partners and the reach).
+* Whether the board, not only the administrator, may switch the exchange (it would change the whole partner administration, a separate decision).

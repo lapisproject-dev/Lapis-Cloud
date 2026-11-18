@@ -908,6 +908,11 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
                 // Welle V1.9.245 "Partnerserver P2" -- the same IMMEDIATE SWITCHES reason: the recursion switch and its depth save themselves on change.
                 "val recursionToggle = box.checkBox(value = settings.enabled, label = tr(\"Auch Partner der Partner einbeziehen\"))",
                 "val depth = box.select(options = depthOptions, value = settings.depth.toString(), label = tr(\"Zusätzliche Stufen\"))",
+                // Welle V1.9.311 "Mitfahrzentrale-Foederation" -- the same IMMEDIATE SWITCHES reason: the exchange switch, its reach and the "Fahrten teilen"
+                // box of a partner save themselves on change (one RPC call each, then the page reloads).
+                "val toggle = box.checkBox(value = settings.enabled, label = tr(\"Fahrtangebote mit freigegebenen Partnern austauschen\"))",
+                "box.select( [label \"Reichweite\"]",
+                "val sharing = actions.checkBox(value = partner.carpoolSharing, label = tr(\"Fahrten teilen\"))",
             ),
         // Welle V1.9.246 "Aktionen A1" -- FILTER_IS_NOT_A_FORM: the status chips narrow the list, never submitted.
         "ActivismScreen.kt" to listOf("val box = chips.checkBox(value = status in selected, label = ActivismTexts.status(status))"),

@@ -235,6 +235,10 @@ abstract class BulletinBoardMigrationScenarios(
                             "ALTER TABLE audit_log_entry ADD CONSTRAINT chk_audit_log_entry_entity_type " +
                                 "CHECK (entity_type IN ($currentTypes))",
                         )
+                    } else if (statement.contains("ltr_ledger_entry") && statement.contains("CONSTRAINT")) {
+                        // The ledger CHECKs of V149 are an OLDER list than the live ones (V157 added TENDER_PAYOUT): replaying them would make
+                        // every later spec in the same JVM that books a tender payout fail. They were applied by the real migration chain already.
+                        Unit
                     } else {
                         exec(statement)
                     }

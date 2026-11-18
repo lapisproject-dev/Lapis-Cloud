@@ -160,4 +160,21 @@ class PartnerServersLogicTest {
         val with = partner().copy(discoveredServerCount = 2, discoveredEventCount = 9)
         assertEquals("Über diesen Partner: 2 Server, 9 Veranstaltungen", PartnerServersLogic.viaThisPartner(with))
     }
+
+    @Test
+    fun theCarpoolExchangeControlsFollowTheSwitch() {
+        assertTrue(PartnerServersLogic.hopSelectVisible(true))
+        assertFalse(PartnerServersLogic.hopSelectVisible(false))
+        assertTrue(PartnerServersLogic.partnerSharingVisible(true))
+        assertFalse(PartnerServersLogic.partnerSharingVisible(false))
+    }
+
+    @Test
+    fun theReachPreselectsTheServerDefaultWhenNothingValidIsStored() {
+        assertEquals(2, PartnerServersLogic.hopSelection(0))
+        assertEquals(2, PartnerServersLogic.hopSelection(4))
+        assertEquals(1, PartnerServersLogic.hopSelection(1))
+        assertEquals(3, PartnerServersLogic.hopSelection(3))
+        assertEquals(2, PartnerServersLogic.hopSelection(2))
+    }
 }

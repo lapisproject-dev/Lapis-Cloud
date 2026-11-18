@@ -55,6 +55,11 @@ classDiagram(name = "PartnerServers") {
             defaultValue = "TRUE"
             stereotype("Column") { "columnName" to "active" }
         }
+        // V1.9.311 "Mitfahrzentrale-Foederation" W1 (V159): this DIRECT partner may receive/send carpool hints. Default FALSE.
+        attribute(name = "carpoolSharing", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "carpool_sharing" }
+        }
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
         }

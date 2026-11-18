@@ -62,6 +62,8 @@ data class CarpoolPostingDto(
     val meetingNote: String? = null,
     /** V1.9.125: only on the caller's OWN offer -- participants waiting for the driver's decision (a number, no names). */
     val openRequests: Int = 0,
+    /** V1.9.311: the owner's consent to pass a short hint to partner organisations. ONLY filled on the caller's OWN trip, otherwise always false. */
+    val federationOptIn: Boolean = false,
 )
 
 /** V1.9.125 -- who started a participation: the driver invited the person, or the person asked to ride along. */
