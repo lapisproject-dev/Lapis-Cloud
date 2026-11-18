@@ -214,6 +214,10 @@ object PersonalDataRegistry {
     val noPersonalDataAllowlist: Map<String, String> =
         mapOf(
             "membership_tier" to "Pure product definition (fee amount/interval), no personal data.",
+            "carpool_teaser_tombstone" to
+                "A withdrawn carpool hint: only the keyed HMAC pseudonym of the hint (not derivable or linkable without the " +
+                "server key), the partner scope and a life of at most 14 days. No member id, no trip id, no place, no text. " +
+                "Written before the trip is erased (see CarpoolPersonalData).",
             "document_folder" to "Pure organizational structure, no personal data.",
             "committee" to "Pure organizational structure, no personal data.",
             "vote_option" to

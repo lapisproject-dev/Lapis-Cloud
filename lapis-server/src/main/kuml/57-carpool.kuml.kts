@@ -63,6 +63,16 @@ classDiagram(name = "Carpool") {
             }
         }
 
+    // V1.9.313: id-only stub so carpool_teaser_tombstone.partner_id can name its foreign key (the partner domain owns the table, 79-partner-servers).
+    val partnerServer =
+        classOf(name = "PartnerServer") {
+            stereotype("Entity") { "tableName" to "partner_server"; "kotlinObjectName" to "PartnerServerTable" }
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+        }
+
     val carpoolPostingType =
         enumOf(name = "CarpoolPostingType") {
             literal(name = "OFFER")
@@ -126,6 +136,40 @@ classDiagram(name = "Carpool") {
             attribute(name = "federationOptIn", type = "Boolean") {
                 defaultValue = "FALSE"
                 stereotype("Column") { "columnName" to "federation_opt_in" }
+            }
+            // V1.9.313 (V161): when the consent was given (NULL when never opted in). Written ONLY by CarpoolFederationStore together with federationOptIn.
+            attribute(name = "federationOptInAt", type = "LocalDateTime") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "federation_opt_in_at" }
+            }
+        }
+
+    // V1.9.313 (V161): the tombstone of a withdrawn teaser -- a pseudonymous id, a scope and a short life, nothing else. Read and written ONLY by
+    // CarpoolFederationStore. The foreign key to partner_server is ON DELETE CASCADE in the real schema (the generated table cannot express it,
+    // so the store deletes the rows of a removed partner explicitly).
+    val carpoolTeaserTombstone =
+        classOf(name = "CarpoolTeaserTombstone") {
+            stereotype("Entity") { "tableName" to "carpool_teaser_tombstone"; "kotlinObjectName" to "CarpoolTeaserTombstoneTable" }
+            stereotype("Index") { "columns" to listOf("teaser_id"); "name" to "idx_carpool_teaser_tombstone_teaser" }
+            stereotype("Index") { "columns" to listOf("expires_at"); "name" to "idx_carpool_teaser_tombstone_expires" }
+            stereotype("Index") { "columns" to listOf("partner_id"); "name" to "idx_carpool_teaser_tombstone_partner" }
+
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+            attribute(name = "teaserId", type = "String") {
+                stereotype("Column") { "columnName" to "teaser_id"; "sqlType" to "VARCHAR(64)" }
+            }
+            attribute(name = "partnerId", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "partner_id"; "fkEntity" to "PartnerServer" }
+            }
+            attribute(name = "createdAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "created_at" }
+            }
+            attribute(name = "expiresAt", type = "LocalDateTime") {
+                stereotype("Column") { "columnName" to "expires_at" }
             }
         }
 

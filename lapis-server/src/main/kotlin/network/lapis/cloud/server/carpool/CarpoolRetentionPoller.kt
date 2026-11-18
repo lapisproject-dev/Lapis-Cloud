@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import network.lapis.cloud.server.db.DbClock
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.time.Duration.Companion.hours
 
 private val logger = KotlinLogging.logger {}
@@ -39,9 +40,24 @@ internal class CarpoolRetentionPoller(
         job = null
     }
 
+    /** Three independent steps, each exception-safe on its own: a failure of one never blocks the next. */
     fun tick() {
-        runCatching { CarpoolRetention.deleteDueRows(DbClock.nowLocalDateTime()) }
+        val now = DbClock.nowLocalDateTime()
+        runCatching { CarpoolRetention.deleteDueRows(now) }
             .onSuccess { deleted -> if (deleted > 0) logger.info { "carpool posting retention: deleted $deleted row(s)" } }
             .onFailure { e -> logger.error(e) { "carpool posting retention tick failed" } }
+        // V1.9.313: expired tombstones go (a partner no longer needs them), then opted-in trips of authors who left are withdrawn.
+        runCatching { transaction { CarpoolFederationStore.deleteExpiredTombstones(now) } }
+            .onSuccess { deleted -> if (deleted > 0) logger.info { "carpool tombstones: deleted $deleted expired row(s)" } }
+            .onFailure { e -> logger.error(e) { "carpool tombstone cleanup tick failed" } }
+        runCatching {
+            transaction {
+                CarpoolWithdrawals.sweepInactiveAuthors(now = now, ids = CarpoolWithdrawalKey.current(), limit = SWEEP_LIMIT)
+            }
+        }.onFailure { e -> logger.error(e) { "carpool withdrawal sweep tick failed" } }
+    }
+
+    private companion object {
+        const val SWEEP_LIMIT = 5000
     }
 }

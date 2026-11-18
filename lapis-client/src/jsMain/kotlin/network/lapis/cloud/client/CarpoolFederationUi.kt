@@ -66,6 +66,12 @@ internal object CarpoolFederationUiLogic {
     /** A new and a duplicated trip always start without consent; an edited trip starts with its stored value. */
     fun initialOptIn(prefill: CarpoolFormPrefill?): Boolean = prefill?.editing?.federationOptIn ?: false
 
+    /** V1.9.313: the withdrawal hint shows while an already shared trip is being unticked: the one moment the owner is about to take it back. */
+    fun withdrawalHintVisible(
+        initial: Boolean,
+        checked: Boolean,
+    ): Boolean = initial && !checked
+
     /** The second call is made only when the consent changed. */
     fun mustCallSetOptIn(
         initial: Boolean,
@@ -92,6 +98,16 @@ internal class CarpoolFederationOptIn(
             init = { box = it },
         )
     private val previewLine = host.div("") { addCssClasses("text-muted small") }
+
+    // Neutral on purpose (text-muted, no warning colour): taking a consent back is a normal thing to do.
+    private val withdrawalHint =
+        host.div(
+            gettext(
+                "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. " +
+                    "Bereits übertragene Hinweise können wir dort nicht selbst löschen.",
+            ),
+        ) { addCssClasses("text-muted small") }
+
     private var instanceEnabled = false
 
     /** True while the box is ticked and visible. */
@@ -108,6 +124,11 @@ internal class CarpoolFederationOptIn(
         val text = CarpoolFederationUiLogic.previewText(teaser = teaser, date = date)
         previewLine.content = text
         box?.disabled = !CarpoolFederationUiLogic.checkboxEnabled(teaser = teaser, currentlyChecked = consent.value == "true")
+        if (CarpoolFederationUiLogic.withdrawalHintVisible(initial = initial, checked = consent.value == "true")) {
+            withdrawalHint.show()
+        } else {
+            withdrawalHint.hide()
+        }
     }
 
     /** Reads the switch once through [readEnabled] (members cannot call the admin service); a failure keeps the box hidden. */

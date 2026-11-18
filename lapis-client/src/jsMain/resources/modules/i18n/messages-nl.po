@@ -32926,3 +32926,15 @@ msgstr "Beperkte verzoeken sinds de start: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Mitfahr-Kurzhinweise abgerufen"
 msgstr "Korte meldingen van ritten opgehaald"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Rückzugsmeldungen aktiv: %1"
+msgstr "Actieve intrekkingsmeldingen: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Zurückgezogene Kurzhinweise werden Partnern bis zu 14 Tage lang als zurückgezogen gemeldet, nur mit pseudonymer Kennung und Tag."
+msgstr "Ingetrokken korte meldingen worden tot 14 dagen lang aan partners als ingetrokken doorgegeven, alleen met een pseudoniem kenmerk en de dag."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
+msgid "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. Bereits übertragene Hinweise können wir dort nicht selbst löschen."
+msgstr "Partners ontvangen bij hun volgende ophaalactie een intrekkingsmelding. Reeds doorgegeven meldingen kunnen wij daar niet zelf verwijderen."

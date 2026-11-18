@@ -32828,3 +32828,15 @@ msgstr "Ograniczone żądania od startu: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Mitfahr-Kurzhinweise abgerufen"
 msgstr "Pobrano krótkie powiadomienia o wspólnych przejazdach"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Rückzugsmeldungen aktiv: %1"
+msgstr "Aktywne powiadomienia o wycofaniu: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Zurückgezogene Kurzhinweise werden Partnern bis zu 14 Tage lang als zurückgezogen gemeldet, nur mit pseudonymer Kennung und Tag."
+msgstr "Wycofane krótkie powiadomienia są zgłaszane partnerom jako wycofane do 14 dni, tylko z pseudonimowym identyfikatorem i dniem."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
+msgid "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. Bereits übertragene Hinweise können wir dort nicht selbst löschen."
+msgstr "Partnerzy otrzymają powiadomienie o wycofaniu przy następnym pobraniu. Już przekazanych powiadomień nie możemy sami usunąć."

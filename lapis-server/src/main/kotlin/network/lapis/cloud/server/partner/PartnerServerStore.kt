@@ -3,6 +3,7 @@ package network.lapis.cloud.server.partner
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
+import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PartnerBlocklistTable
 import network.lapis.cloud.server.db.generated.PartnerEventTable
@@ -18,6 +19,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
@@ -374,6 +376,16 @@ internal object PartnerServerStore {
             .where { PartnerServerTable.signingKeyId eq keyId }
             .map { it.toPartnerRow() }
 
+    /** V1.9.313: the latest moment any partner fetched the carpool teaser feed (200 or 304), `null` when none ever did. */
+    fun latestCarpoolFeedServedAt(): LocalDateTime? =
+        PartnerServerTable
+            .select(PartnerServerTable.carpoolFeedServedAt)
+            .where { PartnerServerTable.carpoolFeedServedAt.isNotNull() }
+            .orderBy(PartnerServerTable.carpoolFeedServedAt to SortOrder.DESC)
+            .limit(1)
+            .firstOrNull()
+            ?.get(PartnerServerTable.carpoolFeedServedAt)
+
     /**
      * V1.9.312: counts one answered carpool teaser feed request (`200` or `304`). [itemCount] is the number of items of a `200` and `null` for a
      * `304` (the last count stays). No content is stored.
@@ -456,6 +468,8 @@ internal object PartnerServerStore {
         val row = findPartner(id) ?: return null
         // The events of the whole sub-tree and the discovered rows follow by ON DELETE CASCADE (V132).
         PartnerEventTable.deleteWhere { PartnerEventTable.partnerServerId eq id }
+        // V1.9.313: the tombstones scoped to this partner go explicitly (independent of the foreign key's ON DELETE rule).
+        CarpoolFederationStore.deletePartnerTombstones(id)
         PartnerServerTable.deleteWhere { PartnerServerTable.id eq id }
         return row
     }

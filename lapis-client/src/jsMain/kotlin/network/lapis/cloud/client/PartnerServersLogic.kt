@@ -125,8 +125,12 @@ internal object PartnerServersLogic {
         partner: PartnerServerDto,
         exchangeOn: Boolean,
     ): List<String> {
-        if (!partnerSharingVisible(exchangeOn) || !partner.carpoolSharing) return emptyList()
         val lines = mutableListOf<String>()
+        // V1.9.313: shown even when the partner's switch is off (that is exactly when withdrawals scoped to it are reported).
+        if (partner.carpoolWithdrawalsScoped > 0) {
+            lines += gettext("Rückzugsmeldungen aktiv: %1", partner.carpoolWithdrawalsScoped)
+        }
+        if (!partnerSharingVisible(exchangeOn) || !partner.carpoolSharing) return lines
         if (!partner.carpoolKeyPinned) {
             lines += gettext("Kein Signaturschlüssel des Partners bekannt (der Partner muss Version 1.9.312 oder neuer nutzen)")
         }
@@ -147,8 +151,10 @@ internal object PartnerServersLogic {
 
     /** V1.9.312: the notes under the carpool switch: the missing key, and how many requests were refused / limited since the server started. */
     fun carpoolFeedSettingsLines(settings: CarpoolFederationSettingsDto): List<String> {
-        if (!settings.enabled) return emptyList()
         val lines = mutableListOf<String>()
+        // V1.9.313: BEFORE the early return: after the exchange was switched off the withdrawals are exactly what is still going on.
+        if (settings.carpoolWithdrawalsActive > 0) lines += gettext("Rückzugsmeldungen aktiv: %1", settings.carpoolWithdrawalsActive)
+        if (!settings.enabled) return lines
         if (!settings.feedKeyAvailable) lines += gettext("Schlüssel für Kurzhinweis-IDs fehlt (LAPIS_SECRET_ENCRYPTION_KEY)")
         if (settings.feedRefusedSinceStart > 0) lines += gettext("Abgewiesene Abrufe seit dem Start: %1", settings.feedRefusedSinceStart)
         if (settings.feedRateLimitedSinceStart > 0) {

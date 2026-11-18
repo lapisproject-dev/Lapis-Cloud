@@ -32881,3 +32881,15 @@ msgstr "Rate-limited requests since the start: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Mitfahr-Kurzhinweise abgerufen"
 msgstr "Carpool short hints fetched"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Rückzugsmeldungen aktiv: %1"
+msgstr "Withdrawal notices active: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Zurückgezogene Kurzhinweise werden Partnern bis zu 14 Tage lang als zurückgezogen gemeldet, nur mit pseudonymer Kennung und Tag."
+msgstr "Withdrawn short hints are reported to partners as withdrawn for up to 14 days, with a pseudonymous identifier and the day only."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
+msgid "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. Bereits übertragene Hinweise können wir dort nicht selbst löschen."
+msgstr "Partners receive a withdrawal notice on their next fetch. We cannot delete hints that were already transferred."

@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.CarpoolMessageTable
 import network.lapis.cloud.server.db.generated.CarpoolMessageThreadTable
 import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
+import network.lapis.cloud.server.db.generated.CarpoolTeaserTombstoneTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -26,7 +27,15 @@ class CarpoolSchemaDriftTest :
 
         test("the model declares exactly the carpool tables and the member stub") {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("carpool_posting", "carpool_participation", "carpool_message_thread", "carpool_message", "member")
+                setOf(
+                    "carpool_posting",
+                    "carpool_participation",
+                    "carpool_message_thread",
+                    "carpool_message",
+                    "carpool_teaser_tombstone",
+                    "member",
+                    "partner_server",
+                )
         }
 
         listOf(
@@ -34,6 +43,7 @@ class CarpoolSchemaDriftTest :
             "carpool_participation" to "carpool_posting",
             "carpool_message_thread" to "carpool_participation",
             "carpool_message" to "carpool_participation",
+            "carpool_teaser_tombstone" to "partner_server",
         ).forEach { (table, _) ->
             test("$table matches the real migrated schema (columns, nullability)") {
                 val entity = model.entities.single { it.name == table }
@@ -56,6 +66,10 @@ class CarpoolSchemaDriftTest :
             transaction { introspect("carpool_message_thread").foreignKeys["participation_id"] } shouldBe "carpool_participation"
         }
 
+        test("the foreign key of carpool_teaser_tombstone points at partner_server") {
+            transaction { introspect("carpool_teaser_tombstone").foreignKeys["partner_id"] } shouldBe "partner_server"
+        }
+
         test("the entity column-name sets match the hand-written Exposed objects 1:1") {
             model.entities
                 .single { it.name == "carpool_posting" }
@@ -72,6 +86,11 @@ class CarpoolSchemaDriftTest :
                 .attributes
                 .map { it.name } shouldContainExactlyInAnyOrder
                 CarpoolMessageThreadTable.columns.map { it.name }
+            model.entities
+                .single { it.name == "carpool_teaser_tombstone" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder
+                CarpoolTeaserTombstoneTable.columns.map { it.name }
             model.entities
                 .single { it.name == "carpool_message" }
                 .attributes

@@ -32820,3 +32820,15 @@ msgstr "Ограниченные запросы с момента запуска
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Mitfahr-Kurzhinweise abgerufen"
 msgstr "Краткие уведомления о совместных поездках получены"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Rückzugsmeldungen aktiv: %1"
+msgstr "Активные уведомления об отзыве: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Zurückgezogene Kurzhinweise werden Partnern bis zu 14 Tage lang als zurückgezogen gemeldet, nur mit pseudonymer Kennung und Tag."
+msgstr "Отозванные краткие уведомления передаются партнёрам как отозванные до 14 дней, только с псевдонимным идентификатором и днём."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
+msgid "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. Bereits übertragene Hinweise können wir dort nicht selbst löschen."
+msgstr "Партнёры получат уведомление об отзыве при следующем запросе. Уже переданные уведомления мы сами удалить не можем."

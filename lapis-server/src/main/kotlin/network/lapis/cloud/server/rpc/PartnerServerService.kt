@@ -5,6 +5,8 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.CarpoolWithdrawalKey
+import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedBuilder
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedCounters
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -23,6 +25,7 @@ import network.lapis.cloud.server.partner.PartnerServerStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
@@ -381,6 +384,7 @@ internal class PartnerServerService(
                 feedKeyAvailable = carpoolFeedKeyAvailable,
                 feedRefusedSinceStart = c?.refusedTotal ?: 0,
                 feedRateLimitedSinceStart = c?.rateLimited ?: 0,
+                carpoolWithdrawalsActive = CarpoolFederationStore.countLiveWithdrawals(clock()),
             )
         }
     }
@@ -395,6 +399,22 @@ internal class PartnerServerService(
         val now = clock()
         transaction {
             val before = CarpoolFederationStore.setSettings(enabled = enabled, hopLimit = hopLimit)
+            if (before.enabled && !enabled) {
+                // V1.9.313: switched off: every hint that was shareable is reported as withdrawn for every partner. The consents stay.
+                val targets =
+                    CarpoolTeaserFeedBuilder.shareableTargets(
+                        today = OrganizationTimeZone.today(),
+                        scanLimit = CarpoolTeaserFeedBuilder.SCAN_LIMIT,
+                    )
+                CarpoolFederationStore.withdraw(
+                    targets = targets,
+                    partnerId = null,
+                    ids = CarpoolWithdrawalKey.current(),
+                    now = now,
+                    clearOptIn = false,
+                    requireServed = false,
+                )
+            }
             if (before.enabled != enabled) {
                 val kind = if (enabled) PartnerAuditKind.CARPOOL_EXCHANGE_ENABLED else PartnerAuditKind.CARPOOL_EXCHANGE_DISABLED
                 audit(
@@ -431,6 +451,24 @@ internal class PartnerServerService(
         val now = clock()
         transaction {
             val row = PartnerServerStore.setCarpoolSharing(id = uuid, enabled = enabled) ?: throw NotFoundException("Partner not found")
+            if (row.carpoolSharing && !enabled) {
+                // V1.9.313: switched off for this partner: the shareable hints are reported as withdrawn for THIS partner only.
+                val targets =
+                    CarpoolTeaserFeedBuilder.shareableTargets(
+                        today = OrganizationTimeZone.today(),
+                        scanLimit = CarpoolTeaserFeedBuilder.SCAN_LIMIT,
+                    )
+                CarpoolFederationStore.withdraw(
+                    targets = targets,
+                    partnerId = uuid,
+                    ids = CarpoolWithdrawalKey.current(),
+                    now = now,
+                    clearOptIn = false,
+                    requireServed = false,
+                )
+            } else if (!row.carpoolSharing && enabled) {
+                CarpoolFederationStore.forgetPartnerTombstones(uuid)
+            }
             if (row.carpoolSharing != enabled) {
                 val kind = if (enabled) PartnerAuditKind.PARTNER_CARPOOL_SHARING_ON else PartnerAuditKind.PARTNER_CARPOOL_SHARING_OFF
                 audit(
@@ -450,13 +488,18 @@ internal class PartnerServerService(
         val blocks = PartnerServerStore.listBlocklist()
         val patterns = blocks.map { it.pattern }
         val counts = PartnerDiscoveryStore.countsByRoot()
+        val withdrawals = CarpoolFederationStore.countLiveWithdrawalsByPartner(clock())
         return PartnerServerOverviewDto(
             partners =
                 PartnerServerStore.listPartners().map {
                     val (servers, events) = counts[it.id] ?: (0 to 0)
                     it
                         .toDto(blocked = PartnerBlocklistPattern.isBlocked(host = it.host, patterns = patterns))
-                        .copy(discoveredServerCount = servers, discoveredEventCount = events)
+                        .copy(
+                            discoveredServerCount = servers,
+                            discoveredEventCount = events,
+                            carpoolWithdrawalsScoped = withdrawals[it.id] ?: 0,
+                        )
                 },
             blocklist = blocks.map { it.toDto() },
             partnerListHidden = PartnerServerStore.isPartnerListHidden(),

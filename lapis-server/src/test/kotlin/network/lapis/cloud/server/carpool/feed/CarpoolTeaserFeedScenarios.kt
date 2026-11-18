@@ -151,7 +151,7 @@ abstract class CarpoolTeaserFeedScenarios(
                 response.headers[HttpHeaders.CacheControl] shouldBe "private, no-store"
                 response.headers["X-Content-Type-Options"] shouldBe "nosniff"
                 val root = json.parseToJsonElement(response.bodyAsText()).jsonObject
-                root.keys shouldBe setOf("schemaVersion", "kind", "complete", "items")
+                root.keys shouldBe setOf("schemaVersion", "kind", "complete", "items", "withdrawn")
                 root.getValue("schemaVersion").jsonPrimitive.int shouldBe 1
                 root.getValue("kind").jsonPrimitive.content shouldBe "lapis-carpool-teaser-feed"
                 root.getValue("complete").jsonPrimitive.boolean shouldBe true

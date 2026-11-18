@@ -137,7 +137,12 @@ private suspend fun handle(
         return
     }
     val approvedId: Uuid? =
-        transaction { gate.approve(verified = verified, settings = CarpoolFederationStore.settings())?.id }
+        transaction {
+            (
+                gate.approve(verified = verified, settings = CarpoolFederationStore.settings())
+                    ?: gate.approveTrailing(verified = verified, now = DbClock.nowLocalDateTime())
+            )?.id
+        }
     if (approvedId == null) {
         counters.refusedNotApproved()
         call.respondUnavailable()
@@ -154,22 +159,34 @@ private suspend fun handle(
         transaction {
             val settings = CarpoolFederationStore.settings()
             // The pin or the consent may have changed since the check above: decide again in THIS transaction.
-            val row = gate.approve(verified = verified, settings = settings) ?: return@transaction FeedOutcome.Refused
-            val built =
-                CarpoolTeaserFeedBuilder.build(
-                    partner = row,
-                    settings = settings,
-                    ids = teaserIds,
-                    originHost = ownHost,
-                    today = OrganizationTimeZone.today(),
-                )
-            val etag = "\"" + sha256Hex(built.body) + "\""
             val now = DbClock.nowLocalDateTime()
+            val full = gate.approve(verified = verified, settings = settings)
+            // Wave 3: an approved partner gets the full snapshot; a partner that was served before but is no longer shared with gets ONLY the
+            // withdrawals that are still live for it (never an item); everybody else gets the one refusal.
+            val row = full ?: gate.approveTrailing(verified = verified, now = now) ?: return@transaction FeedOutcome.Refused
+            val built =
+                if (full != null) {
+                    CarpoolTeaserFeedBuilder.build(
+                        partner = row,
+                        settings = settings,
+                        ids = teaserIds,
+                        originHost = ownHost,
+                        today = OrganizationTimeZone.today(),
+                        now = now,
+                    )
+                } else {
+                    CarpoolTeaserFeedBuilder.buildWithdrawalsOnly(partner = row, ids = teaserIds, now = now)
+                }
+            val etag = "\"" + sha256Hex(built.body) + "\""
+            // Taken AFTER the build on purpose: the served-at moment must not be earlier than anything the answer contains (a consent that was
+            // committed before the read has an opt-in moment that is not later than this), or the "served since the consent" filter of the
+            // withdrawal could miss a hint that was handed out.
+            val servedAt = DbClock.nowLocalDateTime()
             if (ifNoneMatchHits(headerValue = ifNoneMatch, etag = etag)) {
-                PartnerServerStore.recordCarpoolFeedServed(id = row.id, itemCount = null, now = now)
+                PartnerServerStore.recordCarpoolFeedServed(id = row.id, itemCount = null, now = servedAt)
                 FeedOutcome.NotModified(etag)
             } else {
-                PartnerServerStore.recordCarpoolFeedServed(id = row.id, itemCount = built.itemCount, now = now)
+                PartnerServerStore.recordCarpoolFeedServed(id = row.id, itemCount = built.itemCount, now = servedAt)
                 AuditLogRecorder.record(
                     actorMemberId = null,
                     actorRole = null,
@@ -179,7 +196,11 @@ private suspend fun handle(
                     after =
                         Json.encodeToString(
                             CarpoolFederationFeedAuditSnapshot.serializer(),
-                            CarpoolFederationFeedAuditSnapshot(itemCount = built.itemCount, complete = built.complete),
+                            CarpoolFederationFeedAuditSnapshot(
+                                itemCount = built.itemCount,
+                                complete = built.complete,
+                                withdrawnCount = built.withdrawnCount,
+                            ),
                         ),
                 )
                 FeedOutcome.Ok(body = built.body, etag = etag)

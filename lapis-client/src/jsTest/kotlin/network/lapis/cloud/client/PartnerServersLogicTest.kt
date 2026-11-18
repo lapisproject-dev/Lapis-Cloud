@@ -199,4 +199,22 @@ class PartnerServersLogicTest {
         assertEquals(2, PartnerServersLogic.carpoolFeedSettingsLines(on.copy(feedKeyAvailable = false, feedRefusedSinceStart = 3)).size)
         assertEquals(1, PartnerServersLogic.carpoolFeedSettingsLines(on.copy(feedRateLimitedSinceStart = 4)).size)
     }
+
+    @Test
+    fun theWithdrawalLinesAreShownEvenWithTheSwitchesOff() {
+        // the settings line sits BEFORE the early return of a switched-off exchange: after switching off, the withdrawals are what is going on
+        val off = CarpoolFederationSettingsDto(enabled = false, hopLimit = 2, carpoolWithdrawalsActive = 3)
+        assertEquals(1, PartnerServersLogic.carpoolFeedSettingsLines(off).size)
+        assertTrue(PartnerServersLogic.carpoolFeedSettingsLines(off.copy(carpoolWithdrawalsActive = 0)).isEmpty())
+        val on = CarpoolFederationSettingsDto(enabled = true, hopLimit = 2, feedKeyAvailable = true, carpoolWithdrawalsActive = 1)
+        assertEquals(1, PartnerServersLogic.carpoolFeedSettingsLines(on).size)
+        // the partner line is shown with the partner's own switch off and with the exchange off; with nothing scoped there is no line
+        val scoped = partner().copy(carpoolSharing = false, carpoolWithdrawalsScoped = 2)
+        assertEquals(1, PartnerServersLogic.carpoolFeedLines(partner = scoped, exchangeOn = true).size)
+        assertEquals(1, PartnerServersLogic.carpoolFeedLines(partner = scoped, exchangeOn = false).size)
+        assertTrue(PartnerServersLogic.carpoolFeedLines(partner = partner().copy(carpoolSharing = false), exchangeOn = true).isEmpty())
+        // with the switch on the scoped line comes first, then the usual lines
+        val shared = partner().copy(carpoolSharing = true, carpoolKeyPinned = true, carpoolWithdrawalsScoped = 1)
+        assertEquals(2, PartnerServersLogic.carpoolFeedLines(partner = shared, exchangeOn = true).size)
+    }
 }

@@ -66,6 +66,7 @@ import network.lapis.cloud.server.bulletin.NoticeRetentionPoller
 import network.lapis.cloud.server.carpool.CarpoolDeps
 import network.lapis.cloud.server.carpool.CarpoolNotifier
 import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
+import network.lapis.cloud.server.carpool.CarpoolWithdrawalKey
 import network.lapis.cloud.server.carpool.SmtpCarpoolNoticeMailer
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedCounters
 import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedLimits
@@ -1920,6 +1921,8 @@ internal fun Application.module(
     val carpoolFeedReplayGuard = FederationReplayGuard()
     val carpoolFeedCounters = CarpoolTeaserFeedCounters()
     val carpoolTeaserIds: CarpoolTeaserIds? = bankStatementSecretBox?.let { CarpoolTeaserIds(it) }
+    // V1.9.313: the withdrawal paths without constructor injection (GDPR erasure, poller, RPC services) derive the hint ids with the SAME instance.
+    CarpoolWithdrawalKey.configure(carpoolTeaserIds)
     if (carpoolTeaserIds == null) {
         applicationLogger.warn { "LAPIS_SECRET_ENCRYPTION_KEY is not configured: the carpool teaser feed refuses every request" }
     }

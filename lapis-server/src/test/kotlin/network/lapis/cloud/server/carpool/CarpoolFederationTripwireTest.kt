@@ -183,6 +183,42 @@ class CarpoolFederationTripwireTest :
                     .serializer()
                     .descriptor,
             ) shouldBe
-                listOf("schemaVersion", "kind", "complete", "items")
+                listOf("schemaVersion", "kind", "complete", "items", "withdrawn")
+            // V1.9.313 (k): a withdrawal is exactly the pseudonymous id and the day; the table exactly its five columns -- no member, trip or text.
+            names(
+                network.lapis.cloud.server.carpool.feed.CarpoolTeaserWithdrawal
+                    .serializer()
+                    .descriptor,
+            ) shouldBe listOf("teaserId", "withdrawnAt")
+            network.lapis.cloud.server.db.generated.CarpoolTeaserTombstoneTable.columns
+                .map { it.name } shouldBe listOf("id", "teaser_id", "partner_id", "created_at", "expires_at")
+        }
+
+        test("(j) only CarpoolFederationStore and the table file reference CarpoolTeaserTombstoneTable") {
+            main
+                .filter { it.name !in setOf("CarpoolFederationStore.kt", "CarpoolTeaserTombstoneTable.kt") }
+                .filter { Regex("""\bCarpoolTeaserTombstoneTable\b""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .shouldBeEmpty()
+            // ...and nobody else writes the moment of the consent.
+            main
+                .filter { it.name !in setOf("CarpoolFederationStore.kt", "CarpoolPostingTable.kt") }
+                .filter { Regex("""\bfederationOptInAt\s*\]\s*=[^=]""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .shouldBeEmpty()
+        }
+
+        test("(l) no log line in the carpool packages names a hint id") {
+            main
+                .filter { "/server/carpool/" in it.path.replace('\\', '/') }
+                .flatMap { f -> f.readLines().filter { Regex("""logger\.""").containsMatchIn(it) }.map { f.name to it } }
+                .filter { (_, line) -> Regex("""teaserId|ids\.of|\.of\(""").containsMatchIn(line) }
+                .shouldBeEmpty()
+        }
+
+        test("(m) CarpoolWithdrawalKey.configure is called only in Application.kt") {
+            main
+                .filter { Regex("""CarpoolWithdrawalKey\s*\.\s*configure\s*\(""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name } shouldBe listOf("Application.kt")
         }
     })

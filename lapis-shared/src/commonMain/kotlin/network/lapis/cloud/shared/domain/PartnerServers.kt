@@ -74,6 +74,8 @@ data class PartnerServerDto(
     val carpoolFeedServedAt: LocalDateTime? = null,
     val carpoolFeedServedCount: Long = 0,
     val carpoolFeedLastItemCount: Int? = null,
+    /** V1.9.313: how many withdrawals scoped to exactly this partner are still live (the switch for this partner was turned off). */
+    val carpoolWithdrawalsScoped: Int = 0,
 )
 
 @Serializable

@@ -32867,3 +32867,15 @@ msgstr "Requêtes limitées depuis le démarrage : %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Mitfahr-Kurzhinweise abgerufen"
 msgstr "Avis courts de covoiturage récupérés"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Rückzugsmeldungen aktiv: %1"
+msgstr "Avis de retrait actifs : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
+msgid "Zurückgezogene Kurzhinweise werden Partnern bis zu 14 Tage lang als zurückgezogen gemeldet, nur mit pseudonymer Kennung und Tag."
+msgstr "Les avis courts retirés sont signalés aux partenaires comme retirés pendant 14 jours au plus, avec seulement un identifiant pseudonyme et le jour."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolFederationUi.kt:1
+msgid "Partner erhalten beim nächsten Abruf eine Rückzugsmeldung. Bereits übertragene Hinweise können wir dort nicht selbst löschen."
+msgstr "Les partenaires reçoivent un avis de retrait lors de leur prochaine consultation. Nous ne pouvons pas supprimer nous-mêmes les avis déjà transmis."

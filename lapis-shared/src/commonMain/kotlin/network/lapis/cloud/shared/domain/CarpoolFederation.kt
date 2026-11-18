@@ -138,6 +138,8 @@ data class CarpoolFederationSettingsDto(
     val feedRefusedSinceStart: Long = 0,
     /** V1.9.312: requests the teaser feed answered with 429 since the server started. */
     val feedRateLimitedSinceStart: Long = 0,
+    /** V1.9.313: withdrawals still live (reported to partners for up to 14 days): pseudonymous id and day only. */
+    val carpoolWithdrawalsActive: Int = 0,
 )
 
 /** What a member needs to know: is the exchange switched on at all (the owner dialog shows the consent box only then). */
@@ -157,4 +159,6 @@ data class CarpoolFederationOptInAuditSnapshot(
 data class CarpoolFederationFeedAuditSnapshot(
     val itemCount: Int,
     val complete: Boolean,
+    /** V1.9.313: how many withdrawals the answer carried (the count only). */
+    val withdrawnCount: Int = 0,
 )

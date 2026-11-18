@@ -90,4 +90,15 @@ class CarpoolFederationUiLogicTest {
         assertTrue(CarpoolFederationUiLogic.mustCallSetOptIn(initial = true, wanted = false))
         assertFalse(CarpoolFederationUiLogic.mustCallSetOptIn(initial = true, wanted = true))
     }
+
+    @Test
+    fun theWithdrawalHintShowsOnlyWhileASharedTripIsBeingUnticked() {
+        assertTrue(CarpoolFederationUiLogic.withdrawalHintVisible(initial = true, checked = false))
+        assertFalse(CarpoolFederationUiLogic.withdrawalHintVisible(initial = true, checked = true))
+        assertFalse(
+            CarpoolFederationUiLogic.withdrawalHintVisible(initial = false, checked = false),
+            "a trip that was never shared has nothing to take back",
+        )
+        assertFalse(CarpoolFederationUiLogic.withdrawalHintVisible(initial = false, checked = true))
+    }
 }

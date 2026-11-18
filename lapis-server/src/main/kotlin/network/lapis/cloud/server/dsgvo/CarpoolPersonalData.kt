@@ -3,7 +3,10 @@ package network.lapis.cloud.server.dsgvo
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.carpool.CarpoolMessages
+import network.lapis.cloud.server.carpool.CarpoolWithdrawalKey
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CarpoolMessageTable
 import network.lapis.cloud.server.db.generated.CarpoolMessageThreadTable
 import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
@@ -57,6 +60,7 @@ object CarpoolPersonalData : MemberPersonalDataContributor {
                                 put("notes", row[CarpoolPostingTable.notes])
                                 put("meetingNote", row[CarpoolPostingTable.meetingNote])
                                 put("federationOptIn", row[CarpoolPostingTable.federationOptIn])
+                                put("federationOptInAt", row[CarpoolPostingTable.federationOptInAt]?.toString())
                                 put(
                                     "participantCount",
                                     CarpoolParticipationTable
@@ -122,6 +126,16 @@ object CarpoolPersonalData : MemberPersonalDataContributor {
         memberId: Uuid,
         mode: ErasureMode,
     ): List<TableErasureOutcome> {
+        // V1.9.313: BEFORE anything is deleted, the hints this member shared are reported as withdrawn (a tombstone holds only the pseudonymous id,
+        // no member and no trip, so nothing of it needs erasing). The trips are locked first (ascending id), the tombstones are written after.
+        CarpoolFederationStore.withdraw(
+            targets = CarpoolFederationStore.lockOptedInTargetsOfAuthor(memberId),
+            partnerId = null,
+            ids = CarpoolWithdrawalKey.current(),
+            now = DbClock.nowLocalDateTime(),
+            clearOptIn = false,
+            requireServed = true,
+        )
         // The person's own rides as a passenger first (this releases their seats), then their offers together with everybody else's
         // participations on them -- explicit deletes, independent of the foreign key's ON DELETE rule.
         // V1.9.139: the ride messages first (they hang off the participations that are deleted below).

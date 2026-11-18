@@ -525,6 +525,9 @@ col:CarpoolPostingTable.updatedAt	A	stamped by the server clock (DbClock/ServerC
 col:CarpoolParticipationTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:CarpoolParticipationTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:CarpoolParticipationTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolPostingTable.federationOptInAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolTeaserTombstoneTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolTeaserTombstoneTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:CommitteeMembershipTable.since	D	calendar date (LocalDate); never converted
 col:CommitteeMembershipTable.until	D	calendar date (LocalDate); never converted
 col:CommitteeTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

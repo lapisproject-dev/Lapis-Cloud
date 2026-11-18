@@ -96,6 +96,9 @@ private fun renderPartnerServers(
 private const val CARPOOL_EXCHANGE_NOT_YET_NOTE =
     "Freigegebene Partner können die Kurzhinweise abrufen. " + "Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
 
+private const val CARPOOL_EXCHANGE_WITHDRAWAL_NOTE =
+    "Zurückgezogene Kurzhinweise werden Partnern bis zu 14 Tage lang als zurückgezogen gemeldet, nur mit pseudonymer Kennung und Tag."
+
 private const val CARPOOL_EXCHANGE_INFO =
     "Mitglieder entscheiden für jede Fahrt selbst, ob ein Kurzhinweis an freigegebene Partner geht: " +
         "das Datum und die ersten zwei Ziffern der Postleitzahlen von Start und Ziel. " +
@@ -149,6 +152,7 @@ private fun renderCarpoolExchange(
     // `subscribe` would call back at once with the current value (a reload loop); the DOM change event fires only on a choice by the person.
     reach?.onEvent { change = { save() } }
     box.div(tr(CARPOOL_EXCHANGE_NOT_YET_NOTE), className = "text-muted small") { setAttribute("role", "status") }
+    box.div(tr(CARPOOL_EXCHANGE_WITHDRAWAL_NOTE), className = "text-muted small")
     PartnerServersLogic.carpoolFeedSettingsLines(settings).forEach { box.div(it, className = "text-muted small") }
 }
 

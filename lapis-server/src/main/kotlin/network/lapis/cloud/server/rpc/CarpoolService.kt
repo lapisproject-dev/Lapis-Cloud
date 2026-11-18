@@ -1,8 +1,10 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.plus
 import kotlinx.datetime.toJavaLocalTime
 import kotlinx.datetime.toKotlinLocalTime
 import kotlinx.serialization.json.Json
@@ -15,6 +17,8 @@ import network.lapis.cloud.server.carpool.CarpoolMessages
 import network.lapis.cloud.server.carpool.CarpoolNotice
 import network.lapis.cloud.server.carpool.CarpoolNoticeKind
 import network.lapis.cloud.server.carpool.CarpoolParticipations
+import network.lapis.cloud.server.carpool.CarpoolWithdrawalKey
+import network.lapis.cloud.server.carpool.CarpoolWithdrawalTarget
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
@@ -25,6 +29,7 @@ import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CarpoolFederationAvailabilityDto
+import network.lapis.cloud.shared.domain.CarpoolFederationLimits
 import network.lapis.cloud.shared.domain.CarpoolFederationOptInAuditSnapshot
 import network.lapis.cloud.shared.domain.CarpoolInviteeCandidateDto
 import network.lapis.cloud.shared.domain.CarpoolMessagePageDto
@@ -205,7 +210,33 @@ class CarpoolService internal constructor(
                     it[updatedAt] = DbClock.nowLocalDateTime()
                 }
                 // V1.9.311: a REQUEST can never be shared -- the consent ends with the type change (the store keeps the monopoly on the column).
-                if (validated.type == CarpoolPostingType.REQUEST) CarpoolFederationStore.clearOptIn(postingId)
+                // V1.9.313: a trip that is no longer shareable (a request, or without a postal code) is reported as withdrawn, with the OLD date (what a
+                // partner may have cached). A trip that stays shareable gets no tombstone: the same hint id carries the new content in the next snapshot.
+                if (existing[CarpoolPostingTable.federationOptIn]) {
+                    val stillShareable =
+                        validated.type == CarpoolPostingType.OFFER &&
+                            projectCarpoolTeaser(
+                                fromPlace = validated.fromPlace,
+                                toPlace = validated.toPlace,
+                                departureDate = validated.departureDate,
+                                teaserId = CarpoolTeaser.PREVIEW_ID,
+                            ) != null
+                    val oldDate = existing[CarpoolPostingTable.departureDate]
+                    val movedOutOfWindow =
+                        stillShareable &&
+                            validated.departureDate > today.plus(CarpoolFederationLimits.MAX_DAYS_AHEAD, DateTimeUnit.DAY) &&
+                            oldDate <= today.plus(CarpoolFederationLimits.MAX_DAYS_AHEAD, DateTimeUnit.DAY)
+                    if (!stillShareable || movedOutOfWindow) {
+                        CarpoolFederationStore.withdraw(
+                            targets = listOf(CarpoolWithdrawalTarget(postingId = postingId, departureDate = oldDate)),
+                            partnerId = null,
+                            ids = CarpoolWithdrawalKey.current(),
+                            now = DbClock.nowLocalDateTime(),
+                            clearOptIn = !stillShareable,
+                            requireServed = true,
+                        )
+                    }
+                }
                 val notices =
                     if (changedForPassengers) {
                         active.map {
@@ -237,6 +268,20 @@ class CarpoolService internal constructor(
                     throw ForbiddenException("Only the author may delete this posting")
                 }
                 val affected = CarpoolParticipations.activeParticipants(postingId)
+                // V1.9.313: a trip that was shared is reported as withdrawn BEFORE the row disappears (the trip lock is held).
+                if (existing[CarpoolPostingTable.federationOptIn]) {
+                    CarpoolFederationStore.withdraw(
+                        targets =
+                            listOf(
+                                CarpoolWithdrawalTarget(postingId = postingId, departureDate = existing[CarpoolPostingTable.departureDate]),
+                            ),
+                        partnerId = null,
+                        ids = CarpoolWithdrawalKey.current(),
+                        now = DbClock.nowLocalDateTime(),
+                        clearOptIn = false,
+                        requireServed = true,
+                    )
+                }
                 // Explicit delete first: correct whatever the foreign key's ON DELETE rule is.
                 CarpoolParticipations.deleteAllOf(postingId)
                 CarpoolPostingTable.deleteWhere { CarpoolPostingTable.id eq postingId }
@@ -480,7 +525,28 @@ class CarpoolService internal constructor(
             }
             // Withdrawal is always allowed. Unchanged = no write and no audit.
             if (CarpoolFederationStore.optIn(id) != optIn) {
-                CarpoolFederationStore.setOptIn(postingId = id, value = optIn)
+                if (optIn) {
+                    CarpoolFederationStore.setOptIn(postingId = id, value = true)
+                    // V1.9.313: the consent is given again, so an earlier global withdrawal of this hint is moot. Only while the exchange is on:
+                    // a global tombstone written by the instance switch-off must survive a consent that is re-given at that time.
+                    if (CarpoolFederationStore.settings().enabled) {
+                        CarpoolWithdrawalKey.current()?.let {
+                            CarpoolFederationStore.forgetGlobalTombstone(it.of(id))
+                        }
+                    }
+                } else {
+                    CarpoolFederationStore.withdraw(
+                        targets =
+                            listOf(
+                                CarpoolWithdrawalTarget(postingId = id, departureDate = posting[CarpoolPostingTable.departureDate]),
+                            ),
+                        partnerId = null,
+                        ids = CarpoolWithdrawalKey.current(),
+                        now = DbClock.nowLocalDateTime(),
+                        clearOptIn = true,
+                        requireServed = true,
+                    )
+                }
                 AuditLogRecorder.record(
                     actorMemberId = current.memberId,
                     actorRole = current.role,

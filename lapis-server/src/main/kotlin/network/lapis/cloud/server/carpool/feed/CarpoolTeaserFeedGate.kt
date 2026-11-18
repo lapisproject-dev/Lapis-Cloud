@@ -1,6 +1,8 @@
 package network.lapis.cloud.server.carpool.feed
 
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.carpool.CarpoolFederationSettings
+import network.lapis.cloud.server.carpool.CarpoolFederationStore
 import network.lapis.cloud.server.federation.FederationKeyPairGenerator
 import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.federation.HttpSignatures
@@ -92,6 +94,26 @@ internal class CarpoolTeaserFeedGate(
         if (keyHost(verified.keyId) != row.host) return null
         if (!row.active || !row.carpoolSharing) return null
         if (PartnerBlocklistPattern.isBlocked(host = row.host, patterns = PartnerServerStore.blockPatterns())) return null
+        return row
+    }
+
+    /**
+     * V1.9.313 (wave 3): the trailing answer. Called ONLY after [approve] said no. A partner that was served before and that is still a trusted,
+     * active, not blocked partner (same pinned key, key host = own host) gets the withdrawals that are still live for it, even when the instance
+     * or its own carpool switch is off now: switching off must not leave cached hints standing. Never carries items. Everything else (never served,
+     * nothing live to report, inactive, blocked, wrong pin) stays the one refusal.
+     */
+    fun approveTrailing(
+        verified: VerifiedPartner,
+        now: LocalDateTime,
+    ): PartnerRow? {
+        val row = PartnerServerStore.findPartner(verified.row.id) ?: return null
+        if (row.signingKeyId != verified.keyId || row.signingPublicKeyPem != verified.publicKeyPem) return null
+        if (keyHost(verified.keyId) != row.host) return null
+        if (!row.active) return null
+        if (PartnerBlocklistPattern.isBlocked(host = row.host, patterns = PartnerServerStore.blockPatterns())) return null
+        if (row.carpoolFeedServedCount <= 0) return null
+        if (!CarpoolFederationStore.hasLiveWithdrawalsFor(partnerId = row.id, now = now)) return null
         return row
     }
 

@@ -4,12 +4,13 @@
 :toc-placement: preamble
 :icons: font
 
-NOTE: **Implementation status.** **Waves 1 and 2 of 7 exist.** Wave 1 (V1.9.311, schema V159) is the foundation: switches and consent. Wave 2 (V1.9.312,
-schema V160) is the **origin side of the teaser feed**: an approved direct partner *can* fetch a signed snapshot of the hints of this server. **No
-Lapis server fetches yet** (the pull client is wave 3), no hint is displayed anywhere, there is no withdrawal tombstone and nothing is passed on. No HTTP
-client exists for this feature: wave 2 only *answers* requests. Waves 3 to 7 below are the plan, not the code. The sentence on the partner page says so
-to the administrator ("Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab.") and is
-removed in wave 3.
+NOTE: **Implementation status.** **Waves 1 to 3 of 7 exist.** Wave 1 (V1.9.311, schema V159) is the foundation: switches and consent. Wave 2 (V1.9.312,
+schema V160) is the **origin side of the teaser feed**: an approved direct partner *can* fetch a signed snapshot of the hints of this server. Wave 3
+(V1.9.313, schema V161) is the **withdrawal on the origin side**: a hint that is taken back is reported to partners as *withdrawn* for a short time
+(tombstones). **There is still no pull client**: no Lapis server fetches the feed yet (that comes in a later wave), no hint is displayed anywhere and
+nothing is passed on. No HTTP client exists for this feature: the origin only *answers* requests. Waves 4 to 7 below are the plan, not the code. The
+sentence on the partner page says so to the administrator ("Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer
+späteren Version selbst ab.") and stays until a pull client exists.
 
 == Goal
 
@@ -150,7 +151,7 @@ body) changes only when the content changes. The list is sorted by `(departureDa
 **this partner** now.
 
 **`complete`.** The snapshot is bounded: at most 1000 items, 5000 scanned trips and 256 KiB. When any bound cuts the list, `complete` is `false`. A
-consumer (wave 3) may treat a hint that is *missing* from the list as withdrawn **only when `complete` is `true`**.
+consumer (a later wave, the pull client) may treat a hint that is *missing* from the list as withdrawn **only when `complete` is `true`**.
 
 === Authentication and answers
 
@@ -193,7 +194,7 @@ verification and approval is refused.
 |Refusal |**One answer for every cause** (`404`, `{"error":"unavailable"}`, `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`, no `ETag`, no
 `Retry-After`), written only by `respondUnavailable`: a missing, malformed, stale, future or replayed signature, a wrong or unknown key, an unknown, inactive,
 blocked or removed partner, sharing off, the instance switch off, a missing teaser key, a query string, an internal error. The administrator sees the
-causes only as in-memory counters.
+causes only as in-memory counters. **Wave 3 makes one deliberate exception to "one answer for every cause":** the trailing answer (see "Wave 3: withdrawal").
 |Limits |Per IP (30 a minute, before the signature check), per partner (12 an hour) and global (600 an hour), the last two only **after** the approval, so a `429`
 is visible to an approved partner only and says nothing about the consent of anybody else. All constants live in `CarpoolTeaserFeedLimits`.
 |`ETag` |`"<sha256 of the body>"`, `If-None-Match` handled like the public partner feed (`*`, a list, `W/`). A `304` has no body and the same cache headers. There
@@ -226,6 +227,107 @@ refused (all causes together), rate limited. Shown to the administrator on the p
   and that the partner signs exactly this server's own host. Different host names mean "not available". An operator who serves a server under another
   name than its public base URL has to align them.
 
+== Wave 3: withdrawal (origin side, schema V161)
+
+A hint that a partner may have cached has to be reported as taken back, or "switched off" would only be a promise. Wave 3 does exactly that on the **origin
+side**: the snapshot gets a second list, `withdrawn`, with the hints that were withdrawn recently. There is **no pull client** in this wave: a partner with
+its own client can read the list; a Lapis server does not yet.
+
+[source,kuml,name="carpool-withdrawal-flow"]
+----
+sequenceDiagram(name = "Carpool withdrawal -- trigger to partner") {
+    val trigger = lifeline(name = "Trigger (owner, admin, erasure, sweep)")
+    val store = lifeline(name = "CarpoolFederationStore.withdraw")
+    val table = lifeline(name = "carpool_teaser_tombstone")
+    val builder = lifeline(name = "Snapshot builder")
+    val partner = lifeline(name = "Direct partner")
+
+    message(from = trigger, to = store, label = "targets (trip id + date the partner may hold), scope, clearOptIn")
+    message(from = store, to = store, label = "lock order: trips first; consent filter; derive the hint id (HMAC)")
+    message(from = store, to = table, label = "INSERT ... ON CONFLICT DO NOTHING (derived primary key)")
+    message(from = partner, to = builder, label = "GET feed (signed)")
+    message(from = builder, to = table, label = "live tombstones for this partner, after the items were read")
+    message(from = builder, to = partner, label = "200 items + withdrawn (item wins; or the trailing answer)")
+}
+----
+
+=== What a tombstone is
+
+One row in `carpool_teaser_tombstone` says "the hint with this pseudonymous id was withdrawn": `teaser_id` (the HMAC id, 64 hex), `partner_id` (`NULL` = every
+partner, otherwise exactly one), `created_at` and `expires_at`. **No member, no trip, no place, no text.** On the wire an entry is exactly `{teaserId,
+withdrawnAt}` (the UTC day). The table is read and written **only** by `CarpoolFederationStore` (a tripwire pins it, and pins the field sets).
+
+* **Life.** `expires_at = min(created_at + 14 days, departure + 2 days at 00:00 UTC)`. A partner never needs the tombstone for longer than it may hold the
+  hint. The cap lives in the code (`CarpoolTeaserTombstonePolicy.TTL_DAYS`, not configurable). A tombstone whose life would already be over is not written.
+  The poller deletes expired rows; the feed ignores them at read time anyway.
+* **Idempotent without a lock on the settings.** The primary key is derived from `(teaserId, scope)` (SHA-256, version-4 shaped UUID), the insert is
+  `ON CONFLICT DO NOTHING`. A second withdrawal changes nothing, in particular it does **not** extend the life. Two parallel withdrawals end in one row and no
+  exception. Locking the `organization_settings` row (as first designed) would deadlock with the sweep, which locks the trip and then writes.
+* **Lock order, one rule everywhere:** `carpool_posting` rows first (ascending id, `FOR UPDATE`), tombstone inserts after (also in ascending trip order).
+  The admin triggers B4 and B5 lock no trip.
+
+=== Triggers
+
+[cols="1,3,3",options="header"]
+|===
+|# |Event |What is written
+
+|B1 |The owner takes the consent back |Global tombstone; consent and its moment cleared. Giving the consent again deletes the *global* tombstone of that hint.
+|B2 |The owner deletes a shared trip |Global tombstone, written **before** the row is deleted (the trip lock is held).
+|B3 |The owner edits a shared trip |If it is no longer shareable (now a request, or no postcode): global tombstone **with the old date**, consent cleared. If it stays
+shareable: nothing (the same hint id carries the new content in the next snapshot). If the date moves beyond the 90 day window: global tombstone, the consent stays.
+|B4 |The administrator switches the exchange off |Global tombstones for every currently shareable trip; the consents stay (switching on again brings the items back, "item wins").
+|B5 |The administrator switches one partner off |Tombstones scoped to that partner for every currently shareable trip. Switching it on again deletes them.
+|B6 |GDPR erasure of the author |Global tombstones for his shared trips, written before the hard deletes in the same transaction. A tombstone holds no member reference, so nothing of it needs erasing.
+|B7 |The author is no longer an active member (left, banned, anonymised) |Swept lazily (at most 50 per snapshot build) and by the daily poller: consent cleared, global tombstone, one audit entry
+without an actor. The consent ends with the membership, also for a short ban.
+|Removal |A partner is removed |Its scoped tombstones are deleted explicitly (not relying on the foreign key's `ON DELETE CASCADE`).
+|===
+
+**No tombstone** is written for: a trip whose departure grace period is over, a full trip that was never shareable, a trip never consented to, and when no
+teaser key is configured (the consent is still cleared; the miss is counted in `CarpoolWithdrawalKey.skippedNoKey`).
+
+**The consent filter.** B1, B2, B3, B6 and B7 write a tombstone only when some partner fetched the feed **after** the consent was given
+(`carpool_posting.federation_opt_in_at`, set with the consent, backfilled with `created_at` for existing consents): nothing can have been handed out
+before. Without it a single member could create, consent and delete trips in a loop and push real withdrawals out of the bounded list. The filter is sound
+because the "served at" moment is taken **after** the snapshot is built. B4 and B5 have no filter.
+
+=== The snapshot
+
+`CarpoolTeaserFeedV1` gets a last field `withdrawn` (always present, empty by default; `schemaVersion` stays 1). The builder reads in a pinned order:
+first the candidates and all items, then the lazy sweep, then the tombstones, then **removes every id that is in the complete item list ("item wins")**,
+sorts by day descending and then id, and cuts at 1000. That order can at worst produce "item without a tombstone" under a concurrent withdrawal (the next
+fetch shows the tombstone), never "neither". `complete` is `false` when either list was cut (by the item cap, the 1000 cap, the 5000 scan limit or the
+byte cap, which halves the items first and then the withdrawals). The `ETag` is the hash of the body, so a new or an expired tombstone changes it and an old
+`ETag` gets a `200`. The audit entry of a `200` gets one more number, `withdrawnCount`.
+
+=== The trailing answer
+
+Switching off must not leave cached hints standing. A partner that **was served before** and is still a trusted partner (same pin, key host = row host,
+active, not blocked) gets, after the instance or its own switch went off, a `200` with `items = []` and the withdrawals that are still live for it, **only if
+there are any**. Everything else (never served, nothing live to report, inactive, blocked, wrong pin) stays the one refusal, byte for byte. The same rate
+limits and the same audit apply; it never carries an item.
+
+=== Decisions
+
+* **Same `teaserId` after a new consent.** The hint id stays the same for a trip; the new consent deletes the global tombstone. A new "epoch" in the id would
+  not hide the link (date and regions are identical) and would break the deduplication wave 4 needs.
+* **Reason and member are never reported**, only id and day.
+* **Admin counters** are fields appended to the existing DTOs (`carpoolWithdrawalsActive`, `carpoolWithdrawalsScoped`); no new RPC method.
+* **Backup.** The table is part of the backup (it holds nothing personal and belongs to the correctness of a withdrawal). A restore of an older backup brings
+  back consents that were withdrawn after it (an existing property of a restore, not new).
+
+== What wave 3 deliberately does not do
+
+* **No pull client**, no display, no pass-on: a partner with its own client can read `withdrawn`, a Lapis server does not yet. The hop count is still 0.
+* **No legal review** (still open, see below). A tombstone is a technical aid, not a statement of deletion by the partner: a partner that already cached a hint
+  holds it until it reads the list or until the date. A blocked or removed partner keeps what it cached until the hint's date; this server cannot delete it.
+* B4 and B5 report at most 5000 candidate trips per event (a longer tail is missed and counted in `CarpoolWithdrawalKey.scanCapped`); a trip that was
+  handed out earlier and is meanwhile full is not reported when the partner is switched off.
+* A global tombstone also goes to a partner whose own switch is already off, as long as it was served before: it learns the number and the days of withdrawals
+  of the last 14 days (a small activity signal, accepted and documented).
+* `deletePosting` has no rate limit of its own; the consent filter and the 1000 cap bound the effect of a flood.
+
 == Waves
 
 [source,kuml,name="carpool-federation-flow"]
@@ -240,8 +342,8 @@ sequenceDiagram(name = "Carpool exchange -- planned flow (waves 2 to 6)") {
     message(from = origin, to = origin, label = "projectCarpoolTeaser, eligibility per partner (wave 2)")
     message(from = partner, to = origin, label = "GET teaser feed, signed, snapshot (wave 2)")
     message(from = further, to = partner, label = "GET teaser feed, hops + 1 <= min(maxHops, own limit) (wave 4)")
-    message(from = owner, to = origin, label = "withdraw: the trip leaves the next snapshot (wave 3)")
-    message(from = partner, to = origin, label = "next fetch: missing = withdrawn; tombstone for the id (wave 3)")
+    message(from = owner, to = origin, label = "withdraw: the trip leaves the next snapshot, tombstone written (wave 3)")
+    message(from = partner, to = origin, label = "next fetch: withdrawn list with the tombstone (wave 3, origin side)")
 }
 ----
 
@@ -253,8 +355,9 @@ sequenceDiagram(name = "Carpool exchange -- planned flow (waves 2 to 6)") {
 |2 (V1.9.312, **built**) |Origin side: the teaser feed under its own path, **never** inside the public partner feed or an embed feed. Pseudonymous `teaserId` (HMAC
 derived from `LAPIS_SECRET_ENCRYPTION_KEY`). Each fetch returns a complete **snapshot** of what is eligible now. Signed GET against a key pinned through the
 partner poll (V160). No pull client yet.
-|3 |Withdrawal: a trip that is no longer eligible is missing from the next snapshot, which means "withdrawn"; additionally a short-lived **tombstone** per
-`teaserId`, so a partner that cached a hint can remove it before the next full snapshot.
+|3 (V1.9.313, **built**) |Withdrawal, **origin side only**: a trip that is no longer eligible is missing from the next snapshot; additionally a short-lived
+**tombstone** per `teaserId` (V161, at most 14 days), so a partner that cached a hint can remove it before the next full snapshot. The pull client that reads it is not part of
+this wave; it comes in a later wave.
 |4 |Further hops: a server passes a hint on only to its own consenting partners and only while `hops + 1` stays within `min(maxHops, own limit)`. Deletion of
 a trip or of a member (GDPR erasure) is passed on along the same path. Origin from hop 2 on is proven by a **signature of the origin** over hint and
 envelope; a hop-2 server checks it against the key of the origin host. Without it an origin statement that was passed on could be forged.
@@ -283,6 +386,7 @@ rule as partner events). The owner sees which direct partners and which reach ap
 
 * Resolved in wave 2: the HMAC key of the `teaserId` is derived from `LAPIS_SECRET_ENCRYPTION_KEY` (no new secret).
 * Joint controllership (Art. 26 GDPR) is still not reviewed, and with wave 2 a real transfer is technically possible (default off).
+* Whether the pull client (which reads `withdrawn`) is wave 4 or a wave of its own is not decided; wave 4 ("further hops") presupposes it.
 * Replay protection is per JVM; a multi-instance deployment would need a shared store.
 * Whether the owner is told **which** organisations receive the hint (proposed for wave 5: list of the approved direct partners and the reach).
 * Whether the board, not only the administrator, may switch the exchange (it would change the whole partner administration, a separate decision).
