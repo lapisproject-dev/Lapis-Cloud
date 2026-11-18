@@ -11,10 +11,13 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.db.generated.FederationActorKeyTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PartnerBlocklistTable
 import network.lapis.cloud.server.db.generated.PartnerEventTable
 import network.lapis.cloud.server.db.generated.PartnerServerTable
+import network.lapis.cloud.server.federation.FEDERATION_ACTOR_KEY_ID
+import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
@@ -23,6 +26,7 @@ import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
@@ -215,5 +219,24 @@ class PartnerFeedBuilderTest :
                     ?.sentence
                     ?.isNotBlank()
             ) shouldBe true
+        }
+
+        test(
+            "V1.9.312: the feed announces this server's own public signing key (the one /federation/actor publishes), never a private half",
+        ) {
+            val uri = "https://own.example.com/federation/actor"
+            FederationActorKeyProvisioner.ensureProvisioned(actorUri = uri)
+            val row =
+                transaction {
+                    FederationActorKeyTable.selectAll().where { FederationActorKeyTable.id eq FEDERATION_ACTOR_KEY_ID }.single()
+                }
+            val feed = PARTNER_FEED_JSON.decodeFromString(PartnerFeedV1.serializer(), feedText())
+            feed.signingKey shouldBe
+                PartnerFeedSigningKey(
+                    keyId = row[FederationActorKeyTable.actorUri] + "#main-key",
+                    publicKeyPem = row[FederationActorKeyTable.publicKeyPem],
+                )
+            feedText() shouldNotContain "PRIVATE KEY"
+            feedText() shouldNotContain row[FederationActorKeyTable.privateKeyPem].lines().drop(1).first()
         }
     })

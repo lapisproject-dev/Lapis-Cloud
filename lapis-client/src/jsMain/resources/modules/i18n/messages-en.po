@@ -32823,8 +32823,8 @@ msgid "Reichweite"
 msgstr "Reach"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
-msgid "Der Austausch wird schrittweise eingeführt. Derzeit werden noch keine Fahrten übertragen."
-msgstr "The exchange is being introduced step by step. No trips are transferred yet."
+msgid "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
+msgstr "Approved partners can fetch the short hints. Lapis servers will only fetch them themselves from a later version."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Fahrten teilen"
@@ -32853,3 +32853,31 @@ msgstr "The trip was saved but not shared with partners. Please try again."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Mitfahrzentrale: Weitergabe an Partnerorganisationen"
 msgstr "Carpool: passing on to partner organisations"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kein Signaturschlüssel des Partners bekannt (der Partner muss Version 1.9.312 oder neuer nutzen)"
+msgstr "No signing key of the partner known (the partner must run version 1.9.312 or newer)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise: noch nie abgerufen"
+msgstr "Short hints: never fetched"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise abgerufen: %1 (zuletzt %2, %3 Einträge)"
+msgstr "Short hints fetched: %1 (last %2, %3 entries)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Schlüssel für Kurzhinweis-IDs fehlt (LAPIS_SECRET_ENCRYPTION_KEY)"
+msgstr "Key for short-hint ids is missing (LAPIS_SECRET_ENCRYPTION_KEY)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgewiesene Abrufe seit dem Start: %1"
+msgstr "Refused requests since the start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gedrosselte Abrufe seit dem Start: %1"
+msgstr "Rate-limited requests since the start: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Mitfahr-Kurzhinweise abgerufen"
+msgstr "Carpool short hints fetched"

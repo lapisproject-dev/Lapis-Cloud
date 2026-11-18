@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.PartnerAddressRejectionCode
 import network.lapis.cloud.shared.domain.PartnerFetchErrorCode
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
@@ -176,5 +177,26 @@ class PartnerServersLogicTest {
         assertEquals(1, PartnerServersLogic.hopSelection(1))
         assertEquals(3, PartnerServersLogic.hopSelection(3))
         assertEquals(2, PartnerServersLogic.hopSelection(2))
+    }
+
+    @Test
+    fun theCarpoolFeedLinesAppearOnlyWithTheExchangeOnAndSharingOn() {
+        val shared = partner().copy(carpoolSharing = true)
+        assertTrue(PartnerServersLogic.carpoolFeedLines(partner = shared, exchangeOn = false).isEmpty())
+        assertTrue(PartnerServersLogic.carpoolFeedLines(partner = partner(), exchangeOn = true).isEmpty())
+        val noKey = PartnerServersLogic.carpoolFeedLines(partner = shared, exchangeOn = true)
+        assertEquals(2, noKey.size)
+        val pinned = PartnerServersLogic.carpoolFeedLines(partner = shared.copy(carpoolKeyPinned = true), exchangeOn = true)
+        assertEquals(1, pinned.size)
+    }
+
+    @Test
+    fun theSettingsLinesNameTheMissingKeyAndTheRefusals() {
+        val off = CarpoolFederationSettingsDto(enabled = false, hopLimit = 2)
+        assertTrue(PartnerServersLogic.carpoolFeedSettingsLines(off).isEmpty())
+        val on = CarpoolFederationSettingsDto(enabled = true, hopLimit = 2, feedKeyAvailable = true, feedRefusedSinceStart = 0)
+        assertTrue(PartnerServersLogic.carpoolFeedSettingsLines(on).isEmpty())
+        assertEquals(2, PartnerServersLogic.carpoolFeedSettingsLines(on.copy(feedKeyAvailable = false, feedRefusedSinceStart = 3)).size)
+        assertEquals(1, PartnerServersLogic.carpoolFeedSettingsLines(on.copy(feedRateLimitedSinceStart = 4)).size)
     }
 }

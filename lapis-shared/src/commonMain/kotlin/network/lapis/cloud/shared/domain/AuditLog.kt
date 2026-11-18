@@ -695,6 +695,13 @@ enum class AuditEntityType {
      * proof of consent (Art. 7 (1) GDPR). 25 chars. Appended LAST.
      */
     CARPOOL_FEDERATION_OPT_IN,
+
+    /**
+     * Welle V1.9.312 -- a DIRECT partner server fetched the carpool teaser feed (one entry per answered `200`; refusals and `304` write none).
+     * `entityId` = the `partner_server` row, no actor. Snapshot [CarpoolFederationFeedAuditSnapshot]: the number of items and the `complete`
+     * flag only -- never a teaser id, a date, an area or a host text. 23 chars. Appended LAST.
+     */
+    CARPOOL_FEDERATION_FEED,
 }
 
 /** V1.9.304 -- after-snapshot of an [AuditEntityType.CONFERENCE_ROOM_POLL] entry. */

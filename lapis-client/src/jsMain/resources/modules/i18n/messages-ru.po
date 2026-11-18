@@ -32762,8 +32762,8 @@ msgid "Reichweite"
 msgstr "Охват"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
-msgid "Der Austausch wird schrittweise eingeführt. Derzeit werden noch keine Fahrten übertragen."
-msgstr "Обмен вводится поэтапно. Пока поездки не передаются."
+msgid "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
+msgstr "Одобренные партнёры могут получать краткие уведомления. Серверы Lapis будут получать их сами только начиная с более поздней версии."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Fahrten teilen"
@@ -32792,3 +32792,31 @@ msgstr "Поездка сохранена, но не передана партн
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Mitfahrzentrale: Weitergabe an Partnerorganisationen"
 msgstr "Совместные поездки: передача партнёрским организациям"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kein Signaturschlüssel des Partners bekannt (der Partner muss Version 1.9.312 oder neuer nutzen)"
+msgstr "Ключ подписи партнёра неизвестен (партнёр должен использовать версию 1.9.312 или новее)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise: noch nie abgerufen"
+msgstr "Краткие уведомления: ещё ни разу не запрашивались"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise abgerufen: %1 (zuletzt %2, %3 Einträge)"
+msgstr "Краткие уведомления получены: %1 (последний раз %2, записей: %3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Schlüssel für Kurzhinweis-IDs fehlt (LAPIS_SECRET_ENCRYPTION_KEY)"
+msgstr "Отсутствует ключ для идентификаторов кратких уведомлений (LAPIS_SECRET_ENCRYPTION_KEY)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgewiesene Abrufe seit dem Start: %1"
+msgstr "Отклонённых запросов с момента запуска: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gedrosselte Abrufe seit dem Start: %1"
+msgstr "Ограниченные запросы с момента запуска: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Mitfahr-Kurzhinweise abgerufen"
+msgstr "Краткие уведомления о совместных поездках получены"

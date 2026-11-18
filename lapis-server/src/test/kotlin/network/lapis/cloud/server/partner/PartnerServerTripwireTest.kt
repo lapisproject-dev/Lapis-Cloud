@@ -172,4 +172,25 @@ class PartnerServerTripwireTest :
                 (it in builder) shouldBe false
             }
         }
+
+        test(
+            "V1.9.312: the pinned signing key is written only by PartnerServerStore and read only by the store, the parser and the carpool feed",
+        ) {
+            val reader = Regex("""\bsigningPublicKeyPem\b|\bsigningKeyId\b""")
+            val allowed = setOf("PartnerServerStore.kt", "PartnerServerTable.kt", "PartnerFeedParser.kt", "PartnerFeedDtos.kt")
+            val feed = setOf("CarpoolTeaserFeedGate.kt")
+            SourceScan
+                .mainFiles()
+                .filter { reader.containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .filter { it !in allowed && it !in feed && it != "PartnerServerService.kt" }
+                .shouldBeEmpty()
+            val writer = Regex("""\b(signingPublicKeyPem|signingKeyId|signingKeyPinnedAt)\s*\]\s*=[^=]""")
+            SourceScan
+                .mainFiles()
+                .filter { writer.containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .filter { it != "PartnerServerStore.kt" }
+                .shouldBeEmpty()
+        }
     })

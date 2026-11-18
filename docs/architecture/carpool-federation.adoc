@@ -4,10 +4,12 @@
 :toc-placement: preamble
 :icons: font
 
-NOTE: **Implementation status.** Only **wave 1 of 7 (V1.9.311, schema V159) exists: the foundation, switches only.** Nothing is sent to another
-server, no feed carries a trip, no HTTP client exists for this feature. Waves 2 to 7 below are the plan, not the code. The sentence "Der Austausch wird
-schrittweise eingeführt. Derzeit werden noch keine Fahrten übertragen." on the partner page says the same to the administrator and is removed in the
-wave with the first real data flow.
+NOTE: **Implementation status.** **Waves 1 and 2 of 7 exist.** Wave 1 (V1.9.311, schema V159) is the foundation: switches and consent. Wave 2 (V1.9.312,
+schema V160) is the **origin side of the teaser feed**: an approved direct partner *can* fetch a signed snapshot of the hints of this server. **No
+Lapis server fetches yet** (the pull client is wave 3), no hint is displayed anywhere, there is no withdrawal tombstone and nothing is passed on. No HTTP
+client exists for this feature: wave 2 only *answers* requests. Waves 3 to 7 below are the plan, not the code. The sentence on the partner page says so
+to the administrator ("Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab.") and is
+removed in wave 3.
 
 == Goal
 
@@ -43,8 +45,9 @@ classDiagram(name = "Carpool exchange -- hint and envelope") {
 
 The wire type `CarpoolTeaser` has exactly four fields (a tripwire test pins the set):
 
-* `teaserId`, 16 to 64 characters `[A-Za-z0-9_-]`: a pseudonymous id. Wave 2 derives it with an HMAC under an instance key, so nobody outside the
-  origin server can compute it from the trip id and the id of a withdrawn trip cannot be linked to the trip.
+* `teaserId`, 16 to 64 characters `[A-Za-z0-9_-]`: a pseudonymous id. Since wave 2 it is the keyed, domain-separated HMAC-SHA256 of the trip id (64 hex
+  characters, see "Key decisions" below), so nobody outside the origin server can compute it from the trip id and the id of a withdrawn trip cannot be
+  linked to the trip.
 * `departureDate`.
 * `fromPostcodeArea` and `toPostcodeArea`, exactly two ASCII digits: the first two digits of the postcode of the start and of the destination.
 
@@ -54,8 +57,8 @@ Nothing else is in it: no place text, no time, no seats, no notes, no name, no i
 
 `projectCarpoolTeaser(fromPlace, toPlace, departureDate, teaserId)` in `lapis-shared` (`commonMain`, runs on the JVM and in Kotlin/JS) is the **only** place
 that builds a hint. It takes exactly the three source fields, no row and no DTO, so it structurally cannot see anything else. The preview in the trip
-form calls the same function, so the owner sees what a partner would receive. From wave 2 the feed calls it too. A tripwire test pins that the client
-calls it only in `CarpoolFederationUi.kt`.
+form calls the same function, so the owner sees what a partner would receive. Since wave 2 the feed calls it too, from `CarpoolTeaserFeedBuilder` only.
+A tripwire test pins that the client calls it only in `CarpoolFederationUi.kt` and the server only in `CarpoolService.kt` and `CarpoolTeaserFeedBuilder.kt`.
 
 === The postcode rule
 
@@ -101,6 +104,128 @@ allowed**. Changes are audited only when something really changed: `PARTNER_SERV
 on**. They are independent. The effective reach of a hint is `min(maxHops of the origin, own hop limit)`: a server never passes a hint further than the
 origin allowed and never further than its own limit.
 
+== Wave 2: the teaser feed (origin side)
+
+`GET /api/federation/carpool-feed/v1` (constant `CARPOOL_TEASER_FEED_PATH`). It is a **path of its own**, authenticated, server to server: it is never under
+`/api/public` or `/api/embed`, never part of the public partner feed or of an embed feed, and no CORS header is sent. It is default off: it answers only if
+the instance switch is on, the partner is a direct partner that is active, not blocked and has `carpool_sharing` on, **announced a signing key** that the
+partner poll pinned, and the request is signed with that key. Everything else is one uniform answer.
+
+=== Envelope
+
+[source,kuml,name="carpool-teaser-feed-model"]
+----
+classDiagram(name = "Carpool teaser feed v1") {
+    val feed = classOf(name = "CarpoolTeaserFeedV1") {
+        attribute(name = "schemaVersion", type = "Int")
+        attribute(name = "kind", type = "String")
+        attribute(name = "complete", type = "Boolean")
+    }
+    val item = classOf(name = "CarpoolTeaserFeedItem") {
+        attribute(name = "originHost", type = "String")
+        attribute(name = "hops", type = "Int")
+        attribute(name = "maxHops", type = "Int")
+    }
+    val teaser = classOf(name = "CarpoolTeaser") {
+        attribute(name = "teaserId", type = "String")
+        attribute(name = "departureDate", type = "LocalDate")
+        attribute(name = "fromPostcodeArea", type = "String")
+        attribute(name = "toPostcodeArea", type = "String")
+    }
+
+    association(source = feed, target = item) {
+        source { multiplicity(spec = "1"); role = "feed" }
+        target { multiplicity(spec = "0..1000"); role = "items" }
+    }
+    association(source = item, target = teaser) {
+        source { multiplicity(spec = "1"); role = "envelope" }
+        target { multiplicity(spec = "1"); role = "teaser" }
+    }
+}
+----
+
+`kind` is `lapis-carpool-teaser-feed`, `schemaVersion` is 1. An item is `originHost` (this server), `hops` (0: this server owns the hint) and `maxHops` (this
+server's own hop limit, 1 to 3) plus the four-field `CarpoolTeaser`. There is no `generatedAt`, no server id and no name, so the `ETag` (SHA-256 of the
+body) changes only when the content changes. The list is sorted by `(departureDate, teaserId)` and is a **complete snapshot** of what is eligible for
+**this partner** now.
+
+**`complete`.** The snapshot is bounded: at most 1000 items, 5000 scanned trips and 256 KiB. When any bound cuts the list, `complete` is `false`. A
+consumer (wave 3) may treat a hint that is *missing* from the list as withdrawn **only when `complete` is `true`**.
+
+=== Authentication and answers
+
+[source,kuml,name="carpool-teaser-feed-auth"]
+----
+sequenceDiagram(name = "Carpool teaser feed -- authentication") {
+    val partner = lifeline(name = "Partner server")
+    val route = lifeline(name = "Origin: feed route")
+    val store = lifeline(name = "Origin: partner_server (pinned key)")
+    val builder = lifeline(name = "Origin: snapshot builder")
+
+    message(from = partner, to = route, label = "GET feed + Signature, Date, Digest (empty body)")
+    message(from = route, to = route, label = "per-IP limit, header sizes, no query, no body")
+    message(from = route, to = store, label = "pinned key by key id (exactly one row)")
+    message(from = route, to = route, label = "verify GET + constant path + OWN host; replay guard")
+    message(from = route, to = store, label = "approval: pin, active, not blocked, sharing, switch (write transaction)")
+    message(from = route, to = route, label = "per-partner and global limit")
+    message(from = route, to = builder, label = "eligibility + projection per trip")
+    message(from = route, to = store, label = "count served + audit (200 only)")
+    message(from = route, to = partner, label = "200 snapshot (or 304, or the one uniform refusal)")
+}
+----
+
+[cols="1,3",options="header"]
+|===
+|Step |Rule
+
+|Signature |draft-cavage `Signature` over `(request-target) host date digest`, RSA-SHA256; the `Digest` is the SHA-256 of the **empty** body
+(`SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=`). `Date` within five minutes in both directions. A query string, a body or a transfer encoding is
+refused. `HttpSignatures` itself is unchanged (it already handled a GET).
+|Host and path |The signing string is checked against the **own host** (`LAPIS_PUBLIC_BASE_URL`, injected for tests) and the **constant path**, never against the
+`Host` header or the path of the request. A signature a partner made for *another* server therefore cannot be replayed here (the replay guard is per JVM
+and per server and would not stop that). A tripwire forbids reading the request's host or path in the feed files.
+|Key |Only the **pinned** key (see below). No key is fetched while a request is answered; a tripwire forbids any HTTP client, key fetch or SSRF helper in the
+feed package. A key id that is not pinned by exactly one row is verified against a throw-away dummy key (same RSA cost, no timing oracle).
+|Replay |Its own `FederationReplayGuard` instance; only a **valid** signature is remembered. Per JVM (single-instance deployments), documented scope cut.
+|Approval |Decided in the write transaction that also builds the snapshot: the row is read again, the pin must still equal the verified key, its host must equal
+the row's host, the partner must be active, not blocked, with `carpool_sharing` on, and the instance switch must be on. A removal or a changed pin between
+verification and approval is refused.
+|Refusal |**One answer for every cause** (`404`, `{"error":"unavailable"}`, `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`, no `ETag`, no
+`Retry-After`), written only by `respondUnavailable`: a missing, malformed, stale, future or replayed signature, a wrong or unknown key, an unknown, inactive,
+blocked or removed partner, sharing off, the instance switch off, a missing teaser key, a query string, an internal error. The administrator sees the
+causes only as in-memory counters.
+|Limits |Per IP (30 a minute, before the signature check), per partner (12 an hour) and global (600 an hour), the last two only **after** the approval, so a `429`
+is visible to an approved partner only and says nothing about the consent of anybody else. All constants live in `CarpoolTeaserFeedLimits`.
+|`ETag` |`"<sha256 of the body>"`, `If-None-Match` handled like the public partner feed (`*`, a list, `W/`). A `304` has no body and the same cache headers. There
+is **no memo cache**: a withdrawal of consent shows on the very next fetch. The `304` path still costs one bounded database pass.
+|Audit |One `CARPOOL_FEDERATION_FEED` entry per answered `200`, in the same transaction as the snapshot: `entityId` = the partner row, no actor, snapshot `{itemCount,
+complete}` only. A refusal or a `304` writes none (no unauthenticated writes to the audit chain lock).
+|Counters |Persistent on the partner row (`carpool_feed_served_at`, `carpool_feed_served_count`, `carpool_feed_last_items`, 200 and 304); in memory since the start:
+refused (all causes together), rate limited. Shown to the administrator on the partner page through fields appended to the existing DTOs; no new RPC method.
+|===
+
+== Key decisions of wave 2
+
+* **Where the origin gets the public key of a partner (K1).** `partner_server` had no key, and the keys of the ActivityPub relations belong to Follow
+  relations that carpool partners usually do not have. The public partner feed (`PartnerFeedV1`) therefore got one additive top-level field `signingKey
+  {keyId, publicKeyPem}`: this server's own federation key, the one `/federation/actor` already publishes. The poll that already fetches the partner feed
+  over TLS with SSRF pinning validates it (`PartnerFeedParser.parseSigningKey`: https key id on exactly the partner's own host, a fragment, printable ASCII
+  up to 512 characters; X.509 RSA 2048 to 4096 bits, PEM up to 4096 characters) and `PartnerServerStore` pins it (also on the first probe). An invalid key
+  never invalidates the feed; it only means no pin. A feed **without** a valid key **clears** the pin: a partner that withdraws its key, or a partner
+  downgraded to a build without the field, loses access on the next poll. Trust basis: the same TLS fetch to the partner host that already authenticates
+  its events (trust on first use, refreshed on every poll). The partner must run V1.9.312 or later. The field does not contain the word "carpool", so the
+  public feed still never mentions a carpool.
+* **The HMAC key of the `teaserId`.** Derived from `LAPIS_SECRET_ENCRYPTION_KEY` with `SecretBox.hmacSha256Hex(purpose = "carpool-teaser-id/v1")`, the same
+  idiom as the LupaBB erasure list (domain separation, never the AES key itself). No new environment variable. Without the key the feed refuses everybody
+  and the administrator sees "Schlüssel für Kurzhinweis-IDs fehlt". **Rotating `LAPIS_SECRET_ENCRYPTION_KEY` changes every `teaserId`**; a partner sees
+  this as "all withdrawn, all new".
+* **`teaserId` is global**, not per partner: wave 4 needs one stable origin id for deduplication and tombstones across several paths. Two partners can see
+  that they hold the same hint, which carries the same date and regions anyway.
+* **V160 is a new migration** although V159 is unreleased: V159 is already on `origin/master` and a CI or local database may have run it.
+* **Host binding.** The pin and the verification require that the host of the key id (the partner's `LAPIS_PUBLIC_BASE_URL`) equals `partner_server.host`,
+  and that the partner signs exactly this server's own host. Different host names mean "not available". An operator who serves a server under another
+  name than its public base URL has to align them.
+
 == Waves
 
 [source,kuml,name="carpool-federation-flow"]
@@ -125,8 +250,9 @@ sequenceDiagram(name = "Carpool exchange -- planned flow (waves 2 to 6)") {
 |Wave |Content
 
 |1 (V1.9.311, **built**) |Foundation: V159, switches, consent with audit, preview, administrator page, GDPR export field, tripwires. No network.
-|2 |Origin side: the teaser feed under its own path, **never** inside the public partner feed or an embed feed. Pseudonymous `teaserId` (HMAC under an
-instance key; the key source is open, see below). Each fetch returns a complete **snapshot** of what is eligible now.
+|2 (V1.9.312, **built**) |Origin side: the teaser feed under its own path, **never** inside the public partner feed or an embed feed. Pseudonymous `teaserId` (HMAC
+derived from `LAPIS_SECRET_ENCRYPTION_KEY`). Each fetch returns a complete **snapshot** of what is eligible now. Signed GET against a key pinned through the
+partner poll (V160). No pull client yet.
 |3 |Withdrawal: a trip that is no longer eligible is missing from the next snapshot, which means "withdrawn"; additionally a short-lived **tombstone** per
 `teaserId`, so a partner that cached a hint can remove it before the next full snapshot.
 |4 |Further hops: a server passes a hint on only to its own consenting partners and only while `hops + 1` stays within `min(maxHops, own limit)`. Deletion of
@@ -138,9 +264,16 @@ rule as partner events). The owner sees which direct partners and which reach ap
 |7 |Hardening and release: audit by an independent reviewer (SSRF, amplification, consent bypass), staging test with two real servers, documentation.
 |===
 
-== What wave 1 deliberately does not do
+== What wave 2 deliberately does not do
 
-* No data leaves the server. There is no HTTP client for this feature (a tripwire scans for it).
+* **No pull client.** No Lapis server fetches the feed of a partner; the feed can only be fetched by a partner with its own client. No outgoing call is made
+  for this feature, also not while a request is answered (the key comes only from the pin).
+* No display, no tombstone, no pass-on (waves 3 to 5). The hop count in an item is always 0.
+* The public partner feed and the embed feeds still never mention a carpool (a tripwire scans for it); the new `signingKey` field is a plain key.
+
+== What wave 1 deliberately did not do
+
+* No data left the server in wave 1. There is no HTTP client for this feature (a tripwire scans for it).
 * The public partner feed and the embed feeds never mention a carpool (a tripwire scans for it).
 * `organization_settings` wire types do not carry the switch, the hop limit or the consent; only `CarpoolFederationStore` reads and writes them.
 * No legal review has taken place. In particular the question of **joint controllership between servers (Art. 26 GDPR)** is open, and there is no
@@ -148,6 +281,8 @@ rule as partner events). The owner sees which direct partners and which reach ap
 
 == Open questions
 
-* Source of the HMAC key of the `teaserId` (a new secret under `SecretEnv`, or derived from existing key material).
+* Resolved in wave 2: the HMAC key of the `teaserId` is derived from `LAPIS_SECRET_ENCRYPTION_KEY` (no new secret).
+* Joint controllership (Art. 26 GDPR) is still not reviewed, and with wave 2 a real transfer is technically possible (default off).
+* Replay protection is per JVM; a multi-instance deployment would need a shared store.
 * Whether the owner is told **which** organisations receive the hint (proposed for wave 5: list of the approved direct partners and the reach).
 * Whether the board, not only the administrator, may switch the exchange (it would change the whole partner administration, a separate decision).

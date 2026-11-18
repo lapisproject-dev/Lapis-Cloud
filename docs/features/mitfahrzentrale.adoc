@@ -88,11 +88,11 @@ members-only.
 * A person who leaves the organisation keeps their rows; new confirmations are refused, nothing ends automatically (the ride messages are the exception: the access ends at once, see above).
 * The ride messages cannot be reported (there is no report path except for social posts), and a throttle of the e-mail is per history, not per recipient: an answer within the hour of the first message sends no second mail.
 
-== Exchange with partner servers (V1.9.311, wave 1 of 7)
+== Exchange with partner servers (V1.9.311, wave 1 of 7; origin side of the feed V1.9.312, wave 2)
 
 An administrator can switch on an **exchange of ride offers with partner servers** (page *Partnerserver*, section "Mitfahrzentrale-Austausch": the switch, the reach of 1 to 3 levels and, per partner, "Fahrten teilen"). A member then finds in the form of an *offer* the box "Diese Fahrt als Kurzhinweis an Partnerorganisationen weitergeben", unticked by default, with a live preview of exactly what a partner would see: the day and the first two digits of the postcodes ("PLZ-Gebiet 38 → PLZ-Gebiet 30"). A trip without a postcode on both places cannot be shared. The consent can be withdrawn at any time. On the own card the badge "Für Partner freigegeben" shows the state.
 
-**In this wave nothing is transferred yet**; only the switches and the consent are stored. See xref:../architecture/carpool-federation.adoc[the design note] and the section "Mitfahrzentrale exchange" in xref:../architecture/dsgvo.adoc[dsgvo.adoc].
+**Since V1.9.312 (wave 2) an approved partner with its own client can fetch the short hints** (a signed request, only for direct partners that are active, not blocked and have "Fahrten teilen" on, and only if they announced a signing key). **No Lapis server fetches them yet**, and no hint is shown to any member (waves 3 to 5). On the partner page the administrator sees, per partner with sharing on, how often the hints were fetched, when last and how many entries the last answer held, or "Kurzhinweise: noch nie abgerufen"; a partner without a known signing key shows "Kein Signaturschlüssel des Partners bekannt" (it must run version 1.9.312 or newer). Under the switch the page names a missing key for the hint ids (`LAPIS_SECRET_ENCRYPTION_KEY`) and the number of refused requests since the start. A withdrawn consent is gone from the next fetch. See xref:../architecture/carpool-federation.adoc[the design note] and the section "Mitfahrzentrale exchange" in xref:../architecture/dsgvo.adoc[dsgvo.adoc].
 
 == What doesn't work yet
 

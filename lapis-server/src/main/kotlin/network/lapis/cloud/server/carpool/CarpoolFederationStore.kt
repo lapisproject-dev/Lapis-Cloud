@@ -1,10 +1,18 @@
 package network.lapis.cloud.server.carpool
 
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
+import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.shared.domain.CarpoolPostingType
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.clampHopLimit
+import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greaterEq
+import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
@@ -13,6 +21,20 @@ import kotlin.uuid.Uuid
 internal data class CarpoolFederationSettings(
     val enabled: Boolean,
     val hopLimit: Int,
+)
+
+/**
+ * One trip that is a CANDIDATE for the teaser feed of wave 2: opted in, an offer, inside the date window. Carries exactly the fields the one
+ * eligibility rule and the one projection need -- no notes, no meeting note, no time, no author id.
+ */
+internal data class CarpoolTeaserCandidate(
+    val postingId: Uuid,
+    val type: CarpoolPostingType,
+    val fromPlace: String,
+    val toPlace: String,
+    val departureDate: LocalDate,
+    val seatsOffered: Int?,
+    val authorActive: Boolean,
 )
 
 /**
@@ -65,6 +87,40 @@ internal object CarpoolFederationStore {
     ) {
         CarpoolPostingTable.update({ CarpoolPostingTable.id eq postingId }) { it[federationOptIn] = value }
     }
+
+    /**
+     * V1.9.312: the opted-in OFFER trips departing in [from]..[until] (both inclusive), ordered by `(departure_date, id)` so the result is
+     * deterministic. At most [scanLimit] + 1 rows come back: the caller detects "more than the scan limit" by the extra row (the feed is then
+     * marked incomplete). The only reader of `federation_opt_in` for the feed (pinned by `CarpoolFederationTripwireTest`). The author is "active"
+     * when his status is an organisation-member status and he is not anonymised -- the same floor as `requireActiveMembership`, one query.
+     */
+    fun teaserCandidates(
+        from: LocalDate,
+        until: LocalDate,
+        scanLimit: Int,
+    ): List<CarpoolTeaserCandidate> =
+        CarpoolPostingTable
+            .innerJoin(MemberTable)
+            .selectAll()
+            .where {
+                (CarpoolPostingTable.federationOptIn eq true) and
+                    (CarpoolPostingTable.type eq CarpoolPostingType.OFFER) and
+                    (CarpoolPostingTable.departureDate greaterEq from) and
+                    (CarpoolPostingTable.departureDate lessEq until)
+            }.orderBy(CarpoolPostingTable.departureDate to SortOrder.ASC, CarpoolPostingTable.id to SortOrder.ASC)
+            .limit(scanLimit + 1)
+            .map {
+                CarpoolTeaserCandidate(
+                    postingId = it[CarpoolPostingTable.id],
+                    type = it[CarpoolPostingTable.type],
+                    fromPlace = it[CarpoolPostingTable.fromPlace],
+                    toPlace = it[CarpoolPostingTable.toPlace],
+                    departureDate = it[CarpoolPostingTable.departureDate],
+                    seatsOffered = it[CarpoolPostingTable.seatsOffered],
+                    authorActive =
+                        it[MemberTable.status] in MemberStatusSets.ORGANIZATION_MEMBER && it[MemberTable.anonymizedAt] == null,
+                )
+            }
 
     /** A trip that turns into a REQUEST loses the consent (it can never be shared). */
     fun clearOptIn(postingId: Uuid) = setOptIn(postingId = postingId, value = false)

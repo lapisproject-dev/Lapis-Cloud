@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.CarpoolFederationLimits
+import network.lapis.cloud.shared.domain.CarpoolFederationSettingsDto
 import network.lapis.cloud.shared.domain.DiscoveredPartnerServerDto
 import network.lapis.cloud.shared.domain.PartnerFetchStatus
 import network.lapis.cloud.shared.domain.PartnerRecursionSettingsDto
@@ -115,6 +116,46 @@ internal object PartnerServersLogic {
         } else {
             null
         }
+
+    /**
+     * V1.9.312: the carpool teaser feed lines of a partner row; empty unless the exchange is on AND this partner has carpool sharing on. A partner
+     * without a pinned key cannot fetch at all (the line says why); otherwise how often it fetched, when last and how many items the last answer held.
+     */
+    fun carpoolFeedLines(
+        partner: PartnerServerDto,
+        exchangeOn: Boolean,
+    ): List<String> {
+        if (!partnerSharingVisible(exchangeOn) || !partner.carpoolSharing) return emptyList()
+        val lines = mutableListOf<String>()
+        if (!partner.carpoolKeyPinned) {
+            lines += gettext("Kein Signaturschlüssel des Partners bekannt (der Partner muss Version 1.9.312 oder neuer nutzen)")
+        }
+        val at = partner.carpoolFeedServedAt
+        lines +=
+            if (at == null) {
+                gettext("Kurzhinweise: noch nie abgerufen")
+            } else {
+                gettext(
+                    "Kurzhinweise abgerufen: %1 (zuletzt %2, %3 Einträge)",
+                    partner.carpoolFeedServedCount,
+                    formatSystemDateTime(at),
+                    partner.carpoolFeedLastItemCount ?: 0,
+                )
+            }
+        return lines
+    }
+
+    /** V1.9.312: the notes under the carpool switch: the missing key, and how many requests were refused / limited since the server started. */
+    fun carpoolFeedSettingsLines(settings: CarpoolFederationSettingsDto): List<String> {
+        if (!settings.enabled) return emptyList()
+        val lines = mutableListOf<String>()
+        if (!settings.feedKeyAvailable) lines += gettext("Schlüssel für Kurzhinweis-IDs fehlt (LAPIS_SECRET_ENCRYPTION_KEY)")
+        if (settings.feedRefusedSinceStart > 0) lines += gettext("Abgewiesene Abrufe seit dem Start: %1", settings.feedRefusedSinceStart)
+        if (settings.feedRateLimitedSinceStart > 0) {
+            lines += gettext("Gedrosselte Abrufe seit dem Start: %1", settings.feedRateLimitedSinceStart)
+        }
+        return lines
+    }
 
     /** What a discovered server shows as its state: the error words, else "Abgerufen", else the waiting words. */
     fun discoveredStatus(server: DiscoveredPartnerServerDto): String =

@@ -235,6 +235,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_REVIEWER_ACCESS -> gettext("Rechenschaftsbericht: Lesezugang für die Prüfung")
         // V1.9.311 -- the owner of a trip gave or withdrew the consent to pass a short hint to partner organisations.
         AuditEntityType.CARPOOL_FEDERATION_OPT_IN -> gettext("Mitfahrzentrale: Weitergabe an Partnerorganisationen")
+        // V1.9.312 -- a partner server fetched the short hints; the entry carries the number of hints only.
+        AuditEntityType.CARPOOL_FEDERATION_FEED -> gettext("Mitfahr-Kurzhinweise abgerufen")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -394,6 +396,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.PARTG_REVIEWER_ACCESS -> "secondary"
         // V1.9.311 -- a consent record, no money: neutral hue.
         AuditEntityType.CARPOOL_FEDERATION_OPT_IN -> "secondary"
+        // V1.9.312 -- a transfer record, no money: neutral hue.
+        AuditEntityType.CARPOOL_FEDERATION_FEED -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

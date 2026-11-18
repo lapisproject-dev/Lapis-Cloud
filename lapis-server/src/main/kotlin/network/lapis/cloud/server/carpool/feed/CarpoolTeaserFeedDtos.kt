@@ -1,0 +1,43 @@
+package network.lapis.cloud.server.carpool.feed
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import network.lapis.cloud.shared.domain.CarpoolTeaser
+
+/*
+ * V1.9.312 "Mitfahrzentrale-Foederation" W2 -- the wire format of the carpool teaser feed, version 1 (server-internal; the partner side parses it
+ * from wave 3 on). The item fields match the TeaserEnvelope of docs/architecture/carpool-federation.adoc. No `generatedAt` (so the ETag is the
+ * hash of the body and does not change without a content change), no server id, no name.
+ */
+
+/** The ONE path of the feed. Deliberately NOT under `/api/public` or `/api/embed`: it is authenticated server-to-server and never public. */
+internal const val CARPOOL_TEASER_FEED_PATH = "/api/federation/carpool-feed/v1"
+
+internal const val CARPOOL_TEASER_FEED_KIND = "lapis-carpool-teaser-feed"
+
+/**
+ * [complete] is `true` only when EVERY currently shareable hint is in [items]. When it is `false` (scan limit, item cap or byte cap reached) a
+ * consumer MUST NOT treat a hint that is missing from the list as withdrawn.
+ */
+@Serializable
+internal data class CarpoolTeaserFeedV1(
+    val schemaVersion: Int = 1,
+    val kind: String = CARPOOL_TEASER_FEED_KIND,
+    val complete: Boolean,
+    val items: List<CarpoolTeaserFeedItem>,
+)
+
+/** One hint with its travel budget: [hops] = 0 for a hint this server owns, [maxHops] = this server's own hop limit (1..3). */
+@Serializable
+internal data class CarpoolTeaserFeedItem(
+    val originHost: String,
+    val hops: Int,
+    val maxHops: Int,
+    val teaser: CarpoolTeaser,
+)
+
+internal val CARPOOL_TEASER_FEED_JSON =
+    Json {
+        explicitNulls = false
+        encodeDefaults = true
+    }

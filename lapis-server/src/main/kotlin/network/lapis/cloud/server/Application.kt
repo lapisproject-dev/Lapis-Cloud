@@ -67,6 +67,10 @@ import network.lapis.cloud.server.carpool.CarpoolDeps
 import network.lapis.cloud.server.carpool.CarpoolNotifier
 import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
 import network.lapis.cloud.server.carpool.SmtpCarpoolNoticeMailer
+import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedCounters
+import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedLimits
+import network.lapis.cloud.server.carpool.feed.CarpoolTeaserIds
+import network.lapis.cloud.server.carpool.feed.registerCarpoolTeaserFeedRoutes
 import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.clientversion.ClientShell
 import network.lapis.cloud.server.conference.CachedConferenceConnectedMembers
@@ -1900,6 +1904,25 @@ internal fun Application.module(
     monitor.subscribe(ApplicationStopping) { partnerFeedPoller.stop() }
     val partnerFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val partnerProbeRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    // V1.9.312 Mitfahrzentrale-Foederation W2: the signed teaser feed. Per IP BEFORE the signature check, per partner and globally only AFTER the
+    // approval (CarpoolTeaserFeedLimits). Its own replay guard (own capacity, no interference with the inbox). The pseudonymous teaser ids need
+    // LAPIS_SECRET_ENCRYPTION_KEY (the same box as the bank statements); without it the feed refuses every request.
+    val carpoolFeedIpRateLimiter =
+        FederationInboxRateLimiter(
+            maxRequests = CarpoolTeaserFeedLimits.IP_PER_MINUTE,
+            window = 1.minutes,
+            maxTrackedKeys = CarpoolTeaserFeedLimits.IP_MAX_TRACKED_KEYS,
+        )
+    val carpoolFeedPartnerRateLimiter =
+        FederationInboxRateLimiter(maxRequests = CarpoolTeaserFeedLimits.PARTNER_PER_HOUR, window = 60.minutes)
+    val carpoolFeedGlobalRateLimiter =
+        FederationInboxRateLimiter(maxRequests = CarpoolTeaserFeedLimits.GLOBAL_PER_HOUR, window = 60.minutes)
+    val carpoolFeedReplayGuard = FederationReplayGuard()
+    val carpoolFeedCounters = CarpoolTeaserFeedCounters()
+    val carpoolTeaserIds: CarpoolTeaserIds? = bankStatementSecretBox?.let { CarpoolTeaserIds(it) }
+    if (carpoolTeaserIds == null) {
+        applicationLogger.warn { "LAPIS_SECRET_ENCRYPTION_KEY is not configured: the carpool teaser feed refuses every request" }
+    }
     val activismRateLimiter = ActivismRateLimiter()
     val webhookConfigureRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val webhookSecretRotateRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
@@ -3167,7 +3190,12 @@ internal fun Application.module(
         // V1.9.244 Partnerserver P1 (ADMIN). Second to last since V1.9.246 (the activism module is the LAST registerService). New methods of the
         // interface go to its end, never in between.
         registerService(IPartnerServerService::class) { call ->
-            PartnerServerService(call = call, probeRateLimiter = partnerProbeRateLimiter)
+            PartnerServerService(
+                call = call,
+                probeRateLimiter = partnerProbeRateLimiter,
+                carpoolFeedCounters = carpoolFeedCounters,
+                carpoolFeedKeyAvailable = carpoolTeaserIds != null,
+            )
         }
         // V1.9.246 Aktionen A1. Second to last since V1.9.297 (the bulletin board is the LAST registerService). New methods of the interface go
         // to its end, never in between.
@@ -3210,6 +3238,15 @@ internal fun Application.module(
         registerMeetingProtocolRoutes(documentStorageRoot)
         // V1.9.244: the public event feed for partner servers (no login, rate limited, memoised, ETag).
         registerPartnerFeedRoutes(rateLimiter = partnerFeedRateLimiter)
+        // V1.9.312: the signed carpool teaser feed for direct partners (default off, authenticated, refusals are one uniform answer).
+        registerCarpoolTeaserFeedRoutes(
+            ipRateLimiter = carpoolFeedIpRateLimiter,
+            partnerRateLimiter = carpoolFeedPartnerRateLimiter,
+            globalRateLimiter = carpoolFeedGlobalRateLimiter,
+            replayGuard = carpoolFeedReplayGuard,
+            teaserIds = carpoolTeaserIds,
+            counters = carpoolFeedCounters,
+        )
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
         // V1.9.232: attachments on mailing messages; its own upload budget (per member), BOARD/ADMIN only.
         registerMailingAttachmentRoutes(

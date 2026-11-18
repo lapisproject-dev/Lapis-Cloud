@@ -32809,8 +32809,8 @@ msgid "Reichweite"
 msgstr "Portée"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
-msgid "Der Austausch wird schrittweise eingeführt. Derzeit werden noch keine Fahrten übertragen."
-msgstr "L'échange est introduit progressivement. Aucun trajet n'est encore transmis."
+msgid "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
+msgstr "Les partenaires autorisés peuvent récupérer les avis courts. Les serveurs Lapis ne les récupéreront eux-mêmes qu'à partir d'une version ultérieure."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersScreen.kt:1
 msgid "Fahrten teilen"
@@ -32839,3 +32839,31 @@ msgstr "Le trajet a été enregistré mais pas partagé avec les partenaires. Ve
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
 msgid "Mitfahrzentrale: Weitergabe an Partnerorganisationen"
 msgstr "Covoiturage : transmission aux organisations partenaires"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kein Signaturschlüssel des Partners bekannt (der Partner muss Version 1.9.312 oder neuer nutzen)"
+msgstr "Aucune clé de signature du partenaire connue (le partenaire doit utiliser la version 1.9.312 ou plus récente)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise: noch nie abgerufen"
+msgstr "Avis courts : jamais récupérés"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Kurzhinweise abgerufen: %1 (zuletzt %2, %3 Einträge)"
+msgstr "Avis courts récupérés : %1 (dernière fois %2, %3 entrées)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Schlüssel für Kurzhinweis-IDs fehlt (LAPIS_SECRET_ENCRYPTION_KEY)"
+msgstr "La clé pour les identifiants d'avis courts est manquante (LAPIS_SECRET_ENCRYPTION_KEY)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Abgewiesene Abrufe seit dem Start: %1"
+msgstr "Requêtes refusées depuis le démarrage : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PartnerServersLogic.kt:1
+msgid "Gedrosselte Abrufe seit dem Start: %1"
+msgstr "Requêtes limitées depuis le démarrage : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Mitfahr-Kurzhinweise abgerufen"
+msgstr "Avis courts de covoiturage récupérés"

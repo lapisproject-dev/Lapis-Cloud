@@ -47,6 +47,11 @@ classDiagram(name = "Partner feed v1") {
 `startsAt`/`endsAt` are ISO-8601 *with* the offset (`2026-11-05T19:00:00+01:00`) plus the IANA `timeZone`: unambiguous for the reader, whatever its own zone. The cache stores UTC instants (time class A)
 and keeps the zone for the display only.
 
+*`signingKey` (V1.9.312, additive).* An optional top-level object `{keyId, publicKeyPem}`: this server's own federation key (the one `/federation/actor` publishes; `keyId` is
+`<actor URI>#main-key`). A reader that does not know the field ignores it. The reader pins it on the partner row only if the key id is an https URI on exactly the partner's own host, with a fragment,
+printable ASCII up to 512 characters, and the PEM is an X.509 RSA key of 2048 to 4096 bits (up to 4096 characters); an invalid key is ignored and never invalidates the feed. A feed without a valid key
+clears the pin. The pin is used only to verify the signed requests of the carpool teaser feed (see link:carpool-federation.adoc[carpool-federation.adoc]); the partner feed itself stays unsigned and public.
+
 *Extensibility.* A reader ignores unknown fields and unknown `kind` values. New kinds of entries become **new named lists** with a `kind` per entry; an existing field never changes meaning. A breaking change is `schemaVersion` 2 under a new path.
 
 == Fetch sequence

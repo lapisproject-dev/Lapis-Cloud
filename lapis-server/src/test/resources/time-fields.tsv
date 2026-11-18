@@ -1043,9 +1043,12 @@ col:ProtocolTaskStatusTable.updatedAt	A	stamped by the server clock (DbClock/Ser
 col:AgendaItemTable.approvalRecordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC; V1.9.240 Protokoll fertigstellen
 dto:PartnerServerDto.lastFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:PartnerServerDto.nextFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PartnerServerDto.carpoolFeedServedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PartnerServerTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PartnerServerTable.lastFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PartnerServerTable.nextFetchAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerServerTable.signingKeyPinnedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PartnerServerTable.carpoolFeedServedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PartnerEventTable.startsAt	A	remote feed instant (ISO-8601 with offset), converted to UTC by PartnerFeedParser; stored and sent as UTC
 col:PartnerEventTable.endsAt	A	remote feed instant (ISO-8601 with offset), converted to UTC by PartnerFeedParser; stored and sent as UTC
 col:PartnerEventTable.fetchedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

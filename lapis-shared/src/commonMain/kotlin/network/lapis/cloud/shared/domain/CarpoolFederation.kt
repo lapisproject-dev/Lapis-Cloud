@@ -132,6 +132,12 @@ fun isCarpoolTeaserEligible(
 data class CarpoolFederationSettingsDto(
     val enabled: Boolean,
     val hopLimit: Int,
+    /** V1.9.312: the key that derives the pseudonymous teaser ids is configured (`LAPIS_SECRET_ENCRYPTION_KEY`); without it the teaser feed refuses every request. */
+    val feedKeyAvailable: Boolean = false,
+    /** V1.9.312: requests the teaser feed refused since the server started (all causes together; never says which). */
+    val feedRefusedSinceStart: Long = 0,
+    /** V1.9.312: requests the teaser feed answered with 429 since the server started. */
+    val feedRateLimitedSinceStart: Long = 0,
 )
 
 /** What a member needs to know: is the exchange switched on at all (the owner dialog shows the consent box only then). */
@@ -144,4 +150,11 @@ data class CarpoolFederationAvailabilityDto(
 @Serializable
 data class CarpoolFederationOptInAuditSnapshot(
     val optIn: Boolean,
+)
+
+/** After-snapshot of an [AuditEntityType.CARPOOL_FEDERATION_FEED] entry: how many hints were handed out and whether the list was complete -- nothing else. */
+@Serializable
+data class CarpoolFederationFeedAuditSnapshot(
+    val itemCount: Int,
+    val complete: Boolean,
 )

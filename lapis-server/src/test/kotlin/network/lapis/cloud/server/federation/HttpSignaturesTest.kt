@@ -416,6 +416,43 @@ class HttpSignaturesTest :
             HttpSignatures.extractKeyId(null) shouldBe null
             HttpSignatures.extractKeyId("garbage, no key=value pairs at all") shouldBe null
         }
+
+        test(
+            "a GET over an empty body (V1.9.312, the carpool teaser feed) round-trips, carries the SHA-256 of nothing and is bound to path and host",
+        ) {
+            val signed =
+                HttpSignatures.sign(
+                    method = "GET",
+                    path = "/api/federation/carpool-feed/v1",
+                    host = "origin.example",
+                    body = ByteArray(0),
+                    keyId = keyId,
+                    privateKeyPem = keyPair.privateKeyPem,
+                )
+            signed.digestHeader shouldBe "SHA-256=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            signed.signatureHeader.contains("headers=\"(request-target) host date digest\"") shouldBe true
+
+            fun verify(
+                path: String = "/api/federation/carpool-feed/v1",
+                host: String = "origin.example",
+                method: String = "GET",
+                pem: String = keyPair.publicKeyPem,
+            ) = HttpSignatures.verify(
+                method = method,
+                path = path,
+                host = host,
+                body = ByteArray(0),
+                signatureHeader = signed.signatureHeader,
+                dateHeader = signed.dateHeader,
+                digestHeader = signed.digestHeader,
+                publicKeyPem = pem,
+            )
+            verify() shouldBe HttpSignatures.VerificationResult.Valid
+            verify(host = "other.example") shouldBe HttpSignatures.VerificationResult.Invalid(REASON_SIGNATURE_MISMATCH)
+            verify(path = "/api/federation/carpool-feed/v2") shouldBe HttpSignatures.VerificationResult.Invalid(REASON_SIGNATURE_MISMATCH)
+            verify(method = "POST") shouldBe HttpSignatures.VerificationResult.Invalid(REASON_SIGNATURE_MISMATCH)
+            verify(pem = otherKeyPair.publicKeyPem) shouldBe HttpSignatures.VerificationResult.Invalid(REASON_SIGNATURE_MISMATCH)
+        }
     })
 
 private fun flipOneSignatureChar(signatureHeader: String): String {

@@ -10,9 +10,13 @@ import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
+import java.security.KeyFactory
+import java.security.interfaces.RSAPublicKey
+import java.security.spec.X509EncodedKeySpec
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
+import java.util.Base64
 import java.util.Locale
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
@@ -20,6 +24,12 @@ import kotlin.time.toJavaInstant
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
+
+/** V1.9.312: the validated public signing key a partner announced (see [PartnerFeedParser.parseSigningKey]); pinned on the partner row by [PartnerServerStore]. */
+internal data class PinnedSigningKey(
+    val keyId: String,
+    val publicKeyPem: String,
+)
 
 /** One validated, cleaned event of a partner. Times are UTC (time class A); [timeZone] is only for the display. */
 internal data class ParsedPartnerEvent(
@@ -45,6 +55,8 @@ internal sealed interface PartnerParseResult {
         val droppedEvents: Int,
         /** V1.9.245: the partner left its partner list out of its feed (`partnersHidden`); its children are not followed. */
         val partnersHidden: Boolean = false,
+        /** V1.9.312: the partner's announced signing key if it passed every check, else `null` (an invalid key never invalidates the feed). */
+        val signingKey: PinnedSigningKey? = null,
     ) : PartnerParseResult
 
     data class Invalid(
@@ -64,6 +76,10 @@ internal object PartnerFeedParser {
     private const val MAX_PARTNERS_JSON_BYTES = 64 * 1024
     private const val MAX_EVENT_LENGTH_DAYS = 31
     private const val MAX_START_AHEAD_DAYS = 366
+    private const val MAX_KEY_ID_LENGTH = 512
+    private const val MAX_KEY_PEM_LENGTH = 4096
+    private const val MIN_KEY_BITS = 2048
+    private const val MAX_KEY_BITS = 4096
     private val EVENT_ID = Regex("^[A-Za-z0-9._:-]{1,100}$")
 
     fun parse(
@@ -115,7 +131,37 @@ internal object PartnerFeedParser {
             partnersJson = if (feed.partnersHidden) null else partnersJsonOf(feed.partners),
             droppedEvents = dropped,
             partnersHidden = feed.partnersHidden,
+            signingKey = parseSigningKey(raw = feed.signingKey, partnerHost = partnerHost),
         )
+    }
+
+    /**
+     * V1.9.312 -- the key a partner announces for the (authenticated) carpool teaser feed. NEVER fails the feed: anything wrong yields `null`
+     * (and so no pin). The key id must be an https URI WITHOUT user info, on exactly the partner's own host (port 443 or none), with a fragment
+     * (`...#main-key`), printable ASCII, at most [MAX_KEY_ID_LENGTH] characters; the PEM at most [MAX_KEY_PEM_LENGTH] characters, an X.509 RSA
+     * public key of [MIN_KEY_BITS]..[MAX_KEY_BITS] bits. The host binding means a partner can only ever pin a key for ITSELF.
+     */
+    internal fun parseSigningKey(
+        raw: PartnerFeedSigningKey?,
+        partnerHost: String,
+    ): PinnedSigningKey? {
+        if (raw == null) return null
+        val keyId = raw.keyId
+        if (keyId.length !in 1..MAX_KEY_ID_LENGTH || keyId.any { it !in ' '..'~' || it == ' ' || it == '"' }) return null
+        val uri = runCatching { URI(keyId) }.getOrNull() ?: return null
+        if (!"https".equals(uri.scheme, ignoreCase = true) || uri.userInfo != null || uri.fragment.isNullOrEmpty()) return null
+        if (uri.port != -1 && uri.port != 443) return null
+        val host = uri.host?.trimEnd('.')?.let { PartnerHost.normalizeHostOnly(it) } ?: return null
+        if (host != partnerHost) return null
+        val pem = raw.publicKeyPem
+        if (pem.length !in 1..MAX_KEY_PEM_LENGTH) return null
+        val key =
+            runCatching {
+                val base64 = pem.lineSequence().filterNot { it.isBlank() || it.startsWith("-----") }.joinToString("")
+                KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(Base64.getDecoder().decode(base64)))
+            }.getOrNull() as? RSAPublicKey ?: return null
+        if (key.modulus.bitLength() !in MIN_KEY_BITS..MAX_KEY_BITS) return null
+        return PinnedSigningKey(keyId = keyId, publicKeyPem = pem)
     }
 
     /**

@@ -94,6 +94,32 @@ classDiagram(name = "PartnerServers") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "remote_partners_json"; "sqlType" to "VARCHAR(65536)" }
         }
+        // V1.9.312 "Mitfahrzentrale-Foederation" W2 (V160): the signing key the partner announces in its public feed, pinned by the P1 poll, and
+        // the counters of the carpool teaser feed this server serves to it. Written ONLY by PartnerServerStore.
+        attribute(name = "signingKeyId", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "signing_key_id"; "sqlType" to "VARCHAR(512)" }
+        }
+        attribute(name = "signingPublicKeyPem", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "signing_public_key_pem"; "sqlType" to "VARCHAR(4096)" }
+        }
+        attribute(name = "signingKeyPinnedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "signing_key_pinned_at" }
+        }
+        attribute(name = "carpoolFeedServedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_feed_served_at" }
+        }
+        attribute(name = "carpoolFeedServedCount", type = "Long") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "carpool_feed_served_count" }
+        }
+        attribute(name = "carpoolFeedLastItems", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "carpool_feed_last_items" }
+        }
     }
 
     classOf(name = "PartnerEvent") {

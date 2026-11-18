@@ -92,9 +92,9 @@ private fun renderPartnerServers(
     renderBlocklist(panel, overview.blocklist, reload)
 }
 
-/** The ehrlichkeitssatz of wave 1: the switches work, but nothing is transferred yet. Remove in the wave with the first real data flow. */
+/** The honesty sentence of wave 2: a partner with its own client can now fetch; Lapis servers do not fetch themselves yet. Remove with wave 3. */
 private const val CARPOOL_EXCHANGE_NOT_YET_NOTE =
-    "Der Austausch wird schrittweise eingeführt. " + "Derzeit werden noch keine Fahrten übertragen."
+    "Freigegebene Partner können die Kurzhinweise abrufen. " + "Lapis-Server rufen sie erst ab einer späteren Version selbst ab."
 
 private const val CARPOOL_EXCHANGE_INFO =
     "Mitglieder entscheiden für jede Fahrt selbst, ob ein Kurzhinweis an freigegebene Partner geht: " +
@@ -149,6 +149,7 @@ private fun renderCarpoolExchange(
     // `subscribe` would call back at once with the current value (a reload loop); the DOM change event fires only on a choice by the person.
     reach?.onEvent { change = { save() } }
     box.div(tr(CARPOOL_EXCHANGE_NOT_YET_NOTE), className = "text-muted small") { setAttribute("role", "status") }
+    PartnerServersLogic.carpoolFeedSettingsLines(settings).forEach { box.div(it, className = "text-muted small") }
 }
 
 private fun renderAddForm(
@@ -223,6 +224,9 @@ private fun renderPartnerRow(
         info.div(gettext("Veranstaltungen: %1", partner.eventCount), className = "text-muted small")
         PartnerServersLogic.viaThisPartner(partner)?.let { info.div(it, className = "text-muted small partner-via") }
         partner.lastError?.let { info.div(PartnerServersTexts.fetchError(it), className = "text-danger small") }
+        PartnerServersLogic.carpoolFeedLines(partner = partner, exchangeOn = carpoolExchangeOn).forEach {
+            info.div(it, className = "text-muted small partner-carpool-feed")
+        }
     }
     val actions = head.div { addCssClasses("d-flex align-items-center gap-2") }
     // V1.9.311: per-partner consent to exchange carpool hints; only while the exchange is switched on.

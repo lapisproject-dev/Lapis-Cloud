@@ -26,6 +26,12 @@ public object PartnerServerTable : Table("partner_server") {
     public val nextFetchAt: Column<LocalDateTime> = datetime("next_fetch_at")
     public val etag: Column<String?> = varchar("etag", 200).nullable()
     public val remotePartnersJson: Column<String?> = varchar("remote_partners_json", 65536).nullable()
+    public val signingKeyId: Column<String?> = varchar("signing_key_id", 512).nullable()
+    public val signingPublicKeyPem: Column<String?> = varchar("signing_public_key_pem", 4096).nullable()
+    public val signingKeyPinnedAt: Column<LocalDateTime?> = datetime("signing_key_pinned_at").nullable()
+    public val carpoolFeedServedAt: Column<LocalDateTime?> = datetime("carpool_feed_served_at").nullable()
+    public val carpoolFeedServedCount: Column<Long> = long("carpool_feed_served_count").default(0L)
+    public val carpoolFeedLastItems: Column<Int?> = integer("carpool_feed_last_items").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

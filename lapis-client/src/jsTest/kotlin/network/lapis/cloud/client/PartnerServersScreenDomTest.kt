@@ -313,7 +313,7 @@ class PartnerServersScreenDomTest {
                 val text = page.textContent.orEmpty()
                 assertTrue(text.contains("Mitfahrzentrale-Austausch"))
                 assertTrue(text.contains("Fahrtangebote mit freigegebenen Partnern austauschen"))
-                assertTrue(text.contains("Derzeit werden noch keine Fahrten übertragen."))
+                assertTrue(text.contains("Lapis-Server rufen sie erst ab einer späteren Version selbst ab."))
                 assertFalse(text.contains("Fahrten teilen"), "the per-partner box is offered only while the exchange is on")
                 assertFalse(text.contains("Reichweite"), "the reach is offered only while the exchange is on")
                 assertEquals(1, page.allOf("select").size, "only the depth select of the partner recursion is there")
@@ -335,6 +335,36 @@ class PartnerServersScreenDomTest {
                 assertTrue(text.contains("Auch Partner unserer Partner"))
                 assertTrue(text.contains("Eine Stufe weiter"))
                 assertTrue(text.contains("Fahrten teilen"))
+            }
+        }
+
+    @Test
+    fun withTheExchangeOnAPartnerWithSharingShowsTheFeedLines_andAMissingKeyIsNamed(): Promise<Unit> =
+        test {
+            val on = CarpoolFederationSettingsDto(enabled = true, hopLimit = 2, feedKeyAvailable = false, feedRefusedSinceStart = 4)
+            val served =
+                partner(id = "a", host = "a.beispiel.de").copy(
+                    carpoolSharing = true,
+                    carpoolKeyPinned = true,
+                    carpoolFeedServedAt = LocalDateTime(2026, 11, 5, 9, 0),
+                    carpoolFeedServedCount = 7,
+                    carpoolFeedLastItemCount = 3,
+                )
+            val noKey = partner(id = "b", host = "b.beispiel.de").copy(carpoolSharing = true)
+            val off = partner(id = "c", host = "c.beispiel.de")
+            scenario(PartnerServerOverviewDto(listOf(served, noKey, off), emptyList(), false), carpool = on) { page ->
+                val text = page.textContent.orEmpty()
+                assertTrue(text.contains("Kurzhinweise abgerufen: 7"))
+                assertTrue(text.contains("3 Einträge"))
+                assertTrue(text.contains("Kurzhinweise: noch nie abgerufen"))
+                assertTrue(text.contains("Kein Signaturschlüssel des Partners bekannt"))
+                assertTrue(text.contains("Schlüssel für Kurzhinweis-IDs fehlt"))
+                assertTrue(text.contains("Abgewiesene Abrufe seit dem Start: 4"))
+                assertEquals(
+                    3,
+                    page.allOf(".partner-carpool-feed").size,
+                    "one line for the served partner, two for the one without a key, none for the third",
+                )
             }
         }
 }

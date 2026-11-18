@@ -88,9 +88,9 @@ The home-server form of the guest sign-in (`/federation/oidc/rp/login`) lists th
 * Event texts are in the partner's language. The repeat sentence comes as the partner wrote it.
 * **Not verified:** a fetch against a real second or third server over the internet -- all tests run on a simulated network of several servers. PostgreSQL behaviour is covered by the `postgresTest` lane.
 
-== Carpool exchange (V1.9.311, wave 1 of 7)
+== Carpool exchange (V1.9.311, wave 1 of 7; wave 2 V1.9.312)
 
-The page also holds the section "Mitfahrzentrale-Austausch": a switch (off by default), the reach (1 to 3 levels, default 2) and, per direct partner, the box "Fahrten teilen" (off by default, offered only while the switch is on). **Nothing is transferred yet**; wave 1 stores the switches. The reach of this exchange (how far a hint is passed on) is independent of the depth of the partner recursion above (how far partner lists are read). See link:../architecture/carpool-federation.adoc[the design note].
+The page also holds the section "Mitfahrzentrale-Austausch": a switch (off by default), the reach (1 to 3 levels, default 2) and, per direct partner, the box "Fahrten teilen" (off by default, offered only while the switch is on). Wave 1 stored the switches; since V1.9.312 (wave 2) an approved partner with its own client can fetch the short hints (signed request, only for a direct partner with "Fahrten teilen" on that announced a signing key). **No Lapis server fetches them yet.** Each partner row with sharing on shows how often the hints were fetched, when last and how many entries; a partner whose poll did not pin a signing key (it must run version 1.9.312 or newer; a feed without a key clears the pin) is named as such. The own public feed now carries this server's public signing key (`signingKey`). The reach of this exchange (how far a hint is passed on) is independent of the depth of the partner recursion above (how far partner lists are read). See link:../architecture/carpool-federation.adoc[the design note].
 
 == Outlook
 

@@ -76,16 +76,6 @@ fun Route.registerPartnerFeedRoutes(
     }
 }
 
-private fun ifNoneMatchHits(
-    headerValue: String?,
-    etag: String,
-): Boolean {
-    if (headerValue == null) return false
-    if (headerValue.trim() == "*") return true
-    val target = etag.trim('"')
-    return headerValue.split(",").map { it.trim().removePrefix("W/") }.any { it.trim('"') == target }
-}
-
 private val GENERATED_AT = Regex("\"generatedAt\"\\s*:\\s*\"[^\"]*\"")
 
 private fun stripGeneratedAt(body: ByteArray): ByteArray =

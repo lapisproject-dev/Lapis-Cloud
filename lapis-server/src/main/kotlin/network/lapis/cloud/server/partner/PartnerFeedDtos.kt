@@ -24,6 +24,15 @@ internal data class PartnerFeedV1(
     val events: List<PartnerFeedEvent> = emptyList(),
     val partners: List<PartnerFeedPartner> = emptyList(),
     val partnersHidden: Boolean = false,
+    /** V1.9.312: this server's own public signing key (the one `/federation/actor` publishes). Additive; an older parser ignores it. Null when none exists yet. */
+    val signingKey: PartnerFeedSigningKey? = null,
+)
+
+/** [keyId] is `<actor URI>#main-key` (an https URI on the announcing host); [publicKeyPem] an X.509 RSA public key (2048..4096 bits). */
+@Serializable
+internal data class PartnerFeedSigningKey(
+    val keyId: String,
+    val publicKeyPem: String,
 )
 
 /** [startsAt] / [endsAt]: ISO-8601 WITH offset (`2026-11-05T19:00:00+01:00`); [timeZone]: IANA id of the organisation (display only). */

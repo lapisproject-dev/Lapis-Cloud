@@ -11,7 +11,8 @@ import java.io.File
  */
 class CarpoolFederationI18nCatalogTest :
     FunSpec({
-        val waveFiles = listOf("PartnerServersScreen.kt", "CarpoolScreen.kt", "CarpoolFederationUi.kt", "ComplianceLabels.kt")
+        val waveFiles =
+            listOf("PartnerServersScreen.kt", "PartnerServersLogic.kt", "CarpoolScreen.kt", "CarpoolFederationUi.kt", "ComplianceLabels.kt")
         val expected =
             listOf(
                 "Mitfahrzentrale-Austausch",
@@ -21,7 +22,7 @@ class CarpoolFederationI18nCatalogTest :
                 "Auch Partner unserer Partner",
                 "Eine Stufe weiter",
                 "Reichweite",
-                "Der Austausch wird schrittweise eingeführt. Derzeit werden noch keine Fahrten übertragen.",
+                "Freigegebene Partner können die Kurzhinweise abrufen. Lapis-Server rufen sie erst ab einer späteren Version selbst ab.",
                 "Fahrten teilen",
                 "Diese Fahrt als Kurzhinweis an Partnerorganisationen weitergeben",
                 "So sehen Partner Ihre Fahrt: %1 · PLZ-Gebiet %2 → PLZ-Gebiet %3",
@@ -29,6 +30,14 @@ class CarpoolFederationI18nCatalogTest :
                 "Für Partner freigegeben",
                 "Die Fahrt wurde gespeichert, aber nicht für Partner freigegeben. Bitte versuchen Sie es erneut.",
                 "Mitfahrzentrale: Weitergabe an Partnerorganisationen",
+                // V1.9.312 (wave 2)
+                "Kein Signaturschlüssel des Partners bekannt (der Partner muss Version 1.9.312 oder neuer nutzen)",
+                "Kurzhinweise: noch nie abgerufen",
+                "Kurzhinweise abgerufen: %1 (zuletzt %2, %3 Einträge)",
+                "Schlüssel für Kurzhinweis-IDs fehlt (LAPIS_SECRET_ENCRYPTION_KEY)",
+                "Abgewiesene Abrufe seit dem Start: %1",
+                "Gedrosselte Abrufe seit dem Start: %1",
+                "Mitfahr-Kurzhinweise abgerufen",
             )
         val used by lazy {
             val constants = clientStringConstants()

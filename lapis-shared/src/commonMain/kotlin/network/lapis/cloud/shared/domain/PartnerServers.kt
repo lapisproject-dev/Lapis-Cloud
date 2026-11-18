@@ -68,6 +68,12 @@ data class PartnerServerDto(
     val discoveredEventCount: Int = 0,
     /** V1.9.311: this direct partner may exchange carpool hints with this server (default off). */
     val carpoolSharing: Boolean = false,
+    /** V1.9.312: the partner announced a signing key (pinned by the poll); without it the carpool teaser feed refuses the partner. */
+    val carpoolKeyPinned: Boolean = false,
+    /** V1.9.312: when the partner last fetched the carpool teaser feed (200 or 304), how often, and how many items the last 200 held. */
+    val carpoolFeedServedAt: LocalDateTime? = null,
+    val carpoolFeedServedCount: Long = 0,
+    val carpoolFeedLastItemCount: Int? = null,
 )
 
 @Serializable

@@ -5,13 +5,17 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.db.generated.FederationActorKeyTable
 import network.lapis.cloud.server.events.series.PublicSeriesSummary
+import network.lapis.cloud.server.federation.FEDERATION_ACTOR_KEY_ID
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.routes.COVER_SLUG_PATTERN
 import network.lapis.cloud.server.routes.PublicSeriesQueries
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.EventOnlineKind
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -42,7 +46,7 @@ internal object PartnerFeedBuilder {
         val wallNow = now.toLocalDateTime(zone)
         val horizon = wallNow.toJavaLocalDateTime().plusDays(HORIZON_DAYS)
         val baseUrl = publicBaseUrl.trimEnd('/')
-        val (serverId, name, partners, hidden, events) =
+        val (serverId, name, partners, hidden, events, signingKey) =
             transaction {
                 val rows = PublicSeriesQueries.loadOverviewRepresentatives(wallNow = wallNow, limit = MAX_EVENTS)
                 val stats = PublicSeriesQueries.loadSeriesStats(seriesIds = rows.mapNotNull { it[EventTable.seriesId] }, wallNow = wallNow)
@@ -100,6 +104,7 @@ internal object PartnerFeedBuilder {
                     partners = listed,
                     hidden = hiddenList,
                     events = mapped,
+                    signingKey = ownSigningKey(),
                 )
             }
         return serializeBounded(
@@ -112,9 +117,23 @@ internal object PartnerFeedBuilder {
                 events = events,
                 partners = partners,
                 partnersHidden = hidden,
+                signingKey = signingKey,
             ),
         )
     }
+
+    /** V1.9.312: the public half of this server's own federation key (public by design, `/federation/actor` publishes the same). Null when none is provisioned. */
+    private fun ownSigningKey(): PartnerFeedSigningKey? =
+        FederationActorKeyTable
+            .selectAll()
+            .where { FederationActorKeyTable.id eq FEDERATION_ACTOR_KEY_ID }
+            .singleOrNull()
+            ?.let {
+                PartnerFeedSigningKey(
+                    keyId = it[FederationActorKeyTable.actorUri] + "#main-key",
+                    publicKeyPem = it[FederationActorKeyTable.publicKeyPem],
+                )
+            }
 
     private data class FeedParts(
         val serverId: String,
@@ -122,6 +141,7 @@ internal object PartnerFeedBuilder {
         val partners: List<PartnerFeedPartner>,
         val hidden: Boolean,
         val events: List<PartnerFeedEvent>,
+        val signingKey: PartnerFeedSigningKey?,
     )
 
     /** Serialises; while the body is over [MAX_BYTES] the event list is halved (the latest events go first). */

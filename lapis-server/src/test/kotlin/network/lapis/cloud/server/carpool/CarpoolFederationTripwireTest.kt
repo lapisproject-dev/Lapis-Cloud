@@ -19,6 +19,11 @@ private val repoRoot: File =
  *  (c) the consent and the switch are not part of the generic organisation settings wire types,
  *  (d) the ONE projection is called only by the consent UI of the client (and by the server in the opt-in check), never from a feed,
  *  (e) nothing in src/main builds an HTTP client for the carpool exchange (wave 1 transfers nothing).
+ * V1.9.312 (wave 2, the origin side of the teaser feed) adds:
+ *  (f) the feed package makes no outgoing call and fetches no key (the key comes only from the pin),
+ *  (g) the feed path is neither public nor embed and no public/embed file knows the feed,
+ *  (h) the feed verifies against the server's OWN host and the constant path, never the request's Host header or path,
+ *  (i) the refusal answer exists only in `respondUnavailable`, and the audit entry type of the feed is used only by the feed route.
  */
 class CarpoolFederationTripwireTest :
     FunSpec({
@@ -88,7 +93,7 @@ class CarpoolFederationTripwireTest :
         }
 
         test(
-            "(d) projectCarpoolTeaser is called by the client only in CarpoolFederationUi.kt, and by the server only in CarpoolService.kt",
+            "(d) projectCarpoolTeaser is called by the client only in CarpoolFederationUi.kt, and by the server only in CarpoolService.kt and CarpoolTeaserFeedBuilder.kt",
         ) {
             val call = Regex("""\bprojectCarpoolTeaser\s*\(""")
             val client = File(repoRoot, "lapis-client/src/jsMain/kotlin")
@@ -100,7 +105,7 @@ class CarpoolFederationTripwireTest :
                     .toSet()
             clientUsers shouldBe setOf("CarpoolFederationUi.kt")
             val serverUsers = main.filter { call.containsMatchIn(SourceScan.blank(it.readText())) }.map { it.name }.toSet()
-            serverUsers shouldBe setOf("CarpoolService.kt")
+            serverUsers shouldBe setOf("CarpoolService.kt", "CarpoolTeaserFeedBuilder.kt")
         }
 
         test("(e) nothing in src/main builds an HTTP client for the carpool exchange") {
@@ -111,5 +116,73 @@ class CarpoolFederationTripwireTest :
                         Regex("""Carpool""").containsMatchIn(code) && Regex("""\bHttpClient\b|federationHttpClient""").containsMatchIn(code)
                     }.map { it.name }
             offenders.shouldBeEmpty()
+        }
+
+        val feedFiles = main.filter { "/server/carpool/feed/" in it.path.replace('\\', '/') }
+
+        test("(f) the feed package has no outgoing call and fetches no key") {
+            (feedFiles.size >= 5) shouldBe true
+            val forbidden =
+                Regex("""\bHttpClient\b|federationHttpClient|fetchActorDocument|PartnerFeedFetcher|resolveSenderKeyInfo|checkWebhookUrl""")
+            feedFiles.filter { forbidden.containsMatchIn(SourceScan.blank(it.readText())) }.map { it.name }.shouldBeEmpty()
+        }
+
+        test(
+            "(g) the feed path is not under /api/public or /api/embed, differs from the partner feed path, and no public or embed file knows the feed",
+        ) {
+            val dtos = feedFiles.single { it.name == "CarpoolTeaserFeedDtos.kt" }.readText()
+            val path = Regex("""CARPOOL_TEASER_FEED_PATH\s*=\s*"([^"]+)"""").find(dtos)!!.groupValues[1]
+            path.startsWith("/api/public") shouldBe false
+            path.startsWith("/api/embed") shouldBe false
+            path shouldBe "/api/federation/carpool-feed/v1"
+            (path != "/api/public/partner-feed/v1") shouldBe true
+            main
+                .filter { it.name.startsWith("Embed") || it.name.startsWith("Public") || it.name == "PartnerFeedRoutes.kt" }
+                .filter { Regex("""CarpoolTeaserFeed|CARPOOL_TEASER_FEED""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .shouldBeEmpty()
+        }
+
+        test("(h) the feed route and gate never read the request's host or path") {
+            listOf("CarpoolTeaserFeedRoutes.kt", "CarpoolTeaserFeedGate.kt").forEach { name ->
+                val code = SourceScan.blank(feedFiles.single { it.name == name }.readText())
+                withClue(name) {
+                    Regex(
+                        """request\.host\(|request\.path\(|request\.uri|HttpHeaders\.Host\b|origin\.serverHost""",
+                    ).containsMatchIn(code) shouldBe
+                        false
+                }
+            }
+        }
+
+        test("(i) the refusal body is written only in respondUnavailable; the feed audit type is used only by the feed route") {
+            val routes = feedFiles.single { it.name == "CarpoolTeaserFeedRoutes.kt" }.readText()
+            val bodyLiteral = "\"error\":\"unavailable\""
+            main.filter { bodyLiteral in it.readText() }.map { it.name } shouldBe listOf("CarpoolTeaserFeedRoutes.kt")
+            Regex(bodyLiteral).findAll(routes).count() shouldBe 1
+            main
+                .filter { it.name !in setOf("AuditLog.kt", "CarpoolTeaserFeedRoutes.kt") }
+                .filter { Regex("""AuditEntityType\.CARPOOL_FEDERATION_FEED""").containsMatchIn(SourceScan.blank(it.readText())) }
+                .map { it.name }
+                .shouldBeEmpty()
+        }
+
+        test(
+            "the feed item carries exactly originHost, hops, maxHops and teaser, the envelope exactly schemaVersion, kind, complete and items",
+        ) {
+            fun names(descriptor: kotlinx.serialization.descriptors.SerialDescriptor) =
+                (0 until descriptor.elementsCount).map { descriptor.getElementName(it) }
+            names(
+                network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedItem
+                    .serializer()
+                    .descriptor,
+            ) shouldBe
+                listOf("originHost", "hops", "maxHops", "teaser")
+            names(
+                network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedV1
+                    .serializer()
+                    .descriptor,
+            ) shouldBe
+                listOf("schemaVersion", "kind", "complete", "items")
         }
     })

@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.carpool.CarpoolFederationStore
+import network.lapis.cloud.server.carpool.feed.CarpoolTeaserFeedCounters
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.partner.BlockRow
@@ -61,6 +62,9 @@ internal class PartnerServerService(
     private val fetcher: PartnerFeedFetcher = PartnerFeedFetcher(),
     private val publicBaseUrl: String = FederationConfig.publicBaseUrl,
     private val clock: () -> LocalDateTime = { ServerClock.now() },
+    /** V1.9.312: the in-memory counters of the carpool teaser feed and whether its key is configured (both for the admin view only). */
+    private val carpoolFeedCounters: CarpoolTeaserFeedCounters? = null,
+    private val carpoolFeedKeyAvailable: Boolean = false,
 ) : IPartnerServerService {
     override suspend fun list(): PartnerServerOverviewDto {
         resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
@@ -370,7 +374,14 @@ internal class PartnerServerService(
         resolveCurrentMember(call).requireRole(AccountRole.ADMIN)
         return transaction {
             val s = CarpoolFederationStore.settings()
-            CarpoolFederationSettingsDto(enabled = s.enabled, hopLimit = s.hopLimit)
+            val c = carpoolFeedCounters?.snapshot()
+            CarpoolFederationSettingsDto(
+                enabled = s.enabled,
+                hopLimit = s.hopLimit,
+                feedKeyAvailable = carpoolFeedKeyAvailable,
+                feedRefusedSinceStart = c?.refusedTotal ?: 0,
+                feedRateLimitedSinceStart = c?.rateLimited ?: 0,
+            )
         }
     }
 
@@ -496,4 +507,8 @@ private fun PartnerRow.toDto(blocked: Boolean) =
         eventCount = if (blocked) 0 else eventCount,
         lastError = lastError?.let { code -> PartnerFetchErrorCode.entries.firstOrNull { it.name == code } },
         carpoolSharing = carpoolSharing,
+        carpoolKeyPinned = signingPublicKeyPem != null,
+        carpoolFeedServedAt = carpoolFeedServedAt,
+        carpoolFeedServedCount = carpoolFeedServedCount,
+        carpoolFeedLastItemCount = carpoolFeedLastItems,
     )

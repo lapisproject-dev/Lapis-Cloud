@@ -21,6 +21,7 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -48,6 +49,12 @@ internal data class PartnerRow(
     val etag: String?,
     /** V1.9.311: this direct partner may exchange carpool hints with this server. */
     val carpoolSharing: Boolean = false,
+    /** V1.9.312: the signing key the partner announced in its public feed, pinned by the poll (see [PartnerServerStore.applyFetchSuccess]). */
+    val signingKeyId: String? = null,
+    val signingPublicKeyPem: String? = null,
+    val carpoolFeedServedAt: LocalDateTime? = null,
+    val carpoolFeedServedCount: Long = 0,
+    val carpoolFeedLastItems: Int? = null,
 )
 
 internal data class BlockRow(
@@ -130,6 +137,11 @@ internal object PartnerServerStore {
             nextFetchAt = this[PartnerServerTable.nextFetchAt],
             etag = this[PartnerServerTable.etag],
             carpoolSharing = this[PartnerServerTable.carpoolSharing],
+            signingKeyId = this[PartnerServerTable.signingKeyId],
+            signingPublicKeyPem = this[PartnerServerTable.signingPublicKeyPem],
+            carpoolFeedServedAt = this[PartnerServerTable.carpoolFeedServedAt],
+            carpoolFeedServedCount = this[PartnerServerTable.carpoolFeedServedCount],
+            carpoolFeedLastItems = this[PartnerServerTable.carpoolFeedLastItems],
         )
 
     /** Ordered by host IN KOTLIN: the database collation decides how `-` and `.` sort (PostgreSQL ignores punctuation at first level, H2 does not). */
@@ -250,6 +262,12 @@ internal object PartnerServerStore {
                     it[nextFetchAt] = nextSlot(host = host, now = now)
                     it[PartnerServerTable.etag] = etag
                     it[remotePartnersJson] = parsed.partnersJson
+                    // V1.9.312: the probe is the first fetch, so it pins the announced signing key too.
+                    parsed.signingKey?.let { key ->
+                        it[signingKeyId] = key.keyId
+                        it[signingPublicKeyPem] = key.publicKeyPem
+                        it[signingKeyPinnedAt] = now
+                    }
                 }
                 // The direct partner wins: a discovered row with the same host or announced id must go first (unique (remote_server_id, remote_event_id)).
                 PartnerDiscoveryStore.deleteDiscoveredForHostOrId(host = host, remoteServerId = parsed.remoteServerId)
@@ -337,8 +355,39 @@ internal object PartnerServerStore {
             it[nextFetchAt] = nextSlot(host = row.host, now = now)
             it[PartnerServerTable.etag] = etag
             it[remotePartnersJson] = parsed.partnersJson
+            // V1.9.312: the announced signing key is pinned on every successful fetch (TOFU over the TLS fetch to the partner host, refreshed on
+            // every poll). A feed WITHOUT a (valid) key clears the pin: a partner that withdraws its key loses access to the carpool teaser feed.
+            val key = parsed.signingKey
+            if (key?.keyId != row.signingKeyId || key?.publicKeyPem != row.signingPublicKeyPem) {
+                it[signingKeyId] = key?.keyId
+                it[signingPublicKeyPem] = key?.publicKeyPem
+                it[signingKeyPinnedAt] = if (key == null) null else now
+            }
         }
         return true
+    }
+
+    /** V1.9.312: the partner rows whose pinned key id is exactly [keyId]. The caller accepts exactly ONE hit. Runs inside the caller's transaction. */
+    fun findBySigningKeyId(keyId: String): List<PartnerRow> =
+        PartnerServerTable
+            .selectAll()
+            .where { PartnerServerTable.signingKeyId eq keyId }
+            .map { it.toPartnerRow() }
+
+    /**
+     * V1.9.312: counts one answered carpool teaser feed request (`200` or `304`). [itemCount] is the number of items of a `200` and `null` for a
+     * `304` (the last count stays). No content is stored.
+     */
+    fun recordCarpoolFeedServed(
+        id: Uuid,
+        itemCount: Int?,
+        now: LocalDateTime,
+    ) {
+        PartnerServerTable.update({ PartnerServerTable.id eq id }) {
+            it[carpoolFeedServedAt] = now
+            it[carpoolFeedServedCount] = PartnerServerTable.carpoolFeedServedCount + 1L
+            if (itemCount != null) it[carpoolFeedLastItems] = itemCount
+        }
     }
 
     /** `304 Not Modified`: the cache is still right, so it lives on. */
